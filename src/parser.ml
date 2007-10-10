@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2302 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2308 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -2257,8 +2257,8 @@ module SC = struct
         | Constant of float
 
     type priors = 
-        | Observed
-        | Estimate
+        | Estimated of float array
+        | Given of float array
 
     type ml_model = {
         substitution : subst_model;

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2262 2007-10-03 15:53:14Z andres $ *)
+(* $Id: charTransform.ml 2308 2007-10-10 16:03:58Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2262 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2308 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -836,6 +836,8 @@ insert_union parent union_node tmp
                     Status.user_message (Status.Output (None, false, [])) "@]@]@.";
                     transform_node_characters trees (data, nodes) (`Static_Aprox (`Some
                     (true, chars), true)))
+        | `UseLikelihood x ->
+                Node.load_data ~taxa:nc (Data.set_likelihood data x)
         | `Prealigned_Transform chars ->
                 Node.load_data ~taxa:nc (Data.prealigned_characters
                 ImpliedAlignment.analyze_tcm data chars)

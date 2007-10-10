@@ -1,5 +1,7 @@
 type t
 
+(** A string representation of the character set, used only for debugging
+* purposes *)
 val to_string : t -> string
 
 (** [median prev a b] computes the median between [a] and [b] with [prev] as an 
@@ -57,8 +59,8 @@ val compare_data : t -> t -> int
  * [cost] is the new cost of the edge connecting [mine] and [par] after the
  * readjustement, [length] is the new edge length (time), and [adjusted] is 
  * the newly adjusted vertex [mine]. *)
-val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> t -> t -> t -> t ->
-    All_sets.Integers.t * float * float * float * t
+val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> 
+    t -> t -> t -> t -> All_sets.Integers.t * float * float * float * t
 
 (** [of_parser spec characters] creates a character set with specification
 * [spec] and characters defined in the array [characters], where each element is

@@ -1828,6 +1828,12 @@ let to_formatter attr d : Tags.output =
     (`Set [names; syn; ignored_taxa; characters; ignored_char; files; 
     spec_index; char_index])
 
+let likelihood_sets = ref 0 
+
+let next_likelihood_set () =
+    incr likelihood_sets;
+    !likelihood_sets
+
 (** transform dyna_pam_ls which is a list of dynamic parameters
 * taken from poyCommand into dyna_pam which is structured as a record*)
 let set_dyna_pam dyna_pam_ls = 
@@ -2714,6 +2720,128 @@ let get_chars_codes_comp data ch =
         | `Some x -> x
         | _ -> failwith "Impossible?"
 
+let get_tcm2d data c =
+    match Hashtbl.find data.character_specs c with
+    | Dynamic dspec -> dspec.tcm2d
+    | Kolmogorov dspec -> dspec.dhs.tcm2d
+    | _ -> failwith "Data.get_tcm2d"
+
+let get_tcm3d data c =
+    match Hashtbl.find data.character_specs c  with
+    | Dynamic dspec -> dspec.tcm3d
+    | Kolmogorov dspec -> dspec.dhs.tcm3d
+    | _ -> failwith "Data.get_tcm3d"
+
+let get_tcmfile data c =
+    match Hashtbl.find data.character_specs c  with
+    | Dynamic dspec -> dspec.tcm
+    | Kolmogorov dspec -> dspec.dhs.tcm
+    | _ -> failwith "Data.get_tcmfile"
+
+let get_alphabet data c =
+    match Hashtbl.find data.character_specs c  with
+    | Dynamic dspec -> dspec.alph
+    | Kolmogorov dspec -> dspec.dhs.alph
+    | Static  sspec -> sspec.Parser.SC.st_alph
+    | _ -> failwith "Data.get_alphabet"
+
+let verify_alphabet data chars = 
+    match List.map (get_alphabet data) chars with
+    | h :: t ->
+            if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+                let alph = Alphabet.to_sequential h in
+                (Alphabet.size alph), alph
+            else failwith "The alphabet of the characters is different"
+    | [] -> failwith "No alphabet to verify?"
+
+(** [compute_priors data chars] computes the observed frequencies for all the
+* elements in the alphabet shared by the characters *)
+let compute_priors data chars = 
+    let size, alph = verify_alphabet data chars in
+    let priors = Array.make size 0.0 in
+    (* A function that takes a list of states and add the appropriate value to
+    * each of the components of the priors *)
+    let inverse = 1. /. (float_of_int size) in
+    let counter = ref 0 in
+    (* A function to add the frequencies in all the taxa from the characters
+    * specified in the list. *)
+    let taxon_adder _ taxon_chars =
+        let adder char_code =
+            let (cs, _) = Hashtbl.find taxon_chars char_code in
+            incr counter;
+            match cs with
+            | Stat (_, None) -> 
+                    for i = 0 to size - 1 do
+                        priors.(i) <- priors.(i) +. inverse
+                    done
+            | Stat (_, (Some lst)) ->
+                    let inverse = 1. /. (float_of_int (List.length lst)) in
+                    List.iter (fun x -> priors.(x) <- priors.(x) +. inverse) lst
+            | _ -> failwith "Data.compute_priors"
+        in
+        List.iter adder chars
+    in
+    Hashtbl.iter taxon_adder data.taxon_characters;
+    let counter = float_of_int !counter in
+    Array.map (fun x -> x /. counter) priors
+
+(** [set_likelihood lk chars] transforms the characters specified in [chars] to
+* the likelihood model specified in [lk] *)
+let set_likelihood data (chars, substitution, site_variation, base_priors) =
+    let chars = 
+        let chars = `Some (get_chars_codes_comp data chars) in
+        get_code_from_characters_restricted `AllStatic data chars
+    in
+    match chars with
+    | [] -> data
+    | chars ->
+        let data = duplicate data in
+        (* We get the characters and filter them out to have only static types *)
+        let specification =
+            let code = next_likelihood_set () in
+            let alph_size, _ = verify_alphabet data chars in
+            let base_priors =
+                match base_priors with
+                | `Estimate -> 
+                        Parser.SC.Estimated (compute_priors data chars)
+                | `Given arr -> 
+                        let arr = Array.of_list arr in
+                        if alph_size = Array.length arr then
+                            (Parser.SC.Given arr)
+                        else 
+                            failwith 
+                            "Inconsistent alphabet size and prior vector size"
+            and site_variation = 
+                match site_variation with
+                | None -> None 
+                | _ -> assert false (* TODO Site variation distributions *)
+            and substitution = 
+                match substitution with
+                | `Constant None -> 
+                        let const = (1. /. (float_of_int alph_size)) in
+                        Parser.SC.Constant const
+                | `Constant (Some x) -> Parser.SC.Constant x
+            in
+            {
+                Parser.SC.substitution = substitution;
+                site_variation = site_variation;
+                base_priors = base_priors;
+                set_code = code;
+            }
+        in
+        (* We replace the specification of all the characters, and categorize 
+        * them *)
+        List.iter (fun code -> 
+            match Hashtbl.find data.character_specs code with
+            | Static x -> 
+                    Hashtbl.replace data.character_specs code 
+                    (Static 
+                    { x with 
+                    Parser.SC.st_type = 
+                        Parser.SC.STLikelihood specification })
+            | _ -> failwith "Illegal conversion") chars;
+        categorize data
+
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
         let a, b = 
@@ -2914,31 +3042,6 @@ let process_rename_characters data (a, b) =
     end
 
 exception Invalid_Character of int
-
-let get_tcm2d data c =
-    match Hashtbl.find data.character_specs c with
-    | Dynamic dspec -> dspec.tcm2d
-    | Kolmogorov dspec -> dspec.dhs.tcm2d
-    | _ -> failwith "Data.get_tcm2d"
-
-let get_tcm3d data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.tcm3d
-    | Kolmogorov dspec -> dspec.dhs.tcm3d
-    | _ -> failwith "Data.get_tcm3d"
-
-let get_tcmfile data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.tcm
-    | Kolmogorov dspec -> dspec.dhs.tcm
-    | _ -> failwith "Data.get_tcmfile"
-
-let get_alphabet data c =
-    match Hashtbl.find data.character_specs c  with
-    | Dynamic dspec -> dspec.alph
-    | Kolmogorov dspec -> dspec.dhs.alph
-    | Static  sspec -> sspec.Parser.SC.st_alph
-    | _ -> failwith "Data.get_alphabet"
 
 (** transform all sequences whose codes are on the code_ls into chroms 
  * each ia for one character*)    

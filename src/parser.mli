@@ -463,8 +463,8 @@ module SC : sig
         | Constant of float
 
     type priors = 
-        | Observed
-        | Estimate
+        | Estimated of float array
+        | Given of float array
 
     type ml_model = {
         substitution : subst_model;

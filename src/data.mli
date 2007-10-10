@@ -467,6 +467,8 @@ val process_taxon_code :
 
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
 
+val set_likelihood : d -> Methods.ml_spec -> d
+
 val to_faswincladfile : d -> string option -> unit
 
 val report_taxon_file_cross_reference : 

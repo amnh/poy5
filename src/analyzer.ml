@@ -232,6 +232,7 @@ let dependency_relations (init : Methods.script) =
                 | `Assign_Affine_Gap_Cost _
                 | `Assign_Tail_Cost _
                 | `Prealigned_Transform _
+                | `UseLikelihood _
                 | `Assign_Prep_Cost _ ->
                         [([Data], [Data; Trees; JackBoot; Bremer], init,
                         Linnearizable)]
@@ -1381,6 +1382,7 @@ let script_to_string (init : Methods.script) =
                 | `Static_Aprox _
                 | `Search_Based _
                 | `Prealigned_Transform _
+                | `UseLikelihood _
                 | `Automatic_Static_Aprox _
                 | `Automatic_Sequence_Partition _ ->
                         "@[transform some characters@]"

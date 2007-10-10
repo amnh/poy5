@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2259 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2308 $"
 
 (** Data *)
 
@@ -142,6 +142,13 @@ type terminal_transform = [
     | `AlphabeticTerminals
 ]
 
+type ml_substitution = [ `Constant of float option ]
+type ml_site_variation
+type ml_priors = [`Estimate | `Given of float list]
+
+type ml_spec = 
+    (characters * ml_substitution * ml_site_variation option * ml_priors)
+
 type char_transform = [
     | dynamic_char_transform
     | `MultiStatic_Aprox of (characters * bool)
@@ -154,6 +161,7 @@ type char_transform = [
     | `ReWeight of (characters * float)
     | `WeightFactor of (characters * float)
     | `Prealigned_Transform of characters
+    | `UseLikelihood of ml_spec
     | transform_cost_matrix
 ]
 

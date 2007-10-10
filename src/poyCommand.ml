@@ -82,6 +82,8 @@ type transform_method = [
     | `RandomizedTerminals
     | `AlphabeticTerminals
     | `Prealigned_Transform
+    | `UseLikelihood of 
+    (Methods.ml_substitution * Methods.ml_site_variation option * Methods.ml_priors)
     | `Tcm of string
     | `Gap of (int * int)
     | `AffGap of int
@@ -343,6 +345,8 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
+            | `UseLikelihood (a, b, c) ->
+                    (`UseLikelihood (id, a, b, c)) :: acc
             | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
@@ -1032,8 +1036,28 @@ let create_expr () =
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
             ];
+        ml_substitution: 
+            [ [ "constant"; x = OPT optional_integer_or_float -> 
+            let x =
+                match x with
+                | None -> None 
+                | Some x -> Some (float_of_string x) 
+            in `Constant x] ];
+        ml_site_variation: 
+            [ [ "none" -> None ] ];
+        ml_priors:
+            [ 
+                [ "estimate" -> `Estimate ] |
+                [ "given"; ":"; left_parenthesis; 
+                x = LIST1 [ x = FLOAT -> float_of_string x ]
+                SEP ","; right_parenthesis -> `Given x ]
+            ];
         transform_method:
             [
+                [ LIDENT "likelihood"; ":"; left_parenthesis;
+                    x = ml_substitution; ","; y = ml_site_variation; ",";
+                    z = ml_priors; right_parenthesis ->
+                        `UseLikelihood (x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
