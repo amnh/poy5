@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** metric.ml:  *)
-let () = SadmanOutput.register "Metric" "$Revision: 1644 $"
+let () = SadmanOutput.register "Metric" "$Revision: 2303 $"
 
 
 module type Norm = sig
@@ -294,7 +294,8 @@ let sankoff_convert_fn ?(c=0.95) tcm =
                                              Node.final = a;
                                              Node.cost = 0.;
                                              Node.sum_cost = 0.;
-                                             Node.weight = 1.}) additives in
+                                             Node.weight = 1.;
+                                            Node.time = 0.}) additives in
         let additives = List.map (fun a -> Node.Add a) additives in
         additives @ acc
 
