@@ -68,8 +68,15 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> t -
 * character).*)
 val of_parser : Parser.SC.static_spec -> ((int list option * int) array) -> t
 
+(* The extra cost incurred by the root of the tree. *)
+val root_cost : t -> float
+
+(* [distance a b] computes (in ML), the -log likelihood of [b] given [a]. *)
+val distance : t -> t -> float
 (** Non urgent functions, after finishing with the previous functions, 
 * add the to_formatter to be able to see the results on each vertex of the tree.
 val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output
 list
 *)
+
+

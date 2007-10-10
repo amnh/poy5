@@ -12,3 +12,5 @@ let cardinal _ = 0
 let compare_data _ _ = 0
 let readjust _ x _ _ _ _ y = x, 0., 0., 0., y
 let of_parser _ _ = ()
+let root_cost _ = 0.
+let distance _ _ = 0.

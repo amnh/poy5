@@ -99,7 +99,7 @@ val compare_uppass : node_data -> node_data -> int
 val compare_downpass : node_data -> node_data -> int
 
 val has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-            | `Nonadd | `Sank | `Seq ] list
+            | `Nonadd | `Sank | `Seq | `StaticMl ] list
 
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
@@ -107,7 +107,7 @@ val distance_of_type :
     ?para:int option ->
       ?parb:int option ->
           [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-            | `Nonadd | `Sank | `Seq ] list -> 
+            | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
                     node_data -> node_data -> float
 
 (** [dist_2 delta a b c] calculates the cost of joining a vertex [n] between

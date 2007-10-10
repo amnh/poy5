@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2302 $"
+let () = SadmanOutput.register "Node" "$Revision: 2304 $"
 
 let debug = false
 let debug_exclude = false
@@ -658,6 +658,7 @@ let median code old a b =
 let root_cost root =
     let adder acc character = 
         match character with
+        | StaticMl v -> acc +. MlStaticCS.root_cost v.preliminary
         | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
         | _ -> acc
     in
@@ -818,6 +819,8 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
               DynamicCS.compare_data a.preliminary b.preliminary
         | Kolmo a, Kolmo b ->
               KolmoCS.compare_data a.preliminary b.preliminary
+        | StaticMl a, StaticMl b ->
+                MlStaticCS.compare_data a.preliminary b.preliminary
         | Set { preliminary = { set = a } }, Set {preliminary = { set = b }} ->
               (* See above... *)
               -1
@@ -861,6 +864,8 @@ let edge_distance nodea nodeb =
               a.weight *. d
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
+        | StaticMl a, StaticMl b ->
+                a.weight *. MlStaticCS.distance a.final b.final
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -880,7 +885,7 @@ let edge_distance nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv]
 
 let distance_of_type ?(para=None) ?(parb=None) t
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -893,6 +898,7 @@ let distance_of_type ?(para=None) ?(parb=None) t
     let has_nonadd = has_t `Nonadd
     and has_add = has_t `Add
     and has_sank = has_t `Sank
+    and has_staticml = has_t `StaticMl
     and dy_t = List.fold_left filter_dynamic [] t 
     and has_kolmo = has_t `Kolmo in
     let rec distance_two ch1 ch2 =
@@ -911,6 +917,8 @@ let distance_of_type ?(para=None) ?(parb=None) t
               a.weight *. DynamicCS.distance_of_type dy_t a.final b.final
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
+        | StaticMl a, StaticMl b when has_staticml ->
+                a.weight *. MlStaticCS.distance a.final b.final
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -948,6 +956,8 @@ let distance ?(para=None) ?(parb=None)
               a.weight *. DynamicCS.distance a.final b.final
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.distance a.final b.final
+        | StaticMl a, StaticMl b ->
+                a.weight *. MlStaticCS.distance a.final b.final
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
