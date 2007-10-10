@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2264 $"
+let () = SadmanOutput.register "Node" "$Revision: 2302 $"
 
 let debug = false
 let debug_exclude = false
@@ -34,6 +34,7 @@ type 'a r = {
     cost : float;
     sum_cost : float;
     weight : float;
+    time : float;
 }
 
 (** Schemes for origin and loss costs *)
@@ -98,6 +99,7 @@ type cs =
     | Dynamic of DynamicCS.t r
     | Kolmo of KolmoCS.t r
     | Set of cs css r
+    | StaticMl of MlStaticCS.t r
 
 let rec to_string_ch ch1 =
     match ch1 with
@@ -121,6 +123,8 @@ let rec to_string_ch ch1 =
           "set(" ^ stype ^ "): [" ^ (String.concat "; " sub) ^ "]"
     | Kolmo a ->
             ("kolmo: " ^ KolmoCS.to_string a.final)
+    | StaticMl a ->
+            ("static ML: " ^ MlStaticCS.to_string a.preliminary)
 
 let extract_cost = function
     | Nonadd8 v -> v.cost
@@ -131,6 +135,7 @@ let extract_cost = function
     | Dynamic v -> v.cost
     | Set v -> v.cost
     | Kolmo v -> v.cost
+    | StaticMl v -> v.cost
 
 (** Helper function for recursing into sets *)
 let setrec a fn = { a with set = List.map fn a.set }
@@ -213,6 +218,7 @@ let cs_prelim_to_final a =
 
 let rec prelim_to_final =
     function
+        | StaticMl a -> StaticMl (cs_prelim_to_final a)
         | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
         | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
         | Nonadd32 a -> Nonadd32 (cs_prelim_to_final a)
@@ -234,6 +240,23 @@ let float_close ?(epsilon=0.001) a b =
 
 let rec cs_median anode bnode prev a b = 
     match a, b with 
+    | StaticMl ca, StaticMl cb ->
+            assert (ca.weight = cb.weight);
+            let prev =
+                match prev with
+                | None -> None
+                | Some (StaticMl prev) -> Some prev.preliminary
+                | _ -> assert false
+            in
+            let median = MlStaticCS.median prev ca.preliminary cb.preliminary in
+            let cost = MlStaticCS.median_cost median in
+            let res = { ca with 
+                preliminary = median;
+                final = median;
+                cost = ca.weight *. cost;
+                sum_cost = ca.sum_cost +. cb.sum_cost +. cost; } 
+            in
+            StaticMl res
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
             let prev =
@@ -413,7 +436,7 @@ let rec cs_median anode bnode prev a b =
                     res
           end
     | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | Add _, _ | Sank _, _ 
-    | Dynamic _, _ |  Set _, _ | Kolmo _, _ -> raise (Illegal_argument "cs_median")
+    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ -> raise (Illegal_argument "cs_median")
 
 let map2 f a b =
     let rec mapper a b acc =
@@ -448,6 +471,10 @@ let map4 f a b c d =
 
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
+    | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 ->
+            let m = MlStaticCS.median_3 cp.final cn.preliminary cc1.preliminary 
+            cc2.preliminary in
+            StaticMl { cn with final = m }
     | Nonadd8 cp, Nonadd8 cn, Nonadd8 cc1, Nonadd8 cc2 -> 
           let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary
               cc2.preliminary in
@@ -552,7 +579,7 @@ let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
           )
     | Nonadd8 _, _, _, _ | Nonadd16 _, _, _, _ | Nonadd32 _, _, _, _ 
     | Add _, _, _, _ | Sank _, _, _, _ | Dynamic _, _, _, _  
-    | Set _, _, _, _ | Kolmo _, _, _, _ ->
+    | Set _, _, _, _ | Kolmo _, _, _, _ | StaticMl _, _, _ ,_ ->
           raise (Illegal_argument "cs_median_3")
 
 let new_median_code () = incr Data.median_code_count; !(Data.median_code_count)
@@ -639,6 +666,9 @@ let root_cost root =
 
 let rec cs_reroot_median na nb old a b =
     match old, a, b with
+    | StaticMl old, StaticMl a, StaticMl b ->
+            let median = MlStaticCS.reroot_median a.final b.final in
+            StaticMl { old with preliminary = median; final = median }
     | Nonadd8 old, Nonadd8 a, Nonadd8 b ->
           let median = NonaddCS8.reroot_median a.final b.final in
           Nonadd8 { old with preliminary = median; final = median; }
@@ -675,7 +705,8 @@ let rec cs_reroot_median na nb old a b =
           )
     | Dynamic _, _, _ 
     | Sank _, _, _ | Add _, _, _ | Nonadd32 _, _, _ 
-    | Nonadd16 _, _, _ | Nonadd8 _, _, _ | Set _, _, _ | Kolmo _, _, _ ->
+    | Nonadd16 _, _, _ | Nonadd8 _, _, _ | Set _, _, _ | Kolmo _, _, _ 
+    | StaticMl _, _, _ ->
           failwith "cs_reroot_median"
 
 let reroot_median old a b =
@@ -940,6 +971,8 @@ let distance ?(para=None) ?(parb=None)
 let dist_2 minimum_delta n a b =
     let rec ch_dist delta_left n a' b' =
         match n, a', b' with
+        | StaticMl n, StaticMl a, StaticMl b ->
+                n.weight *. MlStaticCS.dist_2 n.final a.final b.final
         | Nonadd8 n, Nonadd8 a, Nonadd8 b ->
               n.weight *. NonaddCS8.dist_2 n.final a.final b.final
         | Nonadd16 n, Nonadd16 a, Nonadd16 b ->
@@ -1016,7 +1049,7 @@ let dist_2 minimum_delta n a b =
                      !cmin)
         | Nonadd8 _, _, _ | Nonadd16 _, _, _ | Nonadd32 _, _, _
         | Add _, _, _ | Sank _, _, _ | Dynamic _, _, _ 
-        | Set _, _, _ | Kolmo _, _, _ ->
+        | Set _, _, _ | Kolmo _, _, _ | StaticMl _, _, _ ->
                 (* These are explicitly left so that modifying code is easier,
                  * the compiler guides the changes *)
               raise (Illegal_argument "dist_2")
@@ -1058,7 +1091,8 @@ let extract_dynamic data dyna tcode =
             final = dyna; 
             cost = 0.; 
             weight = weight;
-            sum_cost = 0. 
+            sum_cost = 0.;
+            time = 0.
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
@@ -1081,7 +1115,8 @@ let extract_kolmo data kolmo tcode =
             final = dyna; 
             cost = 0.; 
             weight = weight;
-            sum_cost = 0. 
+            sum_cost = 0.;
+            time = 0.;
           } 
     | Data.Stat (code, _), _ ->
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
@@ -1358,7 +1393,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 { result with characters = c :: result.characters }
             in
             let make_with_w c w =
-                { preliminary = c; final = c; cost = 0.; sum_cost = 0.; weight = w }
+                { preliminary = c; final = c; cost = 0.; sum_cost = 0.; weight =
+                    w; time = 0. }
             in
             let result = 
                 List.fold_left 
@@ -1427,7 +1463,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             let c, _ = SankCS.of_parser tcm (arr, tcode) code in
                             let c = Sank { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1. } in
+                            weight = 1.; time = 0. } in
                             { result with characters = c :: result.characters }
                 in
                 match lsank_chars with
@@ -1445,6 +1481,7 @@ let node_contents_compare a b =         (* sets? *)
     | Sank _    , Sank _
     | Dynamic _     , Dynamic _
     | Kolmo _     , Kolmo _
+    | StaticMl _, StaticMl _
     | Set _     , Set _      -> 0
 
     | Nonadd8 _ , _          -> (-1)
@@ -1461,6 +1498,8 @@ let node_contents_compare a b =         (* sets? *)
     | _         , Dynamic _      -> ( 1)
     | Kolmo _, _ -> (-1)
     | _, Kolmo _ -> (1)
+    | StaticMl _, _ -> (-1)
+    | _, StaticMl _ -> (1)
 
 
 (** [structure_into_sets data nodes] reads the complex terminal structure
@@ -1485,7 +1524,7 @@ let structure_into_sets data (nodes : node_data list) =
               final = set;
               cost = 0.;
               sum_cost = 0.;
-              weight = 1.; } 
+              weight = 1.; time = 0.} 
     in
     let cs_list_to_set new_sid meth css : cs =
         let sid = new_sid () in
@@ -1497,7 +1536,7 @@ let structure_into_sets data (nodes : node_data list) =
               final = set;
               cost = 0.;
               sum_cost = 0.;
-              weight = 1.; } 
+              weight = 1.; time = 0.} 
     in
     let rec group nid new_sid = function
         | Parser.SetGroups.Elt taxon ->
@@ -1694,7 +1733,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           Dynamic {preliminary = res; final = res; 
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
-                   weight = mine.weight}
+                   weight = mine.weight; time = 0.}
               
     | _ -> mine
 
@@ -1718,6 +1757,17 @@ let readjust to_adjust ch1 ch2 parent mine =
     let modified = ref All_sets.Integers.empty in
     let cs_readjust c1 c2 parent mine =
         match c1, c2, parent, mine with
+        | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine ->
+                let m, prev_cost, cost, time, res = 
+                    MlStaticCS.readjust to_adjust !modified mine.time
+                    c1.preliminary c2.preliminary parent.preliminary
+                    mine.preliminary
+                in
+                modified := m;
+                let cost = mine.weight *.cost in
+                StaticMl {preliminary = res; final = res; cost = cost;
+                sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
+                weight = mine.weight; time = time }
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
@@ -1728,7 +1778,7 @@ let readjust to_adjust ch1 ch2 parent mine =
                 Dynamic { preliminary = res; final = res; 
                 cost = cost;
                 sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                weight = mine.weight }
+                weight = mine.weight; time = 0.}
         | _ -> mine
     in
     if mine.total_cost = infinity then mine, !modified
@@ -2013,6 +2063,7 @@ let ladd cs acc = listify (Add cs) acc
 let lsank cs acc = listify (Sank cs) acc
 let ldynamic cs acc = listify (Dynamic cs) acc
 let lkolmo cs acc = listify (Kolmo cs) acc
+let lstaticml cs acc = listify (StaticMl cs) acc
 
 let rec convert_data
         ?(tnon8=lnon8)
@@ -2022,6 +2073,7 @@ let rec convert_data
         ?(tsank=lsank)
         ?(tdynamic=ldynamic)
         ?(tkolmo=lkolmo)
+        ?(tstaticml=lstaticml)
         node =
     let rec conv cs acc = match cs with
              | Nonadd8 cs -> tnon8 cs acc
@@ -2031,6 +2083,7 @@ let rec convert_data
              | Sank cs -> tsank cs acc
              | Dynamic cs -> tdynamic cs acc
              | Kolmo cs -> tkolmo cs acc
+             | StaticMl cs -> tstaticml cs acc
              | Set set ->
                    let res = List.fold_right conv set.preliminary.set [] in
                    let res = { set.preliminary with set = res } in
@@ -2057,6 +2110,8 @@ let do_filter cardinal f c codes =
 
 let rec filter_character_codes (codes : All_sets.Integers.t) item = 
     match item with
+    | StaticMl c ->
+            StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes c codes)
     | Nonadd8 c ->
           Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes c codes)
     | Nonadd16 c ->
@@ -2082,6 +2137,9 @@ let rec filter_character_codes (codes : All_sets.Integers.t) item =
               end
 
 let rec filter_character_codes_complement codes = function
+    | StaticMl c ->
+          Some  (StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes_comp
+          c codes))
     | Nonadd8 c ->
           Some (Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes_comp c codes))
     | Nonadd16 c ->
@@ -2240,6 +2298,7 @@ let rec internal_n_chars acc (chars : cs list) =
     | c :: cs -> 
             let count = 
                 match c with
+                | StaticMl r -> MlStaticCS.cardinal r.preliminary
                 | Nonadd8 r -> NonaddCS8.cardinal r.preliminary
                 | Nonadd16 r -> NonaddCS16.cardinal r.preliminary
                 | Nonadd32 r -> NonaddCS32.cardinal r.preliminary
@@ -2275,6 +2334,7 @@ module Union = struct
         | SankU of SankCS.t ru
         | DynamicU of DynamicCS.u ru
         | KolmoU of KolmoCS.u ru
+        | StaticMlU of MlStaticCS.t ru
 
     (* In this first implementation, sets can not use the union heuristics, this is
     * work to be done *)
@@ -2298,6 +2358,7 @@ module Union = struct
                         | Nonadd16U _
                         | Nonadd32U _
                         | AddU _ 
+                        | StaticMlU _
                         | SankU _ -> None
                         | KolmoU x 
                         | DynamicU x -> DynamicCS.get_sequence_union code x.ch)
@@ -2321,6 +2382,8 @@ module Union = struct
             | Nonadd32U x -> 
                     let card = float_of_int (NonaddCS32.cardinal_union x.ch) in
                     (NonaddCS32.poly_saturation x.ch 1) *. card, card +. lenacc
+            | StaticMlU x ->
+                    failwith "TODO Node.Union.poly_saturation"
             | AddU x -> 
                     failwith "TODO Node.Union.poly_saturation"
                     (*
@@ -2476,6 +2539,9 @@ module Union = struct
                     *)
             | Kolmo c ->
                     (KolmoU (create_union KolmoCS.to_union c)) :: acc
+            | StaticMl c ->
+                    (StaticMlU { ch = c.preliminary; u_weight = c.weight }) ::
+                        acc
             | Set _ -> failwith "Node.Union.leaf TODO"
         in
         let nc = List.fold_left single_leaf [] c.characters in
@@ -2499,6 +2565,11 @@ module Union = struct
             | (Nonadd32U a) :: at, (Nonadd32U b) :: bt ->
                     distance (acc +. (a.u_weight *. (NonaddCS32.distance_union
                     a.ch b.ch))) at bt
+            | (StaticMlU a) :: at, (StaticMlU b) :: bt ->
+                    distance acc at bt
+                    (* TODO
+                    MlStaticCS.distance_union a b, at, bt
+                    *)
             | (AddU a) :: at, (AddU b) :: bt ->
                     distance acc at bt
                     (* TODO
@@ -2523,6 +2594,7 @@ module Union = struct
             | (SankU _) :: _, _
             | (DynamicU _) :: _, _
             | (KolmoU _) :: _, _ 
+            | (StaticMlU _) :: _, _ 
             | [], _ -> failwith "Node.Union.distance TODO"
         in
         distance 0.0 a.charactersu b.charactersu
@@ -2539,6 +2611,8 @@ module Union = struct
                 NonaddCS16.compare_union a.ch b.ch
         | (Nonadd32U a), (Nonadd32U b) ->
                 NonaddCS32.compare_union a.ch b.ch
+        | (StaticMlU a), (StaticMlU b) ->
+                MlStaticCS.compare_data a.ch b.ch
         | (AddU a), (AddU b) ->
                 AddCS.compare_data a.ch b.ch
                 (* TODO
@@ -2637,7 +2711,7 @@ let new_characters character_code acc taxa =
         let chars = 
             { preliminary = chars; final = chars; cost = 0.0;
               sum_cost = 0.0;
-            weight = 1.0 }
+            weight = 1.0 ; time = 0.}
         in
         All_sets.IntegerMap.add taxcode chars acc
     in
@@ -2670,6 +2744,7 @@ let for_support starting leaves leaves_id nodes =
                                 cost = 0.;
                                 sum_cost = 0.;
                                 weight = 0.;
+                                time = 0.;
                               } :: l)
                      leaf_data.characters charlist 
             in

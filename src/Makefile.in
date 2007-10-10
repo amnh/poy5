@@ -188,7 +188,7 @@ BREAKINV_OBJS = breakinvAli.cmo breakinv.cmo breakinvCS.cmo
 ANNCHROM_OBJS = annchromAli.cmo annchrom.cmo annchromCS.cmo
 
 CHARACTER = char_add.cmo char_nonadd.cmo \
-	sankCS.cmo seqCS.cmo $(CHROM_OBJS) $(GENOME_OBJS) $(BREAKINV_OBJS) $(ANNCHROM_OBJS) \
+	mlStaticCS.cmo sankCS.cmo seqCS.cmo $(CHROM_OBJS) $(GENOME_OBJS) $(BREAKINV_OBJS) $(ANNCHROM_OBJS) \
 	dynamicCS.cmo kolmoCS.cmo nodeSig.cmo node.cmo allDirNode.cmo edge.cmo \
 	characterScripting.cmo  metric.cmo 
 

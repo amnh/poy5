@@ -289,7 +289,7 @@ type d = {
     sankoff : int list list;
     dynamics : int list;
     kolmogorov : int list;
-
+    static_ml : int list;
     complex_schema : Parser.SetGroups.t list;
     (** Tree for how to arrange taxa into complex terminals *)
 

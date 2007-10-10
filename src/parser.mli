@@ -456,10 +456,28 @@ val print_error_message : fl -> unit
 val molecular_to_fasta : filename -> in_channel
 
 module SC : sig
+
+    type site_var
+
+    type subst_model =
+        | Constant of float
+
+    type priors = 
+        | Observed
+        | Estimate
+
+    type ml_model = {
+        substitution : subst_model;
+        site_variation : site_var option;
+        base_priors : priors;
+        set_code : int;
+    }
+
     type st_type = 
         | STOrdered
         | STUnordered  
         | STSankoff of int array array (* If Sankoff, the cost matrix to use *)
+        | STLikelihood of ml_model     (* The ML model to use *)
 
 
     type static_spec = {

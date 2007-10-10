@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tags" "$Revision: 2245 $"
+let () = SadmanOutput.register "Tags" "$Revision: 2302 $"
 
 type tag = string
 type value = tag
@@ -72,6 +72,7 @@ module Characters = struct
     let nonadditive = "Non Additive" ^ suffix
     let molecular = "Molecular" ^ suffix
     let sankoff = "Sankoff" ^ suffix
+    let likelihood = "Likelihood" ^ suffix
     let set = "Set" ^ suffix
     let kolmogorov = "Kolmogorov" ^ suffix
 

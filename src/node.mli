@@ -28,6 +28,8 @@ type 'a r = {
     cost        : float; (** Total cost of the set of characters *)
     sum_cost    : float; (** Total cost up to this node in tree (inc'l) *)
     weight      : float; (** The weight of the set of characters *)
+    time        : float;  (** The time length of the edge connecting this node
+                            and its parent *)
 }
 
 (** Schemes for origin and loss costs *)
@@ -67,6 +69,7 @@ type cs =
     | Dynamic of DynamicCS.t r                  (** A set of dynamics *)
     | Kolmo of KolmoCS.t r              (** A set of kolmogorov characters *)
     | Set of cs css r                   (** A set of other characters *)
+    | StaticMl of MlStaticCS.t r        (** A set of static ML characters *)
 
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 

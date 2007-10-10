@@ -304,6 +304,8 @@ type d = {
     dynamics : int list;
     (* The set of codes that belong to the class of Kolmogorov characters *)
     kolmogorov : int list;
+    (* The set of codes that belong to the class of Likelihood characters *)
+    static_ml : int list;
     (** Tree for how to arrange taxa into complex terminals *)
     complex_schema : Parser.SetGroups.t list;
     (** The association list of files and kind of data they could hold *)
@@ -367,6 +369,7 @@ let empty () =
     sankoff = [];
     dynamics = [];
     kolmogorov = [];
+    static_ml = [];
     files = [];
     specification_index = SpecIndex.empty ();
     character_index = [];
@@ -1593,7 +1596,9 @@ let categorize data =
                         else if observed > 32 then
                             { data with non_additive_33 = code :: 
                                 data.non_additive_33 }
-                        else data)
+                        else data
+                | Parser.SC.STLikelihood _ ->
+                        { data with static_ml = code :: data.static_ml })
         | Dynamic _ -> { data with dynamics = code :: data.dynamics }
         | Set -> data
         | Kolmogorov _ -> { data with kolmogorov = code :: data.kolmogorov }

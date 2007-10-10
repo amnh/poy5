@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2242 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2302 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -2250,12 +2250,30 @@ module OldHennig = struct
 end
 
 module SC = struct
+
+    type site_var
+
+    type subst_model =
+        | Constant of float
+
+    type priors = 
+        | Observed
+        | Estimate
+
+    type ml_model = {
+        substitution : subst_model;
+        site_variation : site_var option;
+        base_priors : priors;
+        set_code : int;
+    }
+
     (* A module to handle specifications of static homology characters and their
     * occurrences in a terminal *)
     type st_type = 
         | STOrdered
         | STUnordered
-        | STSankoff of int array array (* If Sankoff, the cost matrix to use *)
+        | STSankoff of int array array (* the cost matrix to use *)
+        | STLikelihood of ml_model     (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string;    (* The file it came from *)
@@ -2318,6 +2336,7 @@ module SC = struct
         | STOrdered -> "Additive"
         | STUnordered -> "Non Additive"
         | STSankoff _ -> "Sankoff"
+        | STLikelihood _ -> "Likelihood"
 
     let bool_to_string x = 
         if x then "true" else "false"
@@ -2381,6 +2400,8 @@ module SC = struct
                 Tags.Characters.additive, info, contents
         | STSankoff _ ->
                 Tags.Characters.sankoff, info, contents
+        | STLikelihood _ ->
+                Tags.Characters.likelihood, info, contents
 
     module N = Nexus
     module Nexus = struct
