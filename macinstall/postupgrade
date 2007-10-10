@@ -1,0 +1,14 @@
+#!/bin/bash
+rm -fr /Applications/POY4\ Beta\ Parallel.app
+rm -fr /Applications/POY4\ Beta.app 
+cp -fr '/usr/local/poy4/poy/bin/POY4 Beta Parallel.app' /Applications/
+ln -s /usr/local/poy4/poy/bin/poy.command /Applications/POY4\ Beta.app
+if [ -e "/usr/share/terminfo/72/rxvt-unicode" ]
+then
+    echo ""
+else 
+    if [ -x "/usr/bin/tic" ]
+    then 
+        /usr/bin/tic /usr/local/poy4/urxvt/bin/etc/rxvt-unicode.terminfo
+    fi
+fi

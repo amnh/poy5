@@ -1,0 +1,35 @@
+(* Note: This is just an example file.  Almost all these arguments are
+   optional, and will default to what we think are reasonable values.  This is
+   (will be) more fully documented in the documentation. *)
+
+(* Clear POY's memory *)
+wipe ()
+
+(* Read a file and build 5 Wagner trees *)
+read("whit.hen")
+build(trees:5)
+
+(* Perform an alternating SPR/TBR search on each stored tree, keeping one
+   result *)
+swap()
+
+(* Keep up to 10,000 equally good trees in TBR neighborhood *)
+swap(tbr, threshold:0, keep:10000)
+
+(* Perform tree fusing *)
+fuse(keep:5, iterations:10000, weighting:uniform, replace:better, swap(tbr))
+
+(* Display trees and output to file *)
+report(graph)
+report("output.trees", trees)
+
+(* Calculate Bremer support and display it *)
+calculate_support(bremer, swap(spr))
+report(supports)
+
+(* Save the current POY state to a file (to resume later) *)
+save("poy-session", "My sample POY session")
+
+(* Quit *)
+exit ()
+

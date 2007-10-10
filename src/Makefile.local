@@ -1,0 +1,55 @@
+EVAL_OBJS_OPT = $(BASE_OBJS_OPT) ../utils/treeCostApprox.ml
+
+evaluating_do: $(EVAL_OBJS_OPT)
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o evaluating_do \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+
+evaluate_mem: $(BASE_OBJS_OPT) ../utils/test_memory_reading_trees.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o evaluate_mem \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+
+threeDimensionalApproximation: $(BASE_OBJS_OPT) ../utils/threeDimensionalApproximation.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) \
+	-o threeDimensionalApproximation $(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa \
+	unix.cmxa str.cmxa bigarray.cmxa $^
+
+samplePairwiseDistance: $(BASE_OBJS_OPT) ../utils/samplePairwiseDistance.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o samplePairwiseDistance \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+
+splitFasta: $(BASE_OBJS_OPT) ../utils/splitFasta.ml 
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o splitFasta \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa $^
+
+randomFasta: $(BASE_OBJS_OPT) ../utils/randomFasta.ml 
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o randomFasta \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa $^
+
+costFlip: $(BASE_OBJS_OPT) ../utils/costFlip.ml
+ifeq ($(USEPARALLEL), true)
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c ../utils/costFlip.ml
+	$(OCAMLOPT) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  -cclib -L$(OCAMLMPI) -cclib -l$(MPILNAME) \
+	$(CCOPT) -cclib -lcamlgrappa mpi.cmxa $(NCURSES_LIBRARIES) $(PROFILE) -o costFlip \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa \
+	$(BASE_OBJS_OPT) ../utils/costFlip.cmx
+else
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c ../utils/costFlip.ml
+	$(OCAMLOPT) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o costFlip \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa \
+	$(BASE_OBJS_OPT) ../utils/costFlip.cmx
+endif

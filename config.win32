@@ -1,0 +1,55 @@
+# User Interface, set to flat if you want the flat interface (good for
+# clusters, or non interactive sessions), ncurses for the terminal based
+# interface, and gtk2 for the gtk2 based interface. ncurses and gtk2 require the
+# respective libraries; the later requires lablgtk2 installed in the system.
+export USEINTERFACE = ncurses
+
+# Parallel options
+# do you want to run in parallel?
+export USEPARALLEL = false
+# The processes do NOT share a hard drive? do you want the master to broadcast
+# the input files to each process? (requires a hard drive available for each processor)
+export USENOSHAREDHD = false
+export DESTDIRMPI = /usr/local/ocamlmpi
+export DESTDIRPOY = /usr/local/poy
+export MPIINCDIR = /usr/share/mpich/include
+export MPILIBDIR = /usr/share/mpich/lib
+export MPILNAME = mpich
+
+export USE_LARGE_ALPHABETS = false
+export USE_LONG_SEQUENCES = false
+
+# Compilers of choice
+export OCAML = ocaml
+export OCAMLC = ocamlc.opt
+export OCAMLOPT = ocamlopt.opt #-cc /opt/intel/cc/9.0/bin/icc -ccopt -i-static
+export OCAMLDEP = ocamldep
+export OCAMLTOP = ocamlmktop
+export OCAMLMKLIB = ocamlmklib
+export OCAMLYACC = ocamlyacc
+export OCAMLLEX = ocamllex
+export INCLUDE = `ocamlc -where`
+export DEPEND = .depend
+
+# Compilation flags
+export FLAGS = -c\ -Wall
+export MKLIBOPT =
+
+# The following are the recommended flags, depending on the class of processor.
+# If you want to compile with USEPARALLEL = true, make sure you add -cc mpicc in
+# the CCOPT of your choice.
+# Intel Processors
+CCOPT := -ccopt -O3 -ccopt -msse2 -ccopt -mmmx -ccopt -march=pentium4
+
+# PowerPC G4 and G5
+#export CCOPT = -ccopt -O3 -ccopt -maltivec -ccopt -mpim-altivec -ccopt -I/usr/include/malloc/ -ccopt -mcpu=G4 -ccopt -g
+
+
+# graphical output options: ocaml,tk
+# non-graphical output: none  
+export USEGRAPHICS = none
+
+#If compiling for windows, set the following to true and use the following
+#compilation flags.
+export USEWIN32 = true
+#export CCOPT = -ccopt -mno-cygwin -ccopt -O3 $(MYARCH_CCOPT)

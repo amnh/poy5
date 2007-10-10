@@ -1,0 +1,204 @@
+% $Id: char_nonadd_ccode.tex 120 2005-11-10 21:39:03Z ibomash $
+
+\documentclass{article}
+
+\author{Illya Bomash}
+\date{02 November, 2005}
+\title{Nonadditive characters: C implementation}
+\begin{document}
+
+\maketitle
+
+This file implements sets of equally-weighted nonadditive characters.
+
+\subsection*{Data structures}
+
+\subsubsection*{Character record}
+The data structure used here includes the fields listed in Table
+\ref{tab:nacat}.
+\begin{table}
+  \centering
+  \begin{tabular}{lp{250pt}}
+    \hline
+    Element & Purpose \\
+    \hline
+    \texttt{long len} & Number of elements in this particular set \\
+    \texttt{long *codes} & Array of element codes \\
+    \texttt{long code} & Code for the set considered as an element \\
+    \texttt{vect *data} & Array of element data: sets are encoded as bits inside
+    vectors \\
+    \texttt{long *ref\_count} & This value keeps track of how many structures are
+    using the \texttt{codes} and \texttt{data} arrays;  when this becomes zero,
+    the arrays are freed. \\
+    \texttt{long heur} & The heuristic code to use for operations on this
+    element.  For meanings, consult \texttt{character.mli}. \\
+    \hline
+  \end{tabular}
+\caption{\label{tab:nacat}The \texttt{\_naca\_t} data structure.}
+\end{table}
+While this structure itself is mutable, the OCaml interface to it is almost
+entirely immutable.  A few exceptions are made (they are clearly marked below)
+to allow for convenience functions when creating a new element of this type;
+once that element is created, however, calling mutating functions is
+\textit{completely unsafe.}  The OCaml interface in \texttt{char\_nonadd\_c.mli}
+ensures that this does not happen.
+
+\subsubsection*{Vector type}
+Data elements are segmented into ``vectors'' to speed up operations.  Medians
+are computed by computing the median of one vector at a time.  This interface is
+used as an optimization over computing the median of the entire array of data
+all at once.  For the na\"\i ve implementation, this is faster since we keep a
+portion of the array in cache as we calculate the median of that slice.  Also,
+this vector modularization allows us to use native vector instructions on
+specific architectures, yielding huge speedups in the code.
+
+To allow vectors to be used transparently between platforms and implementations,
+we define several preprocessor macros to aid us.  These macros are found in
+Table \ref{tab:macros}.
+\begin{table}
+  \centering
+  \begin{tabular}{lp{250pt}}
+    \hline
+    Macro & Purpose \\
+    \hline
+    \texttt{CHARSIZE} & This is the size in bits of each character.\\
+    
+    \texttt{CHARTYPE} & This is the corresponding type of each character, one of
+    \texttt{char}, \texttt{short}, or \texttt{int}.\\
+    
+    \texttt{VECT\_SIZE} & This is the length in bits of a vector. \\
+    
+    \texttt{BLOCK\_LEN} & This is the number of characters (of size
+    \texttt{CHARSIZE}) in a vector.  Thus, the size of a vector is always
+    $\mathtt{CHARSIZE}\cdot\mathtt{BLOCK\_LEN}$. \\
+
+    \texttt{VLOOP\_BEGIN} & This macro should be used when you want to perform
+    operations on each element of a vector.  If operations can be performed in
+    parallel, this macro does nothing;  if there is no native vectorization,
+    this macro simply begins a \texttt{for} loop. \\
+
+    \texttt{VLOOP\_END} & This macro ends a section begin with
+    \texttt{VLOOP\_BEGIN}. \\
+
+    \texttt{VAND(a, b)} & This computes the bitwise \textsc{and} of its two
+    vector arguments. \\
+
+    \texttt{VOR(a, b)} & This computes the bitwise \textsc{or} of its two vector
+    arguments. \\
+
+    \texttt{VCMP(a, b)} & This computes the logical comparison of \texttt{a} and
+    \texttt{b}.  That is, the result will have a mask of 1s wherever the
+    corresponding elements were equal, and a mask of 0s wherever they were
+    different. \\
+
+    \texttt{VSET(a, b)} & This assigns vector \texttt{b} (which can be the
+    result of the above operations) to the vector \texttt{a}.  This is necessary
+    because when vector operations are unrolled into a loop, we need to set the
+    results an element at a time. \\
+
+    \texttt{ALLOC\_DATA(size)} & Makes a \texttt{vect} array to hold at least
+    \texttt{size} elements. \\
+
+    \texttt{FREE\_DATA(nacat)} & Frees the vector array data housed in
+    \texttt{nacat}. \\
+
+    \texttt{GET\_DATA(nacat)} & Returns the \texttt{nac *} equivalent to our
+    array of vectors, so that elements can be addressed directly. \\
+    \hline
+  \end{tabular}
+  \caption{Vector-supporting pre-defined types and macros}
+  \label{tab:macros}
+\end{table}
+Currently, there is support for MMX instructions and AltiVec instructions, and
+there is a backup non-vectorized mode.
+
+
+\subsubsection*{Characters of different sizes}
+This code will work for characters of three different sizes:  8-bit
+\texttt{char}s, 16-bit \texttt{short}s, and 32-bit \texttt{int}s.  To compile
+for a specific size, you can predefine the macro \texttt{CHARSIZE} to be the
+number of bits you would like to use (e.g. through the compilation command line
+option \texttt{-DCHARSIZE=32}).
+
+\paragraph{Size limitations.}
+This implementation uses arrays of \texttt{long} to encode its data.  Thus,
+elements of the set can have up to 32 states on 32-bit machines, and up to 64
+bits on a 64-bit machine.  Most of the OCaml interface functions do not deal
+with elements directly, so there are no problems with OCaml's smaller integers.
+However, any OCaml function that returns an ``element'' of this set will discard
+one bit of information; if these functions are used, the maximum number of
+usable states becomes 31 and 63, respectively.
+
+
+
+\paragraph{Serialization and compatibility.}
+Values serialized on 32-bit hardware cannot be deserialized on 64-bit hardware,
+and vice-versa.  This may be fixed at a later date.
+
+
+
+\subsection*{Functions}
+\label{sec:functions}
+
+Here we discuss the implementations of specific functions.
+
+\subsubsection*{\texttt{void median (nacat a, nacat b, nacat res)}}
+This function computes the median of \texttt{a} and \texttt{b}, writing the
+result directly to \texttt{res}.  The OCaml interface to this function creates
+the receiving \texttt{res} structure in advance.  Codes are not shared between
+\texttt{res} and either of the other arguments to avoid double the
+reference-counting bookkeeping.
+
+\texttt{median} first computes $A \cap B$ using a loop of bitwise-and operations;
+this operation should be vectorizable on architectures that support it.  Next,
+\texttt{median} iterates through the characters in the set, looking for
+characters where the $A \cap B = \emptyset$; for each such character, we instead use
+$A \cup B.$
+
+During this iteration, we also check that the \texttt{code} values of \texttt{a}
+and \texttt{b} are compatible using an \texttt{assert} instruction.  The OCaml
+framework should make sure to only call \texttt{median} on compatible character
+sets.
+
+
+\subsubsection*{\texttt{int nacat\_compare (value v1, value v2)}}
+This function is used to implement the OCaml function \texttt{compare\_data},
+which compares both homology and data.  If the function is called on
+incompatible characters, it will return an ordering on the set of homologies
+(i.e., it will compare the set of things it represents, identified by the set of
+codes of its elements); if the function is called on compatible (homologous)
+characters, it will return an ordering on the data stored within.
+
+\subsubsection*{\texttt{value char\_nonadd\_CAML\_make\_new (value len)}}
+This creates a new value of the character set type.  \texttt{len} empty-set
+characters are created in the set, and codes are created from 0 to $\mathtt{len}
+- 1$.  Note that characters should \textit{never} contain the empty set; thus,
+semantically, the result of this function is an invalid character set.  The
+OCaml interface must use mutating functions to set the value of each character
+in the set.
+
+
+\subsubsection*{\texttt{void char\_nonadd\_CAML\_set\_elt\_bit (value v, value loc, value val)}}
+Warning: this function mutates its argument \texttt{v}!  We ensure the safety of
+this operation by \texttt{assert}ing that \texttt{v} is the only character set
+using its particular arrays.
+
+When called legally, this function sets the \texttt{val}\textsuperscript{th} bit
+of the \texttt{loc}\textsuperscript{th} character in the character set.  When
+used on an OTU that has not been set yet, this is equivalent to stating that the
+\texttt{loc}\textsuperscript{th} character was observed at state \texttt{val}.
+This function can also be used to explicitly make HTUs, simply by calling it
+several times.
+
+Note that there are machine-dependent restrictions on the value of
+\texttt{val}.  If \texttt{val} is out of range ($\mathtt{val}>31$ on 32-bit
+machines, $\mathtt{val}>63$ on 64-bit machines), this function raises an
+\texttt{Invalid\_argument} exception in OCaml.
+
+\subsubsection*{\texttt{value char\_nonadd\_CAML\_to\_list (value va)}}
+Note that this function discards a bit of the internally stored value in
+returning the value to OCaml.  This function is used to implement most of the
+set functions for the character set interface.
+
+
+\end{document}

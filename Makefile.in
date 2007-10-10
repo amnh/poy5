@@ -1,0 +1,171 @@
+# $Id: Makefile 1485 2007-01-04 23:08:52Z andres $ 
+# Compilers
+SHELL = /bin/sh
+VPATH = @srcdir@
+
+subdirs=@subdirs@
+top_srcdir = @top_srcdir@
+srcdir = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+bindir = $(exec_prefix)/bin
+infodir = $(prefix)/info
+libdir = $(prefix)/lib/gnudl
+mandir = $(prefix)/man/man1
+
+CC = @CC@
+CPPFLAGS = @CPPFLAGS@
+CFLAGS = $(CPPFLAGS) @CFLAGS@
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+INSTALL = @INSTALL@
+USEPARALLEL := @USEPARALLEL@
+
+SUBDIRS = ocamlmpi src doc
+
+all: 
+ifeq ($(USEPARALLEL), true)
+	cd ocamlmpi; $(MAKE) 
+	$(MAKE) depend
+	cd ../src/; $(MAKE) poy
+else
+	$(MAKE) depend
+	cd ./src/; $(MAKE) poy
+endif
+
+.PHONY:	subdirs $(SUBDIRS) clean driver install
+subdirs:	$(SUBDIRS)
+
+transform = @program_transform_name@
+
+install:
+	$(INSTALL) ./src/poy $(bindir)/`echo poy | sed -e '$(transform)'`
+
+uninstall:
+	rm -f $(bindir)/`echo poy | sed '$(transform)'`
+
+MAKEOCAMLMPI :=
+ifeq ($(USEPARALLEL), true)
+	MAKEOCAMLMPI := ocamlmpi
+endif
+
+binaries: mpoy-single mpoy-dual
+
+mac_panther:
+	cp -f config myconfig
+	cp -f config.panther config
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+	cp src/mpoy.opt ./panther/poy
+
+mac_ppc:
+	cp -f config myconfig
+	cp -f config.ppc_seq config
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_ppc_parallel_flat:
+	cp -f config myconfig
+	cp -f config.ppc_par_ncurses config
+	$(MAKE) ocamlmpi
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_ppc_parallel_ncurses:
+	cp -f config myconfig
+	cp -f config.ppc_par config
+	$(MAKE) ocamlmpi
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_ppc_parallel:
+	$(MAKE) mac_ppc_parallel_ncurses
+	cp src/mpoy.opt ./universal_parallel/mppoy_ppc
+	$(MAKE) mac_ppc_parallel_flat
+	cp src/mpoy.opt ./universal_parallel/ppoy_ppc
+
+mac_intel:
+	cp -f config myconfig
+	cp -f config.intel_seq config
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_intel_parallel_flat:
+	cp -f config myconfig
+	cp -f config.intel_par config
+	$(MAKE) ocamlmpi
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_intel_parallel_ncurses:
+	cp -f config myconfig
+	cp -f config.intel_par_ncurses config
+	$(MAKE) ocamlmpi
+	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
+	cp -f myconfig config
+
+mac_intel_parallel:
+	$(MAKE) mac_intel_parallel_ncurses
+	cp src/mpoy.opt ./universal_parallel/mppoy_intel
+	$(MAKE) mac_intel_parallel_flat
+	cp src/mpoy.opt ./universal_parallel/ppoy_intel
+
+mac_universal:
+	$(MAKE) mac_intel
+	cp -f ./src/mpoy.opt ./universal_sequential//poy_intel
+	$(MAKE) mac_ppc
+	cp -f ./src/mpoy.opt ./universal_sequential/poy_ppc
+	lipo -create ./universal_sequential/poy_ppc ./universal_sequential/poy_intel -output ./universal_sequential/poy
+
+mac_universal_parallel:
+	$(MAKE) mac_intel_parallel
+	$(MAKE) mac_ppc_parallel
+	lipo -create ./universal_parallel/ppoy_ppc ./universal_parallel/ppoy_intel -output ./universal_parallel/ppoy
+	lipo -create ./universal_parallel/mppoy_ppc ./universal_parallel/mppoy_intel -output ./universal_parallel/mppoy
+
+mac_all:
+	$(MAKE) mac_panther
+	$(MAKE) mac_universal_parallel
+	$(MAKE) mac_universal
+
+
+mpoy-single: $(MAKEOCAMLMPI)
+	./set-config.pl --ncurses --no-parallel
+	cd src; $(MAKE) clean; $(MAKE) .depend; $(MAKE) mpoy.opt
+	mv src/mpoy.opt $@
+
+mpoy-dual: $(MAKEOCAMLMPI)
+	./set-config.pl --no-ncurses --parallel
+	cd src; $(MAKE) clean; $(MAKE) .depend; $(MAKE) mpoy.opt
+	mv src/mpoy.opt $@
+
+poy: 
+	cd src; \
+	$(MAKE) $@
+
+mpoy: $(MAKEOCAMLMPI)
+	cd src; \
+	$(MAKE) $@
+
+mpoy_console: $(MAKEOCAMLMPI)
+	cd src; \
+	$(MAKE) $@
+
+depend:
+	cd src; \
+	$(MAKE) $@
+
+$(SUBDIRS):
+	$(MAKE) -C $@
+
+clean_distros:
+	rm -f universal_parallel/*
+	rm -f universal_sequential/*
+	rm -f panther/*
+
+clean:
+	@for subs in $(SUBDIRS); do \
+	  cd $$subs; \
+	  $(MAKE) clean; \
+	  cd ..; \
+	done

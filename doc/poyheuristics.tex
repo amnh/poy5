@@ -1,0 +1,157 @@
+\section{Introduction}
+
+As the level of phylogenetic analysis increases---from individual loci to chromosomes to genomes containing multiple chromosomes---so does computational complexity. In \poy, a significant increase in computational time results from combining in a single process cladogram searching with co-optimization of nucleotide pairwise alignments, rearrangements of loci within a chromosome, and rearrangements of chromosome fragments within the genome . As a result, a phylogenetic analysis involves a set of nested computationally ``hard'' (NP-complete) problems that makes finding the exact solution impossible. In addition, the increasing sequence length heterogeneity (at the levels of nucleotides, loci, and chromosomes) and the ever-growing sizes of datasets further contribute to computational complexity making it impossible to obtain an exact solution in a reasonable time.
+
+To circumvent the problem computational intractability, and, hence, the speed of the analyses, \poy employs a battery of approximate, or heuristic, methods that function at different levels of analysis. As with all heuristic procedures, a tradeoff is involved: a substantial decrease in execution time comes at a price of obtaining possibly less accurate  and less precise results (however, the extent of the tradeoff is difficult to evaluate in the analyses of real large datasets). Therefore, it becomes important to understand the combined effect of different heuristic methods, so that the chosen search strategy balances the computational time with a ``reasonable'' accuracy of the result.
+
+Here we provide general guidelines for using different heuristic methods, explore their combined effect, and suggest the choice of parameters that can be explored to provide the best result for specific cases. Real datasets differ greatly in size and complexity, so that no single optimal strategy can be suggested. These guidelines, however, should enable the investigator to design an efficient strategy that will tailor to the peculiarities of a given dataset.
+
+In addition to heuristic methods, this chapter attempts to assist with the selection of transformation cost regimes. Alternative cost regimes can significantly affect the outcome of the analysis, that becomes particularly apparent in dealing with large, genome-level datasets, where multiple cost regimes are used simultaneously to specify transformations at different levels of analysis. Most difficulties stem from selecting the most reasonable combination of parameters that affect optimization of DNA sequence data at the levels of nucleotides, loci, and chromosomes.
+
+\section{Data treatment}
+
+Direct optimization (see \emph{Character optimization} section below) involves comparing all potential nucleotide homologies between two sequences. Consequently, the time it takes is proportional to the product of the lengths of the sequences compared. This procedure can be time consuming for long and greatly differing in length DNA fragments. In cases where unambiguous (such as long completely conserved regions) sequence fragments can be identified, partitioning the long sequences into smaller fragments delimited by these regions can significantly reduce computational time. Such economy is reached because nucleotide homologies are not examined over the separate partitions. This strategy assumes that the fragments are mutually exclusive and are putatively homologous across terminals.
+
+At the level of nucleotides, individual fragments in a locus can be separated by the pound symbols (``\#'') or contained as individual files (that is, treated as partitions). When ``\#'' are used, their number must be the same across homologous sequences. Alternatively, the argument of \poyargument{auto\_sequence\_partition} of the command \ccross{transform}. At the chromosome level, individual loci can be separated by pipes (``$\vert$'').
+
+\begin{center}
+\begin{tabular}{| l  l  p{.35\textwidth}|}
+	\hline
+	Level of analysis & Heuristic & Implementation \\ \hline \hline
+	Nucleotides & Fragment sequences & Manually separating fragments or use
+	\poycommand{trnsform(auto\_sequence\_partition)}\\
+	Locus & Fragment chromosome & Manually insert pipes separating loci \\
+	Chromosomes & NA & NA \\
+	\hline	
+\end{tabular}
+\end{center}
+
+\section{Character optimization}
+Minimizing overall cladogram cost is an NP hard problem dependent on the lowest cost assignment of HTU sequences.  POY implements direct optimization (DO; ~\cite{wheeler1996}) and fixed-states optimization (FSO; ~\cite{wheeler1999a}) heuristics to determine the set of HTU sequences comprising the internal nodes of each cladogram constructed.  Direct Optimization decomposes the problem into a series of two-node comparisons, calculating locally optimal solutions, which generates the total cladogram cost.  An advantage of direct optimization is that it allows for the exploration of a large diversity of putative homologies and selects the scheme that yields the most optimal solution. This is useful in analyzing sequences of different length, where site-to-site homologies are uncertain.  Because the procedure is based on a greedy algorithm, it requires multiple iterations (independent initial cladogram builds) and extensive tree searches to reach a potentially global minimum.  In contrast, fixed-states optimization does not calculate HTU sequences but rather optimizes those observed in terminal taxa. These internal node sequences then are diagnosed using dynamic programming based on a matrix of edit costs between sequences.  In the fixed-states implementation cladogram optimization is independent of sequence lengths, and as the number of sequences increase so to does the pool from which the HTU sequences are drawn, thereby improving cladogram cost estimation. Because of these properties fixed-states optimization is recommended as an initial approximation strategy for large data sets of variable length sequences.  
+
+\begin{center}
+\begin{tabular}{| l  l  p{.35\textwidth}|}
+	\hline
+Level of analysis&Heuristic&Implementation \\ \hline \hline
+Nucleotides&DO&Default strategy\\
+Nucleotides&FSO&\poycommand{transform(fixedstates)}\\
+Loci&FSO&\poycommand{transform(dynamic\_pam:(approx))}\\
+Chromosomes&NA&NA\\
+\hline	
+\end{tabular}
+\end{center}
+
+Further approximations and economies can be achieved by varying parameters of commands, such as selecting a limited subset of trees for subsequent analysis limiting the number of replicates, and examining intermediary results from an interrupted analysis.
+
+\section{Tree searching}
+The heuristic approaches to cladogram searching include random addition of taxa, branch swapping (TBR and SPR), simulated annealing (the ratchet and tree-drifting), and genetical algorithms (tree fusing). These techniques, frequently used in combination, allow a more efficient exploring of tree space and provide the means of finding more globally optimal solutions. These methods are widely used in phylogenetics \cite{felsenstein2004a, wheeleretal2006}, although \poy implements additional modifications of these procedures.
+
+Typical search strategy in \poy involves consecutive application of tree search algorithms that begin with generating multiple, randomly selected starting points [Random Addition Sequences (RAS) or Wagner trees]. The importance of multiple starting trees cannot be overemphasized and a successful search shall maximize the number of RAS. However, making a tree search more exhaustive by increasing the number of starting trees comes at a price of longer computation time. Therefore, it is advised here to estimate the amount of time it takes to complete a single replicate and takes this information in consideration when designing a more exhaustive strategy. The  number of replicates used by \poy practitioners for datasets of moderate size (70-100 terminals) ranges from 100 to 250. Here are some examples of search strategies:
+\begin{description}
+\item[RAS+SPR/TBR+Ratchet] The strategy is for a thorough search for a data set of 100 or fewer taxa. A diversity of starting points is generated by multiple RAS, each refined by a local search (TBR or a combination of SPR and TBR, the latter is an efficient default strategy in \poy). Ratcheting is used to examine tree space that potentially has not been explored by the local searches.
+\item[RAS+SPR/TBR+Ratchet+Tree Fusing]  Adding tree fusing step allows for combining the best sectors of cladograms that can potentially yield a tree of shorter length. Empirical studies showed that adding tree fusing after replicate rounds enhances the results only when dealing with data sets with more than 50 taxa.
+\item[RAS+SPR/TBR+Tree Drifting + Tree Fusing]
+\item[RAS+SPR/TBR+Ratchet+Tree Drifting+Tree Fusing] Tree Drifting can be used in place of or in addition to the Ratchet.
+\item[Input Trees+SPR/TBR+Ratchet+Tree Drifting+Tree Fusing] For more exhaustive searches, the best trees obtained from the initial searches using the strategies outlines above, can be used as input trees for subsequent analyses. In doing so, the RAS step can be omitted because searching starts with trees approximating the globally optimal tree(s).
+\end{description}
+The aggressiveness of searches can be adjusted by varying parameters of the branch swapping, ratchet, tree fusing, and tree drifting commands.
+
+Further economies can be reached by using a combination of different character optimization methods. For example, initial searches can be conducted under faster static approximation (that converts sequence data into static homology characters; see \emph{Character optimization} section), whereas the final refinement can be performed using direct optimization.
+
+\section{Chromosomal heuristics}
+Analysis of chromosomal data requires heuristic procedures to estimate
+rearrangement events in addition to nucleotide transformations.  In unannotated
+chromosomal sequences \poy uses \poycommand{seed\_length},
+\poycommand{sig\_block\_len} and connecting sequence length to identify
+homologous fragments (e.g. loci) within nucleotide strings. A seed is a
+contiguous nucleotide sequence that is identical in composition between two
+chromosomes.  Once detected seeds are used to partition chromosomes into
+fragments, or blocks.  If blocks are considered to be homologous and their
+relative positions differ between the chromosomes, a rearrangement is
+inferred. The command \poycommand {seed\_length} specifies the minimum length of
+the seed.  The higher the seed\_length value, the fewer seeds are detected,
+that, in turn influence the number of blocks recognized. Conversely, if the
+value of seed\_length is low, an increased number of seeds and, consequently, a
+greater number of short blocks are detected. The command
+\poycommand{sig\_block\_len} sets the minimum nucleotide length of the blocks,
+beyond which the block are not considered homologous.If the value of
+\poycommand{sig\_block\_len} is low, small-size rearrangements are allowed;
+whereas if the value of \poycommand{sig\_block\_len} is high—larger
+rearrangements are detected. The connector length parameter sets a threshold
+value under which homologous blocks separated by non-homologous regions can be
+considered as a single block. 
+The default for this parameter is \texttt{100}.  Therefore if two inferred
+homologous blocks are separated by less 
+than 100 nucleotides they will be treated as a single block in 
+calculating of rearrangement events. Thus, the combination of parameters \poycommand{seed\_length}, \poycommand{sig\_block\_len}, and connector length significantly influence the estimation of inferred rearrangements.
+
+Once blocks have been designated, heuristic solutions estimating the number of rearrangement events among chromosomal strings can be implemented using \poycommand{breakpoint} distance, \poycommand {inversion} distance, or \poycommand {approx}. The command \poycommand{breakpoint} calculates HTU medians that minimize the number of adjacency breaks (between ordered block pairs) in terminals.  Estimating rearrangements using inversion distance \poycommand {inversion} is more computationally costly (time consuming) but considers locus inversion events as well as adjacency breaks.  Static approximation of chromosomal blocks (\poycommand {approx}) provides the fastest median calculation but is the least exhaustive of the rearrangement search options. The efficiency of each rearrangement heuristic is also influenced by the median parameter specifying the number of alternate rearrangements considered in the search.  The choice of heuristic and thoroughness with which rearrangement estimation is conducted is contingent upon the properties of chromosomal data being analyzed and the cost assigned to rearrangement events relative to that of locus insertions and deletions (\poycommand {locus\_indel}) and nucleotide transformations.
+
+Further approximations and economies can be achieved by varying parameters of commands, such as selecting a limited subset of trees for subsequent analysis limiting the number of replicates, and examining intermediary results from an interrupted analysis (expand).
+
+%Even though using such imprecise relative terms is “high” and “low” might give an idea of the effect of %combination of different parameter values, the more explicit advice on actual values is desirable. The %following sets of parameters were empirically established to provide reasonable (biologically
+%meaningful) results judging from a posteirori diagnosis of the inferred rearrangements. 
+
+\begin{center}
+\begin{tabular}{| l  l  p{.35\textwidth}|}
+	\hline
+Heuristic&Default Cost &Suggested Cost  \\ \hline \hline
+Locus & & \\
+\poycommand{seed\_length}&9&5-15\\
+\poycommand{sig\_block\_len}&100&60-150\\
+connector length&100&50-1000\\
+\poycommand{breakpoint}&10&10-50\\
+\poycommand {inversion}&none&15-35\\
+ \poycommand {approx}&false&large data sets\\
+  \poycommand {median}&1&1-2\\
+   \poycommand {swap\_med}&1&1-2\\
+  \poycommand {locus\_indel})&opening 10, extension 1&opening 10, extension 1\\
+  %Chromosome\\
+  %\poycommand{chrom\_breakpoint}&?&?\\
+  %\poycommand{chrom\_indel}&?&?\\
+\hline
+\end{tabular}
+\end{center}
+
+%&DO&Default strategy\\
+%Nucleotides&FSO&\poycommand{transform(fixedstates)}\\
+%Loci&FSO&\poycommand{transform(dynamic\_pam:(approx))}\\
+%Chromosomes&NA&NA\\
+%\hline	
+%\end{tabular}
+%\end{center}
+
+		
+%Nucleotide		
+%Locus	locus\_breakpoint	
+%	locus\_indel	
+%	inversion	
+%	[seed\_length	
+%	swap\_med	
+%	[sig\_block\_len	
+%Chromosome	chrom\_breakpoint	
+%	chrom\_indel	
+
+
+		
+%Nucleotide		
+%Locus	locus\_breakpoint	
+%	locus\_indel	
+%	inversion	
+%	[seed\_length	
+%	swap\_med	
+%	[sig\_block\_len	
+%Chromosome	chrom\_breakpoint	
+%	chrom\_indel	
+
+\section{Transformation cost regimes}
+In the analysis at the level of nucleotides, there are three general approaches to selecting transformation cost regimes most commonly used by \poy practitioners.
+\begin{description}
+\item[Equal costs] This approach assigns the same cost to all substitutions and indels, and does not take into account gap extension cost. For rationale for using this cost regime see Frost et al. \cite{frost2001} and for other examples of its application see.
+\item[Homology maximization] This approach, developed by De Laet \cite{delaet2005}, assigns costs \texttt{2, 3, and 1} to transformations, gap opening, and gap extension respectively. For examples using this methods see
+\item[Parameter sensitivity analysis] This method, suggested by Wheeler \cite{wheeler1995}, explores the effect of varying transformation costs by comparing results of analyses conducted under different cost regimes. Partition inconguence can subsequently be computed  for each cladogram and the parameter set that minimizes incongruence is selected as optimal. For examples using this methods see
+\end{description}
+More specifically, it depends on relative costs of nucleotide- and locus-level transformations. Nucleotide-level transformations are specified by tcm argument, the locus-level rearrangements are specified by locus\_breakpoint or inversion costs. If locus\_level rearrangement costs are extremely high, the rearrangements are not going to be counted. On the other hand, if their cost is very low (equal or slightly above that of the nucleotide-level rearrangements), rearrangements can be frequent (depending on the seed\_block\_len and seed\_length settings).
+
+When DNA sequence data is combined with morphological data, the cost for morphological character transformations is customarily is set to be the same as for substitutions.
+

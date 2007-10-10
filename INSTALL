@@ -1,0 +1,23 @@
+In order to compile POY, the minimal requirements are:
+
+- Objective Caml version 3.10.0, which can be found in
+  http://www.ocaml.org.
+
+- An ISO 99 C compiler.
+
+- The GNU Make toolbox (version 3.80).
+
+- Readline or ncurses
+
+To compile the program, first modify the relevant paths and options in config 
+(there is a brief description on each group of options or you can see the
+program's documentation), and then simply:
+
+./configure
+make 
+make install 
+
+The last command should probably be run as superuser. Check the configuration
+options with ./configure --help.
+
+Enjoy!

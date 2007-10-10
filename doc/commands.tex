@@ -1,0 +1,540 @@
+\documentclass[11pt]{book}
+
+\usepackage[htt]{hyphenat}
+\usepackage{multind}
+\usepackage[pdftitle={POY 4.0 Documentation},pdfauthor={Andres Varon et. al.},
+pdfkeywords={phylogenetic analysis, direct optimization, POY}]{hyperref}
+\usepackage{color}
+\usepackage{xspace}
+\usepackage{framed}
+\usepackage{graphicx}
+\usepackage{rotating} % to create landscape pages
+%\usepackage{makeidx}
+
+%Indexes
+\makeindex{general}
+\makeindex{poy3}
+
+\newlength\sidebar
+\newlength\envrule
+\newlength\envborder
+\newlength\boxwidth
+
+\setlength\sidebar{1.5mm}
+\setlength\envrule{0.4pt}
+\setlength\envborder{2.5mm}
+
+\definecolor{exampleborder}{rgb}{0,0,.7}
+\definecolor{examplebg}{rgb}{.9,.9,1}
+\definecolor{shadecolor}{rgb}{.9,.9,1}
+\definecolor{statementborder}{rgb}{.9,0,0}
+\definecolor{statementbg}{rgb}{1,.9,.9}
+
+\newsavebox\envbox
+\newlength\notelength
+
+\newenvironment{statement}[1][NOTE]{
+% Default statement has no title %ilya: Statement is used for NOTES
+\SpecialEnv{#1}{statementborder}{statementbg}{statementborder}{}%
+}{%
+\endSpecialEnv}
+
+\def\Empty{}
+
+% #1 title (if any)
+% #2 sidebar (and title bg) color
+% #3 background color
+% #4 border color (or null for no border)
+% #5 \enspace
+
+	\newenvironment{SpecialEnv}[5]{%
+	\par
+	\def\EnvSideC{#2}% To use later (in end)
+	\def\EnvBackgroundC{#3}%
+	\def\EnvFrameC{#4}% 
+	\flushleft
+
+%\setlength\leftskip{-\sidebar}%
+%\addtolength\leftskip{-\envborder}%
+\noindent \nobreak
+% Check if title is null:
+\ifx\delimiter#1\delimiter\else
+% If a title is specified, then typeset it in reverse color
+\colorbox{\EnvSideC}{%
+%\hspace{-\leftskip}% usually positive
+%\hspace{-\fboxsep}%
+\footnotesize\sffamily\bfseries\textcolor{white}{#1}%
+%\hspace{\envborder}}%
+}
+\par\nobreak
+\setlength\parskip{-0.2pt}% Tiny overlap to counter pixel round-off errors
+\nointerlineskip 
+\fi
+
+% Make side-bar
+\textcolor{\EnvSideC}{\vrule width\sidebar}%
+% collect body in \envbox:
+\begin{lrbox}\envbox 
+\setlength{\boxwidth}{\linewidth}
+\settowidth{\notelength}{NOT}
+\addtolength{\boxwidth}{-1\notelength}
+\addtolength{\boxwidth}{-1\sidebar}
+\addtolength{\boxwidth}{-1\envborder}
+\begin{minipage}[l]{\boxwidth}%
+
+% insert counter, if any:
+\ifx\delimiter#5\delimiter\else
+%\theexample.\enspace
+\fi
+\ignorespaces
+}{\par
+\end{minipage}
+\end{lrbox}%
+% body is collected. Add background color
+\setlength\fboxsep\envborder
+\ifx\EnvFrameC\Empty % no frame
+\colorbox{\EnvBackgroundC}{\usebox\envbox}%
+\else % frame
+\setlength\fboxrule\envrule
+\addtolength\fboxsep{-\envrule}%
+\fcolorbox{\EnvFrameC}{\EnvBackgroundC}{\usebox\envbox}%
+\fi
+\nobreak \hspace{-2\envborder}\null
+\endflushleft
+}
+
+
+\newenvironment{poyexamples}{ \subsubsection{Examples} \begin{itemize}}{\end{itemize}}
+% We define a command environment for new command definitions, and store
+% whatever command we are dealing with in the @commandname macro. Inside a
+% command we can specify the defaults, the syntax, and the arguments to be used.
+\newenvironment{command}[2]{
+    \def\tmpa{}
+    \def\tmpb{#2}
+    \def\@commandname{#1}
+    \subsection{#1}\index{general}{#1}
+    \ifx\tmpa\tmpb 
+        \label{comm:#1} 
+    \else 
+        \label{comm:#2} 
+    \fi}
+    {}
+% Syntax definition. We use the name of the command as stured in @commandname
+\newcommand{\syntax}{\subsubsection{Syntax} \@commandname} 
+\newcommand{\atsymbol}{@}
+
+% We need to choose properly if we need to open a description or not inside
+% an argument or argument group environment. We will use these two variables
+% to keep the proper value to be used on each point.
+\def\opendescription{\begin{description}}
+\def\closedescription{}
+
+% We define a pair of commands to initialize and finalize a description list 
+% and set the necessary values of opendescription and closedescription.
+\newcommand{\initdescription}{
+    \def\closedescription{\end{description}}
+    \opendescription
+    \def\opendescription{}
+}
+\newcommand{\finishdescription}{
+    \closedescription
+    \def\closedescription{}
+    \def\opendescription{\begin{description}}
+}
+
+% A variable to store a prefix for argument definitions, usually a colon.
+\def\argprefix{} 
+
+\newenvironment{script}{\begin{verbatim}}{\end{verbatim}}
+\newcommand{\poyexample}[2]{\item \commandstyle{#1} \\#2}
+\newcommand{\commandstyle}[1]{\texttt{#1}}
+\newcommand{\poycommand}[1]{\commandstyle{#1}}
+
+% Argument specifications
+\newcommand{\poyargument}[1]{\commandstyle{#1}}
+\newcommand{\obligatory}[1]{\commandstyle{\argprefix#1}}
+\newcommand{\optional}[1]{\commandstyle{[\argprefix#1]}}
+\newenvironment{arguments} {\subsubsection{Arguments}}{ \finishdescription }
+\newenvironment{argumentgroup}[2]{\paragraph{#1} #2}{ \finishdescription }
+\newcommand{\argumentdefinition}[4]{
+    % Check if we are inside an itemize environment or not, if not, start
+    % it.
+    \initdescription
+    % We will check if the second argument is empty; if so, we don't need
+    % the add the : prefix for the argument's value.
+    \def\tmpa{}
+    \def\tmpb{#2}
+    \def\tmpc{#4}
+    \index{general}{#1}
+    \index{general}{\@commandname!#1}
+    \ifx\tmpa\tmpb
+        \item[\poyargument{#1}]
+            \ifx\tmpa\tmpc
+                \label{comm:#1}
+            \else
+                \label{comm:#4}
+            \fi
+                #3
+    \else
+        \def\argprefix{:}
+        \item[\poyargument{#1#2}]
+            \ifx\tmpa\tmpc
+                \label{comm:#1}
+            \else
+                \label{comm:#4}
+            \fi
+            #3
+    \fi
+    \def\argprefix{}
+    }
+
+\newenvironment{poydescription}{\subsubsection{Description}}{}
+
+% The primitive types of a POY script.
+\newcommand{\poystring}{\commandstyle{STRING}\xspace}
+\newcommand{\poyfloat}{\commandstyle{FLOAT}\xspace}
+\newcommand{\poyint}{\commandstyle{INTEGER}\xspace}
+\newcommand{\poybool}{\commandstyle{BOOL}\xspace}
+\newcommand{\poylident}{\commandstyle{LIDENT}\xspace}
+
+\newcommand{\poydefaults}[2]{\subsubsection{Defaults} \commandstyle{\@commandname(#1)} #2}
+
+\newenvironment{poyalso}{\subsubsection{See also}
+\begin{itemize}}{\end{itemize}}
+
+% Cross References
+\newcommand{\cross}[1]{\item \commandstyle{#1} (Section~\ref{comm:#1})}
+\newcommand{\ncross}[2]{\item \commandstyle{#1} (Section~\ref{comm:#2})}
+
+\newcommand{\ccross}[1]{\commandstyle{#1} (Section~\ref{comm:#1})}
+\newcommand{\nccross}[2]{\commandstyle{#1} (Section~\ref{comm:#2})}
+
+% The typesetting of POY
+\newcommand{\poy}{\commandstyle{POY4}\xspace}
+\newcommand{\poyv}{\commandstyle{POY4}\xspace} % poyv stands for "poy version 4"
+
+% Using same footnotes multiple times (used for authorship)
+\newcommand{\footnoteremember}[2]{
+  \footnote{#2}
+  \newcounter{#1}
+  \setcounter{#1}{\value{footnote}}
+}
+\newcommand{\footnoterecall}[1]{
+  \footnotemark[\value{#1}]
+}
+
+% Hyphenations
+\hyphenation{mo-le-cu-lar an-aly-ses an-aly-sis au-to-ma-ti-cally ho-mo-lo-gy}
+
+\makeatletter
+\def\thickhrulefill{\leavevmode \leaders \hrule height 1pt\hfill \kern \z@}
+\renewcommand{\maketitle}{\begin{titlepage}%
+    \let\footnotesize\small
+    \let\footnoterule\relax
+    \parindent \z@
+    \reset@font
+    \null
+    \vskip 50\p@
+    \begin{center}
+      {{\huge \texttt{POY} 4.0 Beta}
+      \par 
+      \vskip \baselineskip
+      \hrule height 1pt 
+      \par 
+      \vskip \baselineskip
+      QuickStart Guide and Program Documentation 
+      \par
+      \small Version 4.0.\buildnumber }\par
+    \end{center}
+    \vskip 85\p@
+    \begin{flushright}
+      \@author \par
+    \end{flushright}
+    \vskip 85\p@
+    \begin{center}
+    \includegraphics[width=\textwidth]{figures/amnhlogoblack2.pdf}
+    \end{center}
+    \vfil
+    \null
+  \end{titlepage}%
+  \setcounter{footnote}{0}%
+}
+\makeatother
+
+\include{version}
+
+\author{\textbf{Program and Documentation} \\ Andr\'es Var\'on \\ Le Sy Vinh \\
+Illya Bomash \\ Ward C. Wheeler \\ \bigskip \textbf{Documentation} \\ Ilya T\"emkin \\ Megan Cevasco \\ Kurt M. Pickett \\ Juli\'an Faivovich \\ Taran Grant \\ William Leo Smith}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%	BODY TEXT OF THE DOCUMENT     
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+
+\thispagestyle{empty}
+
+\vspace*{5.5cm}
+
+\begin{flushleft}
+    \small
+{\it
+Andr\'es Var\'on}\\
+Division of Invertebrate Zoology, American Museum of Natural History \\
+Computer Science Department, The Graduate School and University Center, The City University of New York \\
+\smallskip 
+{\it
+Le Sy Vinh\\
+Ward C. Wheeler\\
+Ilya T\"emkin \\
+Megan Harrison \\
+Taran Grant \\
+}
+Division of Invertebrate Zoology, American Museum of Natural History \\
+\smallskip 
+{\it
+Kurt M. Pickett}\\
+Department of Biology, University of Vermont\\
+\smallskip
+{\it
+Juli\'an Faivovich}\\
+Departamento de Zoologia, Instituto de Bioci\^encias, Universidade Estadual Paulista\\
+\smallskip
+{\it
+William Leo Smith}\\
+Division of Vertebrate Zoology, American Museum of Natural History\\
+
+\vspace*{0.5cm}
+The American Museum of Natural History\\
+\copyright 2007 by The American Museum of Natural History \\
+All rights reserved. Published 2007
+
+\vspace*{0.5cm}
+
+\emph{Var\'on, A., L. S. Vinh, I. Bomash, W. C. Wheeler.} 2007.
+\texttt{POY} 4.0.\buildnumber\ Beta. New York, American Museum of
+Natural History. Documentation by Var\'on, A., L. S. Vinh, I. Bomash,
+W. Wheeler, I. T\"emkin, K. Pickett, J. Faivovich, T. Grant, and
+W. L. Smith. \url{http://research.amnh.org/scicomp/projects/poy.php}
+
+\vspace*{0.5cm}
+
+Available online at \url{http://research.amnh.org/scicomp/projects/poy.php}.
+
+\end{flushleft}
+
+\tableofcontents
+
+\input{QuickStart}
+
+\chapter{\poy Commands}
+
+\section{\poy Command Structure}
+
+\subsection{Brief Description} \label{commands}
+
+\poy interprets and executes \emph{scripts} issued by the end user.  These can
+come from the command line in the interactive console of the program, or from an
+input file. A script is a list of \emph{commands}, separated by any number of
+whitespace characters (spaces, tabs, or newlines). Each command consists of a
+name  in lower case (\poylident), followed by a list of arguments separated 
+by commas and enclosed in parentheses. Most of the arguments are optional, in
+which case \poy has default values.
+
+In \poy, we recognize four types of command arguments: \emph{primitive values},
+\emph{labeled values}, \emph{commands}, and \emph{lists of arguments}.
+
+\paragraph{Primitive values} can be either an integer (\poyint), a real number
+(\poyfloat), a string (\poystring), or a boolean (\poybool).
+
+\paragraph{Labeled values} are a lowercase identifier (which we will call the
+\emph{label}), and an argument, separated by the colon character. ``:''.
+
+\paragraph{List of Arguments} are several arguments enclosed in parenthesis and
+separated by commas, ``,''.
+
+\paragraph{Commands} are standard commands that can affect the behavior of
+another command when included in its arguments.
+
+\paragraph{}Thus, certain commands can function as arguments of other commands. Moreover,
+some commands share arguments. Although such compositive use of commands
+might seem complex, this structure provides much more intuitive
+control and greater flexibility. The fact that the same logical operation that functions
+in different contexts maintains
+the same name (typically suggestive of its function), substantially reduces the number of
+commands without limiting the number of operations. Using a linguistic analogy,
+\poy specifies a large number of procedures by a more complex grammar (specific
+combinations of commands and arguments) rather than by increasing the vocabulary
+(the number of specific commands and arguments). For example, the command
+\poycommand{swap} specifies the method of branch swapping. This command is
+used to conduct a local search on a set of trees. In addition,
+\poycommand{swap} functions as an argument for \poycommand{calculate\_support}
+to specify the branch swapping method used in each pseudoreplicate during Jackknife or
+Bootstrap resampling. \poycommand{swap} can also be used to set the parameters for
+local tree search based on perturbed (resampled or partly weighted) data as an argument
+of the command \poycommand{perturb}. Therefore, to take the maximum advantage of
+\poy functionality, it is essential to get acquainted with the grammar of  \poy.
+
+\subsection{Grammar Specification}
+
+The following is the formal specification of the valid grammar of a script in \poy 4:
+
+\begin{verbatim}
+script: | command
+        | command script
+
+command: LIDENT "(" arguments ")"
+
+arguments:  |
+            | argument
+            | argument "," arguments
+
+argument:   | primitive
+            | LIDENT
+            | LIDENT ":" arguments
+            | command
+            | "(" arguments ")"
+
+primitive:  | INTEGER
+            | FLOAT
+            | BOOLEAN
+            | STRING
+
+LIDENT: [a-z_][a-zA-Z0-9_]*
+
+INTEGER: [0-9]+
+
+FLOAT:  | INTEGER
+        | [0-9]+ "." [0-9]*
+
+STRING: """ [^"]* """
+
+\end{verbatim}
+
+The following examples show graphically a typical structure of valid \poy commands
+formally defined above. The Figure \ref{simplecommand} illustrates
+the syntax of the command \poycommand{swap}. The name of the
+command (\poycommand{swap}) is followed by a list of two arguments,
+\poyargument{tbr} and \poyargument{trees:2}, inclosed in parentheses
+and separated by a comma. Note that \poyargument{trees:2} is a labeled-value
+argument, that is it contains a label (\texttt{trees}) and a value (\texttt{2})
+separated by a colon.
+
+\begin{figure}[htbp]
+   \centering
+   \includegraphics[width=0.34\textwidth]{figures/fig-poycommand1.jpg}
+   \caption{A structure of a simple \poy command. The entire command (highlighted
+   in blue), consists of  a command name followed by a list of arguments (enclosed in red box).
+   See text for details.}
+   \label{simplecommand}
+\end{figure}
+
+Figure \ref{compositecommand} shows a compound command \poycommand{perturb}, because the list of its arguments contains another command, \poycommand{swap}. This means
+that executing \poycommand{perturb} will perform a set of specified operations that contains
+a nested set of operations specified by \poycommand{swap}. Note also that in contrast to the first labeled-values argument \poyargument{iterations}, the second labeled-values argument \poyargument{ratchet} has multiple values (a float and an integer), the values must be enclosed in parentheses and separated by a comma. The third argument is a command (\poycommand{swap}), therefore it is syntactically distinguished from other arguments, labeled and unlabeled alike, by having
+parentheses following the command name. It must be emphasized that the parentheses always follow
+the command name even if no arguments are specified. (If no arguments are specified, a command is executed under its default settings if they exist.)
+
+\begin{figure}[htbp]
+   \centering
+   \includegraphics[width=0.8\textwidth]{figures/fig-poycommand2.jpg}
+   \caption{A structure of a compound \poy command. Note that the list of arguments
+   (enclosed in red box) includes a command (highlighted in blue). Also, note that
+   \poyargument{ratchet} accepts multiple values, a float and an integer, that are inclosed in
+   parentheses and separated by a comma. See text for details.}
+   \label{compositecommand}
+\end{figure}
+
+\section{Notation}
+
+Some arguments are obligatory, whereas others are not; some commands accept an
+empty list of arguments, but others do not; some argument labels have
+obligatory values, whereas values of others are optional. In the descriptions of
+\poy commands below, the elements of \poy grammar are emphasized in
+the text using the following conventions:
+
+\begin{itemize}
+    \item A command that could be included in a \poy script (that is can be entered in the
+    	interactive console or included in an input file) is shown in \poycommand{terminal type}.
+    \item Optional items are inclosed in \poycommand{[square brackets]}.
+    \item Primitives are shown in \poycommand{UPPERCASE}.
+\end{itemize}
+
+Each command description entry contains the following sections:
+
+\begin{itemize}
+    \item The name of the command.
+    \item A brief description of the command's function.
+    \item Cross references to related commands.
+    \item The valid syntax for the command.
+    \item The list of descriptions of valid arguments.
+    \item Description of default settings.
+    \item Some examples of its usage.
+\end{itemize}
+
+\begin{statement}
+    Default syntax. The default syntax for all commands is the same: it includes the
+    command name followed by empty parentheses. For example,
+    \poycommand{swap()}. The descriptions of default settings, however,
+    include the entire argument list for the obvious reason of showing what is
+    included in the omitted argument list.
+\end{statement}
+
+\begin{statement} \label{commandorder}
+    Command order. The effect of the order of arguments in a command is context
+    dependent. If arguments are not logically interconnected, their order is not
+    important. For example, commands \poycommand{build(10,randomized)} and
+    \poycommand{build(randomized,10)} are equivalent. However, executing
+    commands \poycommand{transform(tcm:(1,1),gap\_opening:4)} and
+    \poycommand{transform(gap\_opening:4,tcm:(1,1))} will produce different results
+    because \poycommand{gap\_opening} \emph{modifies} the values set by
+    \poyargument{tcm}, while \poyargument{tcm} \emph{overrides} the values set by \poyargument{gap\_opening}.
+\end{statement} 
+
+\begin{statement}
+    Output files. When an output file is specified, the file name (in double quotes and
+    followed by a comma) must precede the argument.
+\end{statement}
+
+\begin{statement}
+    Certain command arguments are mainly useful to \poy developers, and
+    those arguments are preceded by an underscore.
+\end{statement}
+
+\section{Command Reference}
+\input{allcommands}
+
+\chapter{\poy Heuristics: A Practical Guide}
+\input{poyheuristics}
+
+\chapter{\poy Tutorials}
+\input{poytutorials}
+
+\bibliography{poylibrary}
+\bibliographystyle{plain}
+
+%\begin{thebibliography}{99}
+
+%\bibitem{Bremer1988} Bremer, K. 1988. The limits of amino acid sequence data in angiosperm phylogenetic reconstruction.\emph{Evolution} 42: 795-803.
+%\bibitem{Farris1970} Farris, J. S. 1970. Methods for computing Wagner trees. \emph{Systematic Zoology} 19: 83-92.
+%\bibitem{Felsenstein1985} Felsenstein, J. 1985. Confidence limits on phylogenies: An approach using the bootstrap. \emph{Evolution} 39: 783-791
+%\bibitem{Kallersjoetal1992} K\"allersj\"o, M., J.S. Farris, A.G. Kluge, and C. Bult. 1992. Skewness and permutation. \emph{Cladistics} 8, 275-287.
+%\bibitem{Farrisetal1996} Farris, J. S., V. A. Albert, M. K\"allersj\"o, D. Lipscomb and A. G. Kluge. 1996. Parsimony jackknifing outperforms neighbor-joining. \emph{Cladistics} 12: 99-124.
+%\bibitem{Nixon1999} Nixon, K. C. 1999. The Parsimony Ratchet, a new method for rapid parsimony analysis. \emph{Cladistics} 15: 407-414.
+%\bibitem{Cormenetal} Cormen, Thomas H., Charles E. Leiserson and Ronald L. Rivest. \emph{Introduction ot Algorithms} MIT Press, McGraw-Hill Publishing. pp. 1028.
+%\bibitem{wheeler2003} Wheeler, W. C. 2003. Implied Alignment. \emph{Cladistics} 19: 261-268.
+%\bibitem{goloboff1999} Goloboff, P. 1999. Analyzing large data sets in reasonable times: solutions for composite optima. \emph{Cladistics} 15: 415-428.
+%\bibitem{wheeler1999a} Wheeler, W. C. 1999. Fixed character states and the optimization of molecular sequence data. \emph{Cladistics} 15: 379-385.
+
+%\end{thebibliography}
+
+\include{poy3commands}
+
+\printindex{general}{General Index}
+\printindex{poy3}{POY 3.0 Command Line Index}
+
+
+\end{document}
