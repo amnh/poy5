@@ -25,6 +25,7 @@ type dyna_state_t = Data.dyna_state_t
 
 
 let orientation code = 
+
     if code mod 2 = 0 then -(code / 2)
     else (code + 1) /2
 
