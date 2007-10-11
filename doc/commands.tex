@@ -513,28 +513,13 @@ Each command description entry contains the following sections:
 \chapter{\poy Tutorials}
 \input{poytutorials}
 
+\addcontentsline{toc}{section}{Bibliography}%%
 \bibliography{poylibrary}
 \bibliographystyle{plain}
 
-%\begin{thebibliography}{99}
-
-%\bibitem{Bremer1988} Bremer, K. 1988. The limits of amino acid sequence data in angiosperm phylogenetic reconstruction.\emph{Evolution} 42: 795-803.
-%\bibitem{Farris1970} Farris, J. S. 1970. Methods for computing Wagner trees. \emph{Systematic Zoology} 19: 83-92.
-%\bibitem{Felsenstein1985} Felsenstein, J. 1985. Confidence limits on phylogenies: An approach using the bootstrap. \emph{Evolution} 39: 783-791
-%\bibitem{Kallersjoetal1992} K\"allersj\"o, M., J.S. Farris, A.G. Kluge, and C. Bult. 1992. Skewness and permutation. \emph{Cladistics} 8, 275-287.
-%\bibitem{Farrisetal1996} Farris, J. S., V. A. Albert, M. K\"allersj\"o, D. Lipscomb and A. G. Kluge. 1996. Parsimony jackknifing outperforms neighbor-joining. \emph{Cladistics} 12: 99-124.
-%\bibitem{Nixon1999} Nixon, K. C. 1999. The Parsimony Ratchet, a new method for rapid parsimony analysis. \emph{Cladistics} 15: 407-414.
-%\bibitem{Cormenetal} Cormen, Thomas H., Charles E. Leiserson and Ronald L. Rivest. \emph{Introduction ot Algorithms} MIT Press, McGraw-Hill Publishing. pp. 1028.
-%\bibitem{wheeler2003} Wheeler, W. C. 2003. Implied Alignment. \emph{Cladistics} 19: 261-268.
-%\bibitem{goloboff1999} Goloboff, P. 1999. Analyzing large data sets in reasonable times: solutions for composite optima. \emph{Cladistics} 15: 415-428.
-%\bibitem{wheeler1999a} Wheeler, W. C. 1999. Fixed character states and the optimization of molecular sequence data. \emph{Cladistics} 15: 379-385.
-
-%\end{thebibliography}
-
-\include{poy3commands}
-
+\addtocontents{toc}{General Index}%%
 \printindex{general}{General Index}
-\printindex{poy3}{POY 3.0 Command Line Index}
-
+\printindex{poy3}{POY 3.0 Commands Index}
+\input{poy3commands}%%
 
 \end{document}

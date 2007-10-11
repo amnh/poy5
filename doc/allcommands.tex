@@ -39,12 +39,12 @@
             {asis}
 
         \argumentdefinition{branch\_and\_bound}{\optional{\poyfloat}}
-            {Instead of building a tree the default heuristic method, calculate
-            the exact solution using the branch and bound algorithm, and return
-            as many trees as the \poyargument{trees} argument specify, 
-            within the optional threshold value of the argument. By default only
-            one tree which is the optimal solution will be kept in the result.}
-            {branchandbound}
+            {Calculates the exact solution using the branch and bound algorithm
+            ~\cite{hendy1982}. By default only one optimal tree is kept but
+            the number of optimal trees to be retained can be specified by the
+            argument \poyargument{trees}. The optional float value specifies the
+            bound (either tree cost or likelihood score. Instead of building a tree the default heuristic method,}
+            {branchandbound} 
 
         \argumentdefinition{constraint}{\optional{\poystring}}
             {Builds trees using the set of constraints contained in the input
@@ -122,6 +122,10 @@
             {Builds the first Wagner tree using  tree using the order of terminals in
             as they are listed in the first imported datafile and generates the remaining
             14 trees using a random addition sequence.}
+            
+            	\poyexample{build(branch\_and\_bound, trees:5)}
+            {Builds trees using branch\_and\_bound method and keeps up to
+            5 optimal trees in memory.}
             
 	\end{poyexamples}
 
