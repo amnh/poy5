@@ -98,3 +98,14 @@ let distance_union a b =
     (DynamicCS.distance_union a b) /. Data.kolmo_round_factor
 
 let get_dynamic_preliminary d = d.characters
+
+let to_single a b c d = 
+    let b = 
+        match b with
+        | None -> None
+        | Some x -> Some x.characters
+    in
+    let a, _, r = DynamicCS.to_single a b c.characters d.characters in
+    let r = { d with characters = r } in
+    let cost = distance c r in
+    a, cost, r

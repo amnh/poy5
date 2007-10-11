@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2304 $"
+let () = SadmanOutput.register "Node" "$Revision: 2316 $"
 
 let debug = false
 let debug_exclude = false
@@ -885,7 +885,8 @@ let edge_distance nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = 
+    [ `Seq ; `Chrom; `Annchrom; `Breakinv ; `Kolmo ]
 
 let distance_of_type ?(para=None) ?(parb=None) t
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -1728,23 +1729,33 @@ let fin = [ (Tags.Characters.cclass, Tags.Nodes.final) ]
 let sing = [ (Tags.Characters.cclass, Tags.Nodes.single) ]
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
+    let to_single_generator parent mine get_root to_single_impl constructor =
+        let root_pre = 
+            match root with 
+            | Some root -> get_root root 
+            | None -> None
+        in
+        let prev_cost, cost, res = 
+            to_single_impl pre_ref_code root_pre
+            parent.preliminary mine.preliminary 
+        in
+        constructor {preliminary = res; final = res; 
+                   cost = (mine.weight *.  cost);
+                   sum_cost = (mine.weight *. cost);
+                   weight = mine.weight; time = 0.}
+    in
     match parent_cs, mine with
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)
-          let root_pre = match root with
-          | Some (Dynamic root) -> Some root.preliminary
-          | _ -> None
-          in 
-          let prev_cost, cost, res = 
-              DynamicCS.to_single pre_ref_code 
-                    root_pre parent.preliminary mine.preliminary 
-            in
-          Dynamic {preliminary = res; final = res; 
-                   cost = (mine.weight *.  cost);
-                   sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = 0.}
-              
+            to_single_generator parent mine
+            (function Dynamic root -> Some root.preliminary | _ -> None)
+            DynamicCS.to_single  (fun x -> Dynamic x)
+    | Kolmo parent, Kolmo mine ->
+            to_single_generator parent mine
+            (function Kolmo root -> Some root.preliminary | _ -> None)
+            KolmoCS.to_single
+            (fun x -> Kolmo x)
     | _ -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
