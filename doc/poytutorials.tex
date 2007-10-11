@@ -8,117 +8,47 @@ The tutorials use sample datasets that are provided with \poy installation but c
 \end{center}
 The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with \poy interface and command structure that can be found in the preceding chapters.
 
-\section{Tutorial name}
-Description of the tutorial.
+\section{Advanced Search}{\label{tutorial1}}
+The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space.
 
 \begin{verbatim}
-(* my first tutorial *)
-read()
-build()
-swap()
+(* search using all data *)
+read("*.seq", "morph.ss", aminoacids:("myosin.aa"))
+set(seed:1, log:"all_data_search.log", root:"taxon1")
+report(timer:"search start")
+transform (tcm:(1,2), gap_opening:1)
+build(250)
+swap(threshold:5.0)
+select()
+perturb(transform(static_approx), iterations:15,ratchet:(0.2,3))
+select()
+fuse(iterations:200, swap())
+select()
+report("all_trees", trees:(total) ,"constree", graphconsensus,
+"diagnosis", diagnosis)
+report(timer:"search end")
+set(nolog)
+exit()
 \end{verbatim}
 
-\begin{description}
-\item[read()] This command does...
-\item[build()] The argument of this command specify...
-\item[swap()] This command is necessary... 
-\end{description}
-
-\section{Basic Search}{\label{tutorial2}}
-
-This tutorial illustrates the basics of running \poy using single input datafile. 
-\begin{enumerate}
-\item Navigate to the \texttt{tutorial} folder. 
-\item Launch \poy (review \poy Quick Guide for instructions for your platform).
-\item Type:
-
-    \begin{verbatim}
-    read ("mol1.txt") [enter]
-    build (100) [enter]
-    select (unique) [enter]
-    swap (threshold:10) [enter]
-    select () [enter]
-    report (asciitrees) [enter]
-    report ("tutorial1_trees.txt", trees) [enter]
-    report ("tutorial1_stats.txt", treestats) [enter]
-    \end{verbatim}
-
-The above commands will perform the following tasks using default parameters:
 \begin{itemize}
-\item  Import the DNA sequence datafile mol1.txt.
-\item  Generate 100 random addition sequence Wagner trees.
-\item  Discard duplicate trees.
-\item  Alternate SPR and TBR branch swapping of all current trees as well as all 
-new trees found that are up to 10\%
-longer than the current tree being 
-swapped. Note: Threshold during swapping is equivalent to slop in \texttt{POY3}. 
-Given the faster algorithms and better heuristics of \poy it is likely to 
-be less important than it was in \texttt{POY3}.
-\item  Discard suboptimal and duplicate trees (i.e., retain only optimal trees).
-\item  Draw optimal trees in \poy Output window (ncurses version only) or output 
-file (non-ncurses version), reporting the cost of each tree.
-\item  Output all current trees to file tutorial1\_trees.txt.
-\item  Output basic tree statistics to file tutorial1\_stats.txt.
+\item \texttt{(* search using all data *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))}
+This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
+\item \texttt{set(seed:1, log:"all\_data\_search.log", root:"taxon")} The \poycommand{set} command specifies conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent randomization procedures (such as tree building and selecting) are reproducible. Specifying the log produces a file, \texttt{all\_data\_search.log} that provides an additional means to monitor the process of the search. The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
+\item \texttt{report(timer:"search start")} In combination with \texttt{report(timer:"search end")}, this commands reports the amount of time that the execution of commands enclosed by \poyargument{timer} takes. In this case, it reports how long it takes for the entire search to finish. Using timer is useful for planning a complex search strategy for large datasets that can take a long time to complete: it is instructive, for example, to know how long a search would last with a single replicate (one starting tree) before starting a search with multiple replicates.
+\item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
+\item \texttt{build(250)} This commands begins tree-building step of the search that generates 250 random-addition trees. A large number of independent starting point insures that thee large portion of tree space have been examined.
+\item \texttt{swap(threshold:5.0)} \poycommand{swap} specifies that each of the 250 trees is subjected to alternating SPR and TBR branch swapping routine (the default of \poy). In addition to the most optimal trees, all the suboptimal trees found within 5\% of the best cost are thoroughly evaluated. This step ensures that the local searches settled on the local optima.
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{perturb(transform(static\_approx), iterations:15,ratchet:(0.2,3))} This command subjects the resulting trees to 15 rounds of ratchet, re-weighting 20\% of characters by a factor of 2. During ratcheting, the dynamic homology characters are transformed into static homology characters, so that the re-weigted characters nucleotides. This step, that begins at multiple local maxima, is intended to further traverse the tree space in search of a global optimum.
+\item \texttt{fuse(iterations:200, swap())} In this step, up to 200 swappings of branches identical in terminal composition but different in topology, are performed between pairs of best trees recovered in the previous step. This is another strategy for further exploration of tree space. Each resulting tree is further refined by local branch swapping under the default parameters of \poycommand{swap}.
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
+\item \texttt{report("all\_trees", trees:(total) ,"constree", graphconsensus, "diagnosis", diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
+\item \texttt{report(timer:"search end")} This command stops timing the duration of search, initiated by the command \texttt{report(timer:"search start")}.
+\item \texttt{set(nolog)} This command stops reporting any output to the log file, \texttt{all\_data\_search.log}.
+\item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
-
-\item View cladogram(s) in parenthetical format by opening tutorial1\_trees.txt in 
-your chosen text editor.
-\item View basic tree statistics by opening tutorial1\_stats.txt in your chosen 
-text editor.
-\end{enumerate}
-
-\section[Advanced Search]{Advanced Search I: Multiple Datasets and Data Types, Equal 
-Weighting, Rooting, and Publication Quality Trees}{\label{tutorial2}}
-
-This tutorial builds on Tutorial~\ref{tutorial1} to include multiple input datafiles and 
-multiple data types (i.e., genotypic and phenotypic) using equal weighting, 
-designate the root, and automatically generate publication quality trees.
-
-\begin{enumerate}
-\item Type: 
-
-\begin{verbatim}
-    read ("mol2.txt", "morph.txt") [enter]
-    set (root: "Hagfish") [enter]
-    transform ((all, tcm:(1,1))) [enter]
-    build (100) [enter]
-    select (unique) [enter]
-    swap (threshold:10) [enter]
-    select () [enter]
-    report ("tutorial2", graphtrees) [enter]
-    report ("tutorial2_trees.txt", trees) [enter]
-    report ("tutorial2_stats.txt", treestats) [enter]
-\end{verbatim}
-
-The above commands will perform the following tasks using default parameters:
-
-\begin{itemize}
-\item Import the DNA sequence datafile mol2.txt and the phenotypic datafile 
-morph.ss. 
-\item Designate the Hagfish as the root. 
-\item Set indel and substitution costs to 1 (equal weighting). The additivity 
-(ordering) of the phenotypic characters is determined in the ccode of the 
-NONA file morph.ss. By default, the transformation cost for phenotypic 
-characters is 1.  
-\item Generate 100 random addition sequence Wagner trees.
-\item Discard duplicate trees.
-\item For each tree in memory, alternate SPR and TBR branch swapping of the tree 
-and all trees found within 10\% of the cost of the tree.
-\item Discard suboptimal and duplicate trees (\emph{i.e.}, retain only optimal trees).
-\item Output publication-quality cladogram(s) of optimal tree(s) to a postscript 
-file tutorial2.ps. (Note: \poy automatically adds the \texttt{.ps} extension.)  
-\item Output all current trees to file tutorial2\_trees.txt.
-\item Output basic tree statistics to file tutorial2\_stats.txt.
-\end{itemize}
-
-\item View publication-quality cladogram(s) by opening tutorial2.ps in your chosen 
-postscript viewer.
-\item View cladogram(s) in parenthetical format by opening tutorial2\_trees.txt in 
-your chosen text editor.
-\item View basic tree statistics by opening tutorial2\_stats.txt in your chosen 
-text editor.
-
-\end{enumerate}
 
 \section[Fusing and Ratcheting]{Advanced Search II: Tree Fusing and Fragment
 Ratcheting}{\label{tutorial3}}
