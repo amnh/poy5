@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2240 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2311 $"
 
 module Pool = struct
     type p
@@ -1108,6 +1108,218 @@ module CamlAlign = struct
 
     type s = int array
 
+(** Give two code arrays and the cost matrix of translations between
+ *  codes. Align two code arrays with minimum cost using deletion, insertion and
+ *  substitution *)
+    let create_pair_align code1_arr code2_arr cost_mat gap_code = 
+        let infinity = 100000000 in    
+        let len1 = Array.length code1_arr + 2 in 
+        let len2 = Array.length code2_arr + 2 in 
+
+        let row_code_arr = Array.init len1 
+            (fun index -> 
+                 if (index = 0) || (index = len1 - 1) then gap_code
+                 else code1_arr.(index - 1) )
+        in
+
+        let col_code_arr = Array.init len2 
+            (fun index -> 
+                 if (index = 0) || (index = len2 - 1) then gap_code
+                 else code2_arr.(index - 1) )
+        in
+        
+        let tc_mat = Array.make_matrix len1 len2 infinity in 
+        tc_mat.(0).(0) <- 0;
+
+        let cost r c = 
+        if (r < 0) || (c < 0) then infinity
+        else tc_mat.(r).(c)
+        in
+
+        for r = 0 to len1 - 1 do
+            for c = 0 to len2 - 1 do
+                let row_code = row_code_arr.(r) in
+                let col_code = col_code_arr.(c) in            
+            
+                let cost1 = cost (r - 1) (c -  1) + 
+                    cost_mat.(row_code).(col_code) in 
+                
+                let cost2 = cost (r - 1) c + cost_mat.(row_code).(gap_code) in 
+                let cost3 = cost r (c - 1) + cost_mat.(gap_code).(col_code) in 
+                if tc_mat.(r).(c) > min (min cost1 cost2) cost3 then
+                    tc_mat.(r).(c) <- min (min cost1 cost2) cost3
+            done
+        done;
+        
+        let rec trace ali r c  = 
+ (*        fprintf stdout "%i %i: %i" r c tc_mat.(r).(c); print_newline (); *)
+            if (r = 0) && (c = 0) then ali
+            else begin            
+                let row_code = row_code_arr.(r) in
+                let col_code = col_code_arr.(c) in            
+                
+                let cost1 = cost (r - 1) (c -  1) + 
+                    cost_mat.(row_code).(col_code) in 
+                
+                let cost2 = cost (r - 1) c + cost_mat.(row_code).(gap_code) in 
+                
+                
+                if cost1 = tc_mat.(r).(c) then 
+                    trace ((row_code, col_code)::ali) (r-1) (c-1)
+                else
+                    if cost2 = tc_mat.(r).(c) then 
+                        trace ((row_code, gap_code)::ali) (r-1) c
+                    else trace ((gap_code, col_code)::ali) r (c - 1)
+            end
+        in
+        
+        match tc_mat.(len1 - 1).(len2 - 1) = infinity with
+        | true -> [||], [||], infinity
+        | false -> 
+              let ali = trace [] (len1 - 1) (len2 - 1) in 
+              let ali = List.filter 
+                  (fun (c1, c2) -> (c1 != gap_code) || (c2 != gap_code)) ali in 
+              
+              let alied_seq1, alied_seq2 = List.split ali in 
+              let ali_cost = tc_mat.(len1 - 1).(len2 - 1) in 
+              Array.of_list alied_seq1, Array.of_list alied_seq2, ali_cost
+                  
+                  
+            
+            
+ (** Give two code arrays and the cost matrix of translations between
+  *  codes. Align two code arrays with minimum cost using deletion, insertion and
+  *   substitution *)
+    let create_triple_align code1_arr code2_arr code3_arr cost_mat gap = 
+(* 
+    printIntArr code1_arr;
+    printIntArr code2_arr;
+    printIntArr code3_arr;
+    print_newline ();
+    printIntMat cost_mat;
+    print_newline ();
+*)
+        let infinity = 100000000 in    
+        let len1 = Array.length code1_arr + 2 in 
+        let len2 = Array.length code2_arr + 2 in 
+        let len3 = Array.length code3_arr + 2 in 
+
+        let code1_arr = Array.init len1 
+            (fun index -> 
+                 if (index = 0) || (index = len1 - 1) then gap
+                 else code1_arr.(index - 1) )
+        in
+        
+        let code2_arr = Array.init len2 
+            (fun index -> 
+                 if (index = 0) || (index = len2 - 1) then gap
+                 else code2_arr.(index - 1) )
+        in
+        
+        let code3_arr = Array.init len3 
+            (fun index -> 
+                 if (index = 0) || (index = len3 - 1) then gap
+                 else code3_arr.(index - 1) )
+        in
+        
+        let tc_cub = Array.init len1
+            (fun _ -> Array.init len2 (fun _ -> Array.make len3 infinity))
+        in 
+        let cmp_cost3 code1 code2 code3 = cost_mat.(code1).(code2) +
+            cost_mat.(code1).(code3) + cost_mat.(code2).(code3) 
+        in 
+        
+        let find_min ls = 
+            List.fold_left (fun v min_v -> 
+                                if v < min_v then v
+                                else min_v) 
+                (List.hd ls) ls
+        in 
+
+        tc_cub.(0).(0).(0) <- 0;
+        for i1 = 1 to len1 - 1 do
+            for i2 = 1 to len2 - 1 do
+                for i3 = 1 to len3 - 1 do
+                    let c1 = code1_arr.(i1) in 
+                    let c2= code2_arr.(i2)in 
+                    let c3= code3_arr.(i3) in
+                    
+                    
+                    let cost1 = tc_cub.(i1 - 1).(i2 - 1).(i3 - 1) + cmp_cost3 c1 c2 c3 in
+                    let cost2 = tc_cub.(i1 - 1).(i2 - 1).(i3) + cmp_cost3 c1 c2 gap in                
+                    let cost3 = tc_cub.(i1 - 1).(i2).(i3 - 1) + cmp_cost3 c1 gap c3 in                
+                    let cost4 = tc_cub.(i1 - 1).(i2).(i3) + cmp_cost3 c1 gap gap in                
+                    let cost5 = tc_cub.(i1).(i2 - 1).(i3 - 1) + cmp_cost3 gap c2 c3 in
+                    let cost6 = tc_cub.(i1).(i2 - 1).(i3) + cmp_cost3 gap c2 gap in
+                    let cost7 = tc_cub.(i1).(i2).(i3 - 1) + cmp_cost3 gap gap c3 in
+                    let cost_ls = [cost1; cost2; cost3; cost4; cost5; cost6; cost7] in 
+                    tc_cub.(i1).(i2).(i3) <- find_min cost_ls; 
+                    
+                done;
+            done;
+        done;
+        
+
+        let rec trace ali i1 i2 i3 = 
+            if (i1 + i2 + i3 = 0) then ali
+            else begin
+                let c1 = code1_arr.(i1) in 
+                let c2= code2_arr.(i2) in 
+                let c3= code3_arr.(i3) in
+                let min_cost = tc_cub.(i1).(i2).(i3) in 
+                
+                let cost1 = tc_cub.(i1 - 1).(i2 - 1).(i3 - 1) + cmp_cost3 c1 c2 c3 in
+                let cost2 = tc_cub.(i1 - 1).(i2 - 1).(i3) + cmp_cost3 c1 c2 gap in                
+                let cost3 = tc_cub.(i1 - 1).(i2).(i3 - 1) + cmp_cost3 c1 gap c3 in                
+                let cost4 = tc_cub.(i1 - 1).(i2).(i3) + cmp_cost3 c1 gap gap in                
+                let cost5 = tc_cub.(i1).(i2 - 1).(i3 - 1) + cmp_cost3 gap c2 c3 in
+                let cost6 = tc_cub.(i1).(i2 - 1).(i3) + cmp_cost3 gap c2 gap in
+
+                
+                if min_cost = cost1 then trace ((c1, c2, c3)::ali) (i1 - 1) (i2 - 1) (i3 - 1)
+                else if min_cost = cost2 then trace ((c1, c2, gap)::ali) (i1 - 1) (i2 - 1) i3
+                else if min_cost = cost3 then trace ((c1, gap, c3)::ali) (i1 - 1) i2 (i3 - 1)        
+                else if min_cost = cost4 then trace ((c1, gap, gap)::ali) (i1 - 1) i2 i3        
+                else if min_cost = cost5 then trace ((gap, c2, c3)::ali) i1 (i2 - 1) (i3 - 1)        
+                else if min_cost = cost6 then trace ((gap, c2, gap)::ali) i1 (i2 - 1) i3        
+                else trace ((gap, gap, c3)::ali) i1 i2 (i3 - 1)        
+            end             
+        in 
+        
+        if tc_cub.(len1 - 1).(len2 - 1).(len3 - 1) >= infinity then 
+            [||],[||], [||], infinity
+        else begin
+            let ali = trace [] (len1 - 1) (len2 - 1) (len3 - 1) in
+            let ali = List.filter (fun (c1, c2, c3) -> c1 + c2 + c3 != 3 * gap) ali in 
+            let alied_code1_ls, alied_code2_ls, alied_code3_ls = 
+                List.fold_right (fun (c1, c2, c3) (l1, l2, l3) -> c1::l1, c2::l2,
+                                     c3::l3) ali ([], [], [])
+            in 
+            
+            let cost = List.fold_left (fun ali_cost (c1, c2, c3) -> ali_cost + cmp_cost3 c1 c2 c3) 0 ali
+            in 
+(*            
+            (if cost != tc_cub.(len1 - 1).(len2 - 1).(len3 -1) || cost >= infinity then 
+                 failwith "You are fucking up with the triple alignment cost"
+             else begin 
+                 fprintf stdout "Triple_alignment_cost: %i\n" cost;
+                 printIntArr (Array.of_list alied_code1_ls);
+                 printIntArr (Array.of_list alied_code2_ls);
+                 printIntArr (Array.of_list alied_code3_ls);
+                 print_newline (); 
+             end  
+            );  
+            
+*)            
+            Array.of_list alied_code1_ls, 
+            Array.of_list alied_code2_ls, 
+            Array.of_list alied_code2_ls, 
+            cost        
+        end 
+            
+
+ 
+(*
     let align a b =
         let lena = Array.length a
         and lenb = Array.length b in
@@ -1190,6 +1402,13 @@ module CamlAlign = struct
                     List.fold_left local_builder [] mtx.(y).(x)
         in
         List.map Array.of_list (builder [] lena lenb)
+*)
+
+
+
+
+
+
 
     exception Illegal_argument
 

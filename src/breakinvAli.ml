@@ -23,6 +23,7 @@ let () = SadmanOutput.register "BreakinvAli" "$Revision: 911 $"
     between general sequences where both point mutations and rearrangement operations
     are considered *)
 
+let debug = false
 let fprintf = Printf.fprintf
 
 
@@ -254,6 +255,60 @@ let get_costs med child_ref =
     match child_ref = med.ref_code1 with
     | true -> med.cost1, med.recost1
     | false -> med.cost2, med.recost2
+
+
+
+
+
+let create_breakinv_test =
+    if debug then
+        let char_arr = [|"A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "N"; "M";
+                         "L"; "P"; "Q"; "Z"; "X"; "Y"; "R"; "S"; "V"; "O"; "W"; "T";
+                         "U"|] in 
+        let num_char = 27 in
+        let gap_cost = 10 in 
+        let cost_mat = Array.create_matrix num_char num_char gap_cost in 
+        cost_mat.(num_char - 1).(num_char - 1) <- 0;
+        for i = 0 to num_char - 2 do
+            for j = 0 to num_char - 2 do
+                cost_mat.(i).(j) <-
+                    if i = j then 0
+                    else (Random.int (gap_cost - 1)) + 1 
+            done;
+        done;
+        Random.self_init ();
+        let num_tax = 22 in 
+        let seqfile = open_out "taxa.bk" in 
+        for t = 0 to num_tax - 1 do
+            fprintf seqfile ">T%i\n" t;
+            let mask_arr = Array.make num_char true in 
+            for c = 0 to num_char - 2 do 
+                let ch = Random.int (num_char - 1) in 
+                if mask_arr.(ch) = true then begin
+                    (if Random.int 2 = 0 then fprintf seqfile "%s " char_arr.(ch)
+                    else fprintf seqfile "~%s " char_arr.(ch));
+                    mask_arr.(ch) <- false;
+                end 
+            done;
+            fprintf seqfile "\n";
+        done;
+        close_out seqfile;
+        
+        let matfile = open_out "matrix.bk" in 
+        Array.iter (fun s -> fprintf matfile "%s  " s) char_arr;
+        fprintf matfile "\n"; 
+        for i = 0 to num_char - 1 do
+            for j = 0 to num_char - 1 do
+                fprintf matfile "%i  " cost_mat.(i).(j);
+            done;
+            fprintf matfile "\n";
+        done;
+        close_out matfile;
+        print_endline "End of create_breakinv_test"
+    else ()
+
+
+
 
 
 

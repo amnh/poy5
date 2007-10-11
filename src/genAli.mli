@@ -68,3 +68,11 @@ val create_gen_ali_code :
   [< `Breakpoint of int | `Inversion of int ] ->
   int -> int -> int * (int * int) * int array * int array
 
+val create_gen_ali3 :
+  Sequence.s ->
+  Sequence.s ->
+  Sequence.s ->
+  int array array ->
+  Alphabet.a ->
+  [< `Breakpoint of int | `Inversion of int ] ->
+  'a -> int -> Sequence.s * int

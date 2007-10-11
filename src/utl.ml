@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Utl" "$Revision: 2139 $"
+let () = SadmanOutput.register "Utl" "$Revision: 2311 $"
 
 (** This module implements basic utilities *)
 
@@ -130,8 +130,7 @@ let binary_search (arr : int array) (looking_val : int) =
 
 
 (** Searching the index of looking item in the arr using the cmp_fun *)
-let find_index
- arr looking_item cmp_fun = 
+let find_index arr looking_item cmp_fun = 
     let len = Array.length arr in 
     let rec find pos = 
         if pos = len then -1
@@ -140,6 +139,13 @@ let find_index
             else find (pos + 1)
     in
     find 0
+
+let get_common arr1 arr2 equal = 
+    let ls1 = Array.to_list arr1 in
+    let ls2 = Array.to_list arr2 in 
+    let ls1 = List.filter  (fun code1 -> (find_index arr2 code1 equal) != -1) ls1 in
+    let ls2 = List.filter  (fun code2 -> (find_index arr1 code2 equal) != -1) ls2 in
+    Array.of_list ls1, Array.of_list ls2
 
 
 let insert arr pos new_item = 
@@ -189,85 +195,6 @@ let create_ls len value =
 
 
 module IntSet = All_sets.Integers
-
-
-
-(** Give two code arrays and the cost matrix of translations between
- *  codes. Align two code arrays with minimum cost using deletion, insertion and
- *  substitution *)
-let create_pair_align code1_arr code2_arr cost_mat gap_code = 
-    let len1 = Array.length code1_arr + 2 in 
-    let len2 = Array.length code2_arr + 2 in 
-
-    let row_code_arr = Array.init len1 
-        (fun index -> 
-             if (index = 0) || (index = len1 - 1) then gap_code
-             else code1_arr.(index - 1) )
-    in
-
-    let col_code_arr = Array.init len2 
-        (fun index -> 
-             if (index = 0) || (index = len2 - 1) then gap_code
-             else code2_arr.(index - 1) )
-    in
-
-    let tc_mat = Array.make_matrix len1 len2 infinity in 
-    tc_mat.(0).(0) <- 0;
-
-    let cost r c = 
-        if (r < 0) || (c < 0) then infinity
-        else tc_mat.(r).(c)
-    in
-
-    for r = 0 to len1 - 1 do
-        for c = 0 to len2 - 1 do
-            let row_code = row_code_arr.(r) in
-            let col_code = col_code_arr.(c) in            
-
-            let cost1 = cost (r - 1) (c -  1) + 
-                cost_mat.(row_code).(col_code) in 
-
-            let cost2 = cost (r - 1) c + cost_mat.(row_code).(gap_code) in 
-            let cost3 = cost r (c - 1) + cost_mat.(gap_code).(col_code) in 
-            if tc_mat.(r).(c) > min (min cost1 cost2) cost3 then
-                tc_mat.(r).(c) <- min (min cost1 cost2) cost3
-        done
-    done;
-    
-    let rec trace ali r c  = 
-(*        fprintf stdout "%i %i: %i" r c tc_mat.(r).(c); print_newline (); *)
-        if (r = 0) && (c = 0) then ali
-        else begin            
-            let row_code = row_code_arr.(r) in
-            let col_code = col_code_arr.(c) in            
-
-            let cost1 = cost (r - 1) (c -  1) + 
-                cost_mat.(row_code).(col_code) in 
-            
-            let cost2 = cost (r - 1) c + cost_mat.(row_code).(gap_code) in 
-
-
-            if cost1 = tc_mat.(r).(c) then 
-                trace ((row_code, col_code)::ali) (r-1) (c-1)
-            else
-                if cost2 = tc_mat.(r).(c) then 
-                    trace ((row_code, gap_code)::ali) (r-1) c
-                else trace ((gap_code, col_code)::ali) r (c - 1)
-        end
-    in
-
-    match tc_mat.(len1 - 1).(len2 - 1) = infinity with
-    | true -> [||], [||], infinity
-    | false -> 
-          let ali = trace [] (len1 - 1) (len2 - 1) in 
-          let ali = List.filter 
-              (fun (c1, c2) -> (c1 != gap_code) || (c2 != gap_code)) ali in 
-
-          let alied_seq1, alied_seq2 = List.split ali in 
-          let ali_cost = tc_mat.(len1 - 1).(len2 - 1) in 
-          Array.of_list alied_seq1, Array.of_list alied_seq2, ali_cost
-
-
 
 (** [remove_nth list n] returns the [n]th element of [list] and [list] with the
     [n]th element removed. *)
@@ -380,6 +307,11 @@ let break_array arr break_ls =
     List.rev rev_seg_ls
 
 
+let max_arr arr = 
+    Array.fold_left (fun v max_v -> if v > max_v then v else max_v) arr.(0) arr
+
+let min_arr arr = 
+    Array.fold_left (fun v min_v -> if v < min_v then v else min_v) arr.(0) arr
     
 
 let printIntSet s = 
@@ -392,4 +324,5 @@ let get_dir dir =
     | `Positive -> "+" 
     | `Negative -> "-" 
     | _ -> "" 
+
 

@@ -168,11 +168,28 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
             
 
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
-    let adjust_med = find_meds3 parent ch1 ch2 in 
-    let cost1, _  = cmp_min_pair_cost ch1 adjust_med in
-    let cost2, _  = cmp_min_pair_cost ch2 adjust_med in
-    let costp, _ = cmp_min_pair_cost parent adjust_med in
-    (cost1 + cost2 + costp), adjust_med, 0 <> (compare mine adjust_med)
+    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
+    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
+    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+
+    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
+
+    let adjust_seq, cost = GenAli.create_gen_ali3 seq1 seq2 seq3 
+        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
+        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+    in 
+    let amed = List.hd mine.med_ls in
+    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
+    let adjust_mine = {mine with med_ls = [adjust_med]} in 
+
+
+    let cost1, _ = cmp_min_pair_cost ch1 mine in 
+    let cost2, _ = cmp_min_pair_cost ch2 mine in 
+    let cost3, _ = cmp_min_pair_cost parent mine in 
+    let old_cost = cost1 + cost2 + cost3 in 
+(*    fprintf stdout "Cost: %i  -> adjusted cost: %i\n" old_cost cost;*)
+    if old_cost < cost then old_cost, mine, false
+    else cost, adjust_mine, 0 <> (compare mine adjust_mine)
 
        
     

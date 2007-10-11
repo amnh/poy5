@@ -51,9 +51,6 @@ module IntSet :
     val choose : t -> elt
     val split : elt -> t -> t * bool * t
   end
-val create_pair_align :
-  int array ->
-  int array -> int array array -> int -> int array * int array * int
 val remove_nth : ?acc:'a list -> 'a list -> int -> 'a * 'a list
 val insert_arr : int array -> int array -> int -> int array
 val pairwisep : ('a -> 'a -> bool) -> 'a list -> bool
@@ -64,3 +61,8 @@ val filterArray : ('a -> bool) -> 'a array -> 'a array
 val break_array : 'a array -> (int * int) list -> 'a array list
 val printIntSet : IntSet.t -> unit
 val get_dir : [> `Negative | `Positive ] -> string
+val max_arr : 'a array -> 'a
+val min_arr : 'a array -> 'a
+val get_common :
+  'a array -> 'a array -> ('a -> 'a -> int) -> 'a array * 'a array
+

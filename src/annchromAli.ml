@@ -553,7 +553,6 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
  * Rearrangements are allowed *) 
 let find_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t) 
         (cost_mat : Cost_matrix.Two_D.m) alpha annchrom_pam = 
-    
     let ali_pam = get_annchrom_pam annchrom_pam in          
     match ali_pam.symmetric with
     | true ->
@@ -718,11 +717,15 @@ let create_single_map med =
 
 
 let to_single single_parent child_ref c2 =
-    let gap = Cost_matrix.Two_D.gap c2 in 
-    let map = 
-        Array.map (fun m ->
+    match (single_parent.ref_code1 = -1) && (single_parent.ref_code2 = -1) with
+    | true -> Array.map (fun s -> s.seq) single_parent.seq_arr
+    | false -> 
+          let gap = Cost_matrix.Two_D.gap c2 in 
+          let map = 
+              Array.map 
+                  (fun m ->
                        let alied_single_seq, alied_child_seq  =
-                          match child_ref = single_parent.ref_code1 with
+                           match child_ref = single_parent.ref_code1 with
                           | true ->
                                 let single, _ = UtlPoy.closest_alied_seq
                                     m.alied_med m.alied_seq1 c2
@@ -753,33 +756,37 @@ let to_single single_parent child_ref c2 =
                       let ungap_alied_med = UtlPoy.of_array (Array.of_list  ungap_alied_med) in                      
                       ungap_alied_med, order
                  ) single_parent.seq_arr
-    in 
+          in 
 
-    Array.sort (fun seg1 seg2 ->
-                    let _,  ord1 = seg1 in 
-                    let _,  ord2 = seg2 in
-                    ord1 - ord2
-               ) map;
+          Array.sort (fun seg1 seg2 ->
+                          let _,  ord1 = seg1 in 
+                          let _,  ord2 = seg2 in
+                          ord1 - ord2
+                     ) map;
 
     
-    let seq_ls = Array.fold_right 
-        (fun seg seq_ls -> 
-             let seq,  ord = seg in 
-             if ord < 0 then seq_ls
-             else seq::seq_ls
-        ) map []
-    in 
-
-    Array.of_list seq_ls
-
-
-
+          let seq_ls = Array.fold_right 
+              (fun seg seq_ls -> 
+                   let seq,  ord = seg in 
+                   if ord < 0 then seq_ls
+                   else seq::seq_ls
+              ) map []
+          in 
+          
+          Array.of_list seq_ls
+              
+              
+              
 
 
 let to_single_root root other_code c2 =
-    let gap = Cost_matrix.Two_D.gap c2 in 
-    let map = 
-        Array.map (fun m ->
+    match (root.ref_code1 = -1) && (root.ref_code2 = -1) with
+    | true -> Array.map (fun s -> s.seq) root.seq_arr
+    | false -> 
+          let gap = Cost_matrix.Two_D.gap c2 in 
+          let map = 
+              Array.map 
+                  (fun m ->
                        let child_alied_seq, other_alied_seq = 
                            match root.ref_code2 = other_code with 
                            | true -> m.alied_seq1, m.alied_seq2
@@ -801,8 +808,8 @@ let to_single_root root other_code c2 =
                       let ungap_alied_med = UtlPoy.of_array (Array.of_list  ungap_alied_med) in                      
                       ungap_alied_med
                  ) root.seq_arr
-    in 
-    map
+          in  
+          map 
     
 
 

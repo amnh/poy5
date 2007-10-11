@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2261 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2311 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -837,97 +837,102 @@ let copy_chrom_map s d =
     
 
 let to_single single_parent child_ref c2 pam = 
-    let gap = Cost_matrix.Two_D.gap c2 in
-    
-    let map = List.map 
-        (fun seg -> 
-             let alied_single_seq, alied_child_seq = 
-                 match child_ref = single_parent.ref_code1 with
-                 | true ->
-                       let single, _ = UtlPoy.closest_alied_seq
-                           seg.alied_med seg.alied_seq1 c2
-                       in 
-                       single, seg.alied_seq1
-                 | false ->
-                       let single, _  = 
-                           if seg.dir2 = `Positive then 
-                               UtlPoy.closest_alied_seq seg.alied_med seg.alied_seq2 c2 
-                           else  begin
-                               let rev_alied_seq2 = Sequence.reverse seg.alied_seq2 in 
-                               let rev_single_alied_seq2, _ = UtlPoy.closest_alied_seq
-                                   seg.alied_med rev_alied_seq2 c2
-                               in 
-                               (Sequence.reverse rev_single_alied_seq2), 0
-                           end 
-                       in 
-                       single, seg.alied_seq2 
-             in  
-             let sta = 
-                 match child_ref = single_parent.ref_code1 with 
-                 | true -> seg.sta1
-                 | false -> seg.sta2
-             in 
-              let ungap_alied_med = Sequence.fold_righti  
-                 (fun ungap_alied_med p code ->
-                      match code = gap with
-                      | false -> code::ungap_alied_med
-                      | true ->                            
-                            if Sequence.get alied_child_seq p = gap then  ungap_alied_med
-                            else code::ungap_alied_med
-                 ) [] alied_single_seq
-             in                       
-  
-             let ungap_alied_med = UtlPoy.of_array (Array.of_list  ungap_alied_med) in
-             ungap_alied_med, sta
-        ) single_parent.chrom_map 
-    in  
-
-    let sorted_map = List.sort 
-        (fun seg1 seg2 ->
-             let _,  sta1 = seg1 in 
-             let _,  sta2 = seg2 in
-             sta1 - sta2
-        ) map 
-    in     
-
-    let seq_ls = List.fold_right 
-        (fun seg seq_ls -> 
-             let seq, sta = seg in 
-             if sta < 0 then seq_ls
-             else seq::seq_ls
-        ) sorted_map []
-    in  
-    let single_seq = UtlPoy.concat seq_ls in   
-    single_seq
+    if (single_parent.ref_code1 = -1) && (single_parent.ref_code2 = -1) then single_parent.seq
+    else begin
+        let gap = Cost_matrix.Two_D.gap c2 in    
+        let map = List.map 
+            (fun seg -> 
+                 let alied_single_seq, alied_child_seq = 
+                     match child_ref = single_parent.ref_code1 with
+                     | true ->
+                           let single, _ = UtlPoy.closest_alied_seq
+                               seg.alied_med seg.alied_seq1 c2
+                           in 
+                           single, seg.alied_seq1
+                     | false ->
+                           let single, _  = 
+                               if seg.dir2 = `Positive then 
+                                   UtlPoy.closest_alied_seq seg.alied_med seg.alied_seq2 c2 
+                               else  begin
+                                   let rev_alied_seq2 = Sequence.reverse seg.alied_seq2 in 
+                                   let rev_single_alied_seq2, _ = UtlPoy.closest_alied_seq
+                                       seg.alied_med rev_alied_seq2 c2
+                                   in 
+                                   (Sequence.reverse rev_single_alied_seq2), 0
+                               end 
+                           in 
+                           single, seg.alied_seq2 
+                 in  
+                 let sta = 
+                     match child_ref = single_parent.ref_code1 with 
+                     | true -> seg.sta1
+                     | false -> seg.sta2
+                 in 
+                 let ungap_alied_med = Sequence.fold_righti  
+                     (fun ungap_alied_med p code ->
+                          match code = gap with
+                          | false -> code::ungap_alied_med
+                          | true ->                            
+                                if Sequence.get alied_child_seq p = gap then  ungap_alied_med
+                                else code::ungap_alied_med
+                     ) [] alied_single_seq
+                 in                       
+                 
+                 let ungap_alied_med = UtlPoy.of_array (Array.of_list  ungap_alied_med) in
+                 ungap_alied_med, sta
+            ) single_parent.chrom_map 
+        in  
+        
+        let sorted_map = List.sort 
+            (fun seg1 seg2 ->
+                 let _,  sta1 = seg1 in 
+                 let _,  sta2 = seg2 in
+                 sta1 - sta2
+            ) map 
+        in     
+        
+        let seq_ls = List.fold_right 
+            (fun seg seq_ls -> 
+                 let seq, sta = seg in 
+                 if sta < 0 then seq_ls
+                 else seq::seq_ls
+            ) sorted_map []
+        in  
+        let single_seq = UtlPoy.concat seq_ls in   
+        single_seq
+    end 
 
 
 
 let to_single_root root other_code c2 =
-    let gap = Cost_matrix.Two_D.gap c2 in 
-    let map = List.map 
-        (fun seg ->  
-             let child_alied_seq = seg.alied_seq1 in 
-             let other_alied_seq = match seg.dir2 = `Positive with 
-             | true -> seg.alied_seq2
-             | false -> Sequence.reverse seg.alied_seq2 
-             in 
-             let single_seg, _ = UtlPoy.closest_alied_seq 
-                 other_alied_seq child_alied_seq c2 in 
-              let ungap_alied_med = Sequence.fold_righti  
-                  (fun ungap_alied_med p code ->
-                       match code = gap with
-                       | false -> code::ungap_alied_med
-                       | true ->
-                             if Sequence.get seg.alied_med p = gap then ungap_alied_med
-                             else code::ungap_alied_med
-                  ) [] single_seg
-              in                       
-              let ungap_alied_med = UtlPoy.of_array (Array.of_list ungap_alied_med) in         
-              ungap_alied_med
-        ) root.chrom_map 
-    in  
-    let single_seq = UtlPoy.concat map in 
-    single_seq
+    if (root.ref_code1 = -1) && (root.ref_code2 = -1) then root.seq
+    else begin
+        let gap = Cost_matrix.Two_D.gap c2 in 
+        let map = List.map 
+            (fun seg ->  
+                 let child_alied_seq = seg.alied_seq1 in 
+                 let other_alied_seq = match seg.dir2 = `Positive with 
+                 | true -> seg.alied_seq2
+                 | false -> Sequence.reverse seg.alied_seq2 
+                 in 
+                 let single_seg, _ = UtlPoy.closest_alied_seq 
+                     other_alied_seq child_alied_seq c2 in 
+                 let ungap_alied_med = Sequence.fold_righti  
+                     (fun ungap_alied_med p code ->
+                          match code = gap with
+                          | false -> code::ungap_alied_med
+                          | true ->
+                                if Sequence.get seg.alied_med p = gap then ungap_alied_med
+                                else code::ungap_alied_med
+                     ) [] single_seg
+                 in                       
+                 let ungap_alied_med = UtlPoy.of_array (Array.of_list ungap_alied_med) in         
+                 ungap_alied_med
+            ) root.chrom_map 
+        in  
+        let single_seq = UtlPoy.concat map in 
+        single_seq
+    end 
 
 let change_to_single med single_seq c2 = 
     (if Sequence.length single_seq != Sequence.length med.seq then begin

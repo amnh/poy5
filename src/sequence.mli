@@ -328,13 +328,26 @@ module CamlAlign : sig
     * alignment matrix and the direction matrix containing all the possible
     * operations to be perfomed for the alignment. This initial implementation
     * assumes a transformation cost of 1 for each operation. *)
-    val align : s -> s -> int array array * e list array array
+    (*val align : s -> s -> int array array * e list array array*)
 
     (* [backtrace m a b] returns all the possible sequences that are product of
     * aligning sequences [a] and [b] using the transformation matrix [m]. [m]
     * should be second element in the output of [align] and [a] and [b] should
     * be passed in the same order they where passed to [align]. *)
-    val backtrace : e list array array -> s -> s -> s list
+    (*val backtrace : e list array array -> s -> s -> s list*)
+
+
+    val create_pair_align :
+        int array ->
+        int array -> int array array -> int -> int array * int array * int
+
+    val create_triple_align :
+        int array ->
+        int array ->
+        int array ->
+        int array array -> int -> int array * int array * int array * int
+
+
 
     val pc : int -> int -> int -> float
 

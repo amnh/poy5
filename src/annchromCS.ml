@@ -393,7 +393,7 @@ let to_single ref_codes (root : t option) single_parent mine =
                               ) amed.AnnchromAli.seq_arr
                       }
                   in 
-                              
+                  
                   let cost, recost = AnnchromAli.cmp_cost 
                       single_med aparent_med c2 mine.alph
                       med.Annchrom.annchrom_pam 
