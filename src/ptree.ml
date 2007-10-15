@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2289 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2329 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1621,7 +1621,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
     let collapse_as_needed tree code chld = 
         let data = get_node_data code tree in
         let datac = get_node_data chld tree in
-        Node.is_collapsable data datac
+        Node.is_collapsable `Any data datac
 
 let extract_names pd ptree code = 
     let data = get_node_data code ptree in

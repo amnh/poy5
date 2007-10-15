@@ -143,8 +143,8 @@ module OneDirF :
 
     let union_distance _ _ = 0.0
 
-    let is_collapsable a b = 
-        apply_f_on_lazy Node.Standard.is_collapsable a b
+    let is_collapsable clas a b = 
+        apply_f_on_lazy (Node.Standard.is_collapsable clas) a b
 
     let to_xml _ _ _ = ()
 
@@ -439,12 +439,27 @@ type nad8 = Node.Standard.nad8 = struct
 
     let union_distance _ _ = 0.0
 
-    let is_collapsable a b =
+    let rec is_collapsable clas a b =
         let acode = taxon_code a
         and bcode = taxon_code b in
-        let da = not_with bcode a.unadjusted
-        and db = not_with acode b.unadjusted in
-        OneDirF.is_collapsable da.lazy_node db.lazy_node
+        match clas with
+        | `Static ->
+                let da = not_with bcode a.unadjusted
+                and db = not_with acode b.unadjusted in
+                OneDirF.is_collapsable `Static da.lazy_node db.lazy_node
+        | `Dynamic ->
+                let da = 
+                    match a.adjusted with
+                    | [x] -> x
+                    | _ -> failwith "AllDirNode.is_collapsable 1"
+                and db = 
+                    match b.adjusted with
+                    | [x] -> x
+                    | _ -> failwith "AllDirNode.is_collapsable 1"
+                in
+                OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
+        | `Any ->
+                (is_collapsable `Static a b) && (is_collapsable `Dynamic a b)
 
     let to_xml _ _ _ = ()
 

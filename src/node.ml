@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2316 $"
+let () = SadmanOutput.register "Node" "$Revision: 2329 $"
 
 let debug = false
 let debug_exclude = false
@@ -844,24 +844,46 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
     in
     compare_lists chs1 chs2
 
-let edge_distance nodea nodeb =
+let edge_distance clas nodea nodeb =
     (* This function assumes that nodea and nodeb come from a valid tree and
     * nodea is the parent of nodeb *)
     let rec distance_two ch1 ch2 =
         match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b ->
-              a.weight *. NonaddCS8.distance a.final b.final
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. NonaddCS8.distance a.final b.final
+                | `Dynamic -> 0.)
         | Nonadd16 a, Nonadd16 b ->
-              a.weight *. NonaddCS16.distance a.final b.final
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. NonaddCS16.distance a.final b.final
+                | `Dynamic -> 0.)
         | Nonadd32 a, Nonadd32 b ->
-              a.weight *. NonaddCS32.distance a.final b.final
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. NonaddCS32.distance a.final b.final
+                | `Dynamic -> 0.)
         | Add a, Add b ->
-              a.weight *. AddCS.distance a.final b.final
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. AddCS.distance a.final b.final
+                | `Dynamic -> 0.)
         | Sank a, Sank b ->
-              a.weight *. SankCS.distance a.final b.final
+                (match clas with
+                | `Static | `Any -> 
+                        a.weight *. SankCS.distance a.final b.final
+                | `Dynamic -> 0.)
         | Dynamic a, Dynamic b ->
-              let d = DynamicCS.tabu_distance a.final b.final in
-              a.weight *. d
+                (match clas with
+                | `Dynamic | `Any -> 
+                        (* Observe that we REQUIRE the single assignment for
+                        * this collpse to be correct. *)
+                        let d = 
+                            DynamicCS.distance a.preliminary b.preliminary 
+                        in
+                        a.weight *. d
+                | `Static -> 0.)
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
@@ -2310,8 +2332,8 @@ let reprioritize a b =
     in
     { b with characters = pairwise_priority a.characters b.characters }
 
-let is_collapsable a b = 
-    0.0 = edge_distance a b
+let is_collapsable clas a b = 
+    0.0 = edge_distance clas a b
 
 let rec internal_n_chars acc (chars : cs list) = 
     match chars with
@@ -2821,7 +2843,7 @@ module Standard :
         let get_dynamic_preliminary _ = get_dynamic_preliminary
         let get_dynamic_adjusted _ _ = 
             failwith "No single assignment available"
-        let edge_distance = edge_distance
+        let edge_distance = edge_distance `Any
         let support_chars = support_chars
         let load_data = load_data
         let n_chars = n_chars

@@ -91,7 +91,7 @@ module type S = sig
 
     (** [is_collapsable m n] returns true if the edge defined by [m] and [n] can
     * be collapsed in a tree safely (for I/O purposes). *)
-    val is_collapsable : n -> n -> bool
+    val is_collapsable : [ `Dynamic | `Static | `Any ] -> n -> n -> bool
 
     (** [to_xml d chan n] outputs in an (obscure) XML format the contents of the
     * ndoe. This functionality is not currently used, and should be removed from

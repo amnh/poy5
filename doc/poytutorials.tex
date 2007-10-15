@@ -8,8 +8,8 @@ The tutorials use sample datasets that are provided with \poy installation but c
 \end{center}
 The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with \poy interface and command structure that can be found in the preceding chapters.
 
-\section{Advanced Search}{\label{tutorial1}}
-The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space.
+\section{Combining  Search Strategies}{\label{tutorial1}}
+The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space. In addition, this script shows how to output the status of the search to a log file and calculate the duration of the search. 
 
 \begin{verbatim}
 (* search using all data *)
@@ -49,6 +49,34 @@ This command imports all the nucleotide sequence datafiles (all files with the e
 \item \texttt{set(nolog)} This command stops reporting any output to the log file, \texttt{all\_data\_search.log}.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
+
+\section{Searching Under Iterative Pass}{\label{tutorial2}}
+The following script implements a strategy for a thorough search under iterative pass optimization. The iterative pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, however, can be used for the most advanced stages of the analysis for the final refinement, when a potential global optimum has been reached through searches under other kinds of optimization (such as direct optimization). Therefore, this tutorial begins with importing an existing tree (rather than performing tree building from scratch) and subjecting it to local branch swapping under iterative pass.
+
+\begin{verbatim}
+(* search using all data under ip *)
+read("*.seq", "morph.ss", aminoacids:("myosin.aa"))
+read("inter_tree.tre")
+transform (tcm:(1,2), gap_opening:1)
+set(iterative)
+swap()
+select()
+report("all_trees", trees:(total) ,"constree", graphconsensus,
+"diagnosis", diagnosis)
+exit()
+\end{verbatim}
+
+%\begin{itemize}
+%\item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+%\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
+%\item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
+%\item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
+%\item \texttt{set(iterative)} This command sets the optimization 
+%\item \texttt{swap()}
+%\item \texttt{select()}
+%\item \texttt{report("all\_trees", trees:(total) ,"constree", graphconsensus,
+%"diagnosis", diagnosis)}
+%\item \texttt{exit()}
 
 \section[Fusing and Ratcheting]{Advanced Search II: Tree Fusing and Fragment
 Ratcheting}{\label{tutorial3}}
