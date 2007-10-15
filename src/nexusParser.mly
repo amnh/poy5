@@ -12,12 +12,12 @@ let parse_error s =
     with
     | _ -> Status.user_message Status.Error s
 
-let report_error b e =
+let report_error text b e =
     let b = string_of_int (b.Lexing.pos_cnum)
     and e = string_of_int (e.Lexing.pos_cnum) in
     Status.user_message Status.Error 
     ("There@ was@ a@ parsing@ error@ between@ characters@ " ^ b ^ "@ and@ "
-    ^ e)
+    ^ e ^ " in the " ^ text)
 %}
 %token EOF
 %token <string> ANCSTATES
@@ -203,6 +203,9 @@ assumption_items:
     | optional_wtset                { Nexus.WeightDef $1 }
     | optional_exset                { Nexus.ExcludeSet $1 }
     | optional_ancstates            { Nexus.AncestralDef $1 }
+    | error                         
+    { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
+        raise Parsing.Parse_error }
     ;
 optional_assumption_options:
     | OPTIONS deftype polytcount gapmode SEMICOLON { ($2, $3, $4) }
@@ -420,7 +423,7 @@ optional_format:
 format_items_list:
     | format_items format_items_list { $1 :: $2 }
     | error format_items_list { 
-        report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
+        report_error "Format list" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         $2 }
     |           { [] }
     ;
