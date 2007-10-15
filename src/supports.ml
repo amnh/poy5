@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: supports.ml 1926 2007-06-25 15:43:46Z andres $ *)
+(* $Id: supports.ml 2331 2007-10-15 18:45:40Z andres $ *)
 (* Created Tue Jan 31 16:39:25 2006 (Illya Bomash) *)
-let () = SadmanOutput.register "Support" "$Revision: 1926 $"
+let () = SadmanOutput.register "Support" "$Revision: 2331 $"
 
 module type S = sig
         type a 
@@ -220,7 +220,11 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     let resample_support trees data queue iterations otus perturb search build
         outgroup counters =
-        let n = Node.n_chars (List.hd otus) in
+        let n = 
+            let cnt = ref 0 in
+            Hashtbl.iter (fun _ _ -> incr cnt) data.Data.character_names;
+            !cnt
+        in
         let new_data = 
             match perturb with
             | `Bootstrap -> Data.Sample.generate data `Bootstrap
@@ -275,18 +279,26 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             PTS.find_local_optimum data queue perturbed set search 
         in
         let tree, _ = 
-            let tree = Sexpr.first res_trees in
-            Sexpr.fold_left
-            (fun ((tree, cost) as acc) x ->
-                let cx = Ptree.get_cost `Adjusted x in
-                if cx < cost then (x, cx)
-                else acc) (tree, Ptree.get_cost `Adjusted tree) res_trees
+            match Sexpr.to_list res_trees with
+            | tree :: res_trees ->
+                    List.fold_left 
+                    (fun ((trees, cost) as acc) x ->
+                        let cx = Ptree.get_cost `Adjusted x in
+                        if cx < cost then ([x], cx)
+                        else if cx = cost then ((x :: trees), cx)
+                        else acc) 
+                    ([tree], Ptree.get_cost `Adjusted tree) 
+                    res_trees
+            | [] -> assert false
         in
         let ntree = 
-            let tree = tree.Ptree.tree in
-            Tree.reroot (outgroup, Tree.get_parent outgroup tree) tree
+            List.map (fun tree -> 
+                (TO.collapse_as_needed tree),
+                let tree = tree.Ptree.tree in
+                Tree.reroot (outgroup, Tree.get_parent outgroup tree) tree)
+            tree
         in
-        Ptree.add_tree_to_counters (TO.collapse_as_needed tree) counters ntree
+        Ptree.add_consensus_to_counters counters ntree
 
     let bremer_to_sexpr ?edges tree =
         (* function returns None if edge should not be added, Some (edge, otu_set)

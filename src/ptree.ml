@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2329 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2331 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -1927,17 +1927,17 @@ let jxn_of_handle ptree handle =
                 odebug "Parent node exists");
           Tree.Edge_Jxn (id, par)
 
+let add_or_not addme set counters = 
+    if (not addme) && Tree.CladeFPMap.mem set counters then
+        let res = Tree.CladeFPMap.find set counters in
+        set, Tree.CladeFPMap.add set (res + 1) counters
+    else if not addme then
+        set, Tree.CladeFPMap.add set 1 counters
+    else set, counters
+
 (* A function that takes a map of counts of sets of terminals, and a tree, and
 * adds the sets defined by tree to the counters *)
 let add_tree_to_counters is_collapsable counters (tree : Tree.u_tree) = 
-    let add_or_not addme set counters = 
-        if (not addme) && Tree.CladeFPMap.mem set counters then
-            let res = Tree.CladeFPMap.find set counters in
-            set, Tree.CladeFPMap.add set (res + 1) counters
-        else if not addme then
-            set, Tree.CladeFPMap.add set 1 counters
-        else set, counters
-    in
     let rec add_all_clades node prev counters =
         let addme = is_collapsable prev node in
         let add_singleton () =
@@ -1973,6 +1973,18 @@ let add_tree_to_counters is_collapsable counters (tree : Tree.u_tree) =
                 res
     in
     All_sets.Integers.fold (add_handle tree) (Tree.get_handles tree) counters
+
+let add_consensus_to_counters counters trees = 
+    let new_counter = 
+        List.fold_left (fun acc (is_collapsable, b) -> 
+            add_tree_to_counters is_collapsable acc b)
+        Tree.CladeFPMap.empty trees
+    in
+    let len = List.length trees in
+    (* We proceed to add those clades that appear in all of the trees *)
+    Tree.CladeFPMap.fold (fun set count acc ->
+        if count = len then let _, acc = add_or_not false set acc in acc
+        else acc) new_counter counters 
 
 let build_a_tree to_string denominator print_frequency coder trees (set, cnt) = 
     let module CladeFPSet = Set.Make (Tree.CladeFP.Ordered) in

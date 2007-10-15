@@ -520,6 +520,10 @@ val add_tree_to_counters :
     (int -> int -> bool) -> int Tree.CladeFPMap.t ->
     Tree.u_tree -> int Tree.CladeFPMap.t
 
+val add_consensus_to_counters :
+    int Tree.CladeFPMap.t ->
+    ((int -> int -> bool) * Tree.u_tree) list -> int Tree.CladeFPMap.t
+
 val supports :
     (int -> string) -> int -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
     string Parser.Tree.t
