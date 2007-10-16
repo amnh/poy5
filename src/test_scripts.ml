@@ -56,7 +56,7 @@ let test_with_costs mode cost =
     let verifier = 
         match mode with
         | `Equal -> (fun a b -> a = b)
-        | `Less -> (fun a b -> a < b)
+        | `Less -> (fun a b -> a <= b)
     in
     test_script (test_tree_cost verifier cost)
 
