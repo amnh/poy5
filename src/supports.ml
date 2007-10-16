@@ -17,9 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: supports.ml 2331 2007-10-15 18:45:40Z andres $ *)
+(* $Id: supports.ml 2339 2007-10-16 21:59:25Z andres $ *)
 (* Created Tue Jan 31 16:39:25 2006 (Illya Bomash) *)
-let () = SadmanOutput.register "Support" "$Revision: 2331 $"
+let () = SadmanOutput.register "Support" "$Revision: 2339 $"
+
+let infinity = float_of_int max_int
 
 module type S = sig
         type a 
@@ -422,9 +424,12 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | (Tree.Interior (id, a, b, c) as node) ->
                   let left, right = Ptree.other_two_nbrs parent node in
                   let cost =
-                      try (List.assoc id alist) -. tree_cost
+                      try 
+                          let res = (List.assoc id alist) in
+                          if res = infinity then Pervasives.infinity
+                          else res -. tree_cost
                       with Not_found ->
-                          infinity in
+                          Pervasives.infinity in
                   Methods.Node (cost,
                                 descend id left, descend id right)
             | Tree.Single _ -> assert false
@@ -439,9 +444,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 let node = Ptree.get_node_data id tree in
                 let code = Node.taxon_code node in
                 let leaf = Methods.Leaf code in
-              Methods.Node (infinity, leaf, descend id parent)
+              Methods.Node (Pervasives.infinity, leaf, descend id parent)
         | Tree.Interior (id, parent, left, right) ->
-              Methods.Node (infinity,
+              Methods.Node (Pervasives.infinity,
                             descend id parent,
                             descend parent id)
         in
@@ -531,8 +536,11 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                   let cost =
                       try (find_cost parent id) -. orig_cost
                       with Not_found ->
-                          (try (find_cost id parent) -. orig_cost
-                           with Not_found -> infinity) in
+                          (try 
+                              let res = (find_cost id parent) in
+                              if res = infinity then Pervasives.infinity
+                              else res -. orig_cost
+                           with Not_found -> Pervasives.infinity) in
                   Methods.Node (cost,
                                 descend id left, descend id right)
             | Tree.Single _ -> assert false
@@ -547,9 +555,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 let node = Ptree.get_node_data id tree in
                 let code = Node.taxon_code node in
                 let leaf = Methods.Leaf code in
-              Methods.Node (infinity, leaf, descend id parent)
+              Methods.Node (Pervasives.infinity, leaf, descend id parent)
         | Tree.Interior (id, parent, left, right) ->
-              Methods.Node (infinity,
+              Methods.Node (Pervasives.infinity,
                             descend id parent,
                             descend parent id)
         in
