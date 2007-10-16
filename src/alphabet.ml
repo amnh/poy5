@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2099 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2337 $"
 
-(* $Id: alphabet.ml 2099 2007-08-13 20:33:17Z andres $ *)
+(* $Id: alphabet.ml 2337 2007-10-16 17:56:32Z andres $ *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -510,6 +510,69 @@ let rec to_sequential alph =
                     kind = Sequential }
             in
             res
+
+let rec explote alph =
+    match alph.kind with
+    | Extended_Bit_Flags -> (* We already have what we want *) alph 
+    | Simple_Bit_Flags -> 
+            (* We have each element as one bit, we have now to extend it into
+            * all possible combinations *)
+            let all_combinations =  
+                let list = to_list alph in
+                assert (0 <> List.length list);
+                let list = 
+                    match alph.all with
+                    | None -> list
+                    | Some code -> 
+                            List.filter (fun (_, b) -> b <> code) list
+                in
+                assert (0 <> List.length list);
+                let rec all_combinations lst =
+                    match lst with
+                    | h :: t -> 
+                            let res = all_combinations t in
+                            res @ (List.map (fun x -> h :: x) res)
+                    | [] -> [[]]
+                in
+                match all_combinations list with
+                | [] :: ((_ :: _) as r) -> r
+                | _ -> assert false
+            in
+            let new_alphabet = 
+                let merge_combination lst =
+                    match lst with
+                    | [(item, code)] -> (item, code, None)
+                    | lst ->
+                            let item, code =
+                                List.fold_left 
+                                (fun (acc_item, acc_code) (item, code) ->
+                                    acc_item ^ item, (acc_code lor code))
+                                ("[", 0) lst
+                            in
+                            (item ^ "]", code, None)
+                in
+                List.map merge_combination all_combinations
+            in
+            let all_repr, _, _ = 
+                match new_alphabet with
+                | h :: t ->
+                    List.fold_left 
+                    (fun ((_, code, _) as acc) ((_, codet, _) as item) ->
+                        if codet <= code then acc else item) h t
+                | [] -> assert false
+            in
+            list_to_a new_alphabet gap_repr (Some all_repr) Extended_Bit_Flags
+    | Sequential ->
+            let new_alphabet =
+                let list = to_list alph in
+                let bit_position = ref 1 in
+                List.map (fun (str, _) ->
+                    let res = !bit_position in
+                    bit_position := !bit_position lsl 1;
+                    str, res, None) list
+            in
+            let res = list_to_a new_alphabet gap_repr None Simple_Bit_Flags in
+            explote res
 
 let distinct_size alph =
     All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1) alph.code_to_string 0

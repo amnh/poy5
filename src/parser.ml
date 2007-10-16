@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2325 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2337 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -3694,10 +3694,22 @@ module PAlphabet = struct
         let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
         let alph = Alphabet.of_string ~orientation:orientation
             elts default_gap None in
+        let alph, do_comb = 
+            if orientation then alph, false
+            else 
+                let size = Alphabet.size alph in
+                if size < 6 then 
+                    Alphabet.explote alph, true
+                else alph, false
+        in
         let tcm = 
             try
-                TransformationCostMatrix.of_channel_nocomb
-                ~orientation:orientation file
+                if do_comb then
+                    TransformationCostMatrix.of_channel 
+                    ~orientation:orientation file
+                else
+                    TransformationCostMatrix.of_channel_nocomb
+                    ~orientation:orientation file
             with
             | Failure "No Alphabet" ->
                     let size = Alphabet.size alph in

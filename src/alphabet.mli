@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: alphabet.mli 2099 2007-08-13 20:33:17Z andres $ *)
+(* $Id: alphabet.mli 2337 2007-10-16 17:56:32Z andres $ *)
 (* Alphabet.
 *
 * Description and handling of different kinds of alphabets for the analysis of
@@ -137,6 +137,11 @@ val simplify : a -> a
 (** [to_sequential a] returns an alphabet of any kind, with its elements
 * represented in the simplified Sequential kind representation. *)
 val to_sequential : a -> a
+
+(** [explote a] takes an alphabet of any [kind] and generates an
+* [Extended_Bit_Flags] alphabet, where every combination is represented within
+* square brackets. *)
+val explote : a -> a
 
 val to_list : a -> (string * int) list
 
