@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2337 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2352 $"
 
-(* $Id: alphabet.ml 2337 2007-10-16 17:56:32Z andres $ *)
+(* $Id: alphabet.ml 2352 2007-10-17 21:50:39Z vinh $ *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -167,7 +167,7 @@ let nucleotides =
         Some (timine lor guanine lor adenine lor citosine)); 
         ("X", adenine lor citosine lor timine lor guanine, 
         Some (timine lor guanine lor adenine lor citosine)); 
-        (gap_repr, gap, Some all); 
+        (gap_repr, gap, Some gap); 
         ("1", 17, Some (all land (lnot 17)));
         ("2", 18, Some (all land (lnot 18)));
         ("3", 19, Some (all land (lnot 19)));
@@ -182,8 +182,8 @@ let nucleotides =
         ("^", 28, Some (all land (lnot 28)));
         ("$", 29, Some (all land (lnot 29)));
         ("#", 30, Some (all land (lnot 30)));
-        ("*", 31, Some (all land (lnot 31)));
-        ("?", 31, Some (all land (lnot 31)));
+        ("*", 31, Some (all));
+        ("?", 31, Some (all));
     ] gap_repr (Some "*") Extended_Bit_Flags
 
 (* The list of aminoacids *)
