@@ -829,16 +829,18 @@ let simplify_store_set script =
     let rec simplify_one item (result, used_items, modified) =
         match item with
         | `Store (original_contents, name) ->
-                if All_sets.StringMap.mem name used_items then
-                    let used_contents = 
-                        All_sets.StringMap.find name used_items
-                    in
-                    if used_contents = original_contents then
-                        (item :: result), used_items, modified
-                    else
-                        (((`Store (used_contents, name)) :: result),
-                        used_items, true)
-                else (result, used_items, true)
+                if Str.string_match (Str.regexp "^__poy") name 0 then
+                    if All_sets.StringMap.mem name used_items then
+                        let used_contents = 
+                            All_sets.StringMap.find name used_items
+                        in
+                        if used_contents = original_contents then
+                            (item :: result), used_items, modified
+                        else
+                            (((`Store (used_contents, name)) :: result),
+                            used_items, true)
+                    else (result, used_items, true)
+                else (item :: result), used_items, modified
         | `Set ([], name) -> result, used_items, modified
         | `Set (original_contents, name) ->
                 let used_contents = 
