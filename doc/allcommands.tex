@@ -138,8 +138,10 @@
 	\begin{poydescription} 
             Calculates the requested support values. \poy implements support
             estimation based on resampling methods (Jackknife and Bootstrap) and
-            Bremer support. Calculation of Bremer support presupposes that at least one
-            tree (for which support is estimated) is in memory.
+            Bremer support. The Jackknife and Bootstrap support values are computed as
+            frequencies of clades recovered in strict consensus trees built in each resampling
+            iteration. The consensus trees are based on best trees recovered in each replicate
+            with zero-length branches collapsed.
             All the arguments of \poycommand{calculate\_support} command are and
             their order is arbitrary.
             
@@ -1637,7 +1639,7 @@
 
 		\end{argumentgroup}
 
-		\begin{argumentgroup}{Diagnosis}
+		\begin{argumentgroup}{diagnosis}
 			{This set of arguments will output the diagnosis.} 
 
 			\argumentdefinition{diagnosis}{}
@@ -2307,9 +2309,12 @@
 	\begin{statement}
   	  Due to the complexity of heuristics of the iterative pass optimization, there is no
 	  guarantee that the tree cost recovered from the search would be exactly the same
-	  as produced by the diagnosis of the same tree. However, once the cost is computed
-	  by the diagnosis, subsequent rediagnosing of the same tree must produce the same
-	  cost.
+	  as produced by the diagnosis of the same tree. However, the cost of the tree found during
+	  the search can be verified by outputting the medians from the diagnosis (\nccross{diagnosis}{diagnosis})
+	  (see and determining edge costs by hand. The cost of the tree found during the search might
+	  differ from that obtained by the rediagnosing the same tree (see \nccross{rediagnose}{rediagnose}), but will
+	  recover the same tree costs in subsequent rediagnoses.
+	  cost. 
 	\end{statement}
 	
         \end{argumentgroup}

@@ -8,7 +8,7 @@ The tutorials use sample datasets that are provided with \poy installation but c
 \end{center}
 The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with \poy interface and command structure that can be found in the preceding chapters.
 
-\section{Combining  Search Strategies}{\label{tutorial1}}
+\section{Combining  search strategies}{\label{tutorial1}}
 The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space. In addition, this script shows how to output the status of the search to a log file and calculate the duration of the search. 
 
 \begin{verbatim}
@@ -50,7 +50,7 @@ This command imports all the nucleotide sequence datafiles (all files with the e
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Searching Under Iterative Pass}{\label{tutorial2}}
+\section{Searching under iterative pass}{\label{tutorial2}}
 The following script implements a strategy for a thorough search under iterative pass optimization. The iterative pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, however, can be used for the most advanced stages of the analysis for the final refinement, when a potential global optimum has been reached through searches under other kinds of optimization (such as direct optimization). Therefore, this tutorial begins with importing an existing tree (rather than performing tree building from scratch) and subjecting it to local branch swapping under iterative pass.
 
 \begin{verbatim}
@@ -66,235 +66,235 @@ report("all_trees", trees:(total) ,"constree", graphconsensus,
 exit()
 \end{verbatim}
 
+\begin{itemize}
+\item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
+\item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
+\item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
+\item \texttt{set(iterative)} This command sets the optimization procedure to iterative pass.
+\item \texttt{swap(around)} This commands specifies that the the imported tree is subjected to alternating SPR and TBR branch swapping routine (the default of \poy) following the trajectory of search that completely evaluates the neighborhood of the tree (by using \poyargument{around}).
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
+\item \texttt{report("all\_trees", trees:(total) ,"constree", graphconsensus, "diagnosis", diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+%\section[Fusing and Ratcheting]{Advanced Search II: Tree Fusing and Fragment
+%Ratcheting}{\label{tutorial3}}
+
+%This tutorial builds on Tutorial~\ref{tutorial2} to use tree fusing and fragment ratcheting 
+%that help to escape suboptimal islands. This tutorial also introduces matrix and 
+%tree output in NONA format.
+
+%\begin{enumerate}
+%\item Type: 
+%\begin{verbatim}
+%    build (100) [enter]
+%    select (unique) [enter]
+%    fuse () [enter]
+%    select () [enter]
+%    perturb (iterations:10, ratchet:(0.2,5)) [enter]
+%    select () [enter]
+%    swap (threshold:10) [enter]
+%    select () [enter]
+%    report ("tutorial3", graphtrees) [enter]
+%    report ("alignment3.ss", phastwinclad) [enter]
+%\end{verbatim}
+
+%The above commands will perform the following tasks using default parameters:
 %\begin{itemize}
-%\item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
-%\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
-%\item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
-%\item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
-%\item \texttt{set(iterative)} This command sets the optimization 
-%\item \texttt{swap()}
-%\item \texttt{select()}
-%\item \texttt{report("all\_trees", trees:(total) ,"constree", graphconsensus,
-%"diagnosis", diagnosis)}
-%\item \texttt{exit()}
+%\item Generate 100 random addition sequence Wagner trees.
+%\item Discard duplicate trees.
+%\item Perform cladogram searching by fusing one pair of trees in memory. Note: Tree 
+%fusing requires at least two trees; if there was only one tree in memory, 
+%an error message will be generated. 
+%\item Discard suboptimal and duplicate trees (\emph{i.e.}, retain only optimal trees).
+%\item Perform 10 successive repetitions of a fragment-based ratchet by randomly 
+%selecting 20\% of the fragments and upweighting them by a factor of five.
+%\item Discard suboptimal and duplicate trees (i.e., retain only optimal trees).
+%\item For each tree in memory, alternate SPR and TBR branch swapping of the tree 
+%and all trees found within 10\% of the cost of the tree.
+%\item Discard suboptimal and duplicate trees (\emph{i.e.}, retain only optimal trees).
+%\item Output publication-quality cladogram(s) of optimal tree(s) to a postscript 
+%file tutorial3.ps. (Note: \poy automatically adds the \texttt{.ps} extension.)
+%\item Output NONA file with the implied alignment for one (if multiple) optimal 
+%trees and all optimal trees in the file alignment3.ss.
+%\end{itemize}
 
-\section[Fusing and Ratcheting]{Advanced Search II: Tree Fusing and Fragment
-Ratcheting}{\label{tutorial3}}
+%\item View publication-quality cladogram(s) by opening tutorial3.ps in your chosen 
+%postscript viewer.
+%\item View implied alignment, optimal tree(s), and manipulate data by opening the 
+%file alignment3.ss in WinClada or MacClade.
 
-This tutorial builds on Tutorial~\ref{tutorial2} to use tree fusing and fragment ratcheting 
-that help to escape suboptimal islands. This tutorial also introduces matrix and 
-tree output in NONA format.
+%\end{enumerate}
 
-\begin{enumerate}
-\item Type: 
-\begin{verbatim}
-    build (100) [enter]
-    select (unique) [enter]
-    fuse () [enter]
-    select () [enter]
-    perturb (iterations:10, ratchet:(0.2,5)) [enter]
-    select () [enter]
-    swap (threshold:10) [enter]
-    select () [enter]
-    report ("tutorial3", graphtrees) [enter]
-    report ("alignment3.ss", phastwinclad) [enter]
-\end{verbatim}
+%\section[Trees and Step Matrices]{Advanced Search III: Input Trees and Step
+%Matrices}{\label{tutorial4}}
 
-The above commands will perform the following tasks using default parameters:
-\begin{itemize}
-\item Generate 100 random addition sequence Wagner trees.
-\item Discard duplicate trees.
-\item Perform cladogram searching by fusing one pair of trees in memory. Note: Tree 
-fusing requires at least two trees; if there was only one tree in memory, 
-an error message will be generated. 
-\item Discard suboptimal and duplicate trees (\emph{i.e.}, retain only optimal trees).
-\item Perform 10 successive repetitions of a fragment-based ratchet by randomly 
-selecting 20\% of the fragments and upweighting them by a factor of five.
-\item Discard suboptimal and duplicate trees (i.e., retain only optimal trees).
-\item For each tree in memory, alternate SPR and TBR branch swapping of the tree 
-and all trees found within 10\% of the cost of the tree.
-\item Discard suboptimal and duplicate trees (\emph{i.e.}, retain only optimal trees).
-\item Output publication-quality cladogram(s) of optimal tree(s) to a postscript 
-file tutorial3.ps. (Note: \poy automatically adds the \texttt{.ps} extension.)
-\item Output NONA file with the implied alignment for one (if multiple) optimal 
-trees and all optimal trees in the file alignment3.ss.
-\end{itemize}
+%This tutorial builds on Tutorials~\ref{tutorial2} and~\ref{tutorial3}, and introduces the use of input trees 
+%and complex differential cost step matrices.
 
-\item View publication-quality cladogram(s) by opening tutorial3.ps in your chosen 
-postscript viewer.
-\item View implied alignment, optimal tree(s), and manipulate data by opening the 
-file alignment3.ss in WinClada or MacClade.
+%\begin{enumerate}
+%\item Type: 
+%    \begin{verbatim}
+%    read ("trees.txt") [enter]
+%    transform ((all, tcm:"g4ts1tv2.txt"), 
+%    (static, weightfactor:4)) [enter]
+%    swap (threshold:10) [enter]
+%    select () [enter]
+%    report ("tutorial5", graphtrees) [enter]
+%    \end{verbatim}
 
-\end{enumerate}
+%The above commands will perform the following tasks using default parameters:
+%\begin{itemize}
+%\item Read cladograms from the input file trees.txt.
+%\item Apply specified transformation costs to data. The transformation cost 
+%matrix in the file g4ts1tv2.txt is applied to the dynamic homology 
+%characters (i.e., unaligned DNA sequences) to assign indel events a cost 
+%of 4, transitions 1, and transversions 2. All static homology characters 
+%(i.e., the phenotypic characters in the file morph.txt) are upweighted by 
+%a factor of 4, with additivities and previous relative weights unchanged 
+%(e.g., a character with transformations costs of 2 would be now have a 
+%transformation cost of 8).
+%\item For each tree in memory, alternate SPR and TBR branch swapping of the tree 
+%and all trees found within 10\% of the cost of the tree.
+%\item Discard suboptimal and duplicate trees (i.e., retain all most optimal 
+%trees).
+%\item Output publication-quality cladogram(s) of optimal tree(s) to a postscript 
+%file tutorial5.ps. (Note: \poy automatically adds the .ps extension.)  
+%\end{itemize}
 
-\section[Trees and Step Matrices]{Advanced Search III: Input Trees and Step
-Matrices}{\label{tutorial4}}
+%\item View publication-quality cladogram(s) by opening tutorial4.ps in your chosen 
+%postscript viewer.
+%\item View cladogram(s) in parenthetical format by opening tutorial4\_trees.txt in 
+%your chosen text editor.
+%\item View basic tree statistics by opening tutorial4\_stats.txt in your chosen 
+%text editor.
+%\end{enumerate}
 
-This tutorial builds on Tutorials~\ref{tutorial2} and~\ref{tutorial3}, and introduces the use of input trees 
-and complex differential cost step matrices.
+%\section[Bremer Support]{Support I: Bremer Support}
 
-\begin{enumerate}
-\item Type: 
-    \begin{verbatim}
-    read ("trees.txt") [enter]
-    transform ((all, tcm:"g4ts1tv2.txt"), 
-    (static, weightfactor:4)) [enter]
-    swap (threshold:10) [enter]
-    select () [enter]
-    report ("tutorial5", graphtrees) [enter]
-    \end{verbatim}
+%This tutorial builds on the previous tutorials to illustrate Bremer support 
+%calculation.
+%\begin{enumerate}
+%\item Type: 
+%    \begin{verbatim}
+%    transform ((all, tcm:(1,1)), (static, weightfactor:1)) [enter]
+%    swap () [enter]
+%    calculate_support (bremer, build (trees:5), swap (trees:2)) [enter]
+%    report (supports) [enter]
+%    \end{verbatim}
 
-The above commands will perform the following tasks using default parameters:
-\begin{itemize}
-\item Read cladograms from the input file trees.txt.
-\item Apply specified transformation costs to data. The transformation cost 
-matrix in the file g4ts1tv2.txt is applied to the dynamic homology 
-characters (i.e., unaligned DNA sequences) to assign indel events a cost 
-of 4, transitions 1, and transversions 2. All static homology characters 
-(i.e., the phenotypic characters in the file morph.txt) are upweighted by 
-a factor of 4, with additivities and previous relative weights unchanged 
-(e.g., a character with transformations costs of 2 would be now have a 
-transformation cost of 8).
-\item For each tree in memory, alternate SPR and TBR branch swapping of the tree 
-and all trees found within 10\% of the cost of the tree.
-\item Discard suboptimal and duplicate trees (i.e., retain all most optimal 
-trees).
-\item Output publication-quality cladogram(s) of optimal tree(s) to a postscript 
-file tutorial5.ps. (Note: \poy automatically adds the .ps extension.)  
-\end{itemize}
+%The above commands will perform the following tasks using default parameters:
+%\item Apply a weight of one to all transformations.
+%\item For each tree in memory, alternate SPR and TBR branch swapping of the 
+%optimal tree(s).
+%\item Estimate Bremer support by using inverse constraints, doing five 
+%independent searches for every group, holding a maximum of two trees. 
+%\item Output support values for each group in parenthetical notation to \poy 
+%output window.
 
-\item View publication-quality cladogram(s) by opening tutorial4.ps in your chosen 
-postscript viewer.
-\item View cladogram(s) in parenthetical format by opening tutorial4\_trees.txt in 
-your chosen text editor.
-\item View basic tree statistics by opening tutorial4\_stats.txt in your chosen 
-text editor.
-\end{enumerate}
+%\end{enumerate}
 
-\section[Bremer Support]{Support I: Bremer Support}
+%\section[Bootstrap Support]{Support II: Bootstrap Support Using Dynamic Homology}
 
-This tutorial builds on the previous tutorials to illustrate Bremer support 
-calculation.
-\begin{enumerate}
-\item Type: 
-    \begin{verbatim}
-    transform ((all, tcm:(1,1)), (static, weightfactor:1)) [enter]
-    swap () [enter]
-    calculate_support (bremer, build (trees:5), swap (trees:2)) [enter]
-    report (supports) [enter]
-    \end{verbatim}
+%This tutorial builds on the previous tutorials to illustrate the calculation of 
+%bootstrap frequencies. As discussed in the \poy Commands Reference, the 
+%characters sampled during pseudoreplicates are entire fragments of DNA 
+%sequences, not individual nucleotide characters. Tutorial 7 shows how to 
+%estimate bootstrap frequencies using static homology, which allows nucleotide-
+%level characters to be sampled. 
 
-The above commands will perform the following tasks using default parameters:
-\item Apply a weight of one to all transformations.
-\item For each tree in memory, alternate SPR and TBR branch swapping of the 
-optimal tree(s).
-\item Estimate Bremer support by using inverse constraints, doing five 
-independent searches for every group, holding a maximum of two trees. 
-\item Output support values for each group in parenthetical notation to \poy 
-output window.
+%\begin{enumerate}
+%\item Type:
+%    \begin{verbatim}
+%    calculate_support (bootstrap: 100, build(trees:2), 
+%    swap(trees:1)) [enter]
+%    report (supports) [enter]
+%    \end{verbatim}
 
-\end{enumerate}
+%The above commands will perform the following tasks using default parameters:
+%\begin{itemize}
+%\item Perform 100 pseudoreplicates by sampling characters with replacement, 
+%doing two independent searches for each pseudoreplicate and holding a 
+%maximum of one tree. 
+%\item Output bootstrap frequencies for each group in parenthetical notation to 
+%\poy output window.
+%\end{itemize}
+%\end{enumerate}
 
-\section[Bootstrap Support]{Support II: Bootstrap Support Using Dynamic Homology}
+%\section[Bootstrap Support with Static Homologies]{Support III: Bootstrap Support Using Static Homology}
 
-This tutorial builds on the previous tutorials to illustrate the calculation of 
-bootstrap frequencies. As discussed in the \poy Commands Reference, the 
-characters sampled during pseudoreplicates are entire fragments of DNA 
-sequences, not individual nucleotide characters. Tutorial 7 shows how to 
-estimate bootstrap frequencies using static homology, which allows nucleotide-
-level characters to be sampled. 
+%This tutorial builds on the previous tutorials to illustrate the calculation of 
+%bootstrap frequencies. Here, bootstrap frequencies are obtained from analysis of 
+%the implied alignment of static homologies, which permits individual nucleotide-
+%level characters to be sampled instead of whole fragments, as is done using 
+%dynamic homology. 
+%\begin{enumerate}
+%\item Type:
+%    \begin{verbatim}
+%    transform ((all, static_approx)) [enter]
+%    calculate_support (bootstrap: 100, build(trees:2), 
+%    swap(trees:1)) [enter]
+%    report (supports) [enter]
+%    \end{verbatim}
 
-\begin{enumerate}
-\item Type:
-    \begin{verbatim}
-    calculate_support (bootstrap: 100, build(trees:2), 
-    swap(trees:1)) [enter]
-    report (supports) [enter]
-    \end{verbatim}
+%The above commands will perform the following tasks using default parameters:
+%\begin{itemize}
+%\item Generate the alignment implied by the optimal tree and given the assumed 
+%transformation costs. 
+%\item Perform 100 pseudoreplicates by sampling characters with replacement, 
+%doing two independent searches for each pseudoreplicate and holding a 
+%maximum of one tree. 
+%\item Output bootstrap frequencies for each group in parenthetical notation to 
+%\poy output window.
+%\end{itemize}
+%\end{enumerate}
 
-The above commands will perform the following tasks using default parameters:
-\begin{itemize}
-\item Perform 100 pseudoreplicates by sampling characters with replacement, 
-doing two independent searches for each pseudoreplicate and holding a 
-maximum of one tree. 
-\item Output bootstrap frequencies for each group in parenthetical notation to 
-\poy output window.
-\end{itemize}
-\end{enumerate}
+%\section[Chromosome Analysis]{Chromosome Analysis I: Unannotated Sequences}
 
-\section[Bootstrap Support with Static Homologies]{Support III: Bootstrap Support Using Static Homology}
+%This tutorial illustrates the analysis of chromosome-level transformations using 
+%unannotated sequences, i.e., contiguous strings of sequences without prior 
+%identification of independent regions.
+%\begin{enumerate}
+%    \item Type
+%    \begin{verbatim}
+%    wipe () [enter]
+%    read (chromosome:("mit5.txt"))  [enter]
+%    transform ((all, dynamic_pam:(inversion:15, locus_indel:(10, 1.5), 
+%    median:  3, swap_med:5, circular:true, approx:true))) [enter]
+%    build (5) [enter]
+%    swap ()[enter]
+%    select () [enter]
+%    report (asciitrees, diagnosis) [enter]
+%    transform ((all, dynamic_pam:(inversion:15, locus_indel:(10, 1.5), 
+%    median:3, swap_med:5, circular:true, approx:false))) [enter]
+%    swap ()[enter]
+%    select ()[enter]
+%    report (asciitrees, diagnosis) [enter]
+%    \end{verbatim}
 
-This tutorial builds on the previous tutorials to illustrate the calculation of 
-bootstrap frequencies. Here, bootstrap frequencies are obtained from analysis of 
-the implied alignment of static homologies, which permits individual nucleotide-
-level characters to be sampled instead of whole fragments, as is done using 
-dynamic homology. 
-\begin{enumerate}
-\item Type:
-    \begin{verbatim}
-    transform ((all, static_approx)) [enter]
-    calculate_support (bootstrap: 100, build(trees:2), 
-    swap(trees:1)) [enter]
-    report (supports) [enter]
-    \end{verbatim}
-
-The above commands will perform the following tasks using default parameters:
-\begin{itemize}
-\item Generate the alignment implied by the optimal tree and given the assumed 
-transformation costs. 
-\item Perform 100 pseudoreplicates by sampling characters with replacement, 
-doing two independent searches for each pseudoreplicate and holding a 
-maximum of one tree. 
-\item Output bootstrap frequencies for each group in parenthetical notation to 
-\poy output window.
-\end{itemize}
-\end{enumerate}
-
-\section[Chromosome Analysis]{Chromosome Analysis I: Unannotated Sequences}
-
-This tutorial illustrates the analysis of chromosome-level transformations using 
-unannotated sequences, i.e., contiguous strings of sequences without prior 
-identification of independent regions.
-\begin{enumerate}
-    \item Type
-    \begin{verbatim}
-    wipe () [enter]
-    read (chromosome:("mit5.txt"))  [enter]
-    transform ((all, dynamic_pam:(inversion:15, locus_indel:(10, 1.5), 
-    median:  3, swap_med:5, circular:true, approx:true))) [enter]
-    build (5) [enter]
-    swap ()[enter]
-    select () [enter]
-    report (asciitrees, diagnosis) [enter]
-    transform ((all, dynamic_pam:(inversion:15, locus_indel:(10, 1.5), 
-    median:3, swap_med:5, circular:true, approx:false))) [enter]
-    swap ()[enter]
-    select ()[enter]
-    report (asciitrees, diagnosis) [enter]
-    \end{verbatim}
-
-The above commands will perform the following tasks using default parameters:
-\begin{itemize}
-    \item Clear all data and trees from memory.
-    \item Import datafile mit5.txt.
-    \item Treat all data as pertaining to unannotated chromosome data, setting the 
-        following parameters: inversion distance and cost 15, locus indel 10 + 1.5 
-        times the length (number of nucleotides) of the locus, keep three 
-        candidate medians, swap on medians for 5 rounds, treat as circular 
-        chromosome, and use fixed-states optimization to approximate chromosome 
-        medians.
-    \item Generate 5 random addition sequence Wagner trees.
-    \item Alternate SPR and TBR branch swapping of each tree in memory.
-    \item Discard suboptimal and duplicate trees (i.e., retain only optimal trees).
-    \item Draw optimal trees in \poy Output window (ncurses version only) or output 
-        file (non-ncurses version), reporting the cost of each tree.
-    \item Output the optimal median states and edge costs.
-    \item Treat all data as pertaining to unannotated chromosome data with 
-        parameters as above but using optimization alignment (not fixed-states) to 
-        approximate chromosome medians.   
-    \item Alternate SPR and TBR branch swapping of each tree in memory.
-    \item Draw optimal trees in \poy Output window (ncurses version only) or output 
-        file (non-ncurses version), reporting the cost of each tree.
-    \item Output optimal median states and edge costs.
-\end{itemize}
-\end{enumerate}
+%The above commands will perform the following tasks using default parameters:
+%\begin{itemize}
+%    \item Clear all data and trees from memory.
+%    \item Import datafile mit5.txt.
+%    \item Treat all data as pertaining to unannotated chromosome data, setting the 
+%        following parameters: inversion distance and cost 15, locus indel 10 + 1.5 
+%        times the length (number of nucleotides) of the locus, keep three 
+%        candidate medians, swap on medians for 5 rounds, treat as circular 
+%        chromosome, and use fixed-states optimization to approximate chromosome 
+%        medians.
+%    \item Generate 5 random addition sequence Wagner trees.
+%    \item Alternate SPR and TBR branch swapping of each tree in memory.
+%    \item Discard suboptimal and duplicate trees (i.e., retain only optimal trees).
+%    \item Draw optimal trees in \poy Output window (ncurses version only) or output 
+%        file (non-ncurses version), reporting the cost of each tree.
+%    \item Output the optimal median states and edge costs.
+%    \item Treat all data as pertaining to unannotated chromosome data with 
+%        parameters as above but using optimization alignment (not fixed-states) to 
+%        approximate chromosome medians.   
+%    \item Alternate SPR and TBR branch swapping of each tree in memory.
+%    \item Draw optimal trees in \poy Output window (ncurses version only) or output 
+%        file (non-ncurses version), reporting the cost of each tree.
+%    \item Output optimal median states and edge costs.
+%\end{itemize}
+%\end{enumerate}
