@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2311 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2350 $"
 
 module Pool = struct
     type p
@@ -1694,7 +1694,7 @@ let split positions s alph =
                 );
                 splitter (do_one_pair a b acc) t
         | (a, _) :: [] ->
-                List.rev (do_one_pair a (len - 1) acc)
+                List.rev (do_one_pair a len acc)
         | [] -> []
     in
     splitter [] positions
