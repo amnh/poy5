@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 2217 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 2341 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -316,7 +316,11 @@ module Files = struct
         List.iter (fun fo -> 
                        match fo with
                        | Margin m -> 
-                             Format.pp_set_margin f m
+                               if m = Format.pp_get_margin f () then ()
+                               else begin
+                                   Format.pp_print_flush f ();
+                                   Format.pp_set_margin f m
+                               end
                   ) fo_ls
 
     let get_margin filename =         
