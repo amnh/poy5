@@ -17,9 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2352 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2353 $"
 
-(* $Id: alphabet.ml 2352 2007-10-17 21:50:39Z vinh $ *)
+
+(* $Id: alphabet.ml 2353 2007-10-17 21:53:07Z vinh $ *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
