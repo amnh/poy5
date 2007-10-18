@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2339 $"
+let () = SadmanOutput.register "Node" "$Revision: 2360 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -203,9 +203,6 @@ let print nd =
              | _ -> print_endline "Do not print non-dynamic characters"
         ) nd.characters
     
-    
-
-
 let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
     ("[[NODE tax_code=" ^ string_of_int tax_code
      ^ " cost=" ^ string_of_float cost
@@ -249,13 +246,16 @@ let rec cs_median anode bnode prev a b =
                 | Some (StaticMl prev) -> Some prev.preliminary
                 | _ -> assert false
             in
-            let median = MlStaticCS.median prev ca.preliminary cb.preliminary in
-            let cost = MlStaticCS.median_cost median in
-            let res = { ca with 
-                preliminary = median;
-                final = median;
-                cost = ca.weight *. cost;
-                sum_cost = ca.sum_cost +. cb.sum_cost +. cost; } 
+            let median = MlStaticCS.median prev ca.preliminary cb.preliminary ca.time cb.time in
+            let cost = MlStaticCS.root_cost median in
+            let res =
+                { ca with 
+                    preliminary = median;
+                    final = median;
+                    cost = ca.weight *. cost;
+                    sum_cost = cost;
+                }
+                
             in
             StaticMl res
     | Nonadd8 ca, Nonadd8 cb ->
@@ -472,10 +472,12 @@ let map4 f a b c d =
 
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
+    (*
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 ->
             let m = MlStaticCS.median_3 cp.final cn.preliminary cc1.preliminary 
             cc2.preliminary in
             StaticMl { cn with final = m }
+    *)
     | Nonadd8 cp, Nonadd8 cn, Nonadd8 cc1, Nonadd8 cc2 -> 
           let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary
               cc2.preliminary in
@@ -669,7 +671,8 @@ let root_cost root =
 let rec cs_reroot_median na nb old a b =
     match old, a, b with
     | StaticMl old, StaticMl a, StaticMl b ->
-            let median = MlStaticCS.reroot_median a.final b.final in
+            let median = MlStaticCS.reroot_median a.final b.final
+                                                a.time b.time in
             StaticMl { old with preliminary = median; final = median }
     | Nonadd8 old, Nonadd8 a, Nonadd8 b ->
           let median = NonaddCS8.reroot_median a.final b.final in
@@ -888,7 +891,7 @@ let edge_distance clas nodea nodeb =
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
-                a.weight *. MlStaticCS.distance a.final b.final
+                a.weight *. (MlStaticCS.distance a.final b.final a.time b.time)
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -908,8 +911,7 @@ let edge_distance clas nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = 
-    [ `Seq ; `Chrom; `Annchrom; `Breakinv ; `Kolmo ]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv]
 
 let distance_of_type ?(para=None) ?(parb=None) t
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -942,7 +944,7 @@ let distance_of_type ?(para=None) ?(parb=None) t
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
-                a.weight *. MlStaticCS.distance a.final b.final
+                a.weight *. MlStaticCS.distance a.final b.final a.time b.time
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -981,7 +983,7 @@ let distance ?(para=None) ?(parb=None)
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b ->
-                a.weight *. MlStaticCS.distance a.final b.final
+                a.weight *. MlStaticCS.distance a.final b.final a.time b.time
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -1006,7 +1008,8 @@ let dist_2 minimum_delta n a b =
     let rec ch_dist delta_left n a' b' =
         match n, a', b' with
         | StaticMl n, StaticMl a, StaticMl b ->
-                n.weight *. MlStaticCS.dist_2 n.final a.final b.final
+                n.weight *. MlStaticCS.dist_2 n.final a.final b.final n.time
+                a.time b.time None
         | Nonadd8 n, Nonadd8 a, Nonadd8 b ->
               n.weight *. NonaddCS8.dist_2 n.final a.final b.final
         | Nonadd16 n, Nonadd16 a, Nonadd16 b ->
@@ -1752,33 +1755,23 @@ let fin = [ (Tags.Characters.cclass, Tags.Nodes.final) ]
 let sing = [ (Tags.Characters.cclass, Tags.Nodes.single) ]
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
-    let to_single_generator parent mine get_root to_single_impl constructor =
-        let root_pre = 
-            match root with 
-            | Some root -> get_root root 
-            | None -> None
-        in
-        let prev_cost, cost, res = 
-            to_single_impl pre_ref_code root_pre
-            parent.preliminary mine.preliminary 
-        in
-        constructor {preliminary = res; final = res; 
-                   cost = (mine.weight *.  cost);
-                   sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = 0.}
-    in
     match parent_cs, mine with
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)
-            to_single_generator parent mine
-            (function Dynamic root -> Some root.preliminary | _ -> None)
-            DynamicCS.to_single  (fun x -> Dynamic x)
-    | Kolmo parent, Kolmo mine ->
-            to_single_generator parent mine
-            (function Kolmo root -> Some root.preliminary | _ -> None)
-            KolmoCS.to_single
-            (fun x -> Kolmo x)
+          let root_pre = match root with
+          | Some (Dynamic root) -> Some root.preliminary
+          | _ -> None
+          in 
+          let prev_cost, cost, res = 
+              DynamicCS.to_single pre_ref_code 
+                    root_pre parent.preliminary mine.preliminary 
+            in
+          Dynamic {preliminary = res; final = res; 
+                   cost = (mine.weight *.  cost);
+                   sum_cost = (mine.weight *. cost);
+                   weight = mine.weight; time = 0.}
+              
     | _ -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
@@ -1800,18 +1793,21 @@ let readjust to_adjust ch1 ch2 parent mine =
     in
     let modified = ref All_sets.Integers.empty in
     let cs_readjust c1 c2 parent mine =
-        match c1, c2, parent, mine with
-        | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine ->
-                let m, prev_cost, cost, time, res = 
+        match c1, c2, parent, mine with (* TODO ::
+        | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> mine
+                let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified mine.time
                     c1.preliminary c2.preliminary parent.preliminary
-                    mine.preliminary
+                    mine.preliminary c1.time c2.time
                 in
                 modified := m;
                 let cost = mine.weight *.cost in
-                StaticMl {preliminary = res; final = res; cost = cost;
-                sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                weight = mine.weight; time = time }
+                ( StaticMl {preliminary = res; final = res; cost = cost;
+                            sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
+                            weight = mine.weight; time = time },
+                StaticMl { ch1 with time = t1; },
+                StaticMl { ch2 with time = t2; })
+        *)
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
@@ -1822,7 +1818,7 @@ let readjust to_adjust ch1 ch2 parent mine =
                 Dynamic { preliminary = res; final = res; 
                 cost = cost;
                 sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                weight = mine.weight; time = 0.}
+                weight = mine.weight; time=0.0}
         | _ -> mine
     in
     if mine.total_cost = infinity then mine, !modified
