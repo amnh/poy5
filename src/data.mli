@@ -499,7 +499,7 @@ val has_dynamic : d -> bool
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
 module Sample : sig
-    val generate : d -> [ `Bootstrap | `Jackknife of int ] -> d
+    val generate : d -> [ `Bootstrap | `Jackknife of float ] -> d
 end
 
 val prealigned_characters :   
@@ -535,3 +535,11 @@ val compare_pairs : bool_characters -> bool_characters -> bool -> d ->
 val sequence_statistics : bool_characters -> d -> (string * (int * int * int * int * int * int * int)) list
 
 val to_human_readable : d -> int -> int -> string
+
+(** [apply_boolean nadd add d c] returns the result of applying [nadd] or [add]
+ * to the list of states observed for the character [c]  in the data [d]. [nadd]
+ * is applied iff [c] is nonadditive, and [add] iff [c] is additive. For any
+ * other character the function returns true.*)
+val apply_boolean : 
+    (int list option list -> bool) -> (int list option list -> bool) -> 
+        d -> int -> bool

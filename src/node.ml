@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2360 $"
+let () = SadmanOutput.register "Node" "$Revision: 2362 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1650,33 +1650,41 @@ let load_data ?taxa ?codes ?(classify=true) data =
             else All_sets.Integers.add x acc) 
         All_sets.Integers.empty lst
     in
+    let is_mem =
+        let belongs_to_code =
+            match codes with
+            | None -> (fun _ -> true)
+            | Some codes -> 
+                    let codes = make_set_of_list codes in
+                    (fun y -> All_sets.Integers.mem y codes)
+        in
+        (* We check for informative characters among all the terminals in data
+        * *)
+        if classify then 
+            (* We need to verify if the character is
+            potentially informative or not *)
+            (fun char -> 
+                belongs_to_code char && 
+                Data.apply_boolean
+                NonaddCS8.is_potentially_informative 
+                AddCS.is_potentially_informative data char)
+        else belongs_to_code
+    in
     let data, generate_taxon = 
-        match codes with
-        | None ->
-                let add = make_set_of_list data.Data.additive
-                and nadd_8 = make_set_of_list data.Data.non_additive_8
-                and nadd_16 = make_set_of_list data.Data.non_additive_16
-                and nadd_32 = make_set_of_list data.Data.non_additive_32
-                and nadd_33 = make_set_of_list data.Data.non_additive_33 in
-                generate_taxon classify add nadd_8 nadd_16 nadd_32 nadd_33 
-                data.Data.sankoff data.Data.dynamics data.Data.kolmogorov data 
-        | Some codes ->
-                let codes = make_set_of_list codes in
-                let is_mem x = All_sets.Integers.mem x codes in
-                let n8 = List.filter is_mem data.Data.non_additive_8
-                and n16 = List.filter is_mem data.Data.non_additive_16
-                and n32 = List.filter is_mem data.Data.non_additive_32
-                and n33 = List.filter is_mem data.Data.non_additive_33
-                and add = List.filter is_mem data.Data.additive
-                and sank = List.map (List.filter is_mem) data.Data.sankoff
-                and dynamics = List.filter is_mem data.Data.dynamics 
-                and kolmogorov = List.filter is_mem data.Data.kolmogorov in
-                let n8 = make_set_of_list n8
-                and n16 = make_set_of_list n16
-                and n32 = make_set_of_list n32
-                and n33 = make_set_of_list n33
-                and add = make_set_of_list add in
-                generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov data
+        let n8 = List.filter is_mem data.Data.non_additive_8
+        and n16 = List.filter is_mem data.Data.non_additive_16
+        and n32 = List.filter is_mem data.Data.non_additive_32
+        and n33 = List.filter is_mem data.Data.non_additive_33
+        and add = List.filter is_mem data.Data.additive
+        and sank = List.map (List.filter is_mem) data.Data.sankoff
+        and kolmogorov = List.filter is_mem data.Data.kolmogorov
+        and dynamics = List.filter is_mem data.Data.dynamics in
+        let n8 = make_set_of_list n8
+        and n16 = make_set_of_list n16
+        and n32 = make_set_of_list n32
+        and n33 = make_set_of_list n33
+        and add = make_set_of_list add in
+        generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov data
     in
     let nodes = 
         match taxa with

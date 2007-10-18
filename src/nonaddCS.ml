@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: nonaddCS.ml 2124 2007-08-17 14:10:03Z andres $ *)
-let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 2124 $"
+(* $Id: nonaddCS.ml 2362 2007-10-18 20:08:32Z andres $ *)
+let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 2362 $"
 
 
 (** char_nonadd_c.ml implements sets of equally-weighted non-additive characters
@@ -423,6 +423,32 @@ let of_parser data (elts, code) n =
         set
     in
     (make_set elts, code)
+
+let is_potentially_informative elts =
+    let states = 
+        let make_list_set x = 
+            match x with
+            | None -> None
+            | Some x -> 
+                    Some 
+                    (List.fold_left 
+                    (fun acc x -> All_sets.Integers.add x acc) 
+                    All_sets.Integers.empty x)
+        in
+        List.fold_left 
+        (fun acc x -> 
+            match acc with
+            | None -> make_list_set x 
+            | Some acc ->
+                    match make_list_set x with
+                    | None -> Some acc
+                    | Some x -> Some (All_sets.Integers.inter x acc))
+        None elts
+    in
+    match states with
+    | None -> false 
+    | Some states ->
+            0 = (All_sets.Integers.cardinal states)
 
 module Imperative = struct
     type it = t

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2124 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 2362 $"
 
 (* Internal only exceptions *)
 exception Success
@@ -559,6 +559,26 @@ let of_parser data (it, taxon) code =
     let arr = Array.of_list (List.rev (Array.fold_left check_type_and_val []
     it)) in
     of_array arr code, taxon
+
+let is_potentially_informative elts = 
+    let intersection a b =
+        match a with
+        | None -> None
+        | Some (x, y) ->
+                match b with
+                | None | Some [] -> a
+                | Some lst ->
+                        let b = List.fold_left min max_int lst
+                        and c = List.fold_left max 0 lst in
+                        if (b <= x && x <= c) then
+                            Some (x, (min y c))
+                        else if (x <= b && b <= y) then
+                            Some (b, (min y c))
+                        else None
+    in
+    match List.fold_left intersection (Some (0, max_int)) elts with
+    | None -> true
+    | Some _ -> false
 
 external cto_string : ct -> string = "add_CAML_to_string"
 

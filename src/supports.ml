@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: supports.ml 2339 2007-10-16 21:59:25Z andres $ *)
+(* $Id: supports.ml 2362 2007-10-18 20:08:32Z andres $ *)
 (* Created Tue Jan 31 16:39:25 2006 (Illya Bomash) *)
-let () = SadmanOutput.register "Support" "$Revision: 2339 $"
+let () = SadmanOutput.register "Support" "$Revision: 2362 $"
 
 let infinity = float_of_int max_int
 
@@ -222,16 +222,23 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     let resample_support trees data queue iterations otus perturb search build
         outgroup counters =
-        let n = 
+        let n, data = 
             let cnt = ref 0 in
-            Hashtbl.iter (fun _ _ -> incr cnt) data.Data.character_names;
-            !cnt
+            let chars = ref [] in
+            Hashtbl.iter (fun _ code -> 
+                if Data.apply_boolean
+                NonaddCS8.is_potentially_informative
+                AddCS.is_potentially_informative data code then incr cnt 
+                else chars := code :: !chars) 
+            data.Data.character_names;
+            let data = Data.process_ignore_characters false data (`Some !chars) in
+            !cnt, data
         in
         let new_data = 
             match perturb with
             | `Bootstrap -> Data.Sample.generate data `Bootstrap
             | `Jackknife m -> 
-                    if m > 100.0 then begin
+                    if m > 100.0 || m < 0.0 then begin
                         Status.user_message Status.Error 
                         "Illegal@ Jackknife@ sample@ size:@ The@ sample@ \
                         is@ the@ percentage@ of@ characters@ that@ should@ \
@@ -239,21 +246,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         between@ 0.0@ and@ 100.0";
                         failwith "Illegal Jackknife sample";
                     end;
-                    let m = (m /. 100.0) *. (float_of_int n) in
-                    let m = int_of_float (ceil m) in
-                    if n <= m then begin
-                        Status.user_message Status.Error
-                        ("I@ have@ " ^ string_of_int n ^ "@ characters@ " ^
-                        "and@ they@ appear@ not@ to@ be@ enough@ to@ get@ a@ " 
-                        ^ "sample@ of@ the@ size@ you@ are@ asking. Maybe@ " ^
-                        "you@ are@ thinking@ of@ resampling@ the@ bases@ of@ "
-                        ^ "your@ fragments?@ try@ in@ that@ case@ a@ static@ "
-                        ^ "approximation@ transformation@ (eg. " ^
-                        "transform ((all, static_approx))).@ See@ help@ " ^
-                        "(transform)@ for@ further@ information.");
-                        failwith "Illegal Jackknife sample";
-                    end;
-                    Data.Sample.generate data (`Jackknife m)
+                    Data.Sample.generate data (`Jackknife (m /. 100.))
             | _ -> 
                     (* TODO *)
                     failwith 

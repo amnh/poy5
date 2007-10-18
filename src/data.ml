@@ -3931,13 +3931,13 @@ module Sample = struct
 
     (** [jackknife_spec ar m] resamples [Array.length ar - m] characters without
     * replacement uniformly at random *)
-    let jackknife_spec ar m =
-        Array_ops.randomize ar;
+    let jackknife_spec ar prob =
         let n = Array.length ar in
-        assert (n > m);
-        for i = 0 to (n - m) - 1 do
-            let (_, code, spec) = ar.(i) in
-            ar.(i) <- (1, code, spec);
+        assert (prob <= 1.);
+        for i = 0 to n - 1 do
+            if prob < (Random.float 1.) then
+                let (_, code, spec) = ar.(i) in
+                ar.(i) <- (1, code, spec);
         done;
         ar
 
@@ -3970,3 +3970,28 @@ let to_human_readable data code item =
         | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
     in
     name
+
+let apply_boolean nonadd_f add_f data char = 
+    match Hashtbl.find data.character_specs char with
+    | Static x ->
+            (* We can test only for non-additive
+            * characters first *)
+            let generate_characters_list () = 
+                Hashtbl.fold (fun taxon chars acc ->
+                    try match Hashtbl.find chars char with
+                    | (Stat (_, states)), _  -> 
+                            states :: acc
+                    | _ -> assert false
+                    with
+                    | Not_found -> None :: acc)
+                data.taxon_characters []
+            in
+            (match x.Parser.SC.st_type with
+            | Parser.SC.STUnordered -> 
+                    let all_specs = generate_characters_list () in
+                    nonadd_f all_specs
+            | Parser.SC.STOrdered -> 
+                    let all_specs = generate_characters_list () in
+                    add_f all_specs
+            | _ -> true)
+    | _ -> true
