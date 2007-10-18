@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2367 $"
+let () = SadmanOutput.register "Node" "$Revision: 2368 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1331,11 +1331,15 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                                 | _ -> assert false
                             in
                             Hashtbl.add hstbl model.Parser.SC.set_code code;
-                            model.Parser.SC.set_code  :: acc
+                            let group = model.Parser.SC.set_code in
+                            if All_sets.Integers.mem group acc then
+                                acc
+                            else All_sets.Integers.add group acc
                     | _ -> assert false)
-                [] lst 
+                All_sets.Integers.empty lst
             in
-            List.map (Hashtbl.find_all hstbl) set_codes
+            List.map (Hashtbl.find_all hstbl) 
+            (All_sets.Integers.elements set_codes)
         in
         let nadd8weights = classify do_classify lnadd8code !data
         and nadd16weights = classify do_classify lnadd16code !data
