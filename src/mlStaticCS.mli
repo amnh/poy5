@@ -8,7 +8,7 @@ val to_string : t -> string
 * optional value of a previous median computed between [a] and [b] being [prev].
 * [prev] can be used for heuristic purposes.
 * *)
-val median : t option -> t -> t -> t
+val median : t option -> t -> t -> float -> float -> t
 
 (** The cost of the median [t]. This is not the overall subtree cost of the tree
 * rooted by [t]. *)
@@ -21,12 +21,12 @@ val median_3 : t -> t -> t -> t -> t
 
 (** [reroot_median a b] computes the median that should be assigned to the root
 * of a tree as the median between [a] and [b]. *)
-val reroot_median : t -> t -> t
+val reroot_median : t -> t -> float -> float -> t
 
 (** [dist_2 a b c]  estimates a lower bound of the additional cost of connecting
 * the root of a subtree [a] in between the pair of neighbor vertices [b] and 
 * [c]. This is used for fast evaluation during SPR and TBR. *)
-val dist_2 : t -> t -> t -> float
+val dist_2 : t -> t -> t -> float -> float -> float -> float option -> float
 
 (** [f_codes x c] creates a new character set where all characters with code
 * appearing in [c] have been filtered out. *)
@@ -57,10 +57,11 @@ val compare_data : t -> t -> int
  * where [acc] is the new accumulator from the [has_changed] set of codes,
  * [prev_cost] is the previous cost of the edge connecting [mine] and [par],
  * [cost] is the new cost of the edge connecting [mine] and [par] after the
- * readjustement, [length] is the new edge length (time), and [adjusted] is 
+ * readjustement, [length] is the new edge length of children (time), and [adjusted] is 
  * the newly adjusted vertex [mine]. *)
 val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> 
-    t -> t -> t -> t -> All_sets.Integers.t * float * float * float * t
+    t -> t -> t -> t -> float -> float -> 
+    All_sets.Integers.t * float * float * (float*float) * t
 
 (** [of_parser spec characters] creates a character set with specification
 * [spec] and characters defined in the array [characters], where each element is
@@ -68,13 +69,14 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float ->
 * characters with code [code]. If [states = None] then the character is missing
 * (should be treated as if [states] held all the possible states for the
 * character).*)
+(*  [spec] -> [characters: ([states]*[code]) array] -> t *)
 val of_parser : Parser.SC.static_spec -> ((int list option * int) array) -> t
 
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float
 
 (* [distance a b] computes (in ML), the -log likelihood of [b] given [a]. *)
-val distance : t -> t -> float
+val distance : t -> t -> float -> float -> float
 (** Non urgent functions, after finishing with the previous functions, 
 * add the to_formatter to be able to see the results on each vertex of the tree.
 val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output
