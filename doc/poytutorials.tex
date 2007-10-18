@@ -78,6 +78,102 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
+\section{Bremer Support}{\label{tutorial 3}}
+
+This tutorial builds on the previous tutorials to illustrate Bremer support 
+calculation on trees constructed using dynamic homology characters
+    
+   \begin{verbatim}
+(* Bremer support for dynamic homology trees *)
+read( "18s.fas", 28s.fas")
+set( root:"Americhernus")
+build()
+swap()
+select()
+calculate_support (bremer, build (trees:0), swap (tbr, trees:3))
+report ("bremertree", graphsupports)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(*Bremer support for dynamic homology trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+\item \texttt{read( "18s.fas", "28s.fas")} This command imports the nucleotide sequence files \texttt{18s.fas, 28s.fas}.
+\item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.     
+\item \texttt{build()} This commands initializes tree-building and generates 10 random-addition trees by default.  It is essential that trees are either built and loaded in memory or read from an existing file prior to calculating bremer support values.  If trees have not been built or specified the \poycommand{calculate\_support} command will generate the warning: \texttt{There are no active trees in memory!} 
+\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{calculate\_support (bremer, build (trees:0), swap (tbr, trees:3))} The \poycommand{calculate\_support} command generates support values as specified by the \poyargument{bremer} argument. The \poyargument{build (trees:0)} argument designates that support values be calculated for each tree held in memory.  The final argument given within the \texttt{calculate\_support} command line is \poyargument{swap (tbr, trees:3)} which instructs that each tree be subjected to tbr swapping such that a maximum of three best trees are kept per search round. 
+\item \texttt{report ("bremertree", graphsupports)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a postscript file with bremer values designated by the name specified (\emph{i.e.} \texttt{bremertree}). 
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+\section{Jackknife Support}{\label{tutorial 4}}
+
+This tutorial illustrates calculating Jackknife support values for trees constructed with static homology characters.  Although it is possible to calculate both Jackknife and Bootstrap support values 
+for trees constructed using dynamic homology characters, it is not recommended because resampling of dynamic characters occurs at the fragment (rather than nucleotide) level.  Consequently, in data sets containing a small number of fragments, support values will be inflated relative to those generated from static characters.  Alternately dynamic homology characters can be converted to static characters using the transform argument \poyargument{static\_approx}.  Character transformation, however, may result in a discrepancy between tree costs generated using dyanmic homology characters and those generated using static homology characters.  Therefore after such a data transformation is performed, an extra round of swapping is recommended to insure that the local minimum tree length is reached for the static homology characters prior to calculating support values  support values.
+
+ \begin{verbatim}
+(* Jackknife support for static homology trees *)
+read(prealigned:("28s.aln", tcm:(1, 2)))
+set( root:"Americhernus")
+build()
+swap()
+select()
+calculate_support (jackknife: (remove:0.50, resample:1000), 
+build (5), swap (tbr, trees:3))
+report ("jacktree", graphsupports)
+exit()
+\end{verbatim}
+
+\begin{itemize}
+\item \texttt{(* Jackknife support for static homology trees *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+\item \texttt{read(prealigned:("28s.aln", tcm:(1, 2)))} This command imports the prealigned nucleotide sequence file \texttt{ 28s.aln}, and treats the characters as static with the prescribed transformation cost matrix.
+\item \texttt{set(root:"Americhernus")} The \poycommand{set} command specifies conditions prior to tree searching. The outgroup (\texttt{Americhernus}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.     
+\item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is essential that trees are either specified from a file or that trees are built and loaded in memory before attempting to calculate bremer support values.
+\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{calculate\_support (jackknife,(remove:0.50, resample:1000), swap (tbr, trees:3)} The \poycommand{calculate\_support} command generates support values as specified by the \poyargument{jackknife} argument for each tree held in memory.  During each psuedoreplicate half of the characters will be deleted as specified in the \poyargument{remove:0.50}.  The total number of of pseudoreplicates to be performed is designated by the \poyargument{resample:1000} argument. The \poyargument{build(5)} argument indicates the number of Wagner trees to be built in each psuedoreplicate, and the \poyargument{swap (tbr, trees:3)} argument subjects each Wagner build to tbr swapping keeping up to three best trees per search round. 
+\item \texttt{report ("jacktree", graphsupports)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a postscript file with jackknife values designated by the name specified (\emph{i.e.} \texttt{jacktree}). 
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+
+\section{Chromosome Analysis: Unannotated Sequences}{\label{tutorial 4}}
+
+This tutorial illustrates the analysis of chromosome-level transformations using 
+unannotated sequences, i.e., contiguous strings of sequences without prior 
+identification of independent regions. Prior to attempting an analysis of  
+unannotated chromosomes it is necessary to enable the \texttt {"long sequences"}
+option when compiling the \texttt{POY4} program. 
+
+\begin{verbatim}
+(* Chromosome analysis of unannotated sequences *)
+read (chromosome:("mit5.txt"))
+transform ((all, dynamic_pam: (locus_breakpoint:20, locus_indel:(10, 1.5), 
+circular:true, median:2, seed_length:15, rearranged_len:45,
+sig_block_len:50, median:2, swap_med:1)))
+build()
+swap()
+select()
+report ("chrom", diagnosis)
+report ("consensustree", graphconsensus)
+exit()
+\end{verbatim}
+
+
+\begin{itemize}
+\item \texttt{(* Chromosome analysis of unannotated sequences *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
+\item \texttt{read(chromosome:("mit5.txt"))} This command imports the unannotated chromosomal sequence file \texttt{mit5.txt}. The argument \poyargument{chromosome} specifies the characters as unannotated chromosomes.
+\item \texttt{transform ((all, dynamic\_pam: (locus\_breakpoint:20, locus\_indel:(10, 1.5), circular:true, seed\_length:15, rearranged\_len:50, sig\_block\_len:50, median:2, swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{dynamic\_pam} specifies the conditions to be applied when calculating chromosome-level HTUs (medians).  The argument \poyargument{locus\_breakpoint:20} applies a breakpoint distance between chromosomes with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10, 1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  As the type of chromosomal sequences being analyzed are of mitochondrial origin, the argument \poyargument{circular:true} treats each chromosome sequence as a continuous rather than linear. The argument \poyargument{seed\_length:15} sets the minimum length of identical continuous fragments (seeds) at 15.  Setting the seed length to an integer appropriate for the data is critical to optimizing the efficiency with which the program correctly identifies chromosomal fragments and detects rearrangements.  Seeds are the foundation of larger homologous blocks.  The \poyargument{rearranged\_len} argument sets the minimum distance between two seeds at which rearrangement events can be detected.  The argument \poyargument{sig\_block\_len} creates a pairwise alignment between two chromosomes and sets an integer value below which sequence blocks are not considered homologous.  In this example, because the data are mitochondrial containing relatively short homologous tRNA sequences both the \poyargument{rearranged\_len} and the \poyargument{sig\_block\_len} were set to values below the defaults for these arguments.  The \poyargument{median} specifies the number of best cost locus-rearrangements which will be considered for each HTU (median), while the \poyargument{swap\_med} argument specifies the maximum number of swapping iterations performed to search for the best pairwise alignment between two chromosomes.  Because values for the \poyargument{median} and \poyargument{swap\_med} arguments set above the default (1) will significantly increase the calculation time, the default values are recommended for larger chromosomal data sets.
+\item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is essential that trees are either specified from a file or that trees are built and loaded in memory before attempting to calculate bremer support values.
+\item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
+\item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{report ("chrom", diagnosis)}  The \poycommand{report} command in combination with a file name and the \poyargument{diagnosis} outputs the optimal median states and edge values to a specified file (\emph{i.e.} \texttt{chrom}). 
+\item \texttt{report ("consensustree", graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a postscript strict consensus file of the trees generated (\emph{i.e.} \texttt{consensustree}). 
+\item \texttt{exit()} This commands ends the \poy session.
+\end{itemize}
+
+
 %\section[Fusing and Ratcheting]{Advanced Search II: Tree Fusing and Fragment
 %Ratcheting}{\label{tutorial3}}
 
@@ -172,8 +268,7 @@ exit()
 %\end{enumerate}
 
 %\section[Bremer Support]{Support I: Bremer Support}
-
-%This tutorial builds on the previous tutorials to illustrate Bremer support 
+  %This tutorial builds on the previous tutorials to illustrate Bremer support 
 %calculation.
 %\begin{enumerate}
 %\item Type: 
@@ -182,8 +277,7 @@ exit()
 %    swap () [enter]
 %    calculate_support (bremer, build (trees:5), swap (trees:2)) [enter]
 %    report (supports) [enter]
-%    \end{verbatim}
-
+%    \end{verbatim} 
 %The above commands will perform the following tasks using default parameters:
 %\item Apply a weight of one to all transformations.
 %\item For each tree in memory, alternate SPR and TBR branch swapping of the 
@@ -192,18 +286,14 @@ exit()
 %independent searches for every group, holding a maximum of two trees. 
 %\item Output support values for each group in parenthetical notation to \poy 
 %output window.
-
 %\end{enumerate}
-
 %\section[Bootstrap Support]{Support II: Bootstrap Support Using Dynamic Homology}
-
 %This tutorial builds on the previous tutorials to illustrate the calculation of 
 %bootstrap frequencies. As discussed in the \poy Commands Reference, the 
 %characters sampled during pseudoreplicates are entire fragments of DNA 
 %sequences, not individual nucleotide characters. Tutorial 7 shows how to 
 %estimate bootstrap frequencies using static homology, which allows nucleotide-
 %level characters to be sampled. 
-
 %\begin{enumerate}
 %\item Type:
 %    \begin{verbatim}
