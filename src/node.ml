@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2365 $"
+let () = SadmanOutput.register "Node" "$Revision: 2367 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1276,7 +1276,7 @@ let classify doit chars data =
 
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
-    kolmogorov data =
+    kolmogorov static_ml data =
         let add_character =  Data.add_character_spec 
         and set = Data.Set 
         and data = ref data in
@@ -1319,6 +1319,24 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     acc)
                 [] res
         in
+        let group_ml_by_codes lst = 
+            let hstbl = Hashtbl.create 97 in
+            let set_codes = 
+                List.fold_left (fun acc code ->
+                    match Hashtbl.find (!data).Data.character_specs code with
+                    | Data.Static spec -> 
+                            let model = 
+                                match spec.Parser.SC.st_type with
+                                | Parser.SC.STLikelihood x -> x
+                                | _ -> assert false
+                            in
+                            Hashtbl.add hstbl model.Parser.SC.set_code code;
+                            model.Parser.SC.set_code  :: acc
+                    | _ -> assert false)
+                [] lst 
+            in
+            List.map (Hashtbl.find_all hstbl) set_codes
+        in
         let nadd8weights = classify do_classify lnadd8code !data
         and nadd16weights = classify do_classify lnadd16code !data
         and nadd32weights = classify do_classify lnadd32code !data in
@@ -1326,6 +1344,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
+        and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
 
         (* We need ways of making empty characters when a character is
@@ -1503,9 +1522,30 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             weight = 1.; time = 0. } in
                             { result with characters = c :: result.characters }
                 in
-                match lsank_chars with
-                | [] -> result
-                | _ -> List.fold_left single_lsank_chars_process result lsank_chars
+                List.fold_left single_lsank_chars_process result lsank_chars
+            in
+            let result = 
+                let single_ml_group result lst =
+                    match lst with
+                    | [] -> result
+                    | h :: t -> (* We do have some characters to add *)
+                            let spec = 
+                                match Hashtbl.find
+                                    (!data).Data.character_specs h with
+                                | Data.Static x -> x 
+                                | _ -> assert false
+                            in
+                            let lst = List.map (Hashtbl.find tcharacters) lst in
+                            let v = List.map extract_stat lst in
+                            let c = 
+                                MlStaticCS.of_parser spec (Array.of_list v)
+                            in
+                            let c = StaticMl { preliminary = c; final = c; cost = 0.;
+                                          sum_cost = 0.;
+                            weight = 1.; time = 0. } in
+                            { result with characters = c :: result.characters }
+                in
+                List.fold_left single_ml_group result lstaticmlcode
             in
             result :: acc
 
@@ -1679,13 +1719,15 @@ let load_data ?taxa ?codes ?(classify=true) data =
         and add = List.filter is_mem data.Data.additive
         and sank = List.map (List.filter is_mem) data.Data.sankoff
         and kolmogorov = List.filter is_mem data.Data.kolmogorov
+        and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
         let n8 = make_set_of_list n8
         and n16 = make_set_of_list n16
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
-        generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov data
+        generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
+        static_ml data
     in
     let nodes = 
         match taxa with
