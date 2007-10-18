@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2362 $"
+let () = SadmanOutput.register "Node" "$Revision: 2365 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1667,7 +1667,8 @@ let load_data ?taxa ?codes ?(classify=true) data =
                 belongs_to_code char && 
                 Data.apply_boolean
                 NonaddCS8.is_potentially_informative 
-                AddCS.is_potentially_informative data char)
+                AddCS.is_potentially_informative data char
+                && 0. <> Data.get_weight char data)
         else belongs_to_code
     in
     let data, generate_taxon = 
