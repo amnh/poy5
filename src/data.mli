@@ -543,3 +543,7 @@ val to_human_readable : d -> int -> int -> string
 val apply_boolean : 
     (int list option list -> bool) -> (int list option list -> bool) -> 
         d -> int -> bool
+
+(** [get_model c d] returns the model of the ML character with code [c] in data
+* [d]. If the character is not of type ML, it will raise an exception. *)
+val get_model : int -> d -> Parser.SC.ml_model

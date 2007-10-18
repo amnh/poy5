@@ -3995,3 +3995,11 @@ let apply_boolean nonadd_f add_f data char =
                     add_f all_specs
             | _ -> true)
     | _ -> true
+
+let get_model code data =
+    match Hashtbl.find data.character_specs code with
+    | Static x -> 
+            (match x.Parser.SC.st_type with
+            | Parser.SC.STLikelihood x -> x
+            | _ -> failwith "Data.get_model")
+    | _ -> failwith "Data.get_model 2"
