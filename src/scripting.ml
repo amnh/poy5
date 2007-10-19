@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2262 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2370 $"
 
 module IntSet = All_sets.Integers
 
@@ -1317,6 +1317,7 @@ IFDEF USEPARALLEL THEN
 ELSE 
                 run 
 END
+    | `Skip
     | `Entry -> run
     | `StoreTrees -> 
             { run with trees = `Empty; stored_trees = run.trees }

@@ -168,6 +168,7 @@ let dependency_relations (init : Methods.script) =
                 | `SetSeed _
                 | `ClearMemory _
                 | `Recover
+                | `Skip
                 | `ClearRecovered ->
                         [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Wipe ->
@@ -255,7 +256,7 @@ let dependency_relations (init : Methods.script) =
                 | `Prebuilt _ ->
                         [([Data], [Data; Trees], init, Linnearizable)]
                 | `Build (_, (`Constraint (_, _, None, _)), _) ->
-                        [([Data; Trees], [Trees], init, NonComposable)]
+                        [([Data; Trees], [Trees], init, Parallelizable)]
                 | `Build _
                 | `Build_Random _ ->
                         [([Data], [Trees], init, Parallelizable)]
@@ -267,7 +268,7 @@ let dependency_relations (init : Methods.script) =
                 | `LocalOptimum (_, _, _, _, _, _, _, _, (`Partition x), _, _)
                 when not (List.exists (function `ConstraintFile _ -> true | _ ->
                     false) x) ->
-                        [([Trees], [Trees], init, NonComposable)]
+                        [([Trees], [Trees], init, NonComposable)] 
                 | `LocalOptimum _ ->
                         [([Trees], [Trees], init, Parallelizable)]
             in
@@ -400,6 +401,7 @@ let dependency_relations (init : Methods.script) =
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
+    | `Skip
     | `Entry
     | `ParallelPipeline _
     | `Barrier 
@@ -531,46 +533,92 @@ let sort_list2 list =
         let a = int_part_of a
         and b = int_part_of b in a - b) list
 
+(* We specify a partial order for the parallelizable operations *)
+type 'a builds = [ `Build_Random of 'a ]
+type searches = [ Methods.local_optimum | Methods.escape_local ] 
+type 'a all_methods = [ 'a builds | searches ]
+
+let is_pair_of_parallels_composable a b =
+    match a, b with
+    | #searches, #builds 
+    | #builds, #builds -> false
+    | #searches, #searches 
+    | #builds, #searches -> true
+
 (* Find those paths below the tree that can be composed together. Return the tip
 * of what is after those functions that can be composed, and the composed
 * functions themselves *)
-let rec composers tree =
+let rec composers cur_tip tree =
     match tree with
     | Tree x ->
+            let generate_composition cur_tip =
+                let vtx, tip =
+                    match x.children with
+                    | [chld] -> 
+                            (match composers cur_tip chld with
+                            | None, tip -> [], tip
+                            | Some subtree, tip -> [subtree], tip)
+                            | _ -> [], tree
+                in
+                Some (Tree { x with children = vtx }), tip
+            in
             (match x.exploders with
-            | Parallelizable | Composable -> 
-                    let vtx, tip =
-                        match x.children with
-                        | [chld] -> 
-                                (match composers chld with
-                                | None, tip -> [], tip
-                                | Some subtree, tip -> [subtree], tip)
-                                | _ -> [], tree
+            | Parallelizable ->
+                    let new_tip = 
+                        match x.run with
+                        | #all_methods as x -> x 
+                        | _ -> assert false
                     in
-                    Some (Tree { x with children = vtx }), tip
+                    if is_pair_of_parallels_composable cur_tip new_tip then
+                        generate_composition new_tip
+                    else (Some ((InteractiveState 0)), tree)
+            | Composable -> generate_composition cur_tip
             | _ -> None, tree)
     | tree -> None, tree
 
 (* Find the first position that cannot be linnearized below the current tree *)
-let rec get_tip tree =
+let rec get_tip (cur_tip : ('a all_methods option)) tree =
     match tree with
     | Parallel _
     | InteractiveState _ -> None, tree
     | Concurrent _ -> failwith "Non parallelizable"
     | Tree x ->
+            let my_cur_tip () = 
+                match x.run with
+                | #all_methods as x -> x
+                | _ -> assert false
+            in
+            let generate_tip cur_tip =
+                let cur_tip = 
+                    match cur_tip with
+                    | Some x -> cur_tip
+                    | None -> Some (my_cur_tip ())
+                in
+                let children = List.map (get_tip cur_tip) x.children in
+                (match List.partition (function ((Some _), _) -> true 
+                | _ -> false) children with
+                | [], children ->
+                        None, tree
+                | [(a, b)], children ->
+                        let _, children = List.split children in
+                        a, Tree { x with children = b :: children }
+                | _ -> failwith "Non parallelizable")
+            in
             match x.exploders with
             | Linnearizable
-            | Parallelizable
-            | Invariant ->
-                    let children = List.map get_tip x.children in
-                    (match List.partition (function ((Some _), _) -> true 
-                    | _ -> false) children with
-                    | [], children ->
-                            None, tree
-                    | [(a, b)], children ->
-                            let _, children = List.split children in
-                            a, Tree { x with children = b :: children }
-                    | _ -> failwith "Non parallelizable")
+            | Invariant -> generate_tip cur_tip
+            | Parallelizable ->
+                    let should_continue, new_tip = 
+                        match cur_tip with
+                        | Some x ->
+                                let new_tip = my_cur_tip () in
+                                is_pair_of_parallels_composable x new_tip,
+                                new_tip
+                        | None -> true, my_cur_tip ()
+                    in
+                    if should_continue then
+                        generate_tip (Some new_tip)
+                    else None, tree
             | ExitPoint
             | Composable ->
                     Some tree, InteractiveState x.order_c
@@ -587,17 +635,31 @@ let rec explode_tree tree =
         | `LocalOptimum (_, _, _, _, _, _, _, _, _, _, sml) ->
                 not (List.exists (fun x -> x = `KeepBestTrees) sml)
         | _ -> false
+    and fail_if_constrained_build_or_swap x = 
+        match x.run with
+        | `Build (_, (`Constraint (_, _, None, _)), _) ->
+                raise Exit
+        | `LocalOptimum (_, _, _, _, _, _, _, _, (`Partition x), _, _)
+        when not (List.exists (function `ConstraintFile _ -> true | _ ->
+            false) x) -> raise Exit
+        | _ -> ()
     in
     match tree with
     | Tree x when is_parallelizable x && is_desirable x ->
             (try
+                fail_if_constrained_build_or_swap x;
                 let composers, tip, todo =
                     let is = InteractiveState 0 in
-                    match get_tip tree with
+                    match get_tip None tree with
                     | None, todo ->  
                             is, is, todo
                     | (Some tip), todo -> 
-                            match composers tip with
+                            let cur_tip = 
+                                match x.run with
+                                | #all_methods as x -> x 
+                                | _ -> assert false 
+                            in
+                            match composers cur_tip tip with
                             | Some composers, tip -> composers, tip, todo
                             | None, tip -> is, tip, todo
                 in
@@ -606,14 +668,24 @@ let rec explode_tree tree =
                     composer = composers; 
                     next = explode_tree tip;
                     order_p = x.order_c;
-                    weight_p = x.weight_c 
+                    weight_p = x.weight_c;
                 } in
                 Parallel v
             with
             | _ -> 
                     let children = List.map explode_tree x.children in
+                    Parallel {
+                        todo_p = 
+                            Tree { x with children = [InteractiveState 0] };
+                        composer = InteractiveState 0;
+                        next = Tree { x with run = `Skip; children = children };
+                        order_p = x.order_c;
+                        weight_p = x.weight_c;
+                    })
+                    (*
                     Tree { x with exploders = Parallelizable; children =
                         children })
+                    *)
     | Tree x -> Tree { x with children = List.map explode_tree x.children }
     | Concurrent x ->
         let children = List.map explode_tree x.children
@@ -829,7 +901,7 @@ let simplify_store_set script =
     let rec simplify_one item (result, used_items, modified) =
         match item with
         | `Store (original_contents, name) ->
-                if Str.string_match (Str.regexp "^__poy") name 0 then
+                if Str.string_match (Str.regexp "^[0-9]*__poy") name 0 then
                     if All_sets.StringMap.mem name used_items then
                         let used_contents = 
                             All_sets.StringMap.find name used_items
@@ -944,6 +1016,8 @@ let simplify_store_set script =
                     match (h : Methods.script) with
                     | `ParallelPipeline (c, a, b, d) ->
                             let (ar : Methods.script list), acc, am = remove_useless acc a in
+                            let br, acc, bm = remove_useless acc b in
+                            let ar, acc, am = remove_useless acc a in
                             let br, acc, bm = remove_useless acc b in
                             let dr, acc, dm = remove_useless acc d in
                             (`ParallelPipeline (c, ar, br, dr)), acc, 
@@ -1068,13 +1142,15 @@ let remove_set lst =
     | x -> x
 
 let remove_trees_of_set = function
+    (*
     | `Set (items, name) ->
             (`Set ((List.filter (fun x -> x <> `Trees) items), name))
+    *)
     | x -> x
 
 let remove_all_trees_from_set = List.map remove_trees_of_set
 
-let remove_trees_from_set lst =
+let remove_trees_from_set lst = 
     match lst with
     | h :: t -> (remove_trees_of_set h) :: t
     | [] -> []
@@ -1132,7 +1208,7 @@ let rec linearize2 queue acc =
                                 linearize2 (single_queue y.composer) 
                                 composerl;
                                 linearize2 (single_queue y.next) nextl;
-                                let todol = remove_trees_from_set (List.rev !todol)
+                                let todol = deps @ remove_trees_from_set (List.rev !todol)
                                 and nextl = remove_trees_from_set (List.rev !nextl) 
                                 and composerl = 
                                     remove_trees_from_set (List.rev
@@ -1142,7 +1218,7 @@ let rec linearize2 queue acc =
                                     `Store (all_dependencies, my_name) ::
                                         `ParallelPipeline (total, todol, 
                                         `UnionStored :: composerl, 
-                                            `GetStored :: nextl) :: (deps @ !acc);
+                                            `GetStored :: nextl) :: (!acc);
                         | `LocalOptimum _
                         | `PerturbateNSearch _->
                                 let composerl = ref []
@@ -1507,6 +1583,7 @@ let script_to_string (init : Methods.script) =
             in
             res
     | `Entry -> "@[beginning of the program@]"
+    | `Skip
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
@@ -1672,6 +1749,7 @@ let is_master_only (init : Methods.script) =
     | `RootName _
     | `Root _
     | `Entry 
+    | `Skip
     | `StoreTrees
     | `UnionStored 
     | `OnEachTree _
