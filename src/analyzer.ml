@@ -534,7 +534,7 @@ let sort_list2 list =
         and b = int_part_of b in a - b) list
 
 (* We specify a partial order for the parallelizable operations *)
-type 'a builds = [ `Build_Random of 'a ]
+type 'a builds = [ `Build of 'a ]
 type searches = [ Methods.local_optimum | Methods.escape_local ] 
 type 'a all_methods = [ 'a builds | searches ]
 
@@ -586,13 +586,16 @@ let rec get_tip (cur_tip : ('a all_methods option)) tree =
             let my_cur_tip () = 
                 match x.run with
                 | #all_methods as x -> x
-                | _ -> assert false
+                | `Skip -> raise Exit
+                | _ -> raise Exit
             in
             let generate_tip cur_tip =
                 let cur_tip = 
                     match cur_tip with
                     | Some x -> cur_tip
-                    | None -> Some (my_cur_tip ())
+                    | None -> 
+                            try Some (my_cur_tip ()) with
+                            | Exit -> cur_tip
                 in
                 let children = List.map (get_tip cur_tip) x.children in
                 (match List.partition (function ((Some _), _) -> true 
@@ -617,8 +620,9 @@ let rec get_tip (cur_tip : ('a all_methods option)) tree =
                         | None -> true, my_cur_tip ()
                     in
                     if should_continue then
-                        generate_tip (Some new_tip)
-                    else None, tree
+                        try generate_tip (Some new_tip) with
+                        | Exit -> Some tree, InteractiveState x.order_c
+                    else raise Exit 
             | ExitPoint
             | Composable ->
                     Some tree, InteractiveState x.order_c
@@ -672,7 +676,7 @@ let rec explode_tree tree =
                 } in
                 Parallel v
             with
-            | _ -> 
+            | Failure "Non parallelizable" -> 
                     let children = List.map explode_tree x.children in
                     Parallel {
                         todo_p = 
