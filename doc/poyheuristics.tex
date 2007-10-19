@@ -60,89 +60,188 @@ Further economies can be reached by using a combination of different character o
 
 \section{Chromosomal heuristics}
 Analysis of chromosomal data requires heuristic procedures to estimate
-rearrangement events in addition to nucleotide transformations.  In unannotated
-chromosomal sequences \poy uses \poycommand{seed\_length},
-\poycommand{sig\_block\_len} and connecting sequence length to identify
-homologous fragments (e.g. loci) within nucleotide strings. A seed is a
-contiguous nucleotide sequence that is identical in composition between two
-chromosomes.  Once detected seeds are used to partition chromosomes into
-fragments, or blocks.  If blocks are considered to be homologous and their
-relative positions differ between the chromosomes, a rearrangement is
-inferred. The command \poycommand {seed\_length} specifies the minimum length of
-the seed.  The higher the seed\_length value, the fewer seeds are detected,
-that, in turn influence the number of blocks recognized. Conversely, if the
-value of seed\_length is low, an increased number of seeds and, consequently, a
-greater number of short blocks are detected. The command
-\poycommand{sig\_block\_len} sets the minimum nucleotide length of the blocks,
-beyond which the block are not considered homologous.If the value of
-\poycommand{sig\_block\_len} is low, small-size rearrangements are allowed;
-whereas if the value of \poycommand{sig\_block\_len} is high—larger
-rearrangements are detected. The connector length parameter sets a threshold
-value under which homologous blocks separated by non-homologous regions can be
-considered as a single block. 
-The default for this parameter is \texttt{100}.  Therefore if two inferred
-homologous blocks are separated by less 
-than 100 nucleotides they will be treated as a single block in 
-calculating of rearrangement events. Thus, the combination of parameters \poycommand{seed\_length}, \poycommand{sig\_block\_len}, and connector length significantly influence the estimation of inferred rearrangements.
+rearrangement events in addition to nucleotide transformations. Chromosomal
+data are divided into four different classes, namely breakinv, annotated, 
+chromosome and genome. In the following we discuss the complexity of
+each class.
 
-Once blocks have been designated, heuristic solutions estimating the number of rearrangement events among chromosomal strings can be implemented using \poycommand{breakpoint} distance, \poycommand {inversion} distance, or \poycommand {approx}. The command \poycommand{breakpoint} calculates HTU medians that minimize the number of adjacency breaks (between ordered block pairs) in terminals.  Estimating rearrangements using inversion distance \poycommand {inversion} is more computationally costly (time consuming) but considers locus inversion events as well as adjacency breaks.  Static approximation of chromosomal blocks (\poycommand {approx}) provides the fastest median calculation but is the least exhaustive of the rearrangement search options. The efficiency of each rearrangement heuristic is also influenced by the median parameter specifying the number of alternate rearrangements considered in the search.  The choice of heuristic and thoroughness with which rearrangement estimation is conducted is contingent upon the properties of chromosomal data being analyzed and the cost assigned to rearrangement events relative to that of locus insertions and deletions (\poycommand {locus\_indel}) and nucleotide transformations.
+\subsection{Breakinv character}
+Breakinv character is the most simple form of chromosome data. Each breakinv
+character (chromosome) is presented by a sequence of general alphabet characters each codes for
+one gene. The transformation cost matrix among characters is calculated in advance
+and provided by users. During the tree search, \emph{pairwise alignments with rearrangements} (PAR) 
+between two breakinv characters is constructed.
+The PAR generalizes the ordinary pairwise alignment by allowing rearrangements of character order. 
+Since an exact solution for the PAR problem is likely intractable, we developed
+a heuristic approach which compromise between computational expense and
+alignment quality~\cite{vinh2006}. The method comprises two phases: first, it
+creates an initial PAR using stepwise addition strategy; second, it improves the 
+initial PAR by pairwise position swapping techniques. The second step is
+repeated several iterations until either no improvement is found or the number
+swapped iterations exceeds a user-defined maximum number of iterations,
+\emph{swap\_med parameter}. 
+The runtime complexity of the approaches is O($n^4 \times swap\_med$) where $n$ is 
+the number of genes.
 
-Further approximations and economies can be achieved by varying parameters of commands, such as selecting a limited subset of trees for subsequent analysis limiting the number of replicates, and examining intermediary results from an interrupted analysis (expand).
-
-%Even though using such imprecise relative terms is “high” and “low” might give an idea of the effect of %combination of different parameter values, the more explicit advice on actual values is desirable. The %following sets of parameters were empirically established to provide reasonable (biologically
-%meaningful) results judging from a posteirori diagnosis of the inferred rearrangements. 
-
+\begin{table}[t]
+\caption{The influence of \emph{swap\_med} to running time and tree cost
+         on a dataset containing 22 taxa with approximate 20 genes}
+\label{swapMedComp} 
 \begin{center}
-\begin{tabular}{| l  l  p{.35\textwidth}|}
-	\hline
-Heuristic&Default Cost &Suggested Cost  \\ \hline \hline
-Locus & & \\
-\poycommand{seed\_length}&9&5-15\\
-\poycommand{sig\_block\_len}&100&60-150\\
-connector length&100&50-1000\\
-\poycommand{breakpoint}&10&10-50\\
-\poycommand {inversion}&none&15-35\\
- \poycommand {approx}&false&large data sets\\
-  \poycommand {median}&1&1-2\\
-   \poycommand {swap\_med}&1&1-2\\
-  \poycommand {locus\_indel})&opening 10, extension 1&opening 10, extension 1\\
-  %Chromosome\\
-  %\poycommand{chrom\_breakpoint}&?&?\\
-  %\poycommand{chrom\_indel}&?&?\\
+\begin{tabular}{l c c}
+\hline
+	swap\_med & tree cost & time (seconds) \\
+\hline
+ 	   0 		& 954 &   28 \\
+ 	   1 		& 948 &   52 \\
+ 	   2 		& 871 &   77 \\
+ 	   4 		& 882 &   97 \\
+ 	   8 		& 852 &   102 \\
 \hline
 \end{tabular}
 \end{center}
+\end{table}
 
-%&DO&Default strategy\\
-%Nucleotides&FSO&\poycommand{transform(fixedstates)}\\
-%Loci&FSO&\poycommand{transform(dynamic\_pam:(approx))}\\
-%Chromosomes&NA&NA\\
-%\hline	
-%\end{tabular}
-%\end{center}
-
-		
-%Nucleotide		
-%Locus	locus\_breakpoint	
-%	locus\_indel	
-%	inversion	
-%	[seed\_length	
-%	swap\_med	
-%	[sig\_block\_len	
-%Chromosome	chrom\_breakpoint	
-%	chrom\_indel	
+Table \ref{swapMedComp} shows that the increase of \emph{swap\_med} 
+results in increases the runtime. However, it does not guarantee the
+improvement of tree cost. The \emph{swap\_med} default is one.
 
 
-		
-%Nucleotide		
-%Locus	locus\_breakpoint	
-%	locus\_indel	
-%	inversion	
-%	[seed\_length	
-%	swap\_med	
-%	[sig\_block\_len	
-%Chromosome	chrom\_breakpoint	
-%	chrom\_indel	
+\subsection{Annotated chromosome character}
+Annotated character is a more general presentation of chromosome data 
+than breakinv character. Each annotated character is presented by 
+a sequence of loci/genes separated by pipes (`` $\vline$ ''). 
+This data type allows for locus-level rearrangements as well as
+nucleotide transformations. Locus homologies are
+determined dynamically, but based on annotated regions~\cite{vinh2006}.
+Given two annotated characters each has $m$ genes, the pairwise alignment method
+comprises two steps: first, pairwise distances
+among genes are calculated; second, apply the algorithm to reconstruct
+PAR for breakinv character. 
+The runtime complexity of the algorithm is O($m^2 \times l^2 + n^4 \times
+swap\_med$) where $l$ is the average length of genes. Note that annotated
+character does not require characters to have the same number of genes.
+Although a large of number equally optimal PARs could be constructed
+between two annotated characters, only a user-defined maximum number of PARs, \emph{median},  are kept
+during the tree search. Our experience is that the increase of \emph{median}
+does not usually result in the improvement of tree cost. The default value of
+\emph{median} is one. 
+
+It takes about 4 minutes to construct a Wagner tree of 10 taxa each contains
+8 genes of length approximate 300 nucleotides. We conduct 
+SPR search on the constructed Wanger tree to examine runtime and tree
+improvement. SPR search takes approximately 13 minutes and reduces 
+the tree cost about one percent.
+
+
+
+\subsection{Chromosome character}
+
+In unannotated chromosomal sequences is the most general presentation of
+chromosome data. Each chromosome is presented as a long sequence of nucleotides.
+We developed an approach to construct a \emph{comprehensive chromosome pairwise
+ alignment} which fulfill four conditions:
+(1) all putative homologies among loci are determined automatically, 
+(2) each locus is either aligned with only one putatively homologous locus or
+considered as a locus indel, 
+(3) loci are allowed to rearrange
+(4) the total cost to transform one genome into another genome
+comprising nucleotide transformation costs, locus indel costs, 
+and locus order rearrangement costs is minimized.  To this end, 
+the approach consists of two phases. First, reliable homologies 
+between two chromosomes are detected automatically. Second,
+conserved areas serve as anchors to divide each chromosome into 
+a sequence of separated loci. Apply the approach for annotated chromosome character
+to construct comprehensive chromosome pairwise alignments~\cite{vinh2007}. 
+Note that only a user-defined maximum number of PARs, \emph{median},  are kept
+during the tree search.
+
+
+To find reliable homologies between two chromosome, we apply three-step algorithm.
+First, identical segments, called \emph{seeds}, with lengths greater or equal to
+user-defined \emph{seed\_length} between two genomes are detected using suffix tree
+structure. Detected seeds whose distance is not greater than
+\emph{rearranged\_len} are connected to construct larger conserved areas, called
+\emph{block}. Blocks whose lengths are greater than a significant block length 
+threshold \emph{sig\_block\_len} are considered as reliable homologies. 
+
+In the following, we discuss the influence of {seed\_len},
+\emph{sig\_block\_len} and \emph{rearranged\_len} according to our experiments.
+
+The best default value of \emph{seed\_len} is \texttt{t}.
+The higher the \emph{seed\_len} value, the fewer seeds are detected,
+that, in turn influence the number of blocks recognized. Conversely, if the
+value of seed\_length is low, an increased number of seeds and, consequently, a
+greater number of short blocks are detected.
+
+Th default value of \emph{sig\_block\_len} is \texttt{100}. 
+If the value of \emph{sig\_block\_len} is low, small-size rearrangements are allowed;
+whereas if the value of \emph{sig\_block\_len} is high only large-size
+rearrangements could be detected.
+
+The \emph{rearranged\_len} parameter sets a threshold
+value under which homologous blocks separated by non-homologous regions can be
+considered as a single block. 
+The default for this parameter is \texttt{100}.  Therefore if two inferred
+homologous blocks are separated by less than 100 nucleotides they will be
+treated as a single block in calculating of rearrangement events.
+
+Thus, the combination of parameters \poycommand{seed\_length}, 
+\poycommand{sig\_block\_len}, 
+and \emph{rearranged\_len} significantly influence the estimation of inferred rearrangements.
+
+
+\begin{table}[t]
+\caption{The influence of \emph{seed\_length} to the runtime and tree cost
+or 11 corona viruses 27-32kb in length}
+\label{seedLength} 
+\begin{center}
+\begin{tabular}{l c c}
+\hline
+	\emph{seed\_length} & tree cost & runtime (minutes) \\
+\hline
+         7             & 109085   & 16\\
+         9 (default)   & 91099   & 12\\
+         11            & 91524   & 13\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+To examine the running time, we collect 11 corona viruses 
+27-13kb in length. The program takes about 12 minutes
+to reconstruct a Wagner tree, and around one hour 
+for SPR swapping.
+
+
+
+\begin{table}[t]
+\caption{The default and suggested values of different parameters for chromosome
+characters}
+\label{defaultPam} 
+\begin{center}
+\begin{tabular}{l c c}
+\hline
+	name & default value cost & suggested value \\
+\hline
+    \poycommand{seed\_length}     & 9   & 5-15\\
+    \poycommand{sig\_block\_len}  & 100 & 60-150\\
+    \poycommand{rearranged\_len}   & 100 & 50-1000\\
+    \poycommand{breakpoint}       &10   & 10-50\\
+    \poycommand{inversion}        &none & 15-35\\
+    \poycommand{approx}           &false& large data sets\\
+    \poycommand{median}           &1    & 1-2\\
+    \poycommand{swap\_med}        &1    & 1-2\\
+    \poycommand{locus\_indel}     &opening 10, extension 1  & opening 10, extension 1\\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+
+Table \ref{defaultPam} summarizes default and suggested values of different
+parameters for chromosome characters.
+
 
 \section{Transformation cost regimes}
 In the analysis at the level of nucleotides, there are three general approaches to selecting transformation cost regimes most commonly used by \poy practitioners.
