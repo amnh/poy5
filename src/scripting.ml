@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2372 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2386 $"
 
 module IntSet = All_sets.Integers
 
@@ -1725,7 +1725,7 @@ END
               run
             | #Methods.diagnosis as meth ->
                 warn_if_no_trees_in_memory run.trees;
-                let _ = 
+                let () = 
                     let run = 
                         let data, nodes = 
                             Node.load_data ~classify:false run.data 
@@ -1733,7 +1733,7 @@ END
                         update_trees_to_data { run with data = data; nodes =
                             nodes }
                     in
-                    D.diagnosis run.data run.trees meth
+                    Sexpr.leaf_iter (fun x -> D.diagnosis run.data x meth) run.trees 
                 in
                 run
             | `Save (fn, comment) ->

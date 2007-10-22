@@ -24,7 +24,7 @@ module type S = sig
         (a, b) Ptree.p_tree Sexpr.t * int * int
 *)
     val diagnosis :
-      Data.d -> (a, b) Ptree.p_tree Sexpr.t -> Methods.diagnosis -> unit
+      Data.d -> (a, b) Ptree.p_tree -> Methods.diagnosis -> unit
 end
 
 module Make 

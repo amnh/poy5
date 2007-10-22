@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2263 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2386 $"
 
 let debug = true
 
@@ -178,7 +178,7 @@ module type S = sig
     type b
 
     val diagnosis :
-      Data.d -> (a, b) Ptree.p_tree Sexpr.t -> Methods.diagnosis -> unit
+      Data.d -> (a, b) Ptree.p_tree -> Methods.diagnosis -> unit
 end
 
 module Make 
@@ -204,14 +204,14 @@ module Make
         fo "@]";
         fo "@]@,"
 
-    let rec diagnosis (data : Data.d) (trees : (a, b) Ptree.p_tree Sexpr.t) = 
+    let rec diagnosis (data : Data.d) (tree : (a, b) Ptree.p_tree) = 
         function
         | `AllRootsCost filename ->
                 let fo = 
                     Status.user_message (Status.Output (filename, false, [])) 
                 in
                 fo "@[<v>@,@,@{<b>All Roots Cost@}@,";
-                Sexpr.leaf_iter (report_all_roots fo) trees;
+                report_all_roots fo tree;
                 fo "@]@\n%!"
         | `Implied_Alignment (filename, chars) ->
                 let char_codes = 
@@ -220,10 +220,10 @@ module Make
                 in
                 let char_codes = List.sort compare char_codes in
                 let res = 
-                    List.map (fun code -> Sexpr.map (fun x -> 
+                    List.map (fun code -> 
                         let seqname = Data.code_character code data in
-                        let ia = IA.create CT.filter_characters [code] data x in
-                        (x.Ptree.tree, seqname) , ia) trees) char_codes  
+                        let ia = IA.create CT.filter_characters [code] data tree in
+                        (tree.Ptree.tree, seqname) , ia) char_codes  
                 in
                 let extract_name name = 
                     match Str.split (Str.regexp ":") name with
@@ -232,12 +232,10 @@ module Make
                 in
                 let hash = ref (Hashtbl.create 97) 
                 and name = ref "" in
-                List.iter (fun res ->
+                List.iter (fun (x, y) ->
                     Status.user_message 
                     (Status.Output (filename, false, [])) "@[<v>@,@,@{<b>Implied \
                     Alignments@}@,";
-                    Sexpr.leaf_iter 
-                    (fun (x, y) ->
                         let (_, seqname) = x in
                         if (extract_name seqname) = !name then ()
                         else begin
@@ -250,7 +248,7 @@ module Make
                         (C.header_f filename seqname) C.taxonf 
                         (C.taxon_closef !hash filename) (C.sequence_f) 
                         (C.closef filename) 
-                    data) y) res;
+                    data) y;
                     Status.user_message 
                     (Status.Output (filename, false, [])) "@]%!")
                 res;
