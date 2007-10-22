@@ -165,10 +165,10 @@ let dependency_relations (init : Methods.script) =
                                 outputf !output_files
                         in
                         [(output_files, output_files, init, NonComposable)]
+                | `Skip -> [([], [], init, Composable)]
                 | `SetSeed _
                 | `ClearMemory _
                 | `Recover
-                | `Skip
                 | `ClearRecovered ->
                         [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Wipe ->
@@ -295,9 +295,9 @@ let dependency_relations (init : Methods.script) =
             res
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
-            [([Data], [JackBoot], init, Invariant)]
+            [([Data], [JackBoot], init, NonComposable)]
     | `Bremer (local_optimum, build, _, _) ->
-            [([Data; Trees], [Bremer], init, Linnearizable)]
+            [([Data; Trees], [Bremer], init, NonComposable)]
     | #Methods.escape_local ->
             [([Trees], [Trees], init, Parallelizable)]
     | #Methods.runtime_store as meth -> 
@@ -576,121 +576,149 @@ let rec composers cur_tip tree =
             | _ -> None, tree)
     | tree -> None, tree
 
-(* Find the first position that cannot be linnearized below the current tree *)
-let rec get_tip (cur_tip : ('a all_methods option)) tree =
-    match tree with
+let rec get_tip next_command =
+    (* A function that creates a tip. It will attempt to compose the components
+    * of the tip *)
+    let generate_this_tip compose =
+        let rec attempt_to_extend_compose next_command =
+            match next_command with
+            | Parallel x -> (InteractiveState (-1)), next_command
+            | Concurrent x -> (InteractiveState (-1)), next_command
+            | InteractiveState _ -> next_command, next_command
+            | Tree x ->
+                    match x.exploders, x.children with
+                    | Composable, lst ->
+                            let lst = List.map attempt_to_extend_compose lst in
+                            let a, b = List.split lst in
+                            let a, b =
+                                match a, b with
+                                | [], [] -> (InteractiveState (-1)),
+                                InteractiveState (-1)
+                                | ha :: ta, hb :: tb ->
+                                        if List.for_all (function
+                                            InteractiveState _ -> true
+                                        | _ -> false) ta then
+                                            ha,
+                                            Tree { x with run = `Skip; thread =
+                                                [-1]; children = tb}
+                                        else (InteractiveState (-1)),
+                                        next_command
+                                | _ -> assert false
+                            in
+                            Tree { x with children = [a]}, b
+                    | ExitPoint, _ -> next_command, next_command
+                    | _ -> (InteractiveState (-1)), next_command
+        in
+        let composer, tip = 
+            if compose then 
+                attempt_to_extend_compose next_command
+            else (InteractiveState (-1)), next_command
+        in
+        (InteractiveState (-1)), composer, next_command
+    in
+    let recurse_to_find_tip x =
+        match x.children with
+        | [y] -> (* Nice, we have only one child *)
+                let todo, composer, next = get_tip y in
+                Tree { x with children = [todo] }, composer,
+                next
+        | _ -> generate_this_tip false
+    in
+    match next_command with
     | Parallel _
-    | InteractiveState _ -> None, tree
-    | Concurrent _ -> failwith "Non parallelizable"
+    | Concurrent _
+    | InteractiveState _ -> generate_this_tip false
     | Tree x ->
-            let my_cur_tip () = 
-                match x.run with
-                | #all_methods as x -> x
-                | `Skip -> raise Exit
-                | _ -> raise Exit
-            in
-            let generate_tip cur_tip =
-                let cur_tip = 
-                    match cur_tip with
-                    | Some x -> cur_tip
-                    | None -> 
-                            try Some (my_cur_tip ()) with
-                            | Exit -> cur_tip
-                in
-                let children = List.map (get_tip cur_tip) x.children in
-                (match List.partition (function ((Some _), _) -> true 
-                | _ -> false) children with
-                | [], children ->
-                        None, tree
-                | [(a, b)], children ->
-                        let _, children = List.split children in
-                        a, Tree { x with children = b :: children }
-                | _ -> failwith "Non parallelizable")
-            in
             match x.exploders with
-            | Linnearizable
-            | Invariant -> generate_tip cur_tip
-            | Parallelizable ->
-                    let should_continue, new_tip = 
-                        match cur_tip with
-                        | Some x ->
-                                let new_tip = my_cur_tip () in
-                                is_pair_of_parallels_composable x new_tip,
-                                new_tip
-                        | None -> true, my_cur_tip ()
-                    in
-                    if should_continue then
-                        try generate_tip (Some new_tip) with
-                        | Exit -> Some tree, InteractiveState x.order_c
-                    else raise Exit 
-            | ExitPoint
-            | Composable ->
-                    Some tree, InteractiveState x.order_c
-            | InteractivePoint
-            | NonComposable -> failwith "Non parallelizable"
+            | NonComposable -> generate_this_tip false
+            | InteractivePoint 
+            | Composable 
+            | ExitPoint -> generate_this_tip true
+            | Linnearizable 
+            | Invariant -> recurse_to_find_tip x
+            | Parallelizable -> 
+                    (* Hum we can parallelize this step, can we? The important
+                    * thing is that if we get a tree, we should output excatly
+                    * one tree again, and that we don't require all the trees
+                    * from the previous command in one single group to perform
+                    * the operations *)
+                    match x.run with
+                    | `PerturbateNSearch _ -> recurse_to_find_tip x
+                    | `Build (_, y, _) ->
+                            (match y with
+                            | `Constraint (_, _, None, _) -> 
+                                    (* Hum, we need to collect all of the trees
+                                    * before *)
+                                    generate_this_tip false
+                            | _ -> recurse_to_find_tip x)
+                    | `LocalOptimum (_, _, _, _, _, _, _, _, part, _, y) ->
+                            if List.exists (fun x -> x = `KeepBestTrees) y then
+                                generate_this_tip false
+                            else 
+                                (match part with
+                                | `Partition y -> 
+                                        if List.exists (function `ConstraintFile
+                                        _ -> true | _ -> false) y then
+                                            recurse_to_find_tip x
+                                        else generate_this_tip true
+                                | _ -> recurse_to_find_tip x)
+                    | _ -> assert false
 
 (* Convert any parallelizable section of the tree into it. *)
 let rec explode_tree tree = 
-    let is_parallelizable x = x.exploders = Parallelizable
-    and is_desirable x = 
-        match x.run with
-        | `PerturbateNSearch _
-        | `Build _ -> true 
-        | `LocalOptimum (_, _, _, _, _, _, _, _, _, _, sml) ->
-                not (List.exists (fun x -> x = `KeepBestTrees) sml)
-        | _ -> false
-    and fail_if_constrained_build_or_swap x = 
-        match x.run with
-        | `Build (_, (`Constraint (_, _, None, _)), _) ->
-                raise Exit
-        | `LocalOptimum (_, _, _, _, _, _, _, _, (`Partition x), _, _)
-        when not (List.exists (function `ConstraintFile _ -> true | _ ->
-            false) x) -> raise Exit
-        | _ -> ()
-    in
     match tree with
-    | Tree x when is_parallelizable x && is_desirable x ->
-            (try
-                fail_if_constrained_build_or_swap x;
-                let composers, tip, todo =
-                    let is = InteractiveState 0 in
-                    match get_tip None tree with
-                    | None, todo ->  
-                            is, is, todo
-                    | (Some tip), todo -> 
-                            let cur_tip = 
-                                match x.run with
-                                | #all_methods as x -> x 
-                                | _ -> assert false 
-                            in
-                            match composers cur_tip tip with
-                            | Some composers, tip -> composers, tip, todo
-                            | None, tip -> is, tip, todo
-                in
-                let v = { 
-                    todo_p = todo; 
-                    composer = composers; 
-                    next = explode_tree tip;
+    | Tree x ->
+            let do_not_parallelize_me_but_recurse () =
+                Tree { x with children = List.map explode_tree x.children }
+            in
+            let parallelize_only_me () =
+                let children = List.map explode_tree x.children in
+                Parallel {
+                    todo_p = Tree { x with children = [InteractiveState 0] };
+                    composer = InteractiveState 0;
+                    next = Tree { x with run = `Skip; thread = [-1]; children = children };
                     order_p = x.order_c;
                     weight_p = x.weight_c;
-                } in
-                Parallel v
-            with
-            | Failure "Non parallelizable" -> 
-                    let children = List.map explode_tree x.children in
-                    Parallel {
-                        todo_p = 
-                            Tree { x with children = [InteractiveState 0] };
-                        composer = InteractiveState 0;
-                        next = Tree { x with run = `Skip; children = children };
-                        order_p = x.order_c;
-                        weight_p = x.weight_c;
-                    })
-                    (*
-                    Tree { x with exploders = Parallelizable; children =
-                        children })
-                    *)
-    | Tree x -> Tree { x with children = List.map explode_tree x.children }
+                }
+            in
+            let parallelize_this_command () =
+                match x.children with
+                | [] | _ :: _ :: _ -> parallelize_only_me ()
+                | [y] -> 
+                        match get_tip y with
+                        | ((InteractiveState _), (InteractiveState _), _) -> 
+                                parallelize_only_me ()
+                        | (todo, composers, tip) ->
+                                let todo = Tree { x with children = [todo] } in
+                                let v = { 
+                                    todo_p = todo; 
+                                    composer = composers; 
+                                    next = explode_tree tip;
+                                    order_p = x.order_c;
+                                    weight_p = x.weight_c;
+                                } 
+                                in
+                                Parallel v
+            in
+            (match x.run with
+            | `PerturbateNSearch _ -> parallelize_this_command ()
+            | `Build (_, x, _) ->
+                    (match x with
+                    | `Constraint (_, _, None, _) -> parallelize_only_me ()
+                    | _ -> parallelize_this_command ())
+            | `LocalOptimum (_, _, _, _, _, _, _, _, x, _, y) ->
+                    if List.exists (fun x -> x = `KeepBestTrees) y then
+                        do_not_parallelize_me_but_recurse ()
+                    else 
+                        (match x with
+                        | `Partition x ->
+                                if List.exists 
+                                (function `ConstraintFile _ -> true 
+                                    | _ -> false) x then
+                                    parallelize_this_command ()
+                                else do_not_parallelize_me_but_recurse ()
+                        | _ -> parallelize_this_command ())
+            | _ -> Tree {x with children = List.map explode_tree x.children})
     | Concurrent x ->
         let children = List.map explode_tree x.children
         and unique = 
@@ -1146,10 +1174,8 @@ let remove_set lst =
     | x -> x
 
 let remove_trees_of_set = function
-    (*
     | `Set (items, name) ->
             (`Set ((List.filter (fun x -> x <> `Trees) items), name))
-    *)
     | x -> x
 
 let remove_all_trees_from_set = List.map remove_trees_of_set
@@ -1178,7 +1204,7 @@ let rec linearize2 queue acc =
                 let my_name = emit_name x.thread in
                 let deps = 
                     try get_dependencies !(x.unique) with 
-                    Not_found as err ->
+                    | Not_found as err ->
                         Printf.printf "My f thread is %s\n%!" 
                         (String.concat ", " (List.map string_of_int x.thread));
                         raise err
@@ -1195,7 +1221,7 @@ let rec linearize2 queue acc =
                         let my_name = emit_name x.thread in
                         let deps = 
                             try get_dependencies !(x.unique) with 
-                            Not_found as err ->
+                            | Not_found as err ->
                                 Printf.printf "My thread is %s\n%!" 
                                 (String.concat ", " (List.map string_of_int x.thread));
                                 raise err
@@ -1209,10 +1235,11 @@ let rec linearize2 queue acc =
                                 and composerl = ref []
                                 and nextl = ref [] in
                                 linearize2 (single_queue item) todol;
-                                linearize2 (single_queue y.composer) 
-                                composerl;
+                                linearize2 (single_queue y.composer) composerl;
                                 linearize2 (single_queue y.next) nextl;
-                                let todol = deps @ remove_trees_from_set (List.rev !todol)
+                                let todol =
+                                    deps @ 
+                                    remove_trees_from_set (List.rev !todol)
                                 and nextl = remove_trees_from_set (List.rev !nextl) 
                                 and composerl = 
                                     remove_trees_from_set (List.rev
