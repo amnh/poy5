@@ -606,7 +606,6 @@ let rec get_tip next_command =
                                 | _ -> assert false
                             in
                             Tree { x with children = [a]}, b
-                    | ExitPoint, _ -> next_command, next_command
                     | _ -> (InteractiveState (-1)), next_command
         in
         let composer, tip = 
@@ -632,8 +631,8 @@ let rec get_tip next_command =
             match x.exploders with
             | NonComposable -> generate_this_tip false
             | InteractivePoint 
-            | Composable 
-            | ExitPoint -> generate_this_tip true
+            | Composable -> generate_this_tip true
+            | ExitPoint -> generate_this_tip false
             | Linnearizable 
             | Invariant -> recurse_to_find_tip x
             | Parallelizable -> 
