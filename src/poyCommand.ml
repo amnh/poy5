@@ -1191,11 +1191,22 @@ let create_expr () =
                     b = OPT file_comment; right_parenthesis -> `Save (a, b) ] |
                 [ LIDENT "inspect"; left_parenthesis; a = STRING; 
                     right_parenthesis -> `InspectFile a ] |
-                [ LIDENT "store"; left_parenthesis; a = STRING; 
-                    right_parenthesis -> `Store (all_store_types, a) ] |
-                [ LIDENT "use"; left_parenthesis; a = STRING; 
-                    right_parenthesis -> 
-                        `Use (all_store_types, a) ] |
+                [ LIDENT "store"; left_parenthesis; a = STRING; y = OPT store_class; 
+                right_parenthesis -> 
+                        let st =
+                            match y with
+                            | None -> all_store_types
+                            | Some x -> x
+                        in
+                        `Store (st, a) ] |
+                [ LIDENT "use"; left_parenthesis; a = STRING; y = OPT
+                store_class; right_parenthesis -> 
+                        let st = 
+                            match y with
+                            | None -> all_store_types
+                            | Some x -> x 
+                        in
+                        `Use (st, a) ] |
                 [ LIDENT "rediagnose"; left_parenthesis; 
                     right_parenthesis -> `ReDiagnose ] |
                 [ LIDENT "run"; left_parenthesis; a = LIST0 [x = STRING -> x] SEP ","; 
@@ -1204,6 +1215,18 @@ let create_expr () =
                     `ChangeWDir a ] |
                 [ LIDENT "pwd"; left_parenthesis; right_parenthesis -> 
                     `PrintWDir ]
+            ];
+        store_class:
+            [ [ ","; left_parenthesis; x = LIST0 [ x = store_class_list -> x ]
+            SEP ",";
+            right_parenthesis -> x ] ];
+        store_class_list:
+            [ 
+                [ LIDENT "data" -> `Data ] |
+                [ LIDENT "trees" -> `Trees ] |
+                [ LIDENT "jackknife" -> `Jackknife ] | 
+                [ LIDENT "bremer" -> `Bremer ] |
+                [ LIDENT "bootstrap" -> `Bootstrap ] 
             ];
         clear_options:
             [

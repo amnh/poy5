@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2386 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2393 $"
 
 module IntSet = All_sets.Integers
 
@@ -195,6 +195,8 @@ END
 
 
 let update_trees_to_data run =
+    let data, nodes = Node.load_data run.data in
+    let run = { run with nodes = nodes; data = data } in
     let len = Sexpr.length run.trees in
     let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
     let nodes = 
@@ -252,11 +254,9 @@ let load_data (meth : Methods.input) data nodes =
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
         | `Poyfile files ->
-
                 let files = PoyParser.explode_filenames files in
                 List.fold_left PoyParser.of_file data files
         | `AutoDetect files ->
-
                 let files = explode_filenames files in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
@@ -265,7 +265,6 @@ let load_data (meth : Methods.input) data nodes =
                 data 
                 files
         | `Nucleotides files ->
-
                 let files = explode_filenames files in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
@@ -275,14 +274,12 @@ let load_data (meth : Methods.input) data nodes =
                 annotated Alphabet.nucleotides is_prealigned `Seq d f) 
                 data files
         | `Chromosome files ->
-
                 List.fold_left (fun d f ->
                     Data.process_molecular_file "Default"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     annotated Alphabet.nucleotides false `Chromosome d f) 
                 data (explode_filenames files)
         | `Genome files ->
-
                 let data = List.fold_left (fun d f ->
                     Data.process_molecular_file "Default"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
@@ -291,7 +288,6 @@ let load_data (meth : Methods.input) data nodes =
                 in 
                 data
         | `Aminoacids files ->
-
                 let files = explode_filenames files in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
@@ -303,7 +299,6 @@ let load_data (meth : Methods.input) data nodes =
                     annotated Alphabet.aminoacids is_prealigned `Seq d f) 
                 data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
-
                 let orientation = 
                     not 
                     (List.mem (`Orientation false) read_options) 
@@ -319,7 +314,6 @@ let load_data (meth : Methods.input) data nodes =
                 Data.process_molecular_file 
                 tcmfile twod threed annotated alphabet is_prealigned `Seq data seq 
         | `Breakinv (seq, alph, read_options) ->
-
                 let orientation = 
                     not 
                     (List.mem (`Orientation false) read_options) 
@@ -335,17 +329,13 @@ let load_data (meth : Methods.input) data nodes =
         | `ComplexTerminals files ->
                 List.fold_left Data.process_complex_terminals data 
                 (explode_filenames files)
-
     and annotated_reader data (meth : Methods.input) =
         match meth with
         | `AnnotatedFiles files ->
-
               List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
-
               reader false false data meth
         | `Prealigned (meth, tcm) ->
-
                 prealigned_files := [];
                 let data = reader false true data meth in
                 let files = List.flatten !prealigned_files in
@@ -384,6 +374,7 @@ let process_input run (meth : Methods.input) =
         let total_trees = Sexpr.of_list total_trees in
         let d = { d with Data.trees = [] } in
         { run with trees = total_trees; data = d }
+
 let temporary_transform run meth =
     let run1 = process_transform run meth in
     match meth with
@@ -537,10 +528,10 @@ let runtime_store rediagnose run meth =
         | `Bootstrap ->
                 { run with bootstrap_support = find run.bootstrap_store }
     in
-    let do_rediagnose run = function
+    let do_rediagnose = function
         | `Data
-        | `Trees -> rediagnose run
-        | _ -> run
+        | `Trees -> true
+        | _ -> false
     in
     match meth with
     | `Store (clas, name) -> 
@@ -554,7 +545,9 @@ let runtime_store rediagnose run meth =
                         "I@ will@ continue@ with@ the@ current@ state.");
                         run
             in
-            List.fold_left do_rediagnose run clas
+            if List.exists do_rediagnose clas then
+                rediagnose run
+            else run
     | `Discard (clas, name) -> 
             List.iter (remove name run) clas ; run
     | `Keep_only (num, meth) ->
@@ -1363,7 +1356,8 @@ END
     | #Methods.application as meth ->
             process_application run meth
     | #Methods.input as meth ->
-            process_input run meth
+            let run = process_input run meth in
+            update_trees_to_data run
     | #Methods.transform as meth ->
             process_transform run meth
     | #Methods.build as meth ->
