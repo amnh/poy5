@@ -1,3 +1,5 @@
+type mlchar
+type cm
 type t
 
 (** A string representation of the character set, used only for debugging
