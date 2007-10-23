@@ -2,30 +2,29 @@
 
 \section{What is \poy}
 
-\poy is a flexible, multi-platform program for phylogenetic analysis of molecular and other data under various optimality criteria. An essential feature of \poy is that it implements the concept of dynamic homology allowing optimization of unaligned sequences. \poy offers great flexibility for designing heuristic search strategies and implements an array of algorithms including swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, as well as support values, and implied alignments. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes and take into account large-scale genomic events (translocations, inversions, and duplications).
+\poy is a flexible, multi-platform program for phylogenetic analysis of molecular and other data under various optimality criteria. An essential feature of \poy is that it implements the concept of dynamic homology allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, as well as support values, and implied alignments. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes and take into account large-scale genomic events (translocations, inversions, and duplications).
 
-Currently \poy is beta software, and therefore it has some known glitches. Most
-of them will be worked out in the following months, and updated versions will be
-available on the program's webpage as we produce them. Our current schedule of
-work expect to have a final official version of the parsimony components of the
-program and a release of the beta components of the maximum
-likelihood components in mid may of 2007. For the list of known issues see the
-Section~\ref{sec:known_issues}.
+%Currently \poy is beta software, and therefore it has some known glitches. Most
+%of them will be worked out in the following months, and updated versions will be
+%available on the program's webpage as we produce them. Our current schedule of
+%work expect to have a final official version of the parsimony components of the
+%program and a release of the beta components of the maximum
+%likelihood components in mid may of 2007.
 
 \section{The structure of \poy documentation}
-The first chapter, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and \emph{POY Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections (starting with \emph{1.13 Using \poy}) build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The \emph{\poy Quick Start} is not a tutorial on \poy; using \poy assumes a knowledge of \poy commands and their valid syntax that are detailed in the second chapter, \emph{\poy Commands}. More advanced operations are described in the third chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
+This first chapter, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and \emph{POY Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The \emph{\poy Quick Start} is not a tutorial on \poy; using \poy assumes a knowledge of \poy commands and their valid syntax that are detailed in the second chapter, \emph{\poy Commands}. More advanced operations are described in the third chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
 
 The Quick Start is created primarily for a typical user with limited experience using command-line applications and assumes little or no knowledge of Unix. Consequently, certain operations suggested here could be performed more efficiently by an experienced user, but in attempt to make the software as accessible as possible, we provide simple and intuitive step-by-step (platform-specific where necessary) instructions. 
 
 \section{Requirements: software and hardware}
 
 \subsection{Software}
-\poy is a platform-independent, open-source program that is compiled for Mac OSX, Microsoft Windows, and Linux systems. \poy \emph{binaries}\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy. Other utility programs (that are typically installed with major operation systems), can facilitate preparation of \poy scripts (\poy command batch files) and formatting datafiles.
+\poy is a platform-independent, open-source program that can be compiled for Mac OSX, Microsoft Windows, and Linux systems. \poy \emph{binaries}\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy. The intuitive graphical user interface of \poy provides all the functionality for running analyses using pull-down menus and filed selections, as well as creating and running \poy scripts. Other utility programs (that are typically installed with major operation systems), can facilitate preparation of \poy scripts (\poy command batch files) and formatting datafiles.
 
 \begin{flushleft}
 	\begin{minipage}[c]{0.074\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/figlogowindows.jpg}
-	\end{minipage}%
+	\end{minipage}
 	\quad
 	\begin{minipage}[t]{0.88\textwidth}
 		   	\subsubsection{Windows}
@@ -34,28 +33,26 @@ The Quick Start is created primarily for a typical user with limited experience 
 			\item[Notepad] is a basic text editor that can be used to create \poy
 			scripts and format datafiles. By default, it is located in the \emph{Accessories}
 			folder under \emph{All Programs} of the \emph{Start} menu.
-			\item[Command Prompt] provides a working environment for
+			\item[Command Prompt] provides a working environment for running \poy interactively using \poy \emph{Interactive Console}.
 			\poy and is used to initiate a \poy session.
 		It can be accessed from the same \emph{Accessories} folder as Notepad.
 		\end{description}
 
 	\begin{minipage}[c]{0.074\textwidth}
    		\includegraphics[width=\textwidth]{figures/figlogomac.jpg}
-	\end{minipage}%
+	\end{minipage}
 	\quad
 	\begin{minipage}[t]{0.88\textwidth}
 	   	\subsubsection{Mac OSX}
 	\end{minipage}
 			\begin{description}
 				\item[Terminal]  is an interface for UNIX operating systems and it
-				provides a working environment for \poy; it is used to initiate a
-				\poy session. Terminal is located in the \emph{Utilities} folder within
-				the \emph{Applications} folder. (The program X11, that is
-				also provided with OS X, can be used as an alternative to Terminal.)
+				provides a working environment  for running \poy interactively using \poy \emph{Interactive Console}. Terminal is located in the \emph{Utilities} folder within
+				the \emph{Applications} folder.
 				\item[TextEdit] is a basic text editor that can be used to create \poy
 				scripts and format datafiles. By default, it is located in the
 				\emph{Applications} folder. More flexible text editors, such as
-				shareware applications like BBEdit or TextWrangler, are good alternatives.
+				shareware applications BBEdit or TextWrangler, are good alternatives.
 			\end{description}		
 
 	\begin{minipage}[c]{0.074\textwidth}
@@ -69,14 +66,14 @@ The Quick Start is created primarily for a typical user with limited experience 
     A simple text editor, such as \href{http://www.nano-editor.org/}{\emph{nano}}, is sufficient, though more powerful
     editors (such as \href{http://www.vim.org}{\emph{vim}} or
     \href{http://www.gnu.org/software/emacs/}{\emph{emacs}}) can make your life much
-    easier writting scripts for \poy.
+    easier writing scripts for \poy.
 
 \end{flushleft}
 
 \subsection{Hardware}
-\poy runs on a variety of computers computers from laptops and desktops to Beowulf clusters 
+\poy runs on a variety of computers from laptops and desktops to Beowulf clusters 
 of various sizes to symmetric multiprocessing hardware. There are no
-particular requirements for disk space. Processor speed and memory (and
+particular requirements for disk space, but xml and diagnosis report files can be large. Processor speed and memory (and
 communications bandwidth and latency in parallel environments) are important.
 Depending on the size and complexity of the data, and the computational
 complexity of requested operations, a \poy session can consume large amounts of memory.
@@ -88,13 +85,15 @@ or script under less demanding settings.
 
 \section{Obtaining and installing \poy}
 
-Compressed files of \poy binaries, source code, and documentation in PDF format are available 
-for various Linux distributions, Microsoft Windows XP, and Mac OSX Tiger at the American Museum 
-of Natural History Computational Sciences \poy website:
+\poy installers for Linux, Windows XP, and Mac OSX, source code, and documentation in PDF format are available at the American Museum of Natural History Computational Sciences \poy website:
 \begin{center}
 \url{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
-The following detailed step-by-step instruction will guide you through downloading,  decompressing, and installing \poy binaries for various platforms.
+The latest source code can also be obtained from \poy Google group website:
+\begin{center}
+\url{http://code.google.com/p/poy4/source}
+\end{center}
+The following detailed step-by-step instruction will guide you through downloading and installing \poy binaries for various platforms.
 
 \begin{flushleft}
 	\begin{minipage}[c]{0.074\textwidth}
@@ -106,13 +105,11 @@ The following detailed step-by-step instruction will guide you through downloadi
 	\end{minipage}
 		\begin{itemize}
 			\item
-                Download the
-                \href{http://research.amnh.org/scicomp/projects/poy.php}{Windows compressed binary} file to the desktop.
+                Download
+                \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph{poy4} folder} to the desktop by selecting \emph{WinXP} download link.
 
 			\item 
-                Open the zipped file and run the windows installer
-                POY\_installer.msi. The installer will create shortcuts in the
-                \emph{Programs} menu.
+                Open \emph{POY\_Installer.msi} from the \emph{poy4} folder and follow the installation instructions.
 		\end{itemize}
 
 	\begin{minipage}[c]{0.074\textwidth}
@@ -123,10 +120,8 @@ The following detailed step-by-step instruction will guide you through downloadi
 	   	\subsubsection{Mac OSX}
 	\end{minipage}
 	            \begin{itemize}
-			\item Download the
-            \href{http://research.amnh.org/scicomp/projects/poy.php}{disk
-            image} file to the desktop and open it. A disk named \emph{poy4} will be
-            mounted.
+			\item Download
+            \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph{poy\_parallel\_build2318.dmg} disk image} to the desktop.
             		\item Drag the \poy application from the
             disk \emph{poy4} and drop it into the \emph{Applications}
             folder on the hard drive.
@@ -164,13 +159,13 @@ In order to compile \poy the following tools are required:
         \emph{not obligatory}.
     \item \href{http://tiswww.case.edu/php/chet/readline/rltop.html}{The
         readline library} if you want
-        to compile POY without interactive console. This is the typical
-        selection when compiling POY for parallel environments under MPI.
+        to compile \poy without interactive console. This is the typical
+        selection when compiling \poy for parallel environments under MPI.
 \end{enumerate}
 
 Download, ungzip, and untar the
 \href{http://research.amnh.org/scicomp/projects/poy.php}{\poy source code};
-In order to compile under default setting just do:
+In order to compile under default setting type:
 \begin{verbatim}
 ./configure
 make
@@ -181,16 +176,16 @@ All the configuration options can be found in {\tt ./configure --help}.
 \poy can also be run in parallel environments using the
 \href{http://www-unix.mcs.anl.gov/mpi/}{Message Passing Interface}. There are
 multiple implementations, and if you have a parallel environment, most likely
-your system administrator has already installed one. Ask him for the proper
-paths to set in your config file.
+your system administrator has already one installed and can provide you with proper
+paths to set your config file.
 
 \section{The Graphical User Interface}
 
-\poy provides two working environments: the \emph{Graphical User Interface} and the \emph{Interactive Console}.  The \emph{Graphical User Interface} has a user-friendly appearance as any other native stand-alone application where different functions are accessible through menus and windows. Thus, the entire analysis can be carried out clicking on appropriate selections and, where necessary, typing specifications in designated fields. Although intuitive and accessible, the the \emph{Graphical User Interface} does not provide all the available options and is not as flexible for designing a search strategy as \emph{Interactive Console}. The interactive console, however, requires a detailed knowledge of \poy commands, their arguments, and the conventions of \poy scripting. All these features are described in detail in the \emph{POY Commands} chapter.
+\poy provides two working environments: the \emph{Graphical User Interface} and the \emph{Interactive Console}.  The \emph{Graphical User Interface} has a user-friendly appearance as other native stand-alone application where different functions are accessible through menus and windows. Thus, the entire analysis can be carried out clicking on appropriate selections and, where necessary, typing specifications in designated fields. Although intuitive and accessible, the the \emph{Graphical User Interface} does not provide all the available options and is not as flexible for designing a search strategy as \emph{Interactive Console}. The interactive console, however, requires a detailed knowledge of \poy commands, their arguments, and the conventions of \poy scripting. All these features are described in detail in the \emph{POY Commands} chapter (\ref{commands}).
 
-Even though the Mac OSX version of the \emph{Graphical User Interface} is used for screen shots throughout this chapter, its Linux and Windows versions contain the same items and functionality, differing only by the generic window format specific to each platform.
+Even though the Mac OSX version of the \emph{Graphical User Interface} is used for screen shots throughout this chapter, the Linux and Windows versions contain the same items and functionality, differing only in the generic window format specific to each platform.
 
-When \poy is first open, two items appear on the screen: the menu bar across the top and the \emph{POY Launcher} window (Figure~\ref{fig:menu_launcher_window}). Note that in Linux the menu bar is within the launcher window.
+When \poy is first opened, two items appear on the screen: the menu bar across the top and the \emph{POY Launcher} window (Figure~\ref{fig:menu_launcher_window}). Note that in Linux, the menu bar is within the launcher window.
 \begin{figure}[htpb]
     \begin{center}
         \includegraphics[width=0.5\textwidth]{figures/menu_launcher_window.jpg}
@@ -202,11 +197,11 @@ When \poy is first open, two items appear on the screen: the menu bar across the
 \subsection{POY menu bar}
 The menu bar contains the following drop-down menus:
 \begin{description}
-\item[POY] This menu is present only in Mac OSX and contains generic items as other Mac OSX applications. It includes \emph{Quit POY} tap that closes the program. This menu also allows to display the \emph{About POY} window (Figure~\ref{fig:about_window}) which lists the current version of \poy, a copywright statement, and the address of \poy website.
+\item[POY] This menu is present only in Mac OSX and contains generic items as other Mac OSX applications. It includes \emph{Quit POY} tab that closes the program. This menu also allows contains selection of the \emph{About POY} window (Figure~\ref{fig:about_window}) that lists the current version of \poy, a copywrite statement, and the address of the \poy website.
 \item[Analysis] This menu contains options for different types of tree searches, calculation of support values, tree diagnosis, and their respective outputs. Other items in this menu open the \emph{POY launcher} and the \emph{Interactive Console}.
 \item[Edit] This menu contains standard tools for deleting, copying, cutting, pasting, undoing, and selecting.
-\item[View] The only item in this menu is the \emph{Output} window that contains two fields: the \emph{Results and Errors} and\emph{Status}, which display, respectively, the results (including warning and error messages) and the current state of the analysis.
-\item[Help] This menu provides a link to the \poy \emph{QuickStart and Program Documentation} in PDF format.
+\item[View] The only item in this menu is the \emph{Output} window that contains two fields: the \emph{Results and Errors} and \emph{Status}, which display, respectively, the results (including warning and error messages) and the current state of the analysis.
+\item[Help] This menu provides a link to the \poy \emph{Program Documentation} in PDF format.
 \end{description}
 
 \subsubsection{About POY}
@@ -224,45 +219,44 @@ Windows and Linux.
 
 \subsection{POY Launcher} 
 \emph{POY Launcher} is the only window that automatically opens upon starting
-\poy. It allows the user to import a previously created script,
+\poy. This allows the user to import a previously created script,
 designate a working directory, specify the number of processors,
 and start the analysis.
 
 \begin{description}
-	\item[Select the script to run...]
+	\item[Select the script to run]
      Allows the user to specify the location of a \poy script.
-	\item[Select the working directory...]
-    By default the working directory is set to be the same as the
+	\item[Select the working directory]
+    By default, the working directory is set to be the same as the
     directory containing the selected \poy script but the default
     can be modified by the user. The working directory is the
-    directory that contains the data files and where the results
-    are reported.
+    directory that contains the data files and outputs.
 	\item[Select the number of processors]
-    The selection of the number of processors is disabled for LINUX
-    and WINDOWS platforms. Once specified, the selection is applied
+    The selection of the number of processors is disabled for Linux
+    and Windows platforms. Once specified, the selection is applied
     to all subsequent analyses in the current \poy session.
 	\item[Run the analysis]
     Clicking the \emph{Run} button starts the execution of the selected
-    script. Once the script is executed, the \emph{Run} button
+    script. Once the script is initiated, the \emph{Run} button
     becomes the \emph{Cancel} button that can be used to interrupt
     a \poy session.
 \end{description}
 
 If the script is executed without the properly selected script and
-working directory (of their names contain errors), \poy issues an
+working directory, or the names of the scripts and working directory are entered incorrectly, \poy issues an
 error message in the upper part of the \emph{POY Launcher} window,
 such as \texttt{POY finished with an error}.
 
 \subsection{The \emph{Analysis} menu}
-The \emph{Analysis} menu is the main toolbox of \poy. Its selections are subdivided into four functional categories that deal with tree searching, support calculation, tree diagnosis, and data import (including the initialization the \emph{Interactive Console}). Each of the menu items is described below in order as it
-appears on the menu. Most options are the same for different kinds of analysis. Therefore, all the options are described in detail only for the \emph{Simple Search} analysis. The descriptions of other analyses is made with reference to the the \emph{Simple Search} and focus on options unique to each kind of analysis.
+The \emph{Analysis} menu is the main toolbox of \poy. Selections are subdivided into four functional categories that deal with tree searching, support calculation, tree diagnosis, and data import (including the initialization the \emph{Interactive Console}). Each of the menu items is described below in the order it
+appears on the menu. Most options are consistently applied through different kinds of analysis. Therefore, all the options are described in detail only for the \emph{Simple Search} analysis. The descriptions of other analyses are made with reference to the the \emph{Simple Search} and focus on options unique to each type of analysis.
 
 \subsubsection{\emph{Tree searching options}}
 
 \subsubsection{Simple Search}
 The \emph{Simple Search} window (Figure~\ref{fig:simple_search_window})
 provides the most common and basic options for a standard tree search
-in \poy that must either (in some cases or) selected by clicking appropriate buttons or typed in. Note that \emph{all} the empty fields must be filled out. The window is subdivided in four sections: 
+in \poy that must either (in some cases or) be selected by clicking appropriate buttons or typed. Note that \emph{all} the empty fields must be filled in. The window is subdivided into four sections: 
 
 \begin{figure}
 \centering
@@ -274,14 +268,14 @@ in \poy that must either (in some cases or) selected by clicking appropriate but
 	   	\includegraphics[width=\textwidth]{figures/simplesearch_window.jpg}
    	\end{minipage}
 	
-\caption{The \emph{Simple Search} window. Selecting \emph{Simple Search} from the \emph{Analysis} menu (left) and viewing the \emph{Simple Search} window options (right).}
+\caption{The \emph{Simple Search} window. Selecting \emph{Simple Search} from the \emph{Analysis} menu (left) opens the \emph{Simple Search} window options (right).}
 \label{fig:simple_search_window}
 \end{figure}
 
 \begin{description}
     \item[Input Files]
-        Contains the list of files that are to be read by \poy. These include
-        character files, and tree files. 
+        Contains the list of files that are to be input into \poy. These include
+        character files, and tree files.
     \item[Search Parameters]
         Sets the number of randomized trees (independent random addition replicates)
         to be generated.
@@ -297,22 +291,22 @@ Once all the parameters are selected, click the \emph{Make Script} button and an
 window--the \emph{Script Editor} (Figure~\ref{fig:ScriptEditor_Window})--containing the generated script appears on screen. The
 script can be edited by typing in the commands directly in the \emph{Script Editor} window,
  saved (by clicking the \emph{Save As} button), or replaced with another script (using 
- the \emph{Open} button. To start the analysis click the \emph{Run} button in the 
- \emph{Script Editor} window. When the \emph{Run} button is pressed, \poy will issue a
- request to  to save the script to be executed. Thus, not only does \poy execute the script but
- it also created the record of what kind of analysis (including all user-defined specifications) was performed.
+ the \emph{Open} button. To start the analysis, click the \emph{Run} button in the 
+ \emph{Script Editor} window. When the \emph{Run} button is clicked, \poy will issue a
+ request to save the script to be executed. Thus, not only does \poy execute the script but
+ it also creates the record of the type of analysis (including all user-defined specifications) was performed.
  
  \begin{figure}[htpb]
     \begin{center}
         \includegraphics[width=0.5\textwidth]{figures/scripteditor_window.jpg}
     \end{center}
-    \caption{Viewing the \emph{Script Editor} window. The script was generated from the \emph{Simple Search} window by clicking the \emph{Make Script} button. Because no fields were filled, the script does not contain the input files and shows the commands under default settings that would be executed under a simple search strategy.}
+    \caption{The \emph{Script Editor} window. The script was generated from the \emph{Simple Search} window by clicking the \emph{Make Script} button. Because no fields were filled, the script does not contain the input files and shows the commands under default settings that would be executed under a simple search strategy.}
     \label{fig:ScriptEditor_Window}
 \end{figure}
 
 \subsubsection{Search with Ratchet}
 
-\emph{Search with Ratchet} (Figure~\ref{fig:search_with_ratchet_window}) provides means to escape the local optimum using the parsimony ratchet. In addition to the same four parameter groups described for the \emph{Simple Search} window, the \emph{Search Parameters} section provides the following ratchet parameters fields:
+\emph{Search with Ratchet} (Figure~\ref{fig:search_with_ratchet_window}) provides a potential means to escape local optima using the parsimony ratchet. In addition to the same four parameter groups described for the \emph{Simple Search} window, the \emph{Search Parameters} section provides the following ratchet parameters fields:
 
 \begin{figure}
 \centering
@@ -339,11 +333,11 @@ script can be edited by typing in the commands directly in the \emph{Script Edit
 
 \subsubsection{Search with Perturb}
 
-\emph{Search with Perturb} provides a different way to escape the local optima by changing
+\emph{Search with Perturb} provides an alternative means to escape local optima by changing
 the transformation cost matrix of the molecular characters
 (Figure~\ref{fig:search_with_perturb_window}). In addition to the
-same four parameter groups described for the Simple Search window, the Search
-with Perturb window provides three extra fields with the parameters for the
+same four parameter groups described for the \emph{Simple Search} window, the \emph{Search
+with Perturb} window provides three extra fields with the parameters for the
 transformation cost matrix perturbation as follows:
 
 \begin{figure}
@@ -373,7 +367,7 @@ None of the support calculation windows include functions for tree building and 
 
 The \emph{Bootstrap} window (Figure~\ref{fig:bootstrap}) specifies parameters
 for estimating the Bootstrap support values. The window consists
-of essentially same four sections as the \emph{Simple Search} window
+of essentially the same four sections as the \emph{Simple Search} window
 except for \emph{Pseudoreplicates}, a single field in the \emph{Bootstrap Parameters} section that specifies the number of Bootstrap pseudoreplicates.
 
 \begin{figure}
@@ -391,7 +385,7 @@ except for \emph{Pseudoreplicates}, a single field in the \emph{Bootstrap Parame
 
 \subsubsection{Bremer}
 
-The \emph{Bremer} option (Figure~\ref{fig:search_for_bermer_menu}) is divided in two windows: the \emph{Search for Bremer} window, that specifies the Bremer support calculation parameters, and the \emph{Report Bremer} window to format the output of the results (Figure~\ref{fig:search_report_bremer}). 
+The \emph{Bremer} option (Figure~\ref{fig:search_for_bermer_menu}) is divided into two windows: the \emph{Search for Bremer} window, that specifies the Bremer support \cite{Bremer1988, Kallersjoetal1992} calculation parameters, and the \emph{Report Bremer} window to format the output of the results (Figure~\ref{fig:search_report_bremer}). 
 
 \paragraph{Search for Bremer}
 
@@ -422,16 +416,15 @@ with the goal of sampling a wide variation of trees, and guarantee that all
 clades have Bremer support values. 
 
 In addition to the standard four sections defined for the \emph{Simple Search} window,
-not that one of the output files is the \emph{Temporary Trees} file, which will
+note that one of the output files is the \emph{Temporary Trees} file, which will
 contain \emph{all the information required to produce the bremer support tree
-results in the Report Bremer Window}. Make sure that you pick a file that you
-will not destroy for this output.
+results in the Report Bremer Window}. Make sure that you choose a file name that you
+will not overwrite for this output.
 
-If it takes \poy too long to finish searching for Bremer, the search can be interrupted and the intermediate results stored in the \emph{Temporary Trees} file (however at the risk that that bremer support values can be inflated). The trees from the \emph{Temporary Trees} file can then be reported using the \emph{Report Bremer} window.
+If \poy takes too long to finish searching for Bremer, the search can be interrupted and the intermediate results stored in the \emph{Temporary Trees} file (however, at the risk that that bremer support values can be inflated). The trees from the \emph{Temporary Trees} file can then be reported using the \emph{Report Bremer} window.
 
 \paragraph{Report Bremer}
-The script produced in this window takes the ``Temporary Trees'' file generated in the Search for Bremer window in the ``File with trees for
-bremer calculation'' field. 
+The script produced in this window takes the \emph{Temporary Trees} file generated in the \emph{Search for Bremer} window in the \emph{File with trees for bremer calculation} field. 
 
 \subsubsection{Jackknife}
 
@@ -513,10 +506,6 @@ Console}. Note that the interactive console \emph{does not run in parallel.}
 \label{fig:runinteractive}
 \end{figure}
 
-Selecting \emph{Run Interactive Console} (Figure~\ref{fig:runinteractive}) opens the ncurses interface (Figure \ref{fig:figinterface}) that enables the user to run the analysis interactively by entering
-\poy commands directly via the command-line \emph{Interactive
-Console}. Note that the interactive console \emph{does not run in parallel.}
-
 \subsubsection{Create Script}
 The \emph{Create Script} selection opens a blank \emph{Script Editor} window that allows to create, save, and execute  a customized script.
 
@@ -551,9 +540,9 @@ the \emph{Update} button.
 
 \begin{description}
 \item[POY Output window] displays the status of the imported data, outputs the results of the phylogenetic analyses (such as trees, character diagnoses, and implied alignments), reports errors, and displays descriptions of \poy commands. By default, \poy reports the list of imported data and generates error messages. Other outputs, however, must be requested using the \commandstyle{report()} command.
-\item[Interactive Console]  is used to instruct \poy to import data, specify the kinds of analysis to be performed, and to request the desired output interactively by typing \poy commands at the \poy prompt (\texttt{poy$>$}). The commands are executed by hitting the Return key. The commands can be executed one at a time or entered sequentially until the Return key is pressed. (See Section~\ref{commands} on the structure and syntax of \poy commands.) Separating commands by spaces is optional but increases legibility. Alternatively, a file containing the list of commands (\poy script, see below) can also be imported and executed at the prompt in the Interactive Console.
-\item[State of Stored Search]  displays the time (in seconds) elapsed since the initiation of the current operation. This window also reports the number of trees currently in memory and provides the range of their costs.
-\item[Current Job] describes the currently running operation. When the operation is completed, the window is blank.
+\item[Interactive Console window]  is used to instruct \poy to import data, specify the kinds of analysis to be performed, and to request the desired output interactively by typing \poy commands at the \poy prompt (\texttt{poy$>$}). The commands are executed by hitting the Return key. The commands can be executed one at a time or entered sequentially until the Return key is pressed. (See Section~\ref{commands} on the structure and syntax of \poy commands.) Separating commands by spaces is optional but increases legibility. Alternatively, a file containing the list of commands (\poy script, see below) can also be imported and executed at the prompt in the Interactive Console.
+\item[State of Stored Search window]  displays the time (in seconds) elapsed since the initiation of the current operation. This window also reports the number of trees currently in memory and provides the range of their costs.
+\item[Current Job window] describes the currently running operation. When the operation is completed, the window is blank.
 \end{description} 
 
 \begin{figure}[htbp]
@@ -563,7 +552,7 @@ the \emph{Update} button.
    \label{fig:figprocess}
 \end{figure}
 
-This \poy interface is not available for parallel environments. Once the program is called, \poy commands can be executed interactively or scripts can be submitted as when using the \emph{Interactive Console}. By default, the \poy will print the output on screen (the same output that is reported in \emph{POY Output} under non-parallelized setting).
+This \poy interface is not available for parallel environments. Once the program is invoked, \poy commands can be executed interactively or scripts can be submitted as when using the \emph{Interactive Console}. By default, \poy will print the output to screen (the same output that is reported in \emph{POY Output} under non-parallelized setting).
 
 \subsection{Starting a \poy session using the \emph{Interactive Console}}
 
@@ -599,8 +588,10 @@ This \poy interface is not available for parallel environments. Once the program
 	\begin{minipage}[t]{0.89\textwidth}
 	   	\subsubsection{Linux}
 	\end{minipage}
-    Add \texttt{/opt/poy4/Resources/} to your \texttt{PATH} and then simply run
+	\begin{itemize}
+    		\item Add \texttt{/opt/poy4/Resources/} to your \texttt{PATH} and then simply run
     \texttt{ncurses\_poy} from a terminal.
+    	\end{itemize}
 \end{flushleft}
 
 \begin{figure}[htbp]
@@ -618,19 +609,19 @@ This \poy interface is not available for parallel environments. Once the program
 \end{figure}
 
 \subsection{Entering commands}
-The \emph{Interactive Console} is the only part of the interface that allows communication with \poy; that is where commands and scripts are executed. Once the \poy interface is called, the cursor appears in the \emph{Interactive Console} and \poy is ready to accept commands. \poy interface does not support using the mouse and, as true for most command-line applications, the cursor can be moved using the left and right arrow keys, and the Backspace (in Windows) or Delete (in Mac) keys are used to erase individual characters to the left of the current cursor position. To eliminate the need of retyping commands anew during a \poy session, keyboard shortcuts can be used: Control-P (``previous'') and Control-N (``next'') will scroll through the commands entered during the session.
+The \emph{Interactive Console} is the only part of the interface that allows communication with \poy; that is where commands and scripts are executed. Once the \poy interface is called, the cursor appears in the \emph{Interactive Console} and \poy is ready to accept commands. \poy interface does not support using the mouse and, as true for most command-line applications, the cursor can be moved using the left and right arrow keys, and the Backspace (in Windows) or Delete (in Mac) keys are used to erase individual characters to the left of the current cursor position. To eliminate the need of retyping commands anew during a \poy session, keyboard shortcuts can be used: Control-P (``previous'') and Control-N (``next'') will scroll through the commands previously entered during the session.
 
 \subsection{Browsing the output}
-As more output is reported in the \emph{POY Output} window, only the most recent reports will be seen in the window. Using the Up and Down keys allows to scroll up and down the \emph{POY Output} window to see the welcome line, and previously printed reports and help descriptions. Pressing Up and Down keys automatically places the cursor in the lower left corner of the \emph{POY Output} window indicating that you are interacting with that window. It is important to know that only 1000 lines are stored in the memory and the output that was reported before that will not be accessible by scrolling. If it is desired to keep the entire output or specific items in the output, the log can be created (using the command \poycommand{set()}, see~\ccross{log}) or specific outputs can be redirected to files (see~\ccross{report}).
+As more output is reported in the \emph{POY Output} window, only the most recent reports will be seen in the window. Using the Up and Down keys allows the user to scroll up and down the \emph{POY Output} window to see the welcome line, and previously printed reports and help descriptions. Pressing Up and Down keys automatically places the cursor in the lower left corner of the \emph{POY Output} window indicating that you are interacting with that window. It is important to know that only 1000 lines are stored in the memory and the output that was reported before that will not be accessible by scrolling. If the user desires to keep the entire output or specific items in the output, a log can be created (using the command \poycommand{set()}, see~\ccross{log}) or specific outputs can be redirected to files (see~\ccross{report}).
 
 \subsection{Switching between the windows}
-To return to the \emph{Interactive Console} start typing and the cursor will automatically be placed back at the \poy prompt. When an operation is in progress (which is shown in the \emph{Current Job} window), the cursor stays in the upper left corner of the \emph{State of Current Search} window, and switching between the \emph{Interactive Console} and the \emph{POY Output} window is disabled. There are no user interactions with the \emph{Current Job} and \emph{State of the State of Current Search}.
+To return to the \emph{Interactive Console}, start typing and the cursor will automatically be placed back at the \poy prompt. When an operation is in progress (shown in the \emph{Current Job} window), the cursor stays in the upper left corner of the \emph{State of Current Search} window, and switching between the \emph{Interactive Console} and the \emph{POY Output} window is disabled. There are no user interactions with the \emph{Current Job} or \emph{State of the State of Current Search}.
 
 \subsection{Interrupting a process}
-To interrupt a process, press Control-C. By default, an error, \texttt{Error:}\\ \texttt{Interrupted}, is reported in the \emph{POY Output} window. The program does not close, however, and a new command can be entered. This command does not close the program, it only stops the last process that was running keeping in memory all the data and the results of the operation executed last. New commands can subsequently be entered.
+To interrupt a process, press Control-C. By default, an error, \texttt{Error:}\\ \texttt{Interrupted}, is reported in the \emph{POY Output} window. The program does not close, however, and a new command can be entered. This command does not close the program, it only stops the last process that was running keeping in memory all the data and the results of the operation executed previously. New commands can subsequently be entered.
 
 \subsection{Reporting errors}
-\poy reports errors in several ways. If there is an error pertaining to wrong syntax (such as a typo in a command name), \poy will indicate the location of an error by underlining the problematic part of the input with ``\texttt{\^}'' in the \emph{Interactive Console} (Figure~\ref{fig:errors}). \poy will also automatically display in the \emph{POY Output} window the description of the command, its syntax, and examples of its usage. As explained above, the Up and Down keys can be used to scroll through the output and determine the source of the error. Certain kinds of errors will be reported explicitly (Figure~\ref{fig:errors}).
+\poy reports errors in several ways. If there is an error pertaining to wrong syntax (such as a typo in a command name), \poy will indicate the location of the error by underlining the problematic part of the input with ``\texttt{\^}'' in the \emph{Interactive Console} (Figure~\ref{fig:errors}). \poy will also automatically display in the \emph{POY Output} window the description of the command, its syntax, and examples of its usage. As noted above, the Up and Down keys can be used to scroll through the output and determine the source of the error. Certain types of errors will be reported explicitly (Figure~\ref{fig:errors}).
 
 \begin{figure}
 \centering
@@ -647,7 +638,7 @@ To interrupt a process, press Control-C. By default, an error, \texttt{Error:}\\
 \end{figure}
 
 \subsection{Exiting}
-To finish a \poy session, enter command \commandstyle{exit()} (Figure~\ref{fig:exithelp}) or \commandstyle{quit()}. This will close the \poy interface and resume the Terminal window (Mac) or the Command Prompt window (Windows).
+To finish a \poy session, enter command \commandstyle{exit()} (Figure~\ref{fig:exithelp}) or \commandstyle{quit()}. This will close the \poy interface and resume the Terminal window (Mac OSX) or the Command Prompt window (Windows).
 
 \begin{figure}[]
     \begin{center}
@@ -661,7 +652,7 @@ To finish a \poy session, enter command \commandstyle{exit()} (Figure~\ref{fig:e
 Instructions to run \poy, command descriptions, and the theory behind \poy can be obtained from a variety of sources.
 \begin{description}
 \item[POY] contains a help file that can be accessed by entering \commandstyle{help()} at \poy prompt in the \emph{POY Output} window. This file contains descriptions and examples of all currently implemented \poy commands. Up and down arrows allow to scroll through the file. To obtain help on a particular command, the name of the command must be specified in the parentheses following \commandstyle{help()}. For example, to learn about the command \commandstyle{exit}, type \commandstyle{help(exit)}. Help will appear in the upper window, as shown in Figure~\ref{fig:exithelp}.
-\item[Quick Start and Program Documentation] is a comprehensive and detailed manual on all the aspects of using \poy, from installation to outputting and visualizing the results. It includes a \emph{Quick Start}, a \poy command reference, practical guides and tutorials that make the program immediately accessible for beginners and provide in-depth information for experienced users. The documentation in PDF format can be accessed from the \emph{Help} menu of the graphical user interface or downloaded separately from \poy web site at
+\item[POY4.0 Beta Program Documentation] is a comprehensive and detailed manual on all the aspects of using \poy, from installation to output and visualization of results. Included are \emph{Quick Start}, \poy command reference, practical guides and tutorials that make the program immediately accessible for beginners and provide in-depth information for experienced users. The documentation in PDF format can be accessed from the \emph{Help} menu of the graphical user interface or downloaded separately from \poy web site at
 \begin{center}
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
@@ -676,13 +667,19 @@ Instructions to run \poy, command descriptions, and the theory behind \poy can b
 \end{description}
 
 \section{WWW resources}
-\poy is an ongoing project and new versions are being continuously developed to include new procedures, improve performance, and eliminate reported bugs. Therefore, it is imperative to keep up with the program's development and check regularly for updates. There are several Internet-based resources that offer this information, and, additionally, provide a forum for discussing specific issues using \poy, and present an efficient way to communicate with \poy developers regarding any technical difficulties, reporting bugs, and obtaining help.
+\poy is an ongoing project and new versions are being continuously developed to include new procedures, improve performance, and eliminate reported bugs. Therefore, it is imperative to keep up with the program's development and check regularly for updates. There are several Internet-based resources that offer this information.
 
 \begin{description}
 \item[POY4 Web Site] has downloadable compressed files of \poy binaries, source code, and documentation in PDF format. It also provides a links to the \emph{POY Mail Group}. The website is hosted by AMNH Computational Sciences at 
 \begin{center}
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
+
+\item[POY4 SVN repository] contains has downloadable \poy source code.  The site is powered by \href{http://subversion.tigris.org/}{Subversion} and is hosted by Google at 
+\begin{center}
+\texttt{http://code.google.com/p/poy4/source}
+\end{center}
+
 \item[POY4 Mail Group] informs registered users via email of new developments, such as new versions and updates. It also provides a way for reporting bugs and other problems with \poy and its documentation, as well as an additional resource for obtaining help on specific issues. In addition, it allows users to receive and respond to each other's questions thus providing an open forum to  discuss the methods and applications of \poy. The users who choose not to register, will have access to the archives of the postings but will not be able to either submit or receive emails from other users and \poy developers. The \emph{POY4 Mail Group} is hosted  by Google at
 	\begin{center}
 	\texttt{http://groups.google.com/group/poy4}
@@ -694,11 +691,11 @@ Instructions to run \poy, command descriptions, and the theory behind \poy can b
 
 This section will help you get started using \poy and will prepare you for the
 more extensive, technical descriptions in the next chapter, \emph{\poy Commands}. Now that you are acquainted with the program's interface, learned how to initiate, and exit or interrupt) a \poy session, and how to obtain help, you are well prepared to run your first analysis. This chapter will teach
-you how to read (import) datafiles, check the data you are analyzing, generate
+you how to input datafiles, check the data you are analyzing, generate
 a set of initial trees, do basic branch swapping to find a local optimum, and, finally, produce
 and visualize the resultant trees, their strict consensus, and generate support values.
 
-For the purpose of this exercise, three datalfiles are used. These sample files can be downloaded from \\
+For the purpose of this exercise, three datafiles are used. These sample files can be downloaded from \\
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}:
 
 \begin{itemize}
@@ -711,7 +708,7 @@ Once \poy has been launched and the interface (Figure~\ref{fig:figinterface}) ha
 
 \subsection{Importing data} \label{sec:import}
 
-The basic command to input data in \poy is \commandstyle{read()}, which includes the list of files (in quatation marks and separated by commas) enclosed in parentheses. Suppose that we would like to simultaneously analyze morphological and molecular datasets, contained in separate datafiles, \texttt{morpho.ss} and \texttt{28s.fas}, respectively. We can issue a pair of \commandstyle{read()} commands (Figure~\ref{fig:readingexample}):
+The basic command to input data in \poy is \commandstyle{read()}, which includes the list of files (in quotation marks and separated by commas) enclosed in parentheses. Suppose that we would like to simultaneously analyze morphological and molecular datasets, contained in separate datafiles, \texttt{morpho.ss} and \texttt{28s.fas}, respectively. We can issue a pair of \commandstyle{read()} commands (Figure~\ref{fig:readingexample}):
 \begin{quote}
         \commandstyle{read("morpho.ss")}\\
         \commandstyle{read("28s.fas")}
@@ -725,15 +722,13 @@ The basic command to input data in \poy is \commandstyle{read()}, which includes
     \label{fig:readingexample}
 \end{figure}
 
-The syntax of \commandstyle{read} is not unique; in fact, every command in \poyv contains two elements: the name of the command (e.g. \commandstyle{read}), followed by the list of arguments 
-separated by commas and enclosed in parentheses. Typically, the arguments of the command \commandstyle{read()} are names of datafiles, each being enclosed in double quotes (as shown in the example above). Eventhough arguments there might be only one argument or it might be absent or omitted in some commands, parentheses (e.g.\poycommand{read()}) always follow the command name. An exhaustive discussion of \poy command structure and detailed descriptions of all commands with examples of their usage are provided in the \emph{POY Commands Reference} document.
+The syntax of \commandstyle{read} is not unique; in fact, every command in \poyv contains two elements: the name of the command (e.g. \commandstyle{read}), followed by an optional list of arguments 
+separated by commas and enclosed in parentheses. Typically, the arguments of the command \commandstyle{read()} are names of datafiles, each being enclosed in double quotes (as shown in the example above). Even though there might be only one argument or none in some commands, parentheses (e.g.\poycommand{read()}) always follow the command name. An exhaustive discussion of \poy command structure and detailed descriptions of all commands with examples of their usage are provided in the \emph{POY Commands} chapter (\ref{commands}).
 
-Most of the time users are interested in importing multiple datafiles to analyze on the entire dataset. In this case, multiple datafiles can be specified as arguments for a single command. For example, importing both files, \texttt{morpho.ss} and \texttt{28s.fas}, can be written more succinctly:
-\commandstyle{read("morpho.ss", "28s.fas")}. This is equivalent to sequentially importing each file at a time as was shown previously (Figures ~\ref{fig:readingexample} and \ref{fig:reading_example2}).
+Most of the time users are interested in importing multiple datafiles to analyzean entire dataset. In this case, multiple datafiles can be specified as arguments for a single command. For example, importing both files, \texttt{morpho.ss} and \texttt{28s.fas}, can be written more succinctly:
+\commandstyle{read("morpho.ss", "28s.fas")}. This is equivalent to sequentially importing each file as shown above (Figures ~\ref{fig:readingexample} and \ref{fig:reading_example2}).
 
-Figure~\ref{fig:readingexample} also illustrates an important feature that makes \poy
-different from many other phylogenetic analysis programs: every
-time a file is imported during a \poy session, the input data is \emph{added} to the current data in memory, it \emph{does not replace it}. This allows additional analytical flexibility. For example, if only morphological data are read and trees are built based on these data alone, a subsequently imported molecular character dataset will be used in conjunction with the previously imported morphological data in subsequent operations, despite the fact that the trees were generated only from morphological data (Figure~\ref{fig:reading_example2}):
+Figure~\ref{fig:readingexample} also illustrates an important feature that makes \poy different from many other phylogenetic analysis programs: every time a file is imported during a \poy session, the input data are \emph{added} to the current data in memory and \emph{do not replace them}. This allows additional analytical flexibility. For example, if only morphological data are read and trees are built based on these data alone, a subsequently imported molecular character dataset will be used in conjunction with the previously imported morphological data, despite the fact that current trees in memory were generated only from morphological data (Figure~\ref{fig:reading_example2}):
 
 \begin{quote}
 \commandstyle{read("morpho.ss")}\\
@@ -756,18 +751,18 @@ Also, because \poy appends trees and data in memory, it is a good practice to em
 \end{figure}
 
 Valid input files include nucleotide and amino acid sequence files in many formats,
-and morphological data in Hennig 86 format. For information on specific formats supported by \poy and other types of input files see \commandstyle{help(read)}.
+and morphological data in Hennig86 and Nexus formats. For information on specific formats supported by \poy and other types of input files see \commandstyle{help(read)}.
 
 \subsection{Inspecting data}
 
-Once a dataset (or multiple datasets) is imported, \poy automatically reports a brief description of contents for each loaded file in the \emph{POY Output} window as shown in Figure ~\ref{fig:readingexample}. However, it may be desirable to inspect the imported data in greater detail to ensure that the format and contents of the files has been interpreted correctly. This practice allows to avoid common errors, such as misspelled terminal names, which may result in bogus results, produce error messages, and aborted jobs.
+Once a dataset (or multiple datasets) is imported, \poy automatically reports a brief description of contents for each loaded file in the \emph{POY Output} window as shown in Figure ~\ref{fig:readingexample}. However, it may be desirable to inspect the imported data in greater detail to ensure that the format and contents of the files have been interpreted correctly. This practice helps to avoid common errors, such inconsistently spelled terminal names, which may result in bogus results, produce error messages, and aborted jobs.
 
-The basic command for outputting information is \commandstyle{report()}. One of its arguments, \commandstyle{data}, outputs a set of tables showing the list of terminals, the number and type of characters, the list of files that have been imported so far, and the lists of terminals and characters excluded from the analysis. For example, to produce such report of the same datafiles that were used in the previous example (\texttt{morpho.ss} and \texttt{28s.fas}), we import the data and execute \commandstyle{report(data)}:
+The basic command for outputting information is \commandstyle{report()}. One of its arguments, \commandstyle{data}, outputs a set of tables showing the list of terminals, the number and types of characters, the list of files that have been imported, and the lists of terminals and characters excluded from the analysis. For example, to produce a report of the datafiles that were used in the previous example (\texttt{morpho.ss} and \texttt{28s.fas}), we import the data and execute \commandstyle{report(data)}:
 \begin{quote}
     \commandstyle{read("morpho.ss","28s.fas")}\\
     \commandstyle{report(data)}
 \end{quote}
-This will generate an extensive, detailed output, partial views of which are shown in Figure ~\ref{fig:reportdata}. Obviously, the entire report will not be visible in the \emph{POY Output} window. Therefore, the Up and Down arrow keys should be used to scroll through it.
+This will generate an extensive, detailed output, partial views of which are shown in Figure ~\ref{fig:reportdata}. Obviously, the entire report will not be visible in the \emph{POY Output} window. Therefore, the Up and Down arrow keys should be used to scroll.
 
 \begin{figure}
 \centering
@@ -782,11 +777,11 @@ This will generate an extensive, detailed output, partial views of which are sho
 \label{fig:reportdata}
 \end{figure}
 
-In this example, all the imported data is analyzed and, therefore, the report fields that list excluded data will appear empty in the report. One can, however, exclude specific characters or terminals from the analysis using additional commands (see \commandstyle{select()}).
+In this example, all the imported data are analyzed and, therefore, the report fields that list excluded data will appear empty. One can, however, exclude specific characters or terminals from the analysis using additional commands (see \commandstyle{select()}).
 
-By default, \poy reports the results of executed commands in the \emph{POY Output} window. However, the same output can be redirected to a file simply by adding the name of the output file in the list of argument of the command \commandstyle{report()} \emph{before} the argument that specified the type of the requested report (in this case \commandstyle{data}). For instance, if we would like to output into the file ``data\_analyzed.txt'', we would write \commandstyle{report("data\_analyzed.txt", data)}.
+By default, \poy reports the results of executed commands to the \emph{POY Output} window. However, the same output can be redirected to a file simply by adding the name of the output file in the list of argument of the command \commandstyle{report()} \emph{before} the argument that specified the type of the requested report (in this case \commandstyle{data}). For instance, if we would like to output into the file ``data\_analyzed.txt'', we would write \commandstyle{report("data\_analyzed.txt", data)}.
 
-Another useful argument of \commandstyle{report} is \commandstyle{cross\_references}. It displays which terminals are present or absent in each one of the imported files, providing a comprehensive visual overview of the missing data. Building on the previous example, such output can be generated by the following sequence of commands:
+Another useful argument of \commandstyle{report} is \commandstyle{cross\_references}. This argument displays which terminals are present or absent in each one of the imported files, providing a comprehensive visual overview of missing data. Building on the previous example, such output can be generated by the following sequence of commands:
 \begin{quote}
     \commandstyle{read("morpho.ss", "28s.fas")}\\
     \commandstyle{report(cross\_references)}
@@ -796,7 +791,7 @@ Another useful argument of \commandstyle{report} is \commandstyle{cross\_referen
     \begin{center}
         \includegraphics[width=0.6\textwidth]{figures/crossref.jpg}
     \end{center}
-    \caption{Visualizing missing data. The command \commandstyle{cross\_references} displays a table showing whether a given terminal (in the left column) is present (``+'') or absent (``-'') in each datifie. In this example, the data for all the the taxa listed in the \emph{POY Output} window are present both datafiles, \texttt{morpho.ss} and \texttt{28s.fas}.}
+    \caption{Visualizing missing data. The command \commandstyle{cross\_references} displays a table showing whether a given terminal (in the left column) is present (``+'') or absent (``-'') in each datafile. In this example, the data for all the the taxa listed in the \emph{POY Output} window are present in both datafiles, \texttt{morpho.ss} and \texttt{28s.fas}.}
     \label{fig:crossref}
 \end{figure}
 
@@ -804,15 +799,18 @@ A typical output of \commandstyle{cross\_references} command is shown in Figure 
 
 \subsection{Building initial trees}
 
-The command to build trees is \commandstyle{build} (already been mentioned in Section~\ref{sec:import}). After importing \texttt{morpho.ss} and \texttt{28s.fas}, executing the command \commandstyle{build()} without specifying any arguments will generate 10 Wagner trees by random addition sequence (the default setting of the command). Make sure that if you plan to build trees based on other data you have to purge the memory first by using \commandstyle{wipe()} command
-Many \poy commands operate under default settings when executed without arguments. (To learn what the default settings are for a particular command, use either \commandstyle{help()} command with the command name of interest inserted in parentheses or consult the \emph{POY Commands Reference}; see Section~\ref{sec:help}.) If you would like to build more trees, 100 for instance, an argument \commandstyle{trees} followed by a colon (``:'') and an integer specifying the number of trees must be included in the argument list of the \commandstyle{build} command: \commandstyle{build(trees:100)}. This command has a shortcut that omits the argument \commandstyle{trees}; therefore, \commandstyle{build(trees:100)} is equivalent to \commandstyle{build(100)}. As defaults, the shortcuts are fully described in the \emph{POY Commands Reference}. The entire sequence of commands minimally required to import the data and build 100 trees is the following:
+The command to build trees is \commandstyle{build()} (already been mentioned in Section~\ref{sec:import}). After importing \texttt{morpho.ss} and \texttt{28s.fas}, executing the command \commandstyle{build()} without specifying any arguments will generate 10 trees by random addition sequence (the default setting of the command). Make sure that if you plan to build trees based on other data you have to purge the memory first by using \commandstyle{wipe()} command.
+
+Many \poy commands operate under default settings when executed without arguments. To learn what the default settings are for a particular command, use either \commandstyle{help()} command with the command name of interest inserted in parentheses or consult the \emph{POY Commands} chapter (\ref{commands}.
+
+If you would like to specify a different from the default number of tree building preplicates, 100 for instance, an argument \commandstyle{trees} followed by a colon (``:'') and an integer specifying the number of trees must be included in the argument list of the \commandstyle{build} command: \commandstyle{build(trees:100)}. This command has a shortcut that omits the argument \commandstyle{trees}; therefore, \commandstyle{build(trees:100)} is equivalent to \commandstyle{build(100)}. As defaults, the shortcuts are fully described in the \emph{POY Commands} chapter (\ref{commands}. The entire sequence of commands minimally required to import the data and build 100 trees is the following:
 
 \begin{quote}
  	\commandstyle{read("morpho.ss","28s.fas")}\\
  	\commandstyle{build(100)}
 \end{quote}
 
-As the tree building advances, the \emph{Current Job} window displays the current status of the operation (Figure~\ref{fig:building}). It shows how many Wagner builds have been performed out of the total number requested, the number of terminals added in the current build, the cost of a current tree (recalculated after each terminal addition), and the estimated time (in seconds) for the completion of all the builds. When all the trees are generated, the \emph{State of Stored Search} window displays the range of tree costs (the best and worst costs), the number of trees stored in memory, and the number of trees with the best cost.
+As the tree building advances, the \emph{Current Job} window displays the current status of the operation (Figure~\ref{fig:building}). The window shows how many Wagner builds have been performed out of the total number requested, the number of terminals added in the current build, the cost of the current tree (recalculated after each terminal addition), and the estimated time (in seconds) for the completion of all the builds. When all the trees are generated, the \emph{State of Stored Search} window displays the range of tree costs (the best and worst costs), the number of trees stored in memory, and the number of trees with the best cost.
 
 \begin{figure}
 \centering
@@ -823,13 +821,13 @@ As the tree building advances, the \emph{Current Job} window displays the curren
 \begin{minipage}[c]{0.453\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/building2.jpg}
    	\end{minipage}
-\caption{Generating Wagner trees. During the process of tree building (left panel), the \emph{Current Job} window displays how many builds have been performed so far (\texttt{57 of 100}), the number of terminals added in the current build (\texttt{13 of 17}), a cost of a current tree recalculated after each terminal addition (\texttt{362}), and the estimated time (in seconds) for the completion of the operation (\texttt{4 s}). Because the process is not complete, the \emph{State of Stored Search} window contains no trees. Once tree building is finished, the \emph{State of Stored Search} window displays the best (\texttt{451}) and worst (\texttt{472}) costs, the number of trees stored in memory (\texttt{100}), and the number of trees with the best cost (\texttt{2}).} 
+\caption{Generating Wagner trees. During the process of tree building (left panel), the \emph{Current Job} window displays how many builds have been performed so far (\texttt{57 of 100}), the number of terminals added in the current build (\texttt{13 of 17}), a cost of a current tree recalculated after each terminal addition (\texttt{362}), and the estimated time (in seconds) for the completion of the operation (\texttt{4 s}). Because the process is not complete, the \emph{State of Stored Search} window contains no trees. Once tree building is complete, the \emph{State of Stored Search} window displays the best (\texttt{451}) and worst (\texttt{472}) costs, the number of trees stored in memory (\texttt{100}), and the number of trees with the best cost (\texttt{2}).} 
 \label{fig:building}
 \end{figure}
 
 \subsection{Performing a local search}
 
-Now, that the trees have been generated and stored in memory, a local search can be performed to refine and improve the initial trees by examining additional topologies of potentially better cost.  The command \commandstyle{swap()} implements an efficient strategy by performing SPR and TBR branch swapping iteratively. As with other commands, the arguments of \commandstyle{swap()} allow customization of the performance of the command. In case of \commandstyle{swap()}, additional options specify which algorithms are used in swapping and restrict swapping to certain sections of trees. In the following example, branch swapping is performed under the default settings on each of the 100 trees build in the previous step:
+Now, that the trees have been generated and stored in memory, a local search can be performed to refine and improve the initial trees by examining additional topologies of potentially better cost.  The command \commandstyle{swap()} implements an efficient strategy by performing SPR and TBR branch swapping alternately. As with other commands, the arguments of \commandstyle{swap()} allow customization of the performance of the command. In the case of \commandstyle{swap()}, additional options specify which algorithms are used in swapping and may restrict swapping to certain sections of trees. In the following example, branch swapping is performed under the default settings on each of the 100 trees build in the previous step:
 
 \begin{quote}
  	\commandstyle{read("morpho.ss","28s.fas")}\\
@@ -837,7 +835,7 @@ Now, that the trees have been generated and stored in memory, a local search can
 	\commandstyle{swap()}
 \end{quote}
 
-Branch swapping is performed sequentially on all trees stored in memory. During swapping, the \emph{Current Job} window reports the number of a tree that is currently being analyzed, the method of branch swapping, the specific routine being currently performed, and the cost of the current tree (Figure~\ref{fig:swapping}). When the process is complete, the \emph{State of Stored Search} window displays the range of tree costs (the best and worst costs), the number of trees stored in memory, and the number of trees of the best cost (Figure~\ref{fig:swapping}). Note that the local search had reduced the costs of the initial best (from 451 to 446) and narrowed the range of tree costs.
+Branch swapping is performed sequentially on all trees stored in memory. During swapping, the \emph{Current Job} window reports the number of the tree that is currently being analyzed, the method of branch swapping, the specific routine being currently performed, and the cost of the current tree (Figure~\ref{fig:swapping}). When the process is complete, the \emph{State of Stored Search} window displays the range of tree costs (the best and worst costs), the number of trees stored in memory, and the number of trees of the best cost (Figure~\ref{fig:swapping}). Note that the local search had reduced the costs of the initial best (from 451 to 446) and narrowed the range of tree costs.
 
 \begin{figure}
 \centering
@@ -848,7 +846,7 @@ Branch swapping is performed sequentially on all trees stored in memory. During 
 \begin{minipage}[c]{0.453\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/swap2.jpg}
    	\end{minipage}
-\caption{Performing a local search. When searching (left panel), the \emph{Current Job} window reports the number of the tree that is currently being analyzed (\texttt{73 of 100}), a method of branch swapping (\texttt{Alternate}), a function being currently performed (\texttt{SPR search}), and a cost of the current tree (\texttt{456}). When the searching is finished (right panel), the \emph{State of Stored Search} window displays the best (\texttt{446}) and worst (\texttt{463}) costs, the number of trees stored in memory (\texttt{100}), and the number of trees of the best cost (\texttt{9}) recovered from independent tree builds. Note these trees may not necessarily have unique topology.} 
+\caption{Performing a local search. When searching (left panel), the \emph{Current Job} window reports the number of the tree that is currently being analyzed (\texttt{73 of 100}), a method of branch swapping (\texttt{Alternate}), a function being currently performed (\texttt{SPR search}), and a cost of the current tree (\texttt{456}). When the searching is finished (right panel), the \emph{State of Stored Search} window displays the best (\texttt{446}) and worst (\texttt{463}) costs, the number of trees stored in memory (\texttt{100}), and the number of trees of the best cost (\texttt{9}) recovered from independent tree builds. Note these trees may not necessarily have unique topologies.} 
 \label{fig:swapping}
 \end{figure}
 
@@ -856,7 +854,7 @@ Using different combinations of the arguments of \commandstyle{swap()} allows to
 
 \subsection{Selecting trees}
 
-Having performed the basic steps of importing character data, building initial trees, and conducting a local search, we obtained a set of local optimum trees in memory. Most of the time, a user would like to select only those trees that are optimal and topologically unique and the default setting of the \commandstyle{select()} does exactly that. Adding \commandstyle{select()} to our example of command sequence for the basic analysis 
+Having performed the basic steps of importing character data, building initial trees, and conducting a local search, we obtained a set of local-optima trees in memory. Most of the time, a user would like to select only those trees that are optimal and topologically unique and the default setting of the \commandstyle{select()} does exactly that. Adding \commandstyle{select()} to our example of command sequence for the basic analysis 
 \begin{quote}
  	\commandstyle{read("morpho.ss","28s.fas")}\\
  	\commandstyle{build(100)}\\
@@ -869,7 +867,7 @@ will select only unique trees of best cost; the remaining trees will be deleted 
     \begin{center}
         \includegraphics[width=0.6\textwidth]{figures/select.jpg}
     \end{center}
-    \caption{Selecting unique best trees. Executing \commandstyle{select()} keeps only unique tees of best cost. The \emph{State of Stored Search} window reports that there is only one unique tree of best cost (\texttt{446}).}
+    \caption{Selecting unique best trees. Executing \commandstyle{select()} keeps only unique trees of best cost. The \emph{State of Stored Search} window reports that there is only one unique tree of best cost (\texttt{446}).}
     \label{fig:select}
 \end{figure}
 
@@ -879,9 +877,9 @@ Comparing the output reported in the \emph{State of Stored Search} before (Figur
 
 \subsection{Visualizing the results}
 
-There are several ways to visualize results. A quick way to see the tree(s) on screen is to use the command \commandstyle{report(asciitrees)} that will draw a cladogram in the \emph{POY Output} window (Figure~\ref{fig:trees}). The ascii tree can also be reported in a file, if the output file name is specified (in parentheses and separated from the argument \commandstyle{asciitrees} by a comma). However, for reporting trees to a file there are better options. First, the command \commandstyle{report("my\_first\_tree", graphtrees)} will output a cladogram in postscript format (Figure~\ref{fig:trees}) which can be edited using graphics software (such as Adobe Illustrator or Corel Draw). (\poy will also append the ``ps'' extension when generating graphic output to a file.)
+There are several ways to visualize results. A quick way to see the tree(s) on screen is to use the command \commandstyle{report(asciitrees)} that will draw a cladogram in the \emph{POY Output} window (Figure~\ref{fig:trees}). The ascii tree can also be reported in a file, if the output file name is specified (in parentheses and separated from the argument \commandstyle{asciitrees} by a comma). However, for reporting trees to a file there are other options. First, the command \commandstyle{report("my\_first\_tree", graphtrees)} will output a cladogram in postscript format (Figure~\ref{fig:trees}) which can be displayed, edited, and printed using graphics software (such as Adobe Illustrator or Corel Draw). (\poy will also append the ``ps'' extension when generating graphic output to a file.)
 
-\commandstyle{report("my\_first\_trees", trees)} will report the trees in memory to the file \texttt{my\_first\_trees} that can be imported in other programs (such as TNT). Other supported tree tree formats include Newick and Hennig86. \commandstyle{report()} can also generate consensus trees in the graphical (postscript) format when appropriate arguments are specified (for example, \commandstyle{report("strict\_consensus", graphconsensus)}).
+\commandstyle{report("my\_first\_trees", trees)} in parenthetical notation will report the trees in memory to the file \texttt{my\_first\_trees} that can be imported in other programs (such as TNT). Other supported tree tree formats include Newick and Hennig86. \commandstyle{report()} can also generate consensus trees in the graphical (postscript) format when appropriate arguments are specified (for example, \commandstyle{report("strict\_consensus", graphconsensus)}).
 
 \begin{figure}
 \centering
@@ -892,7 +890,7 @@ There are several ways to visualize results. A quick way to see the tree(s) on s
 \begin{minipage}[c]{0.5\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/pstree.jpg}
    	\end{minipage}
-\caption{Visualizing trees. An ascii tree (left) is generated using the command \commandstyle{asciitrees}. The same tree is reported to a file in a postscript format (right) using \commandstyle{report("my\_first\_tree", graphtrees)}. Note that both representations of trees  are preceded by their costs.}
+\caption{Visualizing trees. An ascii tree (left) is generated using the command \poycommand{report(asciitrees)}. The same tree is reported to a file in a postscript format (right) using \commandstyle{report("my\_first\_tree", graphtrees)}. Note that both representations of trees  are preceded by their costs.}
 \label{fig:trees}
 \end{figure}
 
@@ -900,9 +898,9 @@ There are several ways to visualize results. A quick way to see the tree(s) on s
 
 So far, we have communicated with \poy interactively through the \emph{Graphical User Interface} or by executing commands from the \emph{Interactive Console}. Another way of conducting an analysis is to run a \emph{script}, a simple-text file containing a list of commands to be performed (Figure~\ref{fig:script}). 
 
-Running analyses using scripts has many advantages: not only does it allow for the entire analysis to proceed from the beginning to the end at one click of a button, it also provides means for examining the logical dependency of the commands (see the description of \poyargument{script\_analysis} argument of the command \poycommand{report} in the \emph{POY Commands} chapter). Submitting jobs using scripts typically produces results faster because \poy automatically optimizes the workflow of the entire analysis by taking into account the functional relationships among various tasks and efficiently distributing the resources (such as memory and multiple processors).
+Running analyses using scripts has many advantages: not only does it allow for the entire analysis to proceed from the beginning to the end at one click of a button, but it also provides means for examining the logical dependency of the commands (see the description of \poyargument{script\_analysis} argument of the command \poycommand{report} in the \emph{POY Commands} chapter). Submitting jobs using scripts may produce results faster because \poy automatically optimizes the workflow of the entire analysis by taking into account the functional relationships among various tasks and efficiently distributing the jobs and resources (such as memory and multiple processors).
 
-Another advantage of using scripts is that it can contain comments that are ignored by \poy but can be helpful to describe the contents of the files used and provide any other annotations. The comments are enclosed in parenthesis \emph{and} asterisks. For example, \texttt{(*this is a comment*)}. Comments can also be entered interactively from the \emph{Interactive Console}. Their utility in that context is, however, limited unless the comments are featured in some output files.
+Another advantage of using scripts is that they may contain comments that are ignored by \poy but can be helpful to describe the contents of the files and provide other annotations. The comments are enclosed in parenthesis \emph{and} asterisks. For example, \texttt{(*this is a comment*)}. Comments can also be entered interactively from the \emph{Interactive Console}. Their utility in that context is, however, limited unless the comments are featured in some output files.
 
 Obviously, using scripts requires the user to design the workflow of the process prior to conducting the analysis. \poy scripts can be created and saved using \emph{Script Editor} window of \poy interface or any conventional text editor or word processor (such as TextPad, TextWrangler, BBEdit, Emacs, MicrosoftWord, WordPad, or NotePad).
 
