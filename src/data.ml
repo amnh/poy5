@@ -2770,7 +2770,8 @@ let compute_priors data chars =
             let (cs, _) = Hashtbl.find taxon_chars char_code in
             incr counter;
             match cs with
-            | Stat (_, None) -> 
+            | Stat (_, None)
+            | Stat (_, (Some [])) ->
                     for i = 0 to size - 1 do
                         priors.(i) <- priors.(i) +. inverse
                     done
