@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2368 $"
+let () = SadmanOutput.register "Node" "$Revision: 2396 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -472,12 +472,11 @@ let map4 f a b c d =
 
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
-    (*
-    | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 ->
+    | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> (*
             let m = MlStaticCS.median_3 cp.final cn.preliminary cc1.preliminary 
             cc2.preliminary in
-            StaticMl { cn with final = m }
-    *)
+            StaticMl { cn with final = m } *)
+        n
     | Nonadd8 cp, Nonadd8 cn, Nonadd8 cc1, Nonadd8 cc2 -> 
           let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary
               cc2.preliminary in
@@ -1546,7 +1545,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0. } in
+                            weight = 1.; time = 0.0001 } in
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
