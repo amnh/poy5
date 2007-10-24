@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2289 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2400 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -717,7 +717,7 @@ let add_tree_to d add_to tree =
                     | Not_found as err ->
                             Status.user_message Status.Error
                             ("Could@ not@ find@ data@ loaded@ for@ taxon@ " ^
-                            name ^ "@ in@ a@ loaded@ tree.");
+                            StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
                             raise err
                 in
                 Parser.Tree.Leaf (Leaf (tc, parent)), tc

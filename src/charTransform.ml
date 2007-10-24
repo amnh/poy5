@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2308 2007-10-10 16:03:58Z andres $ *)
+(* $Id: charTransform.ml 2400 2007-10-24 15:39:36Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2308 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2400 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -783,7 +783,6 @@ insert_union parent union_node tmp
         codes
 
     let rec transform_node_characters trees (data, nodes) (meth : Methods.char_transform)  =
-        
         let nc = List.map Node.taxon_code nodes in
         let load_transformed_data new_data = 
             let data, nodes =
@@ -832,6 +831,7 @@ insert_union parent union_node tmp
                     "@.@[I@ will@ make@ static@ the@ characters@[<v 2>@,";
                     List.iter (fun x -> 
                         let name = Data.code_character x data in
+                        let name = StatusCommon.escape name in
                         Status.user_message Status.Information ("@[" ^ name ^ "@]@,")) chars;
                     Status.user_message (Status.Output (None, false, [])) "@]@]@.";
                     transform_node_characters trees (data, nodes) (`Static_Aprox (`Some

@@ -59,7 +59,9 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
     let t = sort_tree t in
     let rec depth_and_leafs t = 
         match t with
-        | Parser.Tree.Leaf str -> 1, 1, String.length str
+        | Parser.Tree.Leaf str -> 
+                let str = StatusCommon.escape str in
+                1, 1, String.length str
         | Parser.Tree.Node (c, _) -> 
                 let res = List.map depth_and_leafs c in
                 let for_fold = fun (u, v, w) (x, y, z) ->
@@ -134,6 +136,7 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
         let rec filler t x y =
             match t with
             | Parser.Tree.Leaf str ->
+                    let str = StatusCommon.escape str in
                     let width = Array.length (matrix.(0)) in
                     fill_string str (width - (strlen + 3)) y;
                     fill_horizontal x (width - (strlen + 3)) y;
@@ -236,16 +239,18 @@ let for_formatter ?(separator = " ") newick leafsonly t =
         fun acc t ->
             match t with
             | Parser.Tree.Leaf str ->
-                  let res = acc ^ !sep ^ str in
-                  sep := "@," ^ separator;
-                  res
+                    let str  = StatusCommon.escape str in
+                    let res = acc ^ !sep ^ str in
+                    sep := "@," ^ separator;
+                    res
             | Parser.Tree.Node (chld, str) ->
-                  let acc = acc ^ !sep ^ "(" in
+                    let str = StatusCommon.escape str in
+                    let acc = acc ^ !sep ^ "(" in
 
-                  let acc = List.fold_left (generator ()) acc chld in
-                  let acc = acc ^ ")" in
-                  sep := "@," ^ separator;
-                  if str = "" || leafsonly then acc ^ "@," 
-                  else acc ^ "[" ^ str ^ "]@," 
+                    let acc = List.fold_left (generator ()) acc chld in
+                    let acc = acc ^ ")" in
+                    sep := "@," ^ separator;
+                    if str = "" || leafsonly then acc ^ "@," 
+                    else acc ^ "[" ^ str ^ "]@," 
     in
     generator () "" t

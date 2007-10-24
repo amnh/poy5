@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2386 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2400 $"
 
 let debug = true
 
@@ -44,7 +44,8 @@ let sort_using_tree tree all_taxa =
 module O = struct
     let header_f filename seqname () = 
         Status.user_message (Status.Output (filename, false, [])) 
-        ("@[<v>@,@[New Tree@ for@ sequence@ " ^ seqname ^ "@]@,@[")
+        ("@[<v>@,@[New Tree@ for@ sequence@ " ^ StatusCommon.escape seqname ^ 
+        "@]@,@[")
 
     let rec sequence_f ?(break=true) alphabet gap (taxon, result, pos, cnt) base =
         if cnt = 0 then (taxon, result, pos, 1) 
@@ -62,7 +63,7 @@ module O = struct
 
     let taxon_closef filename (name, result, _, _) =
         let fo = Status.Output (filename, false, []) in
-        Status.user_message fo ("@,@[<v>@,>" ^ name ^
+        Status.user_message fo ("@,@[<v>@,>" ^ StatusCommon.escape name ^
         "@,");
         Status.user_message fo result;
         Status.user_message fo "@]%!"
@@ -95,7 +96,7 @@ module C = struct
         All_sets.Strings.iter (fun taxon ->
             let terms = List.rev (Hashtbl.find_all hash taxon) in
             let fo = Status.user_message (Status.Output (filename, false, [])) in
-            fo ("@,@[<v>@,>" ^ taxon ^ "@,");
+            fo ("@,@[<v>@,>" ^ StatusCommon.escape taxon ^ "@,");
             List.iter (fun x -> fo x; fo " ") terms;
             fo "@]%!") !names 
 end

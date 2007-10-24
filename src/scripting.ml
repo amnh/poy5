@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2393 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2400 $"
 
 module IntSet = All_sets.Integers
 
@@ -639,7 +639,8 @@ let rec process_application run item =
             run
     | `PrintWDir ->
             Status.user_message Status.Information 
-            ("The current working directory is " ^ Sys.getcwd ());
+            ("The current working directory is " ^ (StatusCommon.escape
+            (Sys.getcwd ())));
             run
     | `Recover -> do_recovery run
     | `ClearRecovered -> Queue.clear run.queue.Sampler.queue; run
@@ -660,17 +661,18 @@ let rec process_application run item =
     | `Help item -> HelpIndex.help item; run
     | `Wipe -> empty ()
     | `Echo (s, c) ->
-             let c = 
-                 match c with
-                 | `Information -> Status.Information
-                 | `Error -> Status.Error
-                 | `Output str ->
-                         match str with
-                         | None -> Status.Output (None, false, [])
-                         | Some str -> Status.Output (Some str, false, [])
-             in
-             Status.user_message c (s ^ "@\n%!");
-             run
+            let s = StatusCommon.escape s in
+            let c = 
+                match c with
+                | `Information -> Status.Information
+                | `Error -> Status.Error
+                | `Output str ->
+                        match str with
+                        | None -> Status.Output (None, false, [])
+                        | Some str -> Status.Output (Some str, false, [])
+            in
+            Status.user_message c (s ^ "@\n%!");
+            run
      | `Graph (filename, collapse) ->
              let run = reroot_at_outgroup run in
              let trees = Sexpr.to_list run.trees in
@@ -734,11 +736,11 @@ end
                      | Some d -> d
                  in
                  Status.user_message Status.Information ("@[<v 2>" ^
-                 str ^ " is a POY file: @,@[" ^ desc ^ "@]@]");
+                 (StatusCommon.escape str) ^ " is a POY file: @,@[" ^ desc ^ "@]@]");
                  run
              with
              | _ -> 
-                     let msg = "The@ file@ " ^ str ^ "@ is@ not@ a@ valid"
+                     let msg = "The@ file@ " ^ StatusCommon.escape str ^ "@ is@ not@ a@ valid"
                      ^ "@ POY@ fileformat." in
                      Status.user_message Status.Information msg;
                      run
@@ -751,7 +753,7 @@ let process_characters_handling (run : r) meth =
                 let process a ((_, y) as b) =
                     try Data.process_rename_characters a b with
                     | Data.Illegal_argument ->
-                            let msg = "The@ name " ^ y ^ "@ is@ already@ used" ^
+                            let msg = "The@ name " ^ StatusCommon.escape y ^ "@ is@ already@ used" ^
                             "@ to@ describe@ a@ character@ in@ this@ dataset." ^
                             "@ I@ will@ ignore@ it@ as@ a@ synonym." in
                             Status.user_message Status.Error msg;
@@ -1532,7 +1534,7 @@ END
             let file_folder run item = 
                 try folder run item with
                 | err -> 
-                        let msg = Printexc.to_string err in
+                        let msg = StatusCommon.escape (Printexc.to_string err) in
                         Status.user_message Status.Error msg;
                         raise (Error_in_Script (err, run))
             in
@@ -1575,7 +1577,8 @@ END
                     List.iter (fun (n1, n2, c) ->
                         Status.user_message (Status.Output (filename, false,
                         []))
-                        ("@[" ^ n1 ^ " " ^ n2 ^ " " ^ string_of_float c ^ "@]@\n")) 
+                        ("@[" ^ StatusCommon.escape n1 ^ " " ^ 
+                        StatusCommon.escape n2 ^ " " ^ string_of_float c ^ "@]@\n")) 
                     all_of_them;
                     run
             | `ExplainScript (script, filename) ->
@@ -1607,7 +1610,7 @@ IFDEF USE_XSLT THEN
                     let filename, chout = Filename.open_temp_file "results" ".xml" in
                     close_out chout;
                     Status.user_message Status.Information 
-                    ("Generating xml file in " ^ filename);
+                    ("Generating xml file in " ^ StatusCommon.escape filename);
                     let ofilename = Some filename in
                     let fmt = Data.to_formatter [] run.data in
                     let trs = 
@@ -1647,7 +1650,7 @@ END
                     range_timer := Timer.start ();
                     let total_time = Timer.get_user prev_time in
                     Status.user_message (Status.Output (filename, false, [])) 
-                    ("@[" ^ title ^ " " ^ string_of_float total_time ^ "@]@,%!");
+                    ("@[" ^ StatusCommon.escape title ^ " " ^ string_of_float total_time ^ "@]@,%!");
                     run
             | `MstR filename ->
                     Build.report_mst run.data run.nodes filename;
@@ -1741,7 +1744,8 @@ END
                 | err ->
                         let msg = "Could@ not@ open@ the@ file@ " ^ fn ^ 
                         "@ due@ to@ a@ system@ error.@ The@ error@ \
-                        message@ is@ : " ^ Printexc.to_string err in
+                        message@ is@ : " ^ StatusCommon.escape
+                        (Printexc.to_string err) in
                         Status.user_message Status.Error msg;
                         run)
             | `Load fn ->
@@ -1770,12 +1774,14 @@ END
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
-                    ("@[<v 2>Loading file " ^ fn ^ "@,@[" ^ descr ^
+                    ("@[<v 2>Loading file " ^ StatusCommon.escape fn ^ "@,@[" ^ 
+                    StatusCommon.escape descr ^
                     "@]@]");
                     res
                 with
                 | PoyFile.InvalidFile ->
-                        let msg = "The file " ^ fn ^ " is not a@ valid"
+                        let msg = "The file " ^ StatusCommon.escape 
+                        fn ^ " is not a@ valid"
                         ^ "@ POY@ fileformat." in
                         Status.user_message Status.Error msg;
                         run)
@@ -1793,7 +1799,7 @@ END
                     (`Root (Some (Data.taxon_code name run.data))) with
                     | Not_found -> 
                             let msg = 
-                                "Terminal@ " ^ name ^ 
+                                "Terminal@ " ^ StatusCommon.escape name ^ 
                                 "@ not@ found.@ To@ set@ the@ root@ I@ "
                                 ^ "must@ have@ loaded@ some@ data@ for@ it.@ "
                                 ^ "The@ assigned@ root@ " ^ 
@@ -1809,7 +1815,7 @@ let deal_with_error output_file run tmp err =
     let ch = open_out_bin output_file in
     Marshal.to_channel ch (run, tmp) [];
     close_out ch;
-    let msg = Printexc.to_string err in
+    let msg = StatusCommon.escape (Printexc.to_string err) in
     Status.user_message Status.Error msg;
     raise err
 

@@ -901,7 +901,7 @@ let transform_rename (on, (files : Methods.filename list), ren, acc) x =
                     let msg = "We@ only@ suport@ command@ line@ character@ " ^
                     "renaming@ for@ now.@ If@ you@ think@ this@ is@ a@ useful"
                     ^ "@ feature,@ file@ the@ request.@ For@ now,@ the@ file" 
-                    ^ " " ^ f ^ "@ will@ be@ ignored." in
+                    ^ " " ^ StatusCommon.escape f ^ "@ will@ be@ ignored." in
                     Status.user_message Status.Error msg;
                     (on, files, ren, acc))
     | `Syn s -> (on, files, s :: ren, acc)

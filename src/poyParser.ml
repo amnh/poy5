@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyParser" "$Revision: 2234 $"
+let () = SadmanOutput.register "PoyParser" "$Revision: 2400 $"
 
 open StdLabels
 
@@ -406,7 +406,8 @@ let of_file data file =
     with
     | (Sys_error err) as e ->
             let msg = "System error while attempting to open the file " ^ 
-            file ^ ". The error message is \"" ^ err ^ "\"" in
+            StatusCommon.escape file ^ ". The error message is \"" ^
+            StatusCommon.escape err ^ "\"" in
             Status.user_message Status.Error msg;
             raise e
 
@@ -418,7 +419,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
         let _ =
             let filename = FileStream.filename filename in
             let msg = 
-                "@[A@ file@ with@ name@ " ^ filename ^ "@ has@ previously@ " 
+                "@[A@ file@ with@ name@ " ^ StatusCommon.escape filename ^ 
+                "@ has@ previously@ " 
                 ^ "been@ loaded.@ Sorry,@ I@ will@ cowardly@ refuse@ to@ "
                 ^ "load@ it's@ contents@ again.@ However,@ I@ will@ continue@ "
                 ^ "loading@ any@ files@ remaining.@]"
@@ -430,7 +432,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
         let file_type_message str = 
             let msg =
                 let filename = FileStream.filename filename in
-                "@[Reading@ file@ " ^ filename ^ "@ of@ type@ " ^ str ^ "@]@." 
+                "@[Reading@ file@ " ^ StatusCommon.escape filename ^ 
+                "@ of@ type@ " ^ StatusCommon.escape str ^ "@]@." 
             in
             Status.user_message Status.Information msg
         in
@@ -517,7 +520,8 @@ let explode_filenames files =
         close_in ch;
         match res with
         | [] -> 
-                let msg = "@[No@ file@ matching@ @{<b>" ^ file ^ "@}@ found.@]" in
+                let msg = "@[No@ file@ matching@ @{<b>" ^ StatusCommon.escape file ^ 
+                "@}@ found.@]" in
                 Status.user_message Status.Error msg;
                 failwith "File not found"
         | _ -> res

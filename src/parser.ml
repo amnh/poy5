@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2337 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2400 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -977,7 +977,8 @@ module Tree = struct
                 raise (Illegal_tree_format msg)
         | (Sys_error err) as e ->
                 let file = FileStream.filename file in
-                let msg = "Couldn't@ open@ the@ trees@ file@ " ^ file ^ 
+                let msg = "Couldn't@ open@ the@ trees@ file@ " ^ 
+                StatusCommon.escape file ^ 
                 ".@ The@ error@ message@ is@ @[" ^ err ^ "@]"in
                 Status.user_message Status.Error msg;
                 raise e
@@ -1245,7 +1246,7 @@ module OldHennig = struct
             match process_single_command taxa_data x y with
             | [Unkown_option str] as res -> 
                     Status.user_message Status.Error ("@[Parser: Unknown Hennig86 \
-                    command:@ @[" ^ str ^ "@]@ Ignoring@]");
+                    command:@ @[" ^ StatusCommon.escape str ^ "@]@ Ignoring@]");
                     res
             | res -> 
                     res
@@ -3320,7 +3321,7 @@ module SC = struct
             | Nexus.Error block ->
                     Status.user_message Status.Error
                     ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
-                    block ^ ". I@ will@ ignore@ the@ block@ and@ " ^
+                    StatusCommon.escape block ^ ". I@ will@ ignore@ the@ block@ and@ " ^
                     "continue@ with@ the@ rest@ of@ the@ file.");
                     acc
             | Nexus.Assumptions lst ->
@@ -4121,7 +4122,8 @@ end
 
 let print_error_message fl =
     let msg = "Unexpected@ character@ in@ file@ " ^ fl.filename ^ 
-    "@ in@ taxon@ " ^ fl.taxon ^ ".@ The@ character@ '" ^ fl.character ^ "' " ^ 
+    "@ in@ taxon@ " ^ StatusCommon.escape fl.taxon ^ ".@ The@ character@ '" ^ 
+    StatusCommon.escape fl.character ^ "' " ^ 
     "is@ illegal@ in@ this@ file@ format." in
     Status.user_message Status.Error msg
 

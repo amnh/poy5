@@ -529,8 +529,8 @@ let add_synonyms_file data file =
         close_in ch;
         let len = Hashtbl.length syns in
         let msg = 
-            "@[The@ file@ " ^ file ^ "@ contains@ " ^ string_of_int len ^ 
-            "@ synonyms.@]"
+            "@[The@ file@ " ^ StatusCommon.escape file ^ 
+            "@ contains@ " ^ string_of_int len ^ "@ synonyms.@]"
         in
         Status.user_message Status.Information msg;
         Hashtbl.fold (fun a b c -> add_synonym c (a, b)) syns data 
@@ -556,8 +556,9 @@ let warn_if_repeated_and_choose_uniquely list str file =
         if total = 1 then
             let item = All_sets.Strings.choose repeated in
             Status.user_message Status.Error
-            ("@{<b>Warning!:@}@ " ^ item ^ 
-            "@ is@ duplicated@ in@ the@ " ^ str ^ "@ " ^ file)
+            ("@{<b>Warning!:@}@ " ^ StatusCommon.escape item ^ 
+            "@ is@ duplicated@ in@ the@ " ^ StatusCommon.escape str ^ 
+            "@ " ^ StatusCommon.escape file)
         else begin
             let message, _ = 
                 All_sets.Strings.fold (fun item (str, cnt) ->
@@ -565,7 +566,8 @@ let warn_if_repeated_and_choose_uniquely list str file =
                     else str ^ ",@ " ^ item, 1) 
                 repeated
                 (("@{<b>Warning!:@}@ The@ following@ items@ are@ duplicated@ in@ " ^
-                "@ the@ " ^ str ^ "@ " ^ file ^ ":@ "), 0)
+                "@ the@ " ^ StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file 
+                ^ ":@ "), 0)
             in
             Status.user_message Status.Error message
         end
@@ -598,8 +600,8 @@ let process_trees data file =
         let trees = Parser.Tree.of_channel ch in
         let len = List.length trees in
         let msg = 
-            "@[The@ file@ " ^ file ^ "@ contains@ " ^ string_of_int len ^ 
-            "@ trees.@]"
+            "@[The@ file@ " ^ StatusCommon.escape file ^ 
+            "@ contains@ " ^ string_of_int len ^ "@ trees.@]"
         in
         let _ = List.fold_left ~f:check_tree ~init:1 trees in
         Status.user_message Status.Information msg;
@@ -623,7 +625,8 @@ let process_tcm file =
         ch#close_in;
         let alph = Cost_matrix.Two_D.alphabet_size tcm in
         let msg = 
-            "@[The@ file@ " ^ file ^ "@ defines@ a@ transformation@ cost@ matrix@ "
+            "@[The@ file@ " ^ StatusCommon.escape file ^ 
+            "@ defines@ a@ transformation@ cost@ matrix@ "
             ^ "for@ an@ alphabet@ of@ size@ " ^ string_of_int alph ^ ".@]"
         in
         Status.user_message Status.Information msg;
@@ -649,8 +652,9 @@ let process_fixed_states data file =
                     close_in ch;
                     let len = List.length fs in
                     let msg = 
-                        "@[The@ file@ " ^ file ^ "@ defines@ " ^
-                        string_of_int len ^ "@ valid@ states.@]"
+                        "@[The@ file@ " ^ StatusCommon.escape file 
+                        ^ "@ defines@ " ^ string_of_int len ^ 
+                        "@ valid@ states.@]"
                     in
                     Status.user_message Status.Information msg;
                     { 
@@ -769,7 +773,8 @@ let report_static_input file (taxa, characters, matrix, tree, _) =
     let characters = Array.length characters 
     and taxa = Array.length taxa in
     let msg =
-        "@[The@ file@ " ^ file ^ "@ defines@ " ^ string_of_int characters 
+        "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^ 
+        string_of_int characters 
         ^ "@ characters@ in@ " ^ string_of_int taxa ^ "@ taxa.@]"
     in
     Status.user_message Status.Information msg
@@ -811,7 +816,7 @@ dyna_state data res =
                        else begin 
                            let _, name = x.(0) in 
                            Status.user_message Status.Error 
-                               ("Sequence " ^ name ^  
+                               ("Sequence " ^ StatusCommon.escape name ^  
                                 " has an inconsistent number of fragments. " 
                                 ^ "I expect " ^ string_of_int !init ^  
                                 " based on previous sequences, but it has " 
@@ -1142,8 +1147,8 @@ let check_if_taxa_are_ok file taxa =
             ^ "illegal@ characters@ on@ it@ ([]();, ).@ This@ leaves@ the@ "
             ^ "generated@ trees@ "
             ^ "unreadable!.@ If you@ want@ to@ continue,@ that's@ "
-            ^ "your@ call...@ the@ file@ is@ " ^ file 
-            ^ "@ and the@ taxon@ is@ " ^ x)
+            ^ "your@ call...@ the@ file@ is@ " ^ StatusCommon.escape file 
+            ^ "@ and the@ taxon@ is@ " ^ StatusCommon.escape x)
         in
         (* We'll see, if we can parse it with the dna parser, we will tell the
         * user that the name of the taxon looks suspicious. *)
@@ -1155,7 +1160,8 @@ let check_if_taxa_are_ok file taxa =
                     Status.user_message Status.Error 
                     ("@{<b>Warning!:@}@ There@ is@ a@ taxon@ name@ that@ is@ "
                     ^ "suspiciously@ simmilar@ to@ a@ DNA@ sequence@ in@ the@ "
-                    ^ "file@ " ^ file ^ "!.@ The@ taxon@ is@ " ^ x)
+                    ^ "file@ " ^ StatusCommon.escape file ^ 
+                    "!.@ The@ taxon@ is@ " ^ x)
                 else if has_spaces x then
                     Status.user_message Status.Error msg
                 else ();
@@ -1182,7 +1188,8 @@ let check_if_taxa_are_ok file taxa =
         if All_sets.Strings.mem x acc then begin
             Status.user_message Status.Error 
             ("@{<b>Warning!:@}@ There@ is@ a@ taxon@ duplicated@ in@ the@ "
-            ^ "file@ " ^ file ^ "!.@ The@ duplicated@ taxon@ is@ " ^ x);
+            ^ "file@ " ^ StatusCommon.escape file ^ "!.@ The@ duplicated@ taxon@ is@ " 
+            ^ StatusCommon.escape x);
             acc, is_ok
         end else (All_sets.Strings.add x acc, is_ok)) ~init:(All_sets.Strings.empty,
         true) taxa
@@ -1206,7 +1213,8 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
             let num_taxa = List.length res in
             let taxa_contents = 
                 let file = FileStream.filename file in
-                "@[The@ file@ " ^ file ^ "@ contains@ sequences@ of@ " ^
+                "@[The@ file@ " ^ StatusCommon.escape file ^ 
+                "@ contains@ sequences@ of@ " ^
                 string_of_int num_taxa ^ "@ taxa" 
             and sequence_contents = 
                 if 0 = num_taxa then ""
@@ -1228,9 +1236,9 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
                 processor alphabet res
         else begin
             Status.user_message Status.Error 
-            ("Ignoring@ the@ file@ " ^ FileStream.filename file ^ 
-            "@ as@ it@ contains@ illegal@ characters@ in@ the@ taxon@ " ^
-            "names@ (Andres@ is@ sure@ that@ POY@ will@ crash@ when@ you@ " ^
+            ("Ignoring@ the@ file@ " ^ StatusCommon.escape (FileStream.filename
+            file) ^ "@ as@ it@ contains@ illegal@ characters@ in@ the@ taxon@ "
+            ^ "names@ (Andres@ is@ sure@ that@ POY@ will@ crash@ when@ you@ " ^
             "attempt@ to@ get@ the@ results).");
             data
         end
@@ -1270,8 +1278,11 @@ let process_ignore_file data file =
     with
     | Sys_error err ->
             let file = FileStream.filename file in
-            let msg = "Couldn't open file " ^ file ^ " to load the " ^
-            "ignore taxa. The system error message is " ^ err in
+            let msg = 
+                "Couldn't open file " ^ StatusCommon.escape file ^ 
+                " to load the ignore taxa. The system error message is " 
+                ^ err 
+            in
             Status.user_message Status.Error msg;
             data
 
@@ -1292,7 +1303,7 @@ let report included excluded =
     let total = max len1 len2 in
     let arr = Array.make_matrix (total + 1) 2 "" in
     let add row position item =
-        arr.(position).(row) <- item;
+        arr.(position).(row) <- StatusCommon.escape item;
         position + 1
     in
     let total_included = List.fold_left ~f:(add 0) ~init:1 included
@@ -1439,11 +1450,13 @@ let report_terminals_files filename taxon_files ignored_taxa =
         in
         All_sets.Strings.fold process_all_files files acc
     and print_file file_name (included, excluded) =
-        fo ("@,@[<v 2>@{<u>Input File:@} " ^ file_name ^ "@,@[<v 0>");
+        fo ("@,@[<v 2>@{<u>Input File:@} " ^ StatusCommon.escape file_name 
+        ^ "@,@[<v 0>");
         let output_list str lst = 
             let total = string_of_int (List.length lst) in
-            fo ("@,@[Terminals " ^ str ^ " (" ^ total ^ ")@]@[<v 2>@,@[<v 0>");
-            List.iter (fun x -> fo x; fo "@,") lst;
+            fo ("@,@[Terminals " ^ StatusCommon.escape str ^ 
+            " (" ^ total ^ ")@]@[<v 2>@,@[<v 0>");
+            List.iter (fun x -> fo (StatusCommon.escape x); fo "@,") lst;
             fo "@]@]";
         in
         output_list "Included" included;
@@ -1623,7 +1636,7 @@ let get_sequence_tcm seqcode data =
     | Not_found as err ->
             let name = code_character seqcode data in
             let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-            " with name " ^ name in
+            " with name " ^ StatusCommon.escape name in
             Status.user_message Status.Error msg;
             raise err
 
@@ -1638,7 +1651,7 @@ let get_sequence_alphabet seqcode data =
     | err ->
             let name = code_character seqcode data in
             let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-            " with name " ^ name in
+            " with name " ^ StatusCommon.escape name in
             Status.user_message Status.Error msg;
             raise err
 
@@ -2636,7 +2649,7 @@ and get_chars_codes data = function
                         | [] -> 
                                 Status.user_message Status.Error
                                 ("Could@ not@ find@ any@ character@ matching@
-                                the@ expression@ " ^ name);
+                                the@ expression@ " ^ StatusCommon.escape name);
                                 raise err
                         | r -> r @ acc
             in
@@ -2939,7 +2952,7 @@ let process_ignore_character report data code_set =
                 let name = 
                     Hashtbl.find data.character_codes code 
                 in
-                rep (name ^ "@,");
+                rep (StatusCommon.escape name ^ "@,");
                 Hashtbl.remove data.character_names name;
                 Hashtbl.remove data.character_codes code;
                 Hashtbl.remove data.character_specs code;
@@ -3016,8 +3029,8 @@ let process_ignore_characters_file report data file =
     | err ->
             let file = FileStream.filename file in
             let msg = "Error while attempting to read the " ^
-            "ignore characters file " ^ file ^ ". I will continue " 
-            ^ "without processing it." in
+            "ignore characters file " ^ StatusCommon.escape file 
+            ^ ". I will continue without processing it." in
             Status.user_message Status.Error msg;
             data
 
@@ -3499,7 +3512,8 @@ let report_taxon_file_cross_reference chars data filename =
                 let codes = get_chars_codes_comp data chars in
                 let codes_arr = Array.of_list codes 
                 and chars_arr = 
-                    let name x = Hashtbl.find data.character_codes x in
+                    let name x = StatusCommon.escape (Hashtbl.find
+                    data.character_codes x) in
                     Array.of_list ("Terminal" :: List.map name codes)
                 in
                 let taxa = 
@@ -3517,7 +3531,7 @@ let report_taxon_file_cross_reference chars data filename =
                 chars_arr, taxa
     in
     let files_arr = Array.map (fun x ->
-        "@{<u>" ^ Filename.basename x ^ "@}") files_arr
+        "@{<u>" ^ StatusCommon.escape (Filename.basename x) ^ "@}") files_arr
     in
     let fo = Status.Output (filename, false, []) in
     Status.user_message fo "@[<v 2>@{<b>File References:@}@,@[";
@@ -3648,7 +3662,8 @@ let make_fixed_states chars data =
                 in
                 Status.user_message Status.Information 
                 ("I@ will@ store@ the@ fixed@ states@ dpread@ file@ of@ " ^
-                "character@ " ^ name ^ "@ in@ " ^ file);
+                "character@ " ^ StatusCommon.escape name ^ "@ in@ " ^
+                StatusCommon.escape file);
                 begin try
                     let char_name = data --> code_character code in
                     let ch, file = 

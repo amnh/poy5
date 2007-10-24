@@ -17,13 +17,17 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 2341 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 2400 $"
 
 (* The common files for all the status interfaces. *)
 
 external string_to_format : string -> ('a, 'b, 'c) format = "%identity"
 
 type formatter_output = | Margin of int
+
+let escape str =
+    let str = Str.global_replace (Str.regexp "%") "%%" str in
+    Str.global_replace (Str.regexp "@") "@@" str
 
 module CommandCompletion = struct
     let commands = [

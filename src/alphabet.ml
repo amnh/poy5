@@ -17,10 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2353 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2400 $"
 
 
-(* $Id: alphabet.ml 2353 2007-10-17 21:53:07Z vinh $ *)
+(* $Id: alphabet.ml 2400 2007-10-24 15:39:36Z andres $ *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -325,7 +325,8 @@ module Lexer = struct
                         if issue_warnings then begin
                             Status.user_message Status.Error 
                             ("I@ could@ not@ find@ the@ character@ " ^ 
-                            String.make 1 c ^ "@ in@ position@ " ^
+                            (StatusCommon.escape (String.make 1 c)) ^ 
+                            "@ in@ position@ " ^
                             string_of_int (Stream.count stream));
                             Status.user_message Status.Error
                             ("I@ found@ an@ illegal@ character@ in@ " ^
