@@ -430,13 +430,16 @@ let create_loci seq subseq_ls =
 let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
         genome2_ref_code chrom2_seq loci2_ls gb_ls cost_mat ali_pam =
 
-
-    let len1 = List.length loci1_ls in 
-    let len2 = List.length loci2_ls in 
-    let len = len1 + len2 + 1 in
-
     let loci1_arr = Array.of_list loci1_ls in 
     let loci2_arr = Array.of_list loci2_ls in 
+
+    let len1 = Array.length loci1_arr in 
+    let len2 = Array.length loci2_arr in 
+    
+
+    Array.iter (fun sq1 -> sq1.Subseq.id <- sq1.Subseq.id  * 2 - 1) loci1_arr; 
+    Array.iter (fun sq2 -> sq2.Subseq.id <- len1 * 2 + sq2.Subseq.id  * 2 - 1) loci2_arr;
+
 (*
     print_endline "Loci1 Array";
     Array.iter Subseq.print loci1_arr;
@@ -446,10 +449,9 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     print_newline ();     print_newline ();     print_newline ();
 *)
 
-    Array.iter (fun sq -> sq.Subseq.id <- sq.Subseq.id + len1) loci2_arr;    
 
-    let gen_gap_code = 0 in     
-    let gen_c2 = Array.make_matrix len len Utl.infinity in 
+    let gen_gap_code = (len1 + len2 + 1) * 2 - 1 in     
+    let gen_c2 = Array.make_matrix  (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity in 
     for r1 = 0 to len1 - 1 do
         let sq1 = loci1_arr.(r1) in 
         let sq1_id = sq1.Subseq.id in 
@@ -501,7 +503,6 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     in 
 
 
-
     let free_id2_ls = List.fold_right 
         (fun locus free_id2_ls -> 
              if Subseq.is_free locus then locus.Subseq.id::free_id2_ls
@@ -513,10 +514,6 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
     let free_id1_arr = Array.of_list free_id1_ls in
     let free_id2_arr = Array.of_list free_id2_ls in
-(*
-    Utl.printIntArr free_id1_arr;
-    Utl.printIntArr free_id2_arr;
-*)
 
     let swap_med = ali_pam.ChromPam.swap_med in 
     let total_cost, (recost1, recost2), alied_free_id1, alied_free_id2 = GenAli.create_gen_ali_code         
@@ -524,27 +521,27 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
         ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular
     in   
 
-    let max_sq2_id = Array.length loci2_arr + len1 in 
-    let mark2_arr = Array.make  max_sq2_id false in 
+    let max_sq2_id = gen_gap_code - 2 in 
+    let mark2_arr = Array.make (max_sq2_id + 1) false in 
     Array.iteri (fun idx _ -> 
                      (if (alied_free_id1.(idx) != gen_gap_code) && (alied_free_id2.(idx) != gen_gap_code) then begin
-                          mark2_arr.(alied_free_id2.(idx) - len1) <- true
+                          mark2_arr.(alied_free_id2.(idx)) <- true
                       end );
                 ) alied_free_id1;    
 
     Array.iter (fun sq2 -> 
                     let is_free = Subseq.is_free sq2 in
-                    (if is_free = false then 
-                                let gb_id = List.hd sq2.Subseq.block_id_ls in 
-                                let gb = List.find (fun gb -> gb.block_id = gb_id) gb_ls in 
-                                (if gb.chrom2_id = chrom_id then 
-                                     mark2_arr.(sq2.Subseq.id - len1) <- true)
-                    );  
+                    (if is_free = false then begin
+                         let gb_id = List.hd sq2.Subseq.block_id_ls in 
+                         let gb = List.find (fun gb -> gb.block_id = gb_id) gb_ls in 
+                         (if gb.chrom2_id = chrom_id then 
+                              mark2_arr.(sq2.Subseq.id) <- true);
+                     end);  
                ) loci2_arr;
 
     let rec add_missing_sq2 sq2_id (seg_ls : seg_t list) =
-        if (sq2_id - len1 >= 1) && (mark2_arr.(sq2_id - len1) = false) then begin
-            let sq2 = loci2_arr.(sq2_id - len1 - 1) in 
+        if (sq2_id > len1 * 2 ) && (mark2_arr.(sq2_id) = false) then begin
+            let sq2 = loci2_arr.( (sq2_id - len1 * 2) / 2 ) in 
             let sta2 = sq2.Subseq.sta and en2 = sq2.Subseq.en in 
             let sq2_seq = Sequence.sub chrom2_seq sta2 (en2 - sta2 + 1) in  
 
@@ -564,7 +561,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
             in 
             assert (Sequence.length seg.alied_seq1 > 0);
             assert (Sequence.length seg.alied_seq2 > 0); 
-            add_missing_sq2 (sq2_id - 1) (seg::seg_ls)
+            add_missing_sq2 (sq2_id - 2) (seg::seg_ls)
         end else seg_ls
     in 
  
@@ -634,7 +631,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                        med::med_ls, seg::seg_ls, chrom_cost
 
                     end else begin
-                        let sq2 =  loci2_arr.(sq2_id - len1 - 1) in
+                        let sq2 = loci2_arr.( (sq2_id - len1 * 2) / 2 ) in 
                         let s2 = sq2.Subseq.sta and e2 = sq2.Subseq.en in 
                         let sq2_seq = Sequence.sub chrom2_seq s2 (e2 - s2 + 1) in  
                         let alied_seq1, alied_seq2, _, _ = UtlPoy.align2 sq1_seq
@@ -686,19 +683,19 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                    in 
 
                    
-                   let seg = 
+                   let seg =  
                       {sta = sta; en = en;
                        cost = cost; med_chrom_id = chrom_id; 
                        alied_med = med;
-
+                       
                        ref_code1 = genome1_ref_code;
                        sta1 = b.Block.sta1; en1 = b.Block.en1; chi1_chrom_id = gb.chrom1_id;
                        alied_seq1 = alied_seq1; dir1 = `Positive;
-
+                       
                        ref_code2 = genome2_ref_code;
                        sta2 = b.Block.sta2; en2 = b.Block.en2; chi2_chrom_id = gb.chrom2_id;
                        alied_seq2 = alied_seq2; dir2 = b.Block.direction;
-                   }
+                      }
                    in 
 
                    assert (Sequence.length seg.alied_seq1 > 0);
@@ -1366,13 +1363,15 @@ let to_single_root root c2 =
     print_endline "The genome map of single parent";
     print_genome single_parent;
 *) 
+    if (root.genome_ref_code1 = -1) && (root.genome_ref_code2 = -1) then 
+        Array.map (fun ch -> ch.seq) root.chrom_arr
+    else begin
+        let gap = Cost_matrix.Two_D.gap c2 in
 
-    let gap = Cost_matrix.Two_D.gap c2 in
-
-    let single_genome = Array.map 
-        (fun chromt -> 
-             let map = 
-                 List.map
+        let single_genome = Array.map 
+            (fun chromt -> 
+                 let map = 
+                     List.map
                      (fun seg ->                              
                           let single_seg, _ = UtlPoy.closest_alied_seq
                               seg.alied_seq2 seg.alied_seq1 c2
@@ -1389,13 +1388,12 @@ let to_single_root root c2 =
                           let ungap_alied_med = UtlPoy.of_array (Array.of_list ungap_alied_med) in         
                           ungap_alied_med                                   
                      ) chromt.map  
-             in 
-             UtlPoy.concat map
-        ) root.chrom_arr 
-    in
-    
-    single_genome
-
+                 in 
+                 UtlPoy.concat map
+            ) root.chrom_arr 
+        in     
+        single_genome
+    end 
 
 
 
@@ -1418,10 +1416,10 @@ let change_to_single med single_genome =
                                if code = gap then gap
                                else begin
                                    let single_code = Sequence.get single_seq !num_dna in 
-                                   (if (single_code land code = 0) then begin
+(*                                   (if (single_code land code = 0) then begin
                                         fprintf stdout "Code: %i, single_code: %i" code single_code;                               
                                         failwith "The code does not include the single_code";
-                                    end);
+                                     end); *)
                                    incr num_dna;
                                    single_code
                                end 
@@ -1448,3 +1446,62 @@ let copy_chrom_map s d =
          genome_ref_code2 = s.genome_ref_code2;
          chrom_arr = s.chrom_arr}
         
+
+
+
+
+
+let create_genome () =
+    
+    let code c = 
+        match c with
+        | 0 -> 1
+        | 1 -> 2
+        | 2 -> 4
+        | _ -> 8
+    in 
+
+
+    let genomeFile = open_out "genomes" in 
+
+    let test = [|(2, 1000, 200, 101);
+                 (2, 2000, 500,  252);
+                 (3, 5000, 1000,  401);
+                 (3, 10000, 3000,  1054);
+                 (4, 20000, 5000, 1507);
+                 (4, 50000,10000,  2664);
+                 (5, 100000, 30000, 3879);
+                 (5, 500000, 100000,  4071);
+                 (6, 750000, 250000, 4772);
+                 (6, 1000000, 500000, 5573)|]
+    in
+    for ti = 0 to 9 do
+        let num_taxa, max_len, min_len, gen_len = test.(ti) in 
+        let code_arr = Array.init gen_len (fun _ -> code (Random.int 4)) in             
+
+        fprintf genomeFile "%i\n" num_taxa;
+        for i = 0 to num_taxa - 1 do
+            let li = Random.int max_len + min_len in 
+            let gi = Sequence.init (fun _ -> code (Random.int 4) ) li in 
+            let start_pi = Random.int (li - gen_len) in 
+            for p = start_pi to start_pi + gen_len - 1 do
+                if (p = start_pi) || (p = start_pi + gen_len - 1) then 
+                    Sequence.set gi p (code (i mod 4))
+                else 
+                    Sequence.set gi p code_arr.(p - start_pi)
+            done;
+            Sequence.print genomeFile gi Alphabet.nucleotides;
+            fprintf genomeFile "\n";
+            
+
+            let sub_seq = Sequence.sub gi start_pi gen_len in
+
+            UtlPoy.printDNA sub_seq;
+        done;  
+        print_newline (); 
+    done; 
+    fprintf genomeFile "0\n";
+    close_out genomeFile
+
+
+

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2311 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2403 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -952,10 +952,10 @@ let change_to_single med single_seq c2 =
                           if code = gap then gap
                           else begin
                               let single_code = Sequence.get single_seq !single_pos in
-                              (if (single_code land code = 0) then begin
+(*                              (if (single_code land code = 0) then begin
                                    fprintf stdout "Code: %i, single_code: %i" code single_code;                               
                                    failwith "The code does not include the single_code";
-                               end);
+                               end);*)
                               incr single_pos;
                               single_code
                           end 
