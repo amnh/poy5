@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2396 $"
+let () = SadmanOutput.register "Node" "$Revision: 2409 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -246,7 +246,8 @@ let rec cs_median anode bnode prev a b =
                 | Some (StaticMl prev) -> Some prev.preliminary
                 | _ -> assert false
             in
-            let median = MlStaticCS.median prev ca.preliminary cb.preliminary ca.time cb.time in
+            let median = MlStaticCS.median prev ca.preliminary 
+                                            cb.preliminary ca.time cb.time in
             let cost = MlStaticCS.root_cost median in
             let res =
                 { ca with 
@@ -437,7 +438,8 @@ let rec cs_median anode bnode prev a b =
                     res
           end
     | Nonadd8 _, _ | Nonadd16 _, _| Nonadd32 _, _ | Add _, _ | Sank _, _ 
-    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ -> raise (Illegal_argument "cs_median")
+    | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ -> 
+            raise (Illegal_argument "cs_median")
 
 let map2 f a b =
     let rec mapper a b acc =
@@ -660,7 +662,6 @@ let median code old a b =
 let root_cost root =
     let adder acc character = 
         match character with
-        | StaticMl v -> acc +. MlStaticCS.root_cost v.preliminary
         | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
         | _ -> acc
     in
@@ -2009,6 +2010,14 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           (sub (a, b))) x.final.set x_single.final.set in
           let cont = `Structured (`Set sub) in
           [(Tags.Characters.set, attributes, cont)]
+    | StaticMl cs,_, _ -> begin
+          match parent_cs with 
+          | None ->
+                MlStaticCS.to_formatter pre cs.preliminary None d
+          | Some ((StaticMl parent_cs), _) ->
+                MlStaticCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
+          | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
+      end
     | _ -> assert false
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
