@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 2288 $"
+let () = SadmanOutput.register "Build" "$Revision: 2406 $"
 
 let debug_profile_memory = false
 
@@ -711,7 +711,7 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                             in
                             let arr = Array.init n (fun x ->
                                 Status.full_report ~adv:x st;
-                                random_tree data nodes) 
+                                PtreeSearch.uppass (random_tree data nodes))
                             in
                             Status.finished st;
                             Sexpr.of_list (Array.to_list arr)
@@ -721,7 +721,7 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                             "" in
                 let arr = Array.init n (fun x ->
                                 Status.full_report ~adv:x st;
-                    random_tree data nodes) 
+                    PtreeSearch.uppass (random_tree data nodes)) 
                             in
                             Status.finished st;
                             Sexpr.of_list (Array.to_list arr)

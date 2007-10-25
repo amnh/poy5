@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFile" "$Revision: 2257 $"
+let () = SadmanOutput.register "PoyFile" "$Revision: 2406 $"
 
 (* A poy file format magic number *)
 
@@ -28,7 +28,7 @@ let magic_number2 = 0x707 (* And the french revolution ends ... *)
 let poy_major_version = 0x0004
 let poy_minor_version = 0x0000
 let data_structure_major_version = 0x0002
-let data_structure_minor_version = 0x0010
+let data_structure_minor_version = 0x0011
 
 (* [get_header ch] gets the poy header numbers. If the numbers can't be properly
 * read, raise an InvalidFile exception. *)
@@ -90,5 +90,5 @@ let read_file filename =
 let store_file data filename =
     let ch = open_out filename in
     output_header ch;
-    Marshal.to_channel ch data [];
+    Marshal.to_channel ch data [Marshal.Closures];
     close_out ch

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2400 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2406 $"
 
 module IntSet = All_sets.Integers
 
@@ -1735,10 +1735,7 @@ END
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run.data, 
-                        Sexpr.map (fun x -> x.Ptree.tree) run.trees, 
-                        run.bootstrap_support, run.jackknife_support, 
-                        run.bremer_support, !Data.median_code_count) fn;
+                    PoyFile.store_file (comment, run, !Data.median_code_count) fn;
                     run
                 with
                 | err ->
@@ -1750,34 +1747,18 @@ END
                         run)
             | `Load fn ->
                 (try 
-                    let (comment, data, trees, bootstrap_support, jackknife_support,
-                    bremer_support, mcc)  = PoyFile.read_file fn in
+                    let (comment, run, mcc)  = PoyFile.read_file fn in
                     Data.median_code_count := mcc;
-                    let data, nodes = Node.load_data data in
-                    Status.user_message Status.Information
-                    ("The total number of nodes is " ^ string_of_int
-                    (List.length nodes));
-                    let res = { (empty ()) with
-                        data = data;
-                        description = comment;
-                        trees = Sexpr.map (fun x -> { Ptree.empty with Ptree.tree =
-                            x}) trees;
-                        bootstrap_support = bootstrap_support;
-                        jackknife_support = jackknife_support;
-                        bremer_support = bremer_support;
-                        nodes = nodes;
-                    } in
-                    let res = update_trees_to_data res in
                     let descr = 
-                        match res.description with
-                        | None -> "No@ description@ available."
+                        match comment with
+                        | None -> "No description available."
                         | Some d -> d
                     in
                     Status.user_message Status.Information 
                     ("@[<v 2>Loading file " ^ StatusCommon.escape fn ^ "@,@[" ^ 
                     StatusCommon.escape descr ^
                     "@]@]");
-                    res
+                    run
                 with
                 | PoyFile.InvalidFile ->
                         let msg = "The file " ^ StatusCommon.escape 
