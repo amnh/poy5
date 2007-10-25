@@ -34,7 +34,7 @@ let jc69 mu t =
 (* k = alpha/beta and d= (alpha+2*beta)/t *)
 let k80 alpha beta t =
     (* assert (alpha /. (2.0 *. beta) == 1.0); *) 
-    let term_1 = 0.25 *. exp(-4.*.beta*.t) in
+   let term_1 = 0.25 *. exp(-4.*.beta*.t) in
     let term_2 = 0.5 *. exp(-2. *. t *. (alpha +. beta) ) in
 
     let p_0 = 0.25 +. term_1 +. term_2 in
@@ -55,14 +55,10 @@ let k80_r r t =
     k80 a b t
 
 (* printing commands *)
-let print_array xs = 
-    Array.iter (fun x -> Printf.printf "%f\t" x) xs; 
-    print_newline ()
-let print_float x =
-    Printf.printf "%f\t" x
+let print_float x = Printf.printf "%f\t" x
+let print_array xs = Array.iter print_float xs; print_newline ()
 
-
-(* ZIP o MAP in 'one' step *)
+(* ZIP o MAP *)
 let array_zipmap f a1 a2 =
     let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
         for i = 1 to ((Array.length a1)-1) do
@@ -93,6 +89,7 @@ let median_char p_1 p_2 a b =
     in
         let curried_c = median_element pa pb p_1 p_2 in
         let npv = Array.init (Array.length a.p_v) curried_c in
+        print_array npv;
         {
             ccode = 0;
             p_v = npv;
@@ -100,6 +97,9 @@ let median_char p_1 p_2 a b =
 
 (* empty argument is 'previous' *)
 let median _ a b t1 t2 =
+    Printf.printf "%f\t" t1;
+    Printf.printf "%f\t" t2;
+
     let p_1 = a.model.p t1 and
         p_2 = b.model.p t2 in
     (* for computing new char prob vectors *)
@@ -213,6 +213,7 @@ let rec sublist l a b =
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec characters = 
 (*    let a_size = Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph)) in *)
+(*    let a_gap = spec.Parser.SC.st_alph.gap in *)
     let model = spec.Parser.SC.st_type in
     let model =
         match model with
@@ -226,7 +227,7 @@ let of_parser spec characters =
 
     let p_funk =
         match model.Parser.SC.substitution with
-        | Parser.SC.Constant lambda -> jc69 lambda
+        | Parser.SC.Constant lambda -> k80 0.5 0.25
 (*      | Parser.SC.K80Ratio ratio -> k80_r ratio       *)
 (*      | Parser.SC.K80 alpha beta -> k80 alpha beta    *)
 (*      | Parser.SC.F81 pi_s -> tn93 pi_s 1.0 1.0       *)
@@ -238,25 +239,52 @@ let of_parser spec characters =
 (*      | Parser.SC.REV ...                             *)
     in
 
-    (* TODO:: this will filter out gap character *)
+    (* WARNING:: this will ensure fit with current models *)
     let a_size = 4 in
+    (* let a_gap = 4 in *)
 
     (* loop for each character *)
     let loop_ (states,code) =
         match states with 
-        | Some [4] (* TODO:: also here *)
+        | Some [4] (* should be a_gap *) 
         | None -> { ccode = code;
                     p_v = Array.make a_size 1.0; } 
         | Some s ->
                 let pl = List.fold_right set_in s (list_of a_size 0.0) in
                 let pv = Array.of_list (sublist pl 0 a_size) in
-                assert (pv <> [|0.0; 0.0;0.0;0.0;|]); (* TODO:: also here *)
                 { ccode = code; p_v = pv; }
-    in
-        {   code  = model.Parser.SC.set_code;
+    in  {   code  = model.Parser.SC.set_code;
             mle   = 0.0;
-            model ={ pi_0 = Array.sub priors 0 4; p=p_funk };
+            model ={ pi_0 = Array.sub priors 0 a_size; p=p_funk };
             chars = Array.map loop_ characters; }
+
+
+
+(* Tags.attributes ->t ->t option ->Data.d *)
+(* TODO:: add probability matrix to model output *)
+let to_formatter attr mine _ data :Tags.output list =
+    let _ray v f = `Structured (`Set (Array.to_list 
+                (Array.map (fun x -> `Single x) (Array.map f v)))) in
+    let _rayi v f = `Structured (`Set (Array.to_list 
+                (Array.map (fun x -> `Single x) (Array.mapi f v)))) in
+    let f_element cc p :Tags.output =
+            (Data.code_character cc data, [], `String (string_of_float p)) in
+    let f_char c :Tags.output = 
+        let a_char = (Tags.Data.code, string_of_int c.ccode) in
+        (Tags.Characters.character, [a_char], _rayi c.p_v f_element) in
+    let f_model cm :Tags.output = (Tags.Characters.model, [], _rayi cm.pi_0 f_element) in
+    let f_chars cs :Tags.output = (Tags.Characters.characters, [], _ray cs f_char) in
+    let attrib :Tags.attribute list = (Tags.Data.code,string_of_int mine.code) ::
+                 (Tags.Characters.mle, string_of_float mine.mle) :: attr in
+    let con = `Structured 
+                (`Set [
+                    `Single (Tags.Characters.model,[], `Structured
+                    (`Single(f_model mine.model)));
+                    `Single (Tags.Data.characters,[],
+                    `Structured (`Single (f_chars mine.chars)))] ) in
+
+    [(Tags.Characters.likelihood, attrib, con)]
+(* -> Tags.output list *)
 
 (*
 (* manual test of single character *)
