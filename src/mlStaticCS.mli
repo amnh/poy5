@@ -30,8 +30,7 @@ val reroot_median : t -> t -> float -> float -> t
 * [c]. This is used for fast evaluation during SPR and TBR. *)
 val dist_2 : t -> t -> t -> float -> float -> float -> float option -> float
 
-(** [f_codes x c] creates a new character set where all characters with code
-* appearing in [c] have been filtered out. *)
+(** [f_codes x c] creates a new character set where all characters with code* appearing in [c] have been filtered out. *)
 val f_codes : t -> All_sets.Integers.t -> t
 
 (** [f_codes_comp x c] creates a new character set where all characters with
@@ -63,6 +62,7 @@ val compare_data : t -> t -> int
  * the newly adjusted vertex [mine]. *)
 val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> 
     t -> t -> t -> t -> float -> float -> 
+    (* modified set * old_mle * new_mle * (new_branch_lengths) * new node *)
     All_sets.Integers.t * float * float * (float*float) * t
 
 (** [of_parser spec characters] creates a character set with specification
@@ -81,6 +81,4 @@ val root_cost : t -> float
 val distance : t -> t -> float -> float -> float
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Tags.attributes ->t ->t option ->Data.d ->Tags.output list
-
-
 

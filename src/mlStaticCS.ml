@@ -1,3 +1,5 @@
+let debug = false 
+
 type mlchar = {
     ccode : int;
     p_v : float array;  (* probability vector *)
@@ -41,10 +43,11 @@ let k80 alpha beta t =
     let p_1 = 0.25 +. term_1 -. term_2 in
     let p_2 = 0.25 -. term_1 in
 
-    [| [|p_0;p_1;p_2;p_2|];
-       [|p_1;p_0;p_2;p_2|];
-       [|p_2;p_2;p_0;p_1|];
-       [|p_2;p_2;p_1;p_0|]
+       (* A   C   G   T *)
+    [| [|p_0;p_2;p_1;p_2|];
+       [|p_2;p_0;p_2;p_1|];
+       [|p_1;p_2;p_0;p_2|];
+       [|p_2;p_1;p_2;p_0|];
     |]
 
 (* val k80: since r=a/2b=1, a = 2b, b=a/2 *) 
@@ -89,7 +92,6 @@ let median_char p_1 p_2 a b =
     in
         let curried_c = median_element pa pb p_1 p_2 in
         let npv = Array.init (Array.length a.p_v) curried_c in
-        print_array npv;
         {
             ccode = 0;
             p_v = npv;
@@ -97,9 +99,6 @@ let median_char p_1 p_2 a b =
 
 (* empty argument is 'previous' *)
 let median _ a b t1 t2 =
-    Printf.printf "%f\t" t1;
-    Printf.printf "%f\t" t2;
-
     let p_1 = a.model.p t1 and
         p_2 = b.model.p t2 in
     (* for computing new char prob vectors *)
@@ -154,38 +153,49 @@ let f_codes t codes =
 
 let compare_data a b = compare a b
 
-let f_abs x = 
-    if x < 0.0 then -.x else x
-(* roam by step to find best result
+let f_abs x = if x < 0.0 then -.x else x
+
+(* roam by step to find best result *)
 let rec g_roam c1 c2 t1 t2 mle_ step epsilon =
     let best = 
-        let left = (distance c1 c2 (t1-.step) t2,(t1-.step),t2) in
-        let right= (distance c1 c2 (t1+.step) t2,(t1+.step),t2) in
-             match left, right with
-            |((l,_,_),(r,_,_)) -> if l > r then left else right in
+        let left = if (t1-.step) < 0.0 then (mle_,t1,t2) else
+            (distance c1 c2 (t1-.step) t2,(t1-.step),t2) in
+        let right= if (t1+.step) < 0.0 then (mle_,t1,t2) else
+            (distance c1 c2 (t1+.step) t2,(t1+.step),t2) in
+        match left, right with
+            |((l,_,_),(r,_,_)) -> if l < r then left else right in
     let best = 
-        let up = (distance c1 c2 t1 (t2+.step),t1,(t2+.step)) in
+        let up = if (t2+.step) < 0.0 then (mle_,t1,t2) else
+            (distance c1 c2 t1 (t2+.step),t1,(t2+.step)) in
              match best,up with
-            |((b,_,_),(u,_,_)) -> if b > u then best else up in
+            |((b,_,_),(u,_,_)) -> if b < u then best else up in
     let best =
-        let down = (distance c1 c2 t1 (t2-.step), t1, (t2-.step)) in
+        let down = if (t2-.step) < 0.0 then (mle_,t1,t2) else
+            (distance c1 c2 t1 (t2-.step), t1, (t2-.step)) in
              match best,down with
-            |((b,_,_),(d,_,_)) -> if b > d then best else down in
+            |((b,_,_),(d,_,_)) -> if b < d then best else down in
      match best with
     |(b_t,b_t1,b_t2) ->
-            if b_t < mle_ || epsilon >= f_abs(b_t-.mle_) then (mle_,t1,t2) else
-                g_roam c1 c2 b_t1 b_t2 b_t step epsilon
-*)
-(* readjust the branch lengths to create better mle score *)
-let readjust _ x _ c1 c2 _ mine t1 t2 = (x,mine.mle,mine.mle,(t1,t2),mine) 
-(*    let data = g_roam c1 c2 t1 t2 mine.mle 0.1 0.0001 in
-    match data with
-    | (bmle,bt1,bt2) when bt1==t1 && bt2==t2 -> (* no change *)
-            (x,mine.mle,mle,(bt1,bt2),mine)
-    | (bmle,bt1,bt2) -> 
-            (x,mine.mle,mle,(bt1,bt2), {mine with mle = bmle}
-*)
+        Printf.printf "%f\n" b_t;
+        if b_t >= mle_ || epsilon >= f_abs(b_t-.mle_) 
+        then (mle_,t1,t2)
+        else g_roam c1 c2 b_t1 b_t2 b_t step epsilon
 
+let integers_add mlc set = All_sets.Integers.add mlc.ccode set
+(* readjust the branch lengths to create better mle score *)
+let readjust _ x _ c1 c2 _ mine t1 t2 = 
+    let data = g_roam c1 c2 t1 t2 mine.mle 0.0015 0.001 in (* TODO: constants *)
+    match data with
+    | (bmle,bt1,bt2) when bt1==t1 && bt2==t2 ->
+            (x,mine.mle,bmle,(bt1,bt2),mine)
+    | (bmle,bt1,bt2) -> 
+        let x = Array.fold_right (* TODO: bottleneck *)
+                (fun c s -> All_sets.Integers.add c.ccode s)
+                mine.chars x in
+        (x,mine.mle,bmle,(bt1,bt2), {mine with mle = bmle} )
+
+
+(* of_parser stuff *)
 let rec list_of n x =
     match n with
     | 0 -> []
@@ -209,7 +219,6 @@ let rec sublist l a b =
         | _,_ -> sublist tl (a-1) b)
     | _ -> []
 
-
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec characters = 
 (*    let a_size = Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph)) in *)
@@ -227,7 +236,7 @@ let of_parser spec characters =
 
     let p_funk =
         match model.Parser.SC.substitution with
-        | Parser.SC.Constant lambda -> k80 0.5 0.25
+        | Parser.SC.Constant lambda -> jc69 lambda
 (*      | Parser.SC.K80Ratio ratio -> k80_r ratio       *)
 (*      | Parser.SC.K80 alpha beta -> k80 alpha beta    *)
 (*      | Parser.SC.F81 pi_s -> tn93 pi_s 1.0 1.0       *)
@@ -304,6 +313,8 @@ let l_7 = median l_1 l_1 l_2 0.2 0.2
 let l_6 = median l_7 l_7 l_5 0.1 0.2
 let l_8 = median l_4 l_4 l_3 0.2 0.2
 let l_0 = median l_6 l_6 l_8 0.1 0.1
+let nl_8= g_roam l_4 l_3 0.2 0.2 1.7544841622 0.1 0.1
+
 (* correct when...
 val l_0 : t =
   {code = 0; mle = 7.58140757255770126;
