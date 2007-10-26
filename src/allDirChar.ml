@@ -450,13 +450,29 @@ with type b = AllDirNode.OneDirF.n = struct
                     in
                     if All_sets.Integers.is_empty modified then ptree, false, modified
                     else
-                        let mine = 
-                            mine
-                            --> Lazy.lazy_from_val 
-                            --> (fun x -> { mine' with AllDirNode.lazy_node = x })
-                            --> (fun x -> { mineo with AllDirNode.adjusted = [x] })
+                        let process minec mine mine' mineo ptree = 
+                            let mine =
+                                mine
+                                --> Lazy.lazy_from_val 
+                                --> (fun x -> { mine' with AllDirNode.lazy_node = x })
+                                --> (fun x -> { mineo with AllDirNode.adjusted = [x] })
+                            in
+                            Ptree.add_node_data minec mine ptree
                         in
-                        Ptree.add_node_data minec mine ptree, true, modified
+                        (match mine with
+                        | `Mine mine -> 
+                                let ptree = 
+                                    process minec mine mine' mineo ptree 
+                                in
+                                ptree, true, modified
+                        | `MineNChildren (mine, ch1r, ch2r) ->
+                                let ptree =
+                                    ptree 
+                                    --> process minec mine mine' mineo 
+                                    --> process ((force_node ch1).Node.taxon_code) ch1r ch1 ch1o
+                                    --> process ((force_node ch2).Node.taxon_code) ch2r ch2 ch2o
+                                in
+                                ptree, true, modified)
             | _ -> failwith "Huh? AllDirChar.aux_adjust_single"
         in
         let add_vertices_affected a b c d codes affected = 

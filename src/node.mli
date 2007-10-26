@@ -167,12 +167,21 @@ val to_single : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data option ->
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
 
-(** [readjust ch1 ch2 par mine] returns a heuristically selected new node which
+(** [readjust ch1 ch2 par mine] returns a heuristically selected set of nodes which
 * is located somewhere in between [ch1], [ch2], and [par], which are the two
 * children and parent of [mine]. If no better node than [mine] can be found,
-* then [mine] itself is returned. *)
+* then [mine] itself is returned.
+*
+* When only parsimony characters are being adjusted, the returned first element
+* in the tupe holds [`Mine x], where [x] is the readjusted [mine]. When
+* likelihood characters are inside the node, the first element in the tuple
+* containes [`MineNChildren (x, y, z)] where [x] containes the readjusted
+* [mine], [y] the readjusted [ch1] and [z] the readjusted [ch2]. For static
+* homology characters, the only parameter readjusted in [y] and [z] is their
+* branch length specification. *)
 val readjust : All_sets.Integers.t option -> node_data -> node_data -> node_data ->
-    node_data -> node_data * All_sets.Integers.t
+    node_data -> [`Mine of node_data | `MineNChildren of (node_data * node_data
+    * node_data) ] * All_sets.Integers.t
 
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 

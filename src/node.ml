@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2409 $"
+let () = SadmanOutput.register "Node" "$Revision: 2411 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1847,9 +1847,11 @@ let readjust to_adjust ch1 ch2 parent mine =
         else ch2, ch1
     in
     let modified = ref All_sets.Integers.empty in
+    let adjusted_likelihood = ref false in
     let cs_readjust c1 c2 parent mine =
-        match c1, c2, parent, mine with (* TODO ::
-        | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> mine
+        match c1, c2, parent, mine with 
+        | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
+                adjusted_likelihood := true;
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified mine.time
                     c1.preliminary c2.preliminary parent.preliminary
@@ -1857,30 +1859,34 @@ let readjust to_adjust ch1 ch2 parent mine =
                 in
                 modified := m;
                 let cost = mine.weight *.cost in
-                ( StaticMl {preliminary = res; final = res; cost = cost;
-                            sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                            weight = mine.weight; time = time },
-                StaticMl { ch1 with time = t1; },
-                StaticMl { ch2 with time = t2; })
-        *)
-        | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
+                (( StaticMl {mine with 
+                    preliminary = res; final = res; cost = cost;
+                    sum_cost = c1.sum_cost +. c2.sum_cost +. cost },
+                StaticMl { c1 with time = t1; }),
+                StaticMl { c2 with time = t2; })
+        | ((Dynamic c1) as c1'), ((Dynamic c2) as c2'), Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
                     parent.preliminary mine.preliminary
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
-                Dynamic { preliminary = res; final = res; 
+                (Dynamic { preliminary = res; final = res; 
                 cost = cost;
                 sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                weight = mine.weight; time=0.0}
-        | _ -> mine
+                weight = mine.weight; time=0.0}, c1'), c2'
+        | _ -> (mine, c1), c2
     in
-    if mine.total_cost = infinity then mine, !modified
+    if mine.total_cost = infinity then (`Mine mine), !modified
     else
         let characters = 
             map4 cs_readjust ch1.characters ch2.characters
             parent.characters mine.characters
+        in
+        let characters, b, c = 
+            let a, c = List.split characters in
+            let a, b = List.split a in
+            a, b, c 
         in
         let children_cost = ch1.total_cost +. ch2.total_cost 
         and node_cost = get_characters_cost characters in
@@ -1889,14 +1895,11 @@ let readjust to_adjust ch1 ch2 parent mine =
             { mine with characters = characters; total_cost = total_cost; 
             node_cost = node_cost }
         in
-        (*
-        Status.user_message Status.Information
-        ("The distance was " ^ string_of_float
-        ((distance mine ch1 +. distance mine ch2 +. distance mine parent))
-        ^ " but now it is " ^ string_of_float
-        ((distance res ch1) +. (distance res ch2) +. (distance res parent)));
-        *)
-        res, !modified
+        if !adjusted_likelihood then
+            let ch1 = { ch1 with characters = b }
+            and ch2 = { ch2 with characters = c } in
+            `MineNChildren (res, ch1, ch2), !modified
+        else (`Mine res), !modified
 
 let to_single_root (pre_ref_codes, fi_ref_codes) mine = 
     to_single (pre_ref_codes, fi_ref_codes) (Some mine) mine mine
