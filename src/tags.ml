@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tags" "$Revision: 2302 $"
+let () = SadmanOutput.register "Tags" "$Revision: 2410 $"
 
 type tag = string
 type value = tag
@@ -87,6 +87,13 @@ module Characters = struct
     let words = "Words"
     let ints = "Integers"
     let chars = "Character Functions"
+
+    let prior = "Prior"
+    let p_mat = "Probability_Matrix"
+    let model = "Model"
+    let mle = "Maximum_Likelihood_Estimation"
+    let p_vec = "Probability_Vector"
+    let characters = "Characters"
 
     (* Their values *)
     let min = "Min"
