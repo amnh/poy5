@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2411 $"
+let () = SadmanOutput.register "Node" "$Revision: 2413 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1684,6 +1684,8 @@ let current_snapshot x =
     if debug_profile_memory then MemProfiler.current_snapshot x
     else ()
 
+let cost_mode = ref `Likelihood
+
 let load_data ?taxa ?codes ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
@@ -1730,6 +1732,11 @@ let load_data ?taxa ?codes ?(classify=true) data =
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
+        let () = 
+            match static_ml with
+            | [] -> cost_mode := `Parsimony
+            | _ -> cost_mode := `Likelihood
+        in
         generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
         static_ml data
     in
@@ -2888,7 +2895,10 @@ module Standard :
         let median_3 _ = median_3
         let set_cost a b = median_set_cost b a
         let to_string = to_string
-        let total_cost _ a = a.total_cost
+        let total_cost _ a = 
+            match !cost_mode with
+            | `Likelihood -> a.node_cost
+            | `Parsimony -> a.total_cost
         let node_cost _ a = a.node_cost
         let update_leaf = update_leaf
         let exclude_info _ x = x.exclude_info

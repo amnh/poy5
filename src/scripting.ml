@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2406 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2413 $"
 
 module IntSet = All_sets.Integers
 
@@ -102,6 +102,11 @@ module type S = sig
 
 end
 
+
+
+let assign_cost_mode mode = Node.cost_mode := mode
+
+let get_cost_mode () = !Node.cost_mode
 
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
     (TreeOps : 
@@ -729,7 +734,7 @@ end
              run
      | `InspectFile str ->
              try 
-                 let (desc, _, _, _, _, _, _) = PoyFile.read_file str in
+                 let (desc, _, _, _) = PoyFile.read_file str in
                 let desc = 
                      match desc with
                      | None -> "No@ description@ available."
@@ -1735,7 +1740,8 @@ END
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run, !Data.median_code_count) fn;
+                    PoyFile.store_file (comment, run, !Data.median_code_count,
+                    get_cost_mode ()) fn;
                     run
                 with
                 | err ->
@@ -1747,7 +1753,8 @@ END
                         run)
             | `Load fn ->
                 (try 
-                    let (comment, run, mcc)  = PoyFile.read_file fn in
+                    let (comment, run, mcc, cost_mode)  = PoyFile.read_file fn in
+                    assign_cost_mode cost_mode;
                     Data.median_code_count := mcc;
                     let descr = 
                         match comment with
