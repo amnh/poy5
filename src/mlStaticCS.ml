@@ -26,6 +26,7 @@ let jc69 mu t =
     let p_1 = 0.25 -. 0.25 *. exp(-.t*.mu) in
     let p_0 = 1.0 -. (3.0 *. p_1 ) in
 
+        (* A   C   G   T *)
      [| [|p_0;p_1;p_1;p_1|];
         [|p_1;p_0;p_1;p_1|];
         [|p_1;p_1;p_0;p_1|];
@@ -36,7 +37,7 @@ let jc69 mu t =
 (* k = alpha/beta and d= (alpha+2*beta)/t *)
 let k80 alpha beta t =
     (* assert (alpha /. (2.0 *. beta) == 1.0); *) 
-   let term_1 = 0.25 *. exp(-4.*.beta*.t) in
+    let term_1 = 0.25 *. exp(-4.*.beta*.t) in
     let term_2 = 0.5 *. exp(-2. *. t *. (alpha +. beta) ) in
 
     let p_0 = 0.25 +. term_1 +. term_2 in
@@ -107,9 +108,9 @@ let median _ a b t1 t2 =
     (* for computing new MLE *)
     let n_mle = Array.map (mle a.model.pi_0) c_map in
     let n_mle = Array.fold_right (+.) n_mle 0.0 in
-    { a with
+    {   code = a.code;
         chars = c_map;
-        mle = n_mle; 
+        mle = n_mle;
         model = a.model;
     }
 
@@ -117,6 +118,7 @@ let median _ a b t1 t2 =
 let find_t a b = 0.1
 
 let root_cost t = t.mle
+
 let distance a b t1 t2 = 
     let t = median a a b t1 t2 in
     t.mle
@@ -138,23 +140,7 @@ let median_3 _ x _ _ =  x
 let to_string a = "MLStaticCS"
 let cardinal ta = Array.length ta.chars
 
-(* filtering functions *)
-let filter f t =
-    let filter_e f e = Array_ops.filter f e in
-    { t with
-        chars = filter_e f t.chars
-    }
-let f_codes_comp t codes = 
-    let check mlc = not (All_sets.Integers.mem mlc.ccode codes) in 
-    filter check t
-let f_codes t codes = 
-    let check mlc = All_sets.Integers.mem mlc.ccode codes in
-    filter check t
-
-let compare_data a b = compare a b
-
 let f_abs x = if x < 0.0 then -.x else x
-
 (* roam by step to find best result *)
 let rec g_roam c1 c2 t1 t2 mle_ step epsilon =
     let best = 
@@ -176,24 +162,24 @@ let rec g_roam c1 c2 t1 t2 mle_ step epsilon =
             |((b,_,_),(d,_,_)) -> if b < d then best else down in
      match best with
     |(b_t,b_t1,b_t2) ->
-        Printf.printf "%f\n" b_t;
         if b_t >= mle_ || epsilon >= f_abs(b_t-.mle_) 
         then (mle_,t1,t2)
         else g_roam c1 c2 b_t1 b_t2 b_t step epsilon
 
-let integers_add mlc set = All_sets.Integers.add mlc.ccode set
 (* readjust the branch lengths to create better mle score *)
-let readjust _ x _ c1 c2 _ mine t1 t2 = 
-    let data = g_roam c1 c2 t1 t2 mine.mle 0.0015 0.001 in (* TODO: constants *)
+let readjust xo x c1 c2 mine t1 t2 tmine =
+    let mmle = distance c1 c2 t1 t2 in (* TODO: recalculate?? *)
+    let data = g_roam c1 c2 t1 t2 mmle 0.01 0.001 in (* TODO: constants *)
     match data with
     | (bmle,bt1,bt2) when bt1==t1 && bt2==t2 ->
-            (x,mine.mle,bmle,(bt1,bt2),mine)
-    | (bmle,bt1,bt2) -> 
+        (x,mine.mle,bmle,(bt1,bt2),mine)
+
+    | (bmle,bt1,bt2) ->
+         (*  Printf.printf  "%f  -->  %f  -->  %f\n" mine.mle mmle bmle;    *)
         let x = Array.fold_right (* TODO: bottleneck *)
                 (fun c s -> All_sets.Integers.add c.ccode s)
                 mine.chars x in
         (x,mine.mle,bmle,(bt1,bt2), {mine with mle = bmle} )
-
 
 (* of_parser stuff *)
 let rec list_of n x =
@@ -251,7 +237,7 @@ let of_parser spec characters =
     (* WARNING:: this will ensure fit with current models *)
     let a_size = 4 in
     (* let a_gap = 4 in *)
-
+ 
     (* loop for each character *)
     let loop_ (states,code) =
         match states with 
@@ -262,12 +248,23 @@ let of_parser spec characters =
                 let pl = List.fold_right set_in s (list_of a_size 0.0) in
                 let pv = Array.of_list (sublist pl 0 a_size) in
                 { ccode = code; p_v = pv; }
-    in  {   code  = model.Parser.SC.set_code;
-            mle   = 0.0;
-            model ={ pi_0 = Array.sub priors 0 a_size; p=p_funk };
-            chars = Array.map loop_ characters; }
+    in
+    {   code = model.Parser.SC.set_code;
+         mle = 0.0;
+       model = { pi_0 = Array.sub priors 0 a_size; p = p_funk };
+       chars = Array.map loop_ characters; }
 
-
+(* filtering functions *)
+let filter f t =
+    let filter_e f e = Array_ops.filter f e in
+    { t with chars = filter_e f t.chars }
+let f_codes_comp t codes = 
+    let check mlc = not (All_sets.Integers.mem mlc.ccode codes) in 
+    filter check t
+let f_codes t codes = 
+    let check mlc = All_sets.Integers.mem mlc.ccode codes in
+    filter check t
+let compare_data a b = compare a b
 
 (* Tags.attributes ->t ->t option ->Data.d *)
 (* TODO:: add probability matrix to model output *)
@@ -276,15 +273,23 @@ let to_formatter attr mine _ data :Tags.output list =
                 (Array.map (fun x -> `Single x) (Array.map f v)))) in
     let _rayi v f = `Structured (`Set (Array.to_list 
                 (Array.map (fun x -> `Single x) (Array.mapi f v)))) in
-    let f_element cc p :Tags.output =
-            (Data.code_character cc data, [], `String (string_of_float p)) in
+
+    let f_element cs p :Tags.output =
+        let i_pow b n = 
+            let fb = float_of_int b and fn = float_of_int n in
+            int_of_float (fb**fn) in
+        let alpha = Alphabet.nucleotides in 
+        (Alphabet.find_code (i_pow 2 cs) alpha, [], `String (string_of_float p)) in
     let f_char c :Tags.output = 
         let a_char = (Tags.Data.code, string_of_int c.ccode) in
         (Tags.Characters.character, [a_char], _rayi c.p_v f_element) in
-    let f_model cm :Tags.output = (Tags.Characters.model, [], _rayi cm.pi_0 f_element) in
-    let f_chars cs :Tags.output = (Tags.Characters.characters, [], _ray cs f_char) in
-    let attrib :Tags.attribute list = (Tags.Data.code,string_of_int mine.code) ::
-                 (Tags.Characters.mle, string_of_float mine.mle) :: attr in
+    let f_model cm :Tags.output = 
+            (Tags.Characters.model, [], _rayi cm.pi_0 f_element) in
+    let f_chars cs :Tags.output = 
+            (Tags.Characters.characters, [], _ray cs f_char) in
+    let attrib :Tags.attribute list = 
+                (Tags.Data.code,string_of_int mine.code) ::
+                (Tags.Characters.mle, string_of_float mine.mle) :: attr in
     let con = `Structured 
                 (`Set [
                     `Single (Tags.Characters.model,[], `Structured

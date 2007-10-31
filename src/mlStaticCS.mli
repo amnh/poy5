@@ -60,8 +60,8 @@ val compare_data : t -> t -> int
  * [cost] is the new cost of the edge connecting [mine] and [par] after the
  * readjustement, [length] is the new edge length of children (time), and [adjusted] is 
  * the newly adjusted vertex [mine]. *)
-val readjust : All_sets.Integers.t option -> All_sets.Integers.t -> float -> 
-    t -> t -> t -> t -> float -> float -> 
+val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->  
+    t -> t -> t -> float -> float -> float ->
     (* modified set * old_mle * new_mle * (new_branch_lengths) * new node *)
     All_sets.Integers.t * float * float * (float*float) * t
 

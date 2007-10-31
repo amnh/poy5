@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2413 $"
+let () = SadmanOutput.register "Node" "$Revision: 2415 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -253,10 +253,9 @@ let rec cs_median anode bnode prev a b =
                 { ca with 
                     preliminary = median;
                     final = median;
-                    cost = ca.weight *. cost;
+                    cost = cost *. ca.weight; 
                     sum_cost = cost;
-                }
-                
+                } 
             in
             StaticMl res
     | Nonadd8 ca, Nonadd8 cb ->
@@ -621,6 +620,21 @@ let has_excluded list =
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
 
+let cost_mode = ref `Likelihood
+
+let total_cost _ a =
+    match !cost_mode with
+    | `Likelihood -> a.node_cost
+    | `Parsimony -> a.total_cost
+
+let root_cost root =
+    let adder acc character = 
+        match character with
+        | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
+        | _ -> acc
+    in
+    List.fold_left adder (total_cost root root) root.characters
+
 let median code old a b =
     let code =
         match code with
@@ -639,7 +653,10 @@ let median code old a b =
                   b.characters
     and children_cost = a.total_cost +. b.total_cost in
     let node_cost = get_characters_cost new_characters in
-    let total_cost = node_cost +. children_cost in
+    let total_cost = 
+        match !cost_mode with
+        | `Likelihood -> node_cost
+        | `Parsimony -> node_cost +. children_cost in
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -658,15 +675,6 @@ let median code old a b =
         exclude_sets = a.exclude_sets;
         exclude_info = exclude_info;
     }
-
-let root_cost root =
-    let adder acc character = 
-        match character with
-        | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
-        | _ -> acc
-    in
-    List.fold_left adder root.total_cost root.characters
-
 
 let rec cs_reroot_median na nb old a b =
     match old, a, b with
@@ -740,11 +748,14 @@ let median_3 p n c1 c2 =
     { n with characters = new_characters }
 
 let median_no_cost median =
-    { median with total_cost = 0. }
+    { median with total_cost = 0.0; }
     
 let median_self_cost a = a.node_cost
 
-let median_set_cost a cost = {a with total_cost = cost}
+let median_set_cost a cost = 
+    match a with
+    | `Likelihood a -> {a with total_cost = cost; node_cost = cost;}
+    | `Parsimony a ->{a with total_cost = cost}
 
 let update_leaf n =
     let exclude_info =
@@ -1684,7 +1695,6 @@ let current_snapshot x =
     if debug_profile_memory then MemProfiler.current_snapshot x
     else ()
 
-let cost_mode = ref `Likelihood
 
 let load_data ?taxa ?codes ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
@@ -1860,17 +1870,17 @@ let readjust to_adjust ch1 ch2 parent mine =
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
                 adjusted_likelihood := true;
                 let m, prev_cost, cost, (t1,t2), res = 
-                    MlStaticCS.readjust to_adjust !modified mine.time
-                    c1.preliminary c2.preliminary parent.preliminary
-                    mine.preliminary c1.time c2.time
+                    MlStaticCS.readjust to_adjust !modified c1.preliminary
+                    c2.preliminary mine.preliminary c1.time c2.time mine.time
                 in
+
                 modified := m;
+                
                 let cost = mine.weight *.cost in
+
                 (( StaticMl {mine with 
-                    preliminary = res; final = res; cost = cost;
-                    sum_cost = c1.sum_cost +. c2.sum_cost +. cost },
-                StaticMl { c1 with time = t1; }),
-                StaticMl { c2 with time = t2; })
+                        preliminary=res;final=res;cost=cost;sum_cost=cost;},
+                StaticMl {c1 with time =t1;}), StaticMl { c2 with time = t2; })
         | ((Dynamic c1) as c1'), ((Dynamic c2) as c2'), Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
@@ -2895,10 +2905,7 @@ module Standard :
         let median_3 _ = median_3
         let set_cost a b = median_set_cost b a
         let to_string = to_string
-        let total_cost _ a = 
-            match !cost_mode with
-            | `Likelihood -> a.node_cost
-            | `Parsimony -> a.total_cost
+        let total_cost = total_cost
         let node_cost _ a = a.node_cost
         let update_leaf = update_leaf
         let exclude_info _ x = x.exclude_info
