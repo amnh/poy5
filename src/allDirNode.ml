@@ -651,7 +651,12 @@ type nad8 = Node.Standard.nad8 = struct
         List.map (fun x -> { unadjusted = x; adjusted = x }) res
 
     let root_cost a = 
-        match a.unadjusted with
+        let lst =
+            match !Methods.cost with
+            | `Iterative -> a.adjusted
+            | _ -> a.unadjusted
+        in
+        match lst with
         | [a] -> OneDirF.root_cost a.lazy_node
         | _ -> failwith "AllDirNode.root_cost"
 end

@@ -172,10 +172,11 @@ with type b = AllDirNode.OneDirF.n = struct
         real_cost +. root_minus
 
 
-    let check_cost_all_handles ptree = 
-        All_sets.Integers.fold (fun handle cost ->
-            (check_cost ptree handle) +. cost) 
-        (Ptree.get_handles ptree) 0.0
+    let check_cost_all_handles ptree =
+        All_sets.Integers.fold 
+            (fun handle cost -> (check_cost ptree handle) +. cost)
+            (Ptree.get_handles ptree)
+            0.0
 
     let convert_three_to_one_dir tree = 
         (* We will convert the tree in a one direction tree, then we will use
@@ -432,6 +433,55 @@ with type b = AllDirNode.OneDirF.n = struct
         All_sets.Integers.fold unadjust_handle ptree.Ptree.tree.Tree.handles
         ptree
     *)
+    let refresh_all_edges adjusted ptree =
+        let new_edges = 
+            Tree.EdgeSet.fold (fun ((Tree.Edge (a, b)) as e) acc ->
+                current_snapshot
+                "AllDirChar.refresh_all_edges internal fold";
+                let data = 
+                    try create_lazy_edge adjusted ptree a b with
+                    | err -> 
+                            let print_node = function
+                                | Tree.Interior (u, v, w, x) ->
+                                        Status.user_message Status.Error 
+                                        ("with neighbors " ^ string_of_int v ^
+                                        ", " ^ string_of_int w ^ ", " ^
+                                        string_of_int x);
+                                | Tree.Leaf (_, x) ->
+                                        Status.user_message Status.Error
+                                        ("with neighbor " ^ string_of_int x);
+                                | Tree.Single _ -> ()
+                            in
+                            Status.user_message Status.Error
+                            ("Failure while attempting lazy_edge between " ^
+                            string_of_int a ^ " and " ^ string_of_int b);
+                            print_node (Ptree.get_node a ptree);
+                            print_node (Ptree.get_node b ptree);
+                            raise err
+                in
+                Tree.EdgeMap.add e data acc)
+            ptree.Ptree.tree.Tree.d_edges Tree.EdgeMap.empty
+        in
+        { ptree with Ptree.edge_data = new_edges }
+
+    let refresh_roots ptree =
+        let new_roots =
+            All_sets.Integers.fold (fun x acc ->
+                let root = 
+                    match Ptree.get_node x ptree with
+                    | Tree.Leaf (a, b)
+                    | Tree.Interior (a, b, _, _) ->
+                            create_root a b ptree
+                    | Tree.Single _ ->
+                            create_root x x ptree
+                in
+                All_sets.IntegerMap.add x root acc
+            ) ptree.Ptree.tree.Tree.handles All_sets.IntegerMap.empty
+        in
+        {
+            ptree with 
+            Ptree.component_root = new_roots;
+        }
 
     (* Now we define a function that can adjust all the vertices in the tree
     * to improve the overall cost of the tree, using only the
@@ -448,7 +498,8 @@ with type b = AllDirNode.OneDirF.n = struct
                         --> (Node.readjust chars_to_check (force_node ch1) (force_node ch2) 
                             (force_node parent))
                     in
-                    if All_sets.Integers.is_empty modified then ptree, false, modified
+                    if All_sets.Integers.is_empty modified then 
+                        ptree, false, modified
                     else
                         let process minec mine mine' mineo ptree = 
                             let mine =
@@ -527,8 +578,14 @@ with type b = AllDirNode.OneDirF.n = struct
                     affected
                     (All_sets.IntegerMap.empty, ptree, false)
                 in
-                if changed then 
+                if changed then
+                    let ptree = match !Node.cost_mode with
+                                    | `Likelihood -> 
+                                            refresh_roots (refresh_all_edges
+                                            true new_ptree)
+                                    | `Parsimony -> ptree in
                     let new_cost = check_cost_all_handles ptree in
+                    (* Printf.printf "%f --> %f\n" prev_cost new_cost; *)
                     if new_cost < prev_cost then
                         iterator new_cost affected new_ptree
                     else ptree
@@ -562,10 +619,6 @@ with type b = AllDirNode.OneDirF.n = struct
                         *)
                         node
                     in
-                    (*
-                    Printf.printf "The total cost of this will be %f\n%!"
-                    (Node.Standard.total_cost None new_root);
-                    *)
                     let new_root_p = 
                         { new_root with 
                               Node.characters = (Node.to_single (pre_ref_codes, fi_ref_codes) 
@@ -575,6 +628,12 @@ with type b = AllDirNode.OneDirF.n = struct
                             dir = Some (a, b);
                             code = (-1);}]
                     in
+                    (*
+                    Printf.printf "The total cost of this is supposed to be %f
+                    but check asshole claims %f\n%!"
+                    (Node.Standard.total_cost None new_root)
+                    (check_cost ptree handle);
+                    *)
                     Ptree.assign_root_to_connected_component handle 
                     (Some ((`Edge (a, b)), {root with 
                     AllDirNode.adjusted = new_root_p}))
@@ -587,11 +646,9 @@ with type b = AllDirNode.OneDirF.n = struct
         let adjust_handle handle ptree =
             match (Ptree.get_component_root handle ptree).Ptree.root_median with
             | Some ((`Edge (a, b)), rootg) ->
-                    (*
                     Status.user_message Status.Information
                     ("The total cost is " ^ string_of_float (check_cost ptree
                     handle));
-                    *)
                     adjust_root_n_cost handle rootg a b ptree
             | Some _ -> ptree
             | None -> failwith "Huh? AllDirChar.adjust_handle"
@@ -612,56 +669,6 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let assign_single_and_readjust ptree = 
         adjust_tree None (assign_single ptree)
-
-    let refresh_all_edges adjusted ptree =
-        let new_edges = 
-            Tree.EdgeSet.fold (fun ((Tree.Edge (a, b)) as e) acc ->
-                current_snapshot
-                "AllDirChar.refresh_all_edges internal fold";
-                let data = 
-                    try create_lazy_edge adjusted ptree a b with
-                    | err -> 
-                            let print_node = function
-                                | Tree.Interior (u, v, w, x) ->
-                                        Status.user_message Status.Error 
-                                        ("with neighbors " ^ string_of_int v ^
-                                        ", " ^ string_of_int w ^ ", " ^
-                                        string_of_int x);
-                                | Tree.Leaf (_, x) ->
-                                        Status.user_message Status.Error
-                                        ("with neighbor " ^ string_of_int x);
-                                | Tree.Single _ -> ()
-                            in
-                            Status.user_message Status.Error
-                            ("Failure while attempting lazy_edge between " ^
-                            string_of_int a ^ " and " ^ string_of_int b);
-                            print_node (Ptree.get_node a ptree);
-                            print_node (Ptree.get_node b ptree);
-                            raise err
-                in
-                Tree.EdgeMap.add e data acc)
-            ptree.Ptree.tree.Tree.d_edges Tree.EdgeMap.empty
-        in
-        { ptree with Ptree.edge_data = new_edges }
-
-    let refresh_roots ptree =
-        let new_roots =
-            All_sets.Integers.fold (fun x acc ->
-                let root = 
-                    match Ptree.get_node x ptree with
-                    | Tree.Leaf (a, b)
-                    | Tree.Interior (a, b, _, _) ->
-                            create_root a b ptree
-                    | Tree.Single _ ->
-                            create_root x x ptree
-                in
-                All_sets.IntegerMap.add x root acc
-            ) ptree.Ptree.tree.Tree.handles All_sets.IntegerMap.empty
-        in
-        {
-            ptree with 
-            Ptree.component_root = new_roots;
-        }
 
     let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
         (* Traverse every vertex in the tree and assign the downpass and uppass
@@ -903,7 +910,7 @@ with type b = AllDirNode.OneDirF.n = struct
                 clade_node --> fun x -> x.AllDirNode.unadjusted
                     --> AllDirNode.not_with tree_node 
                     --> force_node
-            in
+            in (* TODO:: verify with likelihood *)
             clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost,
             let res = [AllDirNode.not_with tree_node 
             clade_node.AllDirNode.unadjusted]
@@ -981,9 +988,6 @@ with type b = AllDirNode.OneDirF.n = struct
     let break_fn ((s1, s2) as a) b =
         match !Methods.cost with
         | `Iterative ->
-                (*
-                Printf.printf "Breaking!!\n%!";
-                *)
                 let other_neighbors = get_other_neighbors a b None in
                 let old_cost = Ptree.get_cost `Adjusted b in
                 let u, v, w, x, y, z = break_fn a b in
@@ -1329,6 +1333,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     ((Tags.Trees.tree, [], merger ch1 ch2 mine) : Tags.output)
             | (Tree.Leaf (_, par)) ->
                     let node_data = Ptree.get_node_data cur tree in
+                    
                     let nodest = 
                         Node.to_formatter_single
                         (pre, fi) [] data 
