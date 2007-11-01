@@ -24,6 +24,16 @@ type block_t = Block.block_t
 type order_t = ChromPam.order_t
 type subseq_t = Subseq.subseq_t
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
+val create_gen_cost_mat :
+  Subseq.subseq_t list ->
+  Subseq.subseq_t list ->
+  Block.block_t list ->
+  int ->
+  Sequence.s ->
+  Sequence.s ->
+  Cost_matrix.Two_D.m ->
+  ChromPam.chromPairAliPam_t ->
+  int array array * (Sequence.s * Sequence.s) array array
 val create_general_ali :
   [> `Breakinv ] ->
   Block.block_t list ->
@@ -31,6 +41,6 @@ val create_general_ali :
   Sequence.s ->
   Cost_matrix.Two_D.m ->
   Block.pairChromPam_t ->
-  Block.subseq_t list * Block.subseq_t list * Block.block_t list *
+  Subseq.subseq_t list * Subseq.subseq_t list * int * Block.block_t list *
   (Sequence.s * Sequence.s) array array * int array * int array * int *
   (int * int)

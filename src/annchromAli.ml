@@ -271,7 +271,6 @@ let split chrom =
 
 
 
-
 (** Given two arrays of sequences [seq1_arr] and [seq2_arr], 
  *  create the general cost matrix and corresponding code arrays  *)
 let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =        
@@ -336,6 +335,9 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
     let update_gap (seq, code) = 
         pure_gen_cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_gap_cost ali_pam.locus_indel_cost seq;
         pure_gen_cost_mat.(code).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
+        pure_gen_cost_mat.(gen_gap_code).(code + 1) <- pure_gen_cost_mat.(gen_gap_code).(code);
+        pure_gen_cost_mat.(code + 1).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
+
     in 
     Array.iter update_gap seq1_arr;
     Array.iter update_gap seq2_arr;
@@ -345,6 +347,10 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
     let code2_arr = Array.map (fun (seq, code) -> code) seq2_arr in 
 
     pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code
+
+
+
+
 
 
 

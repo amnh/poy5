@@ -49,9 +49,12 @@ val create_global_map :
   Cost_matrix.Two_D.m ->
   Seed.pairChromPam_t ->
   Block.block_t list * Block.subseq_t list * Block.subseq_t list
+
+
 val create_median :
   Subseq.subseq_t list ->
   Subseq.subseq_t list ->
+    int ->
   Sequence.s * int ->
   Sequence.s * int ->
   Block.block_t list ->
@@ -60,6 +63,7 @@ val create_median :
   int array ->
   int array * int * int * int ->
   Cost_matrix.Two_D.m -> ChromPam.chromPairAliPam_t -> med_t
+
 
 val cmp_cost :
   med_t ->

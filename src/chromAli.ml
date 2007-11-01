@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2403 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2417 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -204,7 +204,6 @@ let print_median med_ls outfile =
             ) (List.rev med.chrom_map);
     in 
 
-
     print_med (List.hd med_ls);
     close_out f
 
@@ -282,12 +281,6 @@ let create_single_map med : Tags.output =
     chrom_map
 
 
-
-
-
-
-
-
 (** Create a global map between two chromsomes. Rearrangements are taken into account *)
 let rec create_global_map (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat ali_pam =
     let pos_seed_ls, neg_seed_ls =
@@ -296,6 +289,7 @@ let rec create_global_map (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat ali_p
 
     let pos_block_ls = Block.find_local_block pos_seed_ls ali_pam in
     let neg_block_ls = Block.find_local_block neg_seed_ls ali_pam in
+
 (*    print_endline "Positive blocks";
     List.iter Block.print pos_block_ls;
     print_endline "Negative blocks";
@@ -310,14 +304,8 @@ let rec create_global_map (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat ali_p
     
     
     let sep_b_ls = Block.select_separated_block all_b_ls ali_pam in  
-(*
-    List.iter Block.print sep_b_ls;
-    print_endline "End of sep blocks list"; 
-*)
 
     Block.create_alied_block_ls sep_b_ls ali_pam seq1 seq2 cost_mat;
-
-(*    let _ = List.fold_left (fun id b -> b.Block.id <- id; id + 1) 0 sep_b_ls in *)
         
     let block_pam = Block.blockPam_default in
     let con_sep_b_ls = Block.connect_consecutive_block 
@@ -379,7 +367,7 @@ let check_chrom_map seq1 seq2 chrom_map =
    
 
 (** Create the median between two chromosomes which are divided into subseqs lists *)
-let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) global_map 
+let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, chrom2_id) global_map 
         ali_mat alied_gen_seq1 alied_gen_seq2 
         (order2_arr, total_cost, recost1, recost2) cost_mat ali_pam = 
 
@@ -392,9 +380,9 @@ let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) glob
         let gen_code1 = alied_gen_seq1.(ali_pos) in 
         let gen_code2 = alied_gen_seq2.(ali_pos) in 
 
-        match gen_code1, gen_code2 with
-        | 0, 0 -> submed_ls, nascent_len, chrom_map
-        | 0, _ -> 
+        match gen_code1 = gen_gap_code, gen_code2 = gen_gap_code with
+        | true, true -> submed_ls, nascent_len, chrom_map
+        | true, _ -> 
               let subseq2 = List.find 
                   (fun sq -> sq.Subseq.id = gen_code2) subseq2_ls in
               let sta2 = subseq2.Subseq.sta in
@@ -419,7 +407,7 @@ let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) glob
               in 
               List.append submed_ls [submed], nascent_len, List.append chrom_map [map]
 
-        | _, 0 ->
+        | _, true ->
               let subseq1 = List.find 
                   (fun sq -> sq.Subseq.id = gen_code1) subseq1_ls in
 
@@ -506,7 +494,6 @@ let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) glob
 
 
     let create_ali_order order_arr alied_gen_seq =
-        let gen_gap_code = 0 in
         let ali_len = Array.length alied_gen_seq  in 
         let rec collect pos_ls pos = 
             let new_pos_ls = pos::pos_ls in
@@ -534,7 +521,7 @@ let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) glob
         let ali_order_ls = travel 0 sta_ls in     
         ali_order_ls
     in
-
+    
     let ali_order_ls : int list= create_ali_order order2_arr alied_gen_seq2 in 
     
     let submed_ls, med_len, chrom_map = List.fold_left adder ([], -1, [])  ali_order_ls  in
@@ -546,7 +533,7 @@ let create_median subseq1_ls subseq2_ls (seq1, chrom1_id) (seq2, chrom2_id) glob
     let ref_code = Utl.get_new_chrom_ref_code() in 
 
     (if Sequence.length seq = 0 then  failwith "Sequence length is Zero");
-(*    check_chrom_map seq1 seq2 chrom_map; *)
+
     {seq = seq; ref_code = ref_code;
      ref_code1 = chrom1_id;
      ref_code2 = chrom2_id;
@@ -594,10 +581,10 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
         in  
         
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in  
-        let _, _, _, _, _, _, total_cost, (recost1, recost2) =
+
+        let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
         in     
-
 
 
         total_cost, (recost1 + recost2)
@@ -696,13 +683,13 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
 (*       List.iter Block.print global_map; *)
 
-        let subseq1_ls, subseq2_ls, global_map, ali_mat, alied_gen_seq1,
+        let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
         in
 
 
-        let re_gen_seq2 = Utl.filterArray (fun code2 -> code2 > 0) alied_gen_seq2 in 
+        let re_gen_seq2 = Utl.filterArray (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
 
         let all_order_ls = 
@@ -718,7 +705,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         let med_ls = List.fold_right
             (fun (order_arr, recost1, recost2) med_ls ->
                  let med = 
-                     create_median subseq1_ls subseq2_ls 
+                     create_median subseq1_ls subseq2_ls gen_gap_code
                          (seq1, med1.ref_code) (seq2, med2.ref_code) global_map
                          ali_mat alied_gen_seq1 alied_gen_seq2 
                          (order_arr, total_cost, recost1, recost2) cost_mat ali_pam
@@ -837,6 +824,7 @@ let copy_chrom_map s d =
     
 
 let to_single single_parent child_ref c2 pam = 
+
     if (single_parent.ref_code1 = -1) && (single_parent.ref_code2 = -1) then single_parent.seq
     else begin
         let gap = Cost_matrix.Two_D.gap c2 in    
@@ -879,6 +867,8 @@ let to_single single_parent child_ref c2 pam =
                  in                       
                  
                  let ungap_alied_med = UtlPoy.of_array (Array.of_list  ungap_alied_med) in
+                 
+
                  ungap_alied_med, sta
             ) single_parent.chrom_map 
         in  
@@ -938,6 +928,10 @@ let change_to_single med single_seq c2 =
     (if Sequence.length single_seq != Sequence.length med.seq then begin
         fprintf stdout "single_len: %i, med_len:%i\n" (Sequence.length single_seq)
             (Sequence.length med.seq); flush stdout;
+         print_endline "Single_seq";
+         UtlPoy.printDNA single_seq;
+         print_endline "med_seq";
+         UtlPoy.printDNA med.seq;
         failwith "XXXXXXXXXXXXXXXXXXXXXX at change_to_single @ chromAli.ml"
     end);
 

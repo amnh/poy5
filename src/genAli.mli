@@ -30,7 +30,7 @@ val cmp_cost :
   int array ->
   int array ->
   int array ->
-  int array array ->
+    Cost_matrix.Two_D.m ->
   int ->
   [< `Breakpoint of int | `Inversion of int ] ->
   int -> int * (int * int) * int array * int array
@@ -38,7 +38,7 @@ val find_wagner_ali :
   [> `Breakinv ] ->
   int array ->
   int array ->
-  int array array ->
+    Cost_matrix.Two_D.m ->
   int -> [< `Breakpoint of int | `Inversion of int ] -> int -> int array
 val multi_swap_locus :
   [> `Breakinv ] ->
@@ -46,7 +46,7 @@ val multi_swap_locus :
   int array ->
   int array ->
   int ->
-  int array array ->
+    Cost_matrix.Two_D.m ->
   int ->
   [< `Breakpoint of int | `Inversion of int ] ->
   int -> int -> int -> int * int array
@@ -55,7 +55,6 @@ val create_gen_ali :
   Sequence.s ->
   Sequence.s ->
   Cost_matrix.Two_D.m ->
-  int array array ->
   Alphabet.a ->
   [< `Breakpoint of int | `Inversion of int ] ->
   int -> int -> int * (int * int) * Sequence.s * Sequence.s

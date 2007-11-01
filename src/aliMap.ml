@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AliMap" "$Revision: 2243 $"
+let () = SadmanOutput.register "AliMap" "$Revision: 2417 $"
 (** The implementation of functions to find the map between two chromosomes *)
 
 type chromPairAliPam_t = ChromPam.chromPairAliPam_t
@@ -37,7 +37,7 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
 
     let len1 = List.length subseq1_ls in 
     let len2 = List.length subseq2_ls in 
-    let len = 2 * (len1 + len2) + 1 in 
+    let len = 2 * (len1 + len2 + 1) in 
 
     let gen_cost_mat = Array.make_matrix len len Utl.infinity in 
 
@@ -149,8 +149,8 @@ let create_general_ali state global_map seq1 seq2 cost_mat ali_pam =
 
               ) global_map;
 
+    let gen_gap_code = ((List.length subseq1_ls) + (List.length subseq2_ls)) * 2 + 1 in  
 
-    let gen_gap_code = 0 in     
     let gen_cost_mat, ali_mat = create_gen_cost_mat subseq1_ls subseq2_ls 
         global_map gen_gap_code seq1 seq2 cost_mat ali_pam 
     in 
@@ -171,10 +171,12 @@ let create_general_ali state global_map seq1 seq2 cost_mat ali_pam =
         ) (Array.of_list subseq2_ls) 
     in 
     
+
+    
     let swap_med = ali_pam.ChromPam.swap_med in 
     let cost, recost, alied_gen_seq1, alied_gen_seq2 = GenAli.create_gen_ali_code         
         state gen_seq1 gen_seq2 gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular
     in   
-    subseq1_ls, subseq2_ls, global_map, ali_mat, 
+    subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, 
     alied_gen_seq1, alied_gen_seq2, cost, recost

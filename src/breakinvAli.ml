@@ -138,11 +138,11 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         match ali_pam.symmetric with
         | true ->
               let cost12, recost12, _, _ =
-                  GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat pure_gen_cost_mat
+                  GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
               in 
               let cost21, recost21, _, _ = 
-                  GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat pure_gen_cost_mat
+                  GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
               in  
               if cost12 <= cost21 then cost12, recost12
@@ -150,15 +150,14 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
-                      GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat pure_gen_cost_mat
+                      GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
                   else 
-                      GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat pure_gen_cost_mat
+                      GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
               in               
               cost , recost
     end 
-        
 
 
 (** Given two sequences of general characters [med1] and [med2], 
@@ -171,7 +170,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
     else if len2 < 1 then 0, (0, 0), [med1] 
     else begin        
         let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
-            GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat pure_gen_cost_mat
+            GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
                 alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
         in 
     
@@ -214,6 +213,58 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
         total_cost, (recost1, recost2), med_ls
     end
 
+(** Given two sequences of general characters [med1] and [med2], 
+ * find all median sequences between [med1] and [med2]. Rearrangements are allowed *) 
+let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
+    let len1 = Sequence.length med1.seq in 
+    let len2 = Sequence.length med2.seq in 
+
+    if len1 < 1 then 0, (0, 0), [med2]
+    else if len2 < 1 then 0, (0, 0), [med1] 
+    else begin        
+        let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
+            GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
+                alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+        in 
+    
+        let re_seq2 =
+            Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
+        in    
+    
+        
+        let all_order_ls =  [(re_seq2, recost1, recost2)]  in 
+    
+        
+        let med_ls = List.fold_left 
+            (fun med_ls (re_seq2, recost1, recost2) ->
+                 let med_seq = Sequence.init 
+                     (fun index ->
+                          if re_seq2.(index) > 0 then re_seq2.(index)
+                          else 
+                              if re_seq2.(index) mod 2  = 0 then -re_seq2.(index) - 1
+                              else -re_seq2.(index) + 1
+                     ) (Array.length re_seq2)
+                 in 
+                 let med = 
+                     {seq = med_seq; 
+                      alied_med = alied_gen_seq2;
+                      alied_seq1 = alied_gen_seq1;
+                      alied_seq2 = alied_gen_seq2;
+
+                      ref_code = Utl.get_new_chrom_ref_code ();
+                      ref_code1 = med1.ref_code;
+                      ref_code2 = med2.ref_code;
+                      cost1 = total_cost - recost2;
+                      cost2 = total_cost - recost1;
+                      recost1 = recost1;
+                      recost2 = recost2}
+                 in    
+                 med::med_ls
+            ) [] all_order_ls 
+        in
+    
+        total_cost, (recost1, recost2), med_ls
+    end
 
 
 

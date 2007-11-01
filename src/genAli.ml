@@ -34,20 +34,6 @@ let equal_orientation code1 code2 = compare (abs code1) (abs code2)
 (** Given two arrays of orders [seq2] and [re_seq2], 
  * compute their rearrangement distance*)
 let cmp_recost state seq1 seq2 reseq2 re_meth circular =     
-(*
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) seq1; 
-    print_newline ();
-
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) seq2; 
-    print_newline ();
-
-
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) reseq2; 
-    print_newline ();
-    print_newline ();
-*)
-
-    
     let seq1 = Array.map orientation seq1 in 
     let seq2 = Array.map orientation seq2 in 
     let reseq2 = Array.map orientation reseq2 in 
@@ -83,27 +69,23 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular =
 (** Given two sequences [seq1], [seq2] and rearranged sequence 
  * [reseq2] of [seq2], compute the total cost between [seq1] and [reseq2] where 
  * total cost = editing cost (seq1, reseq2) plus rearrangement cost (seq2, reseq2) *)
-let cmp_cost state seq1 seq2 reseq2 gen_cost_mat gap re_meth circular = 
+let cmp_cost state code1_arr code2_arr recode2_arr 
+        (cost_mat : Cost_matrix.Two_D.m) gap re_meth circular = 
 
-    let alied_seq1, alied_seq2, editing_cost =  
-        Sequence.CamlAlign.create_pair_align seq1 reseq2 gen_cost_mat gap
+    let seq1 = Sequence.init (fun idx -> code1_arr.(idx)) (Array.length code1_arr) in
+    let reseq2 = Sequence.init (fun idx -> recode2_arr.(idx)) (Array.length recode2_arr) in
+
+
+    let alied_seq1, alied_reseq2, editing_cost =  
+        Sequence.Align.align_2 ~first_gap:false seq1 reseq2 cost_mat
+            Matrix.default  
     in   
-    let recost1, recost2 = cmp_recost state seq1 seq2 reseq2 re_meth circular in 
-(*
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) seq1; 
-    print_newline ();
 
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) seq2; 
-    print_newline ();
+    let alied_code1_arr = Sequence.to_array alied_seq1 in 
+    let alied_recode2_arr = Sequence.to_array alied_reseq2 in 
 
-
-    Array.iter (fun c -> Printf.fprintf stdout "%i " c) reseq2; 
-    print_newline ();
-    print_endline "----------------------------------------------------------";
-
-*)
-
-    (editing_cost + recost1 + recost2), (recost1, recost2), alied_seq1, alied_seq2
+    let recost1, recost2 = cmp_recost state code1_arr code2_arr recode2_arr re_meth circular in 
+   (editing_cost + recost1 + recost2), (recost1, recost2), alied_code1_arr, alied_recode2_arr
 
 
 
@@ -294,15 +276,12 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
  * the general alignment between [seq1] and [seq2] with minimum total cost 
  * where total cost = editing cost + rearrangement cost *)
 let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s) 
-        (gen_cost_mat : Cost_matrix.Two_D.m) 
-        (pure_gen_cost_mat : int array array) alpha re_meth 
+        (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
         max_swap_med circular =
 
     let gap = Alphabet.get_gap alpha in 
     let seq1 : int array = Sequence.to_array seq1 in 
     let seq2 : int array = Sequence.to_array seq2 in 
-
-    let gen_cost_mat = pure_gen_cost_mat in 
 
     let wag_seq2 = find_wagner_ali state seq1 seq2 gen_cost_mat 
         gap re_meth circular
@@ -357,10 +336,19 @@ let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
 let create_gen_ali_code state (seq1 : int array) (seq2 : int array) 
         (gen_cost_mat : int array array) gen_gap_code 
         re_meth max_swap_med circular =
+
+    let size = Array.length gen_cost_mat in 
+    let gen_cost_mat = Array.init (size - 1) 
+        (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
+    in 
+
+    let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
+    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls in
+    Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
+
     let wag_seq2 = find_wagner_ali state seq1 seq2 gen_cost_mat 
         gen_gap_code re_meth circular
     in 
-
 
     let init_cost, recost, alied_seq1, alied_seq2 =  
         cmp_cost state seq1 seq2 wag_seq2 gen_cost_mat gen_gap_code re_meth circular
@@ -383,7 +371,6 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
     in   
 
     final_cost, recost, alied_seq1, alied_seq2  
-
 
 
 
