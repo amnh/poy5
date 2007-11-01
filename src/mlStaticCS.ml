@@ -93,10 +93,7 @@ let median_char p_1 p_2 a b =
     in
         let curried_c = median_element pa pb p_1 p_2 in
         let npv = Array.init (Array.length a.p_v) curried_c in
-        {
-            ccode = 0;
-            p_v = npv;
-        }
+        { a with p_v = npv; }
 
 (* empty argument is 'previous' *)
 let median _ a b t1 t2 =
@@ -108,10 +105,9 @@ let median _ a b t1 t2 =
     (* for computing new MLE *)
     let n_mle = Array.map (mle a.model.pi_0) c_map in
     let n_mle = Array.fold_right (+.) n_mle 0.0 in
-    {   code = a.code;
+    { a with
         chars = c_map;
         mle = n_mle;
-        model = a.model;
     }
 
 (* TODO:: find branch length between two nodes *)
@@ -173,7 +169,6 @@ let readjust xo x c1 c2 mine t1 t2 tmine =
     match data with
     | (bmle,bt1,bt2) when bt1==t1 && bt2==t2 ->
         (x,mine.mle,bmle,(bt1,bt2),mine)
-
     | (bmle,bt1,bt2) ->
          (*  Printf.printf  "%f  -->  %f  -->  %f\n" mine.mle mmle bmle;    *)
         let x = Array.fold_right (* TODO: bottleneck *)
@@ -227,8 +222,8 @@ let of_parser spec characters =
 (*      | Parser.SC.K80 alpha beta -> k80 alpha beta    *)
 (*      | Parser.SC.F81 pi_s -> tn93 pi_s 1.0 1.0       *)
 (*      | Parser.SC.F84 pi_se k -> 
-    *      let k1 = 1.0+.k/.Y and k2 = 1.0+.k/.R in
-    *      tn93 pi_s k1 k2                              *)
+   *      let k1 = 1.0+.k/.Y and k2 = 1.0+.k/.R in
+   *  tn93 pi_s k1 k2                                   *)
 (*      | Parser.SC.HKY85 pi_s k                        *)
 (*      | Parser.SC.TN93 pi_s k1 k2 -> tn93 pis k1 k2   *)
 (*      | Parser.SC.REV ...                             *)
