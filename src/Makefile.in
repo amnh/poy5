@@ -230,8 +230,8 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	compileFlags.cmo buildNumber.cmo \
 	version.cmo sadmanlib.cma $(INTERFACE) \
 	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
-	array_ops.cmo $(PARSER) distances.cma $(CHARACTER) \
-	methods.cmo trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
+	array_ops.cmo $(PARSER) distances.cma methods.cmo $(CHARACTER) \
+	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
 	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) scripting.cmo 
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo main.cmo
