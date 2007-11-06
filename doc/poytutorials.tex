@@ -13,7 +13,7 @@ The following script implements a strategy for a thorough search. This is accomp
 
 \begin{verbatim}
 (* search using all data *)
-read("*.seq", "morph.ss", aminoacids:("myosin.aa"))
+read("9.fas", "31.ss", aminoacids:("41.aa"))
 set(seed:1, log:"all_data_search.log", root:"taxon1")
 report(timer:"search start")
 transform (tcm:(1,2), gap_opening:1)
@@ -55,7 +55,7 @@ The following script implements a strategy for a thorough search under iterative
 
 \begin{verbatim}
 (* search using all data under ip *)
-read("*.seq", "morph.ss", aminoacids:("myosin.aa"))
+read("9.fas", "31.ss", aminoacids:("41.aa"))
 read("inter_tree.tre")
 transform (tcm:(1,2), gap_opening:1)
 set(iterative)
@@ -153,7 +153,7 @@ For the sake of simplicity, this script contains commands for generating the dat
 
 \begin{verbatim}
 (* sensitivity analysis *)
-read("*.seq")
+read("9.fas")
 set(root:"taxon1")
 store("original_data")
 transform (tcm:"111.txt")
@@ -235,7 +235,7 @@ identification (delineated by pipes  \texttt{"|"} of independent regions).
 
 \begin{verbatim}
 (* Chromosome analysis of annotated sequences *)
-read(annotated:("genInv2"))
+read(annotated:("aninv2"))
 transform ((all, dynamic_pam: (inversion:20, locus_indel:(10, 1.5), 
 circular:false, median:1, swap_med:1)))
 build()
