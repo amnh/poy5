@@ -14,7 +14,7 @@ The following script implements a strategy for a thorough search. This is accomp
 \begin{verbatim}
 (* search using all data *)
 read("9.fas", "31.ss", aminoacids:("41.aa"))
-set(seed:1, log:"all_data_search.log", root:"taxon1")
+set(seed:1, log:"all_data_search.log", root:"t1")
 report(timer:"search start")
 transform (tcm:(1,2), gap_opening:1)
 build(250)
@@ -33,9 +33,9 @@ exit()
 
 \begin{itemize}
 \item \texttt{(* search using all data *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
-\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))}
+\item \texttt{read("9.fas", "31.ss", aminoacids:("41.aa"))}
 This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
-\item \texttt{set(seed:1, log:"all\_data\_search.log", root:"taxon")} The \poycommand{set} command specifies conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent randomization procedures (such as tree building and selecting) are reproducible. Specifying the log produces a file, \texttt{all\_data\_search.log} that provides an additional means to monitor the process of the search. The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
+\item \texttt{set(seed:1, log:"all\_data\_search.log", root:"t1")} The \poycommand{set} command specifies conditions prior to tree searching. The \poyargument{seed} is used to ensure that the subsequent randomization procedures (such as tree building and selecting) are reproducible. Specifying the log produces a file, \texttt{all\_data\_search.log} that provides an additional means to monitor the process of the search. The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity. By default, the analysis is performed using direct optimization.
 \item \texttt{report(timer:"search start")} In combination with \texttt{report(timer:\\"search end")}, this commands reports the amount of time that the execution of commands enclosed by \poyargument{timer} takes. In this case, it reports how long it takes for the entire search to finish. Using timer is useful for planning a complex search strategy for large datasets that can take a long time to complete: it is instructive, for example, to know how long a search would last with a single replicate (one starting tree) before starting a search with multiple replicates.
 \item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
 \item \texttt{build(250)} This commands begins tree-building step of the search that generates 250 random-addition trees. A large number of independent starting point insures that thee large portion of tree space have been examined.
@@ -68,7 +68,7 @@ exit()
 
 \begin{itemize}
 \item \texttt{(* search using all data under ip *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
-\item \texttt{read("*.seq", "morph.ss", aminoacids:("myosin.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
+\item \texttt{read("9.fas", "31.ss", aminoacids:("41.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
 \item \texttt{transform (tcm:(1,2), gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
 \item \texttt{set(iterative)} This command sets the optimization procedure to iterative pass.
@@ -154,7 +154,7 @@ For the sake of simplicity, this script contains commands for generating the dat
 \begin{verbatim}
 (* sensitivity analysis *)
 read("9.fas")
-set(root:"taxon1")
+set(root:"t1")
 store("original_data")
 transform (tcm:"111.txt")
 build(100)
@@ -174,8 +174,8 @@ exit()
 
 \begin{itemize}
 \item \texttt{(* sensitivity analysis *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
-\item \texttt{read("*.seq")} This command imports all dynamic homology nucleotide data.
-\item \texttt{set(root:"taxon1")} The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.
+\item \texttt{read("9.fas")} This command imports all dynamic homology nucleotide data.
+\item \texttt{set(root:"t1")} The outgroup (\texttt{taxon1}) is designated by the \poyargument{root}, so that all the reported trees have the desired polarity.
 \item \texttt{store("original\_data")} This commands stores the current state of analysis in memory in a temporary file, \texttt{original\_data}.
 \item \texttt{transform(tcm:"111.txt")} This command applies a transformation cost matrix from the file \texttt{111.txt} to for subsequent tree searching.
 \item \texttt{build(100)} This commands begins tree-building step of the search that generates 250 random-addition trees. A large number of independent starting point insures that thee large portion of tree space have been examined.
@@ -248,7 +248,7 @@ exit()
 
 \begin{itemize}
 \item \texttt{(* Chromosome analysis of annotated sequences  *)} This first line of the script is a comment. While comments are optional and do not affect the analyses, they provide are useful for housekeeping purposes.
-\item \texttt{read(annotated:("genInv2"))} This command imports the annotated chromosomal sequence file \texttt{genInv2}. The argument \poyargument{annotated} specifies the characters. 
+\item \texttt{read(annotated:("anInv2"))} This command imports the annotated chromosomal sequence file \texttt{genInv2}. The argument \poyargument{annotated} specifies the characters. 
 \item \texttt{transform ((all, dynamic\_pam: (inversion:20, locus\_indel:(10, 1.5), median:1, swap\_med:1)))}  The \poycommand{transform} followed by the argument \poyargument{dynamic\_pam} specifies the conditions to be applied when calculating chromosome-level HTUs (medians).  The argument \poyargument{inversion:20} applies an inversion distance between chromosome loci with the integer value determining the rearrangement cost. The argument \poyargument{locus\_indel:10, 1.5} specifies the indel costs for the chromosomal segments, whereby the integer 10 sets the gap opening cost and the float 1.5 sets the gap extension cost.  The default values are applied to the arguments \poyargument{circular}  \poyargument{median} and \poyargument{swap\_med} arguments to minimize the time require for these nested search options.   To more exhaustively perform these calculations trees generated from initial builds can be imported to the program and reevaluated with values greater than 1 designated for the \poyargument{median} and \poyargument{swap\_med} arguments.
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees.  It is essential that trees are either specified from a file or that trees are built and loaded in memory before attempting to calculate bremer support values.
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
