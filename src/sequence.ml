@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2350 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2450 $"
 
 module Pool = struct
     type p
@@ -1676,7 +1676,7 @@ let split positions s alph =
         and last = b in
         let total = 1 + (last - first) in
         let seq = create_same_pool s (total + 1)  in
-        for i = last downto first do
+        for i = (last - 1) downto first do
             prepend seq (get s i);
         done;
         if first <> 0 then prepend seq gap;
@@ -1685,7 +1685,7 @@ let split positions s alph =
     let rec splitter acc = function
         | (a, _) :: (((_, b) :: _) as t) -> 
                 assert (
-                    if a <> b then true
+                    if a <= b then true
                     else 
                         let _ = print_endline 
                         ("Trying to split " ^ string_of_int a ^ 
@@ -1694,7 +1694,8 @@ let split positions s alph =
                 );
                 splitter (do_one_pair a b acc) t
         | (a, _) :: [] ->
-                List.rev (do_one_pair a len acc)
+                (* We add one at the end because we remove one in do_one_pair *)
+                List.rev (do_one_pair a (len + 1) acc)
         | [] -> []
     in
     splitter [] positions
@@ -1791,10 +1792,24 @@ END
         let get_positions ua positions = 
             let len = (Bigarray.Array1.dim ua.offset) in
             let seq_len = length ua.seq in
-            let get_position arr (x, y) = 
+            let rec pos_finder modifier arr x =
+                if x = 0 then arr.{0}
+                else if 0 <> arr.{x} then arr.{x}
+                else pos_finder modifier arr (modifier x 1)
+            in
+            let get_position arr poslen pos (x, y) = 
                 try
-                    to_int (arr.{len - seq_len + x}),
-                    to_int arr.{len - seq_len + y}
+                    let xmod = 
+                        if pos = poslen then ( + )
+                        else ( - )
+                    and ymod = 
+                        if pos = 0 then ( - )
+                        else ( + ) 
+                    in
+                    let posx = len - seq_len + x 
+                    and posy = len - seq_len + y in
+                    to_int (pos_finder xmod arr posx), 
+                    to_int (pos_finder ymod arr posy)
                 with
                 | err ->
                         print_endline ("I have an error with len " ^
@@ -1803,8 +1818,11 @@ END
                         string_of_int x ^ " and " ^ string_of_int y);
                         raise err;
             in
-            List.map (get_position ua.union_c1) positions,
-            List.map (get_position ua.union_c2) positions
+            let positions = Array.of_list positions in
+            let len = (Array.length positions) - 1 in
+            let a = Array.mapi (get_position ua.union_c1 len) positions 
+            and b = Array.mapi (get_position ua.union_c2 len) positions in
+            Array.to_list a, Array.to_list b
 
         let compare a b = 
             match compare a.seq b.seq with

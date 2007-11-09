@@ -96,7 +96,7 @@ type transform_method = [
     | `Automatic_Static_Aprox of bool
     | `ReWeight of float
     | `WeightFactor of float
-    | `Automatic_Sequence_Partition of bool
+    | `Automatic_Sequence_Partition of (bool * int option)
     | `Prioritize
     | `SearchBased
     | `Fixed_States
@@ -366,8 +366,8 @@ let transform_transform acc (id, x) =
             | `Automatic_Static_Aprox sens -> (`Automatic_Static_Aprox sens) :: acc
             | `ReWeight w -> (`ReWeight (id, w)) :: acc
             | `WeightFactor w -> (`WeightFactor (id, w)) :: acc
-            | `Automatic_Sequence_Partition sens -> 
-                    (`Automatic_Sequence_Partition (id, sens)) :: acc
+            | `Automatic_Sequence_Partition (sens, x) -> 
+                    (`Automatic_Sequence_Partition (id, sens, x)) :: acc
             | `Prioritize -> `Prioritize :: acc
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
@@ -924,11 +924,11 @@ let default_search : Methods.script list =
     let s1 = change_transforms [(`Static_Aprox (`All, false))]
     and s2 = 
         change_transforms 
-        [(`Automatic_Sequence_Partition (`All, false));
+        [(`Automatic_Sequence_Partition (`All, false, None));
         (`Automatic_Static_Aprox false)]
     and s3 = 
         change_transforms
-        [`Automatic_Sequence_Partition (`All, false)]
+        [`Automatic_Sequence_Partition (`All, false, None)]
     in
     List.rev (`Build build_default :: 
         `LocalOptimum s1 :: `LocalOptimum s2 :: [`LocalOptimum s3])
@@ -1096,8 +1096,11 @@ let create_expr () =
                     | Some x -> `Automatic_Static_Aprox x ] |
                 [ LIDENT "auto_sequence_partition"; x = OPT optional_boolean -> 
                     match x with
-                    | None -> `Automatic_Sequence_Partition false 
-                    | Some x -> `Automatic_Sequence_Partition x ] |
+                    | None -> `Automatic_Sequence_Partition (false, None)
+                    | Some x -> `Automatic_Sequence_Partition (x, None) ] |
+                [ LIDENT "sequence_partition"; ":"; x = INT -> 
+                    `Automatic_Sequence_Partition (false, Some (int_of_string
+                    x)) ] |
                 [ LIDENT "weight"; ":"; x = neg_integer_or_float -> `ReWeight (float_of_string x) ] |
                 [ LIDENT "weightfactor"; ":"; x = neg_integer_or_float -> `WeightFactor (float_of_string x) ] |
                 [ LIDENT "search_based" -> `SearchBased ] |

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2400 2007-10-24 15:39:36Z andres $ *)
+(* $Id: charTransform.ml 2450 2007-11-09 22:26:09Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2400 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2450 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -523,18 +523,18 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         (a, b, Node.Union.get_sequence parent a union_node, c, d, e)
 
     let get_sequence parent code (normal_node, union_node) = 
-	let tmp = Node.get_sequences parent normal_node in
-let tmp = List.find (fun (c, _, _, _, _) -> (code = c)) tmp in
-insert_union parent union_node tmp
+        let tmp = Node.get_sequences parent normal_node in
+        let tmp = List.find (fun (c, _, _, _, _) -> (code = c)) tmp in
+        insert_union parent union_node tmp
 
     let ever_increasing lst =
         let res, _ = 
             List.fold_left (fun (acc, prev) (x, _) ->
-                (acc && (prev < x)), x) (true, -1) lst
+                (acc && (prev <= x)), x) (true, -1) lst
         in
         res
 
-    let partition_sequences sensible codes tree data =
+    let partition_sequences mode sensible codes tree data =
         let (root, root_union), _ = get_roots tree in
         let produce_partitions data tree (positions, union, code) = 
             assert (ever_increasing positions);
@@ -625,8 +625,12 @@ insert_union parent union_node tmp
                     traverse_tree (Some b) (Some a) a b p1 p2 [], code
             | _ -> failwith "Impossible"
         in
-        let get_positions (code, _, union, cm2, cm3, alph) =
-            let processor (positions_list, constant_length, ungapped) pos base =
+        let get_positions partition_mode (code, _, union, cm2, cm3, alph) =
+            let equal_length_processor size (pos_list, cur_len, prev) pos base =
+                if cur_len = size then (((pos, pos) :: pos_list), 0, pos)
+                else (pos_list, cur_len + 1, prev)
+            in
+            let automatic_processor (positions_list, constant_length, ungapped) pos base =
                 let count = Sequence.count_bits base in
                  if (1 = count) && (0 = base land 16) then
                      positions_list, constant_length + 1, ungapped
@@ -638,8 +642,22 @@ insert_union parent union_node tmp
                         ((pos, pos) :: positions_list), 0, 0
                     else (positions_list, 0, 0)
             in
-            let positions, _, _ = Sequence.fold_righti processor ([], 0, 0)
-            union.Sequence.Unions.seq in
+            let positions, _, _ = 
+                let processor = 
+                    match partition_mode with
+                    | None -> automatic_processor
+                    | Some n ->
+                            let len = Sequence.length union.Sequence.Unions.seq in
+                            let n = 
+                                if n > len then n
+                                else if n < 1 then 1
+                                else n
+                            in
+                            equal_length_processor (len / n)
+                in
+                Sequence.fold_righti processor ([], 0, 0) 
+                union.Sequence.Unions.seq 
+            in
             assert (ever_increasing positions);
             positions, union, code
         in
@@ -661,7 +679,7 @@ insert_union parent union_node tmp
         --> Node.get_sequences None
         --> List.filter (fun (c, _, _, _, _) -> All_sets.Integers.mem c codes)
         --> List.map (insert_union None root_union)
-        --> List.map get_positions
+        --> List.map (get_positions mode)
         --> List.map (produce_partitions data tree)
         --> List.fold_left process_partitions data
 
@@ -793,7 +811,7 @@ insert_union parent union_node tmp
            data, (List.rev nodes)
         in 
         match meth with
-        | `Automatic_Sequence_Partition (chars, sensible) ->
+        | `Automatic_Sequence_Partition (chars, sensible, mode) ->
                 (match 
                     Data.get_code_from_characters_restricted_comp
                     `Dynamic data chars 
@@ -810,7 +828,7 @@ insert_union parent union_node tmp
                             trees
                             --> select_shortest
                             --> to_tupled_tree
-                            --> fun x -> partition_sequences sensible chars x data
+                            --> fun x -> partition_sequences mode sensible chars x data
                             --> Data.categorize 
                             --> Node.load_data ~taxa:nc
                         with
