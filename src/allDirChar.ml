@@ -181,7 +181,6 @@ with type b = AllDirNode.OneDirF.n = struct
     let convert_three_to_one_dir tree = 
         (* We will convert the tree in a one direction tree, then we will use
         * the standard Chartree.to_formatter function. *)
-
         let tree = 
             (* We convert the tree to a one direction one *)
             let simple_conversion prev curr acc = 
@@ -231,7 +230,6 @@ with type b = AllDirNode.OneDirF.n = struct
             tree.Ptree.component_root 
             { Ptree.empty with Ptree.tree = tree.Ptree.tree }
         in 
-
         let tree = tree --> Chartree.uppass in
         tree
 
@@ -464,6 +462,15 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         { ptree with Ptree.edge_data = new_edges }
 
+    let get_single, get_unadjusted =
+        let general_get f parent node =
+            let nd = AllDirNode.not_with parent (f node) in
+            Lazy.force_val nd.AllDirNode.lazy_node
+        in
+        (general_get (fun x -> x.AllDirNode.adjusted)),
+        (general_get (fun x -> x.AllDirNode.unadjusted))
+
+
     let refresh_roots ptree =
         let new_roots =
             All_sets.Integers.fold (fun x acc ->
@@ -482,6 +489,57 @@ with type b = AllDirNode.OneDirF.n = struct
             ptree with 
             Ptree.component_root = new_roots;
         }
+
+    let get_active_ref_code tree =
+        let get_active_ref_code parent node = 
+            Node.get_active_ref_code (get_unadjusted parent node)
+        in
+        let get_active_ref_code_handle handle (pre, fi) =
+            let leaf_handler parent node _ =
+                let node_data = Ptree.get_node_data node tree in
+                let _, _, fi, fi_child = 
+                    get_active_ref_code parent node_data 
+                in
+                Some (IntSet.empty, (IntSet.union fi fi_child))
+            and node_handler par node a b =
+                let extract = function
+                    | Some x -> x
+                    | None -> assert false
+                in
+                let (apre, afi) = extract a 
+                and (bpre, bfi) = extract b in
+                let node_data = Ptree.get_node_data node tree in
+                let _, pre, _, fi = get_active_ref_code par node_data in
+                Some (IntSet.union (IntSet.union apre bpre) pre,
+                IntSet.union (IntSet.union afi bfi) fi)
+            in
+            let pre, fi, root =
+                match (Ptree.get_component_root handle tree).Ptree.root_median 
+                with
+                | None -> assert false
+                | Some ((`Single _), root) ->
+                        IntSet.empty, IntSet.empty, root
+                | Some ((`Edge (a, b)), root) ->
+                        match Ptree.post_order_node_with_edge_visit
+                        leaf_handler node_handler (Tree.Edge (a, b)) tree None
+                        with
+                        | Some (apre, afi), Some (bpre, bfi) -> 
+                                IntSet.union apre bpre, IntSet.union afi bfi,
+                                root
+                        | _ -> assert false
+            in
+
+            let fi = IntSet.filter (fun x -> not (IntSet.mem x pre)) fi in
+            let rpre, rprech, rfi, _ = get_active_ref_code (-1) root in
+
+            IntSet.union (IntSet.union pre rprech) rpre,
+            IntSet.union fi rfi
+        in
+        All_sets.Integers.fold
+        get_active_ref_code_handle
+        (Ptree.get_handles tree)
+        (All_sets.Integers.empty, All_sets.Integers.empty)
+
 
     (* Now we define a function that can adjust all the vertices in the tree
     * to improve the overall cost of the tree, using only the
@@ -594,10 +652,7 @@ with type b = AllDirNode.OneDirF.n = struct
             iterator (Ptree.get_cost `Adjusted ptree) first_affected ptree
         in
         let adjust_root_n_cost handle root a b ptree =
-            let tree = convert_three_to_one_dir ptree in 
-            let pre_ref_codes, fi_ref_codes = 
-                Chartree.get_active_ref_code tree 
-            in  
+            let pre_ref_codes, fi_ref_codes = get_active_ref_code ptree in  
             let ad = Ptree.get_node_data a ptree
             and bd = Ptree.get_node_data b ptree in
             match ad.AllDirNode.adjusted, bd.AllDirNode.adjusted with
@@ -1234,64 +1289,6 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         All_sets.Integers.fold assign_final_states_handle (Ptree.get_handles ptree) 
         ptree
-
-    let get_single, get_unadjusted =
-        let general_get f parent node =
-            let nd = AllDirNode.not_with parent (f node) in
-            Lazy.force_val nd.AllDirNode.lazy_node
-        in
-        (general_get (fun x -> x.AllDirNode.adjusted)),
-        (general_get (fun x -> x.AllDirNode.unadjusted))
-
-    let get_active_ref_code tree =
-        let get_active_ref_code parent node = 
-            Node.get_active_ref_code (get_unadjusted parent node)
-        in
-        let get_active_ref_code_handle handle (pre, fi) =
-            let leaf_handler parent node _ =
-                let node_data = Ptree.get_node_data node tree in
-                let _, _, fi, fi_child = 
-                    get_active_ref_code parent node_data 
-                in
-                Some (IntSet.empty, (IntSet.union fi fi_child))
-            and node_handler par node a b =
-                let extract = function
-                    | Some x -> x
-                    | None -> assert false
-                in
-                let (apre, afi) = extract a 
-                and (bpre, bfi) = extract b in
-                let node_data = Ptree.get_node_data node tree in
-                let _, pre, _, fi = get_active_ref_code par node_data in
-                Some (IntSet.union (IntSet.union apre bpre) pre,
-                IntSet.union (IntSet.union afi bfi) fi)
-            in
-            let pre, fi, root =
-                match (Ptree.get_component_root handle tree).Ptree.root_median 
-                with
-                | None -> assert false
-                | Some ((`Single _), root) ->
-                        IntSet.empty, IntSet.empty, root
-                | Some ((`Edge (a, b)), root) ->
-                        match Ptree.post_order_node_with_edge_visit
-                        leaf_handler node_handler (Tree.Edge (a, b)) tree None
-                        with
-                        | Some (apre, afi), Some (bpre, bfi) -> 
-                                IntSet.union apre bpre, IntSet.union afi bfi,
-                                root
-                        | _ -> assert false
-            in
-
-            let fi = IntSet.filter (fun x -> not (IntSet.mem x pre)) fi in
-            let rpre, rprech, rfi, _ = get_active_ref_code (-1) root in
-
-            IntSet.union (IntSet.union pre rprech) rpre,
-            IntSet.union fi rfi
-        in
-        All_sets.Integers.fold
-        get_active_ref_code_handle
-        (Ptree.get_handles tree)
-        (All_sets.Integers.empty, All_sets.Integers.empty)
 
     let to_formatter (atr : Tags.attributes) (data : Data.d) 
             (tree : (a, b) Ptree.p_tree) : Tags.output =
