@@ -359,12 +359,13 @@ let dependency_relations (init : Methods.script) =
                 | `Diagnosis filename
                 | `AllRootsCost filename
                 | `Trees (_, filename)
-                | `Implied_Alignment (filename, _) ->
+                | `Implied_Alignment (filename, _, _) ->
                         let fn = filename_to_list filename in
                         [(datantrees, fn, init, Linnearizable)], filename,
                         false
                 | `MstR filename
                 | `TimeDelta (_, filename)
+                | `TreeCosts filename
                 | `TreesStats filename ->
                         let fn = filename_to_list filename in
                         [(datantrees, fn, init, NonComposable)], 
@@ -1594,10 +1595,12 @@ let script_to_string (init : Methods.script) =
                         "@[report the minimum length of each rooting@]"
                 | `Trees _ ->
                         "@[report the trees in memory@]"
-                | `Implied_Alignment (_, _) ->
+                | `Implied_Alignment _ ->
                         "@[report an implied alignment@]"
                 | `TimeDelta _ ->
                         "@[report the time delta@]"
+                | `TreeCosts _ ->
+                        "@[report the cost of the trees@]"
                 | `TreesStats _ ->
                         "@[report the tree statistics@]"
                 | `Clades _ ->
@@ -1827,8 +1830,9 @@ let is_master_only (init : Methods.script) =
     | `Diagnosis _
     | `AllRootsCost _
     | `Trees _
-    | `Implied_Alignment (_, _)
+    | `Implied_Alignment _
     | `TimeDelta _
+    | `TreeCosts _
     | `TreesStats _
     | `Clades _
     | `Save (_, _)

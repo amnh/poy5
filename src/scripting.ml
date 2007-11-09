@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2413 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2454 $"
 
 module IntSet = All_sets.Integers
 
@@ -1659,6 +1659,18 @@ END
                     run
             | `MstR filename ->
                     Build.report_mst run.data run.nodes filename;
+                    run
+            | `TreeCosts filename ->
+                    let res = Buffer.create 97 in
+                    Sexpr.leaf_iter (fun x ->
+                        let cost = Ptree.get_cost `Adjusted x in
+                        let str = string_of_float cost in
+                        Buffer.add_string res str;
+                        Buffer.add_string res ":") 
+                    run.trees;
+                    Buffer.add_string res "\n%!";
+                    Status.user_message (Status.Output (filename, false, []))
+                    (Buffer.contents res);
                     run
             | `TreesStats filename ->
               let fo = Status.Output (filename, false, []) in

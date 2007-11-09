@@ -1421,6 +1421,12 @@
                 format.}
                 {treestats}
 
+            \argumentdefinition{treescosts}{}
+                {Reports the cost of each tree separated by colons. The output
+                contains no formatting for easy processing by any scripting
+                language.}
+                {}
+
 		\end{argumentgroup}
 
 		\begin{argumentgroup}{Trees}
@@ -1586,7 +1592,14 @@
 		\begin{argumentgroup}{Implied alignments}
             {This set of arguments will output implied alignment~\cite{wheeler2003}.} 
 
-            \argumentdefinition{implied\_alignments}{\optional{\poystring}}
+            \argumentdefinition{fasta}{\obligatory{identifiers}}
+            {The same as \nccross{implied\_alignments}{impliedalignment} but no additional headers
+                are added, producing a valid FASTA file. Intended for easy
+                automation, by producing a file that other programs can read
+                immediately.}
+                {fasta}
+
+            \argumentdefinition{implied\_alignments}{\optional{identifiers}}
                 {Outputs the implied alignments of the specified
                 set of characters in FASTA format. The (optional) value of the
                 argument specifies the characters included
@@ -1600,7 +1613,7 @@
                 \poyargument{ia}.}
                 {impliedalignment}
 
-            \argumentdefinition{ia}{\optional{\poystring}}
+            \argumentdefinition{ia}{\optional{identifiers}}
                 {Synonym of \poyargument{implied\_alignments}.}
                 {}
 

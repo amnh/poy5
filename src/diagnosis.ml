@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2400 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2454 $"
 
 let debug = true
 
@@ -86,8 +86,12 @@ module C = struct
     let taxon_closef hash filename (name, result, _, _) =
         Hashtbl.add hash name result
     let closef _ () = ()
-    let output_all_taxa filename seqname hash =
-        O.header_f filename seqname ();
+    let output_all_taxa include_header filename seqname hash =
+        if include_header then
+            O.header_f filename seqname ()
+        else 
+            Status.user_message (Status.Output (filename, false, [])) 
+            ("@[<v>@,@[");
         let names = ref All_sets.Strings.empty in
         Hashtbl.iter (fun x b -> 
             if not (All_sets.Strings.mem x !names) then
@@ -214,7 +218,7 @@ module Make
                 fo "@[<v>@,@,@{<b>All Roots Cost@}@,";
                 report_all_roots fo tree;
                 fo "@]@\n%!"
-        | `Implied_Alignment (filename, chars) ->
+        | `Implied_Alignment (filename, chars, include_header) ->
                 let char_codes = 
                     Data.get_code_from_characters_restricted_comp
                     `AllDynamic data chars 
@@ -234,26 +238,32 @@ module Make
                 let hash = ref (Hashtbl.create 97) 
                 and name = ref "" in
                 List.iter (fun (x, y) ->
-                    Status.user_message 
-                    (Status.Output (filename, false, [])) "@[<v>@,@,@{<b>Implied \
-                    Alignments@}@,";
-                        let (_, seqname) = x in
-                        if (extract_name seqname) = !name then ()
-                        else begin
-                            C.output_all_taxa filename !name !hash;
-                            hash := Hashtbl.create 97;
-                            name := extract_name seqname;
-                        end;
-                        List.iter 
-                        (output_implied_alignment x 
-                        (C.header_f filename seqname) C.taxonf 
-                        (C.taxon_closef !hash filename) (C.sequence_f) 
-                        (C.closef filename) 
-                    data) y;
+                    if include_header then
+                        Status.user_message 
+                        (Status.Output (filename, false, [])) 
+                        "@[<v>@,@,@{<b>Implied Alignments@}@,"
+                    else ();
+                    let (_, seqname) = x in
+                    if (extract_name seqname) = !name then ()
+                    else begin
+                        C.output_all_taxa include_header filename !name !hash;
+                        hash := Hashtbl.create 97;
+                        name := extract_name seqname;
+                    end;
+                    let header_f = 
+                        if include_header then 
+                            C.header_f filename seqname
+                        else (fun () -> ())
+                    in
+                    List.iter 
+                    (output_implied_alignment x 
+                    header_f C.taxonf 
+                    (C.taxon_closef !hash filename) (C.sequence_f) 
+                    (C.closef filename) data) y;
                     Status.user_message 
                     (Status.Output (filename, false, [])) "@]%!")
                 res;
-                C.output_all_taxa filename !name !hash
+                C.output_all_taxa include_header filename !name !hash
 
 
 end
