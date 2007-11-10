@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2450 2007-11-09 22:26:09Z andres $ *)
+(* $Id: charTransform.ml 2459 2007-11-10 14:34:55Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2450 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2459 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -648,6 +648,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     | None -> automatic_processor
                     | Some n ->
                             let len = Sequence.length union.Sequence.Unions.seq in
+                            Printf.printf "The union length is %d\n%!" len;
                             let n = 
                                 if n > len then n
                                 else if n < 1 then 1

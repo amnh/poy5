@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2450 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2459 $"
 
 module Pool = struct
     type p
@@ -1682,8 +1682,9 @@ let split positions s alph =
         if first <> 0 then prepend seq gap;
         seq :: acc
     in
+    Printf.printf "Breaking sequence\n%!";
     let rec splitter acc = function
-        | (a, _) :: (((_, b) :: _) as t) -> 
+        | (a, _) :: (((c, b) :: _) as t) -> 
                 assert (
                     if a <= b then true
                     else 
@@ -1692,13 +1693,26 @@ let split positions s alph =
                         " and " ^ string_of_int b) in
                         false
                 );
-                splitter (do_one_pair a b acc) t
+                let b = if c = b then b else b + 1 in
+                Printf.printf "Breaking from %d to %d with c=%d\n%!" a b c;
+                splitter (do_one_pair a c acc) t
         | (a, _) :: [] ->
                 (* We add one at the end because we remove one in do_one_pair *)
+                Printf.printf "Breaking from %d to %d\n%!" a (len + 1);
                 List.rev (do_one_pair a (len + 1) acc)
         | [] -> []
     in
-    splitter [] positions
+    let res = splitter [] positions in
+    assert (
+        let res = List.map (fun x -> to_string x alph) res in
+        let res = String.concat "" res in
+        let initial = to_string s alph in
+        let res = Str.global_replace (Str.regexp "-") "" res in
+        let assertion = ("-" ^ res) = initial in
+        if not assertion then Printf.printf "Initial: %s\nFinal: %s\n%!" initial
+        res;
+        assertion);
+    res
 
 module Unions = struct
     (* 
@@ -1794,6 +1808,7 @@ END
             let seq_len = length ua.seq in
             let rec pos_finder modifier arr x =
                 if x = 0 then arr.{0}
+                else if x = len then pos_finder ( - ) arr (x - 1)
                 else if 0 <> arr.{x} then arr.{x}
                 else pos_finder modifier arr (modifier x 1)
             in
