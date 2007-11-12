@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2459 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2462 $"
 
 module Pool = struct
     type p
@@ -1682,7 +1682,6 @@ let split positions s alph =
         if first <> 0 then prepend seq gap;
         seq :: acc
     in
-    Printf.printf "Breaking sequence\n%!";
     let rec splitter acc = function
         | (a, _) :: (((c, b) :: _) as t) -> 
                 assert (
@@ -1694,11 +1693,9 @@ let split positions s alph =
                         false
                 );
                 let b = if c = b then b else b + 1 in
-                Printf.printf "Breaking from %d to %d with c=%d\n%!" a b c;
                 splitter (do_one_pair a c acc) t
         | (a, _) :: [] ->
                 (* We add one at the end because we remove one in do_one_pair *)
-                Printf.printf "Breaking from %d to %d\n%!" a (len + 1);
                 List.rev (do_one_pair a (len + 1) acc)
         | [] -> []
     in
