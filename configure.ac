@@ -12,6 +12,7 @@ AC_ARG_PROGRAM
 
 AC_SUBST(USEGRAPHICS)
 AC_SUBST(USEPARALLEL)
+AC_SUBST(DOCSTRING)
 
 AC_ARG_ENABLE([graphics], [AS_HELP_STRING([--enable-graphics],
               [Force POY to support graphical trees on screen. Valid options are none, ocaml, and tk. The default is none.])], [USEGRAPHICS=$enableval], [USEGRAPHICS=none])
@@ -46,6 +47,17 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [Check every pairwise sequence alignment cost. This is only intended for development and debugging purposes. This option will make the program run really slow.])],
               [USE_VERIFY_COSTS=true],
               [USE_VERIFY_COSTS=false])
+
+# Check how the documentation string should be 
+CONFIG_GUESS_SYS=`./gnu/config.guess` 
+case ${CONFIG_GUESS_SYS} in
+    *darwin9*)
+        DOCSTRING='\\newcommand{\\buildnumber}{'
+        ;;
+    *)
+        DOCSTRING='\newcommand{\buildnumber}{'
+        ;;
+esac
 
 # Checks for libraries.
 

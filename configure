@@ -628,6 +628,7 @@ INSTALL_SCRIPT
 INSTALL_DATA
 USEGRAPHICS
 USEPARALLEL
+DOCSTRING
 USEINTERFACE
 USESHAREDHD
 subdirs
@@ -2772,6 +2773,7 @@ rm -f conftest.sed
 
 
 
+
 # Check whether --enable-graphics was given.
 if test "${enable_graphics+set}" = set; then
   enableval=$enable_graphics; USEGRAPHICS=$enableval
@@ -2830,6 +2832,17 @@ else
   USE_VERIFY_COSTS=false
 fi
 
+
+# Check how the documentation string should be
+CONFIG_GUESS_SYS=`./gnu/config.guess`
+case ${CONFIG_GUESS_SYS} in
+    *darwin9*)
+        DOCSTRING='\\newcommand{\\buildnumber}{'
+        ;;
+    *)
+        DOCSTRING='\newcommand{\buildnumber}{'
+        ;;
+esac
 
 # Checks for libraries.
 
@@ -3524,6 +3537,7 @@ INSTALL_SCRIPT!$INSTALL_SCRIPT$ac_delim
 INSTALL_DATA!$INSTALL_DATA$ac_delim
 USEGRAPHICS!$USEGRAPHICS$ac_delim
 USEPARALLEL!$USEPARALLEL$ac_delim
+DOCSTRING!$DOCSTRING$ac_delim
 USEINTERFACE!$USEINTERFACE$ac_delim
 USESHAREDHD!$USESHAREDHD$ac_delim
 subdirs!$subdirs$ac_delim
@@ -3531,7 +3545,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 55; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 56; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
