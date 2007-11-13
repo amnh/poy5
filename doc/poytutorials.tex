@@ -90,10 +90,11 @@ set(root:"Americhernus")
 build()
 swap(all, visited: "tmp.trees")
 select()
+report ("my.tree", trees)
 exit()
 
 (*Bremer support part 2: Bremer calculations*)
-read("18s.fas", 28s.fas", "tmp.trees")
+read("18s.fas", 28s.fas", "opt.trees")
 report("support_tree.ps", graphsupports:bremer:"tmp.trees")
 exit()
 \end{verbatim}
@@ -105,10 +106,11 @@ exit()
 \item \texttt{build()} This commands initializes tree-building and generates 10 random-addition trees by default.  Although the default number of builds was chosen to for demonstration purposes to expedite this tutorial script, performing a greater number of Wagner builds is strongly recommended.      
 \item \texttt{swap(all, visited: "tmp.trees")} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy). The \poyargument{visited: "tmp.trees"} argument stores every visited tree in the file specified.  Due to the large number of trees that the specified file will hold the  \poycommand{swap} command can be performed as a separate analysis and terminated at the users discretion to maximize the number of trees generated.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
+\item \texttt{report ("my.tree", trees)} This command will save the swapped tree, \texttt{my.tree} to a file. 
 \item \texttt{exit()} This commands ends the \poy session.
 
 \item \texttt{(*Bremer support part 2: Bremer calculations*)}  A comment indicating the intent of the commands which follow.
-\item \texttt{read("18s.fas", "28s.fas", "tmp.trees")} This command imports the nucleotide sequence files \texttt{18s.fas, 28s.fas} and the tree file generated in part 1\texttt{tmp.trees}.
+\item \texttt{read("18s.fas", "28s.fas", "my.tree")} This command imports the nucleotide sequence files \texttt{18s.fas, 28s.fas} and the tree file, \texttt{my.tree} for which the support values will be generated.
 \item \texttt{report("support\_tree.ps", graphsupports:bremer:"tmp.trees")}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a postscript file designated by the name \texttt{support\_tree.ps} with bremer values for the selected trees held in \texttt{tmp.trees} . 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
