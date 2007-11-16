@@ -25,7 +25,7 @@ val median_3 : t -> t -> t -> t -> t
 * of a tree as the median between [a] and [b]. *)
 val reroot_median : t -> t -> float -> float -> t
 
-(** [dist_2 a b c]  estimates a lower bound of the additional cost of connecting
+(** [dist_2 a b c at bt ct]  calculates the MLE of connecting
 * the root of a subtree [a] in between the pair of neighbor vertices [b] and 
 * [c]. This is used for fast evaluation during SPR and TBR. *)
 val dist_2 : t -> t -> t -> float -> float -> float -> float option -> float
@@ -79,6 +79,7 @@ val root_cost : t -> float
 
 (* [distance a b] computes (in ML), the -log likelihood of [b] given [a]. *)
 val distance : t -> t -> float -> float -> float
+
 (* to be able to see the results on each vertex of the tree. *)
-val to_formatter : Tags.attributes ->t ->t option ->Data.d ->Tags.output list
+val to_formatter : Tags.attributes ->t -> float ->t option -> Data.d -> Tags.output list
 

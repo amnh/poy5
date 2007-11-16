@@ -1,3 +1,23 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
+
 let debug = false 
 
 type mlchar = {
@@ -33,16 +53,15 @@ let jc69 mu t =
         [|p_1;p_1;p_1;p_0|];
      |]
 
-(* val k80 : alpha/2*beta = 1             *) 
-(* k = alpha/beta and d= (alpha+2*beta)/t *)
-let k80 alpha beta t =
-    (* assert (alpha /. (2.0 *. beta) == 1.0); *) 
-    let term_1 = 0.25 *. exp(-4.*.beta*.t) in
-    let term_2 = 0.5 *. exp(-2. *. t *. (alpha +. beta) ) in
-
-    let p_0 = 0.25 +. term_1 +. term_2 in
-    let p_1 = 0.25 +. term_1 -. term_2 in
-    let p_2 = 0.25 -. term_1 in
+(* val k80: since r=a/2b=1, a = 2b, b=a/2 *) 
+(* r = transition/transversion ratio      *)
+let k2p k t = 
+    let term1 = 0.25 *. exp ( -4.*.t/.(k+.2.) ) in
+    let term2 = 0.5 *. exp (-2.*.t*.(k+.1.)/.(k+.2.)) in
+    
+    let p_0 = 0.25 +. term1 +. term2 and
+        p_1 = 0.25 +. term1 -. term2 and
+        p_2 = 0.25 -. term1 in
 
        (* A   C   G   T *)
     [| [|p_0;p_2;p_1;p_2|];
@@ -51,15 +70,8 @@ let k80 alpha beta t =
        [|p_2;p_1;p_2;p_0|];
     |]
 
-(* val k80: since r=a/2b=1, a = 2b, b=a/2 *) 
-(* r = transition/transversion ratio      *)
-let k80_r r t = 
-    let a = r /. (r +. 1.0) in
-    let b = 1.0 /. (2.0 *. (r +. 1.0)) in
-    k80 a b t
-
 (* printing commands *)
-let print_float x = Printf.printf "%f\t" x
+let print_float x = Printf.printf "%2.10f\t" x
 let print_array xs = Array.iter print_float xs; print_newline ()
 
 (* ZIP o MAP *)
@@ -70,14 +82,14 @@ let array_zipmap f a1 a2 =
         done; x
 
 (* recall: sum of product of two vectors *)
-let dot_product v1 p1 = 
-    let r = array_zipmap ( *. ) v1 p1 in
+let dot_product v1 v2 = 
+    let r = array_zipmap ( *. ) v1 v2 in
     let res = Array.fold_right (+.) r 0.0 in
     res
 
 (* negative log liklihood *)
-let mle a b = 
-    let res = -.log (dot_product a b.p_v) in
+let mle a model = 
+    let res = -.log (dot_product a model.p_v) in
     res
 
 (* calculate a new nodes mle and prob_vectors *)
@@ -96,31 +108,30 @@ let median_char p_1 p_2 a b =
         { a with p_v = npv; }
 
 (* empty argument is 'previous' *)
-let median _ a b t1 t2 =
-    let p_1 = a.model.p t1 and
-        p_2 = b.model.p t2 in
+let median _ a_node b_node t1 t2 =
+    let p_1 = a_node.model.p t1 and
+        p_2 = b_node.model.p t2 in
     (* for computing new char prob vectors *)
     let medcc = median_char p_1 p_2 in
-    let c_map = (array_zipmap medcc a.chars b.chars) in
+    let c_map = (array_zipmap medcc a_node.chars b_node.chars) in
     (* for computing new MLE *)
-    let n_mle = Array.map (mle a.model.pi_0) c_map in
+    let n_mle = Array.map (mle a_node.model.pi_0) c_map in
     let n_mle = Array.fold_right (+.) n_mle 0.0 in
-    { a with
+    { a_node with
         chars = c_map;
         mle = n_mle;
     }
 
-(* TODO:: find branch length between two nodes *)
-let find_t a b = 0.1
+let find_t a b = 0.0
 
 let root_cost t = t.mle
 
-let distance a b t1 t2 = 
-    let t = median a a b t1 t2 in
+let distance a_node b_node t1 t2 = 
+    let t = median a_node a_node b_node t1 t2 in
     t.mle
 
 (* insert a node between two *)
-(* (a (b)) -> (a (x (b n)))  *)
+(* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
     let x = median a a b at bt in
     let tt = match xt with
@@ -163,17 +174,19 @@ let rec g_roam c1 c2 t1 t2 mle_ step epsilon =
         else g_roam c1 c2 b_t1 b_t2 b_t step epsilon
 
 (* readjust the branch lengths to create better mle score *)
-let readjust xo x c1 c2 mine t1 t2 tmine =
-    let mmle = distance c1 c2 t1 t2 in (* TODO: recalculate?? *)
-    let data = g_roam c1 c2 t1 t2 mmle 0.01 0.001 in (* TODO: constants *)
+let readjust xopt x child1 child2 mine c_t1 c_t2 mine_t =
+    let mmle = mine.mle in
+
+    let data = g_roam child1 child2 c_t1 c_t2 mmle 0.01 0.001 in (* TODO: constants *)
     match data with
-    | (bmle,bt1,bt2) when bt1==t1 && bt2==t2 ->
+    | (bmle,bt1,bt2) when bt1==c_t1 && bt2==c_t2 ->
         (x,mine.mle,bmle,(bt1,bt2),mine)
     | (bmle,bt1,bt2) ->
-         (*  Printf.printf  "%f  -->  %f  -->  %f\n" mine.mle mmle bmle;    *)
+        (*  Printf.printf  "%f  -->  %f  -->  %f\n" mine.mle mmle bmle; *)
+        (* add all changed characters to set *)
         let x = Array.fold_right (* TODO: bottleneck *)
-                (fun c s -> All_sets.Integers.add c.ccode s)
-                mine.chars x in
+            (fun c s -> All_sets.Integers.add c.ccode s)
+            mine.chars x in
         (x,mine.mle,bmle,(bt1,bt2), {mine with mle = bmle} )
 
 (* of_parser stuff *)
@@ -202,8 +215,9 @@ let rec sublist l a b =
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec characters = 
-(*    let a_size = Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph)) in *)
-(*    let a_gap = spec.Parser.SC.st_alph.gap in *)
+    let a_size = Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph))-1 in
+    let a_gap = Alphabet.get_gap( spec.Parser.SC.st_alph ) in
+
     let model = spec.Parser.SC.st_type in
     let model =
         match model with
@@ -218,27 +232,25 @@ let of_parser spec characters =
     let p_funk =
         match model.Parser.SC.substitution with
         | Parser.SC.Constant lambda -> jc69 lambda
-(*      | Parser.SC.K80Ratio ratio -> k80_r ratio       *)
-(*      | Parser.SC.K80 alpha beta -> k80 alpha beta    *)
+        | Parser.SC.K2P kappa -> k2p kappa
 (*      | Parser.SC.F81 pi_s -> tn93 pi_s 1.0 1.0       *)
 (*      | Parser.SC.F84 pi_se k -> 
-   *      let k1 = 1.0+.k/.Y and k2 = 1.0+.k/.R in
-   *  tn93 pi_s k1 k2                                   *)
+                let k1 = 1.0+.k/.Y and k2 = 1.0+.k/.R in
+                tn93 pi_s k1 k2                         *)
 (*      | Parser.SC.HKY85 pi_s k                        *)
 (*      | Parser.SC.TN93 pi_s k1 k2 -> tn93 pis k1 k2   *)
 (*      | Parser.SC.REV ...                             *)
+        | _ -> failwith ("Likelihood model not available")
     in
 
-    (* WARNING:: this will ensure fit with current models *)
-    let a_size = 4 in
-    (* let a_gap = 4 in *)
- 
     (* loop for each character *)
     let loop_ (states,code) =
         match states with 
-        | Some [4] (* should be a_gap *) 
         | None -> { ccode = code;
                     p_v = Array.make a_size 1.0; } 
+        | Some s when List.hd s = a_gap ->
+                  { ccode = code;
+                    p_v = Array.make a_size 1.0; }
         | Some s ->
                 let pl = List.fold_right set_in s (list_of a_size 0.0) in
                 let pv = Array.of_list (sublist pl 0 a_size) in
@@ -262,58 +274,76 @@ let f_codes t codes =
 let compare_data a b = compare a b
 
 (* Tags.attributes ->t ->t option ->Data.d *)
-(* TODO:: add probability matrix to model output *)
-let to_formatter attr mine _ data :Tags.output list =
-    let _ray v f = `Structured (`Set (Array.to_list 
-                (Array.map (fun x -> `Single x) (Array.map f v)))) in
-    let _rayi v f = `Structured (`Set (Array.to_list 
-                (Array.map (fun x -> `Single x) (Array.mapi f v)))) in
-
-    let f_element cs p :Tags.output =
-        let i_pow b n = 
+let to_formatter attr mine minet _ data :Tags.output list =
+    let i_pow b n = 
             let fb = float_of_int b and fn = float_of_int n in
             int_of_float (fb**fn) in
+
+    let pack lst = `Structured (`Set (lst)) in
+    (* list->map->map(i) for arrays to eventually pack *)
+    let _ray f v = pack (Array.to_list 
+                        (Array.map (fun x -> `Single x) (Array.map f v))) in
+    let _rayi f v = pack (Array.to_list 
+                        (Array.map (fun x -> `Single x) (Array.mapi f v))) in
+
+    (** pack individual elements into an ID
+     *   cs is the nucleotide id
+     *   p is the value 
+     **)
+    let f_element cs p :Tags.output =
         let alpha = Alphabet.nucleotides in 
         (Alphabet.find_code (i_pow 2 cs) alpha, [], `String (string_of_float p)) in
+
+    (** pack an array into an ID 
+     *   cs is the nucleotide id
+     *   p is an array
+     **)
+    let f_array cs (p:float array) :Tags.output =
+        let alpha = Alphabet.nucleotides in
+        (Alphabet.find_code (i_pow 2 cs) alpha, [], (_rayi f_element p) ) in
+
+    let f_pmat m :Tags.output = (Tags.Characters.p_mat,[],(_rayi f_array m)) in
     let f_char c :Tags.output = 
         let a_char = (Tags.Data.code, string_of_int c.ccode) in
-        (Tags.Characters.character, [a_char], _rayi c.p_v f_element) in
-    let f_model cm :Tags.output = 
-            (Tags.Characters.model, [], _rayi cm.pi_0 f_element) in
+        (Tags.Characters.character, [a_char], (_rayi f_element c.p_v)) in
+    let f_prior cm :Tags.output =
+            (Tags.Characters.prior, [], (_rayi f_element cm.pi_0)) in 
     let f_chars cs :Tags.output = 
-            (Tags.Characters.characters, [], _ray cs f_char) in
+            (Tags.Characters.characters, [], (_ray f_char cs)) in
     let attrib :Tags.attribute list = 
-                (Tags.Data.code,string_of_int mine.code) ::
+                (Tags.Data.code,string_of_int mine.code) :: 
+                (Tags.Nodes.time, string_of_float minet) ::
                 (Tags.Characters.mle, string_of_float mine.mle) :: attr in
     let con = `Structured 
                 (`Set [
                     `Single (Tags.Characters.model,[], `Structured
-                    (`Single(f_model mine.model)));
+                        (`Set [
+                            `Single (f_prior mine.model);
+                            `Single (f_pmat (mine.model.p minet))]));
                     `Single (Tags.Data.characters,[],
-                    `Structured (`Single (f_chars mine.chars)))] ) in
+                        `Structured 
+                            (`Single (f_chars mine.chars)))] ) in
 
     [(Tags.Characters.likelihood, attrib, con)]
 (* -> Tags.output list *)
 
-(*
+(* -------------------------------------------------------------------
 (* manual test of single character *)
-let ch_a = {ccode=0;p_v=[|0.0;0.0;1.0;0.0|]; }
+let ch_a = {ccode=0;p_v=[|1.0;0.0;0.0;0.0|]; }
 let ch_c = {ccode=0;p_v=[|0.0;1.0;0.0;0.0|]; }
-let ch_t = {ccode=0;p_v=[|1.0;0.0;0.0;0.0|]; }
-let ch_g = {ccode=0;p_v=[|0.0;0.0;0.0;1.0|]; }
-let s_model = { p = k80 0.5 0.25; pi_0 = [|0.25;0.25;0.25;0.25|]; }
+let ch_t = {ccode=0;p_v=[|0.0;0.0;0.0;1.0|]; }
+let ch_g = {ccode=0;p_v=[|0.0;0.0;1.0;0.0|]; }
+let s_model = { p = k80_r 2.0; pi_0 = [|0.25;0.25;0.25;0.25|]; }
 
 let l_1 = {code=0;mle=0.0;model=s_model;chars=[|ch_c|]; }
 let l_2 = {code=1;mle=0.0;model=s_model;chars=[|ch_t|]; }
-let l_3 = {code=2;mle=0.0;model=s_model;chars=[|ch_c|]; }
-let l_4 = {code=3;mle=0.0;model=s_model;chars=[|ch_c|]; }
-let l_5 = {code=4;mle=0.0;model=s_model;chars=[|ch_a|]; }
+let l_3 = {code=2;mle=0.0;model=s_model;chars=[|ch_a|]; }
 
 let l_7 = median l_1 l_1 l_2 0.2 0.2
-let l_6 = median l_7 l_7 l_5 0.1 0.2
-let l_8 = median l_4 l_4 l_3 0.2 0.2
-let l_0 = median l_6 l_6 l_8 0.1 0.1
-let nl_8= g_roam l_4 l_3 0.2 0.2 1.7544841622 0.1 0.1
+let l_6 = median l_1 l_7 l_3 0.1 0.2
+let l_8 = median l_1 l_1 l_1 0.2 0.2
+let l_0 = median l_1 l_6 l_8 0.1 0.1
+let nl_8= g_roam l_1 l_3 0.2 0.2 1.7544841622 0.1 0.1
 
 (* correct when...
 val l_0 : t =
@@ -349,4 +379,43 @@ let l_0 = median l_6 l_6 l_8 0.1 0.1
        p_v =
         [|0.000112371114942437172; 0.00183822623771382442;
           7.51370241327383381e-05; 1.36379295632049643e-05|]}|]}
-*) *)
+*) 
+
+(*
+PHYML and DNAML input:
+  RATIO::
+    PHYML:2.0, DNAML:4.0
+  TREE::
+    (((Gamma:0.0001,Epsilon:0.0001):0.0001,Delta:0.0001):0.0002,Beta:0.0001,Alpha:0.0001);
+  SEQ::
+    ----------
+    5   2 
+    Alpha     TT
+    Beta      TT
+    Gamma     AC
+    Delta     AC
+    Epsilon   AA
+    ----------
+  Note:: running poy with this data set produces this as it's first tree as
+    well when all branch lengths are set to 0.0001. The 0.0002 in tree above
+    is because the input is unrooted, so branch lengths are added.
+*)
+
+let a = {ccode=0;p_v=[|1.0;0.0;0.0;0.0|]; }
+let c = {ccode=0;p_v=[|0.0;1.0;0.0;0.0|]; }
+let t = {ccode=0;p_v=[|0.0;0.0;0.0;1.0|]; }
+let g = {ccode=0;p_v=[|0.0;0.0;1.0;0.0|]; }
+let s_model = { p = k80_r 2.0; pi_0 = [|0.25;0.25;0.25;0.25|]; }
+
+let alpha = {code=0;mle=0.0;model=s_model;chars = [| t;t |]; }
+let beta = {code=1;mle=0.0;model=s_model;chars =  [| t;t |]; }
+let gamma = {code=2;mle=0.0;model=s_model;chars = [| a;c |]; }
+let delta = {code=3;mle=0.0;model=s_model;chars = [| a;c |]; }
+let epsilon = {code=4;mle=0.0;model=s_model;chars=[| a;a |]; }
+
+let l_3 = median alpha epsilon gamma 0.0001 0.0001
+let l_2 = median alpha delta l_3 0.0001 0.0001
+let l_1 = median alpha alpha beta 0.0001 0.0001
+let l_0 = median alpha l_2 l_1 0.0001 0.0001
+
+*)
