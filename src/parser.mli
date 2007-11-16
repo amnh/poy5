@@ -461,6 +461,12 @@ module SC : sig
 
     type subst_model =
         | Constant of float
+        | K2P of float
+(*      | F81 of float list
+        | F84 of float * float list
+        | HKY of float *  float list
+        | TN93 of float * float * float list
+        | GTR of float * float * float * float * float * float list *)
 
     type priors = 
         | Estimated of float array
