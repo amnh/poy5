@@ -2831,10 +2831,14 @@ let set_likelihood data (chars, substitution, site_variation, base_priors) =
                 | _ -> assert false (* TODO Site variation distributions *)
             and substitution = 
                 match substitution with
-                | `Constant None -> 
+                | `Constant None ->
                         let const = (1. /. (float_of_int alph_size)) in
                         Parser.SC.Constant const
                 | `Constant (Some x) -> Parser.SC.Constant x
+                | `K2P None ->
+                        let const = (1. /. (float_of_int alph_size)) in
+                        Parser.SC.K2P const
+                | `K2P (Some x) -> Parser.SC.K2P x
             in
             {
                 Parser.SC.substitution = substitution;

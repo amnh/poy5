@@ -1040,12 +1040,20 @@ let create_expr () =
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
             ];
         ml_substitution: 
-            [ [ "constant"; x = OPT optional_integer_or_float -> 
-            let x =
-                match x with
-                | None -> None 
-                | Some x -> Some (float_of_string x) 
-            in `Constant x] ];
+            [ 
+                [ "constant"; x = OPT optional_integer_or_float -> 
+                    let x =
+                        match x with
+                        | None -> None 
+                        | Some x -> Some (float_of_string x) 
+                    in `Constant x ] |
+                [ "k2p"; x = OPT optional_integer_or_float -> 
+                    let x = 
+                        match x with
+                        | None -> None
+                        | Some x -> Some (float_of_string x) 
+                    in `K2P x ]
+            ];
         ml_site_variation: 
             [ [ "none" -> None ] ];
         ml_priors:
