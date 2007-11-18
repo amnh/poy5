@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2462 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2472 $"
 
 module Pool = struct
     type p
@@ -1692,7 +1692,6 @@ let split positions s alph =
                         " and " ^ string_of_int b) in
                         false
                 );
-                let b = if c = b then b else b + 1 in
                 splitter (do_one_pair a c acc) t
         | (a, _) :: [] ->
                 (* We add one at the end because we remove one in do_one_pair *)
@@ -1806,7 +1805,7 @@ END
             let rec pos_finder modifier arr x =
                 if x = 0 then arr.{0}
                 else if x = len then pos_finder ( - ) arr (x - 1)
-                else if 0 <> arr.{x} then arr.{x}
+                else if zero <> arr.{x} then arr.{x}
                 else pos_finder modifier arr (modifier x 1)
             in
             let get_position arr poslen pos (x, y) = 
