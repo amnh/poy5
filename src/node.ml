@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2429 $"
+let () = SadmanOutput.register "Node" "$Revision: 2475 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -248,15 +248,16 @@ let rec cs_median anode bnode prev a b =
             in
             let median = MlStaticCS.median prev ca.preliminary 
                                             cb.preliminary ca.time cb.time in
-            let cost = MlStaticCS.root_cost median in
+            let n_cost = MlStaticCS.root_cost median in
             let res =
                 { ca with 
                     preliminary = median;
                     final = median;
-                    cost = cost *. ca.weight; 
-                    sum_cost = cost;
+                    cost = n_cost *. ca.weight; 
+                    sum_cost = n_cost;
                 } 
             in
+            (* success:: Printf.printf "%f \t== %f\n" n_cost res.cost; *)
             StaticMl res
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
@@ -679,9 +680,12 @@ let median code old a b =
 let rec cs_reroot_median na nb old a b =
     match old, a, b with
     | StaticMl old, StaticMl a, StaticMl b ->
-            let median = MlStaticCS.reroot_median a.final b.final
+        let median = MlStaticCS.reroot_median a.final b.final
                                                 a.time b.time in
-            StaticMl { old with preliminary = median; final = median }
+        let n_cost = MlStaticCS.root_cost median in
+        StaticMl { old with 
+            preliminary = median; final = median;
+            cost = n_cost *. a.weight; sum_cost = n_cost *. a.weight; } 
     | Nonadd8 old, Nonadd8 a, Nonadd8 b ->
           let median = NonaddCS8.reroot_median a.final b.final in
           Nonadd8 { old with preliminary = median; final = median; }
@@ -1562,7 +1566,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0.0001 } in
+                            weight = 1.; time = 0.0001 } in (* TODO: constant *)
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
@@ -1880,8 +1884,7 @@ let readjust to_adjust ch1 ch2 parent mine =
                 in
 
                 modified := m;
-                
-                let cost = mine.weight *.cost in
+                let cost = mine.weight *. cost in
 
                 (( StaticMl {mine with 
                         preliminary=res;final=res;cost=cost;sum_cost=cost;},
@@ -2038,9 +2041,9 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
     | StaticMl cs,_, _ -> begin
           match parent_cs with 
           | None ->
-                MlStaticCS.to_formatter pre cs.preliminary None d
+                MlStaticCS.to_formatter pre cs.preliminary cs.time None d
           | Some ((StaticMl parent_cs), _) ->
-                MlStaticCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
+                MlStaticCS.to_formatter pre cs.preliminary cs.time (Some parent_cs.preliminary) d
           | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
       end
     | _ -> assert false
@@ -2076,8 +2079,8 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
         (Tags.Nodes.recost, string_of_float 0.) :: 
         (Tags.Nodes.node_cost, string_of_float node_data.node_cost) ::
         (Tags.Nodes.name, node_name) ::
-        (Tags.Nodes.child1_name, "") ::        
-        (Tags.Nodes.child2_name, "") ::        
+        (Tags.Nodes.child1_name, "") ::
+        (Tags.Nodes.child2_name, "") ::
         (Tags.Nodes.nce, string_of_int node_data.num_child_edges) ::
         (Tags.Nodes.notu, string_of_int node_data.num_otus) :: acc
     in
@@ -2144,8 +2147,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
     let subtree_recost = 
         child1_recost +. 
         child2_recost +. 
-        (cmp_node_recost node_data) 
-    in  
+        (cmp_node_recost node_data) in 
     let attr = 
         (Tags.Nodes.cost, 
          (match parent_node_data_opt with 
