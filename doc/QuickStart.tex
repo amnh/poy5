@@ -277,7 +277,7 @@ in \poy that must either (in some cases or) be selected by clicking appropriate 
         Contains the list of files that are to be input into \poy. These include
         character files, and tree files.
     \item[Search Parameters]
-        Sets the number of randomized trees (independent random addition replicates)
+        Sets the number of independent random addition replicates
         to be generated.
     \item[Sequence Alignment Parameters]
         Specifies the substitution, indel, and gap opening costs. Enter \texttt{0} if no
@@ -410,9 +410,8 @@ The \emph{Bremer} option (Figure~\ref{fig:search_for_bermer_menu}) is divided in
 \label{fig:search_report_bremer}
 \end{figure}
 
-The script produced in this window collects trees visited during a search. This
-search can take a long time, as all the tree search heuristics are turned off,
-with the goal of sampling a wide variation of trees, and guarantee that all
+The script produced in this window collects trees visited during a search for Bremer support calculations. This
+search can take a long time, as the goal of this search strategy is to broadly sample variation among trees, and guarantee that all
 clades have Bremer support values. 
 
 In addition to the standard four sections defined for the \emph{Simple Search} window,
@@ -421,7 +420,7 @@ contain \emph{all the information required to produce the bremer support tree
 results in the Report Bremer Window}. Make sure that you choose a file name that you
 will not overwrite for this output.
 
-If \poy takes too long to finish searching for Bremer, the search can be interrupted and the intermediate results stored in the \emph{Temporary Trees} file (however, at the risk that that bremer support values can be inflated). The trees from the \emph{Temporary Trees} file can then be reported using the \emph{Report Bremer} window.
+If the search does not finish within in time frame amenable to the user the search can be interrupted and the intermediate results stored in the \emph{Temporary Trees} file.  As Bremer calculations are upper-bound values, terminating the search prior to completion and thus storing a smaller pool of visited trees may have the effect of inflating support values relative to those generated with a larger pool of trees generated from a more exhaustive search. The trees from the \emph{Temporary Trees} file can then be reported using the \emph{Report Bremer} window.
 
 \paragraph{Report Bremer}
 The script produced in this window takes the \emph{Temporary Trees} file generated in the \emph{Search for Bremer} window in the \emph{File with trees for bremer calculation} field. 
@@ -540,7 +539,7 @@ the \emph{Update} button.
 
 \begin{description}
 \item[POY Output window] displays the status of the imported data, outputs the results of the phylogenetic analyses (such as trees, character diagnoses, and implied alignments), reports errors, and displays descriptions of \poy commands. By default, \poy reports the list of imported data and generates error messages. Other outputs, however, must be requested using the \commandstyle{report()} command.
-\item[Interactive Console window]  is used to instruct \poy to import data, specify the kinds of analysis to be performed, and to request the desired output interactively by typing \poy commands at the \poy prompt (\texttt{poy$>$}). The commands are executed by hitting the Return key. The commands can be executed one at a time or entered sequentially until the Return key is pressed. (See Section~\ref{commands} on the structure and syntax of \poy commands.) Separating commands by spaces is optional but increases legibility. Alternatively, a file containing the list of commands (\poy script, see below) can also be imported and executed at the prompt in the Interactive Console.
+\item[Command line window]  is used to instruct \poy to import data, specify the kinds of analysis to be performed, and to request the desired output interactively by typing \poy commands at the \poy prompt (\texttt{poy$>$}). The commands are executed by hitting the Return key. The commands can be executed one at a time or entered sequentially until the Return key is pressed. (See Section~\ref{commands} on the structure and syntax of \poy commands.) Separating commands by spaces is optional but increases legibility. Alternatively, a file containing the list of commands (\poy script, see below) can also be imported and executed at the prompt in the Interactive Console.
 \item[State of Stored Search window]  displays the time (in seconds) elapsed since the initiation of the current operation. This window also reports the number of trees currently in memory and provides the range of their costs.
 \item[Current Job window] describes the currently running operation. When the operation is completed, the window is blank.
 \end{description} 
@@ -618,7 +617,7 @@ As more output is reported in the \emph{POY Output} window, only the most recent
 To return to the \emph{Interactive Console}, start typing and the cursor will automatically be placed back at the \poy prompt. When an operation is in progress (shown in the \emph{Current Job} window), the cursor stays in the upper left corner of the \emph{State of Current Search} window, and switching between the \emph{Interactive Console} and the \emph{POY Output} window is disabled. There are no user interactions with the \emph{Current Job} or \emph{State of the State of Current Search}.
 
 \subsection{Interrupting a process}
-To interrupt a process, press Control-C. By default, an error, \texttt{Error:}\\ \texttt{Interrupted}, is reported in the \emph{POY Output} window. The program does not close, however, and a new command can be entered. This command does not close the program, it only stops the last process that was running keeping in memory all the data and the results of the operation executed previously. New commands can subsequently be entered.
+To interrupt a process, press Control-C. By default, an error, \texttt{Error:}\\ \texttt{Interrupted}, is reported in the \emph{POY Output} window. The program does not close, however, and a new command can be entered. This command does not close the program, it only stops the last process that was running keeping in memory all the data and the results of the operation executed previously but not trees generated in the operation being interrupted. New commands can subsequently be entered.
 
 \subsection{Reporting errors}
 \poy reports errors in several ways. If there is an error pertaining to wrong syntax (such as a typo in a command name), \poy will indicate the location of the error by underlining the problematic part of the input with ``\texttt{\^}'' in the \emph{Interactive Console} (Figure~\ref{fig:errors}). \poy will also automatically display in the \emph{POY Output} window the description of the command, its syntax, and examples of its usage. As noted above, the Up and Down keys can be used to scroll through the output and determine the source of the error. Certain types of errors will be reported explicitly (Figure~\ref{fig:errors}).
@@ -699,12 +698,12 @@ For the purpose of this exercise, three datafiles are used. These sample files c
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}:
 
 \begin{itemize}
-	\item {\texttt{18s.fas} contains unaligned DNA sequence data for a single locus (partial 18S ribosomal DNA) in FASTA format.}
-	\item {\texttt{28s.fas} contains unaligned DNA sequence data for a single locus (partial 28S ribosomal DNA) in FASTA format.}
-	\item {\texttt{morpho.ss} contains a morphological data matrix in Hennig86 format.}
+	\item {\texttt{18s.fas} contains unaligned DNA sequence data for a single locus (partial 18S ribosomal DNA) in FASTA format.~\cite{pearson1988}}
+	\item {\texttt{28s.fas} contains unaligned DNA sequence data for a single locus (partial 28S ribosomal DNA) in FASTA format.~\cite{pearson1988}}
+	\item {\texttt{morpho.ss} contains a morphological data matrix in Hennig86 format.~\cite{farris1988}}
 \end{itemize}
 
-Once \poy has been launched and the interface (Figure~\ref{fig:figinterface}) had appeared on the screen, the data can be imported and the analysis can proceed. As you follow the instructions, you are encouraged to consult the help file by using the command \commandstyle{help} (see Section~\ref{sec:help} to learn more about \poy commands and their arguments).
+Once \poy has been launched and the interface (Figure~\ref{fig:figinterface}) had appeared on the screen, the data can be input and the analysis can proceed. As you follow the instructions, you are encouraged to consult the help file by using the command \commandstyle{help} (see Section~\ref{sec:help} to learn more about \poy commands and their arguments).
 
 \subsection{Importing data} \label{sec:import}
 
@@ -718,11 +717,11 @@ The basic command to input data in \poy is \commandstyle{read()}, which includes
     \begin{center}
         \includegraphics[width=0.6\textwidth]{figures/reading_example.jpg}
     \end{center}
-    \caption{Importing datafiles using the \emph{Interactive Console}. Two consecutive \commandstyle{read} commands import both the morphological datafile in Hennig86 format (\texttt{morpho.ss}), and the molecular datafile in Fasta format (\texttt{28s.fas}) . Note that \poy automatically reports  in the \emph{POY Output} window the names and types of files that have been imported.}
+    \caption{Importing datafiles using the \emph{Interactive Console}. Two consecutive \commandstyle{read} commands specify both the morphological datafile in Hennig86 format (\texttt{morpho.ss}), and the molecular datafile in FASTA format (\texttt{28s.fas}) . Note that \poy automatically reports  in the \emph{POY Output} window the names and types of files that have been imported.}
     \label{fig:readingexample}
 \end{figure}
 
-The syntax of \commandstyle{read} is not unique; in fact, every command in \poyv contains two elements: the name of the command (e.g. \commandstyle{read}), followed by an optional list of arguments 
+The syntax of \commandstyle{read} like every command in \poyv, contains two elements: the name of the command (e.g. \commandstyle{read}), followed by an optional list of arguments 
 separated by commas and enclosed in parentheses. Typically, the arguments of the command \commandstyle{read()} are names of datafiles, each being enclosed in double quotes (as shown in the example above). Even though there might be only one argument or none in some commands, parentheses (e.g.\poycommand{read()}) always follow the command name. An exhaustive discussion of \poy command structure and detailed descriptions of all commands with examples of their usage are provided in the \emph{POY Commands} chapter (\ref{commands}).
 
 Most of the time users are interested in importing multiple datafiles to analyzean entire dataset. In this case, multiple datafiles can be specified as arguments for a single command. For example, importing both files, \texttt{morpho.ss} and \texttt{28s.fas}, can be written more succinctly:
@@ -738,7 +737,7 @@ Figure~\ref{fig:readingexample} also illustrates an important feature that makes
 \commandstyle{swap()}
 \end{quote}
 
-It must be noted that if the number of terminals differs among datafiles, only the data that corresponds to the terminals used to generate the trees (from the morphological datafile in our example) are used; the rest of the character data are ignored.
+It must be noted that if the number of terminals differs among datafiles, only the data that corresponds to the terminals used to generate the trees (from the morphological datafile in our example) are used; the rest of the character data are ignored unless the trees are built again with the data files containing the expanded number of terminals.
 
 Also, because \poy appends trees and data in memory, it is a good practice to empty the memory when starting a new analysis using use the \commandstyle{wipe()} command (see also \commandstyle{clear\_memory()}).
 
@@ -850,7 +849,7 @@ Branch swapping is performed sequentially on all trees stored in memory. During 
 \label{fig:swapping}
 \end{figure}
 
-Using different combinations of the arguments of \commandstyle{swap()} allows to design a  large number of search strategies of different levels of complexity. Some simple options allow the choice between SPR and TBR. More complex strategies allow keeping a specific number of best trees per single initial tree (generated during the building step). For example, the command \commandstyle{swap(trees:10)} will keep up to 10 best trees generated during branch swapping on a single initial tree. Consequently, if 100 trees were built initially, this command will produce 1,000 trees. The argument \commandstyle{threshold} allows the retention of suboptimal trees within a specified percent of cost difference from the current best tree. For example, \commandstyle{swap(trees:10, threshold:10)}. Other options provide the means to sample trees as they are evaluated, timeout after certain number of seconds, transform the cost regime, and other perform other functions in conjunction with other \poy commands.
+Using different combinations of the arguments of \commandstyle{swap()} allows to design a  large number of search strategies of different levels of complexity. Some simple options allow the choice between SPR and TBR. More complex strategies allow keeping a specific number of best trees per single initial tree (generated during the building step). For example, the command \commandstyle{swap(trees:10)} will keep up to 10 best trees generated during branch swapping on a single initial tree. Consequently, if 100 trees were built initially, this command will produce 1,000 trees. The argument \commandstyle{threshold} allows the retention of suboptimal trees within a specified percent of cost difference from the current best tree. For example, \commandstyle{swap(trees:20, threshold:10)} will execute a swap considering trees within a ten percent cost difference of the current best tree and retain the 20 minimal length swapped trees for each initial build. Other options provide the means to sample trees as they are evaluated, timeout after certain number of seconds, transform the cost regime, and other perform other functions in conjunction with other \poy commands.
 
 \subsection{Selecting trees}
 

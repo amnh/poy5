@@ -683,10 +683,10 @@
 	\syntax{\obligatory{(\optional{argument list})}}
 
 	\begin{poydescription} 
-        Performs a search using a temporarily modified (``perturbed'') characters
+        Performs a swap using a temporarily modified (``perturbed'') characters
         starting with the trees currently in memory. Once a local optimum is found for 
         the perturbed characters,
-        a new round of search using the original (non-modified) characters is
+        a new round of swapping using the original (non-modified) characters is
         performed. Subsequently, the costs of the initial and final trees are
         compared and the best trees are selected. If there are $n$ trees in
         memory prior to searching using \poycommand{perturb}, then the  $n$ best
@@ -694,7 +694,7 @@
         20 individual \poycommand{perturb} procedures will be performed (each
         procedure starting with one of the 20 initial trees), and 20
         final trees are produced.        
-        This command allows the escape from a local optimum in the tree space by
+        This command allows for movement from a local search optimum in the tree space by
         \emph{perturbing} the character space (hence the name). The
         arguments specify the type of perturbation (\poyargument{ratchet},
         \poyargument{resample}, and \poyargument{transform}), the parameters of the
@@ -1242,8 +1242,8 @@
 
 \begin{command}{rename}{}
 
-	\syntax{\obligatory{argument list}}
-
+	 \syntax{\obligatory{(\optional{argument list})}}  
+	
 	\begin{poydescription} 
         Replaces the name(s) of specified item(s) (characters or terminals). This command allows 
         for substituting taxon names and helps merging multiple datasets without modifying the original
