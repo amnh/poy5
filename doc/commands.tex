@@ -300,11 +300,11 @@ Department of Biology, University of Vermont, Berlington, VT, U.S.A.\\
 \smallskip
 {\it
 Juli\'an Faivovich}\\
-Departamento de Zoologia, Instituto de Bioci\^encias, Universidade Estadual Paulista, Bresil\\
+Departamento de Zoologia, Instituto de Bioci\^encias, Universidade Estadual Paulista, Brasil\\
 \smallskip
 {\it
 Taran Grant}\\
-Faculdade de Bioci\^encias, Pontif’cia Universidade Cat\'olica do Rio Grande do Sul (PUCRS), Bresil\\
+Faculdade de Bioci\^encias, Pontif’cia Universidade Cat\'olica do Rio Grande do Sul (PUCRS), Brasil\\
 \smallskip
 {\it
 William Leo Smith}\\
@@ -338,12 +338,12 @@ and
 
 \chapter{\poy Commands}\label{commands}
 
-\section{\poy Command Structure}
+\section{\poy command structure}
 
-\subsection{Brief Description} \label{commands}
+\subsection{Brief description} \label{commands}
 
 \poy interprets and executes \emph{scripts} issued by the end user.  These can
-come from the command line in the interactive console of the program, or from an
+come from the command line in the \emph{Interactive Console} of the program, or from an
 input file. A script is a list of \emph{commands}, separated by any number of
 whitespace characters (spaces, tabs, or newlines). Each command consists of a
 name  in lower case (\poylident), followed by a list of arguments separated 
@@ -356,14 +356,14 @@ In \poy, we recognize four types of command arguments: \emph{primitive values},
 \paragraph{Primitive values} can be either an integer (\poyint), a real number
 (\poyfloat), a string (\poystring), or a boolean (\poybool).
 
-\paragraph{Labeled values} are a lowercase identifier (which we will call the
+\paragraph{Labeled values} are a lowercase identifier (which are referred to as
 \emph{label}), and an argument, separated by the colon character. ``:''.
 
-\paragraph{List of Arguments} are several arguments enclosed in parenthesis and
+\paragraph{List of arguments} are several arguments enclosed in parenthesis and
 separated by commas, ``,''.
 
 \paragraph{Commands} are standard commands that can affect the behavior of
-another command when included in its arguments.
+another command when included in its list of arguments.
 
 \paragraph{}Thus, certain commands can function as arguments of other commands. Moreover,
 some commands share arguments. Although such compositive use of commands
@@ -373,7 +373,7 @@ in different contexts maintains
 the same name (typically suggestive of its function), substantially reduces the number of
 commands without limiting the number of operations. Using a linguistic analogy,
 \poy specifies a large number of procedures by a more complex grammar (specific
-combinations of commands and arguments) rather than by increasing the vocabulary
+combinations of commands and arguments), rather than by increasing the vocabulary
 (the number of specific commands and arguments). For example, the command
 \poycommand{swap} specifies the method of branch swapping. This command is
 used to conduct a local search on a set of trees. In addition,
@@ -384,9 +384,9 @@ local tree search based on perturbed (resampled or partly weighted) data as an a
 of the command \poycommand{perturb}. Therefore, to take the maximum advantage of
 \poy functionality, it is essential to get acquainted with the grammar of  \poy.
 
-\subsection{Grammar Specification}
+\subsection{Grammar specification}
 
-The following is the formal specification of the valid grammar of a script in \poy 4:
+The following is the formal specification of the valid grammar of a script in \poy:
 
 \begin{verbatim}
 script: | command
@@ -420,29 +420,25 @@ STRING: """ [^"]* """
 
 \end{verbatim}
 
-The following examples show graphically a typical structure of valid \poy commands
+The following examples graphically show a typical structure of valid \poy commands
 formally defined above. The Figure \ref{simplecommand} illustrates
 the syntax of the command \poycommand{swap}. The name of the
-command (\poycommand{swap}) is followed by a list of two arguments,
+command, \poycommand{swap}, is followed by a list of two arguments,
 \poyargument{tbr} and \poyargument{trees:2}, inclosed in parentheses
 and separated by a comma. Note that \poyargument{trees:2} is a labeled-value
-argument, that is it contains a label (\texttt{trees}) and a value (\texttt{2})
+argument that contains a label (\texttt{trees}) and a value (\texttt{2})
 separated by a colon.
 
 \begin{figure}[htbp]
    \centering
    \includegraphics[width=0.34\textwidth]{figures/fig-poycommand1.jpg}
-   \caption{A structure of a simple \poy command. The entire command (highlighted
+   \caption{The structure of a simple \poy command. The entire command (highlighted
    in blue), consists of  a command name followed by a list of arguments (enclosed in red box).
    See text for details.}
    \label{simplecommand}
 \end{figure}
 
-Figure \ref{compositecommand} shows a compound command \poycommand{perturb}, because the list of its arguments contains another command, \poycommand{swap}. This means
-that executing \poycommand{perturb} will perform a set of specified operations that contains
-a nested set of operations specified by \poycommand{swap}. Note also that in contrast to the first labeled-values argument \poyargument{iterations}, the second labeled-values argument \poyargument{ratchet} has multiple values (a float and an integer), the values must be enclosed in parentheses and separated by a comma. The third argument is a command (\poycommand{swap}), therefore it is syntactically distinguished from other arguments, labeled and unlabeled alike, by having
-parentheses following the command name. It must be emphasized that the parentheses always follow
-the command name even if no arguments are specified. (If no arguments are specified, a command is executed under its default settings if they exist.)
+Figure \ref{compositecommand} shows a more complex command structure, using the command \poycommand{perturb} as an example. This is a compound command because the list of its arguments contains another command, \poycommand{swap}. This means that executing \poycommand{perturb} performs a set of specified operations that contains a nested set of operations specified by \poycommand{swap}. Note also, that in contrast to the first labeled-values argument \poyargument{iterations}, the second labeled-values argument \poyargument{ratchet} has multiple values (a float and an integer). When multiple values are specified, they must be enclosed in parentheses and separated by a comma. The third argument is a command (\poycommand{swap}), therefore it is syntactically distinguished from other arguments, labeled and unlabeled alike, by having parentheses following the command name. It must be emphasized that the parentheses always follow the command name even if no arguments are specified. (If no arguments are specified, a command is executed under its default settings.)
 
 \begin{figure}[htbp]
    \centering
@@ -459,14 +455,14 @@ the command name even if no arguments are specified. (If no arguments are specif
 Some arguments are obligatory, whereas others are not; some commands accept an
 empty list of arguments, but others do not; some argument labels have
 obligatory values, whereas values of others are optional. In the descriptions of
-\poy commands below, the elements of \poy grammar are emphasized in
+\poy commands below, the elements of \poy grammar are defined in
 the text using the following conventions:
 
 \begin{itemize}
     \item A command that could be included in a \poy script (that is can be entered in the
     	interactive console or included in an input file) is shown in \poycommand{terminal type}.
     \item Optional items are inclosed in \poycommand{[square brackets]}.
-    \item Primitives are shown in \poycommand{UPPERCASE}.
+    \item Primitive values are shown in \poycommand{UPPERCASE}.
 \end{itemize}
 
 Each command description entry contains the following sections:
@@ -478,7 +474,7 @@ Each command description entry contains the following sections:
     \item The valid syntax for the command.
     \item The list of descriptions of valid arguments.
     \item Description of default settings.
-    \item Some examples of its usage.
+    \item Examples of the command's usage.
 \end{itemize}
 
 \begin{statement}
@@ -490,8 +486,8 @@ Each command description entry contains the following sections:
 \end{statement}
 
 \begin{statement} \label{commandorder}
-    Command order. The effect of the order of arguments in a command is context
-    dependent. If arguments are not logically interconnected, their order is not
+    Command order. The effect of the order of arguments in a command depends on the context. 
+    If arguments are not logically interconnected, their order is not
     important. For example, commands \poycommand{build(10,randomized)} and
     \poycommand{build(randomized,10)} are equivalent. However, executing
     commands \poycommand{transform(tcm:(1,1),gap\_opening:4)} and
@@ -513,8 +509,7 @@ Each command description entry contains the following sections:
 \section{Command Reference}
 \input{allcommands}
 
-
-\chapter{\poy Heuristics: A Practical Guide}
+\chapter{\poy Heuristics: a practical guide}
 \input{poyheuristics}
 
 \chapter{\poy Tutorials}

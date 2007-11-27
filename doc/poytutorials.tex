@@ -8,7 +8,7 @@ The tutorials use sample datasets that are provided with \poy installation but c
 \end{center}
 The minimal required items to run the tutorial analyses are the \poy application and the sample datafiles. Running these analyses requires some familiarity with \poy interface and command structure that can be found in the preceding chapters.
 
-\section{Combining  Search Strategies}{\label{tutorial1}}
+\section{Combining  search strategies}{\label{tutorial1}}
 The following script implements a strategy for a thorough search. This is accomplished by generating a large number of independent initial trees by random addition sequence and combining combining different search strategies that aim at thoroughly exploring local tree space and escape the effect of composite optima by effectively traversing the tree space. In addition, this script shows how to output the status of the search to a log file and calculate the duration of the search. 
 
 \begin{verbatim}
@@ -50,7 +50,7 @@ This command imports all the nucleotide sequence datafiles (all files with the e
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Searching Under Iterative Pass}{\label{tutorial2}}
+\section{Searching under iterative pass}{\label{tutorial2}}
 The following script implements a strategy for a thorough search under iterative pass optimization. The iterative pass optimization is a very time consuming procedure that makes it impractical to conduct under this kind of optimization (save for very small datasets that can be analyzed within reasonable time). The iterative pass, however, can be used for the most advanced stages of the analysis for the final refinement, when a potential global optimum has been reached through searches under other kinds of optimization (such as direct optimization). Therefore, this tutorial begins with importing an existing tree (rather than performing tree building from scratch) and subjecting it to local branch swapping under iterative pass.
 
 \begin{verbatim}
@@ -78,7 +78,7 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Bremer Support}{\label{tutorial 3}}
+\section{Bremer support}{\label{tutorial 3}}
 
 This tutorial builds on the previous tutorials to illustrate Bremer support 
 calculation on trees constructed using dynamic homology characters
@@ -115,7 +115,7 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Jackknife Support}{\label{tutorial 4}}
+\section{Jackknife support}{\label{tutorial 4}}
 
 This tutorial illustrates calculating Jackknife support values for trees constructed with static homology characters.  Although it is possible to calculate both Jackknife and Bootstrap support values 
 for trees constructed using dynamic homology characters, it is not recommended because resampling of dynamic characters occurs at the fragment (rather than nucleotide) level.  Consequently, in data sets containing a small number of fragments, support values will be inflated relative to those generated from static characters.  Alternately dynamic homology characters can be converted to static characters using the transform argument \poyargument{static\_approx}.  Character transformation, however, may result in a discrepancy between tree costs generated using dyanmic homology characters and those generated using static homology characters.  Therefore after such a data transformation is performed, an extra round of swapping is recommended to insure that the local minimum tree length is reached for the static homology characters prior to calculating support values  support values.
@@ -145,7 +145,7 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Sensitivity Analysis}{\label{tutorial 5}}
+\section{Sensitivity analysis}{\label{tutorial 5}}
 
 This tutorial demonstrates how data for parameter sensitivity analysis is generated. Sensitivity analysis \cite{wheeler1995} is a method of exploring the effect of relative costs of substitutions (transitions and transversions) and indels (insertions and deletions), either with or without taking gap extension cost into account. The approach consists of multiple iterations of the same search strategy under different parameters, (\emph{i.e}combinations of substitution and indel costs. Obviously, such analysis might become time consuming and certain methods are shown here how to achieve the results in reasonable time. This tutorial also shows the utility of the command \poycommand{store} and how transformation cost matrixes are imported and used.
 
@@ -193,7 +193,7 @@ exit()
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
-\section{Chromosome Analysis: Unannotated Sequences}{\label{tutorial 6}}
+\section{Chromosome analysis: unannotated sequences}{\label{tutorial 6}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
 unannotated sequences, i.e., contiguous strings of sequences without prior 
@@ -229,7 +229,7 @@ exit()
 \end{itemize}
 
 
-\section{Chromosome Analysis: Annotated Sequences}{\label{tutorial 7}}
+\section{Chromosome analysis: annotated sequences}{\label{tutorial 7}}
 
 This tutorial illustrates the analysis of chromosome-level transformations using 
 annotated sequences, i.e., contiguous strings of sequences with prior 
@@ -260,7 +260,7 @@ exit()
 \end{itemize}
 
 
-\section{Custom Alphabet Break Inversion characters}{\label{tutorial 8}}
+\section{Custom alphabet break inversion characters}{\label{tutorial 8}}
 
 This tutorial illustrates the analysis of the break inversion character type.  Break inversion characters are generated by transforming user-defined \poyargument {custom\_alphabet} characters.  
 For example, observations of developmental stages could be represented in a corresponding array such that for each terminal taxon there is a sequence of observed developmental stages which are represented by a user-defined alphabet.  To allow rearrangement as well as indel events to be considered among alphabet elements, requires transforming the \poyargument {custom\_alphabet} sequences to \poyargument {breakinv} characters. 
@@ -292,7 +292,7 @@ exit()
 \end{itemize}
 
 
-\section{Genome Analysis: Multiple Chromosomes}{\label{tutorial 9}}
+\section{Genome analysis: multiple chromosomes}{\label{tutorial 9}}
 
 This tutorial illustrates the analysis of genome-level transformations using data from multiple chromosomes. 
 Prior to attempting an analysis of unannotated chromosomes it is necessary to enable the \texttt {"long sequences"}
