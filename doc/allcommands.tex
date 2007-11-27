@@ -2542,13 +2542,11 @@
             \argumentdefinition{constraint}{\optional{\poyint | 
             (depth:\poyint, file:\poystring)}}
                 {The constraint argument for the \poycommand{swap} command sets
-                constraints on the join locations during the search using an
-                input tree using both a tree and an optional maximum distance
+                constraints on the join locations during the search using both a tree and an optional maximum distance
                 from the break branch. Only sets defined either in the input
-                file, or in the strict consensus of the files in memory will be
-                attempted to produce during swapping. An integer value of
+                file, or in the strict consensus of the files in memory to consider during swapping. An integer value of
                 \poyargument{depth} specifies the maximum distance from the
-                break branch to attempt joins. A string value of
+                break branch to attempt joins. The string value for
                 \poyargument{file} specifies an input file containing a singe
                 tree that defines topological constraints. Under default settings,
                 \poyargument{constraint}
@@ -2590,12 +2588,12 @@
 	 search: for example, to provide backups of the state of a
         search (in an unlikely crash), or to examine the characteristics of the alignments.
         The difference from the \poycommand{swap} arguments is that the user can
-        choose any combination of trajectory samples, and they will all can be 
+        choose any combination of trajectory samples, and that can be 
         used during the search. None of the trajectory samples is used by
         default.}
 
 	\argumentdefinition{recover}{}
-	{Stores the current best tree in memory that can be recovered it 
+	{Stores the current best tree in memory that can be recovered in
             case of failure. If it is necessary to recover such
             trees after an aborted command, use the command~\ccross{recover}. 
             If the program terminates normally, the stored trees are exactly
@@ -2605,13 +2603,13 @@
             {recoverarg}
 
          \argumentdefinition{timeout}{\obligatory{\poyint}}
-	{Specifies the number of seconds after which branch swapping isl
+	{Specifies the number of seconds after which branch swapping is
            stopped. Use this argument in association with \poycommand{recover}
            to keep the best trees found up to \emph{n} seconds after
            starting the search.}
                 {}
 
-        \argumentdefinition{timedprint}{\obligatory{(\poyint, \poystring)}}
+        \argumentdefinition{timedprint}{\obligatory{\poyint, \poystring}}
 	{\poyargument{timedprint:(n, "trees.txt")} will print the current
             best tree in memory to the file \texttt{trees.txt}, at least every 
             \texttt{n} seconds. However, \poy typically underestimates the amount of
@@ -2818,7 +2816,7 @@
                 gap costs).}
                 {prealignedtransform}
             
-        \argumentdefinition{sequence\_partition}{\poyint}
+        \argumentdefinition{sequence\_partition}{\obligatory{\poyint}}
             {Partition the sequences in the argument's value number of
             fragments.}
             {sequencepartition}
@@ -2933,39 +2931,34 @@
 	available at \\ \texttt{http://www.cs.unm.edu/\~{}moret/GRAPPA/}.
     
          \argumentdefinition{breakinv\_to\_seq}{}
-            {Transforms breakinv character type into custom\_alphabet character
+            {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} character
             type. This transformation prevents the use of rearrangement operations.} 
             {breakinvtoseq}
 
         \argumentdefinition{seq\_to\_breakinv}{\obligatory{([argument list])}}
-            {Transforms custom\_alphabet character type into breakinv
-            character type to allow for rearrangement operations
+            {Transforms \poyargument{custom\_alphabet} character type into \poyargument{breakinv} character type to allow for rearrangement operations
             (translocations and inversions; duplications are not currently
-            supported). This argument is useful, for example, when
+            supported).} This argument is useful, for example, when
             custom\_alphabet characters are used to define a sequence of
-            individual genes and once is interested in detecting potential
+            individual genes and one is interested in detecting potential
             change in their order on a chromosome. See the
-            command~\ccross{read} for the description on how to load a custom
-            alphabet and \poyargument{breakinv} character types. The optional list of arguments
+            command~\ccross{read} for the description on how to load \poyargument {custom
+            alphabet} and \poyargument{breakinv} character types. The optional list of arguments
             includes the arguments of the \poyargument{dynamic\_pam} that can also
-            be specified subsequently, as a separate step, using the argument \poyargument{dynamic\_pam}.} 
-            {seqtobreakinv}
+            be specified subsequently, as a separate step.
             
         \argumentdefinition{seq\_to\_chrom}{\obligatory{([argument list])}}   
             {Transforms nucleotide type data into \\ chromosome type data to allow
-            rearrangements, inversions, and locus-level indel operations. The
+            rearrangements, inversions, and locus-level indel operations.} The
             chromosome-specific options (\emph{e.g.} breakpoint,
             locus--insertion, and locus-deletion costs) can be specified by the argument
             \poyargument{dynamic\_pam}. If no \poyargument{dynamic\_pam} values
-            are specified, its default values are applied. The optional list of arguments
-            includes the arguments of the \poyargument{dynamic\_pam} that can also
-            be specified subsequently, as a separate step, using the argument \poyargument{dynamic\_pam}.}
-            {seqtochrom}
-
+            are specified, its default values are applied.
+            
         \argumentdefinition{dynamic\_pam}{\obligatory{([argument list])}}
             {Specifies parameters for creating chromosome- and genome-level HTUs (medians).
-            The argument values of \poyargument{dynamic\_pam} specify the
-            method if calculating distance between pairs of chromosomes
+            The arguments of \poyargument{dynamic\_pam} specify the
+            method of calculating distance between pairs of chromosomes
             (\poyargument{inversion} and \poyargument{breakpoint}), costs
             of locus-level events (\poyargument{inversion}, \poyargument{breakpoint},
             \poyargument{locus\_indel}), take into
@@ -3054,8 +3047,8 @@
 
                     \argumentdefinition{locus\_indel}{\obligatory{(\poyint, \poyfloat)}} 
                         {Specifies the cost for insertion/deletion of a
-                        chromosome segment. The integer value sets gap opening
-                        cost ($o$), whereas the float value sets gap extension
+                        chromosome segment. The integer value sets the gap opening
+                        cost ($o$), whereas the float value sets the gap extension
                         cost ($e$).  The indel cost for a fragment of length $l$ is
                         specified by the following formula:
                        $o + l \times e$. The default values are $o=10, e=1.0$.}
@@ -3092,24 +3085,23 @@
                         The default value of \poyargument{seed\_length} is \texttt{9}.}
                         {seedlength}
                         
-                        \argumentdefinition{sig\_block\_len}{\obligatory{\poyint}}
-                        {Creates a pairwise alignment between two chromosomes and
+                      \argumentdefinition{sig\_block\_len}{\obligatory{\poyint}}
+                          {Creates a pairwise alignment between two chromosomes and
                           detecting conserved areas (``blocks''). However, only blocks of
                           lengths (in number of nucleotides) greater or equal to the integer
                           value of \poyargument{sig\_block\_len} are considered as hypothetically
-                        homologous blocks and used as anchors to divide chromosomes into
-                        fragments. Increasing the value of \poyargument{sig\_block\_len} decreases
-                        the chance of inferring small-size rearrangements. The default value is \texttt{100}.} 
-                        {sigblocklen}
+                          homologous blocks and used as anchors to divide chromosomes into
+                          fragments. Increasing the value of \poyargument{sig\_block\_len} decreases
+                           the chance of inferring small-size rearrangements. The default value is \texttt{100}.} 
+                          {sigblocklen}
                         
-  		            \argumentdefinition{rearranged\_len}{\obligatory{\poyint}}
-           	               {Two seeds are said to be \emph{non-rearranged}, 
-               	             if their distance is not greater than  a predefined 
-              	             threshold $rearranged\_len$. 
+  		   \argumentdefinition{rearranged\_len}{\obligatory{\poyint}}
+           	           {Two seeds are said to be \emph{non-rearranged}, 
+               	           if their distance is less than  the predefined 
+              	           threshold value set for $rearranged\_len$. 
                              In other words, it is unlikely that rearrangement 
-              	             operations can occur between two non-rearranged seeds 
-                             if they are connected.
-                	         The default value is \texttt{100}}{rearrangedlen} 
+              	           operations can occur between two non-rearranged seeds 
+                             if they are connected. The default value is \texttt{100}}{rearrangedlen} 
  
 
 
@@ -3218,9 +3210,9 @@
 	\syntax{\obligatory{(\poystring)}}
 
 	\begin{poydescription}
-         Restores from memory the state of a\poy session (that includes character data,
-         selections, trees, and all other data and specifications) that had previously been
-         saved during the session using the command ~\ccross{store}{}. The recalled
+         Restores from memory the state of a \poy session (that includes character data,
+         selections, trees, all other data and specifications) that had previously been
+         saved during the session using the command~\ccross{store}{}. The recalled
          session replaces the current session. The string argument specifies the name
          of the stored state.
          
