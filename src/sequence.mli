@@ -240,7 +240,7 @@ module Align : sig
         sequences s1 and s2 and the cost of the alignment.*)
 
     val align_3 :
-        s -> s -> s -> Cost_matrix.Three_D.m -> Matrix.m -> s * s * s * int
+        ?first_gap:bool -> s -> s -> s -> Cost_matrix.Three_D.m -> Matrix.m -> s * s * s * int
     (** [align_3 s1 s2 s3 c hash] does the same as align_2 but for three
         sequences. *)
 
@@ -287,7 +287,7 @@ module Align : sig
     * where [ed] is the total edition cost of the median [s], which is in the
     * center of [a], [b], and [p], and [ch] is true iff [ch] is different from
     * [mine]. *)
-    val readjust_3d : s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
+    val readjust_3d : ?first_gap:bool -> s -> s -> s -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> s
     -> int * s * bool
 
 end

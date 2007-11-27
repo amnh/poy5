@@ -24,7 +24,7 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2472 $"
+let () = SadmanOutput.register "Sequence" "$Revision: 2490 $"
 
 module Pool = struct
     type p
@@ -832,17 +832,32 @@ module Align = struct
 
 
     
-    let align_3 s1 s2 s3 c m =
-        let sz1 = length s1
-        and sz2 = length s2 
-        and sz3 = length s3 in
-        let sum = sz1 + sz2 + sz3 in
-        let s1p = create_same_pool s1 sum
-        and s2p = create_same_pool s2 sum  
-        and s3p = create_same_pool s3 sum in 
-        let c = c_align_3 s1 s2 s3 c m s1p s2p s3p in
-        s1p, s2p, s3p, c
-    
+    let align_3 ?(first_gap = true) s1 s2 s3 c m =
+        let align s1 s2 s3 =
+            let sz1 = length s1
+            and sz2 = length s2 
+            and sz3 = length s3 in
+            let sum = sz1 + sz2 + sz3 in
+            let s1p = create_same_pool s1 sum
+            and s2p = create_same_pool s2 sum  
+            and s3p = create_same_pool s3 sum in 
+            let c = c_align_3 s1 s2 s3 c m s1p s2p s3p in
+            s1p, s2p, s3p, c
+        in 
+        match first_gap with
+        | true -> align s1 s2 s3
+        | false ->
+              let gap = Cost_matrix.Three_D.gap c in 
+              let s1 = prepend_char s1 gap in 
+              let s2 = prepend_char s2 gap in 
+              let s3 = prepend_char s3 gap in 
+              let s1p, s2p, s3p, tc = align s1 s2 s3 in 
+              let s1p = del_first_char s1p in 
+              let s2p = del_first_char s2p in 
+              let s3p = del_first_char s3p in 
+              s1p, s2p, s3p, tc
+
+
     let median_2_with_gaps s1 s2 c =
         let sz1 = length s1 
         and sz2 = length s2 in
@@ -1031,7 +1046,7 @@ module Align = struct
         prepend median gap;
         median, cost
 
-    let readjust_3d s1 s2 m cm cm3 p =
+    let readjust_3d ?(first_gap = true) s1 s2 m cm cm3 p =
         if length s1 = length s2 && length m = length p && length s1 = length m then
             0, m, false
         else 
@@ -1043,8 +1058,18 @@ module Align = struct
             else if is_empty p gap then 
                 0, p, 0 <> compare m p
             else
-                let res, x = align_3_powell_inter s1 s2 p cm cm3 in
-                x, res, 0 <> compare m res
+                match first_gap with 
+                | true -> 
+                      let res, x = align_3_powell_inter s1 s2 p cm cm3 in
+                      x, res, 0 <> compare m res
+                | false ->
+                      let s1 = prepend_char s1 gap in 
+                      let s2 = prepend_char s2 gap in 
+                      let p = prepend_char p gap in 
+                      let res, x = align_3_powell_inter s1 s2 p cm cm3 in
+                      let res = del_first_char res in 
+                      x, res, 0 <> compare m res
+
 end
 
 let select_one_generic get_one_item s cm =
