@@ -25,7 +25,6 @@ type dyna_state_t = Data.dyna_state_t
 
 
 let orientation code = 
-
     if code mod 2 = 0 then -(code / 2)
     else (code + 1) /2
 
@@ -130,75 +129,6 @@ let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular =
     let wagner_seq2 = add [||] [] (Array.to_list seq2) in  
     wagner_seq2
 
-
-let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir = 
-    let cmp_cost2 code1_arr code2_arr = 
-        let _, _, edit_cost  = Sequence.CamlAlign.create_pair_align code1_arr code2_arr
-            cost_mat  gap
-        in 
-
-        let code1_arr = Array.map orientation code1_arr in 
-        let code2_arr = Array.map orientation code2_arr in 
-        let com_code1_arr, com_code2_arr = Utl.get_common code1_arr code2_arr
-            equal_orientation 
-        in 
-
-        let recost  = 
-            match re_meth with 
-            | `Inversion cost -> 
-                  (UtlGrappa.cmp_inversion_dis com_code1_arr com_code2_arr cir) * cost  
-            | `Breakpoint cost ->               
-                  (UtlGrappa.cmp_oriented_breakpoint_dis com_code1_arr com_code2_arr cir) * cost   
-        in  
-
-        edit_cost + recost
-    in 
-
-    let cost1 = cmp_cost2 seq1 med in 
-    let cost2 = cmp_cost2 seq2 med in 
-    let cost3 = cmp_cost2 seq3 med in 
-    cost1 + cost2 + cost3
-    
-
-
-(** Given three sequences [seq1], [seq2], [seq3], find the best median of these
- * three sequences *)
-let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular = 
-    let max_code = max (max (Utl.max_arr seq1) (Utl.max_arr seq2)) 
-        (Utl.max_arr seq3) 
-    in         
-(*
-    Utl.printIntArr seq1;
-    Utl.printIntArr seq2;
-    Utl.printIntArr seq3;
-    print_newline ();
-*)
-    let rec add (best_wagner : int array) cost code =
-        if code > max_code then best_wagner, cost
-        else begin
-            let min_cost = ref cost in
-            let new_best_wagner = ref best_wagner in 
-            for p = 0 to Array.length best_wagner do
-                let wagner = Utl.insert best_wagner p code in 
-                let cost = cmp_cost3 seq1 seq2 seq3 wagner gen_cost_mat
-                    gap re_meth circular 
-                in
-                if cost < !min_cost then begin
-                    min_cost := cost;
-                    new_best_wagner := wagner;
-                end 
-            done;
-(*
-            Utl.printIntArr !new_best_wagner;
-            fprintf stdout "Cost: %i\n" !min_cost;
-*)
-            add !new_best_wagner !min_cost (code + 2)
-        end 
-    in  
-    let init_cost = cmp_cost3 seq1 seq2 seq3 [||] gen_cost_mat gap re_meth circular in 
-    let best_wagner, cost = add [||] init_cost 1 in 
-    
-    best_wagner, cost
 
 
 
@@ -310,24 +240,6 @@ let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s)
 
 
 
-(** Given two sequences [seq1] and [seq2] of general character, create 
- * the general alignment between [seq1] and [seq2] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
-let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
-        gen_cost_mat alpha re_meth  max_swap_med circular =
-
-    let gap = Alphabet.get_gap alpha in 
-    let seq1 : int array = Sequence.to_array seq1 in 
-    let seq2 : int array = Sequence.to_array seq2 in 
-    let seq3 : int array = Sequence.to_array seq3 in 
-    let wagner, cost  = find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat 
-        gap re_meth circular
-    in 
-
-    let wagner_len = Array.length wagner in 
-    let wagner_seq = Sequence.init (fun idx -> wagner.(idx)) wagner_len in
-    wagner_seq, cost 
-
 
 
 (** Given two sequence [seq1] and [seq2] of character codes, create 
@@ -375,14 +287,149 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
 
 
 
+
+let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym = 
+    let max_swap_med = 1 in 
+    let cmp_cost2 code1_arr code2_arr = 
+        match sym with 
+        | true ->
+              let cost1, _, _, _ = create_gen_ali_code `Breakinv code1_arr code2_arr
+                  cost_mat gap re_meth max_swap_med cir
+              in 
+
+
+              let cost2, _, _, _ = create_gen_ali_code `Breakinv code2_arr code1_arr
+                  cost_mat gap re_meth max_swap_med cir
+              in 
+              min cost1 cost2
+        | false ->
+              let seq1 = Sequence.init (fun id -> code1_arr.(id)) (Array.length code1_arr) in 
+              let seq2 = Sequence.init (fun id -> code2_arr.(id)) (Array.length code2_arr) in 
+              
+              let cost, _, _, _ = 
+                  if Sequence.compare seq1 seq2 < 0 then 
+                      create_gen_ali_code `Breakinv code1_arr code2_arr 
+                          cost_mat gap re_meth max_swap_med cir 
+                  else 
+                      create_gen_ali_code `Breakinv code2_arr code1_arr 
+                          cost_mat gap re_meth max_swap_med cir 
+              in 
+              cost
+    in 
+
+    let cost1 = cmp_cost2 seq1 med in 
+    let cost2 = cmp_cost2 seq2 med in 
+    let cost3 = cmp_cost2 seq3 med in 
+(*    fprintf stdout "Cost3: %i %i %i\n" cost1 cost2 cost3;*)
+    cost1 + cost2 + cost3
+    
+
+
+(** Given three sequences [seq1], [seq2], [seq3], find the best median of these
+ * three sequences *)
+let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular sym = 
+    let max_code = max (max (Utl.max_arr seq1) (Utl.max_arr seq2)) 
+        (Utl.max_arr seq3) 
+    in         
+    let rec add (best_wagner : int array) cost code =
+        if code > max_code then best_wagner, cost
+        else begin
+            let min_cost = ref cost in
+            let new_best_wagner = ref best_wagner in 
+            for p = 0 to Array.length best_wagner do
+                let check acode =
+                    let wagner = Utl.insert best_wagner p acode in 
+                    let cost = cmp_cost3 seq1 seq2 seq3 wagner gen_cost_mat
+                        gap re_meth circular sym
+                    in
+                    if cost < !min_cost then begin
+                        min_cost := cost;
+                        new_best_wagner := wagner;
+                    end 
+                in 
+                check code;
+                check (code + 1);
+            done;
+            add !new_best_wagner !min_cost (code + 2)
+        end 
+    in  
+    let init_cost = cmp_cost3 seq1 seq2 seq3 [||] gen_cost_mat gap re_meth
+        circular sym in 
+    let best_wagner, cost = add [||] init_cost 1 in 
+    
+    best_wagner, cost
+
+
+(** Given three sequences [seq1], [seq2], [seq3], find the best median of these
+ * three sequences *)
+let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular sym = 
+    let best_cost = ref (cmp_cost3 seq1 seq2 seq3 med gen_cost_mat gap re_meth
+                             circular sym) in 
+    let best_med = ref med in 
+    let continue = ref false in 
+
+    let len = Array.length med in 
+    for p1 = 0 to len - 2 do
+        for p2 = p1 + 1 to len - 1 do
+            let new_med = Utl.swap_item p1 p2 med in
+            let new_cost = cmp_cost3 seq1 seq2 seq3 new_med 
+                gen_cost_mat gap re_meth circular sym in 
+
+            if new_cost < !best_cost then begin
+                best_cost := new_cost;
+                best_med := new_med;
+                continue := true;
+            end 
+        done
+    done;
+
+    if !continue then swap3 seq1 seq2 seq3 !best_med gen_cost_mat gap re_meth
+        circular sym
+    else  !best_med, !best_cost
+
+
+(** Given two sequences [seq1] and [seq2] of general character, create 
+ * the general alignment between [seq1] and [seq2] with minimum total cost 
+ * where total cost = editing cost + rearrangement cost *)
+let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
+        (med : Sequence.s) 
+        gen_cost_mat alpha re_meth  max_swap_med circular sym =
+
+    let gap = Alphabet.get_gap alpha in 
+    let seq1 : int array = Sequence.to_array seq1 in 
+    let seq2 : int array = Sequence.to_array seq2 in 
+    let seq3 : int array = Sequence.to_array seq3 in 
+    let med : int array = Sequence.to_array med in 
+
+(*
+    let med, _  = find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat 
+        gap re_meth circular sym
+    in 
+*)
+    let med, cost = swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth
+        circular sym in 
+
+
+
+    let med_len = Array.length med in 
+    let med_seq = Sequence.init (fun idx -> med.(idx)) med_len in
+
+    med_seq, cost 
+
+
+
 (** Given two sequence [seq1] and [seq2] [seq3] of character codes, create 
  * the general alignment between [seq1] and [seq2] [seq3] with minimum total cost 
  * where total cost = editing cost + rearrangement cost *)
-let create_gen_ali_code3 state (seq1 : int array) (seq2 : int array) (seq3 : int array)
+let create_gen_ali_code3 state (seq1 : int array) (seq2 : int array) 
+        (seq3 : int array) (med : int array) 
         (gen_cost_mat : int array array) gen_gap_code 
-        re_meth max_swap_med circular =
-
-    let wag, cost = find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat 
-        gen_gap_code re_meth circular
+        re_meth max_swap_med circular sym =
+(*
+    let med, cost = find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat 
+        gen_gap_code re_meth circular sym
     in 
-    wag, cost
+*)
+    let med, cost = swap3 seq1 seq2 seq3 med gen_cost_mat gen_gap_code re_meth
+        circular sym in 
+    med, cost

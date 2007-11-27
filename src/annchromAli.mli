@@ -70,6 +70,15 @@ val find_med2_ls :
   annchrom_t ->
   annchrom_t ->
   Cost_matrix.Two_D.m -> 'a -> Data.dyna_pam_t -> int * int * annchrom_t list
+
+val find_med3 :
+  annchrom_t ->
+  annchrom_t ->
+  annchrom_t ->
+  annchrom_t ->
+  Cost_matrix.Two_D.m ->
+  Cost_matrix.Three_D.m -> 'a -> Data.dyna_pam_t -> int * annchrom_t
+
 val compare : annchrom_t -> annchrom_t -> int
 val find_approx_med2 : annchrom_t -> annchrom_t -> annchrom_t -> annchrom_t
 val assign_seq_ref : annchrom_t -> int -> annchrom_t * int

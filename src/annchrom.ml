@@ -208,21 +208,28 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
 
 
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
-    let adjust_med = find_meds3 parent ch1 ch2 in 
-    let amed = List.hd adjust_med.med_ls in
-    let single_seq_arr = Array.map 
-        (fun seqt -> 
-             let single_seq = UtlPoy.get_single_seq seqt.AnnchromAli.seq c2 in
-             {seqt with AnnchromAli.seq = single_seq}
-        ) amed.AnnchromAli.seq_arr
-    in 
+    let alpha = mine.alpha in 
+    let annchrom_pam = mine.annchrom_pam in 
 
+    let ach1 = List.hd ch1.med_ls in 
+    let ach2 = List.hd ch2.med_ls in
+    let amine = List.hd mine.med_ls in
+    let aparent = List.hd parent.med_ls in
     
-    let adjust_med = {adjust_med with med_ls = [{amed with AnnchromAli.seq_arr = single_seq_arr}]} in 
-    let cost1, _  = cmp_min_pair_cost ch1 adjust_med in
-    let cost2, _  = cmp_min_pair_cost ch2 adjust_med in
-    let costp, _ = cmp_min_pair_cost parent adjust_med in
-    (cost1 + cost2 + costp), adjust_med, 0 <> (compare mine adjust_med)
+    let cost1, _  = cmp_min_pair_cost ch1 mine in
+    let cost2, _  = cmp_min_pair_cost ch2 mine in
+    let costp, _ = cmp_min_pair_cost parent mine in
+    let old_cost = cost1 + cost2 + costp in 
+
+
+
+    let cost, adjust_med = AnnchromAli.find_med3 ach1 ach2 aparent amine c2 c3 alpha
+        annchrom_pam in 
+    let adjust_med = {mine with med_ls = [adjust_med]} in 
+
+(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout;*)
+    if old_cost <= cost then  old_cost, mine, false
+    else cost, adjust_med, true
 
 
 let to_string (med : annchrom_t) alpha = 

@@ -352,6 +352,91 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
 
 
 
+(** Given two arrays of sequences [seq1_arr] and [seq2_arr], 
+ *  create the general cost matrix and corresponding code arrays  *)
+let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =        
+    let code = ref 0 in 
+    let codem_arr = Array.map (fun seq -> code := !code + 2; seq, (!code - 1)) seqm_arr in
+    let code1_arr = Array.map (fun seq -> code := !code + 2; seq, (!code - 1)) seq1_arr in
+    let code2_arr = Array.map (fun seq -> code := !code + 2; seq, (!code - 1)) seq2_arr in
+    let code3_arr = Array.map (fun seq -> code := !code + 2; seq, (!code - 1)) seq3_arr in
+    let gen_gap_code = !code + 1 in 
+
+
+    let cost1_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
+    let cost2_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
+    let cost3_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
+
+    cost1_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    cost2_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    cost3_mat.(gen_gap_code).(gen_gap_code) <- 0;
+    
+    let update cost_mat (seq1, code1) (seq2, code2) =
+        let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
+        let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
+        let _, _, cost, _ = UtlPoy.align2 seq1 seq2 c2 in 
+  (*      fprintf stdout "%i %i -> %i\n" code1 code2 cost;*)
+        cost_mat.(code1).(code2) <- cost;
+        cost_mat.(code2).(code1) <- cost;
+
+        let _, _, cost, _ = UtlPoy.align2 seq1 com_seq2 c2 in 
+(*        fprintf stdout "%i %i -> %i\n" code1 (-code2) cost; *)
+        cost_mat.(code1).(code2 + 1) <- cost;
+        cost_mat.(code2 + 1).(code1) <- cost;
+
+        let _, _, cost, _ = UtlPoy.align2 com_seq1 seq2 c2 in 
+(*        fprintf stdout "%i %i -> %i\n" (-code1) code2 cost; *)
+        cost_mat.(code1 + 1).(code2) <- cost;
+        cost_mat.(code2).(code1 + 1) <- cost;
+
+        let _, _, cost, _ = UtlPoy.align2 com_seq1 com_seq2 c2 in 
+(*        fprintf stdout "%i %i -> %i\n" (-code1) (-code2) cost;*)
+        cost_mat.(code1 + 1).(code2 + 1) <- cost;
+        cost_mat.(code2 + 1).(code1 + 1) <- cost;
+    in 
+
+        
+    Array.iter 
+        (fun (seqm, codem) ->
+             Array.iter (fun (seq1, code1) -> 
+                             update cost1_mat (seqm, codem) (seq1, code1)
+                        ) code1_arr;
+
+             Array.iter (fun (seq2, code2) -> 
+                             update cost2_mat (seqm, codem) (seq2, code2)
+                        ) code2_arr;
+
+             Array.iter (fun (seq3, code3) -> 
+                             update cost3_mat (seqm, codem) (seq3, code3)
+                        ) code3_arr;
+        ) codem_arr;
+
+
+    let update_gap cost_mat (seq, code) = 
+        cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_gap_cost ali_pam.locus_indel_cost seq;
+        cost_mat.(code).(gen_gap_code) <- cost_mat.(gen_gap_code).(code);
+        cost_mat.(gen_gap_code).(code + 1) <- cost_mat.(gen_gap_code).(code);
+        cost_mat.(code + 1).(gen_gap_code) <- cost_mat.(gen_gap_code).(code);
+    in 
+
+    Array.iter (update_gap cost1_mat) codem_arr;
+    Array.iter (update_gap cost1_mat) code1_arr;
+
+    Array.iter (update_gap cost2_mat) codem_arr;    
+    Array.iter (update_gap cost2_mat) code2_arr;
+
+    Array.iter (update_gap cost3_mat) codem_arr;    
+    Array.iter (update_gap cost3_mat) code3_arr;
+
+
+
+
+    let codem_arr = Array.map (fun (seq, code) -> code) codem_arr in 
+    let code1_arr = Array.map (fun (seq, code) -> code) code1_arr in 
+    let code2_arr = Array.map (fun (seq, code) -> code) code2_arr in 
+    let code3_arr = Array.map (fun (seq, code) -> code) code3_arr in 
+
+    cost1_mat, cost2_mat, cost3_mat, code1_arr, code2_arr, code3_arr, codem_arr, gen_gap_code
 
 
 (** Given two annotated chromosomes [chrom1] and [chrom2], compute 
@@ -600,6 +685,78 @@ let find_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
 
 
  
+let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam = 
+    let ali_pam = get_annchrom_pam annchrom_pam in 
+    let seq1_arr, _ = split ch1 in 
+    let seq2_arr, _ = split ch2 in 
+    let seq3_arr, _ = split ch3 in 
+    let seqm_arr, _ = split mine in 
+
+    let cost1_mat, cost2_mat, cost3_mat, code1_arr, code2_arr, code3_arr, codem_arr, gen_gap_code = 
+        create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam
+    in 
+
+    let _, _, alied_code1_arr, alied_code1m_arr = 
+        GenAli.create_gen_ali_code `Annchrom code1_arr codem_arr cost1_mat
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+    in 
+
+    let _, _, alied_code2_arr, alied_code2m_arr = 
+        GenAli.create_gen_ali_code `Annchrom code2_arr codem_arr cost2_mat
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+    in 
+
+    let _, _, alied_code3_arr, alied_code3m_arr = 
+        GenAli.create_gen_ali_code `Annchrom code3_arr codem_arr cost3_mat
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+    in 
+
+
+    let seq_arr = Array.mapi 
+        (fun ith seqt -> 
+             let seqm = seqt.seq in 
+             let codem = codem_arr.(ith) in 
+
+             let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
+                 let indexm = Utl.find_index alied_codem_arr codem compare in 
+                 let code = alied_code_arr.(indexm) in 
+                 let index = Utl.find_index code_arr code compare in 
+                 match index with 
+                 | -1 -> UtlPoy.get_empty_seq ()
+                 | _ -> seq_arr.(index).seq 
+             in 
+
+             let seq1 = get_seq ch1.seq_arr code1_arr alied_code1_arr
+                 alied_code1m_arr 
+             in 
+
+             let seq2 = get_seq ch2.seq_arr code2_arr alied_code2_arr
+                 alied_code2m_arr 
+             in 
+
+             let seq3 = get_seq ch3.seq_arr code3_arr alied_code3_arr
+                 alied_code3m_arr 
+             in 
+             
+             if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
+                 (Sequence.length seq3 = 0) then {seqt with seq = seqm}
+             else begin
+
+                 let _, median_seq, _ = Sequence.Align.readjust_3d
+                     ~first_gap:false seq1 seq2 seqm c2 c3 seq3 in
+
+                 {seqt with seq = median_seq}
+             end               
+        ) mine.seq_arr
+    in 
+    let mine = {mine with seq_arr = seq_arr} in 
+    let cost1, recost1 = cmp_cost ch1 mine c2 alpha annchrom_pam in 
+    let cost2, recost2 = cmp_cost ch2 mine c2 alpha annchrom_pam in 
+    let cost3, recost3 = cmp_cost ch3 mine c2 alpha annchrom_pam in 
+
+    (cost1 + cost2 + cost3), mine
+
+
 
 
 

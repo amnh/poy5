@@ -171,12 +171,14 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
     let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
     let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
 
     let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
 
-    let adjust_seq, cost = GenAli.create_gen_ali3 seq1 seq2 seq3 
+    let adjust_seq, cost = GenAli.create_gen_ali3 seq1 seq2 seq3 mine_seq
         ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
         ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+        ali_pam.BreakinvAli.symmetric 
     in 
     let amed = List.hd mine.med_ls in
     let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
@@ -187,9 +189,10 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let cost2, _ = cmp_min_pair_cost ch2 mine in 
     let cost3, _ = cmp_min_pair_cost parent mine in 
     let old_cost = cost1 + cost2 + cost3 in 
-(*    fprintf stdout "Cost: %i  -> adjusted cost: %i\n" old_cost cost;*)
-    if old_cost < cost then old_cost, mine, false
-    else cost, adjust_mine, 0 <> (compare mine adjust_mine)
+        
+
+    if old_cost <= cost then old_cost, mine, false
+    else cost, adjust_mine, true
 
        
     

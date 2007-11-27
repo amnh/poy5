@@ -34,6 +34,16 @@ val cmp_cost :
   int ->
   [< `Breakpoint of int | `Inversion of int ] ->
   int -> int * (int * int) * int array * int array
+
+val cmp_cost3 :
+  int array ->
+  int array ->
+  int array ->
+  int array ->
+  int array array ->
+    int -> [< `Breakpoint of int | `Inversion of int ] -> int -> bool -> int
+
+
 val find_wagner_ali :
   [> `Breakinv ] ->
   int array ->
@@ -71,7 +81,8 @@ val create_gen_ali3 :
   Sequence.s ->
   Sequence.s ->
   Sequence.s ->
+  Sequence.s ->
   int array array ->
   Alphabet.a ->
   [< `Breakpoint of int | `Inversion of int ] ->
-  'a -> int -> Sequence.s * int
+    'a -> int -> bool -> Sequence.s * int
