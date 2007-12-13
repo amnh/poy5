@@ -85,3 +85,11 @@ val to_single_root : med_t -> int -> Cost_matrix.Two_D.m -> Sequence.s
 
 val change_to_single : med_t -> Sequence.s -> Cost_matrix.Two_D.m -> med_t
 
+
+val find_med3 :
+  med_t ->
+  med_t ->
+  med_t ->
+  med_t ->
+  Cost_matrix.Two_D.m ->
+  Cost_matrix.Three_D.m -> Data.dyna_pam_t -> int * med_t

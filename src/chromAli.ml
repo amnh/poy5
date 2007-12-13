@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2417 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2495 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -766,6 +766,154 @@ let find_approx_med2 (med1 : med_t) (med2 : med_t) (med12 : med_t) =
     let ref_code2 = med2.ref_code in 
     let ref_code = Utl.get_new_chrom_ref_code () in 
     {new_med12 with ref_code = ref_code; ref_code1 = ref_code1; ref_code2 = ref_code2}
+
+
+
+let find_med3 ch1 ch2 ch3 mine c2 c3 pam = 
+    let ali_pam = ChromPam.get_chrom_pam pam in 
+    let _, _, med1m_ls = find_med2_ls ch1 mine c2 pam in
+    let _, _, med2m_ls = find_med2_ls ch2 mine c2 pam in
+    let _, _, med3m_ls = find_med2_ls ch3 mine c2 pam in
+
+    let med1m = List.hd med1m_ls in 
+    let med2m = List.hd med2m_ls in 
+    let med3m = List.hd med3m_ls in 
+    
+    let gap = Cost_matrix.Two_D.gap c2 in 
+    let create_pos chrom_map =
+        let sorted_chrom_map = List.sort 
+            (fun seg1 seg2 -> seg1.sta2 - seg2.sta2) chrom_map
+        in 
+        let pos_ls = List.fold_left 
+            (fun pos_ls seg -> 
+                 let alied_arr1 = Sequence.to_array seg.alied_seq1 in 
+                 let alied_arr2 = Sequence.to_array seg.alied_seq2 in 
+                 let p1 = ref 0 in 
+                 let num_base1 = ref 0 in 
+                 let pos_ls = Array.fold_left 
+                     (fun (pos_ls : int list) base2 -> 
+                          let base1 = alied_arr1.(!p1) in 
+                          p1:= !p1 + 1;
+                          (if base1 != gap then 
+                              num_base1 := !num_base1 + 1);
+                          if base2 = gap then pos_ls
+                          else 
+                              if (seg.dir2 = `Negative) || (seg.sta1 = -1) then (-2)::pos_ls
+                              else 
+                                  if base1 = gap then (-1)::pos_ls
+                                  else (seg.sta1 + !num_base1 - 1)::pos_ls
+                     ) pos_ls alied_arr2
+                 in 
+                 pos_ls
+            ) [] sorted_chrom_map 
+        in 
+        Array.of_list (List.rev pos_ls)
+    in  
+
+    let pos1_arr = create_pos med1m.chrom_map in 
+    let pos2_arr = create_pos med2m.chrom_map in 
+    let pos3_arr = create_pos med3m.chrom_map in 
+    
+    let mine_arr = Sequence.to_array mine.seq in 
+    let ch1_arr = Sequence.to_array ch1.seq in 
+    let ch2_arr = Sequence.to_array ch2.seq in 
+    let ch3_arr = Sequence.to_array ch3.seq in 
+    let max_3d_len = 300 in 
+
+    let mine_len = Array.length mine_arr in 
+    let rec change_med new_med f_p =
+        if f_p >= mine_len then new_med
+        else begin
+            let rec find_first f_p = 
+                if f_p = mine_len then -1, -1, -1, -1
+                else begin 
+                    let f_p1 = pos1_arr.(f_p) 
+                    and f_p2 = pos2_arr.(f_p)
+                    and f_p3 = pos3_arr.(f_p)                         
+                    in  
+                    if f_p1 >=0 && f_p2 >=0 && f_p3 >=0 then f_p, f_p1, f_p2, f_p3
+                    else find_first (f_p + 1)
+                end
+            in 
+
+            let f_p, f_p1, f_p2, f_p3 = find_first f_p in 
+            let rec find_last l_p = 
+                if l_p = f_p then -1, -1, -1, -1
+                else begin
+                    let l_p1 = pos1_arr.(l_p) 
+                    and l_p2 = pos2_arr.(l_p)
+                    and l_p3 = pos3_arr.(l_p)                         
+                    in  
+                    if (l_p1 >= 0 ) && (l_p1 > f_p1) && (l_p1 - f_p1 <= max_3d_len)
+                        && (l_p2 >= 0 ) && (l_p2 > f_p2) && (l_p2 - f_p2 <= max_3d_len)
+                        && (l_p3 >= 0 ) && (l_p3 > f_p3) && (l_p3 - f_p3 <= max_3d_len) 
+                    then l_p, l_p1, l_p2, l_p3
+                    else find_last (l_p - 1)
+               end 
+            in
+            
+            if f_p = -1 then new_med 
+            else begin
+                let max_l_p = min (f_p + max_3d_len) (mine_len - 1)  in
+                let l_p, l_p1, l_p2, l_p3 = find_last max_l_p in 
+                if l_p = -1 then 
+                    change_med new_med (max_l_p + 1)
+                else begin
+(*                    fprintf stdout "(%i, %i), (%i, %i), (%i, %i), (%i, %i)\n"
+                        f_p l_p f_p1 l_p1 f_p2 l_p2 f_p3 l_p3; flush stdout;
+*)
+                    let sub_ch1_arr = Array.sub ch1_arr f_p1 (l_p1 - f_p1 + 1) in
+                    let sub_ch2_arr = Array.sub ch2_arr f_p2 (l_p2 - f_p2 + 1) in
+                    let sub_ch3_arr = Array.sub ch3_arr f_p3 (l_p3 - f_p3 + 1) in
+                    let sub_mine_arr = Array.sub mine_arr f_p (l_p - f_p + 1) in
+
+                    let sub_seq1 = UtlPoy.of_array sub_ch1_arr in 
+                    let sub_seq2 = UtlPoy.of_array sub_ch2_arr in 
+                    let sub_seq3 = UtlPoy.of_array sub_ch3_arr in 
+                    let sub_seqm = UtlPoy.of_array sub_mine_arr in 
+
+                    if (Sequence.length sub_seq1 = 0) ||  (Sequence.length sub_seq2 = 0) ||
+                        (Sequence.length sub_seq3 = 0) then change_med new_med (l_p + 1)
+                    else begin                        
+
+                        let _, median_seq, _ = Sequence.Align.readjust_3d
+                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3 sub_seq3 
+                        in
+
+                        change_med ((f_p, l_p, median_seq)::new_med) (l_p + 1)
+                    end  
+                end                                     
+            end 
+        end 
+    in 
+
+    
+    let new_med_rev = change_med [] 0 in
+    let l_p, seq_ls = List.fold_left 
+        (fun (l_p, seq_ls) (s, e, med) ->
+             if s > l_p then begin
+                 let sub_seq = Sequence.sub mine.seq l_p (s - l_p) in 
+                 let seq_ls = med::(sub_seq::seq_ls) in 
+                 (e + 1), seq_ls
+             end else (e + 1), med::seq_ls 
+        ) (0, []) (List.rev new_med_rev) 
+    in
+    let seq_ls = 
+        if l_p < mine_len then begin
+            let sub_seq = Sequence.sub mine.seq l_p (mine_len - l_p) in  
+            sub_seq::seq_ls
+        end else seq_ls
+    in 
+    
+    let new_mine_seq = UtlPoy.concat (List.rev seq_ls) in
+    let new_mine = {mine with seq = new_mine_seq} in
+
+    let cost1, _ = cmp_cost ch1 new_mine c2 pam `Chromosome in 
+    let cost2, _ = cmp_cost ch2 new_mine c2 pam `Chromosome in 
+    let cost3, _ = cmp_cost ch3 new_mine c2 pam `Chromosome in 
+
+    cost1 + cost2 + cost3, new_mine
+
 
 
 

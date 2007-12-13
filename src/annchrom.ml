@@ -227,7 +227,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         annchrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
 
-(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout;*)
+(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout; *)
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "UtlPoy" "$Revision: 2238 $"
+let () = SadmanOutput.register "UtlPoy" "$Revision: 2495 $"
 
 let fprintf = Printf.fprintf
 
@@ -366,6 +366,7 @@ let check_repeated_char seq alpha =
     check_char 0 1 
 
     
+
 let create_general_ali code1_arr code2_arr gap_code cost_mat =
 (*    print_endline "Create general alignment"; *)
 
