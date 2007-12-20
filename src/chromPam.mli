@@ -45,6 +45,7 @@ type chromPairAliPam_t = {
   chrom_indel_cost : int * int;
   chrom_hom : int;
   circular : int;
+  max_3d_len : int;
 }
 val chromPairAliPam_default : chromPairAliPam_t
 val get_chrom_pam : Data.dyna_pam_t -> chromPairAliPam_t

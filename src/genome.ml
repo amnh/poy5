@@ -258,3 +258,29 @@ let copy_chrom_map s_ch d_ch =
              ) d_ch.med_ls
     in 
     {d_ch with med_ls = copied_med_ls}
+
+
+
+
+
+let readjust_3d ch1 ch2 mine c2 c3 parent = 
+    let chrom_pam = mine.chrom_pam in 
+
+    let ach1 = List.hd ch1.med_ls in 
+    let ach2 = List.hd ch2.med_ls in
+    let amine = List.hd mine.med_ls in
+    let aparent = List.hd parent.med_ls in
+    
+    let cost1, _  = cmp_min_pair_cost ch1 mine in
+    let cost2, _  = cmp_min_pair_cost ch2 mine in
+    let costp, _ = cmp_min_pair_cost parent mine in
+    let old_cost = cost1 + cost2 + costp in 
+
+
+    let cost, adjust_med = GenomeAli.find_med3 ach1 ach2 aparent amine c2 c3
+        chrom_pam in 
+    let adjust_med = {mine with med_ls = [adjust_med]} in 
+
+(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout; *)
+    if old_cost <= cost then  old_cost, mine, false
+    else cost, adjust_med, true

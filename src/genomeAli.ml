@@ -1505,3 +1505,165 @@ let create_genome () =
 
 
 
+
+let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam = 
+    print_endline "Find_med3 at genomeAli";
+    let _, _, med1m_ls = find_med2_ls  ch1 mine cost_mat pam in
+    let _, _, med2m_ls = find_med2_ls  ch2 mine cost_mat pam in
+    let _, _, med3m_ls = find_med2_ls  ch3 mine cost_mat pam in
+
+    let med1m = List.hd med1m_ls in
+    let med2m = List.hd med2m_ls in
+    let med3m = List.hd med3m_ls in
+    let gap = Cost_matrix.Two_D.gap cost_mat in
+
+    let num_mine_chrom = Array.length mine.chrom_arr in
+
+    let create_pos genome_med =
+        let pos_mat = Array.init num_mine_chrom 
+            (fun chi -> 
+                 let li = Sequence.length mine.chrom_arr.(chi).seq in 
+                 Array.init li (fun _ -> (-1, -2))
+            )
+        in 
+        Array.iter 
+            (fun chrom -> 
+                 List.iter 
+                     (fun seg ->
+                          let c1 = seg.chi1_chrom_id in 
+                          let c2 = seg.chi2_chrom_id in 
+                          if (c1 >= 0) && (c2 >= 0)  && (seg.sta1 >= 0) && (seg.sta2 >= 0) then begin
+                              let num1 = ref 0 in 
+                              let num2 = ref 0 in 
+                              let ali_len = Sequence.length seg.alied_med in 
+                              let ali1 = seg.alied_seq1 in
+                              let ali2 = seg.alied_seq2 in  
+
+                              for p = 0 to ali_len -1 do
+                                  let b1 = Sequence.get ali1 p in
+                                  let b2 = Sequence.get ali2 p in 
+                                  (if b1 != gap then incr num1);
+                                  (if b2 != gap then begin
+                                       incr num2;
+                                       (pos_mat.(c2).(seg.sta2 + !num2 - 1) <- 
+                                            if b1 = gap then (c1, -1)
+                                            else (c1, seg.sta1 + !num1 - 1));
+                                   end);
+                                  
+                              done;
+                          end  
+                     ) chrom.map;
+            ) genome_med.chrom_arr;
+        pos_mat
+    in 
+
+    let pos1_mat = create_pos med1m in 
+    let pos2_mat = create_pos med2m in 
+    let pos3_mat = create_pos med3m in 
+
+    let aliPam = ChromPam.get_chrom_pam pam in 
+    let max_3d_len = aliPam.ChromPam.max_3d_len in
+    
+    
+    let rec detect_change chrom new_med f_p =
+        let mine_len = Sequence.length chrom.seq  in 
+        let c_id = !(chrom.chrom_id) in
+        if f_p >= mine_len then new_med 
+        else begin
+            let rec find_first f_p = 
+                if f_p = mine_len then (-1, -1), (-1, -1),(-1, -1), (-1, -1)
+                else begin 
+                    let c1, f_p1 = pos1_mat.(c_id).(f_p) 
+                    and c2, f_p2 = pos2_mat.(c_id).(f_p)
+                    and c3, f_p3 = pos3_mat.(c_id).(f_p)                         
+                    in  
+                    if (c1 >= 0 && f_p1 >=0) && (c2 >= 0 && f_p2 >=0) && 
+                        (c3 >= 0 && f_p3 >=0) then (c_id, f_p), (c1, f_p1), (c2, f_p2), (c3, f_p3)
+                    else find_first (f_p + 1)
+                end
+            in 
+
+            let (_, f_p), (c1, f_p1), (c2, f_p2), (c3, f_p3) = find_first f_p in 
+            let rec find_last l_p = 
+                if l_p = f_p then (-1, -1), (-1, -1), (-1, -1), (-1, -1)
+                else begin
+                    let lc1, l_p1 = pos1_mat.(c_id).(l_p) 
+                    and lc2, l_p2 = pos2_mat.(c_id).(l_p)
+                    and lc3, l_p3 = pos3_mat.(c_id).(l_p)                         
+                    in  
+
+                    if (c1 = lc1) && (l_p1 >= 0 ) && (l_p1 > f_p1) && (l_p1 - f_p1 <= max_3d_len)
+                        && (c2 = lc2) && (l_p2 >= 0 ) && (l_p2 > f_p2) && (l_p2 - f_p2 <= max_3d_len)
+                        && (c3 = lc3) && (l_p3 >= 0 ) && (l_p3 > f_p3) && (l_p3 - f_p3 <= max_3d_len) 
+                    then (c_id, l_p), (c1, l_p1), (c2, l_p2), (c3, l_p3)
+                    else find_last (l_p - 1)
+               end 
+            in
+            
+            if f_p = -1 then new_med 
+            else begin
+                let max_l_p = min (f_p + max_3d_len) (mine_len - 1)  in
+                let (_, l_p), (_, l_p1), (_, l_p2), (_, l_p3) = find_last max_l_p in 
+                if l_p = -1 then 
+                    detect_change chrom new_med (max_l_p + 1)
+                else begin
+(*                    fprintf stdout "(%i, %i), (%i, %i), (%i, %i), (%i, %i)\n"
+                        f_p l_p f_p1 l_p1 f_p2 l_p2 f_p3 l_p3; flush stdout;
+*)
+
+
+                    let sub_seq1 = Sequence.sub ch1.chrom_arr.(c1).seq f_p1 (l_p1 - f_p1 + 1) in
+                    let sub_seq2 = Sequence.sub ch2.chrom_arr.(c2).seq f_p2 (l_p2 - f_p2 + 1) in
+                    let sub_seq3 = Sequence.sub ch3.chrom_arr.(c3).seq f_p3(l_p3 - f_p3 + 1) in
+                    let sub_seqm = Sequence.sub mine.chrom_arr.(c_id).seq f_p (l_p - f_p + 1) in
+
+
+
+                    if (Sequence.length sub_seq1 = 0) ||  (Sequence.length sub_seq2 = 0) ||
+                        (Sequence.length sub_seq3 = 0) then detect_change chrom new_med (l_p + 1)
+                    else begin                        
+
+                        let _, median_seq, _ = Sequence.Align.readjust_3d
+                            ~first_gap:false sub_seq1 sub_seq2 sub_seqm cost_mat cost_cube sub_seq3 
+                        in
+
+                        detect_change chrom ((c_id, f_p, l_p, median_seq)::new_med) (l_p + 1)
+                    end  
+                end                                     
+            end 
+        end 
+    in 
+
+    let change_chrom chrom = 
+        let new_med_rev = detect_change chrom [] 0 in         
+        let l_p, seq_ls = List.fold_left 
+            (fun (l_p, seq_ls) (c_id, s, e, med) ->
+                 if s > l_p then begin
+                     let sub_seq = Sequence.sub chrom.seq l_p (s - l_p) in 
+                     let seq_ls = med::(sub_seq::seq_ls) in 
+                     (e + 1), seq_ls
+                 end else (e + 1), med::seq_ls 
+            ) (0, []) (List.rev new_med_rev) 
+        in
+
+        let mine_len = Sequence.length chrom.seq  in 
+        let seq_ls = 
+            if l_p < mine_len then begin
+                let sub_seq = Sequence.sub chrom.seq l_p (mine_len - l_p) in  
+                sub_seq::seq_ls 
+            end else seq_ls 
+        in  
+    
+        let new_seq = UtlPoy.concat (List.rev seq_ls) in
+        let new_chrom = {chrom with seq = new_seq} in
+        new_chrom
+    in 
+
+    let new_chrom_arr = Array.map change_chrom mine.chrom_arr in 
+    let new_mine = {mine with chrom_arr = new_chrom_arr} in 
+
+    let cost1, _ = cmp_cost ch1 new_mine cost_mat pam in
+    let cost2, _ = cmp_cost ch2 new_mine cost_mat pam in
+    let cost3, _ = cmp_cost ch3 new_mine cost_mat pam in
+
+    cost1 + cost2 + cost3, new_mine

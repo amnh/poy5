@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2495 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2497 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -813,15 +813,11 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
     let pos1_arr = create_pos med1m.chrom_map in 
     let pos2_arr = create_pos med2m.chrom_map in 
     let pos3_arr = create_pos med3m.chrom_map in 
-    
-    let mine_arr = Sequence.to_array mine.seq in 
-    let ch1_arr = Sequence.to_array ch1.seq in 
-    let ch2_arr = Sequence.to_array ch2.seq in 
-    let ch3_arr = Sequence.to_array ch3.seq in 
-    let max_3d_len = 300 in 
 
-    let mine_len = Array.length mine_arr in 
-    let rec change_med new_med f_p =
+    let max_3d_len = ali_pam.ChromPam.max_3d_len in 
+    let mine_len = Sequence.length mine.seq in
+
+    let rec detect_change new_med f_p =
         if f_p >= mine_len then new_med
         else begin
             let rec find_first f_p = 
@@ -857,30 +853,26 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
                 let max_l_p = min (f_p + max_3d_len) (mine_len - 1)  in
                 let l_p, l_p1, l_p2, l_p3 = find_last max_l_p in 
                 if l_p = -1 then 
-                    change_med new_med (max_l_p + 1)
+                    detect_change new_med (max_l_p + 1)
                 else begin
 (*                    fprintf stdout "(%i, %i), (%i, %i), (%i, %i), (%i, %i)\n"
                         f_p l_p f_p1 l_p1 f_p2 l_p2 f_p3 l_p3; flush stdout;
 *)
-                    let sub_ch1_arr = Array.sub ch1_arr f_p1 (l_p1 - f_p1 + 1) in
-                    let sub_ch2_arr = Array.sub ch2_arr f_p2 (l_p2 - f_p2 + 1) in
-                    let sub_ch3_arr = Array.sub ch3_arr f_p3 (l_p3 - f_p3 + 1) in
-                    let sub_mine_arr = Array.sub mine_arr f_p (l_p - f_p + 1) in
+                    let sub_seq1 = Sequence.sub ch1.seq f_p1 (l_p1 - f_p1 + 1) in
+                    let sub_seq2 = Sequence.sub ch2.seq f_p2 (l_p2 - f_p2 + 1) in
+                    let sub_seq3 = Sequence.sub ch3.seq f_p3(l_p3 - f_p3 + 1) in
+                    let sub_seqm = Sequence.sub mine.seq f_p (l_p - f_p + 1) in
 
-                    let sub_seq1 = UtlPoy.of_array sub_ch1_arr in 
-                    let sub_seq2 = UtlPoy.of_array sub_ch2_arr in 
-                    let sub_seq3 = UtlPoy.of_array sub_ch3_arr in 
-                    let sub_seqm = UtlPoy.of_array sub_mine_arr in 
 
                     if (Sequence.length sub_seq1 = 0) ||  (Sequence.length sub_seq2 = 0) ||
-                        (Sequence.length sub_seq3 = 0) then change_med new_med (l_p + 1)
+                        (Sequence.length sub_seq3 = 0) then detect_change new_med (l_p + 1)
                     else begin                        
 
                         let _, median_seq, _ = Sequence.Align.readjust_3d
                             ~first_gap:false sub_seq1 sub_seq2 sub_seqm c2 c3 sub_seq3 
                         in
 
-                        change_med ((f_p, l_p, median_seq)::new_med) (l_p + 1)
+                        detect_change ((f_p, l_p, median_seq)::new_med) (l_p + 1)
                     end  
                 end                                     
             end 
@@ -888,7 +880,7 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
     in 
 
     
-    let new_med_rev = change_med [] 0 in
+    let new_med_rev = detect_change [] 0 in
     let l_p, seq_ls = List.fold_left 
         (fun (l_p, seq_ls) (s, e, med) ->
              if s > l_p then begin

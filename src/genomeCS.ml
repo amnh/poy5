@@ -388,3 +388,45 @@ let copy_chrom_map s_ch d_ch =
 
 
 
+let readjust to_adjust modified ch1 ch2 parent mine = 
+    let empty = IntMap.empty and
+            c2 = parent.c2 and
+            c3 = parent.c3 
+    in
+
+    let adjusted code parent_chrom acc =
+        let to_adjust =
+            match to_adjust with
+            | None -> All_sets.Integers.singleton code
+            | Some x -> x
+        in
+        let (modified, res_medians, res_costs, total) = acc in
+        let my_chrom = IntMap.find code mine.meds
+        and ch1_chrom = IntMap.find code ch1.meds
+        and ch2_chrom = IntMap.find code ch2.meds in
+        if (not (All_sets.Integers.mem code to_adjust)) then 
+            let new_costs = IntMap.add code 0. res_costs 
+            and new_single = IntMap.add code my_chrom res_medians in
+            modified, new_single, new_costs, total
+        else begin
+            let rescost, seqm, changed = 
+                Genome.readjust_3d ch1_chrom ch2_chrom my_chrom
+                    c2 c3 parent_chrom
+            in
+            let new_single = IntMap.add code seqm res_medians
+            and new_costs = IntMap.add code (float_of_int rescost) res_costs 
+            and new_total = total + rescost in
+            let modified = 
+                if changed then All_sets.Integers.add code modified
+                else modified
+            in
+            modified, new_single, new_costs, new_total        
+        end 
+    in 
+    let modified, meds, costs, total_cost = 
+        IntMap.fold adjusted parent.meds (modified, empty, empty, 0)
+    in
+    let tc = float_of_int total_cost in
+    modified,
+    tc,
+    { mine with meds = meds; costs = costs; total_cost = tc }

@@ -474,7 +474,15 @@ let readjust to_adjust modified ch1 ch2 parent mine =
               BreakinvCS.readjust to_adjust modified ch1 ch2 parent mine in
           let prev_cost = BreakinvCS.distance ch1 mine +. BreakinvCS.distance ch2 mine in
           modified, prev_cost, new_cost, (BreakinvCS nc)
+
+
+    | GenomeCS ch1, GenomeCS ch2, GenomeCS parent, GenomeCS mine ->
+          let modified, new_cost, nc = 
+              GenomeCS.readjust to_adjust modified ch1 ch2 parent mine in
+          let prev_cost = GenomeCS.distance ch1 mine +. GenomeCS.distance ch2 mine in
+          modified, prev_cost, new_cost, (GenomeCS nc)
               
+
     | _, _, _, mine ->  
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine

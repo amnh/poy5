@@ -89,3 +89,6 @@ val to_formatter :
 val get_active_ref_code : t -> IntSet.t * IntSet.t
 val to_single : IntSet.t -> t option -> t -> t -> float * float * t
 val copy_chrom_map : t -> t -> t
+val readjust :
+  All_sets.Integers.t option ->
+  All_sets.Integers.t -> t -> t -> t -> t -> All_sets.Integers.t * float * t

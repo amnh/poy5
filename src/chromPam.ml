@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "ChromPam" "$Revision: 2264 $"
+let () = SadmanOutput.register "ChromPam" "$Revision: 2497 $"
 
 (** Chromosome parameters
  *
@@ -85,6 +85,9 @@ type chromPairAliPam_t = {
     chrom_indel_cost : (int * int);
     chrom_hom : int; (* if cost > threshold * min_cost,  then not homologous *)
     circular : int;
+
+
+    max_3d_len : int;
 }
 
 
@@ -121,8 +124,10 @@ let chromPairAliPam_default = {
     locus_indel_cost = (10, 100);
     chrom_indel_cost = (10, 100);
     chrom_hom = 200;
-
+    
     circular = 0;
+
+    max_3d_len = 200;
 }
 
 
@@ -240,6 +245,8 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
 
     circular = donor.circular;
     symmetric = donor.symmetric;
+
+    max_3d_len = donor.max_3d_len
 }
 
 

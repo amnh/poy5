@@ -41,3 +41,9 @@ val compare : meds_t -> meds_t -> int
 val clean_median : 'a -> 'b -> 'a * 'b
 val get_active_ref_code : meds_t -> int * int * int
 val copy_chrom_map : meds_t -> meds_t -> meds_t
+val readjust_3d :
+  meds_t ->
+  meds_t ->
+  meds_t ->
+  Cost_matrix.Two_D.m ->
+  Cost_matrix.Three_D.m -> meds_t -> int * meds_t * bool
