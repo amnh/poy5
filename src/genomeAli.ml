@@ -1515,11 +1515,27 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
     let med1m = List.hd med1m_ls in
     let med2m = List.hd med2m_ls in
     let med3m = List.hd med3m_ls in
+
     let gap = Cost_matrix.Two_D.gap cost_mat in
 
     let num_mine_chrom = Array.length mine.chrom_arr in
 
-    let create_pos genome_med =
+    let get_chrom_id_map genome = 
+        let max_chrom_id = Array.fold_left 
+            (fun max_id chrom -> max max_id  !(chrom.chrom_id)) 0 genome.chrom_arr
+        in 
+        let map_id = Array.make (max_chrom_id + 1) 0 in 
+        Array.iteri (fun idx chrom -> map_id.(!(chrom.chrom_id)) <- idx) genome.chrom_arr;
+        map_id;
+    in 
+
+    let map1_id = get_chrom_id_map ch1 in 
+    let map2_id = get_chrom_id_map ch2 in 
+    let map3_id = get_chrom_id_map ch3 in 
+    let mapm_id = get_chrom_id_map mine in 
+
+
+    let create_pos map_id genome_med =
         let pos_mat = Array.init num_mine_chrom 
             (fun chi -> 
                  let li = Sequence.length mine.chrom_arr.(chi).seq in 
@@ -1530,8 +1546,8 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
             (fun chrom -> 
                  List.iter 
                      (fun seg ->
-                          let c1 = seg.chi1_chrom_id in 
-                          let c2 = seg.chi2_chrom_id in 
+                          let c1 = map_id.(seg.chi1_chrom_id) in 
+                          let c2 = mapm_id.(seg.chi2_chrom_id) in 
                           if (c1 >= 0) && (c2 >= 0)  && (seg.sta1 >= 0) && (seg.sta2 >= 0) then begin
                               let num1 = ref 0 in 
                               let num2 = ref 0 in 
@@ -1552,14 +1568,14 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
                                   
                               done;
                           end  
-                     ) chrom.map;
+                     ) (List.filter (fun seg -> seg.dir2 = `Positive) chrom.map);
             ) genome_med.chrom_arr;
         pos_mat
     in 
 
-    let pos1_mat = create_pos med1m in 
-    let pos2_mat = create_pos med2m in 
-    let pos3_mat = create_pos med3m in 
+    let pos1_mat = create_pos map1_id med1m in 
+    let pos2_mat = create_pos map2_id med2m in 
+    let pos3_mat = create_pos map3_id med3m in 
 
     let aliPam = ChromPam.get_chrom_pam pam in 
     let max_3d_len = aliPam.ChromPam.max_3d_len in
@@ -1607,14 +1623,9 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
                 if l_p = -1 then 
                     detect_change chrom new_med (max_l_p + 1)
                 else begin
-(*                    fprintf stdout "(%i, %i), (%i, %i), (%i, %i), (%i, %i)\n"
-                        f_p l_p f_p1 l_p1 f_p2 l_p2 f_p3 l_p3; flush stdout;
-*)
-
-
                     let sub_seq1 = Sequence.sub ch1.chrom_arr.(c1).seq f_p1 (l_p1 - f_p1 + 1) in
                     let sub_seq2 = Sequence.sub ch2.chrom_arr.(c2).seq f_p2 (l_p2 - f_p2 + 1) in
-                    let sub_seq3 = Sequence.sub ch3.chrom_arr.(c3).seq f_p3(l_p3 - f_p3 + 1) in
+                    let sub_seq3 = Sequence.sub ch3.chrom_arr.(c3).seq f_p3 (l_p3 - f_p3 + 1) in
                     let sub_seqm = Sequence.sub mine.chrom_arr.(c_id).seq f_p (l_p - f_p + 1) in
 
 
