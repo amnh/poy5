@@ -73,6 +73,7 @@ type dyna_pam_t = {
     in refining alignments with rearrangements *)
     approx : bool option;
     symmetric : bool option;
+    max_3d_len : int option;
 }
 
 let dyna_pam_default ={ 
@@ -89,6 +90,7 @@ let dyna_pam_default ={
     swap_med = Some 1;
     approx = Some false;
     symmetric = Some false;
+    max_3d_len = Some 100;
 }
 
 type dynamic_hom_spec = {
@@ -1869,7 +1871,8 @@ let set_dyna_pam dyna_pam_ls =
                 {dyna_pam with keep_median = Some c}
         | `SwapMed c -> {dyna_pam with swap_med = Some c}    
         | `Approx c  -> {dyna_pam with approx = Some c} 
-        | `Symmetric c  -> {dyna_pam with symmetric = Some c}) 
+        | `Symmetric c  -> {dyna_pam with symmetric = Some c}
+        | `Max_3D_Len c -> {dyna_pam with max_3d_len = Some c}) 
     ~init:dyna_pam_default dyna_pam_ls
 
 let get_dynas data dyna_code = 

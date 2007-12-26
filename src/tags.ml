@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tags" "$Revision: 2469 $"
+let () = SadmanOutput.register "Tags" "$Revision: 2501 $"
 
 type tag = string
 type value = tag
@@ -150,6 +150,7 @@ module Characters = struct
     let swap_med = "swap_med"
     let approx = "approx"
     let symmetric = "symmetric"
+    let max_3d_len = "max_3d_len"
 end
 
 module Nodes = struct

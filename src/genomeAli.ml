@@ -1507,7 +1507,6 @@ let create_genome () =
 
 
 let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam = 
-    print_endline "Find_med3 at genomeAli";
     let _, _, med1m_ls = find_med2_ls  ch1 mine cost_mat pam in
     let _, _, med2m_ls = find_med2_ls  ch2 mine cost_mat pam in
     let _, _, med3m_ls = find_med2_ls  ch3 mine cost_mat pam in

@@ -77,6 +77,9 @@ type dyna_pam_t = {
                     * the chromosome side). *)
     approx : bool option; (* Convert the chromosomes into Sankoff characters *)
     symmetric : bool option; 
+    max_3d_len : int option; (* maximum length used to align 3 sequences in order to
+                   | reduce the time consuming *)
+
 }
 
 type dynamic_hom_spec = {

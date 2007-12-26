@@ -68,13 +68,13 @@ type chromosome_args = [
     | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
     | `Rearranged_Len of int (* t's believed that no rearrangments or
                                     reversions happened within a segment whose length < rearranged_len *)
-
-
     | `Seed_Len of int
     | `Keep_Median of int 
     | `SwapMed of int 
     | `Approx of bool
     | `Symmetric of bool 
+    | `Max_3D_Len of int (* maximum length used to align 3 sequences in order to
+                            | reduce the time consuming*)
 ]
 
 
@@ -1176,7 +1176,9 @@ let create_expr () =
                       `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 
                 [ LIDENT "approx"; ":"; ans = boolean -> `Approx ans] |
-                [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] 
+                [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
+                [ LIDENT "max_3d_len"; ":"; l = INT -> 
+                      `Max_3D_Len (int_of_string l) ]  
             ];
 
         (* Applications *)
