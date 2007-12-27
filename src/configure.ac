@@ -186,7 +186,7 @@ AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
-AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt])
+AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt exp])
 
 AC_CONFIG_FILES([Makefile
                  graphps/Makefile
