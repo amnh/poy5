@@ -35,6 +35,7 @@ USEINTERFACE := @USEINTERFACE@
 USEGRAPHICS := @USEGRAPHICS@
 USESHAREDHD := @USESHAREDHD@
 USE_XSLT := @USE_XSLT@
+USE_LIKELIHOOD := @USE_LIKELIHOOD@
 USE_VERIFY_COSTS := @USE_VERIFY_COSTS@
 OCAML := @OCAML@
 OCAMLC := @OCAMLC@
@@ -66,6 +67,12 @@ XSLT_COMPONENTS :=
 ifeq ($(USE_XSLT), true)
 	XSLT_COMPONENTS := mlxslt.o xslt.cmo
 	DEFOPTS := -DUSE_XSLT $(DEFOPTS)
+endif
+DEFOPTS :=
+LIKELIHOOD_COMPONENTS :=
+ifeq ($(USE_LIKELIHOOD), true)
+	LIKELIHOOD_COMPONENTS := likelihood.o mlStaticCS.cmo
+	DEFOPTS := -DUSE_LIKELIHOOD $(DEFOPTS)
 endif
 
 ifeq ($(USEINTERFACE), ncurses)
@@ -232,7 +239,8 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
 	array_ops.cmo $(PARSER) distances.cma methods.cmo $(CHARACTER) \
 	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
-	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) scripting.cmo 
+	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
+	scripting.cmo $(LIKELIHOOD_COMPONENTS)
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo main.cmo
 
