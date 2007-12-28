@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "ChromPam" "$Revision: 2501 $"
+let () = SadmanOutput.register "ChromPam" "$Revision: 2508 $"
 
 (** Chromosome parameters
  *
@@ -88,6 +88,7 @@ type chromPairAliPam_t = {
 
 
     max_3d_len : int;
+    detected_3d_len : int;
 }
 
 
@@ -127,7 +128,8 @@ let chromPairAliPam_default = {
     
     circular = 0;
 
-    max_3d_len = 100;
+    max_3d_len = max_int;
+    detected_3d_len = 200;
 }
 
 
@@ -253,7 +255,8 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
     circular = donor.circular;
     symmetric = donor.symmetric;
 
-    max_3d_len = donor.max_3d_len
+    max_3d_len = donor.max_3d_len;
+    detected_3d_len = donor.detected_3d_len;
 }
 
 

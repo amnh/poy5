@@ -1577,7 +1577,7 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
     let pos3_mat = create_pos map3_id med3m in 
 
     let aliPam = ChromPam.get_chrom_pam pam in 
-    let max_3d_len = aliPam.ChromPam.max_3d_len in
+    let max_3d_len = max aliPam.ChromPam.detected_3d_len aliPam.ChromPam.max_3d_len in
     
     
     let rec detect_change chrom new_med f_p =

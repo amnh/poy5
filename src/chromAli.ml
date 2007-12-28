@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2497 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2508 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -814,7 +814,7 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
     let pos2_arr = create_pos med2m.chrom_map in 
     let pos3_arr = create_pos med3m.chrom_map in 
 
-    let max_3d_len = ali_pam.ChromPam.max_3d_len in 
+    let max_3d_len = max ali_pam.ChromPam.detected_3d_len ali_pam.ChromPam.max_3d_len in 
     let mine_len = Sequence.length mine.seq in
 
     let rec detect_change new_med f_p =
