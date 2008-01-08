@@ -79,13 +79,10 @@ AS_IF([test $USE_LIKELIHOOD = "true"],
             [AC_CHECK_LIB([lapack], [cblas_dgemm],
                 #everything is peachy-keen...
                 [LIBS="-llapack $LIBS"; AC_DEFINE(HAVE_LIBLAPACK) ],
-                #shiat!
                 [AC_MSG_FAILURE([The cblas routine for matrix multiplication was not found])]
             )],
-            #shiat 2
             [AC_MSG_FAILURE([The lapack routine for general eigenvalue problems not found])]
         )],
-        #shiat 3
         [AC_MSG_FAILURE([The lapack routine for symmetric eigenvalue problems not found])]
     )])
 
@@ -186,7 +183,7 @@ AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STAT
-AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt exp])
+AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
 AC_CONFIG_FILES([Makefile
                  graphps/Makefile

@@ -68,10 +68,11 @@ ifeq ($(USE_XSLT), true)
 	XSLT_COMPONENTS := mlxslt.o xslt.cmo
 	DEFOPTS := -DUSE_XSLT $(DEFOPTS)
 endif
-DEFOPTS :=
+LIKELIHOOD_CHAR :=
 LIKELIHOOD_COMPONENTS :=
 ifeq ($(USE_LIKELIHOOD), true)
 	LIKELIHOOD_COMPONENTS := likelihood.o mlStaticCS.cmo
+	LIKELIHOOD_CHAR := mlStaticCS.cmo
 	DEFOPTS := -DUSE_LIKELIHOOD $(DEFOPTS)
 endif
 
@@ -195,7 +196,7 @@ BREAKINV_OBJS = breakinvAli.cmo breakinv.cmo breakinvCS.cmo
 ANNCHROM_OBJS = annchromAli.cmo annchrom.cmo annchromCS.cmo
 
 CHARACTER = char_add.cmo char_nonadd.cmo \
-	mlStaticCS.cmo sankCS.cmo seqCS.cmo $(CHROM_OBJS) $(GENOME_OBJS) $(BREAKINV_OBJS) $(ANNCHROM_OBJS) \
+	$(LIKELIHOOD_CHAR) sankCS.cmo seqCS.cmo $(CHROM_OBJS) $(GENOME_OBJS) $(BREAKINV_OBJS) $(ANNCHROM_OBJS) \
 	dynamicCS.cmo kolmoCS.cmo nodeSig.cmo node.cmo allDirNode.cmo edge.cmo \
 	characterScripting.cmo  metric.cmo 
 
@@ -218,7 +219,8 @@ TREE = enum.cmo bitSet.cmo tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	mst.cmo build.cmo 
 
 DISTANCE_LIBS = character.cmo addCS.cmo memstack.o add.o nonaddCS8.cmo \
-	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o
+	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o \
+	$(LIKELIHOOD_COMPONENTS)
 
 SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	primes.cmo fingerPrint.cmo sequence.cmo zarr.o avl.o \
@@ -240,7 +242,7 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	array_ops.cmo $(PARSER) distances.cma methods.cmo $(CHARACTER) \
 	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
 	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
-	scripting.cmo $(LIKELIHOOD_COMPONENTS)
+	scripting.cmo
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo main.cmo
 
@@ -471,7 +473,6 @@ help.html: help.txt ocaml-str helpRead.ml
 # Static loading to support OS X and Cygwin...
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
-
 # Poy Parser needs to be preprocessed and remove the unsafe option
 poyParser.cmo: poyParser.ml
 	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
@@ -507,6 +508,12 @@ seqCS.cmo: tags.cmo status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
 seqCS.cmx: tags.cmx status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
     intSpec.cmi data.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi seqCS.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c seqCS.ml
+node.cmi: node.mli
+	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.mli
+node.cmo: node.cmi node.ml
+	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.ml
+node.cmx: node.cmi node.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c node.ml
 scripting.cmo: scripting.cmi scripting.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) scripting.ml
 scripting.cmx: scripting.cmi scripting.ml
@@ -529,7 +536,7 @@ statusCommon.cmx: statusCommon.ml
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .c .o
 
-OPTIONPREPROCESSED = seqCS.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml 
+OPTIONPREPROCESSED = node.mli node.ml seqCS.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
 .depend: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
