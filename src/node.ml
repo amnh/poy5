@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2475 $"
+let () = SadmanOutput.register "Node" "$Revision: 2520 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -25,6 +25,8 @@ let debug_exclude = false
 let debug_sets = false
 let debug_set_cost = false
 let odebug = Status.user_message Status.Information
+
+let likelihood_error = "Likelihood not enabled: download different binary or contact mailing list" 
 
 module IntSet = All_sets.Integers
 
@@ -91,6 +93,12 @@ let ct_verify sa =
           then assert (l <> r);
           assert (List.length list = List.length sa.set)
 
+IFDEF USE_LIKELIHOOD THEN
+type ml_rep = MlStaticCS.t r
+ELSE
+type ml_rep = unit
+END
+
 type cs = 
     | Nonadd8 of NonaddCS8.t r 
     | Nonadd16 of NonaddCS16.t r 
@@ -100,7 +108,7 @@ type cs =
     | Dynamic of DynamicCS.t r
     | Kolmo of KolmoCS.t r
     | Set of cs css r
-    | StaticMl of MlStaticCS.t r
+    | StaticMl of ml_rep
 
 let rec to_string_ch ch1 =
     match ch1 with
@@ -125,8 +133,11 @@ let rec to_string_ch ch1 =
     | Kolmo a ->
             ("kolmo: " ^ KolmoCS.to_string a.final)
     | StaticMl a ->
+        IFDEF USE_LIKELIHOOD THEN
             ("static ML: " ^ MlStaticCS.to_string a.preliminary)
-
+        ELSE
+            failwith likelihood_error
+        END
 let extract_cost = function
     | Nonadd8 v -> v.cost
     | Nonadd16 v -> v.cost
@@ -136,7 +147,12 @@ let extract_cost = function
     | Dynamic v -> v.cost
     | Set v -> v.cost
     | Kolmo v -> v.cost
-    | StaticMl v -> v.cost
+    | StaticMl v -> 
+        IFDEF USE_LIKELIHOOD THEN
+            v.cost
+        ELSE
+            failwith likelihood_error
+        END
 
 (** Helper function for recursing into sets *)
 let setrec a fn = { a with set = List.map fn a.set }
@@ -216,7 +232,12 @@ let cs_prelim_to_final a =
 
 let rec prelim_to_final =
     function
-        | StaticMl a -> StaticMl (cs_prelim_to_final a)
+        | StaticMl a -> 
+            IFDEF USE_LIKELIHOOD THEN        
+                StaticMl (cs_prelim_to_final a)
+            ELSE
+                failwith likelihood_error
+            END
         | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
         | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
         | Nonadd32 a -> Nonadd32 (cs_prelim_to_final a)
@@ -239,15 +260,9 @@ let float_close ?(epsilon=0.001) a b =
 let rec cs_median anode bnode prev a b = 
     match a, b with 
     | StaticMl ca, StaticMl cb ->
+        IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
-            let prev =
-                match prev with
-                | None -> None
-                | Some (StaticMl prev) -> Some prev.preliminary
-                | _ -> assert false
-            in
-            let median = MlStaticCS.median prev ca.preliminary 
-                                            cb.preliminary ca.time cb.time in
+            let median = MlStaticCS.median ca.preliminary cb.preliminary ca.time cb.time in
             let n_cost = MlStaticCS.root_cost median in
             let res =
                 { ca with 
@@ -257,8 +272,10 @@ let rec cs_median anode bnode prev a b =
                     sum_cost = n_cost;
                 } 
             in
-            (* success:: Printf.printf "%f \t== %f\n" n_cost res.cost; *)
             StaticMl res
+        ELSE
+            failwith likelihood_error
+        END
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
             let prev =
@@ -680,12 +697,16 @@ let median code old a b =
 let rec cs_reroot_median na nb old a b =
     match old, a, b with
     | StaticMl old, StaticMl a, StaticMl b ->
+        IFDEF USE_LIKELIHOOD THEN
         let median = MlStaticCS.reroot_median a.final b.final
                                                 a.time b.time in
         let n_cost = MlStaticCS.root_cost median in
         StaticMl { old with 
             preliminary = median; final = median;
             cost = n_cost *. a.weight; sum_cost = n_cost *. a.weight; } 
+        ELSE
+            failwith likelihood_error
+        END
     | Nonadd8 old, Nonadd8 a, Nonadd8 b ->
           let median = NonaddCS8.reroot_median a.final b.final in
           Nonadd8 { old with preliminary = median; final = median; }
@@ -839,7 +860,11 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
         | Kolmo a, Kolmo b ->
               KolmoCS.compare_data a.preliminary b.preliminary
         | StaticMl a, StaticMl b ->
+            IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.preliminary b.preliminary
+            ELSE
+                failwith likelihood_error
+            END
         | Set { preliminary = { set = a } }, Set {preliminary = { set = b }} ->
               (* See above... *)
               -1
@@ -906,7 +931,11 @@ let edge_distance clas nodea nodeb =
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
+            IFDEF USE_LIKELIHOOD THEN
                 a.weight *. (MlStaticCS.distance a.final b.final a.time b.time)
+            ELSE
+                failwith likelihood_error
+            END
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -959,7 +988,11 @@ let distance_of_type ?(para=None) ?(parb=None) t
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
+            IFDEF USE_LIKELIHOOD THEN
                 a.weight *. MlStaticCS.distance a.final b.final a.time b.time
+            ELSE
+                failwith likelihood_error
+            END
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -998,7 +1031,11 @@ let distance ?(para=None) ?(parb=None)
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b ->
+            IFDEF USE_LIKELIHOOD THEN
                 a.weight *. MlStaticCS.distance a.final b.final a.time b.time
+            ELSE
+                failwith likelihood_error
+            END
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -1023,8 +1060,12 @@ let dist_2 minimum_delta n a b =
     let rec ch_dist delta_left n a' b' =
         match n, a', b' with
         | StaticMl n, StaticMl a, StaticMl b ->
+            IFDEF USE_LIKELIHOOD THEN
                 n.weight *. MlStaticCS.dist_2 n.final a.final b.final n.time
                 a.time b.time None
+            ELSE
+                failwith likelihood_error
+            END
         | Nonadd8 n, Nonadd8 a, Nonadd8 b ->
               n.weight *. NonaddCS8.dist_2 n.final a.final b.final
         | Nonadd16 n, Nonadd16 a, Nonadd16 b ->
@@ -1549,6 +1590,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
             let result = 
+                IFDEF USE_LIKELIHOOD THEN
                 let single_ml_group result lst =
                     match lst with
                     | [] -> result
@@ -1566,10 +1608,13 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0.0001 } in (* TODO: constant *)
+                            weight = 1.; time = 0.0001 } in (* TODO: estimate *)
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
+                ELSE
+                result
+                END
             in
             result :: acc
 
@@ -1877,6 +1922,7 @@ let readjust to_adjust ch1 ch2 parent mine =
     let cs_readjust c1 c2 parent mine =
         match c1, c2, parent, mine with 
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
+            IFDEF USE_LIKELIHOOD THEN
                 adjusted_likelihood := true;
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
@@ -1889,6 +1935,9 @@ let readjust to_adjust ch1 ch2 parent mine =
                 (( StaticMl {mine with 
                         preliminary=res;final=res;cost=cost;sum_cost=cost;},
                 StaticMl {c1 with time =t1;}), StaticMl { c2 with time = t2; })
+            ELSE
+                failwith likelihood_error
+            END
         | ((Dynamic c1) as c1'), ((Dynamic c2) as c2'), Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
@@ -2038,14 +2087,19 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           (sub (a, b))) x.final.set x_single.final.set in
           let cont = `Structured (`Set sub) in
           [(Tags.Characters.set, attributes, cont)]
-    | StaticMl cs,_, _ -> begin
+    | StaticMl cs,_, _ -> 
+        IFDEF USE_LIKELIHOOD THEN
+        begin
           match parent_cs with 
           | None ->
                 MlStaticCS.to_formatter pre cs.preliminary cs.time None d
           | Some ((StaticMl parent_cs), _) ->
                 MlStaticCS.to_formatter pre cs.preliminary cs.time (Some parent_cs.preliminary) d
           | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
-      end
+        end
+        ELSE
+            failwith likelihood_error
+        END
     | _ -> assert false
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
@@ -2241,7 +2295,11 @@ let do_filter cardinal f c codes =
 let rec filter_character_codes (codes : All_sets.Integers.t) item = 
     match item with
     | StaticMl c ->
+        IFDEF USE_LIKELIHOOD THEN
             StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes c codes)
+        ELSE
+            failwith likelihood_error
+        END
     | Nonadd8 c ->
           Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes c codes)
     | Nonadd16 c ->
@@ -2268,8 +2326,11 @@ let rec filter_character_codes (codes : All_sets.Integers.t) item =
 
 let rec filter_character_codes_complement codes = function
     | StaticMl c ->
-          Some  (StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes_comp
-          c codes))
+        IFDEF USE_LIKELIHOOD THEN
+          Some  (StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes_comp c codes))
+        ELSE
+          failwith likelihood_error
+        END
     | Nonadd8 c ->
           Some (Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes_comp c codes))
     | Nonadd16 c ->
@@ -2428,7 +2489,12 @@ let rec internal_n_chars acc (chars : cs list) =
     | c :: cs -> 
             let count = 
                 match c with
-                | StaticMl r -> MlStaticCS.cardinal r.preliminary
+                | StaticMl r -> 
+                    IFDEF USE_LIKELIHOOD THEN 
+                        MlStaticCS.cardinal r.preliminary
+                    ELSE
+                        failwith likelihood_error
+                    END
                 | Nonadd8 r -> NonaddCS8.cardinal r.preliminary
                 | Nonadd16 r -> NonaddCS16.cardinal r.preliminary
                 | Nonadd32 r -> NonaddCS32.cardinal r.preliminary
@@ -2456,6 +2522,8 @@ module Union = struct
         u_weight : float;
     }
 
+
+    IFDEF USE_LIKELIHOOD THEN
     type c = 
         | Nonadd8U of NonaddCS8.u ru
         | Nonadd16U of NonaddCS16.u ru
@@ -2465,6 +2533,17 @@ module Union = struct
         | DynamicU of DynamicCS.u ru
         | KolmoU of KolmoCS.u ru
         | StaticMlU of MlStaticCS.t ru
+    ELSE
+    type c = 
+        | Nonadd8U of NonaddCS8.u ru
+        | Nonadd16U of NonaddCS16.u ru
+        | Nonadd32U of NonaddCS32.u ru
+        | AddU of AddCS.t ru
+        | SankU of SankCS.t ru
+        | DynamicU of DynamicCS.u ru
+        | KolmoU of KolmoCS.u ru
+        | StaticMlU of unit
+    END
 
     (* In this first implementation, sets can not use the union heuristics, this is
     * work to be done *)
@@ -2670,8 +2749,11 @@ module Union = struct
             | Kolmo c ->
                     (KolmoU (create_union KolmoCS.to_union c)) :: acc
             | StaticMl c ->
-                    (StaticMlU { ch = c.preliminary; u_weight = c.weight }) ::
-                        acc
+                IFDEF USE_LIKELIHOOD THEN
+                    (StaticMlU { ch = c.preliminary; u_weight = c.weight }) :: acc
+                ELSE
+                    failwith likelihood_error
+                END
             | Set _ -> failwith "Node.Union.leaf TODO"
         in
         let nc = List.fold_left single_leaf [] c.characters in
@@ -2742,7 +2824,11 @@ module Union = struct
         | (Nonadd32U a), (Nonadd32U b) ->
                 NonaddCS32.compare_union a.ch b.ch
         | (StaticMlU a), (StaticMlU b) ->
+            IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.ch b.ch
+            ELSE
+                failwith likelihood_error
+            END
         | (AddU a), (AddU b) ->
                 AddCS.compare_data a.ch b.ch
                 (* TODO

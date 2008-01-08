@@ -57,6 +57,13 @@ type 'a css = {
     smethod : complex_term_method; (** How to treat complex terminals *)
 }
 
+
+IFDEF USE_LIKELIHOOD THEN
+type ml_rep = MlStaticCS.t r
+ELSE
+type ml_rep = unit
+END
+
 type cs =
     | Nonadd8 of NonaddCS8.t r  (** A set of non additive characters 
     with at most 8 states *)
@@ -69,7 +76,7 @@ type cs =
     | Dynamic of DynamicCS.t r                  (** A set of dynamics *)
     | Kolmo of KolmoCS.t r              (** A set of kolmogorov characters *)
     | Set of cs css r                   (** A set of other characters *)
-    | StaticMl of MlStaticCS.t r        (** A set of static ML characters *)
+    | StaticMl of ml_rep        (** A set of static ML characters *)
 
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 
