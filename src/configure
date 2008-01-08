@@ -665,6 +665,7 @@ USEPARALLEL
 USE_LONG_SEQUENCES
 USE_LARGE_ALPHABETS
 USE_XSLT
+USE_LIKELIHOOD
 USE_VERIFY_COSTS
 OCAML
 OCAMLC
@@ -1279,6 +1280,9 @@ Optional Features:
                           unlikely to need this option.
   --enable-xslt           Enable the postprocessing of XML output using XSLT
                           templates. This option requires libxml2.
+  --enable-likelihood     Enable the use of static and dynamic likelihood
+                          functions. This option requires an implementation of
+                          lapack and blas to be installed.
   --enable-large-alphabets
                           Enable the analysis of alphabets larger than 255
                           elements. When using this option, more memory will
@@ -2498,6 +2502,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 INTERFACE_SELECTED=true
 # Checking the kind of graphics that we intend to support.
 # Check whether --enable-graphics was given.
@@ -2548,6 +2553,14 @@ else
 fi
 
 
+# Check whether --enable-likelihood was given.
+if test "${enable_likelihood+set}" = set; then
+  enableval=$enable_likelihood; USE_LIKELIHOOD=true
+else
+  USE_LIKELIHOOD=false
+fi
+
+
 # Check whether --enable-large-alphabets was given.
 if test "${enable_large_alphabets+set}" = set; then
   enableval=$enable_large_alphabets; USE_LARGE_ALPHABETS=true
@@ -2564,8 +2577,231 @@ else
 fi
 
 
-# Checking for libraries according to the user's options.
 
+if test $USE_LIKELIHOOD = "true"; then
+  { echo "$as_me:$LINENO: checking for dsyev_ in -llapack" >&5
+echo $ECHO_N "checking for dsyev_ in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_dsyev_+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dsyev_ ();
+int
+main ()
+{
+return dsyev_ ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_lapack_dsyev_=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_lapack_dsyev_=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dsyev_" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_dsyev_" >&6; }
+if test $ac_cv_lib_lapack_dsyev_ = yes; then
+  { echo "$as_me:$LINENO: checking for dgeev_ in -llapack" >&5
+echo $ECHO_N "checking for dgeev_ in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_dgeev_+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dgeev_ ();
+int
+main ()
+{
+return dgeev_ ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_lapack_dgeev_=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_lapack_dgeev_=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dgeev_" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_dgeev_" >&6; }
+if test $ac_cv_lib_lapack_dgeev_ = yes; then
+  { echo "$as_me:$LINENO: checking for cblas_dgemm in -llapack" >&5
+echo $ECHO_N "checking for cblas_dgemm in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_cblas_dgemm+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char cblas_dgemm ();
+int
+main ()
+{
+return cblas_dgemm ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_lapack_cblas_dgemm=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_lapack_cblas_dgemm=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_cblas_dgemm" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_cblas_dgemm" >&6; }
+if test $ac_cv_lib_lapack_cblas_dgemm = yes; then
+  #everything is peachy-keen...
+                LIBS="-llapack $LIBS"; cat >>confdefs.h <<\_ACEOF
+#define HAVE_LIBLAPACK 1
+_ACEOF
+
+else
+  { { echo "$as_me:$LINENO: error: The cblas routine for matrix multiplication was not found
+See \`config.log' for more details." >&5
+echo "$as_me: error: The cblas routine for matrix multiplication was not found
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+
+fi
+
+else
+  { { echo "$as_me:$LINENO: error: The lapack routine for general eigenvalue problems not found
+See \`config.log' for more details." >&5
+echo "$as_me: error: The lapack routine for general eigenvalue problems not found
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+
+fi
+
+else
+  { { echo "$as_me:$LINENO: error: The lapack routine for symmetric eigenvalue problems not found
+See \`config.log' for more details." >&5
+echo "$as_me: error: The lapack routine for symmetric eigenvalue problems not found
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+
+fi
+
+fi
+
+
+
+# Checking for libraries according to the user's options.
 if test $USEINTERFACE = "ncurses"; then
   { echo "$as_me:$LINENO: checking for scrollok in -lncurses" >&5
 echo $ECHO_N "checking for scrollok in -lncurses... $ECHO_C" >&6; }
@@ -5896,7 +6132,9 @@ fi
 
 
 
-for ac_func in floor gettimeofday memset pow sqrt
+
+
+for ac_func in floor gettimeofday memset pow sqrt sin exp
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -6659,6 +6897,7 @@ USEPARALLEL!$USEPARALLEL$ac_delim
 USE_LONG_SEQUENCES!$USE_LONG_SEQUENCES$ac_delim
 USE_LARGE_ALPHABETS!$USE_LARGE_ALPHABETS$ac_delim
 USE_XSLT!$USE_XSLT$ac_delim
+USE_LIKELIHOOD!$USE_LIKELIHOOD$ac_delim
 USE_VERIFY_COSTS!$USE_VERIFY_COSTS$ac_delim
 OCAML!$OCAML$ac_delim
 OCAMLC!$OCAMLC$ac_delim
@@ -6676,7 +6915,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 65; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 66; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
