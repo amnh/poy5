@@ -2346,8 +2346,13 @@
 
             \argumentdefinition{iterative}{}
                 {Applies the Iterative Pass optimization for the tree cost calculations. This improves
-                the tree cost estimation but at the expense of a tremendous execution time.
-                Use at the very end to polish the final set of trees and perform a final search.}
+                the tree cost estimation but at the expense of a tremendous execution time.  The iterative argument 
+                can be applied to all character types including chromosome, genome, and custom\_alphabet characters.  
+                When implementing the iterative pass option for these complex character types the parameter 
+                \poyargument{max\_3d\_len} can be used within the command \poycommand{transform}
+                ((all, \poyargument{dynamic\_pam}:(\poyargument{max\_3d\_len:} {\obligatory{\poyint}}))) 
+                to reduce execution time.  Another hueristic strategy is to implement  \poyargument{iterative} at the 
+                very end of an analysis to polish the final set of trees and perform a final search.}
                 {}
                 
 	\begin{statement}
@@ -3000,6 +3005,10 @@
             procedures to accelerate computations when working with chromosome
             data type (\poyargument{seed\_length}, \poyargument{median},
            \poyargument{swap\_med}, \poyargument{rearranged\_len}, \poyargument{approx}).
+           If the\poycommand{set} argument \poyargument {iterative} is implemented in the analysis, the 
+           \poyargument{dynamic\_pam} parameter \poyargument {max\_3d\_len} can be used to set 
+           a maximum sequence length for the alignment of three sequences to reduce the search execution time.  
+           If this parameter is not specified the default value of \poyargument {max\_3d\_len} is set to infinity.
             Under default settings, the distance between two chromosomes is calculated using
             \poyargument{breakpoint} and the rest of the arguments are executed
             under their default settings.}
