@@ -224,7 +224,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}]{hyperref}
 }
 
 % Hyphenations
-\hyphenation{mo-le-cu-lar an-aly-ses an-aly-sis au-to-ma-ti-cally ho-mo-lo-gy}
+\hyphenation{mo-le-cu-lar an-aly-ses an-aly-sis au-to-ma-ti-cally ho-mo-lo-gy chro-mo-so-me chro-mo-so-me-le-vel op-ti-mi-za-tion}
 
 \makeatletter
 \def\thickhrulefill{\leavevmode \leaders \hrule height 1pt\hfill \kern \z@}
@@ -236,7 +236,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}]{hyperref}
     \null
     \vskip 50\p@
     \begin{center}
-      {{\huge \texttt{POY} 4.0 Beta}
+      {{\huge \texttt{POY} 4.0 R.C.}
       \par 
       \vskip \baselineskip
       \hrule height 1pt 
@@ -318,7 +318,7 @@ All rights reserved. Published 2007
 \vspace*{0.5cm}
 
 \emph{Var\'on, A., L. S. Vinh, I. Bomash, W. C. Wheeler.} 2007.
-\texttt{POY} 4.0.\buildnumber\ Beta. New York, American Museum of
+\texttt{POY} 4.0.\buildnumber\ R.C. New York, American Museum of
 Natural History. Documentation by Var\'on, A., L. S. Vinh, I. Bomash,
 W. Wheeler, I. T\"emkin, M. Cevasco, K. M. Pickett, J. Faivovich, T. Grant, and
 W. L. Smith. \url{http://research.amnh.org/scicomp/projects/poy.php}
@@ -333,6 +333,21 @@ and
 \end{flushleft}
 
 \tableofcontents
+
+\chapter{What is \poy}
+
+\poy is a flexible, multi-platform program for phylogenetic analysis of molecular and other data. %under various optimality criteria.
+An essential feature of \poy is that it implements the concept of dynamic homology \cite{wheeler2001a, wheeler2001} allowing optimization of unaligned sequences. \poy offers flexibility for designing heuristic search strategies and implements an array of algorithms including multiple random addition sequence, swapping, tree fusing, tree drifting, and ratcheting. As output, \poy generates a comprehensive character diagnosis, graphical representations of cladograms and their user-specified consensus, support values, and implied alignments. \poy provides a unified approach to co-optimizing different types of data, such as morphological and molecular sequence data. In addition, \poy can analyze entire chromosomes and genomes, taking into account large-scale genomic events (translocations, inversions, and duplications).
+
+%Currently \poy is beta software, and therefore it has some known glitches. Most
+%of them will be worked out in the following months, and updated versions will be
+%available on the program's webpage as we produce them. Our current schedule of
+%work expect to have a final official version of the parsimony components of the
+%program and a release of the beta components of the maximum
+%likelihood components in mid may of 2007.
+
+\section{The structure of \poy documentation}
+This first chapter, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The second chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. The third chapter discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fourth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
 
 \input{QuickStart}
 
@@ -389,34 +404,37 @@ of the command \poycommand{perturb}. Therefore, to take the maximum advantage of
 The following is the formal specification of the valid grammar of a script in \poy:
 
 \begin{verbatim}
-script: | command
+script: = | command
         | command script
 
-command: LIDENT "(" arguments ")"
+command: = LIDENT "(" argument list ")"
 
-arguments:  |
+argument list: = |
+            | arguments
+
+arguments: = |
             | argument
             | argument "," arguments
 
-argument:   | primitive
+argument: = | primitive
             | LIDENT
-            | LIDENT ":" arguments
+            | LIDENT ":" argument
             | command
-            | "(" arguments ")"
+            | "(" argument list ")"
 
-primitive:  | INTEGER
+primitive: = | INTEGER
             | FLOAT
             | BOOLEAN
             | STRING
 
-LIDENT: [a-z_][a-zA-Z0-9_]*
+LIDENT: = [a-z_][a-zA-Z0-9_]*
 
-INTEGER: [0-9]+
+INTEGER: = [0-9]+
 
-FLOAT:  | INTEGER
+FLOAT: = | INTEGER
         | [0-9]+ "." [0-9]*
 
-STRING: """ [^"]* """
+STRING: = """ [^"]* """
 
 \end{verbatim}
 
@@ -454,7 +472,7 @@ Figure \ref{compositecommand} shows a more complex command structure, using the 
 
 Some arguments are obligatory, whereas others are not; some commands accept an
 empty list of arguments, but others do not; some argument labels have
-obligatory values, whereas values of others are optional. In the descriptions of
+obligatory values, some have optional values. In the descriptions of
 \poy commands below, the elements of \poy grammar are defined in
 the text using the following conventions:
 
@@ -488,8 +506,8 @@ Each command description entry contains the following sections:
 \begin{statement} \label{commandorder}
     Command order. The effect of the order of arguments in a command depends on the context. 
     If arguments are not logically interconnected, their order is not
-    important. For example, commands \poycommand{build(10,randomized)} and
-    \poycommand{build(randomized,10)} are equivalent. However, executing
+    important. For example, the commands \poycommand{build(10,randomized)} and
+    \poycommand{build(randomized,10)} are equivalent. However, executing the
     commands \poycommand{transform(tcm:(1,1),gap\_opening:4)} and
     \poycommand{transform(gap\_opening:4,tcm:(1,1))} will produce different results
     because \poycommand{gap\_opening} \emph{modifies} the values set by
@@ -506,7 +524,7 @@ Each command description entry contains the following sections:
     those arguments are preceded by an underscore.
 \end{statement}
 
-\section{Command Reference}
+\section{Command reference}
 \input{allcommands}
 
 \chapter{\poy Heuristics: a practical guide}

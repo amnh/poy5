@@ -1,6 +1,6 @@
 \section{Introduction}
 
-As the level of phylogenetic analysis increases---from individual loci to chromosomes to genomes containing multiple chromosomes---so does computational complexity. In \poy, a significant increase in computational time results from combining in single process cladogram searching with co-optimization of nucleotide pairwise alignments, rearrangements of loci within a chromosome, and rearrangements of chromosome fragments within the genome . As a result, a phylogenetic analysis involves a set of nested computationally ``hard'' (NP-complete) problems that makes finding the exact solution impossible. In addition, the increasing sequence length heterogeneity (at the levels of nucleotides, loci, and chromosomes) and the ever-growing sizes of datasets further contribute to computational complexity making it impossible to obtain an exact solution in a reasonable time.
+As the level of phylogenetic analysis increases---from individual loci to chromosomes to genomes containing multiple chromosomes---so does computational complexity. In \poy, a significant increase in computational time results from combining in single process cladogram searching with co-optimiza\-tion of nucleotide pairwise alignments, rearrangements of loci within a chromosome, and rearrangements of chromosome fragments within the genome . As a result, a phylogenetic analysis involves a set of nested computationally ``hard'' (NP-complete) problems that makes finding the exact solution impossible. In addition, the increasing sequence length heterogeneity (at the levels of nucleotides, loci, and chromosomes) and the ever-growing sizes of datasets further contribute to computational complexity making it impossible to obtain an exact solution in a reasonable time.
 
 To circumvent the problem computational intractability, and, hence, the speed of the analyses, \poy employs a battery of approximate, or heuristic, methods that function at different levels of analysis. As with all heuristic procedures, a tradeoff is involved: a substantial decrease in execution time comes at a price of obtaining possibly less accurate  and less precise results (however, the extent of the tradeoff is difficult to evaluate in the analyses of real large datasets). Therefore, it becomes important to understand the combined effect of different heuristic methods, so that the chosen search strategy balances the computational time with a ``reasonable'' accuracy of the result.
 
@@ -188,8 +188,7 @@ treated as a single block in calculating of rearrangement events.
 
 Thus, the combination of parameters \poycommand{seed\_length}, 
 \poycommand{sig\_block\_len}, 
-and\poycommand{rearranged\_len} significantly influence the estimation of inferred rearrangements.
-
+and \poycommand{rearranged\_len} significantly influence the estimation of inferred rearrangements.
 
 \begin{table}[t]
 \caption{The influence of \emph{seed\_length} to the runtime and tree cost
