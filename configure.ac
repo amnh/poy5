@@ -49,6 +49,11 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
               [USE_LONG_SEQUENCES=true], 
               [USE_LONG_SEQUENCES=false])
 
+AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
+              [Enable the use of static and dynamic likelihood functions. This
+               option requires an implementation of lapack and blas to be installed.])],
+                [USE_LIKELIHOOD=true], [USE_LIKELIHOOD=false])
+
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
               [USE_LARGE_ALPHABETS=true],

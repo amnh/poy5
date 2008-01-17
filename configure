@@ -1242,6 +1242,9 @@ Optional Features:
                           default search strategies. If you are analyzing
                           fragments shorted than, say 12.000 bp, you are
                           unlikely to need this option.
+  --enable-likelihood     Enable the use of static and dynamic likelihood
+                          functions. This option requires an implementation of
+                          lapack and blas to be installed.
   --enable-large-alphabets
                           Enable the analysis of alphabets larger than 255
                           elements. When using this option, more memory will
@@ -2883,6 +2886,14 @@ if test "${enable_long_sequences+set}" = set; then
   enableval=$enable_long_sequences; USE_LONG_SEQUENCES=true
 else
   USE_LONG_SEQUENCES=false
+fi
+
+
+# Check whether --enable-likelihood was given.
+if test "${enable_likelihood+set}" = set; then
+  enableval=$enable_likelihood; USE_LIKELIHOOD=true
+else
+  USE_LIKELIHOOD=false
 fi
 
 
