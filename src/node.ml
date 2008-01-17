@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2554 $"
+let () = SadmanOutput.register "Node" "$Revision: 2557 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -2650,7 +2650,9 @@ module Union = struct
         | Some v -> v
         | None -> 
                 failwith 
-                ("Node.get_sequence: could not find code " ^ string_of_int code)
+                ("Node.get_sequence: could not find code") 
+                (* Warning: This exception is catched in charTransform for proper 
+                * behavior of the program *)
 
     let saturation x =
         let single_saturation (polyacc, lenacc) = function

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2459 2007-11-10 14:34:55Z andres $ *)
+(* $Id: charTransform.ml 2557 2008-01-17 22:52:33Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2459 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2557 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -685,39 +685,42 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         --> List.fold_left process_partitions data
 
     let analyze_sequences sensible acc ((node, node_union), leafs) =
-        let leaf_sequences = 
-            leafs
-            --> List.map (fun (x, un) -> (Node.get_sequences None x), un) 
-            --> List.map (fun (x, un) -> List.map (fun x -> (x, un)) x) 
-            --> List.flatten
-            --> List.map (fun (x, un) -> insert_union None un x) 
-        and sequences = 
-            node 
-            --> Node.get_sequences None
-            --> List.map (insert_union None node_union)
-        in
-        List.fold_left (fun acc (code, _, s, _, _, alph) ->
-            if 0.85 < Sequence.poly_saturation s.Sequence.Unions.seq 1 
-                || 0.05 > Sequence.gap_saturation s.Sequence.Unions.seq alph then 
-                All_sets.Integers.add code acc
-            else if not sensible then acc 
-            else
-                (let sum, minlen, maxlen, cnt = 
-                    List.fold_left 
-                    (fun ((sum, minlen, maxlen, cnt) as acc) (c, s, _, _, _, _) ->
-                        if c <> code then acc
-                        else if Sequence.is_empty s 16 then acc
-                        else 
-                            let len = Sequence.length s in
-                            (sum + len, min minlen len, max maxlen len, cnt + 1)) 
-                    (0, max_int, min_int, 0) leaf_sequences 
-                in
-                let union_len = Sequence.length s.Sequence.Unions.seq in
-                if minlen > maxlen - (maxlen / 10) then
-                    if maxlen > (union_len  - (union_len / 10)) then
-                        All_sets.Integers.add code acc
-                    else acc
-                else acc)) acc sequences
+        try 
+            let leaf_sequences = 
+                leafs
+                --> List.map (fun (x, un) -> (Node.get_sequences None x), un) 
+                --> List.map (fun (x, un) -> List.map (fun x -> (x, un)) x) 
+                --> List.flatten
+                --> List.map (fun (x, un) -> insert_union None un x) 
+            and sequences = 
+                node 
+                --> Node.get_sequences None
+                --> List.map (insert_union None node_union)
+            in
+            List.fold_left (fun acc (code, _, s, _, _, alph) ->
+                if 0.85 < Sequence.poly_saturation s.Sequence.Unions.seq 1 
+                    || 0.05 > Sequence.gap_saturation s.Sequence.Unions.seq alph then 
+                    All_sets.Integers.add code acc
+                else if not sensible then acc 
+                else
+                    (let sum, minlen, maxlen, cnt = 
+                        List.fold_left 
+                        (fun ((sum, minlen, maxlen, cnt) as acc) (c, s, _, _, _, _) ->
+                            if c <> code then acc
+                            else if Sequence.is_empty s 16 then acc
+                            else 
+                                let len = Sequence.length s in
+                                (sum + len, min minlen len, max maxlen len, cnt + 1)) 
+                        (0, max_int, min_int, 0) leaf_sequences 
+                    in
+                    let union_len = Sequence.length s.Sequence.Unions.seq in
+                    if minlen > maxlen - (maxlen / 10) then
+                        if maxlen > (union_len  - (union_len / 10)) then
+                            All_sets.Integers.add code acc
+                        else acc
+                    else acc)) acc sequences
+        with 
+        | Failure "Node.get_sequence: could not find code" -> acc
 
     let do_analyze (c, (ones, mores)) =
         let ones = float_of_int ones 
@@ -811,17 +814,30 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             in
            data, (List.rev nodes)
         in 
+        let cleanup_extra_dynamics chars = 
+            List.filter (fun x -> 
+                let a = Data.get_alphabet data x in
+                let a = Alphabet.to_sequential a in
+                Alphabet.distinct_size a < 6 ) chars
+        in
         match meth with
         | `Automatic_Sequence_Partition (chars, sensible, mode) ->
                 (match 
-                    Data.get_code_from_characters_restricted_comp
-                    `Dynamic data chars 
+                    cleanup_extra_dynamics 
+                    (Data.get_code_from_characters_restricted_comp 
+                    `Dynamic data chars)
                 with
                 | [] -> data, nodes
                 | chars ->
+                        (* One problem we have is that auto sequence partition
+                        * can only work with nucleotide sequences, so we have to
+                        * filter those out. Actually, we will make it work with
+                        * those *)
                         let chars = 
                             List.fold_left 
-                            (fun acc x -> All_sets.Integers.add x acc)
+                            (fun acc x -> 
+                                Printf.printf "Adding %d\n%!" x;
+                                All_sets.Integers.add x acc)
                             All_sets.Integers.empty
                             chars
                         in
