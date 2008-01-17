@@ -50,7 +50,7 @@ case `../gnu/config.guess` in
         ;;
     *-cygwin*)
         USEWIN32=true
-        CFLAGS="-I /cygdrive/c/gnuwin32/include -mwin32 -mno-cygwin $CFLAGS"
+        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
         ;;
     *)
         ;;
