@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2362 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 2554 $"
 
 (* Internal only exceptions *)
 exception Success
@@ -556,9 +556,69 @@ let of_parser data (it, taxon) code =
                         code) :: acc
                 | _ -> assert false
     in
-    let arr = Array.of_list (List.rev (Array.fold_left check_type_and_val []
-    it)) in
+    let arr = 
+        Array.of_list (List.rev (Array.fold_left check_type_and_val [] it))
+    in
     of_array arr code, taxon
+
+let ( --> ) a b = b a
+
+let min_possible_cost elts =
+    let get_last lst = 
+        assert (lst <> []);
+        List.hd (List.rev lst) 
+    in
+    let elts = NonaddCS8.extract_elements_present elts in
+    let elts = List.map (List.sort ( - )) elts in
+    let codes = List.fold_left (fun acc lst ->
+        try
+            let fst, lst =
+                match lst with
+                | [h] -> h, h
+                | h :: t -> h, get_last t
+                | [] -> raise Exit
+            in
+            acc --> All_sets.Integers.add fst --> All_sets.Integers.add lst
+        with
+        | Exit -> acc) All_sets.Integers.empty elts
+    in
+    let elts = 
+        List.map (function [x] -> All_sets.Integers.singleton x
+        | [] -> All_sets.Integers.empty
+        | h :: t ->
+            let t = get_last t in
+            All_sets.Integers.fold (fun a acc ->
+                if a <= t && a >= h then 
+                    All_sets.Integers.add a acc
+                else acc) codes All_sets.Integers.empty) elts
+    in
+    let codes = List.sort ( - ) (All_sets.Integers.elements codes) in
+    let filter c left = 
+        (List.filter (fun x ->not (All_sets.Integers.mem c x)) left)
+    in
+    let rec optimal_cost codes left =
+        match codes, left with
+        | _, [] -> None, 0
+        | [], _ -> 
+                (* We assign a big value that won't wrap
+                * to the negatives if we add something to it *)
+                None, (max_int / 2) 
+        | (h :: t), left ->
+                let left' = filter h left in
+                let leftl', leftc' = optimal_cost t left'
+                and (_, leftc) as second = optimal_cost t left in
+                let (_, leftc') as first =
+                    match leftl' with
+                    | None -> (Some h), leftc'
+                    | Some x -> (Some h), leftc' + (x - h)
+                in
+                (* We have to prefer the solution that contains the smallest, so
+                * in case of equality, we choose leftc' *)
+                if leftc' <= leftc then first
+                else second
+    in
+    let _, cost = optimal_cost codes elts in
+    float_of_int cost
 
 let is_potentially_informative elts = 
     let intersection a b =

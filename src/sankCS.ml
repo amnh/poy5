@@ -28,7 +28,7 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 2124 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 2554 $"
 
 
 type cost =
@@ -140,10 +140,18 @@ let elt_to_string a =
                 next, pos + 1
             end ("{",0) a.s in
     res ^ "}"
+
 let to_string s =
     let list = Array.to_list s.elts in
     let strings = List.map elt_to_string list in
     "[" ^ String.concat "; " strings ^ "]"
+
+let to_list s = 
+    let list = Array.map (fun x -> x.ecode, 
+        Array.map (function
+        | Infinity -> max_int
+        | Cost x -> x) x.s) s.elts in
+    Array.to_list list
 
 let elt_to_full_string a =
     let string_of_costarray a =
@@ -658,3 +666,140 @@ let f_codes_comp t codes =
     filter check t
 
 let cardinal t = Array.length t.elts
+
+
+(* We will program branch and bound only for sankoff characters *)
+let large_number = max_int / 8 
+
+let make_leaf states x = 
+    let arr = Array.make states large_number in
+    List.iter (fun x -> arr.(x) <- 0) x;
+    Parser.Tree.Leaf arr
+
+let rec aux_bb bound lst mtx tree = 
+    let states = Array.length mtx in
+    let calc_node left right = 
+        let get_arr left = 
+            match left with
+            | Parser.Tree.Leaf x
+            | Parser.Tree.Node (_, x) -> x 
+        in
+        let left = get_arr left 
+        and right = get_arr right in
+        Array.init states (fun pos ->
+            let res = ref large_number in
+            for i = 0 to states - 1 do
+                for j = 0 to states - 1 do
+                    let cost =  left.(i) + right.(j) + mtx.(i).(pos) + mtx.(pos).(j) in
+                    if cost < !res then res := cost
+                done;
+            done;
+            !res) 
+    in
+    let join a b = Parser.Tree.Node ([a; b], calc_node a b) in
+    let get_cost tree =
+        let arr = 
+            match tree with
+            | Parser.Tree.Node (_, arr) | Parser.Tree.Leaf arr -> arr 
+        in
+        Array.fold_left min large_number arr 
+    in
+    let rec cleanup_list (best_cost, acc) lst =
+        match lst with
+        | h :: t -> 
+                let cost = get_cost h in
+                if best_cost > cost then 
+                    cleanup_list (best_cost, (h :: acc)) t
+                else cleanup_list (best_cost, acc) t
+        | [] -> best_cost, acc
+    in
+    let rec append_everywhere terminal tree =
+        match tree with
+        | Parser.Tree.Leaf x -> [join terminal tree]
+        | Parser.Tree.Node ([a; b], _) ->
+                (join b (join a terminal)) :: (join a (join b terminal)) ::
+                    (List.map (join a) (append_everywhere terminal b)) @
+                    (List.map (join b) (append_everywhere terminal a))
+        | Parser.Tree.Node _ -> assert false
+    in
+    match lst with
+    | [] -> 
+            get_cost tree
+    | h :: t ->
+            let res = append_everywhere (make_leaf states h) tree in
+            let _, res = cleanup_list (bound, []) res in
+            match res with
+            | [] -> bound
+            | trees -> List.fold_left min bound (List.map (aux_bb bound t mtx) trees)
+                 
+let maximum_states_for_warning = 8
+
+let bb mtx characters =
+    let states = Array.length mtx in
+    if states > 8 then
+        Status.user_message Status.Error 
+        "Computing CI and RI for Sankoff characters takes exponential time! you
+        have more than 8 states for at least one character, so you should expect
+        a long execution time for this calculation ... good luck!";
+    match characters with
+    | h :: t -> 
+            aux_bb large_number t mtx (make_leaf states h)
+    | [] -> 0
+
+
+(* Sankoff characters can't have an exact minimum possible cost (the problem is
+* NP-Hard by itself), therefore, we will simply define a function that returns
+* all possible sets of assignments, and that way we will be able to search for
+* the best cost _found_ during a search. The function assumes that the cost
+* matrix is metric, otherwise the method that this function is used for will be
+* ... ehm ... broken. *)
+let get_all_possible_assignments (elts : int list option list) = 
+    let rec aux_all_possiblities left sets = 
+        match left with
+        | [] -> sets
+        | (Some []) :: t 
+        | None :: t -> aux_all_possiblities t sets
+        | (Some lst) :: t ->
+                let sets = 
+                    List.flatten 
+                    (List.map (fun x -> List.map (fun y -> 
+                        if All_sets.Integers.mem x y then y 
+                        else All_sets.Integers.add x y) sets) lst)
+                in
+                aux_all_possiblities t sets
+    in
+    let rec remove_supersets lst acc =
+        match lst with
+        | h :: t -> 
+                let res = List.filter (fun x ->
+                    not (All_sets.Integers.subset h x)) t in
+                remove_supersets res (h :: acc) 
+        | [] -> acc
+    in
+    let x = 
+        let x = aux_all_possiblities elts [All_sets.Integers.empty] in
+        let x = List.sort (fun x y -> 
+            (All_sets.Integers.cardinal x) - (All_sets.Integers.cardinal y)) 
+            x 
+        in
+        remove_supersets x []
+    in
+    List.map All_sets.Integers.elements x
+
+let min_possible_cost mtx elts = 
+    let all_possible = 
+        let rec filter_none acc lst =
+            match lst with
+            | None :: t -> filter_none acc t
+            | (Some x) :: t -> filter_none (x :: acc) t
+            | [] -> acc
+        in
+        filter_none [] elts
+    in
+    let res = bb mtx all_possible in
+    float_of_int res
+
+let max_possible_cost mtx elts = 
+    let mtx = Array.map (Array.map (fun x -> x * (-1))) mtx in
+    let res = min_possible_cost mtx elts in
+    ((-.1.) *. res)

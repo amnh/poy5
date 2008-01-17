@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyFile" "$Revision: 2413 $"
+let () = SadmanOutput.register "PoyFile" "$Revision: 2554 $"
 
 (* A poy file format magic number *)
 
@@ -78,7 +78,7 @@ let check_for_magic_number ch =
 * file is not a valid POY format or it's not readable by this version of the
 * module, raises InvalidFile. *)
 let read_file filename = 
-    let ch = open_in filename in
+    let ch = open_in_bin filename in
     if check_for_magic_number ch then begin
         let res = Marshal.from_channel ch in
         close_in ch;
@@ -88,7 +88,7 @@ let read_file filename =
 (* [store_file data filename] outputs the [data] to the [filename] with the header
 * values of the current module. *)
 let store_file data filename =
-    let ch = open_out filename in
+    let ch = open_out_bin filename in
     output_header ch;
     Marshal.to_channel ch data [Marshal.Closures];
     close_out ch

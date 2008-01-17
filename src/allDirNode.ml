@@ -114,6 +114,27 @@ module OneDirF :
     let distance ?(para=None) ?(parb=None) a b =
         apply_f_on_lazy Node.Standard.distance a b
 
+    let character_costs x n = 
+        Node.Standard.character_costs x (Lazy.force_val n)
+
+    let get_nonadd_8 x n =
+        Node.Standard.get_nonadd_8 x (Lazy.force_val n)
+
+    let get_nonadd_16 x n =
+        Node.Standard.get_nonadd_16 x (Lazy.force_val n)
+
+    let get_nonadd_32 x n =
+        Node.Standard.get_nonadd_32 x (Lazy.force_val n)
+
+    let get_add x n =
+        Node.Standard.get_add x (Lazy.force_val n)
+
+    let get_sank x n =
+        Node.Standard.get_sank x (Lazy.force_val n)
+
+    let get_dynamic x n =
+        Node.Standard.get_dynamic x (Lazy.force_val n)
+
     let median code my_code old a b = 
         Lazy.lazy_from_fun 
         (fun () -> apply_f_on_lazy 
@@ -347,6 +368,24 @@ type nad8 = Node.Standard.nad8 = struct
                         and b = not_with parb b in
                         OneDirF.distance a.lazy_node b.lazy_node
                 | _ -> failwith "AlldNode.distance 3")
+
+    let apply_on_one_direction f x n =
+        match x, n.unadjusted with
+        | None, [n] -> 
+                f x n.lazy_node
+        | Some cx, n ->
+                let n = not_with cx n in
+                f x n.lazy_node
+        | _ -> assert false
+
+    let character_costs = apply_on_one_direction OneDirF.character_costs 
+
+    let get_nonadd_8 = apply_on_one_direction OneDirF.get_nonadd_8
+    let get_nonadd_16 = apply_on_one_direction OneDirF.get_nonadd_16
+    let get_nonadd_32 = apply_on_one_direction OneDirF.get_nonadd_32
+    let get_add = apply_on_one_direction OneDirF.get_add
+    let get_sank = apply_on_one_direction OneDirF.get_sank
+    let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
 
     let median code my_code old a b =
         let my_code =

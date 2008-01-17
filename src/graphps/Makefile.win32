@@ -10,26 +10,10 @@ bindir = $(exec_prefix)/bin
 infodir = $(prefix)/info
 libdir = $(prefix)/lib/gnudl
 mandir = $(prefix)/man/man1
-
-CC = @CC@
-CPPFLAGS = @CPPFLAGS@
-CFLAGS = $(CPPFLAGS) @CFLAGS@ 
-LDFLAGS = @LDFLAGS@
-LIBS = @LIBS@
-INSTALL = @INSTALL@
-
-USEPARALLEL := @USEPARALLEL@
-USEINTERFACE := @USEINTERFACE@
-USEGRAPHICS := @USEGRAPHICS@
-USESHAREDHD := @USESHAREDHD@
-OCAML := @OCAML@
-OCAMLC := @OCAMLC@
-OCAMLOPT := @OCAMLOPT@ @OCAMLFLAGS@
-OCAMLDEP := @OCAMLDEP@
-OCAMLTOP := @OCAMLTOP@
-
 INCLUDE = `$(OCAMLC) -where`
 export DEPEND = .depend
+
+-include ../../config
 
 CCOPT := -cc $(CC) -ccopt "$(CFLAGS)" -ccopt "-I $(INCLUDE)"
 

@@ -18,7 +18,7 @@
 /* USA                                                                        */
 
 /*
- * $Id: nonaddCSc.c 1788 2007-05-06 16:03:05Z andres $
+ * $Id: nonaddCSc.c 2554 2008-01-17 20:55:25Z andres $
  */
 #ifndef _WIN32
 #include <stdint.h>
@@ -1340,14 +1340,14 @@ char_nonadd_CAML_to_list (value va)
 {
     CAMLparam1 (va);
     CAMLlocal4 (res, temp_list, temp_val, temp_elt);
-    CAMLlocal1 (d_one);
+    CAMLlocal1 (d_zero);
     nacat a;
     long i;
     nac *adata;
     nacat copy_data;
     long initial_len;
 
-    d_one = caml_copy_double (1.);
+    d_zero = caml_copy_double (0.);
 
     copy_data = a = (nacat)Data_custom_val (va);
     initial_len = a->len;
@@ -1364,7 +1364,7 @@ char_nonadd_CAML_to_list (value va)
         temp_val = caml_alloc_tuple (3);
         Store_field (temp_val, 0, Val_long (a->codes[i]));
         Store_field (temp_val, 1, temp_elt);
-        Store_field (temp_val, 2, d_one);
+        Store_field (temp_val, 2, d_zero);
 
         temp_list = caml_alloc_tuple (2);
         Store_field (temp_list, 0, temp_val);

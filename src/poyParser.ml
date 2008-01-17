@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyParser" "$Revision: 2400 $"
+let () = SadmanOutput.register "PoyParser" "$Revision: 2554 $"
 
 open StdLabels
 
@@ -453,7 +453,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             | Parser.Is_XML | Parser.Is_NewSeq ->
                     let data = add_file [Data.Characters] in
                     file_type_message "input@ sequences";
-                    Data.process_molecular_file "Default" 
+                    Data.process_molecular_file "tcm:(1,2)" 
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default 
                     annotated Alphabet.nucleotides is_prealigned `Seq data filename
             | Parser.Is_Phylip | Parser.Is_Hennig -> 
@@ -489,7 +489,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     in
                     file_type_message "input@ sequences@ (default)";
                     Data.process_molecular_file 
-                    "Default"
+                    "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     annotated Alphabet.nucleotides false `Seq data filename
             | Parser.Is_ComplexTerminals ->

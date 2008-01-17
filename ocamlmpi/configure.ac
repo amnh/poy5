@@ -21,6 +21,11 @@ AC_SUBST(OCAMLOPT)
 AC_SUBST(OCAMLDEP)
 AC_SUBST(OCAMLTOP)
 AC_SUBST(LIBS)
+AC_SUBST(OCAMLFLAGS)
+
+AC_ARG_WITH(ocaml-flags, [Add the following flags to the ocaml compiler.],
+            [OCAMLFLAGS=$withval],[])
+
 
 AC_CHECK_PROGS([OCAML], [ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
@@ -34,6 +39,22 @@ AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi],
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
               [USEPARALLEL=true], 
               [USEPARALLEL=false])
+
+# System dependent options
+case `../gnu/config.guess` in
+    x86_64*)
+        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
+        ;;
+    *-apple-*)
+        CFLAGS="-I /usr/include/malloc $CFLAGS"
+        ;;
+    *-cygwin*)
+        USEWIN32=true
+        CFLAGS="-I /cygdrive/c/gnuwin32/include -mwin32 -mno-cygwin $CFLAGS"
+        ;;
+    *)
+        ;;
+esac
 
 #AC_MSG_CHECKING([Checking for MPI usability])
 #AC_LANG_CONFTEST([AC_LANG_PROGRAM([],[[MPI_Init()]])])

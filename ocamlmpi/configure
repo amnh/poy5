@@ -635,6 +635,7 @@ OCAMLC
 OCAMLOPT
 OCAMLDEP
 OCAMLTOP
+OCAMLFLAGS
 CPP
 GREP
 EGREP
@@ -1223,6 +1224,11 @@ Optional Features:
   --enable-mpi            Turns on parallel support using MPI. When using MPI
                           remember to set CC to the appropriate mpicc
                           compiler.
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+Add the following flags to the ocaml compiler.
 
 Some influential environment variables:
   CC          C compiler command
@@ -2713,6 +2719,15 @@ test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
 
 
+
+
+# Check whether --with-ocaml-flags was given.
+if test "${with_ocaml_flags+set}" = set; then
+  withval=$with_ocaml_flags; OCAMLFLAGS=$withval
+fi
+
+
+
 for ac_prog in ocaml
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
@@ -2933,6 +2948,22 @@ else
   USEPARALLEL=false
 fi
 
+
+# System dependent options
+case `../gnu/config.guess` in
+    x86_64*)
+        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS"
+        ;;
+    *-apple-*)
+        CFLAGS="-I /usr/include/malloc $CFLAGS"
+        ;;
+    *-cygwin*)
+        USEWIN32=true
+        CFLAGS="-I /cygdrive/c/gnuwin32/include -mwin32 -mno-cygwin $CFLAGS"
+        ;;
+    *)
+        ;;
+esac
 
 #AC_MSG_CHECKING([Checking for MPI usability])
 #AC_LANG_CONFTEST([AC_LANG_PROGRAM([],[[MPI_Init()]])])
@@ -4192,6 +4223,7 @@ OCAMLC!$OCAMLC$ac_delim
 OCAMLOPT!$OCAMLOPT$ac_delim
 OCAMLDEP!$OCAMLDEP$ac_delim
 OCAMLTOP!$OCAMLTOP$ac_delim
+OCAMLFLAGS!$OCAMLFLAGS$ac_delim
 CPP!$CPP$ac_delim
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
@@ -4199,7 +4231,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 61; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 62; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

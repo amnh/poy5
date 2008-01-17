@@ -63,6 +63,8 @@ val of_list : c list -> int -> t
 (**[to_list a] is symmetric to {!of_list}. *)
 val to_list : t -> c list
 
+val to_list_with_cost : t -> (int * int * int * float) list
+
 (** [copy a b] copies the contents of the additive character set [a] to the additive 
 * character set [b]. If the two character sets have a different length then
 * [raise Illegal_Arguments]. *)
@@ -268,6 +270,7 @@ val split : c -> t -> t * bool * t
 * For more information look at its usage in the {!Node} module. *)
 val of_parser : Data.d -> ((int list option * int) array * int) -> int -> t * int
 val is_potentially_informative : int list option list -> bool
+val min_possible_cost : int list option list -> float
 
 (** [to_string a] generates a string representation of the additive character
 * set [a] *)

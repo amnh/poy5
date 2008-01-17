@@ -144,7 +144,6 @@ add_alloc (native_int len, native_int true_len) {
         res->cost = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
         res->min = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
         res->max = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
-        res->cost = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
         res->union_min = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
         res->union_max = (ucv *) mem_malloc (ucv_mem, len * sizeof (ucv));
         if ((NULL != res->cost) && (NULL != res->min) && (NULL != res->max) &&

@@ -28,6 +28,7 @@ type elt                                (** The type of set elements *)
 (** {2 Standard functions} *)
 val color : Character.c
 val code : t -> int                     (** The code of a set *)
+val to_list : t -> (int * int array) list
 val ecode : elt -> int                  (** The code of an element *)
 val codes : t -> int list               (** Set of ecodes stored here *)
 val tcm : t -> cm                       (** Get the cost matrix of a set *)
@@ -69,3 +70,9 @@ val f_codes_comp : t -> All_sets.Integers.t -> t
 (** [to_formatter attrs c parent d : Tags.output list] returns the formatter for
     node c where parent is optional parent of c if available *)
 val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output list
+
+val get_all_possible_assignments : int list option list -> int list list 
+
+val min_possible_cost : int array array -> int list option list -> float
+
+val max_possible_cost : int array array -> int list option list -> float

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tags" "$Revision: 2501 $"
+let () = SadmanOutput.register "Tags" "$Revision: 2554 $"
 
 type tag = string
 type value = tag
@@ -108,6 +108,7 @@ module Characters = struct
     (* The cost matrices and calculation methods *)
     let fixed_states = "Fixed States"
     let tcm = "Transformation Cost Matrix"
+    let gap_opening = "Gap Opening"
     let state = "State"
     let states = "States"
     let ref_code = "ReferenceCode"
@@ -178,6 +179,7 @@ end
 
 module Data = struct
     let cost_matrix = "Cost Matrix"
+    let gap_opening = Characters.gap_opening
     let trees = "Trees"
     let data = "Data"
     let synonyms = "Synonyms"

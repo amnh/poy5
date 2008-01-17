@@ -27,6 +27,7 @@ CURSLIBOBJS = /home/andres/pdcurs28/addch.o /home/andres/pdcurs28/addchstr.o /ho
 /home/andres/pdcurs28/move.o /home/andres/pdcurs28/outopts.o /home/andres/pdcurs28/overlay.o /home/andres/pdcurs28/pad.o /home/andres/pdcurs28/printw.o /home/andres/pdcurs28/refresh.o /home/andres/pdcurs28/scanw.o /home/andres/pdcurs28/scr_dump.o \
 /home/andres/pdcurs28/scroll.o /home/andres/pdcurs28/slk.o /home/andres/pdcurs28/termattr.o /home/andres/pdcurs28/terminfo.o /home/andres/pdcurs28/touch.o /home/andres/pdcurs28/util.o /home/andres/pdcurs28/window.o 
 
+
 OCAMLMPI = ../ocamlmpi/
 OCAML_INCLUDES := -I $(OCAMLMPI) -I +camlp4 -I ./grappa -I ./graphps $(LABLTK)
 
@@ -40,9 +41,15 @@ GRAPHICS :=
 ifeq ($(USEINTERFACE), ncurses)
 	INTERFACE = status_ncurses.cma 
 endif
+ifeq ($(USEINTERFACE), readline)
+	INTERFACE = status_flat.cma 
+	DEFOPTS := $(DEFOPTS) -DUSEREADLINE
+endif
+
 ifeq ($(USEINTERFACE), flat)
 	INTERFACE = status_flat.cma 
 endif
+
 ifeq ($(USEINTERFACE), gtk2)
 	INTERFACE = status_gtk2.cma
 	GRAPHICS := lablgtk.cma
@@ -58,9 +65,9 @@ ifeq ($(USEINTERFACE), html)
 endif
 
 READLINE:=
-ifeq ($(USEINTERFACE), flat)
+ifeq ($(USEINTERFACE), readline)
 	READLINE := readlineml.o
-	CCOPT := -ccopt -lreadline $(CCOPT)
+	CCOPT := -ccopt "-I /home/andres/readline/include -L /home/andres/readline/lib -lreadline" $(CCOPT)
 endif
 
 
@@ -193,7 +200,7 @@ TREE = enum.cmo bitSet.cmo tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	queues.cmo tabus.cmo treeSearch.cmo impliedAlignment.cmo charTransform.cmo \
 	mst.cmo build.cmo 
 
-DISTANCE_LIBS = character.cmo addCS.cmo memstack.o add.o nonaddCS8.cmo \
+DISTANCE_LIBS = character.cmo nonaddCS8.cmo addCS.cmo memstack.o add.o \
 	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o
 
 SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
@@ -303,7 +310,7 @@ status_html.cma: status.cmi statusCommon.cmo status_html.ml
 
 status_flat.cma: status.cmi statusCommon.cmo status_flat.ml
 	cp status_flat.ml status.ml
-	$(OCAMLC) -custom -g -a -o $@ statusCommon.cmo status.ml $(MKLIBOPT) \
+	$(OCAMLC) $(OPTIONSPREPROCESSOR) -custom -g -a -o $@ $(FLATOPTIONS) statusCommon.cmo status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
 distances.cma: sequences.cma $(DISTANCE_LIBS)
@@ -335,7 +342,7 @@ status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
 
 status_flat.cmxa: status.cmi statusCommon.cmx status_flat.ml
 	cp status_flat.ml status.ml
-	$(OCAMLOPT) -a -o $@ statusCommon.cmx status.ml $(MKLIBOPT) \
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) -a -o $@ statusCommon.cmx status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
 status_gtk2.cmxa: status.cmi statusCommon.cmx status_gtk2.ml
@@ -516,8 +523,13 @@ fileStream.cmx: fileStream.ml
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .c .o
 
+<<<<<<< .working
 CPREPROCESSED = fileStream.ml sequence.ml sequence.mli sampler.ml timer.ml scripting.ml main.ml
 DOCFILTER = $(CAMLP4PROCESSED) $(CPREPROCESSED)
+=======
+OPTIONPREPROCESSED = seqCS.ml status_flat.ml status.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml 
+DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
+>>>>>>> .merge-right.r2525
 
 .depend: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
@@ -572,13 +584,19 @@ ifeq ($(USEPARALLEL), true)
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+<<<<<<< .working
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PDCOBJS) $(CURSLIBOBJS) $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+=======
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(XSLTOBJECTS) $(XMLOBJECTS) $(PDCOBJS) $(CURSLIBOBJS)  $(PROFILE) -o poy \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+>>>>>>> .merge-right.r2525
 endif
 
 poy_test: $(TEST_OBJS_OPT)
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	-cclib -L$(OCAMLMPI) $(CCOPT) $(NCURSES_LIBRARIES) $(XSLTOBJECTS) $(XMLOBJECTS) $(PDCOBJS) $(CURSLIBOBJS) $(PROFILE) \
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o poy_test \
 	$(GRAPHICS:.cma=.cmxa) camlp4.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
 

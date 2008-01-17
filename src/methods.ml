@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2501 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2554 $"
 
 (** Data *)
 
@@ -215,6 +215,8 @@ type report = [
     | `GraphicConsensus of (string option * float option)
     | `FasWinClad of string option
     | `SequenceStats of (string option * characters)
+    | `Ci of (string option * characters option)
+    | `Ri of (string option * characters option)
     | `CompareSequences of (string option * bool * characters * characters)
     | `ExplainScript of (string * string option)
     | diagnosis

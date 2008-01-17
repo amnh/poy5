@@ -429,6 +429,16 @@ val post_order_node_visit :
   (int option -> int -> 'a -> Tree.t_status * 'a) ->
   int -> ('b, 'c) p_tree -> 'a -> 'a
 
+(* [post_order_downpass_style l i c t] applies the functions [l] and [i] to the
+* leafs (or singles), and [i] to the interior nodes, following a downpass style
+* of pass. The function requires the root being assigned to the requested
+* component [c] from the tree [t]. The arguments for [l] and [i] are the code of
+* the parent (optional), and the code of the vertex being applied (optional in
+* the [i] function, as the root may have code [None]). *)
+val post_order_downpass_style : (int option -> int -> 'a) ->
+    (int option -> int option -> 'a -> 'a -> 'a) ->
+        int -> ('b, 'c) p_tree -> 'a
+
 val post_order_node_with_edge_visit :
     (int -> int -> 'a -> 'a) -> (int -> int -> 'a -> 'a -> 'a) ->
         edge -> ('b, 'c) p_tree -> 'a -> 'a * 'a
@@ -489,6 +499,8 @@ val move_cost_n_root : int -> int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 val get_component_root : int -> ('a, 'b) p_tree -> 'a root 
 
+val get_roots : ('a, 'b) p_tree -> 'a root list
+
 val change_component_root :
   All_sets.IntegerMap.key -> 'a root -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 
@@ -528,6 +540,9 @@ val supports :
     (int -> string) -> int -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
     string Parser.Tree.t
 
+val extract_bremer :  (All_sets.Integers.elt -> string) ->
+  int Tree.CladeFPMap.t -> string Parser.Tree.t
+
 (** [bremer to_string cost t conversion file] calculates a bremer support tree (for
 * printing purposes) of the tree [t] (which must be properly rooted) which has
 * cost [cost] (the cost must be an integer, as bremer is only used in parsimony
@@ -549,3 +564,4 @@ val bremer :
 val preprocessed_consensus :
   (All_sets.Integers.elt -> string) ->
   int -> int -> int Tree.CladeFPMap.t -> string Parser.Tree.t
+

@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: nonaddCS.ml 2400 2007-10-24 15:39:36Z andres $ *)
-let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 2400 $"
+(* $Id: nonaddCS.ml 2554 2008-01-17 20:55:25Z andres $ *)
+let () = SadmanOutput.register "NonaddCS.nonadd_v" "$Revision: 2554 $"
 
 
 (** char_nonadd_c.ml implements sets of equally-weighted non-additive characters
@@ -374,6 +374,7 @@ let f_colors a col = empty
 
 let iter f a =
     List.iter (fun (code, elt, _) -> f elt code color) (to_list a)
+
 let map f a =
     of_list (List.map (fun (code, elt, cost) ->
                            (code, f elt code color, cost)) (to_list a))
@@ -465,6 +466,57 @@ let min_cost elts =
     in
     compute_cost states graph
 *)
+
+let extract_elements_present elts = 
+    List.fold_right (fun x acc -> match x with None -> acc | Some h -> h :: acc)
+    elts []
+
+let max_possible_cost elts =
+    let elts = extract_elements_present elts in
+    let counter = Hashtbl.create 97 in
+    List.iter (List.iter (fun x -> 
+        try 
+            let cnt = Hashtbl.find counter x in
+            Hashtbl.replace counter x (cnt + 1) 
+        with
+        | Not_found -> Hashtbl.add counter x 1)) elts;
+    let code, max = Hashtbl.fold (fun a b ((x, y) as acc) ->
+        if y > b then acc else (a, b)) counter (0, 0) in
+    if max = 0 then 0.
+    else 
+        List.fold_left (fun c a -> 
+            if List.mem code a then c else c +. 1.) 0. elts
+
+let min_possible_cost elts =
+    let elts = extract_elements_present elts in
+    let states = 
+        let stateset = 
+            List.fold_left (fun acc y -> 
+                List.fold_left (fun acc x -> All_sets.Integers.add x acc) acc y)
+            All_sets.Integers.empty
+            elts
+        in
+        All_sets.Integers.elements stateset
+    in
+    (* We define a function to filter the elements that are not covered by a
+    * particular element *)
+    let filter c left = 
+        List.filter (fun x -> not (All_sets.Integers.mem c x)) left
+    in
+    (* A recursive function to solve the problem *)
+    let rec optimal_cost codes left = 
+        match codes, left with
+        | _, [] -> 0
+        | [], _ -> (max_int / 2)
+        | (h :: t), left ->
+                let left' = filter h left in
+                min (1 + optimal_cost t left') (optimal_cost t left)
+    in
+    let res = 
+        optimal_cost states (List.map (fun x -> List.fold_left (fun acc x -> 
+            All_sets.Integers.add x acc) All_sets.Integers.empty x) elts)
+    in
+    float_of_int (res - 1)
 
 module Imperative = struct
     type it = t

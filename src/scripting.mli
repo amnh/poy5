@@ -84,6 +84,45 @@ val channel_run : in_channel -> unit
 val get_console_run : unit -> r
 
 val update_trees_to_data : r -> r
+
+    module PhyloTree : sig
+        type phylogeny = (a, b) Ptree.p_tree
+        (* Operating on edges and vertices *)
+        val fold_edges : ('a -> Tree.edge -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
+        val fold_nodes : ('a -> Tree.node -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
+        val fold_vertices : ('a -> int -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
+        val add_node_data : int -> a -> phylogeny -> phylogeny
+        val get_node_data : int -> phylogeny -> a
+        val add_edge_data : Tree.edge -> b -> phylogeny -> phylogeny
+        val get_edge_data  : Tree.edge -> phylogeny -> b
+        val get_parent : int -> phylogeny -> int
+        val get_neighs : int -> phylogeny -> int list
+
+        (* Modifying a tree *)
+        val join : 
+            Tree.join_jxn -> Tree.join_jxn -> phylogeny -> 
+                phylogeny * Tree.join_delta
+        val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
+        val reroot : Tree.edge -> phylogeny -> phylogeny
+
+        (* Recomputing the contents of a tree *)
+        val downpass : phylogeny -> phylogeny
+        val uppass : phylogeny -> phylogeny
+
+        (* Tree conversion for IO *)
+        val of_string : string -> Data.d -> a list -> phylogeny list
+        val to_string : bool -> phylogeny -> Data.d -> string list
+        val of_file : string -> Data.d -> a list -> phylogeny list
+        val of_nodes : Data.d -> a list -> phylogeny
+
+        (* Swapping a tree *)
+        val build : Data.d -> a list -> phylogeny list
+        val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
+            phylogeny list 
+        val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
+            phylogeny list 
+    end
+
 end
 
 module Make 

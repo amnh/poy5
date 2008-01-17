@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2272 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2554 $"
 
 let has_something something (`LocalOptimum (_, _, _, _, cost_calculation, _, _, _, _, _, _)) =
     List.exists (fun x -> x = something) cost_calculation
@@ -47,7 +47,7 @@ module type S = sig
         (a, b) Ptree.p_tree
 
       val find_local_optimum :
-          ?queue : (float array * (int * int) list * int * Status.status *
+          ?base_sampler:(a, b) Sampler.search_manager_sampler ->  ?queue : (float array * (int * int) list * int * Status.status *
           int ref * float) ->
           Data.d ->
               Sampler.ft_queue ->
@@ -479,13 +479,18 @@ module MakeNormal
         in
         new Sampler.composer previous ob
 
-    let sampler data queue lst () =
+    let sampler sampler data queue lst () =
+        let sampler = 
+            match sampler with
+            | Some x -> x
+            | None -> new Sampler.do_nothing
+        in
         List.fold_left 
         (fun prev item -> create_sampler data queue prev item) 
-        (new Sampler.do_nothing)
+        sampler
         lst
 
-let rec find_local_optimum ?queue data emergency_queue
+let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         (trees : (a, b) Ptree.p_tree Sexpr.t)
         (sets :   All_sets.IntSet.t Lazy.t)
         (meth : Methods.local_optimum) :
@@ -511,7 +516,7 @@ let rec find_local_optimum ?queue data emergency_queue
             (search_space, th, max, keep, cost_calculation, origin, 
             trajectory, break_tabu, join_tabu, reroot_tabu, samples)
             = meth in
-    let samplerf = sampler data emergency_queue samples in
+    let samplerf = sampler base_sampler data emergency_queue samples in
     let queue_manager =
         match queue with
         | Some
@@ -781,10 +786,16 @@ module Make
     let from_s_to_h = replace_contents TOH.downpass TOH.uppass NodeH.taxon_code 
     let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code
 
-    let find_local_optimum ?queue data b trees d e =
+    let find_local_optimum ?base_sampler ?queue data b trees d e =
+        let sampler = 
+            match base_sampler with
+            | None -> new Sampler.do_nothing
+            | Some x -> x 
+        in
         match Data.has_dynamic data, queue with
-        | true, None -> DH.find_local_optimum data b trees d e
-        | true, Some queue -> DH.find_local_optimum ~queue data b trees d e
+        | true, None -> DH.find_local_optimum ~base_sampler:sampler data b trees d e
+        | true, Some queue -> 
+                DH.find_local_optimum ~base_sampler:sampler ~queue data b trees d e
         | false, queue ->
                 let data, nodes = NodeS.load_data data in
                 let trees = Sexpr.map (from_h_to_s nodes) trees in

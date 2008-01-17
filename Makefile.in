@@ -27,7 +27,7 @@ all:
 ifeq ($(USEPARALLEL), true)
 	cd ocamlmpi; $(MAKE) 
 	$(MAKE) depend
-	cd ../src/; $(MAKE) poy
+	cd ./src/; $(MAKE) poy
 else
 	$(MAKE) depend
 	cd ./src/; $(MAKE) poy

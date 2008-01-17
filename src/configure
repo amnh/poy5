@@ -662,6 +662,7 @@ USEGRAPHICS
 USEINTERFACE
 USESHAREDHD
 USEPARALLEL
+USEWIN32
 USE_LONG_SEQUENCES
 USE_LARGE_ALPHABETS
 USE_XSLT
@@ -674,7 +675,9 @@ OCAMLDEP
 OCAMLTOP
 OCAMLLEX
 OCAMLYACC
+SVNVERSION
 OCAMLFLAGS
+EXTRAS
 XSLT_CONFIG
 CPP
 GREP
@@ -1264,8 +1267,11 @@ Optional Features:
   --enable-graphics       Force POY to support graphical trees on screen.
                           Valid options are none, ocaml, and tk. The default
                           is none
-  --enable-interface      Force POY's user interface. Valid options are
-                          ncurses, readline, and html. The default is ncurses.
+  --enable-interface      Force POY's user interface. Valid options are flat,
+                          ncurses, readline, and html. The default is ncurses,
+                          if ncurses is not found, then the readline interface
+                          is used, if readline is not present either, then
+                          choose the flat interface.
   --enable-mpi            Turns on parallel support using MPI. When using MPI
                           remember to set CC to the appropriate mpicc
                           compiler.
@@ -1300,6 +1306,8 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+Add the following object files to the final linking rules (needed for windows).
+Add the following flags to the ocaml compiler.
 Select a different xslt-config program to detect the configuration options of libxslt.
 
 Some influential environment variables:
@@ -2503,6 +2511,25 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
+USEWIN32=false
+# System dependent options
+case `../gnu/config.guess` in
+    x86_64*)
+        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS"
+        ;;
+    *-apple-*)
+        CFLAGS="-I /usr/include/malloc $CFLAGS"
+        ;;
+    *-cygwin*)
+        USEWIN32=true
+        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        ;;
+    *)
+        ;;
+esac
+
 INTERFACE_SELECTED=true
 # Checking the kind of graphics that we intend to support.
 # Check whether --enable-graphics was given.
@@ -2518,6 +2545,20 @@ if test "${enable_interface+set}" = set; then
   enableval=$enable_interface; USEINTERFACE=$enableval
 else
   USEINTERFACE=ncurses; INTERFACE_SELECTED=false
+fi
+
+
+
+# Check whether --with-extras was given.
+if test "${with_extras+set}" = set; then
+  withval=$with_extras; EXTRAS=$withval
+fi
+
+
+
+# Check whether --with-ocaml-flags was given.
+if test "${with_ocaml_flags+set}" = set; then
+  withval=$with_ocaml_flags; OCAMLFLAGS=$withval
 fi
 
 
@@ -2887,6 +2928,7 @@ fi
 
 
 # Time to verify if we can compile with xslt
+XSLT_CONFIG=xslt-config
 
 # Check whether --with-xslt-config was given.
 if test "${with_xslt_config+set}" = set; then
@@ -2942,7 +2984,8 @@ NEWLIBS="`$XSLT_CONFIG --libs`"
 LIBS="$LIBS $NEWLIBS"
 oFLAGS="$CFLAGS"
 CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
-if test $USE_XSLT = "true"; then
+if test $USEWIN32 = "false"; then
+  if test $USE_XSLT = "true"; then
   { echo "$as_me:$LINENO: checking for xmlCreatePushParserCtxt in -lxml2" >&5
 echo $ECHO_N "checking for xmlCreatePushParserCtxt in -lxml2... $ECHO_C" >&6; }
 if test "${ac_cv_lib_xml2_xmlCreatePushParserCtxt+set}" = set; then
@@ -3024,6 +3067,13 @@ fi
 else
    LIBS="$oLIBS"
              CFLAGS="$oFLAGS"
+
+fi
+
+else
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_XSLT 1
+_ACEOF
 
 fi
 
@@ -4315,6 +4365,48 @@ fi
   test -n "$OCAMLC" && break
 done
 
+for ac_prog in svnversion
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+if test "${ac_cv_prog_SVNVERSION+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$SVNVERSION"; then
+  ac_cv_prog_SVNVERSION="$SVNVERSION" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_SVNVERSION="$ac_prog"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+IFS=$as_save_IFS
+
+fi
+fi
+SVNVERSION=$ac_cv_prog_SVNVERSION
+if test -n "$SVNVERSION"; then
+  { echo "$as_me:$LINENO: result: $SVNVERSION" >&5
+echo "${ECHO_T}$SVNVERSION" >&6; }
+else
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+
+  test -n "$SVNVERSION" && break
+done
+
 for ac_prog in ocamlyacc
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
@@ -4545,22 +4637,6 @@ echo "$as_me: error: POY requires OCaml version 3.10.0 or later to compile.  Ple
 See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }
     ;;
-esac
-
-case `../gnu/config.guess` in
-    x86_64*)
-        OCAMLFLAGS="-fno-PIC"
-        ;;
-    *)
-        ;;
-esac
-
-case `../gnu/config.guess` in
-    *-apple-*)
-        CFLAGS="-I /usr/include/malloc $CFLAGS"
-        ;;
-    *)
-        ;;
 esac
 
 # Checks for header files.
@@ -6894,6 +6970,7 @@ USEGRAPHICS!$USEGRAPHICS$ac_delim
 USEINTERFACE!$USEINTERFACE$ac_delim
 USESHAREDHD!$USESHAREDHD$ac_delim
 USEPARALLEL!$USEPARALLEL$ac_delim
+USEWIN32!$USEWIN32$ac_delim
 USE_LONG_SEQUENCES!$USE_LONG_SEQUENCES$ac_delim
 USE_LARGE_ALPHABETS!$USE_LARGE_ALPHABETS$ac_delim
 USE_XSLT!$USE_XSLT$ac_delim
@@ -6906,7 +6983,9 @@ OCAMLDEP!$OCAMLDEP$ac_delim
 OCAMLTOP!$OCAMLTOP$ac_delim
 OCAMLLEX!$OCAMLLEX$ac_delim
 OCAMLYACC!$OCAMLYACC$ac_delim
+SVNVERSION!$SVNVERSION$ac_delim
 OCAMLFLAGS!$OCAMLFLAGS$ac_delim
+EXTRAS!$EXTRAS$ac_delim
 XSLT_CONFIG!$XSLT_CONFIG$ac_delim
 CPP!$CPP$ac_delim
 GREP!$GREP$ac_delim
@@ -6915,7 +6994,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 66; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 69; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

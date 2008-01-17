@@ -31,7 +31,7 @@
 #include "config.h"
 #ifdef HAVE_LIBNCURSES
 #ifndef _WIN32
-#include <ncurses.h>
+#include <curses.h>
 #include <sys/ioctl.h>
 #include <menu.h>
 #else

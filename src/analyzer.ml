@@ -191,7 +191,12 @@ let dependency_relations (init : Methods.script) =
             let rec processor (meth : [< Methods.input]) = 
                 match meth with
                 | `Prealigned (input, _) ->
-                        processor (input  :> Methods.input)
+                        let data, data1, compos =
+                            match ((processor (input  :> Methods.input))) with
+                            | [(data, data1, _, compo)] -> data, data1, compo
+                            | _ -> assert false
+                        in
+                        [data, data1, init, compos]
                 | `AnnotatedFiles files ->
                         (* TODO: Fix this analyzer step, this will be a hard
                         * stop *)
@@ -323,6 +328,8 @@ let dependency_relations (init : Methods.script) =
                 match meth with
                 | `ExplainScript (_, filename)
                 | `SequenceStats (filename, _)
+                | `Ci (filename, _)
+                | `Ri (filename, _)
                 | `CompareSequences (filename, _, _, _)
                 | `FasWinClad filename
                 | `Dataset filename
@@ -926,6 +933,9 @@ let merge_contents a b =
             acc
         else x :: acc) b a
 
+let is_poy_internal_name name =
+    Str.string_match (Str.regexp "^[0-9]*__poy") name 0 
+
 let simplify_store_set script = 
     (* We first have a function that checks if a store is used, and 
     * what elements on it are used, filters out useless stores, and 
@@ -933,7 +943,7 @@ let simplify_store_set script =
     let rec simplify_one item (result, used_items, modified) =
         match item with
         | `Store (original_contents, name) ->
-                if Str.string_match (Str.regexp "^[0-9]*__poy") name 0 then
+                if is_poy_internal_name name then
                     if All_sets.StringMap.mem name used_items then
                         let used_contents = 
                             All_sets.StringMap.find name used_items
@@ -947,17 +957,19 @@ let simplify_store_set script =
                 else (item :: result), used_items, modified
         | `Set ([], name) -> result, used_items, modified
         | `Set (original_contents, name) ->
-                let used_contents = 
-                    if All_sets.StringMap.mem name used_items then
-                            merge_contents original_contents 
-                            (All_sets.StringMap.find name used_items)
-                    else original_contents
-                in
-                let used_items = 
-                    All_sets.StringMap.add name used_contents
-                    used_items
-                in
-                (item :: result), used_items, modified
+                if is_poy_internal_name name then
+                    let used_contents = 
+                        if All_sets.StringMap.mem name used_items then
+                                merge_contents original_contents 
+                                (All_sets.StringMap.find name used_items)
+                        else original_contents
+                    in
+                    let used_items = 
+                        All_sets.StringMap.add name used_contents
+                        used_items
+                    in
+                    (item :: result), used_items, modified
+                else (item :: result), used_items, modified
         | `Repeat (n, script) ->
                 let (script, used_items, modified) =
                     List.fold_right simplify_one script ([], used_items,
@@ -1073,17 +1085,20 @@ let simplify_store_set script =
                             in
                             h, (treestate, datastate), false
                     | `Set (items, name) ->
-                            if All_sets.Strings.mem name !stored_items then
-                                let items, modified, datastate = 
-                                    is_filtered_and_modify items `Data name datastate
-                                in
-                                let items, modified2, treestate = 
-                                    is_filtered_and_modify items `Trees name
-                                    treestate
-                                in
-                                (`Set (items, name)), (treestate, datastate), 
-                                modified2 || modified
-                            else (`Set ([], name)), (treestate, datastate), true
+                            if is_poy_internal_name name then
+                                if All_sets.Strings.mem name !stored_items then
+                                    let items, modified, datastate = 
+                                        is_filtered_and_modify items `Data name datastate
+                                    in
+                                    let items, modified2, treestate = 
+                                        is_filtered_and_modify items `Trees name
+                                        treestate
+                                    in
+                                    (`Set (items, name)), (treestate, datastate), 
+                                    modified2 || modified
+                                else (`Set ([], name)), (treestate, datastate), true
+                            else (`Set (items, name)), (treestate, datastate),
+                            false
                     | x ->
                             match dependency_relations x with 
                             | [(_, b, _, _)] ->
@@ -1142,7 +1157,7 @@ let simplify_store_set script =
     in
     let rec add_discard item (res, used) =
         match item with
-        | `Set (_, name) ->
+        | `Set (_, name) when is_poy_internal_name name ->
                 if All_sets.Strings.mem name used then
                     item :: res, used
                 else 
@@ -1566,6 +1581,8 @@ let script_to_string (init : Methods.script) =
                         "@[explain you a script@]"
                 | `SequenceStats _ ->
                         "@[report the sequence statistics@]"
+                | `Ci _ -> "@[report ci@]"
+                | `Ri _ -> "@[report ri@]"
                 | `CompareSequences _ ->
                         "@[report the average distance between pairs of \
                         sequences@]"
@@ -1807,6 +1824,8 @@ let is_master_only (init : Methods.script) =
     | `Ascii (_, _)
     | `InspectFile _
     | `SequenceStats _
+    | `Ci _
+    | `Ri _
     | `CompareSequences _
     | `FasWinClad _ 
     | `ExplainScript _

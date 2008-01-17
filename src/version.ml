@@ -29,7 +29,8 @@ let get_graphics str =
     get_option [(".*tk", "tk"); (".*ocaml", "ocaml"); (".*", "none")] str
 
 let get_interface str =
-    get_option [(".*gtk", "gtk2"); (".*ncurses", "ncurses"); (".*", "readline")] str
+    get_option [(".*gtk", "gtk2"); (".*ncurses", "ncurses"); (".*readline",
+    "readline"); (".*html", "html"); (".*flat", "flat")] str
 
 let is_true str = if Str.string_match truere str 0 then  "on" else "off"
 let rephrase str = Str.global_replace (Str.regexp " +") "@ " str

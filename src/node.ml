@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2520 $"
+let () = SadmanOutput.register "Node" "$Revision: 2554 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -193,6 +193,34 @@ type node_data =
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
+
+(* Static characters only *)
+let character_costs node = 
+    let rec get_individual_cost acc lst = 
+        match lst with
+        | h :: t -> 
+                let process_nonadd f x = 
+                    List.map (fun (a, _, b) -> (`NonAdd, a, b)) (f x.preliminary) in
+                let new_costs = 
+                    match h with
+                    | Nonadd8 x -> 
+                            process_nonadd NonaddCS8.to_list x
+                    | Nonadd16 x -> process_nonadd NonaddCS16.to_list x
+                    | Nonadd32 x -> process_nonadd NonaddCS32.to_list x
+                    | Add x -> 
+                            let lst = AddCS.to_list_with_cost x.preliminary in
+                            List.map (fun (_, _, code, cost) -> `Add, code, cost) lst
+                    | Sank x -> 
+                            let lst = SankCS.to_list x.preliminary in
+                            List.map (fun (a, b) ->
+                                `Sank, a, float_of_int (Array.fold_left min max_int b))
+                            lst
+                    | _ -> []
+                in
+                get_individual_cost (new_costs @ acc) t
+        | [] -> acc
+    in
+    (get_individual_cost [] node.characters)
 
 let empty () = {
     characters = [];
@@ -652,6 +680,50 @@ let root_cost root =
         | _ -> acc
     in
     List.fold_left adder (total_cost root root) root.characters
+
+let get_characters_of_type map t node =
+    List.map map 
+    (List.filter (function
+        | Nonadd8 _ when t = `NonAdd8 -> true
+        | Nonadd16 _ when t = `NonAdd8 -> true
+        | Nonadd32 _ when t = `NonAdd8 -> true
+        | Add _ when t = `Add -> true
+        | Sank _ when t = `Sank -> true
+        | StaticMl _ when t = `StaticML -> true
+        | Dynamic _ when t = `Dynamic -> true
+        | Set _ when t = `Set -> true
+        | _ -> false) node.characters)
+
+let get_nonadd_8 = 
+    get_characters_of_type 
+    (function Nonadd8 x -> x.preliminary, x.final | _ -> assert false) 
+    `NonAdd8 
+let get_nonadd_16 = 
+    get_characters_of_type 
+    (function Nonadd16 x -> x.preliminary, x.final | _ -> assert false)
+    `NonAdd16
+let get_nonadd_32 = 
+    get_characters_of_type 
+    (function Nonadd32 x -> x.preliminary, x.final | _ -> assert false)
+    `NonAdd32 
+let get_add = 
+    get_characters_of_type 
+    (function Add x -> x.preliminary, x.final | _ -> assert false)
+    `Add
+let get_sank = 
+    get_characters_of_type 
+    (function Sank x -> x.preliminary, x.final | _ -> assert false)
+    `Sank
+let get_dynamic = 
+    get_characters_of_type 
+    (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
+    `Dynamic
+let get_set = 
+    get_characters_of_type 
+    (function Set x -> x.preliminary, x.final | _ -> assert false)
+    `Set
+
+
 
 let median code old a b =
     let code =
@@ -2994,6 +3066,8 @@ module Standard :
         let distance = distance
         let set_exclude_info a b = { b with exclude_info = a }
         let excludes_median _ = excludes_median
+        let character_costs _ = character_costs
+        let get_characters _ = get_characters_of_type
         let median _ = median
         let median_3 _ = median_3
         let set_cost a b = median_set_cost b a
@@ -3030,6 +3104,12 @@ module Standard :
         let for_support = for_support
         let root_cost = root_cost
         let to_single root  _ a _ b = to_single (IntSet.empty, IntSet.empty) root a b
+        let get_nonadd_8 _ = get_nonadd_8 
+        let get_nonadd_16 _ = get_nonadd_16 
+        let get_nonadd_32 _ = get_nonadd_32 
+        let get_add _ = get_add
+        let get_sank _ = get_sank
+        let get_dynamic _ = get_dynamic
 end 
 
 let merge a b =

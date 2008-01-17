@@ -36,8 +36,7 @@ let succeed () =
     exit 0
 
 let failed () =
-    prerr_endline "FAILED";
-    exit 1
+    prerr_endline "FAILED"
 
 let test_tree_cost comparator result run = 
     assert (1 = Sexpr.length run.Scripting.trees);
@@ -48,9 +47,13 @@ let test_script verifier =
     try 
         Parsimony.channel_run stdin;
         if verifier (Parsimony.get_console_run ()) then succeed ()
-        else failed ()
+        else 
+            let () = failed () in
+            exit 1
     with
-    | err -> failed ()
+    | err -> 
+            failed ();
+            raise err
 
 let test_with_costs mode cost =  
     let verifier = 

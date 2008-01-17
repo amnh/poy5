@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 2450 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 2554 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -287,6 +287,9 @@ module Files = struct
     (* If the [str] is the same as the previous request, the state remains 1
     * otherwise 0 *)
     let complete_filename kind str = 
+        let comparator, sep_string = 
+            if Sys.os_type = "Win32" then '\\', "\\" else '/', "/"
+        in
         if str = !last_filename then 
             counter := 1
         else begin 
@@ -300,8 +303,9 @@ module Files = struct
                 last_filename := str;
                 let complete_filename = complete_filename kind str !counter in
                 if complete_filename = "" then complete_filename
-                else if !last_basedir.[(String.length !last_basedir) - 1] <> '/' then
-                    !prefix ^ !last_basedir ^ "/" ^ complete_filename 
+                else if !last_basedir.[(String.length !last_basedir) - 1] <>
+                comparator then
+                    !prefix ^ !last_basedir ^ sep_string ^ complete_filename 
                 else 
                     !prefix ^ !last_basedir ^ complete_filename 
         | Command ->

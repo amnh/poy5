@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 1888 $"
+let () = SadmanOutput.register "" "$Revision: 2554 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 1888 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 2554 $"
 
     type tab_state = Begin | First | Continue
 
@@ -688,7 +688,8 @@ let list_of_string str =
         else r (succ i) (str.[i] :: acc)
     in r 0 []
 let string_of_char res =
-    let c = (Char.escaped res) in c
+    String.make 1 res
+    (*let c = (Char.escaped res) in c*)
 let list_of_string str = List.map string_of_char (list_of_string str)
 
 let error_location f t =

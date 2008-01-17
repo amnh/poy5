@@ -86,6 +86,7 @@ type dynamic_hom_spec = {
     filename : string;
     fs : string;
     tcm : string;
+    fo : string;
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m;
     alph : Alphabet.a;
@@ -550,3 +551,13 @@ val apply_boolean :
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
 val get_model : int -> d -> Parser.SC.ml_model
+
+(** [min_max_possible_cost a b c d e] applies the functions [a], [b] and [c] in
+ * the ordered, unordered, and sankoff characters respectively listed in [d], 
+ * of all the terminals stored in [e], and returns the result per character in a
+ * list of tuples holding the character code and the result. *)
+val apply_on_static :
+    (int list option list -> float) -> (int list option list -> float) -> 
+        (int array array -> int list option list -> float) -> 
+            (Parser.SC.ml_model -> int list option list -> float) -> bool_characters ->
+            d -> (int * float) list

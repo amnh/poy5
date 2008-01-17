@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2331 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2554 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -660,6 +660,28 @@ let post_order_node_with_edge_visit f g e ptree acc =
     See {!Tree.pre_order_edge_visit} *)
 let pre_order_edge_visit f id ptree acc = 
     Tree.pre_order_edge_visit f id ptree.tree acc
+
+let post_order_downpass_style leaf interior id ptree =
+    let rec processor prev curr =
+        match get_node curr ptree with
+        | Tree.Single _ -> assert false
+        | Tree.Leaf _ -> leaf (Some prev) curr 
+        | (Tree.Interior _) as node ->
+                let a, b = other_two_nbrs prev node in
+                let a = processor curr a
+                and b = processor curr b in
+                interior (Some prev) (Some curr) a b
+    in
+    let root = 
+        All_sets.IntegerMap.find id ptree.component_root 
+    in
+    match root.root_median with
+    | None -> failwith "Root required"
+    | Some ((`Single x), _) -> leaf None x
+    | Some (`Edge (a, b), _) ->
+            let a = processor b a 
+            and b = processor a b in
+            interior None None a b
     
 (** [print_tree hnd ptree]
     Function to print a tree rooted at the given handle *)
@@ -710,6 +732,10 @@ let build_consensus maj out_grp rt_id ptrees =
 
 let get_component_root handle ptree = 
     All_sets.IntegerMap.find handle ptree.component_root
+
+let get_roots ptree =
+    All_sets.Integers.fold (fun x acc -> (get_component_root x ptree) :: acc) 
+    ptree.tree.Tree.handles []
 
 let change_component_root handle root ptree = 
     let com_root = All_sets.IntegerMap.add handle root ptree.component_root in
@@ -2090,6 +2116,11 @@ let supports to_string maj number_of_samples tree sets =
     --> add_tree_to_counters (fun _ _ -> false) Tree.CladeFPMap.empty 
     --> extract_counters sets
     --> make_tree maj coder tree_builder
+
+let extract_bremer to_string sets =
+    let coder = ref 0 in
+    let tree_builder = build_a_tree to_string 1. true coder in
+    make_tree (-1) coder tree_builder sets
 
 (* A function that returns the bremer support tree based on the set of (costs, 
 * tree) of sets, for the input tree *)

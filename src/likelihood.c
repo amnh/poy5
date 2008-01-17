@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h> //malloc, srand, RAND_MAX
 #include <string.h> //memcpy, memset
+#include "config.h"
+#ifdef HAVE_LIBLAPACK
 #include <math.h>   //log,exp
 #include <cblas.h>  //dgemm
 
@@ -500,3 +502,4 @@ CAMLprim value likelihood_CAML_median_gtr(value * argv, int argn){
     return likelihood_CAML_median_wrapped_gtr
             (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6]);
 }
+#endif /* HAVE_LIBLAPACK */

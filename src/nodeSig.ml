@@ -254,6 +254,14 @@ module type S = sig
 
     val root_cost : n -> float    
     val to_single : n option -> int option -> n -> int option -> n -> n
+    val character_costs : int option -> n -> ([`NonAdd | `Add | `Sank] * int * float) list
+    (* The following group of functions return the preliminary and final
+    * assignments for a given vertex for each type, in the sets as grouped for
+    * the node for faster computation *)
+    val get_nonadd_8 : int option -> n -> (NonaddCS8.t * NonaddCS8.t) list
+    val get_nonadd_16 : int option -> n -> (NonaddCS16.t * NonaddCS16.t) list
+    val get_nonadd_32 : int option -> n -> (NonaddCS32.t * NonaddCS32.t) list
+    val get_add : int option -> n -> (AddCS.t * AddCS.t) list
+    val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
+    val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
 end
-
-

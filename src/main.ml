@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2400 $"
+let () = SadmanOutput.register "Main" "$Revision: 2554 $"
 
-(* $Id: main.ml 2400 2007-10-24 15:39:36Z andres $ *)
+(* $Id: main.ml 2554 2008-01-17 20:55:25Z andres $ *)
 
 
 module Nodes = AllDirNode.AllDirF
@@ -56,7 +56,7 @@ let args =
 
 END
 
-let () = SadmanOutput.register "Main" "$Revision: 2400 $"
+let () = SadmanOutput.register "Main" "$Revision: 2554 $"
 
 let () = Status.init ()
 
@@ -65,7 +65,7 @@ let () =
     Arguments.usage 
 
 (** Catch errors or not;  helpful for debugging *)
-let debug_pass_errors = false
+let debug_pass_errors = true
 
 let () =
     Random.init 0;

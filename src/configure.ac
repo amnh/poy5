@@ -15,6 +15,7 @@ AC_SUBST(USEGRAPHICS)
 AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
 AC_SUBST(USEPARALLEL)
+AC_SUBST(USEWIN32)
 AC_SUBST(USE_LONG_SEQUENCES)
 AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
@@ -27,8 +28,26 @@ AC_SUBST(OCAMLDEP)
 AC_SUBST(OCAMLTOP)
 AC_SUBST(OCAMLLEX)
 AC_SUBST(OCAMLYACC)
+AC_SUBST(SVNVERSION)
 AC_SUBST(LIBS)
 AC_SUBST(OCAMLFLAGS)
+AC_SUBST(EXTRAS)
+USEWIN32=false
+# System dependent options
+case `../gnu/config.guess` in
+    x86_64*)
+        OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
+        ;;
+    *-apple-*)
+        CFLAGS="-I /usr/include/malloc $CFLAGS"
+        ;;
+    *-cygwin*)
+        USEWIN32=true
+        CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
+        ;;
+    *)
+        ;;
+esac
 
 INTERFACE_SELECTED=true
 # Checking the kind of graphics that we intend to support.
@@ -36,9 +55,15 @@ AC_ARG_ENABLE([graphics], [AS_HELP_STRING([--enable-graphics],
               [Force POY to support graphical trees on screen. Valid options are none, ocaml, and tk. The default is none])], [USEGRAPHICS=$enableval], [USEGRAPHICS=none])
 
 AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface],
-              [Force POY's user interface. Valid options are ncurses, readline, and html. The default is ncurses.])],
+              [Force POY's user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
               [USEINTERFACE=$enableval],
               [USEINTERFACE=ncurses; INTERFACE_SELECTED=false])
+
+AC_ARG_WITH(extras, [Add the following object files to the final linking rules (needed for windows).],
+            [EXTRAS=$withval],[])
+
+AC_ARG_WITH(ocaml-flags, [Add the following flags to the ocaml compiler.],
+            [OCAMLFLAGS=$withval],[])
 
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
@@ -96,6 +121,7 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 
 # Time to verify if we can compile with xslt
+XSLT_CONFIG=xslt-config
 AC_ARG_WITH(xslt-config, [Select a different xslt-config program to detect the configuration options of libxslt.],
             [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],
                                                     [xslt-config])])
@@ -105,7 +131,7 @@ NEWLIBS="`$XSLT_CONFIG --libs`"
 LIBS="$LIBS $NEWLIBS"
 oFLAGS="$CFLAGS"
 CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
-AS_IF([test $USE_XSLT = "true"],
+AS_IF([test $USEWIN32 = "false"], [AS_IF([test $USE_XSLT = "true"],
       [AC_CHECK_LIB([xml2], [xmlCreatePushParserCtxt], [
        CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
        AC_DEFINE(HAVE_XSLT)
@@ -115,7 +141,7 @@ AS_IF([test $USE_XSLT = "true"],
             AC_WARN([I could not find XSLT. I will remove the its support.])
         ])],[ LIBS="$oLIBS"
              CFLAGS="$oFLAGS"
-             ])
+             ])], [AC_DEFINE(HAVE_XSLT)])
 
 AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS="-ltermcap $LIBS"], [AC_CHECK_LIB([curses],[tgetent],[LIBS="-lcurses $LIBS"], [AC_CHECK_LIB([ncurses],[tgetent],[LIBS="-lncurses $LIBS"], [AC_MSG_FAILURE([The readline interface requires one of the following: termcap, curses, or ncurses.])])])])],[])
 
@@ -130,6 +156,7 @@ AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAG
 
 AC_CHECK_PROGS([OCAML], [ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
+AC_CHECK_PROGS([SVNVERSION], [svnversion])
 AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc])
 AC_CHECK_PROGS([OCAMLLEX], [ocamllex])
 AC_CHECK_PROGS([OCAMLOPT], [ocamlopt.opt ocamlopt])
@@ -148,22 +175,6 @@ case $OCAMLVERSION in
     AC_MSG_RESULT([no])
     AC_MSG_FAILURE([POY requires OCaml version 3.10.0 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])
     ;;
-esac
-
-case `../gnu/config.guess` in
-    x86_64*)
-        OCAMLFLAGS="-fno-PIC"
-        ;;
-    *)
-        ;;
-esac
-
-case `../gnu/config.guess` in
-    *-apple-*)
-        CFLAGS="-I /usr/include/malloc $CFLAGS"
-        ;;
-    *)
-        ;;
 esac
 
 # Checks for header files.
