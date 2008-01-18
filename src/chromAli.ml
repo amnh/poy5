@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2510 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2563 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -29,6 +29,7 @@ type subseq_t = Subseq.subseq_t
 let  fprintf = Printf.fprintf
 let  deref = Utl.deref
 let  debug = false
+let  no_single_error = true
 
 type direction_t = ChromPam.direction_t
 
@@ -1065,15 +1066,22 @@ let to_single_root root other_code c2 =
     end 
 
 let change_to_single med single_seq c2 = 
-    (if Sequence.length single_seq != Sequence.length med.seq then begin
-        fprintf stdout "single_len: %i, med_len:%i\n" (Sequence.length single_seq)
-            (Sequence.length med.seq); flush stdout;
-         print_endline "Single_seq";
-         UtlPoy.printDNA single_seq;
-         print_endline "med_seq";
-         UtlPoy.printDNA med.seq;
-        failwith "XXXXXXXXXXXXXXXXXXXXXX at change_to_single @ chromAli.ml"
-    end);
+    let single_seq = 
+        if Sequence.length single_seq != Sequence.length med.seq then 
+            if no_single_error then 
+                UtlPoy.get_single_seq med.seq c2 
+            else begin
+                fprintf stdout "single_len: %i, med_len:%i\n" (Sequence.length single_seq)
+                (Sequence.length med.seq); flush stdout;
+                 print_endline "Single_seq";
+                 UtlPoy.printDNA single_seq;
+                 print_endline "med_seq";
+                 UtlPoy.printDNA med.seq;
+                failwith "XXXXXXXXXXXXXXXXXXXXXX at change_to_single @ chromAli.ml" 
+            end 
+        else single_seq
+    in  
+    
 
 
     let gap = Cost_matrix.Two_D.gap c2 in
