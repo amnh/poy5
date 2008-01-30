@@ -401,7 +401,7 @@ let to_single ref_codes (root : t option) single_parent mine =
                   cost, recost, single_seq_arr
         in 
 
-        let single_med = AnnchromAli.change_to_single amed single_seq_arr in
+        let single_med = AnnchromAli.change_to_single amed single_seq_arr c2 in
         let single_med = {med with Annchrom.med_ls = [single_med]} in 
 
         let new_single = IntMap.add code single_med acc_meds in

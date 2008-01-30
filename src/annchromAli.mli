@@ -90,6 +90,6 @@ val to_single : annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
 val to_single_root :
   annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
 
-val change_to_single : annchrom_t -> Sequence.s array -> annchrom_t
+val change_to_single : annchrom_t -> Sequence.s array -> Cost_matrix.Two_D.m -> annchrom_t
 val to_formater : annchrom_t -> Alphabet.a -> string
 val copy_chrom_map : annchrom_t -> annchrom_t -> annchrom_t

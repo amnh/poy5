@@ -295,31 +295,24 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
     let update (seq1, code1) (seq2, code2) =
         let com_seq1 = Sequence.complement_chrom Alphabet.nucleotides seq1 in 
         let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
-(*
-        UtlPoy.printDNA seq1;
-        UtlPoy.printDNA com_seq1;
-        print_newline ();
-        UtlPoy.printDNA seq2;
-        UtlPoy.printDNA com_seq2;
-        print_endline "----------------------------------";
-*)        
         let _, _, cost, _ = UtlPoy.align2 seq1 seq2 cost_mat in 
-  (*      fprintf stdout "%i %i -> %i\n" code1 code2 cost;*)
+
         pure_gen_cost_mat.(code1).(code2) <- cost;
         pure_gen_cost_mat.(code2).(code1) <- cost;
 
+
         let _, _, cost, _ = UtlPoy.align2 seq1 com_seq2 cost_mat in 
-(*        fprintf stdout "%i %i -> %i\n" code1 (-code2) cost; *)
+
         pure_gen_cost_mat.(code1).(code2 + 1) <- cost;
         pure_gen_cost_mat.(code2 + 1).(code1) <- cost;
 
         let _, _, cost, _ = UtlPoy.align2 com_seq1 seq2 cost_mat in 
-(*        fprintf stdout "%i %i -> %i\n" (-code1) code2 cost; *)
+
         pure_gen_cost_mat.(code1 + 1).(code2) <- cost;
         pure_gen_cost_mat.(code2).(code1 + 1) <- cost;
 
         let _, _, cost, _ = UtlPoy.align2 com_seq1 com_seq2 cost_mat in 
-(*        fprintf stdout "%i %i -> %i\n" (-code1) (-code2) cost;*)
+
         pure_gen_cost_mat.(code1 + 1).(code2 + 1) <- cost;
         pure_gen_cost_mat.(code2 + 1).(code1 + 1) <- cost;
 
@@ -337,8 +330,8 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
         pure_gen_cost_mat.(code).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
         pure_gen_cost_mat.(gen_gap_code).(code + 1) <- pure_gen_cost_mat.(gen_gap_code).(code);
         pure_gen_cost_mat.(code + 1).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
-
     in 
+
     Array.iter update_gap seq1_arr;
     Array.iter update_gap seq2_arr;
 
@@ -717,10 +710,13 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
              let seqm = seqt.seq in 
              let codem = codem_arr.(ith) in 
 
+             let comp v1 v2 = (v1 + 1) / 2 -  (v2 + 1) / 2 in
+
+
              let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
-                 let indexm = Utl.find_index alied_codem_arr codem compare in 
+                 let indexm = Utl.find_index alied_codem_arr codem comp in 
                  let code = alied_code_arr.(indexm) in 
-                 let index = Utl.find_index code_arr code compare in 
+                 let index = Utl.find_index code_arr code comp in 
                  match index with 
                  | -1 -> UtlPoy.get_empty_seq ()
                  | _ -> seq_arr.(index).seq 
@@ -977,23 +973,29 @@ let to_single_root root other_code c2 =
 
 
 
-let change_to_single med single_seq_arr = 
+let change_to_single med single_seq_arr c2 = 
     let gap = Alphabet.gap in 
 
     let new_seq_arr = Array.mapi 
         (fun idx m ->
              let single_seq = single_seq_arr.(idx) in
+             let len = Sequence.length single_seq in               
              let num_dna = ref 0 in 
-             let single_alied_med = UtlPoy.map
-                 (fun code ->
-                      if code = gap then gap
-                      else begin
-                          let single_code = Sequence.get single_seq !num_dna in 
-                          incr num_dna;
-                          single_code
-                      end 
-                 ) m.alied_med
+    
+             let single_alied_med = 
+                if len != UtlPoy.cmp_num_not_gap m.alied_med then
+                    UtlPoy.get_single_seq m.alied_med c2
+                else UtlPoy.map
+                     (fun code ->
+                          if code = gap then gap
+                          else begin
+                                let single_code = Sequence.get single_seq !num_dna in 
+                                incr num_dna;
+                                single_code
+                            end 
+                     ) m.alied_med
              in 
+
              {m with alied_med = single_alied_med;
                   seq = (UtlPoy.delete_gap single_alied_med) }
         ) med.seq_arr
