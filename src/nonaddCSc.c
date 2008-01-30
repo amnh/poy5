@@ -18,7 +18,7 @@
 /* USA                                                                        */
 
 /*
- * $Id: nonaddCSc.c 2554 2008-01-17 20:55:25Z andres $
+ * $Id: nonaddCSc.c 2577 2008-01-30 23:32:51Z andres $
  */
 #ifndef _WIN32
 #include <stdint.h>
@@ -196,6 +196,8 @@ typedef vector CHARTYPE vect;
 
 typedef __m64 vect;
 
+#define ZERO_VECTOR (vect) {0}
+
 #undef  FLOAT_OPERATIONS
 #define FLOAT_OPERATIONS _mm_empty()
 
@@ -356,6 +358,7 @@ nonadd_make_union_par (const nacat au,
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
     vect v_int;
     union _vectnac_u zero;
+    zero.v = ZERO_VECTOR;
     nac *res_nacp;
     long nelts = res->len;
 
@@ -398,6 +401,7 @@ nonadd_make_union (const nacat self,
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
     vect v_int;
     union _vectnac_u zero;
+    zero.v = ZERO_VECTOR;
     nac *res_nacp;
     long nelts = res->len;
 
@@ -440,6 +444,7 @@ nonadd_median (const nacat a,
     vect v_int;
     vect v_unn;
     union _vectnac_u zero;
+    zero.v = ZERO_VECTOR;
     nac *res_nacp;
     long added_cost = 0;
     long nelts = res->len;
@@ -492,6 +497,7 @@ nonadd_median_3 (const nacat _A,       /** Ancestor */
     const long upto = (long) ceil (_F->len / (float) BLOCK_LEN);
     vect intermed, temp, was_union, is_contained;
     union _vectnac_u zero;
+    zero.v = ZERO_VECTOR;
     nac *res_nacp;
 
     res_nacp = (nac *) & (zero.n);
