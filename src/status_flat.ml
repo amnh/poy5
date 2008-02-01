@@ -17,10 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2554 $"
+let () = SadmanOutput.register "" "$Revision: 2581 $"
 
 exception Illegal_update
-let () = SadmanOutput.register "Status_flat" "$Revision: 2554 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2581 $"
 
 let _ = Format.pp_set_margin Format.std_formatter 78
 
@@ -29,7 +29,7 @@ let _ = Format.pp_set_margin Format.std_formatter 78
 
 type formatter_output = StatusCommon.formatter_output
 
-type c = SearchReport | Status | Error | Information 
+type c = SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
 
 let verbosity : [`Low | `Medium | `High ] ref = ref `High
@@ -49,6 +49,9 @@ let type_string = function
     | SearchReport
     | Information ->
             let prefix, suffix = build_prefix_suffix "Information" in
+            prefix, stdferr, (fun () -> ()), suffix
+    | Warning ->
+            let prefix, suffix = build_prefix_suffix "Warning" in
             prefix, stdferr, (fun () -> ()), suffix
     | Error ->
             let prefix, suffix = build_prefix_suffix "Error" in
@@ -125,6 +128,7 @@ let type_io msg rank t =
     match t with
     | SearchReport
     | Information -> `Information (msg, rank)
+    | Warning -> `Warning (msg, rank)
     | Error -> `Error (msg, rank)
     | Status -> `Status (msg, rank)
     | Output _ -> `Output (msg, rank)

@@ -27,7 +27,10 @@ AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface=interface],
               [USEINTERFACE=$enableval],
               [USEINTERFACE=ncurses])
 
-AC_ARG_WITH(extras, [Add the following object files to the final linking rules (needed for windows).],
+AC_ARG_WITH([ocaml-flags], [Add the following flags to the ocaml compiler.],
+            [OCAMLFLAGS=$withval],[])
+
+AC_ARG_WITH([extras], [Add the following object files to the final linking rules (needed for windows).],
             [EXTRAS=$withval],[])
 
 AC_ARG_WITH(ocaml-flags, [Add the following flags to the ocaml compiler.],

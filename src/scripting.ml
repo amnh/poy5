@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2554 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2581 $"
 
 module IntSet = All_sets.Integers
 
@@ -300,6 +300,11 @@ let load_data (meth : Methods.input) data nodes =
                 files
         | `Nucleotides files ->
                 let files = explode_filenames files in
+                let data = 
+                    List.fold_left 
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+                in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 List.fold_left 
@@ -308,21 +313,38 @@ let load_data (meth : Methods.input) data nodes =
                 annotated Alphabet.nucleotides is_prealigned `Seq d f) 
                 data files
         | `Chromosome files ->
+                let files = explode_filenames files in
+                let data = 
+                    List.fold_left 
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+                in
                 List.fold_left (fun d f ->
                     Data.process_molecular_file "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     annotated Alphabet.nucleotides false `Chromosome d f) 
-                data (explode_filenames files)
+                data files
         | `Genome files ->
+                let files = explode_filenames files in
+                let data = 
+                    List.fold_left 
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+                in
                 let data = List.fold_left (fun d f ->
                     Data.process_molecular_file "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     annotated Alphabet.nucleotides false `Genome d f) 
-                data (explode_filenames files)
+                data files
                 in 
                 data
         | `Aminoacids files ->
                 let files = explode_filenames files in
+                let data = 
+                    List.fold_left 
+                    (fun acc x -> Data.add_file acc [Data.Characters] x)
+                    data files
+                in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 List.fold_left 
@@ -333,6 +355,7 @@ let load_data (meth : Methods.input) data nodes =
                     annotated Alphabet.aminoacids is_prealigned `Seq d f) 
                 data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
+                let data = Data.add_file data [Data.Characters] seq in
                 let orientation = 
                     not 
                     (List.mem (`Orientation false) read_options) 
@@ -348,6 +371,7 @@ let load_data (meth : Methods.input) data nodes =
                 Data.process_molecular_file 
                 tcmfile twod threed annotated alphabet is_prealigned `Seq data seq 
         | `Breakinv (seq, alph, read_options) ->
+                let data = Data.add_file data [Data.Characters] seq in
                 let orientation = 
                     not 
                     (List.mem (`Orientation false) read_options) 
@@ -927,8 +951,8 @@ let only_multistatic meth =
 let warn_if_no_trees_in_memory trees = 
     let items = Sexpr.length trees in
     if items = 0 then
-        Status.user_message Status.Error
-        ("@{<b>Warning:@}@ There@ are@ no@ active@ trees@ in@ memory!")
+        Status.user_message Status.Warning
+        ("There@ are@ no@ active@ trees@ in@ memory!")
     else ()
 
 let get_trees_for_support support_class run =

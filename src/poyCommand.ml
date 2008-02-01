@@ -759,7 +759,7 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             begin match acc, file with
             | (_ :: _), None -> ()
             | (_ :: _), Some _ ->
-                    let msg = "Warning:@ You@ have@ requested@ to@ output@ " ^
+                    let msg = "You@ have@ requested@ to@ output@ " ^
                     "a@ postscript@ file@ in@ a@ flat@ text@ file,@ this@ " ^
                     "is@ probably@ not@ what@ you@ expect.@ If@ you@ want@ " ^
                     "to@ output@ a@ graphical@ " ^
@@ -767,7 +767,7 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
                     "different@ " ^
                     "filename@ to@ the@ graph@ command@ in@ the@ report@ line."
                     in
-                    Status.user_message Status.Error msg
+                    Status.user_message Status.Warning msg
             | _ -> ()
             end;
             (`Graph (file, x)) :: acc, file
@@ -855,14 +855,29 @@ let transform_select (choose, (acc : Methods.script list)) = function
     | `Unique
     | `RandomTrees _ as x ->
             (choose, (x :: acc))
+    | `AllStatic | `AllDynamic  as x -> 
+            (match choose with
+            | `Taxa ->
+                    (* TODO: I don't think any user will really use this feature, ever,
+                    * and I would have to spend a fair ammount of time getting it going,
+                    * so I will leave it off, if someone requests the feature, I add it
+                    * *)
+                    let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
+                    "@ the@ taxa@. " ^
+                    "So@ please,@ if@ it@ is@ worth@ " ^
+                    "the@ time@ and@ effort,@ place@ the@ feature@ request." in
+                    Status.user_message Status.Error msg;
+                    (choose, acc)
+            | `Characters -> 
+                    (choose, ((`AnalyzeOnlyCharacters x) :: acc)))
     | _ -> 
             (* TODO: I don't think any user will really use this feature, ever,
             * and I would have to spend a fair ammount of time getting it going,
             * so I will leave it off, if someone requests the feature, I add it
             * *)
             let msg = "I@ only@ support@ taxa@ selection@ with@ the names@ of" ^
-            "@ the@ taxa,@ not@ their@ codes,@ and,@ of@ course,@ it@ makes@ " ^
-            "no@ sense@ to@ select@ all!.@ So@ please,@ if@ it@ is@ worth@ " ^
+            "@ the@ taxa@. " ^
+            "So@ please,@ if@ it@ is@ worth@ " ^
             "the@ time@ and@ effort,@ place@ the@ feature@ request." in
             Status.user_message Status.Error msg;
             (choose, acc)

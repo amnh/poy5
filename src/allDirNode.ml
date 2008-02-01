@@ -93,7 +93,7 @@ module OneDirF :
     type n = a_node
     type e = exclude
 
-    let load_data ?taxa ?codes ?(classify=true) data = 
+    let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
         let data, nodes = 
             match taxa, codes with
             | None, None -> Node.Standard.load_data ~classify data 
@@ -311,7 +311,7 @@ type nad8 = Node.Standard.nad8 = struct
         in
         { unadjusted = [node_dir]; adjusted = [node_dir]}
 
-    let load_data ?taxa ?codes ?(classify=true) data = 
+    let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
         let data, nodes = 
             match taxa, codes with
             | None, None -> Node.Standard.load_data ~classify data 

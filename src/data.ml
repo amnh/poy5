@@ -559,7 +559,7 @@ let warn_if_repeated_and_choose_uniquely list str file =
         if total = 1 then
             let item = All_sets.Strings.choose repeated in
             Status.user_message Status.Error
-            ("@{<b>Warning!:@}@ " ^ StatusCommon.escape item ^ 
+            (StatusCommon.escape item ^ 
             "@ is@ duplicated@ in@ the@ " ^ StatusCommon.escape str ^ 
             "@ " ^ StatusCommon.escape file)
         else begin
@@ -568,11 +568,11 @@ let warn_if_repeated_and_choose_uniquely list str file =
                     if cnt = 0 then str ^ item, 1
                     else str ^ ",@ " ^ item, 1) 
                 repeated
-                (("@{<b>Warning!:@}@ The@ following@ items@ are@ duplicated@ in@ " ^
+                (("The@ following@ items@ are@ duplicated@ in@ " ^
                 "@ the@ " ^ StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file 
                 ^ ":@ "), 0)
             in
-            Status.user_message Status.Error message
+            Status.user_message Status.Warning message
         end
     else ();
     All_sets.Strings.fold (fun x acc -> x :: acc) selected []
@@ -1147,7 +1147,7 @@ let check_if_taxa_are_ok file taxa =
     * name of a taxon *)
     let _, second = List.fold_left ~f:(fun (acc, is_ok) x ->
         let msg =
-            ("@{<b>Warning!:@}@ There@ is@ a@ taxon@ name@ that@ has@ "
+            ("There@ is@ a@ taxon@ name@ that@ has@ "
             ^ "illegal@ characters@ on@ it@ ([]();, ).@ This@ leaves@ the@ "
             ^ "generated@ trees@ "
             ^ "unreadable!.@ If you@ want@ to@ continue,@ that's@ "
@@ -1161,13 +1161,13 @@ let check_if_taxa_are_ok file taxa =
             try 
                 let l = dna_lexer name [] 0 in
                 if the_great_majority_is_acgt l then
-                    Status.user_message Status.Error 
-                    ("@{<b>Warning!:@}@ There@ is@ a@ taxon@ name@ that@ is@ "
+                    Status.user_message Status.Warning 
+                    ("There@ is@ a@ taxon@ name@ that@ is@ "
                     ^ "suspiciously@ simmilar@ to@ a@ DNA@ sequence@ in@ the@ "
                     ^ "file@ " ^ StatusCommon.escape file ^ 
                     "!.@ The@ taxon@ is@ " ^ x)
                 else if has_spaces x then
-                    Status.user_message Status.Error msg
+                    Status.user_message Status.Warning msg
                 else ();
                 if has_unacceptable x then begin
                     Status.user_message Status.Error
@@ -1190,8 +1190,8 @@ let check_if_taxa_are_ok file taxa =
                     end else is_ok
         in
         if All_sets.Strings.mem x acc then begin
-            Status.user_message Status.Error 
-            ("@{<b>Warning!:@}@ There@ is@ a@ taxon@ duplicated@ in@ the@ "
+            Status.user_message Status.Warning 
+            ("There@ is@ a@ taxon@ duplicated@ in@ the@ "
             ^ "file@ " ^ StatusCommon.escape file ^ "!.@ The@ duplicated@ taxon@ is@ " 
             ^ StatusCommon.escape x);
             acc, is_ok

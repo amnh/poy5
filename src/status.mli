@@ -20,7 +20,7 @@
 exception Illegal_update
 
 type formatter_output = StatusCommon.formatter_output
-type c = SearchReport | Status | Error | Information 
+type c = SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
 
 
@@ -30,6 +30,7 @@ val main_loop : (string -> unit) -> unit
 
 val type_io : string -> int -> c -> [ 
     | `Status of (string * int)
+    | `Warning of (string * int)
     | `Error of (string * int)
     | `Information of (string * int)
     | `Output of (string * int)

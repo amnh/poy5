@@ -25,6 +25,10 @@ samplePairwiseDistance: $(BASE_OBJS_OPT) ../utils/samplePairwiseDistance.ml
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o samplePairwiseDistance \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
 
+randomTree: ../utils/randomTree.ml 
+	$(OCAMLOPT) -o randomTree $^
+
+
 splitFasta: $(BASE_OBJS_OPT) ../utils/splitFasta.ml 
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
@@ -53,3 +57,6 @@ else
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa \
 	$(BASE_OBJS_OPT) ../utils/costFlip.cmx
 endif
+
+clean::
+	rm -f randomTree

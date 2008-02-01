@@ -269,7 +269,7 @@ all_libs: status_ncurses.cma status_flat.cma sequences.cma distances.cma \
 # set them up in Makefile.local, don't add them on this Makefile directly. 
 -include Makefile.local
 
-clean:	
+clean::
 	rm -f *.annot *.cmi *.cmo *.cmx* *.o *.a *.so \
 	mpoy_console poy_test mpoy poy *.cma nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml \
 	nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c hennigParser.ml hennigParser.mli hennigLexer.ml \

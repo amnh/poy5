@@ -143,7 +143,7 @@ module type S = sig
     * to be loaded (then the list only contains those taxa), or the list of the
     * [codes] of the characters that are to be loaded. *)
     val load_data : 
-        ?taxa:(int list) -> ?codes:(int list) -> 
+        ?silent:bool -> ?taxa:(int list) -> ?codes:(int list) -> 
             ?classify:bool -> Data.d -> Data.d * (n list)
 
     (** [n_chars ?acc n] gets the number of characters stored in [n], plus the

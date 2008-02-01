@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2557 $"
+let () = SadmanOutput.register "Node" "$Revision: 2581 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -1821,8 +1821,7 @@ let current_snapshot x =
     if debug_profile_memory then MemProfiler.current_snapshot x
     else ()
 
-
-let load_data ?taxa ?codes ?(classify=true) data = 
+let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
@@ -1883,16 +1882,19 @@ let load_data ?taxa ?codes ?(classify=true) data =
                     All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
                     data.Data.taxon_codes 0 
                 in
-                let status = 
-                    Status.create "Loading terminals" (Some ntaxa)
-                    "terminals loaded" 
-                in
-                let st = 
-                    let cnt = ref 0 in
-                    fun () -> 
-                        incr cnt; 
-                        Status.achieved status !cnt;
-                        Status.full_report status
+                let st, finalize = 
+                    if not silent then
+                        let status = 
+                            Status.create "Loading terminals" (Some ntaxa)
+                            "terminals loaded" 
+                        in
+                        let cnt = ref 0 in
+                        (fun () -> 
+                            incr cnt; 
+                            Status.achieved status !cnt;
+                            Status.full_report status),
+                        (fun () -> Status.finished status)
+                    else (fun () -> ()), (fun () -> ())
                 in
                 let res = 
                     All_sets.IntegerMap.fold (fun x _ acc -> 
@@ -1904,7 +1906,7 @@ let load_data ?taxa ?codes ?(classify=true) data =
                         Not_found -> acc)
                     data.Data.taxon_codes []
                 in
-                Status.finished status;
+                finalize ();
                 res
         | Some taxa ->
                 List.fold_left (fun x y -> generate_taxon y x) [] taxa 

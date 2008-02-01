@@ -1263,8 +1263,8 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-Add the following object files to the final linking rules (needed for windows).
 Add the following flags to the ocaml compiler.
+Add the following object files to the final linking rules (needed for windows).
 
 Some influential environment variables:
   CC          C compiler command
@@ -2845,6 +2845,13 @@ if test "${enable_interface+set}" = set; then
   enableval=$enable_interface; USEINTERFACE=$enableval
 else
   USEINTERFACE=ncurses
+fi
+
+
+
+# Check whether --with-ocaml-flags was given.
+if test "${with_ocaml_flags+set}" = set; then
+  withval=$with_ocaml_flags; OCAMLFLAGS=$withval
 fi
 
 

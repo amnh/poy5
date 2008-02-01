@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2554 $"
+let () = SadmanOutput.register "" "$Revision: 2581 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 2554 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 2581 $"
 
     type tab_state = Begin | First | Continue
 
@@ -51,6 +51,7 @@ type formatter_output = StatusCommon.formatter_output
 type c = 
     | SearchReport 
     | Status 
+    | Warning
     | Error 
     | Information 
     | Output of (string option * bool * formatter_output list)  (* Filename and close it or not *)
@@ -504,6 +505,7 @@ let use_colors = ref false
 let formatter_of_type = function
     | Status -> failwith "Invalid type of message"
     | Error 
+    | Warning
     | Information 
     | Output (None, _, _) -> !info_fmt, false, (fun () -> ())
     | Output ((Some filename), do_close, fo_ls) ->
@@ -531,6 +533,7 @@ let print ty t =
         let t =
             match ty with
             | Error -> ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^ "@]@]@.")
+            | Warning -> ("@[<v 4>@{<c:red>@{<b>Warning: @}@}@,@[" ^^ t ^^ "@]@]@.")
             | _ -> t
         in
         Format.fprintf f t;
@@ -541,6 +544,7 @@ let print ty t =
                     let f = StatusCommon.Files.openf filename opt in
                     Format.fprintf f t;
             | Information, Some filename
+            | Warning, Some filename 
             | Error, Some filename ->
                     let f = StatusCommon.Files.openf filename [] in
                     Format.fprintf f t;
@@ -556,12 +560,14 @@ let type_io msg rank t =
     match t with
     | SearchReport | Information -> `Information (msg, rank)
     | Error -> `Error (msg, rank)
+    | Warning -> `Warning (msg, rank)
     | Status -> `Status (msg, rank)
     | Output _ -> `Output (msg, rank)
 
 let type_string = function
     | SearchReport | Information -> "@[Information@ :@ ", stderr
     | Error -> "@[Error@ :@ ", stderr
+    | Warning -> "@[Warning@ :@ ", stderr
     | Status -> "@[Status@ :@ ", stderr
     | Output _ -> "", stdout
 
