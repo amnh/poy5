@@ -249,8 +249,9 @@ let full_report ?msg ?adv status =
         status#print
     else ()
 
-let is_parallel x = 
+let is_parallel rank x = 
     are_we_parallel := true;
+    my_rank := rank;
     match x with
     | None -> ()
     | Some f -> 

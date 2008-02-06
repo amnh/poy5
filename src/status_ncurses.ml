@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2581 $"
+let () = SadmanOutput.register "" "$Revision: 2592 $"
 
-let () = SadmanOutput.register "Status_ncurses" "$Revision: 2581 $"
+let () = SadmanOutput.register "Status_ncurses" "$Revision: 2592 $"
 
     type tab_state = Begin | First | Continue
 
@@ -59,14 +59,17 @@ type c =
 let are_we_parallel = ref false
 
 let slaves_deal_in_this_way : (c -> string -> unit) ref = ref (fun _ _ -> ())
-let is_parallel = function
-    | None -> are_we_parallel := true;
-    | Some f -> 
-            slaves_deal_in_this_way := f;
-            are_we_parallel := true
 
 (* If running in parallel, wht is my rank? *)
 let my_rank = ref (-1)
+
+let is_parallel x f = 
+    are_we_parallel := true;
+    my_rank := x;
+    match f with
+    | None -> ()
+    | Some f -> 
+            slaves_deal_in_this_way := f
 
 (* [rank c] sets the stored rank of the calling process to [c] *)
 let rank c = my_rank := c

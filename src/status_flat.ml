@@ -17,10 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2581 $"
+let () = SadmanOutput.register "" "$Revision: 2592 $"
 
 exception Illegal_update
-let () = SadmanOutput.register "Status_flat" "$Revision: 2581 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2592 $"
 
 let _ = Format.pp_set_margin Format.std_formatter 78
 
@@ -113,14 +113,15 @@ let to_do_if_parallel = ref (fun t m ->
     in
     f ())
 
-let is_parallel what_to_do =
+let my_rank = ref 0 
+
+let is_parallel x what_to_do =
     parallel := true;
+    my_rank := x;
     match what_to_do with 
     | Some what_to_do -> 
             to_do_if_parallel := what_to_do
     | None -> ()
-
-let my_rank = ref 0 
 
 let rank i = my_rank := i
 

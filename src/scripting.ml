@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2581 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2592 $"
 
 module IntSet = All_sets.Integers
 
@@ -1248,7 +1248,7 @@ IFDEF USEPARALLEL THEN
                             Mpi.comm_world
                     | _ -> ()
                 in
-                Status.is_parallel (Some printer_function)
+                Status.is_parallel my_rank (Some printer_function)
 
     let debug_parallel = false
     let print_msg msg = 
@@ -1370,8 +1370,8 @@ let rec folder (run : r) meth =
 IFDEF USEPARALLEL THEN
             let my_rank = Mpi.comm_rank Mpi.comm_world in
             if my_rank <> 0 then
-                let _ = Mpi.isend () 0 Methods.barrier Mpi.comm_world in
-                let _ = Mpi.barrier Mpi.comm_world in
+                let () = Mpi.send () 0 Methods.barrier Mpi.comm_world in
+                let () = Mpi.barrier Mpi.comm_world in
                 run
             else
                 let counter_of_barriers = ref (Mpi.comm_size Mpi.comm_world) in

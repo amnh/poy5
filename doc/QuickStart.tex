@@ -6,7 +6,7 @@ This first chapter.
 \section{Requirements: software and hardware}
 
 \subsection{Software}
-\poy is a platform-independent, open-source program that can be compiled for many operating systems  and hardware configurations, including Mac OSX, Microsoft Windows, and Linux. \poy \emph{binaries}\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy. The intuitive graphical user interface of \poy provides all the functionality for running analyses using pull-down menus and field selections, as well as creating and running \poy scripts. Other utility programs (such as Notepad for Windows, TextEdit for Mac, or Nano for Linux), can facilitate preparation of \poy scripts and formatting datafiles.
+\poy is a platform-independent, open-source program that can be compiled for many operating systems  and hardware configurations, including Mac OSX, Microsoft Windows XP, and Linux. \poy \emph{binaries}\index{general}{binaries} (compiled application file) is the only piece of software necessary to run \poy. The intuitive graphical user interface of \poy provides all the functionality for running analyses using pull-down menus and field selections, as well as creating and running \poy scripts. Other utility programs (such as Notepad for Windows, TextEdit for Mac, or Nano for Linux), can facilitate preparation of \poy scripts and formatting datafiles.
 
 \subsection{Hardware}
 \poy runs on a variety of computers from laptops and desktops to Beowulf clusters 
@@ -39,7 +39,10 @@ The following detailed step-by-step instructions will guide you through download
                 \href{http://research.amnh.org/scicomp/projects/poy.php}{\emph{poy4} folder} to the desktop by selecting \emph{WinXP} download link.
 
 			\item 
-                Open \emph{POY\_Installer.msi} from the \emph{poy4} folder and follow the installation instructions.
+                Open \emph{POY\_Installer.exe} from the \emph{poy4} folder and follow the installation instructions. You will need Administrator privileges to install the application. 
+                By default, \poy is installed without parallel execution support. If you have Windows XP SP2 or Windows Vista and more than one core or processor, you can take advantage of your processing power by installing the parallel components. To do so, instead of a typical installation, select the complete installation. 
+                
+                \emph{Important:} the complete installation includes MPICH2 1.06 p1. MPICH is used to communicate processes during parallel execution. If you already have MPICH2 installed (if you didn't know what it is you most likely don't have it), select the custom installation option and remove that component. During the first execution in parallel you will be asked by the Windows Firewall to unblock \poy and MPICH, this is necessary for the successful execution of the program.
 		\end{itemize}
 
 	\begin{minipage}[c]{0.074\textwidth}

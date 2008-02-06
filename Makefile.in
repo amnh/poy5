@@ -33,6 +33,11 @@ else
 	cd ./src/; $(MAKE) poy
 endif
 
+poy_test:
+	$(MAKE) depend
+	cd ./src/; $(MAKE) poy_test
+	cp ./src/poy_test ./test/
+
 .PHONY:	subdirs $(SUBDIRS) clean driver install
 subdirs:	$(SUBDIRS)
 

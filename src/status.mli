@@ -58,7 +58,7 @@ val user_message : c -> string -> unit
 
 val full_report : ?msg:string -> ?adv:int -> status -> unit
 
-val is_parallel : (c -> string -> unit) option -> unit
+val is_parallel : int -> (c -> string -> unit) option -> unit
 
 val rank : int -> unit
 

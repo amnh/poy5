@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2554 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2592 $"
 
 let has_something something (`LocalOptimum (_, _, _, _, cost_calculation, _, _, _, _, _, _)) =
     List.exists (fun x -> x = something) cost_calculation
@@ -248,7 +248,7 @@ module MakeNormal
                     Status.user_message fo ("[" ^ cost ^ "]");
                 if not use_hennig_style then
                     Status.user_message fo ";";
-                Status.user_message fo "@]@," in
+                Status.user_message fo "@]@\n" in
             List.iter output tree
         in
         Status.user_message fo "@[<v>";
