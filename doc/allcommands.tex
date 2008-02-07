@@ -144,14 +144,7 @@
             All the arguments of \poycommand{calculate\_support} command are optional and
             their order is arbitrary.
             
-            \begin{statement}
-  	  The placement of the root affects calculation of the support values.
-	  Therefore, it is critical to specify the root prior to executing
-	  \poycommand{calculate\_support}. See the description of the
-	  command \nccross{set}{root} on how to specify the root.
-	\end{statement}
-
-            The \poycommand{calculate\_support} command does not output support values by default. The output of
+The \poycommand{calculate\_support} command does not output support values by default. The output of
             support values must be requested using the command~\ccross{report}. 
             This is particularly important for
             Jackknife and Bootstrap support values, as these sampling techniques
@@ -196,6 +189,12 @@
                 node. The parameters for the searches can be modified using arguments
                 described under \emph{Search strategy}.} 
                 {}
+\begin{statement}
+  	  The placement of the root affects calculation of Bremer support values.
+	  Therefore, it is critical to specify the root prior to executing
+	  \poycommand{calculate\_support}. See the description of the
+	  command \nccross{set}{root} on how to specify the root.
+	\end{statement}
 
 			\argumentdefinition{bootstrap}{\optional{\poyint}}
                 {Calculates Bootstrap support~\cite{Felsenstein1985}. 
@@ -924,7 +923,7 @@
              taxon name appears to match a nucleotide sequence.
 
              If one of the terminal names in an imported molecular file contains
-             an ``at'' (\texttt{@}) or a percentage (\%) symbols, the file will not be loaded because
+             an ``at'' or a percentage symbols, the file will not be loaded because
              it may cause the program to crash when reporting results.
         \end{statement}
 	\end{poydescription}
@@ -1973,12 +1972,10 @@
 	\begin{arguments}
 
 		\argumentdefinition{build}{\optional{\poybool}}
-            {Specifies either to build new trees (boolean value
+            {Specifies either to build ten new trees (boolean value
             \texttt{true}) or to use the trees stored in memory (that is do not
             build new trees; boolean value \texttt{false}). The default for
-            \poyargument{build} is \texttt{false}. Therefore, executing
-            \poycommand{search} under default settings produces no result if
-            there are no trees in memory.}
+            \poyargument{build} is \texttt{true}.}
             {buildsearch}
 
 		\argumentdefinition{transform}{\optional{\poybool}}
@@ -2117,7 +2114,7 @@
             \argumentdefinition{missing}{\obligatory{\poyint}}
                 {Selects terminals or characters to be included in the analysis
                 based on the proportion of missing data. The
-                integer value sets the minimum percentage of missing
+                integer value sets the maximum percentage of missing
                 data. Terminals or characters that have \emph{more} missing data
                 than defined by the value are included in the analysis.}
                 {}
@@ -2134,7 +2131,7 @@
                 \begin{statement}
                 For dynamic homology characters, the missing data refers to
                 sequence fragments, whereas for static characters it refers to
-                individual nucleotide positions. Therefore, when excluding
+                individual matrix positions. Therefore, when excluding
                 terminals with missing data, the resulting set of selected
                 terminals depends on the character type and might, or
                 might not, be identical. For example, if a data file (containing
@@ -2171,7 +2168,7 @@
         \end{argumentgroup}
 
 		\begin{argumentgroup}{Select trees}
-			{Selects trees from the pool of trees currently in memory.}
+			{The following arguments are used to select trees from the pool of trees currently in memory.}
 
 			\argumentdefinition{optimal}{}
 				{Selects all trees of minimum cost.} 
@@ -2184,7 +2181,7 @@
 				\poyargument{best} exceeds the number of optimal (minimal-cost)
 				trees. If the number of optimal trees exceeds the value of
 				\poyargument{best}, only a subset of optimal trees (equal to the
-				value of \poyargument{best} is selected in unspecified order).} 
+				value of \poyargument{best} is selected in an unspecified order).} 
                 			{}
 	
 	\begin{statement}
@@ -2228,7 +2225,7 @@
               fragment  \texttt{0} contained in the file \texttt{chel.aln}.}
 	
 	\poyexample{select(terminals, missing:50)}
-	{This command excludes from subsequent analysis all the terminals that
+	{This command excludes from subsequent analyses all the terminals that
 	have more than 50 percent of characters missing. The list of included and excluded
 	terminals is automatically reported on screen.}
 	
@@ -2258,7 +2255,7 @@
 
 	\begin{poydescription}
             Changes the settings of \poy. This command performs diverse auxiliary 
-            functions from setting the seed of the random number generator to
+            functions, from setting the seed of the random number generator to
             selecting a terminal for rooting output trees.
             
             There is no default setting for \poycommand{set} and the order of its
@@ -2327,7 +2324,7 @@
 
             \argumentdefinition{exhaustive\_do}{}
                 {Applies a standard Direct Optimization algorithm for the tree
-                cost estimation. The difference with \poyargument{normal\_do} is
+                cost estimation~\cite{wheeler1996,wheeler2002a}. The difference with \poyargument{normal\_do} is
                 that the calculation of the tree costs during a search is much
                 more intense, always looking for the best possible alignment 
                 for every single topology (instead of a lazy and greedy strategy
@@ -2335,9 +2332,9 @@
                 {exhaustivedo}
 
             \argumentdefinition{iterative}{}
-                {Applies the Iterative Pass optimization for the tree cost calculations. This improves
-                the tree cost estimation but at the expense of a tremendous execution time.  The iterative argument 
-                can be applied to all character types including chromosome, genome, and custom\_alphabet characters.  
+                {Applies the Iterative Pass optimization for the tree cost calculations ~\cite{wheeler2003a}. This improves
+                the tree cost estimation but at the expense of a tremendous execution time. The iterative argument 
+                can be applied to all the dynamic homology character types including chromosome, genome, and custom\_alphabet characters.  
                 When implementing the iterative pass option for these complex character types the parameter 
                 \poyargument{max\_3d\_len} can be used within the command \poycommand{transform}
                 ((all, \poyargument{dynamic\_pam}:(\poyargument{max\_3d\_len:} {\obligatory{\poyint}}))) 
@@ -2403,7 +2400,7 @@
 	\syntax{\obligatory{(\obligatory{\poystring})}} 
 
 	\begin{poydescription}
-            Stores current state of \poy session in memory. The stored information
+            Stores the current state of \poy session in memory. The stored information
            includes character data, trees, selections, \emph{everything}. Specifying the
            name of the stored state of the search (using the string argument)  does
            \emph{not}, however, generate a file under this name that can be examined;
@@ -2444,14 +2441,13 @@
 
 	\begin{poydescription} 
             \poycommand{swap} is the basic local search function in \poy. This
-            command implements a family of algorithms collectively known as
-            branch swapping in systematics and as hill climbing in combinatorial
-            optimization. They proceed by clipping parts of a given tree and
-            attaching them in different positions of the same tree.  It can be
-            used to perform a local search on a set of trees loaded in memory.
+            command implements a family of algorithms collectively known in systematics as
+            branch swapping and in combinatorial optimization as hill climbing. They proceed by clipping parts of a given tree and
+            attaching them in different positions.  It can be
+            used to perform a local search from a set of trees loaded in memory.
 
             Swapping is performed on all trees in memory. During a search,
-            \poycommand{swap} collects information about the
+            \poycommand{swap} can collect information about the
             visited trees and perform various kinds of checkpoints to reduce
             information loss in case if \poy crashes.
 
@@ -2461,18 +2457,14 @@
             \nccross{calculate\_support}{calculatesupport}.
             
             All arguments of \poycommand{swap} are optional and their order
-            is arbitrary.
+            is arbitrary. The argument of different groups can be combined to tune the search heuristics, but the arguments within each group of are mutually exclusive. (If more than one arguments of one group is listed, only the last one is executed.)
             
         \end{poydescription}
 
 	\begin{arguments}
 
 	\begin{argumentgroup}{Neighborhood}
-	{The basic standard procedures for local search in phylogenetic
-            analysis are SPR and TBR~\cite{swofford1990}. The arguments in this group define the
-            parameters of these methods.
-            
-            The nearest-neighbor interchanges (NNI) swapping strategy is implemented by combining 
+	{A neighborhood is a subset of topologies reachable from a given one by a given search method. The basic standard procedures for local search in phylogenetic analysis are SPR and TBR~\cite{swofford1990}. The nearest-neighbor interchanges (NNI) swapping strategy is implemented by combining 
             the arguments \poyargument{spr} and \poyargument{sectorial} (see \emph{Join method} group of
             arguments): \poycommand{swap(spr, sectorial:1)}.
             \index{general}{NNI|see{swap}}
@@ -2510,11 +2502,10 @@
         neighborhood.}
 
         \argumentdefinition{around}{}
-            {Similar to \poyargument{current\_neighborhood}, this
-            argument changes the trajectory of a search by
+            {Changes the trajectory of a search by
             completely exploring the neighborhood of the current
             tree in memory and choosing the best swap position
-            in its neighborhood first before continuing.
+            before continuing.
             The default in \poy is to choose the first one
             available that shows a better cost than the current
             best cost.}
@@ -2547,17 +2538,17 @@
         the different strategies available in \poy.}
         
         \argumentdefinition{once}{}
-            {Breaks each edge only once during a local search; that is, if a
-            broken edge does not yield a better tree, it is never broken again,
-            no matter how many changes occur in the tree.}
+            {Breaks each branch only once during a local search; that is, if a
+            broken branch does not yield a better tree, it is never broken again,
+            no matter how many changes occur along the search trajectory.}
             {once}
 
         \argumentdefinition{randomized}{}
-            {Chooses edges uniformly at random for breakages.}
+            {Chooses branches uniformly at random for breakages.}
             {}
 
         \argumentdefinition{distance}{}
-            {Gives higher priority to those edges with the greatest length.}
+            {Gives higher priority to those branches with the greatest length.}
             {}
 
     \end{argumentgroup}
@@ -2569,13 +2560,13 @@
 
             \argumentdefinition{constraint}{\optional{\poyint | 
             (depth:\poyint, file:\poystring)}}
-                {The constraint argument for the \poycommand{swap} command sets
+                {Sets
                 constraints on the join locations during the search using both a tree and an optional maximum distance
                 from the break branch. Only sets defined either in the input
                 file, or in the strict consensus of the files in memory to consider during swapping. An integer value of
                 \poyargument{depth} specifies the maximum distance from the
                 break branch to attempt joins. The string value for
-                \poyargument{file} specifies an input file containing a singe
+                \poyargument{file} specifies an input file containing a single
                 tree that defines topological constraints. Under default settings,
                 \poyargument{constraint}
                 will use a consensus tree from the files in memory and perform
@@ -2584,13 +2575,13 @@
                 {swapconstraint}
 
             \argumentdefinition{all}{\optional{\poyint}}
-                {Turn off all preference strategies to make a join, simply try
+                {Turns off all preference strategies to make a join, simply try
                 all possible join positions for each pair of clades generated
-                after a break.}
+                after a break, in a randomized order.}
                 {}
 
             \argumentdefinition{sectorial}{\optional{\poyint}}
-                {Do not join in edges at distance greater than the value of the argument
+                {Join in edges at distance equal or less than the value of the argument
                 from the broken edge, where the distance is the number of edges
                 in the path connecting them. If no argument is given, then no
                 distance limit is set.}
@@ -2623,7 +2614,7 @@
 	\argumentdefinition{recover}{}
 	{Stores the current best tree in memory that can be recovered in
             case of failure. If it is necessary to recover such
-            trees after an aborted command, use the command~\ccross{recover}. 
+            trees after an aborted command, use ~\ccross{recover}. 
             If the program terminates normally, the stored trees are exactly
             those produced at the end of the \poycommand{swap}. Using
             \poyargument{recover}, however, requires twice as much memory
@@ -2637,13 +2628,12 @@
            starting the search.}
                 {}
 
-        \argumentdefinition{timedprint}{\obligatory{\poyint, \poystring}}
-	{\poyargument{timedprint:(n, "trees.txt")} will print the current
+        \argumentdefinition{timedprint}{\obligatory{(\poyint, \poystring)}}
+	{\poyargument{timedprint:(n, "trees.txt")} prints the current
             best tree in memory to the file \texttt{trees.txt}, at least every 
             \texttt{n} seconds. However, \poy typically underestimates the amount of
             time and, therefore, the samples can be slightly sparcer. \poyargument{timedprint} 
-            can only be used in combination with the argument \poyargument{recover}. This
-            argument requires the argument \poyargument{recover} to be specified.}
+            can only be used in combination with the argument \poyargument{recover}.}
             {}
 
 		\argumentdefinition{trajectory}{\optional{\poystring}}
@@ -2742,10 +2732,10 @@
 	\syntax{\obligatory{(\optional{argument list})}} 
 
 	\begin{poydescription} 
-            Transforms a character or a list of characters from one type into
+            Transforms the properties of the imported characters from one type into
             another type. This includes changing in costs for indels and substitution,
             modifying character weights, converting dynamic into static homology characters,
-            and transforming nucleotide into chromosomal (and vise versa) characters
+            and transforming nucleotide into chromosomal characters
             among other operations.
             
             The essential arguments of the command
@@ -2794,28 +2784,26 @@
             transformations. See the note on command order (Section~\ref{commandorder}).
 
         \argumentdefinition{auto\_static\_approx}{}
-            {Evaluates each loaded fragment and, if the number of indels
+            {Evaluates each selected fragment and, if the number of indels
             appear to be low and stable between topologies, then the character
             is transformed to the equivalent character using static homologies
-            with the implied alignment~\cite{wheeler2003}. If no characters are
-            specified (using identifiers), all sequence fragments are evaluated.
-            This method greatly accelerates searching.}
+            with the implied alignment~\cite{wheeler2003}.
+            This method greatly accelerates searching and is applicable only to nucleotide sequences under dynamic homology analysis.}
             {autostaticapprox}
 
         \argumentdefinition{auto\_sequence\_partition}{}
             {Evaluates each fragment and if a long region appears 
             to have no indels, then the fragment is broken inside that region.
             Any number of partitions can occur along a fragment. Fragmenting
-            long sequences greatly accelerates searching.}
+            long sequences greatly accelerates searching. This method is applicable only to dynamic homology characters.}
             {autosequencepartition}
 
         \argumentdefinition{fixed\_states}{}
           {Transforms the characters specified in fixed state characters~\cite{wheeler1999a}
           with distances equal to the edition distance between their observed values.
-          By default, the application of \poyargument{fixed\_states} transforms
-          all molecular characters. To specify a subset of characters, an identifier
-          must be used in conjunction with \poyargument{fixed\_states}.}
+          This method is applicable only to dynamic homology characters.}
           {fixedstates}
+          
         \argumentdefinition{gap\_opening}{\obligatory{\poyint}}
             {Sets the cost of opening a block of gaps to the specified value. Note that
             this cost is in addition to the standard cost of the insertion as
@@ -2826,7 +2814,7 @@
             $a$, and $indel(x)$ is the cost cost of inserting (or deleting) a
             base $x$ according to the tcm assigned to the character, the total
             cost of inserting (or deleting) the sequence $s[0...n]$ is $a +
-            tcm(s[0]) + tcm(s[1]) + ... + tcm(s[n - 1]) + tcm(s[n]).$} 
+            indel(s[0]) + indel(s[1]) + ... + indel(s[n - 1]) + indel(s[n]).$ This method is applicable only to dynamic homology characters.} 
             {gapopening}
 
         \argumentdefinition{multi\_static\_approx}{}
@@ -2834,19 +2822,19 @@
             and convert them to static homology characters using the alignment's
             cost regime. The new character set will be the union of all those
             characters generated for all the trees~\cite{wheeler1995a}. This option is intended only
-            for heuristic search purposes.}
+            for heuristic search purposes and is applicable only to dynamic homology characters.}
             {multistaticapprox}
 
             \argumentdefinition{prealigned}{}
                 {Treats the sequences as prealigned and uses the
                 cost regime according to the specified transformation cost
                 matrix. All other cost parameters are ignored (including affine
-                gap costs).}
+                gap costs). This command requires that all the specified sequences have the same length.}
                 {prealignedtransform}
             
         \argumentdefinition{sequence\_partition}{\obligatory{\poyint}}
-            {Partition the sequences in the argument's value number of
-            fragments.}
+            {Partitions the sequences in the argument's value number of
+            fragments of roughly the same length. This method is applicable only to dynamic homology characters.}
             {sequencepartition}
 
         \argumentdefinition{static\_approx}{\optional{\poylident}}
@@ -2862,9 +2850,9 @@
             each homologous position with gaps. In more complex cases, a Sankoff character is
             created.
             
-            The lident value \texttt{remove} excludes all uninformative characters
+            The LIDENT value \texttt{remove} excludes all uninformative characters
             information (except autapomorphies), whereas the value \texttt{keep}
-            retains these characters. The default is \texttt{remove}.}
+            retains these characters. The default is \texttt{remove}. This method is applicable only to dynamic homology characters.}
             {staticapprox}
             
             \begin{statement}
@@ -2891,7 +2879,7 @@
             in the alphabet separated by spaces. The last element in the list is the
             cost of the indel of a gap (should be 0). Instead of a file, the list can
             be the input of the argument, in the same order, separated by commas.
-            Synonym of the argument \poyargument{ti}.} 
+            Synonym of the argument \poyargument{ti}. This method is applicable only to dynamic homology characters.} 
             {trailinginsertion}
 
         \argumentdefinition{trailing\_deletion}{\obligatory{\poystring /(\poyint list)}}
@@ -2902,7 +2890,7 @@
             in the alphabet separated by spaces. The last element in the list is the
             cost of the indel of a gap (should be 0). Instead of a file, the list can
             be the input of the argument, in the same order, separated by commas.
-            Synonym of the argument \poyargument{td}.} 
+            Synonym of the argument \poyargument{td}. This method is applicable only to dynamic homology characters.} 
             {trailinginsertion}
 
              \argumentdefinition{tcm}{\obligatory{(\poyint, \poyint)}}
@@ -2913,9 +2901,9 @@
             {transformtcm}
 
             \argumentdefinition{tcm}{\obligatory{\poystring}}
-            {Defines transformation cost matrix by importing a file (specified by
+            {Defines the transformation cost matrix by importing a file (specified by
             the string value) that contains a user defined nucleotide
-            transformation cost matrix. 
+            transformation cost matrix. This method is applicable only to dynamic homology characters.
             The transformation cost matrix file contains five rows and columns
             with values listed in the following order (left to right and top to
             bottom): adenine, cytosine, guanine,
@@ -2935,13 +2923,13 @@
             \argumentdefinition{weight}{\obligatory{argument}}
             {Changes the cost of specified characters by a
             constant value (weight) which is specified by either a
-            float or an integer value.} 
+            float or an integer value. This method is applicable to any character type.} 
             {weight}
 
             \argumentdefinition{weightfactor}{\obligatory{argument}}
             {Changes the cost of specified characters by a
             multiplicative factor (weight factor) which is specified by either a
-            float or an integer value.} 
+            float or an integer value. This method is applicable to any characters.} 
             {weightfactor}
 
       \end{argumentgroup}
