@@ -18,7 +18,7 @@
 /* USA                                                                        */
 
 /*
- * $Id: nonaddCSc.c 2597 2008-02-07 20:19:37Z andres $
+ * $Id: nonaddCSc.c 2603 2008-02-08 19:31:01Z andres $
  */
 #ifndef _WIN32
 #include <stdint.h>
@@ -239,7 +239,7 @@ nonadd_print_ptr ("alloc", malloc (sizeof(vect) * ((size / BLOCK_LEN) + 1)))
 
 #define BLOCK_LEN (VECT_SIZE / CHARSIZE)
 
-#define ZERO_VECTOR *_zero_nonadd_vector
+#define ZERO_VECTOR (union _vectnac_u) ((nac) 0x0UL)
 
 typedef nac vect[BLOCK_LEN];
 
@@ -346,8 +346,8 @@ nonadd_nac_of_bit (long i)              /* which bit to set */
 }
 
 union _vectnac_u {
-    vect v;
     nac n;
+    vect v;
 };
 
 static union _vectnac_u *_zero_nonadd_vector = NULL;
@@ -366,7 +366,7 @@ nonadd_make_union_par (const nacat au,
     long i;
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
     vect v_int;
-    union _vectnac_u zero =  (ZERO_VECTOR);
+    union _vectnac_u zero = ZERO_VECTOR;
     nac *res_nacp;
     long nelts = res->len;
 
@@ -408,7 +408,7 @@ nonadd_make_union (const nacat self,
     long i;
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
     vect v_int;
-    union _vectnac_u zero =  (ZERO_VECTOR);
+    union _vectnac_u zero = ZERO_VECTOR;
     nac *res_nacp;
     long nelts = res->len;
 
@@ -450,7 +450,7 @@ nonadd_median (const nacat a,
     const long upto = (long) ceil (res->len / (float) BLOCK_LEN);
     vect v_int;
     vect v_unn;
-    union _vectnac_u zero =  (ZERO_VECTOR);
+    union _vectnac_u zero = ZERO_VECTOR;
     nac *res_nacp;
     long added_cost = 0;
     long nelts = res->len;
@@ -502,7 +502,7 @@ nonadd_median_3 (const nacat _A,       /** Ancestor */
     long i;
     const long upto = (long) ceil (_F->len / (float) BLOCK_LEN);
     vect intermed, temp, was_union, is_contained;
-    union _vectnac_u zero =  (ZERO_VECTOR);
+    union _vectnac_u zero = ZERO_VECTOR;
     nac *res_nacp;
 
     res_nacp = (nac *) & (zero.n);
