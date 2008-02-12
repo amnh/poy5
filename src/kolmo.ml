@@ -16,7 +16,7 @@ module Encodings = struct
     (* From page 13, E_i(x) *)
     let rec e i x =
         match i with
-        | 0 -> (String.create x '1') ^ "0"
+        | 0 -> (String.make x '1') ^ "0"
         | i -> (e (i - 1) (l x)) ^ (binary x)
 
     let e_2 = e 2
