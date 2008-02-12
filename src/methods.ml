@@ -142,12 +142,24 @@ type terminal_transform = [
     | `AlphabeticTerminals
 ]
 
-type ml_substitution = [ `Constant of float option | `K2P of float option ]
-type ml_site_variation
+type ml_substitution = [
+    | `JC69 of float option 
+    | `F81 of float option
+    | `F84 of float list option
+    | `HKY85 of float list option
+    | `K2P of float list option
+    | `TN93 of float list option
+    | `F84 of float list option
+    | `GTR of float list option
+]
+
+type ml_site_variation= [ `Gamma of int * float * float  
+                        | `Theta of int * float * float ]
 type ml_priors = [`Estimate | `Given of float list]
+type ml_gap = [`GapAsCharacter of bool ]
 
 type ml_spec = 
-    (characters * ml_substitution * ml_site_variation option * ml_priors)
+    (characters * ml_substitution * ml_site_variation option * ml_priors * ml_gap)
 
 type char_transform = [
     | dynamic_char_transform
