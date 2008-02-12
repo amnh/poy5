@@ -20,176 +20,189 @@ let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 let debug = false 
 
-type mlchar = {
-    ccode : int;
-    p_v : float array;  (* probability vector *)
-}
-type cm = {
-    p: float -> float array array;  (* probability matrix;arg- branch length *)
-    pi_0: float array;              (* [prior] probability *)
-}
+type s
+type cm = { (* character model *)
+    name: string; (* JC69, F81 etcetera : for to_formatter method and output *)
+    param: float array; (* for iterating and to_formatter *)
+    pi_0: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
+    rate: float array;
+
+    (* diagonalization of probability matrix   *)
+    (* if ui == None then symmetric matrix..   *)
+    u: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
+    d: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
+    ui:(float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; }
 type t = {
-    code: int;             (* identifying code *)
-    mle: float;            (* MLE of this char set *)
-    model: cm;             (* model: probability vector * prior *)
-    chars: mlchar array;   (* char set *)
-    (* MLE is eventually stored in cost in r *)
-}
+    code: int;
+    mle: float;          (* -log likelihood of char set *)
+    model: cm;
+    codes: int array;
+    chars: s;
+    (* MLE is eventually summed and weighted then stored as cost in r *) }
 
-(* empty types *)
-let emp_c = { ccode = 0; p_v = [||] }
-let emp_m = { p = (fun x -> [|[||]|]); pi_0 = [||]; }
-let emp_t = { code = 0; mle = 0.0; chars = [| emp_c |]; model=emp_m; }
+(* ------------------------------------------------------------------------- *)
+external s_bigarray:
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t =
+    "likelihood_CAML_StoBigarray"
+external bigarray_s:
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> s =
+    "likelihood_CAML_BigarraytoS"
+external diagonalize_gtr: (* U D Ui *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    unit = "likelihood_CAML_diagonalize_gtr"
+external diagonalize_sym: (* U D *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    unit = "likelihood_CAML_diagonalize_sym"
+external compose_gtr: (* U D Ui *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t =
+        "likelihood_CAML_compose_gtr"
+external compose_sym: (* U D *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t =
+        "likelihood_CAML_compose_sym"
+external median_gtr: (* priors U D Ui ta tb a b output_c *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> s -> s -> float array -> s = "likelihood_CAML_median_gtr"
+external median_sym: (* priors U D ta tb a b output_c *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> s-> s -> float array -> s = "likelihood_CAML_median_sym"
+external loglikelihood:
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+    float = "likelihood_CAML_loglikelihood"
+external filter: s -> int array -> s = "likelihood_CAML_filter"
+external compare_chars: s -> s -> int = "likelihood_CAML_compare"
+external gamma_rates: float -> float -> int -> float array = "gamma_CAML_rates"
 
-(* val jc69 *)
-let jc69 mu t = 
-    let p_1 = 0.25 -. 0.25 *. exp(-.t*.mu) in
-    let p_0 = 1.0 -. (3.0 *. p_1 ) in
-
-        (* A   C   G   T *)
-     [| [|p_0;p_1;p_1;p_1|];
-        [|p_1;p_0;p_1;p_1|];
-        [|p_1;p_1;p_0;p_1|];
-        [|p_1;p_1;p_1;p_0|];
-     |]
-
-(* val k80: since r=a/2b=1, a = 2b, b=a/2 *) 
-(* r = transition/transversion ratio      *)
-let k2p k t = 
-    let term1 = 0.25 *. exp ( -4.*.t/.(k+.2.) ) in
-    let term2 = 0.5 *. exp (-2.*.t*.(k+.1.)/.(k+.2.)) in
-    
-    let p_0 = 0.25 +. term1 +. term2 and
-        p_1 = 0.25 +. term1 -. term2 and
-        p_2 = 0.25 -. term1 in
-
-       (* A   C   G   T *)
-    [| [|p_0;p_2;p_1;p_2|];
-       [|p_2;p_0;p_2;p_1|];
-       [|p_1;p_2;p_0;p_2|];
-       [|p_2;p_1;p_2;p_0|];
-    |]
-
+(* ------------------------------------------------------------------------- *)
 (* printing commands *)
 let print_float x = Printf.printf "%2.10f\t" x
 let print_array xs = Array.iter print_float xs; print_newline ()
+let print_array2 xxs = Array.iter print_array xxs; print_newline ()
 
-(* ZIP o MAP *)
-let array_zipmap f a1 a2 =
-    let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
-        for i = 1 to ((Array.length a1)-1) do
-            x.(i) <- f a1.(i) a2.(i)
-        done; x
+let print_barray2 a = 
+    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array2.dim2 a)-1 do
+            Printf.printf "%2.10f\t" a.{i,j};
+        done; Printf.printf "\n"; 
+    done; Printf.printf "\n"; ()
 
-(* recall: sum of product of two vectors *)
-let dot_product v1 v2 = 
-    let r = array_zipmap ( *. ) v1 v2 in
-    let res = Array.fold_right (+.) r 0.0 in
-    res
+(* bigarray --> float array array *)
+let barray_matrix bray =  
+    let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
+    let r = Array.make_matrix a b 0.0 in
+    for i = 0 to a-1 do for j = 0 to b-1 do
+        r.(i).(j) <- bray.{i,j};
+    done; done; r
 
-(* negative log liklihood *)
-let mle a model = 
-    let res = -.log (dot_product a model.p_v) in
-    res
+(* bigarray1 to float array *)
+let ba2array a = 
+    let asize = Bigarray.Array1.dim a in
+    let afray = Array.make asize a.{0} in
+    for i = 1 to (asize-1) do
+        afray.(i) <- a.{i};
+    done; afray
 
-(* calculate a new nodes mle and prob_vectors *)
-let median_char p_1 p_2 a b = 
-    let pa = a.p_v and pb = b.p_v in
-    (* calculates one element of the probability vector *)
-    let median_element a b p1 p2 x = 
-        let x1 = Array.get p1 x in
-        let x2 = Array.get p2 x in
-            let right_sum = dot_product a x1 in
-            let lefts_sum = dot_product b x2 in
-                lefts_sum *. right_sum
-    in
-        let curried_c = median_element pa pb p_1 p_2 in
-        let npv = Array.init (Array.length a.p_v) curried_c in
-        { a with p_v = npv; }
+(* ------------------------------------------------------------------------- *)
 
-(* empty argument is 'previous' *)
-let median _ a_node b_node t1 t2 =
-    let p_1 = a_node.model.p t1 and
-        p_2 = b_node.model.p t2 in
-    (* for computing new char prob vectors *)
-    let medcc = median_char p_1 p_2 in
-    let c_map = (array_zipmap medcc a_node.chars b_node.chars) in
-    (* for computing new MLE *)
-    let n_mle = Array.map (mle a_node.model.pi_0) c_map in
-    let n_mle = Array.fold_right (+.) n_mle 0.0 in
-    { a_node with
-        chars = c_map;
-        mle = n_mle;
-    }
+(* val jc69 :: ANY ALPHABET size *)
+let m_jc69 mu a_size =
+    let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+    Bigarray.Array2.fill srm mu;
+    let diag = -. mu *. float (a_size-1) in
+    for i = 0 to (a_size-1) do
+        srm.{i,i} <- diag
+    done; srm
 
-let find_t a b = 0.0
+(* val k2p :: only 4 or 5 characters *)
+let m_k2p alpha beta a_size =
+    let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+    Bigarray.Array2.fill srm beta;
+    (* modify transition elements to alpha *)
+    srm.{1, 3} <- alpha; srm.{3, 1} <- alpha;
+    srm.{2, 0} <- alpha; srm.{0, 2} <- alpha;
+    (* set up the diagonal elements --row sum to 0 *)
+    let diag = if a_size = 4 then
+                    -. alpha -. beta -. beta
+               else -. alpha -. beta *. 3.0  in
+    for i = 0 to (a_size-1) do
+        srm.{i,i} <- diag
+    done; srm
 
-let root_cost t = t.mle
+(* val tn93 :: only 4 or 5 characters *)
+let m_tn93 pi_ alpha beta gamma a_size=
+    let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+    Bigarray.Array2.fill srm gamma;
+    srm.{0,2} <- alpha; srm.{1,3} <- beta; (* ACGT -- R=AG -- Y=CT *)
+    srm.{2,0} <- alpha; srm.{3,1} <- beta; (* 0123 -- R=02 -- Y=13 *)
+    for i = 0 to (a_size-1) do
+        for j = 0 to (a_size-1) do
+            srm.{i,j} <- srm.{i,j} *. pi_.(j);
+        done;
+    done;
+    (* normalize diagonal so row sums to 0 *)
+    for i = 0 to (a_size-1) do
+        let diag = ref 0.0 in
+        for j = 0 to (a_size-1) do
+            if (i <> j) then diag := !diag +. srm.{i,j};
+        done;
+        srm.{i,i} <- -. !diag;
+    done; srm
 
-let distance a_node b_node t1 t2 = 
-    let t = median a_node a_node b_node t1 t2 in
-    t.mle
+(* val f81 :: ANY ALPHABET size *)
+let m_f81 pi_ lambda a_size =
+    let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+    for i = 0 to (a_size-1) do
+        for j = 0 to (a_size-1) do
+            srm.{i,j} <- 
+                if i = j then
+                     -. lambda *. (1.0 -. pi_.(i))
+                else 
+                    pi_.(j)*.lambda;
+        done;
+    done; srm 
 
-(* insert a node between two *)
-(* (c, b) -> (c,(a),b)  *)
-let dist_2 n a b nt at bt xt= 
-    let x = median a a b at bt in
-    let tt = match xt with
-            | None -> find_t x n
-            | Some y -> y in
-    let y = median x x n tt nt in
-    y.mle
+(* val hky85 :: only 4 or 5 characters *)
+let m_hky85 pi_ alpha beta a_size = m_tn93 pi_ alpha alpha beta a_size
 
-let reroot_median a b at bt = median a a b at bt 
-let median_cost ta = ta.mle
-let median_3 _ x _ _ =  x
+(* val f84 :: only 4 or 5 characters *)
+let m_f84 pi_ gamma kappa a_size =
+    let y = pi_.(1) +. pi_.(3) in (* Y = C + T *)
+    let r = pi_.(0) +. pi_.(2) in (* R = A + G *)
+    let alpha = (1.0+.kappa/.r) *. gamma in
+    let beta = (1.0+.kappa/.y) *. gamma in
+    m_tn93 pi_ alpha beta gamma a_size 
 
-let to_string a = "MLStaticCS"
-let cardinal ta = Array.length ta.chars
+(* val gtr :: ANY ALPHABET size *)
+(* pi_ == n; co_ == (1+n)*(n/2) *)
+let m_gtr pi_ co_ a_size =
+    let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+    for i = 0 to (a_size-1) do
+        for j = (i+1) to (a_size-1) do
+            srm.{i,j} <- pi_.(j) *. co_.(i+j-1);
+            srm.{j,i} <- pi_.(i) *. co_.(i+j-1);
+        done;
+    done;
+    (* normalize diagonal so row sums to 0 *)
+    for i = 0 to (a_size-1) do
+        let diag = ref 0.0 in
+        for j = 0 to (a_size-1) do
+            if (i <> j) then diag := !diag +. srm.{i,j};
+        done;
+        srm.{i,i} <- -. !diag;
+    done; srm
+(* ------------------------------------------------------------------------- *)
 
-let f_abs x = if x < 0.0 then -.x else x
-(* roam by step to find best result *)
-let rec g_roam c1 c2 t1 t2 mle_ step epsilon =
-    let best = 
-        let left = if (t1-.step) < 0.0 then (mle_,t1,t2) else
-            (distance c1 c2 (t1-.step) t2,(t1-.step),t2) in
-        let right= if (t1+.step) < 0.0 then (mle_,t1,t2) else
-            (distance c1 c2 (t1+.step) t2,(t1+.step),t2) in
-        match left, right with
-            |((l,_,_),(r,_,_)) -> if l < r then left else right in
-    let best = 
-        let up = if (t2+.step) < 0.0 then (mle_,t1,t2) else
-            (distance c1 c2 t1 (t2+.step),t1,(t2+.step)) in
-             match best,up with
-            |((b,_,_),(u,_,_)) -> if b < u then best else up in
-    let best =
-        let down = if (t2-.step) < 0.0 then (mle_,t1,t2) else
-            (distance c1 c2 t1 (t2-.step), t1, (t2-.step)) in
-             match best,down with
-            |((b,_,_),(d,_,_)) -> if b < d then best else down in
-     match best with
-    |(b_t,b_t1,b_t2) ->
-        if b_t >= mle_ || epsilon >= f_abs(b_t-.mle_) 
-        then (mle_,t1,t2)
-        else g_roam c1 c2 b_t1 b_t2 b_t step epsilon
-
-(* readjust the branch lengths to create better mle score *)
-let readjust xopt x child1 child2 mine c_t1 c_t2 mine_t =
-    let mmle = mine.mle in
-
-    let data = g_roam child1 child2 c_t1 c_t2 mmle 0.01 0.001 in (* TODO: constants *)
-    match data with
-    | (bmle,bt1,bt2) when bt1==c_t1 && bt2==c_t2 ->
-        (x,mine.mle,bmle,(bt1,bt2),mine)
-    | (bmle,bt1,bt2) ->
-        (*  Printf.printf  "%f  -->  %f  -->  %f\n" mine.mle mmle bmle; *)
-        (* add all changed characters to set *)
-        let x = Array.fold_right (* TODO: bottleneck *)
-            (fun c s -> All_sets.Integers.add c.ccode s)
-            mine.chars x in
-        (x,mine.mle,bmle,(bt1,bt2), {mine with mle = bmle} )
-
-(* of_parser stuff *)
+(* \nof_parser stuff *)
 let rec list_of n x =
     match n with
     | 0 -> []
@@ -212,210 +225,212 @@ let rec sublist l a b =
         | 0,_ -> hd::sublist tl 0 (b-1)
         | _,_ -> sublist tl (a-1) b)
     | _ -> []
-
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
-let of_parser spec characters = 
-    let a_size = Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph))-1 in
-    let a_gap = Alphabet.get_gap( spec.Parser.SC.st_alph ) in
-
+let of_parser spec characters =
     let model = spec.Parser.SC.st_type in
     let model =
         match model with
         | Parser.SC.STLikelihood m -> m 
-        | _ -> failwith "wrong model" in 
+        | _ -> failwith "not a likelihood model" in 
+
+    let (a_size,a_gap) = 
+        match model.Parser.SC.use_gap with
+        | true -> 
+            ( Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph)), -1 ) 
+        | false ->
+            ( Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph))-1,
+              Alphabet.get_gap( spec.Parser.SC.st_alph ) ) in
+
+    let variation =
+        match model.Parser.SC.site_variation with
+        | None -> [| 1.0 |]
+        | Some a -> ( match a with
+            | Parser.SC.Invariant -> [| 1.0 |]
+            | Parser.SC.Gamma (x,y,z) -> gamma_rates y z x
+            | Parser.SC.Theta (x,y,z) -> (Array.append (gamma_rates y z x) [|1.0|]))
+        in
 
     let priors =
         match model.Parser.SC.base_priors with
         | Parser.SC.Estimated p
         | Parser.SC.Given p -> p in
 
-    let p_funk =
+    (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
+    let sym = ref false in
+    let mname = ref "none" in
+    let (sub_mat,m_params) =
         match model.Parser.SC.substitution with
-        | Parser.SC.Constant lambda -> jc69 lambda
-        | Parser.SC.K2P kappa -> k2p kappa
-(*      | Parser.SC.F81 pi_s -> tn93 pi_s 1.0 1.0       *)
-(*      | Parser.SC.F84 pi_se k -> 
-                let k1 = 1.0+.k/.Y and k2 = 1.0+.k/.R in
-                tn93 pi_s k1 k2                         *)
-(*      | Parser.SC.HKY85 pi_s k                        *)
-(*      | Parser.SC.TN93 pi_s k1 k2 -> tn93 pis k1 k2   *)
-(*      | Parser.SC.REV ...                             *)
-        | _ -> failwith ("Likelihood model not available")
-    in
+        | Parser.SC.JC69 lambda -> 
+                sym := true;
+                mname := "JC69";
+                (m_jc69 lambda a_size, [| lambda |])
+        | Parser.SC.K2P (alpha,beta) ->
+                sym := true;
+                mname := "K2P";
+                (m_k2p alpha beta a_size, [|alpha;beta|])
+        | Parser.SC.F81 lambda ->
+                mname := "F81";
+                (m_f81 priors lambda a_size, [| lambda |])
+        | Parser.SC.F84 (kappa,beta) ->
+                mname := "F84";
+                (m_f84 priors kappa beta a_size, [| kappa;beta |])
+        | Parser.SC.HKY85 (alpha,beta) ->
+                mname := "HKY85";
+                (m_hky85 priors alpha beta a_size, [| alpha;beta |])
+        | Parser.SC.TN93 (alpha1,alpha2,beta) ->
+                mname := "TN93";
+                (m_tn93 priors alpha1 alpha2 beta a_size,[|alpha1;alpha2;beta|])
+        | Parser.SC.GTR coeff -> 
+                mname := "GTR";
+                (m_gtr priors coeff a_size, coeff)
+        | _ -> failwith ("I don't support this likelihood model") in
+    (* diagonalize to get factored probability matrix --submat is destroyed *)
+    let (u_,d_,ui_) = 
+        let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+        Bigarray.Array2.fill n_d 0.0;
+        if !sym then (
+            diagonalize_sym sub_mat n_d; (sub_mat, n_d, None) )
+        else (
+            let n_ui = Bigarray.Array2.create
+                            Bigarray.float64 Bigarray.c_layout a_size a_size in
+            Bigarray.Array2.fill n_ui 0.0;
+            diagonalize_gtr sub_mat n_d n_ui; (sub_mat, n_d, Some n_ui) ) in
 
-    (* loop for each character *)
+    (* loop to create array for each character *)
     let loop_ (states,code) =
         match states with 
-        | None -> { ccode = code;
-                    p_v = Array.make a_size 1.0; } 
-        | Some s when List.hd s = a_gap ->
-                  { ccode = code;
-                    p_v = Array.make a_size 1.0; }
-        | Some s ->
-                let pl = List.fold_right set_in s (list_of a_size 0.0) in
-                let pv = Array.of_list (sublist pl 0 a_size) in
-                { ccode = code; p_v = pv; }
-    in
+        | None -> Array.make a_size 1.0
+        | Some s when List.hd s = a_gap -> Printf.printf "GAP!\n"; Array.make a_size 1.0
+        | Some s -> let pl = List.fold_right set_in s (list_of a_size 0.0) in
+                Array.of_list (sublist pl 0 a_size) in
+    (* loop to extract codes *)
+    let code_loop (states,code) = code in
+
+    (* convert character array to abstract type --redo *)
+    let ba_chars = (Array.map loop_ characters) in (* create initial arrays *)
+    let ba_chars = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout ba_chars in
+
     {   code = model.Parser.SC.set_code;
          mle = 0.0;
-       model = { pi_0 = Array.sub priors 0 a_size; p = p_funk };
-       chars = Array.map loop_ characters; }
+       model = {
+            rate = variation;
+            name = !mname;
+           param = m_params;
+            pi_0 = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout priors;
+           u = u_; d = d_;ui = ui_ };
+       codes = Array.map code_loop characters; 
+       chars = bigarray_s ba_chars;
+    }
 
-(* filtering functions *)
-let filter f t =
-    let filter_e f e = Array_ops.filter f e in
-    { t with chars = filter_e f t.chars }
-let f_codes_comp t codes = 
-    let check mlc = not (All_sets.Integers.mem mlc.ccode codes) in 
-    filter check t
-let f_codes t codes = 
-    let check mlc = All_sets.Integers.mem mlc.ccode codes in
-    filter check t
-let compare_data a b = compare a b
+let f_abs x = if x < 0.0 then -.x else x
+let i_pow b n = 
+    let fb = float_of_int b and fn = float_of_int n in
+    int_of_float (fb**fn)
+let pack lst = `Structured (`Set (List.map (fun x -> `Single x) lst))
 
 (* Tags.attributes ->t ->t option ->Data.d *)
 let to_formatter attr mine minet _ data :Tags.output list =
-    let i_pow b n = 
-            let fb = float_of_int b and fn = float_of_int n in
-            int_of_float (fb**fn) in
-
-    let pack lst = `Structured (`Set (lst)) in
-    (* list->map->map(i) for arrays to eventually pack *)
-    let _ray f v = pack (Array.to_list 
-                        (Array.map (fun x -> `Single x) (Array.map f v))) in
-    let _rayi f v = pack (Array.to_list 
-                        (Array.map (fun x -> `Single x) (Array.mapi f v))) in
-
-    (** pack individual elements into an ID
-     *   cs is the nucleotide id
-     *   p is the value 
-     **)
+    (** map functions over a set, into a single, then pack: with index, and with 2 lists **)
+    let _ray f v = pack (Array.to_list (Array.map f v)) in
+    let _ray2 f v c = pack (List.map2 f v c) in
+    let _rayi f v = pack (Array.to_list (Array.mapi f v)) in
+    (** pack individual elements into an ID **)
     let f_element cs p :Tags.output =
         let alpha = Alphabet.nucleotides in 
         (Alphabet.find_code (i_pow 2 cs) alpha, [], `String (string_of_float p)) in
-
-    (** pack an array into an ID 
-     *   cs is the nucleotide id
-     *   p is an array
-     **)
+    (** pack an array into an ID **)
     let f_array cs (p:float array) :Tags.output =
         let alpha = Alphabet.nucleotides in
         (Alphabet.find_code (i_pow 2 cs) alpha, [], (_rayi f_element p) ) in
+    (** pack a matrix into an ID **)
+    let f_matrix m :Tags.output = (Tags.Characters.p_mat,[],(_rayi f_array m)) in
+    (** pack a single character into an ID **)
+    let f_char c cc:Tags.output = 
+        let a_char = (Tags.Data.code, string_of_int cc) in
+        (Tags.Characters.character, [a_char], (_rayi f_element c)) in
+    (** pack the priors of the model **)
+    let f_prior priors :Tags.output = let pi = ba2array priors in
+        (Tags.Characters.prior, [], (_rayi f_element pi)) in
+    (** function to pack a whole character set **)
+    let f_chars ch_s co_s =
+        let r = Array.to_list (barray_matrix ch_s) in
+        _ray2 f_char r (Array.to_list co_s) in
 
-    let f_pmat m :Tags.output = (Tags.Characters.p_mat,[],(_rayi f_array m)) in
-    let f_char c :Tags.output = 
-        let a_char = (Tags.Data.code, string_of_int c.ccode) in
-        (Tags.Characters.character, [a_char], (_rayi f_element c.p_v)) in
-    let f_prior cm :Tags.output =
-            (Tags.Characters.prior, [], (_rayi f_element cm.pi_0)) in 
-    let f_chars cs :Tags.output = 
-            (Tags.Characters.characters, [], (_ray f_char cs)) in
     let attrib :Tags.attribute list = 
-                (Tags.Data.code,string_of_int mine.code) :: 
-                (Tags.Nodes.time, string_of_float minet) ::
-                (Tags.Characters.mle, string_of_float mine.mle) :: attr in
-    let con = `Structured 
-                (`Set [
-                    `Single (Tags.Characters.model,[], `Structured
-                        (`Set [
-                            `Single (f_prior mine.model);
-                            `Single (f_pmat (mine.model.p minet))]));
-                    `Single (Tags.Data.characters,[],
-                        `Structured 
-                            (`Single (f_chars mine.chars)))] ) in
+        (Tags.Data.code,string_of_int mine.code) :: 
+        (Tags.Nodes.time, string_of_float minet) ::
+        (Tags.Characters.mle, string_of_float mine.mle) :: attr in
 
+    let con = pack (
+                (Tags.Characters.model, (Tags.Data.modeltype, mine.model.name) :: [], 
+                    pack ((f_prior mine.model.pi_0) :: [])
+                        (* `Single (f_matrix (s_bigarray (compose_gtr u d ui minet))) *)
+                ) :: 
+                (Tags.Data.characters,[],
+                    (f_chars (s_bigarray mine.chars) mine.codes)) :: []) in
     [(Tags.Characters.likelihood, attrib, con)]
 (* -> Tags.output list *)
 
-(* -------------------------------------------------------------------
-(* manual test of single character *)
-let ch_a = {ccode=0;p_v=[|1.0;0.0;0.0;0.0|]; }
-let ch_c = {ccode=0;p_v=[|0.0;1.0;0.0;0.0|]; }
-let ch_t = {ccode=0;p_v=[|0.0;0.0;0.0;1.0|]; }
-let ch_g = {ccode=0;p_v=[|0.0;0.0;1.0;0.0|]; }
-let s_model = { p = k80_r 2.0; pi_0 = [|0.25;0.25;0.25;0.25|]; }
+(* readjust the branch lengths to create better mle score *)
+let readjust xopt x child1 child2 mine c_t1 c_t2 mine_t = (x,0.0,0.0,(0.0,0.0),mine)
 
-let l_1 = {code=0;mle=0.0;model=s_model;chars=[|ch_c|]; }
-let l_2 = {code=1;mle=0.0;model=s_model;chars=[|ch_t|]; }
-let l_3 = {code=2;mle=0.0;model=s_model;chars=[|ch_a|]; }
+(* [median] calculate the new new node between [an] and [bn] with
+ * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
+let median an bn t1 t2 =
+    let am = an.model in
+    let n_chars = match am.ui with
+        | None -> 
+            median_sym am.u am.d t1 t2 an.chars bn.chars am.rate
+        | Some ui -> 
+            median_gtr am.u am.d ui t1 t2 an.chars bn.chars am.rate in
+    { an with
+        chars = n_chars;
+        mle = loglikelihood n_chars an.model.pi_0; 
+    }
 
-let l_7 = median l_1 l_1 l_2 0.2 0.2
-let l_6 = median l_1 l_7 l_3 0.1 0.2
-let l_8 = median l_1 l_1 l_1 0.2 0.2
-let l_0 = median l_1 l_6 l_8 0.1 0.1
-let nl_8= g_roam l_1 l_3 0.2 0.2 1.7544841622 0.1 0.1
+let distance a_node b_node t1 t2 =
+    let t = median a_node b_node t1 t2 in t.mle
 
-(* correct when...
-val l_0 : t =
-  {code = 0; mle = 7.58140757255770126;
-   model = {p = <fun>; pi_0 = [|0.25; 0.25; 0.25; 0.25|]};
-   chars =
-    [|{ccode = 0;
-       p_v =
-        [|0.000112371114942437172; 0.00183822623771382442;
-          7.51370241327383381e-05; 1.36379295632049643e-05|]}|]}
-*)
+(* insert a node between two *)
+(* (c, b) -> (c,(a),b)  *)
+let dist_2 n a b nt at bt xt= 
+    let x = median a b at bt in
+    let tt = 0.0 in 
+    let y = median x n tt nt in
+    y.mle
 
-(* manual test with two same characters (double score as above) *)
-let l_1 = {code=0;mle=0.0;model=s_model;chars=[|ch_c;ch_c|]; }
-let l_2 = {code=1;mle=0.0;model=s_model;chars=[|ch_t;ch_t|]; }
-let l_3 = {code=2;mle=0.0;model=s_model;chars=[|ch_c;ch_c|]; }
-let l_4 = {code=3;mle=0.0;model=s_model;chars=[|ch_c;ch_c|]; }
-let l_5 = {code=4;mle=0.0;model=s_model;chars=[|ch_a;ch_a|]; }
+let median_3 p x c1 c2  =  x
+let reroot_median a b at bt = median a b at bt 
+let median_cost ta = loglikelihood ta.chars ta.model.pi_0
+let root_cost t = t.mle
+let to_string a = "MLStaticCS"
+let cardinal ta = Array.length ta.codes
+let union prev ch1 ch2 = prev
 
-let l_7 = median l_1 l_1 l_2 0.2 0.2
-let l_6 = median l_7 l_7 l_5 0.1 0.2
-let l_8 = median l_4 l_4 l_3 0.2 0.2
-let l_0 = median l_6 l_6 l_8 0.1 0.1
-(* correct when...
-  {code = 0; mle = -15.1628151451154025;
-   model = {p = <fun>; pi_0 = [|0.25; 0.25; 0.25; 0.25|]};
-   chars =
-    [|{ccode = 0;
-       p_v =
-        [|0.000112371114942437172; 0.00183822623771382442;
-          7.51370241327383381e-05; 1.36379295632049643e-05|]};
-      {ccode = 0;
-       p_v =
-        [|0.000112371114942437172; 0.00183822623771382442;
-          7.51370241327383381e-05; 1.36379295632049643e-05|]}|]}
-*) 
+let f_codes t codes = 
+    let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
+        | true -> Some i
+        | false -> None in
+    let loopOpt_ a = match a with
+        | None -> false
+        | _ -> true in
+    let loopStrip_ a = match a with | Some i -> i | _ -> 0 in
+    let opt_idx = Array.mapi (loopi_) t.codes in
+    let opt_idx = Array.of_list (List.filter loopOpt_ (Array.to_list opt_idx)) in
+    let opt_idx = Array.map loopStrip_ opt_idx in
+    { t with chars = filter t.chars opt_idx }
 
-(*
-PHYML and DNAML input:
-  RATIO::
-    PHYML:2.0, DNAML:4.0
-  TREE::
-    (((Gamma:0.0001,Epsilon:0.0001):0.0001,Delta:0.0001):0.0002,Beta:0.0001,Alpha:0.0001);
-  SEQ::
-    ----------
-    5   2 
-    Alpha     TT
-    Beta      TT
-    Gamma     AC
-    Delta     AC
-    Epsilon   AA
-    ----------
-  Note:: running poy with this data set produces this as it's first tree as
-    well when all branch lengths are set to 0.0001. The 0.0002 in tree above
-    is because the input is unrooted, so branch lengths are added.
-*)
+let f_codes_comp t codes = 
+    let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
+        | true -> None
+        | false -> Some i in
+    let loopOpt_ a = match a with
+        | None -> false
+        | _ -> true in
+    let loopStrip_ a = match a with | Some i -> i | _ -> 0 in
+    let opt_idx = Array.mapi (loopi_) t.codes in
+    let opt_idx = Array.of_list (List.filter loopOpt_ (Array.to_list opt_idx)) in
+    let opt_idx = Array.map loopStrip_ opt_idx in
+    { t with chars = filter t.chars opt_idx }
 
-let a = {ccode=0;p_v=[|1.0;0.0;0.0;0.0|]; }
-let c = {ccode=0;p_v=[|0.0;1.0;0.0;0.0|]; }
-let t = {ccode=0;p_v=[|0.0;0.0;0.0;1.0|]; }
-let g = {ccode=0;p_v=[|0.0;0.0;1.0;0.0|]; }
-let s_model = { p = k80_r 2.0; pi_0 = [|0.25;0.25;0.25;0.25|]; }
-
-let alpha = {code=0;mle=0.0;model=s_model;chars = [| t;t |]; }
-let beta = {code=1;mle=0.0;model=s_model;chars =  [| t;t |]; }
-let gamma = {code=2;mle=0.0;model=s_model;chars = [| a;c |]; }
-let delta = {code=3;mle=0.0;model=s_model;chars = [| a;c |]; }
-let epsilon = {code=4;mle=0.0;model=s_model;chars=[| a;a |]; }
-
-let l_3 = median alpha epsilon gamma 0.0001 0.0001
-let l_2 = median alpha delta l_3 0.0001 0.0001
-let l_1 = median alpha alpha beta 0.0001 0.0001
-let l_0 = median alpha l_2 l_1 0.0001 0.0001
-
-*)
+let compare_data a b = compare_chars a.chars b.chars
