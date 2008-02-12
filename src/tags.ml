@@ -196,6 +196,7 @@ module Data = struct
     let ignored_taxa = "Ignored Taxa"
     let ignored_characters = "Ignored Characters"
     let characters = "Characters"
+    let modeltype = "Model_Type"
 end
 
 (* The Kolmogorov complexity characters specifications *)
