@@ -83,7 +83,8 @@ type transform_method = [
     | `AlphabeticTerminals
     | `Prealigned_Transform
     | `UseLikelihood of 
-    (Methods.ml_substitution * Methods.ml_site_variation option * Methods.ml_priors)
+        ( Methods.ml_substitution * Methods.ml_site_variation option *
+          Methods.ml_priors * Methods.ml_gap )
     | `Tcm of string
     | `Gap of (int * int)
     | `AffGap of int
@@ -348,8 +349,8 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
-            | `UseLikelihood (a, b, c) ->
-                    (`UseLikelihood (id, a, b, c)) :: acc
+            | `UseLikelihood (a, b, c, d) ->
+                    (`UseLikelihood (id, a, b, c, d)) :: acc
             | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
@@ -1058,36 +1059,74 @@ let create_expr () =
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
             ];
+
+        ml_floatlist: 
+            [[
+                ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
+                right_parenthesis -> List.map float_of_string x
+            ]];
         ml_substitution: 
-            [ 
-                [ "constant"; x = OPT optional_integer_or_float -> 
-                    let x =
-                        match x with
+            [
+                [ "constant";
+                    x = OPT optional_integer_or_float -> 
+                    let x = match x with
                         | None -> None 
                         | Some x -> Some (float_of_string x) 
-                    in `Constant x ] |
-                [ "k2p"; x = OPT optional_integer_or_float -> 
-                    let x = 
-                        match x with
+                    in `JC69 x ] |
+                [ "jc69";  
+                    x = OPT optional_integer_or_float -> 
+                    let x = match x with
                         | None -> None
-                        | Some x -> Some (float_of_string x) 
-                    in `K2P x ]
+                        | Some x -> Some (float_of_string x)
+                    in `JC69 x ] |
+                [ "f81";
+                    x = OPT optional_integer_or_float ->
+                    let x = match x with
+                        | None -> None
+                        | Some x -> Some( float_of_string x )
+                    in `F81 x ] |
+                (* values of these types get checked later *)
+                [ "f84"; x = OPT ml_floatlist -> `F84 x ] |
+                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] | 
+                [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
+                [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
+                [ "gtr"; x = OPT ml_floatlist -> `GTR x ]
             ];
         ml_site_variation: 
-            [ [ "none" -> None ] ];
+            [
+                [ "gamma";":";left_parenthesis;
+                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
+                        let sv_ = Array.of_list (List.map float_of_string y) in
+                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
+                        Some (`Gamma (int_of_string x, alpha, beta)) ] |
+                [ "theta";":";left_parenthesis;
+                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
+                        let sv_ = Array.of_list (List.map float_of_string y) in
+                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
+                        Some (`Theta (int_of_string x, alpha, beta)) ] |
+                [ "none" -> None ]
+            ];
         ml_priors:
             [ 
                 [ "estimate" -> `Estimate ] |
                 [ "given"; ":"; left_parenthesis; 
-                x = LIST1 [ x = FLOAT -> float_of_string x ]
-                SEP ","; right_parenthesis -> `Given x ]
+                    x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
+                    right_parenthesis -> `Given x ]
+            ];
+        ml_gaps:
+            [
+                [",";"gap"; x =  OPT optional_boolean ->
+                    match x with 
+                    | None -> `GapAsCharacter false
+                    | Some x -> `GapAsCharacter x ] |
+                [ _ -> `GapAsCharacter false ]
             ];
         transform_method:
             [
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
-                    x = ml_substitution; ","; y = ml_site_variation; ",";
-                    z = ml_priors; right_parenthesis ->
-                        `UseLikelihood (x, y, z) ] |
+                    w = ml_substitution; ","; x = ml_site_variation; ",";
+                    y = ml_priors; z = ml_gaps; right_parenthesis ->
+                        `UseLikelihood (w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
