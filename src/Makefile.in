@@ -223,8 +223,7 @@ TREE = enum.cmo bitSet.cmo tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	mst.cmo build.cmo 
 
 DISTANCE_LIBS = character.cmo memstack.o add.o nonaddCS8.cmo \
-	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o addCS.cmo  \
-	$(LIKELIHOOD_COMPONENTS)
+	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o addCS.cmo 
 
 SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	primes.cmo fingerPrint.cmo sequence.cmo zarr.o avl.o \
@@ -242,7 +241,7 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	compileFlags.cmo buildNumber.cmo \
 	version.cmo sadmanlib.cma $(INTERFACE) \
 	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
-	array_ops.cmo $(PARSER) distances.cma methods.cmo $(CHARACTER) \
+	array_ops.cmo $(PARSER) distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) \
 	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
 	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
 	scripting.cmo
