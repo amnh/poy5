@@ -4,7 +4,7 @@
 AC_PREREQ(2.61)
 AC_INIT([POY 4 Beta], [see VERSION], [poy4@googlegroups.com])
 AC_CONFIG_SRCDIR([add.c])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
@@ -99,22 +99,16 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [USE_VERIFY_COSTS=false])
 
 AS_IF([test $USE_LIKELIHOOD = "true"],
-    [AC_CHECK_LIB([lapack], [dsyev_],
-        [AC_CHECK_LIB([lapack], [dgeev_],
-            [AC_CHECK_LIB([lapack], [cblas_dgemm],
-                #everything is peachy-keen...
-                [LIBS="-llapack $LIBS"; AC_DEFINE(HAVE_LIBLAPACK) ],
-                [AC_MSG_FAILURE([The cblas routine for matrix multiplication was not found])]
-            )],
-            [AC_MSG_FAILURE([The lapack routine for general eigenvalue problems not found])]
-        )],
-        [AC_MSG_FAILURE([The lapack routine for symmetric eigenvalue problems not found])]
-    )])
-
+    [AC_CHECK_LIB([lapack],[dsyev_], [AC_CHECK_LIB([lapack],[dgeev_], [AC_CHECK_LIB([lapack],[dgemm_],
+     [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
+            [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
+            [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
+            [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
+            [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])])
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"], 
-      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS"; AC_DEFINE(HAVE_LIBNCURSES)], 
+      [AC_CHECK_LIB([ncurses], [scrollok], [AC_DEFINE(HAVE_LIBNCURSES) LIBS=[-lncurses $LIBS] ], 
       [AS_IF([test $INTERFACE_SELECTED = "true"], 
              [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.])], 
              [USEINTERFACE="readline"])])],[])
