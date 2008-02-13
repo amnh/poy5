@@ -27,6 +27,15 @@ module type E = sig
 
     (** Decoding the previous prefix free codifications *)
     val decode : encoding -> natural
+    (* A function to generate the huffman code functions for lists of elements
+    * of type 'a *)
+
+    val huffman : ('a * float) list -> 
+        ((encoding -> 'a list) * ('a list -> encoding))
+
+    (* The tree representation of a huffman code *)
+    val huffman_tree : ('a * float) list -> 'a option Parser.Tree.t
+
 end 
 
 module Encodings : E = struct
@@ -100,18 +109,67 @@ module Encodings : E = struct
         aux [] x lst
 
     let decode bin =
-        let rec decode acc to_read left =
-            match to_read with
-            | `Zero ->
-                    let x, rest_of_list = decode_list_of_ones left in
-                    decode x (`Length x) rest_of_list
-            | `Length x ->
-                    match left with
-                    | [] -> acc
-                    | left ->
-                            let number, rest_of_list = extract_first x left in
-                            let x = (nat_of_binary number) in
-                            decode x (`Length x) rest_of_list
+        let rec length_decode acc left =
+            match left with
+            | [] -> acc
+            | left ->
+                    let number, rest_of_list = extract_first acc left in
+                    let acc = (nat_of_binary number) in
+                    length_decode acc rest_of_list
         in
-        decode 0 `Zero bin
+        let x, rest_of_list = decode_list_of_ones bin in
+        length_decode x rest_of_list
+
+    let huffman_tree lst = 
+        let rec sort_n_merge lst =
+            match List.sort (fun (_, (a : float)) (_, (b : float)) -> 
+                compare a b) lst 
+            with
+            | [(x, _)] ->  x
+            | (x, a) :: (y, b) :: tl ->
+                    let l = 
+                        (((Parser.Tree.Node ([x; y], None)), a +. b) :: tl)
+                    in
+                    sort_n_merge l
+            | [] -> failwith "Empty alphabet"
+        in
+        let r = List.map (fun (x, y) -> (Parser.Tree.Leaf (Some x)), y) lst in
+        sort_n_merge r
+
+    let huffman lst =
+        let tree = huffman_tree lst in
+        let encoded_table = 
+            let hshtbl = Hashtbl.create 97 in
+            let rec generate_table acc tree =
+                match tree with
+                | Parser.Tree.Leaf (Some x) ->
+                        Hashtbl.add hshtbl x (List.rev acc)
+                | Parser.Tree.Node ([a; b], None) ->
+                        generate_table (Zero :: acc) a;
+                        generate_table (One :: acc) b;
+                | Parser.Tree.Node (_, _)
+                | Parser.Tree.Leaf None -> assert false
+            in
+            generate_table [] tree;
+            hshtbl
+        in
+        (fun list_to_decode ->
+            let rec aux_decoder (decoded, tree_left) item =
+                match tree_left with
+                | Parser.Tree.Leaf (Some x) -> 
+                        aux_decoder ((x :: decoded), tree) item
+                | Parser.Tree.Node ([a; b], None) ->
+                        (match item with
+                        | Zero -> (decoded, a)
+                        | One -> (decoded, b))
+                | _ -> failwith "Illegal message"
+            in
+            match List.fold_left aux_decoder ([], tree) list_to_decode with
+            | lst, Parser.Tree.Leaf (Some x) -> List.rev (x :: lst)
+            | _ -> failwith "Illegal message"),
+        (fun list_to_encode ->
+            let res = List.map (Hashtbl.find encoded_table) list_to_encode in
+            List.flatten res)
+
+
 end
