@@ -2861,12 +2861,17 @@ let set_likelihood data
                     Parser.SC.K2P (const,((1.0-.const)/.2.0))
                 | `K2P (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray <> 2 then 
-                        let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ K2P@ requires@ 2@ parameters" in
-                            failwith("Incorrect Parameters");
-                    else
+                    if Array.length aray = 2 then 
                         Parser.SC.K2P (Array.get aray 0,Array.get aray 1)
+                    else if Array.length aray = 1 then
+                        (* solution for: R = a/b and a+2b = 1 *)
+                        let beta = 1. /. (aray.(0) +. 2.0) in
+                        let alpha = aray.(0) /. (2.0 +. aray.(0)) in
+                        Parser.SC.K2P ( alpha, beta )
+                    else
+                        let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ K2P@ requires@ 1@ or@ 2@ parameters" in
+                            failwith("Incorrect Parameters");    
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
                     if Array.length aray <> 2 then 
