@@ -38,35 +38,37 @@
 
 //decent values (time/accuracy) for gamma calculations
 #define STEP 1e-4     //for numerical integration
-#define EPSILON 1e-5 //error for numerical calculations
+#define EPSILON 1e-5  //error for numerical calculations
 #define ML_val(v) (*((struct ml**)Data_custom_val(v)))
 typedef struct ml mll; 
 
+//------------------------------------------------------------------------------
 /* assert checking 
  *
  * ~CHECK_MEM       -- verify enough memory
  * ~CHECK_POSITIVE  -- verify array is all positive values with EPSILON error
  * ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error
+ * ~CHECK_MEAN      -- verify the mean of the gamma rates == 1
  */
 
 /*  asserts  */
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 //#define CHECK_POSITIVE(a,n); int Z;for(Z=0;Z<n;Z++){ if( a[Z] < -EPSILON) failwith("Negative Likelihood"); }
 //#define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON) failwith("Imaginary eigenvalue"); }
-//#define CHECK_MULTIPLCITY(a); if( a > (1.0+EPSILON) ){ failwith("Eigensystem doesn't satisfy eigenvalues"); }
+//#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ failwith("Incorrect Mean of Gamma Rates"); }
 
 /*  printline  */
 //#define CHECK_MEM(a) if(a==NULL) printf("I can't allocate more memory. %d",__LINE__)
 #define CHECK_POSITIVE(a,n); int Z;for(Z=0;Z<n;Z++){ if( a[Z] < -EPSILON){ printf("Negative Likelihood :: %f\n",a[Z]);} }
 #define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON){ printf("Imaginary eigenvalue :: %f\n", a[Z]); } }
-//#define CHECK_MULTIPLCITY(a); if( a > (1.0+EPSILON) ){ printf("Algebraic Multiplicity > 1"); }
+#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
 
 /*  no action  */
 //#define CHECK_MEM(a);
 //#define CHECK_POSITIVE(a,n);
 //#define CHECK_ZEROES(a,n);
-#define CHECK_MULTIPLCITY(a);
-
+//#define CHECK_MEAN(a,b);
+//------------------------------------------------------------------------------
 
 /** 
  * CONVENTIONS:
@@ -89,11 +91,10 @@ typedef struct ml mll;
  *        t is the branch length
  */
 
-//---------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 /* prints a matrix (block format) */
-void
-printmatrix( const double* Z, const int n, const int m)
+void printmatrix( const double* Z, const int n, const int m)
 {
     int i,j;
     for (i=0; i<m; ++i) {
@@ -105,8 +106,7 @@ printmatrix( const double* Z, const int n, const int m)
 }
 
 /* prints an array horizontally */
-void
-printarray( const double* a, const int n )
+void printarray( const double* a, const int n )
 {
     int i;
     for(i=0;i<n;++i)
@@ -131,8 +131,7 @@ void CAML_debug( value s )
 /** creates a random substituation rate matrix
  * each row sums to 0 on diagonal elements
  */
-void
-rand_sub_mat_gtr( double* A, const int n)
+void rand_sub_mat_gtr( double* A, const int n)
 {
     srand(time(NULL) + getpid());
     int i,j;
@@ -163,8 +162,7 @@ void transpose( double *A, const int n )
 /** creates a random symmetric sub-rate matrix
  * each row sums to 0 on diagonal elements
  */
-void
-rand_sub_mat_sym( double* A, const int n)
+void rand_sub_mat_sym( double* A, const int n)
 {
     srand(time(NULL) + getpid());
     int i,j;
@@ -182,16 +180,19 @@ rand_sub_mat_sym( double* A, const int n)
         A[i*n+i] = -diag;
     }
 }
+
 /* release struct ml->lv_s array to pool */
 void likelihood_CAML_free( value v )
 {
     mll* val;
     val = ML_val(v);
-    //free (val->lv_s); //causing double free?!?
+    free (val->lv_s);
     return;
 }
+
 /* serialization of struct ml */
-void likelihood_CAML_serialize(value v, unsigned long* wsize_32, unsigned long* wsize_64)
+void
+likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_64)
 {
     CAMLparam1(v);
     mll* s;
@@ -227,7 +228,7 @@ static struct custom_operations likelihood_custom_operations  = {
     "http://www.amnh.org/poy/likelihood/likelihood.0.1", //identifier
     (&likelihood_CAML_free),        //finalize
     (&likelihood_CAML_compare),     //compare
-      custom_hash_default,          //hash
+    custom_hash_default,          //hash
     (&likelihood_CAML_serialize),   //serialize
     (&likelihood_CAML_deserialize)  //deserialize
 };
@@ -258,8 +259,7 @@ mk_diag(const double* diag, double* M, const int n, const int m)
  *
  *  **output** is in VL
  */
-void
-scale_VL( const double *VR, double *VL, const int n)
+void scale_VL( const double *VR, double *VL, const int n)
 {
     double *alphas,a = 1,b = 0;
     int i,j; 
@@ -268,10 +268,9 @@ scale_VL( const double *VR, double *VL, const int n)
     CHECK_MEM( alphas );
 
     dgemm_( &_tran, &ntran, &n, &n, &n,
-                &a, VL, &n, VR, &n, &b, alphas, &n );
+            &a, VL, &n, VR, &n, &b, alphas, &n );
 
     for(i = 0;i < n; i++){
-        CHECK_MULTIPLCITY( alphas[i*n+i] );
         for(j=0;j<n;j++)
             VL[i*n+j] = VL[i*n+j] / alphas[i*n+i];
     }
@@ -289,15 +288,17 @@ scale_VL( const double *VR, double *VL, const int n)
 int
 mk_inverse( double *VL, const double *D, const double *VR, const int n)
 {
-   /* 
+    /* 
     //check for algebriac multiplicity
+    //caveat: does geometric multiplicity matter?
     int i,j,k = 1;
     for(i=0;i<n-1;++i){
-        for(j=i+1;j<n;++j){
-            if( VL[i*n+i] == VL[j*n+j] ){
-                k = 0;
-                break;
-    }   }   }
+    for(j=i+1;j<n;++j){
+    if( VL[i*n+i] == VL[j*n+j] ){
+    k = 0;
+    break;
+    }   }   }  *//*
+    //scale instead of inverse if AM = 1 for all eigenvalues
     if( k == 1 ){
         scale_VL(VR, VL, n);
         transpose( VR );
@@ -324,7 +325,6 @@ mk_inverse( double *VL, const double *D, const double *VR, const int n)
     return i;
 }
 
-
 /**  [apply_exp diag n m t]
  * Multiplies the diagonal of [diag], an [n]x[m] matrix by [t] and applies exp()
  */
@@ -336,7 +336,7 @@ inline void
 apply_exp(double* D, const int n, const int m, const double t)
 {
     int s = m * n;
-   int i = 0;
+    int i = 0;
     for(; i<s; i=i+n+1 )
         D[i] = exp( D[i] * t );
 }
@@ -350,7 +350,7 @@ value StoBigarray( const mll* charss )
     long dims[2];
     dims[0] = charss->c_len;
     dims[1] = charss->stride;
-    res = alloc_bigarray( BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, charss->lv_s, dims );
+    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,2,charss->lv_s,dims);
     return (res);
 }
 value likelihood_CAML_StoBigarray( value s )
@@ -363,7 +363,7 @@ value likelihood_CAML_StoBigarray( value s )
     work = ML_val( s );
     dims[0] = work->c_len;
     dims[1] = work->stride;
-    res = alloc_bigarray( BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, work->lv_s, dims );
+    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,2,work->lv_s,dims);
     CAMLreturn( res );
 }
 
@@ -391,10 +391,9 @@ value likelihood_CAML_BigarraytoS( value A )
 }
 
 /**
- * filters an ml struct with all the indexes in the passed array --should be in order
+ * filters an ml struct with all the indexes in the passed array --ordered
  */
-value
-likelihood_CAML_filter(value as, value ibs)
+value likelihood_CAML_filter(value as, value ibs)
 {  
     CAMLparam2( as, ibs );
     CAMLlocal1( package );
@@ -428,8 +427,7 @@ likelihood_CAML_filter(value as, value ibs)
 /**
  * compares two character sets
  */
-int
-compare_chars( const mll* c1, const mll* c2)
+int compare_chars( const mll* c1, const mll* c2)
 {
     int ret,i,n;
     //first check sizes are the same
@@ -448,8 +446,7 @@ compare_chars( const mll* c1, const mll* c2)
     return 0;
 }
 
-int  
-likelihood_CAML_compare( value c1, value c2 )
+int likelihood_CAML_compare( value c1, value c2 )
 {
     CAMLparam2( c1, c2 );
     mll *ccs1,*ccs2;
@@ -467,10 +464,10 @@ double gamma( double z )
 {
     double x,Lg; int k; int g = 7;
     static double C[] = 
-        {  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
-           771.32342877765313, -176.61502916214059, 12.507343278686905,
-         -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7 };
- 
+    {  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+        771.32342877765313, -176.61502916214059, 12.507343278686905,
+        -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7 };
+
     if( z < .5 )
         return M_PI / (sin(M_PI*z)*gamma(1-z));
     z--;
@@ -492,7 +489,6 @@ double gamma_pdf(const double r, const double alpha, const double beta)
 
 /** [gamma_pp out k alpha beta step]
  * Finds the cut points, into [out], that create fractions of the percent total
- *
  */
 void
 gamma_pp(double* out,const int k,const double alpha,const double beta)
@@ -536,19 +532,16 @@ double gamma_M(const double z, const double a)
     return sum;
 }
 
-/** [gamma_i x a max_iter]
+/** [gamma_i x a ]
  * calculates the incomplete gamma ratio, based on methods described in
  *      ~Bhattacharjee (1970), Algorithm AS32
- *      ~Kostlan/Gokhman (Nov. 1987)
- *      ~Numerical Recipes in C
+ *
+ *      a - alpha parameter
+ *      x - bound of integral
  */
 double gamma_i(const double x, const double a)
-{ 
-//    if( (a <= x && x <= 1) || x < a ){ //series expansion
-        return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
-//    } else { //continued fraction
-//        return 1 - (exp(-x)*pow(x,a))/gamma(p)*gamma_Cf(x);
-//    }
+{
+    return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
 }
 
 /** [gamma_rates rates alpha beta cuts k]
@@ -556,7 +549,7 @@ double gamma_i(const double x, const double a)
  * categories and shape parameters [alpha] and [beta]
  */ 
 void 
-gamma_rates(double* rates,const double a,const double b, const double* cuts, const int k)
+gamma_rates(double* rates,const double a,const double b,const double* cuts,const int k)
 {
     double fac, *ingam;
     fac = a*((double)k)/b;
@@ -571,11 +564,11 @@ gamma_rates(double* rates,const double a,const double b, const double* cuts, con
     rates[k-1] = (1 - ingam[k-2]) * fac;    //upper rate
     for(j=1;j<k-1;j++)
         rates[j] = (ingam[j] - ingam[j-1]) * fac;
+    CHECK_MEAN( rates, k );
     free( ingam );
 }
 
-value
-gamma_CAML_rates( value a, value b, value c )
+value gamma_CAML_rates( value a, value b, value c )
 {
     CAMLparam3(a,b,c); //need this here?
     CAMLlocal1( rates );
@@ -611,8 +604,7 @@ gamma_CAML_rates( value a, value b, value c )
  *          <0 ith argument had an issue
  *          >0 failed in convergence
  */
-int 
-diagonalize_sym(double* A, double* D, const int n)
+int diagonalize_sym(double* A, double* D, const int n)
 {
     char jobz = 'V';
     char uplo = 'U';
@@ -651,8 +643,7 @@ diagonalize_sym(double* A, double* D, const int n)
     return info;
 }
 
-int
-diagonalize_gtr(double* A, double* D, double* Ui, const int n)
+int diagonalize_gtr(double* A, double* D, double* Ui, const int n)
 {
     char jobv_ = 'V'; //we went to find left and right eigenvectors
     double *wi,*wr,*U,*work,work_size;
@@ -683,7 +674,7 @@ diagonalize_gtr(double* A, double* D, double* Ui, const int n)
          * JOBVL    -calulate left eigenvectors? V/N
          * JOBVR    -calulate right eigenvectors? V/N
          * N        - order(A)
-         * A        - matrix of LDAxN (**OUTPUT**)
+         * A        - matrix of LDAxN           (**MODIFIED**)
          * LDA      - dim(A) 
          * WR       - real parts of eigenvalues (**OUTPUT**)
          * WI       - imaginary parts           (**OUTPUT**) //ignored
@@ -720,7 +711,7 @@ diagonalize_gtr(double* A, double* D, double* Ui, const int n)
  * [n]x[n] == dim([D]) == dim([P]) == dim([U]) == dim([Ui])
  */  
 void
-compose_sym( double* P, const double* U, const double* D, const float t, const int n)
+compose_sym(double* P,const double* U,const double* D,const float t,const int n,double *tmp)
 {
     char _tran = 'T'; double alpha = 1;
     char ntran = 'N'; double beta = 0;
@@ -728,23 +719,19 @@ compose_sym( double* P, const double* U, const double* D, const float t, const i
 
     memcpy(P, D, n*n*sizeof(double) );
     apply_exp(P,n,n,t); //exp(D*t); along diagonal only
-    double *I;
-    I = (double*) malloc( n*n*sizeof(double));
-    CHECK_MEM(I);
-                        //calculates: P = op(A)*op(B)*a + C*b
+    //calculates: P = op(A)*op(B)*a + C*b
     dgemm_(&ntran,&ntran,       //format, op(A), op(B)
-           &n, &n, &n, &alpha,  //rows A, cols B, cols A, scalor multiplier of (A*B)
+            &n, &n, &n, &alpha,  //rows A, cols B, cols A, multiplier of (A*B)
             U, &n,              //MATRIX A, stride for A
             P, &n,              //MATRIX B, stride for B
-            &beta, I, &n );     //scalor multiplier for C, MATRIX C, stride for C
-                                //if scalor mult of C == 0, C isn't used to add
-    dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,I,&n,U,&n,&beta,P,&n);
-    free( I );
+            &beta, tmp, &n );     //multiplier for C, MATRIX C, stride for C
+    //if scalor mult of C == 0, C isn't used to add
+    dgemm_(&ntran,&_tran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
 }
 
 void
 compose_gtr(double* P, const double* U, const double* D, const double* Ui, 
-        const double t, const int n)
+        const double t, const int n,double *tmp)
 {
     //constants for computation
     char _tran = 'T'; double alpha = 1;
@@ -754,16 +741,10 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
     memcpy(P,D,n*n*sizeof(double));
     apply_exp(P,n,n,t);
 
-    double *S;
-    S = (double*) malloc( n*n*sizeof(double));
-    CHECK_MEM(S);
-
     //S is U*exp(D)...
-    dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,S,&n);
+    dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
     //P becomes U*expD*Ui... done --note: VL = inv(VR)
-    dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,S,&n,U,&n,&beta,P,&n);
-    
-    free(S);
+    dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
 }
 
 /**  [median_h P l n nl nn a]
@@ -773,8 +754,7 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
  *  [nn]- starting location for vector in [nl]
  *  [a] - length of each vector (in practice, the alphabet size) [P] is [a]x[a]
  */
-void 
-median_h( const double* P, const double* l, double* nl, const int a)
+void median_h( const double* P, const double* l, double* nl, const int a)
 {
     int i,j; double elm;
     //for each row of P
@@ -790,8 +770,7 @@ median_h( const double* P, const double* l, double* nl, const int a)
 /** [loglikelihood ml p]
  * returns loglikelihood of a character set. |p| = l->stride
  */
-double
-loglikelihood( const mll* l, const double* p )
+double loglikelihood( const mll* l, const double* p )
 {
     int i, j, nchars, size; 
     double ret,tmp;
@@ -818,7 +797,7 @@ loglikelihood( const mll* l, const double* p )
  */
 void
 median_charset(const double* Pa,const double* Pb,
-                    const mll* a,const mll* b, mll* c,const double r)
+        const mll* a,const mll* b, mll* c,const double r)
 {
     assert( a->stride == b->stride );
     assert( b->c_len == a->c_len );
@@ -857,7 +836,7 @@ likelihood_CAML_diagonalize_sym(value Q, value D)
     int n = Bigarray_val( Q )->dim[0];
     double* c_Q = (double*) Data_bigarray_val( Q );
     double* c_D = (double*) Data_bigarray_val( D );
-  
+
     diagonalize_sym( c_Q, c_D, n );
     CAMLreturn0;
 }
@@ -875,14 +854,13 @@ likelihood_CAML_diagonalize_gtr(value Q, value D, value Qi)
     diagonalize_gtr( c_Q, c_D, c_Qi, n );
     CAMLreturn0;
 }
-value
-likelihood_CAML_median_wrapped_sym
+value likelihood_CAML_median_wrapped_sym
     (value U,value D,value ta,value tb,value ml_a,value ml_b,value rates)
 {
     CAMLparam5(U,D,ta,tb, ml_a);
     CAMLxparam2( ml_b,rates );
     CAMLlocal1( ml_c );
-    double cta,ctb,*c_U,*c_D,*c_lv,*PA,*PB;
+    double cta,ctb,*c_U,*c_D,*c_lv,*PA,*PB,*tmp;
     mll *a,*b,*c;
     int num_rates,i=0;
 
@@ -908,34 +886,34 @@ likelihood_CAML_median_wrapped_sym
     PB = (double*) calloc( a->stride * b->stride, sizeof(double));
     CHECK_MEM(PB);
 
-    double tmp;
-    for(;i<num_rates;i++){
-        tmp = Double_field( rates, i );
-        compose_sym( PA, c_U, c_D, cta*tmp, a->stride );
-      //if( cta != ctb )
-      //    PB = PA;
-      //else
-            compose_sym( PB, c_U, c_D, ctb*tmp, b->stride );
-        median_charset( PA, PB, a,b,c,tmp ); //adds median to c with rate tmp
-    }
+    //below, used for less malloc calls in intermediary multiplications
+    tmp = (double*) calloc( a->stride * b->stride, sizeof(double));
+    CHECK_MEM(tmp);
 
+    double c_rates;
+    for(;i<num_rates;i++){
+        c_rates = Double_field( rates, i );
+        compose_sym( PA, c_U, c_D, cta*c_rates, a->stride,tmp );
+        //if( cta != ctb ) PB = PA; else
+        compose_sym( PB, c_U, c_D, ctb*c_rates, b->stride,tmp );
+        median_charset( PA, PB, a,b,c,c_rates ); //adds median to c with rate tmp
+    }
 
     //divide by # of cat...
     for(i=0;i<c->c_len*c->stride;i++)
         c->lv_s[i] = c->lv_s[i] / ((double) num_rates);
 
-    free( PA ); free( PB );
+    free( PA ); free( PB ); free( tmp );
     CAMLreturn(ml_c);
 }
 
-value
-likelihood_CAML_median_wrapped_gtr
+value likelihood_CAML_median_wrapped_gtr
     (value U,value D,value Ui,value ta,value tb,value ml_a,value ml_b,value rates)
 {
     CAMLparam5(U,D,Ui,ta,tb);
     CAMLxparam3( ml_a,ml_b,rates );
     CAMLlocal1( ml_c );
-    double cta,ctb,*c_U,*c_D,*c_Ui,*c_lv,*PA,*PB;
+    double cta,ctb,*c_U,*c_D,*c_Ui,*c_lv,*PA,*PB,*tmp;
     mll *a,*b,*c;
     int num_rates,i = 0;
 
@@ -957,46 +935,42 @@ likelihood_CAML_median_wrapped_gtr
     CHECK_MEM(PA);
     PB = (double*) calloc( b->stride * b->stride, sizeof(double));
     CHECK_MEM(PB);
+    tmp = (double*) calloc( b->stride * b->stride, sizeof(double));
+    CHECK_MEM(tmp);
 
-    double tmp;
-
+    double c_rates;
     for(;i<num_rates;i++){
-        tmp = Double_field( rates, i );
-        compose_gtr( PA, c_U, c_D, c_Ui, cta*tmp, a->stride);
-      //if( cta != ctb )
-      //    PB = PA;
-      //else
-            compose_gtr( PB, c_U, c_D, c_Ui, ctb*tmp, b->stride);
-        median_charset( PA, PB, a,b,c, tmp );
+        c_rates = Double_field( rates, i );
+        compose_gtr( PA, c_U, c_D, c_Ui, cta*c_rates, a->stride, tmp);
+        //if( cta != ctb ) PB = PA; else
+        compose_gtr( PB, c_U, c_D, c_Ui, ctb*c_rates, b->stride, tmp);
+        median_charset( PA, PB, a,b,c, c_rates );
     }
 
     //divide by # of cat...
     for(i=0;i<c->c_len*c->stride;i++)
         c->lv_s[i] = c->lv_s[i] / ((double) num_rates);
 
-    free( PA ); free( PB );
+    free( PA ); free( PB ); free( tmp );
     CAMLreturn(ml_c);
 }
 
 /* argument wrapper */
-value
-likelihood_CAML_median_sym(value * argv, int argn)
+value likelihood_CAML_median_sym(value * argv, int argn)
 {
     return likelihood_CAML_median_wrapped_sym
-            ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6] ); 
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6] ); 
 }
 
 /* argument wrapper */
-value 
-likelihood_CAML_median_gtr(value * argv, int argn)
+value likelihood_CAML_median_gtr(value * argv, int argn)
 {
     return likelihood_CAML_median_wrapped_gtr
-            ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7] );
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7] );
 }
 
 /* wrapper for loglikelihood */
-value
-likelihood_CAML_loglikelihood(value s, value p)
+value likelihood_CAML_loglikelihood(value s, value p)
 {
     CAMLparam2( s, p );
     CAMLlocal1( mle );
@@ -1004,18 +978,17 @@ likelihood_CAML_loglikelihood(value s, value p)
     mll* chars;
     c_p = (double*) Data_bigarray_val( p );
     chars = ML_val( s );
-    
+
     ll = loglikelihood( chars, c_p );
     mle = caml_copy_double( ll );
     CAMLreturn( mle );
 }
 
-value 
-likelihood_CAML_compose_sym(value U, value D, value t)
+value likelihood_CAML_compose_sym(value U, value D, value t)
 {
     CAMLparam3( U,D,t );
     CAMLlocal1( res );
-    double *c_P, c_t,*c_D,*c_U;
+    double *c_P, c_t,*c_D,*c_U,*c_T;
     int n;
 
     n = Bigarray_val( U ) -> dim[0];
@@ -1024,8 +997,9 @@ likelihood_CAML_compose_sym(value U, value D, value t)
     c_D = (double *) Data_bigarray_val( D );
     c_P = (double*) malloc( n*n*sizeof(double));
     CHECK_MEM(c_P);
+    c_T = (double*) malloc( n*n*sizeof(double));
 
-    compose_sym(c_P,c_U,c_D,c_t,n);
+    compose_sym(c_P,c_U,c_D,c_t,n,c_T);
     long dims[2];
     dims[0] = n; dims[1] = n;
     res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, c_P, dims);
@@ -1036,18 +1010,20 @@ likelihood_CAML_compose_gtr(value U, value D, value Ui, value t)
 {
     CAMLparam4( U,D,Ui,t );
     CAMLlocal1( res );
-    double *c_P, c_t,*c_D,*c_U,*c_Ui;
+    double *c_P, c_t,*c_D,*c_U,*c_Ui,*c_T;
     int n;
 
     n = Bigarray_val( U ) -> dim[0];
     c_t = Double_val( t );
-    c_U = (double *) Data_bigarray_val( U );
-    c_D = (double *) Data_bigarray_val( D );
-    c_Ui= (double *) Data_bigarray_val( Ui);
+    c_U = (double*) Data_bigarray_val( U );
+    c_D = (double*) Data_bigarray_val( D );
+    c_Ui= (double*) Data_bigarray_val( Ui);
     c_P = (double*) malloc( n*n*sizeof(double));
     CHECK_MEM(c_P);
+    c_T = (double*) malloc( n*n*sizeof(double));
+    CHECK_MEM(c_T);
 
-    compose_gtr(c_P,c_U,c_D,c_Ui,c_t,n);
+    compose_gtr(c_P,c_U,c_D,c_Ui,c_t,n,c_T);
     long dims[2];
     dims[0] = n; dims[1] = n;
     res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, c_P, dims);
