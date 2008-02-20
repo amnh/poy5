@@ -207,24 +207,23 @@ let to_string ?(sep = 4) ?(bd = 4) include_interior t =
     Buffer.contents buffer
 
 (** Outputs the tree [t] in channel [ch] using parenthetical notation. *)
-let draw_parenthesis ch t = 
+let draw_parenthesis my_printer t = 
     let t = sort_tree t in
-    let rec printer ch t = 
+    let rec printer t = 
         match t with
         | Parser.Tree.Leaf str ->
-                output_string ch str;
-                output_string ch " ";
+                my_printer str;
+                my_printer " ";
         | Parser.Tree.Node (chld, str) ->
-                output_string ch "( ";
-                List.iter (printer ch) chld;
-                output_string ch ") ";
-                output_string ch "[";
-                output_string ch str;
-                output_string ch "] "
+                my_printer "( ";
+                List.iter (printer) chld;
+                my_printer ") ";
+                my_printer "[";
+                my_printer str;
+                my_printer "] "
 
     in
-    printer ch t;
-    output_string ch "\n" 
+    printer t
 
 let for_formatter ?(separator = " ") newick leafsonly t =
     let t = sort_tree t in
