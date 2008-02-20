@@ -173,3 +173,112 @@ module Encodings : E = struct
 
 
 end
+
+let ( --> ) a b = b a
+
+module SK = struct
+
+    open Parser.Tree
+
+    type primitives = S | K | Label of string
+    type expression = primitives option t
+
+    exception Illegal_Expression of string t list
+
+    let of_string string =
+        let no_forest = function
+            | [x] -> 
+                    let rec reverse tree = 
+                        match tree with
+                        | Node (s, "") ->
+                                Node ((List.rev_map reverse s), None)
+                        | Leaf "S" -> Leaf (Some S)
+                        | Leaf "K" -> Leaf (Some K)
+                        | Leaf x -> Leaf (Some (Label x))
+                        | x -> raise (Illegal_Expression [x])
+                    in
+                    reverse x
+            | x -> raise (Illegal_Expression x)
+        in
+        string --> of_string --> List.map no_forest 
+
+    let to_string tree =
+        let tree = 
+            let to_string = function
+                | Some S -> "S"
+                | Some K -> "K"
+                | Some (Label x) -> x
+                | None -> assert false
+            in
+            let rec string_tree x =
+                match x with
+                | Node (lst, _) ->
+                        Node ((List.rev_map string_tree lst), "")
+                | Leaf x -> Leaf (to_string x)
+            in
+            string_tree tree
+        in
+        let str = ref "" in
+        let my_printer x = str := !str ^ x in
+        AsciiTree.draw_parenthesis my_printer tree;
+        !str
+
+    let rec simplify tree = 
+        match tree with
+        | Leaf _ -> [tree]
+        | Node (lst, x) ->
+                assert (x = None);
+                match lst with
+                | [(Leaf (Some S)); _]
+                | [(Leaf (Some K)); _]
+                | [(Leaf _)] 
+                | [(Leaf (Some S)); _; _] -> lst
+                | (Leaf (Some K)) :: a :: b :: t -> 
+                        let a = simplify a in
+                        [Node ((a @ t), None)]
+                | (Leaf (Some S)) :: a :: b :: c :: t ->
+                        let a = simplify a in
+                        [Node ((a @ (c :: Node ([b; c], None) :: t)), None)]
+                | h :: t -> 
+                        let nt = List.map
+                            (fun x ->
+                                match 
+                                    (match x with
+                                    | Node _ -> simplify x
+                                    | Leaf _ -> [x])
+                                with
+                                | [x] -> x
+                                | lst -> Node (lst, None)) 
+                            t
+                        in
+                        let h = simplify h in
+                        [Node ((h @ nt), None)]
+                | [] -> raise (Illegal_Expression [])
+
+
+    let rec reduce tree =
+        match simplify tree with
+        | [ntree] -> if ntree = tree then tree else reduce ntree
+        | [] -> raise (Illegal_Expression [])
+        | lst -> 
+                let ntree = Node (lst, None) in
+                if ntree = tree then tree else reduce ntree
+
+    let evaluate x = 
+        x --> of_string --> List.map reduce --> List.map to_string
+
+end
+
+module SK_f = struct
+    (* We define a module for the simplest of all lambda calculus models, the S
+    * - K model of computation. We implement it to try new combinators for this
+    * lambda calculus *)
+
+    (* We happily define the basic primitives, this is so beautiful! *)
+    let s a b c = a c (b c)
+    let k a b = a
+
+    let falso a b = k a b
+    let verda a b = s k a b
+
+end
