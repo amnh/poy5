@@ -185,6 +185,8 @@ module SK = struct
 
     exception Illegal_Expression of string t list
 
+    let universe = Hashtbl.create 97 
+
     let of_string string =
         let no_forest = function
             | [x] -> 
@@ -194,7 +196,10 @@ module SK = struct
                                 Node ((List.rev_map reverse s), None)
                         | Leaf "S" -> Leaf (Some S)
                         | Leaf "K" -> Leaf (Some K)
-                        | Leaf x -> Leaf (Some (Label x))
+                        | Leaf x -> 
+                                if Hashtbl.mem universe x then
+                                    Hashtbl.find universe x 
+                                else Leaf (Some (Label x))
                         | x -> raise (Illegal_Expression [x])
                     in
                     reverse x
@@ -213,17 +218,22 @@ module SK = struct
             let rec string_tree x =
                 match x with
                 | Node (lst, _) ->
-                        Node ((List.rev_map string_tree lst), "")
+                        Node ((List.map string_tree lst), "")
                 | Leaf x -> Leaf (to_string x)
             in
             string_tree tree
         in
         let str = ref "" in
         let my_printer x = str := !str ^ x in
-        AsciiTree.draw_parenthesis my_printer tree;
+        AsciiTree.draw_parenthesis false my_printer tree;
         !str
 
-    let rec simplify tree = 
+    let sk_define name tree = 
+        match of_string tree with
+        | [x] -> Hashtbl.replace universe name x 
+        | x -> raise (Illegal_Expression [])
+
+    let rec simplify tail_too tree = 
         match tree with
         | Leaf _ -> [tree]
         | Node (lst, x) ->
@@ -234,38 +244,110 @@ module SK = struct
                 | [(Leaf _)] 
                 | [(Leaf (Some S)); _; _] -> lst
                 | (Leaf (Some K)) :: a :: b :: t -> 
-                        let a = simplify a in
+                        let a = simplify tail_too a in
                         [Node ((a @ t), None)]
                 | (Leaf (Some S)) :: a :: b :: c :: t ->
-                        let a = simplify a in
-                        [Node ((a @ (c :: Node ([b; c], None) :: t)), None)]
+                        let a = simplify tail_too a in
+                        [Node (((a @ [c] @ [Node ([b; c], None)] @ t)), None)]
                 | h :: t -> 
-                        let nt = List.map
-                            (fun x ->
-                                match 
+                        let nt = 
+                            if tail_too then 
+                                List.map
+                                (fun x ->
+                                    match 
                                     (match x with
-                                    | Node _ -> simplify x
+                                    | Node _ -> simplify tail_too x
                                     | Leaf _ -> [x])
-                                with
-                                | [x] -> x
-                                | lst -> Node (lst, None)) 
-                            t
+                                    with
+                                    | [x] -> x
+                                    | lst -> Node (lst, None)) 
+                                t 
+                            else t
                         in
-                        let h = simplify h in
+                        let h = simplify tail_too h in
                         [Node ((h @ nt), None)]
                 | [] -> raise (Illegal_Expression [])
 
 
-    let rec reduce tree =
-        match simplify tree with
-        | [ntree] -> if ntree = tree then tree else reduce ntree
+    let rec reduce ?(tail_too=true) tree =
+        match simplify tail_too tree with
+        | [ntree] -> if ntree = tree then tree else reduce ~tail_too ntree
         | [] -> raise (Illegal_Expression [])
         | lst -> 
                 let ntree = Node (lst, None) in
-                if ntree = tree then tree else reduce ntree
+                if ntree = tree then tree else reduce ~tail_too ntree
 
-    let evaluate x = 
-        x --> of_string --> List.map reduce --> List.map to_string
+    let extract x =
+        match x with
+        | [x] -> x
+        | _ -> failwith "We can only evaluate one expression at a time"
+
+    let evaluate tail_too x = 
+        x --> of_string --> List.map (reduce ~tail_too) --> 
+            List.map to_string --> extract
+
+    let s_encode tail_too str = 
+        (* We define a function to encode an SK expression in a list of bits *)
+        let rec to_bit_list acc tree =
+            match tree with
+            | Node (lst, x) ->
+                    (match lst with
+                    | [] -> assert false
+                    | [x] -> to_bit_list acc x
+                    | [x; y] ->
+                            let acc = to_bit_list acc y in
+                            let acc = to_bit_list acc x in
+                            Encodings.One :: acc
+                    | lst ->
+                            let rec to_binary_list lst = 
+                                match lst with
+                                | [h; t] -> Node (lst, None)
+                                | f :: s :: t -> 
+                                        to_binary_list 
+                                        ((Node ([f; s], None)) :: t)
+                                | _ -> assert false
+                            in
+                            to_bit_list acc (to_binary_list lst))
+            | Leaf x ->
+                    match x with
+                    | Some S -> Encodings.Zero :: Encodings.Zero :: acc
+                    | Some K -> Encodings.Zero :: Encodings.One :: acc
+                    | Some (Label _) -> failwith "I can't encode labels"
+                    | None -> assert false
+        in
+        str --> of_string --> List.map (reduce ~tail_too) --> extract --> 
+            to_bit_list []
+
+        let rec s_decode lst = 
+            match lst with
+            | Encodings.One :: t ->
+                    let a, t = s_decode t in
+                    let b, t = s_decode t in
+                    "( " ^ a ^ b ^ ") ", t
+            | Encodings.Zero :: Encodings.Zero :: t -> "S ", t
+            | Encodings.Zero :: Encodings.One :: t -> "K ", t
+            | _ -> failwith "Illegal encoding"
+
+        let () =
+            (* The standard list of items that are defined *)
+            let predefined = 
+                [
+                    ("True", "( K )");
+                    ("False", "( S K )");
+                    ("1", "(K)");
+                    ("0", "(S K)");
+                    ("Lambda", "(K (K S))");
+                    ("Pair", 
+                    "(S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K))");
+                    ("Not", "(Pair (S K) K)");
+                    ("Hd", "(S (S K K) ((S (S K) ( K K) )))");
+                    ("Tl", "(S (S K K) ((S (S K) ( K (S K)))))");
+                    ("Predecessor", "(Tl)");
+                    ("Successor", "(Pair K)");
+                    ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))")
+                ]
+            in
+            List.iter (fun (a, b) -> sk_define a b) predefined
 
 end
 
