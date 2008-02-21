@@ -657,9 +657,9 @@ with type b = AllDirNode.OneDirF.n = struct
             and bd = Ptree.get_node_data b ptree in
             match ad.AllDirNode.adjusted, bd.AllDirNode.adjusted with
             | [ad], [bd] ->
+                    let ad = force_node ad
+                    and bd = force_node bd in
                     let new_root = 
-                        let ad = force_node ad
-                        and bd = force_node bd in
                         (*
                         Printf.printf "The distance here is %f\n%!"
                         (Node.Standard.distance ad bd);
@@ -677,7 +677,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     let new_root_p = 
                         { new_root with 
                               Node.characters = (Node.to_single (pre_ref_codes, fi_ref_codes) 
-                                                     (Some new_root) new_root new_root).Node.characters }
+                                                     (Some new_root) bd ad).Node.characters }
                         --> fun x -> [{ 
                             AllDirNode.lazy_node = lazy x;
                             dir = Some (a, b);
