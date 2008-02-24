@@ -431,7 +431,7 @@ module SK = struct
                 base (Predecessor pos) (Tl seq))) (Pair base seq))", 
                 ["R"; "base"; "pos"; "seq"]);
                 ("Insert", "(Fixedpoint GenerateInsertion)", []);
-                ("GenerateDeletion", "(NotZero pos (Pair (Hd seq) (R base
+                ("GenerateDeletion", "(NotZero pos (Pair (Hd seq) (R 
                 (Predecessor pos) (Tl seq))) seq)", ["R"; "pos"; "seq"]);
                 ("Delete", "(Fixedpoint GenerateDeletion)", []);
                 ("GenerateSubstitution", "(NotZero pos (Pair (Hd seq) (R base
