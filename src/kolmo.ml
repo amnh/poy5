@@ -328,6 +328,55 @@ module SK = struct
             | Encodings.Zero :: Encodings.One :: t -> "K ", t
             | _ -> failwith "Illegal encoding"
 
+        let create pattern label =
+            (* A function to create combinator that produce the desired pattern
+            * with the label as argument, in other words, extracts the label
+            * that we want to have inside the pattern as an argument *)
+            let rec contains_label tree =
+                match tree with
+                | Leaf (Some (Label x)) -> x = label
+                | Leaf (Some K)
+                | Leaf (Some S) -> false
+                | Node (lst, None) -> List.exists contains_label lst
+                | _ -> assert false
+            in
+            let k = Leaf (Some K) 
+            and s = Leaf (Some S) 
+            and split lst = 
+                match List.rev lst with
+                | h :: t -> Node ((List.rev t), None), h 
+                | [] -> assert false
+            in
+            let rec extract tree =
+                if not (contains_label tree) then
+                    Node ([k; tree], None)
+                else 
+                    match tree with
+                    | Leaf (Some (Label x)) -> 
+                            assert (x = label);
+                            Hashtbl.find universe "I"
+                    | Leaf x ->
+                            assert (x <> None);
+                            Node ([k; tree], None)
+                    | Node ([x], None) ->
+                            extract x
+                    | Node ([x; Leaf (Some (Label l))], None) when 
+                        (l = label) && (not (contains_label x)) ->
+                            x
+                    | Node ([x; y], None) ->
+                            Node ([s; extract x; extract y], None)
+                    | Node (lst, None) ->
+                            let a, b = split lst in
+                            extract (Node ([a; b], None))
+                    | Node (_, Some _) -> assert false
+            in
+            match of_string pattern with
+            | [pattern] -> to_string (extract pattern)
+            | _ -> failwith "Pattern only accepts one expression"
+
+        let create pattern labels = 
+            List.fold_left create pattern (List.rev labels)
+
         let () =
             (* The standard list of items that are defined *)
             let predefined = 
@@ -336,18 +385,47 @@ module SK = struct
                     ("False", "( S K )");
                     ("1", "(K)");
                     ("0", "(S K)");
-                    ("Lambda", "(K (K S))");
+                    ("I", "(S K K)");
+                    ("Lambda", "(K S)");
                     ("Pair", 
                     "(S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K))");
+                    ("EmptyList", "(Pair Lambda Lambda)");
                     ("Not", "(Pair (S K) K)");
                     ("Hd", "(S (S K K) ((S (S K) ( K K) )))");
                     ("Tl", "(S (S K K) ((S (S K) ( K (S K)))))");
-                    ("Predecessor", "(Tl)");
-                    ("Successor", "(Pair K)");
-                    ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))")
+                    ("Predecessor", "(Tl)"); 
+                    ("Successor", "(Pair K)"); 
+                    ("Apply", "(S (S K) (S K K))");
+                    ("NotZero", "(S (S Hd (K 1)) (K 1))"); 
+                    ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))");
                 ]
             in
-            List.iter (fun (a, b) -> sk_define a b) predefined
+            List.iter (fun (a, b) -> sk_define a b) predefined;
+            let generated = [
+                ("Right", "(a (b c))", ["a"; "b"; "c"]);
+                ("GenerateRecursive", "(test max (R (next max) (update \
+                acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
+                ("GenerateRecursive2", "(test max (R (next max) (update \
+                max acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
+                (* Now we can define the addition, substraction, and the
+                * multiplication functions. *)
+                ("Add", "(Fixedpoint (GenerateRecursive NotZero 
+                Predecessor Successor))", []);
+                ("Substract", "(Fixedpoint (GenerateRecursive NotZero 
+                Predecessor Predecessor) a b)", ["b"; "a"]);
+                ("Multiply", "(Fixedpoint (GenerateRecursive 
+                NotZero Predecessor (Add a)) b EmptyList)", ["a"; "b"]);
+                ("ProcessBinary", "((Hd a) (Successor EmptyList) EmptyList)", 
+                ["a"]);
+                ("AppendBinary", "(Add (ProcessBinary a) (Multiply (Successor
+                (Successor EmptyList)) b))", ["a"; "b"]);
+                ("Decode", "(Fixedpoint (GenerateRecursive2 NotZero
+                Predecessor AppendBinary))", [])
+                ]
+            in
+            List.iter (fun (a, b, c) -> 
+                let b = create b c in
+                sk_define a b) generated
 
 end
 
