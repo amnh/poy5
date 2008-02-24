@@ -438,6 +438,21 @@ module SK = struct
                 (Predecessor pos) (Tl seq))) (Pair base (Tl seq)))", ["R";
                 "pos"; "base"; "seq"]);
                 ("Substitution", "(Fixedpoint GenerateSubstitution)", []);
+                ("GeneratePrepend", "(NotZero pref (Pair (Hd pref) (R (Tl pref)
+                suf)) suf)", ["R"; "pref"; "suf"]);
+                ("Prepend", "(Fixedpoint GeneratePrepend)", []);
+                ("GenerateAffineInsert", "(NotZero pos (Pair (Hd seq) (R pos ins
+                (Tl seq))) (Prepend ins seq))", ["R"; "pos"; "ins"; "seq"]);
+                ("AffineInsert", "(Fixedpoint GenerateAffineInsert)", []);
+                ("GenerateCut", "(NotZero len (R (Predecessor len) (Tl
+                seq)) seq)", ["R"; "len"; "seq"]);
+                ("Cut", "(Fixedpoint GenerateCut)", []);
+                ("GenerateAffineDelete", "(NotZero pos (Pair (Hd seq) (R (Predecessor pos) len
+                (Tl seq))) (Cut len seq))", ["R"; "pos"; "len"; "seq"]);
+                ("AffineDelete", "(Fixedpoint GenerateAffineDelete)", []);
+                ("GenerateCountK", "(current (R (Successor acc)) acc)", ["R";
+                "acc"; "current"]);
+                ("CountK", "(Fixedpoint GenerateCountK EmptyList)", [])
                 ]
             in
             List.iter (fun (a, b, c) -> 
