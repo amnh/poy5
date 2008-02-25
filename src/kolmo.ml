@@ -382,7 +382,7 @@ module SK = struct
 
         let sk_define_interpreted name args tree =
             let tree = expand_labels ~except:args tree in
-            match List.fold_left create (Processed tree) args with
+            match List.fold_left create (Processed tree) (List.rev args) with
             | Processed tree -> Hashtbl.replace universe name tree
             | String _ -> assert false
 
@@ -530,13 +530,13 @@ module SK = struct
                 [ v = UIDENT -> Label (v, _loc) ] | 
                 [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
             stmt: [
-                [ LIDENT "def"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
+                [ LIDENT "sk"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
                     x = expr_sk -> Def (v, a, x, _loc)
-                | LIDENT "eval"; x = expr_sk -> Evaluate (x, _loc) ] 
+                | LIDENT "sk"; x = expr_sk -> Evaluate (x, _loc) ] 
                 ];
             END;;
 
-            Gram.Entry.clear Syntax.str_item
+(*            Gram.Entry.clear Syntax.str_item *)
 
             EXTEND Gram
             Syntax.str_item : [ [ s = stmt -> statement_converter s ]];
@@ -549,9 +549,7 @@ module SK = struct
             let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
             ()
 
-            (*
         let () = activate ()
-            *)
     end
 
 end
