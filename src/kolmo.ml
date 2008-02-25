@@ -177,9 +177,6 @@ end
 let ( --> ) a b = b a
 
 module SK = struct
-
-    open Parser.Tree
-
     type 'a t = Leaf of 'a | Node of ('a t list)
     type primitives = S | K | Label of string
     type expression = primitives t
@@ -198,10 +195,7 @@ module SK = struct
                                 Node (List.rev_map reverse s)
                         | Parser.Tree.Leaf "S" -> Leaf S
                         | Parser.Tree.Leaf "K" -> Leaf K
-                        | Parser.Tree.Leaf x -> 
-                                if Hashtbl.mem universe x then
-                                    Hashtbl.find universe x 
-                                else Leaf (Label x)
+                        | Parser.Tree.Leaf x -> Leaf (Label x)
                         | x -> raise (Illegal_Expression [x])
                     in
                     reverse x
@@ -211,6 +205,15 @@ module SK = struct
             string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
         in
         Processed res
+
+    let rec expand_labels ?(except=[]) tree =
+        match tree with
+        | Node lst -> Node (List.map (expand_labels ~except) lst)
+        | Leaf (Label x) ->
+                if (List.exists (fun y -> x = y) except) ||
+                    (not (Hashtbl.mem universe x)) then tree
+                else Hashtbl.find universe x
+        | x -> x
 
     let to_string tree =
         match tree with
@@ -236,13 +239,10 @@ module SK = struct
             AsciiTree.draw_parenthesis false my_printer tree;
             !str
 
-    let sk_define name tree = 
+    let rec sk_define name tree = 
         match tree with
-        | Processed x -> Hashtbl.replace universe name x 
-        | String x ->  
-                match of_string x with
-                | Processed x -> Hashtbl.replace universe name x
-                | String _ -> assert false
+        | Processed x -> Hashtbl.replace universe name (expand_labels x) 
+        | String x ->  sk_define name (of_string x)
 
     let rec simplify tree = 
         match tree with
@@ -380,6 +380,12 @@ module SK = struct
                     | Processed tree -> Processed (extract tree)
                     | String _ -> assert false
 
+        let sk_define_interpreted name args tree =
+            let tree = expand_labels ~except:args tree in
+            match List.fold_left create (Processed tree) args with
+            | Processed tree -> Hashtbl.replace universe name tree
+            | String _ -> assert false
+
         let create pattern labels = 
             List.fold_left create pattern (List.rev labels)
 
@@ -458,6 +464,95 @@ module SK = struct
             List.iter (fun (a, b, c) -> 
                 let b = create (String b) c in
                 sk_define a b) generated
+
+    module Parser = struct
+        type 'loc expr = 
+            | S of 'loc 
+            | K of 'loc 
+            | Label of string * 'loc 
+            | Node of 'loc expr list * 'loc
+
+        type 'loc stmt = 
+            | Def of string * string list * 'loc expr * 'loc
+            | Evaluate of 'loc expr * 'loc
+
+        open Camlp4.Sig
+
+        module Id = struct
+            let name = "SKLanguage"
+            let version = "0.1"
+        end
+
+        module SKLanguage (Syntax : Camlp4Syntax) = struct
+            open Syntax
+
+            let rec exSem_of_list = function
+                | [] -> 
+                        let _loc = Loc.ghost in
+                        <:expr<[]>>
+                | [x] -> 
+                        let _loc = Ast.loc_of_expr x in
+                        <:expr< [$x$]>>
+                | x :: xs ->
+                        let _loc = Ast.loc_of_expr x in
+                        <:expr< $x$ :: $exSem_of_list xs$ >> 
+
+
+            let rec expression_converter = function
+                | S _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.S) >>
+                | K _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.K) >>
+                | Label (v, _loc) -> 
+                        let lbl =  <:expr< Kolmo.SK.Label $str:v$ >> in
+                        <:expr< (Kolmo.SK.Leaf $lbl$) >>
+                | Node (items, _loc) -> 
+                        let es = List.map expression_converter items in
+                        <:expr< (Kolmo.SK.Node ( $exSem_of_list es$)) >>
+
+            let statement_converter = function
+                | Def (name, arguments, expression, _loc) ->
+                        let arguments = List.map (fun x -> <:expr<$str:x$>>) arguments in
+                        <:str_item< let () = Kolmo.SK.sk_define_interpreted $str:name$
+                        $exSem_of_list arguments$ $expression_converter
+                        expression$;;>>
+                | Evaluate (expression, _loc) ->
+                        <:str_item< let () = Pervasives.print_endline
+                        (Kolmo.SK.to_string (Kolmo.SK.reduce
+                        (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
+                        $expression_converter expression$)))) >>
+
+            let expr_sk = Gram.Entry.mk "expr_sk"
+            let stmt = Gram.Entry.mk "stmt"
+
+            EXTEND Gram 
+            expr_sk: [
+                [ "S" -> S _loc ] | 
+                [ "K" -> K _loc ] | 
+                [ v = UIDENT -> Label (v, _loc) ] | 
+                [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
+            stmt: [
+                [ LIDENT "def"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
+                    x = expr_sk -> Def (v, a, x, _loc)
+                | LIDENT "eval"; x = expr_sk -> Evaluate (x, _loc) ] 
+                ];
+            END;;
+
+            Gram.Entry.clear Syntax.str_item
+
+            EXTEND Gram
+            Syntax.str_item : [ [ s = stmt -> statement_converter s ]];
+            END;;
+
+            include Syntax
+        end
+
+        let activate () = 
+            let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
+            ()
+
+            (*
+        let () = activate ()
+            *)
+    end
 
 end
 

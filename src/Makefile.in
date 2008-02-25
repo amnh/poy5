@@ -483,10 +483,14 @@ help.html: help.txt ocaml-str helpRead.ml
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
+kolmo.cmo: parser.cmo kolmo.ml
+	$(OCAMLC) -g -pp 'camlp4of' $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
+kolmo.cmx: parser.cmo kolmo.ml
+	$(OCAMLOPT) -g -pp 'camlp4of' $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
 poyParser.cmo: poyParser.ml
-	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
 poyCommand.cmo: commandLexer.cmo poyCommand.ml
-	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
 poyParser.cmx: poyParser.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c $<
 poyCommand.cmx: commandLexer.cmx poyCommand.ml
