@@ -1,8 +1,5 @@
 \chapter{\poy Quick Start}
 
-\section{The structure of \poy documentation}
-This first chapter.
-
 \section{Requirements: software and hardware}
 
 \subsection{Software}
@@ -125,7 +122,7 @@ When \poy is first opened, two items appear on the screen: the menu bar across t
 The menu bar contains the following drop-down menus:
 \begin{description}
 \item[POY] (Mac OSX only) contains generic items as other Mac OSX applications. It includes \emph{Quit POY} tab that closes the program. This menu also allows contains selection of the \emph{About POY} window (Figure~\ref{fig:about_window}) that lists the current version of \poy, a copywrite statement, and the address of the \poy website.
-\item[Analysis] contains options for different types of tree searches, calculation of support values, tree diagnosis, and their respective outputs. Other items in this menu open the \emph{POY Launcher} and the \emph{Interactive Console}.
+\item[Analyses] contains options for different types of tree searches, calculation of support values, tree diagnosis, and their respective outputs. Other items in this menu open the \emph{POY Launcher} and the \emph{Interactive Console}.
 \item[Edit] contains standard tools for deleting, copying, cutting, pasting, undoing, and selecting.
 \item[View] opens the \emph{Output} window to display the results (including warning and error messages) and the current state of the analysis. It also contains the \emph{About POY} menu item in Windows and Linux.
 \item[Help] opens the \poy \emph{Program Documentation} in PDF format (requires a PDF viewer).
@@ -168,8 +165,8 @@ working directory, or the names of the scripts and working directory are entered
 error message in the upper part of the \emph{POY Launcher} window,
 such as \texttt{POY finished with an error}.
 
-\subsection{The \emph{Analysis} menu}
-The \emph{Analysis} menu is the main toolbox of the \poy GUI interface (Figure~\ref{fig:simple_search_window}, left). Selections are subdivided into four functional categories. The first three deal with tree searching, support calculation, and tree diagnosis; the fourth one is used for  script management or interactive command execution that bypasses the menu-driven script generating. Each of the menu items is described below in the order it appears on the menu.
+\subsection{The \emph{Analyses} menu}
+The \emph{Analyses} menu is the main toolbox of the \poy GUI interface (Figure~\ref{fig:simple_search_window}, left). Selections are subdivided into four functional categories. The first three deal with tree searching, support calculation, and tree diagnosis; the fourth one is used for  script management or interactive command execution that bypasses the menu-driven script generating. Each of the menu items is described below in the order it appears on the menu.
 
 Most options are consistently applied through different kinds of analysis. Therefore, all the options are described in detail only for the \emph{Simple Search} analysis. The descriptions of other analyses are made with reference to the the \emph{Simple Search} and focus on unique options.
 
@@ -203,7 +200,7 @@ in \poy that must either (in some cases or) be selected by clicking appropriate 
         Holds one field to set the number of independent random addition replicates to be generated.
     \item[Sequence Alignment Parameters]
         Holds fields to specify the substitution, indel, and gap opening costs. Enter \texttt{0} if no
-        gap opening cost is desired. All the fields are obligatory.
+        gap opening cost is desired. If the value of a parameter is not specified, the default values is used. (See the \emph{POY Commands} chapter (\ref{commands}).)
     \item[Output Files]
         Designates the names and locations of files containing different kinds of results
         (implied by their respective titles) of the analysis. If no names are specified, the default names are generated.
@@ -422,7 +419,7 @@ Console}. Note that the \emph{Interactive Console} does \emph{not} run in parall
 \begin{minipage}[c]{0.48\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/create_script_window.jpg}
    	\end{minipage}
-\caption{The \emph{Run interactive console} selection (left) opens \poy interactive console in a new window. The \emph{Create Script} selection opens the \emph{Script Editor} window (Figure~\ref{fig:ScriptEditor_Window}).}
+\caption{The \emph{Run Interactive Console} selection (left) opens \poy interactive console in a new window. The \emph{Create Script} selection opens the \emph{Script Editor} window (Figure~\ref{fig:ScriptEditor_Window}).}
 \label{fig:runinteractive}
 \end{figure}
 
@@ -449,7 +446,7 @@ The \emph{View} menu contains the \emph{Output} window which is subdivided into 
 \section{Using the Interactive Console} \label{interactiveconsole}
 
 This section will help you get started using the \poy \emph{Interactive Console} and will prepare you for the
-more extensive, technical descriptions in the next chapter, \emph{\poy Commands}. Now that you are acquainted with the program's interface, learned how to initiate, and exit or interrupt) a \poy session, and how to obtain help, you are well prepared to run your first analysis. This chapter will teach
+more extensive, technical descriptions in the next chapter, \emph{\poy Commands}. Now that you are acquainted with the program's interface, learned how to initiate, and exit or interrupt a \poy session, and how to obtain help, you are well prepared to run your first analysis. This chapter will teach
 you how to input datafiles, check the data you are analyzing, generate
 a set of initial trees, do basic branch swapping to find a local optimum, and, finally, produce
 and visualize the resultant trees, their strict consensus, and generate support values.
@@ -458,7 +455,7 @@ For the purpose of this exercise, three datafiles are used available at \\
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}:
 
 \begin{itemize}
-	\item {\texttt{18s.fas} and \texttt{28s.fas}contain unaligned DNA sequences (partial 18Sand 28S ribosomal DNA) in FASTA format.~\cite{pearson1988}}
+	\item {\texttt{18s.fas} and \texttt{28s.fas} contain unaligned DNA sequences (partial 18S and 28S ribosomal DNA) in FASTA format.~\cite{pearson1988}}
 	\item {\texttt{morpho.ss} contains a morphological data matrix in Hennig86 format.~\cite{farris1988}}
 \end{itemize}
 
@@ -479,7 +476,7 @@ The \emph{Interactive Console} provides a terminal environment with enhanced abi
 \item[POY Output] (Figure \ref{fig:figinterface}, upper box) displays the status of the imported data, outputs the results of the phylogenetic analyses (such as trees, character diagnoses, and implied alignments), reports errors, and displays descriptions of \poy commands.
 \item[Interactive Console] (Figure \ref{fig:figinterface}, mid-left box) is used to issue the commands interactively and to execute the commands by clicking the Return key. (See Section~\ref{commands} on the description of \poy commands.)
 \item[State of Stored Search] (Figure \ref{fig:figinterface}, mid-right box) displays the time (in seconds) elapsed since the initiation of the current operation. This window also reports the number of trees currently in memory and displays the range of their costs.
-\item[Current Job] (Figure \ref{fig:figinterface}, lower box)describes the currently running operation. When the operation is completed, the box is blank.
+\item[Current Job] (Figure \ref{fig:figinterface}, lower box) describes the currently running operation. When the operation is completed, the box is blank.
 \end{description} 
 
 \begin{figure}[htbp]
@@ -566,14 +563,14 @@ The basic command to input data in \poy is \commandstyle{read()}, which includes
     \begin{center}
         \includegraphics[width=0.6\textwidth]{figures/reading_example.jpg}
     \end{center}
-    \caption{Importing datafiles using the \emph{Interactive Console}. Two consecutive \commandstyle{read} commands specify both the morphological datafile in Hennig86 format (\texttt{morpho.ss}), and the molecular datafile in FASTA format (\texttt{28s.fas}) . Note that \poy automatically reports  in the \emph{POY Output} window the names and types of files that have been imported.}
+    \caption{Importing datafiles using the \emph{Interactive Console}. Two consecutive \commandstyle{read} commands specify both the morphological datafile in Hennig86 format (\texttt{morpho.ss}), and the molecular datafile in FASTA format (\texttt{28s.fas}). Note that \poy automatically reports  in the \emph{POY Output} window the names and types of files that have been imported.}
     \label{fig:readingexample}
 \end{figure}
 
 The syntax of \commandstyle{read}, like every command in \poy, contains two elements: the name of the command (e.g. \commandstyle{read}), followed by an optional list of arguments 
 separated by commas and enclosed in parentheses. Typically, the arguments of the command \commandstyle{read()} are names of datafiles, each being enclosed in double quotes (as shown in the example above). Even though there might be only one argument or none in some commands, parentheses (e.g. \poycommand{read()}) always follow the command name. An exhaustive discussion of \poy command structure and detailed descriptions of all commands with examples of their usage are provided in the \emph{POY Commands} chapter (\ref{commands}).
 
-In order to import data by entering the names of the files, the directory containing these files must be identified using the command\commandstyle{cd}; for example \texttt{cd ("/Users/username/docs/poyfiles")}. Alternatively, the full path can be included in the argument of \commandstyle{cd}: \texttt{read("/Users/username/docs/28s.fas")}.
+In order to import data by entering the names of the files, the directory containing these files must be identified using the command\commandstyle{cd}; for example \texttt{cd ("/Users/username/docs/poyfiles")}. Alternatively, the full path can be included in the argument of \commandstyle{read}: \texttt{read("/Users/username/docs/28s.fas")}.
 
 Most of the time users are interested in importing multiple datafiles to analyze an entire dataset. In this case, multiple datafiles can be specified as arguments for a single command. For example, importing both files, \texttt{morpho.ss} and \texttt{28s.fas}, can be written more succinctly:
 \commandstyle{read("morpho.ss", "28s.fas")}. This is equivalent to sequentially importing each file as shown above (Figures ~\ref{fig:readingexample} and \ref{fig:reading_example2}).
@@ -653,7 +650,7 @@ The command to build trees is \commandstyle{build()} (already mentioned in Secti
 
 Many \poy commands operate under default settings when executed without arguments. To learn what the default settings are for a particular command, use either \commandstyle{help()} command with the command name of interest inserted in parentheses or consult the \emph{POY Commands} chapter (\ref{commands}).
 
-If the user would like to specify a number of tree building preplicates different from the default value of 10, an argument \commandstyle{trees} followed by a colon (``:'') and an integer specifying the number of trees must be included in the argument list of the \commandstyle{build} command: \commandstyle{build(trees:100)}. This command has a shortcut that omits the argument \commandstyle{trees}. Thus, \commandstyle{build(trees:100)} is equivalent to \commandstyle{build(100)}. As defaults, the shortcuts are fully described in Section \ref{commands}. The entire sequence of commands minimally required to import the data and build 100 trees is the following:
+If the user would like to specify a number of tree building replicates different from the default value of 10, an argument \commandstyle{trees} followed by a colon (``:'') and an integer specifying the number of trees must be included in the argument list of the \commandstyle{build} command: \commandstyle{build(trees:100)}. This command has a shortcut that omits the argument \commandstyle{trees}. Thus, \commandstyle{build(trees:100)} is equivalent to \commandstyle{build(100)}. As defaults, the shortcuts are fully described in Section \ref{commands}. The entire sequence of commands minimally required to import the data and build 100 trees is the following:
 
 \begin{quote}
  	\commandstyle{read("morpho.ss","28s.fas")}\\
@@ -677,7 +674,7 @@ As the tree building advances, the \emph{Current Job} window displays the curren
 
 \subsection{Performing a local search}
 
-Now, that the trees have been generated and stored in memory, a local search can be performed to refine and improve the initial trees by examining additional topologies of potentially better cost.  The command \commandstyle{swap()} implements an efficient strategy by performing SPR and TBR branch swapping alternately. As with other commands, the arguments of \commandstyle{swap()} allow the customization of the swap algorithm. In the following example, branch swapping is performed under the default settings on each of the 100 trees build in the previous step:
+Now that the trees have been generated and stored in memory, a local search can be performed to refine and improve the initial trees by examining additional topologies of potentially better cost.  The command \commandstyle{swap()} implements an efficient strategy by performing SPR and TBR branch swapping alternately. As with other commands, the arguments of \commandstyle{swap()} allow the customization of the swap algorithm. In the following example, branch swapping is performed under the default settings on each of the 100 trees build in the previous step:
 
 \begin{quote}
  	\commandstyle{read("morpho.ss","28s.fas")}\\
@@ -804,7 +801,7 @@ It it critical to include the command \commandstyle{exit()} at the end of the sc
 \begin{minipage}[c]{0.53\textwidth}
 	   	\includegraphics[width=\textwidth]{figures/script.jpg}
    	\end{minipage}
-\caption{Using \poy scripts. The list of commands executed interactively using the \emph{Interactive Console} (left) and a script containing the same list of commands (right). Note, that the header of the script is a comment, inclosed in ``(* *)'', that is ignored by \poy. Also note, that commands can either be listed in a row or in a column (compare \commandstyle{build()} and \commandstyle{swap()} in the console and in the script) and different arguments of the same command can either be specified separately or combined in a single argument list (compare \commandstyle{report()} in the console and in the script). (Both conventions are valid for interactive command submission and for scripts.)}
+\caption{Using \poy scripts. The list of commands executed interactively using the \emph{Interactive Console} (left) and a script containing the same list of commands (right). Note, that the header of the script is a comment, enclosed in ``(* *)'', that is ignored by \poy. Also note, that commands can either be listed in a row or in a column (compare \commandstyle{build()} and \commandstyle{swap()} in the console and in the script) and different arguments of the same command can either be specified separately or combined in a single argument list (compare \commandstyle{report()} in the console and in the script). (Both conventions are valid for interactive command submission and for scripts.)}
 \label{fig:script}
 \end{figure}
 
@@ -835,7 +832,7 @@ Instructions to run \poy, command descriptions, and the theory behind \poy can b
 \texttt{http://research.amnh.org/scicomp/projects/poy.php}
 \end{center}
 
-\item[POY4 sourse code repository] contains has downloadable \poy source code.  The site is powered by Google at 
+\item[POY4 source code repository] contains has downloadable \poy source code.  The site is powered by Google at 
 \begin{center}
 \texttt{http://code.google.com/p/poy4/source}
 \end{center}

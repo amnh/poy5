@@ -902,6 +902,8 @@ The \poycommand{calculate\_support} command does not output support values by de
             additional information as detailed for each file type below.
             It is important, however, to verify that the data was interpreted properly (using
             the command \poycommand{report}).
+            
+            The terminal names, as well as input file names, must not contain spaces, “at” or percentage symbols.
         \end{statement}
           
         \begin{statement}
@@ -2119,7 +2121,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                 than defined by the value are included in the analysis.}
                 {}
                
-                \argumentdefinition{not\_missing}{\obligatory{\poyint}}
+                \argumentdefinition{not missing}{\obligatory{\poyint}}
                 {Selects terminals or characters to be included from the analysis
                 based on the proportion of missing data. The
                 integer value sets the minimum percentage of missing
@@ -2694,11 +2696,11 @@ The \poycommand{calculate\_support} command does not output support values by de
             {Submits current trees to a round of SPR followed by TBR. It keeps
             up to 5 minimum cost trees for each starting tree.}
 
-		\poyexample{swap(transform ((all, static\_approx)))}
+		\poyexample{swap(transform((all, static\_approx)))}
             {Submits current trees to a round of SPR followed by TBR, using
             static approximations for all sequence characters.}
             
-		\poyexample{swap(trees:4, transform ((all, static\_approx)))}
+		\poyexample{swap(trees:4, transform((all, static\_approx)))}
             {Submits current trees to a round of SPR followed by TBR, using
             static approximations for all characters, keeping up to 4 minimum
             cost trees for each starting tree.}
@@ -2858,10 +2860,8 @@ The \poycommand{calculate\_support} command does not output support values by de
             \begin{statement}
   	  The transformation of dynamic into static homology characters cannot be reverted.
 	  Therefore, caution must be taken when the transformation is applied. For example,
-	  if sequence characters  have been transformed into static characters to calculate
-	  jackknife or bootstrap support values based on sampling of individual nucleotides,
-	  all commands executed subsequently will be applied to the transform data.
-	\end{statement}
+	  if sequence characters have been transformed into static characters at top level using the command \poycommand{transform((all, static\_approx))}, all commands executed subsequently will be applied to the transformed data. However, if the transformation has been applied \emph{within} another command (as an argument of \poycommand{swap}, for instance, \poycommand{swap(transform((all, static\_approx)))}), the characters will transformed only for that specific operation.
+	   \end{statement}
 	
 	\begin{statement}
   	  It is important to remember that the local optimum for the dynamic homology
@@ -3179,11 +3179,11 @@ The \poycommand{calculate\_support} command does not output support values by de
 
         \poyexample{transform((all, tcm:(1,1)), (names:("gen1",
         "gen2"), \\ static\_approx), (names:("gen3"), tcm:"molmatrix"))}  
-            {Applies tcm (1,1) to all characters, then applies static approx
-            using that tcm to characters in files gen1 and gen2, and for file
+            {Applies the substitution and indel costs \texttt{1} to all characters, then applies static approximation
+            using that tcm to characters in files \texttt{gen1} and \texttt{gen2}, and for file
             gen3, it invokes a different transformation cost matrix, contained
             in the file molmatrix. Beware that the file name should be exactly
-            as it was reported with report (data), which differs from the actual
+            as it was reported with \poycommand{report(data)}, which differs from the actual
             file name (\poycommand{report (data)} reports files as fileX:N).}
 
         \poyexample{transform((all, tcm:(1,1)), (names:("gen1:3",
@@ -3208,7 +3208,7 @@ The \poycommand{calculate\_support} command does not output support values by de
           type under default settings of \poyargument{dynamic\_pam}.}
           
           \poyexample{transform(seq\_to\_chrom:(circular:true, locus\_indel:(50, \\1.0)))} 
-          {All applicable (\emph{i.e.} sequence) data is transformed into chromosome
+          {All applicable (\emph{i.e.} sequence) data are transformed into chromosome
           data, which is treated as a circular chromosome, and settings locus-level gap
           opening cost at \texttt{50} and gap extension cost at \texttt{1.0}.}
               
@@ -3279,7 +3279,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 	\syntax{\obligatory{()}}
 
 	\begin{poydescription}
-        Elminates the data stored in memory (all character data, trees, \emph{etc.}).
+        Eliminates the data stored in memory (all character data, trees, \emph{etc.}).
 	\end{poydescription}
 
     \begin{poyexamples}
