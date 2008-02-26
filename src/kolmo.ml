@@ -291,16 +291,16 @@ module SK = struct
 
     let s_encode tree = 
         (* We define a function to encode an SK expression in a list of bits *)
-        let rec to_bit_list acc tree =
+        let rec to_bit_list ?(no_print=false) tree =
             match tree with
             | Node lst ->
                     (match lst with
                     | [] -> assert false
-                    | [x] -> to_bit_list acc x
+                    | [x] -> to_bit_list x
                     | [x; y] ->
-                            let acc = to_bit_list acc y in
-                            let acc = to_bit_list acc x in
-                            Encodings.One :: acc
+                            let y = to_bit_list y in
+                            let x = to_bit_list x in
+                            Encodings.One :: (x @ y)
                     | lst ->
                             let rec to_binary_list lst = 
                                 match lst with
@@ -310,29 +310,38 @@ module SK = struct
                                         ((Node [f; s]) :: t)
                                 | _ -> assert false
                             in
-                            to_bit_list acc (to_binary_list lst))
+                            to_bit_list ~no_print:true (to_binary_list lst))
             | Leaf x ->
                     match x with
-                    | S -> Encodings.Zero :: Encodings.Zero :: acc
-                    | K -> Encodings.Zero :: Encodings.One :: acc
+                    | S -> Encodings.Zero :: Encodings.Zero :: []
+                    | K -> Encodings.Zero :: Encodings.One :: []
                     | Label _ -> failwith "I can't encode labels"
         in
         match tree with
-        | Processed tree -> to_bit_list [] tree
+        | Processed tree -> to_bit_list tree
         | String tree ->
                 match tree --> of_string --> reduce with
-                | Processed tree -> to_bit_list [] tree
+                | Processed tree -> to_bit_list tree
                 | String _ -> assert false
 
+
         let rec s_decode lst = 
-            match lst with
-            | Encodings.One :: t ->
-                    let a, t = s_decode t in
-                    let b, t = s_decode t in
-                    "( " ^ a ^ b ^ ") ", t
-            | Encodings.Zero :: Encodings.Zero :: t -> "S ", t
-            | Encodings.Zero :: Encodings.One :: t -> "K ", t
-            | _ -> failwith "Illegal encoding"
+            let rec aux_s_decode lst = 
+                match lst with
+                | Encodings.One :: t ->
+                        let a, t = aux_s_decode t in
+                        let b, t = aux_s_decode t in
+                        Node [a; b], t
+                | Encodings.Zero :: Encodings.Zero :: t -> (Leaf S), t
+                | Encodings.Zero :: Encodings.One :: t -> (Leaf K), t
+                | _ -> failwith "Illegal encoding"
+            in
+            let a, t = aux_s_decode lst in
+            match t with
+            | [] -> a
+            | t -> 
+                    Node [a; s_decode t]
+
 
         let create pattern label =
             (* A function to create combinator that produce the desired pattern
@@ -475,6 +484,8 @@ module SK = struct
         type 'loc stmt = 
             | Def of string * string list * 'loc expr * 'loc
             | Evaluate of 'loc expr * 'loc
+            | BitEncode of 'loc expr * 'loc
+            | BitDecode of string * string * 'loc
 
         open Camlp4.Sig
 
@@ -519,6 +530,30 @@ module SK = struct
                         (Kolmo.SK.to_string (Kolmo.SK.reduce
                         (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
                         $expression_converter expression$)))) >>
+                | BitEncode (expression, _loc) ->
+                        <:str_item< let () = 
+                            let lst = Kolmo.SK.s_encode (Kolmo.SK.reduce
+                            (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
+                            $expression_converter expression$))) in
+                            let () = 
+                                List.iter (function Kolmo.Encodings.Zero ->
+                                    print_int 0;
+                                    | Kolmo.Encodings.One -> print_int 1;) lst
+                            in
+                            print_newline ()>>
+                | BitDecode (name, expression, _loc) ->
+                        <:str_item< let () =
+                            let str = $str:expression$ in
+                            let lst = ref [] in
+                            for i = (String.length str) - 1 downto 0 do
+                                match str.[i] with
+                                | '1' -> lst := Kolmo.Encodings.One :: !lst;
+                                | '0' -> lst := Kolmo.Encodings.Zero :: !lst;
+                                | x -> failwith (Printf.sprintf "Illegal \
+                                encoding : Character %c in position %d." x i)
+                            done;
+                            let a = (Kolmo.SK.s_decode !lst) in
+                            Hashtbl.replace Kolmo.SK.universe $str:name$ a>>
 
             let expr_sk = Gram.Entry.mk "expr_sk"
             let stmt = Gram.Entry.mk "stmt"
@@ -532,7 +567,11 @@ module SK = struct
             stmt: [
                 [ LIDENT "sk"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
                     x = expr_sk -> Def (v, a, x, _loc)
-                | LIDENT "sk"; x = expr_sk -> Evaluate (x, _loc) ] 
+                | LIDENT "sk"; x = expr_sk -> Evaluate (x, _loc) 
+                | LIDENT "sk"; LIDENT "encode"; x = expr_sk -> 
+                        BitEncode (x, _loc) 
+                | LIDENT "sk"; LIDENT "decode"; x = UIDENT; y = STRING -> 
+                        BitDecode (x, y, _loc) ]
                 ];
             END;;
 
