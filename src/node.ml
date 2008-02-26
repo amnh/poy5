@@ -94,9 +94,9 @@ let ct_verify sa =
           assert (List.length list = List.length sa.set)
 
 IFDEF USE_LIKELIHOOD THEN
-type ml_rep = MlStaticCS.t r
+    type ml_rep = MlStaticCS.t r
 ELSE
-type ml_rep = unit
+    type ml_rep = unit
 END
 
 type cs = 
@@ -1680,7 +1680,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0.0001 } in (* TODO: estimate *)
+                            weight = 1.; time = 0.2 } in (* TODO: estimate *)
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
@@ -2564,7 +2564,7 @@ let rec internal_n_chars acc (chars : cs list) =
             let count = 
                 match c with
                 | StaticMl r -> 
-                    IFDEF USE_LIKELIHOOD THEN 
+                    IFDEF USE_LIKELIHOOD THEN
                         MlStaticCS.cardinal r.preliminary
                     ELSE
                         failwith likelihood_error
@@ -2581,7 +2581,7 @@ let rec internal_n_chars acc (chars : cs list) =
             internal_n_chars (acc + count) cs
 (** [n_chars chars] returns the total number of characters in the list of
     characters [chars] *)
-let rec n_chars ?(acc=0) n = 
+let rec n_chars ?(acc=0) n =
     internal_n_chars acc n.characters
 
 module T = struct
@@ -2596,8 +2596,12 @@ module Union = struct
         u_weight : float;
     }
 
+IFDEF USE_LIKELIHOOD THEN
+    type ml_repu = MlStaticCS.t ru
+ELSE
+    type ml_repu = unit
+END
 
-    IFDEF USE_LIKELIHOOD THEN
     type c = 
         | Nonadd8U of NonaddCS8.u ru
         | Nonadd16U of NonaddCS16.u ru
@@ -2606,18 +2610,7 @@ module Union = struct
         | SankU of SankCS.t ru
         | DynamicU of DynamicCS.u ru
         | KolmoU of KolmoCS.u ru
-        | StaticMlU of MlStaticCS.t ru
-    ELSE
-    type c = 
-        | Nonadd8U of NonaddCS8.u ru
-        | Nonadd16U of NonaddCS16.u ru
-        | Nonadd32U of NonaddCS32.u ru
-        | AddU of AddCS.t ru
-        | SankU of SankCS.t ru
-        | DynamicU of DynamicCS.u ru
-        | KolmoU of KolmoCS.u ru
-        | StaticMlU of unit
-    END
+        | StaticMlU of ml_repu
 
     (* In this first implementation, sets can not use the union heuristics, this is
     * work to be done *)
@@ -2740,6 +2733,15 @@ module Union = struct
                     }
                     in
                     KolmoU r
+            | StaticMl cs, StaticMlU u1, StaticMlU u2 ->
+                IFDEF USE_LIKELIHOOD THEN
+                    StaticMlU { 
+                        ch = MlStaticCS.union cs.preliminary u1.ch u2.ch; 
+                        u_weight = u1.u_weight; }
+                ELSE
+                    failwith likelihood_error
+                END
+    
             | _ -> failwith "Node.Union.union"
         in
         let rec map3 c d e =
