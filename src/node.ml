@@ -2735,9 +2735,7 @@ END
                     KolmoU r
             | StaticMl cs, StaticMlU u1, StaticMlU u2 ->
                 IFDEF USE_LIKELIHOOD THEN
-                    StaticMlU { 
-                        ch = MlStaticCS.union cs.preliminary u1.ch u2.ch; 
-                        u_weight = u1.u_weight; }
+                    StaticMlU { ch = cs.preliminary; u_weight = u1.u_weight; }
                 ELSE
                     failwith likelihood_error
                 END
