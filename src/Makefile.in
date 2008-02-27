@@ -24,7 +24,7 @@ mandir = $(prefix)/man/man1
 CC = @CC@
 CPPFLAGS = @CPPFLAGS@
 CFLAGS = $(CPPFLAGS) @CFLAGS@ 
-LDFLAGS = @LDFLAGS@
+LDFLAGS = -cclib '@LDFLAGS@'
 LIBS = -cclib "@LIBS@"
 INSTALL = @INSTALL@
 
@@ -317,7 +317,7 @@ status_ncurses.cma : dequeue.cmo status.cmi ncurses.o ncursesML.cmo \
 	cp status_ncurses.ml status.ml
 	$(OCAMLC) $(CCOPT) -custom -g -a -o $(@) ncurses.o \
 	ncursesML.cmo dequeue.cmo statusCommon.cmo status.ml $(MKLIBOPT) \
-	$(PROFILE) $(LIBS) 
+	$(PROFILE) $(LDFLAGS) $(LIBS) 
 
 status_gtk2.cma: status.cmi statusCommon.cmo status_gtk2.ml
 	cp status_gtk2.ml status.ml
@@ -360,7 +360,7 @@ status_ncurses.cmxa : dequeue.cmx status.cmi ncurses.o ncursesML.cmx \
 	cp status_ncurses.ml status.ml
 	$(OCAMLOPT) $(CCOPT) -a -o $@ \
 	ncurses.o dequeue.cmx ncursesML.cmx \
-	statusCommon.cmx status.ml $(MKLIBOPT) $(PROFILE) $(LIBS) 
+	statusCommon.cmx status.ml $(MKLIBOPT) $(PROFILE) $(LDFLAGS) $(LIBS) 
 
 status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
 	cp status_html.ml status.ml
@@ -460,7 +460,8 @@ help.txt: compileFlags.cmx sadmanOutput.cmx statusCommon.cmx \
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml $(LIBS)
+	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml \
+	$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
@@ -618,12 +619,12 @@ ifeq ($(USEPARALLEL), true)
 		$(OCAMLMPI)/mpi.cma \
 		-cclib -lcamlgrappa $(CCOPT) $(DEBUG) -ccopt -L./ -o mpoy \
 		$(GRAPHICS) dynlink.cma camlp4fulllib.cma unix.cma str.cma \
-		bigarray.cma $^ $(LIBS)  
+		bigarray.cma $^ $(LDFLAGS)  $(LIBS)  
 else
 		$(OCAMLC) -custom $(OCAML_INCLUDES) -cclib -L$(OCAMLMPI) \
 		-cclib -lcamlgrappa $(CCOPT) $(DEBUG) -ccopt -L./ -o mpoy \
 		$(GRAPHICS) dynlink.cma camlp4fulllib.cma unix.cma str.cma \
-		bigarray.cma $^ $(LIBS) 
+		bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 endif
 
 
@@ -633,13 +634,13 @@ ifeq ($(USEPARALLEL), true)
 	-cclib -L./graphps -cclib -L./ \
 	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
-	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LIBS) 
+	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
-	bigarray.cmxa $^ $(LIBS) 
+	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 endif
 
 poy_test: $(TEST_OBJS_OPT)
@@ -647,7 +648,7 @@ poy_test: $(TEST_OBJS_OPT)
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy_test \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
-	bigarray.cmxa $^ $(LIBS) 
+	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 
 # Interactive console to test various features
 #mpoy_console: sequences.cma parsers.cma distances.cma trees.cma 
@@ -657,10 +658,10 @@ ifeq ($(USEPARALLEL), true)
 	-I $(OCAMLMPI) -cclib -L./grappa -cclib -L./graphps -custom -cclib \
 	-L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cma $(GRAPHICS) camlp4o.cma unix.cma str.cma \
-	bigarray.cma $^ $(LIBS) 
+	bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 else
 	$(OCAMLTOP) $(CCOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -o $@ -cclib -L./grappa \
 	-cclib -L./graphps -cclib -L./ -cclib -lcamlgrappa $(GRAPHICS) unix.cma camlp4o.cma str.cma \
-	bigarray.cma $^ $(LIBS) 
+	bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 endif
 
