@@ -300,7 +300,7 @@ let of_parser spec characters =
     let loop_ (states,code) =
         match states with 
         | None -> Array.make a_size 1.0
-        | Some s when List.hd s = a_gap -> Printf.printf "GAP!\n"; Array.make a_size 1.0
+        | Some s when List.hd s = a_gap -> Array.make a_size 1.0
         | Some s -> let pl = List.fold_right set_in s (list_of a_size 0.0) in
                 Array.of_list (sublist pl 0 a_size) in
     (* loop to extract codes *)
