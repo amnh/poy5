@@ -26,7 +26,8 @@ let debug_sets = false
 let debug_set_cost = false
 let odebug = Status.user_message Status.Information
 
-let likelihood_error = "Likelihood not enabled: download different binary or contact mailing list" 
+let likelihood_error = 
+    "Likelihood not enabled: download different binary or contact mailing list" 
 
 module IntSet = All_sets.Integers
 
@@ -190,6 +191,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
+        cost_mode : [ `Likelihood | `Parsimony ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -222,7 +224,7 @@ let character_costs node =
     in
     (get_individual_cost [] node.characters)
 
-let empty () = {
+let empty cost_mode = {
     characters = [];
     total_cost = 0.0;
     node_cost = 0.0;
@@ -233,6 +235,7 @@ let empty () = {
     num_otus = 0;
     exclude_sets = [];
     exclude_info = [];
+    cost_mode = cost_mode;
 }
 
 let print nd = 
@@ -666,10 +669,8 @@ let has_excluded list =
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
 
-let cost_mode = ref `Likelihood
-
 let total_cost _ a =
-    match !cost_mode with
+    match a.cost_mode with
     | `Likelihood -> a.node_cost
     | `Parsimony -> a.total_cost
 
@@ -744,7 +745,8 @@ let median code old a b =
     and children_cost = a.total_cost +. b.total_cost in
     let node_cost = get_characters_cost new_characters in
     let total_cost = 
-        match !cost_mode with
+        assert (a.cost_mode = b.cost_mode);
+        match a.cost_mode with
         | `Likelihood -> node_cost
         | `Parsimony -> node_cost +. children_cost in
     let num_child_edges, num_height = new_node_stats a b in
@@ -764,6 +766,7 @@ let median code old a b =
         num_otus = a.num_otus + b.num_otus;
         exclude_sets = a.exclude_sets;
         exclude_info = exclude_info;
+        cost_mode = a.cost_mode;
     }
 
 let rec cs_reroot_median na nb old a b =
@@ -848,11 +851,6 @@ let median_no_cost median =
     { median with total_cost = 0.0; }
     
 let median_self_cost a = a.node_cost
-
-let median_set_cost a cost = 
-    match a with
-    | `Likelihood a -> {a with total_cost = cost; node_cost = cost;}
-    | `Parsimony a ->{a with total_cost = cost}
 
 let update_leaf n =
     let exclude_info =
@@ -1409,7 +1407,7 @@ let classify doit chars data =
 
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
-    kolmogorov static_ml data =
+    kolmogorov static_ml data cost_mode =
         let add_character =  Data.add_character_spec 
         and set = Data.Set 
         and data = ref data in
@@ -1483,7 +1481,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -1494,9 +1491,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             | Data.Dynamic _
             | Data.Kolmogorov _
             | Data.Set -> failwith "get_static_encoding" in
-
         let module Enc = Parser.OldHennig.Encoding in
-
         let gen_add code =
             let enc = get_static_encoding code in
             (Data.Stat (code, Some enc.Parser.SC.st_observed), `Unknown) 
@@ -1512,7 +1507,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
         in
-
         let gen_sank code =
             (* print_endline ("adding sankoff with code " ^ string_of_int code);
             * *)
@@ -1524,7 +1518,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             (Data.Stat (code, Some states), `Unknown)
         in
-
         !data, 
         fun tcode acc ->
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
@@ -1565,7 +1558,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 [] y) 
                 lsankcode
             in
-
             let result = { 
                 characters = []; 
                 total_cost = 0.;
@@ -1577,6 +1569,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 num_otus = 1;
                 exclude_info = [];
                 exclude_sets = [];
+                cost_mode = cost_mode;
             } in
             let add_characters of_parser buildme result (code, (w, char)) =
                 let v = List.map extract_stat char in
@@ -1777,6 +1770,11 @@ let structure_into_sets data (nodes : node_data list) =
               let css, _ = List.split (List.map (group nid new_sid) list) in
               (cs_list_to_set new_sid meth css, name) 
     in
+    let cost_mode = 
+        match nodes with
+        | h :: _ -> h.cost_mode
+        | [] -> `Parsimony
+    in
     let eg_node =
         { 
             characters = [];
@@ -1789,6 +1787,7 @@ let structure_into_sets data (nodes : node_data list) =
             num_otus = 1;
             exclude_sets = [];
             exclude_info = [];
+            cost_mode = cost_mode;
         } 
     in
     match data.Data.complex_schema with
@@ -1867,13 +1866,13 @@ let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data =
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
-        let () = 
+        let cost_mode = 
             match static_ml with
-            | [] -> cost_mode := `Parsimony
-            | _ -> cost_mode := `Likelihood
+            | [] -> `Parsimony
+            | _ -> `Likelihood
         in
         generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-        static_ml data
+        static_ml data cost_mode
     in
     let nodes = 
         match taxa with
@@ -3012,6 +3011,14 @@ let new_characters character_code acc taxa =
     List.fold_left (build_taxon character_code) acc taxa
 
 let for_support starting leaves leaves_id nodes =
+    let cost_mode = 
+        match leaves with
+        | (_, h) :: t ->
+                let mode = h.cost_mode in
+                assert (List.for_all (fun (_, x) -> x.cost_mode = mode) t);
+                mode
+        | [] -> `Parsimony
+    in
     let leaves = List.map (fun (x, y) -> (x, [], y)) leaves in
     let load_clade node_data node_id =
         List.map
@@ -3050,6 +3057,7 @@ let for_support starting leaves leaves_id nodes =
                num_otus = 1;
                exclude_sets = [];
                exclude_info = [];
+               cost_mode = cost_mode;
              })
         node_data 
     in
@@ -3074,7 +3082,6 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median _ = median
         let median_3 _ = median_3
-        let set_cost a b = median_set_cost b a
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost

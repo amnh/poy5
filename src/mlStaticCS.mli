@@ -66,11 +66,13 @@ external median_gtr: (* priors U D Ui ta tb a b output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s -> s -> float array -> s = "likelihood_CAML_median_gtr"
+     float -> float -> s -> s -> float array -> s = 
+     "likelihood_CAML_median_gtr""likelihood_CAML_median_wrapped_gtr" 
 external median_sym: (* priors U D ta tb a b output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s-> s -> float array-> s = "likelihood_CAML_median_sym"
+     float -> float -> s-> s -> float array-> s = 
+     "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
 (** [loglikelihood s pi] -> float   calculates the mle of a character set *) 
 external loglikelihood: 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->

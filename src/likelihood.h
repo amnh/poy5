@@ -22,7 +22,11 @@
 #include <assert.h>
 
 #include <math.h>   //log,exp,sin
+#ifdef __APPLE__
+#include <vecLib/cblas.h>  //dgemm
+#else
 #include <cblas.h>  //dgemm
+#endif
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
