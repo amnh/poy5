@@ -133,10 +133,6 @@ end
 
 
 
-let assign_cost_mode mode = Node.cost_mode := mode
-
-let get_cost_mode () = !Node.cost_mode
-
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
     (TreeOps : 
         Ptree.Tree_Operations with type a =
@@ -2055,8 +2051,8 @@ END
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run, !Data.median_code_count,
-                    get_cost_mode ()) fn;
+                    PoyFile.store_file (comment, run, !Data.median_code_count
+) fn;
                     run
                 with
                 | err ->
@@ -2068,8 +2064,7 @@ END
                         run)
             | `Load fn ->
                 (try 
-                    let (comment, run, mcc, cost_mode)  = PoyFile.read_file fn in
-                    assign_cost_mode cost_mode;
+                    let (comment, run, mcc)  = PoyFile.read_file fn in
                     Data.median_code_count := mcc;
                     let descr = 
                         match comment with
