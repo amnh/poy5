@@ -23,7 +23,7 @@ module SK :
     type sk = [`String of string | `Processed of primitives]
     exception Illegal_Expression of string Parser.Tree.t list
 
-    val universe : (string, expression) Hashtbl.t
+    val universe : (string, primitives) Hashtbl.t
     val of_string : string -> [> `Processed of primitives ]
     val expand_labels : 
         ?except:string list -> sk -> [> `Processed of primitives ]

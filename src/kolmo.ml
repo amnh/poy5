@@ -184,7 +184,7 @@ module SK = struct
 
     let universe = Hashtbl.create 97 
 
-    let of_string string : [> `Processed of expression ] =
+    let of_string string : [> `Processed of primitives ] =
         let no_forest = function
             | [x] -> 
                     let rec reverse tree = 
