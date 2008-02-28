@@ -230,7 +230,7 @@ SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	ukk.checkp.o ukkCommon.o algn.o
 
 # Some personal tests that can be useful for everyone 
-CAMLP4PROCESSED = poyParser.ml poyCommand.ml kolmo.ml
+CAMLP4PROCESSED = poyParser.ml poyCommand.ml kolmo.ml kolmoExtension.ml
 
 GETRUSAGE :=
 ifneq ($(USEWIN32), true)
@@ -483,6 +483,10 @@ help.html: help.txt ocaml-str helpRead.ml
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
+kolmoExtension.cmo: kolmoExtension.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+kolmoExtension.cmx: kolmoExtension.ml
+	$(OCAMLOPT) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmo.cmo: parser.cmo kolmo.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
 kolmo.cmx: parser.cmo kolmo.ml

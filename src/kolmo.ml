@@ -177,25 +177,23 @@ end
 let ( --> ) a b = b a
 
 module SK = struct
-    type 'a t = Leaf of 'a | Node of ('a t list)
-    type primitives = S | K | Label of string
-    type expression = primitives t
-    type sk = String of string | Processed of expression
+    type primitives = [ `S | `K | `Label of string | `Node of primitives list ]
+    type sk = [`String of string | `Processed of primitives]
 
     exception Illegal_Expression of string Parser.Tree.t list
 
     let universe = Hashtbl.create 97 
 
-    let of_string string =
+    let of_string string : [> `Processed of expression ] =
         let no_forest = function
             | [x] -> 
                     let rec reverse tree = 
                         match tree with
                         | Parser.Tree.Node (s, "") ->
-                                Node (List.rev_map reverse s)
-                        | Parser.Tree.Leaf "S" -> Leaf S
-                        | Parser.Tree.Leaf "K" -> Leaf K
-                        | Parser.Tree.Leaf x -> Leaf (Label x)
+                                `Node (List.rev_map reverse s)
+                        | Parser.Tree.Leaf "S" -> `S
+                        | Parser.Tree.Leaf "K" -> `K
+                        | Parser.Tree.Leaf x -> `Label x
                         | x -> raise (Illegal_Expression [x])
                     in
                     reverse x
@@ -204,33 +202,41 @@ module SK = struct
         let res = 
             string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
         in
-        Processed res
+        `Processed res
+
 
     let rec expand_labels ?(except=[]) tree =
+        let rec aux_expand_labels ?(except=[]) tree =
+            match tree with
+            | `Node lst -> 
+                    `Node (List.map (aux_expand_labels ~except) lst)
+            | `Label x ->
+                    if (List.exists (fun y -> x = y) except) ||
+                        (not (Hashtbl.mem universe x)) then tree
+                    else Hashtbl.find universe x
+            | x -> x
+        in
         match tree with
-        | Node lst -> Node (List.map (expand_labels ~except) lst)
-        | Leaf (Label x) ->
-                if (List.exists (fun y -> x = y) except) ||
-                    (not (Hashtbl.mem universe x)) then tree
-                else Hashtbl.find universe x
-        | x -> x
+        | `Processed x -> 
+                `Processed (aux_expand_labels x)
+        | `String x -> expand_labels ~except (of_string x)
 
     let to_string tree =
         match tree with
-        | String x -> x
-        | Processed tree ->
+        | `String x -> x
+        | `Processed tree ->
             let tree = 
                 let to_string = function
-                    | S -> "S"
-                    | K -> "K"
-                    | (Label x) -> x
+                    | `S -> "S"
+                    | `K -> "K"
+                    | `Label x -> x
                 in
                 let rec string_tree x =
                     match x with
-                    | Node lst ->
+                    | `Node lst ->
                             Parser.Tree.Node 
                             (List.map string_tree lst, "")
-                    | Leaf x -> Parser.Tree.Leaf (to_string x)
+                    | `S | `K | `Label _ as x -> Parser.Tree.Leaf (to_string x)
                 in
                 string_tree tree
             in
@@ -240,60 +246,68 @@ module SK = struct
             !str
 
     let rec sk_define name tree = 
-        match tree with
-        | Processed x -> Hashtbl.replace universe name (expand_labels x) 
-        | String x ->  sk_define name (of_string x)
+        match (expand_labels tree) with
+        | `Processed x -> Hashtbl.replace universe name x
 
-    let rec simplify tree = 
+    let rec simplify (tree : sk) = 
+        let rec _simplify tree = 
+            match tree with
+            | `Node lst ->
+                    (match lst with
+                    | [`S; _]
+                    | [`K; _]
+                    | [`Label _ ]  | [ `S ] | [ `K ]
+                    | [(`S); _; _] -> lst
+                    | (`K) :: a :: b :: t -> 
+                            let a = _simplify a in
+                            [`Node (a @ t)]
+                    | (`S) :: a :: b :: c :: t ->
+                            let a = _simplify a in
+                            [`Node ((a @ [c] @ [`Node [b; c]] @ t))]
+                    | h :: t -> 
+                            let h = _simplify h in
+                            [`Node (h @ t)]
+                    | [] -> raise (Illegal_Expression []))
+            | `S | `K | `Label _ -> [tree]
+        in
         match tree with
-        | Leaf _ -> [tree]
-        | Node lst ->
-                match lst with
-                | [(Leaf S); _]
-                | [(Leaf K); _]
-                | [(Leaf _)] 
-                | [(Leaf S); _; _] -> lst
-                | (Leaf K) :: a :: b :: t -> 
-                        let a = simplify a in
-                        [Node (a @ t)]
-                | (Leaf S) :: a :: b :: c :: t ->
-                        let a = simplify a in
-                        [Node ((a @ [c] @ [Node [b; c]] @ t))]
-                | h :: t -> 
-                        let h = simplify h in
-                        [Node (h @ t)]
-                | [] -> raise (Illegal_Expression [])
+        | `Processed x -> (_simplify x)
+        | `String x -> simplify (of_string x)
 
 
-    let rec reduce tree =
-        match tree with
-        | String tree -> reduce (of_string tree)
-        | Processed tree ->
-            match simplify tree with
-            | [ntree] -> 
-                    if ntree = tree then Processed tree 
-                    else reduce (Processed ntree)
-            | [] -> raise (Illegal_Expression [])
-            | lst -> 
-                    let ntree = Node lst in
-                    if ntree = tree then Processed tree 
-                    else reduce (Processed ntree)
+    let rec reduce (tree : sk) =
+        let tree = 
+            match tree with
+            | (`Processed _) as tree -> tree
+            | `String x -> of_string x 
+        in
+        match simplify tree with
+        | [ntree] -> 
+                if (`Processed ntree) = tree then tree 
+                else reduce (`Processed ntree)
+        | [] -> raise (Illegal_Expression [])
+        | lst -> 
+                let ntree = `Node lst in
+                if ntree = tree then tree 
+                else reduce (`Processed ntree)
 
     let evaluate x = 
         x --> of_string --> reduce 
 
     let test lst = 
         reduce 
-        (Processed (Node (List.map (function Processed x -> x | String x ->
+        (`Processed (`Node (List.map (function `Processed x -> x | `String x ->
             (match of_string x with
-            | Processed x -> x
-            | String _ -> assert false)) lst)))
+            | `Processed x -> x)) lst)))
 
     let s_encode tree = 
         (* We define a function to encode an SK expression in a list of bits *)
-        let rec to_bit_list ?(no_print=false) tree =
+        let rec to_bit_list ?(no_print=false) (tree : primitives) =
             match tree with
-            | Node lst ->
+            | `S -> Encodings.Zero :: Encodings.Zero :: []
+            | `K -> Encodings.Zero :: Encodings.One :: []
+            | `Label _ -> failwith "I can't encode labels"
+            | `Node lst ->
                     (match lst with
                     | [] -> assert false
                     | [x] -> to_bit_list x
@@ -304,25 +318,19 @@ module SK = struct
                     | lst ->
                             let rec to_binary_list lst = 
                                 match lst with
-                                | [h; t] -> Node lst
+                                | [h; t] -> `Node lst
                                 | f :: s :: t -> 
                                         to_binary_list 
-                                        ((Node [f; s]) :: t)
+                                        ((`Node [f; s]) :: t)
                                 | _ -> assert false
                             in
                             to_bit_list ~no_print:true (to_binary_list lst))
-            | Leaf x ->
-                    match x with
-                    | S -> Encodings.Zero :: Encodings.Zero :: []
-                    | K -> Encodings.Zero :: Encodings.One :: []
-                    | Label _ -> failwith "I can't encode labels"
         in
         match tree with
-        | Processed tree -> to_bit_list tree
-        | String tree ->
-                match tree --> of_string --> reduce with
-                | Processed tree -> to_bit_list tree
-                | String _ -> assert false
+        | `Processed tree -> to_bit_list tree
+        | `String tree ->
+                match (tree --> of_string) with
+                | `Processed tree -> to_bit_list tree
 
 
         let rec s_decode lst = 
@@ -331,17 +339,17 @@ module SK = struct
                 | Encodings.One :: t ->
                         let a, t = aux_s_decode t in
                         let b, t = aux_s_decode t in
-                        Node [a; b], t
-                | Encodings.Zero :: Encodings.Zero :: t -> (Leaf S), t
-                | Encodings.Zero :: Encodings.One :: t -> (Leaf K), t
+                        `Node [a; b], t
+                | Encodings.Zero :: Encodings.Zero :: t -> `S, t
+                | Encodings.Zero :: Encodings.One :: t -> `K, t
                 | _ -> failwith "Illegal encoding"
             in
             let a, t = aux_s_decode lst in
             match t with
             | [] -> a
-            | t -> 
-                    Node [a; s_decode t]
+            | t -> (`Node [a; s_decode t])
 
+        let s_decode lst = `Processed (s_decode lst)
 
         let create pattern label =
             (* A function to create combinator that produce the desired pattern
@@ -349,51 +357,49 @@ module SK = struct
             * that we want to have inside the pattern as an argument *)
             let rec contains_label tree =
                 match tree with
-                | Leaf (Label x) -> x = label
-                | Leaf K
-                | Leaf S -> false
-                | Node lst -> List.exists contains_label lst
+                | `Label x -> x = label
+                | `K
+                | `S -> false
+                | `Node lst -> List.exists contains_label lst
             in
-            let k = Leaf K 
-            and s = Leaf S 
+            let k = `K 
+            and s = `S 
             and split lst = 
                 match List.rev lst with
-                | h :: t -> Node (List.rev t), h 
+                | h :: t -> `Node (List.rev t), h 
                 | [] -> assert false
             in
             let rec extract tree =
                 if not (contains_label tree) then
-                    Node [k; tree]
+                    `Node [k; tree]
                 else 
                     match tree with
-                    | Leaf (Label x) -> 
+                    | `Label x -> 
                             assert (x = label);
                             Hashtbl.find universe "I"
-                    | Leaf x ->
-                            Node [k; tree]
-                    | Node [x] ->
+                    | `S | `K ->
+                            `Node [k; tree]
+                    | `Node [x] ->
                             extract x
-                    | Node [x; Leaf (Label l)] when 
+                    | `Node [x; `Label l] when 
                         (l = label) && (not (contains_label x)) ->
                             x
-                    | Node [x; y] ->
-                            Node [s; extract x; extract y]
-                    | Node lst ->
+                    | `Node [x; y] ->
+                            `Node [s; extract x; extract y]
+                    | `Node lst ->
                             let a, b = split lst in
-                            extract (Node [a; b])
+                            extract (`Node [a; b])
             in
             match pattern with
-            | Processed tree -> Processed (extract tree)
-            | String tree -> 
+            | `Processed tree -> `Processed (extract tree)
+            | `String tree -> 
                     match of_string tree with
-                    | Processed tree -> Processed (extract tree)
-                    | String _ -> assert false
+                    | `Processed tree -> `Processed (extract tree)
 
         let sk_define_interpreted name args tree =
             let tree = expand_labels ~except:args tree in
-            match List.fold_left create (Processed tree) (List.rev args) with
-            | Processed tree -> Hashtbl.replace universe name tree
-            | String _ -> assert false
+            match List.fold_left create tree (List.rev args) with
+            | `Processed tree -> Hashtbl.replace universe name tree
 
         let create pattern labels = 
             List.fold_left create pattern (List.rev labels)
@@ -421,7 +427,7 @@ module SK = struct
                     ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))");
                 ]
             in
-            List.iter (fun (a, b) -> sk_define a (String b)) predefined;
+            List.iter (fun (a, b) -> sk_define a (`String b)) predefined;
             let generated = [
                 ("Right", "(a (b c))", ["a"; "b"; "c"]);
                 ("GenerateRecursive", "(test max (R (next max) (update \
@@ -471,126 +477,8 @@ module SK = struct
                 ]
             in
             List.iter (fun (a, b, c) -> 
-                let b = create (String b) c in
+                let b = create (`String b) c in
                 sk_define a b) generated
-
-    module Parser = struct
-        type 'loc expr = 
-            | S of 'loc 
-            | K of 'loc 
-            | Label of string * 'loc 
-            | Node of 'loc expr list * 'loc
-
-        type 'loc stmt = 
-            | Def of string * string list * 'loc expr * 'loc
-            | Evaluate of 'loc expr * 'loc
-            | BitEncode of 'loc expr * 'loc
-            | BitDecode of string * string * 'loc
-
-        open Camlp4.Sig
-
-        module Id = struct
-            let name = "SKLanguage"
-            let version = "0.1"
-        end
-
-        module SKLanguage (Syntax : Camlp4Syntax) = struct
-            open Syntax
-
-            let rec exSem_of_list = function
-                | [] -> 
-                        let _loc = Loc.ghost in
-                        <:expr<[]>>
-                | [x] -> 
-                        let _loc = Ast.loc_of_expr x in
-                        <:expr< [$x$]>>
-                | x :: xs ->
-                        let _loc = Ast.loc_of_expr x in
-                        <:expr< $x$ :: $exSem_of_list xs$ >> 
-
-
-            let rec expression_converter = function
-                | S _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.S) >>
-                | K _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.K) >>
-                | Label (v, _loc) -> 
-                        let lbl =  <:expr< Kolmo.SK.Label $str:v$ >> in
-                        <:expr< (Kolmo.SK.Leaf $lbl$) >>
-                | Node (items, _loc) -> 
-                        let es = List.map expression_converter items in
-                        <:expr< (Kolmo.SK.Node ( $exSem_of_list es$)) >>
-
-            let statement_converter = function
-                | Def (name, arguments, expression, _loc) ->
-                        let arguments = List.map (fun x -> <:expr<$str:x$>>) arguments in
-                        <:str_item< let () = Kolmo.SK.sk_define_interpreted $str:name$
-                        $exSem_of_list arguments$ $expression_converter
-                        expression$;;>>
-                | Evaluate (expression, _loc) ->
-                        <:str_item< let () = Pervasives.print_endline
-                        (Kolmo.SK.to_string (Kolmo.SK.reduce
-                        (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
-                        $expression_converter expression$)))) >>
-                | BitEncode (expression, _loc) ->
-                        <:str_item< let () = 
-                            let lst = Kolmo.SK.s_encode (Kolmo.SK.reduce
-                            (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
-                            $expression_converter expression$))) in
-                            let () = 
-                                List.iter (function Kolmo.Encodings.Zero ->
-                                    print_int 0;
-                                    | Kolmo.Encodings.One -> print_int 1;) lst
-                            in
-                            print_newline ()>>
-                | BitDecode (name, expression, _loc) ->
-                        <:str_item< let () =
-                            let str = $str:expression$ in
-                            let lst = ref [] in
-                            for i = (String.length str) - 1 downto 0 do
-                                match str.[i] with
-                                | '1' -> lst := Kolmo.Encodings.One :: !lst;
-                                | '0' -> lst := Kolmo.Encodings.Zero :: !lst;
-                                | x -> failwith (Printf.sprintf "Illegal \
-                                encoding : Character %c in position %d." x i)
-                            done;
-                            let a = (Kolmo.SK.s_decode !lst) in
-                            Hashtbl.replace Kolmo.SK.universe $str:name$ a>>
-
-            let expr_sk = Gram.Entry.mk "expr_sk"
-            let stmt = Gram.Entry.mk "stmt"
-
-            EXTEND Gram 
-            expr_sk: [
-                [ "S" -> S _loc ] | 
-                [ "K" -> K _loc ] | 
-                [ v = UIDENT -> Label (v, _loc) ] | 
-                [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
-            stmt: [
-                [ LIDENT "sk"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
-                    x = expr_sk -> Def (v, a, x, _loc)
-                | LIDENT "sk"; x = expr_sk -> Evaluate (x, _loc) 
-                | LIDENT "sk"; LIDENT "encode"; x = expr_sk -> 
-                        BitEncode (x, _loc) 
-                | LIDENT "sk"; LIDENT "decode"; x = UIDENT; y = STRING -> 
-                        BitDecode (x, y, _loc) ]
-                ];
-            END;;
-
-(*            Gram.Entry.clear Syntax.str_item *)
-
-            EXTEND Gram
-            Syntax.str_item : [ [ s = stmt -> statement_converter s ]];
-            END;;
-
-            include Syntax
-        end
-
-        let activate () = 
-            let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
-            ()
-
-        let () = activate ()
-    end
-
 end
 
 module SK_f = struct
