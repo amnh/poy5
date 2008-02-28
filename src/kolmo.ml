@@ -176,7 +176,7 @@ end
 
 let ( --> ) a b = b a
 
-module SK = struct
+module S_K = struct
     type primitives = [ `S | `K | `Label of string | `Node of primitives list ]
     type sk = [`String of string | `Processed of primitives]
 
@@ -205,7 +205,7 @@ module SK = struct
         `Processed res
 
 
-    let rec expand_labels ?(except=[]) tree =
+    let rec expand ?(except=[]) tree =
         let rec aux_expand_labels ?(except=[]) tree =
             match tree with
             | `Node lst -> 
@@ -213,13 +213,13 @@ module SK = struct
             | `Label x ->
                     if (List.exists (fun y -> x = y) except) ||
                         (not (Hashtbl.mem universe x)) then tree
-                    else Hashtbl.find universe x
+                    else aux_expand_labels (Hashtbl.find universe x)
             | x -> x
         in
         match tree with
         | `Processed x -> 
                 `Processed (aux_expand_labels x)
-        | `String x -> expand_labels ~except (of_string x)
+        | `String x -> expand ~except (of_string x)
 
     let to_string tree =
         match tree with
@@ -246,7 +246,7 @@ module SK = struct
             !str
 
     let rec sk_define name tree = 
-        match (expand_labels tree) with
+        match (expand tree) with
         | `Processed x -> Hashtbl.replace universe name x
 
     let rec simplify (tree : sk) = 
@@ -287,9 +287,9 @@ module SK = struct
                 else reduce (`Processed ntree)
         | [] -> raise (Illegal_Expression [])
         | lst -> 
-                let ntree = `Node lst in
+                let ntree = (`Processed (`Node lst)) in
                 if ntree = tree then tree 
-                else reduce (`Processed ntree)
+                else reduce tree
 
     let evaluate x = 
         x --> of_string --> reduce 
@@ -397,100 +397,92 @@ module SK = struct
                     | `Processed tree -> `Processed (extract tree)
 
         let sk_define_interpreted name args tree =
-            let tree = expand_labels ~except:args tree in
+            let tree = expand ~except:args tree in
             match List.fold_left create tree (List.rev args) with
             | `Processed tree -> Hashtbl.replace universe name tree
 
         let create pattern labels = 
             List.fold_left create pattern (List.rev labels)
 
+        let def a b c = sk_define a (create c b)
+
         let () =
-            (* The standard list of items that are defined *)
-            let predefined = 
-                [
-                    ("True", "( K )");
-                    ("False", "( S K )");
-                    ("1", "(K)");
-                    ("0", "(S K)");
-                    ("I", "(S K K)");
-                    ("Lambda", "(K S)");
-                    ("Pair", 
-                    "(S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K))");
-                    ("EmptyList", "(Pair Lambda Lambda)");
-                    ("Not", "(Pair (S K) K)");
-                    ("Hd", "(S (S K K) ((S (S K) ( K K) )))");
-                    ("Tl", "(S (S K K) ((S (S K) ( K (S K)))))");
-                    ("Predecessor", "(Tl)"); 
-                    ("Successor", "(Pair K)"); 
-                    ("Apply", "(S (S K) (S K K))");
-                    ("NotZero", "(S (S Hd (K 1)) (K 1))"); 
-                    ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))");
-                ]
-            in
-            List.iter (fun (a, b) -> sk_define a (`String b)) predefined;
-            let generated = [
-                ("Right", "(a (b c))", ["a"; "b"; "c"]);
-                ("GenerateRecursive", "(test max (R (next max) (update \
-                acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
-                ("GenerateRecursive2", "(test max (R (next max) (update \
-                max acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
-                (* Now we can define the addition, substraction, and the
-                * multiplication functions. *)
-                ("Add", "(Fixedpoint (GenerateRecursive NotZero 
-                Predecessor Successor))", []);
-                ("Substract", "(Fixedpoint (GenerateRecursive NotZero 
-                Predecessor Predecessor) a b)", ["b"; "a"]);
-                ("Multiply", "(Fixedpoint (GenerateRecursive 
-                NotZero Predecessor (Add a)) b EmptyList)", ["a"; "b"]);
-                ("ProcessBinary", "((Hd a) (Successor EmptyList) EmptyList)", 
-                ["a"]);
-                ("AppendBinary", "(Add (ProcessBinary a) (Multiply (Successor
-                (Successor EmptyList)) b))", ["a"; "b"]);
-                ("Decode", "(Fixedpoint (GenerateRecursive2 NotZero
-                Predecessor AppendBinary) a EmptyList)", ["a"]);
-                ("GenerateInsertion", "(NotZero pos (Pair (Hd seq) (R
-                base (Predecessor pos) (Tl seq))) (Pair base seq))", 
-                ["R"; "base"; "pos"; "seq"]);
-                ("Insert", "(Fixedpoint GenerateInsertion)", []);
-                ("GenerateDeletion", "(NotZero pos (Pair (Hd seq) (R 
-                (Predecessor pos) (Tl seq))) seq)", ["R"; "pos"; "seq"]);
-                ("Delete", "(Fixedpoint GenerateDeletion)", []);
-                ("GenerateSubstitution", "(NotZero pos (Pair (Hd seq) (R base
-                (Predecessor pos) (Tl seq))) (Pair base (Tl seq)))", ["R";
-                "pos"; "base"; "seq"]);
-                ("Substitution", "(Fixedpoint GenerateSubstitution)", []);
-                ("GeneratePrepend", "(NotZero pref (Pair (Hd pref) (R (Tl pref)
-                suf)) suf)", ["R"; "pref"; "suf"]);
-                ("Prepend", "(Fixedpoint GeneratePrepend)", []);
-                ("GenerateAffineInsert", "(NotZero pos (Pair (Hd seq) (R pos ins
-                (Tl seq))) (Prepend ins seq))", ["R"; "pos"; "ins"; "seq"]);
-                ("AffineInsert", "(Fixedpoint GenerateAffineInsert)", []);
-                ("GenerateCut", "(NotZero len (R (Predecessor len) (Tl
-                seq)) seq)", ["R"; "len"; "seq"]);
-                ("Cut", "(Fixedpoint GenerateCut)", []);
-                ("GenerateAffineDelete", "(NotZero pos (Pair (Hd seq) (R (Predecessor pos) len
-                (Tl seq))) (Cut len seq))", ["R"; "pos"; "len"; "seq"]);
-                ("AffineDelete", "(Fixedpoint GenerateAffineDelete)", []);
-                ("GenerateCountK", "(current (R (Successor acc)) acc)", ["R";
-                "acc"; "current"]);
-                ("CountK", "(Fixedpoint GenerateCountK EmptyList)", [])
-                ]
-            in
-            List.iter (fun (a, b, c) -> 
-                let b = create (`String b) c in
-                sk_define a b) generated
-end
-
-module SK_f = struct
-    (* We define a module for the simplest of all lambda calculus models, the S
-    * - K model of computation. We implement it to try new combinators for this
-    * lambda calculus *)
-
-    (* We happily define the basic primitives, this is so beautiful! *)
-    let s a b c = a c (b c)
-    let k a b = a
-
-    let falso a b = k a b
-    let verda a b = s k a b
-
+            (* Many convenient function definitions uisng kolmoExtensions to
+            * parse them. *)
+            sk_define "I" (SK (S K K));
+            def "True" [] (SK K);
+            def "False" [] (SK (S K));
+            def "O" [] (SK (K));
+            def "Z" [] (SK (S K));
+            def "I" [] (SK (S K K));
+            def "Lambda" [] (SK (K S));
+            def "Pair" [] 
+                (SK (S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K)));
+            def "EmptyList" [] (SK (Pair Lambda Lambda));
+            def "Not" [] (SK (Pair (S K) K));
+            def "Hd" [] (SK (S (S K K) ((S (S K) ( K K) ))));
+            def "Tl" [] (SK (S (S K K) ((S (S K) ( K (S K))))));
+            def "Predecessor" [] (SK (Tl)); 
+            def "Successor" [] (SK (Pair K)); 
+            def "Apply" [] (SK (S (S K) (S K K)));
+            def "NotZero" [] (SK (S (S Hd (K O)) (K O))); 
+            def "Fixedpoint" [] (SK (S S K (S (K (S S(S(S S K))))K)));
+            def "Right" (LS a b c) (SK (a (b c)));
+            def "GenerateRecursive" 
+                (LS test next update R max acc) 
+                (SK (test max (R (next max) (update acc)) acc));
+            def "GenerateRecursive2" 
+                (LS test next update R max acc)
+                (SK (test max (R (next max) (update max acc)) acc));
+            def "Add" [] 
+                (SK (Fixedpoint (GenerateRecursive NotZero Predecessor 
+                    Successor)));
+            def "Substract" (LS b a) 
+                (SK (Fixedpoint (GenerateRecursive NotZero Predecessor 
+                    Predecessor) a b));
+            def "Multiply" (LS a b) 
+                (SK (Fixedpoint (GenerateRecursive 
+                    NotZero Predecessor (Add a)) b EmptyList));
+            def "ProcessBinary" (LS a) 
+                (SK ((Hd a) (Successor EmptyList) EmptyList));
+            def "AppendBinary" (LS a b) 
+                (SK (Add (ProcessBinary a) (Multiply (Successor
+                    (Successor EmptyList)) b)));
+            def "Decode" (LS a) 
+                (SK (Fixedpoint (GenerateRecursive2 NotZero Predecessor 
+                    AppendBinary) a EmptyList));
+            def "GenerateInsertion" (LS R base pos seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R
+                    base (Predecessor pos) (Tl seq))) (Pair base seq)));
+            def "Insert" [] 
+                (SK (Fixedpoint GenerateInsertion));
+            def "GenerateDeletion" (LS R pos seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R 
+                    (Predecessor pos) (Tl seq))) seq));
+            def "Delete" [] (SK (Fixedpoint GenerateDeletion));
+            def "GenerateSubstitution" (LS R pos base seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R base (Predecessor pos) 
+                    (Tl seq))) (Pair base (Tl seq))));
+            def "Substitution" [] 
+                (SK (Fixedpoint GenerateSubstitution));
+            def "GeneratePrepend" (LS R pref suf) 
+                (SK (NotZero pref (Pair (Hd pref) (R (Tl pref) suf)) suf));
+            def "Prepend" (LS R pos ins seq) 
+                (SK (Fixedpoint GeneratePrepend));
+            def "GenerateAffineInsert" (LS R pos ins seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R pos ins
+                    (Tl seq))) (Prepend ins seq)));
+            def "AffineInsert" (LS R len seq) 
+                (SK (Fixedpoint GenerateAffineInsert));
+            def "GenerateCut" (LS R len seq) 
+                (SK (NotZero len (R (Predecessor len) (Tl seq)) seq));
+            def "Cut" [] (SK (Fixedpoint GenerateCut));
+            def "GenerateAffineDelete" (LS R pos len seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R (Predecessor pos) len
+                    (Tl seq))) (Cut len seq)));
+            def "AffineDelete" [] 
+                (SK (Fixedpoint GenerateAffineDelete));
+            def "GenerateCountK" (LS R acc current) 
+                (SK (current (R (Successor acc)) acc));
+            def "CountK" [] (SK (Fixedpoint GenerateCountK EmptyList))
 end

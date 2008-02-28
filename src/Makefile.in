@@ -121,7 +121,7 @@ else
 	LABLTK =
 endif
 
-PREPROCESSOR = -pp 'camlp4of pa_extend.cmo'
+PREPROCESSOR = -pp 'camlp4of pa_extend.cmo kolmoExtension.cmo'
 
 
 # Encapsulate all the options
@@ -484,9 +484,9 @@ ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
 kolmoExtension.cmo: kolmoExtension.ml
-	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmoExtension.cmx: kolmoExtension.ml
-	$(OCAMLOPT) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmo.cmo: parser.cmo kolmo.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
 kolmo.cmx: parser.cmo kolmo.ml
