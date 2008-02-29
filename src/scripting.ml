@@ -926,7 +926,7 @@ let explode_trees run =
     Sexpr.map (fun x -> { run with trees = `Single x }) run.trees
 
 let is_forest = function
-    | `LocalOptimum (_, _, _, _, _, x, _, _, _, _, _) -> x
+    | `LocalOptimum x -> x.Methods.oo
 
 let build_has_exact = build_has `Exact
 
@@ -2233,8 +2233,7 @@ let get_console_run () = !console_run_val
             let res = 
                 let optarg = 
                     let neigh = `ChainNeighborhoods neigh in
-                    (neigh, 0.0, 1, `Last, [], None, `BestFirst,
-                    `DistanceSorted, `UnionBased None, `Bfs None, [])
+                    { PoyCommand.swap_default with Methods.ss = neigh }
                 in
                 PTS.find_local_optimum 
                 ~base_sampler:sampler data (Sampler.create ()) 

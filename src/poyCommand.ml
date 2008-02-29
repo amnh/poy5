@@ -568,70 +568,48 @@ let transform_build_arguments x =
     (x, y, List.rev z)
 
 (* Swapping *)
-let swap_default = (`Alternate (`Spr, `Tbr),
-                    0.0,                (* threshold *)
-                    1,                  (* trees to keep *)
-                    `Last,              (* keep method *)
-                    [],                 (* cost calc list *)
-                    None,               (* forest search *)
-                    `BestFirst,         (* traject. strategy *)
-                    `DistanceSorted,    (* Tabu break *)
-                    `UnionBased None,     (* Tabu join *)
-                    `Bfs None,          (* Tabu reroot *)
-                    [])                 (* What should be sampled along the
-                                        search *)
-let swap_default_none = (`None,
-                         0.0,
-                         1,
-                         `Last,
-                         [],
-                         None,
-                         `BestFirst,
-                         `DistanceSorted,
-                         `UnionBased None, 
-                         `Bfs None,
-                         [])               
-let transform_swap (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-join_tabu, reroot_tabu, samples)
-        (param : swapa) = match param with
-    | `Threshold thres ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Trees keep ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #Methods.keep_method as keepm ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #swap_strategy as space ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Transform x ->
-          let t = transform_transform_arguments x in
-          let cclist = t @ cclist in
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Forest cost ->
-          let origin = Some cost in
-          print_endline ("Forest: "^string_of_float cost);
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #swap_trajectory as traj ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #Methods.tabu_break_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, tabu, join_tabu,
-          reroot_tabu, samples)
-    | #Methods.tabu_join_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, tabu,
-          reroot_tabu, samples)
-    | #Methods.tabu_reroot_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, 
-          join_tabu, tabu, samples)
-    | #Methods.samples as s ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, 
-          join_tabu, reroot_tabu, s :: samples)
+let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
+                    Methods.threshold = 0.0;
+                    Methods.num_keep = 1;  
+                    Methods.keep = `Last; 
+                    Methods.cc = [];     
+                    Methods.oo = None;  
+                    Methods.tm = `BestFirst;
+                    Methods.tabu_break = `DistanceSorted;
+                    Methods.tabu_join = `UnionBased None;
+                    Methods.tabu_reroot = `Bfs None;
+                    Methods.tabu_nodes = `Null;
+                    Methods.samples = [] }
 
+let swap_default_none = { swap_default with Methods.ss = `None }
+
+let transform_swap l_opt (param : swapa) = match param with
+    | `Threshold thres ->
+        { l_opt with Methods.threshold=thres }
+    | `Trees keep ->
+        { l_opt with Methods.num_keep = keep }
+    | #Methods.keep_method as keepm ->
+        { l_opt with Methods.keep = keepm }
+    | #swap_strategy as space ->
+        { l_opt with Methods.ss = space }
+    | `Transform x ->
+        let t = transform_transform_arguments x in 
+        let cclist = t @ l_opt.Methods.cc in
+        { l_opt with Methods.cc = cclist }
+    | `Forest cost ->
+        let origin = Some cost in
+        print_endline ("Forest: "^string_of_float cost);
+        { l_opt with Methods.oo = origin }
+    | #swap_trajectory as traj ->
+        { l_opt with Methods.tm = traj }
+    | #Methods.tabu_break_strategy as tabu ->
+        { l_opt with Methods.tabu_break = tabu }
+    | #Methods.tabu_join_strategy as tabu ->
+        { l_opt with Methods.tabu_join = tabu }
+    | #Methods.tabu_reroot_strategy as tabu ->
+        { l_opt with Methods.tabu_reroot = tabu }
+    | #Methods.samples as s ->
+        { l_opt with Methods.samples = s :: l_opt.Methods.samples }
 
 (* let transform_swap (meth, (a, b, c, d), e) = function *)
 (*     | `Threshold x -> (meth, (x, b, c, d), e) *)
@@ -652,8 +630,7 @@ let transform_swap_arguments (lst : swapa list) =
 (* Fusing *)
 let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
         ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform) ?(clades=(4,7)) = function
-            | [] -> `Fusing (iterations, keep, weighting, replace, search,
-                             clades)
+            | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
             | x :: xs ->
                   (match x with
                    | `Keep keep ->
@@ -941,8 +918,7 @@ let transform_rename_arguments x =
 let default_search : Methods.script list = 
 (*    List.rev [`Build build_default; `LocalOptimum swap_default]*)
     let change_transforms x = 
-        let (a, b, c, d, _, f, g, h, i, j, k) = swap_default in
-        (a, b, c, d, x, f, g, h, i, j, k)
+        { swap_default with Methods.cc = x }
     in
     let s1 = change_transforms [(`Static_Aprox (`All, false))]
     and s2 = 

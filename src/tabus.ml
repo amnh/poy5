@@ -55,14 +55,16 @@ module type S = sig
 
     val distance_dfs_wagner : phylogeny -> int -> wem
 
-    (** {2 Edge Manager Constructors} *)
+    (** {2 Edge and 2 Node Manager Constructors} *)
 
-    (** An edge manager that handles a particular strategy to process the edges
+    (** An edge/node manager that handles a particular strategy to process the edges
     * of a tree *)
     type emc 
+    type nmc
 
-    (** An edge manager for a side of a tree *)
+    (** An edge/node manager for a side of a tree *)
     type semc
+    type snmc
 
     (** An edge manager that uses the union of the vertices contained in a
     * subtree to decide weather or not it is necessary to continue down that
@@ -96,6 +98,16 @@ module type S = sig
     (** Break an edge once and only once, never again *)
     val only_once_break : emc
 
+    (** simple node manager -- does nothing **)
+    val simple_nm_none : snmc
+(* TODO
+    (** test performance node manager -- random branch length **)
+    val random_nm : snmc
+
+    (** standard node manager -- longest branch first **)
+    val longest_nm : snmc
+*)
+
     (** {2 Tabu Managers} *)
 
     class type tabu_mgr = [a, b] Ptree.tabu_mgr
@@ -107,7 +119,7 @@ module type S = sig
     (* A standard tabu manager that composes three edge managers on a starting
     * phylogeny: the join, reroot, and break managers. *)
     class standard_tabu :
-        phylogeny -> semc -> semc -> emc -> tabu_mgr
+        phylogeny -> semc -> semc -> emc -> snmc -> tabu_mgr
 end
 
 
@@ -196,6 +208,15 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method update_join : ('a, 'b) Ptree.p_tree -> Tree.join_delta -> unit
         method clone : ('a, 'b) edges_manager
         method exclude : Tree.edge list -> unit
+    end
+
+    class type ['a, 'b] nodes_manager = object
+        method break_distance : float -> unit
+        method next_node : Tree.edge option
+        method update_iterate : ('a, 'b) Ptree.p_tree -> unit
+        method clone : ('a, 'b) nodes_manager
+        method exclude : Tree.node list -> unit
+        (* method iterate : ('a, 'b) Ptree.p_tree -> ('a, 'b) Ptree.p_tree *)
     end
 
     type tip_path = (int list * int)
@@ -293,6 +314,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     end
 
     class type em = [Node.n, Edge.e] edges_manager
+    class type nm = [Node.n, Edge.e] nodes_manager
     class type tabu_mgr = [Node.n, Edge.e] Ptree.tabu_mgr
     class type wem = [Node.n, Edge.e] Ptree.wagner_edges_mgr
 
@@ -610,6 +632,19 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             to_do_later = Stack.copy to_do_later;
         >} :> wem)
 
+    end
+
+    class simple_nm side (ptree : (Node.n, Edge.e) Ptree.p_tree) :
+        [Node.n, Edge.e] nodes_manager = object (self)
+
+            val mutable delta_break = 0.0
+            val mutable excluded = []
+
+            method break_distance a = delta_break <- a; ()
+            method next_node = None
+            method update_iterate _ = ()
+            method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
+            method exclude a = excluded <- excluded @ a; ()
     end
 
     class simple_dfs (ptree : (Node.n, Edge.e) Ptree.p_tree) : 
@@ -1387,12 +1422,14 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     end
 
     type emc = ((Node.n, Edge.e) Ptree.p_tree -> (Node.n, Edge.e) edges_manager)
-
+    type nmc = ((Node.n, Edge.e) Ptree.p_tree -> (Node.n, Edge.e) nodes_manager)
     type semc = [`Left | `Right] -> emc
+    type snmc = [`Left | `Right] -> nmc
 
-    class side_manager side ptree (join : semc) (reroot : semc)= object
+    class side_manager side ptree (join : semc) (reroot : semc) (iterate : snmc) = object
         val join = join side ptree
         val reroot = reroot side ptree 
+        val iterate = iterate side ptree
 
         method break_distance x =
             join#break_distance x
@@ -1408,6 +1445,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method update_join tree jd =
             join#update_join tree jd;
             reroot#update_join tree jd
+
+        method update_iterate tree = 
+            iterate#update_iterate tree
             
         method clone = {< 
             join = join#clone;
@@ -1795,14 +1835,19 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let sorted_break ptree = new sort_edges_by_cost ptree
     let only_once_break ptree = new only_once_break ptree
     let simple_dfs_from_middle ptree = new simple_dfs ptree
-
+    
+    let simple_nm_none side ptree = new simple_nm side ptree
+    (*
+    let random_nm_ ptree = new random_nm ptree
+    let longest_nm_ ptree = new longest_nm ptree
+    *)
 
     class standard_tabu (ptree : (Node.n, Edge.e) Ptree.p_tree) (join : semc) 
-    (reroot : semc) (break : emc) = object (self)
+    (reroot : semc) (break : emc) (iterate : snmc) = object (self)
         val timer = Timer.start ()
         val mutable current_time = 0
-        val left = new side_manager `Left ptree join reroot
-        val right = new side_manager `Right ptree  join reroot
+        val left = new side_manager `Left ptree join reroot iterate
+        val right = new side_manager `Right ptree join reroot iterate
         val break = break ptree
         val mutable last_side : [`Left | `Right] = `Left
 

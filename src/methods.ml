@@ -403,6 +403,10 @@ type tabu_reroot_strategy = [
     | `Bfs of int option
 ]
 
+type tabu_nodes_strategy = [
+    | `Null
+]
+
 type origin_cost = float option
 
 type trajectory_method = [
@@ -424,15 +428,26 @@ type samples = [
     | `BreakVsJoin of string option
 ]
 
+type local_opt = {
+    ss : search_space;
+    threshold : float;
+    num_keep : int;
+    keep : keep_method;
+    cc : cost_calculation list;
+    oo : origin_cost;
+    tm : trajectory_method;
+    tabu_break : tabu_break_strategy;
+    tabu_join  : tabu_join_strategy;
+    tabu_reroot: tabu_reroot_strategy;
+    tabu_nodes : tabu_nodes_strategy;
+    samples : samples list;
+}
+
 (** [local_optimum] parameters: what to search, threshold, number to keep, keep
     method, parameters for calculating the cost, origin cost for forest search,
     trajectory method *)
-type local_optimum =
-       [ `LocalOptimum of
-            search_space * float * int * keep_method * cost_calculation list *
-                origin_cost * trajectory_method * tabu_break_strategy *
-                tabu_join_strategy * tabu_reroot_strategy * samples list ]
-
+type local_optimum = 
+       [ `LocalOptimum of local_opt ]
 
 type tree_weights = [
     | `Uniform
