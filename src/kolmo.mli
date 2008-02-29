@@ -21,20 +21,41 @@ module S_K :
   sig
     exception Illegal_Expression of string Parser.Tree.t list
     type primitives = [`S | `K | `Label of string | `Node of primitives list ]
-    type sk = [`String of string | `Processed of primitives]
     val universe : (string, primitives) Hashtbl.t
-    val of_string : string -> [> `Processed of primitives ]
+    val of_string : string -> primitives
     val expand : 
-        ?except:string list -> sk -> [> `Processed of primitives ]
-    val to_string : sk -> string
-    val sk_define : string -> sk -> unit
-    val simplify : sk -> primitives list
-    val reduce : sk -> [> `Processed of primitives ]
-    val evaluate : string -> [> `Processed of primitives ]
-    val test : sk list -> sk
-    val def : string -> string list -> sk -> unit
-    val s_encode : sk -> Encodings.bit list
-    val s_decode : Encodings.bit list -> [> `Processed of primitives ]
-    val sk_define_interpreted : string -> string list -> sk -> unit
-    val create : sk -> string list -> sk
+        ?except:string list -> primitives -> primitives
+    val to_string : primitives -> string
+    val sk_define : string -> primitives -> unit
+    val simplify : primitives -> primitives list
+    val reduce : primitives -> primitives
+    val evaluate : string -> primitives
+    val eval : primitives -> primitives
+    val test : primitives list -> primitives
+    val def : string -> string list -> primitives -> unit
+    val s_encode : primitives -> Encodings.bit list
+    val s_decode : Encodings.bit list -> primitives
+    val sk_define_interpreted : string -> string list -> primitives -> unit
+    val create : primitives -> string list -> primitives
   end
+
+module PM : sig
+    val encoder_example : S_K.primitives
+    val decoder : S_K.primitives
+    val result_example : S_K.primitives
+    val make_encoder : 
+        S_K.primitives -> (string * S_K.primitives) list -> S_K.primitives
+    val f_apply : S_K.primitives
+    val f_edit : S_K.primitives
+    val pm_encodings : S_K.primitives
+    val encode_in_log : int -> S_K.primitives
+
+    val pm_encodings : S_K.primitives
+    val substitute : S_K.primitives
+    val insert : S_K.primitives
+    val delete : S_K.primitives
+    val adenine : S_K.primitives
+    val citosine : S_K.primitives
+    val guanine : S_K.primitives
+    val timine : S_K.primitives
+end

@@ -63,8 +63,8 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
             match lst with
             | [] -> <:expr<`Label "EmptyList">>
             | h :: t -> 
-                    let t = aux_to_expr t in
-                    <:expr<`Node [`Label "Pair"; $h$; $t$]>>
+                    let at = aux_to_expr t in
+                    <:expr<`Node [`Label "Pair"; $h$; $at$]>>
         in
         aux_to_expr (List.map bare_expression_converter lst)
     EXTEND Gram 
@@ -81,8 +81,7 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
 
     EXTEND Gram
     Syntax.expr : LEVEL "top" [ 
-        [ UIDENT "SK"; s = expr_sk -> expression_converter _loc s 
-        | UIDENT "SKB"; s = expr_sk -> bare_expression_converter s 
+        [ UIDENT "SK"; s = expr_sk -> bare_expression_converter s 
         | UIDENT "LS"; s = LIST0 [x = UIDENT -> x | x = LIDENT -> x] -> 
                 lst_to_expr _loc s 
         | UIDENT "SKLS"; s = LIST0 [ x = expr_sk -> x ] -> 

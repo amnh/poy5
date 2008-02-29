@@ -178,13 +178,12 @@ let ( --> ) a b = b a
 
 module S_K = struct
     type primitives = [ `S | `K | `Label of string | `Node of primitives list ]
-    type sk = [`String of string | `Processed of primitives]
 
     exception Illegal_Expression of string Parser.Tree.t list
 
     let universe = Hashtbl.create 97 
 
-    let of_string string : [> `Processed of primitives ] =
+    let of_string string =
         let no_forest = function
             | [x] -> 
                     let rec reverse tree = 
@@ -199,106 +198,84 @@ module S_K = struct
                     reverse x
             | x -> raise (Illegal_Expression x)
         in
-        let res = 
-            string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
-        in
-        `Processed res
+        string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
 
 
     let rec expand ?(except=[]) tree =
-        let rec aux_expand_labels ?(except=[]) tree =
-            match tree with
-            | `Node lst -> 
-                    `Node (List.map (aux_expand_labels ~except) lst)
-            | `Label x ->
-                    if (List.exists (fun y -> x = y) except) ||
-                        (not (Hashtbl.mem universe x)) then tree
-                    else aux_expand_labels (Hashtbl.find universe x)
-            | x -> x
-        in
         match tree with
-        | `Processed x -> 
-                `Processed (aux_expand_labels x)
-        | `String x -> expand ~except (of_string x)
+        | `Node lst -> 
+                `Node (List.map (expand ~except) lst)
+        | `Label x ->
+                if (List.exists (fun y -> x = y) except) ||
+                    (not (Hashtbl.mem universe x)) then tree
+                else expand (Hashtbl.find universe x)
+        | x -> x
 
     let to_string tree =
-        match tree with
-        | `String x -> x
-        | `Processed tree ->
-            let tree = 
-                let to_string = function
-                    | `S -> "S"
-                    | `K -> "K"
-                    | `Label x -> x
-                in
-                let rec string_tree x =
-                    match x with
-                    | `Node lst ->
-                            Parser.Tree.Node 
-                            (List.map string_tree lst, "")
-                    | `S | `K | `Label _ as x -> Parser.Tree.Leaf (to_string x)
-                in
-                string_tree tree
+        let tree = 
+            let rec string_tree x =
+                match x with
+                | `Node lst ->
+                        Parser.Tree.Node 
+                        (List.map string_tree lst, "")
+                | `S | `K | `Label _ as x -> 
+                        let string = 
+                            match x with
+                            | `S -> "S"
+                            | `K -> "K"
+                            | `Label x -> x
+                        in
+                        Parser.Tree.Leaf string
             in
-            let str = ref "" in
-            let my_printer x = str := !str ^ x in
-            AsciiTree.draw_parenthesis false my_printer tree;
-            !str
+            string_tree tree
+        in
+        let str = ref "" in
+        let my_printer x = str := !str ^ x in
+        AsciiTree.draw_parenthesis false my_printer tree;
+        !str
 
     let rec sk_define name tree = 
-        match (expand tree) with
-        | `Processed x -> Hashtbl.replace universe name x
+        Hashtbl.replace universe name (expand tree) 
 
-    let rec simplify (tree : sk) = 
-        let rec _simplify tree = 
-            match tree with
-            | `Node lst ->
-                    (match lst with
-                    | [`S; _]
-                    | [`K; _]
-                    | [`Label _ ]  | [ `S ] | [ `K ]
-                    | [(`S); _; _] -> lst
-                    | (`K) :: a :: b :: t -> 
-                            let a = _simplify a in
-                            [`Node (a @ t)]
-                    | (`S) :: a :: b :: c :: t ->
-                            let a = _simplify a in
-                            [`Node ((a @ [c] @ [`Node [b; c]] @ t))]
-                    | h :: t -> 
-                            let h = _simplify h in
-                            [`Node (h @ t)]
-                    | [] -> raise (Illegal_Expression []))
-            | `S | `K | `Label _ -> [tree]
-        in
+    let rec simplify tree = 
         match tree with
-        | `Processed x -> (_simplify x)
-        | `String x -> simplify (of_string x)
+        | `Node lst ->
+                (match lst with
+                | [`S; _]
+                | [`K; _]
+                | [`Label _ ]  | [ `S ] | [ `K ]
+                | [(`S); _; _] -> lst
+                | (`K) :: a :: b :: t -> 
+                        let a = simplify a in
+                        [`Node (a @ t)]
+                | (`S) :: a :: b :: c :: t ->
+                        let a = simplify a in
+                        [`Node ((a @ [c] @ [`Node [b; c]] @ t))]
+                | h :: t -> 
+                        let h = simplify h in
+                        [`Node (h @ t)]
+                | [] -> raise (Illegal_Expression []))
+        | `S | `K | `Label _ -> [tree]
 
 
-    let rec reduce (tree : sk) =
-        let tree = 
-            match tree with
-            | (`Processed _) as tree -> tree
-            | `String x -> of_string x 
-        in
+    let rec reduce tree =
         match simplify tree with
         | [ntree] -> 
-                if (`Processed ntree) = tree then tree 
-                else reduce (`Processed ntree)
+                if ntree = tree then tree 
+                else reduce ntree
         | [] -> raise (Illegal_Expression [])
         | lst -> 
-                let ntree = (`Processed (`Node lst)) in
+                let ntree = (`Node lst) in
                 if ntree = tree then tree 
                 else reduce tree
 
     let evaluate x = 
         x --> of_string --> reduce 
 
+    let eval x = x --> expand --> reduce 
+
     let test lst = 
-        reduce 
-        (`Processed (`Node (List.map (function `Processed x -> x | `String x ->
-            (match of_string x with
-            | `Processed x -> x)) lst)))
+        reduce (`Node lst)
 
     let s_encode tree = 
         (* We define a function to encode an SK expression in a list of bits *)
@@ -326,11 +303,7 @@ module S_K = struct
                             in
                             to_bit_list ~no_print:true (to_binary_list lst))
         in
-        match tree with
-        | `Processed tree -> to_bit_list tree
-        | `String tree ->
-                match (tree --> of_string) with
-                | `Processed tree -> to_bit_list tree
+        to_bit_list tree
 
 
         let rec s_decode lst = 
@@ -348,8 +321,6 @@ module S_K = struct
             match t with
             | [] -> a
             | t -> (`Node [a; s_decode t])
-
-        let s_decode lst = `Processed (s_decode lst)
 
         let create pattern label =
             (* A function to create combinator that produce the desired pattern
@@ -390,16 +361,12 @@ module S_K = struct
                             let a, b = split lst in
                             extract (`Node [a; b])
             in
-            match pattern with
-            | `Processed tree -> `Processed (extract tree)
-            | `String tree -> 
-                    match of_string tree with
-                    | `Processed tree -> `Processed (extract tree)
+            extract pattern
 
         let sk_define_interpreted name args tree =
             let tree = expand ~except:args tree in
-            match List.fold_left create tree (List.rev args) with
-            | `Processed tree -> Hashtbl.replace universe name tree
+            let tree = List.fold_left create tree (List.rev args) in
+            Hashtbl.replace universe name tree
 
         let create pattern labels = 
             List.fold_left create pattern (List.rev labels)
@@ -485,4 +452,155 @@ module S_K = struct
             def "GenerateCountK" (LS R acc current) 
                 (SK (current (R (Successor acc)) acc));
             def "CountK" [] (SK (Fixedpoint GenerateCountK EmptyList))
+end
+
+module PM = struct 
+    (* A phylogenetic analysis machine written for the S_K computer 
+    * This machine uses the most simply defined functions, so we will start by
+    * defining some basic functionality *)
+    let u_Tl = SK (S K)
+    let u_Hd = SK K
+
+    let until_zero_recursions lst pos if_zero if_not_zero =
+        let simple_recursion =
+            S_K.create (SK ([pos] [u_Hd] K K [if_not_zero] [if_zero])) 
+            lst
+        in
+        S_K.expand (SK (Fixedpoint [simple_recursion]))
+
+    let insert = 
+        until_zero_recursions 
+        (LS R pos base seq) 
+        (SK pos) 
+        (SK (Pair base seq))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
+
+    let delete = 
+        until_zero_recursions
+        (LS R pos seq)
+        (SK pos)
+        (SK (seq [u_Tl]))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) (seq [u_Tl]))))
+
+    let substitute =
+        until_zero_recursions
+        (LS R pos base seq)
+        (SK pos)
+        (SK (Pair base (seq [u_Tl])))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
+
+    (* A encoded is made of pairs in the following way:
+        * (Pair K (Pair encoded encoded))
+        * (Pair (K S) Result)
+        * Where left (K) or right (S K) of the right element represent the
+        * actual path to be followed from the list. *)
+    let decoder =
+        let next_encoder = (SK ((encoder [u_Tl]) (lst [u_Hd]))) in
+        let decoder_recursion =
+            S_K.create 
+            (SK ([next_encoder] [u_Hd] K K (R (lst [u_Tl]) [next_encoder]) 
+            (Pair ([next_encoder] [u_Tl]) (lst [u_Tl]))))
+            (LS R lst encoder)
+        in
+        S_K.expand (SK (Fixedpoint [decoder_recursion]))
+
+    let rec make_encoder tree leafs =
+        match tree with
+        | `Node [a; b] -> 
+                (SK (Pair K (Pair [make_encoder a leafs] [make_encoder b
+                leafs])))
+        | `Label x -> 
+                (SK (Pair (K S) [try (List.assoc x leafs) with Not_found ->
+                    tree]))
+        | `S -> (SK (Pair (K S) S))
+        | `K -> (SK (Pair (K S) K))
+        | `Node _ -> failwith "Illegal encoder: each node must have two leafs"
+
+    (* An example of encoder and decoder usage *)
+    let encoder_example = make_encoder (SK (substitute (delete insert))) []
+
+    let result_example = 
+        let decoder = S_K.expand decoder in
+        S_K.reduce (S_K.expand (SK (([decoder] [(SKLS (S K) (S K))] [encoder_example])
+        [u_Hd])))
+
+    (* Each function is specified the number of items that need to be read. The
+    * accumulator for all the calculations is always the last item to be added.
+    * As the number of arguments is so small, we are better off specifying them
+    * in the simplest way, not using the logarithmic, but the standard notation.
+    * 
+    * So our representation consists of a list of items that are read one after
+    * the other and are fed to the encoder and the sequence representation.
+    * *)
+
+    (* The following concept:
+        * fun f_apply decoder acc list =
+            * fun apply acc list =
+                * if list is empty then acc
+                * else apply (acc (hd list)) (tl list) 
+            * in
+    *         ((apply (decoder (hd list)) (tl list)) acc)
+    *  In order to use it, we need to have a tree (made of pairs) of the following 
+    *  form:
+        *  (encoded_function, list_of_arguments)
+        *  Where the list of arguments is
+        *  (K, (Argument, list_of_arguments))
+        *  ((K S), (K S)) if we have reach the end of the arguments.
+    *         *)
+    let f_apply =
+        let apply =
+            let tmp =
+                S_K.create
+                (SK ((lst [u_Hd] K K) (R (acc (lst [u_Tl] [u_Hd])) (lst [u_Tl]
+                [u_Tl])) acc))
+                (LS R acc lst)
+            in
+            S_K.create (SK (Fixedpoint [tmp])) []
+        in
+        S_K.create (SK (([apply] ([decoder] (lst [u_Hd]) encoder  [u_Hd]) (lst [u_Tl])) acc)) 
+        (LS acc encoder lst)
+
+    (* An example using it: 
+    let () = 
+        let r =  
+            S_K.eval (SK ([f_apply] [SKLS [adenine]] [make_encoder (SK (Delete
+            (Insert Substitute))) ["Delete", delete; "Insert", insert; "Substitute",
+            substitute]] [SKLS [SKLS K] K EmptyList])) in
+        ()
+    *)
+    (* Now take a list of elements that can be passed to [lst] of f_apply and
+    * apply on each one of the [f_apply]. This way we can perform a row of edits
+    * in an accumulator that is passed around constantly. *)
+    let f_edit =
+        let tmp = S_K.create
+            (SK ((lst [u_Hd] K K) (R encoder (lst [u_Tl] [u_Tl]) ([f_apply] acc encoder (lst [u_Tl]
+            [u_Hd]))) acc)) 
+            (LS R encoder lst acc)
+        in
+        S_K.create (SK (Fixedpoint [tmp])) []
+
+    (* We are almost there, let's make a function that encodes an integer in
+    * it's logarithmic binary representation *)
+    let encode_in_log int =
+        let rec encode_in_log int acc =
+            if int = 0 then acc
+            else 
+                encode_in_log (int lsr 1)
+                (SK (Pair [if 1 = (1 land int) then (SK K) else (SK (S K))]
+                [acc]))
+        in
+        if int < 0 then failwith "Illegal argument"
+        else encode_in_log int (SK EmptyList)
+
+    (* Finally we can do things with sequences *)
+    let pm_encodings = 
+        make_encoder 
+        (SK (substitute (delete insert)))
+        ["substitute", substitute; "delete", delete; "insert", insert]
+
+    let adenine = SK (Pair K K)
+    let citosine = SK (Pair K (S K))
+    let guanine = SK (Pair (S K) K)
+    let timine = SK (Pair (S K) (S K))
+
 end
