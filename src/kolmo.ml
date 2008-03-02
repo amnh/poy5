@@ -415,23 +415,9 @@ module S_K = struct
             def "AppendBinary" (LS a b) 
                 (SK (Add (ProcessBinary a) (Multiply (Successor
                     (Successor EmptyList)) b)));
-            def "Decode" (LS a) 
+            def "DecodeInt" (LS a) 
                 (SK (Fixedpoint (GenerateRecursive2 NotZero Predecessor 
                     AppendBinary) a EmptyList));
-            def "GenerateInsertion" (LS R base pos seq) 
-                (SK (NotZero pos (Pair (Hd seq) (R
-                    base (Predecessor pos) (Tl seq))) (Pair base seq)));
-            def "Insert" [] 
-                (SK (Fixedpoint GenerateInsertion));
-            def "GenerateDeletion" (LS R pos seq) 
-                (SK (NotZero pos (Pair (Hd seq) (R 
-                    (Predecessor pos) (Tl seq))) seq));
-            def "Delete" [] (SK (Fixedpoint GenerateDeletion));
-            def "GenerateSubstitution" (LS R pos base seq) 
-                (SK (NotZero pos (Pair (Hd seq) (R base (Predecessor pos) 
-                    (Tl seq))) (Pair base (Tl seq))));
-            def "Substitution" [] 
-                (SK (Fixedpoint GenerateSubstitution));
             def "GeneratePrepend" (LS R pref suf) 
                 (SK (NotZero pref (Pair (Hd pref) (R (Tl pref) suf)) suf));
             def "Prepend" (LS R pos ins seq) 
@@ -468,6 +454,7 @@ module PM = struct
         in
         S_K.expand (SK (Fixedpoint [simple_recursion]))
 
+    (* These functions accept atomic operations *)
     let insert = 
         until_zero_recursions 
         (LS R pos base seq) 
@@ -489,17 +476,78 @@ module PM = struct
         (SK (Pair base (seq [u_Tl])))
         (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
 
+    (* Now we convert the previous three functions to accept an encoded integer
+    * in logarithmic space *)
+    let convert_to_log_position x = 
+        S_K.expand (S_K.create (SK ([x] (DecodeInt pos))) (LS pos))
+
+    let insert = convert_to_log_position insert
+    let delete = convert_to_log_position delete
+    let substitute = convert_to_log_position substitute
+
+    (* The following are atomic affine editions *)
+    let affine_insert = 
+        (* Instead of passing a single base, we will pass a
+        complete sequence to this function *)
+        let tmp = 
+            S_K.create 
+            (SK ((pos [u_Hd] K K) (* If we are not in position 0 we continue *)
+                (Pair (seq [u_Hd]) (R (pos [u_Tl]) prefix (seq [u_Tl])))
+                (* We have reached the position, we better merge now *)
+                ((prefix [u_Hd] K K) 
+                (* If we have some base left in the sequence that we will insert
+                * *)
+                    (Pair (prefix [u_Tl] [u_Hd]) (R pos (prefix [u_Tl] [u_Tl])
+                    seq))
+                    (* Otherwise we have finished inserting *)
+                    seq)))
+            (LS R pos prefix seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
+    let affine_delete =
+        let tmp =
+            S_K.create
+            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion pos *)
+                (R (pos [u_Tl]) len seq)
+                (* If we have reached the deletion pos *)
+                ((len [u_Hd] K K) (* We still have something more to del *)
+                    (R pos (len [u_Tl]) (seq [u_Tl]))
+                    (* We are done with the deletion *)
+                    seq)))
+            (LS R pos len seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
+    let affine_substitution =
+        let tmp =
+            S_K.create
+            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion position *)
+                (R (pos [u_Tl]) repl seq)
+                (* We have reached the deletion position *)
+                ((repl [u_Hd] K K) (* Still some more to substitute *)
+                    (Pair (repl [u_Tl] [u_Hd]) (R pos (repl [u_Tl] [u_Tl]) (seq
+                    [u_Tl])))
+                    (* Nothing else to substitute *)
+                    seq)))
+            (LS R pos repl seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
     (* A encoded is made of pairs in the following way:
         * (Pair K (Pair encoded encoded))
         * (Pair (K S) Result)
         * Where left (K) or right (S K) of the right element represent the
         * actual path to be followed from the list. *)
-    let decoder =
+    let decoder simplified =
         let next_encoder = (SK ((encoder [u_Tl]) (lst [u_Hd]))) in
         let decoder_recursion =
             S_K.create 
             (SK ([next_encoder] [u_Hd] K K (R (lst [u_Tl]) [next_encoder]) 
-            (Pair ([next_encoder] [u_Tl]) (lst [u_Tl]))))
+            [if simplified then
+                (SK ([next_encoder] [u_Tl]))
+            else
+                (SK (Pair ([next_encoder] [u_Tl]) (lst [u_Tl])))]))
             (LS R lst encoder)
         in
         S_K.expand (SK (Fixedpoint [decoder_recursion]))
@@ -520,7 +568,7 @@ module PM = struct
     let encoder_example = make_encoder (SK (substitute (delete insert))) []
 
     let result_example = 
-        let decoder = S_K.expand decoder in
+        let decoder = S_K.expand (decoder false) in
         S_K.reduce (S_K.expand (SK (([decoder] [(SKLS (S K) (S K))] [encoder_example])
         [u_Hd])))
 
@@ -557,7 +605,7 @@ module PM = struct
             in
             S_K.create (SK (Fixedpoint [tmp])) []
         in
-        S_K.create (SK (([apply] ([decoder] (lst [u_Hd]) encoder  [u_Hd]) (lst [u_Tl])) acc)) 
+        S_K.create (SK (([apply] ([decoder false] (lst [u_Hd]) encoder  [u_Hd]) (lst [u_Tl])) acc)) 
         (LS acc encoder lst)
 
     (* An example using it: 
@@ -568,12 +616,80 @@ module PM = struct
             substitute]] [SKLS [SKLS K] K EmptyList])) in
         ()
     *)
+
+    let swap = S_K.create (SK (a b)) (LS b a)
+
+    (* Now we can define the edition of sequences using a composition of
+    * editions. In other words, we don't need to specify the absolute position
+    * of a base for a deletion, but we can specify the relative position from
+    * the previous edition. This could produce a gain if the editions are dense
+    * enough. To do this, we will define another function similar to the
+    * [f_apply] that we just defined. *)
+
+    let apply_list_of_functions_on_accumulator =
+        let recursion = 
+            S_K.create
+            (SK ((todo [u_Hd] K K)  (* We are not done yet *)
+                ([decoder true] (todo [u_Tl] [u_Hd]) encoder R acc encoder todo)
+                (acc)))
+            (LS R acc encoder todo)
+        in
+        S_K.expand (SK (Fixedpoint [recursion]))
+
+    let insert_composable = 
+        let insert_composable =
+            until_zero_recursions
+            (LS R Continue pos base seq encoder todo)
+            (SK pos)
+            (SK (Pair base (Continue seq encoder todo)))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
+            encoder todo)))
+        in
+        let pos = SK (todo [u_Hd]) 
+        and base = SK (todo [u_Tl] [u_Hd]) 
+        and rest = SK (todo [u_Tl] [u_Tl]) in
+        S_K.create
+        (SK ([insert_composable] Continue [pos] [base] seq encoder [rest]))
+        (LS Continue seq encoder todo)
+
+    let delete_composable =
+        let delete_composable = 
+            until_zero_recursions
+            (LS R Continue pos seq encoder todo)
+            (SK pos)
+            (SK (Continue (seq [u_Tl]) encoder todo))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) (seq [u_Tl]) encoder
+            todo)))
+        in
+        let pos = SK (todo [u_Hd]) 
+        and rest = SK (todo [u_Tl]) in
+        S_K.create
+        (SK ([delete_composable] Continue [pos] seq encoder [rest])) 
+        (LS Continue seq encoder todo)
+
+    let substitute_composable =
+        let substitute_composable = 
+            until_zero_recursions
+            (LS R Continue pos base seq encoder todo)
+            (SK pos)
+            (SK (Pair base (Continue (seq [u_Tl]) encoder todo)))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
+            encoder todo)))
+        in
+        let pos = SK (todo [u_Hd])
+        and base = SK (todo [u_Tl] [u_Hd]) 
+        and rest = SK (todo [u_Tl] [u_Tl]) in
+        S_K.create
+        (SK ([substitute_composable] Continue [pos] [base] seq encoder [rest]))
+        (LS Continue seq encoder todo)
+
     (* Now take a list of elements that can be passed to [lst] of f_apply and
     * apply on each one of the [f_apply]. This way we can perform a row of edits
     * in an accumulator that is passed around constantly. *)
     let f_edit =
         let tmp = S_K.create
-            (SK ((lst [u_Hd] K K) (R encoder (lst [u_Tl] [u_Tl]) ([f_apply] acc encoder (lst [u_Tl]
+            (SK ((lst [u_Hd] K K) 
+            (R encoder (lst [u_Tl] [u_Tl]) ([f_apply] acc encoder (lst [u_Tl]
             [u_Hd]))) acc)) 
             (LS R encoder lst acc)
         in

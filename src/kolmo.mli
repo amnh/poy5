@@ -41,7 +41,7 @@ module S_K :
 
 module PM : sig
     val encoder_example : S_K.primitives
-    val decoder : S_K.primitives
+    val decoder : bool -> S_K.primitives
     val result_example : S_K.primitives
     val make_encoder : 
         S_K.primitives -> (string * S_K.primitives) list -> S_K.primitives
