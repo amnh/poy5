@@ -58,4 +58,8 @@ module PM : sig
     val citosine : S_K.primitives
     val guanine : S_K.primitives
     val timine : S_K.primitives
+    val apply_list_of_functions_on_accumulator : S_K.primitives
+    val insert_composable : S_K.primitives
+    val delete_composable : S_K.primitives
+    val substitute_composable : S_K.primitives
 end

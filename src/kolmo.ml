@@ -630,7 +630,8 @@ module PM = struct
         let recursion = 
             S_K.create
             (SK ((todo [u_Hd] K K)  (* We are not done yet *)
-                ([decoder true] (todo [u_Tl] [u_Hd]) encoder R acc encoder todo)
+                ([decoder true] (todo [u_Tl] [u_Hd]) encoder R acc encoder 
+                (todo [u_Tl] [u_Tl]))
                 (acc)))
             (LS R acc encoder todo)
         in
@@ -645,7 +646,7 @@ module PM = struct
             (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
             encoder todo)))
         in
-        let pos = SK (todo [u_Hd]) 
+        let pos = SK (DecodeInt (todo [u_Hd]))
         and base = SK (todo [u_Tl] [u_Hd]) 
         and rest = SK (todo [u_Tl] [u_Tl]) in
         S_K.create
@@ -661,7 +662,7 @@ module PM = struct
             (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) (seq [u_Tl]) encoder
             todo)))
         in
-        let pos = SK (todo [u_Hd]) 
+        let pos = SK (DecodeInt (todo [u_Hd]))
         and rest = SK (todo [u_Tl]) in
         S_K.create
         (SK ([delete_composable] Continue [pos] seq encoder [rest])) 
@@ -676,7 +677,7 @@ module PM = struct
             (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
             encoder todo)))
         in
-        let pos = SK (todo [u_Hd])
+        let pos = SK (DecodeInt (todo [u_Hd]))
         and base = SK (todo [u_Tl] [u_Hd]) 
         and rest = SK (todo [u_Tl] [u_Tl]) in
         S_K.create
@@ -719,4 +720,25 @@ module PM = struct
     let guanine = SK (Pair (S K) K)
     let timine = SK (Pair (S K) (S K))
 
+    (* An example using the previous composable edition functions  *)
+    let () =
+        let do_test = false in
+        if do_test then
+            let encoder = 
+               make_encoder (SK (substitute (insert delete)))
+               ["substitute", substitute_composable; "delete", delete_composable;
+               "insert", insert_composable] 
+            in
+            let todo = 
+                SKLS K [SKLS K] [encode_in_log 0] [timine] K [SKLS (S K) (S K)]
+                [encode_in_log 1]
+            in
+            let seq = SKLS [adenine] [guanine] [guanine] [guanine] in
+            let res = 
+                S_K.eval 
+                (SK ([apply_list_of_functions_on_accumulator] 
+                [seq] [encoder] [todo]))
+            in 
+            print_endline (S_K.to_string res)
+        else ()
 end
