@@ -741,4 +741,60 @@ module PM = struct
             in 
             print_endline (S_K.to_string res)
         else ()
+
+    let create_sequence a =
+        let pair = `Label "Pair" in
+        let merge a b = `Node [pair; a; b] in
+        let rec prepend pos acc =
+            if pos < 0 then acc
+            else 
+                let npos = pos - 1 in
+                match a.[pos] with
+                | 'A' | 'a' -> prepend npos (merge adenine acc)
+                | 'C' | 'c' -> prepend npos (merge citosine acc)
+                | 'G' | 'g' -> prepend npos (merge guanine acc)
+                | 'T' | 't' -> prepend npos (merge timine acc)
+                | _ -> prepend npos acc
+        in
+        prepend ((String.length a) - 1) (`Label "EmptyList")
+
+    let generate_machine_from_alignment a b =
+        (* We want to produce a machine that given the sequence [a] produces as
+        * output the sequence [b]. *)
+        assert ((String.length a) = (String.length b));
+        let max = String.length a in
+        let base = function
+            | 'A' -> adenine
+            | 'C' -> citosine
+            | 'G' -> guanine
+            | 'T' | 'U' -> timine
+            | '_' -> `Label "Emptylist"
+            | _ -> failwith "Illegal DNA sequence"
+        in
+        let rec compare_and_generate_edition delta position =
+            if max = position then []
+            else if a.[position] = b.[position] then 
+                compare_and_generate_edition (delta + 1) (position + 1)
+            else 
+                let npos = position + 1 
+                and deltap = encode_in_log delta 
+                and basep = base b.[position] in
+                if a.[position] = '_' then
+                    (SK K) :: (SKLS (S K) K) :: deltap :: basep ::
+                        compare_and_generate_edition 0 npos
+                else if b.[position] = '_' then
+                    (SK K) :: (SKLS (S K) (S K)) :: deltap ::
+                        compare_and_generate_edition 0 npos
+                else 
+                    (SK K) :: (SKLS K) :: deltap :: basep ::
+                        compare_and_generate_edition 0 npos
+        in
+        let pair = `Label "Pair" in
+        let rec produce_list_expression lst = 
+            match lst with
+            | h :: t -> `Node [pair; h; produce_list_expression t]
+            | [] -> `Label "EmptyList"
+        in
+        produce_list_expression (compare_and_generate_edition 0 0) 
+
 end

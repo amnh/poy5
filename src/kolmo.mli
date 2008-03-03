@@ -62,4 +62,6 @@ module PM : sig
     val insert_composable : S_K.primitives
     val delete_composable : S_K.primitives
     val substitute_composable : S_K.primitives
+    val create_sequence : string -> S_K.primitives
+    val generate_machine_from_alignment : string -> string -> S_K.primitives
 end
