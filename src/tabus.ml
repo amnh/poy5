@@ -644,7 +644,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             method next_node = None
             method update_iterate _ = ()
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
-            method exclude a = excluded <- excluded @ a; ()
+            method exclude a = excluded <- a; ()
     end
 
     class simple_dfs (ptree : (Node.n, Edge.e) Ptree.p_tree) : 

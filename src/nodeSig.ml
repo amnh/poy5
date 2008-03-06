@@ -264,4 +264,8 @@ module type S = sig
     val get_add : int option -> n -> (AddCS.t * AddCS.t) list
     val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
+    val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list
+
+    (* extract times from characters *)
+    val extract_time : int option -> n -> float list
 end

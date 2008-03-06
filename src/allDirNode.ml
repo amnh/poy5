@@ -135,10 +135,15 @@ module OneDirF :
     let get_dynamic x n =
         Node.Standard.get_dynamic x (Lazy.force_val n)
 
+    let get_mlstatic x n =
+        Node.Standard.get_mlstatic x (Lazy.force_val n)
+
     let median code my_code old a b = 
         Lazy.lazy_from_fun 
         (fun () -> apply_f_on_lazy 
         (Node.Standard.median None my_code None) a b)
+
+    let extract_time x nd = Node.Standard.extract_time x (Lazy.force nd)
 
     let median_3 x par cur a b = 
         Lazy.lazy_from_val
@@ -386,6 +391,9 @@ type nad8 = Node.Standard.nad8 = struct
     let get_add = apply_on_one_direction OneDirF.get_add
     let get_sank = apply_on_one_direction OneDirF.get_sank
     let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
+    let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
+
+    let extract_time = apply_on_one_direction OneDirF.extract_time
 
     let median code my_code old a b =
         let my_code =
