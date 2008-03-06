@@ -133,7 +133,6 @@ val median_3 : node_data -> node_data -> node_data -> node_data -> node_data
 * [node_cost e = c], but otherwise undistinguishable from [n]. *)
 val set_node_cost : float -> node_data -> node_data
 
-
 (** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
 * a horrible format. Check the Tags module for further information. *)
 (* Compute the total rearrangement cost of the subtree rooted by node_data *)
@@ -203,8 +202,10 @@ val empty : [`Parsimony | `Likelihood] -> node_data
 (** [total_cost_of_type t n] extracts the sum of the total cost of the node [n]
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type :
-  [> `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Nonadd | `Sank | `Seq ] ->
+  [> `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Nonadd | `Sank | `Seq |
+  `StaticMl] ->
   node_data -> float
+
 
 val to_string : node_data -> string
 val print : node_data -> unit

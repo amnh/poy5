@@ -719,6 +719,10 @@ let get_dynamic =
     get_characters_of_type 
     (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
     `Dynamic
+let get_mlstatic = 
+    get_characters_of_type 
+    (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
+    `StaticML
 let get_set = 
     get_characters_of_type 
     (function Set x -> x.preliminary, x.final | _ -> assert false)
@@ -888,6 +892,13 @@ let compare_data_final {characters=chs1} {characters=chs2} =
               DynamicCS.compare_data a.final b.final
         | Kolmo a, Kolmo b ->
               KolmoCS.compare_data a.final b.final
+        | StaticMl a, StaticMl b ->
+            (* preliminary == final *)
+            IFDEF USE_LIKELIHOOD THEN
+                MlStaticCS.compare_data a.preliminary b.preliminary
+            ELSE
+                failwith likelihood_error  
+            END
         | Set { final = { set = a } }, Set { final = { set = b } } ->
               (* Temporary solution.  The problem is: our `Any_Of nodes need to
                  know from which nodes they were made as a median.  Even if two
@@ -3068,6 +3079,13 @@ let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
 
+let extract_time nd = 
+    let rec t_filter chs = match chs with
+        | [] -> []
+        | StaticMl a :: ttail -> a.time :: t_filter ttail
+        | _ :: ttail -> t_filter ttail in
+    let lst = nd.characters in t_filter lst 
+
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data = 
         struct
@@ -3110,6 +3128,7 @@ module Standard :
         let min_child_code _ x = x.min_child_code 
         let prioritize = prioritize
         let reprioritize = reprioritize
+        let extract_time _  = extract_time
         module T = T
         module Union = Union
         let for_support = for_support
@@ -3121,6 +3140,7 @@ module Standard :
         let get_add _ = get_add
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
+        let get_mlstatic _ = get_mlstatic
 end 
 
 let merge a b =
@@ -3139,6 +3159,12 @@ let total_cost_of_type t n =
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
+        | StaticMl x, `StaticMl ->
+           IFDEF USE_LIKELIHOOD THEN
+            acc +. (x.cost)
+           ELSE
+            failwlith likelihood_error
+           END
         | Dynamic x, t -> 
                 (match x.preliminary, t with
                 | DynamicCS.SeqCS _, `Seq -> acc +. (x.sum_cost *. x.weight)
@@ -3154,4 +3180,3 @@ let total_cost_of_type t n =
         | _ -> acc
     in
     List.fold_left total_cost_cs 0.0 n.characters
-
