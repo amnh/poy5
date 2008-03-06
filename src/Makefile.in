@@ -121,7 +121,7 @@ else
 	LABLTK =
 endif
 
-PREPROCESSOR = -pp 'camlp4of pa_extend.cmo'
+PREPROCESSOR = -pp 'camlp4of pa_extend.cmo kolmoExtension.cmo'
 
 
 # Encapsulate all the options
@@ -230,7 +230,7 @@ SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	ukk.checkp.o ukkCommon.o algn.o
 
 # Some personal tests that can be useful for everyone 
-CAMLP4PROCESSED = poyParser.ml poyCommand.ml kolmo.ml
+CAMLP4PROCESSED = poyParser.ml poyCommand.ml kolmo.ml kolmoExtension.ml
 
 GETRUSAGE :=
 ifneq ($(USEWIN32), true)
@@ -483,20 +483,24 @@ help.html: help.txt ocaml-str helpRead.ml
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
-kolmo.cmo: parser.cmo kolmo.ml
+kolmoExtension.cmo: kolmoExtension.ml
+	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+kolmoExtension.cmx: kolmoExtension.ml
+	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+kolmo.cmo: kolmoExtension.cmo parser.cmo kolmo.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
-kolmo.cmx: parser.cmo kolmo.ml
+kolmo.cmx: kolmoExtension.cmo parser.cmo kolmo.ml
 	$(OCAMLOPT) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
-poyParser.cmo: poyParser.ml
-	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
-poyCommand.cmo: commandLexer.cmo poyCommand.ml
+poyParser.cmo: kolmoExtension.cmo poyParser.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyParser.ml
+poyCommand.cmo: kolmoExtension.cmo commandLexer.cmo poyCommand.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
-poyParser.cmx: poyParser.ml
-	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c $<
-poyCommand.cmx: commandLexer.cmx poyCommand.ml
+poyParser.cmx: kolmoExtension.cmo poyParser.ml
+	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyParser.ml
+poyCommand.cmx: kolmoExtension.cmo commandLexer.cmx poyCommand.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyCommand.ml
-poyParser.cma: poyParser.ml
-	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) $<
+poyParser.cma: kolmoExtension.cmo poyParser.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) poyParser.ml
 status_gtk2.cmo: status_gtk2.ml
 	$(OCAMLC) -g -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
 main.cmo: arguments.cmo main.ml
@@ -553,7 +557,7 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStre
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+.depend: kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 

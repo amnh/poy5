@@ -176,11 +176,8 @@ end
 
 let ( --> ) a b = b a
 
-module SK = struct
-    type 'a t = Leaf of 'a | Node of ('a t list)
-    type primitives = S | K | Label of string
-    type expression = primitives t
-    type sk = String of string | Processed of expression
+module S_K = struct
+    type primitives = [ `S | `K | `Label of string | `Node of primitives list ]
 
     exception Illegal_Expression of string Parser.Tree.t list
 
@@ -192,108 +189,102 @@ module SK = struct
                     let rec reverse tree = 
                         match tree with
                         | Parser.Tree.Node (s, "") ->
-                                Node (List.rev_map reverse s)
-                        | Parser.Tree.Leaf "S" -> Leaf S
-                        | Parser.Tree.Leaf "K" -> Leaf K
-                        | Parser.Tree.Leaf x -> Leaf (Label x)
+                                `Node (List.rev_map reverse s)
+                        | Parser.Tree.Leaf "S" -> `S
+                        | Parser.Tree.Leaf "K" -> `K
+                        | Parser.Tree.Leaf x -> `Label x
                         | x -> raise (Illegal_Expression [x])
                     in
                     reverse x
             | x -> raise (Illegal_Expression x)
         in
-        let res = 
-            string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
-        in
-        Processed res
+        string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
 
-    let rec expand_labels ?(except=[]) tree =
+
+    let rec expand ?(except=[]) tree =
         match tree with
-        | Node lst -> Node (List.map (expand_labels ~except) lst)
-        | Leaf (Label x) ->
+        | `Node lst -> 
+                `Node (List.map (expand ~except) lst)
+        | `Label x ->
                 if (List.exists (fun y -> x = y) except) ||
                     (not (Hashtbl.mem universe x)) then tree
-                else Hashtbl.find universe x
+                else expand (Hashtbl.find universe x)
         | x -> x
 
     let to_string tree =
-        match tree with
-        | String x -> x
-        | Processed tree ->
-            let tree = 
-                let to_string = function
-                    | S -> "S"
-                    | K -> "K"
-                    | (Label x) -> x
-                in
-                let rec string_tree x =
-                    match x with
-                    | Node lst ->
-                            Parser.Tree.Node 
-                            (List.map string_tree lst, "")
-                    | Leaf x -> Parser.Tree.Leaf (to_string x)
-                in
-                string_tree tree
+        let tree = 
+            let rec string_tree x =
+                match x with
+                | `Node lst ->
+                        Parser.Tree.Node 
+                        (List.map string_tree lst, "")
+                | `S | `K | `Label _ as x -> 
+                        let string = 
+                            match x with
+                            | `S -> "S"
+                            | `K -> "K"
+                            | `Label x -> x
+                        in
+                        Parser.Tree.Leaf string
             in
-            let str = ref "" in
-            let my_printer x = str := !str ^ x in
-            AsciiTree.draw_parenthesis false my_printer tree;
-            !str
+            string_tree tree
+        in
+        let str = ref "" in
+        let my_printer x = str := !str ^ x in
+        AsciiTree.draw_parenthesis false my_printer tree;
+        !str
 
     let rec sk_define name tree = 
-        match tree with
-        | Processed x -> Hashtbl.replace universe name (expand_labels x) 
-        | String x ->  sk_define name (of_string x)
+        Hashtbl.replace universe name (expand tree) 
 
     let rec simplify tree = 
         match tree with
-        | Leaf _ -> [tree]
-        | Node lst ->
-                match lst with
-                | [(Leaf S); _]
-                | [(Leaf K); _]
-                | [(Leaf _)] 
-                | [(Leaf S); _; _] -> lst
-                | (Leaf K) :: a :: b :: t -> 
+        | `Node lst ->
+                (match lst with
+                | [`S; _]
+                | [`K; _]
+                | [`Label _ ]  | [ `S ] | [ `K ]
+                | [(`S); _; _] -> lst
+                | (`K) :: a :: b :: t -> 
                         let a = simplify a in
-                        [Node (a @ t)]
-                | (Leaf S) :: a :: b :: c :: t ->
+                        [`Node (a @ t)]
+                | (`S) :: a :: b :: c :: t ->
                         let a = simplify a in
-                        [Node ((a @ [c] @ [Node [b; c]] @ t))]
+                        [`Node ((a @ [c] @ [`Node [b; c]] @ t))]
                 | h :: t -> 
                         let h = simplify h in
-                        [Node (h @ t)]
-                | [] -> raise (Illegal_Expression [])
+                        [`Node (h @ t)]
+                | [] -> raise (Illegal_Expression []))
+        | `S | `K | `Label _ -> [tree]
 
 
     let rec reduce tree =
-        match tree with
-        | String tree -> reduce (of_string tree)
-        | Processed tree ->
-            match simplify tree with
-            | [ntree] -> 
-                    if ntree = tree then Processed tree 
-                    else reduce (Processed ntree)
-            | [] -> raise (Illegal_Expression [])
-            | lst -> 
-                    let ntree = Node lst in
-                    if ntree = tree then Processed tree 
-                    else reduce (Processed ntree)
+        match simplify tree with
+        | [ntree] -> 
+                if ntree = tree then tree 
+                else reduce ntree
+        | [] -> raise (Illegal_Expression [])
+        | lst -> 
+                let ntree = (`Node lst) in
+                if ntree = tree then tree 
+                else reduce tree
 
     let evaluate x = 
         x --> of_string --> reduce 
 
+    let eval x = x --> expand --> reduce 
+
     let test lst = 
-        reduce 
-        (Processed (Node (List.map (function Processed x -> x | String x ->
-            (match of_string x with
-            | Processed x -> x
-            | String _ -> assert false)) lst)))
+        reduce (`Node lst)
 
     let s_encode tree = 
         (* We define a function to encode an SK expression in a list of bits *)
-        let rec to_bit_list ?(no_print=false) tree =
+        let rec to_bit_list ?(no_print=false) (tree : primitives) =
             match tree with
-            | Node lst ->
+            | `S -> Encodings.Zero :: Encodings.Zero :: []
+            | `K -> Encodings.Zero :: Encodings.One :: []
+            | `Label _ -> failwith "I can't encode labels"
+            | `Node lst ->
                     (match lst with
                     | [] -> assert false
                     | [x] -> to_bit_list x
@@ -304,25 +295,15 @@ module SK = struct
                     | lst ->
                             let rec to_binary_list lst = 
                                 match lst with
-                                | [h; t] -> Node lst
+                                | [h; t] -> `Node lst
                                 | f :: s :: t -> 
                                         to_binary_list 
-                                        ((Node [f; s]) :: t)
+                                        ((`Node [f; s]) :: t)
                                 | _ -> assert false
                             in
                             to_bit_list ~no_print:true (to_binary_list lst))
-            | Leaf x ->
-                    match x with
-                    | S -> Encodings.Zero :: Encodings.Zero :: []
-                    | K -> Encodings.Zero :: Encodings.One :: []
-                    | Label _ -> failwith "I can't encode labels"
         in
-        match tree with
-        | Processed tree -> to_bit_list tree
-        | String tree ->
-                match tree --> of_string --> reduce with
-                | Processed tree -> to_bit_list tree
-                | String _ -> assert false
+        to_bit_list tree
 
 
         let rec s_decode lst = 
@@ -331,17 +312,15 @@ module SK = struct
                 | Encodings.One :: t ->
                         let a, t = aux_s_decode t in
                         let b, t = aux_s_decode t in
-                        Node [a; b], t
-                | Encodings.Zero :: Encodings.Zero :: t -> (Leaf S), t
-                | Encodings.Zero :: Encodings.One :: t -> (Leaf K), t
+                        `Node [a; b], t
+                | Encodings.Zero :: Encodings.Zero :: t -> `S, t
+                | Encodings.Zero :: Encodings.One :: t -> `K, t
                 | _ -> failwith "Illegal encoding"
             in
             let a, t = aux_s_decode lst in
             match t with
             | [] -> a
-            | t -> 
-                    Node [a; s_decode t]
-
+            | t -> (`Node [a; s_decode t])
 
         let create pattern label =
             (* A function to create combinator that produce the desired pattern
@@ -349,260 +328,473 @@ module SK = struct
             * that we want to have inside the pattern as an argument *)
             let rec contains_label tree =
                 match tree with
-                | Leaf (Label x) -> x = label
-                | Leaf K
-                | Leaf S -> false
-                | Node lst -> List.exists contains_label lst
+                | `Label x -> x = label
+                | `K
+                | `S -> false
+                | `Node lst -> List.exists contains_label lst
             in
-            let k = Leaf K 
-            and s = Leaf S 
+            let k = `K 
+            and s = `S 
             and split lst = 
                 match List.rev lst with
-                | h :: t -> Node (List.rev t), h 
+                | h :: t -> `Node (List.rev t), h 
                 | [] -> assert false
             in
             let rec extract tree =
                 if not (contains_label tree) then
-                    Node [k; tree]
+                    `Node [k; tree]
                 else 
                     match tree with
-                    | Leaf (Label x) -> 
+                    | `Label x -> 
                             assert (x = label);
                             Hashtbl.find universe "I"
-                    | Leaf x ->
-                            Node [k; tree]
-                    | Node [x] ->
+                    | `S | `K ->
+                            `Node [k; tree]
+                    | `Node [x] ->
                             extract x
-                    | Node [x; Leaf (Label l)] when 
+                    | `Node [x; `Label l] when 
                         (l = label) && (not (contains_label x)) ->
                             x
-                    | Node [x; y] ->
-                            Node [s; extract x; extract y]
-                    | Node lst ->
+                    | `Node [x; y] ->
+                            `Node [s; extract x; extract y]
+                    | `Node lst ->
                             let a, b = split lst in
-                            extract (Node [a; b])
+                            extract (`Node [a; b])
             in
-            match pattern with
-            | Processed tree -> Processed (extract tree)
-            | String tree -> 
-                    match of_string tree with
-                    | Processed tree -> Processed (extract tree)
-                    | String _ -> assert false
+            extract pattern
 
         let sk_define_interpreted name args tree =
-            let tree = expand_labels ~except:args tree in
-            match List.fold_left create (Processed tree) (List.rev args) with
-            | Processed tree -> Hashtbl.replace universe name tree
-            | String _ -> assert false
+            let tree = expand ~except:args tree in
+            let tree = List.fold_left create tree (List.rev args) in
+            Hashtbl.replace universe name tree
 
         let create pattern labels = 
             List.fold_left create pattern (List.rev labels)
 
+        let def a b c = sk_define a (create c b)
+
         let () =
-            (* The standard list of items that are defined *)
-            let predefined = 
-                [
-                    ("True", "( K )");
-                    ("False", "( S K )");
-                    ("1", "(K)");
-                    ("0", "(S K)");
-                    ("I", "(S K K)");
-                    ("Lambda", "(K S)");
-                    ("Pair", 
-                    "(S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K))");
-                    ("EmptyList", "(Pair Lambda Lambda)");
-                    ("Not", "(Pair (S K) K)");
-                    ("Hd", "(S (S K K) ((S (S K) ( K K) )))");
-                    ("Tl", "(S (S K K) ((S (S K) ( K (S K)))))");
-                    ("Predecessor", "(Tl)"); 
-                    ("Successor", "(Pair K)"); 
-                    ("Apply", "(S (S K) (S K K))");
-                    ("NotZero", "(S (S Hd (K 1)) (K 1))"); 
-                    ("Fixedpoint", "(S S K (S (K (S S(S(S S K))))K))");
-                ]
-            in
-            List.iter (fun (a, b) -> sk_define a (String b)) predefined;
-            let generated = [
-                ("Right", "(a (b c))", ["a"; "b"; "c"]);
-                ("GenerateRecursive", "(test max (R (next max) (update \
-                acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
-                ("GenerateRecursive2", "(test max (R (next max) (update \
-                max acc)) acc)", ["test"; "next"; "update"; "R"; "max"; "acc"]);
-                (* Now we can define the addition, substraction, and the
-                * multiplication functions. *)
-                ("Add", "(Fixedpoint (GenerateRecursive NotZero 
-                Predecessor Successor))", []);
-                ("Substract", "(Fixedpoint (GenerateRecursive NotZero 
-                Predecessor Predecessor) a b)", ["b"; "a"]);
-                ("Multiply", "(Fixedpoint (GenerateRecursive 
-                NotZero Predecessor (Add a)) b EmptyList)", ["a"; "b"]);
-                ("ProcessBinary", "((Hd a) (Successor EmptyList) EmptyList)", 
-                ["a"]);
-                ("AppendBinary", "(Add (ProcessBinary a) (Multiply (Successor
-                (Successor EmptyList)) b))", ["a"; "b"]);
-                ("Decode", "(Fixedpoint (GenerateRecursive2 NotZero
-                Predecessor AppendBinary) a EmptyList)", ["a"]);
-                ("GenerateInsertion", "(NotZero pos (Pair (Hd seq) (R
-                base (Predecessor pos) (Tl seq))) (Pair base seq))", 
-                ["R"; "base"; "pos"; "seq"]);
-                ("Insert", "(Fixedpoint GenerateInsertion)", []);
-                ("GenerateDeletion", "(NotZero pos (Pair (Hd seq) (R 
-                (Predecessor pos) (Tl seq))) seq)", ["R"; "pos"; "seq"]);
-                ("Delete", "(Fixedpoint GenerateDeletion)", []);
-                ("GenerateSubstitution", "(NotZero pos (Pair (Hd seq) (R base
-                (Predecessor pos) (Tl seq))) (Pair base (Tl seq)))", ["R";
-                "pos"; "base"; "seq"]);
-                ("Substitution", "(Fixedpoint GenerateSubstitution)", []);
-                ("GeneratePrepend", "(NotZero pref (Pair (Hd pref) (R (Tl pref)
-                suf)) suf)", ["R"; "pref"; "suf"]);
-                ("Prepend", "(Fixedpoint GeneratePrepend)", []);
-                ("GenerateAffineInsert", "(NotZero pos (Pair (Hd seq) (R pos ins
-                (Tl seq))) (Prepend ins seq))", ["R"; "pos"; "ins"; "seq"]);
-                ("AffineInsert", "(Fixedpoint GenerateAffineInsert)", []);
-                ("GenerateCut", "(NotZero len (R (Predecessor len) (Tl
-                seq)) seq)", ["R"; "len"; "seq"]);
-                ("Cut", "(Fixedpoint GenerateCut)", []);
-                ("GenerateAffineDelete", "(NotZero pos (Pair (Hd seq) (R (Predecessor pos) len
-                (Tl seq))) (Cut len seq))", ["R"; "pos"; "len"; "seq"]);
-                ("AffineDelete", "(Fixedpoint GenerateAffineDelete)", []);
-                ("GenerateCountK", "(current (R (Successor acc)) acc)", ["R";
-                "acc"; "current"]);
-                ("CountK", "(Fixedpoint GenerateCountK EmptyList)", [])
-                ]
-            in
-            List.iter (fun (a, b, c) -> 
-                let b = create (String b) c in
-                sk_define a b) generated
-
-    module Parser = struct
-        type 'loc expr = 
-            | S of 'loc 
-            | K of 'loc 
-            | Label of string * 'loc 
-            | Node of 'loc expr list * 'loc
-
-        type 'loc stmt = 
-            | Def of string * string list * 'loc expr * 'loc
-            | Evaluate of 'loc expr * 'loc
-            | BitEncode of 'loc expr * 'loc
-            | BitDecode of string * string * 'loc
-
-        open Camlp4.Sig
-
-        module Id = struct
-            let name = "SKLanguage"
-            let version = "0.1"
-        end
-
-        module SKLanguage (Syntax : Camlp4Syntax) = struct
-            open Syntax
-
-            let rec exSem_of_list = function
-                | [] -> 
-                        let _loc = Loc.ghost in
-                        <:expr<[]>>
-                | [x] -> 
-                        let _loc = Ast.loc_of_expr x in
-                        <:expr< [$x$]>>
-                | x :: xs ->
-                        let _loc = Ast.loc_of_expr x in
-                        <:expr< $x$ :: $exSem_of_list xs$ >> 
-
-
-            let rec expression_converter = function
-                | S _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.S) >>
-                | K _loc -> <:expr< (Kolmo.SK.Leaf Kolmo.SK.K) >>
-                | Label (v, _loc) -> 
-                        let lbl =  <:expr< Kolmo.SK.Label $str:v$ >> in
-                        <:expr< (Kolmo.SK.Leaf $lbl$) >>
-                | Node (items, _loc) -> 
-                        let es = List.map expression_converter items in
-                        <:expr< (Kolmo.SK.Node ( $exSem_of_list es$)) >>
-
-            let statement_converter = function
-                | Def (name, arguments, expression, _loc) ->
-                        let arguments = List.map (fun x -> <:expr<$str:x$>>) arguments in
-                        <:str_item< let () = Kolmo.SK.sk_define_interpreted $str:name$
-                        $exSem_of_list arguments$ $expression_converter
-                        expression$;;>>
-                | Evaluate (expression, _loc) ->
-                        <:str_item< let () = Pervasives.print_endline
-                        (Kolmo.SK.to_string (Kolmo.SK.reduce
-                        (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
-                        $expression_converter expression$)))) >>
-                | BitEncode (expression, _loc) ->
-                        <:str_item< let () = 
-                            let lst = Kolmo.SK.s_encode (Kolmo.SK.reduce
-                            (Kolmo.SK.Processed (Kolmo.SK.expand_labels 
-                            $expression_converter expression$))) in
-                            let () = 
-                                List.iter (function Kolmo.Encodings.Zero ->
-                                    print_int 0;
-                                    | Kolmo.Encodings.One -> print_int 1;) lst
-                            in
-                            print_newline ()>>
-                | BitDecode (name, expression, _loc) ->
-                        <:str_item< let () =
-                            let str = $str:expression$ in
-                            let lst = ref [] in
-                            for i = (String.length str) - 1 downto 0 do
-                                match str.[i] with
-                                | '1' -> lst := Kolmo.Encodings.One :: !lst;
-                                | '0' -> lst := Kolmo.Encodings.Zero :: !lst;
-                                | x -> failwith (Printf.sprintf "Illegal \
-                                encoding : Character %c in position %d." x i)
-                            done;
-                            let a = (Kolmo.SK.s_decode !lst) in
-                            Hashtbl.replace Kolmo.SK.universe $str:name$ a>>
-
-            let expr_sk = Gram.Entry.mk "expr_sk"
-            let stmt = Gram.Entry.mk "stmt"
-
-            EXTEND Gram 
-            expr_sk: [
-                [ "S" -> S _loc ] | 
-                [ "K" -> K _loc ] | 
-                [ v = UIDENT -> Label (v, _loc) ] | 
-                [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
-            stmt: [
-                [ LIDENT "sk"; v = UIDENT; a = LIST0 [x = UIDENT -> x] ; "="; 
-                    x = expr_sk -> Def (v, a, x, _loc)
-                | LIDENT "sk"; x = expr_sk -> Evaluate (x, _loc) 
-                | LIDENT "sk"; LIDENT "encode"; x = expr_sk -> 
-                        BitEncode (x, _loc) 
-                | LIDENT "sk"; LIDENT "decode"; x = UIDENT; y = STRING -> 
-                        BitDecode (x, y, _loc) ]
-                ];
-            END;;
-
-(*            Gram.Entry.clear Syntax.str_item *)
-
-            EXTEND Gram
-            Syntax.str_item : [ [ s = stmt -> statement_converter s ]];
-            END;;
-
-            include Syntax
-        end
-
-        let activate () = 
-            let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
-            ()
-
-        let () = activate ()
-    end
-
+            (* Many convenient function definitions uisng kolmoExtensions to
+            * parse them. *)
+            sk_define "I" (SK (S K K));
+            def "True" [] (SK K);
+            def "False" [] (SK (S K));
+            def "O" [] (SK (K));
+            def "Z" [] (SK (S K));
+            def "I" [] (SK (S K K));
+            def "Lambda" [] (SK (K S));
+            def "Pair" [] 
+                (SK (S (S (K S)(S (K K)(S (K S)(S (S (K S)(S K)) K))))(K K)));
+            def "EmptyList" [] (SK (Pair Lambda Lambda));
+            def "Not" [] (SK (Pair (S K) K));
+            def "Hd" [] (SK (S (S K K) ((S (S K) ( K K) ))));
+            def "Tl" [] (SK (S (S K K) ((S (S K) ( K (S K))))));
+            def "Predecessor" [] (SK (Tl)); 
+            def "Successor" [] (SK (Pair K)); 
+            def "Apply" [] (SK (S (S K) (S K K)));
+            def "NotZero" [] (SK (S (S Hd (K O)) (K O))); 
+            def "Fixedpoint" [] (SK (S S K (S (K (S S(S(S S K))))K)));
+            def "Right" (LS a b c) (SK (a (b c)));
+            def "GenerateRecursive" 
+                (LS test next update R max acc) 
+                (SK (test max (R (next max) (update acc)) acc));
+            def "GenerateRecursive2" 
+                (LS test next update R max acc)
+                (SK (test max (R (next max) (update max acc)) acc));
+            def "Add" [] 
+                (SK (Fixedpoint (GenerateRecursive NotZero Predecessor 
+                    Successor)));
+            def "Substract" (LS b a) 
+                (SK (Fixedpoint (GenerateRecursive NotZero Predecessor 
+                    Predecessor) a b));
+            def "Multiply" (LS a b) 
+                (SK (Fixedpoint (GenerateRecursive 
+                    NotZero Predecessor (Add a)) b EmptyList));
+            def "ProcessBinary" (LS a) 
+                (SK ((Hd a) (Successor EmptyList) EmptyList));
+            def "AppendBinary" (LS a b) 
+                (SK (Add (ProcessBinary a) (Multiply (Successor
+                    (Successor EmptyList)) b)));
+            def "DecodeInt" (LS a) 
+                (SK (Fixedpoint (GenerateRecursive2 NotZero Predecessor 
+                    AppendBinary) a EmptyList));
+            def "GeneratePrepend" (LS R pref suf) 
+                (SK (NotZero pref (Pair (Hd pref) (R (Tl pref) suf)) suf));
+            def "Prepend" (LS R pos ins seq) 
+                (SK (Fixedpoint GeneratePrepend));
+            def "GenerateAffineInsert" (LS R pos ins seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R pos ins
+                    (Tl seq))) (Prepend ins seq)));
+            def "AffineInsert" (LS R len seq) 
+                (SK (Fixedpoint GenerateAffineInsert));
+            def "GenerateCut" (LS R len seq) 
+                (SK (NotZero len (R (Predecessor len) (Tl seq)) seq));
+            def "Cut" [] (SK (Fixedpoint GenerateCut));
+            def "GenerateAffineDelete" (LS R pos len seq) 
+                (SK (NotZero pos (Pair (Hd seq) (R (Predecessor pos) len
+                    (Tl seq))) (Cut len seq)));
+            def "AffineDelete" [] 
+                (SK (Fixedpoint GenerateAffineDelete));
+            def "GenerateCountK" (LS R acc current) 
+                (SK (current (R (Successor acc)) acc));
+            def "CountK" [] (SK (Fixedpoint GenerateCountK EmptyList))
 end
 
-module SK_f = struct
-    (* We define a module for the simplest of all lambda calculus models, the S
-    * - K model of computation. We implement it to try new combinators for this
-    * lambda calculus *)
+module PM = struct 
+    (* A phylogenetic analysis machine written for the S_K computer 
+    * This machine uses the most simply defined functions, so we will start by
+    * defining some basic functionality *)
+    let u_Tl = SK (S K)
+    let u_Hd = SK K
 
-    (* We happily define the basic primitives, this is so beautiful! *)
-    let s a b c = a c (b c)
-    let k a b = a
+    let until_zero_recursions lst pos if_zero if_not_zero =
+        let simple_recursion =
+            S_K.create (SK ([pos] [u_Hd] K K [if_not_zero] [if_zero])) 
+            lst
+        in
+        S_K.expand (SK (Fixedpoint [simple_recursion]))
 
-    let falso a b = k a b
-    let verda a b = s k a b
+    (* These functions accept atomic operations *)
+    let insert = 
+        until_zero_recursions 
+        (LS R pos base seq) 
+        (SK pos) 
+        (SK (Pair base seq))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
+
+    let delete = 
+        until_zero_recursions
+        (LS R pos seq)
+        (SK pos)
+        (SK (seq [u_Tl]))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) (seq [u_Tl]))))
+
+    let substitute =
+        until_zero_recursions
+        (LS R pos base seq)
+        (SK pos)
+        (SK (Pair base (seq [u_Tl])))
+        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
+
+    (* Now we convert the previous three functions to accept an encoded integer
+    * in logarithmic space *)
+    let convert_to_log_position x = 
+        S_K.expand (S_K.create (SK ([x] (DecodeInt pos))) (LS pos))
+
+    let insert = convert_to_log_position insert
+    let delete = convert_to_log_position delete
+    let substitute = convert_to_log_position substitute
+
+    (* The following are atomic affine editions *)
+    let affine_insert = 
+        (* Instead of passing a single base, we will pass a
+        complete sequence to this function *)
+        let tmp = 
+            S_K.create 
+            (SK ((pos [u_Hd] K K) (* If we are not in position 0 we continue *)
+                (Pair (seq [u_Hd]) (R (pos [u_Tl]) prefix (seq [u_Tl])))
+                (* We have reached the position, we better merge now *)
+                ((prefix [u_Hd] K K) 
+                (* If we have some base left in the sequence that we will insert
+                * *)
+                    (Pair (prefix [u_Tl] [u_Hd]) (R pos (prefix [u_Tl] [u_Tl])
+                    seq))
+                    (* Otherwise we have finished inserting *)
+                    seq)))
+            (LS R pos prefix seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
+    let affine_delete =
+        let tmp =
+            S_K.create
+            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion pos *)
+                (R (pos [u_Tl]) len seq)
+                (* If we have reached the deletion pos *)
+                ((len [u_Hd] K K) (* We still have something more to del *)
+                    (R pos (len [u_Tl]) (seq [u_Tl]))
+                    (* We are done with the deletion *)
+                    seq)))
+            (LS R pos len seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
+    let affine_substitution =
+        let tmp =
+            S_K.create
+            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion position *)
+                (R (pos [u_Tl]) repl seq)
+                (* We have reached the deletion position *)
+                ((repl [u_Hd] K K) (* Still some more to substitute *)
+                    (Pair (repl [u_Tl] [u_Hd]) (R pos (repl [u_Tl] [u_Tl]) (seq
+                    [u_Tl])))
+                    (* Nothing else to substitute *)
+                    seq)))
+            (LS R pos repl seq)
+        in
+        S_K.expand (SK (Fixedpoint [tmp]))
+
+    (* A encoded is made of pairs in the following way:
+        * (Pair K (Pair encoded encoded))
+        * (Pair (K S) Result)
+        * Where left (K) or right (S K) of the right element represent the
+        * actual path to be followed from the list. *)
+    let decoder simplified =
+        let next_encoder = (SK ((encoder [u_Tl]) (lst [u_Hd]))) in
+        let decoder_recursion =
+            S_K.create 
+            (SK ([next_encoder] [u_Hd] K K (R (lst [u_Tl]) [next_encoder]) 
+            [if simplified then
+                (SK ([next_encoder] [u_Tl]))
+            else
+                (SK (Pair ([next_encoder] [u_Tl]) (lst [u_Tl])))]))
+            (LS R lst encoder)
+        in
+        S_K.expand (SK (Fixedpoint [decoder_recursion]))
+
+    let rec make_encoder tree leafs =
+        match tree with
+        | `Node [a; b] -> 
+                (SK (Pair K (Pair [make_encoder a leafs] [make_encoder b
+                leafs])))
+        | `Label x -> 
+                (SK (Pair (K S) [try (List.assoc x leafs) with Not_found ->
+                    tree]))
+        | `S -> (SK (Pair (K S) S))
+        | `K -> (SK (Pair (K S) K))
+        | `Node _ -> failwith "Illegal encoder: each node must have two leafs"
+
+    (* An example of encoder and decoder usage *)
+    let encoder_example = make_encoder (SK (substitute (delete insert))) []
+
+    let result_example = 
+        let decoder = S_K.expand (decoder false) in
+        S_K.reduce (S_K.expand (SK (([decoder] [(SKLS (S K) (S K))] [encoder_example])
+        [u_Hd])))
+
+    (* Each function is specified the number of items that need to be read. The
+    * accumulator for all the calculations is always the last item to be added.
+    * As the number of arguments is so small, we are better off specifying them
+    * in the simplest way, not using the logarithmic, but the standard notation.
+    * 
+    * So our representation consists of a list of items that are read one after
+    * the other and are fed to the encoder and the sequence representation.
+    * *)
+
+    (* The following concept:
+        * fun f_apply decoder acc list =
+            * fun apply acc list =
+                * if list is empty then acc
+                * else apply (acc (hd list)) (tl list) 
+            * in
+    *         ((apply (decoder (hd list)) (tl list)) acc)
+    *  In order to use it, we need to have a tree (made of pairs) of the following 
+    *  form:
+        *  (encoded_function, list_of_arguments)
+        *  Where the list of arguments is
+        *  (K, (Argument, list_of_arguments))
+        *  ((K S), (K S)) if we have reach the end of the arguments.
+    *         *)
+    let f_apply =
+        let apply =
+            let tmp =
+                S_K.create
+                (SK ((lst [u_Hd] K K) (R (acc (lst [u_Tl] [u_Hd])) (lst [u_Tl]
+                [u_Tl])) acc))
+                (LS R acc lst)
+            in
+            S_K.create (SK (Fixedpoint [tmp])) []
+        in
+        S_K.create (SK (([apply] ([decoder false] (lst [u_Hd]) encoder  [u_Hd]) (lst [u_Tl])) acc)) 
+        (LS acc encoder lst)
+
+    (* An example using it: 
+    let () = 
+        let r =  
+            S_K.eval (SK ([f_apply] [SKLS [adenine]] [make_encoder (SK (Delete
+            (Insert Substitute))) ["Delete", delete; "Insert", insert; "Substitute",
+            substitute]] [SKLS [SKLS K] K EmptyList])) in
+        ()
+    *)
+
+    let swap = S_K.create (SK (a b)) (LS b a)
+
+    (* Now we can define the edition of sequences using a composition of
+    * editions. In other words, we don't need to specify the absolute position
+    * of a base for a deletion, but we can specify the relative position from
+    * the previous edition. This could produce a gain if the editions are dense
+    * enough. To do this, we will define another function similar to the
+    * [f_apply] that we just defined. *)
+
+    let apply_list_of_functions_on_accumulator =
+        let recursion = 
+            S_K.create
+            (SK ((todo [u_Hd] K K)  (* We are not done yet *)
+                ([decoder true] (todo [u_Tl] [u_Hd]) encoder R acc encoder 
+                (todo [u_Tl] [u_Tl]))
+                (acc)))
+            (LS R acc encoder todo)
+        in
+        S_K.expand (SK (Fixedpoint [recursion]))
+
+    let insert_composable = 
+        let insert_composable =
+            until_zero_recursions
+            (LS R Continue pos base seq encoder todo)
+            (SK pos)
+            (SK (Pair base (Continue seq encoder todo)))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
+            encoder todo)))
+        in
+        let pos = SK (DecodeInt (todo [u_Hd]))
+        and base = SK (todo [u_Tl] [u_Hd]) 
+        and rest = SK (todo [u_Tl] [u_Tl]) in
+        S_K.create
+        (SK ([insert_composable] Continue [pos] [base] seq encoder [rest]))
+        (LS Continue seq encoder todo)
+
+    let delete_composable =
+        let delete_composable = 
+            until_zero_recursions
+            (LS R Continue pos seq encoder todo)
+            (SK pos)
+            (SK (Continue (seq [u_Tl]) encoder todo))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) (seq [u_Tl]) encoder
+            todo)))
+        in
+        let pos = SK (DecodeInt (todo [u_Hd]))
+        and rest = SK (todo [u_Tl]) in
+        S_K.create
+        (SK ([delete_composable] Continue [pos] seq encoder [rest])) 
+        (LS Continue seq encoder todo)
+
+    let substitute_composable =
+        let substitute_composable = 
+            until_zero_recursions
+            (LS R Continue pos base seq encoder todo)
+            (SK pos)
+            (SK (Pair base (Continue (seq [u_Tl]) encoder todo)))
+            (SK (Pair (seq [u_Hd]) (R Continue (pos [u_Tl]) base (seq [u_Tl])
+            encoder todo)))
+        in
+        let pos = SK (DecodeInt (todo [u_Hd]))
+        and base = SK (todo [u_Tl] [u_Hd]) 
+        and rest = SK (todo [u_Tl] [u_Tl]) in
+        S_K.create
+        (SK ([substitute_composable] Continue [pos] [base] seq encoder [rest]))
+        (LS Continue seq encoder todo)
+
+    (* Now take a list of elements that can be passed to [lst] of f_apply and
+    * apply on each one of the [f_apply]. This way we can perform a row of edits
+    * in an accumulator that is passed around constantly. *)
+    let f_edit =
+        let tmp = S_K.create
+            (SK ((lst [u_Hd] K K) 
+            (R encoder (lst [u_Tl] [u_Tl]) ([f_apply] acc encoder (lst [u_Tl]
+            [u_Hd]))) acc)) 
+            (LS R encoder lst acc)
+        in
+        S_K.create (SK (Fixedpoint [tmp])) []
+
+    (* We are almost there, let's make a function that encodes an integer in
+    * it's logarithmic binary representation *)
+    let encode_in_log int =
+        let rec encode_in_log int acc =
+            if int = 0 then acc
+            else 
+                encode_in_log (int lsr 1)
+                (SK (Pair [if 1 = (1 land int) then (SK K) else (SK (S K))]
+                [acc]))
+        in
+        if int < 0 then failwith "Illegal argument"
+        else encode_in_log int (SK EmptyList)
+
+    (* Finally we can do things with sequences *)
+    let pm_encodings = 
+        make_encoder 
+        (SK (substitute (delete insert)))
+        ["substitute", substitute; "delete", delete; "insert", insert]
+
+    let adenine = SK (Pair K K)
+    let citosine = SK (Pair K (S K))
+    let guanine = SK (Pair (S K) K)
+    let timine = SK (Pair (S K) (S K))
+
+    (* An example using the previous composable edition functions  *)
+    let () =
+        let do_test = false in
+        if do_test then
+            let encoder = 
+               make_encoder (SK (substitute (insert delete)))
+               ["substitute", substitute_composable; "delete", delete_composable;
+               "insert", insert_composable] 
+            in
+            let todo = 
+                SKLS K [SKLS K] [encode_in_log 0] [timine] K [SKLS (S K) (S K)]
+                [encode_in_log 1]
+            in
+            let seq = SKLS [adenine] [guanine] [guanine] [guanine] in
+            let res = 
+                S_K.eval 
+                (SK ([apply_list_of_functions_on_accumulator] 
+                [seq] [encoder] [todo]))
+            in 
+            print_endline (S_K.to_string res)
+        else ()
+
+    let create_sequence a =
+        let pair = `Label "Pair" in
+        let merge a b = `Node [pair; a; b] in
+        let rec prepend pos acc =
+            if pos < 0 then acc
+            else 
+                let npos = pos - 1 in
+                match a.[pos] with
+                | 'A' | 'a' -> prepend npos (merge adenine acc)
+                | 'C' | 'c' -> prepend npos (merge citosine acc)
+                | 'G' | 'g' -> prepend npos (merge guanine acc)
+                | 'T' | 't' -> prepend npos (merge timine acc)
+                | _ -> prepend npos acc
+        in
+        prepend ((String.length a) - 1) (`Label "EmptyList")
+
+    let generate_machine_from_alignment a b =
+        (* We want to produce a machine that given the sequence [a] produces as
+        * output the sequence [b]. *)
+        assert ((String.length a) = (String.length b));
+        let max = String.length a in
+        let base = function
+            | 'A' -> adenine
+            | 'C' -> citosine
+            | 'G' -> guanine
+            | 'T' | 'U' -> timine
+            | '_' -> `Label "Emptylist"
+            | _ -> failwith "Illegal DNA sequence"
+        in
+        let rec compare_and_generate_edition delta position =
+            if max = position then []
+            else if a.[position] = b.[position] then 
+                compare_and_generate_edition (delta + 1) (position + 1)
+            else 
+                let npos = position + 1 
+                and deltap = encode_in_log delta 
+                and basep = base b.[position] in
+                if a.[position] = '_' then
+                    (SK K) :: (SKLS (S K) K) :: deltap :: basep ::
+                        compare_and_generate_edition 0 npos
+                else if b.[position] = '_' then
+                    (SK K) :: (SKLS (S K) (S K)) :: deltap ::
+                        compare_and_generate_edition 0 npos
+                else 
+                    (SK K) :: (SKLS K) :: deltap :: basep ::
+                        compare_and_generate_edition 0 npos
+        in
+        let pair = `Label "Pair" in
+        let rec produce_list_expression lst = 
+            match lst with
+            | h :: t -> `Node [pair; h; produce_list_expression t]
+            | [] -> `Label "EmptyList"
+        in
+        produce_list_expression (compare_and_generate_edition 0 0) 
 
 end
