@@ -39,7 +39,10 @@
 //decent values (time/accuracy) for gamma calculations
 #define STEP 1e-4     //for numerical integration
 #define EPSILON 1e-5  //error for numerical calculations
+#define ML_ptr(v)   ((struct ml**)Data_custom_val(a))
 #define ML_val(v) (*((struct ml**)Data_custom_val(v)))
+
+#define CAML_ALLOC_2 1000000
 typedef struct ml mll; 
 
 //------------------------------------------------------------------------------
@@ -59,15 +62,15 @@ typedef struct ml mll;
 
 /*  printline  */
 //#define CHECK_MEM(a) if(a==NULL) printf("I can't allocate more memory. %d",__LINE__)
-#define CHECK_POSITIVE(a,n); int Z;for(Z=0;Z<n;Z++){ if( a[Z] < -EPSILON){ printf("Negative Likelihood :: %f\n",a[Z]);} }
-#define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON){ printf("Imaginary eigenvalue :: %f\n", a[Z]); } }
-#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
+//#define CHECK_POSITIVE(a,n); int Z;for(Z=0;Z<n;Z++){ if( a[Z] < -EPSILON){ printf("Negative Likelihood :: %f\n",a[Z]);} }
+//#define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON){ printf("Imaginary eigenvalue :: %f\n", a[Z]); } }
+//#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
 
 /*  no action  */
 //#define CHECK_MEM(a);
-//#define CHECK_POSITIVE(a,n);
-//#define CHECK_ZEROES(a,n);
-//#define CHECK_MEAN(a,b);
+#define CHECK_POSITIVE(a,n);
+#define CHECK_ZEROES(a,n);
+#define CHECK_MEAN(a,b);
 //------------------------------------------------------------------------------
 
 /** 
@@ -187,14 +190,13 @@ void likelihood_CAML_free( value v )
     mll* val;
     val = ML_val(v);
     free (val->lv_s);
-    return;
+    free (val);
 }
 
 /* serialization of struct ml */
 void
 likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_64)
 {
-    CAMLparam1(v);
     mll* s;
     s = ML_val(v);
     caml_serialize_int_4( s->stride );
@@ -202,7 +204,6 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
     int i,j=s->stride*s->c_len;
     for(i=0;i<j;++i)
         caml_serialize_float_8( s->lv_s[i] );
-    CAMLreturn0;
 }
 
 /* deserialization of struct ml */
@@ -232,6 +233,15 @@ static struct custom_operations likelihood_custom_operations  = {
     (&likelihood_CAML_serialize),   //serialize
     (&likelihood_CAML_deserialize)  //deserialize
 };
+
+/* registration with ocaml GC */
+value 
+likelihood_CAML_register (value u) {
+    CAMLparam1(u);
+    register_custom_operations (&likelihood_custom_operations);
+    CAMLreturn (Val_unit);
+}
+
 
 /**  [mk_diag diag mat n m] ~ makes a diagonal matrix from an array
  * Places the [m] elements of [diag] along diagonal of [mat] with [n] cols
@@ -345,7 +355,7 @@ apply_exp(double* D, const int n, const int m, const double t)
  *  convert struct ml to a bigarray.array2
  */
 value StoBigarray( const mll* charss )
-{
+{ //not used
     CAMLlocal1( res );
     long dims[2];
     dims[0] = charss->c_len;
@@ -359,11 +369,15 @@ value likelihood_CAML_StoBigarray( value s )
     CAMLlocal1( res );
     mll* work;
     long dims[2];
+    double *newone;
 
     work = ML_val( s );
     dims[0] = work->c_len;
     dims[1] = work->stride;
-    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,2,work->lv_s,dims);
+    newone = (double*) malloc( dims[0] * dims[1] * sizeof(double));
+    memcpy(newone,work->lv_s, dims[0] * dims[1] * sizeof(double));
+
+    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,2,newone,dims);
     CAMLreturn( res );
 }
 
@@ -374,19 +388,26 @@ value likelihood_CAML_BigarraytoS( value A )
 {
     CAMLparam1( A );
     CAMLlocal1( s );
-    double* stuff;
+    double *stuff,*o_stuff;
     mll* ret;
 
-    s = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 0, 1); 
+    o_stuff = (double*) Data_bigarray_val( A );
+
     ret = (mll*) malloc( sizeof(mll));
     CHECK_MEM(ret);
-    ML_val(s) = ret;
-    stuff = (double*) Data_bigarray_val( A );
-
     ret->c_len = Bigarray_val(A)->dim[0];
     ret->stride = Bigarray_val(A)->dim[1];
+
+    s = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
+            ret->c_len*ret->stride, CAML_ALLOC_2); 
+    ML_val(s) = ret;
+
+    stuff = (double*) malloc( ret->c_len * ret->stride * sizeof(double));
+    CHECK_MEM(stuff);
+    memcpy( stuff, o_stuff, ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = stuff;
 
+    assert( ML_val(s) == ret);
     CAMLreturn( s ); 
 }
 
@@ -417,10 +438,13 @@ value likelihood_CAML_filter(value as, value ibs)
     for(;i<m;++i)
         area[i] = norm->lv_s[i];
 
-    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 0, 1);
+    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
+                                                    (n-m)*norm->stride, CAML_ALLOC_2);
     ret = ML_val( package );
     ret->stride = norm->stride;
     ret->c_len = norm->c_len - m;
+
+    assert( ret == ML_val(package));
     CAMLreturn( package );
 }
 
@@ -448,7 +472,6 @@ int compare_chars( const mll* c1, const mll* c2)
 
 int likelihood_CAML_compare( value c1, value c2 )
 {
-    CAMLparam2( c1, c2 );
     mll *ccs1,*ccs2;
     int i;
     ccs1 = ML_val(c1);
@@ -490,8 +513,7 @@ double gamma_pdf(const double r, const double alpha, const double beta)
 /** [gamma_pp out k alpha beta step]
  * Finds the cut points, into [out], that create fractions of the percent total
  */
-void
-gamma_pp(double* out,const int k,const double alpha,const double beta)
+void gamma_pp(double* out,const int k,const double alpha,const double beta)
 {
     double x,y1,y2,y,z,f; int i;
     x = STEP; y = 0; z = 0; f = STEP/2; //initial values; gamma_pdf(0) = inf
@@ -793,7 +815,8 @@ double loglikelihood( const mll* l, const double* p )
 
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and
- * [b] with the probability matrices [Pa] and [Pb], respectively.
+ * [b] with the probability matrices [Pa] and [Pb], respectively, and gamma
+ * rate [r].
  */
 void
 median_charset(const double* Pa,const double* Pb,
@@ -872,18 +895,23 @@ value likelihood_CAML_median_wrapped_sym
     a = ML_val( ml_a );
     b = ML_val( ml_b );
 
-    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 0, 1);
+    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
+                                                    a->stride*a->c_len, CAML_ALLOC_2);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
 
     c->stride = a->stride;
     c->c_len = a->c_len;
-    c->lv_s =  (double*) calloc( a->stride * a->c_len, sizeof(double));
+
+    assert( a->c_len == b->c_len );
+    assert( b->stride == a->stride );
+
+    c->lv_s = (double*) calloc( c->c_len * c->stride, sizeof(double));
     CHECK_MEM(c->lv_s);
-    PA = (double*) calloc( a->stride * a->stride, sizeof(double));
+    PA = (double*) calloc( c->stride * c->stride, sizeof(double));
     CHECK_MEM(PA);
-    PB = (double*) calloc( a->stride * b->stride, sizeof(double));
+    PB = (double*) calloc( c->stride * c->stride, sizeof(double));
     CHECK_MEM(PB);
 
     //below, used for less malloc calls in intermediary multiplications
@@ -904,6 +932,7 @@ value likelihood_CAML_median_wrapped_sym
         c->lv_s[i] = c->lv_s[i] / ((double) num_rates);
 
     free( PA ); free( PB ); free( tmp );
+    assert( c == ML_val(ml_c));
     CAMLreturn(ml_c);
 }
 
@@ -926,11 +955,16 @@ value likelihood_CAML_median_wrapped_gtr
     a = ML_val( ml_a );
     b = ML_val( ml_b );
 
-    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 0, 1);
+    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
+                                                    a->stride*a->c_len, CAML_ALLOC_2);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
-    c->lv_s = calloc(a->stride * a->c_len, sizeof(double)); 
+
+    assert( b->stride == a->stride );
+    assert( a->c_len == b->c_len );
+
+    c->lv_s = calloc(a->c_len * a->stride, sizeof(double)); 
     PA = (double*) calloc( a->stride * a->stride, sizeof(double));
     CHECK_MEM(PA);
     PB = (double*) calloc( b->stride * b->stride, sizeof(double));
@@ -952,6 +986,7 @@ value likelihood_CAML_median_wrapped_gtr
         c->lv_s[i] = c->lv_s[i] / ((double) num_rates);
 
     free( PA ); free( PB ); free( tmp );
+    assert( c == ML_val(ml_c));
     CAMLreturn(ml_c);
 }
 
@@ -1029,5 +1064,48 @@ likelihood_CAML_compose_gtr(value U, value D, value Ui, value t)
     res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT, 2, c_P, dims);
     CAMLreturn( res );
 }
+ /*
+ ** [readjust_walk U D Ui a b ta tb o_mle]
+ * readjusts the branch lengths [ta] and [tb] of sequences [a] and [b] to get a
+ * better likelihood score then [o_mle]. results are returned in [ta],[tb],and 
+ * [o_mle] as the new branch lengths and new mle score when [true] is returned,
+ * or the same values when [false] is returned (and they can be ignored).
+ *
+int
+readjust_walk_gtr(const double* U,const double* D,const double* Ui,
+                   const mll* a, const mll* b,double ta,double tb,double o_mle)
+{
+    double b_mle,*PA,*PB,*tmp;
+
+    PA = (double*) malloc( sizeof(U));
+    PB = (double*) malloc( sizeof(U));
+    tmp = (double*) malloc( sizeof(U));
+    //check north
+    compose_gtr(PA,U,D,Ui,ta,a->stride,tmp);
+    {
+        compose_gtr(PB,U,D,Ui,tb+STEP,b->stride,tmp);
+        median_charset(PA,PB,a,b, );
+    }
+    //check south
+    {
+        compose_gtr(PB,U,D,Ui,tb-STEP,b->stride,tmp);
+        median_charset(PA,PB,a,b, );
+    }
+
+    compose_gtr(PB,U,D,Ui,tb,b->stride,tmp);
+    //check east
+    { 
+        compose_gtr(PA,U,D,Ui,ta-STEP,a->stride,tmp);
+        median_charset(PA,PB,a,b, );
+    }
+    //check west
+    {
+        compose_gtr(PA,U,D,Ui,ta+STEP,a->stride,tmp);
+        median_charset(PA,PB,a,b, );
+    }
+}
+
+*/
+
 
 #endif /* USE_LIKELIHOOD */

@@ -66,7 +66,7 @@ void likelihood_CAML_free_likelihood( value v );
 int likelihood_CAML_compare( value a,value b );
 void likelihood_CAML_serialize(value v, unsigned long* wsize_32, unsigned long* wsize_64);
 unsigned long likelihood_CAML_deserialize( void* dst );
-
+value likelihood_CAML_register (value u0);
 /**
  * help functions...
  */
