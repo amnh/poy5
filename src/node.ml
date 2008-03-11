@@ -719,10 +719,16 @@ let get_dynamic =
     get_characters_of_type 
     (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
     `Dynamic
-let get_mlstatic = 
-    get_characters_of_type 
-    (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
-    `StaticML
+
+IFDEF USE_LIKELIHOOD THEN
+    let get_mlstatic = 
+        get_characters_of_type 
+            (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
+            `StaticML
+ELSE
+    let get_mlstatic x = []
+END
+
 let get_set = 
     get_characters_of_type 
     (function Set x -> x.preliminary, x.final | _ -> assert false)
@@ -3080,11 +3086,15 @@ let compare_downpass = compare_data_preliminary
 let set_node_cost a b = { b with node_cost = a }
 
 let extract_time nd = 
-    let rec t_filter chs = match chs with
-        | [] -> []
-        | StaticMl a :: ttail -> a.time :: t_filter ttail
-        | _ :: ttail -> t_filter ttail in
-    let lst = nd.characters in t_filter lst 
+    IFDEF USE_LIKELIHOOD THEN
+        let rec t_filter chs = match chs with
+            | [] -> []
+            | StaticMl a :: ttail -> a.time :: t_filter ttail
+            | _ :: ttail -> t_filter ttail in
+        let lst = nd.characters in t_filter lst 
+    ELSE
+        []
+    END
 
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data = 
@@ -3163,7 +3173,7 @@ let total_cost_of_type t n =
            IFDEF USE_LIKELIHOOD THEN
             acc +. (x.cost)
            ELSE
-            failwlith likelihood_error
+            failwith likelihood_error
            END
         | Dynamic x, t -> 
                 (match x.preliminary, t with
