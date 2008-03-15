@@ -447,92 +447,435 @@ module PM = struct
     let u_Tl = SK (S K)
     let u_Hd = SK K
 
-    let until_zero_recursions lst pos if_zero if_not_zero =
-        let simple_recursion =
-            S_K.create (SK ([pos] [u_Hd] K K [if_not_zero] [if_zero])) 
-            lst
-        in
-        S_K.expand (SK (Fixedpoint [simple_recursion]))
+    exception Unsupported
 
-    (* These functions accept atomic operations *)
-    let insert = 
-        until_zero_recursions 
-        (LS R pos base seq) 
-        (SK pos) 
-        (SK (Pair base seq))
-        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
+    module type List = sig
+        type ocaml_repr
+        type ocaml_list
+        val empty_list : S_K.primitives
+        val is_not_empty : S_K.primitives -> S_K.primitives
+        val ml_zero_signal : S_K.primitives -> bool
+        val head : S_K.primitives -> S_K.primitives
+        val tail : S_K.primitives -> S_K.primitives
+        val prepend : S_K.primitives -> S_K.primitives -> S_K.primitives
+        val alphabet : (S_K.primitives * ocaml_repr) list
+        val to_ocaml : S_K.primitives -> ocaml_repr
+        val of_ocaml : ocaml_repr -> S_K.primitives
+        val to_list : S_K.primitives -> ocaml_list
+        val of_list : ocaml_list -> S_K.primitives
+        val complement : S_K.primitives -> S_K.primitives
+    end
 
-    let delete = 
-        until_zero_recursions
-        (LS R pos seq)
-        (SK pos)
-        (SK (seq [u_Tl]))
-        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) (seq [u_Tl]))))
+    module K_S : List with type ocaml_repr = [ `K | `SK] 
+    with type ocaml_list = [`K | `SK] list = struct
+            type ocaml_repr = [ `K | `SK ]
+            type ocaml_list = ocaml_repr list
+            let empty_list = SK (Pair (K S) K)
+            let is_not_empty x = SK ([x] [u_Hd] K K)
+            let ml_zero_signal x = (SK (K S)) = S_K.eval (SK ([x] [u_Hd]))
+            let head x = SK ([x] [u_Hd])
+            let tail x = SK ([x] [u_Tl])
+            let prepend a b = SK (Pair [a] [b])
+            let alphabet = [`K, `K; (SK (S K)), `SK]
+            let inv_alph = List.map (fun (a, b) -> (b, a)) alphabet
+            let to_ocaml a = 
+                let a = S_K.eval a in
+                List.assoc a alphabet
+            let of_ocaml a = List.assoc a inv_alph
+            let to_list lst = 
+                let rec to_list lst =
+                    if not (ml_zero_signal lst) then 
+                        let next = to_ocaml (S_K.eval (head lst)) in
+                        next :: (to_list (S_K.eval (tail lst)))
+                    else []
+                in
+                to_list (S_K.eval lst) 
+            let rec of_list lst = 
+                List.fold_right (fun x acc ->
+                    prepend (of_ocaml x) acc) lst empty_list
+            let complement x = SK ([x] (S K) K)
+    end
 
-    let substitute =
-        until_zero_recursions
-        (LS R pos base seq)
-        (SK pos)
-        (SK (Pair base (seq [u_Tl])))
-        (SK (Pair (seq [u_Hd]) (R (pos [u_Tl]) base (seq [u_Tl]))))
 
-    (* Now we convert the previous three functions to accept an encoded integer
-    * in logarithmic space *)
+    module type Integer = sig
+        val zero : S_K.primitives
+        val not_zero : S_K.primitives -> S_K.primitives
+        val ml_zero_signal : S_K.primitives -> bool
+        val predecessor : S_K.primitives -> S_K.primitives
+        val successor : S_K.primitives -> S_K.primitives
+        val to_int : S_K.primitives -> int
+        val of_int : int -> S_K.primitives
+    end
+
+    module ChurchIntegers : Integer = struct
+        (* A representation of integers using Church's original list
+        * representation with as many K as there can be *)
+        let zero = S_K.eval (SK (Pair (K S) K))
+        let not_zero x = S_K.eval (SK ([x] [u_Hd] K K))
+        let ml_zero_signal x = 
+           (SK (S K)) = S_K.eval (SK ([x] [u_Hd] K K))
+        let predecessor x = SK ([x] [u_Tl])
+        let successor x = SK (Pair K [x])
+        let to_int a = 
+            let rec aux_to_int acc a =
+                if ml_zero_signal a then acc
+                else aux_to_int (acc + 1) (predecessor a)
+            in
+            aux_to_int 0 a
+        let of_int a = 
+            let rec aux_of_int acc a =
+                if a = 0 then acc
+                else aux_of_int (successor acc) (a - 1)
+            in
+            S_K.eval (aux_of_int zero a)
+    end
+
+    module Dna : List with type ocaml_repr = string with type ocaml_list =
+        string list = struct
+        (* A representation of DNA sequences *)
+        type ocaml_repr = string
+        type ocaml_list = string list
+        let empty_list = S_K.eval (SK (Pair (Pair (K S)  K) K))
+        let is_not_empty x = (SK ([x] [u_Hd] [u_Hd] K K))
+        let ml_zero_signal x = 
+           (SK (K S)) = S_K.eval (SK ([x] [u_Hd] [u_Hd]))
+        let head x = SK ([x] [u_Hd])
+        let tail x = SK ([x] [u_Tl])
+        let prepend x y = SK (Pair [x] [y])
+        let alphabet = 
+            List.map (fun (a, b) -> S_K.eval a, b)
+            [(SK (Pair K K), "A"); (SK (Pair K (S K)), "C"); 
+            (SK (Pair (S K) K), "G"); (SK (Pair (S K) (S K)), "T")]
+        let inv_alph = List.map (fun (a, b) -> (b, a)) alphabet
+        let to_ocaml a = 
+            match S_K.eval (SK (Hd [a])), S_K.eval (SK (Tl [a])) with
+            | `K, `K -> "A"
+            | `K, `Node [`S; `K] -> "C"
+            | `Node [`S; `K], `K -> "G"
+            | `Node [`S; `K], `Node [`S; `K] -> "T"
+            | _ -> raise Not_found
+
+        let of_ocaml a = List.assoc a inv_alph
+        let complement x =
+            let negate n = S_K.eval (SK ([x] [n] (S K) K)) in
+            let a = negate u_Hd
+            and b = negate u_Tl in
+            S_K.eval (SK (Pair [a] [b]))
+        let to_list lst = 
+            let rec to_list lst =
+                if not (ml_zero_signal lst) then 
+                    let next = to_ocaml (S_K.eval (head lst)) in
+                    next :: (to_list (S_K.eval (tail lst)))
+                else []
+            in
+            to_list (S_K.eval lst) 
+        let rec of_list lst = 
+            List.fold_right (fun x acc ->
+                prepend (of_ocaml x) acc) lst empty_list
+    end
+
+    module Debugger (R : List) = struct
+        let rec string_list (lst : S_K.primitives) =
+            if R.ml_zero_signal lst then 
+                (R.to_ocaml (S_K.eval (R.head lst))) :: 
+                    string_list (S_K.eval (R.tail lst))
+            else []
+    end
+
+    module type SE = sig 
+        val insert : S_K.primitives
+        val delete : S_K.primitives
+        val substitute : S_K.primitives
+        type insert_generator 
+        type delete_generator 
+        type substitute_generator
+        val insert_generator : insert_generator
+        val delete_generator : delete_generator
+        val substitute_generator : substitute_generator
+        (*
+        val functions_provided : (string * string * S_K.primitives) list
+        val machine_description : string
+        *)
+    end
+
+    module AtomicSE (I : Integer) (S : List) : SE 
+        with type insert_generator = int -> S.ocaml_repr -> S_K.primitives
+        with type delete_generator = int -> S_K.primitives
+        with type substitute_generator = int -> S.ocaml_repr -> S_K.primitives 
+        = struct
+        let until_zero_recursions lst pos if_zero if_not_zero =
+            let simple_recursion =
+                S_K.create (SK 
+                    ([I.not_zero (SK pos)]
+                        [if_not_zero] 
+                        [if_zero])) 
+                lst
+            in
+            S_K.expand (SK (Fixedpoint [simple_recursion]))
+        (* These functions accept atomic operations *)
+        let insert = 
+            until_zero_recursions
+            (LS R pos base seq)
+            (SK pos)
+            (S.prepend (SK base) (SK seq))
+            (S.prepend (S.head (SK seq))
+            (SK (R [I.predecessor (SK pos)] base [S.tail (SK seq)])))
+
+        let delete = 
+            until_zero_recursions
+            (LS R pos seq)
+            (SK pos)
+            (S.tail (SK seq))
+            (S.prepend 
+                (S.head (SK seq)) 
+                (SK (R [I.predecessor (SK pos)] [S.tail (SK seq)])))
+
+        let substitute =
+            until_zero_recursions
+            (LS R pos base seq)
+            (SK pos)
+            (S.prepend (SK base) (S.tail (SK seq)))
+            (S.prepend (S.head (SK seq))
+                (SK (R [I.predecessor (SK pos)] base [S.tail (SK seq)])))
+
+        type insert_generator = int -> S.ocaml_repr -> S_K.primitives
+        type delete_generator = int -> S_K.primitives
+        type substitute_generator = int -> S.ocaml_repr -> S_K.primitives
+
+        let insert_generator pos base = 
+            SK ([insert] [I.of_int pos] [S.of_ocaml base])
+
+        let delete_generator pos =
+            SK ([delete] [I.of_int pos])
+
+        let substitute_generator pos base =
+            SK ([substitute] [I.of_int pos] [S.of_ocaml base])
+    end
+
+    module AffineSE (I : Integer) (S : List) : SE 
+        with type insert_generator = int -> S_K.primitives
+        with type delete_generator = int -> int ->  S_K.primitives
+        with type substitute_generator = int -> S_K.primitives
+        = struct
+        (* The following are atomic affine editions *)
+        let insert = 
+            (* Instead of passing a single base, we will pass a
+            complete sequence to this function *)
+            let tmp = 
+                S_K.create 
+                (SK ([I.not_zero (SK pos)]
+                    (* If we are not in position 0 we continue *)
+                    [S.prepend (S.head (SK seq)) 
+                        (SK (R [I.predecessor (SK pos)] prefix 
+                        [S.tail (SK seq)]))]
+                    (* We have reached the position, we better merge now *)
+                    ([S.is_not_empty (SK prefix)]
+                    (* If we have some base left in the sequence that we will 
+                    * insert *)
+                        [S.prepend (S.head (SK prefix)) 
+                            (SK (R pos [S.tail (SK prefix)] seq))]
+                            (* Otherwise we have finished inserting *)
+                            seq)))
+                (LS R pos prefix seq)
+            in
+            S_K.expand (SK (Fixedpoint [tmp]))
+
+        let delete =
+            let tmp =
+                S_K.create
+                (SK ([I.not_zero (SK pos)] 
+                    (* If we haven't reached the deletion pos *)
+                    [S.prepend (S.head (SK seq))
+                        (SK (R [I.predecessor (SK pos)] len 
+                            [S.tail (SK seq)]))]
+                    (* If we have reached the deletion pos *)
+                    ([I.not_zero (SK len)]
+                        (* We still have something more to del *)
+                        (R pos [I.predecessor (SK len)] [S.tail (SK seq)])
+                        (* We are done with the deletion *)
+                        seq)))
+                (LS R pos len seq)
+            in
+            S_K.expand (SK (Fixedpoint [tmp]))
+
+        let substitute =
+            let tmp =
+                S_K.create
+                (SK ([I.not_zero (SK pos)] 
+                (* If we haven't reached the deletion position *)
+                    [S.prepend (S.head (SK seq)) 
+                    (SK (R [I.predecessor (SK pos)] repl [S.tail (SK seq)]))]
+                    (* We have reached the deletion position *)
+                    ([S.is_not_empty (SK repl)] 
+                        (* Still some more to substitute *)
+                        [S.prepend (S.head (SK repl))
+                        (SK (R pos [S.tail (SK repl)] [S.tail (SK seq)]))]
+                        (* Nothing else to substitute *)
+                        seq)))
+                (LS R pos repl seq)
+            in
+            S_K.expand (SK (Fixedpoint [tmp]))
+
+        type insert_generator = int -> S_K.primitives 
+        type delete_generator = int -> int -> S_K.primitives
+        type substitute_generator = int -> S_K.primitives 
+
+        let insert_generator pos = 
+            SK ([insert] [I.of_int pos])
+
+        let delete_generator pos len =
+            SK ([delete] [I.of_int pos] [I.of_int len])
+
+        let substitute_generator pos =
+            SK ([substitute] [I.of_int pos])
+    end
+
     let convert_to_log_position x = 
         S_K.expand (S_K.create (SK ([x] (DecodeInt pos))) (LS pos))
 
-    let insert = convert_to_log_position insert
-    let delete = convert_to_log_position delete
-    let substitute = convert_to_log_position substitute
+    (* We are almost there, let's make a function that encodes an integer in
+    * it's logarithmic binary representation *)
+    let encode_in_log int =
+        let rec encode_in_log int acc =
+            if int = 0 then acc
+            else 
+                encode_in_log (int lsr 1)
+                (SK (Pair [if 1 = (1 land int) then (SK K) else (SK (S K))]
+                [acc]))
+        in
+        if int < 0 then failwith "Illegal argument"
+        else encode_in_log int (SK EmptyList)
 
-    (* The following are atomic affine editions *)
-    let affine_insert = 
-        (* Instead of passing a single base, we will pass a
-        complete sequence to this function *)
-        let tmp = 
+    module AtomicSE_LogInts (S : SE) : SE
+        with type insert_generator = int -> S_K.primitives
+        with type delete_generator = int -> S_K.primitives
+        with type substitute_generator = int -> S_K.primitives 
+        = struct
+
+        let generic f = S_K.create (SK ([f] (DecodeInt pos))) (LS pos)
+        let insert = generic S.insert
+        let delete = generic S.delete
+        let substitute = generic S.substitute
+
+        type insert_generator = int -> S_K.primitives 
+        type delete_generator = int -> S_K.primitives
+        type substitute_generator = int -> S_K.primitives 
+
+        let insert_generator pos = 
+            SK ([insert] [encode_in_log pos])
+
+        let delete_generator pos =
+            SK ([delete] [encode_in_log pos])
+
+        let substitute_generator pos =
+            SK ([substitute] [encode_in_log pos])
+    end
+
+    module AffineSE_LogInts (S : SE) : SE 
+        with type insert_generator = int -> S_K.primitives
+        with type delete_generator = int -> int -> S_K.primitives
+        with type substitute_generator = int -> S_K.primitives 
+        = struct
+        let generic f = S_K.create (SK ([f] (DecodeInt pos))) (LS pos)
+        let insert = generic S.insert
+        let delete = 
+            S_K.create (SK ([S.delete] (DecodeInt pos) (DecodeInt len)))
+            (LS pos len)
+        let substitute = generic S.substitute
+
+        type insert_generator = int -> S_K.primitives 
+        type delete_generator = int -> int -> S_K.primitives
+        type substitute_generator = int -> S_K.primitives 
+
+        let insert_generator pos = 
+            SK ([insert] [encode_in_log pos])
+
+        let delete_generator pos len =
+            SK ([delete] [encode_in_log pos] 
+            [encode_in_log len])
+
+        let substitute_generator pos =
+            SK ([substitute] [encode_in_log pos])
+    end
+
+    module type HO = sig
+        include SE
+        val translocate : S_K.primitives
+        val invert : S_K.primitives
+        val duplicate : S_K.primitives
+        val tandem : S_K.primitives
+    end
+
+    module HighOrder (I : Integer) (S : List) : HO = 
+        struct
+        module Aff = AffineSE (I) (S)
+
+        include Aff 
+
+        let extract_subsequence =
+            let tmp =
+                S_K.create (SK ([I.not_zero (SK start)]
+                    (R [I.predecessor (SK start)] len [S.tail (SK seq)])
+                    ([I.not_zero (SK len)]
+                        ([S.prepend (S.head (SK seq)) 
+                            (SK (R [I.zero] [I.predecessor (SK len)] 
+                            [S.tail (SK seq)]))])
+                        [S.empty_list])))
+                (LS R start len seq)
+            in
+            S_K.create (SK (Fixedpoint [tmp])) []
+
+        let invert_seq = 
+            let tmp =
+                S_K.create 
+                (SK ([S.is_not_empty (SK seq)]
+                    (R ([S.prepend (S.complement (S.head (SK seq))) (SK acc)])
+                    ([S.tail (SK seq)]))
+                    acc))
+                (LS R acc seq)
+            in
+            S_K.create (SK (Fixedpoint [tmp])) []
+
+        let translocate =
+            S_K.create
+            (SK ([Aff.insert] ins_pos ([extract_subsequence] tran_pos len seq) 
+            ([Aff.delete] tran_pos len seq)))
+            (LS ins_pos tran_pos len seq)
+
+        let duplicate = 
+            S_K.create
+            (SK ([Aff.insert] ins_pos ([extract_subsequence] tran_pos len seq)
+            seq))
+            (LS ins_pos tran_pos len seq)
+
+        let invert =
             S_K.create 
-            (SK ((pos [u_Hd] K K) (* If we are not in position 0 we continue *)
-                (Pair (seq [u_Hd]) (R (pos [u_Tl]) prefix (seq [u_Tl])))
-                (* We have reached the position, we better merge now *)
-                ((prefix [u_Hd] K K) 
-                (* If we have some base left in the sequence that we will insert
-                * *)
-                    (Pair (prefix [u_Tl] [u_Hd]) (R pos (prefix [u_Tl] [u_Tl])
-                    seq))
-                    (* Otherwise we have finished inserting *)
-                    seq)))
-            (LS R pos prefix seq)
-        in
-        S_K.expand (SK (Fixedpoint [tmp]))
+            (SK ([Aff.insert] pos ([invert_seq] [S.empty_list] ([extract_subsequence]
+            pos len seq)) ([Aff.delete] pos len seq)))
+            (LS pos len seq)
 
-    let affine_delete =
-        let tmp =
-            S_K.create
-            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion pos *)
-                (R (pos [u_Tl]) len seq)
-                (* If we have reached the deletion pos *)
-                ((len [u_Hd] K K) (* We still have something more to del *)
-                    (R pos (len [u_Tl]) (seq [u_Tl]))
-                    (* We are done with the deletion *)
-                    seq)))
-            (LS R pos len seq)
-        in
-        S_K.expand (SK (Fixedpoint [tmp]))
+        let tandem =
+            let tmp =
+                S_K.create
+                (SK ([I.not_zero (SK rep)]
+                    ([duplicate] pos pos len (R [I.predecessor (SK rep)] pos len seq ))
+                    (seq)))
+                (LS R rep pos len seq)
+            in
+            S_K.create (SK (Fixedpoint [tmp])) []
 
-    let affine_substitution =
-        let tmp =
-            S_K.create
-            (SK ((pos [u_Hd] K K) (* If we haven't reached the deletion position *)
-                (R (pos [u_Tl]) repl seq)
-                (* We have reached the deletion position *)
-                ((repl [u_Hd] K K) (* Still some more to substitute *)
-                    (Pair (repl [u_Tl] [u_Hd]) (R pos (repl [u_Tl] [u_Tl]) (seq
-                    [u_Tl])))
-                    (* Nothing else to substitute *)
-                    seq)))
-            (LS R pos repl seq)
-        in
-        S_K.expand (SK (Fixedpoint [tmp]))
+
+    end
+(*
+    module Log = struct
+        (* Now we convert the previous three functions to accept an encoded integer
+        * in logarithmic space *)
+        let convert_to_log_position x = 
+            S_K.expand (S_K.create (SK ([x] (DecodeInt pos))) (LS pos))
+        let insert = convert_to_log_position insert
+        let delete = convert_to_log_position delete
+        let substitute = convert_to_log_position substitute
+    end
 
     (* A encoded is made of pairs in the following way:
         * (Pair K (Pair encoded encoded))
@@ -684,6 +1027,72 @@ module PM = struct
         (SK ([substitute_composable] Continue [pos] [base] seq encoder [rest]))
         (LS Continue seq encoder todo)
 
+    let is_not_empty_sequence x = SK ([x] [u_Hd] [u_Hd] K K)
+
+    let empty_sequence = SK (Pair EmptyList EmptyList)
+
+    (* A function to merge a pair of sequences. The only condition is that the
+    * empty sequence is represented by a pair of `Label "EmptySequence". *)
+    let merge_sequences =
+        let merge_recursive =
+            S_K.create
+            (SK ([is_not_empty_sequence (SK prefix)]
+            (* We have a base *)
+            (Pair (prefix [u_Hd]) (R (prefix [u_Tl]) sufix))
+            sufix))
+            (LS R prefix sufix) 
+        in
+        S_K.create (SK (Fixedpoint [merge_recursive])) []
+
+    let inversion_without_complement = (* A standard inversion function *)
+        let inversion_recursive =
+            S_K.create
+            (SK ([is_not_empty_sequence (SK original)]
+            (* We still have to continue inverting *)
+            (R (Pair (original [u_Hd]) result) (original [u_Tl]))
+            original))
+            (LS R result original)
+        in
+        S_K.create (SK (Fixedpoint [inversion_recursive])) []
+
+    let inversion_with_complement =
+        let complement_base x = 
+            SK (Pair (Not ([x] [u_Hd])) (Not ([x] [u_Tl])))
+        in
+        let inversion_recursive =
+            S_K.create
+            (SK ([is_not_empty_sequence (SK original)]
+            (* We still have to continue inverting *)
+            (R (Pair [complement_base (SK (original [u_Hd]))] result) 
+            (original [u_Tl])) original))
+            (LS R result original)
+        in
+        S_K.create (SK (Fixedpoint [inversion_recursive])) []
+
+    let extract_subsequence =
+        let extract_recursive =
+            S_K.create
+            (SK ((pos [u_Hd] K K) (* We are not in the 0 position of the
+            extraction *)
+                (R (pos [u_Tl]) len (seq [u_Tl]))
+                ((len [u_Hd] K K) (* We have more things to append *)
+                    (Pair (seq [u_Hd]) (R pos (len [u_Tl]) (seq [u_Tl])))
+                    [empty_sequence])))
+            (LS R pos len seq)
+        in
+        S_K.create (SK (Fixedpoint [extract_recursive])) []
+
+    let duplicate = 
+        S_K.create
+        (SK ([affine_insert] pos ([extract_subsequence] beg len seq) seq))
+        (LS pos beg len seq)
+
+    let translocate =
+        S_K.create
+        (SK ([affine_insert] pos ([extract_subsequence] beg len seq)
+        ([affine_delete] pos len seq)))
+        (LS pos beg len seq)
+
     (* Now take a list of elements that can be passed to [lst] of f_apply and
     * apply on each one of the [f_apply]. This way we can perform a row of edits
     * in an accumulator that is passed around constantly. *)
@@ -714,11 +1123,6 @@ module PM = struct
         make_encoder 
         (SK (substitute (delete insert)))
         ["substitute", substitute; "delete", delete; "insert", insert]
-
-    let adenine = SK (Pair K K)
-    let citosine = SK (Pair K (S K))
-    let guanine = SK (Pair (S K) K)
-    let timine = SK (Pair (S K) (S K))
 
     (* An example using the previous composable edition functions  *)
     let () =
@@ -756,38 +1160,39 @@ module PM = struct
                 | 'T' | 't' -> prepend npos (merge timine acc)
                 | _ -> prepend npos acc
         in
-        prepend ((String.length a) - 1) (`Label "EmptyList")
+        prepend ((String.length a) - 1) (SK (Pair EmptyList EmptyList))
 
-    let generate_machine_from_alignment a b =
+    let generate_editions_machine_from_alignment a b =
         (* We want to produce a machine that given the sequence [a] produces as
         * output the sequence [b]. *)
         assert ((String.length a) = (String.length b));
         let max = String.length a in
         let base = function
-            | 'A' -> adenine
-            | 'C' -> citosine
-            | 'G' -> guanine
-            | 'T' | 'U' -> timine
+            | 'A' | 'a' -> adenine
+            | 'C' | 'c' -> citosine
+            | 'G' | 'g' -> guanine
+            | 'T' | 'U' | 't' | 'u' -> timine
             | '_' -> `Label "Emptylist"
             | _ -> failwith "Illegal DNA sequence"
         in
         let rec compare_and_generate_edition delta position =
             if max = position then []
-            else if a.[position] = b.[position] then 
-                compare_and_generate_edition (delta + 1) (position + 1)
-            else 
-                let npos = position + 1 
-                and deltap = encode_in_log delta 
-                and basep = base b.[position] in
-                if a.[position] = '_' then
-                    (SK K) :: (SKLS (S K) K) :: deltap :: basep ::
-                        compare_and_generate_edition 0 npos
-                else if b.[position] = '_' then
-                    (SK K) :: (SKLS (S K) (S K)) :: deltap ::
-                        compare_and_generate_edition 0 npos
+            else
+                let npos = position + 1 in
+                if a.[position] = b.[position] then 
+                    compare_and_generate_edition (delta + 1) npos
                 else 
-                    (SK K) :: (SKLS K) :: deltap :: basep ::
-                        compare_and_generate_edition 0 npos
+                    let deltap = encode_in_log delta 
+                    and basep = base b.[position] in
+                    if a.[position] = '_' then
+                        (SK K) :: (SKLS (S K) K) :: deltap :: basep ::
+                            compare_and_generate_edition 0 npos
+                    else if b.[position] = '_' then
+                        (SK K) :: (SKLS (S K) (S K)) :: deltap ::
+                            compare_and_generate_edition 0 npos
+                    else 
+                        (SK K) :: (SKLS K) :: deltap :: basep ::
+                            compare_and_generate_edition 0 npos
         in
         let pair = `Label "Pair" in
         let rec produce_list_expression lst = 
@@ -796,5 +1201,49 @@ module PM = struct
             | [] -> `Label "EmptyList"
         in
         produce_list_expression (compare_and_generate_edition 0 0) 
+
+    let generate_alignment_machine a b =
+        let edition_machine = generate_editions_machine_from_alignment a b 
+        and accumulator = create_sequence a 
+        and encoder = 
+           make_encoder (SK (substitute (insert delete)))
+           ["substitute", substitute_composable; "delete", delete_composable;
+           "insert", insert_composable] 
+        in
+        S_K.expand (SK ([apply_list_of_functions_on_accumulator] [accumulator]
+        [encoder] [edition_machine]))
+
+    let generate_acc_and_edition_machine a b =
+        let edition_machine = generate_editions_machine_from_alignment a b 
+        and accumulator = create_sequence a in
+        S_K.expand edition_machine, S_K.expand accumulator
+
+
+    (* A tree is represented the same as before:
+        * An internal node
+        * (K ((left_tree, left_editions) (right_tree, right_editions))) 
+        * A leaf
+        * (EmptyList) *)
+    let process_tree =
+        let recursive_processor =
+            let left_editions = SK (tree [u_Tl] [u_Hd] [u_Tl])
+            and right_editions = SK (tree [u_Tl] [u_Tl] [u_Tl])
+            and left_tree = SK (tree [u_Tl] [u_Hd] [u_Hd])
+            and right_tree = SK (Tree [u_Tl] [u_Tl] [u_Hd]) in
+            S_K.create 
+            (SK ((tree [u_Hd] K K) 
+                (* We are in an interior node *)
+                (Pair K (Pair (R processor (processor acc encoder [left_editions])
+                encoder [left_tree]) (R processor (processor acc encoder [right_editions])
+                encoder [right_tree])))
+                (* No we are in a leaf *)
+                (Pair (K S) acc)))
+            (LS processor acc encoder tree)
+        in
+        S_K.create (SK (Fixedpoint [recursive_processor])) []
+
+    (* Now we should be able to take a POY diagnosis and generate the complete
+    * sequences, right? Let's give it a shot! *)
+*)
 
 end
