@@ -574,6 +574,33 @@ module PM = struct
                 prepend (of_ocaml x) acc) lst empty_list
     end
 
+    module Chromosome : List with type ocaml_repr = Dna.ocaml_list with type
+    ocaml_list = Dna.ocaml_list list = struct
+
+        type ocaml_repr = string list
+        type ocaml_list = string list list 
+
+        let empty_list = SK (Pair [Dna.empty_list] K)
+
+        let is_not_empty x = Dna.is_not_empty (SK ([x] [u_Hd]))
+
+        let ml_zero_signal x = Dna.ml_zero_signal (SK ([x] [u_Hd]))
+
+        let head x = SK ([x] [u_Hd])
+        let tail x = SK ([x] [u_Tl])
+        let prepend x y = SK (Pair [x] [y])
+        let alphabet = []
+        let to_ocaml item = Dna.to_list item
+        let of_ocaml lst = Dna.of_list lst
+        let rec to_list x = 
+            if ml_zero_signal x then []
+            else (to_ocaml (head x)) :: (to_list (tail x))
+        let of_list x =
+            List.fold_right (fun x acc ->
+                SK (Pair [of_ocaml x] [acc])) x empty_list
+        let complement _ = raise Unsupported
+    end
+
     module Debugger (R : List) = struct
         let rec string_list (lst : S_K.primitives) =
             if R.ml_zero_signal lst then 
@@ -806,6 +833,12 @@ module PM = struct
         val tandem : S_K.primitives
     end
 
+    module type GO = sig
+        include HO
+        val chr_translocation : S_K.primitives
+        val chr_crossover : S_K.primitives
+    end
+
     module HighOrder (I : Integer) (S : List) : HO = 
         struct
         module Aff = AffineSE (I) (S)
@@ -867,16 +900,6 @@ module PM = struct
 
     end
 (*
-    module Log = struct
-        (* Now we convert the previous three functions to accept an encoded integer
-        * in logarithmic space *)
-        let convert_to_log_position x = 
-            S_K.expand (S_K.create (SK ([x] (DecodeInt pos))) (LS pos))
-        let insert = convert_to_log_position insert
-        let delete = convert_to_log_position delete
-        let substitute = convert_to_log_position substitute
-    end
-
     (* A encoded is made of pairs in the following way:
         * (Pair K (Pair encoded encoded))
         * (Pair (K S) Result)

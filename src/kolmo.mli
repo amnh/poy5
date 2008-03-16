@@ -73,6 +73,9 @@ module PM : sig
     module Dna : List with type ocaml_repr = string with type ocaml_list =
         string list
 
+    module Chromosome : List with type ocaml_repr = Dna.ocaml_list with type
+    ocaml_list = Dna.ocaml_list list
+
     module type SE = sig 
         val insert : S_K.primitives
         val delete : S_K.primitives
