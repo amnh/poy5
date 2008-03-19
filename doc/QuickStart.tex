@@ -604,7 +604,7 @@ and morphological data in Hennig86 and Nexus formats. (For information on specif
 
 Once a dataset (or multiple datasets) is imported, \poy automatically reports a brief description of contents for each loaded file in the \emph{POY Output} (Figure ~\ref{fig:readingexample}). However, it may be desirable to inspect the imported data in greater detail to ensure that the format and contents of the files have been interpreted correctly. This practice helps to avoid common errors, such as inconsistently spelled terminal names, which may result in bogus results, produce error messages, and aborted jobs.
 
-The basic command for outputting information is \commandstyle{report()}. One of its arguments, \commandstyle{data}, outputs a set of tables showing the list of terminals, the number and types of characters, the list the imported terminals, and the lists of terminals and characters excluded from the analysis. To produce a report of the datafiles that were used in the previous example (\texttt{morpho.ss} and \texttt{28s.fas}), we import the data and execute \commandstyle{report(data)}:
+The basic command for outputting information is \commandstyle{report()}. One of its arguments, \commandstyle{data}, outputs a set of tables showing the list of terminals, the number and types of characters, and the lists of terminals and characters excluded from the analysis. To produce a report of the datafiles that were used in the previous example (\texttt{morpho.ss} and \texttt{28s.fas}), we import the data and execute \commandstyle{report(data)}:
 \begin{quote}
     \commandstyle{read("morpho.ss","28s.fas")}\\
     \commandstyle{report(data)}

@@ -474,8 +474,7 @@ The \poycommand{calculate\_support} command does not output support values by de
     \syntax{\obligatory{(\optional{argument list})}}
 
     \begin{poydescription}
-            Performs Tree Fusing~\cite{goloboff1999} on the trees in memory. Tree Fusing is a
-            genetic algorithm technique for avoiding being trapped at a local optimum
+            Performs Tree Fusing~\cite{goloboff1999} on the trees in memory. Tree Fusing method to escape local optima
             by exchanging clades with identical composition of terminals between
             pairs of trees. Only \emph{one} pair of trees is evaluated during a single iteration.
             The size of the clades being exchanged is not specified.
@@ -959,7 +958,22 @@ The \poycommand{calculate\_support} command does not output support values by de
               from each one of this files, no other commands are currently
               recognized.}
               {}
-
+	
+	\begin{statement}
+            Continuous characters can be treated as such by assigning the lower
+            and upper bounds of the range as polymorphic additive character 
+            states. Because additive characters are integers, such characters 
+            need to be re-scaled using the \poyargument{weightfactor} of the 
+            \poycommand{transform()}. Consider a continuous
+            character \texttt{winglength}, the states of which are ranges of 
+            measurements in hundredth of a millimeter, for example 2.53-3.68 
+            mm for a given terminal. A corresponding character state in the 
+            additive character matrix (in Hennig86 format) is \texttt{[253,368]}. 
+            To scale the values, a transformation is applied to the character 
+            \texttt{winglength} as follows:
+            \poycommand{transform((characters,names:("winglength")),\\(weightfactor:0.01))}.
+	\end{statement}
+	
         \argumentdefinition{aminoacids}{\obligatory{(\poystring list)}}
             {Specifies that the data listed in the string argument
             are amino acid sequences in FASTA format.} 
@@ -2659,6 +2673,18 @@ The \poycommand{calculate\_support} command does not output support values by de
     
     \end{argumentgroup}
 
+    \begin{argumentgroup}{Character transformation}
+    	{}
+	
+	\argumentdefinition{transform}{}
+            {Specifies a type of character transformation to be performed
+            \emph{prior} to swapping.
+            See the command~\nccross{transform}{transformcommand} for
+            the description of the methods of character type transformations
+            and character selection.}
+            {}
+    \end{argumentgroup}
+            
     \begin{argumentgroup}{Tree selection}
         {As the tree search proceeds, a tree may or may not be selected to
         continue the search or to return as a result. The following
