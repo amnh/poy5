@@ -2947,7 +2947,7 @@ module SC = struct
             let _ = 
                 (* Now we update the states labels *)
                 List.iter (fun (position, labels) ->
-                    let position = int_of_string position in
+                    let position = (int_of_string position) - 1 in
                     characters.(position) <- 
                         { characters.(position) with st_labels = labels }) 
                 chars.Nexus.char_charstates
@@ -2956,7 +2956,7 @@ module SC = struct
                 (* The next thing we do, is that we update states and labels
                 * together *)
                 List.iter (fun (position, name, labels) ->
-                    let position = int_of_string position in
+                    let position = (int_of_string position) - 1 in
                     characters.(position) <-
                         { characters.(position) with st_labels = labels;
                         st_name = name }) 
