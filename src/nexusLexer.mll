@@ -138,6 +138,8 @@ rule raw = parse
      [^ ';']* as d      { DATA d }
 and inquotes = parse
       [^ '"']+['"'] as d     { QUOTED d }
+and insinglequotes = parse 
+      [ ^ '\'']+['\''] as d  { SINGLEQUOTED d }
 and comment = parse
       [ ^ ']' '[']      { comment lexbuf }
     | [ '[']            { incr comment_depth; comment lexbuf }
@@ -149,7 +151,7 @@ and cstree = parse
 and token = parse
       [ ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ]       { token lexbuf } 
       (* skip blanks *)
-    | [ 'a'-'z' 'A'-'Z' '#' '_']+ [ 'a'-'z' 'A'-'Z' '#' '_' '0'-'9']* as id 
+    | ['0'-'9']* [ 'a'-'z' 'A'-'Z' '#' '_' '|' '\128'-'\255']+ [ 'a'-'z' 'A'-'Z' '#' '_' '0'-'9' '|' '.' '\128'-'\255']* as id 
         { try
             let string = String.uppercase id in
             match string with
@@ -162,6 +164,7 @@ and token = parse
         with
         | Not_found -> IDENT id }
     | [ '"' ]           { inquotes lexbuf }
+    | [ '\'' ]           { insinglequotes lexbuf }
     | [ ';' ]           { SEMICOLON }
     | [ ':' ]           { COLON }
     | [ '=' ]           { EQUAL }
