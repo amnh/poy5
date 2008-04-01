@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AliMap" "$Revision: 2417 $"
+let () = SadmanOutput.register "AliMap" "$Revision: 2655 $"
 (** The implementation of functions to find the map between two chromosomes *)
 
 type chromPairAliPam_t = ChromPam.chromPairAliPam_t
@@ -39,14 +39,14 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
     let len2 = List.length subseq2_ls in 
     let len = 2 * (len1 + len2 + 1) in 
 
-    let gen_cost_mat = Array.make_matrix len len Utl.infinity in 
+    let gen_cost_mat = Array.make_matrix len len Utl.large_int in 
 
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in 
 
     set_cost gen_gap_code gen_gap_code 0;
 
     let num_block = List.length global_map in 
-    let block_gap_cost = Utl.infinity / (num_block + 1) in 
+    let block_gap_cost = Utl.large_int / (num_block + 1) in 
     List.iter (fun b -> 
                    let code1_id = b.Block.subseq1_id in 
                    let code2_id = b.Block.subseq2_id in 

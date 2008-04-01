@@ -99,7 +99,7 @@ let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular =
         | code2 :: tl ->
               let added_seq2_ls = added_seq2_ls @ [code2] in 
 
-              let wagner_cost = ref Utl.infinity in 
+              let wagner_cost = ref Utl.large_int in 
               let wagner_seq2 = ref [||] in 
               let update partial_seq2 =
                   let cost, (_, _), _, _  = 

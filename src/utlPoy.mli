@@ -18,36 +18,40 @@ val align3 :
   Sequence.s ->
   Sequence.s ->
   Cost_matrix.Three_D.m -> Sequence.s * Sequence.s * Sequence.s * int * int
+val closest_alied_seq :
+  Sequence.s -> Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s * int
 val concat : Sequence.s list -> Sequence.s
 val create_subalign2 :
   Sequence.s ->
   Sequence.s ->
   Cost_matrix.Two_D.m ->
   int -> int -> int -> int -> Sequence.s * Sequence.s * int
+val dna_gap : int
 val get_num_base : Sequence.s -> int
-val delete_gap : ?gap_code : int -> Sequence.s -> Sequence.s
+val delete_gap : ?gap_code:int -> Sequence.s -> Sequence.s
 val create_median_gap :
   Sequence.s ->
   ?start_pos:int -> ?end_pos:int -> Cost_matrix.Two_D.m -> Sequence.s
 val create_median_seq :
-    ?approx:ChromPam.order_t -> Sequence.s -> Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s * int
-val create_median_deled_seq : Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s 
+  ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
+  Sequence.s -> Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s * int
+val create_median_deled_seq : Sequence.s -> 'a -> Sequence.s
 val create_median :
-    ?approx: ChromPam.order_t ->  
+  ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
   Sequence.s ->
   Sequence.s ->
   ?s1:int ->
-  ?e1:int -> ?s2:int -> ?e2:int -> Cost_matrix.Two_D.m -> Sequence.s * Sequence.s * Sequence.s * int
+  ?e1:int ->
+  ?s2:int ->
+  ?e2:int ->
+  Cost_matrix.Two_D.m -> Sequence.s * Sequence.s * Sequence.s * int
 val check_repeated_char : Sequence.s -> Alphabet.a -> unit
 val create_general_ali :
   int array ->
   int array -> int -> Cost_matrix.Two_D.m -> int array * int array * int
-val test_general_ali : unit -> unit
-
-val closest_alied_seq :
-  Sequence.s -> Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s * int
-
-val of_array : int array -> Sequence.s
-
 val map : (int -> int) -> Sequence.s -> Sequence.s
+val of_array : int array -> Sequence.s
+val test_general_ali : unit -> unit
 val get_single_seq : Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s
+val cmp_locus_indel_cost :
+  Sequence.s -> Cost_matrix.Two_D.m -> int * int -> int

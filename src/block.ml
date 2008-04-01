@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2239 $"
+let () = SadmanOutput.register "Block" "$Revision: 2655 $"
 (** The module contains default parameters and 
     funtions to create blocks between two chromosomes. *)
 
@@ -263,7 +263,7 @@ let cmp_ali_cost (seq1 : Sequence.s) (seq2 : Sequence.s)
     let len = Sequence.length seq1 in 
     let code1_arr = Sequence.to_array seq1 in          
     let code2_arr = Sequence.to_array seq2 in
-    (if direction = `Negative then Utl.invert_arr code2_arr);
+    (if direction = `Negative then Utl.invert_subarr code2_arr 0 (Array.length code2_arr));
 
     let mat_cost = ali_pam.ChromPam.mat_cost in 
     let mismat_cost = ali_pam.ChromPam.mismat_cost in 
@@ -631,8 +631,8 @@ let connect_pos_consecutive_block (block_ls : block_t list)
     let num_marker2 = Array.length marker2_arr in 
 
     let do_connection (b : block_t) =  
-        let m1 = Utl.binary_search marker1_arr b.en1 in 
-        let m2 = Utl.binary_search marker2_arr b.en2 in 
+        let m1 = Utl.binary_index_search marker1_arr b.en1 in 
+        let m2 = Utl.binary_index_search marker2_arr b.en2 in 
         if (m1 >= 0) && (m1 + 1 < num_marker1) && 
             (m2 >= 0) && (m2 + 1 < num_marker2) then 
             begin

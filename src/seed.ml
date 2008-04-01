@@ -17,29 +17,35 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Seed" "$Revision: 2238 $"
+let () = SadmanOutput.register "Seed" "$Revision: 2655 $"
 type pairChromPam_t = ChromPam.chromPairAliPam_t
 
-(** The seed module contains data and funtions to determine all seeds between
-    two chromosomes *)
+(** The seed module contains data and funtions to 
+* determine all seeds between two chromosomes *)
 
-
-
+(** seed_t is a data structure presenting a segment of nucleotides
+* which is in both chromosomes *)
 type seed_t = {
-    mutable id : int;
-    mutable sta1 : int;
-    mutable sta2 : int;
-    mutable len : int;
-    mutable score : int;
-    mutable is_chained : bool
+    mutable id : int; (* Each seed is assigned an [id]*)
+    mutable sta1 : int; (* Start position of the seed on the chromosome 1 *)
+    mutable sta2 : int; (* Start position of the seed on the chromosome 2 *)
+    mutable len : int; (* Length of the seed *)
+    mutable score : int; (* Score of the seed. A better seed is longer and has higer score *)
+    mutable is_chained : bool (* is_changed = true if this seed can be chained 
+                                with another seed, otherwise false *)
 }
-
 
 type sufTree_t = SufTree.sufTree_t
 type incList_t = seed_t IncList.incList_t
+
+(** The number of memory cells we allocate each time to contain found seeds *)
 let num_located_cell = 100000
+
 let num_used_cell = ref num_located_cell
+
+(** An array of memory cells which were allocated to contain seeds *)
 let located_cell_arr : incList_t array ref = ref [||]
+
 let fprintf = Printf.fprintf
 let deref = Utl.deref
 
@@ -64,11 +70,17 @@ let create_empty_seed () = {
     sta1 = -1; sta2 = -1; len = 0; 
     score = 0; is_chained = false}
 
+(** This function returns a dummy seed of length 1
+* which is used as a starting point for dynamic programming to 
+* chain seeds together *)
 let get_dum_first_seed (min_pos1 : int) (min_pos2 : int) = {
     id = -1; 
     sta1 = min_pos1 - 1; sta2 = min_pos2 - 1; 
     len = 1; score = 0; is_chained = false}
 
+(** This function returns a dummy seed of length 1
+* which is used as an end point for dynamic programming to 
+* chain seeds together *)
 let get_dum_last_seed (max_pos1 : int) (max_pos2 : int) = {
     id = -1; 
     sta1 = max_pos1 + 1; sta2 = max_pos2 + 1; len = 1; 
@@ -82,25 +94,42 @@ let set_seed (seed : seed_t) (new_sta1 : int) (new_sta2 : int)
     seed.score <- new_score;
     seed.is_chained <- new_is_chained
 
-(* ================================================================= *)
+
 let create_new_seed (new_sta1 : int) (new_sta2 : int) 
         (new_len : int) (new_score : int) = {
     id = -1; sta1 = new_sta1; sta2 = new_sta2; 
     len = new_len; score = new_score; is_chained = false}
 
-
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] on the first chromosome*)
 let cmp_dis1 (s1 : seed_t) (s2 : seed_t) = 
     s2.sta1 - (s1.sta1 + s1.len - 1) - 1
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] on the second chromosome*)
 let cmp_dis2 (s1 : seed_t) (s2 : seed_t) = 
     s2.sta2 - (s1.sta2 + s1.len - 1) - 1
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] which is the minimum distance
+* on the both chromosomes *)
 let cmp_dis (s1 : seed_t) (s2 : seed_t) = 
     min (cmp_dis1 s1 s2) (cmp_dis2 s1 s2)
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the diagonal distance between 
+* [s1] and [s2] which is the distance difference on the
+* first and second chromosomes *)
 let cmp_dia_dis (s1 : seed_t) (s2 : seed_t) = 
     abs ( (cmp_dis1 s1 s2) - (cmp_dis2 s1 s2) )
 
+(** Given a [seed], [min_pos2] and [max_pos2]
+* which are start and end of the second chromosome, 
+* this function inverts the [sta2] of the seed 
+* due to the inversion of the second chromosome *)
 let invert (min_pos2 : int) (max_pos2 : int) (seed : seed_t) = 
     let end_pos2 = seed.sta2 + seed.len - 1 in    
     seed.sta2 <- min_pos2 + (max_pos2 - end_pos2) 
@@ -110,17 +139,15 @@ let print (seed : seed_t) =
         seed.id seed.sta1 seed.sta2 seed.len seed.score;
     flush stdout
 
-
-
-let cal_diagonal_dis (seed1 : seed_t) (seed2 : seed_t) = 
-    abs ( (seed1.sta1 - seed1.sta2) - (seed2.sta1 - seed2.sta2) )
-
 let compare_end1 (seed1 : seed_t) (seed2 : seed_t) = 
     compare (seed1.sta1 + seed1.len) (seed2.sta1 + seed2.len)
 
 let compare_start1 (seed1 : seed_t) (seed2 : seed_t) = 
     compare seed1.sta1 seed2.sta1 
     
+(** Given two seeds [seed1], [seed2] and pairwise chromosome
+* parameters [ali_pam], this function returns an integer number
+* as the cost to connect two seeds *)
 let cmp_connecting_cost (seed1 : seed_t) (seed2 : seed_t) 
         (ali_pam :  pairChromPam_t) = 
     let dis1  = seed2.sta1 - (seed1.sta1 + seed1.len - 1) - 1 in 
@@ -131,21 +158,13 @@ let cmp_connecting_cost (seed1 : seed_t) (seed2 : seed_t)
     | _ ->  ali_pam.ChromPam.gap_opening_cost + 
           (digDis - 1) * ali_pam.ChromPam.gap_ext_cost 
     
-
-
-
-
-
     
-(*======================================================*)
 let create_local_connection (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =    
     let num_seed = List.length seed_ls in
     let sorted_end_seed_arr = Array.of_list seed_ls in                                                          
     Array.sort compare_end1 sorted_end_seed_arr;
     Array.iteri (fun index seed -> seed.id <- index) sorted_end_seed_arr;
-    
-            
-    
+        
     let seed_cost_arr = Array.init num_seed 
         (fun index -> sorted_end_seed_arr.(index).score * ali_pam.ChromPam.mat_cost) in
 
@@ -187,6 +206,7 @@ let create_local_connection (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =
         move (seed_no + 1)
     done;   
     acc_cost_arr, back_arr, sorted_end_seed_arr
+
 
         
 let locate_mem () = 

@@ -263,7 +263,7 @@ let assign_hom_chrom med cost_mat user_chrom_pams =
 
             let best_c1 = ref (-1) in 
             let best_c2 = ref (-1) in
-            let min_cost = ref (float Utl.infinity) in
+            let min_cost = ref (float Utl.large_int) in
 
             for c1 = 0 to num_chrom1 - 1 do
                 for c2 = 0 to num_chrom2 - 1 do
@@ -451,7 +451,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
 
     let gen_gap_code = (len1 + len2 + 1) * 2 - 1 in     
-    let gen_c2 = Array.make_matrix  (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity in 
+    let gen_c2 = Array.make_matrix  (gen_gap_code + 1) (gen_gap_code + 1) Utl.large_int in 
     for r1 = 0 to len1 - 1 do
         let sq1 = loci1_arr.(r1) in 
         let sq1_id = sq1.Subseq.id in 
@@ -547,7 +547,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
             let seg = 
                 {sta = -1; en = -1;
-                 cost = -Utl.infinity;
+                 cost = -Utl.large_int;
                  med_chrom_id = chrom_id;  
                  alied_med = UtlPoy.create_gap_seq (Sequence.length sq2_seq);
                  

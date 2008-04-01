@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "UtlPoy" "$Revision: 2495 $"
+let () = SadmanOutput.register "UtlPoy" "$Revision: 2655 $"
 
 let fprintf = Printf.fprintf
 
@@ -466,3 +466,38 @@ let test_general_ali  () =
         
 let get_single_seq seq c2 = Sequence.select_one seq c2
 
+(*cmp the locus indel cost*)
+let cmp_locus_indel_cost s c2 locus_indel =
+    let locus_open, locus_ext = locus_indel in
+    let gap_open = 
+        match Cost_matrix.Two_D.affine c2 with
+        | Cost_matrix.Affine o -> o
+        | _ -> 0
+    in 
+    let gap = Cost_matrix.Two_D.gap c2 in 
+    let seq_len = Sequence.length s in
+
+
+    let cmp_indel_cost p = 
+        let dna = Sequence.get s p in
+        if (dna land gap) = gap then 0
+        else Cost_matrix.Two_D.cost dna gap c2 
+    in 
+
+    let f1 = locus_open + locus_ext in 
+    let f2 = locus_open + gap_open + 
+             (cmp_indel_cost 0)
+    in  
+
+    let rec cmp p f1 f2 =
+        if p = seq_len then min f1 f2
+        else begin
+            let new_f1 = (min f1 f2) + locus_ext in 
+            let indel_cost = cmp_indel_cost p in 
+            let new_f2 = min (f1 + gap_open + indel_cost)
+                             (f2 + indel_cost)
+            in 
+            cmp (p + 1) new_f1 new_f2
+        end 
+    in
+    cmp 1 f1 f2
