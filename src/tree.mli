@@ -158,6 +158,7 @@ val handle_list : u_tree -> int list
 val get_nodes : u_tree -> node list   
 val get_node_ids : u_tree -> int list
 val get_node : int -> u_tree -> node
+val get_all_leaves : u_tree -> id list
 val is_leaf : int -> u_tree -> bool
 val is_single : int -> u_tree -> bool
 val get_edge : int * int -> u_tree -> edge
