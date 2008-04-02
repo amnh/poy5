@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2655 $"
+let () = SadmanOutput.register "Block" "$Revision: 2658 $"
 (** The module contains default parameters and 
     funtions to create blocks between two chromosomes. *)
 
@@ -426,7 +426,7 @@ let create_pos_alied_block (block : block_t) (seq1 : Sequence.s)
 
     let rec create (pre_seed : seed_t) (cur_map_ls : seed_t list) = 
         let alied_pre_subseq1, alied_pre_subseq2, pre_cost = 
-            Seed.get_alied_subseq pre_seed seq1 seq2 cost_mat in 
+            Seed.create_alied_seed pre_seed seq1 seq2 cost_mat in 
         rev_alied_subseq1_ls := alied_pre_subseq1:: !rev_alied_subseq1_ls;
         rev_alied_subseq2_ls := alied_pre_subseq2:: !rev_alied_subseq2_ls;
         total_ali_cost := !total_ali_cost + pre_cost;

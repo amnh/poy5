@@ -47,7 +47,7 @@ val determine_seed :
   Sequence.s ->
   Sequence.s ->
   pairChromPam_t -> ChromPam.direction_t -> seed_t list * seed_t list
-val get_alied_subseq :
+val create_alied_seed :
   seed_t ->
   Sequence.s ->
   Sequence.s -> Cost_matrix.Two_D.m -> Sequence.s * Sequence.s * int
