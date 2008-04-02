@@ -19,6 +19,7 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
         | Label of string * 'loc 
         | Node of 'loc expr list * 'loc
         | Expr of Ast.expr * 'loc
+        | Debg of Ast.expr * 'loc
 
     (* A valid statement in our extension to OCaml *)
     type 'loc stmt = 
@@ -48,6 +49,8 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
                 <:expr< (`Node ( $exSem_of_list es$)) >>
         | Expr (item, _loc) ->
                 <:expr< $item$ >>
+        | Debg (item, _loc) ->
+                <:expr< (`Debugger ( $item$ )) >> 
 
     let expression_converter _loc x =
         let res = bare_expression_converter x in
@@ -74,6 +77,7 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
         [ v = UIDENT -> Label (v, _loc) ] | 
         [ v = LIDENT -> Label (v, _loc) ] |
         [ "["; x = expr; "]" -> Expr (x, _loc) ] |
+        [ "{"; x = expr; "}" -> Debg (x, _loc) ] |
         [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
     END;;
 
