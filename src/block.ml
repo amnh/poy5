@@ -17,10 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2658 $"
-(** The module contains default parameters and 
-    funtions to create blocks between two chromosomes. *)
+let () = SadmanOutput.register "Block" "$Revision: 2661 $"
 
+(** Blocks are conserved areas between two chromosomes
+* which do not require identical nucleotide segments but 
+* highly similar. Blocks are considered as homologus segments and used
+* as milestones to divide chromosomes into sequences of loci*)
 
 type pairChromPam_t = ChromPam.chromPairAliPam_t
 type seed_t = Seed.seed_t
@@ -40,29 +42,26 @@ type blockPam_t = {
     max_connecting_dis : int;
     max_connecting_shift: int;
 }   
-
-
-
+ 
+(** A block is created by connecting a list of seeds together*)
 type block_t = {
     mutable id : int; (** The block id *)
-    mutable is_dum : bool; (** Dum blocks are used as boundary *)
+    mutable is_dum : bool; (* Dummy blocks are used as boundary *)
 
-    (** Seld-documented*)
-    mutable sta1 : int;
-    mutable sta2 : int;
-    mutable en1 : int;
-    mutable en2 : int;
-    mutable direction : direction_t;
-    mutable cost : int;
-    mutable alied_seq1 : Sequence.s option;
+    mutable sta1 : int; (* sta1 is the start of block in the first chromosome *)
+    mutable sta2 : int; (* sta2 is the start of block in the second chromosome *)
+    mutable en1 : int; (* end1 is the end of block in the first chromosome *)
+    mutable en2 : int; (* end2 is the end of block in the second chromosome *)
+    mutable direction : direction_t; (* The direction of this block, either postive or negative *)
+    mutable cost : int; (* The alignment cost of this block *)
+    mutable alied_seq1 : Sequence.s option; (* alied_seq1 and alied_seq2 are aligned sequences of this block *)
     mutable alied_seq2 : Sequence.s option;
 
-    (** A block contains a list of seeds *)
-    mutable seed_ls : seed_t list;
+    mutable seed_ls : seed_t list; (* The list of seeds constituted this block *)
 
     (** A chromosome is divided into consecutive sub-sequences *)
-    mutable subseq1_id : int;
-    mutable subseq2_id : int;
+    mutable subseq1_id : int; (* The identification of this block in the first chromosome *)
+    mutable subseq2_id : int; (* The identification of this block in the second chromosome *)
 }
         
 
@@ -78,7 +77,9 @@ let cloneBlockPam (donor : blockPam_t) = {
 }
 
 
-
+(** Given a [seed] and [block_id], this functions
+* return a block whose id [block_id], and contains only
+* one seed [seed] *)
 let create_from_seed (block_id : int) (seed : seed_t) = {
     id = block_id;
     is_dum = false;
@@ -116,6 +117,8 @@ let create_simple_block (block_id : int) (new_sta1 : int)
     subseq2_id = -1;
 }       
 
+(** This funcrion returns  a dummy block which is used 
+* as a start point for dynamic programming to connect blocks together *)
 let get_dum_first_block ali_pam = {
     id = -1; 
     is_dum = true;
@@ -133,6 +136,8 @@ let get_dum_first_block ali_pam = {
     subseq2_id = -1;    
 }
 
+(** This funcrion returns  a dummy block which is used 
+* as an end point for dynamic programming to connect blocks together *)
 let get_dum_last_block ali_pam = {
     id = -1; 
     is_dum = true;
@@ -148,6 +153,7 @@ let get_dum_last_block ali_pam = {
     subseq1_id = -1;
     subseq2_id = -1;
 }
+
 
 let max_len (b : block_t) = 
     max (b.en1 - b.sta1 + 1) (b.en2 - b.sta2 + 1)
@@ -169,6 +175,7 @@ let invert (block : block_t) (min_pos2 : int) (max_pos2 : int) =
         
     List.iter (fun seed -> Seed.invert min_pos2 max_pos2 seed) block.seed_ls   
     
+
 
 let get_pos (block : block_t) (order : order_t) = 
     match order with
