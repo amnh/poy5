@@ -1184,16 +1184,16 @@ let create_expr () =
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
                 [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
                       `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                [ LIDENT "sig_block_len"; ":"; c = INT -> 
+                [ LIDENT "min_loci_len"; ":"; c = INT -> 
                       `Sig_Block_Len (int_of_string c) ] | 
-                [ LIDENT "rearranged_len"; ":"; c = INT -> 
+                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 
                       `Rearranged_Len (int_of_string c) ] | 
-                [ LIDENT "seed_length"; ":"; c = INT -> 
+                [ LIDENT "min_seed_length"; ":"; c = INT -> 
                       `Seed_Len (int_of_string c) ] | 
                 [ LIDENT "median"; ":"; c = INT ->
                       `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 
-                [ LIDENT "approx"; ":"; ans = boolean -> `Approx ans] |
+                [ LIDENT "med_approx"; ":"; ans = boolean -> `Approx ans] |
                 [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
                 [ LIDENT "max_3d_len"; ":"; l = INT -> 
                       `Max_3D_Len (int_of_string l) ]  
