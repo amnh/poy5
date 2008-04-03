@@ -51,8 +51,8 @@ type dyna_state_t = [
 val median_code_count : int ref
 
 type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
-    | `Breakpoint of int    
-    | `Inversion of int ]
+    | `Locus_Breakpoint of int    
+    | `Locus_Inversion of int ]
 
 type dyna_pam_t = {
     seed_len : int option;  (* The minimum length of a perfect match to start

@@ -713,7 +713,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     let chrom_bp = ali_pam.ChromPam.chrom_breakpoint in 
     let bp =
         match ali_pam.ChromPam.re_meth with
-        | `Breakpoint bp -> bp
+        | `Locus_Breakpoint bp -> bp
         | _ -> failwith "Can not calculate inversion distance for multiple chromosome!"
     in 
 

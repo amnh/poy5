@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2663 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2665 $"
 
 (** Data *)
 
@@ -108,8 +108,8 @@ type transform_cost_matrix = [
 
 
 type chromosome_pam_t = [
-    | `Inversion of int
-    | `Breakpoint of int
+    | `Locus_Inversion of int
+    | `Locus_Breakpoint of int
     | `Chrom_Breakpoint of int
     | `Circular of bool
     | `Locus_Indel_Cost of (int * int)

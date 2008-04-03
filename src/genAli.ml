@@ -46,18 +46,18 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular =
                   let com_seq1_arr, com_reseq2_arr = Utl.get_common seq1 reseq2 equal_orientation in 
 
                   (match re_meth with 
-                  | `Inversion cost -> 
+                  | `Locus_Inversion cost -> 
                         (UtlGrappa.cmp_inversion_dis com_seq1_arr com_reseq2_arr circular) * cost  
-                  | `Breakpoint cost ->                                       
+                  | `Locus_Breakpoint cost ->                                       
                         (UtlGrappa.cmp_oriented_breakpoint_dis com_seq1_arr com_reseq2_arr circular) * cost)                     
             | _ -> 0
         in 
 
         let recost2  = 
             match re_meth with 
-            | `Inversion cost -> 
+            | `Locus_Inversion cost -> 
                   (UtlGrappa.cmp_inversion_dis seq2 reseq2 circular) * cost  
-            | `Breakpoint cost ->               
+            | `Locus_Breakpoint cost ->               
                   (UtlGrappa.cmp_oriented_breakpoint_dis seq2 reseq2 circular) * cost   
         in  
 

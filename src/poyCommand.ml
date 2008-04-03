@@ -57,10 +57,9 @@ type identifiers = [
 ]
 
 type chromosome_args = [
-    | `Inversion of int
-    | `Breakpoint of int (*Breakpoint cost between two loci inside one chromosome *)
+    | `Locus_Inversion of int
+    | `Locus_Breakpoint of int (*Locus_reakpoint cost between two loci inside one chromosome *)
     | `Circular of bool
-
     | `Locus_Indel_Cost of (int * int)
     | `Chrom_Indel_Cost of (int * int)
     | `Chrom_Hom of int (* if cost > threshold * min_cost,  then not homologous *)
@@ -1167,10 +1166,10 @@ let create_expr () =
             ];
         chromosome_argument:
             [
-                [ LIDENT "inversion"; ":"; c = INT -> 
-                      `Inversion (int_of_string c) ]  |
+                [ LIDENT "locus_inversion"; ":"; c = INT -> 
+                      `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 
-                      `Breakpoint (int_of_string c) ]  |
+                      `Locus_Breakpoint (int_of_string c) ]  |
                 [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
                       `Chrom_Breakpoint (int_of_string c) ]  |
                 [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |

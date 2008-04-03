@@ -54,8 +54,8 @@ type dyna_state_t = [
     | `Breakinv ]
 
 
-type re_meth_t = [ `Breakpoint of int | 
-                   `Inversion of int ]
+type re_meth_t = [ `Locus_Breakpoint of int | 
+                   `Locus_Inversion of int ]
 
 type dyna_pam_t = {
     seed_len : int option;
@@ -78,7 +78,7 @@ type dyna_pam_t = {
 
 let dyna_pam_default ={ 
     seed_len = Some 9;
-    re_meth = Some (`Breakpoint 10);
+    re_meth = Some (`Locus_Breakpoint 10);
     circular = Some 0;
     locus_indel_cost = Some (10, 100);
     chrom_indel_cost = Some (10, 100);
@@ -1762,7 +1762,7 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         (fun (x, y) -> string_of_int x ^ ", " ^ string_of_int y)
     and handle_re_meth x = 
         let conversion =
-            (function `Breakpoint x | `Inversion x -> string_of_int x)
+            (function `Locus_Breakpoint x | `Locus_Inversion x -> string_of_int x)
         in
         match x with
         | Some x -> conversion x
@@ -1866,8 +1866,8 @@ let set_dyna_pam dyna_pam_ls =
     List.fold_left 
     ~f:(fun dyna_pam pam ->
         match pam with
-        | `Inversion c -> {dyna_pam with re_meth = Some (`Inversion c)}
-        | `Breakpoint c -> {dyna_pam with re_meth = Some (`Breakpoint c)}
+        | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
+        | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
         | `Circular c -> 
               if c then {dyna_pam with circular = Some 1}
