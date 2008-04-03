@@ -102,7 +102,7 @@ type transform_method = [
     | `Fixed_States
     | `SeqToChrom of chromosome_args list
     | `ChangeDynPam of chromosome_args list
-    | `SeqToBreakinv of chromosome_args list
+    | `CustomToBreakinv of chromosome_args list
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
@@ -375,12 +375,12 @@ let transform_transform acc (id, x) =
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
-            | `SeqToBreakinv x -> (`Seq_to_Breakinv (id, x)) :: acc
+            | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
             | `AnnchromToBreakinv x -> (`Annchrom_to_Breakinv (id, x)) :: acc
             | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc
             | `ChangeDynPam x -> (`Change_Dyn_Pam (id, x)) :: acc
             | `ChromToSeq x -> (`Chrom_to_Seq (id, x)) :: acc
-            | `BreakinvToSeq x -> (`Breakinv_to_Seq (id, x)) :: acc
+            | `BreakinvToSeq x -> (`Breakinv_to_Custom (id, x)) :: acc
             | (`OriginCost _) as id -> id :: acc
 
 
@@ -1136,8 +1136,8 @@ let create_expr () =
                 [ LIDENT "search_based" -> `SearchBased ] |
                 [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
-                [ LIDENT "seq_to_breakinv"; ":"; left_parenthesis; x = LIST0
-                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToBreakinv x ] | 
+                [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `CustomToBreakinv x ] | 
 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] | 

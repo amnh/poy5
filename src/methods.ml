@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Methods" "$Revision: 2554 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2663 $"
 
 (** Data *)
 
@@ -127,11 +127,11 @@ type chromosome_pam_t = [
 
 type dynamic_char_transform = [
     | `Seq_to_Chrom of (characters * chromosome_pam_t list)
-    | `Seq_to_Breakinv of (characters * chromosome_pam_t list)
+    | `Custom_to_Breakinv of (characters * chromosome_pam_t list)
     | `Annchrom_to_Breakinv of (characters * chromosome_pam_t list)
     | `Change_Dyn_Pam of (characters * chromosome_pam_t list)
     | `Chrom_to_Seq of (characters * chromosome_pam_t list)
-    | `Breakinv_to_Seq of (characters * chromosome_pam_t list)
+    | `Breakinv_to_Custom of (characters * chromosome_pam_t list)
     | `Seq_to_Kolmogorov of (characters * (string * string * string * string *
     string))
 ]

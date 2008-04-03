@@ -2392,12 +2392,12 @@ let convert_dyna_taxon_data data (ch_ls : (int, cs) Hashtbl.t)
                         let gap = Alphabet.get_gap specs.alph in 
                         let seq = 
                             match transform with 
-                            | `Seq_to_Chrom _ | `Seq_to_Breakinv _ -> 
+                            | `Seq_to_Chrom _ | `Custom_to_Breakinv _ -> 
                                   (match (Sequence.get seq 0) = gap with
                                    | true -> Sequence.del_first_char seq  
                                    | false -> seq)  
 
-                            | `Chrom_to_Seq _ | `Breakinv_to_Seq _ ->
+                            | `Chrom_to_Seq _ | `Breakinv_to_Custom _ ->
                                     (match (Sequence.get seq 0) = gap with
                                     | true -> seq
                                     | false -> Sequence.prepend_char seq gap)
@@ -2431,9 +2431,9 @@ let convert_dyna_taxon_data data (ch_ls : (int, cs) Hashtbl.t)
 
 let get_state default = function
     | `Seq_to_Chrom _ -> `Chromosome
-    | `Seq_to_Breakinv _ 
+    | `Custom_to_Breakinv _ 
     | `Annchrom_to_Breakinv _ -> `Breakinv
-    | `Chrom_to_Seq _ | `Breakinv_to_Seq _ -> `Seq
+    | `Chrom_to_Seq _ | `Breakinv_to_Custom _ -> `Seq
     | `Change_Dyn_Pam _ -> default
     | `Seq_to_Kolmogorov _ -> failwith "Illegal Data.get_state argument"
 
@@ -2453,10 +2453,10 @@ let convert_dyna_spec data chcode spec transform_meth =
             (* First check if the transformation is legal  *)
             match dspec.state, transform_meth with  
             | `Seq, `Seq_to_Chrom _
-            | `Seq, `Seq_to_Breakinv _
+            | `Seq, `Custom_to_Breakinv _
             | `Annotated, `Annchrom_to_Breakinv _
             | `Chromosome, `Chrom_to_Seq  _
-            | `Breakinv, `Breakinv_to_Seq _
+            | `Breakinv, `Breakinv_to_Custom _
             | `Seq, `Seq_to_Kolmogorov _
             | _, `Change_Dyn_Pam _ -> ()
             | _, _ -> failwith "Illegal character transformation requested"
@@ -2513,10 +2513,10 @@ let convert_dyna_spec data chcode spec transform_meth =
                         set_dyna_pam pam_ls
 
                 | `Seq_to_Chrom pam_ls
-                | `Seq_to_Breakinv pam_ls
+                | `Custom_to_Breakinv pam_ls
                 | `Change_Dyn_Pam pam_ls
                 | `Chrom_to_Seq pam_ls 
-                | `Breakinv_to_Seq pam_ls ->
+                | `Breakinv_to_Custom pam_ls ->
                         let pam = set_dyna_pam pam_ls in
                         (dspec.alph, dspec.tcm2d), pam
             in
@@ -2880,16 +2880,16 @@ let get_tran_code_meth data meth =
             match meth with
             | `Seq_to_Chrom (a, b) ->
                     a, `Seq_to_Chrom b
-            | `Seq_to_Breakinv (a, b) ->
-                    a, `Seq_to_Breakinv b
+            | `Custom_to_Breakinv (a, b) ->
+                    a, `Custom_to_Breakinv b
             | `Annchrom_to_Breakinv (a, b) ->
                     a, `Annchrom_to_Breakinv b
             | `Change_Dyn_Pam (a, b) ->
                     a, `Change_Dyn_Pam b
             | `Chrom_to_Seq (a, b) ->
                     a, `Chrom_to_Seq b
-            | `Breakinv_to_Seq (a, b) ->
-                    a, `Breakinv_to_Seq b
+            | `Breakinv_to_Custom (a, b) ->
+                    a, `Breakinv_to_Custom b
             | `Seq_to_Kolmogorov (a, b) ->
                     a, `Seq_to_Kolmogorov b
         in
