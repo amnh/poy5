@@ -151,10 +151,12 @@ type ml_substitution = [
     | `TN93 of float list option
     | `F84 of float list option
     | `GTR of float list option
+    (* | `File of string *)
 ]
 
-type ml_site_variation= [ `Gamma of int * float * float  
-                        | `Theta of int * float * float ]
+type ml_site_variation= [   | `Gamma of int * float * float  
+                            | `Theta of int * float * float
+                        (* | `Theta of int * float * float * float ] *)
 type ml_priors = [`Estimate | `Given of float list]
 type ml_gap = [`GapAsCharacter of bool ]
 
@@ -175,6 +177,7 @@ type char_transform = [
     | `Prealigned_Transform of characters
     | `UseLikelihood of ml_spec
     | transform_cost_matrix
+    (* | `Independent *)
 ]
 
 
@@ -405,6 +408,7 @@ type tabu_reroot_strategy = [
 
 type tabu_nodes_strategy = [
     | `Null
+    | `Leaves
 ]
 
 type origin_cost = float option
