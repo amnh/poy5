@@ -155,7 +155,7 @@ type ml_substitution = [
 ]
 
 type ml_site_variation= [   | `Gamma of int * float * float  
-                            | `Theta of int * float * float
+                            | `Theta of int * float * float ]
                         (* | `Theta of int * float * float * float ] *)
 type ml_priors = [`Estimate | `Given of float list]
 type ml_gap = [`GapAsCharacter of bool ]
