@@ -252,7 +252,7 @@ module type S = sig
     val for_support : 
         int -> (int * n) list -> int list -> int list -> n list
 
-    val root_cost : n -> float    
+    val root_cost : n -> float
     val to_single : n option -> int option -> n -> int option -> n -> n
     val character_costs : int option -> n -> ([`NonAdd | `Add | `Sank] * int * float) list
     (* The following group of functions return the preliminary and final
@@ -266,6 +266,8 @@ module type S = sig
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
     val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list
 
-    (* extract times from characters *)
+    (* [extract time] returns list of branch lengths from characters *)
     val extract_time : int option -> n -> float list
+
+    val edge_iterator : n -> n -> n -> n * n * n
 end

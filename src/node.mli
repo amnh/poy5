@@ -173,6 +173,11 @@ val to_single : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data option ->
 (** [to_single_root n] is equivalent to [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
+(** [edge_iterator p a b] is a function to iterate the branch lengths of
+ * likelihood characters of parent [p], with children [a] and [b]. This
+ * function will return new node_data for [p] and new branch lengths for [a]
+ * and [b] on completion. *)
+val edge_iterator : node_data -> node_data -> node_data -> node_data*node_data*node_data
 
 (** [readjust ch1 ch2 par mine] returns a heuristically selected set of nodes which
 * is located somewhere in between [ch1], [ch2], and [par], which are the two

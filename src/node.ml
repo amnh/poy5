@@ -520,6 +520,44 @@ let map4 f a b c d =
     in
     mapper a b c d []
 
+(** [edge iterator rent c1 c2] iterates the branch lengths in the character set
+ * that are ML characters. *) 
+let edge_iterator (rent:node_data) (c1:node_data) (c2:node_data) = 
+    (* accumulators [pa],[aa],[ba] to iterate the branch length for each element in
+     * the character set [p] as parent, and [a], [b] as children. *)
+    let rec ei_map p a b pa aa ba = match p,a,b with
+        | (StaticMl pml)::ptl, (StaticMl aml)::atl,(StaticMl bml)::btl ->
+        IFDEF USE_LIKELIHOOD THEN
+            let modf = ref All_sets.Integers.empty in
+            let mine,pcost,cost,(t1,t2),res = 
+                MlStaticCS.readjust None !modf aml.preliminary bml.preliminary
+                    pml.preliminary aml.time bml.time pml.time in
+            let first   = StaticMl { pml with time = t1; }
+            and second  = StaticMl { aml with time = t2; }
+            and mine    = StaticMl { bml with preliminary=res;final=res;
+                                              cost=cost;sum_cost=cost; } in
+            ei_map ptl atl btl (mine::pa) (first::atl) (second::btl)
+        ELSE
+            (pa,aa,ba)
+        END
+        (* ignore non-likelihood characters *)
+        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl pa atl btl
+        | [],[],[] -> (pa,aa,ba)
+        | _ -> failwith "Number of characters is inconsistent"
+    in
+    let mine,ch1,ch2 = ei_map rent.characters c1.characters c2.characters [] [] [] in
+    (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
+    let mine_cost = List.fold_left (fun x y -> match y with | StaticMl a ->
+                                            IFDEF USE_LIKELIHOOD THEN
+                                                x +.a.cost
+                                            ELSE
+                                                x
+                                            END
+                                        | _ -> x) 0.0 mine in
+    (   {rent with characters=mine;total_cost=mine_cost;node_cost=mine_cost;},
+        {c1 with characters = ch1}, (*children cost doesn't change *)
+        {c2 with characters = ch2}    )
+
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> (*
@@ -3139,6 +3177,7 @@ module Standard :
         let prioritize = prioritize
         let reprioritize = reprioritize
         let extract_time _  = extract_time
+        let edge_iterator = edge_iterator
         module T = T
         module Union = Union
         let for_support = for_support

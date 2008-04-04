@@ -53,6 +53,10 @@ module IntSet = All_sets.Integers
 
 let fprintf = Printf.fprintf 
 
+(** This is an operator that allows for chaining;  see how it's used in tree.ml
+*)
+let (-->) a b = b a
+
 let tree_iter fn {Ptree.tree=tree} =
     Handles.fold
         (fun handle ptree ->
@@ -367,6 +371,35 @@ let downpass_step ptree node_id c1 c2 =
     in
     (Node.Standard.median None node_id selfdata c1d c2d), selfdata
 
+(** [iterate e r t] iterates the branch lengths, for likelihood characters.
+ * [e] is returned as the edges for the nodes that need to be updated because of
+ * changes in the tree. [r] is the root of the tree, with [a] and [b] being the
+ * nodes surrounding it. [t] is the tree. and this function returns a new ptree
+ * with the updates applied. *)
+let iterate edges ((Tree.Edge (a, b)) as root) ptree =
+    let visitor c1 c2 (ptree, edgeset) =
+        let par = Ptree.get_parent c1 ptree in
+        assert (par = Ptree.get_parent c2 ptree);
+        if All_sets.Integers.mem par edgeset then
+            let gd id = Ptree.get_node_data id ptree in
+            let pard, c1d, c2d = Node.edge_iterator (gd par) (gd c1) (gd c2) in
+            let ptree = ptree
+                        --> Ptree.add_node_data c1 c1d
+                        --> Ptree.add_node_data c2 c2d
+                        --> Ptree.add_node_data par pard in
+            let edgeset =
+                All_sets.Integers.add (Ptree.get_parent par ptree)  
+                edgeset
+            in
+            (ptree, edgeset)
+        else 
+            (ptree, edgeset) in
+    let tree = ptree.Ptree.tree in
+    let ptree, _ = 
+        Tree.post_order_node_with_edge_visit_simple visitor root tree (ptree,edges)
+    in
+    ptree 
+
 (** The incremental downpass type. If a function returns [Same], then the
  * downpass over a particular node didn't cause any change in the tree. If the
  * returned value is [Cost tree], then a new tree where only the cost of that node
@@ -455,10 +488,6 @@ let calculate_root ptree node_id neighbor =
              * any data to come from any node_id in the second element in the
              * tuple *)
             failwith "Chartree.calculate_root"
-
-(** This is an operator that allows for chaining;  see how it's used in tree.ml
-*)
-let (-->) a b = b a
 
 (** [incremental_downpass_step continuation ptree node_id] will attempt a
  * downpass step over the vertex with id [node_id] in the tree [ptree]. Depending

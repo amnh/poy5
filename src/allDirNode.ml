@@ -71,7 +71,7 @@ let yes_with code n =
     | x -> 
             List.iter print_pairs x;
             failwith 
-            ("AllDirNode.not_with " ^ string_of_int code ^ 
+            ("AllDirNode.yes_with " ^ string_of_int code ^ 
             " of " ^ string_of_int (get_code x) ^ " has " ^
             string_of_int (List.length x) ^ " matching values.")
 
@@ -143,7 +143,13 @@ module OneDirF :
         (fun () -> apply_f_on_lazy 
         (Node.Standard.median None my_code None) a b)
 
-    let extract_time x nd = Node.Standard.extract_time x (Lazy.force nd)
+    let extract_time x nd = Node.Standard.extract_time x (Lazy.force_val nd)
+
+    let edge_iterator nd1 nd2 nd3 = 
+        let a1,a2,a3 = Node.Standard.edge_iterator  (Lazy.force_val nd1)
+                                                    (Lazy.force_val nd2)
+                                                    (Lazy.force_val nd3)
+        in (to_n a1,to_n a2,to_n a3)
 
     let median_3 x par cur a b = 
         Lazy.lazy_from_val
@@ -394,6 +400,16 @@ type nad8 = Node.Standard.nad8 = struct
     let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
 
     let extract_time = apply_on_one_direction OneDirF.extract_time
+
+    let edge_iterator n1 n2 n3 = 
+        match n1.unadjusted,n2.unadjusted,n3.unadjusted with
+        | d1::[],d2::[],d3::[] -> 
+            let a1,a2,a3 = Node.Standard.edge_iterator
+                                        (Lazy.force_val d1.lazy_node) 
+                                        (Lazy.force_val d2.lazy_node)
+                                        (Lazy.force_val d3.lazy_node) in
+            (to_n a1,to_n a2,to_n a3) 
+        | _ -> failwith("edge iterator, to many or no adjusted")
 
     let median code my_code old a b =
         let my_code =
