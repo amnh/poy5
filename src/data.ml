@@ -2783,13 +2783,15 @@ let verify_alphabet data chars =
 
 (** [compute_priors data chars] computes the observed frequencies for all the
 * elements in the alphabet shared by the characters *)
-let compute_priors data chars = 
+let compute_priors data chars u_gap = 
     let size, alph = verify_alphabet data chars in
+    let size = if u_gap then size else size-1 in
     let priors = Array.make size 0.0 in
     (* A function that takes a list of states and add the appropriate value to
     * each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
     let counter = ref 0 in
+    let gap_char = Alphabet.get_gap alph in (* 4, usually *)
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
     let taxon_adder _ taxon_chars =
@@ -2802,7 +2804,11 @@ let compute_priors data chars =
                     for i = 0 to size - 1 do
                         priors.(i) <- priors.(i) +. inverse
                     done
-            | Stat (_, (Some lst)) ->
+            | Stat (_, (Some lst)) when (List.hd lst = gap_char) && not u_gap ->
+                    for i = 0 to size - 1 do
+                        priors.(i) <- priors.(i) +. inverse
+                    done
+            | Stat (_, (Some lst)) -> 
                     let inverse = 1. /. (float_of_int (List.length lst)) in
                     List.iter (fun x -> priors.(x) <- priors.(x) +. inverse) lst
             | _ -> failwith "Data.compute_priors"
@@ -2825,14 +2831,17 @@ let set_likelihood data
     | [] -> data
     | chars ->
         let data = duplicate data in
+        let u_gap = match use_gap with | `GapAsCharacter a -> a in
         (* We get the characters and filter them out to have only static types *)
         let specification =
             let code = next_likelihood_set () in
             let alph_size, _ = verify_alphabet data chars in
+            let alph_size = if u_gap then alph_size else alph_size -1 in
             let base_priors =
                 match base_priors with
                 | `Estimate -> 
-                        Parser.SC.Estimated (compute_priors data chars)
+                        let base_p = compute_priors data chars u_gap in
+                        Parser.SC.Estimated (base_p)
                 | `Given arr -> 
                         let arr = Array.of_list arr in
                         if alph_size = Array.length arr then
@@ -3801,6 +3810,10 @@ let has_dynamic d =
     | [], [] -> false
     | _ -> true
 
+let has_likelihood d = 
+    match d.static_ml with
+    | [] -> false
+    | _ -> true
 
 (** Functions to modify the taxon codes *)
 let change_taxon_codes reorder_function data =
