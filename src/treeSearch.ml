@@ -582,9 +582,6 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
             match l_opt.Methods.tabu_nodes with
             | `Null -> PhyloTabus.simple_nm_none 
             | `Leaves -> PhyloTabus.simple_nm_leaves
-            | `Randomized -> PhyloTabus.random_nm
-            | `Longest -> PhyloTabus.sorted_longest_nm
-            | `Averaged ->PhyloTabus.sorted_average_nm
         in
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
