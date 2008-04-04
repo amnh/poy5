@@ -100,13 +100,7 @@ module type S = sig
 
     (** simple node manager -- does nothing **)
     val simple_nm_none : snmc
-(* TODO
-    (** test performance node manager -- random branch length **)
-    val random_nm : snmc
-
-    (** standard node manager -- longest branch first **)
-    val longest_nm : snmc
-*)
+    val simple_nm_leaves : snmc
 
     (** {2 Tabu Managers} *)
 
@@ -212,7 +206,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     class type ['a, 'b] nodes_manager = object
         method break_distance : float -> unit
-        method next_node : Tree.edge option
+        method next_node : Tree.node option
         method update_iterate : ('a, 'b) Ptree.p_tree -> unit
         method clone : ('a, 'b) nodes_manager
         method exclude : Tree.node list -> unit
@@ -634,7 +628,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     end
 
-    class simple_nm side (ptree : (Node.n, Edge.e) Ptree.p_tree) :
+    class nm_simple side (ptree : (Node.n, Edge.e) Ptree.p_tree) :
         [Node.n, Edge.e] nodes_manager = object (self)
 
             val mutable delta_break = 0.0
@@ -642,6 +636,31 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
             method break_distance a = delta_break <- a; ()
             method next_node = None
+            method update_iterate _ = ()
+            method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
+            method exclude a = excluded <- a; ()
+    end
+
+    class nm_simple_leaves side (ptree : (Node.n,Edge.e) Ptree.p_tree) :
+        [Node.n,Edge.e] nodes_manager = object (self)
+
+            val mutable excluded = []
+            val mutable starting = true
+            val mutable tree = ptree.Ptree.tree
+            val mutable todo = Stack.create ()
+
+            method break_distance a = ()
+            method next_node = 
+                (if starting then
+                    List.iter 
+                        (fun x -> Stack.push x todo)
+                        (Tree.get_all_leaves tree);
+                    starting <- false;);
+
+                if Stack.is_empty todo then
+                    None 
+                else
+                    Some (Tree.get_node (Stack.pop todo) tree )
             method update_iterate _ = ()
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
             method exclude a = excluded <- a; ()
@@ -1452,6 +1471,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method clone = {< 
             join = join#clone;
             reroot = reroot#clone;
+            iterate = iterate#clone;
         >}
 
     end
@@ -1836,11 +1856,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let only_once_break ptree = new only_once_break ptree
     let simple_dfs_from_middle ptree = new simple_dfs ptree
     
-    let simple_nm_none side ptree = new simple_nm side ptree
-    (*
-    let random_nm_ ptree = new random_nm ptree
-    let longest_nm_ ptree = new longest_nm ptree
-    *)
+    let simple_nm_none side ptree = new nm_simple side ptree
+    let simple_nm_leaves side ptree = new nm_simple_leaves side ptree
+    (* complete the below node managers *)
 
     class standard_tabu (ptree : (Node.n, Edge.e) Ptree.p_tree) (join : semc) 
     (reroot : semc) (break : emc) (iterate : snmc) = object (self)
