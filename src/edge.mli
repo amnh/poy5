@@ -35,6 +35,7 @@ module type EdgeSig = sig
     * IllegalEdgeConversion *)
     val to_node : int -> (int * int) -> e -> n
     val of_node : int option -> n -> e
+    val recode : (int -> int) -> e -> e
 end
 
 module Edge : EdgeSig with type e = unit with type n = Node.node_data

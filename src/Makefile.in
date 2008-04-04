@@ -45,7 +45,7 @@ OCAMLDEP := @OCAMLDEP@
 OCAMLTOP := @OCAMLTOP@
 OCAMLLEX := @OCAMLLEX@
 OCAMLYACC := @OCAMLYACC@
-SVNVERSION := @SVNVERSION@
+SVNVERSION := @SVNVERSION@ -n ./
 EXTRAS := @EXTRAS@
 
 INCLUDE = `$(OCAMLC) -where`
@@ -230,7 +230,7 @@ SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	ukk.checkp.o ukkCommon.o algn.o
 
 # Some personal tests that can be useful for everyone 
-CAMLP4PROCESSED = poyParser.ml poyCommand.ml kolmo.ml kolmoExtension.ml
+CAMLP4PROCESSED = poyParser.ml poyExtension.ml kolmo.ml kolmoExtension.ml poyCommand.ml 
 
 GETRUSAGE :=
 ifneq ($(USEWIN32), true)
@@ -246,7 +246,7 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
 	scripting.cmo
 
-MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo main.cmo
+MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo main.cmo
 
 BASE_OBJS_OPT = $(patsubst %.cmo,%.cmx, $(patsubst %.cma,%.cmxa, $(BASE_OBJS)))
 
@@ -293,7 +293,7 @@ ctags: *.c
 
 # Runtime options
 buildNumber.ml: 
-	echo "let build = \" " `$(SVNVERSION) -n ./` "\"" > $@
+	echo "let build = \" " `$(SVNVERSION)` "\"" > $@
 
 compileFlags.ml: ./config.log
 	echo "(** automatically generated description of compile-time flags *)" \
@@ -465,7 +465,7 @@ ifeq ($(USEPARALLEL), true)
 else 
 	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml
+	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml $(LIBS)
 endif
 ifeq ($(USEWIN32), true)
 	./latex_helper.exe > help.txt 
@@ -487,6 +487,8 @@ kolmoExtension.cmo: kolmoExtension.ml
 	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmoExtension.cmx: kolmoExtension.ml
 	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+poyExtension.cmo: poyExtension.ml
+	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
 kolmo.cmo: kolmoExtension.cmo parser.cmo kolmo.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
 kolmo.cmx: kolmoExtension.cmo parser.cmo kolmo.ml
@@ -503,9 +505,9 @@ poyParser.cma: kolmoExtension.cmo poyParser.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) poyParser.ml
 status_gtk2.cmo: status_gtk2.ml
 	$(OCAMLC) -g -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
-main.cmo: arguments.cmo main.ml
+main.cmo: arguments.cmo phylo.cmo main.ml
 	$(OCAMLC) -g $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) main.ml
-main.cmx: arguments.cmx main.ml
+main.cmx: arguments.cmx phylo.cmx main.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c main.ml
 sadmanOutput.cmo: sadmanOutput.cmi sadmanOutput.ml
 	$(OCAMLC) -g $(OCAML_INCLUDES) -c $(DEBUG) sadmanOutput.ml
@@ -656,7 +658,7 @@ poy_test: $(TEST_OBJS_OPT)
 
 # Interactive console to test various features
 #mpoy_console: sequences.cma parsers.cma distances.cma trees.cma 
-mpoy_console: $(BASE_OBJS) scripting.cmo 
+mpoy_console: $(BASE_OBJS) scripting.cmo phylo.cmo poyExtension.cmo
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLTOP) $(PREPROCESSOR) $(OCAML_INCLUDES) -cc mpicc -cclib -L./ \
 	-I $(OCAMLMPI) -cclib -L./grappa -cclib -L./graphps -custom -cclib \

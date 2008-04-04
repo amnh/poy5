@@ -16,11 +16,13 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-
 let () = SadmanOutput.register "IncList" "$Revision: 736 $"
-(* increasing list *)
+
+(** This module implements a data structure and 
+* methods for an increasing list *)
+
 type 'a incList_t = { 
-    mutable data : 'a;
+    mutable data : 'a; 
     mutable next : 'a incList_t ref option;
 }
 

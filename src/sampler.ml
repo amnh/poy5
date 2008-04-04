@@ -23,7 +23,6 @@ let () = SadmanOutput.register "Sampler" "$Revision: 1616 $"
 * application related samplers (App), and one with research intended samplers
 * (Res). The former are visible for external users, the later only for people
 * interested on exploring new heuristics *)
-exception TimedOut
 
 type ft_queue = {
         queue : (Tree.u_tree * float * Ptree.clade_cost) list Queue.t;
@@ -224,11 +223,11 @@ module MakeApp (Node : NodeSig.S)
 
             method process _ _ _ _ _ _ _ _ =
                 if time < Timer.wall timer then 
-                    raise TimedOut
+                    raise Methods.TimedOut
                 else ()
             
             method private timed_operation _ =
-                raise TimedOut
+                raise Methods.TimedOut
     end
 
 end

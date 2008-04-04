@@ -17,10 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "" "$Revision: 2592 $"
+let () = SadmanOutput.register "" "$Revision: 2669 $"
 
 exception Illegal_update
-let () = SadmanOutput.register "Status_flat" "$Revision: 2592 $"
+let () = SadmanOutput.register "Status_flat" "$Revision: 2669 $"
 
 let _ = Format.pp_set_margin Format.std_formatter 78
 
@@ -226,17 +226,19 @@ let do_output_table t v =
           let a = StatusCommon.Files.openf f fo_ls in
          StatusCommon.Tables.output a do_close (StatusCommon.Files.closef f) v 
     | _ ->
-            let f = stdfout in
-            let do_nothing = fun () -> () in
-            StatusCommon.Tables.output f false do_nothing v;
-            let _ = 
-                match StatusCommon.information_redirected () with
-                | None -> ()
-                | Some filename ->
-                      let f = StatusCommon.Files.openf filename [] in
-                      StatusCommon.Tables.output f false do_nothing v 
-            in
-            ()
+            if !my_rank = 0 then begin
+                let f = stdfout in
+                let do_nothing = fun () -> () in
+                StatusCommon.Tables.output f false do_nothing v;
+                let _ = 
+                    match StatusCommon.information_redirected () with
+                    | None -> ()
+                    | Some filename ->
+                            let f = StatusCommon.Files.openf filename [] in
+                            StatusCommon.Tables.output f false do_nothing v 
+                in
+                ()
+            end else ()
 
 let output_table t v =
     match t with

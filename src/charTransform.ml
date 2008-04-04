@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2557 2008-01-17 22:52:33Z andres $ *)
+(* $Id: charTransform.ml 2669 2008-04-04 17:08:05Z andres $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2557 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2669 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -214,15 +214,18 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         (fun a (b, c) -> Data.transform_weight 
             (`ReWeight ((`Some (false, [b])), c)) a) data res
 
+    let (-->) a b = b a 
+
     let resample_characters_in_tree n data tree = 
         let new_data = resample_characters n data in
-        let new_data, nodes = Node.load_data new_data in
+        let new_data, nodes = 
+            new_data --> Data.categorize --> Node.load_data in
         let new_tree = substitute_nodes nodes tree in
         new_data, new_tree
 
     let ratchet_tree data probability severity tree =
         let new_data, changed = ratchet data probability severity in
-        let new_data, nodes = Node.load_data new_data in
+        let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
         new_data, substitute_nodes nodes tree, changed
 
     let fix_implied_alignments remove_non_informative chars data tree = 
@@ -236,7 +239,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
-        let new_data, nodes = Node.load_data new_data in
+        let new_data, nodes = new_data --> Data.categorize --> Node.load_data in
         Status.finished st;
         new_data, substitute_nodes nodes tree
         
@@ -244,7 +247,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         module TS = TreeSearch.Make (Node) (Edge) (TreeOps)
 
     let unratchet_tree data tree = 
-        let new_data, nodes = Node.load_data data in
+        let new_data, nodes = 
+            data --> Data.categorize --> Node.load_data 
+        in
         new_data, TS.diagnose (substitute_nodes nodes tree)
 
     (** End user visible functionality *)
@@ -434,8 +439,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | None -> failwith "No roots in trees?"
         in
         get_component_of_handle tree
-
-    let (-->) a b = b a 
 
     let post_order_in_every_handle f ptree acc = 
         let process_handle x acc =
@@ -668,7 +671,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             let treed = Data.get_tcm3d data character 
             and tcmfile = Data.get_tcmfile data character in
             let alph = Data.get_alphabet data character in
-            let data = Data.process_ignore_characters false data (`Some [character]) in
+            let data = Data.process_ignore_characters false data (`Names [name]) in
             let new_data = 
                 List.map (fun (seqs, taxon) ->
                     ([[seqs]], Data.code_taxon taxon data)) sequences
@@ -835,9 +838,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         * those *)
                         let chars = 
                             List.fold_left 
-                            (fun acc x -> 
-                                Printf.printf "Adding %d\n%!" x;
-                                All_sets.Integers.add x acc)
+                            (fun acc x -> All_sets.Integers.add x acc)
                             All_sets.Integers.empty
                             chars
                         in
@@ -874,8 +875,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         | `UseLikelihood x ->
                 Node.load_data ~taxa:nc (Data.set_likelihood data x)
         | `Prealigned_Transform chars ->
-                Node.load_data ~taxa:nc (Data.prealigned_characters
-                ImpliedAlignment.analyze_tcm data chars)
+                data 
+                --> (fun d -> Data.prealigned_characters
+                ImpliedAlignment.analyze_tcm d chars)
+                --> Data.categorize
+                --> Node.load_data ~taxa:nc 
         | `MultiStatic_Aprox (chars, remove_non_informative) ->
                 (try
                     let len = Sexpr.length trees in
@@ -885,7 +889,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             process_static_approx (cnt = len) chars remove_non_informative 
                             acc filter_characters x) (1, data) trees
                     in
-                    Node.load_data ~taxa:nc data
+                    data --> Data.categorize --> Node.load_data ~taxa:nc 
                 with
                 | No_trees ->
                         Status.user_message Status.Error
@@ -906,6 +910,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     (select_shortest trees)
                     --> process_static_approx true chars remove_non_informative data
                     filter_characters 
+                    --> Data.categorize
                     --> Node.load_data ~taxa:nc
                 with
                 | No_trees ->

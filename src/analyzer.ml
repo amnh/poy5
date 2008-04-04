@@ -223,10 +223,10 @@ let dependency_relations (init : Methods.script) =
             let res = 
                 match meth with
                 | `Seq_to_Chrom _
-                | `Seq_to_Breakinv _
+                | `Custom_to_Breakinv _
                 | `Annchrom_to_Breakinv _
                 | `Change_Dyn_Pam _
-                | `Breakinv_to_Seq _
+                | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
                 | `Prioritize
@@ -1486,11 +1486,11 @@ let script_to_string (init : Methods.script) =
             let res = 
                 match meth with
                 | `Seq_to_Chrom _
-                | `Seq_to_Breakinv _
+                | `Custom_to_Breakinv _
                 | `Annchrom_to_Breakinv _
                 | `Change_Dyn_Pam _
                 | `Chrom_to_Seq _
-                | `Breakinv_to_Seq _
+                | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
                 | `Prioritize

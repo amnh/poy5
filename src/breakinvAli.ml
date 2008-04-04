@@ -66,7 +66,7 @@ type breakinvPam_t = {
 }
 
 let breakinvPam_default = {
-    re_meth = `Breakpoint 10;
+    re_meth = `Locus_Breakpoint 10;
     keep_median = 1;
     circular = 0;
     swap_med = 1;

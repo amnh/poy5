@@ -187,7 +187,7 @@ void
 union_CAML_unwrap (value a, unionofft u) {
     UNION_OFFT *offset, length, capacity, *ca_offsets, *cb_offsets;
     seqt s;
-    s =  Seq_struct (Field (a, 0)); /* The sequence */
+    Seq_custom_val(s, (Field (a, 0))); /* The sequence */
     offset = (UNION_OFFT *) Data_bigarray_val(Field(a, 1));
     length = seq_get_len (s);
     capacity = seq_get_cap (s);
@@ -209,12 +209,15 @@ union_CAML_make (value s1, value s2, value a, value b, value c, value cm) {
     CAMLparam5 (s1, s2, a, b, c);
     CAMLxparam1 (cm);
     struct unionoff ua, ub, uc;
+    seqt ss1, ss2;
     cmt cmc;
     cmc = Cost_matrix_struct(cm);
     union_CAML_unwrap (a, &ua);
     union_CAML_unwrap (b, &ub);
     union_CAML_unwrap (c, &uc);
-    union_merge (Seq_struct(s1), Seq_struct(s2), &ua, &ub, &uc, cmc);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    union_merge (ss1, ss2, &ua, &ub, &uc, cmc);
     CAMLreturn(Val_unit);
 }
 

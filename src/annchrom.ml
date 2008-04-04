@@ -163,7 +163,7 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                          if min_cost2 >cost then cost, recost
                          else min_cost2, min_recost2
                     ) (min_cost, min_recost) meds2.med_ls
-        ) (Utl.infinity, 0) meds1.med_ls 
+        ) (Utl.large_int, 0) meds1.med_ls 
     in 
     min_cost, min_recost
 

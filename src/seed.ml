@@ -17,29 +17,35 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Seed" "$Revision: 2238 $"
+let () = SadmanOutput.register "Seed" "$Revision: 2658 $"
 type pairChromPam_t = ChromPam.chromPairAliPam_t
 
-(** The seed module contains data and funtions to determine all seeds between
-    two chromosomes *)
+(** The seed module contains data and funtions to 
+* determine all seeds between two chromosomes *)
 
-
-
+(** seed_t is a data structure presenting a segment of nucleotides
+* which is in both chromosomes *)
 type seed_t = {
-    mutable id : int;
-    mutable sta1 : int;
-    mutable sta2 : int;
-    mutable len : int;
-    mutable score : int;
-    mutable is_chained : bool
+    mutable id : int; (* Each seed is assigned an [id]*)
+    mutable sta1 : int; (* Start position of the seed on the chromosome 1 *)
+    mutable sta2 : int; (* Start position of the seed on the chromosome 2 *)
+    mutable len : int; (* Length of the seed *)
+    mutable score : int; (* Score of the seed. A better seed is longer and has higer score *)
+    mutable is_chained : bool (* is_changed = true if this seed can be chained 
+                                with another seed, otherwise false *)
 }
-
 
 type sufTree_t = SufTree.sufTree_t
 type incList_t = seed_t IncList.incList_t
+
+(** The number of memory cells we allocate each time to contain found seeds *)
 let num_located_cell = 100000
+
 let num_used_cell = ref num_located_cell
+
+(** An array of memory cells which were allocated to contain seeds *)
 let located_cell_arr : incList_t array ref = ref [||]
+
 let fprintf = Printf.fprintf
 let deref = Utl.deref
 
@@ -64,11 +70,17 @@ let create_empty_seed () = {
     sta1 = -1; sta2 = -1; len = 0; 
     score = 0; is_chained = false}
 
+(** This function returns a dummy seed of length 1
+* which is used as a starting point for dynamic programming to 
+* chain seeds together *)
 let get_dum_first_seed (min_pos1 : int) (min_pos2 : int) = {
     id = -1; 
     sta1 = min_pos1 - 1; sta2 = min_pos2 - 1; 
     len = 1; score = 0; is_chained = false}
 
+(** This function returns a dummy seed of length 1
+* which is used as an end point for dynamic programming to 
+* chain seeds together *)
 let get_dum_last_seed (max_pos1 : int) (max_pos2 : int) = {
     id = -1; 
     sta1 = max_pos1 + 1; sta2 = max_pos2 + 1; len = 1; 
@@ -82,25 +94,42 @@ let set_seed (seed : seed_t) (new_sta1 : int) (new_sta2 : int)
     seed.score <- new_score;
     seed.is_chained <- new_is_chained
 
-(* ================================================================= *)
+
 let create_new_seed (new_sta1 : int) (new_sta2 : int) 
         (new_len : int) (new_score : int) = {
     id = -1; sta1 = new_sta1; sta2 = new_sta2; 
     len = new_len; score = new_score; is_chained = false}
 
-
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] on the first chromosome*)
 let cmp_dis1 (s1 : seed_t) (s2 : seed_t) = 
     s2.sta1 - (s1.sta1 + s1.len - 1) - 1
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] on the second chromosome*)
 let cmp_dis2 (s1 : seed_t) (s2 : seed_t) = 
     s2.sta2 - (s1.sta2 + s1.len - 1) - 1
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the distance between 
+* [s1] and [s2] which is the minimum distance
+* on the both chromosomes *)
 let cmp_dis (s1 : seed_t) (s2 : seed_t) = 
     min (cmp_dis1 s1 s2) (cmp_dis2 s1 s2)
 
+(** Given two seeds [s1] and [s2], this function 
+* returns an integer number as the diagonal distance between 
+* [s1] and [s2] which is the distance difference on the
+* first and second chromosomes *)
 let cmp_dia_dis (s1 : seed_t) (s2 : seed_t) = 
     abs ( (cmp_dis1 s1 s2) - (cmp_dis2 s1 s2) )
 
+(** Given a [seed], [min_pos2] and [max_pos2]
+* which are start and end of the second chromosome, 
+* this function inverts the [sta2] of the seed 
+* due to the inversion of the second chromosome *)
 let invert (min_pos2 : int) (max_pos2 : int) (seed : seed_t) = 
     let end_pos2 = seed.sta2 + seed.len - 1 in    
     seed.sta2 <- min_pos2 + (max_pos2 - end_pos2) 
@@ -110,17 +139,15 @@ let print (seed : seed_t) =
         seed.id seed.sta1 seed.sta2 seed.len seed.score;
     flush stdout
 
-
-
-let cal_diagonal_dis (seed1 : seed_t) (seed2 : seed_t) = 
-    abs ( (seed1.sta1 - seed1.sta2) - (seed2.sta1 - seed2.sta2) )
-
 let compare_end1 (seed1 : seed_t) (seed2 : seed_t) = 
     compare (seed1.sta1 + seed1.len) (seed2.sta1 + seed2.len)
 
 let compare_start1 (seed1 : seed_t) (seed2 : seed_t) = 
     compare seed1.sta1 seed2.sta1 
     
+(** Given two seeds [seed1], [seed2] and pairwise chromosome
+* parameters [ali_pam], this function returns an integer number
+* as the cost to connect two seeds *)
 let cmp_connecting_cost (seed1 : seed_t) (seed2 : seed_t) 
         (ali_pam :  pairChromPam_t) = 
     let dis1  = seed2.sta1 - (seed1.sta1 + seed1.len - 1) - 1 in 
@@ -131,21 +158,15 @@ let cmp_connecting_cost (seed1 : seed_t) (seed2 : seed_t)
     | _ ->  ali_pam.ChromPam.gap_opening_cost + 
           (digDis - 1) * ali_pam.ChromPam.gap_ext_cost 
     
-
-
-
-
-
-    
-(*======================================================*)
+(** Given a [seed_ls] and pairwise chromosome parameters [ali_pam], 
+* this function does dynamic programming to create local connections
+* between seeds in order to chain seeds into blocks *)
 let create_local_connection (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =    
     let num_seed = List.length seed_ls in
     let sorted_end_seed_arr = Array.of_list seed_ls in                                                          
     Array.sort compare_end1 sorted_end_seed_arr;
     Array.iteri (fun index seed -> seed.id <- index) sorted_end_seed_arr;
-    
-            
-    
+        
     let seed_cost_arr = Array.init num_seed 
         (fun index -> sorted_end_seed_arr.(index).score * ali_pam.ChromPam.mat_cost) in
 
@@ -188,15 +209,22 @@ let create_local_connection (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =
     done;   
     acc_cost_arr, back_arr, sorted_end_seed_arr
 
-        
+
+(** This function allocate a bunch of [num_located_cell] memory cells
+* to contain found seeds. The reason is that it reduces
+* a signigicant amount of time compared to allocate
+* one memory cell each time *)
 let locate_mem () = 
     num_used_cell := 0;
     located_cell_arr := Array.init num_located_cell 
         (fun _ -> {IncList.data = create_empty_seed (); IncList.next = None})
     
+
+(** Given [sta1], [sta2], [len], [is_chained],this function returns 
+* a memory cell which contains a seed made from these information. 
+* Note that the type of this memory cell is incList*)
 let create_cell (sta1 : int) (sta2 : int) 
         (len : int) (is_chained : bool) = 
-
     (if (!num_used_cell = num_located_cell) then 
         locate_mem ()); 
     let new_cell = !located_cell_arr.(!num_used_cell) in    
@@ -205,16 +233,23 @@ let create_cell (sta1 : int) (sta2 : int)
     set_seed new_cell.IncList.data sta1 sta2 len len is_chained;      
     new_cell
     
-(*==========================================*)  
+
+(** Given
+* - [sta2]:  A position in the second chromosome
+* - [sta1_ls]: A list of positions in the first chromosomes
+*              where the nucleotide at [sta2] in the second chromosome 
+*              appears in the first chromosome), 
+* - [evolving_seed_ls]: A nascent seed list
+* - [ali_pam]: Pairwise chromosome parameters
+* - [code1_arr], [code2_arr]: chromosomes on in array presentations
+* This function update the [evolving_seed_ls] by prolonging 
+* these evolving seeds if possible*)
 let connect (sta2 : int) (sta1_ls : int list) 
     (evolving_seed_ls : incList_t) (ali_pam : pairChromPam_t) 
     (code1_arr : int array) (code2_arr : int array) = 
     
     let k = ali_pam.ChromPam.k in 
     let max_gap = ali_pam.ChromPam.max_gap in 
-
-    
-    
 
     let rec chain_insert (sta1 : int) 
             (new_cell : incList_t) (cell : incList_t) = 
@@ -294,13 +329,15 @@ let connect (sta2 : int) (sta1_ls : int list)
 
 
 
-
-let determine_pos_seed (suf_tree : sufTree_t) (seq2 : Sequence.s) ali_pam =
-        
+(** Given a suffix tree [suf_tree] which encodes 
+* the first chromosome, the second chromsome [chrom2],
+* pairwise chromosome parameters [ali_pam], this function
+* returns a list of positive seeds *)
+let determine_pos_seed (suf_tree : sufTree_t) (chrom2 : Sequence.s) ali_pam =        
 (* First, create the first k_mer from position 0..(k_mer - 1) *)
     let code1_arr = suf_tree.SufTree.code_arr in 
 
-    let code2_arr = Sequence.to_array seq2 in 
+    let code2_arr = Sequence.to_array chrom2 in 
     let code2_arr = Array.map (fun code -> code land 15) code2_arr in
 
     let k = ali_pam.ChromPam.k in 
@@ -345,13 +382,16 @@ let determine_pos_seed (suf_tree : sufTree_t) (seq2 : Sequence.s) ali_pam =
     !seed_ls
 
 
-let determine_neg_seed (suf_tree : sufTree_t) (seq2 : Sequence.s) 
+(** Given a suffix tree [suf_tree] which encodes 
+* the first chromosome, the second chromsome [chrom2],
+* pairwise chromosome parameters [ali_pam], this function
+* returns a list of negative seeds *)
+let determine_neg_seed (suf_tree : sufTree_t) (chrom2 : Sequence.s) 
         (ali_pam : pairChromPam_t) = 
-    let com_seq2 = Sequence.complement_chrom Alphabet.nucleotides seq2 in 
-    let neg_seed_ls = determine_pos_seed suf_tree com_seq2 ali_pam in 
+    let com_chrom2 = Sequence.complement_chrom Alphabet.nucleotides chrom2 in 
+    let neg_seed_ls = determine_pos_seed suf_tree com_chrom2 ali_pam in 
     neg_seed_ls  
 
-    
     
 let print_sta (seed_ls : seed_t list) = 
     let max_len = ref 0 in 
@@ -376,12 +416,17 @@ let print_sta (seed_ls : seed_t list) =
 
     
 
-
-let determine_seed (seq1 : Sequence.s) (seq2 : Sequence.s) 
+(** Given two chromosomes [chrom1] and [chrom2],
+* pairwise chromosome parameters [ali_pam], seed direction [direction],
+* this function returns two lists: positive seed list and negative seed_ls.
+* Note that:
+* - if [direction] is positive, negative seed list is empty,
+* - if [direction] is negative, postive seed list is empty *)
+let determine_seed (chrom1 : Sequence.s) (chrom2 : Sequence.s) 
         (ali_pam : pairChromPam_t) (direction : ChromPam.direction_t) = 
 
 
-    let code1_arr = Sequence.to_array seq1 in
+    let code1_arr = Sequence.to_array chrom1 in
     let code1_arr = Array.map (fun code -> code land 15) code1_arr in 
 
     let k_mer_tree = SufTree.create_k_mer_tree code1_arr 
@@ -390,45 +435,47 @@ let determine_seed (seq1 : Sequence.s) (seq2 : Sequence.s)
     let pos_seed_ls = 
         match direction with        
         | `Positive | `BothDir -> 
-              determine_pos_seed k_mer_tree seq2 ali_pam 
+              determine_pos_seed k_mer_tree chrom2 ali_pam 
         | `Negative -> []
     in
 
     let neg_seed_ls = 
         match direction, ali_pam.ChromPam.negative with        
         | `Negative, true | `BothDir, true ->  
-              determine_neg_seed k_mer_tree seq2 ali_pam 
+              determine_neg_seed k_mer_tree chrom2 ali_pam 
         | _, _ -> [] 
     in  
     pos_seed_ls, neg_seed_ls
 
 
 
-(** Get the subsequence alignment coresponding to subseq*)
-let get_alied_subseq (seed : seed_t) (seq1 : Sequence.s) 
-        (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) =
+(** Given a [seed], two chromosomes [chrom1] and [chrom2], 
+* transformation cost matrix [cost_mat], this function 
+* returns a pairwise sequence alignment coresponding to [seed] *)
+let create_alied_seed (seed : seed_t) (chrom1 : Sequence.s) 
+        (chrom2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) =
     match seed.len > 1 with
     | true ->
-        let subseq1 = Sequence.sub seq1 seed.sta1 seed.len in 
-        let subseq2 = Sequence.sub seq2 seed.sta2 seed.len in         
+        let subseq1 = Sequence.sub chrom1 seed.sta1 seed.len in 
+        let subseq2 = Sequence.sub chrom2 seed.sta2 seed.len in         
         let cost = UtlPoy.cmp_ali_cost subseq1 subseq2 `Positive cost_mat in 
         subseq1, subseq2, cost
     | false -> (* dummy seed*)
         UtlPoy.get_empty_seq (), UtlPoy.get_empty_seq (), 0
     
 
-(** Align two subsequences between seed1 and seed2 *)    
+(** Given two seeds [seed1] and [seed2], chromosomes [chrom1], [chrom2],
+* and transformation cost matrix, this function returns 
+* a pairwise sequence alignments which lies between two seeds [seed1] and [seed2] *)
 let create_alied_subseq (seed1 : seed_t) (seed2 : seed_t) 
-    (seq1 : Sequence.s) (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) = 
-
+    (chrom1 : Sequence.s) (chrom2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) = 
     let sta1 = seed1.sta1 + seed1.len in (* the first position is served fo gap *)
     let sta2 = seed1.sta2 + seed1.len in
         
     let len1 = seed2.sta1 - sta1 in 
     let len2 = seed2.sta2 - sta2 in                 
-    let subseq1 = Sequence.sub seq1 sta1 len1 in 
-    let subseq2 = Sequence.sub seq2 sta2 len2 in
-(*   fprintf stdout "%i %i" len1 len2; print_newline (); *)
+    let subseq1 = Sequence.sub chrom1 sta1 len1 in 
+    let subseq2 = Sequence.sub chrom2 sta2 len2 in
     let alied_subseq1, alied_subseq2, cost, ali_len = 
         UtlPoy.align2 subseq1 subseq2 cost_mat in         
     alied_subseq1, alied_subseq2, cost

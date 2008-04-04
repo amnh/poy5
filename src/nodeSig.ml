@@ -1,5 +1,5 @@
 (* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* Copyright (C) 2007  Andrï¿½s Varï¿½n, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -266,7 +266,9 @@ module type S = sig
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
     val get_mlstatic : int option -> n -> (MlStaticCS.t * MlStaticCS.t) list
 
-    (* [extract time] returns list of branch lengths from characters *)
+    (* Map all the internal codes of a node using the function *)
+    val recode : (int -> int) -> n -> n
+    (* extract times from characters *)
     val extract_time : int option -> n -> float list
 
     val edge_iterator : n -> n -> n -> n * n * n

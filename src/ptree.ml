@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Ptree" "$Revision: 2554 $"
+let () = SadmanOutput.register "Ptree" "$Revision: 2669 $"
 
 let ndebug = false
 let ndebug_break_delta = false
@@ -105,11 +105,6 @@ let empty = {
     component_root = All_sets.IntegerMap.empty;
     origin_cost = 0.;
 }
-
-(** [set_avail_start ptree id] tells [ptree] to start creating new nodes with
-    ID [id] *)
-let set_avail_start ptree =
-    { ptree with tree = Tree.set_avail_start ptree.tree }
 
 type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree ->
     (('a, 'b) p_tree * Tree.break_delta * float * int * 'a * incremental list)
@@ -285,6 +280,8 @@ module type SEARCH = sig
         val features : Methods.local_optimum -> (string
         * string) list -> (string * string) list
 
+    val recode : (a, b) p_tree -> int -> (a, b) p_tree
+
       val make_wagner_tree :
           ?sequence:(int list) ->
         (a, b) p_tree ->
@@ -308,7 +305,7 @@ module type SEARCH = sig
 
       (** [spr_simple search] takes each tree in search manager [search] and
           performs rounds of SPR until there is no further improvement *)
-      val spr_simple : searcher
+      val spr_simple : bool -> searcher
       
       (** [tbr_step ptree tabu search] performs one round of TBR searching on
           tree [ptree] using a given tabu manager and search manager. *)
@@ -321,7 +318,7 @@ module type SEARCH = sig
 
       (** [tbr_simple search] takes each tree in search manager [search] and
           performs rounds of TBR until there is no further improvement *)
-      val tbr_simple : searcher
+      val tbr_simple : bool -> searcher
 
       val tbr_join :
           (a, b) search_mgr ->
@@ -346,13 +343,15 @@ module type SEARCH = sig
       val downpass : (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
-      (** [fuse_generations trees max_trees tree_weight tree_keep iterations
+      (** [fuse_generations trees terminals max_trees tree_weight tree_keep iterations
           process] runs a genetic algorithm-style search using tree fusing.  The function
-          takes a list of trees to start with, the max number of trees and a method for
+          takes a list of trees to start with, the number of terminals on each
+          tree, the max number of trees and a method for
           keeping trees, a method for weighting trees, a number of iterations to perform,
           and a function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list ->
+          (a, b) p_tree list -> int ->
+
           int ->
           ((a, b) p_tree -> float) ->
           Methods.fusing_keep_method ->
@@ -363,7 +362,7 @@ module type SEARCH = sig
           (a, b) p_tree list
 
       val search_local_next_best : (search_step * string) -> searcher
-      val search : (search_step * string) -> searcher
+      val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
           string Parser.Tree.t list ->
@@ -694,8 +693,6 @@ let print_forest ptree =
     Tree.print_forest ptree.tree
 
 
-
-    
 (** [make_disjoint_tree n leaf_data_map]
     @param n the number of leaves.
     @param leaf_data_map a map from {1, 2, ... n} to the leaf data.
@@ -762,6 +759,136 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let downpass = Tree_Ops.downpass
     let uppass = Tree_Ops.uppass
     let diagnosis x = uppass (downpass x)
+
+    let all_edges_represented ptree =
+        (Tree.EdgeSet.fold (fun key acc ->
+            let Tree.Edge (a, b) = key in
+            let res = Tree.EdgeMap.mem key ptree.edge_data || 
+                Tree.EdgeMap.mem (Tree.Edge (b, a)) ptree.edge_data in
+            if not res then begin
+                Printf.printf "Edge Data doesn't exist: %d, %d\n%!" a b;
+            end;
+            acc && res)
+            ptree.tree.Tree.d_edges true) &&
+        (Tree.EdgeMap.fold (fun key _ acc ->
+            let key = 
+                try Tree.normalize_edge key ptree.tree with
+                | _ -> key
+            in
+            let res = Tree.EdgeSet.mem key ptree.tree.Tree.d_edges in
+            if not res then begin
+                let Tree.Edge (a, b) = key in
+                Printf.printf "Edge doesnt exist: %d, %d\n%!" a b;
+            end;
+            acc && res) 
+            ptree.edge_data true)
+
+    let edge_recode ptree (Tree.Edge (a, b)) starting =
+        assert (all_edges_represented ptree);
+        let hash = Hashtbl.create 97 in
+        let find x = 
+            try Hashtbl.find hash x with Not_found -> x 
+        in
+        let recode_tree_data tree =
+            let node_data = 
+                All_sets.IntegerMap.fold (fun key node acc ->
+                    All_sets.IntegerMap.add (find key)
+                    (Node.recode find node) acc)
+                tree.node_data
+                All_sets.IntegerMap.empty
+            and edge_data =
+                Tree.EdgeMap.fold (fun (Tree.Edge (a, b)) e acc ->
+                    Tree.EdgeMap.add 
+                    (Tree.Edge ((find a), (find b)))
+                    (Edge.recode find e)
+                    acc)
+                tree.edge_data
+                Tree.EdgeMap.empty
+            and component_root =
+                All_sets.IntegerMap.fold (fun key root acc ->
+                    All_sets.IntegerMap.add 
+                    (find key)
+                    { root with root_median = 
+                        match root.root_median with
+                        | None -> None
+                        | Some ((`Edge (a, b)), n) ->
+                                Some ((`Edge (find a, find b)), Node.recode find
+                                n)
+                        | Some ((`Single a), n) ->
+                                root.root_median } acc)
+                tree.component_root
+                All_sets.IntegerMap.empty
+            in
+            { tree with 
+                node_data = node_data;
+                edge_data = edge_data;
+                component_root = component_root; }
+        in
+        let get_parent parent b =
+            match parent with
+            | None -> (Some b)
+            | Some x -> (Some x)
+        in
+        let rec process_recode parent (a, b) code acc =
+            let ac = 
+                let ad = get_node_data a ptree in
+                Node.min_child_code (get_parent parent b) ad 
+            and bc = 
+                let bd = get_node_data b ptree in
+                Node.min_child_code (get_parent parent a) bd 
+            in
+            let a, b, ac, bc =
+                if ac < bc then a, b, ac, bc
+                else b, a, bc, ac
+            in
+            let code, acc =
+                if Tree.is_leaf a ptree.tree then code, acc
+                else recursive_call a (get_parent parent b) code acc
+            in
+            let code, acc =
+                if Tree.is_leaf b ptree.tree then code, acc
+                else recursive_call b (get_parent parent a) code acc
+            in
+            match parent with
+            | None -> 
+                    code + 1, acc
+            | Some x -> 
+                    let new_code = find code 
+                    and new_x = find x in
+                    let acc = 
+                        { acc with tree = 
+                            Tree.exchange_codes new_x new_code acc.tree }
+                    in
+                    Hashtbl.replace hash code new_x;
+                    Hashtbl.replace hash x new_code;
+                    code + 1, acc
+        and recursive_call node parent code acc =
+            match parent with
+            | Some x ->
+                    let a, b = 
+                        Tree.other_two_nbrs x (Tree.get_node node ptree.tree)
+                    in
+                    process_recode (Some node) (a, b) code acc
+            | None -> assert false
+        in
+        let code, tree = process_recode None (a, b) starting ptree in
+        let tree = recode_tree_data tree in
+        assert (all_edges_represented tree);
+        hash, code, tree
+
+    let recode ptree code = 
+        let _, ptree = 
+            List.fold_left (fun (code, ptree) handle ->
+            match handle.root_median with
+            | None -> (code, ptree)
+            | Some ((`Single _), _) -> (code, ptree)
+            | Some ((`Edge (a, b)), _) ->
+                    let _, a, b = edge_recode ptree (Tree.Edge (a, b)) code in
+                    a, b) (code, ptree)
+                    (get_roots ptree)
+        in 
+        ptree
+
 
     (** Function used for debugging purposes...*)
     let verify_cost old_cost old_delta cdnd new_delta j1 j2 t_delta pt =
@@ -1266,15 +1393,18 @@ type search_step =
             (Tree_Ops.a, Tree_Ops.b) tabu_mgr ->
                 searcher
 
-let search (searcher, name) search =
-    let status = Status.create name None ("Searching") in
-    while search#any_trees do
-        let (ptree, cost, tabu) = search#next_tree in
-        Status.full_report ~adv:(int_of_float cost) status;
-        searcher ptree tabu#clone search;
-    done;
-    Status.finished status;
-    search
+let search passit (searcher, name) search =
+    try
+        let status = Status.create name None ("Searching") in
+        while search#any_trees do
+            let (ptree, cost, tabu) = search#next_tree in
+            Status.full_report ~adv:(int_of_float cost) status;
+            searcher ptree tabu#clone search;
+        done;
+        Status.finished status;
+        search
+    with
+    | Methods.TimedOut when not passit -> search
 
 (* This function will not find the local optimum, it will return as soon as a
 * better tree is found. *)
@@ -1283,12 +1413,15 @@ let search_local_next_best (searcher, name) (search : (Tree_Ops.a, Tree_Ops.b)
         : (Tree_Ops.a, Tree_Ops.b) search_mgr =
     let status = Status.create ("Single " ^ name) None ("Searching") in
     let ptree, cost, tabu = search#next_tree in
-    searcher ptree tabu#clone search;
-    Status.finished status;
-    search
+    try
+        searcher ptree tabu#clone search;
+        Status.finished status;
+        search
+    with
+    | Methods.TimedOut -> search
 
-let spr_simple = search (spr_step, "SPR")
-let tbr_simple = search (tbr_step, "TBR")
+let spr_simple x = search x (spr_step, "SPR")
+let tbr_simple x = search x (tbr_step, "TBR")
 
 let spr_single = search_local_next_best (spr_step, "SPR")
 let tbr_single = search_local_next_best (tbr_step, "TBR")
@@ -1304,31 +1437,42 @@ let alternate spr tbr search =
     | false -> search
     | true ->
           Status.full_report ~msg:("SPR search") status;
-          let search = spr search in
-          (* SPR is done---run TBR steps on the results *)
-          Status.full_report
-              ~msg:"Performing TBR swapping" status;
-          let results = search#results in
-          let best_cost = find_best_cost results in
-          let search = search#clone in
-          let () = search#init
-              (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
-                   results) in
-          let search = tbr search in
-(*           let search = Sexpr.fold_status *)
-(*               "TBR swapping" *)
-(*               (fun search (tree, cost, tabu) -> *)
-(*                    tbr_step tree tabu search) search (Sexpr.of_list results) in *)
-            let new_cost = find_best_cost search#results in
-            if (new_cost < best_cost && new_cost < prev_best) ||
-            search#should_repeat then 
-                let search = search#clone in
-                let () = search#init
-                    (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
-                    results) 
-                in
-                try_spr new_cost search
-            else search
+          let search, timedout = 
+              try spr search, false with 
+              | Methods.TimedOut -> search, true
+          in
+          if timedout then search
+          else
+              (* SPR is done---run TBR steps on the results *)
+              let () = Status.full_report
+                  ~msg:"Performing TBR swapping" status
+              in
+              let results = search#results in
+              let best_cost = find_best_cost results in
+              let search = search#clone in
+              let () = search#init
+                  (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
+                       results) in
+              let search, timedout = 
+                  try tbr search, false with
+                  | Methods.TimedOut -> search, true
+              in
+              if timedout then search
+              else
+    (*           let search = Sexpr.fold_status *)
+    (*               "TBR swapping" *)
+    (*               (fun search (tree, cost, tabu) -> *)
+    (*                    tbr_step tree tabu search) search (Sexpr.of_list results) in *)
+                let new_cost = find_best_cost search#results in
+                if (new_cost < best_cost && new_cost < prev_best) ||
+                search#should_repeat then 
+                    let search = search#clone in
+                    let () = search#init
+                        (List.map (fun (tree, cost, tabu) -> tree, cost, NoCost, tabu)
+                        results) 
+                    in
+                    try_spr new_cost search
+                else search
               
     in
     let search = try_spr max_float search in
@@ -1379,79 +1523,207 @@ let fuse_all_locations ?min ?max trees =
 let fuse source_arg target_arg =
     (* reroot if necessary *)
     let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge)) as arg) =
-        if is_edge edge tree
-        then arg
+        if is_edge edge tree then arg
         else
             let tree, updt = Tree_Ops.reroot_fn false edge tree in
             let tree = Tree_Ops.incremental_uppass tree updt in
-            tree, tree.tree, edge in
+            tree, tree.tree, edge 
+    in
     let source, source_u, sedge = maybe_reroot source_arg in
     let target, target_u, tedge = maybe_reroot target_arg in
-
+    assert (is_edge sedge source);
+    assert (is_edge tedge target);
     let u_tree =
-        Tree.fuse ~source:(source_u, sedge) ~target:(target_u, tedge) in
+        Tree.fuse ~source:(source_u, sedge) ~target:(target_u, tedge) 
+    in
     let res = { target with tree = u_tree } in
     diagnosis res
+
+let ( --> ) a b = b a
+
+let destroy_component handle tree =
+    let cleanup_node v tree =
+        if All_sets.IntegerMap.mem v tree.tree.Tree.u_topo then
+            (* This is a leaf so we have to leave the data in and make sure that
+            * we add it as a root of the tree *)
+            let data = get_node_data v tree in
+            let root = 
+                { root_median = (Some ((`Single v), data));
+                component_cost = 0.;
+                adjusted_component_cost = 0.; }
+            in
+            { tree with component_root = All_sets.IntegerMap.add v root
+            tree.component_root }
+        else remove_node_data v tree
+    in
+    let my_remove_edge_data edge ptree =
+        let edge2 = 
+            let Tree.Edge (a, b) = edge in 
+            Tree.Edge (b, a) 
+        in
+        let new_edge_data =
+            ptree.edge_data 
+            --> Tree.EdgeMap.remove edge 
+            --> Tree.EdgeMap.remove edge2
+        in
+        { ptree with edge_data = new_edge_data }
+    in
+    let edges = Tree.get_pre_order_edges handle tree.tree in
+    let tree = { tree with tree = Tree.destroy_component handle tree.tree } in
+    List.fold_left (fun acc ((Tree.Edge (a, b)) as e) ->
+        acc -->  cleanup_node a --> cleanup_node b -->
+            my_remove_edge_data e) 
+        tree edges
+
+let copy_component handle source target =
+    let target = 
+        let tree =
+            target.tree --> Tree.copy_component handle source.tree
+        in
+        { target with tree = tree }
+    in
+    let edges = Tree.get_pre_order_edges handle source.tree in
+    let target = 
+        List.fold_left (fun acc ((Tree.Edge (a, b)) as e) ->
+            let e = Tree.normalize_edge e source.tree in
+            acc
+            --> add_edge_data e (get_edge_data e source)
+            --> add_node_data a (get_node_data a source)
+            --> add_node_data b (get_node_data b source)
+            --> remove_root_of_component a 
+            --> remove_root_of_component b) target edges
+    in
+    let root = get_component_root handle source in
+    { target with component_root = All_sets.IntegerMap.add handle root
+    target.component_root }
+
+
+let fuse source target terminals =
+    let debug = false in
+    let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge)) as arg) =
+        assert (all_edges_represented tree);
+        if is_edge edge tree then arg
+        else
+            let tree, updt = Tree_Ops.reroot_fn false edge tree in
+            assert (all_edges_represented tree);
+            let tree = Tree_Ops.incremental_uppass tree updt in
+            tree, tree.tree, edge 
+    in
+    let count = 1000000 in
+    let (stree, sutree, sedge) = maybe_reroot source
+    and (ttree, tutree, tedge) = maybe_reroot target in
+    let original = stree in
+    let shash, scode, stree = edge_recode stree sedge count
+    and thash, tcode, ttree = edge_recode ttree tedge count in
+    let fix_edge tbl (Tree.Edge (a, b)) = 
+        Tree.Edge (Hashtbl.find tbl a, Hashtbl.find tbl b)
+    in
+    let terminals = terminals + 1 in
+    let shash1, scode, stree = 
+        edge_recode stree (fix_edge shash sedge) terminals
+    and thash1, tcode, ttree = 
+        edge_recode ttree (fix_edge thash tedge) terminals 
+    in
+    assert (scode = tcode);
+    let (sa, sb) as sedge =
+        let (Tree.Edge (sa, sb)) = sedge in
+        Hashtbl.find shash1 (Hashtbl.find shash sa), 
+        Hashtbl.find shash1 (Hashtbl.find shash sb)
+    and (ta, tb) as tedge = 
+        let (Tree.Edge (ta, tb)) = tedge in
+        Hashtbl.find thash1 (Hashtbl.find thash ta),
+        Hashtbl.find thash1 (Hashtbl.find thash tb) 
+    in
+    assert (ta = sa);
+    assert (tb = sb);
+    if debug then prerr_endline "About to break";
+    let stree, (sld, srd), _, _, _, sinc = Tree_Ops.break_fn sedge stree 
+    and ttree, (tld, trd), _, _, _, tinc = Tree_Ops.break_fn tedge ttree in
+    let stree = Tree_Ops.incremental_uppass stree sinc
+    and ttree = Tree_Ops.incremental_uppass ttree tinc in
+    if debug then prerr_endline "Finished uppass";
+    let tree, jxn =
+        match trd, srd with
+        | (`Edge (_, la, lb, _)), (`Edge (_, ra, rb, _)) ->
+                let ttree =
+                    ttree 
+                    --> destroy_component (handle_of lb ttree) 
+                    --> copy_component (handle_of rb stree) stree
+                in
+                ttree, (Tree.Edge_Jxn (ra, rb))
+        | (`Single (x, _)), _
+        | _, (`Single (x, _)) -> original, (Tree.Single_Jxn x)
+    in
+    let jxn2 = 
+        match tld with
+        | `Edge (_, la, lb, _) -> (Tree.Edge_Jxn (la, lb))
+        | `Single (x, _) -> Tree.Single_Jxn x
+    in
+    let tree, _ = Tree_Ops.join_fn [] jxn jxn2 tree in
+    let tree =Tree_Ops.uppass tree in
+    tree
 
 (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
     runs a genetic algorithm-style search using tree fusing.  The function takes a
     list of trees to start with, the max number of trees and a method for keeping
     trees, a method for weighting trees, a number of iterations to perform, and a
     function to process new trees *)
-let fuse_generations trees max_trees tree_weight tree_keep iterations
+let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
         process (cmin, cmax) =
-    if 2 > List.length trees
-    then failwith "Tree fusing: must have at least two trees";
-    let status = Status.create "Tree Fusing" (Some iterations)
-        "" in
-    let () = Status.full_report status in
-    
-    let remove_worst_tree trees =
-        let maxcost =
-            List.fold_left (fun m tree -> max m (get_cost `Adjusted tree)) 0. trees
-        in
-        let rec rem lst = match lst with
-        | tree :: trees -> if get_cost `Adjusted tree = maxcost then trees
-          else tree :: rem trees
-        | [] -> assert false in
-        rem trees
+    let () = 
+        if 2 > List.length trees then 
+            failwith "Tree fusing: must have at least two trees"
+        else ()
     in
+    let status = Status.create "Tree Fusing" (Some iterations) "" in
+    let () = Status.full_report status in
     let limit_num trees =
         let len = List.length trees in
+        let trees = List.sort (fun a b -> 
+            compare (get_cost `Adjusted b) (get_cost `Adjusted a))  trees 
+        in
         let trees = ref trees in
         for i = (len - max_trees) downto 1 do
-            trees := remove_worst_tree !trees
-        done; !trees in
-
-    let keeper new_trees source target trees' = match tree_keep with
-    | `Best ->
-          let old_trees = source :: target :: trees' in
-          limit_num (List.rev_append new_trees old_trees)
-    | `Better ->
-          let target_cost = get_cost `Adjusted target in
-          let new_trees =
-              List.filter (fun t -> target_cost >= get_cost `Adjusted t) new_trees in
-          match new_trees with
-          | [] -> source :: target :: trees'
-          | new_trees ->
-                (* omit target if we're running out of space *)
+            trees := 
+                match !trees with
+                | h :: t -> t
+                | [] -> []
+        done; 
+        !trees 
+    in
+    let keeper new_trees source target trees' = 
+        match tree_keep with
+        | `Best ->
+                let old_trees = source :: target :: trees' in
+                limit_num (List.rev_append new_trees old_trees)
+        | `Better ->
+                let target_cost = get_cost `Adjusted target in
+                let new_trees =
+                    List.filter (fun t -> target_cost >= get_cost `Adjusted t) new_trees in
+                match new_trees with
+                | [] -> source :: target :: trees'
+                | new_trees ->
+                        (* omit target if we're running out of space *)
                 let old_trees =
-                    if List.length new_trees + List.length trees' + 1
-                        >= max_trees
-                    then source :: trees'
+                    if (List.length new_trees + List.length trees' + 1) 
+                        >= max_trees then 
+                            source :: trees'
                     else source :: target :: trees'
                 in
                 limit_num (List.rev_append new_trees old_trees)
     in
-
-    let rec choose_remove ?(i=1) f weights items = match weights with
-    | w :: ws ->
-          if w >= f
-          then List.hd items, i, ws, List.tl items
-          else let c, i, ws, is =
-              choose_remove ~i:(succ i) (f -. w) ws (List.tl items) in
-          c, i, w :: ws, (List.hd items) :: is
-    | [] -> failwith "choose_remove" in
+    let rec choose_remove ?(i=1) f weights items = 
+        match weights with
+        | w :: ws ->
+                if w >= f then 
+                    List.hd items, i, ws, List.tl items
+                else 
+                    let c, i, ws, is = 
+                        let tl = List.tl items in
+                        choose_remove ~i:(succ i) (f -. w) ws tl in
+                        c, i, w :: ws, (List.hd items) :: is
+        | [] -> failwith "choose_remove" 
+    in
     let choose_remove f weights items =
         (* DEBUG: these assertions should not fail; if they do, we should have
            some sort of failsafe behavior. *)
@@ -1475,46 +1747,59 @@ let fuse_generations trees max_trees tree_weight tree_keep iterations
                 List.hd items, 1, List.tl weights, List.tl items
             end
     in
-
-    let rec gen trees iter = if iter > iterations then trees else begin
-        let trees = limit_num trees in
-        Status.full_report ~adv:iter status;
-        let weights = List.map tree_weight trees in
-        let wsum = List.fold_left (+.) 0. weights in
-        let source, snum, weights, trees' =
-            choose_remove (Random.float wsum) weights trees in
-
-        let wsum = List.fold_left (+.) 0. weights in
-        let target, tnum, weights, trees' =
-            choose_remove (Random.float wsum) weights trees' in
-
-        let msg = ("tree #" ^ string_of_int snum
-                   ^ " [" ^ string_of_float (get_cost `Adjusted source) ^ "]"
-                   ^ " -> " ^ "tree #" ^ string_of_int tnum
-                   ^ " [" ^ string_of_float (get_cost `Adjusted target) ^ "]") in
-
-        let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
-        let location = Sexpr.choose_random locations in
-        match location with
-        | None ->                       (* no good location *)
-              Status.message status (msg ^ ": no join locations");
-              gen trees (succ iter)
-        | Some [t1; t2] ->
-              let t1, t2 =
-                  match t1 with
-                  | (tree, _, _) when tree == source -> t1, t2
-                  | (tree, _, _) when tree == target -> t1, t2
-                  | _ -> assert false in
-              let new_tree = fuse t1 t2 in
-              Status.full_report ~msg:(msg ^ ": tree with cost "
-                                       ^ string_of_float (get_cost `Adjusted new_tree))
-                  status;
-              let new_trees = process new_tree in
-
-              let trees = keeper new_trees source target trees' in
-              gen trees (succ iter)
-        | Some _ ->                     (* why?! *)
-              assert false
+    let rec gen trees iter = 
+        if iter > iterations then trees 
+        else begin
+            let trees = limit_num trees in
+            Status.full_report ~adv:iter status;
+            let weights = List.map tree_weight trees in
+            let wsum = List.fold_left (+.) 0. weights in
+            let source, snum, weights, trees' =
+                choose_remove (Random.float wsum) weights trees in
+            let wsum = List.fold_left (+.) 0. weights in
+            let target, tnum, weights, trees' =
+                choose_remove (Random.float wsum) weights trees' in
+            let msg = ("tree #" ^ string_of_int snum
+                       ^ " [" ^ string_of_float (get_cost `Adjusted source) ^ "]"
+                       ^ " -> " ^ "tree #" ^ string_of_int tnum
+                       ^ " [" ^ string_of_float (get_cost `Adjusted target) ^ "]") in
+            let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
+            (*
+            let location = Sexpr.choose_random locations in
+            *)
+            let process_location location =
+                match location with
+                | [t1; t2] ->
+                      let t1, t2 =
+                          match t1 with
+                          | (tree, _, _) when tree == source -> t1, t2
+                          | (tree, _, _) when tree == target -> t1, t2
+                          | _ -> assert false in
+                      let new_tree = fuse t1 t2 terminals in
+                      Status.full_report ~msg:(msg ^ ": tree with cost "
+                                               ^ string_of_float (get_cost `Adjusted new_tree))
+                          status;
+                          new_tree
+                | _ -> assert false
+            in
+            let new_tree, _ = Sexpr.fold_left 
+                (fun acc x -> 
+                    let new_tree = process_location x in
+                    match acc with
+                    | res, cost -> 
+                            let new_cost = get_cost `Adjusted new_tree in
+                            if  new_cost <  cost then
+                                    Some new_tree, new_cost
+                            else acc) (None, get_cost `Adjusted target) locations
+            in
+            let trees =
+                match new_tree with
+                | None -> trees
+                | Some new_tree ->
+                    let new_trees = process new_tree in
+                    keeper new_trees source target trees'
+            in
+            gen trees (succ iter)
 
     end in
     let res = gen trees 1 in

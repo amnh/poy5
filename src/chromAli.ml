@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2563 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2655 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -696,7 +696,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         let all_order_ls = 
             if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
             else 
-            if (Utl.equalArr gen_seq2 re_gen_seq2 compare) ||
+            if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
                 (ali_pam.ChromPam.keep_median = 1) || 
                 (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
             else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]

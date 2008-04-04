@@ -301,7 +301,7 @@ let user_message ty t =
     end else !slaves_deal_in_this_way ty t
 
 let do_output_table t v =
-    if not !are_we_parallel || 0 = !my_rank then 
+    if 0 = !my_rank then 
         let a, b, c =
             match t with
             | Output ((Some filename), do_close, fo_ls) ->

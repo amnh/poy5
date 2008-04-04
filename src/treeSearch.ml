@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2592 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2669 $"
 
 let has_something something (`LocalOptimum (cost_calculation)) =
     let cost_calculation = cost_calculation.Methods.cc in
@@ -273,25 +273,25 @@ module MakeNormal
                     | `Alternate _ -> 
                             PtreeSearch.alternate
                             (PtreeSearch.repeat_until_no_more tabu_creator 
-                            (PtreeSearch.search (stepfn `Spr)))
+                            (PtreeSearch.search true (stepfn `Spr)))
                             (PtreeSearch.search_local_next_best (stepfn `Tbr))
                     | `SingleNeighborhood x -> 
                             PtreeSearch.repeat_until_no_more tabu_creator
                             (PtreeSearch.search_local_next_best (stepfn x))
                     | `ChainNeighborhoods x -> 
                             PtreeSearch.repeat_until_no_more tabu_creator
-                            (PtreeSearch.search (stepfn x))
+                            (PtreeSearch.search false (stepfn x))
                     | `None -> (fun a -> a))
             | _ ->
                     (match meth with
                     | `Alternate _ -> 
                             PtreeSearch.alternate
-                            (PtreeSearch.search (stepfn `Spr))
+                            (PtreeSearch.search true (stepfn `Spr))
                             (PtreeSearch.search_local_next_best (stepfn `Tbr))
                     | `SingleNeighborhood x -> 
                             PtreeSearch.search_local_next_best (stepfn x)
                     | `ChainNeighborhoods x -> 
-                            PtreeSearch.search (stepfn x)
+                            PtreeSearch.search false (stepfn x)
                     | `None -> (fun a -> a))
 
     (** [forest_break_search_tree origin_cost tree] attempts to break all edges
@@ -611,7 +611,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                         let a = PtreeSearch.uppass a in
                         (a, Ptree.get_cost `Adjusted a)) res
                 with
-                | Sampler.TimedOut -> [(tree, Ptree.get_cost `Adjusted tree)]
+                | Methods.TimedOut -> [(tree, Ptree.get_cost `Adjusted tree)]
             in
             Sexpr.map_status "Tree search" process_tree trees 
     in
@@ -683,6 +683,7 @@ let forest_search data queue origin_cost search trees =
         let trees = 
             PtreeSearch.fuse_generations
             (Sexpr.to_list trees)
+            data.Data.number_of_taxa
             max_trees
             weighting
             keep_method
@@ -694,7 +695,6 @@ let forest_search data queue origin_cost search trees =
         Sexpr.of_list trees
 
     let output_consensus data trees filename v graphic = 
-        let _ = incr Data.median_code_count in
         (* We will use a negative number for the root code to avoid
         * any clash *)
         let ntrees = Sexpr.length trees in

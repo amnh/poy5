@@ -89,7 +89,7 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
         
     let init_meds : meds_t = {
         med_ls = []; num_med = 0; 
-         total_cost = Utl.infinity; 
+         total_cost = Utl.large_int; 
          total_recost = 0;
          breakinv_pam = meds1.breakinv_pam;
          gen_cost_mat = meds1.gen_cost_mat;
@@ -128,7 +128,7 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                          if  min_cost2 > cost then cost, (recost1 + recost2)
                          else min_cost2, min_recost2
                     ) (min_cost, min_recost) meds2.med_ls
-        ) (Utl.infinity, 0) meds1.med_ls 
+        ) (Utl.large_int, 0) meds1.med_ls 
     in 
     min_cost, min_recost
 

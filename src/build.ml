@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 2406 $"
+let () = SadmanOutput.register "Build" "$Revision: 2669 $"
 
 let debug_profile_memory = false
 
@@ -266,7 +266,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         res
                 | _ -> 0., [initial_tree]
         in
-        Sexpr.of_list trees
+        Sexpr.of_list (List.map PtreeSearch.uppass trees)
 
     let constrained_build cg data n constraint_tree nodes = 
         let rec randomize_tree tree = 
@@ -580,9 +580,9 @@ module TS = Ptree.Search (Node) (Edge) (TreeOps)
 
 let rec build_initial_trees trees data nodes (meth : Methods.build) =
     let d = (data, nodes) in
-    let cg () = 
-        incr Data.median_code_count;
-        !Data.median_code_count
+    let cg = 
+        let code = ref data.Data.number_of_taxa in
+        fun () -> incr code; !code
     in
     let built_tree_report acc trees =
         let builder (acc, cnt) t =

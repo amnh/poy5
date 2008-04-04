@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "ChromPam" "$Revision: 2508 $"
+let () = SadmanOutput.register "ChromPam" "$Revision: 2665 $"
 
 (** Chromosome parameters
  *
@@ -112,7 +112,7 @@ let chromPairAliPam_default = {
     mat_cost = -100;    
     mismat_cost = 50;
 
-    re_meth  = `Breakpoint 10;
+    re_meth  = `Locus_Breakpoint 10;
     chrom_breakpoint = 100;
 
     keep_median = 1;

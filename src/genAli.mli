@@ -24,7 +24,7 @@ val cmp_recost :
   int array ->
   int array ->
   int array ->
-  [< `Breakpoint of int | `Inversion of int ] -> int -> int * int
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int * int
 val cmp_cost :
   [> `Breakinv ] ->
   int array ->
@@ -32,7 +32,7 @@ val cmp_cost :
   int array ->
     Cost_matrix.Two_D.m ->
   int ->
-  [< `Breakpoint of int | `Inversion of int ] ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int * (int * int) * int array * int array
 
 val cmp_cost3 :
@@ -41,7 +41,7 @@ val cmp_cost3 :
   int array ->
   int array ->
   int array array ->
-    int -> [< `Breakpoint of int | `Inversion of int ] -> int -> bool -> int
+    int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int
 
 
 val find_wagner_ali :
@@ -49,7 +49,7 @@ val find_wagner_ali :
   int array ->
   int array ->
     Cost_matrix.Two_D.m ->
-  int -> [< `Breakpoint of int | `Inversion of int ] -> int -> int array
+  int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int array
 val multi_swap_locus :
   [> `Breakinv ] ->
   int array ->
@@ -58,7 +58,7 @@ val multi_swap_locus :
   int ->
     Cost_matrix.Two_D.m ->
   int ->
-  [< `Breakpoint of int | `Inversion of int ] ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int -> int * int array
 val create_gen_ali :
   [> `Breakinv ] ->
@@ -66,7 +66,7 @@ val create_gen_ali :
   Sequence.s ->
   Cost_matrix.Two_D.m ->
   Alphabet.a ->
-  [< `Breakpoint of int | `Inversion of int ] ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int * (int * int) * Sequence.s * Sequence.s
 val create_gen_ali_code :
   [> `Breakinv ] ->
@@ -74,7 +74,7 @@ val create_gen_ali_code :
   int array ->
   int array array ->
   int ->
-  [< `Breakpoint of int | `Inversion of int ] ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int * (int * int) * int array * int array
 
 val create_gen_ali3 :
@@ -84,5 +84,5 @@ val create_gen_ali3 :
   Sequence.s ->
   int array array ->
   Alphabet.a ->
-  [< `Breakpoint of int | `Inversion of int ] ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
     'a -> int -> bool -> Sequence.s * int

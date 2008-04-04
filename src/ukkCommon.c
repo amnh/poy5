@@ -121,12 +121,12 @@ value powell_3D_align (value sa, value sb, value sc, value ra, value rb, \
     continueInsert = Int_val(ge);
     startDelete = startInsert;
     continueDelete = continueInsert;
-    csa = Seq_custom_val(sa);
-    csb = Seq_custom_val(sb);
-    csc = Seq_custom_val(sc);
-    cra = Seq_custom_val(ra);
-    crb = Seq_custom_val(rb);
-    crc = Seq_custom_val(rc);
+    Seq_custom_val(csa,sa);
+    Seq_custom_val(csb,sb);
+    Seq_custom_val(csc,sc);
+    Seq_custom_val(cra,ra);
+    Seq_custom_val(crb,rb);
+    Seq_custom_val(crc,rc);
 
   assert(misCost != 0 && startInsert>=0 && continueInsert>0);
   

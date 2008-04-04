@@ -23,8 +23,8 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <limits.h>
-#define NDEBUG 1
 #include <assert.h>
+#define NDEBUG 1
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/custom.h>
@@ -2395,8 +2395,8 @@ algn_CAML_worst_2 (value s1, value s2, value c) {
     cmt tc;
     int res;
     seqt s1p, s2p;
-    s1p = Seq_struct(s1);
-    s2p = Seq_struct(s2);
+    Seq_custom_val(s1p,s1);
+    Seq_custom_val(s2p,s2);
     tc = Cost_matrix_struct(c);
     res = algn_worst_2 (s1p, s2p, tc);
     CAMLreturn(Val_int(res));
@@ -2408,8 +2408,8 @@ algn_CAML_verify_2 (value s1, value s2, value c) {
     cmt tc;
     int res;
     seqt s1p, s2p;
-    s1p = Seq_struct(s1);
-    s2p = Seq_struct(s2);
+    Seq_custom_val(s1p,s1);
+    Seq_custom_val(s2p,s2);
     tc = Cost_matrix_struct(c);
     res = algn_verify_2 (s1p, s2p, tc);
     CAMLreturn(Val_int(res));
@@ -2424,8 +2424,8 @@ algn_CAML_simple_2 (value s1, value s2, value c, value a, value deltawh) {
     matricest ta;
     tc = Cost_matrix_struct(c);
     ta = Matrices_struct(a);
-    s1p = Seq_struct(s1);
-    s2p = Seq_struct(s2);
+    Seq_custom_val(s1p,s1);
+    Seq_custom_val(s2p,s2);
     mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
             cm_get_alphabet_size(tc));
 #ifdef DEBUG_ALL_ASSERTIONS
@@ -2448,8 +2448,8 @@ algn_CAML_limit_2 (value s1, value s2, value c, value a, value w, value h, \
     cw = Int_val(w);
     tc = Cost_matrix_struct(c);
     ta = Matrices_struct(a);
-    s1p = Seq_struct(s1);
-    s2p = Seq_struct(s2);
+    Seq_custom_val(s1p,s1);
+    Seq_custom_val(s2p,s2);
     mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
             cm_get_alphabet_size(tc));
     /* TODO: Fix this deltaw binding */
@@ -2474,9 +2474,9 @@ algn_CAML_simple_3 (value s1, value s2, value s3, value c, value a, value uk) {
     matricest ta;
     tc = Cost_matrix_struct_3d(c);
     ta = Matrices_struct(a);
-    s1p = Seq_struct(s1);
-    s2p = Seq_struct(s2);
-    s3p = Seq_struct(s3);
+    Seq_custom_val(s1p,s1);
+    Seq_custom_val(s2p,s2);
+    Seq_custom_val(s3p,s3);
     res = algn_nw_3d (s1p, s2p, s3p, tc, ta, Int_val(uk));
     CAMLreturn(Val_int(res));
 }
@@ -2513,8 +2513,8 @@ algn_CAML_print_bcktrck (value s1, value s2, value matrix) {
     CAMLparam3(s1, s2, matrix);
     seqt s1c, s2c;
     matricest m;
-    s1c = Seq_struct(s1);
-    s2c = Seq_struct(s2);
+    Seq_custom_val(s1c,s1);
+    Seq_custom_val(s2c,s2);
     m = Matrices_struct(matrix);
     print_bcktrck (s1c, s2c, m);
     CAMLreturn (Val_unit);
@@ -2547,7 +2547,9 @@ algn_string_of_2d_direction (unsigned char v) {
     return;
 }
 
-#define my_prepend(a,b) assert (a->cap > a->len); (a)->begin = (((a)->begin) - 1); ((a)->len = 1 + (a)->len); *((a)->begin) = b
+#define my_prepend(a,b) assert (a->cap > a->len); \
+    (a)->begin = (((a)->begin) - 1); \
+    ((a)->len = 1 + (a)->len); *((a)->begin) = b
 
 #define my_get(a,b) ((a)->begin)[b]
 
@@ -2921,10 +2923,10 @@ algn_CAML_backtrack_2d (value s1, value s2, value s1p, value s2p, value a, \
     matricest ta;
     cmt cc;
     ta = Matrices_struct(a);
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ss1p = Seq_struct(s1p);
-    ss2p = Seq_struct(s2p);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ss1p,s1p);
+    Seq_custom_val(ss2p,s2p);
     cc = Cost_matrix_struct(c);
     backtrack_2d (ss1, ss2, ss1p, ss2p, ta, cc, 0, 0, seq_get_len(ss1), \
             seq_get_len(ss2), Bool_val(swap), s1, s2);
@@ -2948,10 +2950,10 @@ algn_CAML_backtrack_2d_limit (value s1, value s2, value s1p, \
     matricest ta;
     cmt cc;
     ta = Matrices_struct(a);
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ss1p = Seq_struct(s1p);
-    ss2p = Seq_struct(s2p);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ss1p,s1p);
+    Seq_custom_val(ss2p,s2p);
     cc = Cost_matrix_struct(c);
     backtrack_2d (ss1, ss2, ss1p, ss2p, ta, cc, Int_val(st_s1), \
             Int_val(st_s2), Int_val(algn_s1), Int_val(algn_s2), 
@@ -2974,12 +2976,12 @@ algn_CAML_backtrack_3d (value s1, value s2, value s3, value s1p, value s2p, \
     matricest ta;
     cm_3dt tc;
     ta = Matrices_struct(a);
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ss3 = Seq_struct(s3);
-    ss1p = Seq_struct(s1p);
-    ss2p = Seq_struct(s2p);
-    ss3p = Seq_struct(s3p);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ss3,s3);
+    Seq_custom_val(ss1p,s1p);
+    Seq_custom_val(ss2p,s2p);
+    Seq_custom_val(ss3p,s3p);
     tc = Cost_matrix_struct_3d(c);
     backtrack_3d (ss1, ss2, ss3, ss1p, ss2p, ss3p, ta, tc);
     CAMLreturn(Val_unit);
@@ -3193,9 +3195,9 @@ value
 algn_CAML_union (value s1, value s2, value su) {
     CAMLparam3(s1, s2, su);
     seqt ss1, ss2, ssu;
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ssu = Seq_struct(su);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ssu,su);
     algn_union (ss1, ss2, ssu);
     CAMLreturn(Val_unit);
 }
@@ -3205,9 +3207,9 @@ algn_CAML_median_2_no_gaps (value s1, value s2, value m, value sm) {
     CAMLparam4(s1, s2, m, sm);
     seqt ss1, ss2, ssm;
     cmt tm;
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ssm = Seq_struct(sm);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ssm,sm);
     tm = Cost_matrix_struct(m);
     algn_get_median_2d_no_gaps (ss1, ss2, tm, ssm);
     CAMLreturn(Val_unit);
@@ -3218,9 +3220,9 @@ algn_CAML_median_2_with_gaps (value s1, value s2, value m, value sm) {
     CAMLparam4(s1, s2, m, sm);
     seqt ss1, ss2, ssm;
     cmt tm;
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ssm = Seq_struct(sm);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ssm,sm);
     tm = Cost_matrix_struct(m);
     algn_get_median_2d_with_gaps (ss1, ss2, tm, ssm);
     CAMLreturn(Val_unit);
@@ -3231,10 +3233,10 @@ algn_CAML_median_3 (value s1, value s2, value s3, value m, value sm) {
     CAMLparam5(s1, s2, s3, m, sm);
     seqt ss1, ss2, ss3, ssm;
     cm_3dt tm;
-    ss1 = Seq_struct(s1);
-    ss2 = Seq_struct(s2);
-    ss3 = Seq_struct(s3);
-    ssm = Seq_struct(sm);
+    Seq_custom_val(ss1,s1);
+    Seq_custom_val(ss2,s2);
+    Seq_custom_val(ss3,s3);
+    Seq_custom_val(ssm,sm);
     tm = Cost_matrix_struct_3d(m);
     algn_get_median_3d (ss1, ss2, ss3, tm, ssm);
     CAMLreturn(Val_unit);
@@ -3276,8 +3278,8 @@ algn_CAML_myers (value sa, value sb) {
     CAMLparam0();
     seqt a, b;
     int res, max;
-    a = Seq_custom_val(sa);
-    b = Seq_custom_val(sb);
+    Seq_custom_val(a,sa);
+    Seq_custom_val(b,sb);
     max = seq_get_len (a) + seq_get_len (b); 
     if (max > zarr_length (v)) {
         if ((v != NULL) && (zarr_realloc (v, max))) failwith ("Allocation error.");
@@ -3296,9 +3298,9 @@ algn_CAML_ancestor_2 (value sa, value sb, value cm, value sab) {
     seqt a, b, ab;
     cmt tm;
 
-    a = Seq_custom_val(sa);
-    b = Seq_custom_val(sb);
-    ab = Seq_custom_val(sab);
+    Seq_custom_val(a,sa);
+    Seq_custom_val(b,sb);
+    Seq_custom_val(ab,sab);
     tm = Cost_matrix_struct(cm);
     algn_ancestor_2 (a, b, tm, ab);
     CAMLreturn (Val_unit);

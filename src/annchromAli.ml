@@ -83,7 +83,7 @@ type annchromPam_t = {
 }
 
 let annchromPam_default = {
-    re_meth = `Breakpoint 10;
+    re_meth = `Locus_Breakpoint 10;
     keep_median = 1;
     circular = 0;
     swap_med = 1;
@@ -287,7 +287,7 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
 
 
     let pure_gen_cost_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1)
-        Utl.infinity 
+        Utl.large_int 
     in 
 
     pure_gen_cost_mat.(gen_gap_code).(gen_gap_code) <- 0;
@@ -326,19 +326,22 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
 
 
     let update_gap (seq, code) = 
-        pure_gen_cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_gap_cost ali_pam.locus_indel_cost seq;
+
+(*       pure_gen_cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_locus_indel_cost seq cost_mat ali_pam.locus_indel_cost; *)
+        pure_gen_cost_mat.(gen_gap_code).(code)<- UtlPoy.cmp_gap_cost ali_pam.locus_indel_cost seq;
+
+
         pure_gen_cost_mat.(code).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
         pure_gen_cost_mat.(gen_gap_code).(code + 1) <- pure_gen_cost_mat.(gen_gap_code).(code);
         pure_gen_cost_mat.(code + 1).(gen_gap_code) <- pure_gen_cost_mat.(gen_gap_code).(code);
     in 
 
-    Array.iter update_gap seq1_arr;
+    Array.iter update_gap seq1_arr; 
     Array.iter update_gap seq2_arr;
 
 
     let code1_arr = Array.map (fun (seq, code) -> code) seq1_arr in 
     let code2_arr = Array.map (fun (seq, code) -> code) seq2_arr in 
-
     pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code
 
 
@@ -356,9 +359,9 @@ let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =
     let gen_gap_code = !code + 1 in 
 
 
-    let cost1_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
-    let cost2_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
-    let cost3_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.infinity  in 
+    let cost1_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.large_int  in 
+    let cost2_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.large_int  in 
+    let cost3_mat = Array.make_matrix (gen_gap_code + 1) (gen_gap_code + 1) Utl.large_int  in 
 
     cost1_mat.(gen_gap_code).(gen_gap_code) <- 0;
     cost2_mat.(gen_gap_code).(gen_gap_code) <- 0;
@@ -406,7 +409,10 @@ let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =
 
 
     let update_gap cost_mat (seq, code) = 
+(*        cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_locus_indel_cost seq c2 ali_pam.locus_indel_cost; *)
         cost_mat.(gen_gap_code).(code) <- UtlPoy.cmp_gap_cost ali_pam.locus_indel_cost seq;
+
+
         cost_mat.(code).(gen_gap_code) <- cost_mat.(gen_gap_code).(code);
         cost_mat.(gen_gap_code).(code + 1) <- cost_mat.(gen_gap_code).(code);
         cost_mat.(code + 1).(gen_gap_code) <- cost_mat.(gen_gap_code).(code);
@@ -613,7 +619,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         let code2_arr = UtlGrappa.get_ordered_permutation re_code2_arr in 
              
         let all_order_ls =   
-            if (Utl.equalArr code2_arr re_code2_arr compare) ||  
+            if (Utl.isEqualArr code2_arr re_code2_arr compare) ||  
                 (ali_pam.keep_median = 1) ||
                 (ali_pam.approx = `First) then [re_code2_arr, recost1, recost2]   
             else [(re_code2_arr, recost1, recost2); (code2_arr, recost2, recost1)]   
@@ -689,21 +695,23 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
         create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam
     in 
 
+
     let _, _, alied_code1_arr, alied_code1m_arr = 
         GenAli.create_gen_ali_code `Annchrom code1_arr codem_arr cost1_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
     in 
+
 
     let _, _, alied_code2_arr, alied_code2m_arr = 
         GenAli.create_gen_ali_code `Annchrom code2_arr codem_arr cost2_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
     in 
 
+
     let _, _, alied_code3_arr, alied_code3m_arr = 
         GenAli.create_gen_ali_code `Annchrom code3_arr codem_arr cost3_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
     in 
-
 
     let seq_arr = Array.mapi 
         (fun ith seqt -> 
@@ -737,10 +745,8 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
              if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
                  (Sequence.length seq3 = 0) then {seqt with seq = seqm}
              else begin
-
                  let _, median_seq, _ = Sequence.Align.readjust_3d
                      ~first_gap:false seq1 seq2 seqm c2 c3 seq3 in
-
                  {seqt with seq = median_seq}
              end               
         ) mine.seq_arr

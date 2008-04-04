@@ -57,10 +57,9 @@ type identifiers = [
 ]
 
 type chromosome_args = [
-    | `Inversion of int
-    | `Breakpoint of int (*Breakpoint cost between two loci inside one chromosome *)
+    | `Locus_Inversion of int
+    | `Locus_Breakpoint of int (*Locus_reakpoint cost between two loci inside one chromosome *)
     | `Circular of bool
-
     | `Locus_Indel_Cost of (int * int)
     | `Chrom_Indel_Cost of (int * int)
     | `Chrom_Hom of int (* if cost > threshold * min_cost,  then not homologous *)
@@ -103,7 +102,7 @@ type transform_method = [
     | `Fixed_States
     | `SeqToChrom of chromosome_args list
     | `ChangeDynPam of chromosome_args list
-    | `SeqToBreakinv of chromosome_args list
+    | `CustomToBreakinv of chromosome_args list
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
@@ -376,12 +375,12 @@ let transform_transform acc (id, x) =
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
-            | `SeqToBreakinv x -> (`Seq_to_Breakinv (id, x)) :: acc
+            | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
             | `AnnchromToBreakinv x -> (`Annchrom_to_Breakinv (id, x)) :: acc
             | `Seq_to_Kolmogorov x -> (`Seq_to_Kolmogorov (id, x)) :: acc
             | `ChangeDynPam x -> (`Change_Dyn_Pam (id, x)) :: acc
             | `ChromToSeq x -> (`Chrom_to_Seq (id, x)) :: acc
-            | `BreakinvToSeq x -> (`Breakinv_to_Seq (id, x)) :: acc
+            | `BreakinvToSeq x -> (`Breakinv_to_Custom (id, x)) :: acc
             | (`OriginCost _) as id -> id :: acc
 
 
@@ -1151,8 +1150,8 @@ let create_expr () =
                 [ LIDENT "search_based" -> `SearchBased ] |
                 [ LIDENT "seq_to_chrom"; ":"; left_parenthesis; x = LIST0
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToChrom x ] | 
-                [ LIDENT "seq_to_breakinv"; ":"; left_parenthesis; x = LIST0
-                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `SeqToBreakinv x ] | 
+                [ LIDENT "custom_to_breakinv"; ":"; left_parenthesis; x = LIST0
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `CustomToBreakinv x ] | 
 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] | 
@@ -1182,10 +1181,10 @@ let create_expr () =
             ];
         chromosome_argument:
             [
-                [ LIDENT "inversion"; ":"; c = INT -> 
-                      `Inversion (int_of_string c) ]  |
+                [ LIDENT "locus_inversion"; ":"; c = INT -> 
+                      `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 
-                      `Breakpoint (int_of_string c) ]  |
+                      `Locus_Breakpoint (int_of_string c) ]  |
                 [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
                       `Chrom_Breakpoint (int_of_string c) ]  |
                 [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
@@ -1200,16 +1199,16 @@ let create_expr () =
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
                 [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
                       `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                [ LIDENT "sig_block_len"; ":"; c = INT -> 
+                [ LIDENT "min_loci_len"; ":"; c = INT -> 
                       `Sig_Block_Len (int_of_string c) ] | 
-                [ LIDENT "rearranged_len"; ":"; c = INT -> 
+                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 
                       `Rearranged_Len (int_of_string c) ] | 
-                [ LIDENT "seed_length"; ":"; c = INT -> 
+                [ LIDENT "min_seed_length"; ":"; c = INT -> 
                       `Seed_Len (int_of_string c) ] | 
                 [ LIDENT "median"; ":"; c = INT ->
                       `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 
-                [ LIDENT "approx"; ":"; ans = boolean -> `Approx ans] |
+                [ LIDENT "med_approx"; ":"; ans = boolean -> `Approx ans] |
                 [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
                 [ LIDENT "max_3d_len"; ":"; l = INT -> 
                       `Max_3D_Len (int_of_string l) ]  
@@ -1954,6 +1953,19 @@ and do_analysis optimize res =
 and simplify_directory dir = 
     Str.global_replace (Str.regexp "\\\\ ") " " dir 
 
+and of_parsed optimize lst =
+    let cur_directory = Sys.getcwd () in
+    let res =
+        lst
+        --> transform_all_commands
+        --> List.map (process_commands false)
+        --> List.flatten
+        --> do_analysis optimize
+    in
+    let cur_directory = simplify_directory cur_directory in
+    Sys.chdir cur_directory;
+    res
+
 and of_stream optimize str =
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
@@ -1968,6 +1980,7 @@ and of_stream optimize str =
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
     res
+
 
 and of_channel optimize ch = 
     of_stream optimize (Stream.of_channel ch)
