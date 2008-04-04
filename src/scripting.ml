@@ -1,5 +1,5 @@
 (* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* Copyright (C) 2007  Andrï¿½s Varï¿½n, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -146,10 +146,6 @@ module type S = sig
 end
 
 
-
-let assign_cost_mode mode = Node.cost_mode := mode
-
-let get_cost_mode () = !Node.cost_mode
 
 module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
     (TreeOps : 
@@ -947,7 +943,7 @@ let explode_trees run =
     Sexpr.map (fun x -> { run with trees = `Single x }) run.trees
 
 let is_forest = function
-    | `LocalOptimum (_, _, _, _, _, x, _, _, _, _, _) -> x
+    | `LocalOptimum x -> x.Methods.oo
 
 let build_has_exact = build_has `Exact
 
@@ -2205,7 +2201,7 @@ END
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run) fn;
+                    PoyFile.store_file (comment, run, get_cost_mode ()) fn;
                     run
                 with
                 | err ->
@@ -2217,7 +2213,8 @@ END
                         run)
             | `Load fn ->
                 (try 
-                    let (comment, run)  = PoyFile.read_file fn in
+                    let (comment, run, cost_mode)  = PoyFile.read_file fn in
+                    assign_cost_mode cost_mode;
                     let descr = 
                         match comment with
                         | None -> "No description available."
@@ -2390,8 +2387,7 @@ let get_console_run () = !console_run_val
             let res = 
                 let optarg = 
                     let neigh = `ChainNeighborhoods neigh in
-                    (neigh, 0.0, 1, `Last, [], None, `BestFirst,
-                    `DistanceSorted, `UnionBased None, `Bfs None, [])
+                    { PoyCommand.swap_default with Methods.ss = neigh }
                 in
                 PTS.find_local_optimum 
                 ~base_sampler:sampler data (Sampler.create ()) 

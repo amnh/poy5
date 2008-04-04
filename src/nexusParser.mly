@@ -44,6 +44,7 @@ let report_error text b e =
 %token <string> DATA
 %token <string> DATA_CSTREE
 %token <string> QUOTED
+%token <string> SINGLEQUOTED
 %token <string> DATATYPE
 %token <string> DEFTYPE
 %token <string> DIAGONAL
@@ -516,6 +517,7 @@ taxa:
     ;
 taxonlist:
     | IDENT taxonlist   { $1 :: $2 }
+    | SINGLEQUOTED taxonlist { $1 :: $2 }
     |                   { [] }
     ;
 characterset_list:
@@ -527,6 +529,7 @@ characterset:
     | INTEGER DASH INTEGER { Nexus.Range ($1, Some $3) }
     | INTEGER              { Nexus.Single ($1) }
     | IDENT                { Nexus.Name $1 }
+    | SINGLEQUOTED         { Nexus.Name $1 }
     | CHAR                 { Nexus.Name (String.make 1 $1) }
     ;
 list_of_anything:

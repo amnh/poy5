@@ -164,7 +164,7 @@ module Lexer : sig
     * a boolean for whether or not it should respect the case of the alphabet,
     * and ii) it doesn't consume the entire stream but returns one element at a
     * time. The list of elements is returned because a small set of alphabet
-    * elements can be enclosed inside {} or (). *)
+    * elements can be enclosed inside [{{}}] or [{()}]. *)
     val make_simplified_lexer : [ `Nexus | `Hennig | `None ] -> 
         bool -> bool -> a -> (char Stream.t -> int list)
 

@@ -20,7 +20,8 @@
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
 let () = SadmanOutput.register "TreeSearch" "$Revision: 2669 $"
 
-let has_something something (`LocalOptimum (_, _, _, _, cost_calculation, _, _, _, _, _, _)) =
+let has_something something (`LocalOptimum (cost_calculation)) =
+    let cost_calculation = cost_calculation.Methods.cc in
     List.exists (fun x -> x = something) cost_calculation
 
     (* This needs to be moved out, so that the module is constructed accoding to
@@ -76,12 +77,13 @@ module type S = sig
         option -> float option -> bool -> unit
     end
 
-let get_transformations (`LocalOptimum (_, _, _, _, list, _, _, _, _, _, _)) = 
+let get_transformations (`LocalOptimum (l_opt)) = 
+    let clist = l_opt.Methods.cc in
     let remover meth acc =
         match meth with
         | #Methods.transform as x -> x :: acc
-    in
-    List.fold_right remover list []
+    in 
+    List.fold_right remover clist []
 
 let sets_of_consensus trees  = 
     Lazy.lazy_from_fun 
@@ -128,8 +130,8 @@ let sets_of_parser data tree =
     sets
 
 let sets meth data trees = 
-    let `LocalOptimum (_, _, _, _, _, _, _, _, join_tabu, _, _) = meth in
-    match join_tabu with
+    let `LocalOptimum (meth) = meth in
+    match meth.Methods.tabu_join with
     | `Partition options ->
         (match 
             List.fold_left (fun acc x -> 
@@ -512,11 +514,13 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         in
         acc
     in
-    let `LocalOptimum
+
+    (* let `LocalOptimum
             (search_space, th, max, keep, cost_calculation, origin, 
-            trajectory, break_tabu, join_tabu, reroot_tabu, samples)
-            = meth in
-    let samplerf = sampler base_sampler data emergency_queue samples in
+            trajectory, break_tabu, join_tabu, reroot_tabu, nodes_tabu, samples)
+            = meth in *)
+    let `LocalOptimum (l_opt) = meth in
+    let samplerf = sampler base_sampler data emergency_queue l_opt.Methods.samples in
     let queue_manager =
         match queue with
         | Some
@@ -525,12 +529,13 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                 (fun () -> new PhyloQueues.supports_manager best_vals node_indices 
                 starting status nbhood_count orig_cost (new Sampler.do_nothing))
         | None ->
-                match trajectory with
+                match l_opt.Methods.tm with (* trajectory *)
                 | `AllAround f -> 
                         (fun () -> new PhyloQueues.all_possible_joins f
                         (samplerf ()))
                 | `BestFirst -> 
-                            queue_manager max th keep samplerf
+                            queue_manager l_opt.Methods.num_keep
+                            l_opt.Methods.threshold l_opt.Methods.keep samplerf
                 | `AllThenChoose -> 
                         fun () -> 
                             new PhyloQueues.all_neighbors_srch_mgr
@@ -552,13 +557,13 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
             | Some v -> v
         in
         let breakfn =
-            match break_tabu with
+            match l_opt.Methods.tabu_break with
             | `Randomized -> PhyloTabus.random_break
             | `DistanceSorted -> PhyloTabus.sorted_break
             | `OnlyOnce -> PhyloTabus.only_once_break
         in
         let joinfn =
-            match join_tabu with
+            match l_opt.Methods.tabu_join with
             | `UnionBased depth ->
                     PhyloTabus.union_join (get_depth depth)
             | `AllBased depth -> 
@@ -573,14 +578,22 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     in
                     PhyloTabus.partitioned_join (Lazy.force sets) (get_depth depth)
         in
+        let iterfn =
+            match l_opt.Methods.tabu_nodes with
+            | `Null -> PhyloTabus.simple_nm_none (*
+             * | `Randomized -> PhyloTabus.
+             * | `LongestFirst -> PhyloTabus.
+             * | `... 
+             * *)
+        in
         let rerootfn =
-            match reroot_tabu with
+            match l_opt.Methods.tabu_reroot with
             | `Bfs depth ->
                     PhyloTabus.reroot (get_depth depth)
         in
-        new PhyloTabus.standard_tabu ptree joinfn rerootfn breakfn 
+        new PhyloTabus.standard_tabu ptree joinfn rerootfn breakfn iterfn
     in
-    let search_fn = get_search_function tabu_manager trajectory search_space in
+    let search_fn = get_search_function tabu_manager l_opt.Methods.tm l_opt.Methods.ss in
     let search_features =
             PtreeSearch.features meth ((queue_manager ())#features
             (* TODO: tabu features *)

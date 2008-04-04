@@ -2252,16 +2252,19 @@ end
 
 module SC = struct
 
-    type site_var
+    type site_var = (* #categories, alpha, beta *)
+        | Gamma of int * float * float
+        | Theta of int * float * float
+        | Invariant 
 
     type subst_model =
-        | Constant of float
-        | K2P of float
-(*      | F81 of float list
-        | F84 of float * float list
-        | HKY of float *  float list
-        | TN93 of float * float * float list
-        | GTR of float * float * float * float * float * float list *)
+        | JC69 of float
+        | F81 of float
+        | K2P of float * float
+        | F84 of float * float
+        | HKY85 of float * float
+        | TN93 of float * float * float
+        | GTR of float array
 
     type priors = 
         | Estimated of float array
@@ -2272,6 +2275,7 @@ module SC = struct
         site_variation : site_var option;
         base_priors : priors;
         set_code : int;
+        use_gap : bool;
     }
 
     (* A module to handle specifications of static homology characters and their
@@ -2943,7 +2947,7 @@ module SC = struct
             let () = 
                 (* Now we update the states labels *)
                 List.iter (fun (position, labels) ->
-                    let position = int_of_string position in
+                    let position = (int_of_string position) - 1 in
                     characters.(position) <- 
                         { characters.(position) with st_labels = labels }) 
                 chars.Nexus.char_charstates
@@ -2952,7 +2956,7 @@ module SC = struct
                 (* The next thing we do, is that we update states and labels
                 * together *)
                 List.iter (fun (position, name, labels) ->
-                    let position = int_of_string position in
+                    let position = (int_of_string position) - 1 in
                     characters.(position) <-
                         { characters.(position) with st_labels = labels;
                         st_name = name }) 

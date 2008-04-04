@@ -567,8 +567,8 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let bremer_support trees my_rank modul tree handle cost 
     (search : Methods.local_optimum) (build :
         Methods.build) data nodes queue =
-        let `LocalOptimum (search_type, _, _, _, _, _, _, _, _, _, _) = search in
-        match search_type with
+        let `LocalOptimum (search_type) = search in
+        match search_type.Methods.ss with
         | `SingleNeighborhood `Tbr ->
               bremer_singletbr_nonadds tree handle cost search data queue
         | _ ->

@@ -485,6 +485,34 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.output) =
     end else raise (Illegal_formater ("annchrom_to_formater"))
 
 
+let likelihood_to_formater ((tag, attr, cont): Tags.output) = 
+    if tag = Tags.Characters.likelihood then begin
+
+        let rec _get x y = 
+            match x with
+            | (t,v)::tl when (t = y) -> v
+            | _::tl -> _get tl y
+            | _ -> raise (Illegal_formater ("Data not found: "^y) )
+        in 
+
+        (** 
+            Class :: Preliminary
+            Code :: *int*
+            Time :: *float*
+            Likelihood :: *float*
+        **)
+        let name    = _get attr Tags.Data.code and
+            cclass  = _get attr Tags.Characters.cclass and
+            cost    = _get attr Tags.Characters.mle and
+            recost  = "X" and
+            chrom   = "X" and
+            mmap    = "X" and
+            states  = "X" in
+
+        [| name; cclass; cost; recost; chrom; mmap; states |]
+    end else raise (Illegal_formater "likelihood_to_formater")
+
+
 let node_character_to_formater ((tag, _, _) as v) =
     if tag = Tags.Characters.sequence then seq_to_formater v
     else if tag = Tags.Characters.chromosome then chrom_to_formater v
@@ -494,7 +522,8 @@ let node_character_to_formater ((tag, _, _) as v) =
     else if tag = Tags.Characters.sankoff then sankcs_to_formater v
     else if tag = Tags.Characters.nonadditive then nonaddcs_to_formater v
     else if tag = Tags.Characters.additive then addcs_to_formater v
-    else raise (Illegal_formater "node_character_to_formater")
+    else if tag = Tags.Characters.likelihood then likelihood_to_formater v
+    else raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
 
 let node_to_formater st ((tag, attr, cont) : Tags.output) =
     if tag = Tags.Nodes.node then begin

@@ -269,12 +269,13 @@ let dependency_relations (init : Methods.script) =
             res
     | #Methods.local_optimum as meth ->
             let res = 
-                match meth with
-                | `LocalOptimum (_, _, _, _, _, _, _, _, (`Partition x), _, _)
+                let `LocalOptimum (tmp) = meth in
+                match tmp.Methods.tabu_join with
+                | `Partition x
                 when not (List.exists (function `ConstraintFile _ -> true | _ ->
                     false) x) ->
                         [([Trees], [Trees], init, NonComposable)] 
-                | `LocalOptimum _ ->
+                | _ ->
                         [([Trees], [Trees], init, Parallelizable)]
             in
             res
@@ -658,11 +659,12 @@ let rec get_tip next_command =
                                     * before *)
                                     generate_this_tip false
                             | _ -> recurse_to_find_tip x)
-                    | `LocalOptimum (_, _, _, _, _, _, _, _, part, _, y) ->
-                            if List.exists (fun x -> x = `KeepBestTrees) y then
+                    | `LocalOptimum (l_opt) ->
+                            if List.exists (fun x -> x = `KeepBestTrees)
+                            l_opt.Methods.samples then
                                 generate_this_tip false
                             else 
-                                (match part with
+                                (match l_opt.Methods.tabu_join with
                                 | `Partition y -> 
                                         if List.exists (function `ConstraintFile
                                         _ -> true | _ -> false) y then
@@ -713,11 +715,11 @@ let rec explode_tree tree =
                     (match x with
                     | `Constraint (_, _, None, _) -> parallelize_only_me ()
                     | _ -> parallelize_this_command ())
-            | `LocalOptimum (_, _, _, _, _, _, _, _, x, _, y) ->
-                    if List.exists (fun x -> x = `KeepBestTrees) y then
+            | `LocalOptimum (l_opt) ->
+                    if List.exists (fun x -> x = `KeepBestTrees) l_opt.Methods.samples then
                         do_not_parallelize_me_but_recurse ()
                     else 
-                        (match x with
+                        (match l_opt.Methods.tabu_join with
                         | `Partition x ->
                                 if List.exists 
                                 (function `ConstraintFile _ -> true 
@@ -1944,18 +1946,22 @@ let rec make_remote_files (init : Methods.script) =
             `Assign_Tail_Cost ((`File (mr a)), b)
     | `Assign_Prep_Cost ((`File a), b) ->
             `Assign_Prep_Cost ((`File (mr a)), b)
-    | `LocalOptimum 
-            (a, b, c, d, e, f, g, h, (`Partition files), i, j) ->
-                let tm = 
-                    let files = 
-                        List.map 
-                        (function `ConstraintFile file -> 
-                            `ConstraintFile (mr file)
-                        | x -> x)
-                        files
-                    in
-                    `Partition files in
-                `LocalOptimum (a, b, c, d, e, f, g, h, tm, i, j)
+    | `LocalOptimum (l_opt) ->
+        (*   (a, b, c, d, e, f, g, h, (`Partition files), i, j) -> *)
+        let files = (match l_opt.Methods.tabu_join with
+                     | `Partition x -> x
+                     | _ -> failwith ("not sure what to do here...") ) 
+        in
+        let tm = 
+            let files = 
+                List.map 
+                    (function 
+                        `ConstraintFile file -> `ConstraintFile (mr file)
+                        | x -> x
+                    ) files in
+            `Partition files in
+        `LocalOptimum { l_opt with Methods.tabu_join = tm }
+
     | `PerturbateNSearch (tl, pm, lo, v) ->
             let tl = 
                 handle_subtypes 

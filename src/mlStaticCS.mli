@@ -1,54 +1,145 @@
-type mlchar
-type cm
-type t
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
 
-(** A string representation of the character set, used only for debugging
-* purposes *)
+type s  (* abstract type: contains matrix of character codes *)
+type cm 
+type t  
+
+(** two functions to convert from double** to Bigarray.Array2 *)
+external s_bigarray: 
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    "likelihood_CAML_StoBigarray"
+external bigarray_s: 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
+    "likelihood_CAML_BigarraytoS"
+(** [diagonalize_*** Q D [Ui] ] 
+ * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
+ * thus [D] and [Q] must be nxn --where n is the size of the alphabet. The
+ * eigenvectors are entered along the rows of [Q], this function destroyes
+ * the substution rate matrix, but that can be copied or the primative
+ * arguments saved and this matrix can be reconstructed later --it should
+ * be fairly cheap to recreate *)
+external diagonalize_gtr: (* U D Ui *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    unit = "likelihood_CAML_diagonalize_gtr"
+external diagonalize_sym: (* U D *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    unit = "likelihood_CAML_diagonalize_sym"
+(** [compose_*** U D [Ui] t]
+ * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
+ * Function is used for testing and to_formatter function usage (output) *)     
+external compose_gtr: (* U D Ui t -> P *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
+        "likelihood_CAML_compose_gtr"
+external compose_sym: (* U D t -> P *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
+        "likelihood_CAML_compose_sym" 
+(** [median_*** pi U D [Ui] at bt achars bchars] -> cchars
+ * calculate the median of two nodes with character sets [achars] and [bchars]
+ * and branch lenghts [at] and [bt], respectively. The probability matrix for
+ * the transition is constructed via [U] [D] and, possibly, [Ui] (GTR only). *)
+external median_gtr: (* priors U D Ui ta tb a b output_c *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> s -> s -> float array -> s = 
+     "likelihood_CAML_median_gtr""likelihood_CAML_median_wrapped_gtr" 
+external median_sym: (* priors U D ta tb a b output_c *)
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> s-> s -> float array-> s = 
+     "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
+(** [loglikelihood s pi] -> float   calculates the mle of a character set *) 
+external loglikelihood: 
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+    float = "likelihood_CAML_loglikelihood"
+(** [filter s as] -> s
+ * filters s with indexes of as and returns new character set, *)
+external filter: s -> int array -> s = "likelihood_CAML_filter"
+(** [compare_chars s s] -> int
+ * compares two sets, returns -1,0,1 depending on which set is larger *)
+external compare_chars: s -> s -> int = "likelihood_CAML_compare"
+(** [gamma_rates alpha beta cats] -> rates
+ * takes alpha, beta gamma parameters and number of categories to cut the gamma
+ * function into, and returns the mean rates in those cuts of 1/cats parts. *)
+external gamma_rates: float -> float -> int -> float array = "gamma_CAML_rates"
+
+(** A string representation of the character set, used only for debugging purposes *)
 val to_string : t -> string
 
-(** [median prev a b] computes the median between [a] and [b] with [prev] as an 
-* optional value of a previous median computed between [a] and [b] being [prev].
-* [prev] can be used for heuristic purposes.
-* *)
-val median : t option -> t -> t -> float -> float -> t
+(** [median a b at bt]
+* computes the median between [a] and [b] with branch lengths [at] and [bt] *)
+val median : t -> t -> float -> float -> t
 
-(** The cost of the median [t]. This is not the overall subtree cost of the tree
-* rooted by [t]. *)
+(** The cost, likelihood, of the median [t]. wrapper around internally
+* saved value *)
 val median_cost : t -> float
 
-(** [median_3 pn nn c1 c2] computes whatever heuristic values will be assigned
-* to [Node.final] in a vertex, for the vertex [nn] with parent [pn] and children
-* [c1] and [c2]. *)
+(** [median_3 pn nn c1 c2]
+* computes whatever heuristic values will be assigned to [Node.final] in
+* a vertex, for the vertex [nn] with parent [pn] and children [c1] and [c2]. *)
 val median_3 : t -> t -> t -> t -> t
 
-(** [reroot_median a b] computes the median that should be assigned to the root
-* of a tree as the median between [a] and [b]. *)
+(** [reroot_median a b] 
+* computes the median that should be assigned to the root of a tree as the
+* median between [a] and [b] with total branch length between the two nodes,
+* [at]+[bt] in an unrooted or rooted tree *)
 val reroot_median : t -> t -> float -> float -> t
 
-(** [dist_2 a b c at bt ct]  calculates the MLE of connecting
-* the root of a subtree [a] in between the pair of neighbor vertices [b] and 
-* [c]. This is used for fast evaluation during SPR and TBR. *)
+(** [dist_2 a b c at bt ct]  
+* calculates the Likelihood of connecting the root of a subtree [a] in between
+* the pair of neighbor vertices [b] and [c]. This is used for fast evaluation
+* during SPR and TBR. *)
 val dist_2 : t -> t -> t -> float -> float -> float -> float option -> float
 
-(** [f_codes x c] creates a new character set where all characters with code* appearing in [c] have been filtered out. *)
+(** [f_codes x c]
+* creates a new character set where all characters with code appearing in [c]
+* have been filtered out. *)
 val f_codes : t -> All_sets.Integers.t -> t
 
-(** [f_codes_comp x c] creates a new character set where all characters with
-* code NOT appearing in [c] have been filtered out (the complement of
-* [f_codes]).*)
+(** [f_codes_comp x c]
+* creates a new character set where all characters with code NOT appearing in
+* [c] have been filtered out (the complement of [f_codes]).*)
 val f_codes_comp : t -> All_sets.Integers.t -> t
 
 (** [cardinal x] returns the cardinality of the character set [x].*)
 val cardinal : t -> int
 
-(** [compare_data a b] is a total ordering of the character sets, where 
-* [compare a b < 0] iff [a < b], [compare a b = 0] iff [a = b], otherwise
-* [compare a b > 0]. *)
+(** [union prev ch1 ch2] *)
+val union: t -> t -> t -> t
+
+(** [compare_data a b]
+* is a total ordering of the character sets, where [compare a b < 0]
+* iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
 (** [readjust check has_changed time c1 c2 par mine] readjusts the edge time for 
-* some characters in the vertex [mine] with parent [par] and children [c1] and
-* [c2], for an edge with overall [time]. If [check] is 
+ * some characters in the vertex [mine] with parent [par] and children [c1] and
+ * [c2], for an edge with overall [time]. If [check] is 
  * [None] then the function attempts to readjust the values in all the
  * characters of [mine] otherwise, only the codes included in [check] are
  * attempted to readjust. [has_changed] is the accumulator of characters that
@@ -77,7 +168,8 @@ val of_parser : Parser.SC.static_spec -> ((int list option * int) array) -> t
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float
 
-(* [distance a b] computes (in ML), the -log likelihood of [b] given [a]. *)
+(* [distance a b at bt] computes the -log likelihood of [b] given [a] with
+* branch lengths [at] and [bt]. *)
 val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)

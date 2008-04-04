@@ -635,11 +635,15 @@ with type b = AllDirNode.OneDirF.n = struct
                     (All_sets.IntegerMap.empty, ptree, false)
                 in
                 if changed then
-                    let ptree = match !Node.cost_mode with
+                    let ptree = new_ptree in
+                        (* 
+                        * I believe this is not needed here 
+                        * match !Node.cost_mode with
                                     | `Likelihood -> 
                                             refresh_roots (refresh_all_edges
                                             true new_ptree)
                                     | `Parsimony -> ptree in
+                        *)
                     let new_cost = check_cost_all_handles new_ptree in
                     (* Printf.printf "%f --> %f\n" prev_cost new_cost; *)
                     if new_cost < prev_cost then

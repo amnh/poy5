@@ -92,6 +92,7 @@ type node_data = {
     num_otus : int;                (** How many OTUs are a child of this node *)
     exclude_sets : All_sets.Integers.t list;
     exclude_info : exclude;
+    cost_mode : [ `Likelihood | `Parsimony ];
     (** This allows us to count how many taxa from a set are children of the
         given node *)
 }
@@ -131,7 +132,6 @@ val median_3 : node_data -> node_data -> node_data -> node_data -> node_data
 (** [set_node_cost c n] creates a fresh node [e] such that 
 * [node_cost e = c], but otherwise undistinguishable from [n]. *)
 val set_node_cost : float -> node_data -> node_data
-
 
 (** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
 * a horrible format. Check the Tags module for further information. *)
@@ -197,16 +197,16 @@ module Standard : NodeSig.S with type e = exclude and type n = node_data
 
 val merge : node_data -> node_data -> node_data
 
-val empty : unit -> node_data
+val empty : [`Parsimony | `Likelihood] -> node_data
 
 (** [total_cost_of_type t n] extracts the sum of the total cost of the node [n]
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type :
-  [> `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Nonadd | `Sank | `Seq ] ->
+  [> `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Nonadd | `Sank | `Seq |
+  `StaticMl] ->
   node_data -> float
+
 
 val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
-
-val cost_mode : [`Likelihood | `Parsimony] ref 

@@ -2744,9 +2744,9 @@ fi
 { echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dgeev_" >&5
 echo "${ECHO_T}$ac_cv_lib_lapack_dgeev_" >&6; }
 if test $ac_cv_lib_lapack_dgeev_ = yes; then
-  { echo "$as_me:$LINENO: checking for cblas_dgemm in -llapack" >&5
-echo $ECHO_N "checking for cblas_dgemm in -llapack... $ECHO_C" >&6; }
-if test "${ac_cv_lib_lapack_cblas_dgemm+set}" = set; then
+  { echo "$as_me:$LINENO: checking for dgemm_ in -llapack" >&5
+echo $ECHO_N "checking for dgemm_ in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_dgemm_+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -2764,11 +2764,11 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char cblas_dgemm ();
+char dgemm_ ();
 int
 main ()
 {
-return cblas_dgemm ();
+return dgemm_ ();
   ;
   return 0;
 }
@@ -2791,55 +2791,191 @@ eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
 	 test ! -s conftest.err
        } && test -s conftest$ac_exeext &&
        $as_test_x conftest$ac_exeext; then
-  ac_cv_lib_lapack_cblas_dgemm=yes
+  ac_cv_lib_lapack_dgemm_=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-	ac_cv_lib_lapack_cblas_dgemm=no
+	ac_cv_lib_lapack_dgemm_=no
 fi
 
 rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_cblas_dgemm" >&5
-echo "${ECHO_T}$ac_cv_lib_lapack_cblas_dgemm" >&6; }
-if test $ac_cv_lib_lapack_cblas_dgemm = yes; then
-  #everything is peachy-keen...
-                LIBS="-llapack $LIBS"; cat >>confdefs.h <<\_ACEOF
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dgemm_" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_dgemm_" >&6; }
+if test $ac_cv_lib_lapack_dgemm_ = yes; then
+  { echo "$as_me:$LINENO: checking for dgetri_ in -llapack" >&5
+echo $ECHO_N "checking for dgetri_ in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_dgetri_+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dgetri_ ();
+int
+main ()
+{
+return dgetri_ ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_lapack_dgetri_=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_lapack_dgetri_=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dgetri_" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_dgetri_" >&6; }
+if test $ac_cv_lib_lapack_dgetri_ = yes; then
+  { echo "$as_me:$LINENO: checking for dgetrf_ in -llapack" >&5
+echo $ECHO_N "checking for dgetrf_ in -llapack... $ECHO_C" >&6; }
+if test "${ac_cv_lib_lapack_dgetrf_+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-llapack  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dgetrf_ ();
+int
+main ()
+{
+return dgetrf_ ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_lapack_dgetrf_=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_lapack_dgetrf_=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_lapack_dgetrf_" >&5
+echo "${ECHO_T}$ac_cv_lib_lapack_dgetrf_" >&6; }
+if test $ac_cv_lib_lapack_dgetrf_ = yes; then
+
+cat >>confdefs.h <<\_ACEOF
 #define HAVE_LIBLAPACK 1
 _ACEOF
-
+ LIBS=-llapack $LIBS
 else
-  { { echo "$as_me:$LINENO: error: The cblas routine for matrix multiplication was not found
+  { { echo "$as_me:$LINENO: error: Missing lapack routine: dgetrf_.
 See \`config.log' for more details." >&5
-echo "$as_me: error: The cblas routine for matrix multiplication was not found
+echo "$as_me: error: Missing lapack routine: dgetrf_.
 See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }
-
-fi
-
-else
-  { { echo "$as_me:$LINENO: error: The lapack routine for general eigenvalue problems not found
-See \`config.log' for more details." >&5
-echo "$as_me: error: The lapack routine for general eigenvalue problems not found
-See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
-
 fi
 
 else
-  { { echo "$as_me:$LINENO: error: The lapack routine for symmetric eigenvalue problems not found
+  { { echo "$as_me:$LINENO: error: Missing lapack routine: dgetri_.
 See \`config.log' for more details." >&5
-echo "$as_me: error: The lapack routine for symmetric eigenvalue problems not found
+echo "$as_me: error: Missing lapack routine: dgetri_.
 See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }
+fi
 
+else
+  { { echo "$as_me:$LINENO: error: Missing lapack routine: dgemm_.
+See \`config.log' for more details." >&5
+echo "$as_me: error: Missing lapack routine: dgemm_.
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+else
+  { { echo "$as_me:$LINENO: error: Missing lapack routine: dgeev_.
+See \`config.log' for more details." >&5
+echo "$as_me: error: Missing lapack routine: dgeev_.
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+else
+  { { echo "$as_me:$LINENO: error: Missing lapack routine: dsyev_.
+See \`config.log' for more details." >&5
+echo "$as_me: error: Missing lapack routine: dsyev_.
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
 fi
 
 fi
-
 
 
 # Checking for libraries according to the user's options.
@@ -2906,10 +3042,10 @@ fi
 { echo "$as_me:$LINENO: result: $ac_cv_lib_ncurses_scrollok" >&5
 echo "${ECHO_T}$ac_cv_lib_ncurses_scrollok" >&6; }
 if test $ac_cv_lib_ncurses_scrollok = yes; then
-  LIBS="-lncurses $LIBS"; cat >>confdefs.h <<\_ACEOF
+  cat >>confdefs.h <<\_ACEOF
 #define HAVE_LIBNCURSES 1
 _ACEOF
-
+ LIBS=-lncurses $LIBS
 else
   if test $INTERFACE_SELECTED = "true"; then
   { { echo "$as_me:$LINENO: error: The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.

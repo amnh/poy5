@@ -82,7 +82,8 @@ type transform_method = [
     | `AlphabeticTerminals
     | `Prealigned_Transform
     | `UseLikelihood of 
-    (Methods.ml_substitution * Methods.ml_site_variation option * Methods.ml_priors)
+        ( Methods.ml_substitution * Methods.ml_site_variation option *
+          Methods.ml_priors * Methods.ml_gap )
     | `Tcm of string
     | `Gap of (int * int)
     | `AffGap of int
@@ -347,8 +348,8 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
-            | `UseLikelihood (a, b, c) ->
-                    (`UseLikelihood (id, a, b, c)) :: acc
+            | `UseLikelihood (a, b, c, d) ->
+                    (`UseLikelihood (id, a, b, c, d)) :: acc
             | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
@@ -566,70 +567,48 @@ let transform_build_arguments x =
     (x, y, List.rev z)
 
 (* Swapping *)
-let swap_default = (`Alternate (`Spr, `Tbr),
-                    0.0,                (* threshold *)
-                    1,                  (* trees to keep *)
-                    `Last,              (* keep method *)
-                    [],                 (* cost calc list *)
-                    None,               (* forest search *)
-                    `BestFirst,         (* traject. strategy *)
-                    `DistanceSorted,    (* Tabu break *)
-                    `UnionBased None,     (* Tabu join *)
-                    `Bfs None,          (* Tabu reroot *)
-                    [])                 (* What should be sampled along the
-                                        search *)
-let swap_default_none = (`None,
-                         0.0,
-                         1,
-                         `Last,
-                         [],
-                         None,
-                         `BestFirst,
-                         `DistanceSorted,
-                         `UnionBased None, 
-                         `Bfs None,
-                         [])               
-let transform_swap (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-join_tabu, reroot_tabu, samples)
-        (param : swapa) = match param with
-    | `Threshold thres ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Trees keep ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #Methods.keep_method as keepm ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #swap_strategy as space ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Transform x ->
-          let t = transform_transform_arguments x in
-          let cclist = t @ cclist in
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | `Forest cost ->
-          let origin = Some cost in
-          print_endline ("Forest: "^string_of_float cost);
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #swap_trajectory as traj ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-          join_tabu, reroot_tabu, samples)
-    | #Methods.tabu_break_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, tabu, join_tabu,
-          reroot_tabu, samples)
-    | #Methods.tabu_join_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, tabu,
-          reroot_tabu, samples)
-    | #Methods.tabu_reroot_strategy as tabu ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, 
-          join_tabu, tabu, samples)
-    | #Methods.samples as s ->
-          (space, thres, keep, keepm, cclist, origin, traj, break_tabu, 
-          join_tabu, reroot_tabu, s :: samples)
+let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
+                    Methods.threshold = 0.0;
+                    Methods.num_keep = 1;  
+                    Methods.keep = `Last; 
+                    Methods.cc = [];     
+                    Methods.oo = None;  
+                    Methods.tm = `BestFirst;
+                    Methods.tabu_break = `DistanceSorted;
+                    Methods.tabu_join = `UnionBased None;
+                    Methods.tabu_reroot = `Bfs None;
+                    Methods.tabu_nodes = `Null;
+                    Methods.samples = [] }
 
+let swap_default_none = { swap_default with Methods.ss = `None }
+
+let transform_swap l_opt (param : swapa) = match param with
+    | `Threshold thres ->
+        { l_opt with Methods.threshold=thres }
+    | `Trees keep ->
+        { l_opt with Methods.num_keep = keep }
+    | #Methods.keep_method as keepm ->
+        { l_opt with Methods.keep = keepm }
+    | #swap_strategy as space ->
+        { l_opt with Methods.ss = space }
+    | `Transform x ->
+        let t = transform_transform_arguments x in 
+        let cclist = t @ l_opt.Methods.cc in
+        { l_opt with Methods.cc = cclist }
+    | `Forest cost ->
+        let origin = Some cost in
+        print_endline ("Forest: "^string_of_float cost);
+        { l_opt with Methods.oo = origin }
+    | #swap_trajectory as traj ->
+        { l_opt with Methods.tm = traj }
+    | #Methods.tabu_break_strategy as tabu ->
+        { l_opt with Methods.tabu_break = tabu }
+    | #Methods.tabu_join_strategy as tabu ->
+        { l_opt with Methods.tabu_join = tabu }
+    | #Methods.tabu_reroot_strategy as tabu ->
+        { l_opt with Methods.tabu_reroot = tabu }
+    | #Methods.samples as s ->
+        { l_opt with Methods.samples = s :: l_opt.Methods.samples }
 
 (* let transform_swap (meth, (a, b, c, d), e) = function *)
 (*     | `Threshold x -> (meth, (x, b, c, d), e) *)
@@ -650,8 +629,7 @@ let transform_swap_arguments (lst : swapa list) =
 (* Fusing *)
 let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
         ?(search=`LocalOptimum swap_default_none) ?(weighting=`Uniform) ?(clades=(4,7)) = function
-            | [] -> `Fusing (iterations, keep, weighting, replace, search,
-                             clades)
+            | [] -> `Fusing (iterations, keep, weighting, replace, search, clades)
             | x :: xs ->
                   (match x with
                    | `Keep keep ->
@@ -939,8 +917,7 @@ let transform_rename_arguments x =
 let default_search : Methods.script list = 
 (*    List.rev [`Build build_default; `LocalOptimum swap_default]*)
     let change_transforms x = 
-        let (a, b, c, d, _, f, g, h, i, j, k) = swap_default in
-        (a, b, c, d, x, f, g, h, i, j, k)
+        { swap_default with Methods.cc = x }
     in
     let s1 = change_transforms [(`Static_Aprox (`All, false))]
     and s2 = 
@@ -1057,36 +1034,74 @@ let create_expr () =
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
             ];
+
+        ml_floatlist: 
+            [[
+                ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
+                right_parenthesis -> List.map float_of_string x
+            ]];
         ml_substitution: 
-            [ 
-                [ "constant"; x = OPT optional_integer_or_float -> 
-                    let x =
-                        match x with
+            [
+                [ "constant";
+                    x = OPT optional_integer_or_float -> 
+                    let x = match x with
                         | None -> None 
                         | Some x -> Some (float_of_string x) 
-                    in `Constant x ] |
-                [ "k2p"; x = OPT optional_integer_or_float -> 
-                    let x = 
-                        match x with
+                    in `JC69 x ] |
+                [ "jc69";  
+                    x = OPT optional_integer_or_float -> 
+                    let x = match x with
                         | None -> None
-                        | Some x -> Some (float_of_string x) 
-                    in `K2P x ]
+                        | Some x -> Some (float_of_string x)
+                    in `JC69 x ] |
+                [ "f81";
+                    x = OPT optional_integer_or_float ->
+                    let x = match x with
+                        | None -> None
+                        | Some x -> Some( float_of_string x )
+                    in `F81 x ] |
+                (* values of these types get checked later *)
+                [ "f84"; x = OPT ml_floatlist -> `F84 x ] |
+                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] | 
+                [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
+                [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
+                [ "gtr"; x = OPT ml_floatlist -> `GTR x ]
             ];
         ml_site_variation: 
-            [ [ "none" -> None ] ];
+            [
+                [ "gamma";":";left_parenthesis;
+                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
+                        let sv_ = Array.of_list (List.map float_of_string y) in
+                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
+                        Some (`Gamma (int_of_string x, alpha, beta)) ] |
+                [ "theta";":";left_parenthesis;
+                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
+                        let sv_ = Array.of_list (List.map float_of_string y) in
+                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
+                        Some (`Theta (int_of_string x, alpha, beta)) ] |
+                [ "none" -> None ]
+            ];
         ml_priors:
             [ 
                 [ "estimate" -> `Estimate ] |
                 [ "given"; ":"; left_parenthesis; 
-                x = LIST1 [ x = FLOAT -> float_of_string x ]
-                SEP ","; right_parenthesis -> `Given x ]
+                    x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
+                    right_parenthesis -> `Given x ]
+            ];
+        ml_gaps:
+            [
+                [",";"gap"; x =  OPT optional_boolean ->
+                    match x with 
+                    | None -> `GapAsCharacter false
+                    | Some x -> `GapAsCharacter x ] |
+                [ _ -> `GapAsCharacter false ]
             ];
         transform_method:
             [
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
-                    x = ml_substitution; ","; y = ml_site_variation; ",";
-                    z = ml_priors; right_parenthesis ->
-                        `UseLikelihood (x, y, z) ] |
+                    w = ml_substitution; ","; x = ml_site_variation; ",";
+                    y = ml_priors; z = ml_gaps; right_parenthesis ->
+                        `UseLikelihood (w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |

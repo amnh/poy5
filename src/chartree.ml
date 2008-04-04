@@ -1050,21 +1050,22 @@ let incremental_downpass_path ptree path =
     incremental_downpass_path_to_handle [] None ptree path
 
 let rec features meth lst =
-    let `LocalOptimum (space, thres, keep, keepm, ccl, origin, traj, break_tabu,
-    join_tabu, reroot_tabu, samples) = meth in let hood =
+    let `LocalOptimum (meth) = meth in
+    
+    let hood =
         let t = function
             | `Spr -> "spr"
             | `Tbr -> "tbr" in
-        match space with
+        match meth.Methods.ss with
         | `SingleNeighborhood x -> "single-" ^ t x
         | `ChainNeighborhoods x -> t x
         | `Alternate (x, y) -> "alternate-" ^ t x ^ "-" ^ t y
         | `None -> "none" in
     let lst = ("type", hood) :: lst in
-    let lst = ("origin-cost", match origin with None -> "none"
+    let lst = ("origin-cost", match meth.Methods.oo with None -> "none"
                | Some cost -> string_of_float cost) :: lst in
     let lst =
-        match traj with
+        match meth.Methods.tm with
         | `BestFirst -> ("trajectory", "best-first") :: lst
         | `AllAround _ -> ("trajectory", "all-around") :: lst
         | `AllThenChoose -> ("trajectory", "All around then choose") :: lst
@@ -1080,7 +1081,7 @@ let rec features meth lst =
               :: lst in
     let lst = 
         let lst = 
-            match break_tabu with
+            match meth.Methods.tabu_break with
             | `Randomized -> ("tabu.break", "randomized") :: lst
             | `DistanceSorted -> 
                     ("tabu.break", "sorted edges by distance") :: lst
@@ -1093,7 +1094,7 @@ let rec features meth lst =
             | None -> lst)
         in
         let lst = 
-            match join_tabu with
+            match meth.Methods.tabu_join with
             | `UnionBased depth ->
                     ("tabu.join", "Union of children states prunes the tree") ::
                         add_depth depth lst
@@ -1113,7 +1114,7 @@ let rec features meth lst =
                                     acc) 
                     lst options
         in
-        match reroot_tabu with
+        match meth.Methods.tabu_reroot with
         | `Bfs depth ->
                 ("tabu.reroot", "Breath first search") ::
                     (match depth with

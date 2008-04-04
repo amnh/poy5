@@ -2935,7 +2935,8 @@ let compute_priors data chars =
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data (chars, substitution, site_variation, base_priors) =
+let set_likelihood data
+    ((chars,substitution,site_variation,base_priors,use_gap):Methods.ml_spec) =
     let chars = 
         let chars = `Some (get_chars_codes_comp data chars) in
         get_code_from_characters_restricted `AllStatic data chars
@@ -2961,24 +2962,82 @@ let set_likelihood data (chars, substitution, site_variation, base_priors) =
                             "Inconsistent alphabet size and prior vector size"
             and site_variation = 
                 match site_variation with
-                | None -> None 
-                | _ -> assert false (* TODO Site variation distributions *)
+                | None -> Some Parser.SC.Invariant 
+                | Some x -> (match x with 
+                    | `Gamma (w,y,z) -> Some (Parser.SC.Gamma (w,y,z))
+                    | `Theta (w,y,z) -> Some (Parser.SC.Theta (w,y,z)))
             and substitution = 
                 match substitution with
-                | `Constant None ->
-                        let const = (1. /. (float_of_int alph_size)) in
-                        Parser.SC.Constant const
-                | `Constant (Some x) -> Parser.SC.Constant x
+                | `JC69 None ->
+                    let const = (1. /. (float_of_int alph_size)) in
+                    Parser.SC.JC69 const
+                | `JC69 (Some x) -> Parser.SC.JC69 x
+                | `F81 None ->
+                    let const = (1. /. (float_of_int alph_size)) in
+                    Parser.SC.F81 const
+                | `F81 (Some x) -> Parser.SC.F81 x
                 | `K2P None ->
-                        let const = (1. /. (float_of_int alph_size)) in
-                        Parser.SC.K2P const
-                | `K2P (Some x) -> Parser.SC.K2P x
+                    let const = (1. /. (float_of_int alph_size)) in
+                    Parser.SC.K2P (const,((1.0-.const)/.2.0))
+                | `K2P (Some x) ->
+                    let aray = Array.of_list x in
+                    if Array.length aray = 2 then 
+                        Parser.SC.K2P (Array.get aray 0,Array.get aray 1)
+                    else if Array.length aray = 1 then
+                        (* solution for: R = a/b and a+2b = 1 *)
+                        let beta = 1. /. (aray.(0) +. 2.0) in
+                        let alpha = aray.(0) /. (2.0 +. aray.(0)) in
+                        Parser.SC.K2P ( alpha, beta )
+                    else
+                        let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ K2P@ requires@ 1@ or@ 2@ parameters" in
+                            failwith("Incorrect Parameters");    
+                | `HKY85 (Some x) ->
+                    let aray = Array.of_list x in
+                    if Array.length aray <> 2 then 
+                        let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ HKY85@ requires@ 2@ parameters" in
+                            failwith("Incorrect Parameters");
+                    else
+                        Parser.SC.HKY85 (Array.get aray 0,Array.get aray 1)    
+                | `F84 (Some x) ->
+                    let aray = Array.of_list x in
+                    if Array.length aray <> 2 then 
+                        let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ F84@ requires@ 2@ parameters" in
+                            failwith("Incorrect Parameters");
+                    else
+                        Parser.SC.F84 (Array.get aray 0,Array.get aray 1)
+                | `TN93 (Some x) -> 
+                    let aray = Array.of_list x in
+                    if Array.length aray <> 3 then
+                        let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ TN93@ requires@ 3@ parameters" in
+                            failwith("Incorrect Parameters");
+                    else
+                        Parser.SC.TN93 (Array.get aray 0,Array.get aray 1,Array.get aray 2)
+                | `GTR (Some x) ->
+                    let aray = Array.of_list x in 
+                    let n_a = (alph_size * (alph_size-1)) / 2 in (* -1 to exclude diagonal from sum *)
+                    if (Array.length aray) <> n_a then
+                        let _ = Status.user_message Status.Error 
+                        ("Likelihood@ model@ GTR@ requires@ (n+1)*(n/2)@ "^
+                         "parameters@ with@ alphabet@ size@ n. In@ this@ case@ "^
+                         (string_of_int n_a) ^",@ with@ n@ =@ "^ (string_of_int alph_size) ^".") in
+                        failwith "Incorrect Parameters";
+                    else
+                        Parser.SC.GTR aray
+                | _ -> failwith ("I don't support this option")
+            and use_gap =
+                match use_gap with
+                | `GapAsCharacter x -> x
             in
             {
                 Parser.SC.substitution = substitution;
                 site_variation = site_variation;
                 base_priors = base_priors;
                 set_code = code;
+                use_gap = use_gap;
             }
         in
         (* We replace the specification of all the characters, and categorize 

@@ -24,7 +24,7 @@ mandir = $(prefix)/man/man1
 CC = @CC@
 CPPFLAGS = @CPPFLAGS@
 CFLAGS = $(CPPFLAGS) @CFLAGS@ 
-LDFLAGS = @LDFLAGS@
+LDFLAGS = -cclib '@LDFLAGS@'
 LIBS = -cclib "@LIBS@"
 INSTALL = @INSTALL@
 
@@ -121,7 +121,7 @@ else
 	LABLTK =
 endif
 
-PREPROCESSOR = -pp 'camlp4orf pa_extend.cmo'
+PREPROCESSOR = -pp 'camlp4of pa_extend.cmo kolmoExtension.cmo'
 
 
 # Encapsulate all the options
@@ -223,15 +223,14 @@ TREE = enum.cmo bitSet.cmo tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	mst.cmo build.cmo 
 
 DISTANCE_LIBS = character.cmo memstack.o add.o nonaddCS8.cmo \
-	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o addCS.cmo  \
-	$(LIKELIHOOD_COMPONENTS)
+	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o addCS.cmo 
 
 SEQUENCE = all_sets.cmo alphabet.cmo cost_matrix.cmo matrix.cmo \
 	primes.cmo fingerPrint.cmo sequence.cmo zarr.o avl.o \
 	ukk.checkp.o ukkCommon.o algn.o
 
 # Some personal tests that can be useful for everyone 
-CAMLP4PROCESSED = poyParser.ml poyExtension.ml poyCommand.ml 
+CAMLP4PROCESSED = poyParser.ml poyExtension.ml kolmo.ml kolmoExtension.ml poyCommand.ml 
 
 GETRUSAGE :=
 ifneq ($(USEWIN32), true)
@@ -242,7 +241,7 @@ BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
 	compileFlags.cmo buildNumber.cmo \
 	version.cmo sadmanlib.cma $(INTERFACE) \
 	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
-	array_ops.cmo $(PARSER) distances.cma methods.cmo $(CHARACTER) \
+	array_ops.cmo $(PARSER) distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) \
 	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
 	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
 	scripting.cmo
@@ -318,7 +317,7 @@ status_ncurses.cma : dequeue.cmo status.cmi ncurses.o ncursesML.cmo \
 	cp status_ncurses.ml status.ml
 	$(OCAMLC) $(CCOPT) -custom -g -a -o $(@) ncurses.o \
 	ncursesML.cmo dequeue.cmo statusCommon.cmo status.ml $(MKLIBOPT) \
-	$(PROFILE) $(LIBS) 
+	$(PROFILE) $(LDFLAGS) $(LIBS) 
 
 status_gtk2.cma: status.cmi statusCommon.cmo status_gtk2.ml
 	cp status_gtk2.ml status.ml
@@ -361,7 +360,7 @@ status_ncurses.cmxa : dequeue.cmx status.cmi ncurses.o ncursesML.cmx \
 	cp status_ncurses.ml status.ml
 	$(OCAMLOPT) $(CCOPT) -a -o $@ \
 	ncurses.o dequeue.cmx ncursesML.cmx \
-	statusCommon.cmx status.ml $(MKLIBOPT) $(PROFILE) $(LIBS) 
+	statusCommon.cmx status.ml $(MKLIBOPT) $(PROFILE) $(LDFLAGS) $(LIBS) 
 
 status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
 	cp status_html.ml status.ml
@@ -461,7 +460,8 @@ help.txt: compileFlags.cmx sadmanOutput.cmx statusCommon.cmx \
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml $(LIBS)
+	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml \
+	$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
@@ -483,18 +483,26 @@ help.html: help.txt ocaml-str helpRead.ml
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
-poyParser.cmo: poyParser.ml
-	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
+kolmoExtension.cmo: kolmoExtension.ml
+	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+kolmoExtension.cmx: kolmoExtension.ml
+	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 poyExtension.cmo: poyExtension.ml
 	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
-poyCommand.cmo: commandLexer.cmo poyCommand.ml
-	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
-poyParser.cmx: poyParser.ml
-	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c $<
-poyCommand.cmx: commandLexer.cmx poyCommand.ml
+kolmo.cmo: kolmoExtension.cmo parser.cmo kolmo.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
+kolmo.cmx: kolmoExtension.cmo parser.cmo kolmo.ml
+	$(OCAMLOPT) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
+poyParser.cmo: kolmoExtension.cmo poyParser.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyParser.ml
+poyCommand.cmo: kolmoExtension.cmo commandLexer.cmo poyCommand.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
+poyParser.cmx: kolmoExtension.cmo poyParser.ml
+	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyParser.ml
+poyCommand.cmx: kolmoExtension.cmo commandLexer.cmx poyCommand.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyCommand.ml
-poyParser.cma: poyParser.ml
-	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) $<
+poyParser.cma: kolmoExtension.cmo poyParser.ml
+	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) poyParser.ml
 status_gtk2.cmo: status_gtk2.ml
 	$(OCAMLC) -g -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
 main.cmo: arguments.cmo phylo.cmo main.ml
@@ -551,7 +559,7 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStre
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+.depend: kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
@@ -617,12 +625,12 @@ ifeq ($(USEPARALLEL), true)
 		$(OCAMLMPI)/mpi.cma \
 		-cclib -lcamlgrappa $(CCOPT) $(DEBUG) -ccopt -L./ -o mpoy \
 		$(GRAPHICS) dynlink.cma camlp4fulllib.cma unix.cma str.cma \
-		bigarray.cma $^ $(LIBS)  
+		bigarray.cma $^ $(LDFLAGS)  $(LIBS)  
 else
 		$(OCAMLC) -custom $(OCAML_INCLUDES) -cclib -L$(OCAMLMPI) \
 		-cclib -lcamlgrappa $(CCOPT) $(DEBUG) -ccopt -L./ -o mpoy \
 		$(GRAPHICS) dynlink.cma camlp4fulllib.cma unix.cma str.cma \
-		bigarray.cma $^ $(LIBS) 
+		bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 endif
 
 
@@ -632,13 +640,13 @@ ifeq ($(USEPARALLEL), true)
 	-cclib -L./graphps -cclib -L./ \
 	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
-	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LIBS) 
+	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
-	bigarray.cmxa $^ $(LIBS) 
+	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 endif
 
 poy_test: $(TEST_OBJS_OPT)
@@ -646,7 +654,7 @@ poy_test: $(TEST_OBJS_OPT)
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy_test \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
-	bigarray.cmxa $^ $(LIBS) 
+	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 
 # Interactive console to test various features
 #mpoy_console: sequences.cma parsers.cma distances.cma trees.cma 
@@ -656,10 +664,10 @@ ifeq ($(USEPARALLEL), true)
 	-I $(OCAMLMPI) -cclib -L./grappa -cclib -L./graphps -custom -cclib \
 	-L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cma $(GRAPHICS) camlp4o.cma unix.cma str.cma \
-	bigarray.cma $^ $(LIBS) 
+	bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 else
 	$(OCAMLTOP) $(CCOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -o $@ -cclib -L./grappa \
 	-cclib -L./graphps -cclib -L./ -cclib -lcamlgrappa $(GRAPHICS) unix.cma camlp4o.cma str.cma \
-	bigarray.cma $^ $(LIBS) 
+	bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 endif
 

@@ -26,7 +26,8 @@ let debug_sets = false
 let debug_set_cost = false
 let odebug = Status.user_message Status.Information
 
-let likelihood_error = "Likelihood not enabled: download different binary or contact mailing list" 
+let likelihood_error = 
+    "Likelihood not enabled: download different binary or contact mailing list" 
 
 module IntSet = All_sets.Integers
 
@@ -94,9 +95,9 @@ let ct_verify sa =
           assert (List.length list = List.length sa.set)
 
 IFDEF USE_LIKELIHOOD THEN
-type ml_rep = MlStaticCS.t r
+    type ml_rep = MlStaticCS.t r
 ELSE
-type ml_rep = unit
+    type ml_rep = unit
 END
 
 type cs = 
@@ -190,6 +191,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
+        cost_mode : [ `Likelihood | `Parsimony ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -225,7 +227,7 @@ let character_costs node =
     in
     (get_individual_cost [] node.characters)
 
-let empty () = {
+let empty cost_mode = {
     characters = [];
     total_cost = 0.0;
     node_cost = 0.0;
@@ -236,6 +238,7 @@ let empty () = {
     num_otus = 0;
     exclude_sets = [];
     exclude_info = [];
+    cost_mode = cost_mode;
 }
 
 let print nd = 
@@ -667,10 +670,8 @@ let has_excluded list =
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
 
-let cost_mode = ref `Likelihood
-
 let total_cost _ a =
-    match !cost_mode with
+    match a.cost_mode with
     | `Likelihood -> a.node_cost
     | `Parsimony -> a.total_cost
 
@@ -719,6 +720,16 @@ let get_dynamic =
     get_characters_of_type 
     (function Dynamic x -> x.preliminary, x.final | _ -> assert false)
     `Dynamic
+
+IFDEF USE_LIKELIHOOD THEN
+    let get_mlstatic = 
+        get_characters_of_type 
+            (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
+            `StaticML
+ELSE
+    let get_mlstatic x = []
+END
+
 let get_set = 
     get_characters_of_type 
     (function Set x -> x.preliminary, x.final | _ -> assert false)
@@ -747,7 +758,8 @@ let median code old a b =
     and children_cost = a.total_cost +. b.total_cost in
     let node_cost = get_characters_cost new_characters in
     let total_cost = 
-        match !cost_mode with
+        assert (a.cost_mode = b.cost_mode);
+        match a.cost_mode with
         | `Likelihood -> node_cost
         | `Parsimony -> node_cost +. children_cost in
     let num_child_edges, num_height = new_node_stats a b in
@@ -767,6 +779,7 @@ let median code old a b =
         num_otus = a.num_otus + b.num_otus;
         exclude_sets = a.exclude_sets;
         exclude_info = exclude_info;
+        cost_mode = a.cost_mode;
     }
 
 let rec cs_reroot_median na nb old a b =
@@ -852,11 +865,6 @@ let median_no_cost median =
     
 let median_self_cost a = a.node_cost
 
-let median_set_cost a cost = 
-    match a with
-    | `Likelihood a -> {a with total_cost = cost; node_cost = cost;}
-    | `Parsimony a ->{a with total_cost = cost}
-
 let update_leaf n =
     let exclude_info =
         List.map
@@ -893,6 +901,13 @@ let compare_data_final {characters=chs1} {characters=chs2} =
               DynamicCS.compare_data a.final b.final
         | Kolmo a, Kolmo b ->
               KolmoCS.compare_data a.final b.final
+        | StaticMl a, StaticMl b ->
+            (* preliminary == final *)
+            IFDEF USE_LIKELIHOOD THEN
+                MlStaticCS.compare_data a.preliminary b.preliminary
+            ELSE
+                failwith likelihood_error  
+            END
         | Set { final = { set = a } }, Set { final = { set = b } } ->
               (* Temporary solution.  The problem is: our `Any_Of nodes need to
                  know from which nodes they were made as a median.  Even if two
@@ -1412,7 +1427,7 @@ let classify doit chars data =
 
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
-    kolmogorov static_ml data =
+    kolmogorov static_ml data cost_mode =
         let add_character =  Data.add_character_spec 
         and set = Data.Set 
         and data = ref data in
@@ -1487,7 +1502,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -1498,9 +1512,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             | Data.Dynamic _
             | Data.Kolmogorov _
             | Data.Set -> failwith "get_static_encoding" in
-
         let module Enc = Parser.OldHennig.Encoding in
-
         let gen_add code =
             let enc = get_static_encoding code in
             (Data.Stat (code, Some enc.Parser.SC.st_observed), `Unknown) 
@@ -1516,7 +1528,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let chrom_data = Data.set_dyna_data [|empty_seq|] in 
             (Data.Dyna (code, chrom_data), `Unknown)
         in
-
         let gen_sank code =
             (* print_endline ("adding sankoff with code " ^ string_of_int code);
             * *)
@@ -1528,7 +1539,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             (Data.Stat (code, Some states), `Unknown)
         in
-
         !data, 
         fun tcode acc ->
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
@@ -1569,7 +1579,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 [] y) 
                 lsankcode
             in
-
             let result = { 
                 characters = []; 
                 total_cost = 0.;
@@ -1581,6 +1590,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 num_otus = 1;
                 exclude_info = [];
                 exclude_sets = [];
+                cost_mode = cost_mode;
             } in
             let add_characters of_parser buildme result (code, (w, char)) =
                 let v = List.map extract_stat char in
@@ -1684,7 +1694,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0.0001 } in (* TODO: estimate *)
+                            weight = 1.; time = 0.2 } in (* TODO: estimate *)
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
@@ -1781,6 +1791,11 @@ let structure_into_sets data (nodes : node_data list) =
               let css, _ = List.split (List.map (group nid new_sid) list) in
               (cs_list_to_set new_sid meth css, name) 
     in
+    let cost_mode = 
+        match nodes with
+        | h :: _ -> h.cost_mode
+        | [] -> `Parsimony
+    in
     let eg_node =
         { 
             characters = [];
@@ -1793,6 +1808,7 @@ let structure_into_sets data (nodes : node_data list) =
             num_otus = 1;
             exclude_sets = [];
             exclude_info = [];
+            cost_mode = cost_mode;
         } 
     in
     match data.Data.complex_schema with
@@ -1871,13 +1887,13 @@ let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data =
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
-        let () = 
+        let cost_mode = 
             match static_ml with
-            | [] -> cost_mode := `Parsimony
-            | _ -> cost_mode := `Likelihood
+            | [] -> `Parsimony
+            | _ -> `Likelihood
         in
         generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-        static_ml data
+        static_ml data cost_mode
     in
     let nodes = 
         match taxa with
@@ -2568,7 +2584,7 @@ let rec internal_n_chars acc (chars : cs list) =
             let count = 
                 match c with
                 | StaticMl r -> 
-                    IFDEF USE_LIKELIHOOD THEN 
+                    IFDEF USE_LIKELIHOOD THEN
                         MlStaticCS.cardinal r.preliminary
                     ELSE
                         failwith likelihood_error
@@ -2585,7 +2601,7 @@ let rec internal_n_chars acc (chars : cs list) =
             internal_n_chars (acc + count) cs
 (** [n_chars chars] returns the total number of characters in the list of
     characters [chars] *)
-let rec n_chars ?(acc=0) n = 
+let rec n_chars ?(acc=0) n =
     internal_n_chars acc n.characters
 
 module T = struct
@@ -2600,8 +2616,12 @@ module Union = struct
         u_weight : float;
     }
 
+IFDEF USE_LIKELIHOOD THEN
+    type ml_repu = MlStaticCS.t ru
+ELSE
+    type ml_repu = unit
+END
 
-    IFDEF USE_LIKELIHOOD THEN
     type c = 
         | Nonadd8U of NonaddCS8.u ru
         | Nonadd16U of NonaddCS16.u ru
@@ -2610,18 +2630,7 @@ module Union = struct
         | SankU of SankCS.t ru
         | DynamicU of DynamicCS.u ru
         | KolmoU of KolmoCS.u ru
-        | StaticMlU of MlStaticCS.t ru
-    ELSE
-    type c = 
-        | Nonadd8U of NonaddCS8.u ru
-        | Nonadd16U of NonaddCS16.u ru
-        | Nonadd32U of NonaddCS32.u ru
-        | AddU of AddCS.t ru
-        | SankU of SankCS.t ru
-        | DynamicU of DynamicCS.u ru
-        | KolmoU of KolmoCS.u ru
-        | StaticMlU of unit
-    END
+        | StaticMlU of ml_repu
 
     (* In this first implementation, sets can not use the union heuristics, this is
     * work to be done *)
@@ -2744,6 +2753,13 @@ module Union = struct
                     }
                     in
                     KolmoU r
+            | StaticMl cs, StaticMlU u1, StaticMlU u2 ->
+                IFDEF USE_LIKELIHOOD THEN
+                    StaticMlU { ch = cs.preliminary; u_weight = u1.u_weight; }
+                ELSE
+                    failwith likelihood_error
+                END
+    
             | _ -> failwith "Node.Union.union"
         in
         let rec map3 c d e =
@@ -3016,6 +3032,14 @@ let new_characters character_code acc taxa =
     List.fold_left (build_taxon character_code) acc taxa
 
 let for_support starting leaves leaves_id nodes =
+    let cost_mode = 
+        match leaves with
+        | (_, h) :: t ->
+                let mode = h.cost_mode in
+                assert (List.for_all (fun (_, x) -> x.cost_mode = mode) t);
+                mode
+        | [] -> `Parsimony
+    in
     let leaves = List.map (fun (x, y) -> (x, [], y)) leaves in
     let load_clade node_data node_id =
         List.map
@@ -3054,6 +3078,7 @@ let for_support starting leaves leaves_id nodes =
                num_otus = 1;
                exclude_sets = [];
                exclude_info = [];
+               cost_mode = cost_mode;
              })
         node_data 
     in
@@ -3063,6 +3088,17 @@ let compare_uppass = compare_data_final
 let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
+
+let extract_time nd = 
+    IFDEF USE_LIKELIHOOD THEN
+        let rec t_filter chs = match chs with
+            | [] -> []
+            | StaticMl a :: ttail -> a.time :: t_filter ttail
+            | _ :: ttail -> t_filter ttail in
+        let lst = nd.characters in t_filter lst 
+    ELSE
+        []
+    END
 
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data = 
@@ -3079,7 +3115,6 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median _ = median
         let median_3 _ = median_3
-        let set_cost a b = median_set_cost b a
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost
@@ -3108,6 +3143,7 @@ module Standard :
         let min_child_code _ x = x.min_child_code 
         let prioritize = prioritize
         let reprioritize = reprioritize
+        let extract_time _  = extract_time
         module T = T
         module Union = Union
         let for_support = for_support
@@ -3119,6 +3155,7 @@ module Standard :
         let get_add _ = get_add
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
+        let get_mlstatic _ = get_mlstatic
 end 
 
 let merge a b =
@@ -3137,6 +3174,12 @@ let total_cost_of_type t n =
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
+        | StaticMl x, `StaticMl ->
+           IFDEF USE_LIKELIHOOD THEN
+            acc +. (x.cost)
+           ELSE
+            failwith likelihood_error
+           END
         | Dynamic x, t -> 
                 (match x.preliminary, t with
                 | DynamicCS.SeqCS _, `Seq -> acc +. (x.sum_cost *. x.weight)
@@ -3152,4 +3195,3 @@ let total_cost_of_type t n =
         | _ -> acc
     in
     List.fold_left total_cost_cs 0.0 n.characters
-

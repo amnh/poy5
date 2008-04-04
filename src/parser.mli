@@ -457,16 +457,19 @@ val molecular_to_fasta : filename -> in_channel
 
 module SC : sig
 
-    type site_var
+    type site_var =
+        | Gamma of int * float * float 
+        | Theta of int * float * float
+        | Invariant
 
     type subst_model =
-        | Constant of float
-        | K2P of float
-(*      | F81 of float list
-        | F84 of float * float list
-        | HKY of float *  float list
-        | TN93 of float * float * float list
-        | GTR of float * float * float * float * float * float list *)
+          | JC69 of float
+          | F81 of float
+          | K2P of float * float
+          | F84 of float * float
+          | HKY85 of float * float
+          | TN93 of float * float * float 
+          | GTR of float array
 
     type priors = 
         | Estimated of float array
@@ -477,6 +480,7 @@ module SC : sig
         site_variation : site_var option;
         base_priors : priors;
         set_code : int;
+        use_gap : bool;
     }
 
     type st_type = 
