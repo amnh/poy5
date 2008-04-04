@@ -580,11 +580,11 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         in
         let iterfn =
             match l_opt.Methods.tabu_nodes with
-            | `Null -> PhyloTabus.simple_nm_none (*
-             * | `Randomized -> PhyloTabus.
-             * | `LongestFirst -> PhyloTabus.
-             * | `... 
-             * *)
+            | `Null -> PhyloTabus.simple_nm_none 
+            | `Leaves -> PhyloTabus.simple_nm_leaves
+            | `Randomized -> PhyloTabus.random_nm
+            | `Longest -> PhyloTabus.sorted_longest_nm
+            | `Averaged ->PhyloTabus.sorted_average_nm
         in
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
@@ -805,7 +805,7 @@ module Make
             | None -> new Sampler.do_nothing
             | Some x -> x 
         in
-        match Data.has_dynamic data, queue with
+        match  Data.has_likelihood data || Data.has_dynamic data, queue with
         | true, None -> DH.find_local_optimum ~base_sampler:sampler data b trees d e
         | true, Some queue -> 
                 DH.find_local_optimum ~base_sampler:sampler ~queue data b trees d e
