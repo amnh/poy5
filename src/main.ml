@@ -17,9 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2581 $"
+let () = SadmanOutput.register "Main" "$Revision: 2669 $"
 
-(* $Id: main.ml 2581 2008-02-01 19:22:05Z andres $ *)
+(* $Id: main.ml 2669 2008-04-04 17:08:05Z andres $ *)
 
 
 module Nodes = AllDirNode.AllDirF
@@ -55,7 +55,7 @@ let args =
 
 END
 
-let () = SadmanOutput.register "Main" "$Revision: 2581 $"
+let () = SadmanOutput.register "Main" "$Revision: 2669 $"
 
 let () = Status.init ()
 
@@ -272,7 +272,7 @@ END
                 Status.clear_status_subwindows ();
                 Status.user_message Status.Error "Interrupted";
                 ()
-        | Sampler.TimedOut ->
+        | Methods.TimedOut ->
                 Status.clear_status_subwindows ();
                 let msg = "Search timed out" in
                 Status.user_message Status.Information msg

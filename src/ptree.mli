@@ -244,6 +244,8 @@ module type SEARCH = sig
     val features : Methods.local_optimum -> (string
     * string) list -> (string * string) list
 
+    val recode : (a, b) p_tree -> int -> (a, b) p_tree
+
   val make_wagner_tree :
       ?sequence:(int list) ->
     (a, b) p_tree ->
@@ -268,7 +270,7 @@ module type SEARCH = sig
 
       (** [spr_simple search] takes each tree in search manager [search] and
           performs rounds of SPR until there is no further improvement *)
-      val spr_simple : searcher
+      val spr_simple : bool -> searcher
       
       (** [tbr_step ptree tabu search] performs one round of TBR searching on
           tree [ptree] using a given tabu manager and search manager. *)
@@ -281,7 +283,7 @@ module type SEARCH = sig
 
       (** [tbr_simple search] takes each tree in search manager [search] and
           performs rounds of TBR until there is no further improvement *)
-      val tbr_simple : searcher
+      val tbr_simple : bool -> searcher
 
       val tbr_join :
           (a, b) search_mgr ->
@@ -312,13 +314,13 @@ module type SEARCH = sig
       val downpass : (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
-      (** [fuse_generations trees max_trees tree_weight tree_keep iterations
-          process] runs a genetic algorithm-style search using tree fusing.  The function
-          takes a list of trees to start with, the max number of trees and a method for
-          keeping trees, a method for weighting trees, a number of iterations to perform,
-          and a function to process new trees *)
+    (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
+        runs a genetic algorithm-style search using tree fusing.  The function takes a
+        list of trees to start with, the max number of trees and a method for keeping
+        trees, a method for weighting trees, a number of iterations to perform, and a
+        function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list ->
+          (a, b) p_tree list -> int ->
           int ->
           ((a, b) p_tree -> float) ->
           Methods.fusing_keep_method ->
@@ -329,7 +331,7 @@ module type SEARCH = sig
           (a, b) p_tree list
 
       val search_local_next_best : (search_step * string) -> searcher
-      val search : (search_step * string) -> searcher
+      val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
           string Parser.Tree.t list ->
@@ -377,7 +379,6 @@ module type SEARCH = sig
 
     end
     
-val set_avail_start : ('a, 'b) p_tree -> ('a, 'b) p_tree
 val int_of_id : Tree.id -> int
 val get_id : Tree.node -> int
 val is_handle : int -> ('a, 'b) p_tree -> bool

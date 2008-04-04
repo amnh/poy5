@@ -44,7 +44,7 @@ exception Node_Is_Handle
 type node =
   | Single of int
   | Leaf of int * int
-  | Interior of int * int * int * int
+  | Interior of (int * int * int * int)
 
 (** In an rooted tree, edges are implicitly directed according to parent
 _ child relationships. The edges in unrooted trees are directed based on
@@ -144,7 +144,6 @@ type break_jxn = id * id
 
 (** The empty u_tree. *)
 val empty : unit -> u_tree
-val set_avail_start : u_tree -> u_tree
 val get_id : node -> int
 val int_of_id : id -> int 
 val is_handle : int -> u_tree -> bool
@@ -288,4 +287,10 @@ val compare_cannonical : u_tree -> u_tree -> bool
 
 val get_unique : ('a * u_tree) list -> ('a * u_tree) list
 
+val exchange_codes : int -> int -> u_tree -> u_tree
+
 val replace_codes : (int -> int) -> u_tree -> u_tree
+
+val destroy_component : int -> u_tree -> u_tree
+
+val copy_component : int -> u_tree -> u_tree -> u_tree

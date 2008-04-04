@@ -297,8 +297,6 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         pre_codes
 
-
-
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
     let assign_single ptree = 
@@ -788,16 +786,10 @@ with type b = AllDirNode.OneDirF.n = struct
         else 
             ptree --> refresh_all_edges false
 
-    let downpass = 
-        current_snapshot "AllDirChar.downpass a";
-        let res = internal_downpass true in
-        current_snapshot "AllDirChar.downpass b";
-        res
-
     let clear_internals = 
         internal_downpass false
 
-    let uppass ptree = 
+    let pick_best_root ptree = 
         let edgesnhandles = 
             All_sets.Integers.fold 
             (fun handle acc ->
@@ -815,7 +807,12 @@ with type b = AllDirNode.OneDirF.n = struct
                     | Some (edge, cost, v) ->
                             if cost > c then Some ((a, b), c, data)
                             else acc
-                    | None -> Some ((a, b), c, data)) None edges
+                    | None -> Some ((a, b), c, data)) None 
+                    (List.sort (fun (Tree.Edge (a, b)) (Tree.Edge (c, d)) ->
+                        match c - a with
+                        | 0 -> d - b
+                        | x -> x)
+                        edges)
             with
             | Some (a, b, c) -> 
                     let c = 
@@ -831,12 +828,29 @@ with type b = AllDirNode.OneDirF.n = struct
                     let comp = Some ((`Single handle), data) in
                     Ptree.set_component_cost c None comp handle ptree
         in 
-        let ptree = List.fold_left process ptree edgesnhandles in
+        List.fold_left process ptree edgesnhandles 
+
+    let downpass ptree = 
+        current_snapshot "AllDirChar.downpass a";
+        let res = 
+            match !Methods.cost with
+            | `Exact
+            | `Normal -> internal_downpass true ptree
+            | `Iterative ->
+                    ptree --> internal_downpass true --> 
+                        pick_best_root --> assign_single -->
+                            adjust_tree None --> 
+                                refresh_all_edges true
+        in
+        current_snapshot "AllDirChar.downpass b";
+        res
+
+    let uppass ptree = 
         match !Methods.cost with
         | `Exact 
-        | `Normal -> assign_single ptree
-        | `Iterative ->
-                refresh_all_edges true (adjust_tree None (assign_single ptree))
+        | `Normal -> 
+                assign_single (pick_best_root ptree)
+        | `Iterative -> ptree
 
     let create_edge ptree a b =
         let edge1 = (Tree.Edge (a, b)) in

@@ -39,6 +39,7 @@ module type EdgeSig = sig
     * IllegalEdgeConversion *)
     val to_node : int -> (int * int) -> e -> n
     val of_node : int option -> n -> e
+    val recode : (int -> int) -> e -> e
 end
 
 module Edge : EdgeSig with type e = unit with type n = Node.node_data = struct
@@ -48,6 +49,7 @@ module Edge : EdgeSig with type e = unit with type n = Node.node_data = struct
     let calculate _ x = ()
     let of_node _ n = ()
     let to_node _ _ e = failwith "Impossible"
+    let recode a b = failwith "Impossible"
 end
 
 module SelfEdge : EdgeSig with type e = Node.node_data with type n = Node.node_data
@@ -58,6 +60,7 @@ module SelfEdge : EdgeSig with type e = Node.node_data with type n = Node.node_d
     let calculate _ x = x
     let of_node _ n = n
     let to_node _ _ e = e
+    let recode a b = Node.Standard.recode a b
 end
 
 
@@ -100,5 +103,6 @@ module LazyEdge : EdgeSig with type e = AllDirNode.OneDirF.n with type n =
                     match b.AllDirNode.unadjusted with
                     | [x] -> x.AllDirNode.lazy_node
                     | _ -> failwith "Edge.LazyEdge.of_node"
+        let recode a b = AllDirNode.OneDirF.recode a b
     end
 

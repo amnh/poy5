@@ -20,6 +20,7 @@
 type parsed = 
     | Word of string
     | WordNoSpace of string
+    | Blank
     | Text of parsed list
     | Command of (string * parsed list)
 
@@ -109,11 +110,15 @@ let rec produce_element = function
             List.iter produce_element lst;
     | Word x -> 
             if x <> "~" then o x;
+            (*
             if x <> "(" && x <> "[" then o " ";
+            *)
     | WordNoSpace x -> 
             if x <> "~" then o x
+    | Blank -> o " "
 
 let rec collapse = function
+    | Blank
     | (WordNoSpace _)
     | (Word _) as x -> x
     | Text [(Text _) as y] -> collapse y
@@ -184,6 +189,11 @@ let rec the_parser fstream =
         | Some x -> fstream#putback x; false
         | None -> true
     in
+    let is_blank fstream =
+        let res = fstream#read_incl [' '; '\t'; '\010'; '\013'] in
+        if res = "" then false
+        else true
+    in
     let rec get_param acc fstream =
         fstream#skip_ws_nl;
         if fstream#match_prefix "{" then begin
@@ -212,6 +222,8 @@ let rec the_parser fstream =
     let rec split_on_commands acc fstream = 
         if is_end_of_file fstream then
             List.rev acc
+        else if is_blank fstream then
+            split_on_commands (Blank :: acc) fstream
         else if is_close_command fstream then 
             List.rev acc
         else if is_newline fstream then

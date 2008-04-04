@@ -41,6 +41,9 @@ randomFasta: $(BASE_OBJS_OPT) ../utils/randomFasta.ml
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o randomFasta \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa $^
 
+annealingEvaluation: ../utils/annealing_evaluation.ml
+	$(OCAMLOPT) -o annealingEvaluation $(CCOPT) $^
+
 costFlip: $(BASE_OBJS_OPT) ../utils/costFlip.ml
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c ../utils/costFlip.ml

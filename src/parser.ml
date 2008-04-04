@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2468 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2669 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -2931,7 +2931,7 @@ module SC = struct
                 (fun x -> Array.append x (Array.init nchars (fun _ -> None))) 
                 matrix
             in
-            let _ =
+            let () =
                 (* We first update the names of the characters *)
                 let cnt = ref start_position in
                 List.iter (fun x ->
@@ -2940,7 +2940,7 @@ module SC = struct
                     incr cnt) 
                 chars.Nexus.char_charlabels
             in
-            let _ = 
+            let () = 
                 (* Now we update the states labels *)
                 List.iter (fun (position, labels) ->
                     let position = int_of_string position in
@@ -2948,7 +2948,7 @@ module SC = struct
                         { characters.(position) with st_labels = labels }) 
                 chars.Nexus.char_charstates
             in
-            let _ =
+            let () =
                 (* The next thing we do, is that we update states and labels
                 * together *)
                 List.iter (fun (position, name, labels) ->
@@ -2958,12 +2958,12 @@ module SC = struct
                         st_name = name }) 
                 chars.Nexus.char_statelabels
             in
-            let _ =
+            let () =
                 if get_token form then
                     update_labels_as_alphabet characters start_position
                 else ()
             in
-            let _ =
+            let () =
                 (* We are ready now to fill the contents of the matrix *)
                 let chars = remove_comments chars.Nexus.chars in
                 let data =
@@ -2985,7 +2985,7 @@ module SC = struct
                 process_matrix (get_labels form) `Nexus matrix taxa characters 
                 get_row_number assign_item data
             in
-            let _ =
+            let () =
                 (* Time to eliminate the characters that the person doesn't really
                 * want *)
                 match chars.Nexus.char_eliminate with
@@ -3390,6 +3390,16 @@ module SC = struct
                 List.fold_left (process_parsed file) 
                 (txn_cntr, char_cntr, taxa, characters, matrix, [], []) parsed
             in
+            let taxa, matrix =
+                (* Now it is time to correct the order of the terminals to 
+                * guarantee the default rooting of the tree. *)
+                let tlen = Array.length taxa 
+                and mlen = Array.length matrix in
+                assert (tlen >= mlen);
+                let taxa = Array.init tlen (fun x -> taxa.(tlen - x - 1)) 
+                and matrix = Array.init mlen (fun x -> matrix.(mlen - x - 1)) in
+                taxa, matrix
+            in
             taxa, characters, matrix, trees, unaligned
 
     end
@@ -3578,7 +3588,17 @@ module SC = struct
             in
             let _, a, b, c, d = List.fold_left (process_command file) (None,
             [||], [||], [||], []) parsed in
-            a, b, c, d, []
+            let taxa, matrix =
+                (* Now it is time to correct the order of the terminals to 
+                * guarantee the default rooting of the tree. *)
+                let tlen = Array.length a
+                and mlen = Array.length c in
+                assert (tlen >= mlen);
+                let taxa = Array.init tlen (fun x -> a.(tlen - x - 1)) 
+                and matrix = Array.init mlen (fun x -> c.(mlen - x - 1)) in
+                taxa, matrix
+            in
+            taxa, b, matrix, d, []
 
     end
 

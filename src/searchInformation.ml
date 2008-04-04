@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SearchInformation" "$Revision: 2047 $"
+let () = SadmanOutput.register "SearchInformation" "$Revision: 2669 $"
 
 let handle_tree_information trees acc = function
     | `Number -> 
@@ -153,6 +153,11 @@ let show_information trees data timer acc = function
                 acc ^ "@,@[<v 2>Files: " ^ to_insert ^ "@]"
             | None -> acc)
     | `SearchInformation _ -> acc
+    | `CostMode ->
+            (match !Methods.cost with
+            | `Normal -> acc ^ "@,@[Cost Mode: Normal Direct Optimization@]"
+            | `Exact -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
+            | `Iterative -> acc ^ "@,@[Cost Mode: Iterarive Pass Optimization@]")
     | `Timer -> 
             match timer with
             | Some timer ->

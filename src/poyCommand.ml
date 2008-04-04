@@ -1938,6 +1938,19 @@ and do_analysis optimize res =
 and simplify_directory dir = 
     Str.global_replace (Str.regexp "\\\\ ") " " dir 
 
+and of_parsed optimize lst =
+    let cur_directory = Sys.getcwd () in
+    let res =
+        lst
+        --> transform_all_commands
+        --> List.map (process_commands false)
+        --> List.flatten
+        --> do_analysis optimize
+    in
+    let cur_directory = simplify_directory cur_directory in
+    Sys.chdir cur_directory;
+    res
+
 and of_stream optimize str =
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
@@ -1952,6 +1965,7 @@ and of_stream optimize str =
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
     res
+
 
 and of_channel optimize ch = 
     of_stream optimize (Stream.of_channel ch)

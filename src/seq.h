@@ -25,11 +25,16 @@
 #include <caml/memory.h>
 #include "array_pool.h"
 
+#define POY_SEQ_MAGIC_NUMBER 9873123
 /* Macro to retrieve and cast a pointer to a seq structure from the Ocaml custom
  * type. */
-#define Seq_pointer(a) ((struct seq **) Data_custom_val(a))
-#define Seq_custom_val(a) (*((struct seq **) Data_custom_val(a)))
-#define Seq_struct(a) (Seq_custom_val(a))
+#define Seq_pointer(a) ((struct seq *) Data_custom_val(a))
+#define Seq_custom_val(to_asgn,a)  to_asgn = Seq_pointer(a); \
+    to_asgn->head = (SEQT *) ((seqt) (to_asgn + 1)); \
+    to_asgn->end = to_asgn->head + to_asgn->cap - 1; \
+    to_asgn->begin = to_asgn->end - to_asgn->len + 1; \
+    assert (to_asgn->magic_number = POY_SEQ_MAGIC_NUMBER)
+
 #ifdef USE_LARGE_ALPHABETS 
 #define SEQT unsigned int
 #define DESERIALIZE_SEQT(a,b) caml_deserialize_block_4((a),(b))
@@ -42,6 +47,7 @@
 
 /* Sequence structure to be used inside ocaml custom types. */
 struct seq {
+    int magic_number;
     int cap;        /* Capacity of the sequence memory structure. */
     int len;        /* Total length of the sequence stored. */
     SEQT *head;

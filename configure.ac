@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.61)
+AC_PREREQ(2.60)
 AC_INIT([POY], [4.0 Beta], poy4@groups.google.com)
 
 # Checks for programs.

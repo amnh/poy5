@@ -264,4 +264,7 @@ module type S = sig
     val get_add : int option -> n -> (AddCS.t * AddCS.t) list
     val get_sank : int option -> n -> (SankCS.t * SankCS.t) list
     val get_dynamic : int option -> n -> (DynamicCS.t * DynamicCS.t) list
+
+    (* Map all the internal codes of a node using the function *)
+    val recode : (int -> int) -> n -> n
 end

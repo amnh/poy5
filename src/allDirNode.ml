@@ -37,8 +37,6 @@ type node_data = {
     downpass *)
 }
 
-let my_own_code () = incr Data.median_code_count; !Data.median_code_count
-
 let to_n node = Lazy.lazy_from_val node
 
 let has_code code n =
@@ -92,6 +90,11 @@ module OneDirF :
 
     type n = a_node
     type e = exclude
+
+    let recode f n = 
+        Lazy.lazy_from_fun (fun () -> 
+            let n = Lazy.force_val n in
+            (Node.Standard.recode f n))
 
     let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
         let data, nodes = 
@@ -311,6 +314,21 @@ type nad8 = Node.Standard.nad8 = struct
         in
         { unadjusted = [node_dir]; adjusted = [node_dir]}
 
+    let recode_anode f n = 
+        { 
+            lazy_node = OneDirF.recode f n.lazy_node;
+            code = f n.code;
+            dir = 
+                match n.dir with
+                | None -> None
+                | Some (a, b) -> Some (f a, f b);
+        }
+
+    let recode f n = { 
+        unadjusted = List.map (recode_anode f) n.unadjusted;
+        adjusted = List.map (recode_anode f) n.adjusted;
+    }
+
     let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
         let data, nodes = 
             match taxa, codes with
@@ -391,7 +409,7 @@ type nad8 = Node.Standard.nad8 = struct
         let my_code =
             match my_code with
             | Some code -> code
-            | None -> my_own_code ()
+            | None -> assert false
         in
         let na, nb = 
             match code with

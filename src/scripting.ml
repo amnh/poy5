@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2592 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2669 $"
 
 module IntSet = All_sets.Integers
 
@@ -94,14 +94,17 @@ module type S = sig
 
     val console_run : string -> unit
 
+    val parsed_run : script list -> unit
+
     val channel_run : in_channel -> unit
 
     val get_console_run : unit -> r
 
-    val update_trees_to_data : r -> r
+    val update_trees_to_data : bool -> r -> r
 
     module PhyloTree : sig
         type phylogeny = (a, b) Ptree.p_tree
+        val get_cost : phylogeny -> float
         val fold_edges : ('a -> Tree.edge -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_nodes : ('a -> Tree.node -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_vertices : ('a -> int -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
@@ -127,6 +130,17 @@ module type S = sig
             phylogeny list 
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
             phylogeny list 
+    end
+
+    module Runtime : sig
+        type phylogeny = (a, b) Ptree.p_tree
+        val min_cost : unit -> float option
+        val max_cost : unit -> float option
+        val all_costs : unit -> float list
+        val trees : unit -> phylogeny list
+        val data : unit -> Data.d
+        val to_string : bool -> string list list 
+        val of_string : string -> unit
     end
 
 end
@@ -228,8 +242,11 @@ ELSE
 END
 
 
-let update_trees_to_data run =
-    let data, nodes = Node.load_data run.data in
+let update_trees_to_data load_data run =
+    let data, nodes = 
+        if load_data then Node.load_data run.data 
+        else run.data, run.nodes 
+    in
     let run = { run with nodes = nodes; data = data } in
     let len = Sexpr.length run.trees in
     let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
@@ -267,7 +284,7 @@ let process_transform (run : r) (meth : Methods.transform) =
               CT.transform_nodes run.trees run.data run.nodes
                   [meth] 
           in
-          update_trees_to_data { run with nodes = nodes; data = data }
+          update_trees_to_data false { run with nodes = nodes; data = data }
     | #Methods.terminal_transform as meth ->
             let data, htbl = Data.randomize_taxon_codes meth run.data in
             let data, nodes = Node.load_data data in
@@ -280,7 +297,7 @@ let process_transform (run : r) (meth : Methods.transform) =
                         x.Ptree.tree })
                 run.trees 
             in
-            update_trees_to_data 
+            update_trees_to_data false
             { run with nodes = nodes; data = data; trees = trees }
 
 let load_data (meth : Methods.input) data nodes =
@@ -422,7 +439,7 @@ let process_input run (meth : Methods.input) =
     let d, nodes = load_data meth run.data run.nodes in
     let run = { run with data = d; nodes = nodes } in
     (* check whether this read any trees *)
-    if [] = d.Data.trees then run
+    if [] = d.Data.trees then update_trees_to_data false run
     else
         let trees =
             Build.prebuilt run.data.Data.trees (run.data, run.nodes)
@@ -715,7 +732,7 @@ let rec process_application run item =
     | `Logfile file -> StatusCommon.set_information_output file; run
     | `Redraw -> Status.redraw_screen (); run
     | `SetSeed v -> process_random_seed_set run v
-    | `ReDiagnose -> update_trees_to_data run
+    | `ReDiagnose -> update_trees_to_data true run
     | `Help item -> HelpIndex.help item; run
     | `Wipe -> empty ()
     | `Echo (s, c) ->
@@ -1060,8 +1077,10 @@ let update_mergingscript folder mergingscript run tmp =
     let tmp = { tmp with trees = `Empty; stored_trees = tmp.trees } in
     tmp
 
-let on_each_tree folder dosomething mergingscript run tree =
-    let tmp = { run with trees = `Single tree } in
+let on_each_tree folder set_data dosomething mergingscript run tree =
+    let tmp = { run with trees = `Empty } in
+    let tmp = folder tmp set_data in
+    let tmp = { tmp with trees = `Single tree } in
     let tmp = List.fold_left folder tmp dosomething in
     update_mergingscript folder mergingscript run tmp
 
@@ -1075,12 +1094,16 @@ let emit_identifier =
     let extract_tree tree = tree.Ptree.tree
 
     let encode_trees run =
+        run.trees, run.stored_trees
+        (*
         (Sexpr.map extract_tree run.trees), (run.data.Data.taxon_codes)
+        *)
 
     let toptree tree = 
         { Ptree.empty with Ptree.tree = tree } 
 
     let update_codes run tc tree = 
+        let code_ref = ref run.data.Data.number_of_taxa in
         let my_hsh = Hashtbl.create 91 in
         let update_item a = 
             if All_sets.IntegerMap.mem a tc then
@@ -1088,8 +1111,8 @@ let emit_identifier =
             else if Hashtbl.mem my_hsh a then
                 Hashtbl.find my_hsh a
             else 
-                let _ = incr (Data.median_code_count) in
-                let newa = !Data.median_code_count in
+                let _ = incr code_ref in
+                let newa = !code_ref in
                 let _ = Hashtbl.add my_hsh a newa in
                 newa
         in
@@ -1126,15 +1149,19 @@ let emit_identifier =
             tree.Tree.handles All_sets.Integers.empty
         in
         { Tree.u_topo = u_topo; d_edges = d_edges; handles = handles; avail_ids
-        = []; new_ids = 1 + !(Data.median_code_count) }
+        = []; new_ids = run.data.Data.number_of_taxa + 1 }
 
-    let decode_trees (trees, tc) run =
+    let decode_trees (trees, stored_trees) run =
+        { run with trees = Sexpr.union trees run.trees; stored_trees =
+            Sexpr.union stored_trees run.stored_trees }
+        (*
         let trees = Sexpr.map (update_codes run tc) trees in  
         let nrun = 
             let nt = Sexpr.map toptree trees in
             { run with trees = nt }
         in
-        update_trees_to_data nrun
+        update_trees_to_data false nrun
+        *)
 
     let encode_jackknife run = 
         (run.jackknife_support), (run.data.Data.taxon_codes)
@@ -1362,15 +1389,85 @@ let get_character_costs trees =
     let lst = Sexpr.to_list trees in 
     List.map get_character_cost lst
 
+IFDEF USEPARALLEL THEN
+(* A function to create a complete mask *)
+let complete_mask com_size =
+    let rec complete_mask bit com_size =
+        if bit > com_size then bit - 1
+        else complete_mask (bit lsl 1) com_size
+    in
+    complete_mask 1 com_size
+
+let world_size = Mpi.comm_size Mpi.comm_world 
+
+let my_rank = Mpi.comm_rank Mpi.comm_world 
+
+(* A function to flip a given bit *)
+let mask_bit bit complete_mask =
+    if (bit land my_rank) = 0 then my_rank lor bit
+    else my_rank land (max_int lxor bit)
+
+let compute_other_rank bit = world_size --> complete_mask --> mask_bit bit
+
+END
 let rec folder (run : r) meth = 
     check_ft_queue run;
     match meth with
     (* The following methods are only used by the parallel execution *)
     | `Barrier -> (* Wait for synchronization with every other process *)
 IFDEF USEPARALLEL THEN
+            print_msg "Entering barrier";
+            let print_io_messages () =
+                let gotit, rank, tag = 
+                    Mpi.iprobe Mpi.any_source Methods.io Mpi.comm_world
+                in
+                if gotit then
+                    let (t : Status.c), (msg : string) = 
+                        Mpi.receive rank tag Mpi.comm_world in
+                    Status.user_message t msg
+            in
+            let request_barrier rank =
+                Mpi.send () rank Methods.barrier Mpi.comm_world in
+            let send_barrier = request_barrier in
+            let wait_for_barrier rank = 
+                Mpi.receive rank Methods.barrier Mpi.comm_world in
+            let wait_for_request = wait_for_barrier in
+            let rec do_barrier first_time bit =
+                if my_rank = 0 then print_io_messages ();
+                let other_rank = compute_other_rank bit in
+                if bit < world_size then
+                    if other_rank < world_size then
+                        if other_rank < my_rank then
+                            let () = wait_for_request other_rank in
+                            let () = send_barrier other_rank in
+                            Mpi.barrier Mpi.comm_world
+                        else
+                            if my_rank <> 0 then
+                                let () = request_barrier other_rank in
+                                let () = wait_for_barrier other_rank in
+                                do_barrier true (bit lsl 1)
+                            else 
+                                let () =
+                                    if first_time then request_barrier other_rank
+                                in
+                                let gotit, _, _ = 
+                                    Mpi.iprobe other_rank Methods.barrier
+                                    Mpi.comm_world
+                                in
+                                if gotit then
+                                    let () = wait_for_barrier other_rank in
+                                    do_barrier true (bit lsl 1)
+                                else do_barrier false bit
+                    else do_barrier true (bit lsl 1)
+                else Mpi.barrier Mpi.comm_world
+            in
+            do_barrier true 1;
+            run
+            (*
             let my_rank = Mpi.comm_rank Mpi.comm_world in
             if my_rank <> 0 then
                 let () = Mpi.send () 0 Methods.barrier Mpi.comm_world in
+                print_msg "Calling barrier";
                 let () = Mpi.barrier Mpi.comm_world in
                 run
             else
@@ -1402,16 +1499,57 @@ IFDEF USEPARALLEL THEN
                             in
                             test ()
                     else 
+                        let () = print_msg "Calling barrier" in
                         let _ = Mpi.barrier Mpi.comm_world in
                         run
                 in
                 test ()
+            *)
 ELSE 
                 run 
 END
     | `GatherTrees (joiner, continue) ->
 IFDEF USEPARALLEL THEN
             print_msg "Entering Gather Trees";
+            (* We define a function to reduce in parallel the results *)
+            let reduce_in_pairs bit run =
+                let other_rank = compute_other_rank bit in
+                print_msg ("Exchanging between " ^ string_of_int my_rank ^ " and " 
+                ^ string_of_int other_rank);
+                if other_rank < world_size then
+                    if other_rank > my_rank then 
+                        (* I am in charge of doing the reduction *)
+                        let run = 
+                            Mpi.comm_world 
+                            --> Mpi.receive other_rank Methods.do_job
+                            --> (fun x -> decode_trees x run)
+                            --> (fun x -> List.fold_left folder x joiner)
+                        in
+                        Mpi.send (encode_trees run) other_rank Methods.do_job Mpi.comm_world;
+                        run
+                    else
+                        let () =
+                            Mpi.send (encode_trees run) other_rank Methods.do_job 
+                            Mpi.comm_world
+                        in
+                        let run = { run with trees = `Empty; stored_trees =
+                            `Empty }
+                        in
+                        Mpi.comm_world 
+                        --> Mpi.receive other_rank Methods.do_job 
+                        --> (fun x -> decode_trees x run)
+                else List.fold_left folder run joiner
+            in
+            let rec reduce_them_all bit run =
+                if bit < world_size then
+                    reduce_them_all (bit lsl 1) (reduce_in_pairs bit run)
+                else List.fold_left folder run joiner
+            in
+            let run = { run with stored_trees = `Empty } in
+            let run = reduce_them_all 1 run in
+            print_msg "Finished all gather";
+            List.fold_left folder run continue
+            (*
             let res = Mpi.allgather (encode_trees run) Mpi.comm_world in
             print_msg "Finished Gather Trees";
             let run = { run with trees = `Empty; stored_trees = `Empty } in
@@ -1424,48 +1562,67 @@ IFDEF USEPARALLEL THEN
                 res
             in
             List.fold_left folder run continue
+            *)
 ELSE 
                 run 
 END
     | `GatherJackknife ->
 IFDEF USEPARALLEL THEN
+            print_msg "Entering jackknife";
             let res = Mpi.allgather (encode_jackknife run) Mpi.comm_world in
-            Array.fold_left 
-            (fun run set ->
-                let jckn = decode_jackknife set run in
-                add_jackknifes run jckn)
+            let run =
+                Array.fold_left 
+                (fun run set ->
+                    let jckn = decode_jackknife set run in
+                    add_jackknifes run jckn)
+                run
+                res
+            in
+            print_msg "Exiting jackknife";
             run
-            res
 ELSE 
                 run 
 END
     | `GatherBremer ->
 IFDEF USEPARALLEL THEN
+            print_msg "Entering bremer";
             let res = Mpi.allgather (encode_bremer run) Mpi.comm_world in
-            Array.fold_left 
-            (fun run set ->
-                let bmr = decode_bremer set run in
-                add_bremers run bmr)
+            let run = 
+                Array.fold_left 
+                (fun run set ->
+                    let bmr = decode_bremer set run in
+                    add_bremers run bmr)
+                run
+                res
+            in
+            print_msg "Exiting bootstrap";
             run
-            res
 ELSE 
                 run 
 END
     | `GatherBootstrap ->
 IFDEF USEPARALLEL THEN
+            print_msg "Entering bootstrap";
             let res = Mpi.allgather (encode_bootstrap run) Mpi.comm_world in
-            Array.fold_left 
-            (fun run set ->
-                let bstp = decode_bootstrap set run in
-                add_boostraps run bstp)
+            let run = 
+                Array.fold_left 
+                (fun run set ->
+                    let bstp = decode_bootstrap set run in
+                    add_boostraps run bstp)
+                run
+                res
+            in
+            print_msg "Exiting bootstrap";
             run
-            res
 ELSE 
                 run 
 END
     | `SelectYourTrees -> 
 IFDEF USEPARALLEL THEN
-            filter_my_trees run
+            print_msg "Entering select trees";
+            let run = filter_my_trees run in
+            print_msg "Exiting select trees";
+            run
 ELSE 
                 run 
 END
@@ -1482,8 +1639,8 @@ END
             let name = emit_identifier () in
             let run = folder run (`Store ([`Data], name)) in
             let run = 
-                Sexpr.fold_left (on_each_tree folder ((`Set ([`Data], name)) ::
-                    dosomething) mergingscript) run run.trees
+                Sexpr.fold_left (on_each_tree folder (`Set ([`Data],
+                name)) dosomething mergingscript) run run.trees
             in
             let run = 
                 { run with trees = run.stored_trees; stored_trees = `Empty } 
@@ -1509,14 +1666,13 @@ END
             warn_if_no_trees_in_memory run.trees;
             process_tree_handling run meth
     | #Methods.characters_handling as meth ->
-            update_trees_to_data (process_characters_handling run meth)
+            update_trees_to_data true (process_characters_handling run meth)
     | #Methods.taxa_handling as meth ->
             process_taxon_filter run meth 
     | #Methods.application as meth ->
             process_application run meth
     | #Methods.input as meth ->
-            let run = process_input run meth in
-            update_trees_to_data run
+            process_input run meth 
     | #Methods.transform as meth ->
             process_transform run meth
     | #Methods.build as meth ->
@@ -1680,7 +1836,7 @@ END
                 let trees = Sexpr.map run_and_untransform runs in
                 choose_best trees)
     | #Methods.runtime_store as meth -> 
-            runtime_store update_trees_to_data run meth 
+            runtime_store (update_trees_to_data false) run meth 
     | `Repeat (n, comm) ->
             let res = ref run in
             for i = 1 to n do
@@ -2043,20 +2199,13 @@ END
             | #Methods.diagnosis as meth ->
                 warn_if_no_trees_in_memory run.trees;
                 let () = 
-                    let run = 
-                        let data, nodes = 
-                            Node.load_data ~classify:false run.data 
-                        in
-                        update_trees_to_data { run with data = data; nodes =
-                            nodes }
-                    in
+                    let run = update_trees_to_data true run in
                     Sexpr.leaf_iter (fun x -> D.diagnosis run.data x meth) run.trees 
                 in
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run, !Data.median_code_count,
-                    get_cost_mode ()) fn;
+                    PoyFile.store_file (comment, run) fn;
                     run
                 with
                 | err ->
@@ -2068,9 +2217,7 @@ END
                         run)
             | `Load fn ->
                 (try 
-                    let (comment, run, mcc, cost_mode)  = PoyFile.read_file fn in
-                    assign_cost_mode cost_mode;
-                    Data.median_code_count := mcc;
+                    let (comment, run)  = PoyFile.read_file fn in
                     let descr = 
                         match comment with
                         | None -> "No description available."
@@ -2166,6 +2313,10 @@ let restart ?(file="ft_poy.out") () =
 
 let console_run_val = ref (empty ())
 
+let parsed_run lst = 
+    let res = run ~start:!console_run_val lst in
+    console_run_val := res
+
 let console_run str = 
     let todo = PoyCommand.of_string true str in
     let res = run ~start:!console_run_val todo in
@@ -2182,6 +2333,7 @@ let get_console_run () = !console_run_val
     module PhyloTree  = struct
         module PtreeSearch = Ptree.Search (Node) (Edge) (TreeOps)
         type phylogeny = (a, b) Ptree.p_tree
+        let get_cost x = Ptree.get_cost `Adjusted x
         let fold_edges f acc tree = List.fold_left f acc (Ptree.get_edges_tree tree)
         let fold_nodes f acc tree = List.fold_left f acc (Ptree.get_nodes tree)
         let fold_vertices f acc tree = List.fold_left f acc (Ptree.get_node_ids tree)
@@ -2255,6 +2407,40 @@ let get_console_run () = !console_run_val
         let build data nodes = 
             Sexpr.to_list (Build.build_initial_trees `Empty data nodes 
             (`Build (1, (`Wagner_Rnd (1, `Last, [], `UnionBased None)), [])))
+    end
+
+
+    module Runtime = struct
+        type phylogeny = (a, b) Ptree.p_tree
+        let get_cost cmp () = 
+            let run = get_console_run () in
+            Sexpr.fold_left (fun acc x ->
+                match acc with
+                | None -> Some (PhyloTree.get_cost x)
+                | Some y -> Some (cmp y (PhyloTree.get_cost x))) 
+            None run.trees
+        let min_cost () = get_cost min ()
+        let max_cost () = get_cost max ()
+        let trees () =
+            let run = get_console_run () in
+            Sexpr.to_list run.trees
+        let all_costs () = 
+            let lst = List.rev_map PhyloTree.get_cost (trees ()) in
+            List.sort compare lst
+
+        let data () = 
+            let run = get_console_run () in
+            run.data
+        let to_string bool =
+            let run = get_console_run () in
+            let trees = trees () in
+            List.map (fun x -> PhyloTree.to_string bool x run.data) trees
+
+        let of_string x = 
+            let run = get_console_run () in
+            let trees = PhyloTree.of_string x run.data run.nodes in
+            let trees = Sexpr.of_list trees in
+            console_run_val := { run with trees = trees }
     end
 
 end

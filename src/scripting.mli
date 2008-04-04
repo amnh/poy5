@@ -79,14 +79,17 @@ val process_random_seed_set : r -> int -> r
 
 val console_run : string -> unit
 
+val parsed_run : script list -> unit
+
 val channel_run : in_channel -> unit
 
 val get_console_run : unit -> r
 
-val update_trees_to_data : r -> r
+val update_trees_to_data : bool -> r -> r
 
     module PhyloTree : sig
         type phylogeny = (a, b) Ptree.p_tree
+        val get_cost :  phylogeny -> float
         (* Operating on edges and vertices *)
         val fold_edges : ('a -> Tree.edge -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_nodes : ('a -> Tree.node -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
@@ -122,6 +125,17 @@ val update_trees_to_data : r -> r
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
             phylogeny list 
     end
+    module Runtime : sig
+        type phylogeny = (a, b) Ptree.p_tree
+        val min_cost : unit -> float option
+        val max_cost : unit -> float option
+        val all_costs : unit -> float list
+        val trees : unit -> phylogeny list
+        val data : unit -> Data.d
+        val to_string : bool -> string list list 
+        val of_string : string -> unit
+    end
+
 
 end
 

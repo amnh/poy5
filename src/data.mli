@@ -48,8 +48,6 @@ type dyna_state_t = [
 | `Breakinv ]
 
 
-val median_code_count : int ref
-
 type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
     | `Locus_Breakpoint of int    
     | `Locus_Inversion of int ]
@@ -236,6 +234,7 @@ module OutputInformation : sig
     ]
 
     type t = [
+        | `CostMode
         | `TreeInformation of [ treelengths_information | `Number ] list
         | `TaxonInformation
         | `CharacterInformation of character_information list
@@ -253,6 +252,8 @@ type alph =
 
 
 type d = {
+    (* The number of terminals currently loaded *)
+    number_of_taxa : int;
     (** The pairs of synonyms for the loaded taxa *)
     synonyms : string All_sets.StringMap.t;
     do_fs : bool;
@@ -561,3 +562,5 @@ val apply_on_static :
         (int array array -> int list option list -> float) -> 
             (Parser.SC.ml_model -> int list option list -> float) -> bool_characters ->
             d -> (int * float) list
+
+val repack_codes : d -> d
