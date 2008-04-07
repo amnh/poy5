@@ -17,14 +17,25 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** This module implements methods to align two general
+* characters allowing rearrangements *)
+
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 type dyna_state_t = Data.dyna_state_t
+
+(** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
+* the rearrangement distance between two sequence [seq1] and [seq2] *)
 val cmp_recost :
   [> `Breakinv ] ->
   int array ->
   int array ->
   int array ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int * int
+
+(** [cmp_cost state code1_arr code2_arr recode2_arr 
+*              cost_mat gap re_meth circular] returns
+* the total cost between [seq1] and [reseq2]. Precisely,
+* total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val cmp_cost :
   [> `Breakinv ] ->
   int array ->
@@ -44,12 +55,21 @@ val cmp_cost3 :
     int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int
 
 
+(** [find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular]
+ * returns rearranged sequence [reseq2] of sequence [seq2] using stepwise addition method 
+ * such that the total cost is minimum where 
+ * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val find_wagner_ali :
   [> `Breakinv ] ->
   int array ->
   int array ->
     Cost_matrix.Two_D.m ->
   int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int array
+
+(** [multi_swap_locus state seq1 seq2 best_seq2 best_cost 
+*                     gen_cost_mat gap re_meth max_swap_med circular num_done_swap] 
+* swaps [reseq2] in order to minimize the total cost between [seq1] and [reseq2] where 
+* total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val multi_swap_locus :
   [> `Breakinv ] ->
   int array ->
@@ -60,6 +80,10 @@ val multi_swap_locus :
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int -> int * int array
+
+(** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
+* creates the general alignment between [seq1] and [seq2] with minimum total cost 
+* where total cost = editing cost + rearrangement cost *)
 val create_gen_ali :
   [> `Breakinv ] ->
   Sequence.s ->
@@ -68,6 +92,10 @@ val create_gen_ali :
   Alphabet.a ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int * (int * int) * Sequence.s * Sequence.s
+
+(** Given two sequence [seq1] and [seq2] of character codes, create 
+ * the general alignment between [seq1] and [seq2] with minimum total cost 
+ * where total cost = editing cost + rearrangement cost *)
 val create_gen_ali_code :
   [> `Breakinv ] ->
   int array ->
@@ -76,6 +104,7 @@ val create_gen_ali_code :
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int * (int * int) * int array * int array
+
 
 val create_gen_ali3 :
   Sequence.s ->

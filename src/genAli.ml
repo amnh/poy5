@@ -19,19 +19,23 @@
 
 let () = SadmanOutput.register "GenAli" "$Revision: 1616 $"
 
-let fprintf = Printf.fprintf;;
+(** This module implements methods to align two general
+* characters allowing rearrangements *)
 
+let fprintf = Printf.fprintf;;
 type dyna_state_t = Data.dyna_state_t
 
-
+(** [oritentation code] returns the direction of the 
+* character [code]. Characters whose codes are even numbers are
+* considered as negative characters, otherwise postive *)
 let orientation code = 
     if code mod 2 = 0 then -(code / 2)
     else (code + 1) /2
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
 
-(** Given two arrays of orders [seq2] and [re_seq2], 
- * compute their rearrangement distance*)
+(** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
+* the rearrangement distance between two sequence [seq1] and [seq2] *)
 let cmp_recost state seq1 seq2 reseq2 re_meth circular =     
     let seq1 = Array.map orientation seq1 in 
     let seq2 = Array.map orientation seq2 in 
@@ -65,12 +69,12 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular =
     end 
 
 
-(** Given two sequences [seq1], [seq2] and rearranged sequence 
- * [reseq2] of [seq2], compute the total cost between [seq1] and [reseq2] where 
- * total cost = editing cost (seq1, reseq2) plus rearrangement cost (seq2, reseq2) *)
+(** [cmp_cost state code1_arr code2_arr recode2_arr 
+*              cost_mat gap re_meth circular] returns
+* the total cost between [seq1] and [reseq2]. Precisely,
+* total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 let cmp_cost state code1_arr code2_arr recode2_arr 
         (cost_mat : Cost_matrix.Two_D.m) gap re_meth circular = 
-
     let seq1 = Sequence.init (fun idx -> code1_arr.(idx)) (Array.length code1_arr) in
     let reseq2 = Sequence.init (fun idx -> recode2_arr.(idx)) (Array.length recode2_arr) in
 
@@ -88,10 +92,10 @@ let cmp_cost state code1_arr code2_arr recode2_arr
 
 
 
-(** Given two sequences [seq1], [seq2], find rearranged sequence [reseq2]
- * of sequence [seq2] using stepwise addition method 
+(** [find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular]
+ * returns rearranged sequence [reseq2] of sequence [seq2] using stepwise addition method 
  * such that the total cost is minimum where 
- * total cost = editing cost (seq1, reseq2) plus rearrangement cost (seq2, reseq2) *)
+ * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular = 
     let rec add (best_wagner_seq2 : int array) added_seq2_ls rem_seq2_ls = 
         match rem_seq2_ls with
@@ -132,14 +136,13 @@ let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular =
 
 
 
-(** Given two sequences [seq1], [seq2] and rearranged sequence 
- * [reseq2] of [seq2], swap [reseq2] in order to minimize the total
- * cost between [seq1] and [reseq2] where 
- * total cost = editing cost (seq1, reseq2) plus rearrangement cost (seq2, reseq2) *)
+(** [multi_swap_locus state seq1 seq2 best_seq2 best_cost 
+*                     gen_cost_mat gap re_meth max_swap_med circular num_done_swap] 
+* swaps [reseq2] in order to minimize the total cost between [seq1] and [reseq2] where 
+* total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost 
         gen_cost_mat gap re_meth max_swap_med
         circular num_done_swap =             
-
     let len2 = Array.length best_seq2 in  
     let swap_ls = ref [] in 
 
@@ -202,9 +205,9 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
     end 
 
         
-(** Given two sequences [seq1] and [seq2] of general character, create 
- * the general alignment between [seq1] and [seq2] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
+(** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
+* creates the general alignment between [seq1] and [seq2] with minimum total cost 
+* where total cost = editing cost + rearrangement cost *)
 let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
         max_swap_med circular =
@@ -237,9 +240,6 @@ let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s)
     let alied_seq1 = Sequence.init (fun idx -> alied_seq1.(idx)) ali_len in
     let alied_seq2 = Sequence.init (fun idx -> alied_seq2.(idx)) ali_len in
     final_cost, recost, alied_seq1, alied_seq2  
-
-
-
 
 
 (** Given two sequence [seq1] and [seq2] of character codes, create 
@@ -281,10 +281,7 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
         cmp_cost state seq1 seq2 best_seq2 gen_cost_mat 
             gen_gap_code re_meth circular 
     in   
-
     final_cost, recost, alied_seq1, alied_seq2  
-
-
 
 
 
