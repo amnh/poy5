@@ -17,8 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AliMap" "$Revision: 2655 $"
-(** The implementation of functions to find the map between two chromosomes *)
+let () = SadmanOutput.register "AliMap" "$Revision: 2678 $"
+
+
+(** AliMap module implements methods to align two general 
+* character sequence allowing rearrangements *)
+
+
 
 type chromPairAliPam_t = ChromPam.chromPairAliPam_t
 type block_pam_t = Block.blockPam_t
@@ -29,9 +34,10 @@ type subseq_t = Subseq.subseq_t
 
 let fprintf = Printf.fprintf
 
-
-
-(** Create the the general cost matrix. Each subseq is considered as a state *)
+(** [create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code 
+*        seq1 seq2 cost_mat ali_pam] creates a general cost matrix 
+* between [subseq1_ls] and [subseq2_ls. Each subseq is considered
+* as a character state *)
 let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code 
         seq1 seq2 cost_mat ali_pam =
 
@@ -116,14 +122,14 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
 
                  ) del_subseq2_ls
         ) del_subseq1_ls;
-
-    
-
     gen_cost_mat, ali_mat
 
-    
-(** Given a global map between two chromosomes. 
-    Create globally general alignment between two *)
+
+
+
+
+(** [create_general_ali state global_map seq1 seq2 cost_mat ali_pam] 
+ * returns a general alignement between [seq1] and [seq2] allowing rearrangements *)    
 let create_general_ali state global_map seq1 seq2 cost_mat ali_pam =
 
     let global_map, subseq1_ls, subseq2_ls = 

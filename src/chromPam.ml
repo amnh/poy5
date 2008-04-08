@@ -16,7 +16,7 @@
 (* along with this program; if not, write to the Free Software                *)
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
-let () = SadmanOutput.register "ChromPam" "$Revision: 2665 $"
+let () = SadmanOutput.register "ChromPam" "$Revision: 2678 $"
 
 (** Chromosome parameters
  *
@@ -30,21 +30,27 @@ let () = SadmanOutput.register "ChromPam" "$Revision: 2665 $"
  * 
  *) 
 
+(** order_t is a data type with three values
+* - `First: Consider only the first chromsome
+* - `Second: Consider only the second chromosome
+* - `BothSeq: Consider both chromosomes *)
 type order_t = [`First | `Second | `BothSeq]
+
+(** order_t is a data type with three values
+* - `Positive: The orientation is positive, or consider only positive segments and characters
+* - `Negative: The orientation is negative, or consider only negative segments and characters
+* - `BothDir:  Consider only negative segments and characters *)
 type direction_t = [`Positive | `Negative | `BothDir]
 
 type re_meth_t = Data.re_meth_t
 
 
-
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
-    (** The minimum length of a basic seed *)
-    k                       : int; 
-    sig_k                   : int;
-    sig_block_len           : int;
-    (** The maximum distance between two basic seeds *)
-    max_gap                 : int;
+    k                       : int;  (** min basic seed length *)
+    sig_k                   : int;  (** min significant seed length *)
+    sig_block_len           : int;  (** min signification block length *)
+    max_gap                 : int; (** max distance between two basic seeds *)
 
     (** It's believed that no rearrangments or reversions happened 
         within a segment whose length < unbreaked_len *)
@@ -68,40 +74,45 @@ type chromPairAliPam_t = {
     mismat_cost             : int;
 
     
-    (** The cost of an inversion operation. At the moment, the total cost of
-        rearrangements is computed in the term of inversion distance  *)
+    (** Cost parameters of rearrangement function which is either
+    * breakpoint distance or inversion distance *)
     re_meth : re_meth_t;
-    chrom_breakpoint : int;
 
+    (** The cost of a breakpoint happing between two chromosome *)
+    chrom_breakpoint : int;
+    
+    (** The maximum number of medians at one node kept during the search*)
     keep_median : int;
+    (** The maximum number of swap iterations emplying
+        * to improve the pairwise alignment with rearrangements*)
     swap_med : int;
 
     approx : order_t;
     symmetric : bool;
     negative : bool;
 
-    (** The cost to delete or insert a segment (loci) in a chromosome *)
+    (** Indel cost of a locus in a chromosome *)
     locus_indel_cost : (int * int);
+
+    (** Indel cost of a chromosome in a genome *)
     chrom_indel_cost : (int * int);
-    chrom_hom : int; (* if cost > threshold * min_cost,  then not homologous *)
+
+    chrom_hom : int; (* The maximum cost between two chromosomes
+                      * at which they are considered as homologous chromosomes *)
+    (** Circular = 0 means linear chromosome, otherwise circular chromosome *)
     circular : int;
 
-
+    (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int;
     detected_3d_len : int;
 }
 
-
 let locus_indel_cost_default = (10, 100)
 
-(** TODO: Get rid of this set of defaults!!!
-* WARNING: The true defaults are in Data!!! this defaults need to be cleaned up.
-* *)
 let chromPairAliPam_default = {
-    min_pos1 = -1; max_pos1 = -1; min_pos2 = -1; max_pos2 = -1; 
-
-
-    k = 9;  (* Seed length *)
+    min_pos1 = -1; max_pos1 = -1; 
+    min_pos2 = -1; max_pos2 = -1; 
+    k = 9;  
     max_gap = 10; 
     sig_k = 12;
     sig_block_len = 100;
@@ -133,11 +144,11 @@ let chromPairAliPam_default = {
 }
 
 
-let get_chrom_pam user_chrom_pam =     
-    let chrom_pam = chromPairAliPam_default in 
+let get_chrom_pam user_chrom_pam =   
+    let chrom_pam = chromPairAliPam_default  in
     let chrom_pam = 
         match user_chrom_pam.Data.seed_len with 
-        | None -> chrom_pam
+        | None -> failwith "Do not have default value for seed_len"
         | Some k -> {chrom_pam with k = k}
     in 
 

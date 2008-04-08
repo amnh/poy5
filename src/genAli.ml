@@ -242,12 +242,12 @@ let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s)
     final_cost, recost, alied_seq1, alied_seq2  
 
 
-(** Given two sequence [seq1] and [seq2] of character codes, create 
- * the general alignment between [seq1] and [seq2] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
+(** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
+*        re_meth max_swap_med circular] creates the general 
+* alignment between [seq1] and [seq2] with minimum total cost
+* where total cost = editing cost + rearrangement cost *)
 let create_gen_ali_code state (seq1 : int array) (seq2 : int array) 
-        (gen_cost_mat : int array array) gen_gap_code 
-        re_meth max_swap_med circular =
+        (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular =
 
     let size = Array.length gen_cost_mat in 
     let gen_cost_mat = Array.init (size - 1) 
@@ -284,7 +284,8 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
     final_cost, recost, alied_seq1, alied_seq2  
 
 
-
+(**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
+* the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
 let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym = 
     let max_swap_med = 1 in 
     let cmp_cost2 code1_arr code2_arr = 
@@ -322,8 +323,9 @@ let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym =
     
 
 
-(** Given three sequences [seq1], [seq2], [seq3], find the best median of these
- * three sequences *)
+(** [find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular sym]
+* finds the best median sequence of [seq1], [seq2] and [seq3] according
+* to wagner-based algorithm *)
 let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular sym = 
     let max_code = max (max (Utl.max_arr seq1) (Utl.max_arr seq2)) 
         (Utl.max_arr seq3) 
@@ -356,9 +358,8 @@ let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular sym =
     
     best_wagner, cost
 
-
-(** Given three sequences [seq1], [seq2], [seq3], find the best median of these
- * three sequences *)
+(** [swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular sym]
+    swaps the best found [med] to improve its quality *)
 let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular sym = 
     let best_cost = ref (cmp_cost3 seq1 seq2 seq3 med gen_cost_mat gap re_meth
                              circular sym) in 
@@ -385,12 +386,12 @@ let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular sym =
     else  !best_med, !best_cost
 
 
-(** Given two sequences [seq1] and [seq2] of general character, create 
- * the general alignment between [seq1] and [seq2] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
+(** [create_gen_ali3 seq1 seq2 seq3 med gen_cost_mat 
+*     alpha re_meth  max_swap_med circular sym] creates
+* the general alignment among [seq1], [seq2], and [seq3] 
+* such that total cost = editing cost + rearrangement cost is minimized *)
 let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
-        (med : Sequence.s) 
-        gen_cost_mat alpha re_meth  max_swap_med circular sym =
+        (med : Sequence.s) gen_cost_mat alpha re_meth  max_swap_med circular sym =
 
     let gap = Alphabet.get_gap alpha in 
     let seq1 : int array = Sequence.to_array seq1 in 
@@ -415,9 +416,10 @@ let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
 
 
 
-(** Given two sequence [seq1] and [seq2] [seq3] of character codes, create 
- * the general alignment between [seq1] and [seq2] [seq3] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
+(** [create_gen_ali_code3 state seq1 seq2 seq3 med gen_cost_mat 
+        gen_gap_code re_meth max_swap_med circular sym] creates
+* the general alignment among [seq1], [seq2], and [seq3] 
+* such that total cost = editing cost + rearrangement cost is minimized *)
 let create_gen_ali_code3 state (seq1 : int array) (seq2 : int array) 
         (seq3 : int array) (med : int array) 
         (gen_cost_mat : int array array) gen_gap_code 

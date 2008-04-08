@@ -46,6 +46,8 @@ val cmp_cost :
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int * (int * int) * int array * int array
 
+(**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
+* the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
 val cmp_cost3 :
   int array ->
   int array ->
@@ -93,9 +95,10 @@ val create_gen_ali :
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> int * (int * int) * Sequence.s * Sequence.s
 
-(** Given two sequence [seq1] and [seq2] of character codes, create 
- * the general alignment between [seq1] and [seq2] with minimum total cost 
- * where total cost = editing cost + rearrangement cost *)
+(** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
+*        re_meth max_swap_med circular] creates the general 
+* alignment between [seq1] and [seq2] with minimum total cost
+* where total cost = editing cost + rearrangement cost *)
 val create_gen_ali_code :
   [> `Breakinv ] ->
   int array ->
@@ -106,6 +109,10 @@ val create_gen_ali_code :
   int -> int -> int * (int * int) * int array * int array
 
 
+(** [create_gen_ali3 seq1 seq2 seq3 med gen_cost_mat 
+*     alpha re_meth  max_swap_med circular sym] create
+* the general alignment among [seq1], [seq2], and [seq3] 
+* such that total cost = editing cost + rearrangement cost is minimized *)
 val create_gen_ali3 :
   Sequence.s ->
   Sequence.s ->
