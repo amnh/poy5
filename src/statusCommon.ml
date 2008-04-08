@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 2554 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 2681 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -47,7 +47,7 @@ module CommandCompletion = struct
         "annchrom_to_breakinv";
         "annealing";
         "annotated";
-        "approx";
+        "med_approx";
         "around";
         "as_is";
         "asciitrees" ;
@@ -60,8 +60,8 @@ module CommandCompletion = struct
         "bootstrap";
         "branch_and_bound";
         "breakinv";
-        "breakinv_to_seq";
-        "breakpoint";
+        "breakinv_to_custom";
+        "locus_breakpoint";
         "bremer";
         "build";
         "calculate_support";
@@ -118,7 +118,7 @@ module CommandCompletion = struct
         "info";
         "init3D";
         "inspect";
-        "inversion";
+        "locus_inversion";
         "iterations";
         "iterative";
         "jackknife";
@@ -159,7 +159,7 @@ module CommandCompletion = struct
         "randomized";
         "ratchet";
         "read";
-        "rearranged_len";
+        "min_rearrangement_len";
         "recover";
         "rediagnose";
         "redraw";
@@ -180,12 +180,12 @@ module CommandCompletion = struct
         "seed";
         "seed_length";
         "select";
-        "seq_to_breakinv";
+        "custom_to_breakinv";
         "seq_to_chrom";
         "seq_stats";
         "sequence_partition";
         "set";
-        "sig_block_len";
+        "min_loci_len";
         "spr";
         "static";
         "static_approx";

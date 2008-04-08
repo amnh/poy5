@@ -528,7 +528,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> 
                             <:expr<`ChangeDynPam $exSem_of_list x$>> ] | 
                 [ LIDENT "chrom_to_seq" -> <:expr<`ChromToSeq []>> ] |
-                [ LIDENT "breakinv_to_seq" -> <:expr<`BreakinvToSeq []>> ] 
+                [ LIDENT "breakinv_to_custom" -> <:expr<`BreakinvToSeq []>> ] 
             ];
         neg_integer_or_float:
             [
