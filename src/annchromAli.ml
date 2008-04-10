@@ -19,35 +19,38 @@
 
 let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 
-(** The implementation of funtions to calculate the cost, alignments and medians
-    between annotated chromosomes where both point mutations and rearrangement operations
-    are considered *)
+(** The implementation of funtions to calculate the cost, 
+* alignments and medians between annotated chromosomes 
+* where both point mutations and rearrangement operations 
+* are considered *)
 let fprintf = Printf.fprintf
 
+(** [seq_t] is data structure to contain a segment of an annotated chromosome *)
 type seq_t = {
-    seq : Sequence.s;
-    seq_ref_code : int;
-    alied_med : Sequence.s;
-    seq_ord1 : int;
-    alied_seq1 : Sequence.s;
+    seq : Sequence.s; (** the segment sequence *)
+    seq_ref_code : int; (** the reference code of this segment *)
+    alied_med : Sequence.s; (** the aligned sequence this segement *)
 
-    seq_ord2 : int;
-    alied_seq2 : Sequence.s;
+    seq_ord1 : int; (** the segment order of its first child *)
+    alied_seq1 : Sequence.s; (** the aligned sequence of its first child *)
 
+    seq_ord2 : int; (** the segment order of its second child *)
+    alied_seq2 : Sequence.s; (** the aligned sequence of its second child *)
 }
 
+(** [annchrom_t] is a data structure to contain an annoated chromosome *)
 type annchrom_t = {
-    seq_arr : seq_t array; 
-    ref_code : int; 
-    ref_code1 : int;    (** Child's code *)    
-    ref_code2 : int;  (** Child's code *)
-    cost1 : int;
-    recost1 : int;
-    cost2 : int;
-    recost2 : int;
+    seq_arr : seq_t array;  (** annotated chromosome *)
+    ref_code : int;  (** reference code of this chromosome *)
+    ref_code1 : int;    (** first child's code *)    
+    ref_code2 : int;  (** second child's code *)
+    cost1 : int; (** cost from this chromosome to its first child *)
+    recost1 : int; (** recost from this chromosome to its first child *)
+    cost2 : int; (** cost from this chromosome to its second child *)
+    recost2 : int; (** recost from this chromosome to its second child *) 
 }
 
-
+(** [clone_seq] returns a fresh clone of segment [s] *)
 let clone_seq s = {
     seq = Sequence.clone s.seq;
     seq_ref_code = s.seq_ref_code;
@@ -58,7 +61,7 @@ let clone_seq s = {
     alied_seq2 = Sequence.clone s.alied_seq2;
 }
 
-
+(** [clone_med] returns a fresh clone of annotated chromosome [m] *)
 let clone_med m = {
     seq_arr = Array.map clone_seq m.seq_arr;
     ref_code = m.ref_code;
@@ -71,7 +74,8 @@ let clone_med m = {
 }
 
 
-(** Parameters used to align two general character sequences *)
+(** [annchromPam_t] is data structure to 
+* contains parameters used to align two annotated chromosomes *)
 type annchromPam_t = {
     re_meth : Data.re_meth_t;
     keep_median : int;
@@ -92,6 +96,7 @@ let annchromPam_default = {
     locus_indel_cost = (10, 100);
 }
 
+(** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
 let init_seq_t (seq, code) = {
     seq = seq;
     seq_ref_code = code;
@@ -103,6 +108,8 @@ let init_seq_t (seq, code) = {
     
 }
 
+(** [init seq_arr] returns an annotated chromosome 
+* from sequence array [seq_arr] *)
 let init seq_arr = {
     seq_arr = Array.map init_seq_t seq_arr;
     ref_code = Utl.get_new_chrom_ref_code ();
@@ -126,16 +133,19 @@ let printMap seq_arr =
     print_newline ()
 
 
-let swap_seq s = 
-    {
-        s with seq_ord1 = s.seq_ord2;
-            alied_seq1 = s.alied_seq2;
-            seq_ord2 = s.seq_ord1;
-            alied_seq2 = s.alied_seq1                
-    } 
+(** [swap_seq s] swaps the first child and second child of 
+* this segment [s] *)
+let swap_seq s =  {
+    s with seq_ord1 = s.seq_ord2;
+        alied_seq1 = s.alied_seq2;
+        seq_ord2 = s.seq_ord1;
+        alied_seq2 = s.alied_seq1                
+} 
 
 
 
+(** [swap_med m] swaps the first child and second child 
+of this annotated chromosome [m]*)
 let swap_med m = 
      {m with ref_code1 = m.ref_code2;
          ref_code2 = m.ref_code1;
@@ -146,70 +156,11 @@ let swap_med m =
          seq_arr = Array.map swap_seq m.seq_arr
      }
 
-
-
 let get_seq_arr t =
     Array.map (fun seq -> seq.seq) t.seq_arr
 
-(** for implied alignments *)
-let convert_map med = 
-    let gap = Alphabet.gap in 
-    let num_frag = Array.length med.seq_arr in
-
-    let alied_med_arr = Array.map (fun seg -> seg.alied_med) med.seq_arr in
-    let alied_seq1_arr = Array.init num_frag 
-        (fun idx1 ->
-             let seg = List.find (fun seg -> seg.seq_ord1 = idx1)
-                 (Array.to_list med.seq_arr) 
-             in
-             seg.alied_seq1)
-    in 
-
-    let alied_seq2_arr = Array.init num_frag 
-        (fun idx2 ->
-             let seg = List.find (fun seg -> seg.seq_ord2 = idx2)
-                 (Array.to_list med.seq_arr) 
-             in
-             seg.alied_seq2)
-    in 
-
-    let create_pos seq_arr = 
-        let pos = ref (-1) in
-        Array.map
-            (fun s ->         
-                 Array.init (Sequence.length s) 
-                     (fun idx -> 
-                          let code = Sequence.get s idx in
-                          match code = gap with
-                          | true -> -1
-                          | false ->                                
-                              incr pos; !pos)
-
-            ) seq_arr 
-    in 
-    let pos_mat = create_pos alied_med_arr in
-    let pos1_mat = create_pos alied_seq1_arr in 
-    let pos2_mat = create_pos alied_seq2_arr in 
-
-
-    let rev_map = ref [] in 
-    for seg_id = 0 to num_frag - 1 do
-        let seg = med.seq_arr.(seg_id) in 
-        let len = Array.length pos_mat.(seg_id) in
-        for idx = 0 to len - 1 do
-            let p = pos_mat.(seg_id).(idx) in 
-            let code = Sequence.get seg.alied_med idx in 
-            let p1 = pos1_mat.(seg.seq_ord1).(idx) in 
-            let code1 = Sequence.get seg.alied_seq1 idx in 
-            let p2 = pos2_mat.(seg.seq_ord2).(idx) in 
-            let code2 = Sequence.get seg.alied_seq2 idx in 
-            rev_map := (p, code, p1, code1, p2, code2)::!rev_map
-        done
-    done; 
-
-    List.rev !rev_map  
-
-
+(** [get_annchrom_pam] returns user defined parameters
+* to align two annotated chromosomes *)
 let get_annchrom_pam user_annchrom_pam = 
     let chrom_pam = annchromPam_default in  
     let chrom_pam = 
@@ -264,6 +215,8 @@ let print annchrom alpha =
                     fprintf stdout "(%i, %s) | " s.seq_ref_code seq) annchrom.seq_arr;
     print_newline ()
 
+(** [split chrom] returns an array code sequences and an array
+* of codes coresponding to the sequence array*)
 let split chrom =  
     let seq_arr = Array.map (fun s -> s.seq) chrom.seq_arr in  
     let code_arr = Array.map (fun s -> s.seq_ref_code) chrom.seq_arr in  
@@ -271,8 +224,8 @@ let split chrom =
 
 
 
-(** Given two arrays of sequences [seq1_arr] and [seq2_arr], 
- *  create the general cost matrix and corresponding code arrays  *)
+(** [create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam]
+* return a cost matrix between segments of [seq1_arr] and segments of [seq2_arr] *)
 let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =        
     let seq1_arr = Array.mapi (fun ith seq -> seq, (ith * 2 + 1) ) seq1_arr in 
 
@@ -1021,3 +974,63 @@ let copy_chrom_map s d = {d with ref_code = s.ref_code;
                               ref_code1 = s.ref_code1;
                               ref_code2 = s.ref_code2;
                               seq_arr = s.seq_arr}
+
+(** for implied alignments *)
+let convert_map med = 
+    let gap = Alphabet.gap in 
+    let num_frag = Array.length med.seq_arr in
+
+    let alied_med_arr = Array.map (fun seg -> seg.alied_med) med.seq_arr in
+    let alied_seq1_arr = Array.init num_frag 
+        (fun idx1 ->
+             let seg = List.find (fun seg -> seg.seq_ord1 = idx1)
+                 (Array.to_list med.seq_arr) 
+             in
+             seg.alied_seq1)
+    in 
+
+    let alied_seq2_arr = Array.init num_frag 
+        (fun idx2 ->
+             let seg = List.find (fun seg -> seg.seq_ord2 = idx2)
+                 (Array.to_list med.seq_arr) 
+             in
+             seg.alied_seq2)
+    in 
+
+    let create_pos seq_arr = 
+        let pos = ref (-1) in
+        Array.map
+            (fun s ->         
+                 Array.init (Sequence.length s) 
+                     (fun idx -> 
+                          let code = Sequence.get s idx in
+                          match code = gap with
+                          | true -> -1
+                          | false ->                                
+                              incr pos; !pos)
+
+            ) seq_arr 
+    in 
+    let pos_mat = create_pos alied_med_arr in
+    let pos1_mat = create_pos alied_seq1_arr in 
+    let pos2_mat = create_pos alied_seq2_arr in 
+
+
+    let rev_map = ref [] in 
+    for seg_id = 0 to num_frag - 1 do
+        let seg = med.seq_arr.(seg_id) in 
+        let len = Array.length pos_mat.(seg_id) in
+        for idx = 0 to len - 1 do
+            let p = pos_mat.(seg_id).(idx) in 
+            let code = Sequence.get seg.alied_med idx in 
+            let p1 = pos1_mat.(seg.seq_ord1).(idx) in 
+            let code1 = Sequence.get seg.alied_seq1 idx in 
+            let p2 = pos2_mat.(seg.seq_ord2).(idx) in 
+            let code2 = Sequence.get seg.alied_seq2 idx in 
+            rev_map := (p, code, p1, code1, p2, code2)::!rev_map
+        done
+    done; 
+
+    List.rev !rev_map  
+
+
