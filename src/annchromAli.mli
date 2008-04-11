@@ -96,14 +96,25 @@ val create_pure_gen_cost_mat :
   Sequence.s array ->
   Cost_matrix.Two_D.m ->
   annchromPam_t -> int array array * int array * int array * int
+
+(** [cmp_cost chrom1 chrom2 cost_mat alpha annchrom_pam] 
+* compute the minimum cost from annotated chromosome [chrom1]
+* to annotated chromosome [chrom2], and from [chrom2] to [chrom1] *)
 val cmp_cost :
   annchrom_t ->
   annchrom_t -> Cost_matrix.Two_D.m -> 'a -> Data.dyna_pam_t -> int * int
+
+(** [find_med2_ls chrom1 chrom2 cost_mat alpha annchrom_pam]
+* finds medians between [chrom1] and [chrom2] and vice versa
+* allowing rearrangements *)
 val find_med2_ls :
   annchrom_t ->
   annchrom_t ->
   Cost_matrix.Two_D.m -> 'a -> Data.dyna_pam_t -> int * int * annchrom_t list
 
+(** [find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam]
+* finds the median of annotated chromosome [ch1], [ch2],
+* and [ch3] based on the current median [mine] *) 
 val find_med3 :
   annchrom_t ->
   annchrom_t ->
@@ -112,19 +123,42 @@ val find_med3 :
   Cost_matrix.Two_D.m ->
   Cost_matrix.Three_D.m -> 'a -> Data.dyna_pam_t -> int * annchrom_t
 
+(** [compare annchrom1 annchrom2] compares
+* annotated chromosome [annchrom1] and annotated chromosome [annchrom2] *)
 val compare : annchrom_t -> annchrom_t -> int
+
+(** [find_approx_med2 med1 med2 med12] returns an approximate
+* median between annotated chromosomes [med1] and [med2] based 
+* on computed median [med12] *)
 val find_approx_med2 : annchrom_t -> annchrom_t -> annchrom_t -> annchrom_t
+
+(** [assign_seq_ref annchrom seq_ref_code] assigns
+* ID for all segments of annotated chromosome [annchrom] *)
 val assign_seq_ref : annchrom_t -> int -> annchrom_t * int
+
+(** [create_map med child_ref] returns the map
+* between chromosome [med] and its child [child_ref] *)
 val create_map : annchrom_t -> int -> int * int * Tags.output
+
 val create_single_map : annchrom_t -> Tags.output
 
 
+(** [to_single single_parent child_ref c2] returns
+* thesingle state sequence for annotated chromosome [child_ref] *)
 val to_single : annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
+
+(** [to_single_root root other_code c2] returns the single
+* state sequence for the [root] *)
 val to_single_root :
   annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
 
+(** [change_to_single med single_seq_arr c2] changes the
+* single state sequence of [med] by [single_seq] *)
 val change_to_single : annchrom_t -> Sequence.s array -> Cost_matrix.Two_D.m -> annchrom_t
 val to_formater : annchrom_t -> Alphabet.a -> string
 val copy_chrom_map : annchrom_t -> annchrom_t -> annchrom_t
 
+(** [convert_map med] converts the map of the 
+* median [med] into the format suitable for
+* creating implied alignments *)
 val convert_map : annchrom_t -> (int * int * int * int * int * int) list
