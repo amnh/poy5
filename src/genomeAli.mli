@@ -79,12 +79,17 @@ type med_t = {
     recost2 : int; (** the recost from this genome to its second child *)
 
 }
+
+(** [genome_block_t] is data structure for a block
+* which is a pair of high similar sequences on both
+* genomes*)
 type genome_block_t = {
-  block_id : int;
-  chrom1_id : int;
-  chrom2_id : int;
-  block : Block.block_t;
+    block_id : int; (** the genome block ID *)
+    chrom1_id : int; (** chromosome id on the first genome *)
+    chrom2_id : int; (** chromosome id on the second genome *)
+    block : Block.block_t; (** block information *)
 }
+
 (** [to_string med] converts all information in 
 * median [med] into a string *) 
 val to_string : med_t -> string
@@ -128,7 +133,16 @@ val find_conserved_areas :
 * in the genome [genome] *)
 val find_chrom : int -> med_t -> chrom_t option
 
+(** [create_loci seq subseq_ls] returns a list of 
+* loci where ends of subsequence list [subseq_ls] 
+* is used as milestones to divide the sequence [seq] *)
 val create_loci : Sequence.s -> Subseq.subseq_t list -> Subseq.subseq_t list
+
+
+(** create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
+*        genome2_ref_code chrom2_seq loci2_ls gb_ls cost_mat ali_pam] 
+* returns the median sequence between chromosomes [chrom_id] of genome
+* [genome1_ref_code] and [genome2_ref_code] *)
 val create_fast_general_ali :
   int ->
   int ->
@@ -140,35 +154,82 @@ val create_fast_general_ali :
   genome_block_t list ->
   Cost_matrix.Two_D.m ->
   ChromPam.chromPairAliPam_t -> Sequence.s * seg_t list * int * int * int
+
+(** [create_chrom_med (genome1_ref_code, chrom1) 
+*    (genome2_ref_code, chrom2) gb_ls cost_mat chrom_pams]
+* return a chromosme median between chromosome [chrom1]
+* of genome [genome1_ref_code] and chromosome [chrom2] of
+* genome [genome2_ref_code] *)
 val create_chrom_med :
   int * chrom_t ->
   int * chrom_t ->
   genome_block_t list ->
   Cost_matrix.Two_D.m ->
   ChromPam.chromPairAliPam_t -> chrom_t * int * int * int
+
+(** [create_genome_blocks med1 med2 cost_mat chrom_pams]
+* returns a list of detected genome blocks between 
+* genome [med1] and genome [med2] *)
 val create_genome_blocks :
   med_t ->
   med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> genome_block_t list
+
+(** [create_med med1 med2 cost_mat user_chrom_pams] 
+* creates a median between two genomes [med1] and [med2] *)
 val create_med :
   med_t ->
   med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> med_t * int * (int * int)
+
+(** [cmp_cost med1 med2 cost_mat user_chrom_pams] 
+* returns the cost between genome [med1] and genome [med2] *)
 val cmp_cost :
   med_t -> med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int * (int * int)
+
+(** [find_med2_ls med1 med2 cost_mat user_chrom_pams]
+* return the median list between genome [med1] and genome [med2] *)
 val find_med2_ls :
   med_t ->
   med_t ->
   Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int * (int * int) * med_t list
+
+(** [compare med1 med2] returns 0 if genome [med1] is
+* identical to genome [med2], otherwise (-1) or 1 *)
 val compare : med_t -> med_t -> int
+
+(** [create_map anc_med des_ref] returns the map
+* from ancestor genome [anc_med] to descendant genome [des_ref] *)
 val create_map : med_t -> int -> int * int * Tags.output
+
+(** [create_single_map med] returns the map 
+of single states of genome [med] in Tag.Output format *)
+val create_single_map : med_t -> Tags.output
+
+
+(** [to_single single_parent med c2 pam] creates
+* the single states from single state genome parent 
+* [single_parent] to genome [med] *)
 val to_single :
   med_t ->
   med_t ->
   Cost_matrix.Two_D.m -> Data.dyna_pam_t -> Sequence.s array
-val change_to_single : med_t -> Sequence.s array -> med_t
-val copy_chrom_map : med_t -> med_t -> med_t
-val to_single_root : med_t -> Cost_matrix.Two_D.m -> Sequence.s array
-val create_single_map : med_t -> Tags.output
 
+
+(** [to_single_root root c2] create the single states
+* for the genome at [root] *)
+val to_single_root : med_t -> Cost_matrix.Two_D.m -> Sequence.s array
+
+(** [change_to_single med single_genome] assigns
+* the single states of genome [med] by [single_genome] *)
+val change_to_single : med_t -> Sequence.s array -> med_t
+
+(** [copy_chrom_map s d] copys the chromosome map
+* from genome source [s] to genome destination [d] *) 
+val copy_chrom_map : med_t -> med_t -> med_t
+
+
+(** [find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam]
+* create the median sequence of [ch1], [ch2], [ch3] based
+* on the current median [min] *)
 val find_med3 :
   med_t ->
   med_t ->

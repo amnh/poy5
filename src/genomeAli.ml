@@ -79,14 +79,16 @@ type med_t = {
     recost1 : int; (** the recost from this genome to its first child *)
     cost2 : int; (** the cost from this genome to its second child *)
     recost2 : int; (** the recost from this genome to its second child *)
-
 }
 
+(** [genome_block_t] is data structure for a block
+* which is a pair of high similar sequences on both
+* genomes*)
 type genome_block_t = {
-    block_id : int;
-    chrom1_id : int;    
-    chrom2_id : int;
-    block : Block.block_t;
+    block_id : int; (** the genome block ID *)
+    chrom1_id : int; (** chromosome id on the first genome *)
+    chrom2_id : int; (** chromosome id on the second genome *)
+    block : Block.block_t; (** block information *)
 }
 
 
@@ -407,7 +409,9 @@ let find_chrom chrom_id genome =
 
 
 
-
+(** [create_loci seq subseq_ls] returns a list of 
+* loci where ends of subsequence list [subseq_ls] 
+* is used as milestones to divide the sequence [seq] *)
 let create_loci seq subseq_ls =
     let subseq_arr = Array.of_list subseq_ls in 
     Array.sort (fun s1 s2 -> compare s1.Subseq.sta s2.Subseq.sta) subseq_arr;
@@ -445,7 +449,10 @@ let create_loci seq subseq_ls =
     List.rev (!loci_ls)
     
 
-
+(** create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
+*        genome2_ref_code chrom2_seq loci2_ls gb_ls cost_mat ali_pam] 
+* returns the median sequence between chromosomes [chrom_id] of genome
+* [genome1_ref_code] and [genome2_ref_code] *)
 let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
         genome2_ref_code chrom2_seq loci2_ls gb_ls cost_mat ali_pam =
 
@@ -458,16 +465,6 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
     Array.iter (fun sq1 -> sq1.Subseq.id <- sq1.Subseq.id  * 2 - 1) loci1_arr; 
     Array.iter (fun sq2 -> sq2.Subseq.id <- len1 * 2 + sq2.Subseq.id  * 2 - 1) loci2_arr;
-
-(*
-    print_endline "Loci1 Array";
-    Array.iter Subseq.print loci1_arr;
-    print_newline ();
-    print_endline "Loci2 Array";
-    Array.iter Subseq.print loci2_arr;
-    print_newline ();     print_newline ();     print_newline ();
-*)
-
 
     let gen_gap_code = (len1 + len2 + 1) * 2 - 1 in     
     let gen_c2 = Array.make_matrix  (gen_gap_code + 1) (gen_gap_code + 1) Utl.large_int in 
@@ -765,7 +762,11 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
 
 
-
+(** [create_chrom_med (genome1_ref_code, chrom1) 
+*    (genome2_ref_code, chrom2) gb_ls cost_mat chrom_pams]
+* return a chromosme median between chromosome [chrom1]
+* of genome [genome1_ref_code] and chromosome [chrom2] of
+* genome [genome2_ref_code] *)
 let create_chrom_med (genome1_ref_code, chrom1) (genome2_ref_code, chrom2) gb_ls cost_mat chrom_pams = 
     let subseq1_ls = 
         List.fold_left  
@@ -828,7 +829,9 @@ let create_chrom_med (genome1_ref_code, chrom1) (genome2_ref_code, chrom2) gb_ls
 
 
 
-(** Compute the cost between two sequences with rearrangement operations *)
+(** [create_genome_blocks med1 med2 cost_mat chrom_pams]
+* returns a list of detected genome blocks between 
+* genome [med1] and genome [med2] *)
 let create_genome_blocks med1 med2 cost_mat chrom_pams =
     let num_chrom1 = Array.length med1.chrom_arr in  
     let num_chrom2 = Array.length med2.chrom_arr in 
@@ -915,7 +918,8 @@ let create_genome_blocks med1 med2 cost_mat chrom_pams =
     !gb_ls
     
         
-(** Compute the cost between genomes with rearrangement operations *)
+(** [create_med med1 med2 cost_mat user_chrom_pams] 
+* creates a median between two genomes [med1] and [med2] *)
 let create_med med1 med2 cost_mat user_chrom_pams = 
 
     assign_hom_chrom med1 cost_mat user_chrom_pams;
@@ -1051,7 +1055,8 @@ let create_med med1 med2 cost_mat user_chrom_pams =
     genome_med, !g_cost, (!g_recost1, !g_recost2)
         
 
-
+(** [cmp_cost med1 med2 cost_mat user_chrom_pams] 
+* returns the cost between genome [med1] and genome [med2] *)
 let cmp_cost med1 med2 cost_mat user_chrom_pams = 
     if debug = true then begin
         let genomeFile = open_out "genome12" in 
@@ -1087,7 +1092,8 @@ let cmp_cost med1 med2 cost_mat user_chrom_pams =
           cost, recost
 
 
-(** Compute the cost between two genomes with rearrangement operations *)
+(** [find_med2_ls med1 med2 cost_mat user_chrom_pams]
+* return the median list between genome [med1] and genome [med2] *)
 let find_med2_ls med1 med2 cost_mat user_chrom_pams = 
     if debug = true then begin
         let genomeFile = open_out "genome12" in 
@@ -1134,7 +1140,8 @@ let find_med2_ls med1 med2 cost_mat user_chrom_pams =
     in                   
     cost, recost, [med]
     
-
+(** [compare med1 med2] returns 0 if genome [med1] is
+* identical to genome [med2], otherwise (-1) or 1 *)
 let compare med1 med2 =
     let max_chrom = Array.length (!ref_genome).chrom_arr in 
     let chrom_ids = Array.make max_chrom 0 in 
@@ -1177,7 +1184,8 @@ let compare med1 med2 =
 
 
 
-
+(** [create_map anc_med des_ref] returns the map
+* from ancestor genome [anc_med] to descendant genome [des_ref] *)
 let create_map anc_med des_ref : (int * int * Tags.output) = 
     let str = string_of_int in  
  
@@ -1229,6 +1237,8 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
     | false -> anc_med.cost2, anc_med.recost2, genome_map
 
 
+(** [create_single_map med] returns the map 
+of single states of genome [med] in Tag.Output format *)
 let create_single_map med : Tags.output = 
     let str = string_of_int in  
  
@@ -1277,16 +1287,10 @@ let create_single_map med : Tags.output =
 
 
 
-
+(** [to_single single_parent med c2 pam] creates
+* the single states from single state genome parent 
+* [single_parent] to genome [med] *)
 let to_single single_parent med c2 pam = 
-(*
-    fprintf stdout "Genome_parent_id: %i, genome_child1_id: %i, genome_child2_id: %i, 
-                    constructing_genome_id: %i\n" single_parent.genome_ref_code
-        single_parent.genome_ref_code1 single_parent.genome_ref_code2 med.genome_ref_code;     
-    print_endline "The genome map of single parent";
-    print_genome single_parent;
-*) 
-
     let is_first_child = single_parent.genome_ref_code1 = med.genome_ref_code in    
     let gap = Cost_matrix.Two_D.gap c2 in
 
@@ -1373,15 +1377,9 @@ let to_single single_parent med c2 pam =
 
 
 
-
+(** [to_single_root root c2] create the single states
+* for the genome at [root] *)
 let to_single_root root c2 = 
-(*
-    fprintf stdout "Genome_parent_id: %i, genome_child1_id: %i, genome_child2_id: %i, 
-                    constructing_genome_id: %i\n" single_parent.genome_ref_code
-        single_parent.genome_ref_code1 single_parent.genome_ref_code2 med.genome_ref_code;     
-    print_endline "The genome map of single parent";
-    print_genome single_parent;
-*) 
     if (root.genome_ref_code1 = -1) && (root.genome_ref_code2 = -1) then 
         Array.map (fun ch -> ch.seq) root.chrom_arr
     else begin
@@ -1414,8 +1412,8 @@ let to_single_root root c2 =
         single_genome
     end 
 
-
-
+(** [change_to_single med single_genome] assigns
+* the single states of genome [med] by [single_genome] *)
 let change_to_single med single_genome = 
     let gap = Alphabet.gap in 
     let new_chrom_arr = Array.mapi 
@@ -1431,14 +1429,9 @@ let change_to_single med single_genome =
 
                       let single_alied_med = UtlPoy.map 
                           (fun code ->
-(*                             fprintf stdout "%i\n" !num_dna; *)
                                if code = gap then gap
                                else begin
                                    let single_code = Sequence.get single_seq !num_dna in 
-(*                                   (if (single_code land code = 0) then begin
-                                        fprintf stdout "Code: %i, single_code: %i" code single_code;                               
-                                        failwith "The code does not include the single_code";
-                                     end); *)
                                    incr num_dna;
                                    single_code
                                end 
@@ -1458,7 +1451,8 @@ let change_to_single med single_genome =
     {med with chrom_arr = new_chrom_arr}
 
 
-
+(** [copy_chrom_map s d] copys the chromosome map
+* from genome source [s] to genome destination [d] *) 
 let copy_chrom_map s d = 
     {d with genome_ref_code = s.genome_ref_code; 
          genome_ref_code1 = s.genome_ref_code1;
@@ -1469,62 +1463,9 @@ let copy_chrom_map s d =
 
 
 
-
-let create_genome () =
-    
-    let code c = 
-        match c with
-        | 0 -> 1
-        | 1 -> 2
-        | 2 -> 4
-        | _ -> 8
-    in 
-
-
-    let genomeFile = open_out "genomes" in 
-
-    let test = [|(2, 1000, 200, 101);
-                 (2, 2000, 500,  252);
-                 (3, 5000, 1000,  401);
-                 (3, 10000, 3000,  1054);
-                 (4, 20000, 5000, 1507);
-                 (4, 50000,10000,  2664);
-                 (5, 100000, 30000, 3879);
-                 (5, 500000, 100000,  4071);
-                 (6, 750000, 250000, 4772);
-                 (6, 1000000, 500000, 5573)|]
-    in
-    for ti = 0 to 9 do
-        let num_taxa, max_len, min_len, gen_len = test.(ti) in 
-        let code_arr = Array.init gen_len (fun _ -> code (Random.int 4)) in             
-
-        fprintf genomeFile "%i\n" num_taxa;
-        for i = 0 to num_taxa - 1 do
-            let li = Random.int max_len + min_len in 
-            let gi = Sequence.init (fun _ -> code (Random.int 4) ) li in 
-            let start_pi = Random.int (li - gen_len) in 
-            for p = start_pi to start_pi + gen_len - 1 do
-                if (p = start_pi) || (p = start_pi + gen_len - 1) then 
-                    Sequence.set gi p (code (i mod 4))
-                else 
-                    Sequence.set gi p code_arr.(p - start_pi)
-            done;
-            Sequence.print genomeFile gi Alphabet.nucleotides;
-            fprintf genomeFile "\n";
-            
-
-            let sub_seq = Sequence.sub gi start_pi gen_len in
-
-            UtlPoy.printDNA sub_seq;
-        done;  
-        print_newline (); 
-    done; 
-    fprintf genomeFile "0\n";
-    close_out genomeFile
-
-
-
-
+(** [find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam]
+* create the median sequence of [ch1], [ch2], [ch3] based
+* on the current median [min] *)
 let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam = 
     let _, _, med1m_ls = find_med2_ls  ch1 mine cost_mat pam in
     let _, _, med2m_ls = find_med2_ls  ch2 mine cost_mat pam in
