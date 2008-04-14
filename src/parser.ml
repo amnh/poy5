@@ -2254,7 +2254,7 @@ module SC = struct
 
     type site_var = (* #categories, alpha, beta *)
         | Gamma of int * float * float
-        | Theta of int * float * float
+        | Theta of int * float * float * float
         | Invariant 
 
     type subst_model =
@@ -2265,6 +2265,7 @@ module SC = struct
         | HKY85 of float * float
         | TN93 of float * float * float
         | GTR of float array
+        | File of float array array 
 
     type priors = 
         | Estimated of float array
@@ -3713,6 +3714,33 @@ module TransformationCostMatrix = struct
 
     let of_channel_nocomb = Cost_matrix.Two_D.of_channel_nocomb
 
+    let fm_of_file file =
+        (* explode a string around a character;filtering empty results *)
+        let explode str ch =
+            let rec expl s i l =
+                if String.contains_from s i ch then
+                    let spac = String.index_from s i ch in
+	                let word = String.sub s i (spac-i) in
+                    expl s (spac+1) (word::l)
+                else
+                    let final = String.sub s i ((String.length s)-i) in
+                    final::l in
+
+            List.filter(fun x-> if x = "" then false else true) 
+                        (List.rev (expl str 0 [])) in
+
+        (* read a channel line by line and applying f into a list *)
+        let rec read_loop f chan =
+            try 
+                let line = FileStream.Pervasives.input_line chan in
+                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
+            with e -> [] in
+
+        let f = FileStream.Pervasives.open_in file in
+        let mat = read_loop (explode) f in
+        let _ = FileStream.Pervasives.close_in f in 
+        mat
+
     let of_list = Cost_matrix.Two_D.of_list
 
 end
@@ -3724,7 +3752,7 @@ module PAlphabet = struct
         let default_gap = Alphabet.gap_repr in
         let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
         let alph = Alphabet.of_string ~orientation:orientation
-            elts default_gap None in
+        elts default_gap None in
         let alph, do_comb = 
             if orientation then alph, false
             else 

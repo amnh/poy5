@@ -427,6 +427,8 @@ module TransformationCostMatrix : sig
 
     val of_channel_nocomb: ?orientation:bool -> FileStream.greader -> Cost_matrix.Two_D.m
 
+    val fm_of_file: filename -> float list list
+
     val of_list : ?use_comb:bool -> int list list -> Cost_matrix.Two_D.m 
 
     val of_file : ?use_comb:bool -> filename -> Cost_matrix.Two_D.m
@@ -459,7 +461,7 @@ module SC : sig
 
     type site_var =
         | Gamma of int * float * float 
-        | Theta of int * float * float
+        | Theta of int * float * float * float
         | Invariant
 
     type subst_model =
@@ -470,6 +472,7 @@ module SC : sig
           | HKY85 of float * float
           | TN93 of float * float * float 
           | GTR of float array
+          | File of float array array
 
     type priors = 
         | Estimated of float array
