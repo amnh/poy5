@@ -19,31 +19,29 @@
 let () = SadmanOutput.register "Breakinv" "$Revision: 911 $"
 
 (** Median module contains functions to create medians
-    between two lists of general chracters *)
+*    between two lists of breakinv chracters *)
 
 let fprintf = Printf.fprintf
 
 type breakinv_t = BreakinvAli.breakinv_t
 
-(** A list medians between two sequences of general characters. 
- * Rearrangements are allowed *)
+(** [meds_t] is a data structure for a list medians 
+* between two breakinv character lists *)
 type meds_t = {
-    med_ls : breakinv_t list;
-    num_med : int;
-(** total_cost = editing cost + rearrangement cost *)
-    total_cost : int;   
-    total_recost : int;
-    breakinv_pam : Data.dyna_pam_t;    
-    gen_cost_mat : Cost_matrix.Two_D.m;
+    med_ls : breakinv_t list; (** breakinv list *)
+    num_med : int; (** number of breakinv characters *)
+    total_cost : int;   (** the cost to create this breakinv list *)
+    total_recost : int; (** the recost to create this breakinv list *)
+    breakinv_pam : Data.dyna_pam_t; (** breakinv paramenters used to create breakinv median *)
+    gen_cost_mat : Cost_matrix.Two_D.m; 
     pure_gen_cost_mat : int array array;
-    alpha : Alphabet.a
+    alpha : Alphabet.a 
 }
 
-
+(** init_med seq gen_cost_mat alpha breakinv_pam] returns
+* a breakinv character list with only one element 
+* created from a sequence of general character [seq]*)
 let init_med (seq : Sequence.s) gen_cost_mat alpha breakinv_pam = 
-(*    Alphabet.print alpha;
-    Cost_matrix.Two_D.output stdout gen_cost_mat;
-*)
     {med_ls = [(BreakinvAli.init seq)];
      num_med = 1;   
      total_cost = 0;  
@@ -54,8 +52,8 @@ let init_med (seq : Sequence.s) gen_cost_mat alpha breakinv_pam =
      alpha = alpha;}  
 
 
-(** Given a list of medians, determine a subset of medians to be kept to process
-    further based on the customs's defined paramaters *)
+(** [keep chrom_pam med_ls] returns a sublist of median list
+* [med_ls] to be kept to process further based on the customs's defined paramaters *)
 let rec keep chrom_pam med_ls = 
     match chrom_pam.Data.keep_median with 
     | None -> med_ls 
@@ -64,10 +62,12 @@ let rec keep chrom_pam med_ls =
           else Utl.get_k_random_elem med_ls keep_median
 
 
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
- * where xi and yj are medians. For each pair (xi, yj) we have 
- * a list of medians z_ij with the same cost c_ij. 
- * Find z*_ij = minargv(z_ij )(c_ij) *)
+(** [find_meds2 meds1 meds2] returns a list of 
+* breakinv character medians created for two lists of medians 
+* [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+* where xi and yj are medians. For each pair (xi, yj) we have 
+* a list of medians z_ij with the same cost c_ij. 
+* Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) = 
     let update med1 med2 (best_meds : meds_t) :
             meds_t = 
@@ -111,7 +111,8 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
          num_med = List.length kept_med_ls} 
 
     
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+(** [cmp_min_pair_cost] returns the minimum cost
+* between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
  * Find c*_ij = min (c_ij) *)
@@ -133,10 +134,11 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     min_cost, min_recost
 
 
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+(** [cmp_max_pair_cost] returns the maximum cost
+* between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
- * Find c*_ij = max (c_ij) *)
+ * Find c*_ij = min (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     let max_cost, max_recost = List.fold_left 
         (fun (max_cost, max_recost) med1 -> 
@@ -155,7 +157,8 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     max_cost, max_recost
 
 
-(** Given three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
+(** [find_meds3 medsp meds1 meds2] returns 
+* the median of three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
  * and [meds2=(z1,...,zq)] where xi, yj, and zp are medians. 
  * For each triplet (xi, yj, zp) we have 
  * a list of medians w_ijp with the same cost c_ijp. 
@@ -166,7 +169,9 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
             
-
+(** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
+* the breakinv median [mine] of three breakinv medians 
+* [ch1], [ch2] and [parent] *) 
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
     let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
     let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
@@ -197,7 +202,8 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
        
     
 
-(** Compare two list of medians *)
+(** [compare meds1 meds2] returns 0 if breakinv list [meds1]
+* is the same as breakinv list [meds2], otherwise (-1) or (1) *)
 let compare (meds1 : meds_t) (meds2 : meds_t) = 
     let num_med1 = meds1.num_med in 
     let num_med2 = meds2.num_med in 
@@ -216,7 +222,8 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
         compare_meds meds1.med_ls meds2.med_ls
 
     
-
+(** [get_active_ref_code meds] return active reference codes
+* of breakinv medians [meds] *)
 let get_active_ref_code meds = 
     let med = List.hd meds.med_ls in
     med.BreakinvAli.ref_code, med.BreakinvAli.ref_code1, med.BreakinvAli.ref_code2

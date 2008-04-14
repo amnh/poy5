@@ -17,9 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** A Breakinv character set implementation. The breakinv
+* character set allows rearrangements *)
+
 let () = SadmanOutput.register "BreakinvCS" "$Revision: 1616 $"
 
-(** A General Character Set implementation *)
 exception Illegal_Arguments
 let () = SadmanOutput.register "Breakinv Character" "$Revision: 803 $"
 
@@ -29,22 +31,18 @@ module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
 type meds_t = Breakinv.meds_t
 
-(** A sequence character type. *)
+(** [t] is data structure to present a set of breakinv characters *)
 type t = { 
-    (** The sequences that form the set *)
-    meds : meds_t IntMap.t;
+    meds : meds_t IntMap.t; (** a set of breakinv characters *)
     costs : float IntMap.t;
     recosts : float IntMap.t;
-    total_cost : float;             (** The total cost of the character set *)
-    total_recost : float;             (** The total cost of the character set *)
+    total_cost : float;    (** The total cost of the character set *)
+    total_recost : float;  (** The total cost of the character set *)
 
-    subtree_recost : float;         (** The total subtree recost of the
-                                        character set *)
+    subtree_recost : float;         (** The total subtree recost of the character set *)
 
-    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to 
-                                    be used in the character set *)
-    c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be 
-                                    used in the character set *)
+    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to be used in the character set *)
+    c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be used in the character set *)
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     breakinv_pam : Data.dyna_pam_t; 
     code : int;                     (** The set code *)
@@ -52,7 +50,8 @@ type t = {
 
 let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
 
-
+(** [of_array spec arr code] create a breakinv set
+* from an array of sequences [arr] *)
 let of_array spec arr code = 
     let adder (meds, costs, recosts) (seq, key) = 
         let med = 
@@ -80,17 +79,22 @@ let of_array spec arr code =
         code = code;
     }
 
+(** [of_list spec lst code] create a breakinv set
+* from a list sequence [lst] *)
 let of_list spec lst code = 
     let arr = Array.of_list lst in
     of_array spec arr code
 
+(** [to_list t] returns a list of breakinv characters 
+* from a set of breakinv characters *)
 let to_list t =
     IntMap.fold (fun code med acc -> (med, code) :: acc) t.meds []
 
+(** [same_codes a b] returns true if code set of [a] 
+* is the same to code set of [b], otherwise false *)
 let same_codes a b =
     let checker x _ res = res && (IntMap.mem x b) in
     IntMap.fold checker a true
-
 
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
