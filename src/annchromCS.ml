@@ -17,6 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** A annotated chromosome character set implementation. 
+* The annotated chromosome character set allows rearrangements *)
+
 let () = SadmanOutput.register "AnnchromCS" "$Revision: 1616 $"
 
 
@@ -29,24 +32,23 @@ type meds_t = Annchrom.meds_t
 
 (** A sequence character type. *)
 type t = { 
-    (** The sequences that form the set *)
-    meds : meds_t IntMap.t;
+    meds : meds_t IntMap.t; (** a set of annotated chromosome characters *)
     costs : float IntMap.t;
     recosts : float IntMap.t;
-    total_cost : float;             (** The total cost of the character set *)
-    total_recost : float;             (** The total recost of the character set *)
-    subtree_recost : float;             (** The total subtree recost of the character set *)
-    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to 
-                                    be used in the character set *)
-    c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be 
-                                    used in the character set *)
-    alph : Alphabet.a;              (** The alphabet of the sequence set *)
+    total_cost : float;          (** The total cost of the character set *)
+    total_recost : float;        (** The total recost of the character set *)
+    subtree_recost : float;      (** The total subtree recost of the character set *)
+    c2 : Cost_matrix.Two_D.m;    (** The two dimensional cost matrix to  be used in the character set *)
+    c3 : Cost_matrix.Three_D.m;  (** The three dimensional cost matrix to be used in the character set *)
+    alph : Alphabet.a;           (** The alphabet of the sequence set *)
     annchrom_pam : Data.dyna_pam_t;
-    code : int;                     (** The set code *)
+    code : int;                  (** The set code *)
 }
 
 let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 
+(** [of_array spec arr chcode tcode num_taxa] creates a annotated chromosome set
+* from an array of sequences [arr] *)
 let of_array spec arr chcode tcode num_taxa = 
     let adder (meds, costs, recosts) (chrom, chrom_code) = 
 
@@ -75,18 +77,26 @@ let of_array spec arr chcode tcode num_taxa =
         code = chcode;
     }
 
+(** [of_list spec arr chcode tcode num_taxa] creates a annotated chromosome set
+* from a list of sequences [lst] *)
 let of_list spec lst chcode tcode num_taxa = 
     let arr = Array.of_list lst in
     of_array spec arr chcode tcode num_taxa
 
+(** [to_list t] returns a list of annotated chromosome characters 
+* from a set of annotated chromosome characters *)
 let to_list t =
     IntMap.fold (fun code med acc -> (med, code) :: acc) t.meds []
 
+(** [same_codes a b] returns true if code set of [a] 
+* is the same to code set of [b], otherwise false *)
 let same_codes a b =
     let checker x _ res = res && (IntMap.mem x b) in
     IntMap.fold checker a true
 
 
+(** [median2 a b] returns the median set 
+* between annotated chromosome character sets [a] and [b] *)
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
     let empty = IntMap.empty in
@@ -117,22 +127,22 @@ let median2 (a : t) (b : t) =
     }
     
 
+(** [median3 p n c1 c2] returns the median set of
+* annotated chromosome character sets [p], [c1] and [c2] *)
 let median3 p n c1 c2 =
-(*    print_endline "median3 in AnnchromCS module"; *)
     let median code  medp res_medians = 
         let med1= IntMap.find code c1.meds in 
         let med2 = IntMap.find code c2.meds in
         
         let medp12 = Annchrom.find_meds3 medp med1 med2 in
           IntMap.add code medp12 res_medians 
-(*        let med12 = Med.find_meds2 med1 med2 p.c2 in 
-        IntMap.add code med12 res_medians *)
     in
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
 
-
+(** [distance a b] returns total distance between 
+* two annotated chromosome character sets [a] and [b] *)
 let distance (a : t) (b : t)  = 
 
     let single_distance code meda (acc_cost, acc_recost) =
@@ -144,6 +154,8 @@ let distance (a : t) (b : t)  =
     float_of_int cost
 
 
+(** [max_distance a b] returns total maximum distances
+* between two annotated chromosome character sets [a] and [b]*)
 let max_distance (a : t) (b : t)  = 
     let single_distance code meda (acc_cost, acc_recost) =
         let medb = IntMap.find code b.meds in
@@ -153,7 +165,8 @@ let max_distance (a : t) (b : t)  =
     let cost, _ = IntMap.fold single_distance a.meds (0,0) in 
     float_of_int cost
 
-
+(** [to_string a] converts the annotated chromosome character set [a]
+* into string format *)
 let to_string a =
     let builder code med acc =
         let code = string_of_int code in 
@@ -166,6 +179,10 @@ let to_string a =
     IntMap.fold builder a.meds ""
 
 
+(* [dist_2 n a b] calculates the cost of joining 
+* the node containing annotated chromosome character set [n]
+* between two nodes containing [a] and [b]. 
+* [a] must be the parent (ancestor) of [b] *)
 let dist_2 n a b =
     let cost_calculator code medb (acc_cost, acc_recost) =
         let medn = IntMap.find code n.meds
@@ -181,6 +198,9 @@ let dist_2 n a b =
     float_of_int cost
 
 
+(** [f_codes s c] returns a annotated chromosome character subset
+* of annotated chromosome character set [s] whose codes are 
+* also in annotated chromosome character set [c] *)
 let f_codes s c = 
     let check x = All_sets.Integers.mem x c in
     let adder x y acc = 
@@ -191,6 +211,9 @@ let f_codes s c =
     and n_costs = IntMap.fold adder s.costs IntMap.empty in
     { s with meds = n_meds; costs = n_costs}
 
+(** [f_codes_comp s c] returns a annotated chromosome character subset
+* of annotated chromosome character set [s] whose codes are NOT
+* also in annotated chromosome character set [c] *)
 let f_codes_comp s c = 
     let check x = not (All_sets.Integers.mem x c) in
     let adder x y acc = 
@@ -201,7 +224,9 @@ let f_codes_comp s c =
     and n_costs = IntMap.fold adder s.costs IntMap.empty in
     { s with meds = n_meds; costs = n_costs }
 
-
+(** [compare_data a b] compares annotated chromosome character
+* set [a] and [b]. Returns 0 if they are the same, 
+* otherwise (-1) or (1) *)
 let compare_data a b =
     let comparator code medb acc =
         if acc = 0 then begin
@@ -212,7 +237,9 @@ let compare_data a b =
     IntMap.fold comparator b.meds 0
 
 
-
+(** [readjust to_adjust modified ch1 ch2 parent mine] returns
+* the readjusted median set [mine] of three annotated chromosome character
+* sets [ch1], [ch2] and [parent] *)
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
             c2 = parent.c2 and
@@ -257,7 +284,9 @@ let readjust to_adjust modified ch1 ch2 parent mine =
     { mine with meds = meds; costs = costs; total_cost = tc }
 
 
-
+(** [to_formatter ref_codes attr t parent_t d] returns
+* the map between annotated chromosme character set [t] and its parents
+* [parent_t] in the Tag.output format *)
 let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
     let _, state = List.hd attr in 
     let output_annchrom code med acc =
@@ -337,6 +366,9 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
 
 
 
+(** [get_active_ref_code t] returns active reference codes
+* of annotated chromosome character set [t]. 
+* One active reference code for one annotated chromosome character *)
 let get_active_ref_code t = 
     IntMap.fold 
         (fun _ meds (acc_ref_code, acc_child_ref_code) ->
@@ -348,6 +380,8 @@ let get_active_ref_code t =
         ) t.meds (IntSet.empty, IntSet.empty)
 
 
+(** [to_single ref_codes root single_parent mine] returns
+* the single states of annotated chromosome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
     let c2 = mine.c2 in 
@@ -427,7 +461,9 @@ let to_single ref_codes (root : t option) single_parent mine =
 
 
 
-
+(** [copy_chrom_map s_ch d_ch] copies the chromosome
+* map of annotated chromosome set [s_ch] 
+* to annoated chromosome set [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_meds = IntMap.mapi 
         (fun code ad_ch ->
