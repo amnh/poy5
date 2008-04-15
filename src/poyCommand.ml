@@ -1159,7 +1159,7 @@ let create_expr () =
                 [ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
-                [ LIDENT "breakinv_to_seq" -> `BreakinvToSeq [] ] |
+                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; ":"; left_parenthesis; funset = UIDENT; ","; 
                     alphset = UIDENT; ","; wordset = UIDENT; ","; intset = UIDENT;
                     lenset = OPT optional_length; right_parenthesis -> 
