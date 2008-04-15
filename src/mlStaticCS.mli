@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 type s  (* abstract type: contains matrix of character codes *)
-type cm 
+type cm
 type t  
 
 (** two functions to convert from double** to Bigarray.Array2 *)
@@ -66,13 +66,39 @@ external median_gtr: (* priors U D Ui ta tb a b output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s -> s -> float array -> s = 
-     "likelihood_CAML_median_gtr""likelihood_CAML_median_wrapped_gtr" 
+     float -> float -> s -> s -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
+     "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
 external median_sym: (* priors U D ta tb a b output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s-> s -> float array-> s = 
+     float -> float -> s-> s ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
+(** [readjust_*** U D [Ui] a b c at bt rates priors ll] -> at*bt*ll
+ * readjusts the branch lengths for the children of [c], [a] and [b], with
+ * branch lengths [at] and [bt], respectively, using priors given by [priors],
+ * and the gamma/theta rates given by [rates]. The old likelihood is given in
+ * [ll], and the new one is returned. [c] is updated to the new vector based on
+ * the new branch lengths, returned with the new [ll]. *)
+external readjust_sym:
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
+    s -> s -> s -> float -> float -> 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    float -> float*float*float =
+        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_wrapped_sym"
+external readjust_gtr:
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
+    s -> s -> s -> float -> float -> 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    float -> float*float*float =
+        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_wrapped_gtr"
+
 (** [loglikelihood s pi] -> float   calculates the mle of a character set *) 
 external loglikelihood: 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
@@ -86,7 +112,12 @@ external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 (** [gamma_rates alpha beta cats] -> rates
  * takes alpha, beta gamma parameters and number of categories to cut the gamma
  * function into, and returns the mean rates in those cuts of 1/cats parts. *)
-external gamma_rates: float -> float -> int -> float array = "gamma_CAML_rates"
+external gamma_rates: float -> float -> int -> 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
+        "gamma_CAML_rates"
+(** [register] -> ()
+ * register the likelihood operations for the garbage collection deserialization *)
+external register : unit -> unit = "likelihood_CAML_register"
 
 (** A string representation of the character set, used only for debugging purposes *)
 val to_string : t -> string
@@ -137,7 +168,7 @@ val union: t -> t -> t -> t
 * iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
-(** [readjust check has_changed time c1 c2 par mine] readjusts the edge time for 
+(** [readjust check has_changed c1 c2 mine t1 t2 tmine] readjusts the edge time for 
  * some characters in the vertex [mine] with parent [par] and children [c1] and
  * [c2], for an edge with overall [time]. If [check] is 
  * [None] then the function attempts to readjust the values in all the
@@ -174,4 +205,3 @@ val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Tags.attributes ->t -> float ->t option -> Data.d -> Tags.output list
-
