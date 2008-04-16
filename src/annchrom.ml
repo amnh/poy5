@@ -19,37 +19,38 @@
 
 let () = SadmanOutput.register "Annchrom" "$Revision: 911 $"
 
-(** Median module contains functions to create medians
+(** Annchrom  module implements functions to create medians
     between two lists of annotated chromosomes *)
 let fprintf = Printf.fprintf
 
 type annchrom_t = AnnchromAli.annchrom_t
 
-
-(** A list medians between two annotated chromosomes. 
- * Rearrangements are allowed *)
+(** [meds_t] is a data structure for a list of  medians 
+* between two annotated chromosomes. 
+* Rearrangements are allowed *)
 type meds_t = {
-    med_ls : annchrom_t list;
-    num_med : int;
-(** total_cost = editing cost + rearrangement cost *)
-    total_cost : int;   
-    total_recost : int;
-    cost_mat : Cost_matrix.Two_D.m;
-    alpha : Alphabet.a;
+    med_ls : annchrom_t list; (** annchrom list *)
+    num_med : int; (** number of annchrom list *)
+    total_cost : int; (** the cost to create this annotated chromosome *)   
+    total_recost : int; (** the recost to create this annotated chromosome *)   
+    cost_mat : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
+    alpha : Alphabet.a; (** alphabet of this annotated chromosome *)
     
 
-    annchrom_pam : Data.dyna_pam_t;    
-    approx_med_arr : annchrom_t array;
+    annchrom_pam : Data.dyna_pam_t;  (** user-defined parameters used for creating annotated chromosome median *)  
+    approx_med_arr : annchrom_t array; (* An array of annotated chromosome medians 
+                                        * created from this median to other medians.
+                                        * This is used for approximation *)
     approx_cost_arr : int array;
     approx_recost_arr : int array;
-    
-    code : int;
-    
-
+    code : int; (** the taxa code containing this median list *)
 }
 
 let max_taxa_id = ref 0 
 
+(** [init_med seq_arr cost_mat alpha annchrom_pam tcode num_taxa] 
+* returns an annotated chromosome list with only one element
+* crated from an array of sequences *) 
 let init_med (seq_arr : (Sequence.s Data.seq_t) array) 
         cost_mat alpha annchrom_pam tcode num_taxa = 
 

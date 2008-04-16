@@ -18,8 +18,9 @@
 (* USA                                                                        *)
 
 let () = SadmanOutput.register "Chrom" "$Revision: 975 $"
+
 (** Median module contains functions to create medians
-    between two lists of chromosomes *)
+    between two lists of annotated chromosomes *)
 
 let fprintf = Printf.fprintf
 

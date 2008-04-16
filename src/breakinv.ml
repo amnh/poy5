@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 let () = SadmanOutput.register "Breakinv" "$Revision: 911 $"
 
-(** Median module contains functions to create medians
+(** Breakinv module contains functions to create medians
 *    between two lists of breakinv chracters *)
 
 let fprintf = Printf.fprintf
@@ -38,7 +38,7 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
-(** init_med seq gen_cost_mat alpha breakinv_pam] returns
+(** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
 let init_med (seq : Sequence.s) gen_cost_mat alpha breakinv_pam = 

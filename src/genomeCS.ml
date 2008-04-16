@@ -17,7 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(** A Genome Character Set implementation *)
+(** A genome character set implementation. 
+* The genome character set allows rearrangements *)
+
 exception Illegal_Arguments
 let () = SadmanOutput.register "GenomeCS" "$Revision: 1266 $"
 
@@ -28,21 +30,16 @@ module IntSet = All_sets.Integers
 
 type meds_t = Genome.meds_t
 
-(** A sequence character type. *)
+(** A data structure for  genome character set  *)
 type t = { 
-    (** The sequences that form the set *)
-    meds : meds_t IntMap.t;
+    meds : meds_t IntMap.t;     (** a set of genome characters *)
     costs : float IntMap.t;
     recosts : float IntMap.t;
-    total_cost : float;             (** The total cost of the character set *)
-    total_recost : float;             (** The total cost of the character set *)
-    subtree_recost : float;         (** The total subtree recost of the
-                                        character set*)
-
-    c2 : Cost_matrix.Two_D.m;       (** The two dimensional cost matrix to 
-                                    be used in the character set *)
-    c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be 
-                                    used in the character set *)
+    total_cost : float;         (** The total cost of the character set *)
+    total_recost : float;       (** The total cost of the character set *)
+    subtree_recost : float;     (** The total subtree recost of the character set*)
+    c2 : Cost_matrix.Two_D.m;   (** The two dimensional cost matrix to  be used in the character set *)
+    c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be  used in the character set *)
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     chrom_pam : Data.dyna_pam_t; 
     code : int;                     (** The set code *)
@@ -51,6 +48,8 @@ type t = {
 let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 
 
+(** [of_array spec arr chcode tcode num_taxa] 
+* creates a genome character set from an array of sequences [arr] *)
 let of_array spec arr code taxon num_taxa = 
     let adder (cur_meds, cur_costs, cur_recosts) (seq, key) = 
         let med = Genome.init_med seq spec.Data.pam taxon num_taxa in
@@ -76,21 +75,28 @@ let of_array spec arr code taxon num_taxa =
         code = code;
     }
 
+(** [of_list spec arr chcode tcode num_taxa] creates 
+* a genome character set from a list of sequences [lst] *)
 let of_list spec lst =
     let arr = Array.of_list lst in
     of_array spec arr
 
+(** [to_list t] returns a list of genome characters 
+* from a set of genome characters *)
 let to_list t =
     IntMap.fold (fun code med acc -> (med, code) :: acc) t.meds []
 
 
-
+(** [same_codes a b] returns true if code set of [a] 
+* is the same to code set of [b], otherwise false *)
 let same_codes a b =
     let checker x _ res = res && (IntMap.mem x b) in
     IntMap.fold checker a true
 
 
 
+(** [median2 a b] returns the genome median set 
+* between  genome character sets [a] and [b] *)
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
     let empty = IntMap.empty in
@@ -119,21 +125,22 @@ let median2 (a : t) (b : t) =
     }
     
 
+(** [median3 p n c1 c2] returns the genome median set of
+*  genome character sets [p], [c1] and [c2] *)
 let median3 p n c1 c2 = 
-(*    print_endline "median3 in GenomeCs module"; *)
     let median code  medp res_medians = 
         let med1= IntMap.find code c1.meds in 
         let med2 = IntMap.find code c2.meds in
         
         let medp12 = Genome.find_meds3 medp med1 med2 in
           IntMap.add code medp12 res_medians 
-(*        let med12 = Genome.find_meds2 med1 med2 p.c2 in 
-        IntMap.add code med12 res_medians *)
     in
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
 
+(** [distance a b] returns total distance between 
+* two  genome character sets [a] and [b] *)
 let distance (a : t) (b : t)  = 
     let single_distance code meda (acc_cost, acc_recost) =
         let medb = IntMap.find code b.meds in
@@ -143,6 +150,8 @@ let distance (a : t) (b : t)  =
     let cost, _ = IntMap.fold single_distance a.meds (0,0) in 
     float_of_int cost
 
+(** [max_distance a b] returns total maximum distances
+* between two genome character sets [a] and [b]*)
 let max_distance (a : t) (b : t)  = 
     let single_distance code meda (acc_cost, acc_recost) =
         let medb = IntMap.find code b.meds in
@@ -152,6 +161,8 @@ let max_distance (a : t) (b : t)  =
     let cost, _ = IntMap.fold single_distance a.meds (0,0) in 
     float_of_int cost
 
+(** [to_string a] converts genome character set [a]
+* into string format *)
 let to_string a =
     let builder code med acc =
         let code = string_of_int code in 
@@ -162,6 +173,10 @@ let to_string a =
     IntMap.fold builder a.meds ""
 
 
+(* [dist_2 n a b] calculates the cost of joining 
+* the node containing  genome character set [n]
+* between two nodes containing [a] and [b]. 
+* [a] must be the parent (ancestor) of [b] *)
 let dist_2 n a b =
     let cost_calculator code medb (acc_cost, acc_recost) =
         let medn = IntMap.find code n.meds
@@ -178,6 +193,10 @@ let dist_2 n a b =
 
 
 
+(** [f_codes s c] returns a genome 
+* character subset of  genome 
+* character set [s] whose codes are 
+* also in  genome character set [c] *)
 let f_codes s c = 
     let check x = All_sets.Integers.mem x c in
     let adder x y acc = 
@@ -188,6 +207,9 @@ let f_codes s c =
     and n_costs = IntMap.fold adder s.costs IntMap.empty in
     { s with meds = n_meds; costs = n_costs}
 
+(** [f_codes_comp s c] returns  genome character subset
+* of  genome character set [s] whose codes are NOT
+* also in  genome character set [c] *)
 let f_codes_comp s c = 
     let check x = not (All_sets.Integers.mem x c) in
     let adder x y acc = 
@@ -199,6 +221,9 @@ let f_codes_comp s c =
     { s with meds = n_meds; costs = n_costs }
 
 
+(** [compare_data a b] compares genome character
+* set [a] and [b]. Returns 0 if they are the same, 
+* otherwise (-1) or (1) *)
 let compare_data a b =
     let comparator code medb acc =
         if acc = 0 then begin
@@ -210,7 +235,9 @@ let compare_data a b =
 
 
 
-
+(** [to_formatter ref_codes attr t parent_t d] returns
+* the map between  genome character set [t] and 
+* its parents [parent_t] in the Tag.output format *)
 let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
     let _, state = List.hd attr in   
 
@@ -297,6 +324,9 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
 
 
 
+(** [get_active_ref_code t] returns active reference codes
+* of  genome character set [t]. 
+* One active reference code for one genome character *)
 let get_active_ref_code t = 
     IntMap.fold 
         (fun _ meds (acc_ref_code, acc_child_ref_code) ->
@@ -312,6 +342,8 @@ let get_active_ref_code t =
 
 
 
+(** [to_single ref_codes root single_parent mine] returns
+* the single states of  genome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
     let c2 = mine.c2 in 
@@ -376,6 +408,8 @@ let to_single ref_codes (root : t option) single_parent mine =
          recosts = recosts;
          total_cost = float_of_int total_cost}
 
+(** [copy_chrom_map s_ch d_ch] copies the genome
+* map of genome set [s_ch] to genome set [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_meds = IntMap.mapi 
         (fun code ad_ch ->
@@ -388,6 +422,9 @@ let copy_chrom_map s_ch d_ch =
 
 
 
+(** [readjust to_adjust modified ch1 ch2 parent mine] returns
+* the readjusted median set [mine] of three  genome character
+* sets [ch1], [ch2] and [parent] *)
 let readjust to_adjust modified ch1 ch2 parent mine = 
     let empty = IntMap.empty and
             c2 = parent.c2 and

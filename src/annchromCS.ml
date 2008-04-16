@@ -30,7 +30,7 @@ module IntSet = All_sets.Integers
 type meds_t = Annchrom.meds_t
 
 
-(** A sequence character type. *)
+(** An annotated chromosome character set *)
 type t = { 
     meds : meds_t IntMap.t; (** a set of annotated chromosome characters *)
     costs : float IntMap.t;
@@ -47,7 +47,8 @@ type t = {
 
 let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 
-(** [of_array spec arr chcode tcode num_taxa] creates a annotated chromosome set
+(** [of_array spec arr chcode tcode num_taxa] 
+* creates an annotated chromosome set
 * from an array of sequences [arr] *)
 let of_array spec arr chcode tcode num_taxa = 
     let adder (meds, costs, recosts) (chrom, chrom_code) = 
@@ -77,8 +78,8 @@ let of_array spec arr chcode tcode num_taxa =
         code = chcode;
     }
 
-(** [of_list spec arr chcode tcode num_taxa] creates a annotated chromosome set
-* from a list of sequences [lst] *)
+(** [of_list spec arr chcode tcode num_taxa] creates 
+* an annotated chromosome set from a list of sequences [lst] *)
 let of_list spec lst chcode tcode num_taxa = 
     let arr = Array.of_list lst in
     of_array spec arr chcode tcode num_taxa
@@ -198,7 +199,7 @@ let dist_2 n a b =
     float_of_int cost
 
 
-(** [f_codes s c] returns a annotated chromosome character subset
+(** [f_codes s c] returns an annotated chromosome character subset
 * of annotated chromosome character set [s] whose codes are 
 * also in annotated chromosome character set [c] *)
 let f_codes s c = 
@@ -211,7 +212,7 @@ let f_codes s c =
     and n_costs = IntMap.fold adder s.costs IntMap.empty in
     { s with meds = n_meds; costs = n_costs}
 
-(** [f_codes_comp s c] returns a annotated chromosome character subset
+(** [f_codes_comp s c] returns an annotated chromosome character subset
 * of annotated chromosome character set [s] whose codes are NOT
 * also in annotated chromosome character set [c] *)
 let f_codes_comp s c = 
@@ -463,7 +464,7 @@ let to_single ref_codes (root : t option) single_parent mine =
 
 (** [copy_chrom_map s_ch d_ch] copies the chromosome
 * map of annotated chromosome set [s_ch] 
-* to annoated chromosome set [d_ch] *)
+* to annotated chromosome set [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_meds = IntMap.mapi 
         (fun code ad_ch ->
