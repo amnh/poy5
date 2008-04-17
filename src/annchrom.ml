@@ -29,10 +29,10 @@ type annchrom_t = AnnchromAli.annchrom_t
 * between two annotated chromosomes. 
 * Rearrangements are allowed *)
 type meds_t = {
-    med_ls : annchrom_t list; (** annchrom list *)
-    num_med : int; (** number of annchrom list *)
-    total_cost : int; (** the cost to create this annotated chromosome *)   
-    total_recost : int; (** the recost to create this annotated chromosome *)   
+    med_ls : annchrom_t list; (** annotated chromosome list *)
+    num_med : int; (** number of annotated chromosomes *)
+    total_cost : int; (** the cost to create this annotated chromosome list *)   
+    total_recost : int; (** the recost to create this annotated chromosome list *)   
     cost_mat : Cost_matrix.Two_D.m; (** the two dimentional cost matrix for this annotated chromosome *)
     alpha : Alphabet.a; (** alphabet of this annotated chromosome *)
     
@@ -50,7 +50,7 @@ let max_taxa_id = ref 0
 
 (** [init_med seq_arr cost_mat alpha annchrom_pam tcode num_taxa] 
 * returns an annotated chromosome list with only one element
-* crated from an array of sequences *) 
+* created from an array of sequences *) 
 let init_med (seq_arr : (Sequence.s Data.seq_t) array) 
         cost_mat alpha annchrom_pam tcode num_taxa = 
 
@@ -72,7 +72,10 @@ let init_med (seq_arr : (Sequence.s Data.seq_t) array)
         code = tcode;
     }
 
-
+(** [update_approx_mat meds1 meds2] creates the median
+* between annotated chromosomes [meds1] and [meds2]
+* and update their approximate median, cost, recost
+* arrays if they are not yet computed *)
 let update_approx_mat meds1 meds2 =     
     let med1 = List.hd meds1.med_ls in  
     let med2 = List.hd meds2.med_ls in  
@@ -86,7 +89,8 @@ let update_approx_mat meds1 meds2 =
         meds1.approx_recost_arr.(code2) <- recost; 
      end) 
 
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+(** [find_med2] meds1 meds2 find median list
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
  * Find z*_ij = minargv(z_ij )(c_ij) *)
@@ -136,7 +140,8 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
 
     
 
-(** Given three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
+(** [find_meds3 medsp meds1 meds2] creates the median list
+ * of three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
  * and [meds2=(z1,...,zq)] where xi, yj, and zp are medians. 
  * For each triplet (xi, yj, zp) we have 
  * a list of medians w_ijp with the same cost c_ijp. 
@@ -148,10 +153,11 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     else meds2p
             
        
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+(** [cmp_min_pair_cost] computes the min median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
- * Find c*_ij = min (c_ij) *)
+ * returns c*_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =    
     let min_cost, min_recost = List.fold_left 
         (fun (min_cost, min_recost) med1 -> 
@@ -169,10 +175,11 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     min_cost, min_recost
 
 
-(** Given two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+(** [cmp_max_pair_cost] computes the max median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
  * where xi and yj are medians. For each pair (xi, yj) we have 
  * a list of medians z_ij with the same cost c_ij. 
- * Find c*_ij = max (c_ij) *)
+ * returns c*_ij = max (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =    
     let max_cost, max_recost = List.fold_left 
         (fun (max_cost, max_recost) med1 -> 
@@ -189,7 +196,8 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     in 
     max_cost, max_recost
 
-(** Compare two list of medians *)
+(** [Compare meds1 meds2] returns 0 if these 
+* two lists [meds1] and [meds2] are the same, otherwise (-1) or 1 *)
 let compare (meds1 : meds_t) (meds2 : meds_t) = 
     let num_med1 = meds1.num_med in 
     let num_med2 = meds2.num_med in 
@@ -207,7 +215,9 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
     
 
 
-
+(** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
+* the current median [mine] of three medians [ch1],
+* [ch2], and [parent] using three dimentional alignments*)
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
     let alpha = mine.alpha in 
     let annchrom_pam = mine.annchrom_pam in 
@@ -228,11 +238,11 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         annchrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
 
-(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout; *)
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
 
-
+(** [to_string med alpha] converts information in median 
+* [med] into string format *) 
 let to_string (med : annchrom_t) alpha = 
     let seq_arr = Array.map 
         (fun s -> 
@@ -245,10 +255,14 @@ let to_string (med : annchrom_t) alpha =
 
 
 
+(** [get_active_ref_code meds] returns active reference codes
+* of annotated chromosome medians [meds] *)
 let get_active_ref_code meds = 
     let med = List.hd meds.med_ls in
     med.AnnchromAli.ref_code, med.AnnchromAli.ref_code1, med.AnnchromAli.ref_code2
 
+(** [copy_chrom_map s_ch d_ch] copies chromosome map
+* from median [s_ch] into median [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_med_ls = List.map (fun ad_med -> 
                   let as_med = List.find 

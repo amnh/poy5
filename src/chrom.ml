@@ -19,30 +19,35 @@
 
 let () = SadmanOutput.register "Chrom" "$Revision: 975 $"
 
-(** Median module contains functions to create medians
-    between two lists of annotated chromosomes *)
+(** Chrom  module implements functions to create medians
+    between two lists of chromosomes *)
 
 let fprintf = Printf.fprintf
-
-
 type med_t = ChromAli.med_t
 
+(** [meds_t] is a data structure for a list of  medians 
+* between two annotated chromosomes. 
+* Rearrangements are allowed *)
 type meds_t = {
-    med_ls : med_t list;
-    total_cost : int;   
-    total_recost : int;
-    c2 : Cost_matrix.Two_D.m; 
+    med_ls : med_t list; (** chromosome list *)
+    total_cost : int;  (** number of chromosomes *) 
+    total_recost : int; (** the cost to create this chromosome list *)   
+    c2 : Cost_matrix.Two_D.m; (** the recost to create this chromosome list *)   
 
-    approx_cost_arr : int array;
+    approx_cost_arr : int array; (* An array of chromosome medians 
+                                  * created from this median to other medians.
+                                  * This is used for approximation *)
     approx_med_arr : med_t array;
     approx_recost_arr : int array;
-    code : int;
-
-    chrom_pam : Data.dyna_pam_t 
+    code : int; (** the taxa code containing this chromosome list *)
+    chrom_pam : Data.dyna_pam_t (** user-defined parameters used for creating chromosome medians *)   
 }
 
 let max_taxa_id = ref 0 
 
+(** [init_med seq c2 chrom_pam tcode num_taxa] 
+* returns a  chromosome list with only one element
+* created from sequence [seq] *) 
 let init_med (seq : Sequence.s) c2 chrom_pam tcode num_taxa =  
 
     let seq = 
@@ -76,6 +81,10 @@ let print meds =
     flush stdout
 
 
+(** [update_approx_mat meds1 meds2] creates the median
+* between chromosomes [meds1] and [meds2]
+* and update their approximate median, cost, recost
+* arrays if they are not yet computed *)
 let update_approx_mat meds1 meds2 =     
     let med1 = List.hd meds1.med_ls in  
     let med2 = List.hd meds2.med_ls in  
@@ -87,7 +96,11 @@ let update_approx_mat meds1 meds2 =
         meds1.approx_recost_arr.(code2) <- recost; 
      end) 
 
-(** Compute the minimum pair cost between medians in two lists *)
+(** [cmp_min_pair_cost] computes the min median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * returns c*_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) = 
     let cmp_exact () = 
           List.fold_left 
@@ -112,7 +125,11 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
 
     | None -> cmp_exact ()
 
-(** Compute the maximum pair cost between medians in two lists *)
+(** [cmp_max_pair_cost] computes the max median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * returns c*_ij = max (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) = 
     let cmp_exact () = 
           List.fold_left 
@@ -138,7 +155,11 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
     | None -> cmp_exact ()
 
 
-(** Find the best median list between two lists of medians *)
+(** [find_meds2 meds1 meds2] finds median list
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
     let find_exact () = 
         let best_meds = List.fold_left  
@@ -181,7 +202,12 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
     | None -> find_exact ()
       
 
-(** Find the median between three meds lists*)
+(** [find_meds3 medsp meds1 meds2] creates the median list
+ * of three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
+ * and [meds2=(z1,...,zq)] where xi, yj, and zp are medians. 
+ * For each triplet (xi, yj, zp) we have 
+ * a list of medians w_ijp with the same cost c_ijp. 
+ * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =    
     let meds1p = find_meds2 meds1 medsp in  
     let meds2p = find_meds2 meds2 medsp in  
@@ -189,6 +215,9 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     else meds2p
             
 
+(** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
+* the current median [mine] of three medians [ch1],
+* [ch2], and [parent] using three dimentional alignments*)
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
     let chrom_pam = mine.chrom_pam in 
 
@@ -207,7 +236,6 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         chrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
 
-(*    fprintf stdout "old_cost: %i, new_cost: %i\n" old_cost cost; flush stdout; *)
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
 
@@ -215,7 +243,9 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
        
 
 
-(** Check if median list meds1 is the same median list meds2 *)
+(** [Compare meds1 meds2] returns 0 if these 
+* two lists [meds1] and [meds2] are the same, 
+* otherwise (-1) or 1 *)
 let compare (meds1 : meds_t) (meds2 : meds_t) = 
     let num_med1 = List.length meds1.med_ls in 
     let num_med2 = List.length meds2.med_ls in 
@@ -234,16 +264,15 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
     end
     
 
-(** ============================================================== **)
-let get_active_ref_code meds = 
-(*
-    List.iter ChromAli.print  meds.med_ls;
-    flush stdout;  
-*)
-  
+
+(** [get_active_ref_code meds] returns active 
+* reference codes of chromosome medians [meds] *)
+let get_active_ref_code meds =   
     let med = List.hd meds.med_ls in
     med.ChromAli.ref_code, med.ChromAli.ref_code1, med.ChromAli.ref_code2
 
+(** [copy_chrom_map s_ch d_ch] copies chromosome map
+* from median [s_ch] into median [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_med_ls = List.map (fun ad_med -> 
                   let as_med = List.find 
