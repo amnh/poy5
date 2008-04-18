@@ -26,13 +26,12 @@ let fprintf = Printf.fprintf
 type med_t = ChromAli.med_t
 
 (** [meds_t] is a data structure for a list of  medians 
-* between two annotated chromosomes. 
-* Rearrangements are allowed *)
+* between two chromosome chromosomes. Rearrangements are allowed *)
 type meds_t = {
     med_ls : med_t list; (** chromosome list *)
-    total_cost : int;  (** number of chromosomes *) 
-    total_recost : int; (** the cost to create this chromosome list *)   
-    c2 : Cost_matrix.Two_D.m; (** the recost to create this chromosome list *)   
+    total_cost : int;  (** the cost to create this chromosome list *)   
+    total_recost : int; (** the recost to create this chromosome list *)   
+    c2 : Cost_matrix.Two_D.m; 
 
     approx_cost_arr : int array; (* An array of chromosome medians 
                                   * created from this median to other medians.
