@@ -521,6 +521,9 @@ module SC : sig
     * data and [gaps] as specified. *)
     val spec_of_alph : string list -> string -> string -> string -> static_spec
 
+    (** [change_ml_code ncode st_type] changes the [st_type] code with ncode *)
+    val change_ml_code : int -> static_spec -> static_spec
+
     (** [to_string v] outputs a string representation of the static_specification
     * [v] *)
     val to_string : static_spec -> string

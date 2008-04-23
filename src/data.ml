@@ -2733,11 +2733,14 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `Sankoff -> List.flatten data.sankoff
         | `Kolmogorov -> data.kolmogorov
         | `AllDynamic -> data.kolmogorov @ data.dynamics
+        | `Likelihood -> data.static_ml
         | `AllStatic -> 
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
-                        data.additive @ data.non_additive_33 @
+                        data.additive @
+                        data.non_additive_33 @
+                        data.static_ml @
                         (List.flatten data.sankoff)
     in
     let items = 
@@ -2813,11 +2816,14 @@ let rec get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `Sankoff -> List.flatten data.sankoff
         | `Kolmogorov -> data.kolmogorov
         | `AllDynamic -> data.kolmogorov @ data.dynamics
+        | `Likelihood -> data.static_ml
         | `AllStatic -> 
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
-                        data.additive @ data.non_additive_33 @
+                        data.additive @
+                        data.static_ml @
+                        data.non_additive_33 @
                         (List.flatten data.sankoff)
     in
     let items = 
@@ -2901,6 +2907,22 @@ let verify_alphabet data chars =
             else failwith "The alphabet of the characters is different"
     | [] -> failwith "No alphabet to verify?"
 
+(* [independent c d] make each character in the characterset independent. Used
+ * so each character can have a different model *)
+let independent chars data = 
+    let data_loop tbl num =
+        (* chain to work through to change the code... *)
+        (* specs -> Static (static_spec) -> st_type -> STLikelihood (ml_model) -> set_code *)
+        let c_spec = Hashtbl.find tbl num in
+        let n_ = match c_spec with
+            | Static ss -> Static (Parser.SC.change_ml_code (next_likelihood_set ()) ss)
+            | _ -> failwith "I only do this for likelihood characters" in
+        Hashtbl.replace tbl num n_
+    in
+    List.iter (data_loop data.character_specs) 
+              (get_code_from_characters_restricted_comp (`Likelihood) data chars);
+    data
+
 (** [compute_priors data chars] computes the observed frequencies for all the
 * elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
@@ -2974,7 +2996,7 @@ let set_likelihood data
                 | None -> Some Parser.SC.Invariant 
                 | Some x -> (match x with 
                     | `Gamma (w,y,z) -> Some (Parser.SC.Gamma (w,y,z))
-                    | `Theta (w,y,z) -> Some (Parser.SC.Theta (w,y,z)))
+                    | `Theta (w,y,z,p) -> Some (Parser.SC.Theta (w,y,z,p)))
             and substitution = 
                 match substitution with
                 | `JC69 None ->
@@ -3030,13 +3052,31 @@ let set_likelihood data
                     let n_a = (alph_size * (alph_size-1)) / 2 in (* -1 to exclude diagonal from sum *)
                     if (Array.length aray) <> n_a then
                         let _ = Status.user_message Status.Error 
-                        ("Likelihood@ model@ GTR@ requires@ (n+1)*(n/2)@ "^
-                         "parameters@ with@ alphabet@ size@ n. In@ this@ case@ "^
-                         (string_of_int n_a) ^",@ with@ n@ =@ "^ (string_of_int alph_size) ^".") in
+                        ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
+                         "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
+                         (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
                         failwith "Incorrect Parameters";
                     else
                         Parser.SC.GTR aray
-                | _ -> failwith ("I don't support this option")
+                | `File str -> 
+                        (* this needs to be changed to allow remote files as well *)
+                    let matrix = Parser.TransformationCostMatrix.fm_of_file (`Local str) in
+                    let matrix = Array.of_list (List.map (Array.of_list) matrix) in
+
+                    (* check the array size == a_size *)
+                    (* check the array array size == a_size *)
+                    Array.iter (fun x ->
+                                    if Array.length x = alph_size then ()
+                                    else failwith "I@ don't@ like@ your@ input@ file:"
+                                ) matrix;
+                    if Array.length matrix = alph_size then 
+                        Parser.SC.File matrix
+                    else
+                        failwith "I@ don't@ like@ your@ input@ file."
+
+                    (* eventually everything can be approximated with other
+                    * models, but for now, we can bail on that choice *)
+                | _ -> failwith ("I@ don't@ support@ this@ option.")
             and use_gap =
                 match use_gap with
                 | `GapAsCharacter x -> x

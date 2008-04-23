@@ -323,6 +323,8 @@ val to_channel : out_channel -> d -> unit
  * data [d]. *)
 val code_taxon : int -> d -> string
 
+val independent : bool_characters -> d -> d
+
 (** [taxon_code n d] finds the code assigned to taxon [n] in the dataset 
  * [d]. *)
 val taxon_code : string -> d -> int
@@ -410,12 +412,12 @@ val synonyms_to_formatter : d -> Tags.output
 val to_formatter : Tags.attributes -> d -> Tags.output 
 
 val get_code_from_characters_restricted :
-    [ `Dynamic |  `NonAdditive |
+    [ `Dynamic |  `NonAdditive | `Likelihood | 
         `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] ->
              d -> characters -> int list
 
 val get_code_from_characters_restricted_comp :
-    [ `Dynamic |  `NonAdditive |
+    [ `Dynamic |  `NonAdditive | `Likelihood |
         `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] ->
              d -> bool_characters -> int list
 

@@ -2307,6 +2307,13 @@ module SC = struct
         st_observed_used : (int, int) Hashtbl.t option;
     }
 
+    let change_ml_code ncode stat_spec = 
+        match stat_spec.st_type with
+            | STLikelihood x -> 
+                {stat_spec with 
+                    st_type = STLikelihood { x with set_code = ncode }};
+            | _ -> failwith "I don't know what to do here."
+
     let spec_of_alph alph gap filename name = 
         let alphabet, alph_ext =
             let tbl, alph = 

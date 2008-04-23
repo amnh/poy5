@@ -78,6 +78,7 @@ type chromosome_args = [
 
 
 type transform_method = [
+    | `Independent
     | `RandomizedTerminals
     | `AlphabeticTerminals
     | `Prealigned_Transform
@@ -345,6 +346,7 @@ let transform_transform acc (id, x) =
             acc
     | #Methods.characters as id ->
             match x with
+            | `Independent -> (`Independent id) :: acc
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
@@ -577,7 +579,7 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.tabu_break = `DistanceSorted;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
-                    Methods.tabu_nodes = `Null;
+                    Methods.tabu_nodes = `Leaves; (* TODO: nodes_manager *)
                     Methods.samples = [] }
 
 let swap_default_none = { swap_default with Methods.ss = `None }
@@ -1065,7 +1067,8 @@ let create_expr () =
                 [ "k2p"; x = OPT ml_floatlist -> `K2P x ] | 
                 [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
-                [ "gtr"; x = OPT ml_floatlist -> `GTR x ]
+                [ "gtr"; x = OPT ml_floatlist -> `GTR x ] |
+                [ "file"; ":"; x = STRING -> `File x ]
             ];
         ml_site_variation: 
             [
@@ -1077,8 +1080,8 @@ let create_expr () =
                 [ "theta";":";left_parenthesis;
                     x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
                         let sv_ = Array.of_list (List.map float_of_string y) in
-                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
-                        Some (`Theta (int_of_string x, alpha, beta)) ] |
+                        let (alpha,beta,percent) = (Array.get sv_ 0, Array.get sv_ 1,Array.get sv_ 2) in
+                        Some (`Theta (int_of_string x, alpha, beta, percent)) ] |
                 [ "none" -> None ]
             ];
         ml_priors:
@@ -1098,6 +1101,7 @@ let create_expr () =
             ];
         transform_method:
             [
+                [ LIDENT "independent" -> `Independent ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = ml_gaps; right_parenthesis ->

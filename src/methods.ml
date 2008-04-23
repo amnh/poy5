@@ -179,7 +179,7 @@ type char_transform = [
     | `Prealigned_Transform of characters
     | `UseLikelihood of ml_spec
     | transform_cost_matrix
-    | `Independent 
+    | `Independent of characters
 ]
 
 

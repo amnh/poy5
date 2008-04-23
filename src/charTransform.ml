@@ -874,6 +874,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     (true, chars), true)))
         | `UseLikelihood x ->
                 Node.load_data ~taxa:nc (Data.set_likelihood data x)
+        | `Independent chars -> 
+                data --> Data.independent chars --> Node.load_data ~taxa:nc
         | `Prealigned_Transform chars ->
                 data 
                 --> (fun d -> Data.prealigned_characters
