@@ -128,7 +128,7 @@ val find_med2_ls :
   med_t ->
   med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int * int * med_t list
 
-val test : unit -> 'a
+
 
 
 (** [find_approx_med2 med1 med2 med12] returns the median 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2233 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2782 $"
 
 exception NotASequence of int
 
@@ -290,7 +290,7 @@ codea codeb cm alph achld bchld =
         * So we better clean that up when required *)
         match state with 
         | `Chromosome | `Annotated | `Breakinv | `Genome -> 
-                let gapless_seqa = UtlPoy.delete_gap ~gap_code:gap a.seq in 
+                let gapless_seqa = Sequence.delete_gap ~gap_code:gap a.seq in 
                 {a with seq = gapless_seqa}, Sequence.length gapless_seqa
         | _ -> a, Sequence.length a.seq
     in 
@@ -575,13 +575,13 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                  ancestor calculate_median `Chromosome prealigned all_minus_gap sub_a
                      sub_b acode bcode cm alpha achld bchld
              in 
-(*             UtlPoy.printDNA seg.ChromAli.alied_seq1;
-               UtlPoy.printDNA seg.ChromAli.alied_seq2; *)
+(*             Sequence.printDNA seg.ChromAli.alied_seq1;
+               Sequence.printDNA seg.ChromAli.alied_seq2; *)
              (if (sta != -1) then 
                   Hashtbl.iter (fun p code ->                                     
                                     Hashtbl.add nascent_ias.codes (p + sta - 1) code) ans.codes);
 
-(*             UtlPoy.printDNA ans.seq;
+(*             Sequence.printDNA ans.seq;
              print_newline ();*)
 
              Hashtbl.iter (fun code hom -> 
@@ -672,7 +672,7 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
 
     let seqb_arr = Sequence.to_array b.seq in 
     let gap_code = Cost_matrix.Two_D.gap cm in 
-    let re_seqb = UtlPoy.delete_gap ~gap_code:gap_code med.BreakinvAli.alied_seq2 in
+    let re_seqb = Sequence.delete_gap ~gap_code:gap_code med.BreakinvAli.alied_seq2 in
     let new_codes_b = Hashtbl.create 1667 in 
     Array.iteri 
     (fun re_pos re_base -> 

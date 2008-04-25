@@ -189,7 +189,7 @@ LANGUAGE = intSpec.cmo alphSpec.cmo wordSpec.cmo specIndex.cmo characSpec.cmo \
 
 PARALLEL = methods.cmo 
 
-CHROM_OBJS = grappa/grappa.cma utl.cmo chromPam.cmo staMat.cmo utlPoy.cmo \
+CHROM_OBJS = grappa/grappa.cma utl.cmo chromPam.cmo staMat.cmo \
 	utlGrappa.cmo incList.cmo sufNode.cmo sufTree.cmo subseq.cmo \
 	seed.cmo block.cmo genAli.cmo aliMap.cmo chromAli.cmo chrom.cmo chromCS.cmo 
 

@@ -424,7 +424,7 @@ let to_single ref_codes (root : t option) single_parent mine =
                            AnnchromAli.seq_arr = Array.mapi 
                               (fun idx seqt -> 
                                    {seqt with AnnchromAli.seq =
-                                           (UtlPoy.delete_gap single_seq_arr.(idx))}
+                                           (Sequence.delete_gap single_seq_arr.(idx))}
                               ) amed.AnnchromAli.seq_arr
                       }
                   in 

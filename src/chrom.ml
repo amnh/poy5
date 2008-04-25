@@ -51,7 +51,7 @@ let init_med (seq : Sequence.s) c2 chrom_pam tcode num_taxa =
 
     let seq = 
         if Sequence.is_empty seq (Alphabet.get_gap Alphabet.nucleotides) then
-            UtlPoy.get_empty_seq ()
+            Sequence.get_empty_seq ()
         else seq
     in
 

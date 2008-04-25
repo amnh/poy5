@@ -81,9 +81,9 @@ let breakinvPam_default = {
 (** [init seq] creates a new breakinv sequence from [seq] *)
 let init seq =  {        
     seq = seq;  
-    alied_med = UtlPoy.get_empty_seq ();
-    alied_seq1 = UtlPoy.get_empty_seq ();
-    alied_seq2 = UtlPoy.get_empty_seq ();
+    alied_med = Sequence.get_empty_seq ();
+    alied_seq1 = Sequence.get_empty_seq ();
+    alied_seq2 = Sequence.get_empty_seq ();
 
     ref_code = Utl.get_new_chrom_ref_code ();
     ref_code1 = -1;

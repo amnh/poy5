@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AliMap" "$Revision: 2678 $"
+let () = SadmanOutput.register "AliMap" "$Revision: 2782 $"
 
 
 (** AliMap module implements methods to align two general 
@@ -76,13 +76,13 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
     let del_subseq2_ls = List.filter 
         (fun subseq -> List.length subseq.Subseq.block_id_ls = 0) subseq2_ls in 
 
-    let empty_seq = UtlPoy.get_empty_seq () in 
+    let empty_seq = Sequence.get_empty_seq () in 
 
     let ali_mat = Array.make_matrix len len (empty_seq, empty_seq) in 
 
     let pair_gap subseq seq = 
        let id = subseq.Subseq.id in 
-       let del_cost = UtlPoy.cmp_gap_cost ali_pam.ChromPam.locus_indel_cost
+       let del_cost = Sequence.cmp_gap_cost ali_pam.ChromPam.locus_indel_cost
            (Subseq.get_subseq seq subseq)
        in
 
@@ -111,7 +111,7 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
 
 
                       let alied_seq1, alied_seq2, cost, _ =  
-                          UtlPoy.align2 subseq1 subseq2 cost_mat 
+                          Sequence.align2 subseq1 subseq2 cost_mat 
                       in
 
                       set_cost id1 id2  cost;          

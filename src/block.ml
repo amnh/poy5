@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2674 $"
+let () = SadmanOutput.register "Block" "$Revision: 2782 $"
 
 (** Blocks are conserved areas between two chromosomes
 * which do not require identical nucleotide segments but 
@@ -469,8 +469,8 @@ let create_pos_alied_block (block : block_t) (seq1 : Sequence.s)
     in
     create (List.hd block.seed_ls) (List.tl block.seed_ls);
 
-    let alied_seq1 = UtlPoy.concat (List.rev !rev_alied_subseq1_ls) in  
-    let alied_seq2 = UtlPoy.concat (List.rev !rev_alied_subseq2_ls) in
+    let alied_seq1 = Sequence.concat (List.rev !rev_alied_subseq1_ls) in  
+    let alied_seq2 = Sequence.concat (List.rev !rev_alied_subseq2_ls) in
     
     block.alied_seq1 <- Some alied_seq1;
     block.alied_seq2 <- Some alied_seq2;
@@ -594,7 +594,7 @@ let prepen (b1 : block_t) (b2 : block_t) (block_pam : blockPam_t)
 
     
     let alied_between_seq1, alied_between_seq2, cost = 
-        UtlPoy.create_subalign2 seq1 seq2 cost_mat (b1.en1 + 1)
+        Sequence.create_subalign2 seq1 seq2 cost_mat (b1.en1 + 1)
         (b2.sta1 - 1) (b1.en2 + 1) (b2.sta2 - 1) 
     in 
     
@@ -606,11 +606,11 @@ let prepen (b1 : block_t) (b2 : block_t) (block_pam : blockPam_t)
     b2.sta2 <- b1.sta2;
     b2.cost <- b1.cost + between_cost + b2.cost;
     b2.seed_ls <- b1.seed_ls @ b2.seed_ls;
-    b2.alied_seq1 <- Some (UtlPoy.concat [ (deref b1.alied_seq1);
+    b2.alied_seq1 <- Some (Sequence.concat [ (deref b1.alied_seq1);
                                            alied_between_seq1; 
                                            (deref b2.alied_seq1)] );
 
-    b2.alied_seq2 <- Some (UtlPoy.concat [ (deref b1.alied_seq2); 
+    b2.alied_seq2 <- Some (Sequence.concat [ (deref b1.alied_seq2); 
                                            alied_between_seq2; 
                                            (deref b2.alied_seq2)] )
 
@@ -738,10 +738,10 @@ let create_median ?(approx=`BothSeq) (block : block_t) cost_mat =
     let alied_seq2 = Utl.deref block.alied_seq2 in 
 
     match block.direction = `Positive with
-    | true -> UtlPoy.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat 
+    | true -> Sequence.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat 
     | false ->  
           Sequence.reverse_ip alied_seq2;  
-          let med, cost = UtlPoy.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat in  
+          let med, cost = Sequence.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat in  
           Sequence.reverse_ip alied_seq2; 
           med, cost 
 

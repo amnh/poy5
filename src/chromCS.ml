@@ -21,7 +21,7 @@
 * The chromosome character set allows rearrangements *)
 
 exception Illegal_Arguments
-let () = SadmanOutput.register "ChromCS" "$Revision: 2724 $"
+let () = SadmanOutput.register "ChromCS" "$Revision: 2782 $"
 
 let fprintf = Printf.fprintf
 
@@ -417,7 +417,7 @@ let to_single ref_codes (root : t option) single_parent mine =
                   in 
 
                   let cost, recost = ChromAli.cmp_cost 
-                      ({amed with ChromAli.seq = (UtlPoy.delete_gap single_seq)} ) aparent_med c2
+                      ({amed with ChromAli.seq = (Sequence.delete_gap single_seq)} ) aparent_med c2
                       med.Chrom.chrom_pam `Chromosome
                   in 
                   cost, recost, single_seq
