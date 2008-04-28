@@ -58,24 +58,26 @@ external compose_sym: (* U D t -> P *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
     -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
         "likelihood_CAML_compose_sym" 
-(** [median_*** pi U D [Ui] at bt achars bchars] -> cchars
+(** [median_*** pi U D [Ui] at bt achars bchars rates probs] -> cchars
  * calculate the median of two nodes with character sets [achars] and [bchars]
  * and branch lenghts [at] and [bt], respectively. The probability matrix for
  * the transition is constructed via [U] [D] and, possibly, [Ui] (GTR only). *)
-external median_gtr: (* priors U D Ui ta tb a b output_c *)
+external median_gtr:
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s -> s -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
-external median_sym: (* priors U D ta tb a b output_c *)
+external median_sym:
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s-> s ->
+     float -> float -> s-> s -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
-(** [readjust_*** U D [Ui] a b c at bt rates priors ll] -> at*bt*ll
+(** [readjust_*** U D [Ui] a b c at bt rates probs priors ll] -> at*bt*ll
  * readjusts the branch lengths for the children of [c], [a] and [b], with
  * branch lengths [at] and [bt], respectively, using priors given by [priors],
  * and the gamma/theta rates given by [rates]. The old likelihood is given in
@@ -87,6 +89,7 @@ external readjust_sym:
     s -> s -> s -> float -> float -> 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float =
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_wrapped_sym"
 external readjust_gtr:
@@ -94,6 +97,7 @@ external readjust_gtr:
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     s -> s -> s -> float -> float -> 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float =
@@ -134,6 +138,11 @@ val median_cost : t -> float
 * computes whatever heuristic values will be assigned to [Node.final] in
 * a vertex, for the vertex [nn] with parent [pn] and children [c1] and [c2]. *)
 val median_3 : t -> t -> t -> t -> t
+
+(** [explode nd] makes each character in a set independent from the other by
+* placing each into it's own character class 
+val explode : t -> t list
+*)
 
 (** [reroot_median a b] 
 * computes the median that should be assigned to the root of a tree as the
