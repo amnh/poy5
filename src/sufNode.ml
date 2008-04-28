@@ -17,8 +17,13 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SufNode" "$Revision: 1644 $"
-(** The implementation of suffix node in suffix tree *)
+let () = SadmanOutput.register "SufNode" "$Revision: 2784 $"
+
+(** sufTree module implements structures and
+ * functions of a node in a suffix tree. The implementations
+ * follow the suffix tree algorithm in Algorithms on Strings, Trees, 
+ * and Sequences: Computer science and Computational Biology by Dan Gusfield *)
+
 
 let fprintf = Printf.fprintf
 let deref = Utl.deref
@@ -50,7 +55,6 @@ let create_fresh_node () = {
 
     leaf_ls = [];
     start_pos = -1;
-(* to make sure that the label_len = end_pos - start_pos + 1 = 0 *)
     end_pos_ptr = ref (-2)  
 }
 

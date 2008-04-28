@@ -17,6 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** sufTree module implements structures and
+ * functions of a node in a suffix tree. The implementations
+ * follow the suffix tree algorithm in Algorithms on Strings, Trees, 
+ * and Sequences: Computer science and Computational Biology by Dan Gusfield *)
+
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 val deref : 'a option -> 'a
 type sufNode_t = {

@@ -17,6 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+
+(** sufTree module implements structures and
+* functions of the suffix tree. The implementations
+* follow the suffix tree algorithm in Algorithms on Strings, Trees, 
+* and Sequences: Computer science and Computational Biology by Dan Gusfield *)
+
 val deref : 'a option -> 'a
 type rule = Rule1 | Rule21 | Rule22 | Rule31 | Rule32
 val max_located_node : int
