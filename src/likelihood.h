@@ -40,10 +40,20 @@
  * C struct for a character set and likelihood vectors
  */ 
 struct ml {
-    int stride;       //stride of matrix (ie: size of alphabet)
-    int c_len;        //length of character set
-    double* lv_s;     //likelihood vectors x character set (length is n*k)
+    int id;
+    int stride;     //stride of matrix (ie: size of alphabet)
+    int c_len;      //length of character set
+    double* lv_s;   //likelihood vectors x character set (length is n*k)
 };
+typedef struct ml mll;
+
+struct pt {
+    double ta;      //branch length of a
+    double tb;      //branch length of b
+    double ll;      //likelihood
+    mll *vs;        //resultant vector
+};
+typedef struct pt ptr;
 
 /**
  * testing functions...
@@ -122,10 +132,10 @@ int diagonalize_gtr( double* A, double* D, double* Ui, const int n );
  * median functions
  */
 //calculates the half median 
-void median_h( const double* P, const double* l, double* nl, const int a);
+void median_h( const double* P, const double* l,const int c, double* nl, const int a);
 //calculates median of two character sets, [a] and [b] into [c]
 void median_charset( const double* Pa, const double* Pb, const struct ml* a,
-                    const struct ml* b, struct ml* c, const double r );
+                    const struct ml* b, struct ml* c, const double p );
 //loglikelihood of a median with priors [p] and character set [l]
 double loglikelihood( const struct ml *l, const double* p );
 
@@ -138,5 +148,13 @@ int compare_chars( const struct ml* c1, const struct ml* c2 );
 /**
  * readjust functions
  */
-//double readjust(const struct ml* ca, const struct ml* cb, struct ml*cc,
-//                     const double ta, const double tb, const double o_mle)
+void //0 for no change, 1 for change
+readjust_walk_gtr(const double* U,const double* D,const double* Ui,
+                   const struct ml* a,const struct ml* b,struct ml* b_c,
+                    double* ta,double* tb,double* b_mle,const double* rates,
+                     const double *p, const int g_n, const double* pi);
+void //0 for no change, 1 for change
+readjust_walk_sym(const double* U,const double* D,
+                   const struct ml* a,const struct ml* b,struct ml* b_c,
+                    double* ta,double* tb,double* b_mle,const double* rates,
+                     const double *p, const int g_n,const double pi);
