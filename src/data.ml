@@ -58,24 +58,58 @@ type re_meth_t = [ `Locus_Breakpoint of int |
                    `Locus_Inversion of int ]
 
 type dyna_pam_t = {
-    seed_len : int option;
+    seed_len : int option; (** the minimum length of a segment which is considered as a basic seed *)
+
+    (** Cost parameters of rearrangement function which is either
+    * breakpoint distance or inversion distance *)
     re_meth : re_meth_t option;
+
+    (** Circular = 0 means linear chromosome, otherwise circular chromosome *)
     circular : int option;
+
+    (** [(a, b)] is indel cost of a locus in a chromosome
+    * where [a] is opening cost, [b] is extension cost *)
     locus_indel_cost : (int * int) option;
+
+    (** [(a, b)] is indel cost of a chromosome in a genome 
+    * where [a] is opening cost, [b] is extension cost *)
     chrom_indel_cost : (int * int) option;
+
+(** The maximum cost between two chromosomes
+* at which they are considered as homologous chromosomes *)
     chrom_hom : int option;
+
+    (** The cost of a breakpoint happing between two chromosome *)
     chrom_breakpoint : int option;
+
+(**  the minimum length of a block which will be considered
+* as a homologous block *)
     sig_block_len : int option;
+
+    (** It's believed that no rearrangments or reversions happened 
+        within a segment whose length < unbreaked_len *)
     rearranged_len : int option;
+
+    (** The maximum number of medians at one node kept during the search*)
     keep_median : int option;
+
+(** number iterations are applied in refining alignments with rearrangements *)
     swap_med : int option; 
-    (** number iterations are applied 
-    in refining alignments with rearrangements *)
+
+(** approx = true, the median sequence of X and Y is approximated by either X or Y,
+    * otherwise, calculate as a set of median between X and Y *)
     approx : bool option;
+
+    (** symmetric = true, calculate the both distances between X to Y
+     * and vice versa. Otherwise, only form X to Y *) 
     symmetric : bool option;
+
+    (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int option;
 }
 
+(** [dyna_pam_default] assigns default values for parameters 
+* used to create the median between two chromosomes or genomes *)
 let dyna_pam_default ={ 
     seed_len = Some 9;
     re_meth = Some (`Locus_Breakpoint 10);
@@ -2045,7 +2079,9 @@ let transform_seqs_to_kolmogorov d codes newspec =
     Hashtbl.iter transformer d.character_specs;
     d
 
-(** transform all annchroms whose codes are on the code_ls into breakinvs *)    
+(** [create_alpha_c2_breakinvs data chcode] transforms all 
+* annotated chromosomes whose codes are on the code list [chcode]
+* into breakinvs characters *)    
 let create_alpha_c2_breakinvs (data : d) chcode =  
 
     let spec = Hashtbl.find data.character_specs chcode in  

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2669 $"
+let () = SadmanOutput.register "Node" "$Revision: 2791 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -2072,6 +2072,9 @@ let readjust to_adjust ch1 ch2 parent mine =
 let to_single_root (pre_ref_codes, fi_ref_codes) mine = 
     to_single (pre_ref_codes, fi_ref_codes) (Some mine) mine mine
 
+(** [get_active_ref_code node_data] returns codes of
+* all active chromosomes which are used for single state process
+* on the subtree rooted at [node_data] *)
 let get_active_ref_code node_data = 
     List.fold_left 
         (fun (acc_pre, acc_pre_child, acc_fi, acc_fi_child) cs -> 
@@ -2254,7 +2257,8 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
     in
     (Tags.Nodes.node, attr, `Structured (`Set children))
 
-
+(** [copy_chrom_map source des] copies the chromosome map
+* which creates chromosome [source] to chromosome map which creates chromosome [des] *)
 let copy_chrom_map source des =
     let s_ch_arr = Array.of_list source.characters in 
     let d_ch_arr = Array.of_list des.characters in 
