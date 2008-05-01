@@ -57,23 +57,52 @@ type identifiers = [
 ]
 
 type chromosome_args = [
-    | `Locus_Inversion of int
-    | `Locus_Breakpoint of int (*Locus_reakpoint cost between two loci inside one chromosome *)
-    | `Circular of bool
-    | `Locus_Indel_Cost of (int * int)
+    | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
+    | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
+    | `Circular of bool (** indicate if the chromosome is circular or not *)
+
+    (** [(a, b)] is indel cost of a locus in a chromosome
+    * where [a] is opening cost, [b] is extension cost *)
+    | `Locus_Indel_Cost of (int * int) 
+
+    (** [(a, b)] is indel cost of a chromosome in a genome 
+    * where [a] is opening cost, [b] is extension cost *)
     | `Chrom_Indel_Cost of (int * int)
-    | `Chrom_Hom of int (* if cost > threshold * min_cost,  then not homologous *)
+
+    (** The maximum cost between two chromosomes
+    * at which they are considered as homologous chromosomes *)
+    | `Chrom_Hom of int 
+    
+    (** The cost of a breakpoint happing between two chromosome *)
     | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
+
+(**  the minimum length of a block which will be considered
+* as a homologous block *)    
     | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
-    | `Rearranged_Len of int (* t's believed that no rearrangments or
-                                    reversions happened within a segment whose length < rearranged_len *)
+
+    (** It's believed that no rearrangments or reversions happened 
+        within a segment whose length < rearranged_len *)
+    | `Rearranged_Len of int 
+
+(** the minimum length of a segment which is considered as a basic seed *)
     | `Seed_Len of int
+
+    (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
+
+(** number iterations are applied in refining alignments with rearrangements *)
     | `SwapMed of int 
+
+(** approx = true, the median sequence of X and Y is approximated by either X or Y,
+* otherwise, calculate as a set of median between X and Y *)
     | `Approx of bool
+
+    (** symmetric = true, calculate the both distances between X to Y
+     * and vice versa. Otherwise, only form X to Y *) 
     | `Symmetric of bool 
-    | `Max_3D_Len of int (* maximum length used to align 3 sequences in order to
-                            | reduce the time consuming*)
+
+    (** maximum length of sequences aligned by 3D-alignment *)
+    | `Max_3D_Len of int 
 ]
 
 

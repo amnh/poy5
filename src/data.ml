@@ -87,7 +87,7 @@ type dyna_pam_t = {
     sig_block_len : int option;
 
     (** It's believed that no rearrangments or reversions happened 
-        within a segment whose length < unbreaked_len *)
+        within a segment whose length < rearranged_len *)
     rearranged_len : int option;
 
     (** The maximum number of medians at one node kept during the search*)

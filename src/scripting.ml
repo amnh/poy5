@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2669 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2799 $"
 
 module IntSet = All_sets.Integers
 
@@ -326,6 +326,8 @@ let load_data (meth : Methods.input) data nodes =
                 annotated Alphabet.nucleotides is_prealigned `Seq d f) 
                 data files
         | `Chromosome files ->
+(** read chromosome data from files each chromosome is 
+* presented simply as a long plain nucleotide sequences *)
                 let files = explode_filenames files in
                 let data = 
                     List.fold_left 
@@ -337,7 +339,9 @@ let load_data (meth : Methods.input) data nodes =
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
                     annotated Alphabet.nucleotides false `Chromosome d f) 
                 data files
-        | `Genome files ->
+        | `Genome files -> 
+(** read genome data from files each genome is 
+* presented as a sequence of chromosomes separated by @ signs *)
                 let files = explode_filenames files in
                 let data = 
                     List.fold_left 
@@ -384,6 +388,8 @@ let load_data (meth : Methods.input) data nodes =
                 Data.process_molecular_file 
                 tcmfile twod threed annotated alphabet is_prealigned `Seq data seq 
         | `Breakinv (seq, alph, read_options) ->
+(** read breakinv data from files each breakinv is 
+* presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
                 let orientation = 
                     not 
