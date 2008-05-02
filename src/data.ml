@@ -97,7 +97,7 @@ type dyna_pam_t = {
     swap_med : int option; 
 
 (** approx = true, the median sequence of X and Y is approximated by either X or Y,
-    * otherwise, calculate as a set of median between X and Y *)
+* otherwise, calculate as a set of median between X and Y *)
     approx : bool option;
 
     (** symmetric = true, calculate the both distances between X to Y
