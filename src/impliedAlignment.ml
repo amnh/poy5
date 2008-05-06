@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2801 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2810 $"
 
 exception NotASequence of int
 
@@ -36,9 +36,15 @@ type ias = {
     seq : Sequence.s;
     codes : (int, int) Hashtbl.t; (* (key=pos -> code) Hashtble *)
     homologous: (int, int Sexpr.t) Hashtbl.t; (* (code, hom_code list) Hashtbl *)
-    indels: 
+    indels: (* The location and contents of an insertion block *)
         (int * string * int * [ `Insertion | `Deletion ] * int Sexpr.t) Sexpr.t; 
-        (* The location and contents of an insertion block *)
+        (* (p * s * l * t * c) Sexpr.t where
+         *  p: start indel position 
+         *  s: content of this indel block
+         *  l: indel block length 
+         *  t: block type either insertion or deletion
+         *  c: children indel blocks at children node of two subtrees
+         *)
     order : int list; (* codes list in reverse order *)
 }
 
@@ -74,12 +80,20 @@ type cg = (unit -> int)
 
 let fprintf = Printf.fprintf
 
+(** [code_generator] returns an unique code for a position in a
+* sequence. Thus, codes created by [code_genrator] function
+* are all different *)
 let code_generator () =
     let counter = ref (-1) in
     fun () ->
         incr counter;
         !counter
 
+(** [create_ias state s code cg] returns an initiated 
+* implied alignment for raw sequence [s] where [cg] is 
+* code generator function, [state] indicates if sequence [s] 
+* is a sequence or a chromosome character.
+* The parameter [code] is redundant for now *)
 let create_ias (state : dyna_state_t) s code cg =
     let add_codes ((code_acc, hom_acc, order_lst) as res) pos _ =
         if (pos = 0) && (state = `Seq) then res 
@@ -93,8 +107,6 @@ let create_ias (state : dyna_state_t) s code cg =
     let c = Hashtbl.create 1667
     and h = Hashtbl.create 1667 in
     let c, h, o = Sequence.foldi add_codes (c, h, []) s in
-(*    print_endline "Create IAS";
-    List.iter (fun code -> fprintf stdout "%i " code) o; print_newline ();*)
     { seq = s; codes = c; homologous = h; indels = `Empty; order = o }
 
 let rec prepend_until_shared tgt src it = 
@@ -146,7 +158,7 @@ let calculate_indels a b alph b_children =
     for i = 1 to len - 1 do
         let a_base = Sequence.get a i
         and b_base = Sequence.get b i in
-        let a_gap = a_base <> gap
+        let a_gap = a_base <> gap (* a_gap = true if a_base is not a gap, otherwise false *)
         and b_gap = b_base <> gap in
         match !in_indel_row with
         | `None -> assign_in_indel_row i a_gap b_gap;
