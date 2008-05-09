@@ -60,6 +60,9 @@ val init : Sequence.s -> breakinv_t
 * user defined parameters used to align two breakinv sequences *)
 val get_breakinv_pam : Data.dyna_pam_t -> breakinvPam_t
 
+(** [get_recost pams] returns the rearrangement cost in [pams] *)
+val get_recost : Data.dyna_pam_t -> int
+
 (** [cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)

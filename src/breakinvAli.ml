@@ -132,6 +132,16 @@ let get_breakinv_pam user_breakinv_pam =
     chrom_pam
 
         
+let get_recost user_pams = 
+    match user_pams.Data.re_meth with
+    | None -> failwith "The rearrangement cost is not specified"
+    | Some re_meth ->
+        match re_meth with
+            | `Locus_Breakpoint c -> c
+            | `Locus_Inversion c -> c
+
+
+
 (** [cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)

@@ -36,6 +36,9 @@ type ias = {
     indels: (int * string * int * [`Insertion | `Deletion] * int Sexpr.t)
     Sexpr.t; 
         (* The location and contents of an insertion block *)
+    
+     rearrs : (int * int * int Sexpr.t) Sexpr.t;
+
     order : int list; (* The order of the codes stored in homologous *)
 }
 
@@ -49,6 +52,7 @@ type dyna_state_t = Data.dyna_state_t
 *)
 
 type t = {
+
     sequences : ias array All_sets.IntegerMap.t;
     c2 : Cost_matrix.Two_D.m;
     chrom_pam : Data.dyna_pam_t;

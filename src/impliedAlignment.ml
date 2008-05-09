@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2810 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2818 $"
 
 exception NotASequence of int
 
@@ -36,15 +36,21 @@ type ias = {
     seq : Sequence.s;
     codes : (int, int) Hashtbl.t; (* (key=pos -> code) Hashtble *)
     homologous: (int, int Sexpr.t) Hashtbl.t; (* (code, hom_code list) Hashtbl *)
-    indels: (* The location and contents of an insertion block *)
-        (int * string * int * [ `Insertion | `Deletion ] * int Sexpr.t) Sexpr.t; 
-        (* (p * s * l * t * c) Sexpr.t where
-         *  p: start indel position 
-         *  s: content of this indel block
-         *  l: indel block length 
-         *  t: block type either insertion or deletion
-         *  c: children indel blocks at children node of two subtrees
-         *)
+    indels: (int * string * int * [ `Insertion | `Deletion ] * int Sexpr.t) Sexpr.t; 
+         (** The location and contents of an insertion block 
+          * (p * s * l * t * c) Sexpr.t where
+          *  p: start indel position 
+          *  s: content of this indel block
+          *  l: indel block length 
+          *  t: block type either insertion or deletion
+          *  c: children of this subtree *)
+          
+    rearrs : (int * int * int Sexpr.t) Sexpr.t;
+              (** (r * c * children) where 
+               * r: the number of rearrangements
+               * c: the rearrangement cost
+               * children: children of this subtree  *)
+
     order : int list; (* codes list in reverse order *)
 }
 
@@ -107,7 +113,7 @@ let create_ias (state : dyna_state_t) s code cg =
     let c = Hashtbl.create 1667
     and h = Hashtbl.create 1667 in
     let c, h, o = Sequence.foldi add_codes (c, h, []) s in
-    { seq = s; codes = c; homologous = h; indels = `Empty; order = o }
+    { seq = s; codes = c; homologous = h; indels = `Empty; rearrs = `Empty; order = o }
 
 let rec prepend_until_shared tgt src it = 
     match src with
@@ -225,20 +231,8 @@ let calculate_indels a b alph b_children =
 *)
 (* TODO CHILDREN *)
 let ancestor calculate_median state prealigned all_minus_gap a b 
-codea codeb cm alph achld bchld = 
-(*
-    print_endline "start ancestor";
-    Utl.printIntArr (Sequence.to_array a.seq);
-    List.iter (fun code -> fprintf stdout "%i " code) a.order;
-    print_newline ();
-    Hashtbl.iter (fun p c -> fprintf stdout "p: %i, c: %i\n" p c) a.codes;
-    print_newline ();
-    Utl.printIntArr (Sequence.to_array b.seq);
-    List.iter (fun code -> fprintf stdout "%i " code) b.order;
-    print_newline ();
-    Hashtbl.iter (fun p c -> fprintf stdout "p: %i, c: %i\n" p c) b.codes;
-    print_newline ();
-*)
+            codea codeb cm alph achld bchld = 
+
     if print_anc_debug then
         Status.user_message Status.Information
         ("The ancestors of " ^ string_of_int codea ^ " and " ^ string_of_int codeb);
@@ -255,7 +249,7 @@ codea codeb cm alph achld bchld =
     let create_gaps len = Sequence.init (fun _ -> gap) len 
     and aempty = (Sequence.is_empty a.seq gap) && (state = `Seq)
     and bempty = (Sequence.is_empty b.seq gap) && (state = `Seq) in
-    let a', b', nogap, indels = 
+    let a', b', nogap, indels =
         let anb_indels = `Set [a.indels; b.indels] in
         let a', b', _, nogap, indels =
             if aempty && bempty then
@@ -435,7 +429,7 @@ codea codeb cm alph achld bchld =
         initial_hom a.homologous b.homologous a_ord b_ord []
     in
     let order = List.rev order in
-    { seq = anc; codes = codes; homologous = hom; indels = indels; order = order }
+    { seq = anc; codes = codes; homologous = hom; indels = indels; rearrs = `Empty; order = order }
 
 
 let assign_act_order sta en codes ord_arr act_ord_arr =
@@ -546,7 +540,8 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                     codes = Hashtbl.create 1667;
                     homologous = Hashtbl.create 1667;
                     order = [];
-                    indels = `Empty;}
+                    indels = `Empty;
+                    rearrs = `Empty}
     in 
     let new_ias = List.fold_left 
         (fun nascent_ias seg ->
@@ -638,7 +633,8 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
                     codes = Hashtbl.create 1667;
                     homologous = Hashtbl.create 1667;
                     order = [];
-                    indels = `Empty;}
+                    indels = `Empty;
+                    rearrs = `Empty}
         in 
         let isb = 
             match ordb = -1 with
@@ -647,7 +643,7 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
             | true -> {seq = seqt.AnnchromAli.alied_seq2;
                        codes = Hashtbl.create 1667;
                        homologous = Hashtbl.create 1667;
-                       order = []; indels = `Empty}
+                       order = []; indels = `Empty; rearrs = `Empty}
         in 
         let ans = 
             ancestor calculate_median `Annotated prealigned
@@ -723,6 +719,19 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         ancestor calculate_median `Breakinv prealigned all_minus_gap isa isb
         acode bcode cm alpha achld bchld
     in
+
+
+    
+
+    let recost = BreakinvAli.get_recost breakinv_pam in
+    let num_re1 = med.BreakinvAli.recost1 / recost in
+    let num_re2 = med.BreakinvAli.recost2 / recost in
+    let rea = `Single (num_re1, recost, achld) in 
+    let reb = `Single (num_re2, recost, bchld) in
+    let rearrs =  `Set [rea; reb] in
+    let ans = {ans with rearrs = rearrs} in
+
+
     let new_codes = Hashtbl.create 1667 in 
     Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
     [|{ans with seq = med.BreakinvAli.seq; codes = new_codes}|]
@@ -777,7 +786,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
              let init_ias = {seq = chrom.GenomeAli.seq; 
                              codes = Hashtbl.create 1667;
                              homologous = Hashtbl.create 1667;
-                             indels = `Empty;
+                             indels = `Empty; rearrs = `Empty;
                              order = []}
              in 
              let main_idx1 = id_to_index chrom.GenomeAli.main_chrom1_id med1 in 
@@ -832,6 +841,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord1_arr);                                  
                            homologous = hom1;
                             indels = `Empty;
+                            rearrs = `Empty
                         }  
                        in 
                        let sub2 = {
@@ -840,6 +850,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord2_arr);                                  
                            homologous = hom2;
                             indels = `Empty;
+                            rearrs = `Empty
                        }  
                        in  
                        let ans_ias = 
