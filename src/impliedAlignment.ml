@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2818 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2845 $"
 
 exception NotASequence of int
 
@@ -670,6 +670,7 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
             else b, a, bcode
         else a, b, acode
     in 
+    let gap_code = Cost_matrix.Two_D.gap cm in 
 
     let a, b = a.(0), b.(0) in 
     let meda = BreakinvAli.init a.seq in 
@@ -678,16 +679,50 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
     let _, _, med_ls = BreakinvAli.find_med2_ls meda medb cm pure_cm alpha breakinv_pam in
     let med = List.hd med_ls in
 
+    let seqa_arr = Sequence.to_array a.seq in 
+    let re_seqa = Sequence.delete_gap ~gap_code:gap_code med.BreakinvAli.alied_seq1 in
+    let new_codes_a = Hashtbl.create 1667 in 
+    Array.iteri 
+    (fun re_pos re_base -> 
+        let ori_pos = Utl.find_index seqa_arr re_base compare in 
+        let code = Hashtbl.find a.codes ori_pos in         
+        Hashtbl.add new_codes_a re_pos code) (Sequence.to_array re_seqa);
+
+    let order_a_arr = Array.of_list (List.rev a.order) in 
+    let num_codes = Array.length order_a_arr in 
+    let exist_code_a = Hashtbl.fold 
+        (fun p code code_set -> IntSet.add code code_set) new_codes_a IntSet.empty
+    in 
+    let new_orders_a = ref [] in 
+    let rec add_deled_code pos = 
+        if pos < num_codes then begin
+            let code = order_a_arr.(pos) in 
+            if IntSet.mem code exist_code_a = false then begin
+                new_orders_a := List.append !new_orders_a [code];
+                add_deled_code (pos + 1)
+            end 
+        end            
+    in 
+    Array.iteri 
+    (fun pos _ -> 
+        let code = Hashtbl.find new_codes_a pos in 
+        let ori_pos = Utl.find_index order_a_arr code compare in 
+        new_orders_a := List.append !new_orders_a [code];                     
+        add_deled_code (ori_pos + 1)) 
+    seqa_arr;
+    add_deled_code 0;
+
+
+
     let seqb_arr = Sequence.to_array b.seq in 
-    let gap_code = Cost_matrix.Two_D.gap cm in 
     let re_seqb = Sequence.delete_gap ~gap_code:gap_code med.BreakinvAli.alied_seq2 in
     let new_codes_b = Hashtbl.create 1667 in 
     Array.iteri 
     (fun re_pos re_base -> 
         let ori_pos = Utl.find_index seqb_arr re_base compare in 
-        let code = Hashtbl.find b.codes ori_pos in 
-        Hashtbl.add new_codes_b re_pos code;) 
-    (Sequence.to_array re_seqb);
+        let code = Hashtbl.find b.codes ori_pos in         
+        Hashtbl.add new_codes_b re_pos code) (Sequence.to_array re_seqb);
+
     let order_b_arr = Array.of_list (List.rev b.order) in 
     let num_codes = Array.length order_b_arr in 
     let exist_code_b = Hashtbl.fold 
@@ -711,7 +746,12 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         add_deled_code (ori_pos + 1)) 
     seqb_arr;
     add_deled_code 0;
-    let isa = {a with seq = med.BreakinvAli.alied_seq1} in 
+
+
+    let isa = {a with seq = med.BreakinvAli.alied_seq1;
+                   codes = new_codes_a;
+                   order = List.rev  !new_orders_a} in 
+
     let isb = {b with seq = med.BreakinvAli.alied_seq2;
                    codes = new_codes_b;
                    order = List.rev  !new_orders_b} in 

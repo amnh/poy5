@@ -30,7 +30,7 @@ val cmp_recost :
   int array ->
   int array ->
   int array ->
-  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int * int
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int * int
 
 (** [cmp_cost state code1_arr code2_arr recode2_arr 
 *              cost_mat gap re_meth circular] returns
@@ -44,7 +44,7 @@ val cmp_cost :
     Cost_matrix.Two_D.m ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int * (int * int) * int array * int array
+  int -> bool -> int * (int * int) * int array * int array
 
 (**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
 * the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
@@ -54,7 +54,7 @@ val cmp_cost3 :
   int array ->
   int array ->
   int array array ->
-    int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int
+    int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> bool -> int
 
 
 (** [find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular]
@@ -66,7 +66,7 @@ val find_wagner_ali :
   int array ->
   int array ->
     Cost_matrix.Two_D.m ->
-  int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> int array
+  int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int array
 
 (** [multi_swap_locus state seq1 seq2 best_seq2 best_cost 
 *                     gen_cost_mat gap re_meth max_swap_med circular num_done_swap] 
@@ -81,7 +81,7 @@ val multi_swap_locus :
     Cost_matrix.Two_D.m ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int -> int -> int * int array
+  int -> int -> bool -> int -> int * int array
 
 (** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
@@ -93,7 +93,7 @@ val create_gen_ali :
   Cost_matrix.Two_D.m ->
   Alphabet.a ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int -> int * (int * int) * Sequence.s * Sequence.s
+  int -> int -> bool -> int * (int * int) * Sequence.s * Sequence.s
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
 *        re_meth max_swap_med circular] creates the general 
@@ -106,19 +106,19 @@ val create_gen_ali_code :
   int array array ->
   int ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-  int -> int -> int * (int * int) * int array * int array
+  int -> int -> bool -> int * (int * int) * int array * int array
 
 
 (** [create_gen_ali3 seq1 seq2 seq3 med gen_cost_mat 
 *     alpha re_meth  max_swap_med circular sym] create
 * the general alignment among [seq1], [seq2], and [seq3] 
 * such that total cost = editing cost + rearrangement cost is minimized *)
-val create_gen_ali3 :
-  Sequence.s ->
-  Sequence.s ->
-  Sequence.s ->
-  Sequence.s ->
-  int array array ->
-  Alphabet.a ->
-  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-    'a -> int -> bool -> Sequence.s * int
+  val create_gen_ali3 :
+    Sequence.s ->
+    Sequence.s ->
+    Sequence.s ->
+    Sequence.s ->
+    int array array ->
+    Alphabet.a ->
+    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+    'a -> int -> bool -> bool -> Sequence.s * int

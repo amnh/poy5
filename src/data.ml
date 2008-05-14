@@ -123,7 +123,7 @@ let dyna_pam_default ={
     keep_median = Some 1;
     swap_med = Some 1;
     approx = Some false;
-    symmetric = Some false;
+    symmetric = Some true;
     max_3d_len = Some 100;
 }
 

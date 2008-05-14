@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Scripting" "$Revision: 2799 $"
+let () = SadmanOutput.register "Scripting" "$Revision: 2845 $"
 
 module IntSet = All_sets.Integers
 
@@ -391,11 +391,9 @@ let load_data (meth : Methods.input) data nodes =
 (** read breakinv data from files each breakinv is 
 * presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
-                let orientation = 
-                    not 
-                    (List.mem (`Orientation false) read_options) 
+                let orientation = (List.mem (`Orientation true) read_options) 
                 in
-                let init3D = not (List.mem (`Init3D false) read_options) in
+                let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let alphabet, twod, threed =

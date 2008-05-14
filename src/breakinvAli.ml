@@ -74,7 +74,7 @@ let breakinvPam_default = {
     keep_median = 1;
     circular = 0;
     swap_med = 1;
-    symmetric = false;
+    symmetric = true;   
 }
 
 
@@ -146,31 +146,39 @@ let get_recost user_pams =
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
-    let ali_pam = get_breakinv_pam breakinv_pam in     
+        let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in 
+    let orientation = Alphabet.get_orientation alpha in
+
     if (len1 < 1) || (len2 < 1) then 0, (0, 0)
     else begin
         match ali_pam.symmetric with
         | true ->
               let cost12, recost12, _, _ =
                   GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
-                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
               let cost21, recost21, _, _ = 
                   GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
-                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular  orientation
               in  
-              if cost12 <= cost21 then cost12, recost12
+(*
+                 print_endline "Cmp_cost BreakinvAli";
+                 Utl.printIntArr (Sequence.to_array med1.seq);
+                 Utl.printIntArr (Sequence.to_array med2.seq);
+                 fprintf stdout "Costs: %i %i\n" cost12 cost21; flush stdout;
+*)  
+            if cost12 <= cost21 then cost12, recost12
               else cost21, recost21
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
                       GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
-                          alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+                          alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
                   else 
                       GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
-                          alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+                          alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in               
               cost , recost
     end 
@@ -182,13 +190,13 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in 
-
+    let orientation = Alphabet.get_orientation alpha in
     if len1 < 1 then 0, (0, 0), [med2]
     else if len2 < 1 then 0, (0, 0), [med1] 
     else begin        
         let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
             GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
-                alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular 
+                alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
         in 
     
         let re_seq2 =
@@ -223,10 +231,9 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                       recost1 = recost1;
                       recost2 = recost2}
                  in    
-                 med::med_ls
+               med::med_ls
             ) [] all_order_ls 
         in
-    
         total_cost, (recost1, recost2), med_ls
     end
 
@@ -262,7 +269,7 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
           let med_ls = 
               match swaped with
               | false -> med_ls
-              | true -> List.map swap_med med_ls 
+              | true -> List.map swap_med med_ls
           in 
           cost, recost, med_ls
 

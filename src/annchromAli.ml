@@ -408,7 +408,7 @@ let cmp_simple_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
             GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
-                ali_pam.circular  
+                ali_pam.circular true
         in 
         total_cost, (recost1 + recost2)
     end 
@@ -456,7 +456,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
             GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
-                ali_pam.circular  
+                ali_pam.circular  true
         in 
 
 
@@ -648,19 +648,19 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
 
     let _, _, alied_code1_arr, alied_code1m_arr = 
         GenAli.create_gen_ali_code `Annchrom code1_arr codem_arr cost1_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code2_arr, alied_code2m_arr = 
         GenAli.create_gen_ali_code `Annchrom code2_arr codem_arr cost2_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code3_arr, alied_code3m_arr = 
         GenAli.create_gen_ali_code `Annchrom code3_arr codem_arr cost3_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular
+            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
     let seq_arr = Array.mapi 

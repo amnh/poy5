@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: alphabet.mli 2337 2007-10-16 17:56:32Z andres $ *)
+(* $Id: alphabet.mli 2845 2008-05-14 15:12:35Z vinh $ *)
 (* Alphabet.
 *
 * Description and handling of different kinds of alphabets for the analysis of
@@ -103,6 +103,9 @@ val rnd : a -> (unit -> int)
 (** [size a] gets the size of the alphabet [a]. *)
 val size : a -> int
 
+(** [get_orientation a] gets the orientation of the alphabet [a]. *)
+val get_orientation : a -> bool
+
 (** [get_all a] returns the assigned code to represent all the elements in the
 * alphabet [a]. *)
 val get_all : a -> int option
@@ -125,7 +128,7 @@ val print : a -> unit
 (** [list_to_a l g a k] generate an alphabet using the association
 * list of strings, codes, and optional complements [l], with gap
 code [g] and all code [a], to create * an alphabet of kind [k] *)
-val list_to_a :
+val list_to_a : ?orientation:bool ->
   (string * int * int option) list -> string -> string option -> kind -> a
 
 (** [simplify a] return an alphabet with the following conditions:

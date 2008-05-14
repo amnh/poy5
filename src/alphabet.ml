@@ -17,10 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Alphabet" "$Revision: 2400 $"
+let () = SadmanOutput.register "Alphabet" "$Revision: 2845 $"
 
 
-(* $Id: alphabet.ml 2400 2007-10-24 15:39:36Z andres $ *)
+(* $Id: alphabet.ml 2845 2008-05-14 15:12:35Z vinh $ *)
 
 exception Illegal_Character of string
 exception Illegal_Code of int
@@ -38,6 +38,7 @@ type a = {
     all : int option;
     size : int;
     kind : kind;
+    orientation : bool;
 }
 
 let print alpha = 
@@ -99,7 +100,7 @@ let aa_gap = 21
 let unspecified = 22
 let all_aminoacids = 22
 
-let list_to_a lst gap all kind = 
+let list_to_a ?(orientation=false)  lst gap all kind = 
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
         All_sets.StringMap.add a b s2c,
         (if All_sets.IntegerMap.mem b c2s then c2s
@@ -124,7 +125,7 @@ let list_to_a lst gap all kind =
         | None -> None
     in
     { string_to_code = s2c; code_to_string = c2s; gap = gap_code; all = all_code;
-      size = cnt; kind = kind; complement = cmp }
+      size = cnt; kind = kind; complement = cmp; orientation = orientation }
 
 (* The alphabet limited to the four bases *)
 let dna =
@@ -137,7 +138,7 @@ let dna =
         ("T", timine, Some adenine);
         (gap_repr, gap, Some all);
         ("X", all, Some all)
-    ] gap_repr (Some "X") Simple_Bit_Flags
+    ] gap_repr (Some "X") Simple_Bit_Flags 
 
 (* The alphabet of accepted IUPAC codes (up to N), and other codes used in the
 * POY file format (_ up to |). *)
@@ -185,7 +186,7 @@ let nucleotides =
         ("#", 30, Some (all land (lnot 30)));
         ("*", 31, Some (all));
         ("?", 31, Some (all));
-    ] gap_repr (Some "*") Extended_Bit_Flags
+    ] gap_repr (Some "*") Extended_Bit_Flags 
 
 (* The list of aminoacids *)
 let aminoacids =
@@ -213,7 +214,7 @@ let aminoacids =
         ("V", valine, None); 
         ("X", all_aminoacids, None); 
         (gap_repr, aa_gap, None);
-    ] gap_repr (Some "X") Sequential
+    ] gap_repr (Some "X") Sequential 
 
 let match_base x alph =
     try
@@ -244,10 +245,11 @@ let of_string ?(orientation = false) x gap all =
         | [] -> List.rev alph
     in
     let res = builder [] 1 x in
-    let alpha = list_to_a res gap all Sequential in 
+    let alpha = list_to_a ~orientation:orientation res gap all Sequential in
     alpha
 
 let size a = a.size
+let get_orientation a = a.orientation
 
 let rnd a = 
     fun () ->
@@ -456,8 +458,8 @@ let simplify alph =
                 All_sets.IntegerMap.fold add_those_who_have_it 
                 alph.code_to_string []
             in
-            list_to_a list (find_code gap alph) 
-            (Some (try find_code all alph with _ -> "*")) Simple_Bit_Flags
+            list_to_a ~orientation:alph.orientation list (find_code gap alph) 
+            (Some (try find_code all alph with _ -> "*"))  Simple_Bit_Flags 
 
 let rec to_sequential alph =
     match alph.kind with
@@ -509,7 +511,8 @@ let rec to_sequential alph =
                 size = 
                     All_sets.StringMap.fold (fun _ _ acc -> acc + 1)
                     new_string_to_code 0;
-                    kind = Sequential }
+                    kind = Sequential;
+                    orientation = alph.orientation }
             in
             res
 
@@ -563,7 +566,7 @@ let rec explote alph =
                         if codet <= code then acc else item) h t
                 | [] -> assert false
             in
-            list_to_a new_alphabet gap_repr (Some all_repr) Extended_Bit_Flags
+            list_to_a ~orientation:alph.orientation new_alphabet gap_repr (Some all_repr) Extended_Bit_Flags 
     | Sequential ->
             let new_alphabet =
                 let list = to_list alph in
@@ -573,7 +576,7 @@ let rec explote alph =
                     bit_position := !bit_position lsl 1;
                     str, res, None) list
             in
-            let res = list_to_a new_alphabet gap_repr None Simple_Bit_Flags in
+            let res = list_to_a ~orientation:alph.orientation new_alphabet gap_repr None Simple_Bit_Flags in
             explote res
 
 let distinct_size alph =
