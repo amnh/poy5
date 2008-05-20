@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: charTransform.ml 2669 2008-04-04 17:08:05Z andres $ *)
+(* $Id: charTransform.ml 2865 2008-05-20 02:20:07Z vinh $ *)
 (* Created Fri Jan 13 11:22:18 2006 (Illya Bomash) *)
 
 (** CharTransform implements functions for transforming the set of OTU
@@ -25,7 +25,7 @@
     transformations, and applying a transformation or reverse-transformation to
     a tree. *)
 
-let () = SadmanOutput.register "CharTransform" "$Revision: 2669 $"
+let () = SadmanOutput.register "CharTransform" "$Revision: 2865 $"
 
 let check_assertion_two_nbrs a b c =
     if a <> Tree.get_id b then true
@@ -235,7 +235,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         Status.report st;
         let new_data = 
-            IA.to_static_homologies true filter_characters
+            IA.to_static_homologies "ImpliedAlignment" true filter_characters
             remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
@@ -754,12 +754,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 end
         | [] -> tree
 
-    let process_static_approx remove chars remove_non_informative data filter tree =
-        tree
-        --> 
-            IA.to_static_homologies remove filter_characters remove_non_informative 
-            chars data 
-        --> Data.categorize 
+    let process_static_approx prefix remove chars remove_non_informative data filter tree =
+        IA.to_static_homologies prefix remove 
+        filter_characters remove_non_informative 
+        chars data tree
 
 
     let get_char_codes (chars : Methods.characters)  data =
@@ -886,10 +884,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let _, data = 
                         Sexpr.fold_left (fun (cnt, acc) x ->
                             cnt + 1,
-                            process_static_approx (cnt = len) chars remove_non_informative 
+                            process_static_approx ("ImpliedAlignment" ^
+                            string_of_int cnt) (cnt = len) chars 
+                            remove_non_informative 
                             acc filter_characters x) (1, data) trees
                     in
-                    data --> Data.categorize --> Node.load_data ~taxa:nc 
+                    data --> Data.categorize --> Node.load_data 
                 with
                 | No_trees ->
                         Status.user_message Status.Error
@@ -908,10 +908,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 else ();
                 (try
                     (select_shortest trees)
-                    --> process_static_approx true chars remove_non_informative data
+                    --> process_static_approx "ImpliedAlignment" true chars remove_non_informative data
                     filter_characters 
                     --> Data.categorize
-                    --> Node.load_data ~taxa:nc
+                    --> Node.load_data 
                 with
                 | No_trees ->
                         Status.user_message Status.Error
@@ -924,7 +924,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         failwith "Illegal transform command")
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
-                data 
+                data
                 --> Data.transform_weight m 
                 --> Data.categorize 
                 --> Node.load_data ~taxa:nc
