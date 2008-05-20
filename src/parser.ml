@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2669 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2864 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -1938,6 +1938,7 @@ module OldHennig = struct
                 htb
             in
             { res with used_observed = Do_Unordered used_observed }
+        let rearr_encoding recost = gap_encoding recost
     end
 
    let convert_to_Phylip_format_file hennig_filename phylip_filename = 

@@ -1957,8 +1957,7 @@ let character_spec_to_formatter enc : Tags.output =
             ],
             `Structured `Empty
     | Static enc ->
-            Parser.SC.to_formatter enc
-    | Dynamic dspec ->
+            Parser.SC.to_formatter enc    | Dynamic dspec ->
             Tags.Characters.molecular,
             ( (Tags.Characters.name, dspec.filename) ::
                 (Tags.Characters.fixed_states, dspec.fs) ::
@@ -2025,7 +2024,7 @@ let set_dyna_pam dyna_pam_ls =
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
         | `Circular c -> 
               if c then {dyna_pam with circular = Some 1}
-              else {dyna_pam with circular = None}
+              else {dyna_pam with circular = Some 0}
         | `Locus_Indel_Cost c -> {dyna_pam with locus_indel_cost = Some c}
         | `Chrom_Indel_Cost c -> {dyna_pam with chrom_indel_cost = Some c}
         | `Chrom_Hom c -> {dyna_pam with chrom_hom = Some c}
@@ -3298,23 +3297,23 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
     let tran_code_ls, _ = get_tran_code_meth data meth in 
     let num_ia = ref 0 in  
     let t_ch_ia_map = List.fold_left 
-    ~f:(fun (t_ch_ia_map) ia  ->
+    ~f:(fun (t_ch_ia_map) ia  ->    
         List.fold_left 
-        ~f:(fun t_ch_ia_map (handle_ia, _) ->
+        ~f:(fun t_ch_ia_map ((handle_ia, _), _) ->
             List.fold_left 
             ~f:(fun t_ch_ia_map (t_id, t_ia) ->
                 List.fold_left 
                 ~f:(fun t_ch_ia_map ch_set_ia -> 
                     IntMap.fold  
-                    (fun chcode t_ch_ia t_ch_ia_map ->
-                        num_ia := Array.length t_ch_ia;
-                        FullTupleMap.add (t_id,chcode) t_ch_ia 
-                        t_ch_ia_map) 
-                    ch_set_ia t_ch_ia_map) 
-                ~init:t_ch_ia_map t_ia) 
-            ~init:t_ch_ia_map handle_ia) 
-        ~init:t_ch_ia_map ia) 
-    ~init:FullTupleMap.empty ia_ls  
+                        (fun chcode t_ch_ia t_ch_ia_map ->                   
+                            num_ia := Array.length t_ch_ia;
+                            FullTupleMap.add (t_id,chcode) t_ch_ia 
+                            t_ch_ia_map
+                        ) ch_set_ia t_ch_ia_map
+                    ) ~init:t_ch_ia_map t_ia
+                ) ~init:t_ch_ia_map handle_ia
+            ) ~init:t_ch_ia_map ia
+        ) ~init:FullTupleMap.empty ia_ls  
     in  
     let data = List.fold_left ~f:(fun data char_code ->
         let char_name = Hashtbl.find data.character_codes char_code in

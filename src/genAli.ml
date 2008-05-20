@@ -119,15 +119,20 @@ let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular orientatio
 
               in 
 
-              for pos = 0 to Array.length best_wagner_seq2 do 
+              let len2 = Array.length best_wagner_seq2 in
+              for pos = 0 to len2 do
                   let partial_seq2 = Utl.insert best_wagner_seq2 pos code2 in 
                   update partial_seq2;
 
               done;  
+
+              let subseq2 = Array.sub seq2 0 (len2 + 1) in
+              update subseq2; 
               add !wagner_seq2 added_seq2_ls tl
     in
               
     let wagner_seq2 = add [||] [] (Array.to_list seq2) in  
+
     wagner_seq2
 
 

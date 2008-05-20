@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2454 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2864 $"
 
 let debug = true
 
@@ -111,7 +111,7 @@ closef data to_process =
     headerf ();
     (* This function expects only one element *)
     match to_process with
-    | [all_taxa, _] ->
+    | [(all_taxa, _), _] ->
             let all_taxa = sort_using_tree tree all_taxa in
             let process_each acc (taxcode, sequence) =
                 let name = 
@@ -267,3 +267,4 @@ module Make
 
 
 end
+    

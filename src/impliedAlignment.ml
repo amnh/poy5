@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2845 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2864 $"
 
 exception NotASequence of int
 
@@ -679,6 +679,7 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
     let _, _, med_ls = BreakinvAli.find_med2_ls meda medb cm pure_cm alpha breakinv_pam in
     let med = List.hd med_ls in
 
+
     let seqa_arr = Sequence.to_array a.seq in 
     let re_seqa = Sequence.delete_gap ~gap_code:gap_code med.BreakinvAli.alied_seq1 in
     let new_codes_a = Hashtbl.create 1667 in 
@@ -759,19 +760,30 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         ancestor calculate_median `Breakinv prealigned all_minus_gap isa isb
         acode bcode cm alpha achld bchld
     in
-
-
-    
-
     let recost = BreakinvAli.get_recost breakinv_pam in
     let num_re1 = med.BreakinvAli.recost1 / recost in
     let num_re2 = med.BreakinvAli.recost2 / recost in
     let rea = `Single (num_re1, recost, achld) in 
     let reb = `Single (num_re2, recost, bchld) in
-    let rearrs =  `Set [rea; reb] in
+
+
+    let rearrs = match (num_re1 > 0), (num_re2 > 0) with
+    | true, true ->  `Set [a.rearrs; b.rearrs; rea; reb]
+    | true, false ->  `Set [a.rearrs; b.rearrs; rea]  
+    | false, true ->  `Set [a.rearrs; b.rearrs; reb] 
+    | false, false ->  `Set [a.rearrs; b.rearrs] 
+    in
     let ans = {ans with rearrs = rearrs} in
 
-
+(*
+    let sa = Sequence.to_array a.seq in
+    let sb = Sequence.to_array b.seq in
+    let san = Sequence.to_array ans.seq in
+    fprintf stdout "%i %i\n" num_re1 num_re2;
+    Utl.printIntArr sa;
+    Utl.printIntArr sb;
+    Utl.printIntArr san;
+*)
     let new_codes = Hashtbl.create 1667 in 
     Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
     [|{ans with seq = med.BreakinvAli.seq; codes = new_codes}|]
@@ -1517,6 +1529,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         Array.fold_left 
                             (fun acc y ->  y.indels :: acc) acc arr) x.sequences []) x)) res
         in
+
+        let rearrs = 
+            List.map (fun (_, x) -> 
+                (List.map (fun x -> 
+                    Codes.fold (fun _ arr acc ->
+                        Array.fold_left 
+                            (fun acc y ->  y.rearrs :: acc) acc arr) x.sequences []) x)) res
+        in
+
    (** ((taxon_id * (aligned_code arrays for each character
       set) list (of characters) ) list (of taxa) ) of list (of handles)*)
         let ali = List.map 
@@ -1638,11 +1659,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                  new_a) 
             res  
         in 
-        List.combine ali indel_blocks
-
+        List.combine (List.combine ali indel_blocks) rearrs
 (** End of of_tree function *)
 
-    let post_process_affine_gap_cost subs gapcost gapopening data (enc, taxa)
+    let post_process_affine_gap_cost f data (enc, taxa)
     all_blocks=
         let all_blocks = `Set all_blocks in
         let process_indel (enc, taxa) (loc, string, length, clas, taxa_list) =
@@ -1682,9 +1702,51 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let enc, taxa = Sexpr.fold_left process_indel acc all_blocks in
         Array.of_list enc, List.map (fun (y, x) -> Array.of_list y, x) taxa
 
+
+
+    let post_process_rearr_cost data (enc, taxa) rearrs =
+        let rearrs = `Set rearrs in
+        let process_rearr (enc, taxa) (num_re, recost, taxa_list) =
+            let present_absent_alph = 
+                Alphabet.list_to_a 
+                [("R", 1, None); ("r", 2, None)] 
+                "r" None Alphabet.Sequential
+            in
+            let in_taxa, not_in_taxa = 
+                        Parser.Unordered_Character (1, false), 
+                        Parser.Unordered_Character (2, false)
+            in 
+            let taxa_list : All_sets.Integers.t = 
+                Sexpr.fold_left 
+                (fun acc x -> All_sets.Integers.add x acc) 
+                All_sets.Integers.empty taxa_list
+            in
+            let newenc = 
+                Parser.OldHennig.Encoding.rearr_encoding (num_re * recost)
+            in
+(*
+            fprintf stdout "Re: %i\n" (num_re * recost); flush stdout;
+            Utl.printIntSet taxa_list;  
+            print_newline ();
+*)
+            ((present_absent_alph, newenc) :: enc),
+            List.map (fun (characters, taxon) ->
+                let code = Data.taxon_code taxon data in
+                (if All_sets.Integers.mem code taxa_list then
+                    in_taxa :: characters
+                else not_in_taxa :: characters), taxon) taxa
+        in
+        let acc = Array.to_list enc, 
+        List.map (fun (y, x) -> Array.to_list y, x) taxa 
+        in
+        let enc, taxa = Sexpr.fold_left process_rearr acc rearrs in
+        Array.of_list enc, List.map (fun (y, x) -> Array.of_list y, x) taxa
+
+
+
     let ia_to_parser_compatible data imtx =
         match imtx with
-        | [all_taxa, all_blocks] ->
+        | [(all_taxa, all_blocks), rearrs] ->
               let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
                     let preprocess_sequence alph x =
                         let len = Array.length x in
@@ -1802,10 +1864,23 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     * groups of three whether or not we have a
                                     * gap opening indeed *)
                                     List.fold_left
+<<<<<<< .working
                                     (post_process_affine_gap_cost subs gapcost
                                     gapopening data) arr all_blocks
+=======
+                                    (post_process_affine_gap_cost f data) arr all_blocks
+                            | AllSankoff (Some f) -> 
+                                    List.fold_left 
+                                    (post_process_affine_gap_cost f data) arr
+                                    all_blocks 
+>>>>>>> .merge-right.r2863
                             | _ -> arr
                         in
+
+                        let (a,b) = List.fold_left
+                                    (post_process_rearr_cost data) (a,b) rearrs
+                        in
+
                         a, b, []
                 | [], _, _ -> [||], [], []
                 | _, None, _ -> failwith "How is this possible?")

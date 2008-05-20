@@ -201,6 +201,7 @@ module OldHennig : sig
         val dna_encoding : s
 
         val gap_encoding : int -> s
+        val rearr_encoding : int -> s
 
         val set_unordered : s -> s
 
