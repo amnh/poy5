@@ -146,7 +146,7 @@ let get_recost user_pams =
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
-        let ali_pam = get_breakinv_pam breakinv_pam in     
+    let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in 
     let orientation = Alphabet.get_orientation alpha in
@@ -163,12 +163,6 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
                   GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular  orientation
               in  
-(*
-                 print_endline "Cmp_cost BreakinvAli";
-                 Utl.printIntArr (Sequence.to_array med1.seq);
-                 Utl.printIntArr (Sequence.to_array med2.seq);
-                 fprintf stdout "Costs: %i %i\n" cost12 cost21; flush stdout;
-*)  
             if cost12 <= cost21 then cost12, recost12
               else cost21, recost21
         | false ->

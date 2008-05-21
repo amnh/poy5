@@ -436,6 +436,17 @@ let duplicate data =
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
+(** [get_recost pams] returns the rearrangement cost in [pams] *)
+let get_recost user_pams = 
+    match user_pams.re_meth with
+    | None -> failwith "The rearrangement cost is not specified"
+    | Some re_meth ->
+        match re_meth with
+            | `Locus_Breakpoint c -> c
+            | `Locus_Inversion c -> c
+
+
+
 (*
 let set_sequence_defaults seq_alph data = 
     match seq_alph with

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ChromAli" "$Revision: 2782 $"
+let () = SadmanOutput.register "ChromAli" "$Revision: 2869 $"
 
 (** The implementation of funtions to calculate the cost, alignments and medians
     between chromosomes where both point mutations and rearrangement operations
@@ -93,6 +93,16 @@ let init_med seq =
               } 
     in  
     med
+
+
+let get_recost user_pams = 
+    match user_pams.Data.re_meth with
+    | None -> failwith "The rearrangement cost is not specified"
+    | Some re_meth ->
+        match re_meth with
+            | `Locus_Breakpoint c -> c
+            | `Locus_Inversion c -> c
+
 
 
 (** [clone_seg s] return a fresh clone of segment [s] *)
@@ -689,13 +699,12 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         0, 0, [med]
     end else begin
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
-(*       List.iter Block.print global_map; *)
+
 
         let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
         in
-
 
         let re_gen_seq2 = Utl.filterArray (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
@@ -721,7 +730,11 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                  med::med_ls
             ) all_order_ls []
         in
-        total_cost, recost, med_ls
+(*
+       List.iter Block.print global_map; 
+        fprintf stdout "Total_cost, recost: %i %i\n" total_cost recost; flush stdout;
+*)  
+      total_cost, recost, med_ls
     end 
 
 

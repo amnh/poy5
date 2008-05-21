@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2865 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2869 $"
 
 exception NotASequence of int
 
@@ -45,10 +45,9 @@ type ias = {
           *  t: block type either insertion or deletion
           *  c: children of this subtree *)
           
-    rearrs : (int * int * int Sexpr.t) Sexpr.t;
-              (** (r * c * children) where 
-               * r: the number of rearrangements
-               * c: the rearrangement cost
+    dum_chars : (int * int Sexpr.t) Sexpr.t;
+              (** (c * children) where 
+               * c: the dummy character cost
                * children: children of this subtree  *)
 
     order : int list; (* codes list in reverse order *)
@@ -113,7 +112,7 @@ let create_ias (state : dyna_state_t) s code cg =
     let c = Hashtbl.create 1667
     and h = Hashtbl.create 1667 in
     let c, h, o = Sequence.foldi add_codes (c, h, []) s in
-    { seq = s; codes = c; homologous = h; indels = `Empty; rearrs = `Empty; order = o }
+    { seq = s; codes = c; homologous = h; indels = `Empty; dum_chars = `Empty; order = o }
 
 let rec prepend_until_shared tgt src it = 
     match src with
@@ -428,7 +427,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         initial_hom a.homologous b.homologous a_ord b_ord []
     in
     let order = List.rev order in
-    { seq = anc; codes = codes; homologous = hom; indels = indels; rearrs = `Empty; order = order }
+    { seq = anc; codes = codes; homologous = hom; indels = indels; dum_chars = `Empty; order = order }
 
 
 let assign_act_order sta en codes ord_arr act_ord_arr =
@@ -540,8 +539,11 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                     homologous = Hashtbl.create 1667;
                     order = [];
                     indels = `Empty;
-                    rearrs = `Empty}
+                    dum_chars = `Empty}
     in 
+    
+    let added_locus_indel_cost = ref 0 in 
+    let num_locus_indel = ref 0 in
     let new_ias = List.fold_left 
         (fun nascent_ias seg ->
              let sta = seg.ChromAli.sta in 
@@ -588,10 +590,37 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
 
              Hashtbl.iter (fun code hom -> 
                                Hashtbl.replace nascent_ias.homologous code hom) ans.homologous; 
+ 
+             (if ( (staa = -1) || (stab = -1) ) then begin
+
+                let gap_cost = Sequence.cmp_ali_cost 
+                    seg.ChromAli.alied_seq1 seg.ChromAli.alied_seq2 seg.ChromAli.dir2 cm
+                in 
+
+(*                fprintf stdout "%i -> %i %i\n" (Sequence.length seg.ChromAli.alied_seq1) seg.ChromAli.cost gap_cost; flush stdout; *)
+                incr num_locus_indel;
+                added_locus_indel_cost := !added_locus_indel_cost + (seg.ChromAli.cost-gap_cost);
+             end);
+
              {nascent_ias with order = List.append nascent_ias.order (List.rev ans.order)}
         ) init_ias med.ChromAli.chrom_map
     in 
-    let new_ias = {new_ias with order = List.rev new_ias.order} in 
+
+    
+    let recost1 = med.ChromAli.recost1 in
+    let recost2 = med.ChromAli.recost2 in
+
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    let locus_indel = `Single (!added_locus_indel_cost,  achld) in
+    
+    let dum_chars = ref [a.dum_chars; b.dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+    (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
+
+    let new_ias = {new_ias with order = List.rev new_ias.order;
+                                dum_chars = `Set !dum_chars} in     
 
     [|new_ias|]
 
@@ -633,7 +662,7 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
                     homologous = Hashtbl.create 1667;
                     order = [];
                     indels = `Empty;
-                    rearrs = `Empty}
+                    dum_chars = `Empty}
         in 
         let isb = 
             match ordb = -1 with
@@ -642,7 +671,7 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
             | true -> {seq = seqt.AnnchromAli.alied_seq2;
                        codes = Hashtbl.create 1667;
                        homologous = Hashtbl.create 1667;
-                       order = []; indels = `Empty; rearrs = `Empty}
+                       order = []; indels = `Empty; dum_chars = `Empty}
         in 
         let ans = 
             ancestor calculate_median `Annotated prealigned
@@ -759,30 +788,20 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         ancestor calculate_median `Breakinv prealigned all_minus_gap isa isb
         acode bcode cm alpha achld bchld
     in
-    let recost = BreakinvAli.get_recost breakinv_pam in
-    let num_re1 = med.BreakinvAli.recost1 / recost in
-    let num_re2 = med.BreakinvAli.recost2 / recost in
-    let rea = `Single (num_re1, recost, achld) in 
-    let reb = `Single (num_re2, recost, bchld) in
 
 
-    let rearrs = match (num_re1 > 0), (num_re2 > 0) with
-    | true, true ->  `Set [a.rearrs; b.rearrs; rea; reb]
-    | true, false ->  `Set [a.rearrs; b.rearrs; rea]  
-    | false, true ->  `Set [a.rearrs; b.rearrs; reb] 
-    | false, false ->  `Set [a.rearrs; b.rearrs] 
-    in
-    let ans = {ans with rearrs = rearrs} in
+    let recost1 = med.BreakinvAli.recost1 in
+    let recost2 = med.BreakinvAli.recost2 in
 
-(*
-    let sa = Sequence.to_array a.seq in
-    let sb = Sequence.to_array b.seq in
-    let san = Sequence.to_array ans.seq in
-    fprintf stdout "%i %i\n" num_re1 num_re2;
-    Utl.printIntArr sa;
-    Utl.printIntArr sb;
-    Utl.printIntArr san;
-*)
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    
+    let dum_chars = ref [a.dum_chars; b.dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+
+    let ans = {ans with dum_chars = `Set !dum_chars} in
+
     let new_codes = Hashtbl.create 1667 in 
     Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
     [|{ans with seq = med.BreakinvAli.seq; codes = new_codes}|]
@@ -837,7 +856,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
              let init_ias = {seq = chrom.GenomeAli.seq; 
                              codes = Hashtbl.create 1667;
                              homologous = Hashtbl.create 1667;
-                             indels = `Empty; rearrs = `Empty;
+                             indels = `Empty; dum_chars = `Empty;
                              order = []}
              in 
              let main_idx1 = id_to_index chrom.GenomeAli.main_chrom1_id med1 in 
@@ -892,7 +911,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord1_arr);                                  
                            homologous = hom1;
                             indels = `Empty;
-                            rearrs = `Empty
+                            dum_chars = `Empty
                         }  
                        in 
                        let sub2 = {
@@ -901,7 +920,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord2_arr);                                  
                            homologous = hom2;
                             indels = `Empty;
-                            rearrs = `Empty
+                            dum_chars = `Empty
                        }  
                        in  
                        let ans_ias = 
@@ -1608,12 +1627,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             (fun acc y ->  y.indels :: acc) acc arr) x.sequences []) x)) res
         in
 
-        let rearrs = 
+        let dum_chars = 
             List.map (fun (_, x) -> 
                 (List.map (fun x -> 
                     Codes.fold (fun _ arr acc ->
                         Array.fold_left 
-                            (fun acc y ->  y.rearrs :: acc) acc arr) x.sequences []) x)) res
+                            (fun acc y ->  y.dum_chars :: acc) acc arr) x.sequences []) x)) res
         in
 
    (** ((taxon_id * (aligned_code arrays for each character
@@ -1737,7 +1756,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                  new_a) 
             res  
         in 
-        List.combine (List.combine ali indel_blocks) rearrs
+        List.combine (List.combine ali indel_blocks) dum_chars
 (** End of of_tree function *)
 
 
@@ -1783,9 +1802,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
 
 
-    let post_process_rearr_cost data (enc, taxa) rearrs =
-        let rearrs = `Set rearrs in
-        let process_rearr (enc, taxa) (num_re, recost, taxa_list) =
+    let post_process_dum_cost data (enc, taxa) dum_chars =
+        let dum_chars = `Set dum_chars in
+        let process_rearr (enc, taxa) (dum_cost, taxa_list) =
             let present_absent_alph = 
                 Alphabet.list_to_a 
                 [("R", 1, None); ("r", 2, None)] 
@@ -1801,13 +1820,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 All_sets.Integers.empty taxa_list
             in
             let newenc = 
-                Parser.OldHennig.Encoding.rearr_encoding (num_re * recost)
+                Parser.OldHennig.Encoding.rearr_encoding (dum_cost)
             in
-(*
-            fprintf stdout "Re: %i\n" (num_re * recost); flush stdout;
-            Utl.printIntSet taxa_list;  
-            print_newline ();
-*)
             ((present_absent_alph, newenc) :: enc),
             List.map (fun (characters, taxon) ->
                 let code = Data.taxon_code taxon data in
@@ -1818,14 +1832,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let acc = Array.to_list enc, 
         List.map (fun (y, x) -> Array.to_list y, x) taxa 
         in
-        let enc, taxa = Sexpr.fold_left process_rearr acc rearrs in
+        let enc, taxa = Sexpr.fold_left process_rearr acc dum_chars in
         Array.of_list enc, List.map (fun (y, x) -> Array.of_list y, x) taxa
 
 
 
     let ia_to_parser_compatible data imtx =
         match imtx with
-        | [(all_taxa, all_blocks), rearrs] ->
+        | [(all_taxa, all_blocks), dum_chars] ->
               let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
                     let preprocess_sequence alph x =
                         let len = Array.length x in
@@ -1965,7 +1979,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         in
 
                         let (a,b) = List.fold_left
-                                    (post_process_rearr_cost data) (a,b) rearrs
+                                    (post_process_dum_cost data) (a,b) dum_chars
                         in
 
                         a, b, []

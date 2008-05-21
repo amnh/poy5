@@ -37,7 +37,7 @@ type ias = {
     Sexpr.t; 
         (* The location and contents of an insertion block *)
     
-     rearrs : (int * int * int Sexpr.t) Sexpr.t;
+     dum_chars : (int * int Sexpr.t) Sexpr.t;
 
     order : int list; (* The order of the codes stored in homologous *)
 }
