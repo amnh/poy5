@@ -499,9 +499,9 @@ ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
 kolmoExtension.cmo: kolmoExtension.ml
-	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+	$(OCAMLC) -g -pp 'camlp4orf pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmoExtension.cmx: kolmoExtension.ml
-	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+	$(OCAMLOPT) -g -pp 'camlp4orf pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 poyExtension.cmo: kolmoExtension.cmo poyExtension.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
 kolmo.cmo: kolmoExtension.cmo parser.cmo kolmo.ml
