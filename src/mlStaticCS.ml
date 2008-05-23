@@ -287,7 +287,7 @@ let of_parser spec characters =
         | Parser.SC.GTR coeff -> 
                 mname := "GTR";
                 (m_gtr priors coeff a_size, coeff)
-        | _ -> failwith ("I don't support this likelihood model") in
+    in
     (* diagonalize to get factored probability matrix --submat is destroyed *)
     let (u_,d_,ui_) = 
         let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in

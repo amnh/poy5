@@ -153,19 +153,19 @@ module OneDirF :
         Node.Standard.get_dynamic x (force_val n)
 
     let get_mlstatic x n =
-        Node.Standard.get_mlstatic x (Lazy.force_val n)
+        Node.Standard.get_mlstatic x (force_val n)
 
     let median code my_code old a b = 
         lazy_from_fun 
         (fun () -> apply_f_on_lazy 
         (Node.Standard.median None my_code None) a b)
 
-    let extract_time x nd = Node.Standard.extract_time x (Lazy.force_val nd)
+    let extract_time x nd = Node.Standard.extract_time x (force_val nd)
 
     let edge_iterator nd1 nd2 nd3 = 
-        let a1,a2,a3 = Node.Standard.edge_iterator  (Lazy.force_val nd1)
-                                                    (Lazy.force_val nd2)
-                                                    (Lazy.force_val nd3)
+        let a1,a2,a3 = Node.Standard.edge_iterator  (force_val nd1)
+                                                    (force_val nd2)
+                                                    (force_val nd3)
         in (to_n a1,to_n a2,to_n a3)
 
     let median_3 x par cur a b = 
@@ -466,9 +466,9 @@ type nad8 = Node.Standard.nad8 = struct
         match n1.unadjusted,n2.unadjusted,n3.unadjusted with
         | d1::[],d2::[],d3::[] -> 
             let a1,a2,a3 = Node.Standard.edge_iterator
-                                        (Lazy.force_val d1.lazy_node) 
-                                        (Lazy.force_val d2.lazy_node)
-                                        (Lazy.force_val d3.lazy_node) in
+                                        (force_val d1.lazy_node) 
+                                        (force_val d2.lazy_node)
+                                        (force_val d3.lazy_node) in
             (to_n a1,to_n a2,to_n a3) 
         | _ -> failwith("edge iterator, to many or no adjusted")
 

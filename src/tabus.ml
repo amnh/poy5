@@ -2038,8 +2038,6 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let simple_nm_leaves side ptree = new nm_simple_leaves side ptree
     (* complete the below node managers *)
 
-<<<<<<< .mine
-=======
     let add_to_banned_list neigh1 neigh2 b1 b2 map_of_banned tree =
         let add_to_map_banned a neigh1 b1 b2 map_of_banned =
             Tree.EdgeMap.add (Tree.Edge (a, neigh1)) 
@@ -2061,7 +2059,6 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         --> add_one_direction neigh1 neigh2
         --> add_one_direction neigh2 neigh1
 
->>>>>>> .r2871
     let total_banned_size map =
         Tree.EdgeMap.fold (fun _ set acc ->
             acc + (Tree.EdgeSet.cardinal set)) map 0

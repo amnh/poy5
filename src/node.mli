@@ -216,10 +216,4 @@ val total_cost_of_type :
 val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
-<<<<<<< .mine
-=======
-
-val cost_mode : [`Likelihood | `Parsimony] ref 
-
 val median_counter : int ref
->>>>>>> .r2871

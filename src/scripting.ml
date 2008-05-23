@@ -1445,7 +1445,8 @@ END
             let build_cost = get_cost nrun in
             let prev_time = Timer.wall timer in
             let nrun = 
-                exec nrun (CPOY swap (tbr, timeout:[remaining_time ()]))
+                let r = CPOY swap (tbr, timeout:[remaining_time ()]) in
+                exec nrun r
             in
             let search_time = (Timer.wall timer) -. prev_time in
             let do_perturb = build_cost = get_cost nrun in
@@ -2276,8 +2277,8 @@ END
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
             let sets = 
-                let m = TreeSearch.get_join_tabu meth in
-                TreeSearch.sets m run.data run.trees 
+                let `LocalOptimum m = meth in
+                TreeSearch.sets m.Methods.tabu_join run.data run.trees 
             in
             let do_search run =
             match is_forest meth with
@@ -3006,12 +3007,7 @@ let set_console_run r = console_run_val := r
             let res = 
                 let optarg = 
                     let neigh = `ChainNeighborhoods neigh in
-<<<<<<< .mine
                     { PoyCommand.swap_default with Methods.ss = neigh }
-=======
-                    (neigh, 0.0, 1, `Last, [], None, `BestFirst,
-                    `DistanceSorted false, `UnionBased None, `Bfs None, [])
->>>>>>> .r2871
                 in
                 PTS.find_local_optimum 
                 ~base_sampler:sampler data (Sampler.create ()) 

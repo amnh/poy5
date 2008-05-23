@@ -359,8 +359,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     let prepared_trees = Sexpr.map mapper !trees in
                     let set = 
                         let prepared_trees = Sexpr.map snd prepared_trees in
-                        let tabu = TreeSearch.get_join_tabu search_method in
-                        TreeSearch.sets tabu data prepared_trees 
+                        let `LocalOptimum tabu = search_method in
+                        TreeSearch.sets tabu.Methods.tabu_join data 
+                        prepared_trees 
                     in
                     let new_optimal = 
                         let f = TS.find_local_optimum in

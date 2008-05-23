@@ -610,7 +610,6 @@ let transform_build_arguments x =
     (x, y, List.rev z)
 
 (* Swapping *)
-<<<<<<< .mine
 let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.threshold = 0.0;
                     Methods.num_keep = 1;  
@@ -618,7 +617,7 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.cc = [];     
                     Methods.oo = None;  
                     Methods.tm = `BestFirst;
-                    Methods.tabu_break = `DistanceSorted;
+                    Methods.tabu_break = `DistanceSorted false;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
                     Methods.tabu_nodes = `Null;
@@ -627,34 +626,6 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
 let swap_default_none = { swap_default with Methods.ss = `None }
 
 let transform_swap l_opt (param : swapa) = match param with
-=======
-let swap_default = (`ChainNeighborhoods `Tbr,
-                    0.0,                (* threshold *)
-                    1,                  (* trees to keep *)
-                    `Last,              (* keep method *)
-                    [],                 (* cost calc list *)
-                    None,               (* forest search *)
-                    `BestFirst,         (* traject. strategy *)
-                    `DistanceSorted false,    (* Tabu break *)
-                    `UnionBased None,     (* Tabu join *)
-                    `Bfs None,          (* Tabu reroot *)
-                    [])                 (* What should be sampled along the
-                                        search *)
-let swap_default_none = (`None,
-                         0.0,
-                         1,
-                         `Last,
-                         [],
-                         None,
-                         `BestFirst,
-                         `DistanceSorted false,
-                         `UnionBased None, 
-                         `Bfs None,
-                         [])               
-let transform_swap (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-join_tabu, reroot_tabu, samples)
-        (param : swapa) = match param with
->>>>>>> .r2871
     | `Threshold thres ->
         { l_opt with Methods.threshold=thres }
     | `Trees keep ->

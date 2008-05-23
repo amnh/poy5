@@ -2522,6 +2522,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 USEWIN32=false
 # System dependent options
 case `../gnu/config.guess` in
@@ -7148,7 +7149,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 69; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 70; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

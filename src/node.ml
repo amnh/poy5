@@ -1525,14 +1525,11 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-<<<<<<< .mine
-=======
         let add_codes ((_, x) as y) = y, Array.map snd (Array.of_list x) in
         let laddcode = List.map add_codes laddcode 
         and lnadd8code = List.map add_codes lnadd8code
         and lnadd16code = List.map add_codes lnadd16code
         and lnadd32code = List.map add_codes lnadd32code in
->>>>>>> .r2871
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -1571,10 +1568,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             (Data.Stat (code, Some states), `Unknown)
         in
-<<<<<<< .mine
-=======
         current_snapshot "Done";
->>>>>>> .r2871
         !data, 
         fun tcode acc ->
             current_snapshot "Generating taxon";
@@ -1920,18 +1914,13 @@ let load_data ?(silent=true) ?(classify=true) data =
             | [] -> `Parsimony
             | _ -> `Likelihood
         in
-<<<<<<< .mine
-        generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-        static_ml data cost_mode
-=======
         current_snapshot "end nonadd set2";
         let r = 
             generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
-            static_ml data
+            static_ml data cost_mode
         in
         current_snapshot "end generate taxon";
         r
->>>>>>> .r2871
     in
     let nodes = 
         let ntaxa = 
@@ -3171,9 +3160,7 @@ module Standard :
         let get_add _ = get_add
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
-<<<<<<< .mine
         let get_mlstatic _ = get_mlstatic
-=======
         let compare a b = 
             let rec aux_cmt a b =
                 match a, b with
@@ -3241,7 +3228,6 @@ module Standard :
             aux_cmt a.characters b.characters
 
         let force x = x
->>>>>>> .r2871
 end 
 
 let merge a b =

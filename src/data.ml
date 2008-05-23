@@ -2996,22 +2996,19 @@ let compute_priors data chars u_gap =
             match cs with
             | Stat (_, None) ->
                     when_no_data_is_loaded priors inverse size
-            | Stat (_, (Some lst)) when (List.hd lst = gap_char) && not u_gap ->
-                    for i = 0 to size - 1 do
-                        priors.(i) <- priors.(i) +. inverse
-                    done
             | Stat (_, (Some lst)) -> 
                     (let lst = 
                         match lst with
                         | `List x -> x
                         | `Bits x -> BitSet.to_list x
                     in
-                    match lst with
-                    | [] -> when_no_data_is_loaded priors inverse size
-                    | lst ->
-                            let inverse = 1. /. (float_of_int (List.length lst)) in
-                            List.iter (fun x -> priors.(x) <- priors.(x) +.
-                            inverse) lst)
+                    if ((List.exists (fun x -> x = gap_char) lst) && 
+                        not u_gap) || (lst = []) then
+                        when_no_data_is_loaded priors inverse size
+                    else
+                        let inverse = 1. /. (float_of_int (List.length lst)) in
+                        List.iter (fun x -> priors.(x) <- priors.(x) +.
+                        inverse) lst)
             | _ -> failwith "Data.compute_priors"
         in
         List.iter adder chars

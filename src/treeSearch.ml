@@ -129,17 +129,8 @@ let sets_of_parser data tree =
     let sets, _ = process tree All_sets.IntSet.empty in
     sets
 
-<<<<<<< .mine
 let sets meth data trees = 
-    let `LocalOptimum (meth) = meth in
-    match meth.Methods.tabu_join with
-=======
-let get_join_tabu (`LocalOptimum (_, _, _, _, _, _, _, _, join_tabu, _, _)) =
-    join_tabu
-
-let sets join_tabu data trees = 
-    match join_tabu with
->>>>>>> .r2871
+    match meth with
     | `Partition options ->
         (match 
             List.fold_left (fun acc x -> 
@@ -528,17 +519,13 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
 
     (* let `LocalOptimum
             (search_space, th, max, keep, cost_calculation, origin, 
-<<<<<<< .mine
             trajectory, break_tabu, join_tabu, reroot_tabu, nodes_tabu, samples)
             = meth in *)
     let `LocalOptimum (l_opt) = meth in
     let samplerf = sampler base_sampler data emergency_queue l_opt.Methods.samples in
-=======
-            trajectory, break_tabu, join_tabu, reroot_tabu, samples)
-            = meth in
     let sets =
         try
-            match join_tabu with
+            match l_opt.Methods.tabu_join with
             | `Partition opts -> 
                     (match 
                         List.find (function `Sets _ -> true | _ -> false)
@@ -550,8 +537,6 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         with
         | Not_found -> sets
     in
-    let samplerf = sampler base_sampler data emergency_queue samples in
->>>>>>> .r2871
     let queue_manager =
         match queue with
         | Some
@@ -583,7 +568,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                             a b (samplerf ())
     in
     let partition_for_other_tabus =
-        match join_tabu with
+        match l_opt.Methods.tabu_join with
         | `Partition [] -> 
                 Some (`Sets (Lazy.force sets))
                 (* TMP
@@ -683,9 +668,10 @@ let forest_search data queue origin_cost search trees =
             trees in
 
     let trees = 
-        let tabu = get_join_tabu search in
-        find_local_optimum data queue trees (sets tabu data trees) search in
-
+        let `LocalOptimum s = search in
+        find_local_optimum data queue trees 
+        (sets s.Methods.tabu_join data trees) search
+    in 
     (* TBR joins *)
     let trees = Sexpr.map_status "TBR joining trees" forest_joins trees in
 

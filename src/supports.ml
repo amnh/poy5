@@ -267,8 +267,8 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
         in
         let perturbed = B.build_initial_trees trees data new_otus build in
         let set = 
-            let tabu = TreeSearch.get_join_tabu search in
-            TreeSearch.sets tabu data perturbed 
+            let `LocalOptimum tabu = search in
+            TreeSearch.sets tabu.Methods.tabu_join data perturbed 
         in
         let res_trees = 
             PTS.find_local_optimum data queue perturbed set search 
@@ -376,8 +376,9 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
                         let x = 
                             let x = CT.substitute_nodes nodes x in
                             let set = 
-                                let tabu = TreeSearch.get_join_tabu search in
-                                TreeSearch.sets tabu data (`Single x) 
+                                let `LocalOptimum tabu = search in
+                                TreeSearch.sets tabu.Methods.tabu_join 
+                                data (`Single x) 
                             in
                             PTS.find_local_optimum data queue (`Single x) set search 
                         in
@@ -512,8 +513,8 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
         in
         Status.full_report ~msg:"Performing neighborhood search" status;
         let set = 
-            let tabu = TreeSearch.get_join_tabu search in
-            TreeSearch.sets tabu data (`Single tree') in
+            let `LocalOptimum tabu = search in
+            TreeSearch.sets tabu.Methods.tabu_join data (`Single tree') in
         let _ = 
             PTS.find_local_optimum ~queue data emergency_queue (`Single
             tree') set search in
