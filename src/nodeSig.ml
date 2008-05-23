@@ -258,7 +258,7 @@ module type S = sig
     val for_support : 
         int -> (int * n) list -> int list -> int list -> n list
 
-    val root_cost : n -> float    
+    val root_cost : n -> float
     val to_single : n option -> int option -> n -> int option -> n -> n
     val character_costs : int option -> n -> ([`NonAdd | `Add | `Sank] * int * float) list
     (* The following group of functions return the preliminary and final
@@ -274,11 +274,10 @@ module type S = sig
 
     (* Map all the internal codes of a node using the function *)
     val recode : (int -> int) -> n -> n
-<<<<<<< .mine
     (* extract times from characters *)
     val extract_time : int option -> n -> float list
-=======
     val to_other : n -> other_n
+
+    val edge_iterator : n -> n -> n -> n * n * n
     val force : n -> n
->>>>>>> .r2871
 end

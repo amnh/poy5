@@ -1,5 +1,5 @@
 (* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* Copyright (C) 2007  Andrï¿½s Varï¿½n, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -625,11 +625,8 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         in
         let iterfn =
             match l_opt.Methods.tabu_nodes with
-            | `Null -> PhyloTabus.simple_nm_none (*
-             * | `Randomized -> PhyloTabus.
-             * | `LongestFirst -> PhyloTabus.
-             * | `... 
-             * *)
+            | `Null -> PhyloTabus.simple_nm_none 
+            | `Leaves -> PhyloTabus.simple_nm_leaves
         in
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
@@ -873,7 +870,7 @@ module Make
                 | None -> new Sampler.do_nothing
                 | Some x -> x 
             in
-            match Data.has_dynamic data, queue with
+        match  Data.has_likelihood data || Data.has_dynamic data, queue with
             | true, None -> 
                     DH.find_local_optimum ~base_sampler:sampler data b trees d e
             | true, Some queue -> 

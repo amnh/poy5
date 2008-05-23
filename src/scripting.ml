@@ -2815,7 +2815,7 @@ END
                 run
             | `Save (fn, comment) ->
                 (try
-                    PoyFile.store_file (comment, run, get_cost_mode ()) fn;
+                    PoyFile.store_file (comment, run, !Methods.cost) fn;
                     run
                 with
                 | err ->
@@ -2828,7 +2828,7 @@ END
             | `Load fn ->
                 (try 
                     let (comment, run, cost_mode)  = PoyFile.read_file fn in
-                    assign_cost_mode cost_mode;
+                    Methods.cost := cost_mode;
                     let descr = 
                         match comment with
                         | None -> "No description available."
