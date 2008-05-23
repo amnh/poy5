@@ -47,6 +47,23 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 let _loc = Ast.loc_of_expr x in
                 <:expr< [$x$ :: $exSem_of_list xs$] >> 
 
+    let rec exSemCom_of_list = function
+        | [] -> 
+                let _loc = Loc.ghost in
+                <:expr<[]>>
+        | [`S x] -> 
+                let _loc = Ast.loc_of_expr x in
+                <:expr< [$x$]>>
+        | [`L x] -> 
+                let _loc = Ast.loc_of_expr x in
+                <:expr< $x$>>
+        | (`S x) :: xs ->
+                let _loc = Ast.loc_of_expr x in
+                <:expr< [$x$ :: $exSemCom_of_list xs$] >> 
+        | (`L x) :: xs ->
+                let _loc = Ast.loc_of_expr x in
+                <:expr< $x$ @ $exSemCom_of_list xs$ >> 
+
     let handle_optional x = 
         let _loc = Loc.ghost in
         match x with
@@ -56,37 +73,34 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
     EXTEND Gram
         GLOBAL: expr_poy;
         expr_poy: [ [ 
-            x = LIST1 [a = transform -> a 
-                    | a = fuse -> a 
-                    | a = calculate_support -> a 
-                    | a = report -> a 
-                    | a = select -> a 
-                    | a = perturb -> a 
-                    | a = swap -> a 
-                    | a = build -> a 
-                    | a = application_command -> a 
-                    | x = read -> x 
-                    | x = rename -> x ]
+            x = LIST1 [a = transform -> `S a 
+                    | a = fuse -> `S a 
+                    | a = calculate_support -> `S a 
+                    | a = report -> `S a 
+                    | a = select -> `S a 
+                    | a = perturb -> `S a 
+                    | a = swap -> `S a 
+                    | a = build -> `S a 
+                    | a = application_command -> `S a 
+                    | x = read -> `S x 
+                    | x = rename -> `S x
+                    | x = search -> `S x
+                    | x = cur_expr -> `L x ]
         -> x] ];
         (* Application commands *)
         cur_expr: [[ "["; x = expr; "]" -> x ]];
         (* Transforming taxa or characters *)
         setting:
             [
-                [ LIDENT "history"; ":"; x = INT -> <:expr<`HistorySize $int:x$>> ] |
-                [ LIDENT "history"; ":"; x = cur_expr -> <:expr<`HistorySize $x$>> ] |
-                [ LIDENT "log"; ":"; x = STRING -> <:expr<`Logfile (Some $str:x$)>> ] |
-                [ LIDENT "log"; ":"; x = cur_expr -> <:expr<`Logfile (Some
-                $x$)>> ]  |
+                [ LIDENT "timer"; ":"; x = flex_integer -> <:expr<`TimerInterval $x$>> ] |
+                [ LIDENT "history"; ":"; x = flex_integer -> <:expr<`HistorySize $x$>> ] |
+                [ LIDENT "log"; ":"; x = flex_string -> <:expr<`Logfile (Some $x$)>> ] |
                 [ LIDENT "nolog" -> <:expr<`Logfile None>> ] |
-                [ LIDENT "seed"; ":"; x = INT -> <:expr<`SetSeed (int_of_string
-                $int:x$)>> ] |
-                [ LIDENT "seed"; ":"; x = cur_expr -> 
-                        <:expr<`SetSeed (int_of_string $x$)>> ] |
-                [ LIDENT "root"; ":"; x = STRING -> <:expr<`RootName $str:x$>> ] |
-                [ LIDENT "root"; ":"; x = cur_expr -> <:expr<`RootName $x$>> ] |
-                [ LIDENT "exhaustive_do" -> <:expr<`Exact>> ] |
+                [ LIDENT "seed"; ":"; x = flex_integer -> <:expr<`SetSeed $x$>> ] |
+                [ LIDENT "root"; ":"; x = flex_string -> <:expr<`RootName $x$>> ] |
+                [ LIDENT "exhaustive_do" -> <:expr<`Exhaustive_Weak>> ] |
                 [ LIDENT "iterative" -> <:expr<`Iterative>> ] |
+                [ LIDENT "normal_do_plus" -> <:expr<`Normal_plus_Vitamines>> ] |
                 [ LIDENT "normal_do" -> <:expr<`Normal>> ]
             ];
         application_command:
@@ -258,12 +272,13 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`UnionBased $handle_optional x$>> ]|
                 [ LIDENT "all"; x = OPT optional_integer -> <:expr<`AllBased
                 $handle_optional x$>> ] |
-                [ LIDENT "constraint"; ":"; x = flex_integer ->
+                [ LIDENT "constraint_p" -> <:expr<`Partition []>> ] |
+                [ LIDENT "constraint_p"; ":"; x = flex_integer ->
                     <:expr<`Partition [`MaxDepth $x$]>> ] |
-                [ LIDENT "constraint"; ":"; left_parenthesis; 
+                [ LIDENT "sets"; ":"; x = cur_expr -> <:expr<`Partition [`Sets $x$]>> ] |
+                [ LIDENT "constraint_p"; ":"; left_parenthesis; 
                     x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis
-                    -> <:expr<`Partition $exSem_of_list x$>> ] |
-                [ LIDENT "constraint" -> <:expr<`Partition []>> ]
+                    -> <:expr<`Partition $exSem_of_list x$>> ]
             ];
         build_argument:
             [
@@ -353,6 +368,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         boolean: 
             [
+                [ x = cur_expr -> <:expr<$x$>> ] |
                 [ LIDENT "true" -> <:expr<$str:"True"$>> ] |   
                 [ LIDENT "false" -> <:expr<$str:"False"$>> ]    
             ];
@@ -413,7 +429,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [
                 [ x = flex_string -> <:expr<`File $x$>> ] |
                 [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
-                    <:expr<`Ascii $handle_optional y$>> ] |
+                    match y with
+                    | None -> <:expr<`Ascii False>> 
+                    | Some x -> <:expr<`Ascii $x$>> ] |
                 [ LIDENT "memory" -> <:expr<`Memory>> ] | 
                 [ LIDENT "graphtrees" -> <:expr<`Graph True>> ] |
                 [ LIDENT "trees"; x = OPT tree_information_list -> 
@@ -489,6 +507,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 = flex_integer; ")" -> <:expr<`Gap ($x$, $y$)>> ] |
                 [ LIDENT "tcm"; ":";  x = flex_string -> <:expr<`Tcm $x$>> ] |
                 [ LIDENT "fixed_states" -> <:expr<`Fixed_States>> ] |
+                [ LIDENT "direct_optimization" -> <:expr<`Direct_Optimization>> ] |
                 [ LIDENT "gap_opening"; ":"; x = flex_integer -> <:expr<`AffGap $x$>> ] |
                 [ LIDENT "static_approx"; x = OPT informative_characters -> 
                     match x with 
@@ -523,12 +542,42 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> 
                             <:expr<`AnnchromToBreakinv $exSem_of_list x$>> ] | 
-
                 [ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> 
                             <:expr<`ChangeDynPam $exSem_of_list x$>> ] | 
                 [ LIDENT "chrom_to_seq" -> <:expr<`ChromToSeq []>> ] |
                 [ LIDENT "breakinv_to_custom" -> <:expr<`BreakinvToSeq []>> ] 
+            ];
+        time:
+            [
+                [ days = flex_float; ":"; hours = flex_float; ":";
+                minutes = flex_float ->
+                    <:expr<(((($days$) *. 60. *. 60. *. 24.) +.
+                    (($hours$) *. 60. *. 60.) +.
+                    (($minutes$) *. 60. )))>> ] 
+            ];
+        memory:
+            [
+                [ "gb"; ":"; x = flex_float -> 
+                    <:expr<int_of_float ($x$ *. 1000. *. 1000. *. 1000. /. (float_of_int
+                    (Sys.word_size / 8)))>> ] |
+                [ "mb"; ":"; x = flex_float ->
+                    <:expr<int_of_float ($x$ *. 1000. *. 1000. /. (float_of_int
+                    (Sys.word_size / 8)))>> ]
+            ];
+        std_search_argument:
+            [   
+                [ LIDENT "memory"; ":"; x = memory -> <:expr<`MaxRam $x$>> ] |
+                [ LIDENT "hits"; ":"; x = flex_float -> <:expr<`MinHits $x$>> ] |
+                [ LIDENT "target_cost"; ":"; x = flex_float -> <:expr<`Target $x$>> ] |
+                [ LIDENT "max_time"; ":"; x = time -> <:expr<`MaxTime $x$>> ] |
+                [ LIDENT "min_time"; ":"; x = time -> <:expr<`MinTime $x$>> ]
+            ];
+        search:
+            [
+                [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
+                    std_search_argument -> x ] SEP ",";  right_parenthesis ->
+                    <:expr<`StandardSearch $exSem_of_list a$>>] 
             ];
         neg_integer_or_float:
             [
@@ -706,13 +755,11 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ x = swap_method -> x ] |
                 [ x = keep_method -> x ] |
                 [ x = threshold_and_trees -> x ] |
-                (*
                 [ x = cost_calculation -> x ] |
-                *)
                 [ LIDENT "forest"; a = OPT optional_integer_or_float -> 
                     match a with
-                    | None -> <:expr<$flo:"0."$>>
-                    | Some a -> a ] |
+                    | None -> <:expr<`Forest $flo:"0."$>>
+                    | Some a -> <:expr<`Forest $a$>> ] |
                 [ a = trajectory_method -> a ] |
                 [ a = break_method -> a ] |
                 [ a = reroot_method -> a ] |
@@ -773,8 +820,11 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         break_method:
             [
-                [ LIDENT "randomized" -> <:expr<`Randomized>> ] |
-                [ LIDENT "distance" -> <:expr<`DistanceSorted>> ] |
+                [ LIDENT "randomized" -> <:expr<`Randomized>>] |
+                [ LIDENT "distance"; x = OPT optional_boolean -> 
+                    match x with
+                    | None -> <:expr<`DistanceSorted False>>
+                    | Some x -> <:expr<`DistanceSorted $x$>>] |
                 [ LIDENT "once" -> <:expr<`OnlyOnce>> ]
             ];
         constraint_options:
@@ -803,14 +853,13 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
 
     EXTEND Gram
     Syntax.expr : LEVEL "top" [
-        [ "(%"; s = expr_poy; "%)" -> <:expr<PoyCommand.of_parsed False $exSem_of_list s$>> ] |
-        [ "|%"; s = expr_poy; "%|" -> <:expr<PoyCommand.of_parsed True $exSem_of_list s$>> ] |
-        [ "OPOY"; s = expr_poy -> 
-            <:expr<Phylo.parsed_run (PoyCommand.of_parsed True $exSem_of_list s$)>>
-        ] |
+        [ "CPOY"; s = expr_poy -> exSemCom_of_list s ] |
         [ "POY"; s = expr_poy -> 
-            <:expr<Phylo.parsed_run (PoyCommand.of_parsed False $exSem_of_list s$)>>
-        ] |
+            <:expr<Phylo.parsed_run (PoyCommand.of_parsed True 
+            $exSemCom_of_list s$)>> ] |
+        [ "NPOY"; s = expr_poy -> 
+            <:expr<Phylo.parsed_run (PoyCommand.of_parsed False
+            $exSemCom_of_list s$)>> ] |
         [ "GPOY" -> <:expr<Phylo.get_console_run ()>> ] 
     ];
     END;;

@@ -468,8 +468,6 @@ module Fingerprint : sig
     type t
     val fingerprint : ('a, 'b) p_tree -> t
     val compare : t -> t -> int
-    val to_string : t -> string
-    val empty : t
     end
 
 (** [assign_root_to_connected_component h n ec ac t] assigns a root to a

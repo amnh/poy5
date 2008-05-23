@@ -207,8 +207,6 @@ module Fingerprint : sig
     type t
     val fingerprint : u_tree -> t
     val compare : t -> t -> int
-    val to_string : t -> string
-    val empty : t
 end
 
 (** [CladeFP] implements fingerprinting of clades.  All clades with the same

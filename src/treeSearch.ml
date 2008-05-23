@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 (** [TreeSearch] contains high-level functions to perform tree searches *) 
-let () = SadmanOutput.register "TreeSearch" "$Revision: 2669 $"
+let () = SadmanOutput.register "TreeSearch" "$Revision: 2871 $"
 
 let has_something something (`LocalOptimum (cost_calculation)) =
     let cost_calculation = cost_calculation.Methods.cc in
@@ -129,9 +129,17 @@ let sets_of_parser data tree =
     let sets, _ = process tree All_sets.IntSet.empty in
     sets
 
+<<<<<<< .mine
 let sets meth data trees = 
     let `LocalOptimum (meth) = meth in
     match meth.Methods.tabu_join with
+=======
+let get_join_tabu (`LocalOptimum (_, _, _, _, _, _, _, _, join_tabu, _, _)) =
+    join_tabu
+
+let sets join_tabu data trees = 
+    match join_tabu with
+>>>>>>> .r2871
     | `Partition options ->
         (match 
             List.fold_left (fun acc x -> 
@@ -195,7 +203,7 @@ module MakeNormal
             in
             let output tree =
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter false true tree);
+                Status.user_message fo (AsciiTree.for_formatter true true tree);
                 Status.user_message fo ("[" ^ cost ^ "]");
                 Status.user_message fo "@]@," in
             List.iter output tree
@@ -215,9 +223,11 @@ module MakeNormal
         let report_tree_len = 
             List.exists (function `Total -> true | _ -> false) ic
         in
+        (*
         let newick = 
             (List.exists (function `Newick -> true | _ -> false) ic)
         in
+        *)
         let collapse =
             List.exists (function `Collapse x -> x | _ -> false) ic
         in
@@ -245,7 +255,8 @@ module MakeNormal
                     Status.user_message fo "@,*@,"
                 else is_first := false;
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter newick leafsonly tree);
+                Status.user_message fo (AsciiTree.for_formatter (not
+                use_hennig_style) leafsonly tree);
                 if leafsonly && report_tree_len then
                     Status.user_message fo ("[" ^ cost ^ "]");
                 if not use_hennig_style then
@@ -517,10 +528,30 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
 
     (* let `LocalOptimum
             (search_space, th, max, keep, cost_calculation, origin, 
+<<<<<<< .mine
             trajectory, break_tabu, join_tabu, reroot_tabu, nodes_tabu, samples)
             = meth in *)
     let `LocalOptimum (l_opt) = meth in
     let samplerf = sampler base_sampler data emergency_queue l_opt.Methods.samples in
+=======
+            trajectory, break_tabu, join_tabu, reroot_tabu, samples)
+            = meth in
+    let sets =
+        try
+            match join_tabu with
+            | `Partition opts -> 
+                    (match 
+                        List.find (function `Sets _ -> true | _ -> false)
+                        opts
+                    with
+                    | `Sets x -> x
+                    | _ -> assert false)
+            | _ -> sets
+        with
+        | Not_found -> sets
+    in
+    let samplerf = sampler base_sampler data emergency_queue samples in
+>>>>>>> .r2871
     let queue_manager =
         match queue with
         | Some
@@ -551,6 +582,15 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                             new PhyloQueues.classic_poy_drifting_srch_mgr 1 `Last
                             a b (samplerf ())
     in
+    let partition_for_other_tabus =
+        match join_tabu with
+        | `Partition [] -> 
+                Some (`Sets (Lazy.force sets))
+                (* TMP
+                Some (`Height 2)
+                *)
+        | _ -> None
+    in
     let tabu_manager ptree = 
         let get_depth = function
             | None -> max_int 
@@ -559,7 +599,8 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         let breakfn =
             match l_opt.Methods.tabu_break with
             | `Randomized -> PhyloTabus.random_break
-            | `DistanceSorted -> PhyloTabus.sorted_break
+            | `DistanceSorted early -> 
+                    PhyloTabus.sorted_break early partition_for_other_tabus
             | `OnlyOnce -> PhyloTabus.only_once_break
         in
         let joinfn =
@@ -576,7 +617,11 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                             | _ -> acc)
                         None options
                     in
-                    PhyloTabus.partitioned_join (Lazy.force sets) (get_depth depth)
+                    PhyloTabus.partitioned_join (`Sets (Lazy.force sets)) 
+                    (get_depth depth)
+                    (* TMP 
+                    PhyloTabus.partitioned_join (`Height 4) (get_depth depth)
+                    *)
         in
         let iterfn =
             match l_opt.Methods.tabu_nodes with
@@ -589,7 +634,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
             | `Bfs depth ->
-                    PhyloTabus.reroot (get_depth depth)
+                    PhyloTabus.reroot partition_for_other_tabus (get_depth depth)
         in
         new PhyloTabus.standard_tabu ptree joinfn rerootfn breakfn iterfn
     in
@@ -611,8 +656,10 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                 try
                     let res = (search_fn queue_manager)#results in
                     List.map (fun (a, _, _) ->
-                        let a = PtreeSearch.uppass a in
-                        (a, Ptree.get_cost `Adjusted a)) res
+                        if a.Ptree.tree <> tree.Ptree.tree then
+                            let a = PtreeSearch.uppass a in
+                            (a, Ptree.get_cost `Adjusted a)
+                        else (a, Ptree.get_cost `Adjusted a)) res
                 with
                 | Methods.TimedOut -> [(tree, Ptree.get_cost `Adjusted tree)]
             in
@@ -638,7 +685,9 @@ let forest_search data queue origin_cost search trees =
             (forest_break_search_tree origin_cost)
             trees in
 
-    let trees = find_local_optimum data queue trees (sets search data trees) search in
+    let trees = 
+        let tabu = get_join_tabu search in
+        find_local_optimum data queue trees (sets tabu data trees) search in
 
     (* TBR joins *)
     let trees = Sexpr.map_status "TBR joining trees" forest_joins trees in
@@ -680,19 +729,24 @@ let forest_search data queue origin_cost search trees =
         | `Uniform -> (fun _ -> 1.)
         in
         let keep_method = `Best in
+        let max_code, cntr = 
+            All_sets.IntegerMap.fold (fun code _ (acc, cnt) -> 
+                Pervasives.max code acc, cnt + 1)
+            data.Data.taxon_codes (0, 0)
+        in
         (* TODO: take only best of these *)
         let process t = Sexpr.to_list (find_local_optimum data queue
         (Sexpr.singleton t) (sets_of_consensus trees) local_optimum) in
         let trees = 
             PtreeSearch.fuse_generations
             (Sexpr.to_list trees)
-            data.Data.number_of_taxa
+            max_code
             max_trees
             weighting
             keep_method
             iterations
             process
-            (min, max)
+            (min, Pervasives.min (cntr - 3) max)
         in
         Sadman.finish [];
         Sexpr.of_list trees
@@ -748,7 +802,7 @@ let forest_search data queue origin_cost search trees =
             Status.user_message fo "@[<v>";
             Status.user_message fo 
             ("@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
-            Status.user_message fo (AsciiTree.for_formatter false false res);
+            Status.user_message fo (AsciiTree.for_formatter true false res);
             Status.user_message fo "@]@]\n%!";
         end else
             match filename with
@@ -765,7 +819,7 @@ let forest_search data queue origin_cost search trees =
 end
 
 module Make
-    (NodeH : NodeSig.S) 
+    (NodeH : NodeSig.S with type other_n = Node.Standard.n) 
     (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
     (TreeOpsH : 
             Ptree.Tree_Operations with 
@@ -789,6 +843,18 @@ module Make
     let forest_break_search_tree = DH.forest_break_search_tree
     let diagnose = DH.diagnose
 
+    let collect_nodes data trees =
+        let tree = Sexpr.first trees in
+        let aux_collect key node taxaacc = 
+            match node with
+            | Tree.Single _ | Tree.Leaf _ -> 
+                    (Ptree.get_node_data key tree) :: taxaacc
+            | _ -> taxaacc
+        in
+        let nodes = All_sets.IntegerMap.fold aux_collect 
+            tree.Ptree.tree.Tree.u_topo [] in
+        nodes, List.map NodeH.to_other nodes
+
     let replace_contents downpass uppass get_code nodes ptree =
         let nt = { Ptree.empty with Ptree.tree = ptree.Ptree.tree } in
         uppass (downpass 
@@ -800,46 +866,49 @@ module Make
     let from_h_to_s = replace_contents TOS.downpass TOS.uppass NodeS.taxon_code
 
     let find_local_optimum ?base_sampler ?queue data b trees d e =
-        let sampler = 
-            match base_sampler with
-            | None -> new Sampler.do_nothing
-            | Some x -> x 
-        in
-        match Data.has_dynamic data, queue with
-        | true, None -> DH.find_local_optimum ~base_sampler:sampler data b trees d e
-        | true, Some queue -> 
-                DH.find_local_optimum ~base_sampler:sampler ~queue data b trees d e
-        | false, queue ->
-                let data, nodes = NodeS.load_data data in
-                let trees = Sexpr.map (from_h_to_s nodes) trees in
-                let trees = 
-                    match queue with
-                    | None -> SH.find_local_optimum data b trees d e
-                    | Some queue -> 
-                            SH.find_local_optimum ~queue data b trees d e
-                in
-                let data, nodes = NodeH.load_data data in
-                Sexpr.map (from_s_to_h nodes) trees
+        if 0 = Sexpr.length trees then trees
+        else
+            let sampler =
+                match base_sampler with
+                | None -> new Sampler.do_nothing
+                | Some x -> x 
+            in
+            match Data.has_dynamic data, queue with
+            | true, None -> 
+                    DH.find_local_optimum ~base_sampler:sampler data b trees d e
+            | true, Some queue -> 
+                    DH.find_local_optimum ~base_sampler:sampler ~queue data b 
+                    trees d e
+            | false, queue ->
+                    let nodeh, nodes = collect_nodes data trees in
+                    let trees = Sexpr.map (from_h_to_s nodes) trees in
+                    let trees = 
+                        match queue with
+                        | None -> SH.find_local_optimum data b trees d e
+                        | Some queue -> 
+                                SH.find_local_optimum ~queue data b trees d e
+                    in
+                    Sexpr.map (from_s_to_h nodeh) trees
 
     let forest_search data b c d trees =
-        if Data.has_dynamic data then
-            DH.forest_search data b c d trees 
+        if 0 = Sexpr.length trees then trees
         else
-            let data, nodes = NodeS.load_data data in
-            let trees = Sexpr.map (from_h_to_s nodes) trees in
-            let trees = SH.forest_search data b c d trees in
-            let data, nodes = NodeH.load_data data  in
-            Sexpr.map (from_s_to_h nodes) trees
+            if Data.has_dynamic data then
+                DH.forest_search data b c d trees 
+            else
+                let nodeh, nodes = collect_nodes data trees in
+                let trees = Sexpr.map (from_h_to_s nodes) trees in
+                let trees = SH.forest_search data b c d trees in
+                Sexpr.map (from_s_to_h nodeh) trees
 
     let fusing data a trees b =
         if Data.has_dynamic data then
             DH.fusing data a trees b
         else
-            let data, nodes = NodeS.load_data data in
+            let nodeh, nodes = collect_nodes data trees in
             let trees = Sexpr.map (from_h_to_s nodes) trees in
             let trees = SH.fusing data a trees b in
-            let data, nodes = NodeH.load_data data in
-            Sexpr.map (from_s_to_h nodes) trees
+            Sexpr.map (from_s_to_h nodeh) trees
 
 
     let output_consensus = DH.output_consensus

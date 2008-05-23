@@ -17,12 +17,9 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Main" "$Revision: 2671 $"
+let () = SadmanOutput.register "Main" "$Revision: 2871 $"
 
-(* $Id: main.ml 2671 2008-04-04 17:23:20Z andres $ *)
-
-
-let () = Random.self_init ()
+(* $Id: main.ml 2871 2008-05-23 17:48:34Z andres $ *)
 
 let seed = truncate (Unix.time ())
 
@@ -38,13 +35,12 @@ let () =
 ELSE
 
 let args =
-    let _ = Phylo.process_random_seed_set (Phylo.empty ()) seed in
     (* TODO: Fix the arguments preprocessing *)
     Sys.argv
 
 END
 
-let () = SadmanOutput.register "Main" "$Revision: 2671 $"
+let () = SadmanOutput.register "Main" "$Revision: 2871 $"
 
 let () = Status.init ()
 
@@ -59,7 +55,6 @@ let () =
     Random.init 0;
     let out = Status.user_message Status.Information in
     let rephrase str = Str.global_replace (Str.regexp " +") "@ " str in
-    out Version.string;
     out "";
     out "";
     out "";
@@ -273,7 +268,7 @@ END
         | err when !Arguments.just_exit ->
                 let msg = StatusCommon.escape (Printexc.to_string err) in
                 Status.user_message Status.Error msg;
-                exit 1
+                raise err
     in
 IFDEF USEPARALLEL THEN
     if 0 = my_rank then

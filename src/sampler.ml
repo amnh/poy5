@@ -56,7 +56,6 @@ class ['a, 'b] do_nothing : ['a, 'b] search_manager_sampler = object
     method clone = ({<>} :> ('a, 'b) search_manager_sampler)
     method process _ _ _ _ _ _ _ _ = 
         StatusCommon.process_parallel_messages Status.user_message
-
     method any_trees _ = ()
     method next_tree _  = ()
     method evaluate _ = ()

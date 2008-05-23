@@ -17,11 +17,11 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: supports.ml 2669 2008-04-04 17:08:05Z andres $ *)
+(* $Id: supports.ml 2871 2008-05-23 17:48:34Z andres $ *)
 (* Created Tue Jan 31 16:39:25 2006 (Illya Bomash) *)
-let () = SadmanOutput.register "Support" "$Revision: 2669 $"
+let () = SadmanOutput.register "Support" "$Revision: 2871 $"
 
-let infinity = float_of_int max_int
+let infinity = float_of_int (max_int / 4)
 
 module type S = sig
         type a 
@@ -64,7 +64,7 @@ val bremer_of_input_file_but_trust_input_cost : int ->
 end
 (** support.ml *)
 
-module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
+module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.EdgeSig with type n = Node.n) 
     (TreeOps : 
         Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) = struct
         type a = Node.n
@@ -253,10 +253,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     "TODO: The only resamples supported are Bootstrap and
                     Jackknife"
         in
-        let data, new_otus = 
-            Node.load_data ~taxa:(List.map Node.taxon_code
-            otus) new_data 
-        in
+        let data, new_otus = Node.load_data new_data in
         let trees = 
             let node_data = 
                 List.fold_left (fun acc x ->
@@ -269,7 +266,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     { x with Ptree.node_data = node_data })) trees
         in
         let perturbed = B.build_initial_trees trees data new_otus build in
-        let set = TreeSearch.sets search data perturbed in
+        let set = 
+            let tabu = TreeSearch.get_join_tabu search in
+            TreeSearch.sets tabu data perturbed 
+        in
         let res_trees = 
             PTS.find_local_optimum data queue perturbed set search 
         in
@@ -375,7 +375,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     Sexpr.fold_left (fun acc x ->
                         let x = 
                             let x = CT.substitute_nodes nodes x in
-                            let set = TreeSearch.sets search data (`Single x) in
+                            let set = 
+                                let tabu = TreeSearch.get_join_tabu search in
+                                TreeSearch.sets tabu data (`Single x) 
+                            in
                             PTS.find_local_optimum data queue (`Single x) set search 
                         in
                         Sexpr.fold_left (fun acc x ->
@@ -419,7 +422,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                   let cost =
                       try 
                           let res = (List.assoc id alist) in
-                          if res >= infinity then Pervasives.infinity
+                          if res >= (infinity /. 2.) then Pervasives.infinity
                           else res -. tree_cost
                       with Not_found ->
                           Pervasives.infinity in
@@ -508,7 +511,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             status, nbhood_count, orig_cost')
         in
         Status.full_report ~msg:"Performing neighborhood search" status;
-        let set = TreeSearch.sets search data (`Single tree') in
+        let set = 
+            let tabu = TreeSearch.get_join_tabu search in
+            TreeSearch.sets tabu data (`Single tree') in
         let _ = 
             PTS.find_local_optimum ~queue data emergency_queue (`Single
             tree') set search in
@@ -721,7 +726,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
 end
 
-module Make (NodeH : NodeSig.S) (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
+module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
     (TreeOpsH : 
         Ptree.Tree_Operations with type a = NodeH.n with type b = EdgeH.e) = struct
 

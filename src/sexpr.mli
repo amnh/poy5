@@ -75,6 +75,8 @@ val nth : int -> 'a t -> 'a
 
 val filter : ('b -> bool) -> 'b t -> 'b t
 
+val split : ('b -> bool) -> 'b t -> ('b t * 'b t)
+
 val combine : 'a t * 'b t -> ('a * 'b t) t
 
 val full_combine : 'a t * 'b t -> ('a * 'b) t

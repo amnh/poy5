@@ -79,7 +79,7 @@ type t =
     | GenomeCS of GenomeCS.t
 
 
-type u = U_SeqCS of SeqCS.u | U_Others
+type u = U_SeqCS of SeqCS.Union.u | U_Others
 val failwith_todo : string -> 'a
 
 (** [total_cost a] returns the total cost to create
@@ -117,10 +117,8 @@ val code : t -> int
 val leaf_sequences : t -> Sequence.s array SeqCS.Codes.t
 
 (** [unions a] returns the union of dynamic character set [a] *)
-val unions : u -> Sequence.Unions.u SeqCS.Codes.t
+val unions : u -> Sequence.Unions.u option SeqCS.Codes.t
 
-val reprioritize : t -> t -> t
-val prioritize : t -> t
 val to_union : t -> u
 val union : t -> u -> u -> u
 val cardinal_union : u -> int
@@ -142,7 +140,7 @@ val of_list :
 
 (** [median a b] creates the median set between dynamic 
 * character sets [a] and [b] *)
-val median : t -> t -> t
+val median : int -> t -> t -> t
 
 (** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state
  * which is closest to [p] among those available in [n]. Useful for tree length

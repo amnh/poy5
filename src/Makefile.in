@@ -29,6 +29,7 @@ LIBS = -cclib "@LIBS@"
 INSTALL = @INSTALL@
 
 USEPARALLEL := @USEPARALLEL@
+USE_LARGE_MESSAGES := @USE_LARGE_MESSAGES@
 USEWIN32 := @USEWIN32@
 USE_LONG_SEQUENCES := @USE_LONG_SEQUENCES@
 USE_LARGE_ALPHABETS := @USE_LARGE_ALPHABETS@
@@ -40,13 +41,14 @@ USE_LIKELIHOOD := @USE_LIKELIHOOD@
 USE_VERIFY_COSTS := @USE_VERIFY_COSTS@
 OCAML := @OCAML@
 OCAMLC := @OCAMLC@
-OCAMLOPT := @OCAMLOPT@ @OCAMLFLAGS@
+OCAMLOPT := @OCAMLOPT@ 
 OCAMLDEP := @OCAMLDEP@
 OCAMLTOP := @OCAMLTOP@
 OCAMLLEX := @OCAMLLEX@
 OCAMLYACC := @OCAMLYACC@
 SVNVERSION := @SVNVERSION@ -n ./
 EXTRAS := @EXTRAS@
+OFLAGS := @OCAMLFLAGS@ 
 
 INCLUDE = `$(OCAMLC) -where`
 export DEPEND = .depend
@@ -122,6 +124,7 @@ else
 endif
 
 PREPROCESSOR = -pp 'camlp4of pa_extend.cmo kolmoExtension.cmo'
+PREPROCESSOR_EXTENSION = -pp 'camlp4orf pa_extend.cmo poyExtension.cmo'
 
 
 # Encapsulate all the options
@@ -130,6 +133,10 @@ ifeq ($(USEPARALLEL), true)
 ifeq ($(USENOSHAREDHD), true)
 	DEFOPTS := $(DEFOPTS) -DUSENOSHAREDHD
 endif
+endif
+
+ifeq ($(USE_LARGE_MESSAGES), true)
+	DEFOPTS := $(DEFOPTS) -DUSE_LARGE_MESSAGES
 endif
 
 ifeq ($(USE_LONG_SEQUENCES), true)
@@ -161,7 +168,7 @@ ifeq ($(USEWIN32), true)
 	DEFOPTS := $(DEFOPTS) -DUSEWIN32
 endif
 
-OPTIONSPREPROCESSOR := -pp 'camlp4orf $(DEFOPTS)'
+OPTIONSPREPROCESSOR := -pp 'camlp4orf poyExtension.cmo $(DEFOPTS)'
 
 
 SUBDIRS = grappa graphps
@@ -216,7 +223,7 @@ else
 endif
 endif
 
-TREE = enum.cmo bitSet.cmo tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
+TREE = tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	graphps/graphps.cmo $(TREEOUTPUT) ptree.cmo searchInformation.cmo \
 	chartree.cmo sparceMatrix.cmo unionTree.cmo allDirChar.cmo sampler.cmo \
 	queues.cmo tabus.cmo treeSearch.cmo impliedAlignment.cmo charTransform.cmo \
@@ -237,8 +244,8 @@ ifneq ($(USEWIN32), true)
 	GETRUSAGE := getrusage.o
 endif
 
-BASE_OBJS :=  memProfiler.cmo $(READLINE) sleep.o timer.cmo $(GETRUSAGE) \
-	compileFlags.cmo buildNumber.cmo \
+BASE_OBJS :=  memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) sleep.o \
+	timer.cmo $(GETRUSAGE) compileFlags.cmo buildNumber.cmo \
 	version.cmo sadmanlib.cma $(INTERFACE) \
 	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
 	array_ops.cmo $(PARSER) distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) \
@@ -335,7 +342,11 @@ status_html.cma: status.cmi statusCommon.cmo status_html.ml
 	$(OCAMLC) -custom -g -a -o $@ statusCommon.cmo status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
-status_flat.cma: statusCommon.cmo status.cmi status_flat.ml
+status.cmo: status.ml
+	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo status.ml \
+	$(MKLIBOPT)  $(CCOPT) $(PROFILE)
+
+status_flat.cma: poyExtension.cmo statusCommon.cmo status.cmi status_flat.ml
 	cp status_flat.ml status.ml
 	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo status.ml \
 	$(MKLIBOPT)  $(CCOPT) $(PROFILE)
@@ -367,7 +378,11 @@ status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
 	$(OCAMLOPT) -a -o $@ statusCommon.cmx status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
-status_flat.cmxa: status.cmi statusCommon.cmx status_flat.ml
+status.cmx:
+	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml $(MKLIBOPT) \
+	$(CCOPT) $(PROFILE)
+
+status_flat.cmxa: poyExtension.cmo status.cmi statusCommon.cmx status_flat.ml
 	cp status_flat.ml status.ml
 	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
@@ -394,7 +409,7 @@ parsers.cmxa : ${PARSER:.cmo=.cmx}
 	$(OCAMLOPT) -a -o $@ $^ $(MKLIBOPT) $(CCOPT) $(PROFILE)
 
 trees.cmxa : $(CHARACTER:.cmo=.cmx)  ${TREE:.cmo=.cmx}
-	$(OCAMLOPT) $(OCAML_INCLUDES) -a -o $@ $(MKLIBOPT) $(CCOPT) ${TREE:.cmo=.cmx} $(PROFILE)
+	$(OCAMLOPT) $(OFLAGS) $(OCAML_INCLUDES) -a -o $@ $(MKLIBOPT) $(CCOPT) ${TREE:.cmo=.cmx} $(PROFILE)
 
 sadmanlib.cmxa: $(SADMAN:.cmo=.cmx)
 	$(OCAMLOPT) -a -o $@ $^ $(MKLIBOPT) $(CCOPT) $(PROFILE)
@@ -420,7 +435,7 @@ parser.cmo: fileStream.cmo parser.cmi parser.ml
 	$(OCAMLC) $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) parser.ml
 
 parser.cmx: fileStream.cmx parser.ml 
-	$(OCAMLOPT) $(OCAML_INCLUDES:-unsafe=) -c parser.ml $(PROFILE:-unsafe=) $(CCOPT:-unsafe)
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c parser.ml $(PROFILE:-unsafe=) $(CCOPT:-unsafe)
 
 status.cma status.cmxa: ./config.log
 
@@ -458,12 +473,12 @@ add.o: memstack.o
 help.txt: compileFlags.cmx sadmanOutput.cmx statusCommon.cmx \
 	fileStream.cmx latex.ml ../doc/allcommands.tex
 ifeq ($(USEPARALLEL), true)
-	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
 	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml \
 	$(LDFLAGS) $(LIBS)
 else 
-	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
 	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml $(LIBS)
 endif
@@ -483,12 +498,18 @@ help.html: help.txt ocaml-str helpRead.ml
 ocaml-str:
 	$(OCAMLC) str.cma helpRead.ml -o ocaml-str
 # Poy Parser needs to be preprocessed and remove the unsafe option
+<<<<<<< .mine
 kolmoExtension.cmo: kolmoExtension.ml
 	$(OCAMLC) -g -pp 'camlp4of pa_extend.cmo' $(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
 kolmoExtension.cmx: kolmoExtension.ml
 	$(OCAMLOPT) -g -pp 'camlp4of pa_extend.cmo'$(OCAML_INCLUDES:-unsafe=) -c kolmoExtension.ml
+=======
+poyParser.cmo: poyParser.ml
+	ocamlc $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c $<
+>>>>>>> .r2871
 poyExtension.cmo: poyExtension.ml
-	ocamlc -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
+	ocamlc $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
+<<<<<<< .mine
 kolmo.cmo: kolmoExtension.cmo parser.cmo kolmo.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c kolmo.ml
 kolmo.cmx: kolmoExtension.cmo parser.cmo kolmo.ml
@@ -500,55 +521,67 @@ poyCommand.cmo: kolmoExtension.cmo commandLexer.cmo poyCommand.ml
 poyParser.cmx: kolmoExtension.cmo poyParser.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyParser.ml
 poyCommand.cmx: kolmoExtension.cmo commandLexer.cmx poyCommand.ml
-	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyCommand.ml
+=======
+poyCommand.cmo: commandLexer.cmo poyCommand.ml
+	ocamlc $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyCommand.ml
+poyParser.cmx: poyParser.ml
+	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c $<
+poyCommand.cmx: commandLexer.cmx poyCommand.ml
+>>>>>>> .r2871
+	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c poyCommand.ml
+<<<<<<< .mine
 poyParser.cma: kolmoExtension.cmo poyParser.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) poyParser.ml
+=======
+poyParser.cma: poyParser.ml
+	$(OCAMLC) $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) $<
+>>>>>>> .r2871
 status_gtk2.cmo: status_gtk2.ml
-	$(OCAMLC) -g -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
-main.cmo: arguments.cmo phylo.cmo main.ml
-	$(OCAMLC) -g $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) main.ml
-main.cmx: arguments.cmx phylo.cmx main.ml
-	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c main.ml
+	$(OCAMLC) -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
+main.cmo: poyExtension.cmo arguments.cmo phylo.cmo main.ml
+	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) main.ml
+main.cmx: poyExtension.cmo arguments.cmx phylo.cmx main.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c main.ml
 sadmanOutput.cmo: sadmanOutput.cmi sadmanOutput.ml
-	$(OCAMLC) -g $(OCAML_INCLUDES) -c $(DEBUG) sadmanOutput.ml
+	$(OCAMLC) $(OCAML_INCLUDES) -c $(DEBUG) sadmanOutput.ml
 sadmanOutput.cmx: sadmanOutput.cmi sadmanOutput.ml
-	$(OCAMLOPT) $(OCAML_INCLUDES) -c sadmanOutput.ml
-sequence.cmi: matrix.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi sequence.mli
+	$(OCAMLOPT) $(OFLAGS) $(OCAML_INCLUDES) -c sadmanOutput.ml
+sequence.cmi: poyExtension.cmo matrix.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi sequence.mli
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) sequence.mli
-sequence.cmo: sadmanOutput.cmi matrix.cmi fingerPrint.cmi cost_matrix.cmi \
+sequence.cmo: poyExtension.cmo sadmanOutput.cmi matrix.cmi fingerPrint.cmi cost_matrix.cmi \
     alphabet.cmi all_sets.cmi sequence.cmi sequence.ml
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) sequence.ml
-sequence.cmx: sadmanOutput.cmx matrix.cmx fingerPrint.cmx cost_matrix.cmx \
+sequence.cmx: poyExtension.cmo sadmanOutput.cmx matrix.cmx fingerPrint.cmx cost_matrix.cmx \
     alphabet.cmx all_sets.cmx sequence.cmi sequence.ml
-	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c sequence.ml
-seqCS.cmo: tags.cmo status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c sequence.ml
+seqCS.cmo: poyExtension.cmo tags.cmo status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
     intSpec.cmi data.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi seqCS.ml
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) seqCS.ml
-seqCS.cmx: tags.cmx status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
+seqCS.cmx: poyExtension.cmo tags.cmx status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
     intSpec.cmi data.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi seqCS.ml
-	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c seqCS.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c seqCS.ml
 node.cmi: node.mli
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.mli
 node.cmo: node.cmi node.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.ml
 node.cmx: node.cmi node.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c node.ml
-scripting.cmo: scripting.cmi scripting.ml
+scripting.cmo: poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) scripting.ml
-scripting.cmx: scripting.cmi scripting.ml
-	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c scripting.ml
-timer.cmo: timer.cmi timer.ml
+scripting.cmx: poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c scripting.ml
+timer.cmo: poyExtension.cmo timer.cmi timer.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) timer.ml
-timer.cmx: timer.cmi timer.ml
-	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c timer.ml
-fileStream.cmo: fileStream.ml
+timer.cmx: poyExtension.cmo timer.cmi timer.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c timer.ml
+fileStream.cmo: poyExtension.cmo fileStream.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) fileStream.ml
-fileStream.cmx: fileStream.ml
-	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c fileStream.ml
-statusCommon.cmo: statusCommon.ml
+fileStream.cmx: poyExtension.cmo fileStream.ml
+	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c fileStream.ml
+statusCommon.cmo: poyExtension.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
-statusCommon.cmx: statusCommon.ml
-	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c statusCommon.ml
+statusCommon.cmx: poyExtension.cmo statusCommon.ml
+	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
 
 
 # Generics for all the builds
@@ -559,7 +592,11 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStre
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
+<<<<<<< .mine
 .depend: kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+=======
+.depend: poyExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+>>>>>>> .r2871
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
@@ -608,7 +645,7 @@ nexusLexer.ml: nexus.cmo nexusParser.cmi nexusLexer.mll
 	$(OCAMLC) -I +camlp4 $(OCAML_INCLUDES) -c $(DEBUG) $<
 
 .ml.cmx:
-	$(OCAMLOPT) $(OCAML_INCLUDES) $(CCOPT) -c $< $(PROFILE)
+	$(OCAMLOPT) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c $< $(PROFILE)
 
 .mli.cmi:
 	$(OCAMLC) $(OCAML_INCLUDES) $(DEBUG) $<
@@ -636,13 +673,13 @@ endif
 
 poy: $(MAIN_OBJS_OPT)
 ifeq ($(USEPARALLEL), true)
-	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) $(EXTRAS) -cclib -L./grappa \
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -cclib -L./grappa \
 	-cclib -L./graphps -cclib -L./ \
 	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
 	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 else
-	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
@@ -650,7 +687,7 @@ else
 endif
 
 poy_test: $(TEST_OBJS_OPT)
-	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib \
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy_test \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \

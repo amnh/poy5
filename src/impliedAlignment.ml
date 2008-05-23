@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2869 $"
+let () = SadmanOutput.register "ImpliedAlignment" "$Revision: 2871 $"
 
 exception NotASequence of int
 
@@ -1759,8 +1759,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         List.combine (List.combine ali indel_blocks) dum_chars
 (** End of of_tree function *)
 
-
-
     let post_process_affine_gap_cost f data (enc, taxa)
     all_blocks=
         let all_blocks = `Set all_blocks in
@@ -1974,7 +1972,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             | AllSankoff (Some f) -> 
                                     List.fold_left 
                                     (post_process_affine_gap_cost f data) arr
-                                    all_blocks 
+                                    all_blocks
                             | _ -> arr
                         in
 

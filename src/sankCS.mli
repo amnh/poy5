@@ -54,7 +54,7 @@ val make_sank : int -> cm -> (int * int list) list -> t
         the element and the list of observed states. *)
 
 (** {2 Output and other functions} *)
-val of_parser : cm -> ((int list option * int) array * int) -> int -> t * int
+val of_parser : cm -> ((Parser.SC.static_state * int) array * int) -> int -> t * int
 
 val print_tcm : cm -> unit              (** prints to standard output *)
 
@@ -73,6 +73,6 @@ val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output lis
 
 val get_all_possible_assignments : int list option list -> int list list 
 
-val min_possible_cost : int array array -> int list option list -> float
+val min_possible_cost : int array array -> Parser.SC.static_state list -> float
 
-val max_possible_cost : int array array -> int list option list -> float
+val max_possible_cost : int array array -> Parser.SC.static_state list -> float

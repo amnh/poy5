@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "StatusCommon" "$Revision: 2681 $"
+let () = SadmanOutput.register "StatusCommon" "$Revision: 2871 $"
 
 (* The common files for all the status interfaces. *)
 
@@ -41,13 +41,12 @@ module CommandCompletion = struct
         "_unionstats";
         "all";
         "all_roots";
-        "alternate";
         "alphabetic_terminals";
+        "alternate";
         "aminoacids";
         "annchrom_to_breakinv";
         "annealing";
         "annotated";
-        "med_approx";
         "around";
         "as_is";
         "asciitrees" ;
@@ -61,7 +60,6 @@ module CommandCompletion = struct
         "branch_and_bound";
         "breakinv";
         "breakinv_to_custom";
-        "locus_breakpoint";
         "bremer";
         "build";
         "calculate_support";
@@ -85,9 +83,11 @@ module CommandCompletion = struct
         "cross_references";
         "current_neighborhood";
         "custom_alphabet";
+        "custom_to_breakinv";
         "data";
         "depth";
         "diagnosis";
+        "direct_optimization";
         "distance";
         "drifting";
         "dynamic";
@@ -101,10 +101,11 @@ module CommandCompletion = struct
         "file";
         "files";
         "first";
-        "fixedstates";
+        "fixed_states";
         "forest";
         "fuse";
         "gap_opening";
+        "gb";
         "genome";
         "graphconsensus";
         "graphsupports";
@@ -112,25 +113,33 @@ module CommandCompletion = struct
         "help";
         "hennig";
         "history";
+        "hits";
         "ia";
         "implied_alignments";
         "individual";
         "info";
         "init3D";
         "inspect";
-        "locus_inversion";
         "iterations";
         "iterative";
         "jackknife";
         "keep";
         "last";
         "load";
+        "locus_breakpoint";
         "locus_indel";
+        "locus_inversion";
         "log";
         "m";
         "margin";
+        "max_time";
+        "mb";
+        "med_approx";
         "median";
         "memory";
+        "min_loci_len";
+        "min_rearrangement_len";
+        "min_time";
         "missing";
         "multi_static_approx";
         "names";
@@ -140,6 +149,7 @@ module CommandCompletion = struct
         "nolog";
         "nomargin";
         "normal_do";
+        "normal_do_plus";
         "not";
         "nucleotides";
         "of_file";
@@ -159,7 +169,6 @@ module CommandCompletion = struct
         "randomized";
         "ratchet";
         "read";
-        "min_rearrangement_len";
         "recover";
         "rediagnose";
         "redraw";
@@ -180,12 +189,10 @@ module CommandCompletion = struct
         "seed";
         "seed_length";
         "select";
-        "custom_to_breakinv";
-        "seq_to_chrom";
         "seq_stats";
+        "seq_to_chrom";
         "sequence_partition";
         "set";
-        "min_loci_len";
         "spr";
         "static";
         "static_approx";
@@ -194,6 +201,7 @@ module CommandCompletion = struct
         "swap";
         "swap_med";
         "synonymize";
+        "target_cost";
         "tbr";
         "tcm";
         "td";

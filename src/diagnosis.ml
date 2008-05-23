@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Diagnosis" "$Revision: 2864 $"
+let () = SadmanOutput.register "Diagnosis" "$Revision: 2871 $"
 
 let debug = true
 
@@ -187,7 +187,7 @@ module type S = sig
 end
 
 module Make 
-    (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
+    (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.EdgeSig with type n = Node.n) 
     (TreeOps : 
         Ptree.Tree_Operations 
                         with type a = Node.n with type b = Edge.e) = struct

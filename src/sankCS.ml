@@ -28,39 +28,41 @@
  * handle unrooted trees for this kind of operations (remember the tree module has
  * a handle for "Unrooted" trees, meaning that we can safely keep this meaning
  * properly. *)
-let () = SadmanOutput.register "SankCS" "$Revision: 2554 $"
+let () = SadmanOutput.register "SankCS" "$Revision: 2871 $"
 
 
-type cost =
-    | Infinity
-    | Cost of int
-let cost_less a b =
-    match a, b with
-    | Infinity, Infinity -> false
-    | Cost _, Infinity -> true
-    | Infinity, Cost _ -> false
-    | Cost a, Cost b -> a < b
+let infinity = max_int / 4
+let is_infinity x = x >= infinity
+
+type cost = int
+
+let cost_less a b = 
+    if is_infinity a then false
+    else if is_infinity b then true
+    else a < b
+
 let cost_min a b =
     if cost_less a b
     then a else b
+
 let cost_plus a b =
-    match a, b with
-    | Infinity, Infinity -> Infinity
-    | Cost _, Infinity -> Infinity
-    | Infinity, Cost _ -> Infinity
-    | Cost a, Cost b -> Cost (a + b)
+    if is_infinity a || is_infinity b then infinity
+    else a + b
+
 let cost_minus a b =
-    match a, b with
-    | Infinity, Infinity -> invalid_arg "SankCS.cost_minus"
-    | Cost _, Infinity -> Cost 0
-    | Infinity, Cost _ -> Infinity
-    | Cost a, Cost b -> Cost (a - b)
-let float_of_cost = function
-    | Infinity -> infinity
-    | Cost c -> float_of_int c
-let string_of_cost = function
-    | Infinity -> "inf"
-    | Cost c -> string_of_int c
+    if is_infinity a then
+        let () = assert (not (is_infinity b)) in
+        max_int
+    else if is_infinity b then
+        let () = assert (not (is_infinity a)) in
+        0
+    else a - b
+
+let float_of_cost x = 
+    if is_infinity x then Pervasives.infinity else float_of_int x
+
+let string_of_cost x = 
+    if is_infinity x then "inf" else string_of_int x
 
 let ( +$ ) a b = cost_plus a b
 let ( -$ ) a b = cost_minus a b
@@ -119,7 +121,7 @@ let elt_to_string a =
     let res, _ = Array.fold_left 
             begin fun (b, pos) a -> 
                 let next =
-                    if a = Infinity
+                    if a = infinity
                     then b
                     else
                         let next =
@@ -148,9 +150,9 @@ let to_string s =
 
 let to_list s = 
     let list = Array.map (fun x -> x.ecode, 
-        Array.map (function
-        | Infinity -> max_int
-        | Cost x -> x) x.s) s.elts in
+        Array.map (fun x ->
+            if is_infinity x then max_int
+            else x) x.s) s.elts in
     Array.to_list list
 
 let elt_to_full_string a =
@@ -172,7 +174,7 @@ let to_string = to_full_string
 
 let assert_ninf a x y=
     assert (
-        if a = Infinity then begin
+        if is_infinity a then begin
          print_string (elt_to_full_string x);
             print_string (elt_to_full_string y);
             false
@@ -208,9 +210,9 @@ let codes {elts=elts} =
 (* The cost of a transformation occurring in the following order i -> j + i -> k
  * as defined in the transformation cost matrix par. *)
 let median_cost par i j k = 
-    Cost (par.(i).(j) + par.(i).(k))
+    (par.(i).(j) + par.(i).(k))
 
-let get_min a = Array.fold_left cost_min Infinity a
+let get_min a = Array.fold_left cost_min infinity a
 
 
 (* The code of the character a *)
@@ -238,27 +240,24 @@ let nstates a = Array.length a.tcm
  * (make it monomorphic; more efficient?) *)
 let store_min (a : cost) b = if a <$ !b then b := a
 
-let is_inf = function
-    | Infinity -> true
-    | _ -> false
+let is_inf x = is_infinity x
 
 
 (* Even OTUs must have [beta] values, so we may as well store [e], also. *)
 let canonize tcm a =
     let states = Array.length a.s in
-    let minval = Array.fold_left cost_min Infinity a.s in
+    let minval = Array.fold_left cost_min infinity a.s in
     let e = Array.init states
         (fun i ->
-             match a.s.(i) with
-             | Infinity -> Infinity
-             | Cost a -> (Cost a) -$ minval) in
+            if is_infinity a.s.(i) then infinity
+            else a.s.(i) -$ minval) in
     let beta = Array.init states
         (fun s ->
-             let best = ref Infinity in
+             let best = ref infinity in
              for x = states - 1 downto 0 do
                  store_min
                      (if is_inf e.(x) then e.(x)
-                      else e.(x) +$ (Cost tcm.(s).(x)))
+                      else e.(x) +$ (tcm.(s).(x)))
                      best
              done;
              !best) in
@@ -283,7 +282,7 @@ let rand_gen () =
 let get_minstates {e=a} =
     let (_, list) = 
         Array.fold_right (fun v (num, lst) ->
-                              if v = Cost 0
+                              if v = 0
                               then (num - 1, num :: lst)
                               else (num - 1, lst)) a (Array.length a - 1, [])
     in list
@@ -298,10 +297,10 @@ let elt_median tcm a b =
     assert (a.ecode = b.ecode);
     let states = Array.length a.s in
 
-    let min_cost = ref Infinity in
+    let min_cost = ref infinity in
     (* calculate the preliminary costs, and store our minimum value *)
     let states_init i = 
-        let best = ref Infinity in
+        let best = ref infinity in
         for j = states - 1 downto 0 do
             for k = states - 1 downto 0 do
                 let combination_cost = median_cost tcm i j k in
@@ -321,9 +320,9 @@ let elt_median tcm a b =
 
     (* beta value: see Goloboff 1998 *)
     let beta_init s =
-        let best = ref Infinity in
+        let best = ref infinity in
         for x = states - 1 downto 0 do
-            store_min ((Cost tcm.(s).(x)) +$ e.(x)) best
+            store_min ((tcm.(s).(x)) +$ e.(x)) best
         done;
         !best
     in
@@ -341,7 +340,7 @@ let median _ a b =
 let elt_distance tcm a b =
     let median = elt_median tcm a b in
     let get_cost m =
-        float_of_cost (assert_ninf (Array.fold_left cost_min Infinity m.s) a b) in
+        float_of_cost (assert_ninf (Array.fold_left cost_min infinity m.s) a b) in
     let med_cost = get_cost median in
     let a_cost = get_cost a in
     let b_cost = get_cost b in
@@ -382,16 +381,16 @@ let elt_median_3 tcm a n l r =          (* ancestor, node, left, right *)
     let states = Array.length n.s in
     (* NOTE that this is REVERSED: d'[i][s], not d'[s][i] *)
     let init_d' i =
-        let best = ref Infinity in
+        let best = ref infinity in
         for x = states - 1 downto 0 do
-            store_min ((Cost tcm.(i).(x)) +$ l.beta.(x) +$ r.beta.(x)) best
+            store_min ((tcm.(i).(x)) +$ l.beta.(x) +$ r.beta.(x)) best
         done;
         fun s ->
-            a.e.(i) +$ (Cost tcm.(i).(s)) +$ l.beta.(s) +$ r.beta.(s) -$ !best
+            a.e.(i) +$ (tcm.(i).(s)) +$ l.beta.(s) +$ r.beta.(s) -$ !best
     in
     let d' = init2 states states init_d' in
     let init_e s =
-        let best = ref Infinity in
+        let best = ref infinity in
         for x = states - 1 downto 0 do
             store_min (d'.(x).(s)) best
         done;
@@ -413,7 +412,7 @@ let elt_exists_shared_state r a =
     let rec exists n =
         if n = states
         then false
-        else if r.e.(n) = Cost 0 && a.e.(n) = Cost 0
+        else if r.e.(n) = 0 && a.e.(n) = 0
         then true
         else exists (n + 1)
     in exists 0
@@ -435,17 +434,17 @@ let elt_dist_2 tcm r a d =
             | Some m -> m
             | None -> begin
                   let init_d'' i =
-                      let best = ref Infinity in
+                      let best = ref infinity in
                       for x = states - 1 downto 0 do
-                          store_min ((Cost tcm.(i).(x)) +$ d.beta.(x)) best
+                          store_min ((tcm.(i).(x)) +$ d.beta.(x)) best
                       done;
                       let e = a.e.(i) in
-                      fun s -> e +$ (Cost tcm.(i).(s)) +$ d.beta.(s) -$ !best
+                      fun s -> e +$ (tcm.(i).(s)) +$ d.beta.(s) -$ !best
                   in
                   let d'' = init2 states states init_d'' in
 
                   let init_m s =
-                      let best = ref Infinity in
+                      let best = ref infinity in
                       for x = states - 1 downto 0 do
                           store_min d''.(x).(s) best
                       done;
@@ -458,13 +457,13 @@ let elt_dist_2 tcm r a d =
         in
 
         (* Find the best value *)
-        let best = ref Infinity in
+        let best = ref infinity in
         for x = states - 1 downto 0 do
             let m = m.(x) in
             let tcm = tcm.(x) in
             let e = r.e in
             for y = states - 1 downto 0 do
-                store_min (m +$ (Cost tcm.(y)) +$ e.(y)) best
+                store_min (m +$ (tcm.(y)) +$ e.(y)) best
             done
         done;
         float_of_cost !best
@@ -480,12 +479,11 @@ let dist_2 r a d =
 let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
 (*    let used_observed = Data.get_used_observed elt.ecode d in *)
     let (cost, lst) = Array.fold_left (fun ((min, minlist) as acc) x ->
-        match x with
-        | Infinity -> acc
-        | Cost x ->
-                if x < min then (x, [x])
-                else if x = min then (x, (x :: minlist))
-                else acc) (max_int, []) elt.e
+        if is_inf x then acc 
+        else
+            if x < min then (x, [x])
+            else if x = min then (x, (x :: minlist))
+            else acc) (max_int, []) elt.e
     in
     let lst = List.map (Data.to_human_readable d elt.ecode) lst in 
 (*    let lst = List.map (Hashtbl.find used_observed) lst in *)
@@ -521,8 +519,8 @@ let make_onestate code tcm state =
                      s = Array.init (Array.length tcm)
                          (fun x ->
                               if x = state
-                              then Cost 0
-                              else Infinity)}|];
+                              then 0
+                              else infinity)}|];
     }
 
 let make_randstate code tcm =
@@ -543,8 +541,8 @@ let make_n_randstate scode codefn n tcm =
                                s = Array.init states
                                  (fun x ->
                                       if x = state
-                                      then Cost 0
-                                      else Infinity) }
+                                      then 0
+                                      else infinity) }
                 )
     }
 
@@ -562,8 +560,8 @@ let make_sank code tcm eltlist =
                                s = Array.init nstates
                                  (fun x ->
                                       if List.mem x states
-                                      then Cost 0
-                                      else Infinity) } )
+                                      then 0
+                                      else infinity) } )
                 eltlist
             in
             Array.of_list list
@@ -588,7 +586,8 @@ let of_parser tcm (arr, taxcode) mycode =
     let make_elt (elt, ecode) =
         let states = 
             match elt with
-            | Some states -> states
+            | Some (`List states) -> states
+            | Some (`Bits states) -> BitSet.to_list states
             | None -> all_states
         in
         assert (List.fold_left (fun acc x -> acc && x < nstates) true states);
@@ -598,8 +597,8 @@ let of_parser tcm (arr, taxcode) mycode =
                   s = Array.init nstates
                     (fun i ->
                          if List.mem i states
-                         then Cost 0
-                         else Infinity);}
+                         then 0
+                         else infinity);}
     in
 
     let elts = Array.map make_elt arr in
@@ -622,18 +621,18 @@ let reroot_elt tcm old p q =
                           if c < !min
                           then min := c
                       done;
-                      p.e.(j) +$ q.e.(k) -$ (Cost !min))) in
+                      p.e.(j) +$ q.e.(k) -$ (!min))) in
     let alpha5 = Array.init states
         (fun i ->
              Array.init states
                  (fun j ->
                       Array.init states
                           (fun k ->
-                               Cost (tcm.(i).(j) + tcm.(i).(k))
+                               (tcm.(i).(j) + tcm.(i).(k))
                                +$ tempjk.(j).(k)))) in
     let newe = Array.init states
         (fun i ->
-             let best = ref Infinity in
+             let best = ref infinity in
              for x = 0 to states - 1 do
                  for y = 0 to states - 1 do
                      store_min alpha5.(i).(x).(y) best
@@ -786,12 +785,13 @@ let get_all_possible_assignments (elts : int list option list) =
     in
     List.map All_sets.Integers.elements x
 
-let min_possible_cost mtx elts = 
+let min_possible_cost mtx (elts : Parser.SC.static_state list) = 
     let all_possible = 
         let rec filter_none acc lst =
             match lst with
             | None :: t -> filter_none acc t
-            | (Some x) :: t -> filter_none (x :: acc) t
+            | (Some x) :: t -> 
+                    filter_none ((Parser.SC.static_state_to_list x) :: acc) t
             | [] -> acc
         in
         filter_none [] elts

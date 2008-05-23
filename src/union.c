@@ -98,22 +98,23 @@ union_move_left (unionofft a) {
     return (res);
 }
 
-
 void
-union_merge (seqt a, seqt b, unionofft au, unionofft bu, unionofft c, cmt m) {
+union_merge (seqt a, seqt b, seqt median, unionofft au, \
+        unionofft bu, unionofft c, cmt m) {
     UNION_OFFT items_prepended = 0, i, gap, lena, interm, apos, bpos;
-    SEQT *begina, *beginb;
+    SEQT *begina, *beginb, *beginm;
     lena = seq_get_len (a);
     gap = cm_get_gap (m);
     begina = seq_get_begin (a);
     beginb = seq_get_begin (b);
+    beginm = seq_get_begin (median);
     assert (lena == seq_get_len (b));
     i = lena - 1;
     while ((au->begin <= au->end) || (bu->begin <= bu->end)) {
         items_prepended = union_copy_non_homologous (au, bu, c, \
                 items_prepended, gap);
         if (i >= 0) {
-            interm = cm_get_median (m, begina[i], beginb[i]);
+            interm = beginm[i];
             if (gap == interm) {
                 if (i != 0) {
                     if (gap == begina[i]) union_prepend_item (bu, c, gap);
@@ -162,6 +163,7 @@ union_merge (seqt a, seqt b, unionofft au, unionofft bu, unionofft c, cmt m) {
     return;
 }
 
+
 void
 union_CAML_produce (unionofft u, seqt s, UNION_OFFT *off, UNION_OFFT *begin, \
         UNION_OFFT *ca_offsets, UNION_OFFT *cb_offsets, UNION_OFFT length) {
@@ -205,11 +207,12 @@ union_CAML_unwrap (value a, unionofft u) {
 }
 
 value
-union_CAML_make (value s1, value s2, value a, value b, value c, value cm) {
+union_CAML_make (value s1, value s2, value smedian, value a, value b, \
+        value c, value cm) {
     CAMLparam5 (s1, s2, a, b, c);
-    CAMLxparam1 (cm);
+    CAMLxparam2 (smedian, cm);
     struct unionoff ua, ub, uc;
-    seqt ss1, ss2;
+    seqt ss1, ss2, ssmedian;
     cmt cmc;
     cmc = Cost_matrix_struct(cm);
     union_CAML_unwrap (a, &ua);
@@ -217,12 +220,14 @@ union_CAML_make (value s1, value s2, value a, value b, value c, value cm) {
     union_CAML_unwrap (c, &uc);
     Seq_custom_val(ss1,s1);
     Seq_custom_val(ss2,s2);
-    union_merge (ss1, ss2, &ua, &ub, &uc, cmc);
+    Seq_custom_val(ssmedian,smedian);
+    union_merge (ss1, ss2, ssmedian, &ua, &ub, &uc, cmc);
     CAMLreturn(Val_unit);
 }
 
 value
 union_CAML_make_b (value *argv, int argn) {
     return (union_CAML_make (argv[0], argv[1], argv[2], argv[3], argv[4], \
-                argv[5]));
+                argv[5], argv[6]));
 }
+

@@ -24,20 +24,12 @@
 exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
-let () = SadmanOutput.register "Sequence" "$Revision: 2782 $"
-
-module Pool = struct
-    type p
-    external create : int -> int -> p = "pool_CAML_create"
-    external flush : p -> unit = "pool_CAML_free_available"
-    external register : unit -> unit = "pool_CAML_register"
-end
+let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
 
 external register : unit -> unit = "seq_CAML_register"
 
 let _ = 
-    register ();
-    Pool.register ()
+    register ()
 
 let ndebug = true;;
 
@@ -46,28 +38,30 @@ type s;;
 external c_reverse : (s -> s -> unit) = "seq_CAML_reverse";;
 external reverse_ip : (s -> unit) = "seq_CAML_reverse_ip";;
 external capacity : (s -> int) = "seq_CAML_get_cap";;
-external create_pool : (Pool.p -> int -> s) = "seq_CAML_create_pool"
-external create_same_pool : s -> int -> s = "seq_CAML_create_same"
 external create : int -> s = "seq_CAML_create"
 
 external copy : (s -> s -> unit) = "seq_CAML_copy";;
 
 external length : (s -> int) = "seq_CAML_length";;
 
-external c_get : (s -> int -> int) = "seq_CAML_get";;
+external get : (s -> int -> int) = "seq_CAML_get";;
 
 external count : (int -> s -> int) = "seq_CAML_count";;
 
+(*
 let get a b = 
     assert (b >= 0);
     assert (b < length a);
     c_get a b
+*)
 
-external c_set : (s -> int -> int -> unit) = "seq_CAML_set";;
+external set : (s -> int -> int -> unit) = "seq_CAML_set";;
 
+(*
 let set a b c =
     assert (b >= 0);
     c_set a b c
+*)
 
 external prepend : s -> int -> unit = "seq_CAML_prepend";;
 
@@ -81,7 +75,7 @@ let map_to_array f s =
 
 let mapi f s =
     let len = length s in
-    let new_s = create_same_pool s len in
+    let new_s = create len in
     for i = len - 1 downto 0 do
         prepend new_s (f (get s i) i);
     done;
@@ -89,7 +83,7 @@ let mapi f s =
 
 let map f s =
     let len = length s in
-    let new_s = create_same_pool s len in
+    let new_s = create len in
     for i = len - 1 downto 0 do
         prepend new_s (f (get s i));
     done;
@@ -138,13 +132,6 @@ let iter f s =
     done;
     ()
 
-let init_pool p f len = 
-    let seq = create_pool p len in
-    for i = len - 1 downto 0 do
-        prepend seq (f i);
-    done;
-    seq
-
 let init f len = 
     let seq = create len in
     for i = len - 1 downto 0 do
@@ -153,15 +140,9 @@ let init f len =
     seq
 
 let resize n ns = 
-    let v = create_same_pool !n ns in
+    let v = create ns in
     copy !n v;
     n := v;;
-
-let clone_pool p n =
-    let sz = length n in
-    let res = create_pool p sz in
-    copy n res;
-    res;;
 
 let clone n =
     let sz = length n in
@@ -170,7 +151,7 @@ let clone n =
     res;;
 
 let reverse s1 = 
-    let sp = create_same_pool s1 (length s1) in
+    let sp = create (length s1) in
     c_reverse s1 sp;
     sp;;
 
@@ -462,6 +443,25 @@ module Align = struct
         s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int =
             "algn_CAML_simple_2"
 
+    external c_align_affine_3 : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> 
+        s -> s -> s -> s -> int = "algn_CAML_align_affine_3_bc"
+        "algn_CAML_align_affine_3"
+
+    external cost_2_affine : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int =
+        "algn_CAML_cost_affine_3"
+    
+
+    let align_affine_3 si sj cm =
+        let len = length si + length sj + 2 in
+        let resi = create len
+        and resj = create len 
+        and median = create len 
+        and medianwg = create len in
+        let cost = 
+            c_align_affine_3 si sj cm Matrix.default resi resj median
+            medianwg in
+        (median, resi, resj, cost, medianwg)
+
     external c_cost_2_limit :
         s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int -> int -> int ->
             int -> int -> int -> int = "algn_CAML_limit_2_bc" "algn_CAML_limit_2"
@@ -472,17 +472,6 @@ module Align = struct
         else begin
             assert ((length a) = (length b));
             c_max_cost_2 a b c
-        end
-
-    external c_verify_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int =
-        "algn_CAML_verify_2"
-
-    let verify_cost_2 a b c =
-        let gap = Cost_matrix.Two_D.gap c in
-        if is_empty a gap || is_empty b gap then 0
-        else begin
-            assert ((length a) = (length b));
-            c_verify_cost_2 a b c
         end
 
     type gap_side = NoGap | AGap | BGap
@@ -506,11 +495,29 @@ module Align = struct
                     let get_list x =
                         let base = get x pos in
                         if do_combine then 
-                            Cost_matrix.Two_D.list_of_bits base alph
+                            List.sort (fun a b -> b - a) 
+                            (Cost_matrix.Two_D.list_of_bits base alph)
                         else [base]
+                    in
+                    let put_shared_first lst1 lst2 = 
+                        let shared = 
+                            List.filter 
+                            (fun x -> List.exists (fun y -> y = x) lst1) 
+                            lst2 
+                        in
+                        match shared with
+                        | [] -> lst1, lst2
+                        | _ ->
+                                let filter lst = 
+                                    shared @ (List.filter (fun x -> not
+                                    (List.exists (fun y -> y = x) shared)) lst)
+                                in
+                                (filter lst1), (filter lst2)
                     in
                     let basea_list = get_list a
                     and baseb_list = get_list b in
+                    let basea_list, base_blist = put_shared_first basea_list
+                    baseb_list in
                     let process_pairwise basea baseb (acc, gap_block_side) =
                         let cost = Cost_matrix.Two_D.cost basea baseb c in
                         let acc = cost + acc in
@@ -690,6 +697,16 @@ module Align = struct
             let deltaw = gaps + deltaw_calc ls2 ls1 in
             c_cost_2 s2 s1 m1 m2 deltaw
 
+
+    let cost_2 ?deltaw s1 s2 m1 m2 =
+        match Cost_matrix.Two_D.affine m1 with
+        | Cost_matrix.Affine _ -> 
+                cost_2_affine s1 s2 m1 m2
+        | _ -> 
+                match deltaw with 
+                | None -> cost_2 s1 s2 m1 m2
+                | Some deltaw -> cost_2 ~deltaw s1 s2 m1 m2
+
     external myers : s -> s -> int = "algn_CAML_myers"
 
     external cost_3 :
@@ -781,8 +798,8 @@ module Align = struct
     let create_edited_2 s1 s2 tm c =
         let sz1 = length s1
         and sz2 = length s2 in
-        let s1p = create_same_pool s1 (sz1 + sz2)
-        and s2p = create_same_pool s2 (sz1 + sz2) in
+        let s1p = create (sz1 + sz2)
+        and s2p = create (sz1 + sz2) in
         let size_compared = sz1 >= sz2 in
         if size_compared then 
             extract_edited_2 s1 s2 s1p s2p tm c size_compared
@@ -791,8 +808,8 @@ module Align = struct
         s1p, s2p
 
     let create_edited_2_limit s1 s2 tm c st1 st2 len1 len2 =
-        let s1p = create_same_pool s1 (len1 + len2)
-        and s2p = create_same_pool s2 (len1 + len2) in
+        let s1p = create (len1 + len2)
+        and s2p = create (len1 + len2) in
         let size_compared = len1 >= len2 in
         if size_compared then 
             extract_edited_2_limit s1 s2 s1p s2p tm c st1 st2 len1 len2
@@ -807,18 +824,23 @@ module Align = struct
         and sz2 = length s2
         and sz3 = length s3 in
         let total_len = sz1 + sz2 + sz3 in
-        let s1p = create_same_pool s1 total_len
-        and s2p = create_same_pool s2 total_len 
-        and s3p = create_same_pool s3 total_len in
+        let s1p = create total_len
+        and s2p = create total_len 
+        and s3p = create total_len in
         extract_edited_3 s1 s2 s3 s1p s2p s3p tm cm;
         s1p, s2p, s3p
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
         let cmp s1 s2 = 
-            let tc = cost_2 s1 s2 c m in   
-            let s1p, s2p = create_edited_2 s1 s2 m c in   
-            s1p, s2p, tc   
+            match Cost_matrix.Two_D.affine c with
+            | Cost_matrix.Affine _ ->
+                    let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
+                    s1p, s2p, tc
+            | _ ->
+                    let tc = cost_2 s1 s2 c m in   
+                    let s1p, s2p = create_edited_2 s1 s2 m c in   
+                    s1p, s2p, tc   
         in 
         match first_gap with
         | true -> cmp s1 s2 
@@ -831,17 +853,15 @@ module Align = struct
               let s2p = del_first_char s2p in 
               s1p, s2p, tc
 
-
-    
     let align_3 ?(first_gap = true) s1 s2 s3 c m =
         let align s1 s2 s3 =
             let sz1 = length s1
             and sz2 = length s2 
             and sz3 = length s3 in
             let sum = sz1 + sz2 + sz3 in
-            let s1p = create_same_pool s1 sum
-            and s2p = create_same_pool s2 sum  
-            and s3p = create_same_pool s3 sum in 
+            let s1p = create sum
+            and s2p = create sum  
+            and s3p = create sum in 
             let c = c_align_3 s1 s2 s3 c m s1p s2p s3p in
             s1p, s2p, s3p, c
         in 
@@ -863,7 +883,7 @@ module Align = struct
         let sz1 = length s1 
         and sz2 = length s2 in
         if (sz1 = sz2) then begin
-            let sp = create_same_pool s1 sz1 in
+            let sp = create sz1 in
             c_median_2_with_gaps s1 s2 c sp;
             sp
         end else 
@@ -874,7 +894,7 @@ module Align = struct
         let sz1 = length s1 
         and sz2 = length s2 in
         if (sz1 = sz2) then begin
-            let sp = create_same_pool s1 (sz1 + 1) in
+            let sp = create (sz1 + 1) in
             c_median_2 s1 s2 c sp;
             sp
         end else 
@@ -888,7 +908,7 @@ module Align = struct
         let sz1 = length s1 
         and sz2 = length s2 in
         if (sz1 = sz2) then begin
-            let sp = create_same_pool s2 (sz2 + 1) in
+            let sp = create (sz2 + 1) in
             c_ancestor_2 s1 s2 c sp;
             sp
         end else 
@@ -901,7 +921,7 @@ module Align = struct
         and sz3 = length s3 in 
         if (sz1 = sz2) && (sz2 = sz3) then begin
             (* Leave space for the initial gap *)
-            let sp = create_same_pool s1 (sz1 + 1) in 
+            let sp = create (sz1 + 1) in 
             c_median_3 s1 s2 s3 c sp;
             sp;
         end else 
@@ -909,8 +929,13 @@ module Align = struct
             (Invalid_Argument "The size of the sequences is not the same.")
 
     let full_median_2 a b cm m = 
-        let a, b, _ = align_2 a b cm m in
-        median_2 a b cm
+        match Cost_matrix.Two_D.affine cm with
+        | Cost_matrix.Affine _ ->
+                let m, _, _, _, _ = align_affine_3 a b cm in
+                m
+        | _ ->
+                let a, b, _ = align_2 a b cm m in
+                median_2 a b cm
 
     let full_median_3 a b c cm m =
         let a, b, c, _ = align_3 a b c cm m in
@@ -920,21 +945,60 @@ module Align = struct
 
     let union a b =
         let len = length a in
-        let res = create_same_pool a (len + 1) in
+        let res = create (len + 1) in
         c_union a b res;
         res
 
     let closest s1 s2 cm m =
+        let remove_gaps s2' =
+            (* We first define a function to eliminate gaps from the 
+            * final selection *)
+            let remove_gaps gap seq base = 
+                if base <> gap then 
+                    let _ = prepend seq base in
+                    seq
+                else seq
+            in
+            let res = 
+                fold_right (remove_gaps (Cost_matrix.Two_D.gap cm)) 
+                (create (length s2')) s2'
+            in
+            prepend res (Cost_matrix.Two_D.gap cm);
+            res
+        in
         if is_empty s2 (Cost_matrix.Two_D.gap cm) then
             s2, 0
         else
         let (s, _) as res = 
         if 0 = Cost_matrix.Two_D.combine cm then 
             (* We always have just one sequence per type s *)
-            let _, _, cst = align_2 s1 s2 cm m in
-            s2, cst
+            let s1', s2', cst = align_2 s1 s2 cm m in
+            let get_closest v i =
+                let v' = get s1' i in
+                let all = Cost_matrix.Two_D.get_all_elements cm in
+                if v = all then 
+                    if v' = all then 1 (* We pick one, any will be fine *)
+                    else v'
+                else v
+            in
+            remove_gaps (mapi get_closest s2'), cst
         else
-            let s1', s2', _ = align_2 s1 s2 cm m in
+            let s1', s2', comp =
+                if 0 = compare s1 s2 then 
+                    (* We remove all the gaps if we are using combinations *)
+                    if 0 = Cost_matrix.Two_D.combine cm then 
+                        s1, s2, true
+                    else 
+                        let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                        mapi (fun x pos -> 
+                            if pos > 0 then x land mask else x) s1, 
+                        mapi (fun x pos -> 
+                            if pos > 0 then x land mask else x) s2, 
+                        true
+                else
+                    let s1', s2', _ = align_2 s1 s2 cm m in
+                    s1', s2', false
+            in
             let s2' =
                 let s2' = 
                     let get_closest v i =
@@ -943,25 +1007,13 @@ module Align = struct
                     in
                     mapi get_closest s2' 
                 in
-                let s2' = 
-                    (* We first define a function to eliminate gaps from the 
-                    * final selection *)
-                    let remove_gaps gap seq base = 
-                        if base <> gap then 
-                            let _ = prepend seq base in
-                            seq
-                        else seq
-                    in
-                    fold_right (remove_gaps (Cost_matrix.Two_D.gap cm)) 
-                    (create_same_pool s2' (length s2')) s2'
-                in
-                prepend s2' (Cost_matrix.Two_D.gap cm);
-                s2'
+                remove_gaps s2' 
             in
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost
             * model *)
-            s2', cost_2 s1 s2' cm m
+            if comp then s2', 0
+            else s2', cost_2 s1 s2' cm m
         in
         res
 
@@ -1035,7 +1087,7 @@ module Align = struct
         in
         let a, b, c, cost = align_3_powell s1 s2 s3 mm go ge in
         let len = length a in
-        let median = create_same_pool a (len + 1) in
+        let median = create (len + 1) in
         for i = len - 1 downto 0 do
             let a = get a i in
             let b = get b i in
@@ -1625,8 +1677,8 @@ module CamlAlign = struct
             and s2l = length s2 in
             let i = ref (s1l - 1)
             and j = ref (s2l - 1) 
-            and seq1 = create_same_pool s1 (s1l + s2l + 1) 
-            and seq2 = create_same_pool s1 (s1l + s2l + 1)
+            and seq1 = create (s1l + s2l + 1) 
+            and seq2 = create (s1l + s2l + 1)
             and dirm = !dirm in
             while (!i <> 0) && (!j <> 0) do
                 match dirm.(!i).(!j) with
@@ -1700,7 +1752,7 @@ let split positions s alph =
         let first = a
         and last = b in
         let total = 1 + (last - first) in
-        let seq = create_same_pool s (total + 1)  in
+        let seq = create (total + 1)  in
         for i = (last - 1) downto first do
             prepend seq (get s i);
         done;
@@ -1810,16 +1862,16 @@ END
             create_union true s 
 
         external make_union : 
-            s -> s -> u -> u -> u -> Cost_matrix.Two_D.m -> unit = 
+            s -> s -> s -> u -> u -> u -> Cost_matrix.Two_D.m -> unit = 
                 "union_CAML_make_b" "union_CAML_make"
 
-        let union a b ua ub cm =
+        let union a b m ua ub cm =
             let new_seq, len = 
                 let c = (length ua.seq) + (length ub.seq) + 2 in
-                create_same_pool ua.seq c, c
+                create c, c
             in
             let u = create_union false new_seq in
-            make_union a b ua ub u cm;
+            make_union a b m ua ub u cm;
             u
 
         let get_seq u = u.seq
@@ -1896,7 +1948,7 @@ external encoding :
 
 let aux_complement start a s = 
     let res =
-        let acc = (create_same_pool s (length s)) in
+        let acc = (create (length s)) in
         for i = start to (length s) - 1 do
             match Alphabet.complement (get s i) a with
             | Some x -> prepend acc x

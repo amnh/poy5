@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "PoyParser" "$Revision: 2669 $"
+let () = SadmanOutput.register "PoyParser" "$Revision: 2871 $"
 
 open StdLabels
 
@@ -504,14 +504,14 @@ let explode_filenames files =
         let file = FileStream.filename file in
         let ch = 
             let file = 
-                if Sys.os_type = "Win32" then Filename.quote file
+                if Sys.os_type = "Win32" then file
                 else if Sys.os_type = "Unix" then
                     Str.global_replace (Str.regexp "\\\\ ") "\\ " file
                 else file
             in
             let line = 
                 match Sys.os_type with
-                | "Win32" -> ("dir /B " ^ file)
+                | "Win32" -> ("dir /B \"" ^ file ^ "\" 2> NUL")
                 | _ -> "ls -1 " ^ file ^ " 2> /dev/null"
             in
             Unix.open_process_in line 

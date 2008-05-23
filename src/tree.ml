@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Tree" "$Revision: 2669 $"
+let () = SadmanOutput.register "Tree" "$Revision: 2871 $"
 
 exception Invalid_Node_Id of int
 exception Invalid_Handle_Id
@@ -721,9 +721,14 @@ let test_tree tree =
 let (-->) a b = b a
 
 let add_tree_to d add_to tree =
+    let avail_codes = ref add_to.avail_ids in
     let cg = 
-        let code = ref d.Data.number_of_taxa in
-        fun () -> incr code; !code
+        fun () -> 
+            match !avail_codes with
+            | h :: t -> 
+                    avail_codes := t;
+                    h
+            | [] -> assert false
     in
     let rec assign_codes parent data = function
         | Parser.Tree.Leaf name ->
@@ -819,19 +824,44 @@ let add_tree_to d add_to tree =
             in
             let handles = All_sets.Integers.add ca add_to.handles in
             { u_topo = vertices; d_edges = edges; handles = handles;
-            avail_ids = []; new_ids = cg () }
+            avail_ids = !avail_codes; new_ids = cg () }
     | Parser.Tree.Leaf (Leaf (tc, _)), _ -> 
             let vertices = 
                 All_sets.IntegerMap.add tc (Single tc)
                 add_to.u_topo 
             in
             let handles = All_sets.Integers.add tc add_to.handles in
-            { add_to with u_topo = vertices; handles = handles }
+            { add_to with avail_ids = !avail_codes; u_topo = vertices; handles = handles }
     | _ ->failwith "We need trees with more than two taxa"
 
 
 let convert_to trees data = 
-    List.fold_left (add_tree_to data) (empty ()) trees
+    let add_available total tree =
+        let rec aux max av =
+            if max = total then av
+            else aux (max - 1) (max :: av)
+        in
+        { tree with avail_ids = aux (2 * total) [] }
+    in
+    let rec verify_leaves acc = function
+        | Parser.Tree.Node (cld, _) ->
+                List.fold_left verify_leaves acc cld
+        | Parser.Tree.Leaf name -> 
+                try 
+                    let code = Data.taxon_code name data in
+                    (Hashtbl.mem data.Data.taxon_characters code) && acc
+                with 
+                | Not_found -> 
+                        Status.user_message Status.Error 
+                        ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
+                        ^ "loaded. Please@ verify@ your@ input@ files.");
+                        false
+    in
+    if not (List.fold_left verify_leaves true trees) then
+        failwith "Illegal input tree"
+    else
+        let tree = add_available data.Data.number_of_taxa (empty ()) in
+        List.fold_left (add_tree_to data) tree trees
 
 (** [make_disjoint_tree n]
     @return a disjointed tree with the given nodes and 0 edges *)
@@ -1654,7 +1684,7 @@ let print_tree id tree =
     let mark_visited node_id visited =
         (All_sets.Integers.add node_id visited) in
     let visit_node node_id prefix =
-        (print_endline (prefix ^ (string_of_int node_id))) in
+        (prerr_endline (prefix ^ (string_of_int node_id))) in
     let rec visit_nbr nbr_id prefix visited =
         if (already_visited nbr_id visited) then
             visited
@@ -1687,12 +1717,11 @@ let print_tree id tree =
     @return () - prints all the trees in the forest. *)
 let print_forest forest =
     let handles = (All_sets.Integers.elements (get_handles forest)) in
-        (ignore (List.map (fun x -> print_newline ();
+        (ignore (List.map (fun x -> prerr_newline ();
                                     print_tree x forest) handles))
 
 module Fingerprint = struct
-    type t = int list
-    let empty : t = []
+    type t = int Parser.Tree.t
 
     let find_smallest_leaf {u_topo = topo} =
         All_sets.IntegerMap.fold
@@ -1703,26 +1732,26 @@ module Fingerprint = struct
     let fingerprint t =
         let smallest = find_smallest_leaf t in
         let t, _ = move_handle smallest t in
-        let parent_id = match get_node smallest t with
-        | Leaf (_, p) -> p
-        | _ -> failwith "Bad leaf node" in
+        let parent_id = 
+            match get_node smallest t with
+            | Leaf (_, p) -> p
+            | _ -> failwith "Bad leaf node" 
+        in
         let rec fp p = function
             | Single _ -> failwith "Strange place to leave a single"
-            | Leaf (myid, _) -> [myid]
+            | Leaf (myid, _) -> myid, Parser.Tree.Leaf myid
             | (Interior (myid, c1, c2, c3)) as node ->
                   let c1, c2 = other_two_nbrs p node in
-                  let c1l = fp myid (get_node c1 t) in
-                  let c2l = fp myid (get_node c2 t) in
-                  let c1h = List.hd c1l in
-                  let c2h = List.hd c2l in
-                  if c1h < c2h
-                  then c1l @ c2l
-                  else c2l @ c1l
-        in smallest :: (fp smallest (get_node parent_id t))
+                  let c1id, c1l = fp myid (get_node c1 t) in
+                  let c2id, c2l = fp myid (get_node c2 t) in
+                  if c1id < c2id then c1id, Parser.Tree.Node ([c1l; c2l], c1id)
+                  else c2id, Parser.Tree.Node ([c2l; c1l], c2id)
+        in 
+        let _, left = fp smallest (get_node parent_id t) in
+        Parser.Tree.Node ([Parser.Tree.Leaf smallest; left], smallest)
 
     let compare = compare
 
-    let to_string t = String.concat ", " (List.map string_of_int t)
 end
 
 
@@ -2322,9 +2351,15 @@ let cannonize_on_edge ((a, b) as edge) tree =
     { tree with u_topo = res }
 
 let cannonize_on_leaf a tree =
-    match get_node a tree with
-    | Leaf (a, b) -> cannonize_on_edge (a, b) tree
-    | _ -> failwith "Tree.cannonize_on_leaf: the vertex is not a leaf"
+    try
+        match get_node a tree with
+        | Leaf (a, b) -> cannonize_on_edge (a, b) tree
+        | _ -> failwith "Tree.cannonize_on_leaf: the vertex is not a leaf"
+    with
+    | Not_found as err ->
+            Status.user_message Status.Error
+            ("Could not find " ^ string_of_int a);
+            raise err
 
 let compare_cannonical a b = 
     let rec recursive_compare ac bc =

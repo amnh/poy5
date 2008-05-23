@@ -27,11 +27,6 @@ exception Invalid_Sequence of (string * string * int);;
  * [(x, y, z)] where [x] is the sequence where the error was found, [y] is the
  * illegal character in the sequence and [z] is the position where the parsing
  * process stopped. *)
-module Pool : sig
-    type p
-    external create : int -> int -> p = "pool_CAML_create"
-    external flush : p -> unit = "pool_CAML_free_available"
-end
 
 type s
 (** The sequence type *)
@@ -123,17 +118,14 @@ val resize : s ref -> int -> unit
  * sequence is longer, the contents doesn't change, but the capacity will grow
  * (ie. the sequence printed or for alignment is still the same). *)
 
-val clone_pool : Pool.p -> s -> s
-(** [clone s1] creates a new fresh clone of [s1]. *)
-
 val clone : s -> s
 (** [clone s1] creates a new fresh clone of [s1]. *)
 
-val set : s -> int -> int -> unit
+external set : (s -> int -> int -> unit) = "seq_CAML_set"
 (** [set s1 p v] sets the value v in the position p of s1. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 
-val get : s -> int -> int
+external get : (s -> int -> int) = "seq_CAML_get"
 (** [get s1 p] returns the contents of s1 in position p. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 
@@ -188,15 +180,12 @@ val to_array : s -> int array
     [l]. *)
 val create : int -> s
 
-val create_pool : Pool.p -> int -> s
-
-val create_same_pool : s -> int -> s
-
 (** [make_empty a] creates an empty sequence using alphabet [a] *)
 val make_empty : Alphabet.a -> s
 
 (** [map f s] outputs a new sequence [t] such that [t](i) = [f]([s](i)). *)
 val map : (int -> int) -> s -> s
+val mapi : (int -> int -> int) -> s -> s
 
 val fold : ('a -> int -> 'a) -> 'a -> s -> 'a
 
@@ -211,9 +200,6 @@ val fold_righti : ('a -> int -> int -> 'a) -> 'a -> s -> 'a
 val iter : (int -> unit) -> s -> unit
 
 val fold : ('a -> int -> 'a) -> 'a -> s -> 'a
-
-(** [init f l] creates a fresh sequence [s] such that [s](i) = [f] [i]. *)
-val init_pool : Pool.p -> (int -> int) -> int -> s
 
 (** [init f l] creates a fresh sequence [s] such that [s](i) = [f] [i]. *)
 val init : (int -> int) -> int -> s
@@ -235,6 +221,8 @@ module Align : sig
      * sequences x and y using the cost matrix z in the alignment matrix u with 
      * ukkonen barrier at distance v if flag is set to true *)
     val cost_2 : ?deltaw:int -> s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> int 
+
+    val align_affine_3 : s -> s -> Cost_matrix.Two_D.m -> s * s * s * int * s
 
     val max_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int
     val verify_cost_2 : int -> s -> s -> Cost_matrix.Two_D.m -> int
@@ -488,7 +476,7 @@ END
 
     val leaf : s -> u
 
-    val union : s -> s -> u -> u -> Cost_matrix.Two_D.m -> u
+    val union : s -> s -> s -> u -> u -> Cost_matrix.Two_D.m -> u
 
     val get_seq : u -> s
 

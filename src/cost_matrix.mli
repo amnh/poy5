@@ -56,7 +56,7 @@ module Two_D : sig
     * claculating all the possible combinations (effective size 2^a) iff com is
     * true, using the affine cost model aff and gap opening go and gap 
     * extension ge.  *)
-    external create : int -> bool -> int -> int -> m = "cm_CAML_create"
+    external create : int -> bool -> int -> int -> int -> m = "cm_CAML_create"
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
     external clone : m -> m = "cm_CAML_clone"
@@ -67,13 +67,13 @@ module Two_D : sig
 
     (** [of_list a] creates a fresh transformation cost matrix with the values
     * contained in the squared matrix [a]. *)
-    val of_list : ?use_comb:bool -> int list list -> m
+    val of_list : ?use_comb:bool -> int list list -> int -> m
 
     (** [of_transformations_and_gaps uc as t g] creates a fresh two dimensional
     * transformation cost matrix for an alphabet of size [as], with
     * transformation cost [t] and indel cost [g]. If [uc] is true, then all the
     * combinations for the sequences are calculated, otherwise they are not. *)
-    val of_transformations_and_gaps : bool -> int -> int -> int -> m
+    val of_transformations_and_gaps : bool -> int -> int -> int -> int -> m
 
     (** [default] is the default cost matrix in POY for pairwise, nucleotide
     * sequence alignments. *)
@@ -87,13 +87,13 @@ module Two_D : sig
     (** [of_channel file] parse the file containing a cost matrix and returns
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
-    val of_channel: ?orientation:bool -> ?use_comb:bool ->
+    val of_channel: ?orientation:bool -> ?use_comb:bool -> int ->
         FileStream.greader -> m
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
         returns the processed data, but without calculating combinations. Raise an
         Illegal_Cm_Format if the format can't be parsed. *)
-    val of_channel_nocomb: ?orientation:bool -> FileStream.greader -> m
+    val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> m
 
     (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
@@ -129,6 +129,8 @@ module Two_D : sig
     * [lst] (which should be a valid input for [of_list]), is a metric matrix or
     * not. *)
     val is_metric : m -> bool
+
+    val get_all_elements : m -> int
 
     (** [alphabet_size cm] gets the total alphabet size in the cost matrix cm. *)
     external alphabet_size : m -> int = "cm_CAML_get_a_sz"
@@ -195,7 +197,7 @@ module Three_D : sig
     * the a_sz. IF dim is true the matrix will be three dimensional,
     * otherwise it will be two dimensional. *)
     external create : 
-        int -> bool -> int -> int -> int -> m = "cm_CAML_create_3d"
+        int -> bool -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
     external clone : m -> m = "cm_CAML_clone_3d"

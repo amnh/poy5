@@ -268,9 +268,9 @@ val split : c -> t -> t * bool * t
 
 (** [of_parser p] generates a character set from the output of the PoyParser.
 * For more information look at its usage in the {!Node} module. *)
-val of_parser : Data.d -> ((int list option * int) array * int) -> int -> t * int
-val is_potentially_informative : int list option list -> bool
-val min_possible_cost : int list option list -> float
+val of_parser : Data.d -> ((Parser.SC.static_state * int) array * int) -> int -> t * int
+val is_potentially_informative : Parser.SC.static_state list -> bool
+val min_possible_cost : Parser.SC.static_state  list -> float
 
 (** [to_string a] generates a string representation of the additive character
 * set [a] *)

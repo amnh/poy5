@@ -18,19 +18,20 @@
 (* USA                                                                        *)
 
 
-let () = SadmanOutput.register "Methods" "$Revision: 2869 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2871 $"
 
 exception TimedOut
 
 (** Data *)
 
-let do_job = 1
+let do_job = 11
 let process_management = 2
 let io = 3
 let debugging = 4
 let barrier = 5
 
-let cost : [ `Normal | `Exact | `Iterative ] ref = ref `Normal
+let cost : [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative ] ref = 
+    ref `Normal
 
 type filename = [ `Local of string | `Remote of string ]
 
@@ -170,6 +171,7 @@ type char_transform = [
     | `Static_Aprox of (characters * bool)
     | `Search_Based of characters
     | `Fixed_States of characters
+    | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))
     | `Automatic_Static_Aprox of bool
     | `Prioritize
@@ -333,7 +335,8 @@ type output_class = [
 type tabu_join_strategy = [
     | `UnionBased of int option
     | `AllBased of int option
-    | `Partition of [`MaxDepth of int | `ConstraintFile of filename ] list
+    | `Partition of [`Sets of (All_sets.IntSet.t Lazy.t) | 
+    `MaxDepth of int | `ConstraintFile of filename ] list
 ]
 
 (* New tree build_method methods.
@@ -401,7 +404,7 @@ type search_space = [
 
 type tabu_break_strategy = [
     | `Randomized
-    | `DistanceSorted
+    | `DistanceSorted of bool
     | `OnlyOnce
 ]
 
@@ -658,10 +661,13 @@ type application = [
     | `Graph of (string option * bool)
     | `Ascii of (string option * bool)
     | `Memory of string option
+    | `TimerInterval of int
     | `HistorySize of int
     | `Logfile of string option
     | `Normal
-    | `Exact
+    | `Normal_plus_Vitamines
+    | `Exhaustive_Weak
+    | `Exhaustive_Strong
     | `Iterative
     | `ReDiagnose
     | `SetSeed of int
@@ -706,6 +712,8 @@ type script = [
     | `GatherBootstrap
     | `GatherBremer
     | `SelectYourTrees
+    | `StandardSearch of 
+        (float option * float option * int option * int option * float option)
     | input
     | transform
     | build

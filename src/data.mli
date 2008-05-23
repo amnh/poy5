@@ -108,10 +108,13 @@ type dynamic_hom_spec = {
     fs : string;
     tcm : string;
     fo : string;
+    initial_assignment : [ 
+        | `DO 
+        | `FS of ((float array array) * (Sequence.s
+        array) * ((int, int) Hashtbl.t))  ];
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m;
     alph : Alphabet.a;
-    pool : Sequence.Pool.p;
     state : dyna_state_t;
     pam : dyna_pam_t;
     weight : float;
@@ -229,7 +232,7 @@ type cs_d =
 
     (* A static homology character, containing its code, and the character
     * itself. If None, means missing data. *)
-    | Stat of (int * int list option)
+    | Stat of (int * Parser.SC.static_state)
 
 type cs = cs_d * specified
 
@@ -372,9 +375,6 @@ val process_molecular_file : string -> Cost_matrix.Two_D.m ->
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> Parser.filename -> d
 
-val process_tcm : Parser.filename -> 
-    Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * string
-
 val process_trees : d -> Parser.filename -> d
 
 val process_fixed_states : d -> Parser.filename option -> d
@@ -485,7 +485,6 @@ val assign_tcm_to_characters_from_file :
 val process_complex_terminals :
     d -> Parser.filename -> d
 
-val get_pool : d -> int -> Sequence.Pool.p
 val get_alphabet : d -> int -> Alphabet.a
 val get_pam : d -> int -> dyna_pam_t
 val get_character_state : d -> int -> dyna_state_t
@@ -522,6 +521,8 @@ val transform_weight : [ `ReWeight of (bool_characters * float) | `WeightFactor 
 val file_exists : d -> Parser.filename -> bool
 
 val make_fixed_states : bool_characters -> d -> d
+
+val make_direct_optimization : bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
 
@@ -570,8 +571,8 @@ val to_human_readable : d -> int -> int -> string
  * is applied iff [c] is nonadditive, and [add] iff [c] is additive. For any
  * other character the function returns true.*)
 val apply_boolean : 
-    (int list option list -> bool) -> (int list option list -> bool) -> 
-        d -> int -> bool
+    (Parser.SC.static_state list -> bool) -> 
+        (Parser.SC.static_state list -> bool) -> d -> int -> bool
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
@@ -582,9 +583,10 @@ val get_model : int -> d -> Parser.SC.ml_model
  * of all the terminals stored in [e], and returns the result per character in a
  * list of tuples holding the character code and the result. *)
 val apply_on_static :
-    (int list option list -> float) -> (int list option list -> float) -> 
-        (int array array -> int list option list -> float) -> 
-            (Parser.SC.ml_model -> int list option list -> float) -> bool_characters ->
+    (Parser.SC.static_state list -> float) -> (Parser.SC.static_state list -> 
+        float) -> 
+        (int array array -> Parser.SC.static_state list -> float) -> 
+            (Parser.SC.ml_model -> Parser.SC.static_state list -> float) -> bool_characters ->
             d -> (int * float) list
 
 val repack_codes : d -> d

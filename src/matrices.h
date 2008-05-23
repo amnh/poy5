@@ -39,6 +39,8 @@
 #define S3 (1 << 5)     /** Align the sequence from s1 and s3 */
 #define SS (1 << 6)
 
+#define DIRECTION_MATRIX unsigned short
+
 #define Matrices_struct(a) ((struct matrices *) Data_custom_val(a))
 
 struct matrices {
@@ -46,10 +48,10 @@ struct matrices {
     int len_eff;        /* Length of the 3d efficient matrix */
     int len_pre;        /* Length of the precalculated matrix */
     int *matrix;        /* Matrix for regular alignment */
-    unsigned char *matrix_d;     /* Matrix for directions in a 2d alignment */
+    DIRECTION_MATRIX *matrix_d;     /* Matrix for directions in a 2d alignment */
     int **pointers_3d;  /* Matrix of pointers to each rwo in a 3d align */
     int *cube;          /* Matrix for 3d alignment */
-    unsigned char *cube_d;       /* Matrix for directions in a 3d alignment */
+    DIRECTION_MATRIX *cube_d;       /* Matrix for directions in a 3d alignment */
     int *precalc;       /* Matrix of precalculated arrays */
 };
 
@@ -90,7 +92,7 @@ mat_get_2d_prec (const matricest m);
 int *
 mat_get_3d_prec (const matricest m);
 
-unsigned char *
+DIRECTION_MATRIX *
 mat_get_2d_direct (const matricest m);
 
 /* 
@@ -107,7 +109,7 @@ mat_get_3d_pointers (matricest m);
 int *
 mat_get_3d_matrix (matricest m);
 
-unsigned char *
+DIRECTION_MATRIX *
 mat_get_3d_direct (matricest m);
 
 /* Printout the contents of the matrix */

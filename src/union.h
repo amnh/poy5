@@ -51,4 +51,4 @@ void
 union_prepend_counter (unionofft u);
 
 void
-union_merge (seqt a, seqt b, unionofft au, unionofft bu, unionofft c, cmt m);
+union_merge (seqt a, seqt b, seqt median, unionofft au, unionofft bu, unionofft c, cmt m);

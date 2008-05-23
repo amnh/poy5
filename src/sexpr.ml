@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Sexpr" "$Revision: 1810 $"
+let () = SadmanOutput.register "Sexpr" "$Revision: 2871 $"
 
 type 'a t = [ `Empty | `Set of 'a t list | `Single of 'a ]
 
@@ -220,6 +220,28 @@ let rec filter (f : ('b -> bool)) (m : 'b t) : 'b t =
             | x -> `Set x)
     | `Empty -> `Empty
 
+
+let union a b =
+    match a with
+    | `Empty -> b
+    | _ -> 
+            match b with
+            | `Empty -> a
+            | _ -> `Set [a; b]
+
+let rec split (f : ('b -> bool)) (m : 'b t) : ('b t * 'b t) = 
+    match m with
+    | `Single x ->
+            if f x then `Single x, `Empty
+            else `Empty, `Single x
+    | `Empty -> `Empty, `Empty
+    | `Set lst ->
+            match List.map (split f) lst with
+            | [] -> `Empty, `Empty
+            | h :: t -> 
+                    List.fold_left (fun (a, b) (c, d) ->
+                        (union a c), (union b d)) h t
+
 let rec combine x =
     match x with
     | `Empty, `Empty -> `Empty
@@ -248,34 +270,6 @@ let rec map_insexpr (f : ('a -> 'b t list)) (x : 'a t) : 'b t =
     | `Set x ->
             `Set (List.map (map_insexpr f) x)
 
-let status_msg elapsed_wall adv n =
-    let present remain msg = 
-        (Printf.sprintf "%.0f" remain) ^ " " ^ msg
-    in
-    let tpi = elapsed_wall /. (float_of_int adv) in
-    let remain = tpi *. (float_of_int (n - adv)) in
-    let remain = 
-        let mine_remain v factor = 
-            let mine = floor (v /. factor) in
-            let remain = v -. (mine *. factor) in
-            mine, remain
-        in
-        let rec full_calculation remain =
-            if (remain) < 60. then present remain "s"
-            else if (remain) < 3600. then (* Show minutes *)
-                let mine, remain = mine_remain remain 60. in
-                (present mine "m, ") ^ full_calculation remain
-            else if (remain) < 3600. *. 24. then (* Show days *)
-                let mine, remain = mine_remain remain 3600. in
-                (present mine "h, ") ^ full_calculation remain
-            else 
-                let mine, remain = mine_remain remain (3600. *. 24.) in
-                (present mine "d, ") ^ full_calculation remain
-        in
-        full_calculation remain
-    in
-    "Estimated finish in " ^ remain
-
 let fold_status str ?(eta=true) fn init sexpr =
     let n = cardinal sexpr in
     if n > 1
@@ -288,7 +282,7 @@ let fold_status str ?(eta=true) fn init sexpr =
                 match adv - 1 with
                 | 0 -> ""
                 | adv ->
-                      status_msg elapsed_wall adv n
+                      Timer.status_msg elapsed_wall adv n
             in
             if eta
             then Status.full_report ~adv ~msg status
@@ -315,7 +309,7 @@ let map_status str ?(eta=true) fn sexpr =
                 match adv - 1 with
                 | 0 -> ""
                 | adv ->
-                      status_msg elapsed_wall adv n
+                      Timer.status_msg elapsed_wall adv n
             in
             if eta
             then Status.full_report ~adv ~msg status
@@ -345,7 +339,7 @@ let compose_status string ?(eta=true) fn n start =
                     match adv - 1 with
                     | 0 -> ""
                     | adv ->
-                          status_msg elapsed_wall adv n
+                          Timer.status_msg elapsed_wall adv n
                 in
                 if eta
                 then Status.full_report ~adv ~msg status
@@ -361,6 +355,3 @@ let compose_status string ?(eta=true) fn n start =
             res
         end
     else fn 0 start
-
-let union a b =
-    `Set [a; b]

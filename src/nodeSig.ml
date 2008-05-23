@@ -28,6 +28,7 @@ module type S = sig
 
     (** The type of the nodes in the tree. *)
     type n 
+    type other_n 
 
     (** The calculation of the nodes in a tree start in a particular vertex. For
     * this reason we have to do two passes: the downpass and the uppass. The
@@ -136,14 +137,14 @@ module type S = sig
     * characters. See the usage of the function in the Support module *)
     val support_chars : int -> int option -> n -> (float * int) list
 
-    (** [load ?taxa ?codes d] loads the data contained in [d], and creates a tuple 
+    (** [load d] loads the data contained in [d], and creates a tuple 
     * [(a, b)], where [b] is the list of nodes contained in [d], and [d] is an
     * updated [d] that holds the information of the nodes created. The function
     * can optionally take two labled arguments, the list of codes of the [taxa]
     * to be loaded (then the list only contains those taxa), or the list of the
     * [codes] of the characters that are to be loaded. *)
     val load_data : 
-        ?silent:bool -> ?taxa:(int list) -> ?codes:(int list) -> 
+        ?silent:bool -> 
             ?classify:bool -> Data.d -> Data.d * (n list)
 
     (** [n_chars ?acc n] gets the number of characters stored in [n], plus the
@@ -249,6 +250,11 @@ module type S = sig
 
     end
 
+    (** [compare a b] compares the preliminary states of the nodes [a] and [b]
+     * only. This function can not be used for the general comparison of the
+     * complete contents of a node. *)
+    val compare : n -> n -> int
+
     val for_support : 
         int -> (int * n) list -> int list -> int list -> n list
 
@@ -268,6 +274,11 @@ module type S = sig
 
     (* Map all the internal codes of a node using the function *)
     val recode : (int -> int) -> n -> n
+<<<<<<< .mine
     (* extract times from characters *)
     val extract_time : int option -> n -> float list
+=======
+    val to_other : n -> other_n
+    val force : n -> n
+>>>>>>> .r2871
 end

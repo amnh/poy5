@@ -56,8 +56,8 @@ __inline int
 inline int
 #endif
 mat_size_of_2d_matrix (int w, int h) {
-    if (w > h) return (w * 5);
-    else return (h * 5);
+    if (w > h) return (w * 12);
+    else return (h * 12);
 }
 
 void
@@ -65,7 +65,7 @@ mat_clean_direction_matrix (matricest m) {
     int len = m->len;
     int i;
     for (i = 0; i < len; i++) 
-        m->matrix_d[i] = (unsigned char) 0;
+        m->matrix_d[i] = (DIRECTION_MATRIX) 0;
     return;
 }
 
@@ -74,16 +74,16 @@ __inline int
 #else
 inline int
 #endif
-mat_setup_size (matricest m, int w, int d, int h, int k, int a_sz) {
+mat_setup_size (matricest m, int w, int d, int h, int k, int lcm) {
     int len, len_2d, len_precalc, len_dir;
     if (h == 0) {           /* If the size setup is only for 2d */
         len = mat_size_of_2d_matrix (w, d);
-        len_precalc = (a_sz + 1) * w;
-        len_dir = w * d;
+        len_precalc = (1 << lcm) * w;
+        len_dir = (w + 1) * (d + 1);
         len_2d = 0;
     } else {                /* If the size setup is for 3d */
         len = mat_size_of_3d_matrix (w, d, h, k);
-        len_precalc = (a_sz + 1) * (a_sz + 1) * d;
+        len_precalc = (1 << lcm) * (1 << lcm) * d;
         len_2d = w * d;
         len_dir = len_2d * h;
     }
@@ -94,7 +94,8 @@ mat_setup_size (matricest m, int w, int d, int h, int k, int a_sz) {
     }
     if (m->len < len_dir) { /* If the other matrices are not enough */
         m->cube_d = m->matrix_d = 
-            (unsigned char *) realloc (m->matrix_d, (len_dir * sizeof(unsigned char)));
+            (DIRECTION_MATRIX *) 
+            realloc (m->matrix_d, (len_dir * sizeof(DIRECTION_MATRIX)));
         if (0 != len_2d) {
             m->pointers_3d = 
                 (int **) realloc (m->pointers_3d, len_2d * sizeof(int));
@@ -132,7 +133,7 @@ mat_get_2d_matrix (matricest m) {
     return (m->matrix);
 }
 
-unsigned char *
+DIRECTION_MATRIX *
 mat_get_2d_direct (const matricest m) {
     return (m->matrix_d);
 }
@@ -147,7 +148,7 @@ mat_get_3d_matrix (matricest m) {
     return (m->cube);
 }
 
-unsigned char *
+DIRECTION_MATRIX *
 mat_get_3d_direct (matricest m) {
     return (m->cube_d);
 }
@@ -187,8 +188,8 @@ static struct custom_operations alignment_matrix = {
     &mat_CAML_free,
     custom_compare_default,
     custom_hash_default,
-    mat_CAML_serialize,
-    mat_CAML_deserialize
+    custom_serialize_default,
+    custom_deserialize_default
 };
 
 value 

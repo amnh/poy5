@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Node" "$Revision: 2791 $"
+let () = SadmanOutput.register "Node" "$Revision: 2871 $"
 let infinity = float_of_int max_int
 
 let debug = false
@@ -291,7 +291,7 @@ let float_close ?(epsilon=0.001) a b =
     let diff = a -. b in
     (abs_float diff) < epsilon
 
-let rec cs_median anode bnode prev a b = 
+let rec cs_median code anode bnode prev a b = 
     match a, b with 
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -395,7 +395,7 @@ let rec cs_median anode bnode prev a b =
                 if anode.min_child_code < bnode.min_child_code then ca, cb
                 else cb, ca
             in
-            let median = DynamicCS.median ca.preliminary cb.preliminary in
+            let median = DynamicCS.median code ca.preliminary cb.preliminary in
             let total_cost = DynamicCS.total_cost median in 
             let res = 
                 { ca with 
@@ -412,7 +412,7 @@ let rec cs_median anode bnode prev a b =
                 if anode.min_child_code < bnode.min_child_code then ca, cb
                 else cb, ca
             in
-            let median = KolmoCS.median ca.preliminary cb.preliminary in
+            let median = KolmoCS.median code ca.preliminary cb.preliminary in
             let total_cost = KolmoCS.total_cost median in 
             let res = 
                 { ca with 
@@ -435,7 +435,7 @@ let rec cs_median anode bnode prev a b =
                     (* just recursively apply it to our children, in order *)
                     let res =
                         List.map2
-                            (cs_median anode bnode None) l1 l2 in
+                            (cs_median code anode bnode None) l1 l2 in
                     let result = { cb.preliminary with set = res } in
                     set_update_cost
                         (Set { cb with
@@ -451,7 +451,7 @@ let rec cs_median anode bnode prev a b =
                             (fun (i, list) l1i ->
                                  let _, list = List.fold_left
                                  (fun (j, list) l2i ->
-                                      let median = cs_median anode
+                                      let median = cs_median code anode
                                           bnode None l1i l2i in
                                       let cost = extract_cost median in
                                       update_cost cost;
@@ -745,16 +745,20 @@ let median code old a b =
                 decr median_counter;
                 !median_counter
     in
+    (*
+    Printf.printf "Code of median is %d with children %d and %d\n%!" code 
+    a.taxon_code b.taxon_code;
+    *)
     let new_characters =
         match old with
         | None -> 
-                map2 (cs_median a b None) 
+                map2 (cs_median code a b None) 
                 a.characters b.characters
         | Some c ->
-              map3 (fun x -> cs_median a b (Some x))
-                  c.characters
-                  a.characters
-                  b.characters
+                    map3 (fun x -> cs_median code a b (Some x))
+                    c.characters
+                    a.characters
+                    b.characters
     and children_cost = a.total_cost +. b.total_cost in
     let node_cost = get_characters_cost new_characters in
     let total_cost = 
@@ -780,71 +784,6 @@ let median code old a b =
         exclude_sets = a.exclude_sets;
         exclude_info = exclude_info;
         cost_mode = a.cost_mode;
-    }
-
-let rec cs_reroot_median na nb old a b =
-    match old, a, b with
-    | StaticMl old, StaticMl a, StaticMl b ->
-        IFDEF USE_LIKELIHOOD THEN
-        let median = MlStaticCS.reroot_median a.final b.final
-                                                a.time b.time in
-        let n_cost = MlStaticCS.root_cost median in
-        StaticMl { old with 
-            preliminary = median; final = median;
-            cost = n_cost *. a.weight; sum_cost = n_cost *. a.weight; } 
-        ELSE
-            failwith likelihood_error
-        END
-    | Nonadd8 old, Nonadd8 a, Nonadd8 b ->
-          let median = NonaddCS8.reroot_median a.final b.final in
-          Nonadd8 { old with preliminary = median; final = median; }
-    | Nonadd16 old, Nonadd16 a, Nonadd16 b ->
-          let median = NonaddCS16.reroot_median a.final b.final in
-          Nonadd16 { old with preliminary = median; final = median; }
-    | Nonadd32 old, Nonadd32 a, Nonadd32 b ->
-          let median = NonaddCS32.reroot_median a.final b.final in
-          Nonadd32 { old with preliminary = median; final = median; }
-    | Add old, Add a, Add b ->
-          let median = AddCS.reroot_median a.final b.final in
-          Add { old with preliminary = median; final = median; }
-    | Sank old, Sank a, Sank b ->
-          let newroot = SankCS.reroot old.final a.final b.final in
-          Sank { old with preliminary = newroot; final = newroot; }
-    | Dynamic old, Dynamic a, Dynamic b ->
-          let median = DynamicCS.median a.final b.final in
-          Dynamic { old with preliminary = median; final = median }
-    | Kolmo old, Kolmo a, Kolmo b ->
-          let median = KolmoCS.median a.final b.final in
-          Kolmo { old with preliminary = median; final = median }
-    | Set old, Set a, Set b ->
-          (* just re-take the median... *)
-          (match a.preliminary.smethod with
-           | `Strictly_Same ->
-                 let res = map3 (cs_reroot_median na nb)
-                     old.final.set a.preliminary.set
-                     b.preliminary.set in
-                 let res = { old.preliminary with set = res } in
-                 Set { old with preliminary = res; final = res; }
-           | `Any_Of _ ->
-                 let newroot = cs_median na nb None (Set a) (Set b) in
-                 newroot
-          )
-    | Dynamic _, _, _ 
-    | Sank _, _, _ | Add _, _, _ | Nonadd32 _, _, _ 
-    | Nonadd16 _, _, _ | Nonadd8 _, _, _ | Set _, _, _ | Kolmo _, _, _ 
-    | StaticMl _, _, _ ->
-          failwith "cs_reroot_median"
-
-let reroot_median old a b =
-    let new_characters =
-        map3 (cs_reroot_median a b) old.characters a.characters b.characters in
-    let num_child_edges, num_height = new_node_stats a b in
-    let exclude_info = excludes_median a b in
-    { old with
-          characters = new_characters;
-          num_child_edges = num_child_edges;
-          num_height = num_height;
-          exclude_info = exclude_info;
     }
 
 (* let median_final old a b = *)
@@ -1033,7 +972,8 @@ let edge_distance clas nodea nodeb =
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance
                      *)
-                     let m = cs_median nodea nodeb None ch1 ch2 in
+                     decr median_counter;
+                     let m = cs_median !median_counter nodea nodeb None ch1 ch2 in
                      extract_cost m)
         | _ -> failwith "Incompatible characters (5)"
     and distance_lists chs1 chs2 acc =
@@ -1090,7 +1030,8 @@ let distance_of_type ?(para=None) ?(parb=None) t
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance
                      *)
-                     let m = cs_median nodea nodeb None ch1 ch2 in
+                     decr median_counter;
+                     let m = cs_median !median_counter nodea nodeb None ch1 ch2 in
                      extract_cost m)
         | _ -> 0.0
     and distance_lists chs1 chs2 acc =
@@ -1133,7 +1074,8 @@ let distance ?(para=None) ?(parb=None)
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance
                      *)
-                     let m = cs_median nodea nodeb None ch1 ch2 in
+                     decr median_counter;
+                     let m = cs_median !median_counter nodea nodeb None ch1 ch2 in
                      extract_cost m)
         | _ -> failwith "Incompatible characters (5)"
     and distance_lists chs1 chs2 acc =
@@ -1308,7 +1250,7 @@ let extract_kolmo data kolmo tcode =
 type ms = All_sets.Integers.t
 
 module OrderedLists = struct
-    type t = float * (int list list)
+    type t = float * (BitSet.t list)
     let rec single_compare a b =
         match a, b with
         | ha :: ta, hb :: tb -> 
@@ -1323,7 +1265,7 @@ module OrderedLists = struct
     let rec list_compare a b = 
         match a, b with
         | ha :: ta, hb :: tb ->
-                let res = single_compare ha hb in
+                let res = BitSet.compare ha hb in
                 if 0 = res then compare ta tb
                 else res
         | [], [] -> 0
@@ -1338,7 +1280,25 @@ end
 
 module SetLists = Map.Make (OrderedLists)
 
-let collapse characters all_static =
+let debug_profile_memory = false
+
+let current_snapshot x = 
+    if debug_profile_memory then MemProfiler.current_snapshot x
+    else ()
+
+let to_bitset size lst = 
+    let set  = BitSet.create (size * (List.length lst)) in
+    let cnt = ref (-1) in
+    List.iter (fun lst ->
+        incr cnt;
+        List.iter (fun x ->
+            BitSet.set set (x + (!cnt * 32))) lst) lst;
+    set
+
+let bitset_table  = Hashtbl.create 1667 
+
+let collapse size characters all_static =
+    (*
     let simplify item = 
         let hash = Hashtbl.create 255 
         and cur_counter = ref 1 in
@@ -1359,23 +1319,43 @@ let collapse characters all_static =
         in
         List.map simplify item
     in
+    *)
     let process_all_lists lists = 
+        current_snapshot "This is before lists";
         let lists = 
             List.fold_left (fun acc x ->
                 let (code, weight, lst) = characters x in
+                let lst = 
+                    List.map (function
+                    | `List x -> 
+                            if Hashtbl.mem bitset_table x then 
+                                Hashtbl.find bitset_table x
+                            else
+                                let set = BitSet.create 31 in
+                                let () = List.iter (BitSet.set set) x in
+                                let () = Hashtbl.add bitset_table x set in
+                                set
+                    | `Bits x -> x) lst 
+                in
+                (*
                 let lst = simplify lst in
+                let lst = to_bitset size lst in
+                *)
                 if SetLists.mem (weight, lst) acc then
                     let code, nweight = SetLists.find (weight, lst) acc in
                     SetLists.add (weight, lst) (code, (weight +. nweight)) acc
                 else SetLists.add (weight, lst) (code, weight) acc) SetLists.empty 
                 all_static
         in
-        SetLists.fold (fun lst (code, weight) acc -> (code, weight, lst) :: acc)
+        current_snapshot "This is before elements";
+        SetLists.fold (fun _ it acc -> it :: acc)
         lists []
     in
-    process_all_lists characters
+    let res = process_all_lists characters in
+    current_snapshot "This is after lists";
+    res
 
-let classify chars data =
+let classify size chars data =
     let all_static = 
         Hashtbl.fold (fun code spec acc ->
             match spec with
@@ -1398,13 +1378,14 @@ let classify chars data =
                 try
                     match Hashtbl.find taxon_chars code with
                     | (Data.Stat (c, (Some v)), `Specified) -> (c, weight, v)
-                    | (Data.Stat (c, v), _) -> (c, weight, observed)
+                    | (Data.Stat (c, v), _) -> (c, weight, `List observed)
                     | _ -> failwith "Impossible 2?"
                 with
-                | Not_found -> (code, weight, observed)
+                | Not_found -> (code, weight, `List observed)
             in
             lst :: acc) data.Data.taxon_characters []
     in
+    current_snapshot "Generating characters";
     let characters = 
         let add_taxon_to_accumulator acc (_, _, v) = v :: acc in
         let reshape chars (a, b, _) = (a, b, chars) in
@@ -1415,14 +1396,18 @@ let classify chars data =
                     reshape chars h
             | [] -> failwith "Nothing?"
         in
-        collapse chars all_static
+        collapse size chars all_static
     in
-    List.fold_left (fun acc (a, b, c) ->
-        All_sets.IntegerMap.add a (b, c) acc) All_sets.IntegerMap.empty
+    current_snapshot "Final fold characters";
+    let r = List.fold_left (fun acc (a, b) ->
+        All_sets.IntegerMap.add a b acc) All_sets.IntegerMap.empty
         characters
+    in
+    current_snapshot "Done fold";
+    r
 
-let classify doit chars data =
-    if doit then Some (classify chars data)
+let classify size doit chars data =
+    if doit then Some (classify size chars data)
     else None
 
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
@@ -1445,7 +1430,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 match weights with
                 | None -> Data.get_weight c !data
                 | Some v ->
-                        let a, _ = All_sets.IntegerMap.find c v in
+                        let a = All_sets.IntegerMap.find c v in
                         a
             in
             let table = Hashtbl.create 1667 in
@@ -1493,15 +1478,23 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             List.map (Hashtbl.find_all hstbl) 
             (All_sets.Integers.elements set_codes)
         in
-        let nadd8weights = classify do_classify lnadd8code !data
-        and nadd16weights = classify do_classify lnadd16code !data
-        and nadd32weights = classify do_classify lnadd32code !data in
+        let nadd8weights = classify 8 do_classify lnadd8code !data
+        and nadd16weights = classify 16 do_classify lnadd16code !data
+        and nadd32weights = classify 32 do_classify lnadd32code !data in
         let laddcode = group_in_weights None laddcode
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
+<<<<<<< .mine
+=======
+        let add_codes ((_, x) as y) = y, Array.map snd (Array.of_list x) in
+        let laddcode = List.map add_codes laddcode 
+        and lnadd8code = List.map add_codes lnadd8code
+        and lnadd16code = List.map add_codes lnadd16code
+        and lnadd32code = List.map add_codes lnadd32code in
+>>>>>>> .r2871
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
@@ -1515,11 +1508,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
-            (Data.Stat (code, Some enc.Parser.SC.st_observed), `Unknown) 
+            (Data.Stat (code, Some (`List enc.Parser.SC.st_observed)), 
+            `Unknown) 
         in
         let gen_nadd code =
             let enc = get_static_encoding code in
-            (Data.Stat (code, Some enc.Parser.SC.st_observed), `Unknown) 
+            (Data.Stat (code, Some (`List enc.Parser.SC.st_observed)), `Unknown) 
         in
         let gen_dynamic code =
             let alph = Data.get_alphabet !data code in
@@ -1534,13 +1528,18 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let specs = Hashtbl.find !data.Data.character_specs code in
             let states = 
                 match specs with
-                | Data.Static enc -> enc.Parser.SC.st_observed
+                | Data.Static enc -> `List enc.Parser.SC.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)
         in
+<<<<<<< .mine
+=======
+        current_snapshot "Done";
+>>>>>>> .r2871
         !data, 
         fun tcode acc ->
+            current_snapshot "Generating taxon";
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
             let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
                 try 
@@ -1554,12 +1553,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 with
                 | Not_found -> (gen_new code) :: acc
             in
-            let addmapper gen_new (x, y) =
+            let addmapper gen_new ((x, y), arr) =
                 let a, b, cnt = 
                     List.fold_left (get_character_with_code_n_weight gen_new) 
                     (1., [], 0) y
                 in
-                x, (a, b)
+                x, (a, b), arr
             in
             let ladd_chars    = List.map (addmapper gen_add)  laddcode    
             and lnadd8_chars  = 
@@ -1605,20 +1604,22 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let result = 
                 List.fold_left 
-                (add_characters (NonaddCS8.of_parser !data)
-                (fun c w -> Nonadd8 (make_with_w c w)))
+                (fun acc (a, b, c) -> 
+                    add_characters (NonaddCS8.of_parser !data c)
+                    (fun c w -> Nonadd8 (make_with_w c w)) acc (a, b))
                 result lnadd8_chars
             in
             let result =
                 List.fold_left 
-                (add_characters (NonaddCS16.of_parser !data)
-                (fun c w -> Nonadd16 (make_with_w c w)))
+                (fun acc (a, b, c) -> 
+                    add_characters (NonaddCS16.of_parser !data c)
+                    (fun c w -> Nonadd16 (make_with_w c w)) acc (a, b))
                 result lnadd16_chars
             in
             let result =
                 List.fold_left 
-                (add_characters (NonaddCS32.of_parser !data)
-                (fun c w -> Nonadd32 (make_with_w c w)))
+                (fun acc (a, b, c) -> add_characters (NonaddCS32.of_parser !data c)
+                (fun c w -> Nonadd32 (make_with_w c w)) acc (a, b))
                 result lnadd32_chars
             in
             let result = 
@@ -1627,8 +1628,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let result = 
                 List.fold_left 
-                (add_characters (AddCS.of_parser !data)
-                (fun c w -> Add (make_with_w c w)))
+                (fun acc (a, b, _) -> add_characters (AddCS.of_parser !data)
+                (fun c w -> Add (make_with_w c w)) acc (a, b))
                 result ladd_chars
             in
             let result = 
@@ -1702,6 +1703,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 result
                 END
             in
+            let () = current_snapshot "Finished taxon" in
             result :: acc
 
 let node_contents_compare a b =         (* sets? *)
@@ -1835,13 +1837,7 @@ let structure_into_sets data (nodes : node_data list) =
     in
     nodes, !data'
 
-let debug_profile_memory = false
-
-let current_snapshot x = 
-    if debug_profile_memory then MemProfiler.current_snapshot x
-    else ()
-
-let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data = 
+let load_data ?(silent=true) ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
@@ -1852,27 +1848,20 @@ let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data =
         All_sets.Integers.empty lst
     in
     let is_mem =
-        let belongs_to_code =
-            match codes with
-            | None -> (fun _ -> true)
-            | Some codes -> 
-                    let codes = make_set_of_list codes in
-                    (fun y -> All_sets.Integers.mem y codes)
-        in
         (* We check for informative characters among all the terminals in data
         * *)
         if classify then 
             (* We need to verify if the character is
             potentially informative or not *)
             (fun char -> 
-                belongs_to_code char && 
                 Data.apply_boolean
                 NonaddCS8.is_potentially_informative 
                 AddCS.is_potentially_informative data char
                 && 0. <> Data.get_weight char data)
-        else belongs_to_code
+        else (fun _ -> true)
     in
     let data, generate_taxon = 
+        current_snapshot "start nonadd sets";
         let n8 = List.filter is_mem data.Data.non_additive_8
         and n16 = List.filter is_mem data.Data.non_additive_16
         and n32 = List.filter is_mem data.Data.non_additive_32
@@ -1882,6 +1871,7 @@ let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data =
         and kolmogorov = List.filter is_mem data.Data.kolmogorov
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
+        current_snapshot "start nonadd set2";
         let n8 = make_set_of_list n8
         and n16 = make_set_of_list n16
         and n32 = make_set_of_list n32
@@ -1892,44 +1882,50 @@ let load_data ?(silent=true) ?taxa ?codes ?(classify=true) data =
             | [] -> `Parsimony
             | _ -> `Likelihood
         in
+<<<<<<< .mine
         generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
         static_ml data cost_mode
+=======
+        current_snapshot "end nonadd set2";
+        let r = 
+            generate_taxon classify add n8 n16 n32 n33 sank dynamics kolmogorov 
+            static_ml data
+        in
+        current_snapshot "end generate taxon";
+        r
+>>>>>>> .r2871
     in
     let nodes = 
-        match taxa with
-        | None ->
-                let ntaxa = 
-                    All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
-                    data.Data.taxon_codes 0 
+        let ntaxa = 
+            All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
+            data.Data.taxon_codes 0 
+        in
+        let st, finalize = 
+            if not silent then
+                let status = 
+                    Status.create "Loading terminals" (Some ntaxa)
+                    "terminals loaded" 
                 in
-                let st, finalize = 
-                    if not silent then
-                        let status = 
-                            Status.create "Loading terminals" (Some ntaxa)
-                            "terminals loaded" 
-                        in
-                        let cnt = ref 0 in
-                        (fun () -> 
-                            incr cnt; 
-                            Status.achieved status !cnt;
-                            Status.full_report status),
-                        (fun () -> Status.finished status)
-                    else (fun () -> ()), (fun () -> ())
-                in
-                let res = 
-                    All_sets.IntegerMap.fold (fun x _ acc -> 
-                        try 
-                            let res = generate_taxon x acc in
-                            st ();
-                            res
-                        with 
-                        Not_found -> acc)
-                    data.Data.taxon_codes []
-                in
-                finalize ();
-                res
-        | Some taxa ->
-                List.fold_left (fun x y -> generate_taxon y x) [] taxa 
+                let cnt = ref 0 in
+                (fun () -> 
+                    incr cnt; 
+                    Status.achieved status !cnt;
+                    Status.full_report status),
+                (fun () -> Status.finished status)
+            else (fun () -> ()), (fun () -> ())
+        in
+        let res = 
+            All_sets.IntegerMap.fold (fun x _ acc -> 
+                try 
+                    let res = generate_taxon x acc in
+                    st ();
+                    res
+                with 
+                Not_found -> acc)
+            data.Data.taxon_codes []
+        in
+        finalize ();
+        res
     in
     let nodes = 
         let sorted x = List.stable_sort node_contents_compare x in
@@ -1995,6 +1991,9 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
     | _ -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
+    (*
+    Printf.printf "Assigning single to %d\n%!" mine.taxon_code;
+    *)
     match root with
     | Some root ->
           let root_char_opt = List.map (fun c -> Some c) root.characters in 
@@ -2545,38 +2544,9 @@ let get_sequences _ node =
 let fprintf = Printf.fprintf 
 
 
-let prioritize node =
-    let characters = 
-        List.fold_right (fun x acc -> 
-            match x with 
-            | Dynamic x -> 
-                    let x = { x with preliminary = DynamicCS.prioritize
-                    x.preliminary } in
-                    (Dynamic x) :: acc 
-            | x -> x :: acc) 
-        node.characters  []
-    in
-    { node with characters = characters }
+let prioritize node = node
 
-let reprioritize a b =
-    let rec pairwise_priority a b =
-        match a, b with
-        | [], [] -> []
-        | ha :: ta, hb :: tb ->
-                begin match ha, hb with
-                | Dynamic a, Dynamic b -> 
-                        let x = { b with preliminary = 
-                                DynamicCS.reprioritize a.preliminary
-                                b.preliminary;
-                                final = DynamicCS.reprioritize a.preliminary
-                                b.final } 
-                        in
-                        (Dynamic x) :: pairwise_priority ta tb
-                | a, b -> b :: pairwise_priority ta tb
-                end
-        | [], _ | _, [] -> failwith "Node.reprioritize"
-    in
-    { b with characters = pairwise_priority a.characters b.characters }
+let reprioritize a b = b
 
 let is_collapsable clas a b = 
     0.0 = edge_distance clas a b
@@ -3105,10 +3075,13 @@ let extract_time nd =
     END
 
 module Standard : 
-    NodeSig.S with type e = exclude and type n = node_data = 
+    NodeSig.S with type e = exclude and type n = node_data and type other_n =
+        node_data = 
         struct
         type e = exclude
         type n = node_data
+        type other_n = n
+        let to_other x = x
         type nad8 = NonaddCS8.t r
         let recode f n = recode f n
         let fix_preliminary = all_prelim_to_final
@@ -3159,7 +3132,77 @@ module Standard :
         let get_add _ = get_add
         let get_sank _ = get_sank
         let get_dynamic _ = get_dynamic
+<<<<<<< .mine
         let get_mlstatic _ = get_mlstatic
+=======
+        let compare a b = 
+            let rec aux_cmt a b =
+                match a, b with
+                | (Nonadd8 ha) :: ta, (Nonadd8 hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Nonadd8 ha) :: ta, _ -> -1
+                | (Nonadd16 ha) :: ta, (Nonadd16 hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Nonadd16 ha) :: ta, _ -> -1
+                | (Nonadd32 ha) :: ta, (Nonadd32 hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Nonadd32 ha) :: ta, _ -> -1
+                | (Add ha) :: ta, (Add hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Add ha) :: ta, _ -> -1
+                | (Sank ha) :: ta, (Sank hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Sank ha) :: ta, _ -> -1
+                | (Dynamic ha) :: ta, (Dynamic hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Dynamic ha) :: ta, _ -> -1
+                | (Kolmo ha) :: ta, (Kolmo hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Kolmo ha) :: ta, _ -> -1
+                | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
+                        IFDEF USE_LIKELIHOOD THEN
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                        ELSE 
+                        0
+                        END
+                | (StaticMl ha) :: ta, _ -> -1
+                | (Set ha) :: ta, (Set hb) :: tb ->
+                        let cmp = compare ha.preliminary hb.preliminary in
+                        if cmp = 0 then 
+                            aux_cmt ta tb
+                        else cmp
+                | (Set ha) :: ta, _ -> 1
+                | [], [] -> 0
+                | [], _ -> -1
+            in
+            aux_cmt a.characters b.characters
+
+        let force x = x
+>>>>>>> .r2871
 end 
 
 let merge a b =

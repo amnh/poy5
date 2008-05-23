@@ -44,6 +44,8 @@ module IntegerListMap : Map.S with type key = int list
 
 module Floats : Set.S with type elt = float
 
+module FloatMap : Map.S with type key = float
+
 module StringMap : Map.S with type key = string
 
 module TupleMap : Map.S with type key = (int * int)

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Parser" "$Revision: 2864 $"
+let () = SadmanOutput.register "Parser" "$Revision: 2871 $"
 
 (* A in-file position specification for error messages. *)
 let ndebug = true
@@ -2307,19 +2307,24 @@ module SC = struct
         st_observed_used : (int, int) Hashtbl.t option;
     }
 
-    let spec_of_alph alph gap filename name = 
-        let alphabet, alph_ext =
-            let tbl, alph = 
-                let cntr = ref (-1) in
-                let alph =
-                    (if List.exists (fun x -> x = gap) alph then alph
-                    else alph @ [gap])
-                in
-                List.map (fun x -> incr cntr; (x, !cntr, None)) alph, alph
+    let static_state_to_list x =
+        match x with
+        | `List x -> x
+        | `Bits x -> BitSet.to_list x 
+
+    let generate_alphabet alph gap =
+        let tbl = 
+            let cntr = ref (-1) in
+            let alph =
+                (if List.exists (fun x -> x = gap) alph then alph
+                else alph @ [gap])
             in
-            Alphabet.list_to_a tbl gap None Alphabet.Sequential, alph
+            List.map (fun x -> incr cntr; (x, !cntr, None)) alph
         in
-        {
+        Alphabet.list_to_a tbl gap None Alphabet.Sequential
+
+    let spec_of_alph alphabet filename name = 
+         {
             st_filesource = filename;
             st_name = name;
             st_alph = alphabet;
@@ -2337,7 +2342,7 @@ module SC = struct
             st_observed_used = None;
         }
 
-    type static_state = int list option
+    type static_state = [ `Bits of BitSet.t | `List of int list ] option
 
     type file_output =
         (string option array * static_spec array * static_state array array * 
@@ -2514,78 +2519,92 @@ module SC = struct
             (function Nexus.Datatype x -> x | _ -> assert false) 
             Nexus.DStandard
 
+        let table_of_alphabets = Hashtbl.create 1667 
+
         let make_symbol_alphabet gap symbols form =
-            match get_datatype form with
-            | Nexus.Protein ->
-                    Alphabet.list_to_a
-                    [("A", 0, None); 
-                    ("C", 1, None); 
-                    ("D", 2, None); 
-                    ("E", 3, None); 
-                    ("F", 4, None); 
-                    ("G", 5, None); 
-                    ("H", 6, None); 
-                    ("I", 7, None); 
-                    ("K", 8, None); 
-                    ("L", 9, None); 
-                    ("M", 10, None); 
-                    ("N", 11, None); 
-                    ("P", 12, None); 
-                    ("Q", 13, None); 
-                    ("R", 14, None); 
-                    ("S", 15, None); 
-                    ("T", 16, None); 
-                    ("V", 17, None); 
-                    ("W", 18, None); 
-                    ("Y", 19, None); 
-                    ("*", 20, None);
-                    (gap, 21, None);]
-                    gap None Alphabet.Sequential,
-                    [("B", ["D"; "N"]); ("Z", ["E"; "Q"])]
-            | Nexus.Rna ->
-                    Alphabet.list_to_a 
-                    [("A", 0, None); ("C", 1, None); ("G", 2, None); ("U", 3,
-                    None); (gap, 4, None)]
-                    gap None Alphabet.Sequential,
-                    [("R", ["A"; "G"]);
-                    ("Y", ["C"; "U"]);
-                    ("M", ["A"; "C"]);
-                    ("K", ["G"; "U"]);
-                    ("S", ["C"; "U"]);
-                    ("W", ["A"; "U"]);
-                    ("H", ["A"; "C"; "U"]);
-                    ("B", ["C"; "G"; "U"]);
-                    ("V", ["A"; "C"; "G"]);
-                    ("D", ["A"; "G"; "U"]);
-                    ("N", ["A"; "C"; "G"; "U"]);
-                    ("X", ["A"; "C"; "G"; "U"])]
-            | Nexus.Nucleotide | Nexus.Dna ->
-                    Alphabet.list_to_a 
-                    [("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
-                    None); (gap, 4, None)]
-                    gap None Alphabet.Sequential,
-                    [("R", ["A"; "G"]);
-                    ("Y", ["C"; "T"]);
-                    ("M", ["A"; "C"]);
-                    ("K", ["G"; "T"]);
-                    ("S", ["C"; "T"]);
-                    ("W", ["A"; "T"]);
-                    ("H", ["A"; "C"; "T"]);
-                    ("B", ["C"; "G"; "T"]);
-                    ("V", ["A"; "C"; "G"]);
-                    ("D", ["A"; "G"; "T"]);
-                    ("N", ["A"; "C"; "G"; "T"]);
-                    ("X", ["A"; "C"; "G"; "T"])]
-            | Nexus.DStandard ->
-                let cnt = ref (-1) in
-                let alph = List.map (fun x -> 
-                    incr cnt;
-                    x, !cnt, None) (symbols @ [gap])
+            let index = (gap, symbols, form) in
+            if Hashtbl.mem table_of_alphabets index then
+                Hashtbl.find table_of_alphabets index
+            else
+                let r =
+                    let cnt = ref (1) in
+                    let prepro_symbols = 
+                        List.map (fun x -> incr cnt; x, !cnt, None) symbols
+                    in
+                    match get_datatype form with
+                    | Nexus.Protein ->
+                            Alphabet.list_to_a
+                            ([("A", 0, None); 
+                            ("C", 1, None); 
+                            ("D", 2, None); 
+                            ("E", 3, None); 
+                            ("F", 4, None); 
+                            ("G", 5, None); 
+                            ("H", 6, None); 
+                            ("I", 7, None); 
+                            ("K", 8, None); 
+                            ("L", 9, None); 
+                            ("M", 10, None); 
+                            ("N", 11, None); 
+                            ("P", 12, None); 
+                            ("Q", 13, None); 
+                            ("R", 14, None); 
+                            ("S", 15, None); 
+                            ("T", 16, None); 
+                            ("V", 17, None); 
+                            ("W", 18, None); 
+                            ("Y", 19, None); 
+                            ("*", 20, None);
+                            (gap, 21, None);] @ prepro_symbols)
+                            gap None Alphabet.Sequential,
+                            [("B", ["D"; "N"]); ("Z", ["E"; "Q"])]
+                    | Nexus.Rna ->
+                            Alphabet.list_to_a 
+                            ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("U", 3,
+                            None); (gap, 4, None)] @ prepro_symbols)
+                            gap None Alphabet.Sequential,
+                            [("R", ["A"; "G"]);
+                            ("Y", ["C"; "U"]);
+                            ("M", ["A"; "C"]);
+                            ("K", ["G"; "U"]);
+                            ("S", ["C"; "U"]);
+                            ("W", ["A"; "U"]);
+                            ("H", ["A"; "C"; "U"]);
+                            ("B", ["C"; "G"; "U"]);
+                            ("V", ["A"; "C"; "G"]);
+                            ("D", ["A"; "G"; "U"]);
+                            ("N", ["A"; "C"; "G"; "U"]);
+                            ("X", ["A"; "C"; "G"; "U"])]
+                    | Nexus.Nucleotide | Nexus.Dna ->
+                            Alphabet.list_to_a 
+                            ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
+                            None); (gap, 4, None)] @ prepro_symbols)
+                            gap None Alphabet.Sequential,
+                            [("R", ["A"; "G"]);
+                            ("Y", ["C"; "T"]);
+                            ("M", ["A"; "C"]);
+                            ("K", ["G"; "T"]);
+                            ("S", ["C"; "T"]);
+                            ("W", ["A"; "T"]);
+                            ("H", ["A"; "C"; "T"]);
+                            ("B", ["C"; "G"; "T"]);
+                            ("V", ["A"; "C"; "G"]);
+                            ("D", ["A"; "G"; "T"]);
+                            ("N", ["A"; "C"; "G"; "T"]);
+                            ("X", ["A"; "C"; "G"; "T"])]
+                    | Nexus.DStandard ->
+                        let cnt = ref (-1) in
+                        let alph = List.map (fun x -> 
+                            incr cnt;
+                            x, !cnt, None) (symbols @ [gap])
+                        in
+                        Alphabet.list_to_a alph gap None Alphabet.Sequential,
+                        get_equate form
+                    | Nexus.Continuous ->
+                            failwith "We don't support continuous characters ..."
                 in
-                Alphabet.list_to_a alph gap None Alphabet.Sequential,
-                get_equate form
-            | Nexus.Continuous ->
-                    failwith "We don't support continuous characters ..."
+                let () = Hashtbl.add table_of_alphabets index r in
+                r
 
         let default_static char_cntr file form pos =
             let missing = get_missing form 
@@ -2655,13 +2674,15 @@ module SC = struct
             done;
             ()
 
-        let uninterleave data = 
+        let uninterleave for_fasta data = 
             (* The data is a string right now, but I suppose this is not really
             * convenient as we set a hard constraint on the size of the input. We
             * have to change this for a stream, but that will also require changes
             * in the nexusLexer.mll and nexusParser.mly *)
             let hstbl = Hashtbl.create 97 in
             let stream = new FileStream.string_reader data in
+            let input_order = ref [] in
+            let started_adding = ref false in
             try while true do
                 let line = stream#read_line in
                 let line = 
@@ -2674,10 +2695,17 @@ module SC = struct
                             Buffer.add_string buf x; 
                             Buffer.add_string buf " "
                         in
-                        if Hashtbl.mem hstbl taxon then
+                        if Hashtbl.mem hstbl taxon then begin
+                            started_adding := true;
                             let buf = Hashtbl.find hstbl taxon in
                             List.iter (adder buf) sequence
-                        else begin
+                        end else begin
+                            if !started_adding then 
+                                failwith
+                                ("There appears to be a name mismatch in your \
+                                interleaved format. I could not find " ^ 
+                                taxon);
+                            input_order := taxon :: !input_order;
                             let buf = Buffer.create 1511 in
                             List.iter (adder buf) sequence;
                             Buffer.add_string buf " ";
@@ -2688,12 +2716,16 @@ module SC = struct
             ""
             with
             | End_of_file -> 
+                    let input_order = List.rev !input_order in
+                    let prepend = if for_fasta then "\n\n>" else " " in
+                    let separator = if for_fasta then "\n" else " " in
                     let buf = Buffer.create 1511 in
-                    Hashtbl.iter (fun name str ->
-                        Buffer.add_string buf " ";
+                    List.iter (fun name ->
+                        let str = Hashtbl.find hstbl name in
+                        Buffer.add_string buf prepend;
                         Buffer.add_string buf name;
-                        Buffer.add_string buf " ";
-                        Buffer.add_buffer buf str) hstbl;
+                        Buffer.add_string buf separator;
+                        Buffer.add_buffer buf str) input_order;
                     Buffer.contents buf
 
         let do_on_list f char list =
@@ -2714,6 +2746,11 @@ module SC = struct
                     match matrix.(j).(i) with
                     | None -> ()
                     | Some lst ->
+                            let lst = 
+                                match lst with
+                                | `List l -> l
+                                | `Bits s -> BitSet.to_list s
+                            in
                             List.iter (fun x ->
                                 observed := All_sets.Integers.add x !observed)
                             lst;
@@ -2732,6 +2769,7 @@ module SC = struct
             let rec in_comment pos =
                 let start = ref pos in
                 try while !start < len do
+                    incr start;
                     begin match string.[!start] with
                     | ']' -> raise Exit
                     | '[' -> 
@@ -2739,7 +2777,6 @@ module SC = struct
                             ()
                     | _ -> ()
                     end;
-                    incr start;
                 done;
                 failwith "Finished string and the comments are still there!"
                 with
@@ -2756,7 +2793,7 @@ module SC = struct
             Buffer.contents b
 
 
-        let process_matrix labels style matrix taxa characters get_row_number 
+        let process_matrix labels style (matrix : static_state array array)  taxa characters get_row_number 
         assign_item data =
             let concat lst = 
                 match style with
@@ -2764,9 +2801,18 @@ module SC = struct
                 | `Hennig -> "[" ^ String.concat " " lst ^ "]"
                 | `Nexus -> "{" ^ String.concat " " lst ^ "}"
             in
+            let table = Hashtbl.create 1667 in
             let generate_alphabet item = 
-                Alphabet.Lexer.make_simplified_lexer style item.st_case true
-                item.st_alph
+                if Hashtbl.mem table (item.st_case, item.st_alph) then 
+                    Hashtbl.find table (item.st_case, item.st_alph)
+                else
+                    let f = 
+                        Alphabet.Lexer.make_simplified_lexer style item.st_case true
+                        item.st_alph 
+                    in
+                    let res = fun x -> `List (f x) in
+                    let () = Hashtbl.add table (item.st_case, item.st_alph) res in
+                    res
             in
             let parsers = Array.map generate_alphabet characters in
             let stream = Stream.of_string data in
@@ -2972,7 +3018,7 @@ module SC = struct
                 (* We are ready now to fill the contents of the matrix *)
                 let chars = remove_comments chars.Nexus.chars in
                 let data =
-                    if get_interleaved form then uninterleave chars
+                    if get_interleaved form then uninterleave false chars
                     else chars
                 in
                 let get_row_number, assign_item =
@@ -3156,8 +3202,8 @@ module SC = struct
                                 let gaps = 
                                     Array.map (fun spec ->
                                         let gap = spec.st_gap in 
-                                        Some [(Alphabet.match_base gap
-                                        spec.st_alph)]) characters 
+                                        Some (`List [(Alphabet.match_base gap
+                                        spec.st_alph)])) characters 
                                 in
                                 for i = 0 to ntax do
                                     for j = 0 to nchar do
@@ -3350,10 +3396,7 @@ module SC = struct
                     let char_spec = 
                         default_static char_cntr file data.Nexus.unal_format 0
                     in
-                    let unal = 
-                        Str.global_replace (Str.regexp ",[ \t\n]*") "\n>"
-                        data.Nexus.unal
-                    in
+                    let unal = uninterleave true data.Nexus.unal in
                     let alph = 
                         (* We override whatever choice for the unaligned
                         * sequences alphabet is, if we are dealing with our
@@ -3612,21 +3655,23 @@ module SC = struct
         | `Hennig -> Hennig.of_channel 
         | `Nexus -> Nexus.of_channel 
 
+    let generate_alphabet alph spec =
+        let alph, gap = 
+            match alph with
+            | None ->
+                    List.map string_of_int
+                    (All_sets.Integers.elements spec.OldHennig.set),
+                    Alphabet.gap_repr
+            | Some alph ->
+                    let alph = Alphabet.to_sequential alph in
+                    fst (List.split (Alphabet.to_list alph)), 
+                    Alphabet.match_code (Alphabet.get_gap alph) alph
+        in
+        generate_alphabet alph gap
+
     let of_old_spec filename alph spec pos =
         let newspec = 
-            let alph, gap = 
-                match alph with
-                | None ->
-                        List.map string_of_int
-                        (All_sets.Integers.elements spec.OldHennig.set),
-                        Alphabet.gap_repr
-                | Some alph ->
-                        let alph = Alphabet.to_sequential alph in
-                        fst (List.split (Alphabet.to_list alph)), 
-                        Alphabet.match_code (Alphabet.get_gap alph) alph
-            in
-            spec_of_alph alph gap filename 
-            (filename ^ ":" ^ string_of_int pos)
+            spec_of_alph alph filename (filename ^ ":" ^ string_of_int pos)
         in
         let newspec =
             if not spec.OldHennig.active then 
@@ -3644,32 +3689,41 @@ module SC = struct
                 { newspec with 
                 st_type = STSankoff spec.OldHennig.cost_matrix }
 
-    let of_old_atom (newspec : static_spec) (oldspec : OldHennig.encoding_spec)  
+    let of_old_atom table_of_atoms 
+    (newspec : static_spec) (oldspec : OldHennig.encoding_spec)  
     data : static_state =
-        match data with
-        | Ordered_Character (_, _, true)
-        | Unordered_Character (_, true)
-        | Sankoff_Character (_, true) -> None
-        | Ordered_Character (min, max, false) -> Some [min; max]
-        | Unordered_Character (x, false) ->
-                let lst_bits = 
-                    let rec process_bits acc pos v =
-                        if v = 0 || pos > 32 then acc
-                        else 
-                            let mask = 1 lsl pos in
-                            let acc = 
-                                if 0 <> v land mask then
-                                    (pos :: acc) 
-                                else acc
-                            in 
-                            let next = (v land (lnot mask)) in
-                            process_bits acc (pos + 1) next
-                    in
-                    process_bits [] 0 x
-                in
-                Some lst_bits
-        | Sankoff_Character (s, false) -> Some s
-        | _ -> assert false
+        if Hashtbl.mem table_of_atoms data then 
+            Hashtbl.find table_of_atoms data
+        else
+            let res = 
+                match data with
+                | Ordered_Character (_, _, true)
+                | Unordered_Character (_, true)
+                | Sankoff_Character (_, true) -> None
+                | Ordered_Character (min, max, false) -> Some (`List [min; max])
+                | Unordered_Character (x, false) ->
+                        let set = BitSet.create 31 in
+                        let () = 
+                            let rec process_bits pos v =
+                                if v = 0 || pos > 32 then ()
+                                else 
+                                    let mask = 1 lsl pos in
+                                    let () = 
+                                        if 0 <> v land mask then
+                                            BitSet.set set pos 
+                                        else ()
+                                    in 
+                                    let next = (v land (lnot mask)) in
+                                    process_bits (pos + 1) next
+                            in
+                            process_bits 0 x
+                        in
+                        Some (`Bits set)
+                | Sankoff_Character (s, false) -> Some (`List s)
+                | _ -> assert false
+            in
+            let () = Hashtbl.add table_of_atoms data res in
+            res
 
     let of_old_parser filename alphabet (specs, data, trees) : file_output =
         let taxa, data = 
@@ -3682,16 +3736,32 @@ module SC = struct
         let new_specs = 
             match alphabet with
             | None ->
+                    let table = Hashtbl.create 1667 in
+                    Array.iter (fun x ->
+                        if not (Hashtbl.mem table x) then 
+                            let a = generate_alphabet None x in
+                            Hashtbl.replace table x a) specs;
+                    let alph = Array.map (Hashtbl.find table) specs in
                     Array.init nchars (fun x ->
-                        of_old_spec filename None specs.(x) x)
+                        of_old_spec filename alph.(x) specs.(x) x)
             | Some alphs ->
+                    let table = Hashtbl.create 1667 in
+                    Array.iteri (fun pos x ->
+                        if not (Hashtbl.mem table x) then 
+                            Hashtbl.replace table x (generate_alphabet (Some x)
+                            specs.(pos))) alphs;
+                    let alphs = Array.map (Hashtbl.find table) alphs in
                     Array.init nchars (fun x ->
-                        of_old_spec filename (Some alphs.(x)) specs.(x) x)
+                        of_old_spec filename 
+                        alphs.(x) 
+                        specs.(x) x)
         in
-        let new_data : int list option array array =
+        let table_of_atoms = Hashtbl.create 1667 in
+        let new_data : static_state array array =
             Array.init ntaxa (fun x ->
                 Array.init nchars (fun y ->
-                    of_old_atom new_specs.(y) specs.(y) data.(x).(y)))
+                    of_old_atom table_of_atoms 
+                    new_specs.(y) specs.(y) data.(x).(y)))
         in
         Nexus.fill_observed new_specs new_data;
         taxa, new_specs, new_data, trees, []
@@ -3706,9 +3776,9 @@ module TransformationCostMatrix = struct
 
     let of_channel = Cost_matrix.Two_D.of_channel
 
-    let of_file ?(use_comb = true) file =
+    let of_file ?(use_comb = true) file all_elements =
         let ch = FileStream.Pervasives.open_in file in
-        let res = of_channel ~use_comb:use_comb ch in
+        let res = of_channel ~use_comb all_elements ch in
         ch#close_in;
         res
 
@@ -3736,18 +3806,22 @@ module PAlphabet = struct
         in
         let tcm = 
             try
+                let all_elements = -1 (* we don't allow ambiguities here *) in
                 if do_comb then
                     TransformationCostMatrix.of_channel 
-                    ~orientation:orientation file
+                    ~orientation:orientation all_elements  file
                 else
                     TransformationCostMatrix.of_channel_nocomb
-                    ~orientation:orientation file
+                    ~orientation:orientation all_elements file
             with
-            | Failure "No Alphabet" ->
+            | Failure "No Alphabet" -> 
+                    assert false 
+                    (*
                     let size = Alphabet.size alph in
                     Status.user_message Status.Information ("I'm following this
                     path with size " ^ string_of_int size ^ "!");
                     Cost_matrix.Two_D.of_transformations_and_gaps false size 1 1
+                    *)
         in
         let tcm3 = 
             match init3D with

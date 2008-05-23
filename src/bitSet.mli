@@ -99,3 +99,5 @@ val diff : t -> t -> t
 
 val sym_diff : t -> t -> t
 (** [sym_diff s t] returns the symmetrical difference of [s] and [t]. *)
+
+val to_list : t -> int list

@@ -30,7 +30,7 @@
 
 #ifdef __ALTIVEC__
 #include <altivec.h>
-#elif __MMX__
+#elif __MMX__ && ! defined __LP64__
 #include <xmmintrin.h>
 #endif
 
@@ -39,8 +39,12 @@
 /* Are we using a 64 bit environment? */
 #ifdef __LP64__
 #define native_int long
+#define serialize_native serialize_int_8
+#define deserialize_native deserialize_sint_8
 #else
 #define native_int int
+#define serialize_native serialize_int_4
+#define deserialize_native deserialize_sint_4
 #endif
 
 /* Are we using vectorization ? */
@@ -73,6 +77,8 @@ typedef __m64 vUInt32;
 #define vec_min(a, b) (_mm_min_pu8(a, b))
 #define vec_max(a, b) (_mm_max_pu8(a, b))
 #define vec_emms _mm_empty
+#else
+#define CAPACITY_CHAR 1
 #endif
 
 /** A character set structure.
