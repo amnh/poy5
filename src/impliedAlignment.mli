@@ -36,6 +36,9 @@ type ias = {
     indels: (int * string * int * [`Insertion | `Deletion] * int Sexpr.t)
     Sexpr.t; 
         (* The location and contents of an insertion block *)
+    
+     dum_chars : (int * int Sexpr.t) Sexpr.t;
+
     order : int list; (* The order of the codes stored in homologous *)
 }
 
@@ -49,6 +52,7 @@ type dyna_state_t = Data.dyna_state_t
 *)
 
 type t = {
+
     sequences : ias array All_sets.IntegerMap.t;
     c2 : Cost_matrix.Two_D.m;
     chrom_pam : Data.dyna_pam_t;
@@ -80,7 +84,7 @@ type matrix_class =
     | AllOne of int
     | AllOneGapSame of (int * int)
     | AffinePartition of (int * int * int)
-    | AllSankoff
+    | AllSankoff of (string -> int) option
 
 val analyze_tcm :
     Cost_matrix.Two_D.m -> Alphabet.a ->
@@ -106,7 +110,7 @@ module type S = sig
         tree -> Methods.implied_alignment list
     
 
-    val to_static_homologies : bool ->
+    val to_static_homologies : string -> bool ->
         (tree -> int list -> tree) ->
             bool  -> Methods.characters -> Data.d -> tree -> Data.d
 

@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: array_ops.ml 1644 2007-02-14 19:05:47Z andres $ *)
-let () = SadmanOutput.register "Array_ops" "$Revision: 1644 $"
+(* $Id: array_ops.ml 2871 2008-05-23 17:48:34Z andres $ *)
+let () = SadmanOutput.register "Array_ops" "$Revision: 2871 $"
 
 
 exception Empty
@@ -126,5 +126,55 @@ let filter f arr =
     let res = Array.fold_right (fun x acc -> 
         if (f x) then x :: acc else acc) arr [] in
     Array.of_list res
+
+let map_2 f a b = 
+    assert (Array.length a = Array.length b);
+    Array.init (Array.length a) (fun x -> f a.(x) b.(x)) 
+
+let map_3 f a b c = 
+    assert (Array.length a = Array.length b);
+    assert (Array.length c = Array.length b);
+    Array.init (Array.length a) (fun x -> f a.(x) b.(x) c.(x)) 
+
+let map_4 f a b c d = 
+    assert (Array.length a = Array.length b);
+    assert (Array.length c = Array.length b);
+    assert (Array.length d = Array.length b);
+    Array.init (Array.length a) (fun x -> f a.(x) b.(x) c.(x) d.(x)) 
+
+let map_5 f a b c d e = 
+    assert (Array.length a = Array.length b);
+    assert (Array.length c = Array.length b);
+    assert (Array.length d = Array.length b);
+    assert (Array.length e = Array.length b);
+    Array.init (Array.length a) (fun x -> f a.(x) b.(x) c.(x) d.(x) e.(x)) 
+
+let fold_left_2 f acc a b =
+    let acc = ref acc in
+    assert (Array.length a = Array.length b);
+    for i = (Array.length a) - 1 downto 0 do
+        acc := f !acc a.(i) b.(i);
+    done;
+    !acc
+
+let fold_left_3 f acc a b c =
+    let acc = ref acc in
+    assert (Array.length a = Array.length b);
+    assert (Array.length c = Array.length b);
+    for i = (Array.length a) - 1 downto 0 do
+        acc := f !acc a.(i) b.(i) c.(i);
+    done;
+    !acc
+
+let fold_left_4 f acc a b c d =
+    let acc = ref acc in
+    assert (Array.length a = Array.length b);
+    assert (Array.length c = Array.length b);
+    assert (Array.length d = Array.length b);
+    for i = (Array.length a) - 1 downto 0 do
+        acc := f !acc a.(i) b.(i) c.(i) d.(i);
+    done;
+    !acc
+
 
 (* vim: set sw=4 ts=4 et tw=80 : *)

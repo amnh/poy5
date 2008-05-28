@@ -41,8 +41,8 @@ let to_string set =
     let rest = DynamicCS.to_string set.characters in
     model ^ " - " ^ rest
 
-let median a b = 
-    let res = DynamicCS.median a.characters b.characters in
+let median code a b = 
+    let res = DynamicCS.median code a.characters b.characters in
     let res = DynamicCS.Kolmogorov.correct_cost res b.model in
     { a with characters = res }
 
@@ -56,7 +56,7 @@ let median_3 a b c d =
     { b with characters = m }
 
 let distance c d =
-    let res = DynamicCS.median c.characters d.characters in
+    let res = DynamicCS.median (-1) c.characters d.characters in
     let res = DynamicCS.Kolmogorov.correct_cost res c.model in
     (DynamicCS.total_cost res) 
     

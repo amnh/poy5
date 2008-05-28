@@ -211,13 +211,12 @@ pool_free (struct pool *p) {
 void
 pool_CAML_serialize (value c, unsigned long *wsize_32, \
         unsigned long *wsize_64) {
-    CAMLparam1(c);
     struct pool *pv;
     pv = Pool_custom_val(c);
     caml_serialize_int_4 (pv->size);
     caml_serialize_int_4 (pv->grow_rate);
     *wsize_64 = *wsize_32 = sizeof (struct pool *);
-    CAMLreturn0;
+    return;
 }
 
 unsigned long

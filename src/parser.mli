@@ -201,6 +201,7 @@ module OldHennig : sig
         val dna_encoding : s
 
         val gap_encoding : int -> s
+        val rearr_encoding : int -> s
 
         val set_unordered : s -> s
 
@@ -423,15 +424,15 @@ end
 module TransformationCostMatrix : sig
 
     val of_channel : 
-        ?orientation:bool -> ?use_comb:bool -> FileStream.greader -> Cost_matrix.Two_D.m
+        ?orientation:bool -> ?use_comb:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
 
-    val of_channel_nocomb: ?orientation:bool -> FileStream.greader -> Cost_matrix.Two_D.m
+    val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
 
     val fm_of_file: filename -> float list list
 
-    val of_list : ?use_comb:bool -> int list list -> Cost_matrix.Two_D.m 
+    val of_list : ?use_comb:bool -> int list list -> int -> Cost_matrix.Two_D.m 
 
-    val of_file : ?use_comb:bool -> filename -> Cost_matrix.Two_D.m
+    val of_file : ?use_comb:bool -> filename -> int -> Cost_matrix.Two_D.m
 
 end
 
@@ -514,12 +515,14 @@ module SC : sig
         st_observed_used : (int, int) Hashtbl.t option;
     }
 
-    type static_state = int list option
+    type static_state = [ `Bits of BitSet.t | `List of int list ]  option
 
+    val static_state_to_list : 
+        [ `Bits of BitSet.t | `List of int list ] -> int list
     (** [spec_of_alph alphabet missing gap] generates a specification that can read
     * the elements in the [alphabet] using when the matrix represents [missing]
     * data and [gaps] as specified. *)
-    val spec_of_alph : string list -> string -> string -> string -> static_spec
+    val spec_of_alph : Alphabet.a -> string -> string -> static_spec
 
     (** [change_ml_code ncode st_type] changes the [st_type] code with ncode *)
     val change_ml_code : int -> static_spec -> static_spec
@@ -550,14 +553,17 @@ module SC : sig
     * states in the [static_spec] field) *)
     val fill_observed : file_output -> unit
 
+    val generate_alphabet : Alphabet.a option -> OldHennig.Encoding.s ->
+        Alphabet.a
+
     (** [of_old_spec filename alph old position] converts an old static homology
     * specification to the new style. *)
     val of_old_spec : 
-        string -> Alphabet.a option -> OldHennig.Encoding.s -> int -> 
+        string -> Alphabet.a -> OldHennig.Encoding.s -> int -> 
             static_spec
 
     (** Symmetric to the previous one, but for the observed state of a taxon *)
-    val of_old_atom : static_spec -> OldHennig.Encoding.s -> t -> static_state
+    val of_old_atom : (t, static_state) Hashtbl.t -> static_spec -> OldHennig.Encoding.s -> t -> static_state
 
     (** [of_old_parser filename alphabets old_parsed] converts the [old_parsed]
      * style of static homology parsed file to the new style, with (optional)

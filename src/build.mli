@@ -51,7 +51,7 @@ module MakeNormal :
                       S with type a = Node.n with type b = Edge.e
 module Make :
   functor
-      (Node : NodeSig.S) -> 
+      (Node : NodeSig.S with type other_n = Node.Standard.n) -> 
           functor (Edge : Edge.EdgeSig with type n = Node.n) -> 
               functor
                   (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) ->

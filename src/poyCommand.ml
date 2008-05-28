@@ -57,23 +57,52 @@ type identifiers = [
 ]
 
 type chromosome_args = [
-    | `Locus_Inversion of int
-    | `Locus_Breakpoint of int (*Locus_reakpoint cost between two loci inside one chromosome *)
-    | `Circular of bool
-    | `Locus_Indel_Cost of (int * int)
+    | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
+    | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
+    | `Circular of bool (** indicate if the chromosome is circular or not *)
+
+    (** [(a, b)] is indel cost of a locus in a chromosome
+    * where [a] is opening cost, [b] is extension cost *)
+    | `Locus_Indel_Cost of (int * int) 
+
+    (** [(a, b)] is indel cost of a chromosome in a genome 
+    * where [a] is opening cost, [b] is extension cost *)
     | `Chrom_Indel_Cost of (int * int)
-    | `Chrom_Hom of int (* if cost > threshold * min_cost,  then not homologous *)
+
+    (** The maximum cost between two chromosomes
+    * at which they are considered as homologous chromosomes *)
+    | `Chrom_Hom of int 
+    
+    (** The cost of a breakpoint happing between two chromosome *)
     | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
+
+(**  the minimum length of a block which will be considered
+* as a homologous block *)    
     | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
-    | `Rearranged_Len of int (* t's believed that no rearrangments or
-                                    reversions happened within a segment whose length < rearranged_len *)
+
+    (** It's believed that no rearrangments or reversions happened 
+        within a segment whose length < rearranged_len *)
+    | `Rearranged_Len of int 
+
+(** the minimum length of a segment which is considered as a basic seed *)
     | `Seed_Len of int
+
+    (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
+
+(** number iterations are applied in refining alignments with rearrangements *)
     | `SwapMed of int 
+
+(** approx = true, the median sequence of X and Y is approximated by either X or Y,
+* otherwise, calculate as a set of median between X and Y *)
     | `Approx of bool
+
+    (** symmetric = true, calculate the both distances between X to Y
+     * and vice versa. Otherwise, only form X to Y *) 
     | `Symmetric of bool 
-    | `Max_3D_Len of int (* maximum length used to align 3 sequences in order to
-                            | reduce the time consuming*)
+
+    (** maximum length of sequences aligned by 3D-alignment *)
+    | `Max_3D_Len of int 
 ]
 
 
@@ -101,6 +130,7 @@ type transform_method = [
     | `Prioritize
     | `SearchBased
     | `Fixed_States
+    | `Direct_Optimization
     | `SeqToChrom of chromosome_args list
     | `ChangeDynPam of chromosome_args list
     | `CustomToBreakinv of chromosome_args list
@@ -118,8 +148,10 @@ type transform = [
 ]
 
 type cost_calculation = [
-    | `Exact 
+    | `Exhaustive_Weak
+    | `Exhaustive_Strong
     | `Iterative
+    | `Normal_plus_Vitamines
     | `Normal
 ]
 
@@ -207,6 +239,7 @@ type internal_memory = [
 ]
 
 type settings = [
+    | `TimerInterval of int
     | `HistorySize of int
     | `Logfile of string option
     | cost_calculation
@@ -317,6 +350,14 @@ type searcha = [
     | `Transform of bool
 ]
 
+type std_searcha = [
+    | `MaxRam of int
+    | `MinHits of int
+    | `MaxTime of float
+    | `MinTime of float
+    | `Target of float
+]
+
 type command = [
     | `Read of reada list 
     | build
@@ -328,6 +369,7 @@ type command = [
     | `Select of selecta list
     | `Rename of renamea list
     | `Search of searcha list
+    | `StandardSearch of std_searcha list
     | transform
     | `Perturb of perturba list
     | `Repeat of (int * command list)
@@ -376,6 +418,7 @@ let transform_transform acc (id, x) =
             | `Prioritize -> `Prioritize :: acc
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
+            | `Direct_Optimization -> (`Direct_Optimization id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
             | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
             | `AnnchromToBreakinv x -> (`Annchrom_to_Breakinv (id, x)) :: acc
@@ -576,7 +619,7 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.cc = [];     
                     Methods.oo = None;  
                     Methods.tm = `BestFirst;
-                    Methods.tabu_break = `DistanceSorted;
+                    Methods.tabu_break = `DistanceSorted false;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
                     Methods.tabu_nodes = `Leaves; (* TODO: nodes_manager *)
@@ -951,6 +994,15 @@ let transform_search items =
             else default_search
     | _ -> failwith "Forgot to update the list of options of search?"
 
+let transform_stdsearch items = 
+    `StandardSearch (List.fold_left (fun (a, e, b, c, d) x ->
+        match x with
+        | `MaxTime x -> (Some x, e, b, c, d)
+        | `MinTime x -> (a, Some x, b, c, d)
+        | `MaxRam x -> (a, e, b, Some x, d)
+        | `MinHits x -> (a, e, Some x, c, d)
+        | `Target x -> (a, e, b, c, Some x)) (None, None, None, None, None) items)
+
 
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
     match meth with
@@ -986,6 +1038,8 @@ let rec transform_command (acc : Methods.script list) (meth : command) : Methods
             (transform_swap_arguments x) :: acc
     | `Search args ->
             (transform_search args) @ acc
+    | `StandardSearch args ->
+            (transform_stdsearch args) :: acc
     | `Fuse x ->
           (transform_fuse x) :: acc
     | `Support x ->
@@ -1111,6 +1165,7 @@ let create_expr () =
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
                 [ LIDENT "fixed_states" -> `Fixed_States ] |
+                [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
                     right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |
                 [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |
@@ -1163,7 +1218,7 @@ let create_expr () =
                 [ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
-                [ LIDENT "breakinv_to_seq" -> `BreakinvToSeq [] ] |
+                [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; ":"; left_parenthesis; funset = UIDENT; ","; 
                     alphset = UIDENT; ","; wordset = UIDENT; ","; intset = UIDENT;
                     lenset = OPT optional_length; right_parenthesis -> 
@@ -1300,6 +1355,8 @@ let create_expr () =
             [ [  ":"; x = STRING -> x ] ];
         setting:
             [
+                [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string
+                x) ] |
                 [ LIDENT "history"; ":"; x = INT -> `HistorySize (int_of_string x) ] |
                 [ LIDENT "log"; ":"; x = STRING -> `Logfile (Some x) ] |
                 [ LIDENT "log"; ":"; LIDENT "new"; ":"; x = STRING ->
@@ -1312,9 +1369,10 @@ let create_expr () =
                 [ LIDENT "root"; ":"; x = STRING -> `RootName x ] |
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x))
                 ] |
-                [ LIDENT "exhaustive_do" -> `Exact ] |
+                [ LIDENT "exhaustive_do" -> `Exhaustive_Weak ] |
                 [ LIDENT "iterative" -> `Iterative ] |
-                [ LIDENT "normal_do" -> `Normal ]
+                [ LIDENT "normal_do" -> `Normal ] | 
+                [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ]
             ];
         (* Reporting *)
         report:
@@ -1507,9 +1565,37 @@ let create_expr () =
                 -> x] SEP ","; 
                     right_parenthesis -> (`Swap a :> swap) ]
             ];
+        time:
+            [
+                [ days = integer_or_float; ":"; hours = integer_or_float; ":";
+                minutes = integer_or_float ->
+                    (int_of_float (((float_of_string days) *. 60. *. 60. *. 24.) +.
+                    ((float_of_string hours) *. 60. *. 60.) +.
+                    ((float_of_string minutes) *. 60. ))) ] 
+            ];
+        memory:
+            [
+                [ "gb"; ":"; x = INT -> ((int_of_string x) * 
+                    1000 * 1000 * (1000 / (Sys.word_size / 8))) ] |
+                [ "mb"; ":"; x = INT ->((int_of_string x) * 
+                    1000 * 1000 / (Sys.word_size / 8)) ]
+            ];
+        std_search_argument:
+            [   
+                [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target
+                (float_of_string x) ] |
+                [ LIDENT "memory"; ":"; x = memory -> `MaxRam x ] |
+                [ LIDENT "hits"; ":"; x = INT -> `MinHits (int_of_string x) ] |
+                [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x)
+                ] |
+                [ LIDENT "min_time"; ":"; x = time -> `MinTime (float_of_int x) ]
+            ];
         search:
             [
-                [ LIDENT "search"; left_parenthesis; a = LIST0 [x =
+                [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
+                    std_search_argument -> x ] SEP ",";  right_parenthesis ->
+                    `StandardSearch a] |
+                [ LIDENT "_search"; left_parenthesis; a = LIST0 [x =
                     search_argument -> x]  SEP
                 ","; right_parenthesis -> `Search a ]
             ];
@@ -1779,7 +1865,10 @@ let create_expr () =
         break_method:
             [
                 [ LIDENT "randomized" -> `Randomized ] |
-                [ LIDENT "distance" -> `DistanceSorted ] |
+                [ LIDENT "distance"; x = OPT optional_boolean -> 
+                    match x with
+                    | None -> `DistanceSorted false
+                    | Some x -> `DistanceSorted x] |
                 [ LIDENT "once" -> `OnlyOnce ]
             ];
         constraint_options:

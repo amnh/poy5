@@ -287,7 +287,7 @@ let user_message ty t =
         | Information ->
                 output#print !close_output;
                 close_output := "";
-                output#print ("@[<v>" ^^ t ^^  "@]@\n%!")
+                output#print ("@[" ^^ t ^^  "@]@\n%!")
         | Warning ->
                 output#print !close_output;
                 close_output := "";

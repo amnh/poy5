@@ -379,7 +379,6 @@ let of_parser spec characters =
                 mname := "GTR"; (m_gtr priors coeff a_size, coeff)
         | Parser.SC.File matrix ->
                 mname := "File"; (m_file matrix a_size, [| |])
-        | _ -> failwith ("I don't support this likelihood model") in
     (* diagonalize to get factored probability matrix --submat is destroyed
      * but can be reconstructed through the model parameters *)
     let (u_,d_,ui_) = 

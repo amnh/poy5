@@ -18,19 +18,20 @@
 (* USA                                                                        *)
 
 
-let () = SadmanOutput.register "Methods" "$Revision: 2669 $"
+let () = SadmanOutput.register "Methods" "$Revision: 2871 $"
 
 exception TimedOut
 
 (** Data *)
 
-let do_job = 1
+let do_job = 11
 let process_management = 2
 let io = 3
 let debugging = 4
 let barrier = 5
 
-let cost : [ `Normal | `Exact | `Iterative ] ref = ref `Normal
+let cost : [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative ] ref = 
+    ref `Normal
 
 type filename = [ `Local of string | `Remote of string ]
 
@@ -109,7 +110,7 @@ type transform_cost_matrix = [
 ]
 
 
-
+(** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [
     | `Locus_Inversion of int
     | `Locus_Breakpoint of int
@@ -171,6 +172,7 @@ type char_transform = [
     | `Static_Aprox of (characters * bool)
     | `Search_Based of characters
     | `Fixed_States of characters
+    | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))
     | `Automatic_Static_Aprox of bool
     | `Prioritize
@@ -279,9 +281,12 @@ type ('c, 'd) character_input_output = [
 (* Note: there are a list of alignments coresponding to a character
  * if the character is a chromosome and broken into diffrent segments *)
 type implied_alignment = 
-  ((int * int array array All_sets.IntegerMap.t list) list *
-   (int * string * int * [ `Deletion | `Insertion ] * int Sexpr.t) Sexpr.t
-   list list) list
+(
+    (
+        (int * int array array All_sets.IntegerMap.t list) list *
+        (int * string * int * [ `Deletion | `Insertion ] * int Sexpr.t) Sexpr.t list list
+    ) * (int * int Sexpr.t) Sexpr.t list list
+) list
 
 type ('a, 'b, 'c, 'd) parallel_input = [ 
     | `Trees of 'a 
@@ -332,7 +337,8 @@ type output_class = [
 type tabu_join_strategy = [
     | `UnionBased of int option
     | `AllBased of int option
-    | `Partition of [`MaxDepth of int | `ConstraintFile of filename ] list
+    | `Partition of [`Sets of (All_sets.IntSet.t Lazy.t) | 
+    `MaxDepth of int | `ConstraintFile of filename ] list
 ]
 
 (* New tree build_method methods.
@@ -400,7 +406,7 @@ type search_space = [
 
 type tabu_break_strategy = [
     | `Randomized
-    | `DistanceSorted
+    | `DistanceSorted of bool
     | `OnlyOnce
 ]
 
@@ -658,10 +664,13 @@ type application = [
     | `Graph of (string option * bool)
     | `Ascii of (string option * bool)
     | `Memory of string option
+    | `TimerInterval of int
     | `HistorySize of int
     | `Logfile of string option
     | `Normal
-    | `Exact
+    | `Normal_plus_Vitamines
+    | `Exhaustive_Weak
+    | `Exhaustive_Strong
     | `Iterative
     | `ReDiagnose
     | `SetSeed of int
@@ -706,6 +715,8 @@ type script = [
     | `GatherBootstrap
     | `GatherBremer
     | `SelectYourTrees
+    | `StandardSearch of 
+        (float option * float option * int option * int option * float option)
     | input
     | transform
     | build

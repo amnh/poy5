@@ -18,7 +18,8 @@
 (* USA                                                                        *)
 
 let () = SadmanOutput.register "Genome" "$Revision: 975 $"
-(** Median module contains functions to create medians
+
+(** Genome module implements functions to create medians
     between two lists of genomes *)
 
 let fprintf = Printf.fprintf
@@ -26,21 +27,28 @@ let fprintf = Printf.fprintf
 
 type med_t = GenomeAli.med_t
 
+(** [meds_t] is a data structure for a list of  medians 
+* between two genomes. Rearrangements are allowed *)
 type meds_t = {
-    med_ls : med_t list;
-    total_cost : int;   
-    total_recost : int;   
-    c2 : Cost_matrix.Two_D.m;
+    med_ls : med_t list; (** genome list *)
+    total_cost : int;   (** the total cost to create this genome list *)
+    total_recost : int;  (** total recost to create this genome list *)
+    c2 : Cost_matrix.Two_D.m; 
 
-    approx_cost_arr : int array;
+    approx_cost_arr : int array; (* An array of genome medians 
+                                  * created from this median to other medians.
+                                  * This is used for approximation *)
     approx_recost_arr : int array;
-    code : int;
+    code : int; (** the taxa code containing this genome list *)
 
-    chrom_pam : Data.dyna_pam_t
+    chrom_pam : Data.dyna_pam_t (** user-defined parameters used for creating genome medians *)   
 }
 
 let max_taxa_id = ref 0 
 
+(** [init_med genome chrom_pam tcode num_taxa] 
+* returns a genome list with only one element
+* created from genome [genome] *) 
 let init_med (genome : Sequence.s Data.dyna_data) chrom_pam tcode num_taxa
         =  
     let med = GenomeAli.init genome in 
@@ -61,15 +69,9 @@ let init_med (genome : Sequence.s Data.dyna_data) chrom_pam tcode num_taxa
         chrom_pam = chrom_pam 
     } 
 
-(*
- * let create_hom_chrom meds_arr =
- *   let med_arr = Array.map (fun meds -> List.hd meds.med_ls) meds_arr in 
- *   let hom_med_arr = GenomeAli.create_hom_chrom med_arr in 
- *   Array.mapi (fun ti meds -> {meds with med_ls = [hom_med_arr.(ti)]}) meds_arr
- *)
 
-(** Given a list of medians, determine a subset of medians to be kept to process
-    further based on the customs's defined paramaters *)
+(** [keep chrom_pam med_ls] selects randomly a subset 
+* of medians kept to process further *)
 let rec keep chrom_pam med_ls = 
     match chrom_pam.Data.keep_median with 
     | None -> med_ls 
@@ -78,9 +80,12 @@ let rec keep chrom_pam med_ls =
           else Utl.get_k_random_elem med_ls keep_median
 
 
+(** [update_cost_mat meds1 meds2] creates the median
+* between genome [meds1] and [meds2]
+* and update their approximate cost, recost
+* arrays if they are not yet computed *)
 let update_cost_mat meds1 meds2 =     
     let code1 = meds1.code and code2 = meds2.code in  
-
     if meds1.approx_cost_arr.(code2) = max_int then begin 
 
         let med1 = List.hd meds1.med_ls in  
@@ -94,7 +99,11 @@ let update_cost_mat meds1 meds2 =
     end
 
 
-(** Find the best median list between two lists of medians *)
+(** [find_meds2 keep_all_meds meds1 meds2] finds median list
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 ?(keep_all_meds=false) (meds1 : meds_t) (meds2 : meds_t) =
     let find_exact () = 
         let best_meds = List.fold_left  
@@ -131,7 +140,13 @@ let find_meds2 ?(keep_all_meds=false) (meds1 : meds_t) (meds2 : meds_t) =
     | None -> find_exact ()
       
 
-(** Find the median between three meds lists*)
+
+(** [find_meds3 medsp meds1 meds2] creates the median list
+ * of three lists of medians [medsp=(x1,...,xk)], [meds1=(y1,...,yt)]
+ * and [meds2=(z1,...,zq)] where xi, yj, and zp are medians. 
+ * For each triplet (xi, yj, zp) we have 
+ * a list of medians w_ijp with the same cost c_ijp. 
+ * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =    
     let meds1p = find_meds2 meds1 medsp in  
     let meds2p = find_meds2 meds2 medsp in  
@@ -139,7 +154,11 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     else meds2p
             
        
-(** Compute the minimum pair cost between medians in two lists *)
+(** [cmp_min_pair_cost] computes the min median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * returns c*_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) = 
     let cmp_exact () = 
           List.fold_left 
@@ -159,33 +178,14 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
               update_cost_mat meds1 meds2;
               meds1.approx_cost_arr.(meds2.code), meds1.approx_recost_arr.(meds2.code)
           end else cmp_exact ()
-
     | None -> cmp_exact ()
 
-(** Compute the minimum pair cost between medians in two lists *)
-let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) = 
-    let cmp_exact () = 
-          List.fold_left 
-              (fun (min_cost, min_recost) med1 ->
-                   List.fold_left 
-                       (fun (min_cost2, min_recost2) med2 ->
-                            let cost, (recost1, recost2) = GenomeAli.cmp_cost med1 med2 meds1.c2 meds1.chrom_pam in 
-                            if cost < min_cost2 then cost, recost1 + recost2
-                            else min_cost2, min_recost2
-                       ) (min_cost, min_recost) meds2.med_ls
-              ) (max_int, 0) meds1.med_ls
-    in 
 
-    match meds1.chrom_pam.Data.approx with 
-    | Some approx ->
-          if approx then begin 
-              update_cost_mat meds1 meds2;
-              meds1.approx_cost_arr.(meds2.code), meds1.approx_recost_arr.(meds2.code)
-          end else cmp_exact ()
-
-    | None -> cmp_exact ()
-
-(** Compute the maximum pair cost between medians in two lists *)
+(** [cmp_max_pair_cost] computes the max median cost
+ * between two lists of medians [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
+ * where xi and yj are medians. For each pair (xi, yj) we have 
+ * a list of medians z_ij with the same cost c_ij. 
+ * returns c*_ij = max (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) = 
     let cmp_exact () = 
           List.fold_left 
@@ -208,10 +208,12 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
 
     | None -> cmp_exact ()
 
-(** ============================================================== **)
 
 
-(** Check if median list meds1 is the same median list meds2 *)
+
+(** [Compare meds1 meds2] returns 0 if these 
+* two lists [meds1] and [meds2] are the same, 
+* otherwise (-1) or 1 *)
 let compare (meds1 : meds_t) (meds2 : meds_t) = 
     let num_med1 = List.length meds1.med_ls in 
     let num_med2 = List.length meds2.med_ls in 
@@ -235,18 +237,17 @@ let clean_median meds1 meds2 =
 
 
 
-(** ============================================================== **)
+
+(** [get_active_ref_code meds] returns active 
+* reference codes of genome medians [meds] *)
 let get_active_ref_code meds = 
-(*
-    List.iter (fun med -> fprintf stdout "%i -> %i %i\n " med.ChromAli.ref_code
-                   med.ChromAli.ref_code1 med.ChromAli.ref_code2) meds.med_ls;
-  flush stdout; 
-*)  
     let med = List.hd meds.med_ls in
     med.GenomeAli.genome_ref_code, med.GenomeAli.genome_ref_code1, med.GenomeAli.genome_ref_code2
 
 
 
+(** [copy_chrom_map s_ch d_ch] copies genome map
+* from median [s_ch] into median [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     let copied_med_ls = List.map (fun ad_med -> 
                   let as_med = List.find 
@@ -263,6 +264,9 @@ let copy_chrom_map s_ch d_ch =
 
 
 
+(** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
+* the current median [mine] of three medians [ch1],
+* [ch2], and [parent] using three dimentional alignments*)
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
     let chrom_pam = mine.chrom_pam in 
 

@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SearchInformation" "$Revision: 2669 $"
+let () = SadmanOutput.register "SearchInformation" "$Revision: 2871 $"
 
 let handle_tree_information trees acc = function
     | `Number -> 
@@ -70,10 +70,11 @@ let handle_tree_information trees acc = function
             | _ -> storing ^ "s@ with@ costs@ "
                   ^ string_of_float min ^ " to " ^ string_of_float max
                     ^ "@]" ^ 
-                    if cnt > 0 then "@,@[<hov>Best@ cost@ was@ found@ " ^
-                        if cnt > 1 then 
-                            string_of_int cnt ^ "@ times@]" 
-                        else "once@]" 
+                    if cnt > 0 then 
+                        "@,@[<hov>Best@ cost@ in@ " ^ string_of_int cnt ^
+                        (if cnt > 1 then 
+                             "@ trees@]" 
+                        else "@ tree@]")
                     else "")
 
 let append acc h =  acc ^ ",@ " ^ h
@@ -156,8 +157,11 @@ let show_information trees data timer acc = function
     | `CostMode ->
             (match !Methods.cost with
             | `Normal -> acc ^ "@,@[Cost Mode: Normal Direct Optimization@]"
-            | `Exact -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
-            | `Iterative -> acc ^ "@,@[Cost Mode: Iterarive Pass Optimization@]")
+            | `Normal_plus_Vitamines -> 
+                    acc ^ "@,@[Cost Mode: Normal+ Direct Optimization@]"
+            | `Exhaustive_Weak -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
+            | `Exhaustive_Strong -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
+            | `Iterative -> acc ^ "@,@[Cost Mode: Iterative Pass Optimization@]")
     | `Timer -> 
             match timer with
             | Some timer ->

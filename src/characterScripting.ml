@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "CharacterScripting" "$Revision: 1914 $"
+let () = SadmanOutput.register "CharacterScripting" "$Revision: 2871 $"
 
 type characters = [
     | `All
@@ -116,7 +116,8 @@ let median a b =
     | Sank s, Sank t ->
             Sank (SankCS.median None s t)
     | Dynamic s, Dynamic t ->
-            Dynamic (DynamicCS.median s t)
+            decr Node.median_counter;
+            Dynamic (DynamicCS.median !Node.median_counter s t)
 
     | Set s, Set t -> assert false      (* TODO: Set *)
     | Dynamic _, _ | Sank _, _ | Add _, _ 

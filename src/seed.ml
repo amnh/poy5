@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Seed" "$Revision: 2658 $"
+let () = SadmanOutput.register "Seed" "$Revision: 2782 $"
 type pairChromPam_t = ChromPam.chromPairAliPam_t
 
 (** The seed module contains data and funtions to 
@@ -458,10 +458,10 @@ let create_alied_seed (seed : seed_t) (chrom1 : Sequence.s)
     | true ->
         let subseq1 = Sequence.sub chrom1 seed.sta1 seed.len in 
         let subseq2 = Sequence.sub chrom2 seed.sta2 seed.len in         
-        let cost = UtlPoy.cmp_ali_cost subseq1 subseq2 `Positive cost_mat in 
+        let cost = Sequence.cmp_ali_cost subseq1 subseq2 `Positive cost_mat in 
         subseq1, subseq2, cost
     | false -> (* dummy seed*)
-        UtlPoy.get_empty_seq (), UtlPoy.get_empty_seq (), 0
+        Sequence.get_empty_seq (), Sequence.get_empty_seq (), 0
     
 
 (** Given two seeds [seed1] and [seed2], chromosomes [chrom1], [chrom2],
@@ -477,6 +477,6 @@ let create_alied_subseq (seed1 : seed_t) (seed2 : seed_t)
     let subseq1 = Sequence.sub chrom1 sta1 len1 in 
     let subseq2 = Sequence.sub chrom2 sta2 len2 in
     let alied_subseq1, alied_subseq2, cost, ali_len = 
-        UtlPoy.align2 subseq1 subseq2 cost_mat in         
+        Sequence.align2 subseq1 subseq2 cost_mat in         
     alied_subseq1, alied_subseq2, cost
     

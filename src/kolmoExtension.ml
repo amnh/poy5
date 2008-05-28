@@ -37,7 +37,7 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
                 <:expr< [$x$]>>
         | x :: xs ->
                 let _loc = Ast.loc_of_expr x in
-                <:expr< $x$ :: $exSem_of_list xs$ >> 
+                <:expr< [$x$ :: $exSem_of_list xs$] >> 
 
     let rec bare_expression_converter = function
         | S _loc -> <:expr< (`S) >>

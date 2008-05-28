@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: nonaddCS.mli 2554 2008-01-17 20:55:25Z andres $ *)
+(* $Id: nonaddCS.mli 2871 2008-05-23 17:48:34Z andres $ *)
 
 (** char_nonadd_c.ml implements sets of equally-weighted non-additive characters
     in C.  These sets are immutable but can share data through reference
@@ -37,33 +37,38 @@
     mainly come from the interfaces mentioned above;  any additional functions
     are explained here. *)
 
-type t (** The type of a set of nonadditive characters *)
+type ct
+type t = {
+    codes : int array;
+    data : ct;
+}
+(** The type of a set of nonadditive characters *)
+
 type e = int * int (** The type of individual set elements *)
 
 (** {2 Codes and colors} *)
 
-external code : t -> int = "char_nonadd_CAML_code"
+external code : ct -> int = "char_nonadd_CAML_code"
 
-external union : t -> u -> u -> u = "char_nonadd_CAML_basic_union"
+external union : ct -> cu -> cu -> cu = "char_nonadd_CAML_basic_union"
 
-external to_union : t -> u = "char_nonadd_CAML_to_union"
+external to_union : ct -> cu = "char_nonadd_CAML_to_union"
 
 val elt_code : e -> int
 val color : Character.c
-external set_code : t -> int -> t = "char_nonadd_CAML_set_code"
 
 (** {2 Creation} *)
 
-external make_new : int -> int -> t = "char_nonadd_CAML_make_new"
+external make_new : int -> int -> ct = "char_nonadd_CAML_make_new"
 (** Makes a new nonadditive character set of a given size and code.  All
     elements are initialized to zero, which is an inconsistent state.  (Please
     see this module's TeX file for details.) *)
 
-external set_elt : t -> int -> e -> unit = "char_nonadd_CAML_set_elt"
+external set_elt : ct -> int -> e -> unit = "char_nonadd_CAML_set_elt"
 (** [set_elt set loc val] sets element number [loc] to value [val].  [val] is
     treated as bit-encoding its possible states. *)
 
-external set_elt_bit : t -> int -> int -> unit
+external set_elt_bit : ct -> int -> int -> unit
   = "char_nonadd_CAML_set_elt_bit"
 (** [set_elt_bit set loc bit] sets bit [bit] of element [loc], signifying that
     element [loc] is / can be in state [bit]. *)
@@ -78,8 +83,8 @@ val median : 'a -> t -> t -> t
 val median_3 : t -> t -> t -> t -> t
 (** [median_3 parent node child1 child2] returns node_final *)
 
-external distance : t -> t -> float = "char_nonadd_CAML_distance"
-external distance_list : t -> t -> (int * float) list
+external distance : ct -> ct -> float = "char_nonadd_CAML_distance"
+external distance_list : ct -> ct -> (int * float) list
   = "char_nonadd_CAML_distance_list"
 
 val dist_2 : t -> t -> t -> int
@@ -89,26 +94,26 @@ val dist_2 : t -> t -> t -> int
 (** [reroot_median a b] performs a special median for finding the root value
     between two nodes for which the final states are known.  This is done by
     taking the union of the states, as described in Goloboff 1993. *)
-external reroot_median : t -> t -> t = "char_nonadd_CAML_reroot_median"
+external reroot_median : ct -> ct -> ct = "char_nonadd_CAML_reroot_median"
 
 
 (** {2 State, listing, parsing} *)
 
-external cardinal : t -> int = "char_nonadd_CAML_cardinal"
-external cardinal_union : u -> int = "char_nonadd_CAML_cardinal"
+external cardinal : ct -> int = "char_nonadd_CAML_cardinal"
+external cardinal_union : cu -> int = "char_nonadd_CAML_cardinal"
 (** number of elements in set *)
 
-external poly_items : u -> int -> int = "char_nonadd_CAML_poly_items"
+external poly_items : cu -> int -> int = "char_nonadd_CAML_poly_items"
 
-external to_int : t -> int -> int = "char_nonadd_CAML_to_int"
+external to_int : ct -> int -> int = "char_nonadd_CAML_to_int"
 
 (** [elt_to_list set eltnum] returns a list of states that element [eltnum]
     might be in. *)
-external elt_to_list : t -> int -> int list = "char_nonadd_CAML_elt_to_list"
+external elt_to_list : ct -> int -> int list = "char_nonadd_CAML_elt_to_list"
 
-external to_list : t -> (int * e * float) list = "char_nonadd_CAML_to_list"
+external to_list : ct -> (int * e * float) list = "char_nonadd_CAML_to_list"
 val of_list : (int * e * float) list -> t
-val of_parser : Data.d -> (int list option * int) array * 'a -> int -> t * 'a
+val of_parser : Data.d -> (Parser.SC.static_state * int) array * 'a -> int -> t * 'a
 val is_potentially_informative : int list option list -> bool
 val max_possible_cost : int list option list -> float
 val min_possible_cost : int list option list -> float
@@ -134,8 +139,8 @@ val substitute : t -> t -> t
 val merge : t -> t -> t
 val minus : t -> t -> t
 val random : (unit -> bool) -> t -> t
-external get_heu : t -> Character.h = "char_nonadd_CAML_get_heu"
-external set_heu : Character.h -> t -> t = "char_nonadd_CAML_set_heu"
+external get_heu : ct -> Character.h = "char_nonadd_CAML_get_heu"
+external set_heu : Character.h -> ct -> ct = "char_nonadd_CAML_set_heu"
 val fold : (e -> 'a -> 'a) -> 'a -> t -> 'a
 val filter : (int * e * float -> bool) -> t -> t
 val f_codes : t -> All_sets.Integers.t -> t

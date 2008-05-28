@@ -85,16 +85,26 @@ add_memstack_initialize (int items, int len) {
 /* In vectorized (altivec and mmx) based architectures, we hold the characters
  * in groups of CAPACITY_CHAR items. Therefore, the total number of elements
  * that we really need to allocate is limited by that size */
-int
+native_int
 add_array_length (native_int len) {
     return ((len + (CAPACITY_CHAR - 1)) / CAPACITY_CHAR);
+}
+
+int 
+add_true_array_length (native_int len) {
+    return (len * CAPACITY_CHAR);
 }
 #else
 /* In non vectorized architectures, we really need to allocate as many elements
  * as len says. */
-int
+native_int
 add_array_length (native_int len) {
     return len;
+}
+
+native_int
+add_true_array_length(native_int len) {
+    return (len * CAPACITY_CHAR);
 }
 #endif
 
@@ -176,32 +186,79 @@ add_CAML_free (value v) {
 void
 add_CAML_serialize (value c, unsigned long *wsize_32, \
         unsigned long *wsize_64) {
-    CAMLparam1(c);
+    native_int real_allocated_len;
     add_stt nc;
     nc = *(Add_st_struct(c));
     *wsize_64 = *wsize_32 = sizeof (add_stt);
-    serialize_int_4(nc->len);
+    real_allocated_len = add_true_array_length(nc->len);
+    serialize_native(nc->len);
+    serialize_native(nc->true_len);
     serialize_int_4(nc->total);
-    serialize_block_4(nc->min, nc->len * 4);
-    CAMLreturn0;
+    serialize_int_4(nc->scode);
+    serialize_block_1(nc->min, real_allocated_len);
+    serialize_block_1(nc->max, real_allocated_len);
+    serialize_block_1(nc->cost, real_allocated_len);
+    serialize_block_1(nc->union_min, real_allocated_len);
+    serialize_block_1(nc->union_max, real_allocated_len);
+    return;
 }
 
 unsigned long
 add_CAML_deserialize (void *v) {
     add_stt *res, final;
-    native_int len;
+    native_int len, true_len, real_allocated_len;
     res = (add_stt *) v;
-    len = deserialize_uint_4();
-    final = *res = add_alloc (len, len);
-    final->total = deserialize_uint_4();
-    deserialize_block_4(final->min, len * 4);
+    len = deserialize_native();
+    true_len = deserialize_native();
+    real_allocated_len = add_true_array_length(len);
+    final = *res = add_alloc (len, true_len);
+    final->len=len;
+    final->true_len=true_len;
+    final->total = deserialize_sint_4();
+    final->scode = deserialize_sint_4();
+    deserialize_block_1(final->min, real_allocated_len);
+    deserialize_block_1(final->max, real_allocated_len);
+    deserialize_block_1(final->cost, real_allocated_len);
+    deserialize_block_1(final->union_min, real_allocated_len);
+    deserialize_block_1(final->union_max, real_allocated_len);
     return (sizeof(add_stt));
+}
+
+int
+add_compare_data (add_stt a, add_stt b) {
+    /* Compare min and max later, the first difference not zero is returned */
+    int i, len;
+    unsigned char *mina, *minb, *maxa, *maxb;
+    unsigned char tmp;
+    len = a->len;
+    mina = (unsigned char *) a->min;
+    minb = (unsigned char *) b->min;
+    maxa = (unsigned char *) a->max;
+    maxb = (unsigned char *) b->min;
+    for (i = 0; i < len; i++) {
+        tmp = mina[i] - minb[i];
+        if ('\0' != tmp) return ((int) tmp);
+    }
+    for (i = 0; i < len; i++) {
+        tmp = maxa[i] - maxb[i];
+        if ('\0' != tmp) return ((int) tmp);
+    }
+    return 0;
+}
+
+int
+add_CAML_compare (value a, value b) {
+    CAMLparam2 (a, b);
+    int res;
+    res = add_compare_data (*(Add_st_struct(a)), \
+            *(Add_st_struct(b)));
+    CAMLreturn (res);
 }
 
 static struct custom_operations additive = {
     "http://www.amnh.org/poy/character_additive/0.1",
     &add_CAML_free,
-    custom_compare_default,
+    &add_CAML_compare,
     custom_hash_default,
     add_CAML_serialize,
     add_CAML_deserialize
@@ -817,27 +874,6 @@ add_median_3 (add_stt p, add_stt n, add_stt c1, add_stt c2, add_stt res) {
 }
 #endif
 
-int
-add_compare_data (add_stt a, add_stt b) {
-    /* Compare min and max later, the first difference not zero is returned */
-    int i, len;
-    unsigned char *mina, *minb, *maxa, *maxb;
-    unsigned char tmp;
-    len = a->len;
-    mina = (unsigned char *) a->min;
-    minb = (unsigned char *) b->min;
-    maxa = (unsigned char *) a->max;
-    maxb = (unsigned char *) b->min;
-    for (i = 0; i < len; i++) {
-        tmp = mina[i] - minb[i];
-        if ('\0' != tmp) return ((int) tmp);
-    }
-    for (i = 0; i < len; i++) {
-        tmp = maxa[i] - maxb[i];
-        if ('\0' != tmp) return ((int) tmp);
-    }
-    return 0;
-}
 /* CAML bindings */
 value 
 add_CAML_distance_and_median (value a, value b) {

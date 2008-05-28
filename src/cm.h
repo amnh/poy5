@@ -37,6 +37,7 @@ struct cm {
     int combinations;
     int gap_open;
     int is_metric;
+    int all_elements;
     int *cost;
     SEQT *median;
     int *worst;         /* Missing in 3d */
@@ -231,6 +232,8 @@ struct cm_3d {
                               */
     int gap_open;           /** The cost of opening a gap. This is only useful in 
                               certain cost_model_type's. */
+    int all_elements;       /** The integer that represents all the combinations, used 
+                              for ambiguities */
     int *cost;              /** The transformation cost matrix. */
     SEQT *median;            /** The matrix of possible medians between elements in the 
                               alphabet. The best possible medians according to the cost 

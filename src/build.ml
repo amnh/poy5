@@ -17,12 +17,14 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Build" "$Revision: 2669 $"
+let () = SadmanOutput.register "Build" "$Revision: 2871 $"
 
 let debug_profile_memory = false
 
 let current_snapshot x = 
-    if debug_profile_memory then MemProfiler.current_snapshot x
+    if debug_profile_memory then 
+        let () = Printf.printf "%s\n%!" x in
+        MemProfiler.current_snapshot x
     else ()
 
 let rec build_features meth =
@@ -140,7 +142,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     let disjoin_tree data =
         let leafs = set_of_leafs data in
         let tree = Ptree.make_disjoint_tree leafs in
-        PtreeSearch.uppass (PtreeSearch.downpass tree)
+        let tree = PtreeSearch.downpass tree in
+        let tree = PtreeSearch.uppass tree in
+        tree
 
     let edges_of_tree tree =
         Tree.EdgeSet.fold (fun x acc -> x :: acc) tree.Ptree.tree.Tree.d_edges []
@@ -326,21 +330,21 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         if n < 0 then `Empty 
         else total_builder [] 0
 
-    let single_wagner wmgr cg data = 
+    let single_wagner tabu_mgr wmgr cg data = 
         let disjoin_tree = disjoin_tree data in
         let data = List.map (fun x -> Node.taxon_code x) data in
         match (PtreeSearch.make_wagner_tree ~sequence:data disjoin_tree wmgr
-        BuildTabus.wagner_tabu)#results with
+        tabu_mgr)#results with
         | (hd, _) :: _ -> 
                 `Single (PtreeSearch.uppass hd)
         | _ -> failwith "No wagner trees built!"
 
-    let wagner cg data =
-        single_wagner single_wagner_search_manager cg data
+    let wagner tabu_mgr cg data =
+        single_wagner tabu_mgr single_wagner_search_manager cg data
 
-    let randomized_single_wagner randomize wmgr cg = 
+    let randomized_single_wagner tabu_mgr randomize wmgr cg = 
         let data = randomize () in
-        single_wagner wmgr cg data
+        single_wagner tabu_mgr wmgr cg data
 
     (** [rand_wagner a b] creates a fresh wagner tree with its 
     * corresponding cost using
@@ -348,11 +352,11 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
     * generator [a]. The addition
     * sequence depends on the list as produced by [b] 
     * before creating the tree. *)
-    let rand_wagner data_generator cg =
-        randomized_single_wagner data_generator 
+    let rand_wagner tabu_mgr data_generator cg =
+        randomized_single_wagner tabu_mgr data_generator 
         single_wagner_search_manager cg 
 
-    let n_independent_wagner data_generator cg data n =    
+    let n_independent_wagner data_generator tabu_mgr cg data n =    
         (* This is equivalent to having multiple replicates *)
         let st = Status.create "Wagner Replicate" (Some n) "Wagner tree replicate \
         building" in
@@ -361,7 +365,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             if cnt > 0 then begin
                 Status.full_report ~adv:(n - cnt) st;
                 let next = 
-                    (randomized_single_wagner data_generator mgr cg) :: acc 
+                    (randomized_single_wagner tabu_mgr data_generator mgr cg) :: acc 
                 in
                 builder (cnt - 1) next
             end else begin
@@ -465,7 +469,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         | 0, _ -> `Empty
         | 1, 1 -> 
                 let st = Status.create "Building Wagner Tree" None "" in
-                let res = rand_wagner data_generator cg in
+                let res = rand_wagner tabu_mgr data_generator cg in
                 Status.finished st;
                 res
         | 1, n -> 
@@ -738,7 +742,7 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
 
 end
 
-module Make (NodeH : NodeSig.S) (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
+module Make (NodeH : NodeSig.S with type other_n = Node.Standard.n) (EdgeH : Edge.EdgeSig with type n = NodeH.n) 
     (TreeOps : Ptree.Tree_Operations with type a = NodeH.n with type b = EdgeH.e)
     = struct
 
@@ -769,11 +773,10 @@ module Make (NodeH : NodeSig.S) (EdgeH : Edge.EdgeSig with type n = NodeH.n)
             if Data.has_dynamic data then
                 DH.build_initial_trees trees data n b
             else
-                let data, nodes = NodeS.load_data data in
-                let trees = Sexpr.map (from_h_to_s nodes) trees in
-                let trees = SH.build_initial_trees trees data nodes b in
-                let data, nodes = NodeH.load_data data in
-                Sexpr.map (from_s_to_h nodes) trees
+                let s_nodes = List.map NodeH.to_other n in
+                let trees = Sexpr.map (from_h_to_s s_nodes) trees in
+                let trees = SH.build_initial_trees trees data s_nodes b in
+                Sexpr.map (from_s_to_h n) trees
 
     end
 

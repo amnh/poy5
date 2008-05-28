@@ -17,19 +17,23 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "SufTree" "$Revision: 2099 $"
-(** The implementation of suffix tree *)
+let () = SadmanOutput.register "SufTree" "$Revision: 2784 $"
+
+(** sufTree module implements structures and
+* functions of the suffix tree. The implementations
+* follow the suffix tree algorithm in Algorithms on Strings, Trees, 
+* and Sequences: Computer science and Computational Biology by Dan Gusfield *)
 
 let deref = Utl.deref
 open SufNode;;
 
 
-(* Rule1:  the character X is added at the end of a leaf
-   Rule21: create a new internal node, the X is a leaf of the internal node
-   Rule22: create a new leaf corresponding to the X from an existed internal one
-   Rule3:  The [...X] has been already in the tree. Do nothing
-   Rule31: X before the stop_node
-   Rule32: X end after the stop_node *)
+(**  Rule1:  the character X is added at the end of a leaf
+ *   Rule21: create a new internal node, the X is a leaf of the internal node
+ *   Rule22: create a new leaf corresponding to the X from an existed internal one
+ *   Rule3:  The [...X] has been already in the tree. Do nothing
+ *   Rule31: X before the stop_node
+ *   Rule32: X end after the stop_node *)
  
 type rule = Rule1 | Rule21 | Rule22 | Rule31 | Rule32;;
 let max_located_node = 100000

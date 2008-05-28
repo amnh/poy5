@@ -18,7 +18,10 @@
 (* USA                                                                        *)
 
 let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
-(** A Dynamic Character Set implementation *)
+
+(** A dynamic character set implementation. 
+* The dynamic character set allows rearrangements *)
+
 exception Illegal_Arguments
 let () = SadmanOutput.register "DynamicCS" "$Revision: 1006 $"
 
@@ -28,7 +31,7 @@ module IntSet = All_sets.Integers
 
 exception No_Union
 
-(** A dynamic character type. 'a can be SeqCS, ChromCS, BreakCS...*)
+(** A dynamic character type. 'a can be SeqCS, ChromCS, BreakCS, GenomeCS ...*)
 type t = 
     | SeqCS  of SeqCS.t
     | BreakinvCS of  BreakinvCS.t 
@@ -37,14 +40,14 @@ type t =
     | GenomeCS of GenomeCS.t
 
 type u = 
-    | U_SeqCS of SeqCS.u
+    | U_SeqCS of SeqCS.Union.u
     | U_Others
 
 
 let failwith_todo f_name = 
-    failwith 
-        ("Todo: " ^ f_name ^ " dynamicCS")
+    failwith ("Todo: " ^ f_name ^ " dynamicCS")
 
+(** [alpha a] returns the alphabet of dynamic character set [a] *)
 let alpha (a : t) = 
     match a with 
     | SeqCS a -> a.SeqCS.alph
@@ -53,6 +56,8 @@ let alpha (a : t) =
     | BreakinvCS a -> a.BreakinvCS.alph
     | AnnchromCS a -> a.AnnchromCS.alph
 
+(** [total_cost a] returns the total cost to create
+*  dynamic character set [a]*)
 let total_cost (a : t) = 
     match a with 
     | SeqCS a -> a.SeqCS.total_cost
@@ -61,6 +66,8 @@ let total_cost (a : t) =
     | BreakinvCS a -> a.BreakinvCS.total_cost
     | AnnchromCS a -> a.AnnchromCS.total_cost
 
+(** [total_recost a] returns the total recost to create
+*  dynamic character set [a]*)
 let total_recost (a : t) = 
     match a with 
     | SeqCS a -> 0.
@@ -69,7 +76,8 @@ let total_recost (a : t) =
     | BreakinvCS a -> a.BreakinvCS.total_recost
     | AnnchromCS a -> a.AnnchromCS.total_recost
 
-
+(** [subtree_recost a] returns the total recost of
+* subtree whose root contains dynamic character set [a] *)
 let subtree_recost (a : t) = 
     match a with 
     | SeqCS a -> 0.0
@@ -78,16 +86,18 @@ let subtree_recost (a : t) =
     | BreakinvCS a -> a.BreakinvCS.subtree_recost
     | AnnchromCS a -> a.AnnchromCS.subtree_recost
 
-
+(** [c2 a] returns the two dimentional cost matrix
+* of dynamic character set [a] *)
 let c2 (a : t) = 
     match a with 
-    | SeqCS a -> a.SeqCS.c2
+    | SeqCS a -> a.SeqCS.heuristic.SeqCS.c2
     | ChromCS a -> a.ChromCS.c2
     | GenomeCS a -> a.GenomeCS.c2
     | BreakinvCS a -> a.BreakinvCS.c2
     | AnnchromCS a -> a.AnnchromCS.c2
 
-
+(** [chrom_pam a] returns the user-defined chromosome parameters
+* of dynamic character set [a] *)
 let chrom_pam (a : t) = 
     match a with 
     | ChromCS a -> a.ChromCS.chrom_pam
@@ -96,7 +106,8 @@ let chrom_pam (a : t) =
     | BreakinvCS a -> a.BreakinvCS.breakinv_pam
     | _ -> Data.dyna_pam_default 
 
-
+(** [state a] returns the character type of
+* dynamic character set [a] *)
 let state (a : t) : Data.dyna_state_t= 
     match a with 
     | SeqCS a -> `Seq
@@ -105,7 +116,7 @@ let state (a : t) : Data.dyna_state_t=
     | BreakinvCS a -> `Breakinv
     | AnnchromCS a -> `Annotated
 
-
+(** [code a] returns the code of dynamic character set [a] *)
 let code (a : t) = 
     match a with 
     | SeqCS a -> a.SeqCS.code
@@ -120,7 +131,8 @@ let print dyn =
           ChromCS.print ch
     | _ -> print_endline "Do not print non-chromosome characters"
 
-
+(** [copy_chrom_map s_ch d_ch] copies the choromosome map
+* of dynamic character set [s_ch] to [d_ch] *)
 let copy_chrom_map s_ch d_ch =
     match s_ch, d_ch with
     | ChromCS s_ch, ChromCS d_ch ->
@@ -132,11 +144,21 @@ let copy_chrom_map s_ch d_ch =
     | _, _ -> d_ch
 
     
-
+(** [leaf_sequences a] turns dynamic character set [a] 
+* into a set of chromosome arrays *)
 let leaf_sequences (a : t) = 
     match a with 
-    | SeqCS a -> IntMap.map (fun seq -> [|seq|]) a.SeqCS.sequences
-
+    | SeqCS a -> 
+            let map = ref IntMap.empty in
+            for i = (SeqCS.cardinal a) - 1 downto 0 do
+                map := IntMap.add a.SeqCS.codes.(i)
+                    (match a.SeqCS.characters.(i) with
+                    | SeqCS.Heuristic_Selection x -> [|x.SeqCS.DOS.sequence|]
+                    | SeqCS.Relaxed_Lifted (t, x) -> 
+                            let p = SeqCS.RL.find_smallest x in
+                            [|t.SeqCS.RL.sequence_table.(p)|]) !map
+            done;
+            !map
     | BreakinvCS a ->          
           IntMap.map 
               (fun med  -> 
@@ -171,24 +193,20 @@ let leaf_sequences (a : t) =
                    seq_arr
               ) a.GenomeCS.meds
 
-
+(** [unions a] returns the union of dynamic character set [a] *)
 let unions (a : u) = 
     match a with 
-    | U_SeqCS (Some a) -> a.SeqCS.unions
+    | U_SeqCS (Some a) -> 
+            let map = ref IntMap.empty in
+            for i = (Array.length a.SeqCS.Union.u_codes) - 1 
+            downto 0 do
+                map := IntMap.add (a.SeqCS.Union.u_codes.(i))
+                    (a.SeqCS.Union.unions.(i)) !map
+            done;
+            !map
     | _ -> failwith "DynamicCS.unions"
 
 
-
-let reprioritize a b =
-    match a, b with 
-    | SeqCS a, SeqCS b -> SeqCS (SeqCS.reprioritize a b)
-    | _, _ -> failwith "DynamicCS.reprioritize"
-
-
-let prioritize a = 
-    match a with 
-    | SeqCS a -> SeqCS (SeqCS.prioritize a)
-    | s -> s
 
 let to_union a = 
     match a with 
@@ -197,7 +215,7 @@ let to_union a =
 
 let union a b c =
     match a, b, c with
-    | SeqCS a, U_SeqCS b, U_SeqCS c -> U_SeqCS (SeqCS.union a b c)
+    | SeqCS a, U_SeqCS b, U_SeqCS c -> U_SeqCS (SeqCS.Union.union a b c)
     | SeqCS _, _, _ -> failwith "DynamicCS.union"
     | _, U_Others, U_Others -> U_Others
     | _, _, _ -> failwith_todo "union"
@@ -205,21 +223,24 @@ let union a b c =
 
 let cardinal_union a =
     match a with
-    | U_SeqCS a -> SeqCS.cardinal_union a
+    | U_SeqCS a -> SeqCS.Union.cardinal_union a
     | U_Others -> 0
 
 let poly_saturation x v =
     let polyacc, polylen =
         match x with
         | U_SeqCS x ->
-                let card = SeqCS.cardinal_union x in
-                let poly = SeqCS.poly_saturation x v in
+                let card = SeqCS.Union.cardinal_union x in
+                let poly = SeqCS.Union.poly_saturation x v in
                 (int_of_float (poly *. (float_of_int card))), 
                 card
         | U_Others -> 0, 0
     in
     (float_of_int polyacc) /. (float_of_int polylen)
 
+
+(** [of_array spec genome_arr code taxon num_taxa] 
+* creates a dynamic character set from genome array [genome_arr] *)
 let of_array spec genome_arr code taxon num_taxa = 
     match spec.Data.state with
     | `Seq | `Breakinv | `Chromosome as meth ->
@@ -231,7 +252,7 @@ let of_array spec genome_arr code taxon num_taxa =
             in 
             begin match meth with
             | `Seq -> 
-                    let t = SeqCS.of_array spec seq_arr code in
+                    let t = SeqCS.of_array spec seq_arr code taxon in
                     SeqCS t
             | `Breakinv -> 
                     let t = BreakinvCS.of_array spec seq_arr code in
@@ -252,18 +273,24 @@ let of_array spec genome_arr code taxon num_taxa =
             GenomeCS t 
 
 
+(** [of_list spec genome_arr code taxon num_taxa] 
+* creates a dynamic character set from genome list [genome_ls] *)
 let of_list spec genome_ls =
     of_array spec (Array.of_list genome_ls) 
 
-let median a b =
+(** [median a b] creates the median set between dynamic 
+* character sets [a] and [b] *)
+let median code a b =
     match a, b with 
-    | SeqCS a, SeqCS b -> SeqCS (SeqCS.median a b)
+    | SeqCS a, SeqCS b -> SeqCS (SeqCS.median code a b)
     | ChromCS a, ChromCS b -> ChromCS (ChromCS.median2 a b)
     | GenomeCS a, GenomeCS b -> GenomeCS (GenomeCS.median2 a b)
     | BreakinvCS a, BreakinvCS b -> BreakinvCS (BreakinvCS.median2 a b)
     | AnnchromCS a, AnnchromCS b -> AnnchromCS (AnnchromCS.median2 a b)
     | _, _ -> failwith_todo "median"
 
+(** [median_3 p n c1 c2] creates the median among
+* three dynamic character sets [p], [c1] and [c2] *)
 let median_3 p n c1 c2 =
     match p, n, c1, c2 with 
     | SeqCS p, SeqCS n, SeqCS c1, SeqCS c2 -> 
@@ -280,6 +307,8 @@ let median_3 p n c1 c2 =
     | _, _, _, _ -> failwith_todo "median_3"
 
 
+(* Like [distance] but calculates it only 
+* if the type of the characters match one of those listed. *)
 let distance_of_type t a b =
     let has_t x = List.exists (fun z -> z = x) t in
     let has_seq = has_t `Seq 
@@ -295,6 +324,8 @@ let distance_of_type t a b =
     | AnnchromCS a, AnnchromCS b when has_ann -> AnnchromCS.distance a b  
     | _, _ -> 0.0
 
+(** [distance_of_type a b] returns the distance between
+* two dynamic character sets [a] and [b] *)
 let distance a b = 
     match a, b with   
     | SeqCS a, SeqCS b -> (SeqCS.distance a b)
@@ -306,13 +337,17 @@ let distance a b =
 
 
 
+(** [distance_union a b] returns the union distance between
+* two dynamic character sets [a] and [b] *)
 let distance_union a b =
     match a, b with
-    | U_SeqCS a, U_SeqCS b -> SeqCS.distance_union a b
+    | U_SeqCS a, U_SeqCS b -> SeqCS.Union.distance_union a b
     | U_Others, U_Others -> 0.0
     | _, _ -> failwith "DynamicCS.distance_union"
 
 
+(** [to_string a] returns dynamic character set [a] 
+* into the string format *)
 let to_string a =
     match a with 
     | SeqCS a -> SeqCS.to_string a
@@ -322,7 +357,10 @@ let to_string a =
     | AnnchromCS a -> AnnchromCS.to_string a
 
 
-
+(* [dist_2 delta n a b] calculates the cost of joining 
+* the node containing  chromosome character set [n]
+* between two nodes containing [a] and [b]. 
+* [a] must be the parent (ancestor) of [b] *)
 let dist_2 delta n a b =
     match n, a, b with 
     | SeqCS n, SeqCS a, SeqCS b -> (SeqCS.dist_2 delta n a b)
@@ -334,6 +372,9 @@ let dist_2 delta n a b =
 
 
 
+(** [f_codes s c] returns a dynamic character subset 
+* of  dynamic character set [s] whose codes are 
+* also in  chromosome character set [c] *)
 let f_codes s c = 
     match s with 
     | SeqCS s -> SeqCS (SeqCS.f_codes s c)
@@ -344,6 +385,9 @@ let f_codes s c =
 
 
 
+(** [f_codes_comp s c] returns a dynamic character subset 
+* of  dynamic character set [s] whose codes are NOT
+* also in  chromosome character set [c] *)
 let f_codes_comp s c = 
     match s with 
     | SeqCS s -> SeqCS (SeqCS.f_codes_comp s c)
@@ -353,7 +397,9 @@ let f_codes_comp s c =
     | AnnchromCS s -> AnnchromCS (AnnchromCS.f_codes_comp s c)
 
 
-
+(** [compare_data a b] returns 1 if dynamic character 
+* set [a] is the same dynamic character set [b], 
+* otherwise (-1) or 1 *)
 let compare_data a b =
     match a, b with 
     | SeqCS a, SeqCS b -> SeqCS.compare_data a b
@@ -365,11 +411,13 @@ let compare_data a b =
 
 let rec compare_union a b = 
     match a, b with
-    | (U_SeqCS ha), (U_SeqCS hb) -> SeqCS.compare_union ha hb 
+    | (U_SeqCS ha), (U_SeqCS hb) -> SeqCS.Union.compare_union ha hb 
     | U_Others, U_Others -> 0
     | _, _ -> failwith "DynamicCS.compare_union"
 
 
+(** [to_formatter ref_codes attr t parent_t] returns
+* dynamic character set [t] into Tag.output format *) 
 let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
     match t, parent_t with 
     | SeqCS t, _ -> begin
@@ -406,7 +454,8 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
 
 
 
-
+(** [tabu_distance a_final b_final] returns the 
+* tabu distance between dynamic character set [a_final] and [b_final] *)
 let tabu_distance a_final b_final = 
     match a_final, b_final with 
     | _, SeqCS b_final -> (SeqCS.tabu_distance b_final)
@@ -416,7 +465,8 @@ let tabu_distance a_final b_final =
     | AnnchromCS a_final, AnnchromCS b_final -> AnnchromCS.max_distance a_final b_final
     | _, _ -> failwith_todo "tabu_distance"
 
-
+(** [get_active_ref_code t] returns the set of active codes
+* of dynamic character set [t] *)
 let get_active_ref_code t = 
     match t with
     | ChromCS t -> ChromCS.get_active_ref_code t
@@ -424,7 +474,6 @@ let get_active_ref_code t =
     | BreakinvCS t -> BreakinvCS.get_active_ref_code t
     | GenomeCS t -> GenomeCS.get_active_ref_code t
     | _ -> IntSet.empty, IntSet.empty
-
 
 
 let cardinal x =
@@ -437,7 +486,7 @@ let cardinal x =
 
 let get_sequence_union code x = 
     match x with
-    | U_SeqCS x -> SeqCS.get_sequence_union code x
+    | U_SeqCS x -> SeqCS.Union.get_sequence_union code x
     | U_Others -> failwith "DynamicCS.get_sequence_union"
 
 let encoding enc x =
@@ -445,6 +494,18 @@ let encoding enc x =
     | SeqCS x -> SeqCS.encoding enc x
     | _ -> failwith "Unsupported DynamicCS.encoding"
 
+(* We are turning off iterative for high order characters until the algorithms
+* are properly fixed. *)
+let no_iterative_other_than_for_seqs = true
+
+(** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
+* set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and
+* parent of [mine] respectively). The function returns a triple [(a, b, c)],
+* where [a] is the previous cost of [mine], [b] is the new cost of [c] as [ch1]
+* and [ch2] parent, and [c] is the new readjusted [mine]. *)
+(** [readjust_3d to_adjust modified ch1 ch2 ch1 ch2 parent mine]
+* readjusts the current median [mine] of three medians [ch1],
+* [ch2], and [parent] using three dimentional alignments*)
 let readjust to_adjust modified ch1 ch2 parent mine =
     match ch1, ch2, parent, mine with
     | SeqCS ch1, SeqCS ch2, SeqCS parent, SeqCS mine when ch1.SeqCS.alph =
@@ -453,6 +514,10 @@ let readjust to_adjust modified ch1 ch2 parent mine =
                 SeqCS.readjust to_adjust modified ch1 ch2 parent mine in
             let prev_cost = SeqCS.distance ch1 mine +. SeqCS.distance ch2 mine in
             modified, prev_cost, new_cost, (SeqCS nc)
+
+    | _, _, _, mine when no_iterative_other_than_for_seqs ->  
+            let prev_cost = total_cost mine in
+            modified, prev_cost, prev_cost, mine
 
     | ChromCS ch1, ChromCS ch2, ChromCS parent, ChromCS mine when ch1.ChromCS.alph =
         Alphabet.nucleotides -> 
@@ -487,13 +552,24 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine
 
-
+(** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state
+ * which is closest to [p] among those available in [n]. Useful for tree length
+ * verification. is_root optional paramter indicates that if n is root. The
+ * default is false. pre_ref_code contains active codes for chromosome characters. 
+ * Inactive codes are eliminated from diagnosis. 
+ * If p is the handle, alied_map is the root containing the aligned map between p
+ * and n for chromosome stuff, else alied_map is assigned by p *)
 let to_single ref_codes root parent mine = 
     match parent, mine with
     | SeqCS parent, SeqCS mine -> 
-          let prev_cost, new_cost, median = SeqCS.to_single parent mine in
-          prev_cost, new_cost, SeqCS median
-
+            let parent = 
+                match root with
+                | None -> parent
+                | Some (SeqCS x) -> x
+                | _ -> assert false
+            in
+            let prev_cost, new_cost, median = SeqCS.to_single parent mine in
+            prev_cost, new_cost, SeqCS median
     | ChromCS parent, ChromCS mine -> 
           let root = match root with 
           | Some (ChromCS root) -> Some root
@@ -540,6 +616,8 @@ let to_single ref_codes root parent mine =
             let cst = total_cost mine in
             cst, cst, mine
 
+(** [to_single_root ref_codes mine] creates
+* the single states for dynamic character set at root [mine] *)
 let to_single_root ref_codes mine = to_single ref_codes (Some mine) mine mine
 
 

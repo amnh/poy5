@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AddCS" "$Revision: 2554 $"
+let () = SadmanOutput.register "AddCS" "$Revision: 2871 $"
 
 (* Internal only exceptions *)
 exception Success
@@ -546,6 +546,11 @@ let of_parser data (it, taxon) code =
     in
     let check_type_and_val acc = function 
         | Some v, code -> 
+                let v = 
+                    match v with
+                    | `List x -> x
+                    | `Bits x -> BitSet.to_list x
+                in
                 let v = List.sort compare v in
                 (first v, last v, code) :: acc
         | None, code ->
@@ -563,7 +568,7 @@ let of_parser data (it, taxon) code =
 
 let ( --> ) a b = b a
 
-let min_possible_cost elts =
+let min_possible_cost (elts : Parser.SC.static_state list ) =
     let get_last lst = 
         assert (lst <> []);
         List.hd (List.rev lst) 
@@ -626,15 +631,19 @@ let is_potentially_informative elts =
         | None -> None
         | Some (x, y) ->
                 match b with
-                | None | Some [] -> a
+                | None  -> a
                 | Some lst ->
-                        let b = List.fold_left min max_int lst
-                        and c = List.fold_left max 0 lst in
-                        if (b <= x && x <= c) then
-                            Some (x, (min y c))
-                        else if (x <= b && b <= y) then
-                            Some (b, (min y c))
-                        else None
+                        let lst = Parser.SC.static_state_to_list lst in
+                        match lst with
+                        | [] -> a
+                        | lst ->
+                                let b = List.fold_left min max_int lst
+                                and c = List.fold_left max 0 lst in
+                                if (b <= x && x <= c) then
+                                    Some (x, (min y c))
+                                else if (x <= b && b <= y) then
+                                    Some (b, (min y c))
+                                else None
     in
     match List.fold_left intersection (Some (0, max_int)) elts with
     | None -> true

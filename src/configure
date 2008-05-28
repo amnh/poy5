@@ -662,6 +662,7 @@ USEGRAPHICS
 USEINTERFACE
 USESHAREDHD
 USEPARALLEL
+USE_LARGE_MESSAGES
 USEWIN32
 USE_LONG_SEQUENCES
 USE_LARGE_ALPHABETS
@@ -1275,6 +1276,13 @@ Optional Features:
   --enable-mpi            Turns on parallel support using MPI. When using MPI
                           remember to set CC to the appropriate mpicc
                           compiler.
+  --enable-large-messages When --enable-mpi is selected, this option turns on
+                          large messages for tree exchanges. Large messages
+                          reduce considerably computation of trees when
+                          different processes exchange them, but increase
+                          tremendously the message size. Use this option when
+                          message size (and the memory consumed to send and
+                          receive it) is not a possible bottleneck.
   --enable-shared-hd      Force POY to support live broadcast of file contents
                           when running in parallel. The default is false.
   --enable-long-sequences Enable the analysis of sequences longer than 16383
@@ -1306,8 +1314,9 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-Add the following object files to the final linking rules (needed for windows).
-Add the following flags to the ocaml compiler.
+  --with-extras           Add the following object files to the final linking
+                          rules (needed for windows).
+  --with-ocaml-flags      Add the following flags to the ocaml compiler.
 Select a different xslt-config program to detect the configuration options of libxslt.
 
 Some influential environment variables:
@@ -2513,6 +2522,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 USEWIN32=false
 # System dependent options
 case `../gnu/config.guess` in
@@ -2567,6 +2577,14 @@ if test "${enable_mpi+set}" = set; then
   enableval=$enable_mpi; USEPARALLEL=true
 else
   USEPARALLEL=false
+fi
+
+
+# Check whether --enable-large-messages was given.
+if test "${enable_large_messages+set}" = set; then
+  enableval=$enable_large_messages; USE_LARGE_MESSAGES=true
+else
+  USE_LARGE_MESSAGES=false
 fi
 
 
@@ -7106,6 +7124,7 @@ USEGRAPHICS!$USEGRAPHICS$ac_delim
 USEINTERFACE!$USEINTERFACE$ac_delim
 USESHAREDHD!$USESHAREDHD$ac_delim
 USEPARALLEL!$USEPARALLEL$ac_delim
+USE_LARGE_MESSAGES!$USE_LARGE_MESSAGES$ac_delim
 USEWIN32!$USEWIN32$ac_delim
 USE_LONG_SEQUENCES!$USE_LONG_SEQUENCES$ac_delim
 USE_LARGE_ALPHABETS!$USE_LARGE_ALPHABETS$ac_delim
@@ -7130,7 +7149,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 69; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 70; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

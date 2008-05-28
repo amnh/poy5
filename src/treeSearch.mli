@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 val sets : 
-    Methods.local_optimum -> 
+    Methods.tabu_join_strategy -> 
         Data.d ->
         ('a, 'b) Ptree.p_tree Sexpr.t -> All_sets.IntSet.t Lazy.t
 
@@ -84,7 +84,7 @@ module MakeNormal :
             Edge.e) -> S with type a = Node.n with type b = Edge.e
 
 module Make :
-  functor (NodeH : NodeSig.S) ->
+  functor (NodeH : NodeSig.S with type other_n = Node.Standard.n) ->
     functor (EdgeH : Edge.EdgeSig with type n = NodeH.n) ->
       functor
         (TreeOpsH :

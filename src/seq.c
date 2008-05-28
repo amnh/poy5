@@ -1,5 +1,4 @@
 /* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    */
-/* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  */
 /* and the American Museum of Natural History.                                */
 /*                                                                            */
 /* This program is free software; you can redistribute it and/or modify       */
@@ -293,26 +292,28 @@ seq_CAML_length (value v) {
 
 int
 seq_CAML_compare (value a, value b) {
-    CAMLparam2(a, b);
     int cmp;
     seqt ap, bp;
     Seq_custom_val(ap,a);
     Seq_custom_val(bp,b);
     cmp = seq_compare (ap, bp);
-    CAMLreturn(cmp);
+    return (cmp);
 }
 
 unsigned long
 seq_CAML_deserialize (void *v) {
     seqt n;
-    SEQT *head, *end;
+    SEQT *head;
     n = (seqt) v;
     head = (SEQT *) ((seqt) n + 1);
-    n->cap = deserialize_uint_4();
-    n->len = deserialize_uint_4();
+    n->cap = deserialize_sint_4();
+    n->len = deserialize_sint_4();
+    n->magic_number = deserialize_sint_4();
+    assert (n->magic_number == POY_SEQ_MAGIC_NUMBER);
     n->head = head;
     n->begin = head;
     n->end = n->head + n->cap - 1;
+    assert (n->len > 0);
     DESERIALIZE_SEQT(n->begin,n->len);
     n->my_pool = NULL;
     return ((n->len * sizeof(SEQT)) + sizeof(struct seq));
@@ -321,23 +322,34 @@ seq_CAML_deserialize (void *v) {
 void
 seq_CAML_serialize (value vo, unsigned long *wsize_32, unsigned long *wsize_64) 
 {
-    CAMLparam1(vo);
     seqt v;
     SEQT *tmp;
     Seq_custom_val(v,vo);
     serialize_int_4(v->len);
     serialize_int_4(v->len);
+    serialize_int_4(v->magic_number);
     tmp = v->begin;
     SERIALIZE_SEQT(tmp,v->len);
-    *wsize_64 = *wsize_32 = sizeof(struct seq) + (sizeof(SEQT) * (v -> len));
-    CAMLreturn0;
+    *wsize_64 = *wsize_32 = sizeof(struct seq) + ((sizeof(SEQT) * (v -> len)));
+    return;
 }
 
+long
+seq_CAML_hash (value v) {
+    long x = 0;
+    seqt s;
+    int i;
+    Seq_custom_val(s,v);
+    for (i = (seq_get_len(s)) - 1; i >= 0; i--) {
+        x ^= (((x << 5) + (x >> 2)) ^ seq_get(s,i));
+    }
+    return x;
+}
 static struct custom_operations sequence_custom_operations  = {
     "http://www.amnh.org/poy/seq/seq.0.2",
     custom_finalize_default,
     (&seq_CAML_compare), 
-    custom_hash_default, 
+    (&seq_CAML_hash), 
     (&seq_CAML_serialize),
     (&seq_CAML_deserialize)
 };
@@ -350,7 +362,6 @@ seq_CAML_create (value cap) {
     CAMLparam1(cap);
     CAMLlocal1(res);
     seqt tmp2;
-    seqt *tmp3;
     int len;
     size_t s;
     len = Int_val(cap);
@@ -376,7 +387,7 @@ seq_CAML_create (value cap) {
     if (tmp2->head == NULL) failwith ("Memory error.");
     tmp2->end = tmp2->begin = tmp2->head + len - 1;
     tmp2->begin++;
-    /*assert (tmp2 == Seq_struct(res));*/
+    assert (tmp2 == Seq_pointer(res));
     CAMLreturn(res);
 }
 
@@ -467,7 +478,7 @@ seq_CAML_get (value s, value p) {
 
 value
 seq_CAML_set (value s, value p, value v) {
-    CAMLparam2(s, p);
+    CAMLparam3(s, p, v);
     seqt cs;
     int cp, cv;
     Seq_custom_val(cs,s);

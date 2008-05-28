@@ -19,7 +19,7 @@
 
 (** Convenient extensions of the Array module in the Standard library. *)
 
-(* $Id: array_ops.mli 1644 2007-02-14 19:05:47Z andres $ *)
+(* $Id: array_ops.mli 2871 2008-05-23 17:48:34Z andres $ *)
 
 (** [flatten_array a] converts an array array ref referenced by a into a
  single array of the same type of a, pointed by tgt.*)
@@ -48,4 +48,21 @@ val randomize : 'a array -> unit
  * in [x]. *)
 val filter : ('a -> bool) -> 'a array -> 'a array
 
+
+val map_2 : ('a -> 'b -> 'c) -> 'a array -> 'b array -> 'c array
+
+val map_3 : ('a -> 'b -> 'c -> 'd) -> 'a array -> 'b array -> 
+    'c array -> 'd array
+
+val map_4 : ('a -> 'b -> 'c -> 'd -> 'e) -> 'a array -> 'b array -> 
+    'c array -> 'd array -> 'e array
+
+val map_5 : ('a -> 'b -> 'c -> 'd -> 'e -> 'f) -> 'a array -> 'b array -> 
+    'c array -> 'd array -> 'e array -> 'f array
+
+val fold_left_2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b array -> 'c array -> 'a
+val fold_left_3 : ('a -> 'b -> 'c -> 'd -> 'a) -> 'a -> 'b array -> 'c array ->
+    'd array -> 'a
+val fold_left_4 : ('a -> 'b -> 'c -> 'd -> 'e -> 'a) -> 'a -> 'b array -> 'c array ->
+    'd array -> 'e array -> 'a
 (* vim:sw=4 et tw=80 : *)

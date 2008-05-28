@@ -198,7 +198,8 @@ val readjust : All_sets.Integers.t option -> node_data -> node_data -> node_data
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 
 
-module Standard : NodeSig.S with type e = exclude and type n = node_data
+module Standard : NodeSig.S with type e = exclude and type n = node_data and
+type other_n = node_data
 
 val merge : node_data -> node_data -> node_data
 
@@ -215,3 +216,4 @@ val total_cost_of_type :
 val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
+val median_counter : int ref

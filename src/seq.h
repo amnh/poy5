@@ -33,7 +33,7 @@
     to_asgn->head = (SEQT *) ((seqt) (to_asgn + 1)); \
     to_asgn->end = to_asgn->head + to_asgn->cap - 1; \
     to_asgn->begin = to_asgn->end - to_asgn->len + 1; \
-    assert (to_asgn->magic_number = POY_SEQ_MAGIC_NUMBER)
+    assert (to_asgn->magic_number == POY_SEQ_MAGIC_NUMBER)
 
 #ifdef USE_LARGE_ALPHABETS 
 #define SEQT unsigned int

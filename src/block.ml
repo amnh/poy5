@@ -17,7 +17,7 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "Block" "$Revision: 2661 $"
+let () = SadmanOutput.register "Block" "$Revision: 2782 $"
 
 (** Blocks are conserved areas between two chromosomes
 * which do not require identical nucleotide segments but 
@@ -77,9 +77,8 @@ let cloneBlockPam (donor : blockPam_t) = {
 }
 
 
-(** Given a [seed] and [block_id], this functions
-* return a block whose id [block_id], and contains only
-* one seed [seed] *)
+(** [create_from_seed] function returns a block 
+* with ID [block_id], and contains only one seed [seed] *)
 let create_from_seed (block_id : int) (seed : seed_t) = {
     id = block_id;
     is_dum = false;
@@ -117,7 +116,7 @@ let create_simple_block (block_id : int) (new_sta1 : int)
     subseq2_id = -1;
 }       
 
-(** This funcrion returns  a dummy block which is used 
+(** [get_dum_first_block ali_pam]  returns  a dummy block which is used 
 * as a start point for dynamic programming to connect blocks together *)
 let get_dum_first_block ali_pam = {
     id = -1; 
@@ -136,7 +135,7 @@ let get_dum_first_block ali_pam = {
     subseq2_id = -1;    
 }
 
-(** This funcrion returns  a dummy block which is used 
+(** [get_dum_last_block ali_pam] returns  a dummy block which is used 
 * as an end point for dynamic programming to connect blocks together *)
 let get_dum_last_block ali_pam = {
     id = -1; 
@@ -158,7 +157,9 @@ let get_dum_last_block ali_pam = {
 let max_len (b : block_t) = 
     max (b.en1 - b.sta1 + 1) (b.en2 - b.sta2 + 1)
 
-
+(** [invert block min_pos2  max_pos2] returns [block']
+* which is inverted from [block] due to the inversion 
+* from [min_pos2] to [max_pos2] in the second chromosome *)
 let invert (block : block_t) (min_pos2 : int) (max_pos2 : int) = 
     let new_sta2 = min_pos2 + (max_pos2 - block.en2) in 
     let new_en2 = min_pos2 + (max_pos2 - block.sta2) in 
@@ -215,7 +216,9 @@ let add_seed (block : block_t) (seed : seed_t) =
     block.seed_ls <- seed::block.seed_ls
                                 
 
-(** Compute the cost of a block which is a list of seeds *)
+(** [cmp_cost_based_seed block ali_pam] returns an integer
+* number as the cost of this [block]. The cost is calculated from 
+* its seed list and chromosome parameters [ali_pam] *)
 let cmp_cost_based_seed (block : block_t) (ali_pam : pairChromPam_t) =  
     let rec cmp (cur_seed : seed_t) (res_ls : seed_t list) (cost : int) = 
         match res_ls with 
@@ -234,7 +237,9 @@ let cmp_cost_based_seed (block : block_t) (ali_pam : pairChromPam_t) =
                 (first_seed.Seed.len * ali_pam.ChromPam.mat_cost)
 
     
-(** Create a block from a list of seeds *)
+(** [create_from_seed_ls block_id seed_ls ali_pam] returns
+* a new block whose ID is [block_id]. The new block is
+* created from the [seed_ls] *)
 let create_from_seed_ls (block_id : int) (seed_ls : seed_t list) 
         (ali_pam : pairChromPam_t) = 
 
@@ -259,17 +264,18 @@ let create_from_seed_ls (block_id : int) (seed_ls : seed_t list)
     new_block.cost <- cmp_cost_based_seed new_block ali_pam;     
     new_block     
 
-(*=======================================================*)
 
 
-(** Compute the cost between two aligned sequences using cost parameters in
-    ali_pam (ChromPam) *)
-let cmp_ali_cost (seq1 : Sequence.s) (seq2 : Sequence.s) 
+
+(** [cmp_ali_cost alied_seq1 alied_seq2 direction ali_pam] returns
+* an integer number as the alignment cost between [alied_seq1]
+* and [alied_seq2] based on chromosome parameters [ali_pam] *)
+let cmp_ali_cost (alied_seq1 : Sequence.s) (alied_seq2 : Sequence.s) 
         (direction : direction_t) (ali_pam : pairChromPam_t) = 
 
-    let len = Sequence.length seq1 in 
-    let code1_arr = Sequence.to_array seq1 in          
-    let code2_arr = Sequence.to_array seq2 in
+    let len = Sequence.length alied_seq1 in 
+    let code1_arr = Sequence.to_array alied_seq1 in          
+    let code2_arr = Sequence.to_array alied_seq2 in
     (if direction = `Negative then Utl.invert_subarr code2_arr 0 (Array.length code2_arr));
 
     let mat_cost = ali_pam.ChromPam.mat_cost in 
@@ -310,10 +316,9 @@ let cmp_ali_cost (seq1 : Sequence.s) (seq2 : Sequence.s)
     
 
 
-(** Seeds which are near each other are connected into
-    local blocks *)
+(** [find_local_block seed_ls ali_pam] returns a list of blocks 
+* created by connecting seeds which are near each other *)
 let find_local_block (seed_ls : seed_t list) (ali_pam : pairChromPam_t) = 
-
     let acc_cost_arr, back_arr, sorted_end_seed_arr = 
         Seed.create_local_connection seed_ls ali_pam in       
     
@@ -359,11 +364,18 @@ let find_local_block (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =
             rev_block_ls := new_block::!rev_block_ls                        
 
         end 
-    done;   
-    
+    done;       
     List.rev !rev_block_ls
 
-
+(** [is_free b sig1_arr sig2_arr] where
+*    - b: a block 
+*    - sig1_arr: sig1_arr[i] = -1 if position i 
+*                 in the first chromosome is not yet
+*                 occupied by any block, otherwise occupied
+*    - sig2_arr: sig2_arr[i] = -1 if position i 
+*                 in the second chromosome is not yet
+*                 occupied by any block, otherwise occupied
+*    returns true if whole block [b] is not occupied, otherwise false *)
 let is_free (b : block_t) (sig1_arr : int array) (sig2_arr : int array) = 
     let rec travel sig_arr pos en =
         if pos > en then true
@@ -376,7 +388,8 @@ let is_free (b : block_t) (sig1_arr : int array) (sig2_arr : int array) =
     else travel sig2_arr b.sta2 b.en2
 
 
-
+(** [assign block sig1_arr sig2_ar] marks all positions
+* of [block] as occupied position in both genomes *)
 let assign block sig1_arr sig2_arr = 
     let assign_subseq block_id sig_arr (sta : int) (en : int) = 
         for pos = sta to en do
@@ -386,7 +399,10 @@ let assign block sig1_arr sig2_arr =
     assign_subseq block.id sig1_arr block.sta1 block.en1;
     assign_subseq block.id sig2_arr block.sta2 block.en2
 
-
+(** [create_sig_arr block_ls ali_pam] returns
+* two signiture arrays [sig1_arr] and [sig2_arr] where
+* - sig1_arr[i] is the block ID covering position i in the first chromosome
+* - sig2_arr[i] is the block ID covering position i in the second chromosome *)
 let create_sig_arr (block_ls : block_t list) ali_pam = 
     let _ = List.fold_left 
         (fun index block -> block.id <- index; index + 1) 0 block_ls in  
@@ -397,9 +413,10 @@ let create_sig_arr (block_ls : block_t list) ali_pam =
     List.iter (fun b -> assign b sig1_arr sig2_arr) block_ls;
     sig1_arr, sig2_arr
 
-
-
-
+(** [select_separated_block b_ls ali_pam] returns a list
+* of blocks which are not overlaped each other. Blocks
+* are selected according to their scores. Thus, higher score
+* blocks are given higher selection priority *)
 let select_separated_block b_ls ali_pam = 
     let b_arr = Array.of_list b_ls in 
     Array.sort (fun b1 b2 -> 
@@ -423,7 +440,8 @@ let select_separated_block b_ls ali_pam =
         ) (Array.to_list b_arr) []
 
     
-(** Given a list of seeds, align them to create the block*)        
+(** [create_pos_alied_block block seq1 seq2 cost_mat ali_pam]
+* creates the alignment for [block] based on its seed_ls *)
 let create_pos_alied_block (block : block_t) (seq1 : Sequence.s) 
         (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) ali_pam =
 
@@ -451,18 +469,16 @@ let create_pos_alied_block (block : block_t) (seq1 : Sequence.s)
     in
     create (List.hd block.seed_ls) (List.tl block.seed_ls);
 
-    let alied_seq1 = UtlPoy.concat (List.rev !rev_alied_subseq1_ls) in  
-    let alied_seq2 = UtlPoy.concat (List.rev !rev_alied_subseq2_ls) in
+    let alied_seq1 = Sequence.concat (List.rev !rev_alied_subseq1_ls) in  
+    let alied_seq2 = Sequence.concat (List.rev !rev_alied_subseq2_ls) in
     
     block.alied_seq1 <- Some alied_seq1;
     block.alied_seq2 <- Some alied_seq2;
     block.cost <- cmp_ali_cost alied_seq1 alied_seq2 block.direction ali_pam
     
 
-
-
-
-    
+(** [is_inide seed block] returns true if [seed] 
+* is in side [block], otherwise false *)    
 let is_inside (seed : seed_t) (block : block_t) = 
     (seed.Seed.sta1 >= block.sta1) && 
     (seed.Seed.sta1 + seed.Seed.len - 1 <= block.en1) && 
@@ -471,7 +487,10 @@ let is_inside (seed : seed_t) (block : block_t) =
 
         
 
-(** create an array of separated sub-sequences *)
+(** [determine_separated_subseq block_ls order max_pos subseq_type] returns
+* a list of separated subsequences which are created by
+* using blocks as milestones. If order = First,the 
+* separated subseqs is for first chromosome, otherwise the second chromosome *)
 let determine_separated_subseq (block_ls : block_t list) (order : order_t)
         (max_pos : int) subseq_type : subseq_t list = 
     (* create the label_arr.(pos) -> list of blocks containing this position*)
@@ -517,13 +536,11 @@ let determine_separated_subseq (block_ls : block_t list) (order : order_t)
     done;
     
     List.rev !rev_sep_subseq_ls
-(************ End of create separeated subseq list *****************)
-(*******************************************************************)            
-
 
 
         
-
+(** [create_alied_block_ls block_ls ali_pam seq1 seq2 cost_mat]
+* creates the alignment for all blocks of [block_ls] based on their seed_ls *)
 let create_alied_block_ls (block_ls : block_t list) (ali_pam : pairChromPam_t) 
         (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat =
     
@@ -544,8 +561,6 @@ let create_alied_block_ls (block_ls : block_t list) (ali_pam : pairChromPam_t)
                        invert block min_pos2 max_pos2;
                     end) block_ls
 
-
-(*==========================================================*)
  
 let check_sep_block (sep_block_ls : block_t list) = 
     let sep_block_arr = Array.of_list sep_block_ls in 
@@ -571,36 +586,37 @@ let check_sep_block (sep_block_ls : block_t list) =
     print_endline "All block are separated!!!"
 
 
+(** [prepen b1 b2 block_pam seq1 seq2 cost_mat ali_pam] appends
+block [b2] to block [b1] *)
 let prepen (b1 : block_t) (b2 : block_t) (block_pam : blockPam_t) 
         (seq1 : Sequence.s) (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m) 
         (ali_pam : pairChromPam_t) =
 
     
     let alied_between_seq1, alied_between_seq2, cost = 
-        UtlPoy.create_subalign2 seq1 seq2 cost_mat (b1.en1 + 1)
+        Sequence.create_subalign2 seq1 seq2 cost_mat (b1.en1 + 1)
         (b2.sta1 - 1) (b1.en2 + 1) (b2.sta2 - 1) 
     in 
     
 
     let between_cost = cmp_ali_cost alied_between_seq1 alied_between_seq2
         `Positive ali_pam 
-    in 
-
-    
-    
+    in     
     b2.sta1 <- b1.sta1;
     b2.sta2 <- b1.sta2;
     b2.cost <- b1.cost + between_cost + b2.cost;
     b2.seed_ls <- b1.seed_ls @ b2.seed_ls;
-    b2.alied_seq1 <- Some (UtlPoy.concat [ (deref b1.alied_seq1);
+    b2.alied_seq1 <- Some (Sequence.concat [ (deref b1.alied_seq1);
                                            alied_between_seq1; 
                                            (deref b2.alied_seq1)] );
 
-    b2.alied_seq2 <- Some (UtlPoy.concat [ (deref b1.alied_seq2); 
+    b2.alied_seq2 <- Some (Sequence.concat [ (deref b1.alied_seq2); 
                                            alied_between_seq2; 
                                            (deref b2.alied_seq2)] )
 
-    
+(** [connect_pos_consecutive_block block_ls block_pam seq1 seq2 cost_mat ali_pam]
+* connect consecutive positive blocks together to create large blocks. This functions
+* returns a concatenated blocks list *)
 let connect_pos_consecutive_block (block_ls : block_t list) 
         (block_pam : blockPam_t) (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (cost_mat : Cost_matrix.Two_D.m) (ali_pam : pairChromPam_t)  = 
@@ -673,7 +689,9 @@ let connect_pos_consecutive_block (block_ls : block_t list)
 
 
 
-
+(** [connect_consecutive_block block_ls block_pam seq1 seq2 cost_mat ali_pam]
+* connect consecutive  blocks together to create large blocks. This functions
+* returns a concatenated blocks list *)
 let connect_consecutive_block (block_ls : block_t list) (block_pam : blockPam_t)
         (seq1 : Sequence.s) (seq2 : Sequence.s) (cost_mat : Cost_matrix.Two_D.m)
         (ali_pam : pairChromPam_t) = 
@@ -685,6 +703,9 @@ let connect_consecutive_block (block_ls : block_t list) (block_pam : blockPam_t)
 
 
 
+(** [create_subseq_id subseq_type sep_block_ls ali_pam] returns
+* two lists  of separated subsequences for two chromosomes 
+* which are created by using [sep_block_ls] as milestones *)
 let create_subseq_id subseq_type (sep_block_ls : block_t list) 
         (ali_pam : pairChromPam_t) =  
                                                                             
@@ -710,21 +731,22 @@ let create_subseq_id subseq_type (sep_block_ls : block_t list)
     sep_block_ls, subseq1_ls, subseq2_ls
 
 
-
+(** [create_median] approx block cost_mat] returns
+* the median sequence and the cost of [block] *)
 let create_median ?(approx=`BothSeq) (block : block_t) cost_mat = 
     let alied_seq1 = Utl.deref block.alied_seq1 in 
     let alied_seq2 = Utl.deref block.alied_seq2 in 
 
-
     match block.direction = `Positive with
-    | true -> UtlPoy.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat 
+    | true -> Sequence.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat 
     | false ->  
           Sequence.reverse_ip alied_seq2;  
-          let med, cost = UtlPoy.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat in  
+          let med, cost = Sequence.create_median_seq ~approx:approx alied_seq1 alied_seq2 cost_mat in  
           Sequence.reverse_ip alied_seq2; 
           med, cost 
 
-
+(** [find_block block_ls subseq1_id subseq2_id] returns
+* the blocks whose subseq ids are [subseq1_id] and [subseq2_id] *)
 let find_block  block_ls subseq1_id subseq2_id = 
     let rec check cur_block_ls =
         match cur_block_ls with
@@ -736,7 +758,8 @@ let find_block  block_ls subseq1_id subseq2_id =
     in
     check block_ls
 
-
+(** [find_subseq1 block_ls subseq1_id] return the subseq1
+* of the block whose subseq1 is [subseq1_id] *)
 let find_subseq1  block_ls subseq1_id = 
     let rec check cur_block_ls =
         match cur_block_ls with

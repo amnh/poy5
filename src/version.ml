@@ -36,12 +36,12 @@ let is_true str = if Str.string_match truere str 0 then  "on" else "off"
 let rephrase str = Str.global_replace (Str.regexp " +") "@ " str
 
 (* The Version Values *)
-let name = "Pelletier"
-let string = "@[@[Welcome to @{<b>@{<c:blue>P@}O@{<c:red>Y@}@} 4.0 alpha,@ " ^
-            "build@ " ^ BuildNumber.build ^ "@ \"@{<u>" ^ name ^ "@}\"!@]@." ^
+let name = "Development"
+let string = "@[@[Welcome to @{<b>POY@} 4.1." ^
+            (Str.global_replace (Str.regexp " +") "" BuildNumber.build) ^ "@]@." ^
                      rephrase ("@[compiled" ^ CompileFlags.time
                       ^ "with parallel " ^ is_true CompileFlags.str_parallel
                       ^ ", interface " ^ get_interface CompileFlags.str_interface
                       ^ ", graphics " ^ get_graphics CompileFlags.str_graphics ^
                       "@]@,@[" ^
-                     "POY version 4.0 Beta, Copyright (C) 2007  Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History.  POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")
+                     "POY version 4.0, Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History. POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")

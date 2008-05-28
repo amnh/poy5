@@ -92,6 +92,7 @@ and tree =
 
 val analyze : Methods.script list -> Methods.script list 
 val almost_analyze : Methods.script list -> tree 
+val linearize : tree -> Methods.script list -> Methods.script list
 val script_to_string : Methods.script -> string
 val explain_tree : string option -> Methods.script list -> unit
 val maketree : Methods.script list -> tree list

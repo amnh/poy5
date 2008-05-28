@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(* $Id: chartree.ml 2283 2007-10-08 20:16:58Z andres $ *)
-let () = SadmanOutput.register "Chartree" "$Revision: 2283 $"
+(* $Id: chartree.ml 2871 2008-05-23 17:48:34Z andres $ *)
+let () = SadmanOutput.register "Chartree" "$Revision: 2871 $"
 
 
 (** chartree.ml *)
@@ -1112,8 +1112,10 @@ let rec features meth lst =
         let lst = 
             match meth.Methods.tabu_break with
             | `Randomized -> ("tabu.break", "randomized") :: lst
-            | `DistanceSorted -> 
+            | `DistanceSorted true -> 
                     ("tabu.break", "sorted edges by distance") :: lst
+            | `DistanceSorted false -> 
+                    ("tabu.break", "sorted edges by distance with early stop") :: lst
             | `OnlyOnce ->
                     ("tabu.break", "only break once each edge, never again") :: lst
         in
@@ -1133,6 +1135,9 @@ let rec features meth lst =
             | `Partition options ->
                     List.fold_left (fun acc x ->
                         match x with
+                        | `Sets sets ->
+                                ("tbu.join", 
+                                "Programmatically provided constraint") :: acc
                         | `MaxDepth depth ->
                                 ("tabu.join", "Consensus based partition") ::
                                     add_depth (Some depth) acc
@@ -1231,11 +1236,13 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 with Not_found -> `Empty
             in 
             let child1_formatter = 
-                subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
+                subtree_to_formatter 
+                (pre_ref_codes, fi_ref_codes) 
                 [] data tree c1 (Some (node_data, my_single_assignment))
             in
             let child2_formatter = 
-                subtree_to_formatter (pre_ref_codes, fi_ref_codes)
+                subtree_to_formatter 
+                (pre_ref_codes, fi_ref_codes)
                 [] data tree c2 (Some (node_data, my_single_assignment))
             in
             let c1st = `Single child1_formatter and c2st = `Single child2_formatter in
@@ -1274,13 +1281,13 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
         match Ptree.get_node handle_id tree with
         | Tree.Interior (_, parent, _, _)
         | Tree.Leaf (_, parent) ->
-              let root_formatter, tree_root =
+              let root_formatter, tree_root, handle_node_data, parent_node_data =
                   match root.Ptree.root_median with 
                   | Some ((`Edge (handle_id, parent)), root) -> 
                           let handle_node_data = Ptree.get_node_data handle_id tree
                           and parent_node_data = Ptree.get_node_data parent tree in
                           let root_single = 
-                              Node.to_single (pre_ref_codes, fi_ref_codes) 
+                              Node.to_single  (pre_ref_codes, fi_ref_codes) 
                                   (Some root) parent_node_data handle_node_data
                           in
                           let root_f = 
@@ -1288,15 +1295,16 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                                   [] data  (root, root_single (* TODO: Bug *))  handle_id (handle_id,  handle_node_data) 
                                   (parent, parent_node_data) None
                           in 
-                          root_f, Some (root_single, root_single)
+                          root_f, Some (root_single, root_single),
+                          handle_node_data, parent_node_data
                   | _ -> failwith "How is it possible we have no root?"
               in               
               let handle_f = 
-                  subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
+                  subtree_to_formatter  (pre_ref_codes, fi_ref_codes) 
                   [] data tree handle_id tree_root 
               in 
               let parent_f = 
-                  subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
+                  subtree_to_formatter  (pre_ref_codes, fi_ref_codes) 
                   [] data tree parent tree_root
               in 
               let c1 = `Single handle_f and c2 = `Single parent_f in 

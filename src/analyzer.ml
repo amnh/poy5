@@ -41,14 +41,23 @@ type dependency_class =
 let thread_table = Hashtbl.create 13
 
 let get_dependencies list =
+    let has_it = Hashtbl.create 13 in
+    let not_has_it x = not (Hashtbl.mem has_it x) 
+    and add_it x = Hashtbl.add has_it x 1 in
     let dep_relations_to_storage_class (a, parent) =
-        let dependency_to_storage_class = function
-            | Channel _ -> []
-            | Data -> [`Data]
-            | Trees -> [`Trees]
-            | JackBoot -> [`Jackknife; `Bootstrap]
-            | Bremer -> [`Bremer]
-            | EntryPoint -> []
+        let dependency_to_storage_class x = 
+            let res = 
+                match x with
+                | Channel _ -> []
+                | Data when not_has_it `Data -> [`Data]
+                | Trees when not_has_it `Trees -> [`Trees]
+                | JackBoot when not_has_it `Jackknife -> [`Jackknife; `Bootstrap]
+                | Bremer when not_has_it `Bremer -> [`Bremer]
+                | EntryPoint -> []
+                | _ -> [] 
+            in
+            List.iter add_it res;
+            res
         in
         `Set ((List.flatten (List.map dependency_to_storage_class a)), 
             try Hashtbl.find thread_table parent with
@@ -153,8 +162,9 @@ let dependency_relations (init : Methods.script) =
                         let files = filename_to_list filename in
                         [([Data; Trees; JackBoot; Bremer], files, init,
                         NonComposable)]
+                | `TimerInterval _
                 | `HistorySize _
-                | `Redraw -> [([], [], init, Linnearizable)]
+                | `Redraw -> [([Data], [Data], init, Linnearizable)]
                 | `Echo _ 
                 | `Help _ -> 
                         let output_files = all !input_files !output_files in
@@ -173,8 +183,10 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees; JackBoot; Bremer], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Wipe ->
                         [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
-                | `Exact
+                | `Exhaustive_Weak
+                | `Exhaustive_Strong
                 | `Iterative
+                | `Normal_plus_Vitamines
                 | `Normal ->
                         [([Data; Trees], [Trees], init, Linnearizable)]
                 | `ReDiagnose ->
@@ -229,6 +241,7 @@ let dependency_relations (init : Methods.script) =
                 | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
+                | `Direct_Optimization _
                 | `Prioritize
                 | `ReWeight _
                 | `WeightFactor _
@@ -280,6 +293,8 @@ let dependency_relations (init : Methods.script) =
                         [([Trees], [Trees], init, Parallelizable)]
             in
             res
+    | (`StandardSearch _) ->
+            [([Trees;Data], [Trees], init, NonComposable)]
     | #Methods.perturb_method as meth ->
             let res = 
                 match meth with
@@ -393,6 +408,7 @@ let dependency_relations (init : Methods.script) =
                         [(fn, [Data; Trees; JackBoot; Bremer], init,
                         NonComposable)], 
                         Some filename, true
+                | `TimerInterval _
                 | `RootName _
                 | `Root _ -> 
                         [([Data; Trees], all !input_files !output_files, init,
@@ -1002,6 +1018,9 @@ let simplify_store_set script =
                 `OnEachTree (script1, script2) :: result, used_items, 
                 modified
         | `ParallelPipeline (c, l1, l2, l3) ->
+                let stores = 
+                    List.find_all (function `Store _ -> true | _ -> false) l2
+                in
                 let l3, used_items, modified =
                     List.fold_right simplify_one l3
                     ([], used_items, modified)
@@ -1016,8 +1035,9 @@ let simplify_store_set script =
                 in
                 let l3 =
                     match l3 with
-                    | `GetStored :: `Set _ :: t -> `GetStored :: t
-                    | t -> t
+                    | `GetStored :: `Set _ :: t -> `GetStored :: (stores @ t)
+                    | `GetStored :: t -> `GetStored :: (stores @ t)
+                    | t -> stores @ t
                 and l2 = List.filter (function `Set _ -> false | _ -> true) l2 
                 and l1 = 
                     match List.rev l1 with
@@ -1392,8 +1412,22 @@ let analyze (script : Methods.script list) : Methods.script list =
         List.filter is_load channels_subtrees
     in
     let res = entry (post_process_trees (res @ channels_subtrees)) in
-    simplify_store_set (linearize res [])
+    let r = simplify_store_set (linearize res []) in 
+    Hashtbl.clear thread_table;
+    r
 
+let break_in_independent_sections x =
+    let a, b =
+        List.fold_right (fun x (cur, acc) ->
+            match x with
+            | `Wipe | `Set _ -> ([], ((x :: cur) :: acc)) 
+            | _ -> (x :: cur), acc) x ([], [])
+    in
+    a :: b
+
+let analyze script = 
+    let scripts = break_in_independent_sections script in 
+    List.flatten (List.map analyze scripts)
 let script_to_string (init : Methods.script) =
     match init with
     | #Methods.tree_handling as meth ->
@@ -1447,6 +1481,8 @@ let script_to_string (init : Methods.script) =
                         "@[print my working directory@]"
                 | `Memory _ ->
                         "@[print my memory statistics@]"
+                | `TimerInterval _ ->
+                        "@[change the timer interval@]"
                 | `HistorySize _ ->
                         "@[change my history size@]"
                 | `Redraw -> 
@@ -1467,10 +1503,13 @@ let script_to_string (init : Methods.script) =
                         "@[eliminate the trees I recovered in a swap@]"
                 | `Wipe ->
                         "@[get rid of all trees and data@]"
-                | `Exact -> 
-                        "@[set the cost calculation to exact DO@]"
+                | `Exhaustive_Strong
+                | `Exhaustive_Weak -> 
+                        "@[set the cost calculation to Exhaustive Weak DO@]"
                 | `Iterative ->
                         "@[set the cost calculation to iterative@]"
+                | `Normal_plus_Vitamines ->
+                        "@[set the cost calculation to normal+ DO@]"
                 | `Normal ->
                         "@[set the cost calculation to normal DO@]"
                 | `ReDiagnose ->
@@ -1495,6 +1534,7 @@ let script_to_string (init : Methods.script) =
                 | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
+                | `Direct_Optimization _
                 | `Prioritize
                 | `ReWeight _
                 | `WeightFactor _
@@ -1530,6 +1570,8 @@ let script_to_string (init : Methods.script) =
             res
     | #Methods.local_optimum ->
             "@[swap the trees in memory@]"
+    | `StandardSearch _ ->
+            "@[execute an automated search@]"
     | #Methods.perturb_method as meth ->
             let res = 
                 match meth with
@@ -1791,8 +1833,10 @@ let is_master_only (init : Methods.script) =
     | `Exit 
     | `Interactive
     | `ChangeWDir _ 
+    | `Normal_plus_Vitamines
     | `Normal
-    | `Exact
+    | `Exhaustive_Strong
+    | `Exhaustive_Weak
     | `Iterative
     | `ReDiagnose
     | `ClearMemory _ 
@@ -1813,6 +1857,7 @@ let is_master_only (init : Methods.script) =
     | #Methods.transform
     | #Methods.build 
     | #Methods.local_optimum 
+    | `StandardSearch _
     | #Methods.perturb_method 
     | #Methods.char_operations
     | #Methods.escape_local
@@ -1823,6 +1868,7 @@ let is_master_only (init : Methods.script) =
     | #Methods.runtime_store 
     | `ReadScript _ 
     | `Repeat _ 
+    | `TimerInterval _
     | #Methods.taxa_handling -> false
     | `Graph (_, _)
     | `Ascii (_, _)
