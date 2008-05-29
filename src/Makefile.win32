@@ -523,13 +523,8 @@ fileStream.cmx: fileStream.ml
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .c .o
 
-<<<<<<< .working
-CPREPROCESSED = fileStream.ml sequence.ml sequence.mli sampler.ml timer.ml scripting.ml main.ml
-DOCFILTER = $(CAMLP4PROCESSED) $(CPREPROCESSED)
-=======
 OPTIONPREPROCESSED = seqCS.ml status_flat.ml status.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
->>>>>>> .merge-right.r2525
 
 .depend: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
