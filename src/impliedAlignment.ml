@@ -596,8 +596,6 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                 let gap_cost = Sequence.cmp_ali_cost 
                     seg.ChromAli.alied_seq1 seg.ChromAli.alied_seq2 seg.ChromAli.dir2 cm
                 in 
-
-(*                fprintf stdout "%i -> %i %i\n" (Sequence.length seg.ChromAli.alied_seq1) seg.ChromAli.cost gap_cost; flush stdout; *)
                 incr num_locus_indel;
                 added_locus_indel_cost := !added_locus_indel_cost + (seg.ChromAli.cost-gap_cost);
              end);
@@ -612,7 +610,12 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
 
     let rea = `Single (recost1, achld) in 
     let reb = `Single (recost2, bchld) in
-    let locus_indel = `Single (!added_locus_indel_cost,  achld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
     
     let dum_chars = ref [a.dum_chars; b.dum_chars] in 
     (if recost1 > 0 then dum_chars:= rea::!dum_chars);
@@ -649,6 +652,8 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
     in
     let med = List.hd med_ls in 
 
+    let added_locus_indel_cost = ref 0 in 
+    let num_locus_indel = ref 0 in
     let merge_ias seqt = 
         let orda = seqt.AnnchromAli.seq_ord1 in 
         let ordb = seqt.AnnchromAli.seq_ord2 in 
@@ -677,13 +682,53 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
             ancestor calculate_median `Annotated prealigned
             all_minus_gap isa isb acode bcode cm alpha achld bchld
         in
+        (if (orda = -1) || (ordb = -1) then begin
+            let gap_cost = Sequence.cmp_ali_cost 
+                seqt.AnnchromAli.alied_seq1 seqt.AnnchromAli.alied_seq2 `Positive cm
+            in 
+
+            let indel_cost = Data.get_locus_indel_cost annchrom_pam in 
+            let seq_cost = 
+                if orda = -1 then 
+                    Sequence.cmp_gap_cost indel_cost seqt.AnnchromAli.alied_seq2
+                else 
+                    Sequence.cmp_gap_cost indel_cost seqt.AnnchromAli.alied_seq1
+            in
+                    
+            incr num_locus_indel;
+            added_locus_indel_cost := !added_locus_indel_cost + (seq_cost - gap_cost);
+        end);
+
+
         let new_codes = Hashtbl.create 1667 in 
         Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
         {ans with seq = seqt.AnnchromAli.seq; codes = new_codes}
     in 
 
     let new_ias_arr = Array.map merge_ias med.AnnchromAli.seq_arr in 
+
+    let recost1 = med.AnnchromAli.recost1 in
+    let recost2 = med.AnnchromAli.recost2 in
+
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
+    
+
+    let dum_chars = ref [a.(0).dum_chars; b.(0).dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+    (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
+    new_ias_arr.(0) <- {new_ias_arr.(0) with dum_chars = `Set !dum_chars}; 
+
     new_ias_arr
+
+
 
 (* [ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode 
 *  achld bchld a b cm alpha breakinv_pam] merges the implied alignments of two clades and 
@@ -1872,10 +1917,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             All_sets.IntegerMap.add c (mc, f, g) funs
                                         end 
                                     in
+                                    let mis_sta = preprocess_sequence alph 
+                                                 (Array.concat (Array.to_list s_arr)) 
+                                    in
                                     let s_arr' = 
-                                        Array.map (fun s ->
-                                            let res = preprocess_sequence alph s in                                                   
-                                            c, (res, s)) 
+                                        Array.map (fun s ->                                            
+                                            c, (mis_sta, s)) 
                                         s_arr 
                                     in 
                                     List.append (Array.to_list s_arr') acc, funs)  
