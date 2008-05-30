@@ -46,7 +46,7 @@ OCAMLDEP := @OCAMLDEP@
 OCAMLTOP := @OCAMLTOP@
 OCAMLLEX := @OCAMLLEX@
 OCAMLYACC := @OCAMLYACC@
-SVNVERSION := @SVNVERSION@ -n ./
+MERCURIAL := @MERCURIAL@ id -i
 EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
 
@@ -300,7 +300,7 @@ ctags: *.c
 
 # Runtime options
 buildNumber.ml: 
-	echo "let build = \" " `$(SVNVERSION)` "\"" > $@
+	echo "let build = \" " `$(MERCURIAL)` "\"" > $@
 
 compileFlags.ml: ./config.log
 	echo "(** automatically generated description of compile-time flags *)" \
