@@ -28,6 +28,7 @@ module type S = sig
 
     (** The type of the nodes in the tree. *)
     type n 
+    type other_n
 
     (** The calculation of the nodes in a tree start in a particular vertex. For
     * this reason we have to do two passes: the downpass and the uppass. The
@@ -143,7 +144,7 @@ module type S = sig
     * to be loaded (then the list only contains those taxa), or the list of the
     * [codes] of the characters that are to be loaded. *)
     val load_data : 
-        ?silent:bool -> ?taxa:(int list) -> ?codes:(int list) -> 
+        ?silent:bool -> (* ?taxa:(int list) -> ?codes:(int list) -> *)
             ?classify:bool -> Data.d -> Data.d * (n list)
 
     (** [n_chars ?acc n] gets the number of characters stored in [n], plus the
@@ -249,6 +250,11 @@ module type S = sig
 
     end
 
+    (** [compare a b] compares the preliminary states of the nodes [a] and [b]
+     * only. This function can not be used for the general comparison of the
+     * complete contents of a node. *)
+    val compare : n -> n -> int
+
     val for_support : 
         int -> (int * n) list -> int list -> int list -> n list
 
@@ -268,8 +274,24 @@ module type S = sig
 
     (* Map all the internal codes of a node using the function *)
     val recode : (int -> int) -> n -> n
+
     (* extract times from characters *)
     val extract_time : int option -> n -> float list
 
-    val edge_iterator : n -> n -> n -> n * n * n
+    val to_other : n -> other_n
+
+    (** [edge_iterator mine child1 child2] -> mine,child1,child2
+     * iterates the edges of child1 and child2 to find a minimum. All three
+     * nodes are modified, mine with the new vector, child1 and child2 with
+     * their respective new times.
+     * *)
+    val edge_iterator : n -> n -> n -> (n * n * n)
+    val force : n -> n
+
+    (** [apply_time par cur time] -> {cur with time = time}
+     * applies the time to c2 . No other calculations are done aside from
+     * setting the value --this is usually taken care of during the next iteration
+     * of a post order traversal, thus not done here. 
+     * *)
+    val apply_time : n -> n -> n
 end
