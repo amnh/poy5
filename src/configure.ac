@@ -29,13 +29,16 @@ AC_SUBST(OCAMLDEP)
 AC_SUBST(OCAMLTOP)
 AC_SUBST(OCAMLLEX)
 AC_SUBST(OCAMLYACC)
-AC_SUBST(SVNVERSION)
+AC_SUBST(MERCURIAL)
 AC_SUBST(LIBS)
 AC_SUBST(OCAMLFLAGS)
 AC_SUBST(EXTRAS)
 USEWIN32=false
+
+OS_INFORMATION=`../gnu/config.guess`
+
 # System dependent options
-case `../gnu/config.guess` in
+case ${OS_INFORMATION} in
     x86_64*)
         OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
         ;;
@@ -106,13 +109,23 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [USE_VERIFY_COSTS=true],
               [USE_VERIFY_COSTS=false])
 
-AS_IF([test $USE_LIKELIHOOD = "true"],
-    [AC_CHECK_LIB([lapack],[dsyev_], [AC_CHECK_LIB([lapack],[dgeev_], [AC_CHECK_LIB([lapack],[dgemm_],
-     [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
-            [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
-            [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
-            [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
-            [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])])
+# Time to handle the lapack checks
+case ${OS_INFORMATION} in
+    *-apple-*)
+        LIBS="-framework veclib"
+        AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")
+        ;;
+    *)
+        AS_IF([test $USE_LIKELIHOOD = "true"],
+            [AC_CHECK_LIB([lapack],[dsyev_], [AC_CHECK_LIB([lapack],[dgeev_], [AC_CHECK_LIB([lapack],[dgemm_],
+             [AC_CHECK_LIB([lapack],[dgetri_], [AC_CHECK_LIB([lapack],[dgetrf_],
+                    [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
+                    [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
+                    [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
+                    [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])])
+        ;;
+esac
+
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"], 
@@ -158,7 +171,7 @@ AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAG
 
 AC_CHECK_PROGS([OCAML], [ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
-AC_CHECK_PROGS([SVNVERSION], [svnversion])
+AC_CHECK_PROGS([MERCURIAL], [hg])
 AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc])
 AC_CHECK_PROGS([OCAMLLEX], [ocamllex])
 AC_CHECK_PROGS([OCAMLOPT], [ocamlopt.opt ocamlopt])
