@@ -88,7 +88,7 @@ external readjust_sym: (* readjust_sym U D a b c ta tb r p pi ll -> ll*ta*tb *)
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float = 
-        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_wrapped_sym"
+        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *)
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -98,7 +98,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float = 
-        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_wrapped_gtr"
+        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 external s_bigarray: 
     s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =

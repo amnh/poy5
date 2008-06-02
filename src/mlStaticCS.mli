@@ -91,7 +91,7 @@ external readjust_sym:
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float =
-        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_wrapped_sym"
+        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr:
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -101,7 +101,7 @@ external readjust_gtr:
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float =
-        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_wrapped_gtr"
+        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 (** [loglikelihood s pi] -> float   calculates the mle of a character set *) 
 external loglikelihood: 
