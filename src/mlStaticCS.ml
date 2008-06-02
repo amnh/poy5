@@ -340,8 +340,8 @@ let of_parser spec characters =
                     (* copy array to master array since one extra site @ 1.0 & z *)
                     barray_copy rs r; p.{w} <- z; r.{w} <- 1.0;
                 (r, p)
-            | _ -> failwith "Distribution model doesn't exist" )
-        in
+            )
+    in
 
     (* return the prior probability *)
     let priors =
@@ -396,14 +396,18 @@ let of_parser spec characters =
     (* loop to create array for each character *)
     let loop_ (states,code) =
         match states with 
-        | None -> (* let _ = Printf.printf "none @ %d\n" code in *) Array.make a_size 1.0
-        | Some s when List.hd s = a_gap -> 
-                (* let _ = Printf.printf "gap  @ %d: %d \n" code a_gap in *) Array.make a_size 1.0
-        | Some s ->
-                let pl = List.fold_right set_in s (list_of a_size 0.0) in
-                (* let _ = Printf.printf "some @ %d: " code in
-                let _ = print_array (Array.of_list pl) in *)
-                Array.of_list (sublist pl 0 a_size) 
+        | None -> Array.make a_size 1.0
+        | Some s -> 
+            let lst = match s with
+                | `List s -> s
+                | `Bits s -> BitSet.to_list s
+            in
+
+            if List.mem a_gap lst then
+                Array.make a_size 1.0 
+            else
+                let pl = List.fold_right set_in lst (list_of a_size 0.0) in
+                Array.of_list (sublist pl 0 a_size)
     in
 
     (* convert character array to abstract type --redo *)

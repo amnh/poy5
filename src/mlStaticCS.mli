@@ -203,7 +203,7 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->
 * (should be treated as if [states] held all the possible states for the
 * character).*)
 (*  [spec] -> [characters: ([states]*[code]) array] -> t *)
-val of_parser : Parser.SC.static_spec -> ((int list option * int) array) -> t
+val of_parser : Parser.SC.static_spec -> ((Parser.SC.static_state * int) array) -> t
 
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float
