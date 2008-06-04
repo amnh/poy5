@@ -1063,12 +1063,11 @@ let analyze_tcm tcm alph =
                             get_gap_opening tcm)
                         else if all_excepting_gap = all_and_gap then 
                             AllOne all_excepting_gap
-                        else if all_excepting_gap = 1 then
+                        else if not (is_affine tcm) then
                             AllOneGapSame 
                             (all_excepting_gap, all_and_gap)
-                        else if is_affine tcm then
+                        else 
                             AllSankoff (Some for_sankoff)
-                        else AllSankoff None
                     else if is_affine tcm then
                         AllSankoff (Some for_sankoff)
                     else AllSankoff None
