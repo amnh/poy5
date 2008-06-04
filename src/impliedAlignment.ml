@@ -1405,6 +1405,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 Codes.fold 
                 (fun u v acc ->
                     let homs = Codes.find u y.sequences in
+                    let calculate_median = match x.state with
+                    | `Chromosome | `Annotated | `Breakinv | `Genome -> true
+                    | _ -> calculate_median
+                    in
+                    
                     let ancestor = 
                         ancestor_f calculate_median all_minus_gap
                         x.cannonic_code y.cannonic_code x.children y.children 
