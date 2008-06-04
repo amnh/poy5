@@ -229,12 +229,18 @@ let explode_filenames files =
 IFDEF USEPARALLEL THEN
     let is_master = 0 = Mpi.comm_rank Mpi.comm_world in
     let files = 
-        if is_master then
-            PoyParser.explode_filenames files 
-        else []
+        try
+            `Normal 
+                (if is_master then
+                    PoyParser.explode_filenames files 
+                else [])
+        with
+        | err -> `Error (Printexc.to_string err)
     in
-    let files = Mpi.broadcast files 0 Mpi.comm_world in
-    List.map (fun x -> `Remote x) files 
+    match Mpi.broadcast files 0 Mpi.comm_world with
+    | `Normal files -> List.map (fun x -> `Remote x) files 
+    | `Error str -> 
+            failwith ("Failed reading file with exception " ^ str)
 ELSE
    List.map (fun x -> `Local x)  (PoyParser.explode_filenames files)
 END
