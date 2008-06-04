@@ -221,7 +221,7 @@ let report_memory () =
     --> append "Free Blocks" stat.Gc.free_blocks string_of_int
     --> append "Largest Free" stat.Gc.largest_free string_of_int
     --> append "Fragments" stat.Gc.fragments string_of_int
-    --> append "Campactions" stat.Gc.compactions string_of_int
+    --> append "Compactions" stat.Gc.compactions string_of_int
     --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
     --> fun x -> x ^ "@]@]%!"
 
