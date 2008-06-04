@@ -3969,6 +3969,7 @@ let report_taxon_file_cross_reference chars data filename =
                     | Not_found -> false
                 in
                 let codes = get_chars_codes_comp data chars in
+                let codes = List.sort compare codes in
                 let codes_arr = Array.of_list codes 
                 and chars_arr = 
                     let name x = StatusCommon.escape (Hashtbl.find
