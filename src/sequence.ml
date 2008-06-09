@@ -1176,7 +1176,7 @@ let readjust a b m cm parent =
         else true, cacb, Align.closest b ac cm matr, cabc 
     in
     let has_to_print, c, (s, _), previous = make_center a b parent in
-    c, s
+    c, s, has_to_print
 
 
 module CamlAlign = struct
@@ -1903,7 +1903,9 @@ END
                         print_endline ("I have an error with len " ^
                         string_of_int len ^ " and sequence length " ^ 
                         string_of_int seq_len ^ " with " ^ 
-                        string_of_int x ^ " and " ^ string_of_int y);
+                        string_of_int x ^ " and " ^ string_of_int y ^ 
+                        " for the sequence " ^ to_string ua.seq
+                        Alphabet.nucleotides);
                         raise err;
             in
             let positions = Array.of_list positions in

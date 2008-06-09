@@ -2032,7 +2032,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
                 characters = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
                   parent.characters mine.characters }
 
-let readjust to_adjust ch1 ch2 parent mine = 
+let readjust mode to_adjust ch1 ch2 parent mine = 
     let ch1, ch2 =
         if ch1.min_child_code < ch2.min_child_code then ch1, ch2
         else ch2, ch1
@@ -2060,7 +2060,7 @@ let readjust to_adjust ch1 ch2 parent mine =
             END
         | ((Dynamic c1) as c1'), ((Dynamic c2) as c2'), Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
-                    DynamicCS.readjust to_adjust !modified c1.preliminary c2.preliminary
+                    DynamicCS.readjust mode to_adjust !modified c1.preliminary c2.preliminary
                     parent.preliminary mine.preliminary
                 in
                 modified := m;

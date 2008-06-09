@@ -581,7 +581,17 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                                 if Sequence.is_empty ts 16 then acc
                                 else 
                                     let p1, p2 = 
+                                        try 
                                         Sequence.Unions.get_positions the_union positions
+                                        with
+                                        | err ->
+                                                Status.user_message Status.Error
+                                                ("The sequence for " ^
+                                                (string_of_int
+                                                code) ^ ", and ts is : " ^ 
+                                                Sequence.to_string ts
+                                                Alphabet.nucleotides);
+                                                raise err
                                     in
                                     if (ever_increasing p1) && (ever_increasing
                                     p2) then begin

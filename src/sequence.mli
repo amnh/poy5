@@ -358,7 +358,7 @@ val select_one_randomized : s -> Cost_matrix.Two_D.m -> s
 * transformation cost matrix [cm]. The function returns a tuple [(a, b)], where
 * [b] is the new readjusted median, and [a] is the cost of that median as the
 * parent of [ch1] and [ch2]. *)
-val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> int * s 
+val readjust : s -> s -> s -> Cost_matrix.Two_D.m -> s -> int * s * bool
 
 (* A module to perform alignments in pure Ocaml for debugging and easy
 * experimentation *)

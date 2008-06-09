@@ -776,7 +776,7 @@ type nad8 = Node.Standard.nad8 = struct
     let root_cost a = 
         let lst =
             match !Methods.cost with
-            | `Iterative -> a.adjusted
+            | `Iterative _ -> a.adjusted
             | _ -> a.unadjusted
         in
         match lst with

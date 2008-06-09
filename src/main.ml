@@ -49,7 +49,7 @@ let () =
     Arguments.usage 
 
 (** Catch errors or not;  helpful for debugging *)
-let debug_pass_errors = false
+let debug_pass_errors = true
 
 let () =
     Random.init 0;

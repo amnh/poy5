@@ -30,7 +30,9 @@ let io = 3
 let debugging = 4
 let barrier = 5
 
-let cost : [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative ] ref = 
+type cost_modes = [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak |
+`Exhaustive_Strong | `Iterative of [`ThreeD | `ApproxD]  ]
+let cost : cost_modes ref = 
     ref `Normal
 
 type filename = [ `Local of string | `Remote of string ]
@@ -671,7 +673,7 @@ type application = [
     | `Normal_plus_Vitamines
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative
+    | `Iterative of [`ThreeD | `ApproxD ]
     | `ReDiagnose
     | `SetSeed of int
     | `InspectFile of string

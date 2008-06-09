@@ -161,7 +161,8 @@ let show_information trees data timer acc = function
                     acc ^ "@,@[Cost Mode: Normal+ Direct Optimization@]"
             | `Exhaustive_Weak -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
             | `Exhaustive_Strong -> acc ^ "@,@[Cost Mode: Exhaustive Direct Optimization@]"
-            | `Iterative -> acc ^ "@,@[Cost Mode: Iterative Pass Optimization@]")
+            | `Iterative `ApproxD -> acc ^ "@,@[Cost Mode: Approximate Iterative Pass@]"
+            | `Iterative `ThreeD -> acc ^ "@,@[Cost Mode: Exact Iterative Pass@]")
     | `Timer -> 
             match timer with
             | Some timer ->
