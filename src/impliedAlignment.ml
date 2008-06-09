@@ -866,6 +866,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
              in 
              let main_idx1 = id_to_index chrom.GenomeAli.main_chrom1_id med1 in 
              let main_idx2 = id_to_index chrom.GenomeAli.main_chrom2_id med2 in 
+             let med_len = ref 0 in 
              let new_ias, rev_anc_seq_ls = List.fold_left
                  ( fun (nascent_ias, rev_anc_seq_ls) seg ->
                        let sta = seg.GenomeAli.sta in 
@@ -936,7 +937,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                        (if (sta != -1) then 
                             Hashtbl.iter 
                                 (fun p code -> 
-                                     Hashtbl.add nascent_ias.codes (p + sta - 1) code
+                                     Hashtbl.add nascent_ias.codes (p + !med_len - 1) code
                                 ) ans_ias.codes); 
                        Hashtbl.iter 
                            (fun code hom -> 
@@ -946,6 +947,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                             {nascent_ias with order = 
                                List.append nascent_ias.order (List.rev ans_ias.order)}                 
                        in
+                       med_len := !med_len + (Sequence.length ans_ias.seq) - 1;
                        (nascent_ias, ans_ias.seq::rev_anc_seq_ls) 
                  ) (init_ias, []) chrom.GenomeAli.map
              in 

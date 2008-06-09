@@ -539,7 +539,8 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     in   
 
     let max_sq2_id = gen_gap_code - 2 in 
-    let mark2_arr = Array.make (max_sq2_id + 1) false in 
+    let mark2_arr = Array.make (max_sq2_id + 1) true in 
+    Array.iter (fun locus2 -> mark2_arr.(locus2.Subseq.id) <- false) loci2_arr;
     Array.iteri (fun idx _ -> 
                      (if (alied_free_id1.(idx) != gen_gap_code) && (alied_free_id2.(idx) != gen_gap_code) then begin
                           mark2_arr.(alied_free_id2.(idx)) <- true
