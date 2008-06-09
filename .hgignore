@@ -39,3 +39,4 @@ status.ml
 *.ss
 *.fas
 *.fasta
+*.annot
