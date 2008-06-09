@@ -1338,7 +1338,7 @@ The \poycommand{calculate\_support} command does not output support values by de
         \poyexample{rename(terminals,"synfile")}{This command renames terminal names
             contained in the synonymy file \texttt{synfile} in all subsequently imported datafiles.}
             \poyexample{rename(terminals,("Mytilus\_sp","Mytilus\_edulis"))}{This command
-            renames terminal file \texttt{Mytilus\_sp} as \texttt{Mytilus\_edulis} in all subsequently
+            renames terminal taxon \texttt{Mytilus\_sp} as \texttt{Mytilus\_edulis} in all subsequently
             imported datafiles.}
     \end{poyexamples}
 
@@ -2868,7 +2868,7 @@ The \poycommand{calculate\_support} command does not output support values by de
             {Transforms the sequences to the static homology characters
             corresponding to their implied alignments and their transformation
             cost matrix~\cite{wheeler2003}. The resulting characters and their number will vary
-            depending on the characteristic of transformation cost matrix
+            depending on the characteristic of transformation coGst matrix
             assigned to each sequence. For example, if the cost of both substitutions
             and indels is \texttt{1}, then one non-additive character is created per
             each homologous position in the implied alignment. If the cost of
@@ -2968,8 +2968,7 @@ The \poycommand{calculate\_support} command does not output support values by de
            
           Functions to calculate breakpoint and inversion distances between two
 	sequences of gene orders are taken from GRAPPA, Genome
-	Rearrangements Analysis under Parsimony and other Phylogenetic Algorithms,
-	available at \\ \texttt{http://www.cs.unm.edu/\~{}moret/GRAPPA/}.
+	Rearrangements Analysis under Parsimony and other Phylogenetic Algorithms\cite{baderetal2002}, available at \\ \texttt{http://www.cs.unm.edu/\~{}moret/GRAPPA/}.
     
          \argumentdefinition{breakinv\_to\_seq}{}
             {Transforms \poyargument{breakinv} character type into \poyargument{custom\_alphabet} character
