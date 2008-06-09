@@ -544,8 +544,8 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
     
     let added_locus_indel_cost = ref 0 in 
     let num_locus_indel = ref 0 in
-    let new_ias = List.fold_left 
-        (fun nascent_ias seg ->
+    let new_ias, rev_anc_seq_ls = List.fold_left 
+        (fun (nascent_ias, rev_anc_seq_ls) seg ->
              let sta = seg.ChromAli.sta in 
              let staa = seg.ChromAli.sta1 in 
              let ena = seg.ChromAli.en1 in 
@@ -602,8 +602,9 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                 added_locus_indel_cost := !added_locus_indel_cost + (seg.ChromAli.cost-gap_cost);
              end);
 
-             {nascent_ias with order = List.append nascent_ias.order (List.rev ans.order)}
-        ) init_ias med.ChromAli.chrom_map
+             let nascent_ias = {nascent_ias with order = List.append nascent_ias.order (List.rev ans.order)} in
+             (nascent_ias, ans.seq::rev_anc_seq_ls)
+        ) (init_ias, []) med.ChromAli.chrom_map
     in 
 
     
@@ -619,8 +620,12 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
     (if recost2 > 0 then dum_chars:= reb::!dum_chars);
     (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
 
+    let anc_chrom = Sequence.concat (List.rev rev_anc_seq_ls) in
+    let anc_chrom = Sequence.delete_gap anc_chrom in 
     let new_ias = {new_ias with order = List.rev new_ias.order;
+                                seq = anc_chrom;
                                 dum_chars = `Set !dum_chars} in     
+
 
     [|new_ias|]
 
@@ -853,7 +858,7 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
         ) med.GenomeAli.chrom_arr; 
     let new_ias_arr = Array.map 
         (fun chrom ->
-             let init_ias = {seq = chrom.GenomeAli.seq; 
+             let init_ias = {seq = Sequence.get_empty_seq (); 
                              codes = Hashtbl.create 1667;
                              homologous = Hashtbl.create 1667;
                              indels = `Empty; dum_chars = `Empty;
@@ -861,8 +866,8 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
              in 
              let main_idx1 = id_to_index chrom.GenomeAli.main_chrom1_id med1 in 
              let main_idx2 = id_to_index chrom.GenomeAli.main_chrom2_id med2 in 
-             let new_ias = List.fold_left 
-                 ( fun nascent_ias seg ->
+             let new_ias, rev_anc_seq_ls = List.fold_left
+                 ( fun (nascent_ias, rev_anc_seq_ls) seg ->
                        let sta = seg.GenomeAli.sta in 
                        let sta1 = seg.GenomeAli.sta1 in 
                        let en1 = seg.GenomeAli.en1 in 
@@ -937,11 +942,18 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            (fun code hom -> 
                                 Hashtbl.replace nascent_ias.homologous code hom
                            ) ans_ias.homologous; 
-                       {nascent_ias with order = 
+                       let nascent_ias = 
+                            {nascent_ias with order = 
                                List.append nascent_ias.order (List.rev ans_ias.order)}                 
-                 ) init_ias chrom.GenomeAli.map
+                       in
+                       (nascent_ias, ans_ias.seq::rev_anc_seq_ls) 
+                 ) (init_ias, []) chrom.GenomeAli.map
              in 
-             {new_ias with order = List.rev new_ias.order}
+             let chrom_seq = Sequence.concat (List.rev rev_anc_seq_ls) in
+             let chrom_seq = Sequence.delete_gap chrom_seq in
+             {new_ias with order = List.rev new_ias.order;
+                seq = chrom_seq}
+
         ) med.GenomeAli.chrom_arr
     in 
     new_ias_arr
@@ -1405,11 +1417,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 Codes.fold 
                 (fun u v acc ->
                     let homs = Codes.find u y.sequences in
-                    let calculate_median = match x.state with
-                    | `Chromosome | `Annotated | `Breakinv | `Genome -> true
-                    | _ -> calculate_median
-                    in
-                    
+
                     let ancestor = 
                         ancestor_f calculate_median all_minus_gap
                         x.cannonic_code y.cannonic_code x.children y.children 
