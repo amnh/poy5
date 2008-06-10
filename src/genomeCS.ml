@@ -52,7 +52,7 @@ let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 * creates a genome character set from an array of sequences [arr] *)
 let of_array spec arr code taxon num_taxa = 
     let adder (cur_meds, cur_costs, cur_recosts) (seq, key) = 
-        let med = Genome.init_med seq spec.Data.pam taxon num_taxa in
+        let med = Genome.init_med seq spec.Data.tcm2d spec.Data.pam taxon num_taxa in
         (IntMap.add key med cur_meds),
         (IntMap.add key 0.0 cur_costs),
         (IntMap.add key 0.0 cur_recosts)

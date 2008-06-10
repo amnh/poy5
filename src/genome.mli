@@ -44,7 +44,7 @@ type meds_t = {
 * returns a genome list with only one element
 * created from genome [genome] *) 
 val init_med :
-  Sequence.s Data.dyna_data -> Data.dyna_pam_t -> int -> int -> meds_t
+  Sequence.s Data.dyna_data -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int -> int -> meds_t
 
 (** [keep chrom_pam med_ls] selects randomly a subset 
 * of medians kept to process further *)
