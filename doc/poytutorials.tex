@@ -58,7 +58,7 @@ The following script implements a strategy for a thorough search under iterative
 read("9.fas","31.ss",aminoacids:("41.aa"))
 read("inter_tree.tre")
 transform(tcm:(1,2),gap_opening:1)
-set(iterative)
+set(iterative:true)
 swap()
 select()
 report("all_trees",trees:(total),"constree",graphconsensus,
@@ -71,7 +71,8 @@ exit()
 \item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
-\item \texttt{set(iterative)} This command sets the optimization procedure to iterative pass.
+\item \texttt{set(iterative:true)} This command sets the optimization procedure
+    to iterative pass (full three dimensional alignments).
 \item \texttt{swap(around)} This commands specifies that the the imported tree is subjected to alternating SPR and TBR branch swapping routine (the default of \poy) following the trajectory of search that completely evaluates the neighborhood of the tree (by using \poyargument{around}).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
 \item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
