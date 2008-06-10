@@ -1370,11 +1370,9 @@ let create_expr () =
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x))
                 ] |
                 [ LIDENT "exhaustive_do" -> `Exhaustive_Weak ] |
-                [ LIDENT "iterative"; x = OPT optional_boolean -> 
-                    match x with
-                    | Some true 
-                    | None -> `Iterative `ThreeD 
-                    | Some false -> `Iterative `ApproxD] |
+                [ LIDENT "iterative"; x = optional_boolean -> 
+                    if x then `Iterative `ThreeD 
+                    else `Iterative `ApproxD] |
                 [ LIDENT "normal_do" -> `Normal ] | 
                 [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ]
             ];

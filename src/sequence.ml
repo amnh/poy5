@@ -1151,12 +1151,17 @@ let select_one_randomized s cm =
 let readjust a b m cm parent =
     let matr = Matrix.default in
     let algn s1 s2 =
-       let s1', s2', c = 
-           Align.align_2 ~first_gap:true s1 s2 cm
-           Matrix.default
-       in
-       let median = Align.median_2 s1' s2' cm in
-       c, median
+        match Cost_matrix.Two_D.affine cm with
+        | Cost_matrix.Affine _ ->
+                let m, _, _, cost, _ = Align.align_affine_3 s1 s2 cm in
+                cost, m
+        | _ ->
+                let s1', s2', c = 
+                    Align.align_2 ~first_gap:true s1 s2 cm
+                    Matrix.default
+                in
+                let median = Align.median_2 s1' s2' cm in
+                c, median
     in
     let make_center a b c =
         let cab, ab = algn a b
