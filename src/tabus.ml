@@ -2084,7 +2084,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 string_of_int (total_banned_size res));
                 *)
                 res
-        | None -> assert false
+        | None -> map_of_banned
 
     let find_banned_for_broke edge map =
         match edge with
@@ -2102,7 +2102,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 (Tree.EdgeSet.cardinal baned));
                 *)
                 baned
-        | None -> assert false
+        | None -> Tree.EdgeSet.empty
 
     let is_banned did_reroot e set =
         if not did_reroot then

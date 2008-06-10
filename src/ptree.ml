@@ -1416,7 +1416,9 @@ type search_step =
 
 let search passit (searcher, name) search =
     let status = Status.create name None ("Searching") in
+    (*
     try
+    *)
         while search#any_trees do
             let (ptree, cost, tabu) = search#next_tree in
             Status.full_report ~adv:(int_of_float cost) status;
@@ -1424,6 +1426,7 @@ let search passit (searcher, name) search =
         done;
         Status.finished status;
         search
+        (*
     with
     | Methods.TimedOut when not passit -> 
             Status.finished status;
@@ -1431,6 +1434,7 @@ let search passit (searcher, name) search =
     | err ->
             Status.finished status;
             raise err
+        *)
 
 (* This function will not find the local optimum, it will return as soon as a
 * better tree is found. *)
@@ -1517,13 +1521,11 @@ let repeat_until_no_more tabu_creator neighborhood queue =
                 (List.map (fun (tree, cost, tbu) -> tree, cost,
                 NoCost, tabu_creator tree)
                 results);
-                Status.user_message Status.Information "Iterating";
             in
             go queue
         else queue
     in
     let res = go queue in
-    Status.user_message Status.Information "Finished on tree";
     res
 
     (** @return the number of trees considered during the search. *)
