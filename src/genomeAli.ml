@@ -1052,7 +1052,7 @@ let create_med med1 med2 cost_mat user_chrom_pams =
                       recost2 = !g_recost2}
     in 
     
-    if (List.length chrom_med_ls = 0) then failwith "Created a fucking empty genome";
+    if (List.length chrom_med_ls = 0) then failwith "Created an empty genome";
     
     genome_med, !g_cost, (!g_recost1, !g_recost2)
         

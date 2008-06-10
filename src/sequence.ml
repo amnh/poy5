@@ -1377,7 +1377,7 @@ module CamlAlign = struct
             in 
 (*            
             (if cost != tc_cub.(len1 - 1).(len2 - 1).(len3 -1) || cost >= infinity then 
-                 failwith "You are fucking up with the triple alignment cost"
+                 failwith "You are working with the triple alignment cost"
              else begin 
                  fprintf stdout "Triple_alignment_cost: %i\n" cost;
                  printIntArr (Array.of_list alied_code1_ls);
