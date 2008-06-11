@@ -296,7 +296,21 @@ let rec cs_median code anode bnode prev a b =
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
-            let median = MlStaticCS.median ca.preliminary cb.preliminary ca.time cb.time in
+            let catime,cbtime = 
+                if code < 0 then (* it's a median *)
+                    (
+                (* TODO:: during set(iterative), this doens't hold sometimes! *)
+                    (* assert( ca.time = cb.time ); *)
+                    (* 
+                        let () = Printf.printf "t1: %f,\tt2: %f\n" ca.time cb.time
+                    *)
+                    let half_time = ca.time /. 2.0 in
+                    half_time,half_time
+                    )
+                else
+                    ca.time,cb.time
+            in
+            let median = MlStaticCS.median ca.preliminary cb.preliminary catime cbtime in
             let n_cost = MlStaticCS.root_cost median in
             let res =
                 { ca with 
@@ -523,18 +537,32 @@ let map4 f a b c d =
     in
     mapper a b c d []
 
-(** [edge iterator rent c1 c2] iterates the branch lengths in the character set
- * that are ML characters. *) 
-let edge_iterator (curr:node_data) (c1:node_data) (c2:node_data) = 
+(** [edge iterator gp rent c1 c2]
+ * iterates the branch lengths in the character set that are ML characters. *) 
+let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_data) = 
+    (* preliminary: check if we are adjusting a handle *)
+    let root_e = match gp with 
+        | Some x -> false
+        | None -> true
+    in
     (* accumulators [pa],[aa],[ba] to iterate the branch length for each element in
      * the character set [p] as parent, and [a], [b] as children. *)
     let rec ei_map p a b pa aa ba = match p,a,b with
         | (StaticMl pml)::ptl, (StaticMl aml)::atl,(StaticMl bml)::btl ->
         IFDEF USE_LIKELIHOOD THEN
             let modf = ref All_sets.Integers.empty in
+            (* if root edge then split the branch in half *)
+            let amltime,bmltime = if root_e
+                then aml.time /. 2.0, bml.time /. 2.0 
+                else aml.time,bml.time in
+
             let mine,pcost,cost,(t1,t2),res = 
                 MlStaticCS.readjust None !modf aml.preliminary bml.preliminary
-                    pml.preliminary aml.time bml.time pml.time in
+                    pml.preliminary amltime bmltime pml.time in
+
+            (* pull edges back together *)
+            let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t1,t2 in
+
             let first   = StaticMl { pml with time = t1; }
             and second  = StaticMl { aml with time = t2; }
             and mine    = StaticMl { bml with preliminary=res;final=res;
@@ -544,12 +572,12 @@ let edge_iterator (curr:node_data) (c1:node_data) (c2:node_data) =
             ei_map ptl atl btl pa atl btl
         END
         (* ignore non-likelihood characters *)
+        (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
         | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl pa atl btl
         | [],[],[] -> (pa,aa,ba)
         | _ -> failwith "Number of characters is inconsistent"
     in
-    let mine,ch1,ch2 = ei_map curr.characters c1.characters c2.characters [] [] [] in
-    (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
+    let mine,ch1,ch2 = ei_map c0.characters c1.characters c2.characters [] [] [] in
     let mine_cost = List.fold_left 
             (fun x y -> match y with
                 | StaticMl a ->
@@ -558,17 +586,20 @@ let edge_iterator (curr:node_data) (c1:node_data) (c2:node_data) =
                     ELSE
                         x
                     END
-                | _ -> x)
-            0.0
-            mine
-    in
-    (   {curr with characters=mine;total_cost=mine_cost;node_cost=mine_cost;},
-        {c1 with characters = ch1}, (*childrens cost doesn't change *)
-        {c2 with characters = ch2}    )
+                | _ -> x) 0.0 mine
+    in (
+        {c0 with characters = mine;
+                 total_cost = mine_cost;
+                 node_cost  = mine_cost;},
+        {c1 with characters = ch1;}, (*childrens cost doesn't change *)
+        {c2 with characters = ch2;}
+       )
 
-(** [apply_time node1 node2 time] - two new node_data with time associated. Each
+(** [apply_time node1 node2] - new node_data with time associated. Each
  * node should be in the opposite direction, and ca1 should have the proper time
- * data to apply to the ca2 node. *)
+ * data to apply to the ca2 node. Optionally apply a function to the two times.
+ * This is currently useful for dividing the times by 1/2 or adding them
+ * together after adjusting the root of three dir tree. *)
 let apply_time (ca1:node_data) (ca2:node_data) : node_data = 
     let rec at_map todata fromdata acc = match todata,fromdata with
         | (StaticMl curr)::tl,(StaticMl from)::t2 ->
@@ -584,17 +615,6 @@ let apply_time (ca1:node_data) (ca2:node_data) : node_data =
     in
     {ca2 with characters = at_map ca1.characters ca2.characters [] }
 
-(** [root_median c2c ch1 ch2 parent] *)
-let root_median c2c ch1 ch2 parent = true 
-    (*
-        if likelihood
-            create a new node
-            apply readjust with that node
-        return total cost
-
-        what to do with node data once computed?
-    *)
-   
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> (*

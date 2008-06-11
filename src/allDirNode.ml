@@ -162,10 +162,10 @@ module OneDirF :
 
     let extract_time x nd = Node.Standard.extract_time x (force_val nd)
 
-    let edge_iterator nd1 nd2 nd3 = 
-        let a1,a2,a3 = Node.Standard.edge_iterator  (force_val nd1)
-                                                    (force_val nd2)
-                                                    (force_val nd3)
+    let edge_iterator nd0 nd1 nd2 nd3 = 
+        let d0 = match nd0 with None -> None | Some x -> Some (force_val x) in
+        let a1,a2,a3 = Node.Standard.edge_iterator 
+            d0 (force_val nd1) (force_val nd2) (force_val nd3)
         in (to_n a1,to_n a2,to_n a3)
 
     let median_3 x par cur a b = 
@@ -464,13 +464,19 @@ type nad8 = Node.Standard.nad8 = struct
     let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
     let extract_time = apply_on_one_direction OneDirF.extract_time
 
-    let edge_iterator n1 n2 n3 = 
+    let edge_iterator n0 n1 n2 n3 = 
+        let d0 = match n0 with
+                    | None -> None
+                    | Some x ->( match x.unadjusted with 
+                        | [x] -> Some (force_val x.lazy_node)
+                        | _ -> failwith "edge iterator, to many or no adjusted"
+                    )
+        in
         match n1.unadjusted,n2.unadjusted,n3.unadjusted with
         | [d1],[d2],[d3] -> 
             let a1,a2,a3 = Node.Standard.edge_iterator
-                                        (force_val d1.lazy_node) 
-                                        (force_val d2.lazy_node)
-                                        (force_val d3.lazy_node) in
+                d0 (force_val d1.lazy_node) (force_val d2.lazy_node) (force_val d3.lazy_node)
+            in
             (to_n a1,to_n a2,to_n a3) 
         | _ -> failwith("edge iterator, to many or no adjusted")
 
@@ -534,21 +540,20 @@ type nad8 = Node.Standard.nad8 = struct
                 let x, y = yes_with (taxon_code par) cur.unadjusted in
                 { cur with unadjusted = [x; y; node] }
 
-    (** [adjust_time par cur time] 
-     * Applies the time of cur to par. cur should have the correct time data. So
-     * supposidly, the iterations were done on the parent of a child and they
-     * need to be applied to the children, in this case, the children would be
-     * considered 'curr' *)
-    let apply_time par curr = 
-        let cnode = not_with (taxon_code par) curr.unadjusted in
-        let pnode = not_with (taxon_code curr) par.unadjusted in
-        let lnode =
-            {cnode with lazy_node = OneDirF.apply_time pnode.lazy_node cnode.lazy_node }
-        in
-        match curr.unadjusted with
-            | [_] -> {curr with unadjusted = [lnode] }
-            | _ ->  let x,y = yes_with (taxon_code par) curr.unadjusted in
-                    {curr with unadjusted = [x;y;lnode] }
+    (** [adjust_time cur par] 
+     * Applies the time from [cur] to [par] in the direction pointing to [cur].
+     * Used when the children are iterated and the time information needs to be
+     * passed in the three directional situation --unadjusted. *)
+    let apply_time curr par = 
+        let get_desired_dir par x = not_with (taxon_code par) x.unadjusted in
+        let ctop = get_desired_dir par curr and ptoc = get_desired_dir curr par in
+        let lnode = {ptoc with                     (* v----from----v v-----to-----v *)
+                       lazy_node = OneDirF.apply_time ctop.lazy_node ptoc.lazy_node 
+                    } in
+        match par.unadjusted with
+            | [_] -> {par with unadjusted = [lnode] }
+            | _ ->  let x,y = yes_with (taxon_code curr) par.unadjusted in
+                    {par with unadjusted = [x;y;lnode] }
 
     let to_string nodes = 
         let res = 

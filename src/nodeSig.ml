@@ -277,14 +277,15 @@ module type S = sig
 
     (* extract times from characters *)
     val extract_time : int option -> n -> float list
+
     val to_other : n -> other_n
 
-    (** [edge_iterator mine child1 child2] -> mine,child1,child2
+    (** [edge_iterator gpar mine child1 child2] -> mine,child1,child2
      * iterates the edges of child1 and child2 to find a minimum. All three
      * nodes are modified, mine with the new vector, child1 and child2 with
      * their respective new times.
      * *)
-    val edge_iterator : n -> n -> n -> (n * n * n)
+    val edge_iterator : n option -> n -> n -> n -> (n * n * n)
     val force : n -> n
 
     (** [apply_time par cur time] -> {cur with time = time}
