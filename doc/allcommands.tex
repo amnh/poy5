@@ -2347,12 +2347,12 @@ The \poycommand{calculate\_support} command does not output support values by de
                 used by the \poyargument{normal\_do}).}
                 {exhaustivedo}
 
-                \argumentdefinition{iterative}{\obligatory{\poybool}}
+                \argumentdefinition{iterative}{\obligatory{\poylident}}
                 {Applies the Iterative Pass optimization for the tree cost
                 calculations. There are two forms of iterative pass: if the
-                argument value is true (the default), then a complete three
+                argument value is exact (the default), then a complete three
                 dimensional alignment is computed, as described for POY 3.0 in~\cite{wheeler2003a}. 
-                Otherwise, if the argument value is false, then the iterations
+                Otherwise, if the argument value is approximate, then the iterations
                 approximate the three dimensional alignment using pairwise
                 alignments. The later is much faster than the former, but the
                 former is default for compatibility reasons.
