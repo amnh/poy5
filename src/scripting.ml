@@ -1328,7 +1328,9 @@ run =
                     in
                     let cost_b, hit_b = get_cost before 
                     and cost_a, hit_a = get_cost run in
-                    cost_a, (if cost_b = cost_a then hit_a - hit_b else hit_a)
+                    if cost_b < cost_a then cost_b, 0
+                    else
+                        cost_a, (if cost_b = cost_a then hit_a - hit_b else hit_a)
                 in
                 best_cost := cost;
                 hits := !hits + hit;
@@ -1463,6 +1465,7 @@ END
                 if do_perturb && (0.3 < Random.float 1.) then 
                     nrun, do_perturb
                 else
+                    let () = stop_if_necessary `Initial in
                     if (0.5 <= Random.float 1.) then
                         let cmd = 
                             if !iterations_counter > 4 then
@@ -1529,6 +1532,7 @@ END
             trees := Sexpr.union nrun.trees !trees;
             update_information (`Initial nrun);
             if do_perturb || 0.5 < Random.float 1.0 then begin
+                let () = stop_if_necessary `Initial in
                 let nrun = exec nrun 
                     (CPOY 
                     perturb (iterations:4, transform (tcm:(1,1), static_approx), 
@@ -1538,7 +1542,7 @@ END
                 update_information (`Initial nrun);
             end;
             select_if_necessary ();
-            stop_if_necessary `Initial;
+            stop_if_necessary `Perturb;
         done;
         raise Exit
     with
@@ -1567,6 +1571,7 @@ END
                             | h :: t ->
                                     let r = { r with trees = `Single h } in
                                     Methods.cost := `Exhaustive_Weak;
+                                    let () = stop_if_necessary `Others in
                                     let r = 
                                         exec r 
                                         (CPOY swap (timeout:[remaining_time ()]))
