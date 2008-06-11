@@ -212,8 +212,11 @@ val total_cost_of_type :
   `StaticMl] ->
   node_data -> float
 
+val get_cost_mode : node_data -> [ `Likelihood | `Parsimony ]
 
 val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
 val median_counter : int ref
+val extract_time : node_data -> float list
+val apply_time : node_data -> node_data -> node_data

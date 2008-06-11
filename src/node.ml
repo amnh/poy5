@@ -446,7 +446,7 @@ let rec cs_median code anode bnode prev a b =
                      * *)
                     let min_cost = ref (2. *. v) in
                     let update_cost m = min_cost := min m !min_cost in
-                    let _, medians =
+                   let _, medians =
                         List.fold_left
                             (fun (i, list) l1i ->
                                  let _, list = List.fold_left
@@ -525,7 +525,7 @@ let map4 f a b c d =
 
 (** [edge iterator rent c1 c2] iterates the branch lengths in the character set
  * that are ML characters. *) 
-let edge_iterator (rent:node_data) (c1:node_data) (c2:node_data) = 
+let edge_iterator (curr:node_data) (c1:node_data) (c2:node_data) = 
     (* accumulators [pa],[aa],[ba] to iterate the branch length for each element in
      * the character set [p] as parent, and [a], [b] as children. *)
     let rec ei_map p a b pa aa ba = match p,a,b with
@@ -540,27 +540,61 @@ let edge_iterator (rent:node_data) (c1:node_data) (c2:node_data) =
             and mine    = StaticMl { bml with preliminary=res;final=res;
                                               cost=cost;sum_cost=cost; } in
             ei_map ptl atl btl (mine::pa) (first::atl) (second::btl)
-        ELSE
-            (pa,aa,ba)
+        ELSE 
+            ei_map ptl atl btl pa atl btl
         END
         (* ignore non-likelihood characters *)
         | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl pa atl btl
         | [],[],[] -> (pa,aa,ba)
         | _ -> failwith "Number of characters is inconsistent"
     in
-    let mine,ch1,ch2 = ei_map rent.characters c1.characters c2.characters [] [] [] in
+    let mine,ch1,ch2 = ei_map curr.characters c1.characters c2.characters [] [] [] in
     (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
-    let mine_cost = List.fold_left (fun x y -> match y with | StaticMl a ->
-                                            IFDEF USE_LIKELIHOOD THEN
-                                                x +.a.cost
-                                            ELSE
-                                                x
-                                            END
-                                        | _ -> x) 0.0 mine in
-    (   {rent with characters=mine;total_cost=mine_cost;node_cost=mine_cost;},
-        {c1 with characters = ch1}, (*children cost doesn't change *)
+    let mine_cost = List.fold_left 
+            (fun x y -> match y with
+                | StaticMl a ->
+                    IFDEF USE_LIKELIHOOD THEN
+                        x +.a.cost
+                    ELSE
+                        x
+                    END
+                | _ -> x)
+            0.0
+            mine
+    in
+    (   {curr with characters=mine;total_cost=mine_cost;node_cost=mine_cost;},
+        {c1 with characters = ch1}, (*childrens cost doesn't change *)
         {c2 with characters = ch2}    )
 
+(** [apply_time node1 node2 time] - two new node_data with time associated. Each
+ * node should be in the opposite direction, and ca1 should have the proper time
+ * data to apply to the ca2 node. *)
+let apply_time (ca1:node_data) (ca2:node_data) : node_data = 
+    let rec at_map todata fromdata acc = match todata,fromdata with
+        | (StaticMl curr)::tl,(StaticMl from)::t2 ->
+            IFDEF USE_LIKELIHOOD THEN
+                let mine = StaticMl { curr with time = from.time } in
+                at_map tl t2 (mine::acc) 
+            ELSE
+                at_map tl t2 (curr::acc)
+            END
+        | curr::tl,from::t2 -> at_map tl t2 (curr::acc)
+        | [],[] -> acc
+        | _ -> failwith "apply_time: Characters of inconsistent lengths"
+    in
+    {ca2 with characters = at_map ca1.characters ca2.characters [] }
+
+(** [root_median c2c ch1 ch2 parent] *)
+let root_median c2c ch1 ch2 parent = true 
+    (*
+        if likelihood
+            create a new node
+            apply readjust with that node
+        return total cost
+
+        what to do with node data once computed?
+    *)
+   
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> (*
@@ -776,7 +810,8 @@ let get_set =
 let median_counter = ref (-1)
 
 let median code old a b =
-    let code =
+    (* the code is negative if we are calculating on an edge *)
+    let code = 
         match code with
         | Some code -> code
         | None -> 
@@ -860,6 +895,8 @@ let node_height {num_height = h} = h
 let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
+
+let get_cost_mode a = a.cost_mode
 
 let compare_data_final {characters=chs1} {characters=chs2} =
     let rec compare_two ch1 ch2 =
@@ -1057,7 +1094,8 @@ let distance_of_type ?(para=None) ?(parb=None) t
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
             IFDEF USE_LIKELIHOOD THEN
-                a.weight *. MlStaticCS.distance a.final b.final a.time b.time
+                0.0
+                (* a.weight *. MlStaticCS.distance a.final b.final a.time b.time *)
             ELSE
                 failwith likelihood_error
             END
@@ -1727,7 +1765,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let c = StaticMl { preliminary = c; final = c; cost = 0.;
                                           sum_cost = 0.;
-                            weight = 1.; time = 0.2 } in (* TODO: estimate *)
+                            weight = 1.; time = 1.5 } in (* TODO: estimate *)
                             { result with characters = c :: result.characters }
                 in
                 List.fold_left single_ml_group result lstaticmlcode
@@ -2084,7 +2122,11 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         in
         let children_cost = ch1.total_cost +. ch2.total_cost 
         and node_cost = get_characters_cost characters in
-        let total_cost = node_cost +. children_cost in
+        let total_cost =
+            match mine.cost_mode with
+            | `Likelihood -> node_cost 
+            | `Parsimony  -> node_cost +. children_cost in
+        
         let res = 
             { mine with characters = characters; total_cost = total_cost; 
             node_cost = node_cost }
@@ -2569,7 +2611,6 @@ let get_sequences _ node =
 (*============================================================*)
 
 let fprintf = Printf.fprintf 
-
 
 let prioritize node = node
 
@@ -3103,7 +3144,7 @@ let extract_time nd =
 
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data and type other_n =
-        node_data = 
+        node_data =
         struct
         type e = exclude
         type n = node_data
@@ -3148,6 +3189,7 @@ module Standard :
         let prioritize = prioritize
         let reprioritize = reprioritize
         let extract_time _  = extract_time
+        let apply_time = apply_time
         let edge_iterator = edge_iterator
         module T = T
         module Union = Union
