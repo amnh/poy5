@@ -1933,6 +1933,7 @@ let load_data ?(silent=true) ?(classify=true) data =
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
+    let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
         List.fold_left (fun acc x -> 
             if 0. = Data.get_weight x data then acc
