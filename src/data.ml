@@ -449,6 +449,13 @@ let get_recost user_pams =
             | `Locus_Inversion c -> c
 
 
+(** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
+let get_locus_indel_cost user_pams = 
+    match user_pams.locus_indel_cost with
+    | None -> failwith "The locus indel cost is not specified"
+    | Some c -> c
+
+
 
 (*
 let set_sequence_defaults seq_alph data = 
