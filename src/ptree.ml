@@ -2493,7 +2493,7 @@ let supports to_string maj number_of_samples tree sets =
 let extract_bremer to_string sets =
     let coder = ref 0 in
     let tree_builder = build_a_tree to_string 1. true coder in
-    make_tree (-1) coder tree_builder sets
+    make_tree min_int coder tree_builder sets
 
 (* A function that returns the bremer support tree based on the set of (costs, 
 * tree) of sets, for the input tree *)
@@ -2518,6 +2518,7 @@ let bremer to_string cost tree generator file =
                     let new_cost, sets = generator input_tree in
                     map :=
                         Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
+                            Printf.printf "The best cost is %d\n" best_cost;
                         if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
                             ((new_cost - cost) < best_cost) then
                             Tree.CladeFPMap.add my_clade (new_cost - cost) acc
@@ -2550,4 +2551,4 @@ let bremer to_string cost tree generator file =
     in
     map
     --> replace_when_smaller
-    --> make_tree (-1) coder tree_builder
+    --> make_tree min_int coder tree_builder
