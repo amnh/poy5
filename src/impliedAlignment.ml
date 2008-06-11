@@ -856,6 +856,10 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                           assign_act_order sta2 en2 ias2_arr.(idx2).codes order2_mat.(idx2) act_ord2.(idx2));
                  ) chrom.GenomeAli.map
         ) med.GenomeAli.chrom_arr; 
+
+    let added_locus_indel_cost = ref 0 in 
+    let num_locus_indel = ref 0 in
+
     let new_ias_arr = Array.map 
         (fun chrom ->
              let init_ias = {seq = Sequence.get_empty_seq (); 
@@ -902,6 +906,15 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                                 let code = Hashtbl.find ias2_arr.(idx2).codes p in 
                                 Hashtbl.add sub_codes2 (p - sta2) code;
                             done);
+
+                       (if (sta1 = -1) || (sta2 = -1) then begin
+                                let gap_cost = Sequence.cmp_ali_cost 
+                                seg.GenomeAli.alied_seq1 seg.GenomeAli.alied_seq2 seg.GenomeAli.dir2 cm
+                            in 
+                            incr num_locus_indel;
+                            added_locus_indel_cost := !added_locus_indel_cost + (seg.GenomeAli.cost-gap_cost);
+                        end);
+
                        let hom1 = match idx1 = -1 with
                        | true -> Hashtbl.create 1668 
                        | false -> ias1_arr.(idx1).homologous
@@ -958,6 +971,25 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
 
         ) med.GenomeAli.chrom_arr
     in 
+
+    let recost1 = med.GenomeAli.recost1 in
+    let recost2 = med.GenomeAli.recost2 in
+
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
+    
+    let dum_chars = ref [a.(0).dum_chars; b.(0).dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+    (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
+    new_ias_arr.(0) <- {new_ias_arr.(0) with dum_chars = `Set !dum_chars}; 
+
     new_ias_arr
 
 
