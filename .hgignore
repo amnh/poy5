@@ -40,3 +40,5 @@ status.ml
 *.fas
 *.fasta
 *.annot
+doc/version.tex
+src/*.orig
