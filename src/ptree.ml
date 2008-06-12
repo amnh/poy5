@@ -1416,9 +1416,7 @@ type search_step =
 
 let search passit (searcher, name) search =
     let status = Status.create name None ("Searching") in
-    (*
     try
-    *)
         while search#any_trees do
             let (ptree, cost, tabu) = search#next_tree in
             Status.full_report ~adv:(int_of_float cost) status;
@@ -1426,7 +1424,6 @@ let search passit (searcher, name) search =
         done;
         Status.finished status;
         search
-        (*
     with
     | Methods.TimedOut when not passit -> 
             Status.finished status;
@@ -1434,7 +1431,6 @@ let search passit (searcher, name) search =
     | err ->
             Status.finished status;
             raise err
-        *)
 
 (* This function will not find the local optimum, it will return as soon as a
 * better tree is found. *)
