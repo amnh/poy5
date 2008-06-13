@@ -3230,62 +3230,89 @@ module Standard :
             let rec aux_cmt a b =
                 match a, b with
                 | (Nonadd8 ha) :: ta, (Nonadd8 hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Nonadd8 ha) :: ta, _ -> -1
                 | (Nonadd16 ha) :: ta, (Nonadd16 hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Nonadd16 ha) :: ta, _ -> -1
                 | (Nonadd32 ha) :: ta, (Nonadd32 hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Nonadd32 ha) :: ta, _ -> -1
                 | (Add ha) :: ta, (Add hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Add ha) :: ta, _ -> -1
                 | (Sank ha) :: ta, (Sank hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Sank ha) :: ta, _ -> -1
                 | (Dynamic ha) :: ta, (Dynamic hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Dynamic ha) :: ta, _ -> -1
                 | (Kolmo ha) :: ta, (Kolmo hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                 | (Kolmo ha) :: ta, _ -> -1
                 | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
                         IFDEF USE_LIKELIHOOD THEN
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x
                         ELSE 
                         0
                         END
                 | (StaticMl ha) :: ta, _ -> -1
                 | (Set ha) :: ta, (Set hb) :: tb ->
-                        let cmp = compare ha.preliminary hb.preliminary in
-                        if cmp = 0 then 
-                            aux_cmt ta tb
-                        else cmp
+                        let x = compare ha.weight hb.weight in
+                        if x = 0 then
+                            let cmp = compare ha.preliminary hb.preliminary in
+                            if cmp = 0 then 
+                                aux_cmt ta tb
+                            else cmp
+                        else x 
                 | (Set ha) :: ta, _ -> 1
                 | [], [] -> 0
                 | [], _ -> -1
