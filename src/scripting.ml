@@ -1465,7 +1465,6 @@ END
                 if do_perturb && (0.3 < Random.float 1.) then 
                     nrun, do_perturb
                 else
-                    let () = stop_if_necessary `Initial in
                     if (0.5 <= Random.float 1.) then
                         let cmd = 
                             if !iterations_counter > 4 then
@@ -1532,7 +1531,6 @@ END
             trees := Sexpr.union nrun.trees !trees;
             update_information (`Initial nrun);
             if do_perturb || 0.5 < Random.float 1.0 then begin
-                let () = stop_if_necessary `Initial in
                 let nrun = exec nrun 
                     (CPOY 
                     perturb (iterations:4, transform (tcm:(1,1), static_approx), 
@@ -1571,7 +1569,6 @@ END
                             | h :: t ->
                                     let r = { r with trees = `Single h } in
                                     Methods.cost := `Exhaustive_Weak;
-                                    let () = stop_if_necessary `Others in
                                     let r = 
                                         exec r 
                                         (CPOY swap (timeout:[remaining_time ()]))
