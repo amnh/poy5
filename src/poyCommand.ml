@@ -1365,7 +1365,7 @@ let create_expr () =
                     `Logfile (Some x)
                     ] |
                 [ LIDENT "nolog" -> `Logfile None ] |
-                [ LIDENT "seed"; ":"; x = INT -> `SetSeed (int_of_string x) ] |
+                [ LIDENT "seed"; ":"; x = neg_integer -> `SetSeed (int_of_string x) ] |
                 [ LIDENT "root"; ":"; x = STRING -> `RootName x ] |
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x))
                 ] |
@@ -1373,6 +1373,11 @@ let create_expr () =
                 [ LIDENT "iterative"; ":"; x = iterative_mode -> `Iterative x ] |
                 [ LIDENT "normal_do" -> `Normal ] | 
                 [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ]
+            ];
+        neg_integer:
+            [
+                [ "-"; x = INT -> "-" ^ x ] |
+                [ x = INT -> x ]
             ];
         iterative_mode:
             [ 
