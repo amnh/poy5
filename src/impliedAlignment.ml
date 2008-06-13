@@ -864,9 +864,11 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
 let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
         bchld a b cm alpha chrom_pam = 
 
-    let ias1_arr, ias2_arr, min_can_code, max_can_code =
-        if acode < bcode then a, b, acode, bcode
-        else b, a, bcode, acode
+    let ias1_arr, ias2_arr, min_can_code =
+        if calculate_median then 
+            if acode < bcode then a, b, acode
+            else b, a, bcode
+        else a, b, acode
     in
     let chroma_arr = Array.map (fun ias -> ias.seq) ias1_arr in
     let chromb_arr = Array.map (fun ias -> ias.seq) ias2_arr in
