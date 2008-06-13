@@ -607,7 +607,7 @@ let apply_time (ca1:node_data) (ca2:node_data) : node_data =
                 let mine = StaticMl { curr with time = from.time } in
                 at_map tl t2 (mine::acc) 
             ELSE
-                at_map tl t2 (curr::acc)
+                at_map tl t2 (StaticMl curr::acc)
             END
         | curr::tl,from::t2 -> at_map tl t2 (curr::acc)
         | [],[] -> acc

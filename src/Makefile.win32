@@ -579,13 +579,8 @@ ifeq ($(USEPARALLEL), true)
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
-<<<<<<< .working
-	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PDCOBJS) $(CURSLIBOBJS) $(PROFILE) -o poy \
-	$(GRAPHICS:.cma=.cmxa) camlp4.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
-=======
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(XSLTOBJECTS) $(XMLOBJECTS) $(PDCOBJS) $(CURSLIBOBJS)  $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
->>>>>>> .merge-right.r2525
 endif
 
 poy_test: $(TEST_OBJS_OPT)
