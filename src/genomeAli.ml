@@ -565,7 +565,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
             let seg = 
                 {sta = -1; en = -1;
-                 cost = -Utl.large_int;
+                 cost = gen_c2.(gen_gap_code).(sq2_id);
                  med_chrom_id = chrom_id;  
                  alied_med = Sequence.create_gap_seq (Sequence.length sq2_seq);
                  
