@@ -2355,11 +2355,13 @@ The \poycommand{calculate\_support} command does not output support values by de
                 Otherwise, if the argument value is approximate, then the iterations
                 approximate the three dimensional alignment using pairwise
                 alignments. 
-                If the argument value is true, this method improves the tree
+                If the argument value is exact, this method improves the tree
                 cost estimation but at the expense of a tremendous execution
-                time. When false the execution time footprint is much smaller. The iterative argument 
+                time. When approximate the execution time footprint is much
+                smaller, and far less memory consumption.
+                The iterative argument 
                 can only be applied to nucleotide sequence characters.
-                A hueristic strategy is to apply  \poyargument{iterative} at the 
+                A heuristic strategy is to apply  \poyargument{iterative} at the 
                 very end of an analysis to polish the final set of trees and perform a final search.}
                 {}
                 
