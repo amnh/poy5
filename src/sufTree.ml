@@ -308,7 +308,7 @@ let create_suf_tree (code_arr : int array) =
 
 (*   Create the suf_tree from the implicit tree adding a special character 
      which does not appear whereelse in the sequence *)      
-    let special_code = 0 in 
+    let special_code = max_int in 
     tree.code_arr <- Array.append tree.code_arr [|special_code|];
     tree.len <- tree.len + 1;
 
