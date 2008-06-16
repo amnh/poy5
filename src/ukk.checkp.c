@@ -30,6 +30,7 @@
 
 #define MAXINT 10000
 #define FIXED_NUM_PLANES
+#include "seq.h"
 #include "ukkCommon.h"
 
           // A given state can have come from 1 and only 1 neighbour
