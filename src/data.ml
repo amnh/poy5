@@ -1952,9 +1952,6 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
     in
     let handle_bool = option_to_string string_of_bool 
     and handle_int = option_to_string string_of_int 
-    and handle_of_tuple = 
-        option_to_string 
-        (fun (x, y) -> string_of_int x ^ ", " ^ string_of_int y)
     and handle_re_meth x = 
         let conversion =
             (function `Locus_Breakpoint x | `Locus_Inversion x -> string_of_int x)
