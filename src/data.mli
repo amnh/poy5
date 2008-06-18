@@ -312,6 +312,7 @@ type d = {
     (* The set of taxa to be ignored in the analysis *)
     ignore_character_set : string list;
     trees : string Parser.Tree.t list list;
+    non_additive_1 : int list;
     non_additive_8 : int list;
     non_additive_16 : int list;
     non_additive_32 : int list;
