@@ -117,6 +117,95 @@ let rec produce_latex = function
             if x <> "~" then o x
     | Blank -> o " "
 
+let rec produce_troff = function
+    | Command ("begin", (Word h :: tl)) ->
+            (match h with
+            | "command" -> 
+                    (match tl with
+                    | h :: _ -> 
+                            o "\n.SH ";
+                            produce_troff h;
+                            o "\n.P\n"
+                    | [] -> failwith "command with no args?")
+            | "description" ->
+                    o "\n.P\n"
+            | "poydescription" ->
+                    o "\n.SS Description\n"
+            | "arguments" ->
+                    o "\n.SS Arguments\n"
+            | "argumentgroup" ->
+                    (match tl with
+                    | [title ; description] ->
+                            o "\n.SS \"";
+                            produce_troff title;
+                            o "\"\n.P\n";
+                            produce_troff description;
+                    | [title] ->
+                            o "\n.SS \"";
+                            produce_troff title;
+                            o "\"\n.P\n";
+                    | _ -> failwith "argumentgroup without the necessary args?")
+            | "statement" -> o "\n.P\n"
+            | "poyexamples" -> 
+                    o "\n.SS Examples\n"
+            | "poyalso" -> 
+                    o "\n.SS \"See Also\"\n"
+            | "flushleft" 
+            | "center" -> o "\n.P\n"
+            | "atsymbol" -> o "@"
+            | _ -> ())
+    | Command ("%", []) -> o "%"
+    | Command (h, []) when h = "" -> ()
+    | Command (h, []) when h.[0] = '_' -> o h
+    | Command ("end", [Word h]) -> o "\n.P\n"
+    | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->
+            o "\n.IP \"";
+            produce_troff com;
+            produce_troff args;
+            o "\"\n";
+            produce_troff definition;
+            o "\n"
+    | Command ("poydefaults", [args; descr]) ->
+                    o "\n.SS Defaults\n.P\n";
+                    produce_troff args;
+                    o "\n.P\n";
+                    produce_troff descr;
+                    o "\n";
+    | Command ("obligatory", [arg]) -> 
+            o ": ";
+            produce_troff arg
+    | Command ("optional", [arg]) -> 
+            o "[: ";
+            produce_troff arg;
+            o "]";
+    | Command ("poyexample", [example; explanation]) ->
+            o "\n.P\n";
+            produce_troff example;
+            o "\n.P\n";
+            produce_troff explanation;
+            o "\n";
+    | Command ("ncross", [arg; _])
+    | Command ("cross", [arg]) ->
+            produce_troff arg;
+    | Command ("poycommand", arg) ->
+            o "\n.P\n";
+            List.iter produce_troff arg;
+            o "\n";
+    | Command ("ccross", [Word arg])
+    | Command ("nccross", [Word arg; _]) ->
+            o (arg ^ "(see help (" ^ arg ^ ")) ");
+    | Command _ -> ()
+    | Text lst -> 
+            List.iter produce_troff lst;
+    | Word x -> 
+            if x <> "~" then o x;
+            (*
+            if x <> "(" && x <> "[" then o " ";
+            *)
+    | WordNoSpace x -> 
+            if x <> "~" then o x
+    | Blank -> o " "
+
 let rec collapse = function
     | Blank
     | (WordNoSpace _)
@@ -125,12 +214,12 @@ let rec collapse = function
     | Text [(Word _) as y] -> y
     | Text x ->
             Text (List.map collapse x)
-    | Command ("poy", _) -> Word "POY"
-    | Command ("poybool", _) -> Word "BOOL"
-    | Command ("poyfloat", _) -> Word "FLOAT"
-    | Command ("poyint", _) -> Word "INTEGER"
-    | Command ("poystring", _) -> Word "STRING"
-    | Command ("poylident", _) -> Word "LIDENT"
+    | Command ("poy", _) -> Word "POY "
+    | Command ("poybool", _) -> Word "BOOL "
+    | Command ("poyfloat", _) -> Word "FLOAT "
+    | Command ("poyint", _) -> Word "INTEGER "
+    | Command ("poystring", _) -> Word "STRING "
+    | Command ("poylident", _) -> Word "LIDENT "
     | Command ("poycommand", [arg]) ->
             Command ("poycommand", [collapse arg])
     | Command ("poyargument", [arg])
@@ -227,7 +316,7 @@ let rec the_parser fstream =
         else if is_close_command fstream then 
             List.rev acc
         else if is_newline fstream then
-            split_on_commands ((Text [Word "@\n"]) :: acc) fstream
+            split_on_commands ((Text [Word "\n.br\n"]) :: acc) fstream
         else if is_command fstream then
             split_on_commands ((get_comm fstream) :: acc) fstream
         else if is_enclosed fstream then
@@ -239,13 +328,50 @@ let rec the_parser fstream =
     let res = split_on_commands [] fstream in
     collapse2 (List.map collapse res)
 
-let process fstree = 
+let process generator fstree = 
     let res = the_parser fstree in
-    List.iter produce_latex res
+    List.iter generator res
 
-let process_file filename = 
+let process_file generator filename output_file = 
     let ch = FileStream.Pervasives.open_in (`Local filename) in 
-    process ch;
-    o "\n\n\n"
+    channel := open_out output_file;
+    o (".TH poy 1 LOCAL\n");
+    o (".SH NAME\npoy - A phylogenetic analysis program using dynamic \
+    homologies\n.SH SYNOPSIS\n.B poy [options] filename.\n\
+    .SH DESCRIPTION\npoy is a phylogenetic analysis program for morphological \
+    and molecular characters with support for dynamic homology characters: \
+    that is, supports the analysis of unaligned sequences.\n.SH OPTIONS\n\
+    .TP 5\n\
+    -w\n\
+    Run poy in the specified working directory. \n\
+    .TP\n\
+    -e\n\
+    Exit upon error. \n\
+    .TP\n\
+    -d\n\
+    Dump filename in case of error. \n\
+    .TP\n\
+    -q \n\
+    Don't wait for input other than the program argument script. \n\
+    .TP\n\
+    -no-output-xml \n\
+    Do not generate the output.xml file. \n\
+    .TP\n\
+    -help\n\
+    Display this list of options. \n\
+    .TP\n\
+    --help\n\
+    Display this list of options. \n\
+    \n.SH VERSION\n 4.0." ^ (Str.global_replace (Str.regexp " ") ""
+    BuildNumber.build) ^ "\n\
+    .SH COMMANDS\n.P\n\
+    For complete documentation go to \
+    http://research.amnh.org/scicomp/projects/poy.php.\n\
+    The following are the valid commands for \n\
+    .B poy.");
+    process generator ch;
+    o "\n.RS\n\n"
 
-let _ = process_file "../doc/allcommands.tex";;
+let () = 
+    let () = process_file produce_latex "../doc/allcommands.tex" "help.txt"in
+    process_file produce_troff "../doc/allcommands.tex" "manpoy.txt"
