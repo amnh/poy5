@@ -44,6 +44,8 @@ subdirs:	$(SUBDIRS)
 transform = @program_transform_name@
 
 install:
+	$(MKDIR_P) $(bindir)
+	$(MKDIR_P) $(mandir)
 	$(INSTALL) ./src/poy $(bindir)/`echo poy | sed -e '$(transform)'`
 	$(INSTALL) ./src/poy.1 $(mandir)/poy.1
 
