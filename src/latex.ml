@@ -28,14 +28,14 @@ let channel = ref stdout
 
 let o str = output_string !channel str
 
-let rec produce_element = function
+let rec produce_latex = function
     | Command ("begin", (Word h :: tl)) ->
             (match h with
             | "command" -> 
                     (match tl with
                     | h :: _ -> 
                             o "@]\n\n";
-                            produce_element h;
+                            produce_latex h;
                             o "\n.\n@[<v 2>"
                     | [] -> failwith "command with no args?")
             | "description" ->
@@ -48,17 +48,17 @@ let rec produce_element = function
                     (match tl with
                     | [title ; description] ->
                             o "@,@[<v 2>@{<c:cyan>@[";
-                            produce_element title;
+                            produce_latex title;
                             o "@]@}@,@[";
-                            produce_element description;
+                            produce_latex description;
                     | [title] ->
                             o "@,@[<v 2>@{<c:cyan>@[";
-                            produce_element title;
+                            produce_latex title;
                             o "@]@}@,@[";
                     | _ -> failwith "argumentgroup without the necessary args?")
             | "statement" -> o "@,@[@,@["
             | "poyexamples" -> o "@,@[<v 2>@{<c:cyan>Examples@}@,@,@[<v>"
-            | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@["
+            | "poyalso" -> o "@,@[<v 2>@[@{<c:cyan>See Also@}@]@,@,@[<v>"
             | "flushleft" 
             | "center" -> o "@[<v 2>@,@[" 
             | "atsymbol" -> o "@@"
@@ -69,45 +69,45 @@ let rec produce_element = function
     | Command ("end", [Word h]) -> o "@]@]@,"
     | Command ("argumentdefinition", [com ; args ; definition ; cross_reference]) ->
             o "@[<v 2>@,@[@{<c:yellow>";
-            produce_element com;
-            produce_element args;
+            produce_latex com;
+            produce_latex args;
             o "@}@]@,@[";
-            produce_element definition;
+            produce_latex definition;
             o "@]@]@,"
     | Command ("poydefaults", [args; descr]) ->
             o "@,@,@[<v 2>@{<c:cyan>Defaults@}@,@,@[";
-            produce_element args;
+            produce_latex args;
             o "@]@,@[";
-            produce_element descr;
+            produce_latex descr;
             o "@]@]@,"
     | Command ("obligatory", [arg]) -> 
             o ": ";
-            produce_element arg
+            produce_latex arg
     | Command ("optional", [arg]) -> 
             o "[: ";
-            produce_element arg;
+            produce_latex arg;
             o "]";
     | Command ("poyexample", [example; explanation]) ->
             o "@[<v 2>@[@{<c:green>";
-            produce_element example;
+            produce_latex example;
             o "@}@]@,@[";
-            produce_element explanation;
+            produce_latex explanation;
             o "@]@]@,@,";
     | Command ("ncross", [arg; _])
     | Command ("cross", [arg]) ->
             o "@[";
-            produce_element arg;
+            produce_latex arg;
             o "@]@,";
     | Command ("poycommand", arg) ->
             o "@[<h>";
-            List.iter produce_element arg;
+            List.iter produce_latex arg;
             o "@]";
     | Command ("ccross", [Word arg])
     | Command ("nccross", [Word arg; _]) ->
             o (arg ^ "(see help (" ^ arg ^ ")) ");
     | Command _ -> ()
     | Text lst -> 
-            List.iter produce_element lst;
+            List.iter produce_latex lst;
     | Word x -> 
             if x <> "~" then o x;
             (*
@@ -241,7 +241,7 @@ let rec the_parser fstream =
 
 let process fstree = 
     let res = the_parser fstree in
-    List.iter produce_element res
+    List.iter produce_latex res
 
 let process_file filename = 
     let ch = FileStream.Pervasives.open_in (`Local filename) in 
