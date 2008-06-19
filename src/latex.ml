@@ -188,9 +188,9 @@ let rec produce_troff = function
     | Command ("cross", [arg]) ->
             produce_troff arg;
     | Command ("poycommand", arg) ->
-            o "\n.P\n";
+            o " ";
             List.iter produce_troff arg;
-            o "\n";
+            o " ";
     | Command ("ccross", [Word arg])
     | Command ("nccross", [Word arg; _]) ->
             o (arg ^ "(see help (" ^ arg ^ ")) ");
