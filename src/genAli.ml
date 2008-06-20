@@ -97,43 +97,48 @@ let cmp_cost state code1_arr code2_arr recode2_arr
  * returns rearranged sequence [reseq2] of sequence [seq2] using stepwise addition method 
  * such that the total cost is minimum where 
  * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
-let find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular orientation = 
-    let rec add (best_wagner_seq2 : int array) added_seq2_ls rem_seq2_ls = 
+let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth circular orientation =
+    let rec add (best_wagner_seq2_arr : int array array) added_seq2_ls rem_seq2_ls =
         match rem_seq2_ls with
-        | [] -> best_wagner_seq2 
+        | [] -> best_wagner_seq2_arr
         | code2 :: tl ->
               let added_seq2_ls = added_seq2_ls @ [code2] in 
 
-              let wagner_cost = ref Utl.large_int in 
-              let wagner_seq2 = ref [||] in 
+              let wagner_seq2_ls = ref [] in 
+                
               let update partial_seq2 =
                   let cost, (_, _), _, _  = 
                       cmp_cost state seq1 (Array.of_list added_seq2_ls) partial_seq2 
                           gen_cost_mat gap re_meth circular orientation
                   in
-
-                  if cost < !wagner_cost then begin
-                      wagner_cost := cost; 
-                      wagner_seq2 := partial_seq2 
-                  end;
+                  wagner_seq2_ls := (partial_seq2, cost)::!wagner_seq2_ls;
 
               in 
+              let num_w = Array.length best_wagner_seq2_arr in  
 
-              let len2 = Array.length best_wagner_seq2 in
-              for pos = 0 to len2 do
-                  let partial_seq2 = Utl.insert best_wagner_seq2 pos code2 in 
-                  update partial_seq2;
-
-              done;  
-
+              let len2 = Array.length best_wagner_seq2_arr.(0) in
+              for w = 0 to num_w - 1 do                     
+                  for pos = 0 to len2 do
+                      let partial_seq2 = Utl.insert best_wagner_seq2_arr.(w) pos code2 in 
+                      update partial_seq2;
+                  done;     
+              done; 
               let subseq2 = Array.sub seq2 0 (len2 + 1) in
               update subseq2; 
-              add !wagner_seq2 added_seq2_ls tl
-    in
-              
-    let wagner_seq2 = add [||] [] (Array.to_list seq2) in  
 
-    wagner_seq2
+              let wagner_seq2_ls = Sort.list (fun (_, c1) (_, c2) -> c1 < c2) !wagner_seq2_ls in
+              let best_w_arr : int array array = Array.init (min kept_wag (List.length wagner_seq2_ls)) 
+                        (fun p -> 
+                            let w2, c = List.nth wagner_seq2_ls p in 
+                            w2
+                        )  
+              in
+
+
+              add best_w_arr added_seq2_ls tl
+    in
+    let wagner_seq2_arr = add [|[||]|] [] (Array.to_list seq2) in  
+    wagner_seq2_arr.(0)
 
 
 
@@ -210,15 +215,15 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
 (** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
 * where total cost = editing cost + rearrangement cost *)
-let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s) 
+let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
         max_swap_med circular orientation =
 
     let gap = Alphabet.get_gap alpha in 
     let seq1 : int array = Sequence.to_array seq1 in 
     let seq2 : int array = Sequence.to_array seq2 in 
-
-    let wag_seq2 = find_wagner_ali state seq1 seq2 gen_cost_mat 
+    
+    let wag_seq2 : int array = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
         gap re_meth circular orientation
     in 
 
@@ -248,7 +253,7 @@ let create_gen_ali state (seq1 : Sequence.s) (seq2 : Sequence.s)
 *        re_meth max_swap_med circular] creates the general 
 * alignment between [seq1] and [seq2] with minimum total cost
 * where total cost = editing cost + rearrangement cost *)
-let create_gen_ali_code state (seq1 : int array) (seq2 : int array) 
+let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array) 
         (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular orientation =
 
     let size = Array.length gen_cost_mat in 
@@ -256,11 +261,10 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
     in 
     let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
-    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls
-    (-1) in
+    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
     Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
 
-    let wag_seq2 = find_wagner_ali state seq1 seq2 gen_cost_mat 
+    let wag_seq2 = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
         gen_gap_code re_meth circular orientation
     in 
 
@@ -289,17 +293,17 @@ let create_gen_ali_code state (seq1 : int array) (seq2 : int array)
 (**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
 * the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
 
-let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir orientation sym = 
+let cmp_cost3 kept_wag seq1 seq2 seq3 med cost_mat gap re_meth cir orientation sym : int = 
     let max_swap_med = 1 in 
     let cmp_cost2 code1_arr code2_arr = 
         match sym with 
         | true ->
-              let cost1, _, _, _ = create_gen_ali_code `Breakinv code1_arr code2_arr
+              let cost1, _, _, _ = create_gen_ali_code kept_wag `Breakinv code1_arr code2_arr
                   cost_mat gap re_meth max_swap_med cir orientation
               in 
 
 
-              let cost2, _, _, _ = create_gen_ali_code `Breakinv code2_arr code1_arr
+              let cost2, _, _, _ = create_gen_ali_code kept_wag `Breakinv code2_arr code1_arr
                   cost_mat gap re_meth max_swap_med cir orientation
               in 
               min cost1 cost2
@@ -309,10 +313,10 @@ let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir orientation sym =
               
               let cost, _, _, _ = 
                   if Sequence.compare seq1 seq2 < 0 then 
-                      create_gen_ali_code `Breakinv code1_arr code2_arr 
+                      create_gen_ali_code kept_wag `Breakinv code1_arr code2_arr 
                           cost_mat gap re_meth max_swap_med cir orientation
                   else 
-                      create_gen_ali_code `Breakinv code2_arr code1_arr 
+                      create_gen_ali_code kept_wag  `Breakinv code2_arr code1_arr 
                           cost_mat gap re_meth max_swap_med cir orientation
               in 
               cost
@@ -329,7 +333,7 @@ let cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir orientation sym =
 (** [find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular sym]
 * finds the best median sequence of [seq1], [seq2] and [seq3] according
 * to wagner-based algorithm *)
-let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular orientation sym = 
+let find_wagner_ali3  kept_wag seq1 seq2 seq3 gen_cost_mat gap re_meth circular orientation sym = 
     let max_code = max (max (Utl.max_arr seq1) (Utl.max_arr seq2)) 
         (Utl.max_arr seq3) 
     in         
@@ -341,7 +345,7 @@ let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular orientatio
             for p = 0 to Array.length best_wagner do
                 let check acode =
                     let wagner = Utl.insert best_wagner p acode in 
-                    let cost = cmp_cost3 seq1 seq2 seq3 wagner gen_cost_mat
+                    let cost = cmp_cost3  kept_wag  seq1 seq2 seq3 wagner gen_cost_mat
                         gap re_meth circular orientation sym
                     in
                     if cost < !min_cost then begin
@@ -355,7 +359,7 @@ let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular orientatio
             add !new_best_wagner !min_cost (code + 2)
         end 
     in  
-    let init_cost = cmp_cost3 seq1 seq2 seq3 [||] gen_cost_mat gap re_meth
+    let init_cost = cmp_cost3  kept_wag seq1 seq2 seq3 [||] gen_cost_mat gap re_meth
         circular  orientation sym in 
     let best_wagner, cost = add [||] init_cost 1 in 
     
@@ -363,8 +367,8 @@ let find_wagner_ali3 seq1 seq2 seq3 gen_cost_mat gap re_meth circular orientatio
 
 (** [swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular sym]
     swaps the best found [med] to improve its quality *)
-let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular orientation sym = 
-    let best_cost  = ref (cmp_cost3 seq1 seq2 seq3 med gen_cost_mat gap re_meth
+let rec swap3  kept_wag seq1 seq2 seq3 med gen_cost_mat gap re_meth circular orientation sym = 
+    let best_cost  = ref (cmp_cost3 kept_wag seq1 seq2 seq3 med gen_cost_mat gap re_meth
                              circular orientation sym) in 
     let best_med = ref med in 
     let continue = ref false in 
@@ -373,7 +377,7 @@ let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular orientation s
     for p1 = 0 to len - 2 do
         for p2 = p1 + 1 to len - 1 do
             let new_med = Utl.swap_item p1 p2 med in
-            let new_cost = cmp_cost3 seq1 seq2 seq3 new_med 
+            let new_cost = cmp_cost3  kept_wag  seq1 seq2 seq3 new_med 
                 gen_cost_mat gap re_meth circular orientation sym in 
 
             if new_cost < !best_cost then begin
@@ -384,7 +388,7 @@ let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular orientation s
         done
     done;
 
-    if !continue then swap3 seq1 seq2 seq3 !best_med gen_cost_mat gap re_meth
+    if !continue then swap3 kept_wag seq1 seq2 seq3 !best_med gen_cost_mat gap re_meth
         circular orientation sym
     else  !best_med, !best_cost
 
@@ -393,7 +397,7 @@ let rec swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth circular orientation s
 *     alpha re_meth  max_swap_med circular sym] creates
 * the general alignment among [seq1], [seq2], and [seq3] 
 * such that total cost = editing cost + rearrangement cost is minimized *)
-let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
+let create_gen_ali3  kept_wag  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
         (med : Sequence.s) gen_cost_mat alpha re_meth  max_swap_med circular orientation sym =
 
     let gap = Alphabet.get_gap alpha in 
@@ -402,7 +406,7 @@ let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
     let seq3 : int array = Sequence.to_array seq3 in 
     let med : int array = Sequence.to_array med in 
 
-    let med, cost = swap3 seq1 seq2 seq3 med gen_cost_mat gap re_meth
+    let med, cost = swap3  kept_wag seq1 seq2 seq3 med gen_cost_mat gap re_meth
         circular orientation sym in 
 
 
@@ -417,7 +421,7 @@ let create_gen_ali3  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s)
         gen_gap_code re_meth max_swap_med circular sym] creates
 * the general alignment among [seq1], [seq2], and [seq3] 
 * such that total cost = editing cost + rearrangement cost is minimized *)
-let create_gen_ali_code3 state (seq1 : int array) (seq2 : int array) 
+let create_gen_ali_code3 kept_wag state (seq1 : int array) (seq2 : int array) 
         (seq3 : int array) (med : int array) 
         (gen_cost_mat : int array array) gen_gap_code 
         re_meth max_swap_med circular orientation sym =
@@ -426,6 +430,6 @@ let create_gen_ali_code3 state (seq1 : int array) (seq2 : int array)
         gen_gap_code re_meth circular sym
     in 
 *)
-    let med, cost = swap3 seq1 seq2 seq3 med gen_cost_mat gen_gap_code re_meth
+    let med, cost = swap3 kept_wag seq1 seq2 seq3 med gen_cost_mat gen_gap_code re_meth
         circular orientation sym in 
     med, cost

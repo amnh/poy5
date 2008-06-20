@@ -59,6 +59,7 @@ type annchromPam_t = {
   approx : ChromPam.order_t;
   symmetric : bool;
   locus_indel_cost : int * int;
+  kept_wag : int;
 }
 
 (** [clone_seq] returns a fresh clone of segment [s] *)

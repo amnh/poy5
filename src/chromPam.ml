@@ -105,6 +105,8 @@ type chromPairAliPam_t = {
     (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int;
     detected_3d_len : int;
+
+    kept_wag : int;
 }
 
 let locus_indel_cost_default = (10, 100)
@@ -141,6 +143,7 @@ let chromPairAliPam_default = {
 
     max_3d_len = max_int;
     detected_3d_len = 200;
+    kept_wag = 3;
 }
 
 
@@ -268,6 +271,8 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
 
     max_3d_len = donor.max_3d_len;
     detected_3d_len = donor.detected_3d_len;
+    kept_wag = donor.kept_wag;
+
 }
 
 

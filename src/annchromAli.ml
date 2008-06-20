@@ -84,6 +84,7 @@ type annchromPam_t = {
     approx : ChromPam.order_t;
     symmetric : bool;
     locus_indel_cost : (int * int);
+    kept_wag : int;
 }
 
 let annchromPam_default = {
@@ -94,6 +95,7 @@ let annchromPam_default = {
     approx = `BothSeq;
     symmetric = false;
     locus_indel_cost = (10, 100);
+    kept_wag = 3;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -405,7 +407,7 @@ let cmp_simple_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
         in 
     
         let total_cost, (recost1, recost2), _, _ = 
-            GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
+            GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular true
@@ -453,7 +455,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
 
     
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
-            GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
+            GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular  true
@@ -647,19 +649,19 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
 
 
     let _, _, alied_code1_arr, alied_code1m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code1_arr codem_arr cost1_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr codem_arr cost1_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code2_arr, alied_code2m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code2_arr codem_arr cost2_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code2_arr codem_arr cost2_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code3_arr, alied_code3m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code3_arr codem_arr cost3_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code3_arr codem_arr cost3_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 

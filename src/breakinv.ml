@@ -180,7 +180,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
 
     let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
 
-    let adjust_seq, cost = GenAli.create_gen_ali3 seq1 seq2 seq3 mine_seq
+    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
         ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
         ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
         (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
