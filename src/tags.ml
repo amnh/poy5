@@ -106,7 +106,7 @@ module Characters = struct
     let breakinv = "Breakinv"
 
     (* The cost matrices and calculation methods *)
-    let fixed_states = "Fixed States"
+    let initial_assignment = "Initial Assignment"
     let tcm = "Transformation Cost Matrix"
     let gap_opening = "Gap Opening"
     let state = "State"

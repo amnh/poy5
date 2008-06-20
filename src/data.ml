@@ -2029,7 +2029,10 @@ let character_spec_to_formatter enc : Tags.output =
             Parser.SC.to_formatter enc    | Dynamic dspec ->
             Tags.Characters.molecular,
             ( (Tags.Characters.name, dspec.filename) ::
-                (Tags.Characters.fixed_states, dspec.fs) ::
+                (Tags.Characters.initial_assignment, 
+                    (match dspec.initial_assignment with
+                    | `DO -> "Direct Optimization"
+                    | `FS _ -> "Fixed States")) ::
                 (Tags.Characters.tcm, dspec.tcm) ::
                 (Tags.Characters.gap_opening, dspec.fo) ::
                 (Tags.Characters.weight, string_of_float dspec.weight) ::
