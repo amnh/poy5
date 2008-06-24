@@ -563,17 +563,19 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
             (* pull edges back together *)
             let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t1,t2 in
 
-            let first   = StaticMl { pml with time = t1; }
-            and second  = StaticMl { aml with time = t2; }
-            and mine    = StaticMl { bml with preliminary=res;final=res;
+            let first   = StaticMl { aml with time = t1; }
+            and second  = StaticMl { bml with time = t2; }
+            and mine    = StaticMl { pml with preliminary=res;final=res;
                                               cost=cost;sum_cost=cost; } in
-            ei_map ptl atl btl (mine::pa) (first::atl) (second::btl)
+            ei_map ptl atl btl (mine::pa) (first::aa) (second::ba)
         ELSE 
-            ei_map ptl atl btl pa atl btl
+            let first = StaticMl aml and second = StaticMl bml and mine = StaticMl pml in
+
+            ei_map ptl atl btl (mine::pa) (first::aa) (second::bb)
         END
         (* ignore non-likelihood characters *)
         (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
-        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl pa atl btl
+        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa) (aml::aa) (bml::ba)
         | [],[],[] -> (pa,aa,ba)
         | _ -> failwith "Number of characters is inconsistent"
     in
