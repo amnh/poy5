@@ -571,7 +571,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         ELSE 
             let first = StaticMl aml and second = StaticMl bml and mine = StaticMl pml in
 
-            ei_map ptl atl btl (mine::pa) (first::aa) (second::bb)
+            ei_map ptl atl btl (mine::pa) (first::aa) (second::ba)
         END
         (* ignore non-likelihood characters *)
         (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
