@@ -701,8 +701,29 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
         in 
         let isb = 
             match ordb = -1 with
-            | false -> {b.(ordb) with 
-                            seq = seqt.AnnchromAli.alied_seq2 }
+            | false -> begin
+                let alied_seq2, order2, code2, dir2 = 
+                    match seqt.AnnchromAli.dir2 with
+                    | `Negative -> begin
+                        let len2 = Hashtbl.length b.(ordb).codes in
+                        let ne_code2 = Hashtbl.create 1667 in                
+                        Hashtbl.iter (fun p c -> Hashtbl.add  ne_code2 (len2 - p - 1) c) b.(ordb).codes;
+
+                         Sequence.complement_chrom Alphabet.nucleotides seqt.AnnchromAli.alied_seq2,
+                         List.rev b.(ordb).order,
+                         ne_code2, -1
+                    end
+
+                    | _ -> seqt.AnnchromAli.alied_seq2,
+                           b.(ordb).order,
+                           b.(ordb).codes, 1
+                in
+
+                {b.(ordb) with seq = alied_seq2;            
+                               codes = code2;
+                               order = order2;
+                               dir = dir2}
+            end
             | true -> {seq = seqt.AnnchromAli.alied_seq2;
                        codes = Hashtbl.create 1667;
                        homologous = Hashtbl.create 1667;
@@ -714,7 +735,7 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
         in
         (if (orda = -1) || (ordb = -1) then begin
             let gap_cost = Sequence.cmp_ali_cost 
-                seqt.AnnchromAli.alied_seq1 seqt.AnnchromAli.alied_seq2 `Positive cm
+                seqt.AnnchromAli.alied_seq1 seqt.AnnchromAli.alied_seq2 seqt.AnnchromAli.dir2  cm
             in 
 
             let indel_cost = Data.get_locus_indel_cost annchrom_pam in 

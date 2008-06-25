@@ -24,6 +24,8 @@
 
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 
+type direction_t = ChromPam.direction_t
+
 (** [seq_t] is data structure to contain a segment of an annotated chromosome *)
 type seq_t = {
     seq : Sequence.s; (** the segment sequence *)
@@ -35,6 +37,7 @@ type seq_t = {
 
     seq_ord2 : int; (** the segment order of its second child *)
     alied_seq2 : Sequence.s; (** the aligned sequence of its second child *)
+    dir2 : direction_t; (** the orientation of this segment on the second chromosome *) 
 }
 
 (** [annchrom_t] is a data structure to contain an annoated chromosome *)

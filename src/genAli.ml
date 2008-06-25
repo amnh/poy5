@@ -62,8 +62,9 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =
             match re_meth with 
             | `Locus_Inversion cost -> 
                   (UtlGrappa.cmp_inversion_dis seq2 reseq2 circular) * cost  
-            | `Locus_Breakpoint cost ->               
+            | `Locus_Breakpoint cost -> begin               
                   (UtlGrappa.cmp_oriented_breakpoint_dis seq2 reseq2 circular) * cost   
+            end;
         in  
 
         recost1, recost2
@@ -121,6 +122,12 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
                   for pos = 0 to len2 do
                       let partial_seq2 = Utl.insert best_wagner_seq2_arr.(w) pos code2 in 
                       update partial_seq2;
+(*                      if code2 mod 2 = 1 then begin
+                            let partial_seq2 = 
+                                Utl.insert best_wagner_seq2_arr.(w) pos (code2 + 1) 
+                            in 
+                            update partial_seq2;
+                      end *)
                   done;     
               done; 
               let subseq2 = Array.sub seq2 0 (len2 + 1) in
