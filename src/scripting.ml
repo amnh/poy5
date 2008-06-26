@@ -221,7 +221,7 @@ let report_memory () =
     --> append "Free Blocks" stat.Gc.free_blocks string_of_int
     --> append "Largest Free" stat.Gc.largest_free string_of_int
     --> append "Fragments" stat.Gc.fragments string_of_int
-    --> append "Campactions" stat.Gc.compactions string_of_int
+    --> append "Compactions" stat.Gc.compactions string_of_int
     --> append "Top Heap Words" stat.Gc.top_heap_words string_of_int 
     --> fun x -> x ^ "@]@]%!"
 
@@ -229,12 +229,18 @@ let explode_filenames files =
 IFDEF USEPARALLEL THEN
     let is_master = 0 = Mpi.comm_rank Mpi.comm_world in
     let files = 
-        if is_master then
-            PoyParser.explode_filenames files 
-        else []
+        try
+            `Normal 
+                (if is_master then
+                    PoyParser.explode_filenames files 
+                else [])
+        with
+        | err -> `Error (Printexc.to_string err)
     in
-    let files = Mpi.broadcast files 0 Mpi.comm_world in
-    List.map (fun x -> `Remote x) files 
+    match Mpi.broadcast files 0 Mpi.comm_world with
+    | `Normal files -> List.map (fun x -> `Remote x) files 
+    | `Error str -> 
+            failwith ("Failed reading file with exception " ^ str)
 ELSE
    List.map (fun x -> `Local x)  (PoyParser.explode_filenames files)
 END
@@ -1518,7 +1524,7 @@ END
                 in
                 let prev = !Methods.cost in
                 match prev with
-                | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative -> r
+                | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
                 | `Normal | `Normal_plus_Vitamines ->
                         try
                             let potential, not_potential = 
@@ -1607,18 +1613,22 @@ let rec process_application run item =
     let run = reroot_at_outgroup run in
     match item with
     | `Interactive -> run
-    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative as meth -> 
+    | `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak | `Exhaustive_Strong |
+    `Iterative _ as meth -> 
             if !Methods.cost <> meth then
                 match !Methods.cost with
-                | `Normal_plus_Vitamines | `Normal | `Exhaustive_Strong | `Exhaustive_Weak when meth = `Iterative ->
+                | `Normal_plus_Vitamines | `Normal | `Exhaustive_Strong |
+                `Exhaustive_Weak ->
+                    (match meth with
+                    | `Iterative _ ->
                         let () = Methods.cost := meth in
                         process_application run `ReDiagnose
-                | `Iterative -> 
+                    | _ -> 
+                            let () = Methods.cost := meth in
+                            run)
+                | `Iterative _ -> 
                         let () = Methods.cost := meth in
                         process_application run `ReDiagnose
-                | _ -> 
-                        let () = Methods.cost := meth in
-                        run
             else run
     | `Exit -> exit 0
     | `Version ->
@@ -2688,7 +2698,14 @@ IFDEF USE_XSLT THEN
                     let ofilename = Some filename in
                     let fmt = Data.to_formatter [] run.data in
                     let trs = 
-                        Sexpr.map (TreeOps.to_formatter [] run.data)
+                        Sexpr.map (fun tr ->
+                        let classify = false in
+                        let run = update_trees_to_data ~classify true true 
+                        { run with trees = `Single tr } in
+                        match run.trees with
+                        | `Single tr ->
+                            TreeOps.to_formatter [] run.data tr
+                        | _ -> assert false)
                         run.trees 
                     in
                     StatusCommon.Files.set_margin ofilename 0;

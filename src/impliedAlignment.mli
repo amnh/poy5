@@ -40,6 +40,9 @@ type ias = {
      dum_chars : (int * int Sexpr.t) Sexpr.t;
 
     order : int list; (* The order of the codes stored in homologous *)
+
+    dir : int; (* dir indicates the orientation of this ias. 
+                * dir = 1 if positive, dir = -1 if negative *)
 }
 
 type dyna_state_t = Data.dyna_state_t

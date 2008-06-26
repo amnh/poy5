@@ -48,6 +48,7 @@ type breakinvPam_t = {
   circular : int;
   swap_med : int;
   symmetric : bool;
+  kept_wag : int;
 }
 
 

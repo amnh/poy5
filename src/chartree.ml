@@ -371,7 +371,7 @@ let downpass_step ptree node_id c1 c2 =
     in
     (Node.Standard.median None node_id selfdata c1d c2d), selfdata
 
-(** [iterate e r t] iterates the branch lengths, for likelihood characters.
+(** [iterate e (a,b)r t] iterates the branch lengths, for likelihood characters.
  * [e] is returned as the edges for the nodes that need to be updated because of
  * changes in the tree. [r] is the root of the tree, with [a] and [b] being the
  * nodes surrounding it. [t] is the tree. and this function returns a new ptree
@@ -380,16 +380,19 @@ let iterate edges ((Tree.Edge (a, b)) as root) ptree =
     let visitor c1 c2 (ptree, edgeset) =
         let par = Ptree.get_parent c1 ptree in
         assert (par = Ptree.get_parent c2 ptree);
+        let gpar = Ptree.get_parent par ptree in
+        assert( gpar <> c1 && gpar <> c2 );
         if All_sets.Integers.mem par edgeset then
             let gd id = Ptree.get_node_data id ptree in
-            let pard, c1d, c2d = Node.edge_iterator (gd par) (gd c1) (gd c2) in
+            let pard, c1d, c2d = 
+                Node.edge_iterator (Some (gd gpar)) (gd par) (gd c1) (gd c2)
+            in
             let ptree = ptree
                         --> Ptree.add_node_data c1 c1d
                         --> Ptree.add_node_data c2 c2d
                         --> Ptree.add_node_data par pard in
             let edgeset =
-                All_sets.Integers.add (Ptree.get_parent par ptree)  
-                edgeset
+                All_sets.Integers.add (Ptree.get_parent par ptree) edgeset
             in
             (ptree, edgeset)
         else 

@@ -51,6 +51,9 @@ type ias = {
                * children: children of this subtree  *)
 
     order : int list; (* codes list in reverse order *)
+
+    dir : int; (* dir indicates the orientation of this ias. 
+                * dir = 1 if positive, dir = -1 if negative *)
 }
 
 
@@ -112,7 +115,7 @@ let create_ias (state : dyna_state_t) s code cg =
     let c = Hashtbl.create 1667
     and h = Hashtbl.create 1667 in
     let c, h, o = Sequence.foldi add_codes (c, h, []) s in
-    { seq = s; codes = c; homologous = h; indels = `Empty; dum_chars = `Empty; order = o }
+    { seq = s; codes = c; homologous = h; indels = `Empty; dum_chars = `Empty; order = o; dir = 1 }
 
 let rec prepend_until_shared tgt src it = 
     match src with
@@ -336,6 +339,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         and hom_b = Hashtbl.find b_hom codeb in
                         Hashtbl.remove a_hom codea;
                         Hashtbl.remove b_hom codeb;
+                        let hom_b = Sexpr.map (fun code -> code * b.dir) hom_b in
                         let new_ab = `Set [hom_a; hom_b] in
                         let new_res_or, new_a_or = 
                             prepend_until_shared res_or a_or codea in
@@ -427,7 +431,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         initial_hom a.homologous b.homologous a_ord b_ord []
     in
     let order = List.rev order in
-    { seq = anc; codes = codes; homologous = hom; indels = indels; dum_chars = `Empty; order = order }
+    { seq = anc; codes = codes; homologous = hom; indels = indels; dum_chars = `Empty; order = order; dir = 1 }
 
 
 let assign_act_order sta en codes ord_arr act_ord_arr =
@@ -526,10 +530,6 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
              let ena = seg.ChromAli.en1 in                  
              let stab = seg.ChromAli.sta2 in 
              let enb = seg.ChromAli.en2 in 
-             (if seg.ChromAli.dir2 = `Negative then 
-                  failwith 
-                      "The impliedAlignment function has 
-                       not handled the negative segment");
              assign_act_order staa ena a.codes ordera_arr act_orda_arr;
              assign_act_order stab enb b.codes orderb_arr act_ordb_arr
         ) med.ChromAli.chrom_map;
@@ -539,13 +539,14 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                     homologous = Hashtbl.create 1667;
                     order = [];
                     indels = `Empty;
-                    dum_chars = `Empty}
+                    dum_chars = `Empty; 
+                    dir = 1}
     in 
     
     let added_locus_indel_cost = ref 0 in 
     let num_locus_indel = ref 0 in
-    let new_ias = List.fold_left 
-        (fun nascent_ias seg ->
+    let new_ias, rev_anc_seq_ls = List.fold_left 
+        (fun (nascent_ias, rev_anc_seq_ls) seg ->
              let sta = seg.ChromAli.sta in 
              let staa = seg.ChromAli.sta1 in 
              let ena = seg.ChromAli.en1 in 
@@ -561,10 +562,13 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                       Hashtbl.add sub_codes_a (p - staa) code;
                   done);
              let sub_codes_b = Hashtbl.create 1667 in
+             let len2 = enb - stab + 1 in 
              (if (stab != -1) then 
                   for p = stab to enb do
                       let code = Hashtbl.find b.codes p in 
-                      Hashtbl.add sub_codes_b (p - stab) code;
+                      match seg.ChromAli.dir2 = `Positive with
+                      | true -> Hashtbl.add sub_codes_b (p - stab) code
+                      | false -> Hashtbl.add sub_codes_b ( (len2 - 1) - (p - stab) ) code
                   done);
                   
              let sub_a = {a with 
@@ -573,37 +577,56 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
                               order = List.rev (Array.to_list sub_orda_arr);                                  
                          } 
              in 
+             let alied_seq2 = 
+                match seg.ChromAli.dir2 = `Positive with
+                | true -> seg.ChromAli.alied_seq2
+                | false -> Sequence.complement_chrom alpha seg.ChromAli.alied_seq2
+             in
+             let order2 = 
+                match seg.ChromAli.dir2 = `Positive with
+                | true -> List.rev (Array.to_list sub_ordb_arr)
+                | false -> Array.to_list sub_ordb_arr
+             in
+             let dir2 = match seg.ChromAli.dir2 with
+                        | `Negative -> -1
+                        | _ -> 1
+             in
+             
              let sub_b = {b with 
-                              seq =  seg.ChromAli.alied_seq2;
+                              seq =  alied_seq2;
                               codes = sub_codes_b;
-                              order = List.rev (Array.to_list sub_ordb_arr);
+                              order = order2;
+                              dir = dir2;
                          } 
              in  
              let ans = 
                  ancestor calculate_median `Chromosome prealigned all_minus_gap sub_a
                      sub_b acode bcode cm alpha achld bchld
              in 
+
              (if (sta != -1) then 
                   Hashtbl.iter (fun p code ->                                     
-                                    Hashtbl.add nascent_ias.codes (p + sta - 1) code) ans.codes);
+                                    Hashtbl.add nascent_ias.codes (p + sta - 1) code
+                                ) ans.codes
+             );
 
 
              Hashtbl.iter (fun code hom -> 
-                               Hashtbl.replace nascent_ias.homologous code hom) ans.homologous; 
+                               Hashtbl.replace nascent_ias.homologous code hom
+                            ) ans.homologous; 
  
              (if ( (staa = -1) || (stab = -1) ) then begin
 
                 let gap_cost = Sequence.cmp_ali_cost 
                     seg.ChromAli.alied_seq1 seg.ChromAli.alied_seq2 seg.ChromAli.dir2 cm
                 in 
-
-(*                fprintf stdout "%i -> %i %i\n" (Sequence.length seg.ChromAli.alied_seq1) seg.ChromAli.cost gap_cost; flush stdout; *)
                 incr num_locus_indel;
                 added_locus_indel_cost := !added_locus_indel_cost + (seg.ChromAli.cost-gap_cost);
              end);
 
-             {nascent_ias with order = List.append nascent_ias.order (List.rev ans.order)}
-        ) init_ias med.ChromAli.chrom_map
+             let nascent_ias = {nascent_ias with order = List.append nascent_ias.order (List.rev ans.order)} in
+             (nascent_ias, ans.seq::rev_anc_seq_ls)
+        ) (init_ias, []) med.ChromAli.chrom_map
     in 
 
     
@@ -612,15 +635,24 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
 
     let rea = `Single (recost1, achld) in 
     let reb = `Single (recost2, bchld) in
-    let locus_indel = `Single (!added_locus_indel_cost,  achld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
     
     let dum_chars = ref [a.dum_chars; b.dum_chars] in 
     (if recost1 > 0 then dum_chars:= rea::!dum_chars);
     (if recost2 > 0 then dum_chars:= reb::!dum_chars);
     (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
 
+    let anc_chrom = Sequence.concat (List.rev rev_anc_seq_ls) in
+    let anc_chrom = Sequence.delete_gap anc_chrom in 
     let new_ias = {new_ias with order = List.rev new_ias.order;
+                                seq = anc_chrom;
                                 dum_chars = `Set !dum_chars} in     
+
 
     [|new_ias|]
 
@@ -649,6 +681,8 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
     in
     let med = List.hd med_ls in 
 
+    let added_locus_indel_cost = ref 0 in 
+    let num_locus_indel = ref 0 in
     let merge_ias seqt = 
         let orda = seqt.AnnchromAli.seq_ord1 in 
         let ordb = seqt.AnnchromAli.seq_ord2 in 
@@ -662,28 +696,90 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
                     homologous = Hashtbl.create 1667;
                     order = [];
                     indels = `Empty;
-                    dum_chars = `Empty}
+                    dum_chars = `Empty;
+                    dir = 1}
         in 
         let isb = 
             match ordb = -1 with
-            | false -> {b.(ordb) with 
-                            seq = seqt.AnnchromAli.alied_seq2 }
+            | false -> begin
+                let alied_seq2, order2, code2, dir2 = 
+                    match seqt.AnnchromAli.dir2 with
+                    | `Negative -> begin
+                        let len2 = Hashtbl.length b.(ordb).codes in
+                        let ne_code2 = Hashtbl.create 1667 in                
+                        Hashtbl.iter (fun p c -> Hashtbl.add  ne_code2 (len2 - p - 1) c) b.(ordb).codes;
+
+                         Sequence.complement_chrom Alphabet.nucleotides seqt.AnnchromAli.alied_seq2,
+                         List.rev b.(ordb).order,
+                         ne_code2, -1
+                    end
+
+                    | _ -> seqt.AnnchromAli.alied_seq2,
+                           b.(ordb).order,
+                           b.(ordb).codes, 1
+                in
+
+                {b.(ordb) with seq = alied_seq2;            
+                               codes = code2;
+                               order = order2;
+                               dir = dir2}
+            end
             | true -> {seq = seqt.AnnchromAli.alied_seq2;
                        codes = Hashtbl.create 1667;
                        homologous = Hashtbl.create 1667;
-                       order = []; indels = `Empty; dum_chars = `Empty}
+                       order = []; indels = `Empty; dum_chars = `Empty; dir = 1}
         in 
         let ans = 
             ancestor calculate_median `Annotated prealigned
             all_minus_gap isa isb acode bcode cm alpha achld bchld
         in
+        (if (orda = -1) || (ordb = -1) then begin
+            let gap_cost = Sequence.cmp_ali_cost 
+                seqt.AnnchromAli.alied_seq1 seqt.AnnchromAli.alied_seq2 seqt.AnnchromAli.dir2  cm
+            in 
+
+            let indel_cost = Data.get_locus_indel_cost annchrom_pam in 
+            let seq_cost = 
+                if orda = -1 then 
+                    Sequence.cmp_gap_cost indel_cost seqt.AnnchromAli.alied_seq2
+                else 
+                    Sequence.cmp_gap_cost indel_cost seqt.AnnchromAli.alied_seq1
+            in
+                    
+            incr num_locus_indel;
+            added_locus_indel_cost := !added_locus_indel_cost + (seq_cost - gap_cost);
+        end);
+
+
         let new_codes = Hashtbl.create 1667 in 
         Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
         {ans with seq = seqt.AnnchromAli.seq; codes = new_codes}
     in 
 
     let new_ias_arr = Array.map merge_ias med.AnnchromAli.seq_arr in 
+
+    let recost1 = med.AnnchromAli.recost1 in
+    let recost2 = med.AnnchromAli.recost2 in
+
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
+    
+
+    let dum_chars = ref [a.(0).dum_chars; b.(0).dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+    (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
+    new_ias_arr.(0) <- {new_ias_arr.(0) with dum_chars = `Set !dum_chars}; 
+
     new_ias_arr
+
+
 
 (* [ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode 
 *  achld bchld a b cm alpha breakinv_pam] merges the implied alignments of two clades and 
@@ -814,9 +910,11 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
 let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
         bchld a b cm alpha chrom_pam = 
 
-    let ias1_arr, ias2_arr, min_can_code, max_can_code =
-        if acode < bcode then a, b, acode, bcode
-        else b, a, bcode, acode
+    let ias1_arr, ias2_arr, min_can_code =
+        if calculate_median then 
+            if acode < bcode then a, b, acode
+            else b, a, bcode
+        else a, b, acode
     in
     let chroma_arr = Array.map (fun ias -> ias.seq) ias1_arr in
     let chromb_arr = Array.map (fun ias -> ias.seq) ias2_arr in
@@ -851,18 +949,24 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                           assign_act_order sta2 en2 ias2_arr.(idx2).codes order2_mat.(idx2) act_ord2.(idx2));
                  ) chrom.GenomeAli.map
         ) med.GenomeAli.chrom_arr; 
+
+    let added_locus_indel_cost = ref 0 in 
+    let num_locus_indel = ref 0 in
+
     let new_ias_arr = Array.map 
         (fun chrom ->
-             let init_ias = {seq = chrom.GenomeAli.seq; 
+             let init_ias = {seq = Sequence.get_empty_seq (); 
                              codes = Hashtbl.create 1667;
                              homologous = Hashtbl.create 1667;
                              indels = `Empty; dum_chars = `Empty;
-                             order = []}
+                             order = [];
+                             dir = 1}
              in 
              let main_idx1 = id_to_index chrom.GenomeAli.main_chrom1_id med1 in 
              let main_idx2 = id_to_index chrom.GenomeAli.main_chrom2_id med2 in 
-             let new_ias = List.fold_left 
-                 ( fun nascent_ias seg ->
+             let med_len = ref 0 in 
+             let new_ias, rev_anc_seq_ls = List.fold_left
+                 ( fun (nascent_ias, rev_anc_seq_ls) seg ->
                        let sta = seg.GenomeAli.sta in 
                        let sta1 = seg.GenomeAli.sta1 in 
                        let en1 = seg.GenomeAli.en1 in 
@@ -896,6 +1000,15 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                                 let code = Hashtbl.find ias2_arr.(idx2).codes p in 
                                 Hashtbl.add sub_codes2 (p - sta2) code;
                             done);
+
+                       (if (sta1 = -1) || (sta2 = -1) then begin
+                                let gap_cost = Sequence.cmp_ali_cost 
+                                seg.GenomeAli.alied_seq1 seg.GenomeAli.alied_seq2 seg.GenomeAli.dir2 cm
+                            in 
+                            incr num_locus_indel;
+                            added_locus_indel_cost := !added_locus_indel_cost + (seg.GenomeAli.cost-gap_cost);
+                        end);
+
                        let hom1 = match idx1 = -1 with
                        | true -> Hashtbl.create 1668 
                        | false -> ias1_arr.(idx1).homologous
@@ -911,7 +1024,8 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord1_arr);                                  
                            homologous = hom1;
                             indels = `Empty;
-                            dum_chars = `Empty
+                            dum_chars = `Empty;
+                            dir = 1;
                         }  
                        in 
                        let sub2 = {
@@ -920,7 +1034,8 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                            order = List.rev (Array.to_list sub_ord2_arr);                                  
                            homologous = hom2;
                             indels = `Empty;
-                            dum_chars = `Empty
+                            dum_chars = `Empty;
+                           dir = 1;
                        }  
                        in  
                        let ans_ias = 
@@ -931,19 +1046,46 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                        (if (sta != -1) then 
                             Hashtbl.iter 
                                 (fun p code -> 
-                                     Hashtbl.add nascent_ias.codes (p + sta - 1) code
+                                     Hashtbl.add nascent_ias.codes (p + !med_len - 1) code
                                 ) ans_ias.codes); 
                        Hashtbl.iter 
                            (fun code hom -> 
                                 Hashtbl.replace nascent_ias.homologous code hom
                            ) ans_ias.homologous; 
-                       {nascent_ias with order = 
+                       let nascent_ias = 
+                            {nascent_ias with order = 
                                List.append nascent_ias.order (List.rev ans_ias.order)}                 
-                 ) init_ias chrom.GenomeAli.map
+                       in
+                       med_len := !med_len + (Sequence.length ans_ias.seq) - 1;
+                       (nascent_ias, ans_ias.seq::rev_anc_seq_ls) 
+                 ) (init_ias, []) chrom.GenomeAli.map
              in 
-             {new_ias with order = List.rev new_ias.order}
+             let chrom_seq = Sequence.concat (List.rev rev_anc_seq_ls) in
+             let chrom_seq = Sequence.delete_gap chrom_seq in
+             {new_ias with order = List.rev new_ias.order;
+                seq = chrom_seq}
+
         ) med.GenomeAli.chrom_arr
     in 
+
+    let recost1 = med.GenomeAli.recost1 in
+    let recost2 = med.GenomeAli.recost2 in
+
+    let rea = `Single (recost1, achld) in 
+    let reb = `Single (recost2, bchld) in
+    let locus_indel = 
+        if (List.hd (Sexpr.to_list achld)) < (List.hd (Sexpr.to_list bchld)) then 
+            `Single (!added_locus_indel_cost,  achld) 
+        else
+            `Single (!added_locus_indel_cost,  bchld) 
+    in
+    
+    let dum_chars = ref [a.(0).dum_chars; b.(0).dum_chars] in 
+    (if recost1 > 0 then dum_chars:= rea::!dum_chars);
+    (if recost2 > 0 then dum_chars:= reb::!dum_chars);
+    (if !num_locus_indel > 0 then dum_chars:= locus_indel::!dum_chars);
+    new_ias_arr.(0) <- {new_ias_arr.(0) with dum_chars = `Set !dum_chars}; 
+
     new_ias_arr
 
 
@@ -1063,12 +1205,11 @@ let analyze_tcm tcm alph =
                             get_gap_opening tcm)
                         else if all_excepting_gap = all_and_gap then 
                             AllOne all_excepting_gap
-                        else if all_excepting_gap = 1 then
+                        else if not (is_affine tcm) then
                             AllOneGapSame 
                             (all_excepting_gap, all_and_gap)
-                        else if is_affine tcm then
+                        else 
                             AllSankoff (Some for_sankoff)
-                        else AllSankoff None
                     else if is_affine tcm then
                         AllSankoff (Some for_sankoff)
                     else AllSankoff None
@@ -1406,11 +1547,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 Codes.fold 
                 (fun u v acc ->
                     let homs = Codes.find u y.sequences in
-                    let calculate_median = match x.state with
-                    | `Chromosome | `Annotated | `Breakinv | `Genome -> true
-                    | _ -> calculate_median
-                    in
-                    
+
                     let ancestor = 
                         ancestor_f calculate_median all_minus_gap
                         x.cannonic_code y.cannonic_code x.children y.children 
@@ -1556,30 +1693,40 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
               let len, remap, recode = fi_ias_arr.(0) in 
               let ias = tax_ias_arr.(0) in 
               let column code = 
-                  let fin_code =  
-                      try   
-                          Codes.find code recode  
-                      with | Not_found ->  
-                          failwith ("Not_found hom_code ->  find_code " ^ (string_of_int code))  
+                  let fin_code, strand =  
+                    if Codes.mem code recode = true then 
+                        (Codes.find code recode), `Positive
+                    else if Codes.mem (-code) recode = true then 
+                        Codes.find (-code) recode, `Negative
+                    else failwith ("Not_found hom_code ->  find_code " ^ (string_of_int code))  
                   in 
                   try 
-                      Codes.find fin_code remap 
+                      (Codes.find fin_code remap), strand
                   with Not_found ->
                       failwith ("Not_found in fin_code -> column" ^ (string_of_int fin_code))  
               in
+
               let results = Array.make (len + 1) 0 in
               let pos_results = Array.make (len + 1) (-1) in
               let add_result ias =
                   Hashtbl.iter (fun pos code -> 
+                      let col, strand = column code in                            
+                      let col = len - col in
                       let base = Sequence.get ias.seq pos in
-                      let col = 
-                          let col = column code in
-                          len - col 
-                      in
-                      results.(col) <- base;
+                      let base =
+                            match strand with
+                            | `Positive -> base
+                            | `Negative -> begin
+                                match Alphabet.complement base Alphabet.nucleotides with
+                                | None -> failwith "Failwith complement for the negative strand"
+                                | Some b -> b
+                            end
+                      in  
+                      results.(col) <- base;    
                       pos_results.(col) <- pos) 
                   ias.codes
               in
+
               add_result ias;
               [|results|], [|pos_results|]
         | _ -> (** that is for annotated or multiple chromosomes *)
@@ -1877,10 +2024,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             All_sets.IntegerMap.add c (mc, f, g) funs
                                         end 
                                     in
+                                    let mis_sta = preprocess_sequence alph 
+                                                 (Array.concat (Array.to_list s_arr)) 
+                                    in
                                     let s_arr' = 
-                                        Array.map (fun s ->
-                                            let res = preprocess_sequence alph s in                                                   
-                                            c, (res, s)) 
+                                        Array.map (fun s ->                                            
+                                            c, (mis_sta, s)) 
                                         s_arr 
                                     in 
                                     List.append (Array.to_list s_arr') acc, funs)  

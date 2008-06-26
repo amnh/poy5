@@ -151,13 +151,6 @@ let ba2array a =
         afray.(i) <- a.{i};
     done; afray
 
-(* copy elements of a into b *)
-let barray_copy src des =
-    assert( (Bigarray.Array1.dim src) <= (Bigarray.Array1.dim des));
-    for i = 0 to (Bigarray.Array1.dim src)-1 do
-        des.{i} <- src.{i}
-    done; ()
-
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
 
@@ -251,8 +244,10 @@ let m_gtr pi_ co_ a_size =
 (* val m_file :: any alphabet size *)
 (* re-computes diagonal --no verification against alphabet size*)
 let m_file f_rr a_size =
+    assert(a_size = Array.length f_rr);
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     for r = 0 to (a_size-1) do
+        assert(a_size = Array.length f_rr.(r));
         let diag = ref 0.0 in
         for c = 0 to (a_size-1) do
             if (c <> r) then 
@@ -338,12 +333,22 @@ let of_parser spec characters =
                     (* [GAMMA@(1-z)]+[INVAR@z] *)
                     Bigarray.Array1.fill p ((1.0 -. z) /. (float_of_int w)); 
                     (* copy array to master array since one extra site @ 1.0 & z *)
-                    barray_copy rs r; p.{w} <- z; r.{w} <- 1.0;
+                    Bigarray.Array1.blit rs r;
+                    p.{w} <- z;
+                    r.{w} <- 1.0;
                 (r, p)
             )
     in
+    (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
+    assert( (Bigarray.Array1.dim probabilities) = (Bigarray.Array1.dim variation) );
+    let rsps = ref 0.0 and ps = ref 0.0 in
+    for i = 0 to (Bigarray.Array1.dim probabilities) - 1 do
+        rsps := !rsps +. ((Bigarray.Array1.get probabilities i) *. (Bigarray.Array1.get variation i));
+        ps := !ps +. Bigarray.Array1.get probabilities i;
+    done;
+    assert( !rsps = 1.0 && !ps = 1.0 );
 
-    (* return the prior probability *)
+    (* extract the prior probability *)
     let priors =
         match model.Parser.SC.base_priors with
         | Parser.SC.Estimated p
@@ -356,12 +361,10 @@ let of_parser spec characters =
     let (sub_mat,m_params) =
         match model.Parser.SC.substitution with
         | Parser.SC.JC69 lambda -> 
-                sym := true;
-                mname := "JC69";
+                sym := true; mname := "JC69";
                 (m_jc69 lambda a_size, [| lambda |])
         | Parser.SC.K2P (alpha,beta) ->
-                sym := true;
-                mname := "K2P";
+                sym := true; mname := "K2P";
                 (m_k2p alpha beta a_size, [|alpha;beta|])
         | Parser.SC.F81 lambda ->
                 mname := "F81";
@@ -391,7 +394,9 @@ let of_parser spec characters =
             let n_ui = Bigarray.Array2.create
                             Bigarray.float64 Bigarray.c_layout a_size a_size in
             Bigarray.Array2.fill n_ui 0.0;
-            diagonalize_gtr sub_mat n_d n_ui; (sub_mat, n_d, Some n_ui) ) in
+            diagonalize_gtr sub_mat n_d n_ui; (sub_mat, n_d, Some n_ui)
+        )
+    in
 
     (* loop to create array for each character *)
     let loop_ (states,code) =
@@ -469,6 +474,7 @@ let to_formatter attr mine minet _ data :Tags.output list =
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 mine_t =
     let model = c1.model and mcpy = mine in
+    let () = Printf.printf "S: %f %f %f\n" c_t1 c_t2 mine.mle in
     let (nta,ntb,nl) = match model.ui with
         | None ->
             readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
@@ -476,10 +482,10 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 mine_t =
          | Some ui ->
             readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
                     c_t2 model.rate model.prob model.pi_0 mine.mle in
+    let () = Printf.printf "E: %f %f %f\n" c_t1 c_t2 mine.mle in
     if (nta = c_t1 && ntb = c_t2) then
         (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
     else
-        (* let _ = Printf.printf "Updating cost: %f --> %f\n" mine.mle nl in *)
         let x = Array.fold_right (* bottle neck? *)
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
         (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mcpy.chars} )
@@ -491,7 +497,7 @@ let distance a_node b_node t1 t2 =
 (* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
     let x = median a b at bt in
-    let tt = 0.0 in 
+    let tt = 0.5 in 
     let y = median x n tt nt in
     y.mle
 
@@ -530,21 +536,3 @@ let f_codes_comp t codes =
     { t with chars = filter t.chars opt_idx }
 
 let compare_data a b = compare_chars a.chars b.chars
-
-(* ------------------------------------------------------------------------- *)
-(* Unused functions
-
-let explode nd =
-    let rec ba_lst ba i =
-        if i = Bigarray.Array2.dim1 ba then []
-        else (Bigarray.Array2.sub_left ba i 1) :: ba_lst ba (i+1)
-    in
-    (* convert chars to bigarray *) 
-    let ba_s = s_bigarray nd.chars in
-    (* combine codes and exploded bigarray, and convert bigarray back to s *)
-    let stuff = List.map2  (fun x y -> (x,bigarray_s y))
-                           (Array.to_list nd.codes)
-                           (ba_lst ba_s 0) in
-    List.map (fun (x,y) ->  {nd with codes = [|x|]; chars = y;code=nd.code;
-                             mle = loglikelihood y nd.model.pi_0;})
-             stuff *)

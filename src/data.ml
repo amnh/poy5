@@ -449,6 +449,13 @@ let get_recost user_pams =
             | `Locus_Inversion c -> c
 
 
+(** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
+let get_locus_indel_cost user_pams = 
+    match user_pams.locus_indel_cost with
+    | None -> failwith "The locus indel cost is not specified"
+    | Some c -> c
+
+
 
 (*
 let set_sequence_defaults seq_alph data = 
@@ -1967,14 +1974,31 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
                 | `Breakinv -> Tags.Characters.breakinv
                 | _ -> assert false
             in
+
+            let deref ptr = 
+                match ptr with
+                | Some content -> content 
+                | None -> failwith "It is a null pointer" 
+            in      
+
+            let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
+            let locus_indel_e = float locus_indel_e /. 100.0 in
+            let locus_indel_str = string_of_int locus_indel_o ^ ", " 
+                                 ^ string_of_float locus_indel_e 
+            in
+
+            let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
+            let chrom_indel_e = float chrom_indel_e /. 100.0 in
+            let chrom_indel_str = string_of_int chrom_indel_o ^ ", " 
+                                 ^ string_of_float chrom_indel_e 
+            in
+
             [Tags.Characters.clas, clas; 
             Tags.Characters.seed_len, handle_int pam.seed_len; 
             Tags.Characters.re_meth, handle_re_meth pam.re_meth;
             Tags.Characters.circular, handle_int pam.circular;
-            Tags.Characters.locus_indel_cost,
-            handle_of_tuple pam.locus_indel_cost;
-            Tags.Characters.chrom_indel_cost,
-            handle_of_tuple pam.chrom_indel_cost;
+            Tags.Characters.locus_indel_cost, locus_indel_str;
+            Tags.Characters.chrom_indel_cost, chrom_indel_str;
             Tags.Characters.chrom_hom, handle_int pam.chrom_hom;
             Tags.Characters.chrom_breakpoint, handle_int pam.chrom_breakpoint;
             Tags.Characters.sig_block_len, handle_int pam.sig_block_len;
@@ -3969,6 +3993,7 @@ let report_taxon_file_cross_reference chars data filename =
                     | Not_found -> false
                 in
                 let codes = get_chars_codes_comp data chars in
+                let codes = List.sort compare codes in
                 let codes_arr = Array.of_list codes 
                 and chars_arr = 
                     let name x = StatusCommon.escape (Hashtbl.find

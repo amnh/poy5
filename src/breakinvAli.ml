@@ -53,6 +53,7 @@ type breakinvPam_t = {
     circular : int;
     swap_med : int;
     symmetric : bool;
+    kept_wag : int;
 }
 
 (** [swap_med m] swaps the first child and second child
@@ -65,7 +66,7 @@ let swap_med m = {
         cost1 = m.cost2;
         cost2 = m.cost1;
         recost1 = m.recost2;
-        recost2 = m.recost1
+        recost2 = m.recost1        
 }
 
 
@@ -75,6 +76,7 @@ let breakinvPam_default = {
     circular = 0;
     swap_med = 1;
     symmetric = true;   
+    kept_wag = 3;
 }
 
 
@@ -91,7 +93,7 @@ let init seq =  {
     cost1 = 0;
     cost2 = 0;
     recost1 = 0;
-    recost2 = 0;
+    recost2 = 0;    
 }
 
 (** [get_breakinv_pam user_breakinv_pam] returns 
@@ -129,6 +131,7 @@ let get_breakinv_pam user_breakinv_pam =
         | Some sym -> {chrom_pam with symmetric = sym}
     in 
 
+
     chrom_pam
 
         
@@ -156,11 +159,11 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         match ali_pam.symmetric with
         | true ->
               let cost12, recost12, _, _ =
-                  GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
               let cost21, recost21, _, _ = 
-                  GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular  orientation
               in  
             if cost12 <= cost21 then cost12, recost12
@@ -168,10 +171,10 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
-                      GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
                   else 
-                      GenAli.create_gen_ali `Breakinv med2.seq med1.seq gen_cost_mat 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in               
               cost , recost
@@ -189,7 +192,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
     else if len2 < 1 then 0, (0, 0), [med1] 
     else begin        
         let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
-            GenAli.create_gen_ali `Breakinv med1.seq med2.seq gen_cost_mat 
+            GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                 alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
         in 
     

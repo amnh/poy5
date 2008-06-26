@@ -162,10 +162,10 @@ module OneDirF :
 
     let extract_time x nd = Node.Standard.extract_time x (force_val nd)
 
-    let edge_iterator nd1 nd2 nd3 = 
-        let a1,a2,a3 = Node.Standard.edge_iterator  (force_val nd1)
-                                                    (force_val nd2)
-                                                    (force_val nd3)
+    let edge_iterator nd0 nd1 nd2 nd3 = 
+        let d0 = match nd0 with None -> None | Some x -> Some (force_val x) in
+        let a1,a2,a3 = Node.Standard.edge_iterator 
+            d0 (force_val nd1) (force_val nd2) (force_val nd3)
         in (to_n a1,to_n a2,to_n a3)
 
     let median_3 x par cur a b = 
@@ -178,6 +178,11 @@ module OneDirF :
 
     let apply_single_f_on_lazy f a = 
         f (force_val a)
+
+    let apply_time node1 node2 = 
+        let a = Node.Standard.apply_time (force_val node1)
+                                            (force_val node2) in
+        lazy_from_val a
 
     let total_cost x n =
         apply_single_f_on_lazy (Node.Standard.total_cost x) n
@@ -310,7 +315,6 @@ module OneDirF :
         let res = Node.Standard.for_support a nb c d in
         List.map lazy_from_val res
 
-
     let root_cost a = 
         Node.Standard.root_cost (force_val a)
 
@@ -374,7 +378,6 @@ type nad8 = Node.Standard.nad8 = struct
         in
         dir_compare a.unadjusted b.unadjusted
         
-
     let recode_anode f n = 
         { 
             lazy_node = OneDirF.recode f n.lazy_node;
@@ -459,16 +462,21 @@ type nad8 = Node.Standard.nad8 = struct
     let get_sank = apply_on_one_direction OneDirF.get_sank
     let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
     let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
-
     let extract_time = apply_on_one_direction OneDirF.extract_time
 
-    let edge_iterator n1 n2 n3 = 
+    let edge_iterator n0 n1 n2 n3 = 
+        let d0 = match n0 with
+                    | None -> None
+                    | Some x ->( match x.unadjusted with 
+                        | [x] -> Some (force_val x.lazy_node)
+                        | _ -> failwith "edge iterator, to many or no adjusted"
+                    )
+        in
         match n1.unadjusted,n2.unadjusted,n3.unadjusted with
-        | d1::[],d2::[],d3::[] -> 
+        | [d1],[d2],[d3] -> 
             let a1,a2,a3 = Node.Standard.edge_iterator
-                                        (force_val d1.lazy_node) 
-                                        (force_val d2.lazy_node)
-                                        (force_val d3.lazy_node) in
+                d0 (force_val d1.lazy_node) (force_val d2.lazy_node) (force_val d3.lazy_node)
+            in
             (to_n a1,to_n a2,to_n a3) 
         | _ -> failwith("edge iterator, to many or no adjusted")
 
@@ -531,6 +539,21 @@ type nad8 = Node.Standard.nad8 = struct
         | _ ->
                 let x, y = yes_with (taxon_code par) cur.unadjusted in
                 { cur with unadjusted = [x; y; node] }
+
+    (** [adjust_time cur par] 
+     * Applies the time from [cur] to [par] in the direction pointing to [cur].
+     * Used when the children are iterated and the time information needs to be
+     * passed in the three directional situation --unadjusted. *)
+    let apply_time curr par = 
+        let get_desired_dir par x = not_with (taxon_code par) x.unadjusted in
+        let ctop = get_desired_dir par curr and ptoc = get_desired_dir curr par in
+        let lnode = {ptoc with                     (* v----from----v v-----to-----v *)
+                       lazy_node = OneDirF.apply_time ctop.lazy_node ptoc.lazy_node 
+                    } in
+        match par.unadjusted with
+            | [_] -> {par with unadjusted = [lnode] }
+            | _ ->  let x,y = yes_with (taxon_code curr) par.unadjusted in
+                    {par with unadjusted = [x;y;lnode] }
 
     let to_string nodes = 
         let res = 
@@ -776,7 +799,7 @@ type nad8 = Node.Standard.nad8 = struct
     let root_cost a = 
         let lst =
             match !Methods.cost with
-            | `Iterative -> a.adjusted
+            | `Iterative _ -> a.adjusted
             | _ -> a.unadjusted
         in
         match lst with

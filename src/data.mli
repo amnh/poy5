@@ -496,6 +496,7 @@ val process_taxon_code :
 
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
+val get_locus_indel_cost : dyna_pam_t -> int * int
 
 val set_likelihood : d -> Methods.ml_spec -> d
 

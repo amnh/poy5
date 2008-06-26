@@ -668,7 +668,7 @@ module DOS = struct
         let tmpcost = float_of_int tmpcost in
         {min = tmpcost; max= tmpcost}
 
-    let readjust h ch1 ch2 parent mine =
+    let readjust mode h ch1 ch2 parent mine =
         let c2 = h.c2 in
         let gap = Cost_matrix.Two_D.gap c2 in
         let res, cost = 
@@ -678,8 +678,13 @@ module DOS = struct
                 create ch1.sequence, 0
             else 
                 let tmpcost, seqm, changed =
-                    Sequence.Align.readjust_3d ch1.sequence ch2.sequence
-                    mine.sequence h.c2 h.c3 parent.sequence
+                    match mode with
+                    | `ThreeD ->
+                            Sequence.Align.readjust_3d ch1.sequence ch2.sequence
+                            mine.sequence h.c2 h.c3 parent.sequence
+                    | `ApproxD ->
+                            Sequence.readjust ch1.sequence ch2.sequence
+                            mine.sequence h.c2 parent.sequence
                 in
                 let rescost = make_cost tmpcost in
                 { mine with sequence = seqm; costs = rescost }, tmpcost
@@ -691,7 +696,7 @@ module DOS = struct
         if Sequence.is_empty parent.sequence gap then
             create mine.sequence, 0
         else if Sequence.is_empty mine.sequence gap then
-            parent, 0
+            create mine.sequence, 0
         else 
             let seqm, tmpcost = 
                 Sequence.Align.closest parent.sequence mine.sequence h.c2 
@@ -1188,7 +1193,7 @@ let same_codes a b =
 * somewhere in between [ch1], [ch2], and [par] (the two children and 
 * parent of [mine] respectively, and [a] is the new cost of [b] as 
 * parent of [ch1] and [ch2]. *)
-let readjust to_adjust modified ch1 ch2 parent mine =
+let readjust mode to_adjust modified ch1 ch2 parent mine =
     assert (parent.alph = Alphabet.nucleotides);
     let new_modified = ref [] 
     and total_cost = ref 0 in
@@ -1206,7 +1211,7 @@ let readjust to_adjust modified ch1 ch2 parent mine =
                 | Heuristic_Selection a, Heuristic_Selection b, 
                     Heuristic_Selection c, Heuristic_Selection d ->
                         let changed, res, cost = 
-                            DOS.readjust mine.heuristic a b c d in
+                            DOS.readjust mode mine.heuristic a b c d in
                         if changed then begin
                             new_modified := code :: !new_modified;
                             total_cost := cost + !total_cost;

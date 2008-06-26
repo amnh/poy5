@@ -173,11 +173,13 @@ val to_single : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data option ->
 (** [to_single_root n] is equivalent to [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
-(** [edge_iterator p a b] is a function to iterate the branch lengths of
- * likelihood characters of parent [p], with children [a] and [b]. This
- * function will return new node_data for [p] and new branch lengths for [a]
- * and [b] on completion. *)
-val edge_iterator : node_data -> node_data -> node_data -> node_data*node_data*node_data
+(** [edge_iterator gp p a b] is a function to iterate the branch lengths of
+ * likelihood characters of parent [p], with children [a] and [b], and grand
+ * parent [gp], which is optional. This function will return new node_data for 
+ * [p] and new branch lengths for [a] and [b] on completion. When gp is NONE
+ * then we assume this is an edge node, and split *)
+val edge_iterator : node_data option -> node_data -> node_data -> node_data ->
+        node_data * node_data * node_data
 
 (** [readjust ch1 ch2 par mine] returns a heuristically selected set of nodes which
 * is located somewhere in between [ch1], [ch2], and [par], which are the two
@@ -191,7 +193,7 @@ val edge_iterator : node_data -> node_data -> node_data -> node_data*node_data*n
 * [mine], [y] the readjusted [ch1] and [z] the readjusted [ch2]. For static
 * homology characters, the only parameter readjusted in [y] and [z] is their
 * branch length specification. *)
-val readjust : All_sets.Integers.t option -> node_data -> node_data -> node_data ->
+val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data -> node_data -> node_data ->
     node_data -> [`Mine of node_data | `MineNChildren of (node_data * node_data
     * node_data) ] * All_sets.Integers.t
 
@@ -212,8 +214,11 @@ val total_cost_of_type :
   `StaticMl] ->
   node_data -> float
 
+val get_cost_mode : node_data -> [ `Likelihood | `Parsimony ]
 
 val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
 val median_counter : int ref
+val extract_time : node_data -> float list
+val apply_time : node_data -> node_data -> node_data

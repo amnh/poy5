@@ -27,7 +27,9 @@ let current_snapshot x =
     if debug_profile_memory then MemProfiler.current_snapshot x
     else ()
 
-module M = struct
+module F : Ptree.Tree_Operations with 
+type a = AllDirNode.AllDirF.n
+with type b = AllDirNode.OneDirF.n = struct
 
     type a = AllDirNode.AllDirF.n
     type b = AllDirNode.OneDirF.n
@@ -169,7 +171,6 @@ module M = struct
         in
         let new_cost = real_cost +. root_minus in
         new_cost
-
 
     let check_cost_all_handles ptree = 
         let new_cost = 
@@ -405,9 +406,6 @@ module M = struct
                         generate_root_and_assign_it rootg edge ptree 
                     in
                     Ptree.add_node_data a readjusted ptree
-                    (*
-                    assign_single_subtree root (-1) a ptree
-                    *)
             | None -> failwith "no root? AllDirChar.assign_single_handle"
         in
         (* Finally, we are ready to proceed on all the handles available *)
@@ -567,7 +565,34 @@ module M = struct
     * [AllDirNode.adjusted] field of each. *)
     let rec adjust_tree nodes ptree =
 
+        let mode = match !Methods.cost with
+            | `Iterative x -> x
+            | _ -> assert false
+        in
+
+        let process par mine mine' mineo = 
+            let curr_un = match mineo.AllDirNode.unadjusted with
+                | [_] -> []
+                | _ -> let p,q = AllDirNode.yes_with 
+                    (AllDirNode.AllDirF.taxon_code par)
+                     mineo.AllDirNode.unadjusted in [p;q]
+            in
+            let mine = 
+                mine --> AllDirNode.lazy_from_val -->
+                (fun x -> { mine' with
+                    AllDirNode.lazy_node = x }) -->
+                (fun x ->
+                    let stuff = x::curr_un in
+                    { (* mineo with *)
+                        AllDirNode.adjusted = [x];
+                        AllDirNode.unadjusted = stuff;
+                    })
+            in
+            mine
+        in
+
         (* We start by defining a function to adjust one node *)
+        (* ptree has been changed to a ref, so this function is NOT THREAD SAFE *)
         let adjust_node chars_to_check ch1o ch2o parento minec mineo ptree =
             match ch1o.AllDirNode.adjusted, ch2o.AllDirNode.adjusted, 
             parento.AllDirNode.adjusted, mineo.AllDirNode.adjusted with
@@ -576,36 +601,45 @@ module M = struct
                     let mine, modified = 
                         mine'
                         --> force_node 
-                        --> (Node.readjust chars_to_check (force_node ch1) (force_node ch2) 
+                        --> (Node.readjust mode chars_to_check (force_node ch1) (force_node ch2) 
                             (force_node parent))
                     in
 
                     if All_sets.Integers.is_empty modified then 
-                        ptree, false, modified
+                        false, modified
                     else
-                        let process minec mine mine' mineo ptree = 
-                            let mine =
-                                mine
-                                --> AllDirNode.lazy_from_val 
-                                --> (fun x -> { mine' with AllDirNode.lazy_node = x })
-                                --> (fun x -> { mineo with AllDirNode.adjusted = [x] })
-                            in
-                            Ptree.add_node_data minec mine ptree
-                        in
+                        (* function to build new nodes into node data *)
+
                         (match mine with
                         | `Mine mine -> 
-                                let ptree = 
-                                    process minec mine mine' mineo ptree 
+                                let mine = process parento mine mine' mineo in
+                                let () = 
+                                    ptree := !ptree -->
+                                        Ptree.add_node_data minec mine
                                 in
-                                ptree, true, modified
+                                true, modified
                         | `MineNChildren (mine, ch1r, ch2r) ->
-                                let ptree =
-                                    ptree 
-                                    --> process minec mine mine' mineo 
-                                    --> process ((force_node ch1).Node.taxon_code) ch1r ch1 ch1o
-                                    --> process ((force_node ch2).Node.taxon_code) ch2r ch2 ch2o
+
+                                (* set new nodes to adjusted in node_data *)
+                                let ch1o = process mineo ch1r ch1 ch1o and
+                                    ch2o = process mineo ch2r ch2 ch2o in
+
+                                (* children have new times, but the parent doesn't
+                                 * in that direction... transfer them *)
+                                let mineo = mineo -->
+                                    AllDirNode.AllDirF.apply_time ch2o -->
+                                    AllDirNode.AllDirF.apply_time ch1o
                                 in
-                                ptree, true, modified)
+                                let mine = process parento mine mine' mineo in
+                                (* add to tree... *)
+                                let nptree = !ptree --> 
+                                    Ptree.add_node_data minec mine -->
+                                    Ptree.add_node_data ((force_node ch1).Node.taxon_code) ch1o -->
+                                    Ptree.add_node_data ((force_node ch2).Node.taxon_code) ch2o
+                                in
+                                let () = ptree := nptree in
+                                true, modified
+                        )
             | _ -> failwith "Huh? AllDirChar.aux_adjust_single"
         in
         let add_vertices_affected a b c d codes affected = 
@@ -620,30 +654,59 @@ module M = struct
             in
             affected --> add_one c --> add_one b --> add_one a 
         in
-        (* Now we should be able to adjust all the vertices in the tree
-        * recursively, in a post order traversal, on a given subtree. *)
-        let rec adjust_vertex chars_to_check affected prev vertex ptree =
-            let curr = Ptree.get_node vertex ptree in match curr with
-            | Tree.Leaf _ 
-            | Tree.Single _ -> ptree, false, affected
-            | Tree.Interior (_,a,b,c) -> 
-                    let gnd x = Ptree.get_node_data x ptree in
-                    (* similarly done in internal_downpass *)
-                    let aa,bb,prev = match prev with
-                        | Some prev -> 
-                            assert( check_assertion_two_nbrs prev curr "5");
-                            let a,b = Tree.other_two_nbrs prev curr in
-                            a,b,prev
-                        | None -> a,b,vertex in
-                    let _ = Printf.printf "Adjusted %d with %d,%d and %d\n" vertex aa bb prev in
-                    let ptree, has_changed, codes =
-                        adjust_node chars_to_check (gnd aa) (gnd bb) (gnd prev) vertex (gnd vertex) ptree
+
+        let adjust_root_n_cost handle root a b ptree = 
+            let pre_ref_codes, fi_ref_codes = get_active_ref_code ptree in  
+            let adnd = Ptree.get_node_data a ptree
+            and bdnd = Ptree.get_node_data b ptree in
+            match adnd.AllDirNode.adjusted, bdnd.AllDirNode.adjusted with
+            | [adadj], [bdadj] ->
+                    let ad = force_node adadj
+                    and bd = force_node bdadj in
+
+                    (* create new root and adjust likelihood chars, adding to ptree *)
+                    let new_root = Node.Standard.median None None None ad bd in
+(*
+                    let () =(
+                        Printf.printf "BEFORE ITERATION:\n";
+                        Printf.printf "\tTotal Cost: %f\n" new_root.Node.total_cost;
+                        Printf.printf "\tNode Cost: %f\n" new_root.Node.node_cost ) in
+*)
+                    let new_root,achild,bchild = Node.edge_iterator None new_root ad bd in
+(*
+                    let () =(
+                        Printf.printf "AFTER ITERATION:\n";
+                        Printf.printf "\tTotal Cost: %f\n" new_root.Node.total_cost;
+                        Printf.printf "\tNode Cost: %f\n" new_root.Node.node_cost ) in
+*)
+                    let new_root_p = 
+                        { new_root with 
+                              Node.characters = (Node.to_single (pre_ref_codes, fi_ref_codes) 
+                                                     (Some new_root) bd ad).Node.characters }
+                        --> fun x -> [{ 
+                            AllDirNode.lazy_node = AllDirNode.lazy_from_val x;
+                            dir = Some (a, b);
+                            code = (-1);}]
                     in
-                    if has_changed then
-                        ptree, true, add_vertices_affected a b prev vertex
-                        codes affected
-                    else ptree, false, affected
+                    let new_root_p = {root with AllDirNode.adjusted = new_root_p } in
+
+                    (* apply new children node_data to childen and to ptree *)
+                    let new_achild = process bdnd achild adadj adnd 
+                    and new_bchild = process adnd bchild bdadj bdnd in
+                    let ptree = ptree -->
+                        Ptree.add_node_data (ad.Node.taxon_code) new_achild -->
+                        Ptree.add_node_data (bd.Node.taxon_code) new_bchild
+                    in
+
+                    Ptree.assign_root_to_connected_component
+                        handle 
+                        (Some ((`Edge (a, b)),new_root_p ))
+                        (check_cost ptree handle)
+                        None
+                        ptree
+            | _ -> failwith "AllDirChar.adjust_root_n_cost" 
         in
+
         (* Now we need to be able to adjust the root of the tree, and it's
         * cost, once we have finished adjusting every vertex in the tree *)
         let adjust_until_nothing_changes ptree = 
@@ -657,73 +720,86 @@ module M = struct
             in
 
             (* adjusts vertices *)
-            let adjust_vertices c2c prev curr (affec,ptree,changed) =
+            let adjust_vertices p_ref c2c affect prev curr a_ch b_ch =
                 let c2c = All_sets.IntegerMap.find curr c2c in
-                let ptree,ch2,affected = adjust_vertex c2c affec prev curr ptree in
-                Tree.Continue, (affected, ptree, changed || ch2)
+                let gnd x = Ptree.get_node_data x !p_ref in
+
+                let a,b = 
+                    let currc = Ptree.get_node curr !p_ref in
+                    match Ptree.get_node curr !p_ref with
+                    | Tree.Interior (_,a,b,c) -> 
+                        Tree.other_two_nbrs prev currc
+                    | _ -> failwith "non-interior node in adjust_vertices"
+                in
+                let () = Printf.printf "Adjusted %d with %d,%d and %d\n" curr a b prev in
+
+                let has_changed,codes = 
+                    adjust_node c2c (gnd a) (gnd b) (gnd prev) curr (gnd curr) p_ref
+                in
+                
+                if has_changed then
+                    let () = 
+                        affect := add_vertices_affected a b prev curr codes !affect in
+                    true
+                else
+                    a_ch || b_ch
             in
 
-            (* final calculation: for likelihood we need to make a fake root
-             * with branch lengths of ch1->t1 and ch2->0 *)
-            let final_root_processing ptree handle acc = acc in
-            
+            let adjust_loop affected p_ref a_ref handle changed = 
+                let a,b,comp_root = 
+                    match (Ptree.get_component_root handle !p_ref).Ptree.root_median with
+                    | Some ((`Edge (a,b)),c) -> a,b,c
+                    | None
+                    | Some _ -> failwith "no root exists on this tree"
+                in
+                let (a_ch),(b_ch) =
+                    Ptree.post_order_node_with_edge_visit
+                        (* F - leaf function: PREV CURR ACC *)
+                            (fun prev curr acc -> acc)
+                        (* G - interior function: PREV CURR aACC bACC *)
+                            (adjust_vertices p_ref affected a_ref)
+                            (Tree.Edge(a,b))
+                             !p_ref
+                             false
+                in
+                (* we need to iterate the Edge(a,b) and then update that cost *)
+                let ptree = adjust_root_n_cost handle comp_root a b !p_ref in
+                let () = p_ref := ptree in
+
+                (* return if changes were made *)
+                a_ch || b_ch || changed 
+            in
+
             (* recursive loop for changes *)
             let _ = print_roots ptree in
             let rec iterator prev_cost affected ptree =
-                let affect, new_ptree, changed = 
-                    All_sets.Integers.fold
-                        (fun handle acc ->
-                            Ptree.post_order_node_visit 
-                                (adjust_vertices affected) handle ptree acc )
+                let changed,new_affected = 
+                    (* not thread safe *)
+                    let pref = ref ptree in    (* ptree - can't merge two *)
+                    let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
+                    let changed = All_sets.Integers.fold
+                        (adjust_loop affected pref aref)
                         ptree.Ptree.tree.Tree.handles
-                        (All_sets.IntegerMap.empty,ptree,false) 
+                        (false)
+                    in
+                    changed,!aref
                 in
-                let affect,new_ptree,changed =
-                            All_sets.Integers.fold 
-                                (fun h acc -> final_root_processing ptree h acc)
-                                ptree.Ptree.tree.Tree.handles
-                                (affect,new_ptree,changed)
-                in
-
+                
+                (* now ptree can be used normally *)
                 if changed then
-                    let new_cost = check_cost_all_handles new_ptree in
+                    let new_cost = check_cost_all_handles ptree in
+                    let () = Printf.printf "old: %f\nnew: %f\n" prev_cost new_cost in
                     if new_cost < prev_cost then
-                        iterator new_cost affect new_ptree
+                        iterator new_cost new_affected ptree
                     else
+                        let () = Printf.printf "No Change in Cost\n" in
                         ptree
-                else 
+                else
                     ptree
             in
             iterator (Ptree.get_cost `Adjusted ptree) first_affected ptree
         in
 
-        let adjust_root_n_cost handle root a b ptree = 
-            let pre_ref_codes, fi_ref_codes = get_active_ref_code ptree in  
-            let ad = Ptree.get_node_data a ptree
-            and bd = Ptree.get_node_data b ptree in
-            match ad.AllDirNode.adjusted, bd.AllDirNode.adjusted with
-            | [ad], [bd] ->
-                    let ad = force_node ad
-                    and bd = force_node bd in
-
-                    let new_root = Node.Standard.median None None None ad bd in
-                    let new_root_p = 
-                        { new_root with 
-                              Node.characters = (Node.to_single 
-                              (pre_ref_codes, fi_ref_codes) (Some new_root) bd ad).Node.characters }
-                        --> fun x -> [{ 
-                            AllDirNode.lazy_node = AllDirNode.lazy_from_val x;
-                            dir = Some (a, b);
-                            code = (-1);}]
-                    in
-                    Ptree.assign_root_to_connected_component handle 
-                    (Some ((`Edge (a, b)), {root with 
-                    AllDirNode.adjusted = new_root_p}))
-                    (check_cost ptree handle)
-                    None
-                    ptree
-            | _ -> failwith "AllDirChar.adjust_root_n_cost" 
-        in
         (* Now we are ready for a function to adjust a handle in the tree *)
         let adjust_handle handle ptree =
             match (Ptree.get_component_root handle ptree).Ptree.root_median with
@@ -743,6 +819,7 @@ module M = struct
             ptree
         in
         new_tree
+
 
     (* ------------------------------------------------------------------------ *)
 
@@ -875,8 +952,9 @@ module M = struct
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
+            | `Iterative `ApproxD
             | `Normal -> internal_downpass true ptree
-            | `Iterative ->
+            | `Iterative `ThreeD ->
                     ptree --> internal_downpass true --> 
                         pick_best_root --> assign_single -->
                             adjust_tree None --> 
@@ -894,7 +972,11 @@ module M = struct
                 let ptree = pick_best_root ptree in
                 let ptree = assign_single ptree in
                 ptree
-        | `Iterative -> ptree
+        | `Iterative `ApproxD ->
+                    ptree --> internal_downpass true -->
+                        pick_best_root --> assign_single -->
+                            adjust_tree None 
+        | `Iterative `ThreeD -> ptree
 
     let create_edge ptree a b =
         let edge1 = (Tree.Edge (a, b)) in
@@ -1100,20 +1182,10 @@ module M = struct
 
     let break_fn ((s1, s2) as a) b =
         match !Methods.cost with
-        | `Iterative ->
-                let other_neighbors = get_other_neighbors a b None in
-                let old_cost = Ptree.get_cost `Adjusted b in
+        | `Iterative `ApproxD ->
                 let u, v, w, x, y, z = break_fn a b in
-                let new_tree = 
-                    refresh_all_edges true (adjust_tree other_neighbors
-                    (assign_single u)) in
-                let delta_cost = old_cost -. ((Ptree.get_cost `Adjusted
-                new_tree))
-                in 
-                (*
-                Printf.printf "The tree delta cost is %f\n%!" delta_cost;
-                *)
-                new_tree, v, delta_cost, x, y, z
+                u, v, w, x, y, z
+        | `Iterative `ThreeD 
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
         | `Normal -> break_fn a b
@@ -1191,12 +1263,12 @@ module M = struct
     let join_fn a b c d =
         match !Methods.cost with
         | `Normal -> join_fn a b c d 
-        | `Iterative ->
+        | `Iterative _ ->
             let tree, ((s1, s2, _) as delta) = join_fn a b c d in
             let other_neighbors = get_other_neighbors ((get_one s1), (get_one
             s2)) tree None in
-            let tree = refresh_all_edges true (adjust_tree other_neighbors
-            (assign_single tree)) in
+            let tree = (adjust_tree other_neighbors
+            (assign_single (pick_best_root tree))) in
             (*
             Printf.printf "The resulting tree has cost %f\n%!"
             (Ptree.get_cost `Adjusted tree);
@@ -1223,7 +1295,7 @@ module M = struct
         in
         let clade_data = 
             match !Methods.cost with
-            | `Iterative ->
+            | `Iterative `ThreeD ->
                     (match jxn2 with
                     | Tree.Single_Jxn _ -> forcer (Clade clade_data)
                     | Tree.Edge_Jxn (h, n) ->
@@ -1253,7 +1325,11 @@ module M = struct
 
     let cost_fn a b c d e =
         match !Methods.cost with
-        | `Iterative
+        | `Iterative `ApproxD -> 
+                (match cost_fn a b c d e with 
+                | Ptree.Cost x -> Ptree.Cost (0.85 *. x)
+                | x -> x)
+        | `Iterative `ThreeD
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
         | `Normal -> cost_fn a b c d e 
@@ -1276,6 +1352,7 @@ module M = struct
         | `Exhaustive_Strong
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
+        | `Iterative `ApproxD
         | `Normal -> 
                 let root = 
                     let new_roots = create_root h n ptree in
@@ -1285,7 +1362,7 @@ module M = struct
                     else root
                 in
                 add_component_root ptree h root, []
-        | `Iterative -> 
+        | `Iterative `ThreeD -> 
                 add_component_root ptree h root, []
 
     let root_costs tree = 
@@ -1482,11 +1559,6 @@ module M = struct
         Chartree.to_formatter atr data tree 
 
 end
-
-module F : Ptree.Tree_Operations with 
-type a = AllDirNode.AllDirF.n
-with type b = AllDirNode.OneDirF.n = M
-
 
 module CharScripting : CharacterScripting.S with type cs =
     CharacterScripting.Standard.cs with type n = AllDirNode.AllDirF.n = struct

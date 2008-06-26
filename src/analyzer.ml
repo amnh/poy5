@@ -185,7 +185,7 @@ let dependency_relations (init : Methods.script) =
                         [([EntryPoint], [Data; Trees; JackBoot; Bremer], init, NonComposable)]
                 | `Exhaustive_Weak
                 | `Exhaustive_Strong
-                | `Iterative
+                | `Iterative _
                 | `Normal_plus_Vitamines
                 | `Normal ->
                         [([Data; Trees], [Trees], init, Linnearizable)]
@@ -1506,7 +1506,7 @@ let script_to_string (init : Methods.script) =
                 | `Exhaustive_Strong
                 | `Exhaustive_Weak -> 
                         "@[set the cost calculation to Exhaustive Weak DO@]"
-                | `Iterative ->
+                | `Iterative _ ->
                         "@[set the cost calculation to iterative@]"
                 | `Normal_plus_Vitamines ->
                         "@[set the cost calculation to normal+ DO@]"
@@ -1837,7 +1837,7 @@ let is_master_only (init : Methods.script) =
     | `Normal
     | `Exhaustive_Strong
     | `Exhaustive_Weak
-    | `Iterative
+    | `Iterative _
     | `ReDiagnose
     | `ClearMemory _ 
     | `Recover 

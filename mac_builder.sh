@@ -6,10 +6,11 @@
 # placed.
 UNIVERSAL_DIRECTORY=universal
 
+version=
 function generate_binary {
     echo "Configurating for $1 - $2 - $3 for target $4" >> distro.log
     echo "Configure for $1 - $2 - $3 for target $4" 
-    if ! PATH=$5:$PATH CFLAGS="-O3 -arch $2 -isysroot $1 $6" CC="$7" ./configure $3 >> distro.log; then
+    if ! PATH=$5:$PATH CFLAGS="-O3 -mmacosx-version-min=10.4 -arch $2 -isysroot $1 $6" CC="$7" ./configure --with-version-number=$version $3 >> distro.log; then
         echo "Failed in the configuration step for $1 $2 $3 target $4"
         exit 1
     fi

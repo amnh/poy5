@@ -534,12 +534,14 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     let swap_med = ali_pam.ChromPam.swap_med in 
     let total_cost, (recost1, recost2), alied_free_id1, alied_free_id2 = 
         GenAli.create_gen_ali_code         
+        ali_pam.ChromPam.kept_wag
         `Genome free_id1_arr free_id2_arr gen_c2 gen_gap_code 
         ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular false
     in   
 
     let max_sq2_id = gen_gap_code - 2 in 
-    let mark2_arr = Array.make (max_sq2_id + 1) false in 
+    let mark2_arr = Array.make (max_sq2_id + 1) true in 
+    Array.iter (fun locus2 -> mark2_arr.(locus2.Subseq.id) <- false) loci2_arr;
     Array.iteri (fun idx _ -> 
                      (if (alied_free_id1.(idx) != gen_gap_code) && (alied_free_id2.(idx) != gen_gap_code) then begin
                           mark2_arr.(alied_free_id2.(idx)) <- true
@@ -564,7 +566,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
             let seg = 
                 {sta = -1; en = -1;
-                 cost = -Utl.large_int;
+                 cost = gen_c2.(gen_gap_code).(sq2_id);
                  med_chrom_id = chrom_id;  
                  alied_med = Sequence.create_gap_seq (Sequence.length sq2_seq);
                  
@@ -1051,7 +1053,7 @@ let create_med med1 med2 cost_mat user_chrom_pams =
                       recost2 = !g_recost2}
     in 
     
-    if (List.length chrom_med_ls = 0) then failwith "Created a fucking empty genome";
+    if (List.length chrom_med_ls = 0) then failwith "Created an empty genome";
     
     genome_med, !g_cost, (!g_recost1, !g_recost2)
         

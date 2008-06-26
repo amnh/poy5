@@ -150,7 +150,7 @@ type transform = [
 type cost_calculation = [
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative
+    | `Iterative of [ `ThreeD | `ApproxD ] 
     | `Normal_plus_Vitamines
     | `Normal
 ]
@@ -1370,7 +1370,9 @@ let create_expr () =
                 [ LIDENT "root"; ":"; x = INT -> `Root (Some (int_of_string x))
                 ] |
                 [ LIDENT "exhaustive_do" -> `Exhaustive_Weak ] |
-                [ LIDENT "iterative" -> `Iterative ] |
+                [ LIDENT "iterative"; x = optional_boolean -> 
+                    if x then `Iterative `ThreeD 
+                    else `Iterative `ApproxD] |
                 [ LIDENT "normal_do" -> `Normal ] | 
                 [ LIDENT "normal_do_plus" -> `Normal_plus_Vitamines ]
             ];

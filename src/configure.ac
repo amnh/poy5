@@ -67,6 +67,10 @@ AC_ARG_WITH(extras, [AS_HELP_STRING([--with-extras],
             [Add the following object files to the final linking rules (needed for windows).])],
             [EXTRAS=$withval],[])
 
+AC_CHECK_PROGS([MERCURIAL], [hg])
+
+AC_ARG_WITH(version-number, [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])], [MERCURIAL="echo $withval"],[MERCURIAL="$MERCURIAL id -i"])
+
 AC_ARG_WITH(ocaml-flags, [AS_HELP_STRING([--with-ocaml-flags], 
             [Add the following flags to the ocaml compiler.])],
             [OCAMLFLAGS=$withval],[])
@@ -171,7 +175,6 @@ AC_CHECK_HEADER(malloc.h,[],[AC_CHECK_HEADER(/usr/include/malloc/malloc.h,[CFLAG
 
 AC_CHECK_PROGS([OCAML], [ocaml])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
-AC_CHECK_PROGS([MERCURIAL], [hg])
 AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc])
 AC_CHECK_PROGS([OCAMLLEX], [ocamllex])
 AC_CHECK_PROGS([OCAMLOPT], [ocamlopt.opt ocamlopt])

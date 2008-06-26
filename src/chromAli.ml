@@ -50,7 +50,7 @@ type seg_t = {
     en2 : int;  (** end position of the segment on the second chromosome *)
     alied_seq2 : Sequence.s; (** alied_seq1 <-> reversed alied_seq2 
                                 if dir2 is Negative *)
-    dir2 : direction_t; (** the orientation of this segment on the first chromosome *) 
+    dir2 : direction_t; (** the orientation of this segment on the second chromosome *) 
 }
 
 (** the median data structure of two chromosomes *)

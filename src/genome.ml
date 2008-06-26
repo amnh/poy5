@@ -49,7 +49,7 @@ let max_taxa_id = ref 0
 (** [init_med genome chrom_pam tcode num_taxa] 
 * returns a genome list with only one element
 * created from genome [genome] *) 
-let init_med (genome : Sequence.s Data.dyna_data) chrom_pam tcode num_taxa
+let init_med (genome : Sequence.s Data.dyna_data) c2 chrom_pam tcode num_taxa
         =  
     let med = GenomeAli.init genome in 
      max_taxa_id := max !max_taxa_id num_taxa;
@@ -59,7 +59,7 @@ let init_med (genome : Sequence.s Data.dyna_data) chrom_pam tcode num_taxa
     
         total_cost = 0; 
         total_recost = 0; 
-        c2 = Cost_matrix.Two_D.default; 
+        c2 = c2;
  
         approx_cost_arr = (Array.make !max_taxa_id max_int);
         approx_recost_arr = (Array.make !max_taxa_id max_int);

@@ -99,7 +99,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "seed"; ":"; x = flex_integer -> <:expr<`SetSeed $x$>> ] |
                 [ LIDENT "root"; ":"; x = flex_string -> <:expr<`RootName $x$>> ] |
                 [ LIDENT "exhaustive_do" -> <:expr<`Exhaustive_Weak>> ] |
-                [ LIDENT "iterative" -> <:expr<`Iterative>> ] |
+                [ LIDENT "iterative"; x = optional_boolean -> <:expr<`Iterative
+                (if $x$ then `ThreeD else `ApproxD)>> ] |
                 [ LIDENT "normal_do_plus" -> <:expr<`Normal_plus_Vitamines>> ] |
                 [ LIDENT "normal_do" -> <:expr<`Normal>> ]
             ];

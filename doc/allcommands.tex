@@ -2347,14 +2347,20 @@ The \poycommand{calculate\_support} command does not output support values by de
                 used by the \poyargument{normal\_do}).}
                 {exhaustivedo}
 
-            \argumentdefinition{iterative}{}
-                {Applies the Iterative Pass optimization for the tree cost calculations ~\cite{wheeler2003a}. This improves
-                the tree cost estimation but at the expense of a tremendous execution time. The iterative argument 
-                can be applied to all the dynamic homology character types including chromosome, genome, and custom\_alphabet characters.  
-                When implementing the iterative pass option for these complex character types the parameter 
-                \poyargument{max\_3d\_len} can be used within the command \poycommand{transform}
-                ((all, \poyargument{dynamic\_pam}:(\poyargument{max\_3d\_len:} {\obligatory{\poyint}}))) 
-                to reduce execution time.  Another hueristic strategy is to implement  \poyargument{iterative} at the 
+                \argumentdefinition{iterative}{\obligatory{\poybool}}
+                {Applies the Iterative Pass optimization for the tree cost
+                calculations. There are two forms of iterative pass: if the
+                argument value is true (the default), then a complete three
+                dimensional alignment is computed, as described for POY 3.0 in~\cite{wheeler2003a}. 
+                Otherwise, if the argument value is false, then the iterations
+                approximate the three dimensional alignment using pairwise
+                alignments. The later is much faster than the former, but the
+                former is default for compatibility reasons.
+                If the argument value is true, this method improves the tree
+                cost estimation but at the expense of a tremendous execution
+                time. When false the execution time footprint is much smaller. The iterative argument 
+                can only be applied to nucleotide sequence characters.
+                A hueristic strategy is to apply  \poyargument{iterative} at the 
                 very end of an analysis to polish the final set of trees and perform a final search.}
                 {}
                 
