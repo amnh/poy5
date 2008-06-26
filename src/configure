@@ -3131,10 +3131,10 @@ fi
 { echo "$as_me:$LINENO: result: $ac_cv_lib_ncurses_scrollok" >&5
 echo "${ECHO_T}$ac_cv_lib_ncurses_scrollok" >&6; }
 if test $ac_cv_lib_ncurses_scrollok = yes; then
-  cat >>confdefs.h <<\_ACEOF
+  LIBS="-lncurses $LIBS"; cat >>confdefs.h <<\_ACEOF
 #define HAVE_LIBNCURSES 1
 _ACEOF
- LIBS=-lncurses $LIBS
+
 else
   if test $INTERFACE_SELECTED = "true"; then
   { { echo "$as_me:$LINENO: error: The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.
