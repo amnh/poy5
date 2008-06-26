@@ -47,7 +47,7 @@ val create_gen_cost_mat :
 (** [create_general_ali state global_map seq1 seq2 cost_mat ali_pam] 
  * returns the alignement between [seq1] and [seq2] allowing rearrangements *)    
   val create_general_ali :
-    [> `Breakinv ] ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
     Block.block_t list ->
     Sequence.s ->
     Sequence.s ->

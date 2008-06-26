@@ -37,10 +37,12 @@ let equal_orientation code1 code2 = compare (abs code1) (abs code2)
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
 * the rearrangement distance between two sequence [seq1] and [seq2] *)
 let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =     
+(*    Utl.printIntArr seq1;
+    Utl.printIntArr seq2; *)
     let seq1, seq2, reseq2 = match orientation with
     | true -> (Array.map get_orientated_code seq1),
-              (Array.map get_orientated_code seq2),
-              (Array.map get_orientated_code reseq2)
+                    (Array.map get_orientated_code seq2),
+                    (Array.map get_orientated_code reseq2)
     | false -> seq1, seq2, reseq2
     in
 

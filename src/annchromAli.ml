@@ -24,19 +24,17 @@ let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 * where both point mutations and rearrangement operations 
 * are considered *)
 let fprintf = Printf.fprintf
-type direction_t = ChromPam.direction_t
+
 
 (** [seq_t] is data structure to contain a segment of an annotated chromosome *)
 type seq_t = {
     seq : Sequence.s; (** the segment sequence *)
     seq_ref_code : int; (** the reference code of this segment *)
     alied_med : Sequence.s; (** the aligned sequence this segement *)
-
     seq_ord1 : int; (** the segment order of its first child *)
     alied_seq1 : Sequence.s; (** the aligned sequence of its first child *)
     seq_ord2 : int; (** the segment order of its second child *)
     alied_seq2 : Sequence.s; (** the aligned sequence of its second child *)
-    dir2 : direction_t; (** the orientation of this segment on the second chromosome *) 
 }
 
 (** [annchrom_t] is a data structure to contain an annoated chromosome *)
@@ -457,7 +455,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
 
     
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
-            GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr code2_arr 
+            GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular  true
@@ -654,19 +652,19 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
 
 
     let _, _, alied_code1_arr, alied_code1m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr codem_arr cost1_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr codem_arr cost1_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code2_arr, alied_code2m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code2_arr codem_arr cost2_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code2_arr codem_arr cost2_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code3_arr, alied_code3m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code3_arr codem_arr cost3_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code3_arr codem_arr cost3_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
