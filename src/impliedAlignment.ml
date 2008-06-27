@@ -981,6 +981,8 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                        let sta2 = seg.GenomeAli.sta2 in 
                        let en2 = seg.GenomeAli.en2 in 
                        let idx2 = id_to_index seg.GenomeAli.chi2_chrom_id med2 in 
+
+
                        let sub_ord2_arr = match idx2 = -1 with
                        | true -> [||]
                        | false ->
@@ -994,11 +996,15 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                                 let code = Hashtbl.find ias1_arr.(idx1).codes p in 
                                 Hashtbl.add sub_codes1 (p - sta1) code;
                             done);
+
+                       let len2 = en2 - sta2 + 1 in 
                        let sub_codes2 = Hashtbl.create 1667 in
                        (if sta2 != -1 then 
                             for p = sta2 to en2 do
                                 let code = Hashtbl.find ias2_arr.(idx2).codes p in 
-                                Hashtbl.add sub_codes2 (p - sta2) code;
+                                match seg.GenomeAli.dir2 = `Positive with
+                                | true -> Hashtbl.add sub_codes2 (p - sta2) code
+                                | false -> Hashtbl.add sub_codes2 ( (len2 - 1) - (p - sta2) ) code
                             done);
 
                        (if (sta1 = -1) || (sta2 = -1) then begin
@@ -1028,14 +1034,26 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                             dir = 1;
                         }  
                        in 
+                    
+                       let alied_seq2, order2, dir2 = 
+                            match seg.GenomeAli.dir2 = `Positive with
+                            | true -> seg.GenomeAli.alied_seq2,
+                                      List.rev (Array.to_list sub_ord2_arr),
+                                      1                          
+                            | false -> Sequence.complement_chrom alpha seg.GenomeAli.alied_seq2,
+                                        Array.to_list sub_ord2_arr,
+                                        -1
+                       in
+        
+
                        let sub2 = {
-                           seq = seg.GenomeAli.alied_seq2;
+                           seq = alied_seq2;
                            codes = sub_codes2;
-                           order = List.rev (Array.to_list sub_ord2_arr);                                  
+                           order = order2;
                            homologous = hom2;
                             indels = `Empty;
                             dum_chars = `Empty;
-                           dir = 1;
+                           dir = dir2;
                        }  
                        in  
                        let ans_ias = 
