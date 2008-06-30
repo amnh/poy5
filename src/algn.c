@@ -1841,10 +1841,9 @@ FILL_EXTEND_BLOCK_DIAGONAL_NOBT (SEQT si_base, SEQT sj_base, SEQT si_prev_base,
     int ext_cost, open_cost;
     int diag, open_diag, flag, flag2;
     flag = ((TMPGAP & si_base) && (TMPGAP & sj_base));
-    flag2= (!(TMPGAP & si_prev_base) && (!(TMPGAP & sj_base)) && \
-            (TMPGAP & si_base) && (TMPGAP & sj_base));
+    flag2= (!(TMPGAP & si_prev_base) && (!(TMPGAP & sj_base)));
     diag = flag?0:HIGH_NUM;
-    open_diag = flag2?0:(flag?(2 * gap_open):HIGH_NUM);
+    open_diag = flag?(flag2?0:(2 * gap_open)):HIGH_NUM;
     ext_cost = prev_extend_block_diagonal[j - 1] + diag;
     open_cost = prev_close_block_diagonal[j - 1] + open_diag;
     if (ext_cost < open_cost) 
