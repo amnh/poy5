@@ -26,7 +26,7 @@ val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 
 type direction_t = ChromPam.direction_t
 
-type direction_t = ChromPam.direction_t
+
 
 (** [seq_t] is data structure to contain a segment of an annotated chromosome *)
 type seq_t = {
