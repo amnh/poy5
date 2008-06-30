@@ -155,6 +155,9 @@ let extract_cost = function
             failwith likelihood_error
         END
 
+let get_characters_cost chars =
+    List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
+
 (** Helper function for recursing into sets *)
 let setrec a fn = { a with set = List.map fn a.set }
 
@@ -563,64 +566,76 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
             (* pull edges back together *)
             let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t1,t2 in
 
-            let first   = StaticMl { pml with time = t1; }
-            and second  = StaticMl { aml with time = t2; }
-            and mine    = StaticMl { bml with preliminary=res;final=res;
+            let first   = StaticMl { aml with time = t1; }
+            and second  = StaticMl { bml with time = t2; }
+            and mine    = StaticMl { pml with preliminary=res;final=res;
                                               cost=cost;sum_cost=cost; } in
-            ei_map ptl atl btl (mine::pa) (first::atl) (second::btl)
+            ei_map ptl atl btl (mine::pa) (first::aa) (second::ba)
         ELSE 
-            ei_map ptl atl btl pa atl btl
+            let first = StaticMl aml and second = StaticMl bml and mine = StaticMl pml in
+            ei_map ptl atl btl (mine::pa) (first::aa) (second::ba)
         END
         (* ignore non-likelihood characters *)
         (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
-        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl pa atl btl
+        | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa) (aml::aa) (bml::ba)
         | [],[],[] -> (pa,aa,ba)
         | _ -> failwith "Number of characters is inconsistent"
     in
-    let mine,ch1,ch2 = ei_map c0.characters c1.characters c2.characters [] [] [] in
-    let mine_cost = List.fold_left 
-            (fun x y -> match y with
-                | StaticMl a ->
-                    IFDEF USE_LIKELIHOOD THEN
-                        x +.a.cost
-                    ELSE
-                        x
-                    END
-                | _ -> x) 0.0 mine
-    in (
+    let rev_triple (a,b,c) = List.rev a,List.rev b,List.rev c in
+    let mine,ch1,ch2 =
+        rev_triple (ei_map c0.characters c1.characters c2.characters [] [] [])
+    in
+    let mine_cost = get_characters_cost mine in
         {c0 with characters = mine;
-                 total_cost = mine_cost;
+                 total_cost = mine_cost; (* isn't used --but for assertions *)
                  node_cost  = mine_cost;},
         {c1 with characters = ch1;}, (*childrens cost doesn't change *)
         {c2 with characters = ch2;}
-       )
+
+(** [check_times node1 node2] - ensures that both nodes have the same time
+* information. returns true or false *)
+let check_time (n1:node_data) (n2:node_data) : bool = 
+    let rec ct_map char1 char2 = match char1,char2 with
+        | (StaticMl c1)::t1,(StaticMl c2)::t2 ->
+            IFDEF USE_LIKELIHOOD THEN
+                if c1.time = c2.time then
+                    ct_map t1 t2
+                else
+                    false
+            ELSE
+                true
+            ENDIF
+        | c1::t1,c2::t2 -> ct_map t1 t2
+        | [],[] -> true
+        | _ -> failwith "inconsistent character lengths"
+    in
+    ct_map n1.characters n2.characters
 
 (** [apply_time node1 node2] - new node_data with time associated. Each
- * node should be in the opposite direction, and ca1 should have the proper time
- * data to apply to the ca2 node. Optionally apply a function to the two times.
- * This is currently useful for dividing the times by 1/2 or adding them
- * together after adjusting the root of three dir tree. *)
+ * node should be in the opposite direction, and ca2 should have the proper time
+ * data to apply to the ca1 node. *)
 let apply_time (ca1:node_data) (ca2:node_data) : node_data = 
     let rec at_map todata fromdata acc = match todata,fromdata with
         | (StaticMl curr)::tl,(StaticMl from)::t2 ->
             IFDEF USE_LIKELIHOOD THEN
-                let mine = StaticMl { curr with time = from.time } in
-                at_map tl t2 (mine::acc) 
+                let mine = 
+                    StaticMl { curr with time = from.time } in
+                at_map tl t2 (mine :: acc) 
             ELSE
-                at_map tl t2 (StaticMl curr::acc)
+                at_map tl t2 ( (StaticMl curr) :: acc)
             END
-        | curr::tl,from::t2 -> at_map tl t2 (curr::acc)
+        | curr::tl,from::t2 -> at_map tl t2 (curr :: acc)
         | [],[] -> acc
         | _ -> failwith "apply_time: Characters of inconsistent lengths"
     in
-    {ca2 with characters = at_map ca1.characters ca2.characters [] }
+    let mine = {ca1 with (* cost doesn't change!! *)
+        characters = List.rev (at_map ca1.characters ca2.characters []) }
+    assert( check_time mine ca2 );
+    mine
 
 let rec cs_median_3 pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
-    | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> (*
-            let m = MlStaticCS.median_3 cp.final cn.preliminary cc1.preliminary 
-            cc2.preliminary in
-            StaticMl { cn with final = m } *)
+    | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> 
         n
     | Nonadd8 cp, Nonadd8 cn, Nonadd8 cc1, Nonadd8 cc2 -> 
           let m = NonaddCS8.median_3 cp.final cn.preliminary cc1.preliminary
@@ -736,7 +751,6 @@ let new_node_stats a b =
         (max a.num_height b.num_height) + 1 in
     (num_child_edges, num_height)
     
-
 let excludes_median a b =
     let exclude_median = function
         | `Excluded, `Excluded -> 0, `Excluded
@@ -746,7 +760,6 @@ let excludes_median a b =
         | a, `Either -> 0, a
         | `Excluded, `NotExcluded
         | `NotExcluded, `Excluded -> 1, `Either in
-
     List.map2
         (fun (s1, c1, card, count1) (s2, c2, _, count2) ->
              let cost, med = exclude_median (s1, s2) in
@@ -758,9 +771,6 @@ let has_excluded list =
     let excluded (_, cost, size, count) =
         cost = 1 && count = size in
     List.exists excluded list
-
-let get_characters_cost chars =
-    List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
 
 let total_cost _ a =
     match a.cost_mode with
@@ -1046,7 +1056,7 @@ let edge_distance clas nodea nodeb =
                 (match clas with
                 | `Dynamic | `Any -> 
                         (* Observe that we REQUIRE the single assignment for
-                        * this collpse to be correct. *)
+                        * this collapse to be correct. *)
                         let d = 
                             DynamicCS.distance a.preliminary b.preliminary 
                         in
@@ -1056,7 +1066,7 @@ let edge_distance clas nodea nodeb =
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-                a.weight *. (MlStaticCS.distance a.final b.final a.time b.time)
+                b.time
             ELSE
                 failwith likelihood_error
             END
@@ -1080,7 +1090,7 @@ let edge_distance clas nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ]
 
 let distance_of_type ?(para=None) ?(parb=None) t
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -1113,9 +1123,9 @@ let distance_of_type ?(para=None) ?(parb=None) t
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
+            (* Don't sum over branches for likelihood *)
             IFDEF USE_LIKELIHOOD THEN
                 0.0
-                (* a.weight *. MlStaticCS.distance a.final b.final a.time b.time *)
             ELSE
                 failwith likelihood_error
             END
@@ -2073,7 +2083,9 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
                    sum_cost = (mine.weight *. cost);
                    weight = mine.weight; time = 0.}
               
-    | _ -> mine
+    | _ -> match root with
+            | Some mine -> mine
+            | None -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
     (*
@@ -2106,7 +2118,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
                     c2.preliminary mine.preliminary c1.time c2.time mine.time
                 in
-
                 modified := m;
                 let cost = mine.weight *. cost in
 
@@ -3308,12 +3319,6 @@ let total_cost_of_type t n =
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
-        | StaticMl x, `StaticMl ->
-           IFDEF USE_LIKELIHOOD THEN
-            acc +. (x.cost)
-           ELSE
-            failwith likelihood_error
-           END
         | Dynamic x, t -> 
                 (match x.preliminary, t with
                 | DynamicCS.SeqCS _, `Seq -> acc +. (x.sum_cost *. x.weight)
