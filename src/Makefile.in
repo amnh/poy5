@@ -47,6 +47,7 @@ OCAMLTOP := @OCAMLTOP@
 OCAMLLEX := @OCAMLLEX@
 OCAMLYACC := @OCAMLYACC@
 MERCURIAL := @MERCURIAL@
+NROFF := @NROFF@
 EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
 
@@ -491,7 +492,11 @@ else
 	./latex_helper 
 	rm latex_helper
 endif
+ifeq ($(NROFF), notfound)
+	echo "Could not find nroff to create man pages. I will not produce them."
+else
 	nroff -man manpoy.txt > poy.1
+endif
 
 help.ml: help.txt ocaml-str helpRead.ml
 	./ocaml-str
