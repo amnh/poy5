@@ -18,20 +18,22 @@
 \* USA                                                                        */
 
 #include <stdio.h>
-#include <stdlib.h> //malloc, calloc, srand, RAND_MAX
-#include <string.h> //memcpy, memset
-#include <assert.h>
+#include <stdlib.h>         //malloc, calloc, srand, RAND_MAX
+#include <string.h>         //memcpy, memset
+#include <assert.h>         
 
-#include "config.h"
+#include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
 #ifdef USE_LIKELIHOOD   
-#include <math.h>   //log,exp
+#include <math.h>           //log10,exp
 
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
+//caml specific functions
+#include <caml/alloc.h>     //copy_double, et cetera
+#include <caml/memory.h>    //caml_param, et cetera
 #include <caml/bigarray.h>
-#include <caml/custom.h>
-#include <caml/intext.h>
-#include <caml/fail.h>
+#include <caml/custom.h>    //abstract types
+#include <caml/intext.h>    //serialization
+#include <caml/fail.h>      //failwith('')
+#include <caml/callback.h>
 
 #include "array_pool.h"
 #include "likelihood.h"
@@ -123,8 +125,8 @@ void CAML_debug( value s )
 {
     mll* a; int i; 
     a = ML_val( s );
-    //printf("DEBUG:\n\tN: %d\n\tL: %d", a->stride, a->c_len );
-    printf("DEBUG:");
+    printf("DEBUG:\n\tN: %d\n\tL: %d", a->stride, a->c_len );
+    //printf("DEBUG:");
     for (i=0;i< (a->stride*a->c_len);i++){
         if( i % a->stride == 0 )
             printf("\n\t");
@@ -187,6 +189,8 @@ void rand_sub_mat_sym( double* A, const int n)
 }
 
 //------------------------------------------------------------------------------
+// O'CAML interface functions for Garbage Collection + callback for a GC
+
 /* release struct ml->lv_s array to pool */
 void likelihood_CAML_free( value v )
 {
@@ -204,12 +208,13 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
     s = ML_val(v);
     caml_serialize_int_4( s->stride );
     caml_serialize_int_4( s->c_len );
-    int i,j=s->stride*s->c_len;
+    int i,j;
+    j = s->stride * s->c_len;
     for(i=0;i<j;++i)
         caml_serialize_float_8( s->lv_s[i] );
 }
 
-/* deserialization of struct ml */
+/* deserialization of struct ml */  
 unsigned long likelihood_CAML_deserialize( void* v )
 {
     mll* s;
@@ -244,6 +249,15 @@ likelihood_CAML_register (value u) {
     register_custom_operations (&likelihood_custom_operations);
     CAMLreturn (Val_unit);
 }
+
+/* calls a full garbage collection, a is used to ensure success. */
+void likelihood_CAML_gc()
+{
+    int a = 0;
+    a = Int_val( caml_callback(*caml_named_value("likelihood_gc_compact"), Val_int(a)) );
+    assert( a == 0 );
+}
+
 //------------------------------------------------------------------------------
 
 /**  [mk_diag diag mat n m] ~ makes a diagonal matrix from an array
@@ -368,7 +382,7 @@ value likelihood_CAML_BigarraytoS( value A )
 
     o_stuff = (double*) Data_bigarray_val( A );
 
-    ret = (mll*) malloc( sizeof(mll));
+    ret = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(ret);
     ret->c_len = Bigarray_val(A)->dim[0];
     ret->stride = Bigarray_val(A)->dim[1];
@@ -413,7 +427,7 @@ value likelihood_CAML_filter(value as, value ibs)
     for(;i<m;++i)
         area[i] = norm->lv_s[i];
 
-    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
+    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
                                                     (n-m)*norm->stride, CAML_ALLOC_2);
     ret = ML_val( package );
     ret->stride = norm->stride;
@@ -453,143 +467,6 @@ int likelihood_CAML_compare( value c1, value c2 )
     ccs2 = ML_val(c2);
     return compare_chars( ccs1, ccs2 );
 }
-
-//------------------------------------------------------------
-/** [gamma z]
- * Computes the gamma function of z using Lanczos Approximation. (e~1e-15)
- */
-double gamma( double z )
-{
-    double x,Lg; int k; int g = 7;
-    static double C[] = 
-    {  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
-        771.32342877765313, -176.61502916214059, 12.507343278686905,
-        -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7 };
-
-    if( z < .5 )
-        return M_PI / (sin(M_PI*z)*gamma(1-z));
-    z--;
-    Lg = C[0];
-    for(k=1;k<g+2;++k)
-        Lg = Lg + (C[k] / (z+k));
-
-    x = z + g + 0.5;
-    return sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
-}
-
-/** [gamma_pdf r alpha beta]
- * Return the probability density function of the gamma distribution
- */
-double gamma_pdf(const double r, const double alpha, const double beta)
-{
-    return (pow(beta,alpha)*pow(r, alpha-1))/(exp(beta*r)*gamma(alpha));
-}
-
-/** [gamma_pp out k alpha beta step]
- * Finds the cut points, into [out], that create fractions of the percent total
- */
-void gamma_pp(double* out,const int k,const double alpha,const double beta)
-{
-    double x,y1,y2,y,z,f; int i;
-    x = STEP; y = 0; z = 0; f = STEP/2; //initial values; gamma_pdf(0) = inf
-
-    for(i=0;i<(k-1);i++){
-        z = ((double)i+1) / ((double)k);
-        y1 = gamma_pdf(x,alpha,beta);
-        while( y <= z ){
-            x += STEP;
-            y2 = gamma_pdf(x,alpha,beta);
-            y += f*(y1+y2);
-            y1 = y2;
-        }
-        out[i] = x;
-        z += 1/k;
-    }
-}
-
-/** confluent hypergeometric (for incomplete gamma ratio)
- *   ___inf
- *   \       ______x^r_______ 
- *   /      (p+1)(p+2)...(p+r)
- *   ---r=1
- */
-double gamma_M(const double z, const double a) 
-{
-    double bottom,sum,z_pow,prev; int iter;
-    iter = 0; bottom = 1; z_pow = 1; sum = 0; prev = 0;
-
-    do {
-        prev = sum;
-        sum += z_pow / bottom;
-        iter++;
-        bottom = bottom * (a+iter);
-        z_pow = z_pow * z;
-    } while( fabs(sum-prev) > EPSILON );
-
-    return sum;
-}
-
-/** [gamma_i x a ]
- * calculates the incomplete gamma ratio, based on methods described in
- *      ~Bhattacharjee (1970), Algorithm AS32
- *
- *      a - alpha parameter
- *      x - bound of integral
- */
-double gamma_i(const double x, const double a)
-{
-    return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
-}
-
-/** [gamma_rates rates alpha beta cuts k]
- * calculates the rates into [rates] with percentage points [cuts] of [k]
- * categories and shape parameters [alpha] and [beta]
- */ 
-void 
-gamma_rates(double* rates,const double a,const double b,const double* cuts,const int k)
-{
-    double fac, *ingam;
-    fac = a*((double)k)/b;
-    ingam = (double*) malloc( k * sizeof(double));
-    CHECK_MEM(ingam);
-    int j;
-
-    //calculate: rj = (A*k/B)*(I(bB,A+1)-I(aB,A+1))
-    for(j=0;j<(k-1);j++)
-        ingam[j] = gamma_i( cuts[j]*b, a+1 );
-    rates[0]   = ingam[0] * fac;            //lower rate
-    rates[k-1] = (1 - ingam[k-2]) * fac;    //upper rate
-    for(j=1;j<k-1;j++)
-        rates[j] = (ingam[j] - ingam[j-1]) * fac;
-    CHECK_MEAN( rates, k );
-    free( ingam );
-}
-
-value gamma_CAML_rates( value a, value b, value c )
-{
-    CAMLparam3(a,b,c); 
-    CAMLlocal1( rates );
-    double alpha,beta,*rate_ray,*pcut_ray;
-    int cats,j;
-
-    alpha = Double_val( a );
-    beta = Double_val( b );
-    cats = Int_val( c );
-    rate_ray = (double*) malloc( sizeof(double)*c ); 
-    CHECK_MEM(rate_ray);
-    pcut_ray = (double*) malloc( sizeof(double)*c );
-    CHECK_MEM(pcut_ray);
-
-    gamma_pp( pcut_ray, cats, alpha, beta );
-    gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
-
-    free( pcut_ray );
-    long dims[1]; dims[0] = cats;
-    rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
-
-    CAMLreturn( rates );
-}
-//------------------------------------------------------------------------------
 
 /**  [diagonalize_sym A D N]
  * Diagonalizes [A] that is [N]x[N] and upper symmetric and places
@@ -910,6 +787,7 @@ value likelihood_CAML_median_wrapped_sym
     CAMLparam5(U,D,ta,tb, ml_a);
     CAMLxparam3( ml_b,rates,probs );
     CAMLlocal1( ml_c );
+
     double cta,ctb,*c_U,*c_D,*c_lv,*PA,*PB,*tmp,*g_rs,*p_rs;
     mll *a,*b,*c;
     int num_rates,num_probs,i=0;
@@ -924,7 +802,6 @@ value likelihood_CAML_median_wrapped_sym
     p_rs = (double*) Data_bigarray_val( probs );
     cta = Double_val( ta );
     ctb = Double_val( tb );
-//    printf("TA:%f\nTB:%f\n",cta,ctb);
     assert( cta > 0 && ctb > 0 );
 
     a = ML_val( ml_a );
@@ -940,9 +817,6 @@ value likelihood_CAML_median_wrapped_sym
 
     c->stride = a->stride;
     c->c_len = a->c_len;
-
-    assert( a->c_len == b->c_len );
-    assert( b->stride == a->stride );
 
     c->lv_s = (double*) calloc( c->c_len * c->stride, sizeof(double));
     CHECK_MEM(c->lv_s);
@@ -978,6 +852,9 @@ value likelihood_CAML_median_wrapped_sym
 
     free( PA ); free( PB ); free( tmp );
     assert( c == ML_val(ml_c));
+    assert( c->c_len == b->c_len );
+    assert( c->stride == a->stride );
+
     CAMLreturn(ml_c);
 }
 
@@ -1202,7 +1079,6 @@ likelihood_CAML_readjust_sym_wrapped
     Store_field(res, 2, caml_copy_double (likelihood));
     CAMLreturn(res);
 }
-
 
 /** functions for interface **/
 value

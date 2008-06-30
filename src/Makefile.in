@@ -76,7 +76,7 @@ endif
 LIKELIHOOD_CHAR :=
 LIKELIHOOD_COMPONENTS :=
 ifeq ($(USE_LIKELIHOOD), true)
-	LIKELIHOOD_COMPONENTS := likelihood.o mlStaticCS.cmo
+	LIKELIHOOD_COMPONENTS := gamma.o likelihood.o mlStaticCS.cmo
 	LIKELIHOOD_CHAR := mlStaticCS.cmo
 	DEFOPTS := -DUSE_LIKELIHOOD $(DEFOPTS)
 endif
