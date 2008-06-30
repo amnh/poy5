@@ -547,8 +547,8 @@ type nad8 = Node.Standard.nad8 = struct
     let apply_time curr par = 
         let get_desired_dir par x = not_with (taxon_code par) x.unadjusted in
         let ctop = get_desired_dir par curr and ptoc = get_desired_dir curr par in
-        let lnode = {ptoc with                     (* v----from----v v-----to-----v *)
-                       lazy_node = OneDirF.apply_time ctop.lazy_node ptoc.lazy_node 
+        let lnode = {ptoc with                     (* v-----to-----v v----from----v *)
+                       lazy_node = OneDirF.apply_time ptoc.lazy_node ctop.lazy_node 
                     } in
         match par.unadjusted with
             | [_] -> {par with unadjusted = [lnode] }
