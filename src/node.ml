@@ -630,6 +630,7 @@ let apply_time (ca1:node_data) (ca2:node_data) : node_data =
     in
     let mine = {ca1 with (* cost doesn't change!! *)
         characters = List.rev (at_map ca1.characters ca2.characters []) }
+    in
     assert( check_time mine ca2 );
     mine
 
