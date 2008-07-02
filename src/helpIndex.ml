@@ -47,7 +47,7 @@ let rec help item =
           List.iter output_help_item index
     | Some it ->
           try
-              let item = List.assoc (it ^ " ") index in
+              let item = List.assoc it index in
               output_help_item (it, item)
           with
           | Not_found ->

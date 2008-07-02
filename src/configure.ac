@@ -133,7 +133,7 @@ esac
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"], 
-      [AC_CHECK_LIB([ncurses], [scrollok], [AC_DEFINE(HAVE_LIBNCURSES) LIBS=[-lncurses $LIBS] ], 
+      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS"; AC_DEFINE(HAVE_LIBNCURSES)], 
       [AS_IF([test $INTERFACE_SELECTED = "true"], 
              [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.])], 
              [USEINTERFACE="readline"])])],[])

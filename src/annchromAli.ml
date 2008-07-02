@@ -25,17 +25,17 @@ let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 * are considered *)
 let fprintf = Printf.fprintf
 
+type direction_t = ChromPam.direction_t
 (** [seq_t] is data structure to contain a segment of an annotated chromosome *)
 type seq_t = {
     seq : Sequence.s; (** the segment sequence *)
     seq_ref_code : int; (** the reference code of this segment *)
     alied_med : Sequence.s; (** the aligned sequence this segement *)
-
     seq_ord1 : int; (** the segment order of its first child *)
     alied_seq1 : Sequence.s; (** the aligned sequence of its first child *)
-
     seq_ord2 : int; (** the segment order of its second child *)
     alied_seq2 : Sequence.s; (** the aligned sequence of its second child *)
+    dir2 : direction_t; (** the orientation of this segment on the second chromosome *) 
 }
 
 (** [annchrom_t] is a data structure to contain an annoated chromosome *)
@@ -59,6 +59,7 @@ let clone_seq s = {
     alied_seq1 = Sequence.clone s.alied_seq1;
     seq_ord2 = s.seq_ord2;
     alied_seq2 = Sequence.clone s.alied_seq2;
+    dir2 = s.dir2;
 }
 
 (** [clone_med] returns a fresh clone of annotated chromosome [m] *)
@@ -84,6 +85,7 @@ type annchromPam_t = {
     approx : ChromPam.order_t;
     symmetric : bool;
     locus_indel_cost : (int * int);
+    kept_wag : int;
 }
 
 let annchromPam_default = {
@@ -94,6 +96,7 @@ let annchromPam_default = {
     approx = `BothSeq;
     symmetric = false;
     locus_indel_cost = (10, 100);
+    kept_wag = 3;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -105,6 +108,7 @@ let init_seq_t (seq, code) = {
     alied_seq1 = seq;
     seq_ord2 = -1;
     alied_seq2 = seq;
+    dir2 = `Positive;
     
 }
 
@@ -403,14 +407,13 @@ let cmp_simple_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
         let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
             create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam  
         in 
-    
         let total_cost, (recost1, recost2), _, _ = 
-            GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
+            GenAli.create_gen_ali_code ali_pam.kept_wag `Annchrom code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular true
         in 
-        total_cost, (recost1 + recost2)
+        total_cost, (recost1 + recost2)    
     end 
 
 
@@ -453,7 +456,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
 
     
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
-            GenAli.create_gen_ali_code  `Annchrom code1_arr code2_arr 
+            GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular  true
@@ -476,12 +479,14 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                      else alied_code2_arr.(idx)
                  in 
                  let idx2 = Utl.find_index code2_arr pos_code2 compare in  
-                 let seq2 =
+                 let seq2, dir2 =
                      match idx2 with 
-                     | -1 -> None
+                     | -1 -> None, `Positive
                      | _ -> 
-                           if pos_code2 = alied_code2_arr.(idx) then Some chrom2.seq_arr.(idx2).seq
-                           else Some (Sequence.complement_chrom Alphabet.nucleotides chrom2.seq_arr.(idx2).seq)
+                           if pos_code2 = alied_code2_arr.(idx) then 
+                                Some chrom2.seq_arr.(idx2).seq, `Positive
+                           else Some (Sequence.complement_chrom Alphabet.nucleotides chrom2.seq_arr.(idx2).seq),
+                                `Negative
                  in                            
                      
                  let alied_med_seq, alied_seq1, alied_seq2 =
@@ -503,7 +508,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                            med, seq1, seq2
                      | _, _ -> Sequence.get_empty_seq (), Sequence.get_empty_seq (), Sequence.get_empty_seq ()
                  in 
-                 (alied_med_seq, idx1, alied_seq1, idx2, alied_seq2)
+                 (alied_med_seq, idx1, alied_seq1, idx2, alied_seq2, dir2)
             )
         in 
     
@@ -536,7 +541,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
             let med = 
                 List.fold_right  
                     (fun index med ->                     
-                         let alied_med, seq_ord1, alied_seq1, seq_ord2, alied_seq2 =  ali_chrom.(index) in
+                         let alied_med, seq_ord1, alied_seq1, seq_ord2, alied_seq2, dir2 =  ali_chrom.(index) in
                          {seq= Sequence.delete_gap alied_med;  
                           seq_ref_code = Utl.get_new_seq_ref_code();  
                           alied_med = alied_med;
@@ -544,6 +549,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                           alied_seq1 = alied_seq1;
                           seq_ord2 = seq_ord2;
                           alied_seq2 = alied_seq2;
+                          dir2 = dir2;
                          }::med 
                     ) index_ls []
             in   
@@ -647,19 +653,19 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
 
 
     let _, _, alied_code1_arr, alied_code1m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code1_arr codem_arr cost1_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr codem_arr cost1_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code2_arr, alied_code2m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code2_arr codem_arr cost2_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code2_arr codem_arr cost2_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 
 
     let _, _, alied_code3_arr, alied_code3m_arr = 
-        GenAli.create_gen_ali_code `Annchrom code3_arr codem_arr cost3_mat
+        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code3_arr codem_arr cost3_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 

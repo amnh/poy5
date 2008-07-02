@@ -106,7 +106,7 @@ module Characters = struct
     let breakinv = "Breakinv"
 
     (* The cost matrices and calculation methods *)
-    let fixed_states = "Fixed States"
+    let initial_assignment = "Initial Assignment"
     let tcm = "Transformation Cost Matrix"
     let gap_opening = "Gap Opening"
     let state = "State"
@@ -145,7 +145,7 @@ module Characters = struct
     let chrom_indel_cost = "chrom_indel_cost"
     let chrom_hom = "chrom_hom"
     let chrom_breakpoint = "chrom_breakpoint"
-    let sig_block_len = "sig_block_len"
+    let sig_block_len = "min_loci_len"
     let rearranged_len = "rearranged_len"
     let keep_median = "keep_median"
     let swap_med = "swap_med"

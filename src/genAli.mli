@@ -25,19 +25,23 @@ type dyna_state_t = Data.dyna_state_t
 
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
 * the rearrangement distance between two sequence [seq1] and [seq2] *)
+
 val cmp_recost :
-  [> `Breakinv ] ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   int array ->
   int array ->
   int array ->
-  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int * int
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+  int -> bool -> int * int
+
+
 
 (** [cmp_cost state code1_arr code2_arr recode2_arr 
 *              cost_mat gap re_meth circular] returns
 * the total cost between [seq1] and [reseq2]. Precisely,
 * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val cmp_cost :
-  [> `Breakinv ] ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   int array ->
   int array ->
   int array ->
@@ -49,6 +53,7 @@ val cmp_cost :
 (**[cmp_cost3 seq1 seq2 seq3 med cost_mat gap re_meth cir sym] returns
 * the total cost between [med] and three sequences [seq1], [seq2], [seq3] *)
 val cmp_cost3 :
+  int ->   
   int array ->
   int array ->
   int array ->
@@ -62,7 +67,8 @@ val cmp_cost3 :
  * such that the total cost is minimum where 
  * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val find_wagner_ali :
-  [> `Breakinv ] ->
+  int ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   int array ->
   int array ->
     Cost_matrix.Two_D.m ->
@@ -73,7 +79,7 @@ val find_wagner_ali :
 * swaps [reseq2] in order to minimize the total cost between [seq1] and [reseq2] where 
 * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 val multi_swap_locus :
-  [> `Breakinv ] ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   int array ->
   int array ->
   int array ->
@@ -87,7 +93,8 @@ val multi_swap_locus :
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
 * where total cost = editing cost + rearrangement cost *)
 val create_gen_ali :
-  [> `Breakinv ] ->
+  int ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   Sequence.s ->
   Sequence.s ->
   Cost_matrix.Two_D.m ->
@@ -100,7 +107,8 @@ val create_gen_ali :
 * alignment between [seq1] and [seq2] with minimum total cost
 * where total cost = editing cost + rearrangement cost *)
 val create_gen_ali_code :
-  [> `Breakinv ] ->
+  int ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
   int array ->
   int array ->
   int array array ->
@@ -113,7 +121,8 @@ val create_gen_ali_code :
 *     alpha re_meth  max_swap_med circular sym] create
 * the general alignment among [seq1], [seq2], and [seq3] 
 * such that total cost = editing cost + rearrangement cost is minimized *)
-  val create_gen_ali3 :
+val create_gen_ali3 :
+    int ->
     Sequence.s ->
     Sequence.s ->
     Sequence.s ->

@@ -35,12 +35,12 @@
 #include <caml/intext.h>
 
 #include "array_pool.h"
+#include "gamma.h" //contains special functions
 
 /**
  * C struct for a character set and likelihood vectors
  */ 
 struct ml {
-    int id;
     int stride;     //stride of matrix (ie: size of alphabet)
     int c_len;      //length of character set
     double* lv_s;   //likelihood vectors x character set (length is n*k)
@@ -94,23 +94,6 @@ __inline void
 inline void
 #endif
 apply_exp( double* D, const int n, const int m, const double t);
-
-/**
- * functions for gamma distribution
- */
-//gamma function by Lanczos Approx (~10e-15 relative error)
-double gamma( const double z );
-//gamma density function for: int( pi*f(x|t*r)*gd(r), 0 , inf, r )
-double gamma_pdf( const double r, double alpha, double beta );
-//calculates the percetage points for k categories
-void gamma_pp( double* out, const int k, const double alpha, const double beta);
-//confluent hypergeometric (for igamma)
-double gamma_M( const double z, const double a);
-//generates rates
-void gamma_rates(double* rates, const double alpha, const double beta, 
-                    const double* cuts, const int k);
-//incomplete gamma ratio; based on AS32 by Bhattacharjee (1970)
-double gamma_i( const double x, const double a);
 
 /**
  * diagonalization functions

@@ -891,7 +891,56 @@ with type b = AllDirNode.OneDirF.n = struct
     let clear_internals = 
         internal_downpass false
 
-    let pick_best_root ptree = 
+    let blindly_trust_downpass ptree 
+        (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
+        let data = Ptree.get_edge_data e ptree in
+        let c = AllDirNode.OneDirF.root_cost data in
+        if abs_float cost > abs_float c then 
+            let data = 
+                [{ AllDirNode.lazy_node = data; dir = None; code = -1 }] 
+            in
+            let data = { AllDirNode.unadjusted = data; adjusted = data } in
+            let comp = Some ((`Edge (a, b)), data) in
+            c, 
+            Lazy.lazy_from_fun (fun () ->
+                Ptree.set_component_cost c None comp handle ptree)
+        else (cost, cbt)
+
+    let blindly_trust_single ptree 
+        (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
+        let data = Ptree.get_edge_data e ptree in
+        let tree =
+            let c = AllDirNode.OneDirF.root_cost data in
+            let data = 
+                [{ AllDirNode.lazy_node = data; dir = None; code = -1 }] 
+            in
+            let data = { AllDirNode.unadjusted = data; adjusted = data } in
+            let comp = Some ((`Edge (a, b)), data) in
+            Ptree.set_component_cost c None comp handle ptree
+        in
+        let tree = assign_single tree in
+        let c = Ptree.get_cost `Adjusted tree in
+        if abs_float cost > abs_float c then c, lazy tree
+        else (cost, cbt)
+
+    let blindly_trust_adjusted ptree 
+        (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
+        let data = Ptree.get_edge_data e ptree in
+        let tree =
+            let c = AllDirNode.OneDirF.root_cost data in
+            let data = 
+                [{ AllDirNode.lazy_node = data; dir = None; code = -1 }] 
+            in
+            let data = { AllDirNode.unadjusted = data; adjusted = data } in
+            let comp = Some ((`Edge (a, b)), data) in
+            Ptree.set_component_cost c None comp handle ptree
+        in
+        let tree = tree --> assign_single --> adjust_tree None in
+        let c = Ptree.get_cost `Adjusted tree in
+        if abs_float cost > abs_float c then c, lazy tree
+        else (cost, cbt)
+
+    let general_pick_best_root selection_method ptree = 
         let edgesnhandles = 
             All_sets.Integers.fold 
             (fun handle acc ->
@@ -904,42 +953,23 @@ with type b = AllDirNode.OneDirF.n = struct
                 let r = Ptree.get_component_root handle ptree in
                 match r.Ptree.root_median with
                 | Some (`Single _, _) 
-                | None -> None 
+                | None -> 0., lazy ptree
                 | Some ((`Edge e), n) ->
-                        Some (e, r.Ptree.adjusted_component_cost, 
-                            Edge.LazyEdge.of_node None n)
+                        r.Ptree.adjusted_component_cost, lazy ptree
             in
-            match
-                List.fold_left (fun acc ((Tree.Edge (a, b)) as e) ->
-                    current_snapshot "AllDirChar.uppass edge list fold";
-                    let data = Ptree.get_edge_data e ptree in
-                    let c = AllDirNode.OneDirF.root_cost data in
-                    match acc with 
-                    | Some (edge, cost, v) ->
-                            if cost > c then Some ((a, b), c, data)
-                            else acc
-                    | None -> Some ((a, b), c, data)) current_root_of_tree
+            let _, ptree =
+                List.fold_left (selection_method ptree (edges, handle)) current_root_of_tree
                     (List.sort (fun (Tree.Edge (a, b)) (Tree.Edge (c, d)) ->
                         match c - a with
                         | 0 -> d - b
                         | x -> x)
                         edges)
-            with
-            | Some (a, b, c) -> 
-                    let c = 
-                        [{ AllDirNode.lazy_node = c; dir = None; code = -1 }] 
-                    in
-                    let c = { AllDirNode.unadjusted = c; adjusted = c } in
-                    let comp = Some ((`Edge a), c) in
-                    Ptree.set_component_cost b None comp handle ptree
-            | None -> 
-                    assert (Tree.is_single handle ptree.Ptree.tree);
-                    let data = Ptree.get_node_data handle ptree in
-                    let c = AllDirNode.AllDirF.root_cost data in
-                    let comp = Some ((`Single handle), data) in
-                    Ptree.set_component_cost c None comp handle ptree
+            in
+            Lazy.force_val ptree
         in 
         List.fold_left process ptree edgesnhandles 
+
+    let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
 
     let downpass ptree = 
         current_snapshot "AllDirChar.downpass a";
@@ -949,8 +979,12 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Iterative `ApproxD
             | `Normal -> internal_downpass true ptree
+            | `Iterative `ApproxD ->
+                    ptree --> internal_downpass true -->
+                        pick_best_root -->
+                        assign_single --> 
+                        adjust_tree None 
             | `Iterative `ThreeD ->
                     ptree 
                     --> internal_downpass true
@@ -971,10 +1005,7 @@ with type b = AllDirNode.OneDirF.n = struct
                 let ptree = pick_best_root ptree in
                 let ptree = assign_single ptree in
                 ptree
-        | `Iterative `ApproxD ->
-                    ptree --> internal_downpass true -->
-                        pick_best_root --> assign_single -->
-                            adjust_tree None 
+        | `Iterative `ApproxD 
         | `Iterative `ThreeD -> ptree
 
     let create_edge ptree a b =
@@ -1355,8 +1386,9 @@ with type b = AllDirNode.OneDirF.n = struct
         | `Normal -> 
                 let root = 
                     let new_roots = create_root h n ptree in
-                    if force || new_roots.Ptree.component_cost < 
-                    root.Ptree.component_cost then
+                    if force || 
+                        (abs_float new_roots.Ptree.component_cost) < 
+                        (abs_float root.Ptree.component_cost) then
                         new_roots
                     else root
                 in

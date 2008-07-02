@@ -76,7 +76,7 @@ endif
 LIKELIHOOD_CHAR :=
 LIKELIHOOD_COMPONENTS :=
 ifeq ($(USE_LIKELIHOOD), true)
-	LIKELIHOOD_COMPONENTS := likelihood.o mlStaticCS.cmo
+	LIKELIHOOD_COMPONENTS := gamma.o likelihood.o mlStaticCS.cmo
 	LIKELIHOOD_CHAR := mlStaticCS.cmo
 	DEFOPTS := -DUSE_LIKELIHOOD $(DEFOPTS)
 endif
@@ -469,26 +469,29 @@ nonaddCSc32.o: nonaddCSc.c
 
 add.o: memstack.o
 
+poy.1: help.txt
+
 # Help file gets made using OCaml script
 help.txt: compileFlags.cmx sadmanOutput.cmx statusCommon.cmx \
-	fileStream.cmx latex.ml ../doc/allcommands.tex
+	buildNumber.cmx fileStream.cmx latex.ml ../doc/allcommands.tex
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml \
+	sadmanOutput.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
 	$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx latex.ml $(LIBS)
+	sadmanOutput.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
 endif
 ifeq ($(USEWIN32), true)
-	./latex_helper.exe > help.txt 
+	./latex_helper.exe 
 	rm latex_helper.exe
 else
-	./latex_helper > help.txt 
+	./latex_helper 
 	rm latex_helper
 endif
+	nroff -man manpoy.txt > poy.1
 
 help.ml: help.txt ocaml-str helpRead.ml
 	./ocaml-str

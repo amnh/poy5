@@ -47,6 +47,7 @@ module CommandCompletion = struct
         "annchrom_to_breakinv";
         "annealing";
         "annotated";
+        "approximate";
         "around";
         "as_is";
         "asciitrees" ;
@@ -95,6 +96,7 @@ module CommandCompletion = struct
         "echo";
         "end";
         "error";
+        "exact";
         "exhaustive_do";
         "exit";
         "false";

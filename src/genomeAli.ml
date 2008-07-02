@@ -534,6 +534,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
     let swap_med = ali_pam.ChromPam.swap_med in 
     let total_cost, (recost1, recost2), alied_free_id1, alied_free_id2 = 
         GenAli.create_gen_ali_code         
+        ali_pam.ChromPam.kept_wag
         `Genome free_id1_arr free_id2_arr gen_c2 gen_gap_code 
         ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular false
     in   
@@ -565,7 +566,7 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 
             let seg = 
                 {sta = -1; en = -1;
-                 cost = -Utl.large_int;
+                 cost = gen_c2.(gen_gap_code).(sq2_id);
                  med_chrom_id = chrom_id;  
                  alied_med = Sequence.create_gap_seq (Sequence.length sq2_seq);
                  

@@ -325,6 +325,9 @@ type d = {
     ignore_character_set : string list;
     (* The set of loaded trees *)
     trees : string Parser.Tree.t list list;
+    (* The set of codes that belong to the class of Non additive with up to 1
+    * states (useless!) *)
+    non_additive_1 : int list;
     (* The set of codes that belong to the class of Non additive with up to 8
     * states *)
     non_additive_8 : int list;
@@ -403,6 +406,7 @@ let empty () =
         ignore_taxa_set = All_sets.Strings.empty;
         ignore_character_set = [];
         trees = [];
+        non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
         non_additive_32 = [];
@@ -1783,6 +1787,7 @@ let categorize data =
     (* We recategorize the data, so we must clear any already-loaded
        data *)
     let data = { data with
+                     non_additive_1 = [];
                      non_additive_8 = [];
                      non_additive_16 = [];
                      non_additive_32 = [];
@@ -1804,7 +1809,10 @@ let categorize data =
                       { data with additive = code :: data.additive }
                 | Parser.SC.STOrdered -> data
                 | Parser.SC.STUnordered ->
-                        if between 2 8 then
+                        if between 0 1 then
+                            { data with non_additive_1 = code ::
+                                data.non_additive_1 }
+                        else if between 2 8 then
                             { data with non_additive_8 = code ::
                                 data.non_additive_8 }
                         else if between 9 16 then
@@ -1952,9 +1960,6 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
     in
     let handle_bool = option_to_string string_of_bool 
     and handle_int = option_to_string string_of_int 
-    and handle_of_tuple = 
-        option_to_string 
-        (fun (x, y) -> string_of_int x ^ ", " ^ string_of_int y)
     and handle_re_meth x = 
         let conversion =
             (function `Locus_Breakpoint x | `Locus_Inversion x -> string_of_int x)
@@ -1974,14 +1979,31 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
                 | `Breakinv -> Tags.Characters.breakinv
                 | _ -> assert false
             in
+
+            let deref ptr = 
+                match ptr with
+                | Some content -> content 
+                | None -> failwith "It is a null pointer" 
+            in      
+
+            let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
+            let locus_indel_e = float locus_indel_e /. 100.0 in
+            let locus_indel_str = string_of_int locus_indel_o ^ ", " 
+                                 ^ string_of_float locus_indel_e 
+            in
+
+            let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
+            let chrom_indel_e = float chrom_indel_e /. 100.0 in
+            let chrom_indel_str = string_of_int chrom_indel_o ^ ", " 
+                                 ^ string_of_float chrom_indel_e 
+            in
+
             [Tags.Characters.clas, clas; 
             Tags.Characters.seed_len, handle_int pam.seed_len; 
             Tags.Characters.re_meth, handle_re_meth pam.re_meth;
             Tags.Characters.circular, handle_int pam.circular;
-            Tags.Characters.locus_indel_cost,
-            handle_of_tuple pam.locus_indel_cost;
-            Tags.Characters.chrom_indel_cost,
-            handle_of_tuple pam.chrom_indel_cost;
+            Tags.Characters.locus_indel_cost, locus_indel_str;
+            Tags.Characters.chrom_indel_cost, chrom_indel_str;
             Tags.Characters.chrom_hom, handle_int pam.chrom_hom;
             Tags.Characters.chrom_breakpoint, handle_int pam.chrom_breakpoint;
             Tags.Characters.sig_block_len, handle_int pam.sig_block_len;
@@ -2007,7 +2029,10 @@ let character_spec_to_formatter enc : Tags.output =
             Parser.SC.to_formatter enc    | Dynamic dspec ->
             Tags.Characters.molecular,
             ( (Tags.Characters.name, dspec.filename) ::
-                (Tags.Characters.fixed_states, dspec.fs) ::
+                (Tags.Characters.initial_assignment, 
+                    (match dspec.initial_assignment with
+                    | `DO -> "Direct Optimization"
+                    | `FS _ -> "Fixed States")) ::
                 (Tags.Characters.tcm, dspec.tcm) ::
                 (Tags.Characters.gap_opening, dspec.fo) ::
                 (Tags.Characters.weight, string_of_float dspec.weight) ::
@@ -2802,6 +2827,7 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
         match kind with
         | `Dynamic -> data.dynamics
         | `NonAdditive ->
+                        data.non_additive_1 @
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
@@ -2812,6 +2838,7 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `AllDynamic -> data.kolmogorov @ data.dynamics
         | `Likelihood -> data.static_ml
         | `AllStatic -> 
+                        data.non_additive_1 @
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
@@ -2885,6 +2912,7 @@ let rec get_code_from_characters_restricted kind (data : d) (chs : characters) =
         match kind with
         | `Dynamic -> data.dynamics
         | `NonAdditive ->
+                        data.non_additive_1 @
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
@@ -2895,6 +2923,7 @@ let rec get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `AllDynamic -> data.kolmogorov @ data.dynamics
         | `Likelihood -> data.static_ml
         | `AllStatic -> 
+                        data.non_additive_1 @
                         data.non_additive_8 @
                         data.non_additive_16 @
                         data.non_additive_32 @
@@ -3291,7 +3320,8 @@ let process_ignore_character report data code_set =
                 data.ignore_character_set
         in
         rep "@]@]@]@\n%!";
-        let non_additive_8 = List.filter compare data.non_additive_8
+        let non_additive_1 = List.filter compare data.non_additive_1 
+        and non_additive_8 = List.filter compare data.non_additive_8
         and non_additive_16 = List.filter compare data.non_additive_16
         and non_additive_32 = List.filter compare data.non_additive_32
         and non_additive_33 = List.filter compare data.non_additive_33 
@@ -3304,6 +3334,7 @@ let process_ignore_character report data code_set =
         let sankoff = List.filter (function [] -> false | _ -> true) sankoff in
         { data with
         ignore_character_set = new_cign;
+        non_additive_1 = non_additive_1;
         non_additive_8 = non_additive_8;
         non_additive_16 = non_additive_16;
         non_additive_32 = non_additive_32;

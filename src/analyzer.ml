@@ -84,7 +84,9 @@ let output_files = ref []
 let filename_to_list filename =
     match filename with
     | None -> [Channel StandardOutput]
-    | Some x -> [Channel (File x)]
+    | Some x -> 
+            output_files := x :: !output_files;
+            [Channel (File x)]
 
 (* Each command has certain properties by themselves, this type describes the
 * properties of each command *)
@@ -447,8 +449,8 @@ let compare a b =
     | Trees, Trees
     | JackBoot, JackBoot
     | Bremer, Bremer
-    | Channel _, Channel _
     | Data, Data -> 0
+    | Channel a, Channel b -> compare a b
     | Bremer, _ -> -1
     | _, Bremer -> 1
     | Data, _ -> -1
@@ -849,7 +851,7 @@ let rec remove_duplications prevthread tree :
     match tree with
     | Tree x ->
             (incr thread_id;
-            let my_thread = !thread_id :: prevthread in
+            let my_thread = prevthread in
             let children, unresolved, yet_to_resolve = 
                 let children = 
                     List.filter (function
@@ -1650,14 +1652,24 @@ let script_to_string (init : Methods.script) =
                 | `Consensus (_, _)
                 | `GraphicConsensus (_, _) ->
                         "@[report the consensus@]"
-                | `Diagnosis _ ->
-                        "@[report the diagnosis@]"
+                | `Diagnosis filename ->
+                        (match filename with
+                        | None -> "@[report the diagnosis@]"
+                        | Some x ->
+                                "@[report in " ^ x ^ " the diagnosis@]")
                 | `MstR _ ->
                         "@[report the minimum spanning tree@]"
-                | `AllRootsCost _ ->
-                        "@[report the minimum length of each rooting@]"
-                | `Trees _ ->
-                        "@[report the trees in memory@]"
+                | `AllRootsCost filename ->
+                        (match filename with
+                        | None -> "@[report the minimum length of each rooting@]"
+                        | Some x -> 
+                                "@[report in " ^ x ^ 
+                                " the minimum length of each rooting@]")
+                | `Trees (_, filename) ->
+                        (match filename with
+                        | None -> "@[report the trees in memory@]"
+                        | Some x -> 
+                                "@[report in " ^ x ^ " the trees in memory@]")
                 | `Implied_Alignment _ ->
                         "@[report an implied alignment@]"
                 | `TimeDelta _ ->

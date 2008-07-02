@@ -104,7 +104,9 @@ type chromPairAliPam_t = {
     (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int;
     detected_3d_len : int;
+    kept_wag : int;
 }
+
 val chromPairAliPam_default : chromPairAliPam_t
 val get_chrom_pam : Data.dyna_pam_t -> chromPairAliPam_t
 val cloneChromPairPam : chromPairAliPam_t -> chromPairAliPam_t

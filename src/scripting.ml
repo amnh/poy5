@@ -247,6 +247,7 @@ END
 
 
 let update_trees_to_data ?(classify=true) force load_data run =
+    let classify = (not (Data.has_dynamic run.data)) && classify in
     let data, nodes = 
         if load_data then Node.load_data ~classify run.data 
         else run.data, run.nodes 
@@ -1327,7 +1328,9 @@ run =
                     in
                     let cost_b, hit_b = get_cost before 
                     and cost_a, hit_a = get_cost run in
-                    cost_a, (if cost_b = cost_a then hit_a - hit_b else hit_a)
+                    if cost_b < cost_a then cost_b, 0
+                    else
+                        cost_a, (if cost_b = cost_a then hit_a - hit_b else hit_a)
                 in
                 best_cost := cost;
                 hits := !hits + hit;
@@ -1462,6 +1465,33 @@ END
                 if do_perturb && (0.3 < Random.float 1.) then 
                     nrun, do_perturb
                 else
+                    if (0.5 <= Random.float 1.) then
+                        let cmd = 
+                            if !iterations_counter > 4 then
+                                let trees =
+                                    match sort_trees !trees with
+                                    | a :: b :: c :: _ -> [a; b; c]
+                                    | a :: b :: _ -> [a; b]
+                                    | [a] -> [a]
+                                    | _ -> assert false
+                                in
+                                let trees = Sexpr.of_list trees in
+                                let sts = 
+                                    TreeSearch.sets
+                                    (`Partition [])
+                                    nrun.data
+                                    (Sexpr.union trees nrun.trees)
+                                in
+                                (CPOY swap
+                                (sets:[sts], all, tbr, timeout:[min
+                                (remaining_time ()) (search_time /. 2.)]))
+                            else 
+                                (CPOY swap (tbr, all, timeout:[min
+                                (remaining_time ()) (search_time /. 2.)]))
+                        in
+                        let nrun = exec nrun cmd in
+                        nrun, false
+                    else
                     match !Methods.cost with
                     | `Normal_plus_Vitamines | `Normal -> 
                             Methods.cost := `Exhaustive_Weak;
@@ -1503,14 +1533,14 @@ END
             if do_perturb || 0.5 < Random.float 1.0 then begin
                 let nrun = exec nrun 
                     (CPOY 
-                    perturb (iterations:4, transform (static_approx), 
+                    perturb (iterations:4, transform (tcm:(1,1), static_approx), 
                     swap (tbr, timeout:[remaining_time ()])))
                 in
                 trees := Sexpr.union nrun.trees prev_trees;
                 update_information (`Initial nrun);
             end;
             select_if_necessary ();
-            stop_if_necessary `Initial;
+            stop_if_necessary `Perturb;
         done;
         raise Exit
     with
@@ -2700,7 +2730,7 @@ IFDEF USE_XSLT THEN
                     let trs = 
                         Sexpr.map (fun tr ->
                         let classify = false in
-                        let run = update_trees_to_data ~classify true true 
+                        let run = update_trees_to_data ~classify false true 
                         { run with trees = `Single tr } in
                         match run.trees with
                         | `Single tr ->
@@ -2726,7 +2756,7 @@ END
             | `Diagnosis filename ->                                    
                     let trees =                          
                         let classify = false in
-                        let run = update_trees_to_data ~classify true true run in
+                        let run = update_trees_to_data ~classify false true run in
                         Sexpr.map (TreeOps.to_formatter [] run.data) run.trees  
                     in 
                     Status.user_message (Status.Output (filename, false, [])) 

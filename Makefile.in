@@ -11,7 +11,7 @@ exec_prefix = @exec_prefix@
 bindir = $(exec_prefix)/bin
 infodir = $(prefix)/info
 libdir = $(prefix)/lib/gnudl
-mandir = $(prefix)/man/man1
+mandir = @mandir@/man1
 
 CC = @CC@
 CPPFLAGS = @CPPFLAGS@
@@ -44,7 +44,10 @@ subdirs:	$(SUBDIRS)
 transform = @program_transform_name@
 
 install:
+	$(MKDIR_P) $(bindir)
+	$(MKDIR_P) $(mandir)
 	$(INSTALL) ./src/poy $(bindir)/`echo poy | sed -e '$(transform)'`
+	$(INSTALL) ./src/poy.1 $(mandir)/poy.1
 
 uninstall:
 	rm -f $(bindir)/`echo poy | sed '$(transform)'`
