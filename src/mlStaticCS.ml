@@ -474,7 +474,7 @@ let to_formatter attr mine minet _ data :Tags.output list =
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 mine_t =
     let model = c1.model and mcpy = mine in
-    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in 
+(*    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *)
     let (nta,ntb,nl) = match model.ui with
         | None ->
             readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
@@ -482,7 +482,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 mine_t =
         | Some ui ->
             readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
                     c_t2 model.rate model.prob model.pi_0 mine.mle in
-    let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in
+(*    let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
     if (nta = c_t1 && ntb = c_t2) then
         (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
     else
