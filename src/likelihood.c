@@ -26,6 +26,7 @@
 #ifdef USE_LIKELIHOOD   
 #include <math.h>   //log,exp
 
+#include <caml/alloc.h>
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/bigarray.h>
@@ -839,6 +840,7 @@ void simplex_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D
     mll *c; c = simp->vs;
     simp->ta = r0;
     simp->tb = r1;
+    //clear new vector
     memset(c->lv_s,0,a->c_len*a->stride*sizeof(double));
     for(;i<g_n;i++){
         compose_sym( PA, U, D, r0*gam[i], a->stride,tmp );
@@ -870,12 +872,182 @@ void simplex_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D
 void
 readjust_simplex_sym(const double* U,const double* D,const mll* a,const mll* b,
         mll* c,double* b_ta,double* b_tb,double* b_mle,const double* rates,
-        const double *prob, const int g_n,const double* pi){}
+        const double *prob, const int g_n,const double* pi){
+
+    double step,r0,r1,b_o,step_i;
+    ptr *simp_1,*simp_2;
+    int size, this_dir = 0,last_dir = 0,iter = 0;
+
+
+    size = a->c_len*a->stride;
+    step = 1e-2;
+    step_i = 1e-2;
+    double *PA,*PB,*tmp; //matrices/arrays
+    PA = (double*) malloc( (a->stride * a->stride) * sizeof(double) );
+    PB = (double*) malloc( (a->stride * a->stride) * sizeof(double) );
+    tmp =(double*) malloc( (a->stride * a->stride) * sizeof(double) );
+
+    mll *si2,*si3,*sie,*sir;
+    double *lv2,*lv3,*lve,*lvr;
+    simp_1 = (ptr*) malloc(sizeof(ptr));
+    c->id = 1;
+    simp_1->vs = c;
+    simp_1->ta = *b_ta;
+    simp_1->tb = *b_tb;
+    simp_1->ll = *b_mle;
+
+    simp_2 = (ptr*) malloc(sizeof(ptr));
+    si2 = (mll*) malloc(sizeof(mll));
+    lv2 = (double*) malloc(sizeof(double)*size);
+    CHECK_MEM(si2);CHECK_MEM(simp_2);CHECK_MEM(lv2);
+    si2->lv_s = lv2;
+    si2->id = 2;
+    simp_2->vs = si2;
+    simp_2->ll = 0;
+
+    r0 = *b_ta; r1 = *b_tb;
+    do{
+        b_o = simp_1->ll;
+        this_dir = 0;
+
+        //check north:: 1
+        simplex_sym(simp_2,PA,PB,U,D,a,b,r0+step,r1,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 1;
+            SWITCH(simp_2,simp_1);
+        }
+        //check south:: 2
+        simplex_sym(simp_2,PA,PB,U,D,a,b,r0,r1+step,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 2;
+            SWITCH(simp_2,simp_1);
+        }
+        //check east:: 3
+        if(r0-step > 0)
+            simplex_sym(simp_2,PA,PB,U,D,a,b,r0-step,r1,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 3;
+            SWITCH(simp_2,simp_1);
+        }
+        //check west:: 4
+        if(r1-step > 0)
+            simplex_sym(simp_2,PA,PB,U,D,a,b,r0,r1-step,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 4;
+            SWITCH(simp_2,simp_1);
+        }
+
+        r0 = simp_1->ta;
+        r1 = simp_1->tb;
+        //printf("Direction %d :", this_dir);
+        //modify step if backtracking...
+        if( this_dir == 0 )
+            step = step / 2;
+        //last_dir = this_dir;
+        iter++;
+    //}while( iter < MAX_ITER );
+    }while( step > EPSILON );
+    //}while( fabs(simp_1->ll-b_o) > EPSILON );
+    //}while( step > EPSILON && iter < MAX_ITER && fabs(simp_1->ll-b_o) > EPSILON );
+
+    *b_ta = simp_1->ta;
+    *b_tb = simp_1->tb;
+    *b_mle= simp_1->ll;
+    simp_1->vs->stride = a->stride;
+    simp_1->vs->c_len  = a->c_len;
+    //printf("Walk completed in %d iterations and accuracy %f\n", iter, step);
+    free(simp_1); free(simp_2);
+}
 
 void
-readjust_simplex_gtr(const double* u,const double* d,const double* ui,const mll* a,
+readjust_simplex_gtr(const double* U,const double* D,const double* Ui,const mll* a,
         const mll* b, mll* c,double* b_ta,double* b_tb,double* b_mle,
-        const double *rates,const double *prob,const int g_n,const double* pi){}
+        const double *rates,const double *prob,const int g_n,const double* pi){
+
+    double step,r0,r1,b_o,step_i;
+    ptr *simp_1,*simp_2;
+    int size, this_dir = 0,last_dir = 0,iter = 0;
+
+
+    size = a->c_len*a->stride;
+    step = 1e-2;
+    step_i = 1e-2;
+    double *PA,*PB,*tmp; //matrices/arrays
+    PA = (double*) malloc( (a->stride * a->stride) * sizeof(double) );
+    PB = (double*) malloc( (a->stride * a->stride) * sizeof(double) );
+    tmp =(double*) malloc( (a->stride * a->stride) * sizeof(double) );
+
+    mll *si2,*si3,*sie,*sir;
+    double *lv2,*lv3,*lve,*lvr;
+    simp_1 = (ptr*) malloc(sizeof(ptr));
+    c->id = 1;
+    simp_1->vs = c;
+    simp_1->ta = *b_ta;
+    simp_1->tb = *b_tb;
+    simp_1->ll = *b_mle;
+
+    simp_2 = (ptr*) malloc(sizeof(ptr));
+    si2 = (mll*) malloc(sizeof(mll));
+    lv2 = (double*) malloc(sizeof(double)*size);
+    CHECK_MEM(si2);CHECK_MEM(simp_2);CHECK_MEM(lv2);
+    si2->lv_s = lv2;
+    si2->id = 2;
+    simp_2->vs = si2;
+    simp_2->ll = 0;
+
+    r0 = *b_ta; r1 = *b_tb;
+    do{
+        b_o = simp_1->ll;
+        this_dir = 0;
+
+        //check north:: 1
+        simplex_gtr(simp_2,PA,PB,U,D,Ui,a,b,r0+step,r1,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 1;
+            SWITCH(simp_2,simp_1);
+        }
+        //check south:: 2
+        simplex_gtr(simp_2,PA,PB,U,D,Ui,a,b,r0,r1+step,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 2;
+            SWITCH(simp_2,simp_1);
+        }
+        //check east:: 3
+        if(r0-step > 0)
+            simplex_gtr(simp_2,PA,PB,U,D,Ui,a,b,r0-step,r1,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 3;
+            SWITCH(simp_2,simp_1);
+        }
+        //check west:: 4
+        if(r1-step > 0)
+            simplex_gtr(simp_2,PA,PB,U,D,Ui,a,b,r0,r1-step,rates,prob,pi,g_n,tmp);
+        if( simp_2->ll < simp_1->ll){
+            this_dir = 4;
+            SWITCH(simp_2,simp_1);
+        }
+
+        r0 = simp_1->ta;
+        r1 = simp_1->tb;
+        //printf("Direction %d :", this_dir);
+        //modify step if backtracking...
+        if( this_dir == 0 )
+            step = step / 2;
+        //last_dir = this_dir;
+        iter++;
+    //}while( iter < MAX_ITER );
+    }while( step > EPSILON );
+    //}while( fabs(simp_1->ll-b_o) > EPSILON );
+    //}while( step > EPSILON && iter < MAX_ITER && fabs(simp_1->ll-b_o) > EPSILON );
+
+    *b_ta = simp_1->ta;
+    *b_tb = simp_1->tb;
+    *b_mle= simp_1->ll;
+    simp_1->vs->stride = a->stride;
+    simp_1->vs->c_len  = a->c_len;
+    //printf("Walk completed in %d iterations and accuracy %f\n", iter, step);
+    free(simp_1); free(simp_2);
+}
 
 //-----------------------------------------------------------------------------
 /* Diagonlize matrix interfaces: symmetric */
@@ -1192,9 +1364,9 @@ likelihood_CAML_readjust_sym_wrapped
     assert( a->stride == b->stride && a->stride == c->stride );
     assert( a->stride == pi_n );
 
-    //printf("%f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("s: %f\t%f\t%f\n", cta,ctb,likelihood);
     readjust_simplex_sym(c_U,c_D,a,b,c,&cta,&ctb,&likelihood,rates,probs,g_n,pi);
-    //printf("%f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("e: %f\t%f\t%f\n", cta,ctb,likelihood);
     
     res = caml_alloc_tuple( 3 );
     Store_field(res, 0, caml_copy_double (cta));
