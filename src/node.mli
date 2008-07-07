@@ -193,7 +193,7 @@ val edge_iterator : node_data option -> node_data -> node_data -> node_data ->
 * [mine], [y] the readjusted [ch1] and [z] the readjusted [ch2]. For static
 * homology characters, the only parameter readjusted in [y] and [z] is their
 * branch length specification. *)
-val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data -> node_data -> node_data ->
+val readjust : [`ThreeD of int option | `ApproxD of int option ] -> All_sets.Integers.t option -> node_data -> node_data -> node_data ->
     node_data -> [`Mine of node_data | `MineNChildren of (node_data * node_data
     * node_data) ] * All_sets.Integers.t
 

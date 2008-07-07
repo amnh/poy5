@@ -568,7 +568,7 @@ with type b = AllDirNode.OneDirF.n = struct
     (* Now we define a function that can adjust all the vertices in the tree
     * to improve the overall cost of the tree, using only the
     * [AllDirNode.adjusted] field of each. *)
-    let rec adjust_tree nodes ptree =
+    let rec adjust_tree max_count nodes ptree =
 
         (* process node data and direction into a AllDirF.node *)
         let process par mine mine' mineo = 
@@ -706,7 +706,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
         (* Now we need to be able to adjust the root of the tree, and it's
         * cost, once we have finished adjusting every vertex in the tree *)
-        let adjust_until_nothing_changes start_ptree = 
+        let adjust_until_nothing_changes max_count start_ptree = 
             (* empty set *)
             let first_affected = 
                 match nodes with
@@ -763,29 +763,31 @@ with type b = AllDirNode.OneDirF.n = struct
             in
 
             (* recursive loop of for changes *)
-            let rec iterator prev_cost affected ptree =
-                let changed,new_affected,new_ptree = 
-                    let pref = ref ptree in    (* can't merge two ptrees *)
-                    let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
-                    (* perform on each tree *)
-                    let changed = All_sets.Integers.fold
-                        (adjust_loop affected pref aref)
-                        ptree.Ptree.tree.Tree.handles
-                        (false)
-                    in
-                    changed,!aref,!pref
-                in
-                (* now ptree can be used normally *)
-                if changed then
-                    let new_cost = check_cost_all_handles new_ptree in
-                    if new_cost < prev_cost then
-                        iterator new_cost new_affected new_ptree
-                    else
-                        ptree
+            let rec iterator count prev_cost affected ptree =
+                if count = 0 then ptree
                 else
-                    ptree 
+                    let changed,new_affected,new_ptree = 
+                        let pref = ref ptree in    (* can't merge two ptrees *)
+                        let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
+                        (* perform on each tree *)
+                        let changed = All_sets.Integers.fold
+                            (adjust_loop affected pref aref)
+                            ptree.Ptree.tree.Tree.handles
+                            (false)
+                        in
+                        changed,!aref,!pref
+                    in
+                    (* now ptree can be used normally *)
+                    if changed then
+                        let new_cost = check_cost_all_handles new_ptree in
+                        if new_cost < prev_cost then
+                            iterator (count - 1) new_cost new_affected new_ptree
+                        else
+                            ptree
+                    else
+                        ptree 
             in
-            iterator (check_cost_all_handles ptree) first_affected ptree
+            iterator max_count (check_cost_all_handles ptree) first_affected ptree
         in
 
         (* Now we are ready for a function to adjust a handle in the tree *)
@@ -800,7 +802,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
         (* Finally, we are ready to assign to all the handles in the tree
         * and adjusted cost *)
-        let ptree = adjust_until_nothing_changes ptree in
+        let ptree = adjust_until_nothing_changes max_count ptree in
         (* TODO:: this is done every round to each tree above, but is only
         * needed at that moment to calculate the root edge node for the overall
         * cost, the other methods do not need it for their overall costs. Thus,
@@ -930,7 +932,7 @@ with type b = AllDirNode.OneDirF.n = struct
             let comp = Some ((`Edge (a, b)), data) in
             Ptree.set_component_cost c None comp handle ptree
         in
-        let tree = tree --> assign_single --> adjust_tree None in
+        let tree = tree --> assign_single --> adjust_tree None None in
         let c = Ptree.get_cost `Adjusted tree in
         if abs_float cost > abs_float c then c, lazy tree
         else (cost, cbt)
@@ -975,17 +977,17 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> internal_downpass true ptree
-            | `Iterative `ApproxD ->
+            | `Iterative (`ApproxD iterations) ->
                     ptree --> internal_downpass true -->
                         pick_best_root -->
                         assign_single --> 
-                        adjust_tree None 
-            | `Iterative `ThreeD ->
+                        adjust_tree iterations None 
+            | `Iterative (`ThreeD iterations) ->
                     ptree
                     --> internal_downpass true
                     --> pick_best_root
                     --> assign_single
-                    --> adjust_tree None
+                    --> adjust_tree iterations None
                     --> refresh_all_edges true
         in
         current_snapshot "AllDirChar.downpass b";
@@ -1000,8 +1002,8 @@ with type b = AllDirNode.OneDirF.n = struct
                 let ptree = pick_best_root ptree in
                 let ptree = assign_single ptree in
                 ptree
-        | `Iterative `ApproxD 
-        | `Iterative `ThreeD -> ptree
+        | `Iterative (`ApproxD _)
+        | `Iterative (`ThreeD _) -> ptree
 
     let create_edge ptree a b =
         let edge1 = (Tree.Edge (a, b)) in
@@ -1207,10 +1209,10 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let break_fn ((s1, s2) as a) b =
         match !Methods.cost with
-        | `Iterative `ApproxD ->
+        | `Iterative (`ApproxD _) ->
                 let u, v, w, x, y, z = break_fn a b in
                 u, v, w, x, y, z
-        | `Iterative `ThreeD 
+        | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
         | `Normal -> break_fn a b
@@ -1288,11 +1290,12 @@ with type b = AllDirNode.OneDirF.n = struct
     let join_fn a b c d =
         match !Methods.cost with
         | `Normal -> join_fn a b c d 
-        | `Iterative _ ->
+        | `Iterative (`ThreeD iterations)
+        | `Iterative (`ApproxD iterations) ->
             let tree, ((s1, s2, _) as delta) = join_fn a b c d in
             let other_neighbors = get_other_neighbors ((get_one s1), (get_one
             s2)) tree None in
-            let tree = (adjust_tree other_neighbors
+            let tree = (adjust_tree iterations other_neighbors
             (assign_single (pick_best_root tree))) in
             (*
             Printf.printf "The resulting tree has cost %f\n%!"
@@ -1320,7 +1323,7 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         let clade_data = 
             match !Methods.cost with
-            | `Iterative `ThreeD ->
+            | `Iterative (`ThreeD _) ->
                     (match jxn2 with
                     | Tree.Single_Jxn _ -> forcer (Clade clade_data)
                     | Tree.Edge_Jxn (h, n) ->
@@ -1350,11 +1353,11 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let cost_fn a b c d e =
         match !Methods.cost with
-        | `Iterative `ApproxD -> 
+        | `Iterative (`ApproxD _) -> 
                 (match cost_fn a b c d e with 
                 | Ptree.Cost x -> Ptree.Cost (0.85 *. x)
                 | x -> x)
-        | `Iterative `ThreeD
+        | `Iterative `ThreeD _
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
         | `Normal -> cost_fn a b c d e 
@@ -1377,7 +1380,7 @@ with type b = AllDirNode.OneDirF.n = struct
         | `Exhaustive_Strong
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
-        | `Iterative `ApproxD
+        | `Iterative `ApproxD _
         | `Normal -> 
                 let root = 
                     let new_roots = create_root h n ptree in
@@ -1388,7 +1391,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     else root
                 in
                 add_component_root ptree h root, []
-        | `Iterative `ThreeD -> 
+        | `Iterative `ThreeD _ -> 
                 add_component_root ptree h root, []
 
     let root_costs tree = 

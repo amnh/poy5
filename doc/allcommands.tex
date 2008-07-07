@@ -2475,6 +2475,19 @@ The \poycommand{calculate\_support} command does not output support values by de
             {This commands selects terminal \texttt{Mytilus\_edulis} as a root
             for the output trees.}
             
+            \poyexample{set (iterative:exact)}
+            {Turns on the iterative exact algorithm in all the nucleotide
+            sequence characters. The program will iterate on each vertex of the
+            tree until no further tree cost improvements can be made.}
+
+            \poyexample{set (iterative:approximate:2)}
+            {Turns on the iterative approximate algorithm in all the nucleotide
+            sequence characters. The program will iterate either two times, or
+            until no further tree cost improvements can be made, whichever
+            happens first.}
+
+            \poyexample{set (iterative:exact:2)}
+            {Same as the previous, but using the exact algorithm insted.}
      \end{poyexamples}
      
 	\begin{poyalso}

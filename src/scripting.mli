@@ -279,7 +279,7 @@ module DNA : sig
 
         (** [of_channel ch] returns the sequences contained in the FASTA channel
         * [ch]. *)
-        val of_channel : in_channel -> seqs
+        val of_channel : bool -> in_channel -> seqs
 
         (** [multi_of_channel ch] is the same as [of_channel] but returns
         * [multi_seqs]. *)
@@ -290,7 +290,8 @@ module DNA : sig
         val to_channel : out_channel -> seqs -> unit
 
         (** [of_file f] reads the file [f] containing fasta sequences. *)
-        val of_file : string -> seqs
+        val of_file : bool -> string -> seqs
+
         (** [multi_of_file ch] is the same as [of_file] but returns
         * [multi_seqs]. *)
         val multi_of_file : string -> multi_seqs

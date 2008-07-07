@@ -31,7 +31,8 @@ let debugging = 4
 let barrier = 5
 
 type cost_modes = [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak |
-`Exhaustive_Strong | `Iterative of [`ThreeD | `ApproxD]  ]
+`Exhaustive_Strong | `Iterative of [`ThreeD of int option | `ApproxD of int
+option ]  ]
 let cost : cost_modes ref = 
     ref `Normal
 
@@ -674,7 +675,7 @@ type application = [
     | `Normal_plus_Vitamines
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative of [`ThreeD | `ApproxD ]
+    | `Iterative of [`ThreeD of int option | `ApproxD of int option ]
     | `ReDiagnose
     | `SetSeed of int
     | `InspectFile of string

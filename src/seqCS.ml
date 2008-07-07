@@ -679,10 +679,10 @@ module DOS = struct
             else 
                 let tmpcost, seqm, changed =
                     match mode with
-                    | `ThreeD ->
+                    | `ThreeD _ ->
                             Sequence.Align.readjust_3d ch1.sequence ch2.sequence
                             mine.sequence h.c2 h.c3 parent.sequence
-                    | `ApproxD ->
+                    | `ApproxD _ ->
                             Sequence.readjust ch1.sequence ch2.sequence
                             mine.sequence h.c2 parent.sequence
                 in

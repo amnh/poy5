@@ -196,9 +196,9 @@ let dependency_relations (init : Methods.script) =
                 | `Graph (filename, _)
                 | `Ascii (filename, _) ->
                         let output = filename_to_list filename in
-                        [([Trees; Data], output, init, Linnearizable)]
+                        [([Trees; Data] @ output, output, init, Linnearizable)]
                 | `InspectFile filename ->
-                        [(input [filename], output, init, NonComposable)]
+                        [((input [filename]) @ output, output, init, NonComposable)]
             in
             res
     | #Methods.input as meth ->
@@ -356,54 +356,54 @@ let dependency_relations (init : Methods.script) =
                 | `TerminalsFiles filename
                 | `CrossReferences (_, filename) ->
                         let fn = filename_to_list filename in
-                        [(data, fn, init, Invariant)], filename, false
+                        [(Data :: fn, fn, init, Invariant)], filename, false
                 | `Xslt (filename, _) ->
                         let filename = Some filename in
                         let fn = filename_to_list filename in
-                        [(data, fn, init, Invariant)], filename, false
+                        [(data @ fn, fn, init, Invariant)], filename, false
                 | `GraphicSupports (suppoutput, filename)
                 | `Supports (suppoutput, filename) ->
                         let fn = filename_to_list filename in
                         let res = 
                             match suppoutput with
-                            | None -> [([JackBoot; Bremer; Trees; Data], fn, init,
+                            | None -> [([JackBoot; Bremer; Trees; Data] @ fn, fn, init,
                             NonComposable)]
                             | Some `Jackknife _
                             | Some `Bootstrap _ ->
-                                    [([JackBoot; Trees; Data], fn, init,
+                                    [([JackBoot; Trees; Data] @ fn, fn, init,
                                     Linnearizable)]
                             | Some (`Bremer _)->
-                                    [([Bremer; Trees; Data], fn, init,
+                                    [([Bremer; Trees; Data] @ fn, fn, init,
                                     Linnearizable)]
                         in
                         res, filename, false
                 | `Consensus (filename, _)
                 | `GraphicConsensus (filename, _) ->
                         let fn = filename_to_list filename in
-                        [(trees, fn, init, NonComposable)], filename,
+                        [(trees @ fn, fn, init, NonComposable)], filename,
                         false
                 | `Diagnosis filename
                 | `AllRootsCost filename
                 | `Trees (_, filename)
                 | `Implied_Alignment (filename, _, _) ->
                         let fn = filename_to_list filename in
-                        [(datantrees, fn, init, Linnearizable)], filename,
+                        [(datantrees @ fn, fn, init, Linnearizable)], filename,
                         false
                 | `MstR filename
                 | `TimeDelta (_, filename)
                 | `TreeCosts filename
                 | `TreesStats filename ->
                         let fn = filename_to_list filename in
-                        [(datantrees, fn, init, NonComposable)], 
+                        [(datantrees @fn, fn, init, NonComposable)], 
                         filename, false
                 | `Clades filename ->
                         let fn = filename_to_list (Some filename) in
-                        [(datantrees, fn, init, Linnearizable)], 
+                        [(datantrees @ fn, fn, init, Linnearizable)], 
                         Some filename, false
                 | `History _ -> [([], [], init, Linnearizable)], None, false
                 | `Save (filename, _) ->
                         let fn = filename_to_list (Some filename) in
-                        [([Data; Trees; JackBoot; Bremer], fn,
+                        [([Data; Trees; JackBoot; Bremer] @ fn, fn,
                         init, NonComposable)], Some filename, false
                 | `Load filename ->
                         let fn = filename_to_list (Some filename) in

@@ -152,7 +152,7 @@ type transform = [
 type cost_calculation = [
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative of [ `ThreeD | `ApproxD ] 
+    | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
     | `Normal_plus_Vitamines
     | `Normal
 ]
@@ -1385,8 +1385,19 @@ let create_expr () =
             ];
         iterative_mode:
             [ 
-                [ LIDENT "exact" -> `ThreeD ] |
-                [ LIDENT "approximate" -> `ApproxD ]
+                [ LIDENT "exact"; iterations = OPT optional_integer_or_float  ->
+                    let iterations = 
+                        match iterations with 
+                        None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `ThreeD iterations ] |
+                [ LIDENT "approximate"; iterations = OPT
+                optional_integer_or_float -> 
+                    let iterations =
+                        match iterations with
+                        | None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `ApproxD iterations ]
             ];
         (* Reporting *)
         report:

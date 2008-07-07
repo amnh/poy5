@@ -3264,7 +3264,7 @@ module DNA = struct
         type seqs = (string * Sequence.s) list
         type multi_seqs = seqs list
 
-        let of_channel ch = 
+        let of_channel prealigned ch = 
             let filter (lst, txn) =
                 let lst = List.flatten (List.flatten lst) in
                 match lst with
@@ -3277,7 +3277,12 @@ module DNA = struct
                 | [seq] -> txn, seq
                 | _ -> failwith "Illegal FASTA format"
             in
-            let res = Parser.Fasta.of_channel Parser.Nucleic_Acids ch in
+            let alph = 
+                if prealigned then 
+                    Parser.Prealigned_Alphabet (Alphabet.nucleotides)
+                else Parser.Nucleic_Acids
+            in
+            let res = Parser.Fasta.of_channel alph ch in
             List.map converter (List.filter filter res)
 
         let multi_of_channel ch = 
@@ -3300,8 +3305,8 @@ module DNA = struct
             let converter (lst, txn) = (txn, lst) in
             Parser.Fasta.to_channel ch (List.map converter seqs) alph
 
-        let of_file str = 
-            FILES.run_n_close str of_channel
+        let of_file prealigned str = 
+            FILES.run_n_close str (of_channel prealigned)
 
         let multi_of_file str =
             FILES.run_n_close str multi_of_channel
@@ -3343,7 +3348,7 @@ module DNA = struct
 
     module Generic = struct
         let molecular file =
-            Fasta.of_channel (Parser.molecular_to_fasta (`Local file))
+            Fasta.of_channel false (Parser.molecular_to_fasta (`Local file))
     end
 
     module Align = struct
