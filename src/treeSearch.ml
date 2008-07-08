@@ -569,7 +569,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
     in
     let partition_for_other_tabus =
         match l_opt.Methods.tabu_join with
-        | `Partition [] -> 
+        | `Partition _ -> 
                 Some (`Sets (Lazy.force sets))
                 (* TMP
                 Some (`Height 2)
