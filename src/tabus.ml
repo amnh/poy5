@@ -1472,11 +1472,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     let make_edge_list dont_cut ptree =
         let cnt = 
-            List.fold_left 
-            (fun acc ((Tree.Edge (a, b)) as e) ->
-                let acc = Tree.EdgeSet.add e acc in
-                Tree.EdgeSet.add (Tree.Edge (b, a)) acc)
-            Tree.EdgeSet.empty dont_cut
+            let cnt = Hashtbl.create 1667 in
+            List.iter 
+            (fun ((Tree.Edge ((a, b) as e))) ->
+                Hashtbl.add cnt e 1;
+                Hashtbl.add cnt (b, a) 1)
+            dont_cut;
+            cnt
             (*
             let res = Hashtbl.create 1667 in
             let cnt = Hashtbl.create 1667 in
@@ -1496,7 +1498,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             and yn = Ptree.get_node_data y ptree in
             Node.edge_distance xn yn
         in
-        let filter (a, x) = not (Tree.EdgeSet.mem x cnt) in
+        let filter (a, (Tree.Edge x)) = not (Hashtbl.mem cnt x) in
         let handle = All_sets.Integers.choose (Ptree.get_handles ptree) in
         let edge_lst = Ptree.get_pre_order_edges handle ptree in
         let id_cost = List.map (fun x -> tabu_distance2 ptree x, x) edge_lst in
