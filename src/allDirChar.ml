@@ -569,6 +569,14 @@ with type b = AllDirNode.OneDirF.n = struct
     * to improve the overall cost of the tree, using only the
     * [AllDirNode.adjusted] field of each. *)
     let rec adjust_tree max_count nodes ptree =
+        let vertices = 
+            All_sets.Integers.fold (fun x acc  ->
+
+                Tree.post_order_node_visit (fun _ x acc -> Tree.Continue, x ::
+                    acc) x ptree.Ptree.tree acc) ptree.Ptree.tree.Tree.handles
+                    []
+        in
+        let vertices = List.rev vertices in
         let max_count = 
             match max_count with
             | Some x -> x
