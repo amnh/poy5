@@ -107,7 +107,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         iterative_mode:
             [
                 [ LIDENT "exact" -> <:expr<`ThreeD None>> ] |
-                [ LIDENT "approximated" -> <:expr<`ApproxD None>> ]
+                [ LIDENT "approximate" -> <:expr<`ApproxD None>> ]
             ];
         application_command:
             [
