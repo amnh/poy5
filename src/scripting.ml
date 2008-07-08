@@ -1458,10 +1458,14 @@ END
                 | None ->
                         exec nrun 
                         (CPOY swap (tbr, timeout:[remaining_time ()]))
-                | Some file ->
+                | Some (Some file) ->
                         exec nrun
                         (CPOY swap (tbr, timeout:[remaining_time ()],
                         visited:[file]))
+                | Some None ->
+                        exec nrun
+                        (CPOY swap (tbr, timeout:[remaining_time ()],
+                        visited))
             in
             let search_time = (Timer.wall timer) -. prev_time in
             let do_perturb = build_cost = get_cost nrun in
@@ -1493,9 +1497,15 @@ END
                                         (CPOY swap
                                         (sets:[sts], all, tbr, timeout:[min
                                         (remaining_time ()) (search_time /. 2.)]))
-                                | Some file ->
+                                | Some (Some file) ->
                                         (CPOY swap
                                         (sets:[sts], visited:[file], all, 
+                                        tbr, timeout:[min
+                                        (remaining_time ()) (search_time /.
+                                        2.)]))
+                                | Some None ->
+                                        (CPOY swap
+                                        (sets:[sts], visited, all, 
                                         tbr, timeout:[min
                                         (remaining_time ()) (search_time /.
                                         2.)])))
@@ -1504,8 +1514,12 @@ END
                                 | None ->
                                         (CPOY swap (tbr, all, timeout:[min
                                         (remaining_time ()) (search_time /. 2.)]))
-                                | Some file ->
+                                | Some (Some file) ->
                                         (CPOY swap (visited:[file], tbr, all, 
+                                        timeout:[min
+                                        (remaining_time ()) (search_time /. 2.)]))
+                                | Some None ->
+                                        (CPOY swap (visited, tbr, all, 
                                         timeout:[min
                                         (remaining_time ()) (search_time /. 2.)]))
                         in
@@ -1537,17 +1551,24 @@ END
                                                 (CPOY swap
                                                 (sets:[sts], tbr, timeout:[min
                                                 (remaining_time ()) (search_time /. 2.)]))
-                                        | Some file ->
+                                        | Some (Some file) ->
                                                 (CPOY swap
                                                 (sets:[sts], visited:[file], tbr, timeout:[min
+                                                (remaining_time ()) (search_time /. 2.)]))
+                                        | Some None ->
+                                                (CPOY swap
+                                                (sets:[sts], visited, tbr, timeout:[min
                                                 (remaining_time ()) (search_time /. 2.)]))
                                     else 
                                         match visited with
                                         | None ->
                                                 (CPOY swap (tbr, timeout:[min
                                                 (remaining_time ()) (search_time /. 2.)]))
-                                        | Some file ->
+                                        | Some (Some file) ->
                                                 (CPOY swap (visited:[file], tbr, timeout:[min
+                                                (remaining_time ()) (search_time /. 2.)]))
+                                        | Some None ->
+                                                (CPOY swap (visited, tbr, timeout:[min
                                                 (remaining_time ()) (search_time /. 2.)]))
                                 in
                                 let nrun = exec nrun cmd in
@@ -1605,8 +1626,11 @@ END
                                         (match visited with
                                         | None ->
                                                 (CPOY swap (timeout:[remaining_time ()]))
-                                        | Some file ->
+                                        | Some (Some file) ->
                                                 (CPOY swap (visited:[file], 
+                                                timeout:[remaining_time ()]))
+                                        | Some None ->
+                                                (CPOY swap (visited, 
                                                 timeout:[remaining_time ()])))
                                     in
                                     let h = Sexpr.first r.trees in
@@ -1643,9 +1667,12 @@ END
                         | None ->
                                 CPOY fuse (iterations:1, swap (tbr,
                                 timeout:[remaining_time ()])) 
-                        | Some file ->
+                        | Some (Some file) ->
                                 CPOY fuse (iterations:1, swap (tbr,
                                 visited:[file], timeout:[remaining_time ()])) 
+                        | Some None ->
+                                CPOY fuse (iterations:1, swap (tbr,
+                                visited, timeout:[remaining_time ()])) 
                     in
                     let r = exec !run fus in 
                     update_information (`Others (!run, r));

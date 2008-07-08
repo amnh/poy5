@@ -2039,13 +2039,10 @@ The \poycommand{calculate\_support} command does not output support values by de
         \argumentdefinition{target\_cost}{\obligatory{\poyfloat}}{Specifies the 
         upper limit for the cost of the shortest tree.}{targetcost}
 
-        \argumentdefinition{visited}{\obligatory{\poystring}}{Specifies a file
-        where all the visited trees with their respective cost should be stored
-        in. This argument can be used to collect trees to calculate Bremer
-        support values. The use of this argument has tremendous impact in the search
-        speed, as printing the trees in the file becomes a bootleneck. See the
-        \poycommand{report} command for more information on how to use the file
-        produced by this argument.}
+        \argumentdefinition{visited}{\optional{\poystring}}{For a complete
+        description see \ccross{visited}. Note that this argument has a
+        tremendous execution time cost, as printing the trees becomes a
+        bottleneck for the application.}{searchvisited}
 
 	\end{arguments}
 

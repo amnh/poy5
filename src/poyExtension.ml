@@ -579,7 +579,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "max_time"; ":"; x = time -> <:expr<`MaxTime $x$>> ] |
                 [ LIDENT "min_time"; ":"; x = time -> <:expr<`MinTime $x$>> ] |
                 [ LIDENT "visited"; ":"; x = flex_string -> <:expr<`Visited
-                $x$>> ]
+                (Some $x$)>> ] |
+                [ LIDENT "visited" -> <:expr<`Visited None>> ]
             ];
         search:
             [

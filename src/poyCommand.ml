@@ -358,7 +358,7 @@ type std_searcha = [
     | `MaxTime of float
     | `MinTime of float
     | `Target of float
-    | `Visited of string
+    | `Visited of string option
 ]
 
 type command = [
@@ -1616,7 +1616,7 @@ let create_expr () =
                 [ LIDENT "hits"; ":"; x = INT -> `MinHits (int_of_string x) ] |
                 [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x)
                 ] |
-                [ LIDENT "visited"; x = string_arg -> `Visited x ] |
+                [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
                 [ LIDENT "min_time"; ":"; x = time -> `MinTime (float_of_int x) ]
             ];
         search:
