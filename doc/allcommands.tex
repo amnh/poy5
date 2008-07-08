@@ -2039,6 +2039,14 @@ The \poycommand{calculate\_support} command does not output support values by de
         \argumentdefinition{target\_cost}{\obligatory{\poyfloat}}{Specifies the 
         upper limit for the cost of the shortest tree.}{targetcost}
 
+        \argumentdefinition{visited}{\obligatory{\poystring}}{Specifies a file
+        where all the visited trees with their respective cost should be stored
+        in. This argument can be used to collect trees to calculate Bremer
+        support values. The use of this argument has tremendous impact in the search
+        speed, as printing the trees in the file becomes a bootleneck. See the
+        \poycommand{report} command for more information on how to use the file
+        produced by this argument.}
+
 	\end{arguments}
 
     \poydefaults{max\_time:0:1:0, min\_time:0:1:0, memory:gb:2}{Under default
@@ -2050,16 +2058,17 @@ The \poycommand{calculate\_support} command does not output support values by de
                 In order to maximize computational efficiency when using \poycommand{search} 
                 in parallel processing environments the \poyargument{hits}
                 argument is ignored. However, a diverse set of trees which
-                include the current best trees found ammong all the processes is
+                include the current best trees found among all the processes is
                 desirable to improve the potential of tree fusing.
 
-                To guarantee that separate processes
-                exchange trees and seed each other's fuse step, it
-                is advisable to use few successive search commands
-                when executing the program in parallel, to ensure
-                proper tree exchange between different processes,
-                increasing their probability of finding better trees
-                during the fuse step.
+                POY will \emph{only exchange trees between processes at the end
+                of each search command}. Therefore,
+                to guarantee that separate processes seed each other with the
+                best trees they have found every number of hours,
+                it is advisable to use few successive search commands
+                when executing the program in parallel. Each search will still
+                be run in parallel, but after each one, trees will be exchanged
+                between processors, to initiate each successive round of search.
         \end{statement}
 
         

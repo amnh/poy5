@@ -720,7 +720,8 @@ type script = [
     | `GatherBremer
     | `SelectYourTrees
     | `StandardSearch of 
-        (float option * float option * int option * int option * float option)
+        (float option * float option * int option * 
+        int option * float option * string option)
     | input
     | transform
     | build
