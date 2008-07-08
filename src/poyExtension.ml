@@ -278,13 +278,13 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`UnionBased $handle_optional x$>> ]|
                 [ LIDENT "all"; x = OPT optional_integer -> <:expr<`AllBased
                 $handle_optional x$>> ] |
-                [ LIDENT "constraint_p" -> <:expr<`Partition []>> ] |
+                [ LIDENT "constraint_p"; ":"; "("; 
+                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis
+                    -> <:expr<`Partition $exSem_of_list x$>> ] |
                 [ LIDENT "constraint_p"; ":"; x = flex_integer ->
                     <:expr<`Partition [`MaxDepth $x$]>> ] |
                 [ LIDENT "sets"; ":"; x = cur_expr -> <:expr<`Partition [`Sets $x$]>> ] |
-                [ LIDENT "constraint_p"; ":"; left_parenthesis; 
-                    x = LIST1 [x = constraint_options -> x] SEP ","; right_parenthesis
-                    -> <:expr<`Partition $exSem_of_list x$>> ]
+                [ LIDENT "constraint_p" -> <:expr<`Partition []>> ]
             ];
         build_argument:
             [
@@ -330,7 +330,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "branch_and_bound"; x = OPT optional_integer_or_float -> 
                     let thresh = handle_optional x in
                     <:expr<`Branch_and_Bound $thresh$>> ] |
-                [ LIDENT "constraint"; x = OPT optional_string -> 
+                [ LIDENT "constraint_p"; x = OPT optional_string -> 
                     <:expr<`Constraint $handle_optional x$>> ] |
                 [ LIDENT "_mst" -> <:expr<`Mst>> ] |
                 [ LIDENT "_distances" -> <:expr<`DistancesRnd>> ]
@@ -580,7 +580,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "min_time"; ":"; x = time -> <:expr<`MinTime $x$>> ] |
                 [ LIDENT "visited"; ":"; x = flex_string -> <:expr<`Visited
                 (Some $x$)>> ] |
-                [ LIDENT "visited" -> <:expr<`Visited None>> ]
+                [ LIDENT "visited" -> <:expr<`Visited None>> ] |
+                [ LIDENT "constraint"; ":"; x = flex_string -> 
+                    <:expr<`ConstraintFile $x$>> ]
             ];
         search:
             [

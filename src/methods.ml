@@ -721,7 +721,7 @@ type script = [
     | `SelectYourTrees
     | `StandardSearch of 
         (float option * float option * int option * 
-        int option * float option * string option option)
+        int option * float option * string option option * string option)
     | input
     | transform
     | build
