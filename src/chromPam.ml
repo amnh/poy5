@@ -143,7 +143,7 @@ let chromPairAliPam_default = {
 
     max_3d_len = max_int;
     detected_3d_len = 200;
-    kept_wag = 3;
+    kept_wag = 2;
 }
 
 
