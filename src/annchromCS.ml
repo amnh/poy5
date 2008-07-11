@@ -246,7 +246,6 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             c2 = parent.c2 and
             c3 = parent.c3 
     in
-
     let adjusted code parent_chrom acc =
         let to_adjust =
             match to_adjust with
