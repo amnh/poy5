@@ -96,7 +96,7 @@ let annchromPam_default = {
     approx = `BothSeq;
     symmetric = false;
     locus_indel_cost = (10, 100);
-    kept_wag = 1;
+    kept_wag = 2;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
