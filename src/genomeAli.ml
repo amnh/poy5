@@ -1632,11 +1632,18 @@ let find_med3 ch1 ch2 ch3 mine cost_mat cost_cube pam =
         new_chrom
     in 
 
+    let cost1, _ = cmp_cost ch1 mine cost_mat pam in
+    let cost2, _ = cmp_cost ch2 mine cost_mat pam in
+    let cost3, _ = cmp_cost ch3 mine cost_mat pam in
+    let total_cost = cost1 + cost2 + cost3 in
+
     let new_chrom_arr = Array.map change_chrom mine.chrom_arr in 
     let new_mine = {mine with chrom_arr = new_chrom_arr} in 
 
-    let cost1, _ = cmp_cost ch1 new_mine cost_mat pam in
-    let cost2, _ = cmp_cost ch2 new_mine cost_mat pam in
-    let cost3, _ = cmp_cost ch3 new_mine cost_mat pam in
+    let new_cost1, _ = cmp_cost ch1 new_mine cost_mat pam in
+    let new_cost2, _ = cmp_cost ch2 new_mine cost_mat pam in
+    let new_cost3, _ = cmp_cost ch3 new_mine cost_mat pam in
+    let total_new_cost = new_cost1 + new_cost2 + new_cost3 in
 
-    cost1 + cost2 + cost3, new_mine
+    if total_new_cost < total_cost then total_new_cost, new_mine
+    else total_cost, mine
