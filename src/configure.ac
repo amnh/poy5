@@ -69,7 +69,7 @@ AC_ARG_WITH(extras, [AS_HELP_STRING([--with-extras],
             [EXTRAS=$withval],[])
 
 AC_CHECK_PROGS([MERCURIAL], [hg])
-AC_CHECK_PROG([NROFF], [nroff], [nroff], [notfound])
+AC_CHECK_PROG([NROFF], [groff], [groff], [notfound])
 
 
 AC_ARG_WITH(version-number, [AS_HELP_STRING([--with-version-number], [Use the configuration provided version number (used for release purposes only).])], [MERCURIAL="echo $withval"],[MERCURIAL="$MERCURIAL id -i"])
