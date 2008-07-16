@@ -114,6 +114,14 @@ type exploders =
     | ExitPoint
     | InteractivePoint
 
+let is_tree_dependent = function
+    | `MultiStatic_Aprox _
+    | `Static_Aprox _
+    | `Automatic_Sequence_Partition _
+    | `Automatic_Static_Aprox _ -> true
+    | _ -> false
+
+
 (* Takes a command, and returns a quadruple containing
 * the dependency classes it depends on , the dependency classes it affects,  the
 * command itself, and the exploder class the command belongs to *)
@@ -276,6 +284,8 @@ let dependency_relations (init : Methods.script) =
                 | `Branch_and_Bound _
                 | `Prebuilt _ ->
                         [([Data], [Data; Trees], init, Linnearizable)]
+                | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
+                        [([Data; Trees], [Data; Trees], init, Parallelizable)]
                 | `Build (_, (`Constraint (_, _, None, _)), _) ->
                         [([Data; Trees], [Trees], init, Parallelizable)]
                 | `Build _
@@ -1427,9 +1437,57 @@ let break_in_independent_sections x =
     in
     a :: b
 
+let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script
+list)= 
+    match res with
+    | (`ParallelPipeline (times, ((h :: t) as acc), comp, continue)) as hd :: tl ->
+            let tl = correct_parallel_pipelines_with_internal_transform tl in
+            let continue = correct_parallel_pipelines_with_internal_transform continue in
+            (match h with
+            | `Build (a, b, cost_calculation) ->
+                    (match cost_calculation with
+                    | [] -> 
+                            (`ParallelPipeline (times, acc, comp, continue)) :: tl
+                    | _ ->
+                        let name_post = emit_name [] 
+                        and name_pre = emit_name [] in
+                        let dtlst = [`Data] in
+                        let make_discard name = `Discard (dtlst, name) in
+                        let make_set name = `Set (dtlst, name) in
+                        let make_store name = `Store (dtlst, name) in
+                        let continue = 
+                            (make_discard name_pre) :: (make_discard name_post)
+                            :: continue
+                        in
+                        let acc = (make_set name_post) :: (`Build (a, b, [])) ::
+                            (make_set name_pre) :: t
+                        in
+                        (make_store name_pre) :: 
+                        ((cost_calculation :> Methods.script list) @ 
+                            ((make_store name_post) ::
+                                (`ParallelPipeline (times, acc, comp, continue))
+                                :: tl)))
+            | `Branch_and_Bound (_, _, _, _, cost_calculation)
+            | `LocalOptimum (_, _, _, _, cost_calculation, _, _, _, _, _, _) 
+            | `PerturbateNSearch (cost_calculation, _, _, _) ->
+                    if List.exists is_tree_dependent cost_calculation then
+                        let name = emit_name [] in
+                        (`Store ([`Trees], name)) ::
+                        `ParallelPipeline (times, (`Set ([`Trees], name)) ::
+                            acc, comp, (`Discard ([`Trees], name)) ::
+                                continue) :: tl
+                    else 
+                        (`ParallelPipeline (times, acc, comp, continue)) :: tl
+            | _ -> hd :: tl)
+    | hd :: tl -> hd :: (correct_parallel_pipelines_with_internal_transform tl)
+    | [] -> []
+
+
 let analyze script = 
     let scripts = break_in_independent_sections script in 
-    List.flatten (List.map analyze scripts)
+    let res = List.flatten (List.map analyze scripts) in
+    correct_parallel_pipelines_with_internal_transform res
+
 let script_to_string (init : Methods.script) =
     match init with
     | #Methods.tree_handling as meth ->
