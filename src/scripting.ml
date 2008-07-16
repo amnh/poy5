@@ -2435,22 +2435,15 @@ END
                 in
                 { run with trees = trees }
             | trans ->
-                let runs = explode_trees run in
-                let runs =
-                    Sexpr.map (temporary_transforms trans) runs
-                in
+                let run = temporary_transforms trans run in
                 let run_and_untransform (run, untransforms) =
                     let tree = 
                         build_initial run.trees run.data run.nodes meth
                     in
                     let run = { run with trees = tree } in
-                    let run = 
-                        List.fold_left (fun r f -> f r) run untransforms
-                    in
-                    Sexpr.first run.trees
+                    List.fold_left (fun r f -> f r) run untransforms
                 in
-                let trees = Sexpr.map run_and_untransform runs in
-                { run with trees = trees })
+                run_and_untransform run)
     | #Methods.local_optimum as meth ->
             warn_if_no_trees_in_memory run.trees;
             let sets = 
