@@ -495,7 +495,7 @@ endif
 ifeq ($(NROFF), notfound)
 	echo "Could not find groff to create man pages. I will not produce them."
 else
-	groff -man manpoy.txt > poy.1
+	groff -mandoc -T ascii manpoy.txt > poy.1
 endif
 
 help.ml: help.txt ocaml-str helpRead.ml
