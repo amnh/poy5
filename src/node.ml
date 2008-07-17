@@ -267,6 +267,14 @@ let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
 let cs_prelim_to_final a =
     {a with final = a.preliminary}
 
+let calc_total_cost c1 c2 c_cost =
+    assert (c1.cost_mode = c2.cost_mode);
+    match c1.cost_mode with
+    | `Likelihood -> c_cost
+    | `Parsimony -> c_cost +. c1.total_cost +. c2.total_cost
+
+let total_cost _ a = a.total_cost
+
 let rec prelim_to_final =
     function
         | StaticMl a -> 
@@ -587,13 +595,13 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     in
     let mine_cost = get_characters_cost mine in
         {c0 with characters = mine;
-                 total_cost = mine_cost; (* isn't used --but for assertions *)
+                 total_cost = calc_total_cost c1 c2 mine_cost;
                  node_cost  = mine_cost;},
-        {c1 with characters = ch1;}, (*childrens cost doesn't change *)
+        {c1 with characters = ch1;}, (*childrens cost doesn't change, just lengths *)
         {c2 with characters = ch2;}
 
 (** [check_times node1 node2] - ensures that both nodes have the same time
-* information. returns true or false *)
+* information in their directions. returns true or false *)
 let check_time (n1:node_data) (n2:node_data) : bool = 
     let rec ct_map char1 char2 = match char1,char2 with
         | (StaticMl c1)::t1,(StaticMl c2)::t2 ->
@@ -773,18 +781,13 @@ let has_excluded list =
         cost = 1 && count = size in
     List.exists excluded list
 
-let total_cost _ a =
-    match a.cost_mode with
-    | `Likelihood -> a.node_cost
-    | `Parsimony -> a.total_cost
-
 let root_cost root =
     let adder acc character = 
         match character with
         | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
         | _ -> acc
     in
-    List.fold_left adder (total_cost root root) root.characters
+    List.fold_left adder root.total_cost root.characters
 
 let get_characters_of_type map t node =
     List.map map 
@@ -863,13 +866,9 @@ let median code old a b =
                     c.characters
                     a.characters
                     b.characters
-    and children_cost = a.total_cost +. b.total_cost in
+    in
     let node_cost = get_characters_cost new_characters in
-    let total_cost = 
-        assert (a.cost_mode = b.cost_mode);
-        match a.cost_mode with
-        | `Likelihood -> node_cost
-        | `Parsimony -> node_cost +. children_cost in
+    let total_cost = calc_total_cost a b node_cost in
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -975,7 +974,6 @@ let compare_data_final {characters=chs1} {characters=chs2} =
         | [], [] -> 0
         | _ -> failwith "Incompatible characters (2)" in
     compare_lists chs1 chs2
-
 
 let compare_data_preliminary {characters=chs1} {characters=chs2} =
     let rec compare_two ?(fail=true) ch1 ch2 =
@@ -2069,6 +2067,21 @@ let sing = [ (Tags.Characters.cclass, Tags.Nodes.single) ]
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
+ 
+    | StaticMl cb, StaticMl ca -> (
+        match root with
+        | None -> mine
+        | Some root -> (* this is the root handle *)
+            assert(ca.time = cb.time);
+            let times = ca.time /. 2.0 in
+            let res = MlStaticCS.median ca.preliminary cb.preliminary times times in
+            let cost = MlStaticCS.root_cost res in
+            StaticMl
+                { preliminary=res;final=res;
+                  cost = (ca.weight *. cost);
+                  sum_cost = cost;
+                  weight = ca.weight; time = 0.}) 
+
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)
@@ -2090,19 +2103,28 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
             | None -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
-    (*
-    Printf.printf "Assigning single to %d\n%!" mine.taxon_code;
-    *)
     match root with
     | Some root ->
-          let root_char_opt = List.map (fun c -> Some c) root.characters in 
-          { mine with 
-                characters = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) ) 
-                  root_char_opt parent.characters mine.characters }
+        let root_char_opt = List.map (fun c -> Some c) root.characters in 
+        let chars = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) )
+                        root_char_opt parent.characters mine.characters in
+
+        (* TODO:: the data should be here already // why wasn't cost here before?? *)
+        let mine_cost = get_characters_cost chars in
+        { mine with 
+            characters = chars;
+            total_cost = calc_total_cost parent mine mine_cost;
+            node_cost = mine_cost;
+        }
     | None ->
-          { mine with 
-                characters = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
-                  parent.characters mine.characters }
+        let chars = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
+                        parent.characters mine.characters in
+        let mine_cost = get_characters_cost chars in
+        { mine with 
+                characters = chars;
+                total_cost = calc_total_cost parent mine mine_cost;
+                node_cost = mine_cost;
+        }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
     let ch1, ch2 =
@@ -2153,12 +2175,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             let a, b = List.split a in
             a, b, c 
         in
-        let children_cost = ch1.total_cost +. ch2.total_cost 
-        and node_cost = get_characters_cost characters in
-        let total_cost =
-            match mine.cost_mode with
-            | `Likelihood -> node_cost 
-            | `Parsimony  -> node_cost +. children_cost in
+        let node_cost = get_characters_cost characters in
+        let total_cost = calc_total_cost ch1 ch2 node_cost in
         
         let res = 
             { mine with characters = characters; total_cost = total_cost; 
@@ -3347,6 +3365,7 @@ let total_cost_of_type t n =
         | Nonadd32 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
+     (* | StaticMl x, `StaticMl -> acc *)
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
         | Dynamic x, t -> 
                 (match x.preliminary, t with
