@@ -3462,7 +3462,13 @@ module SC = struct
 
     module Hennig = struct
 
-        let default_hennig alph equates file pos = 
+        let default_hennig gap_handling alph equates file pos = 
+            let gaps =  match gap_handling with
+                | None -> equates @ [(Alphabet.gap_repr, [])]
+                | Some `Nogap -> equates @ [(Alphabet.gap_repr, [])]
+                | Some `Gap -> equates 
+            in
+
             { st_filesource = file;
               st_name = file ^ ":" ^ string_of_int pos;
               st_alph = alph;
@@ -3470,7 +3476,7 @@ module SC = struct
               st_labels = [];
               st_weight = 1.0;
               st_type = STOrdered;
-              st_equivalents = equates @ [(Alphabet.gap_repr, [])];
+              st_equivalents = gaps;
               st_missing = "?"; 
               st_matchstate = None;
               st_gap = Alphabet.gap_repr; (* Someting that can't come from the input *)
@@ -3479,7 +3485,7 @@ module SC = struct
               st_used_observed = None;
               st_observed_used = None}
 
-        let hennig_for_upto file n pos =
+        let hennig_upto n = 
             let all_list = ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"; "9";
             "A"; "B"; "C"; "D"; "E"; "F"; "G"; "H"; "I"; "J"; "K"; "L"; "M";
             "N"; "O"; "P"; "Q"; "R"; "S"; "T"; "U"; "V"] in
@@ -3492,36 +3498,42 @@ module SC = struct
                     | n, h :: t -> h :: get_up_to t (n - 1)
                     | _ -> failwith "Illegal number"
                 in
-                let lst = get_up_to all_list n in
+                get_up_to all_list n
+
+        let hennig_for_upto is_gap_state file n pos =
+                let lst = hennig_upto n in
                 let alph, equates= 
                     Nexus.make_symbol_alphabet "7" lst [N.Datatype N.DStandard]
                 in
-                default_hennig alph equates file pos
+                default_hennig is_gap_state alph equates file pos
 
         let rec generate_default of_type file pos =
             match of_type with
-            | Some `Dna -> 
+            | Some (`Dna x) -> 
+                    let lst = hennig_upto 4 in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" [] [N.Datatype N.Dna]
+                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Dna]
                     in
-                    default_hennig alph equates file pos
-            | Some `Rna ->
+                    default_hennig x alph equates file pos
+            | Some (`Rna x) ->
+                    let lst = hennig_upto 4 in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" [] [N.Datatype N.Rna]
+                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Rna]
                     in
-                    default_hennig alph equates file pos
-            | Some `Protein ->
+                    default_hennig x alph equates file pos
+            | Some (`Protein x) ->
+                    let lst = hennig_upto 20 in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" [] [N.Datatype N.Protein]
+                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Protein]
                     in
-                    default_hennig alph equates file pos
+                    default_hennig x alph equates file pos
             | Some (`Number x) ->
                     if x < 9 then
-                        hennig_for_upto file 8 pos
+                        hennig_for_upto None file 8 pos
                     else if x < 17 then
-                        hennig_for_upto file 16 pos
+                        hennig_for_upto None file 16 pos
                     else if x < 33 then
-                        hennig_for_upto file 32 pos
+                        hennig_for_upto None file 32 pos
                     else failwith "We can't hold it, can you?"
             | None -> generate_default (Some (`Number 32)) file pos
 
@@ -3553,6 +3565,7 @@ module SC = struct
                     else 1))
 
         let process_command file (mode, taxa, characters, matrix, trees) = function
+            | Hennig.Nstates x -> (x, taxa, characters, matrix, trees)
             | Hennig.Xread data ->
                     let lex = Lexing.from_string data in
                     let (nch, ntaxa, to_parse) = 
