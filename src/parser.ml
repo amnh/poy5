@@ -130,7 +130,7 @@ let test_file file =
     in
     R.close_in ch;
     if anywhere_match (Str.regexp "^CLUSTAL") line then Is_Clustal
-    else if anywhere_match (Str.regexp "xread") line then Is_Hennig
+    else if anywhere_match (Str.regexp "^\\(\\(xr\\)\\|\\(ns\\)\\|\\(cc\\)\\)") line then Is_Hennig
     (* treat dpread as a hennig file *)
     else if anywhere_match (Str.regexp "COMPLEX") line then
         Is_ComplexTerminals
@@ -2529,7 +2529,7 @@ module SC = struct
 
         let table_of_alphabets = Hashtbl.create 1667 
 
-        let make_symbol_alphabet gap symbols form =
+        let make_symbol_alphabet gap symbols more_equates form =
             let index = (gap, symbols, form) in
             if Hashtbl.mem table_of_alphabets index then
                 Hashtbl.find table_of_alphabets index
@@ -2565,7 +2565,7 @@ module SC = struct
                             ("*", 20, None);
                             (gap, 21, None);] @ prepro_symbols)
                             gap None Alphabet.Sequential,
-                            [("B", ["D"; "N"]); ("Z", ["E"; "Q"])]
+                            [("B", ["D"; "N"]); ("Z", ["E"; "Q"])] @ more_equates
                     | Nexus.Rna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("U", 3,
@@ -2582,7 +2582,7 @@ module SC = struct
                             ("V", ["A"; "C"; "G"]);
                             ("D", ["A"; "G"; "U"]);
                             ("N", ["A"; "C"; "G"; "U"]);
-                            ("X", ["A"; "C"; "G"; "U"])]
+                            ("X", ["A"; "C"; "G"; "U"])] @ more_equates
                     | Nexus.Nucleotide | Nexus.Dna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
@@ -2599,7 +2599,7 @@ module SC = struct
                             ("V", ["A"; "C"; "G"]);
                             ("D", ["A"; "G"; "T"]);
                             ("N", ["A"; "C"; "G"; "T"]);
-                            ("X", ["A"; "C"; "G"; "T"])]
+                            ("X", ["A"; "C"; "G"; "T"])] @ more_equates
                     | Nexus.DStandard ->
                         let cnt = ref (-1) in
                         let alph = List.map (fun x -> 
@@ -2607,7 +2607,7 @@ module SC = struct
                             x, !cnt, None) (symbols @ [gap])
                         in
                         Alphabet.list_to_a alph gap None Alphabet.Sequential,
-                        get_equate form
+                        (get_equate form) @ more_equates
                     | Nexus.Continuous ->
                             failwith "We don't support continuous characters ..."
                 in
@@ -2620,7 +2620,7 @@ module SC = struct
             and gap = get_gap form
             and respect_case = get_respect_case form 
             and _ = incr char_cntr in
-            let alph, equate = make_symbol_alphabet gap symbols form in
+            let alph, equate = make_symbol_alphabet gap symbols [] form in
             { st_filesource = file;
               st_name = file ^ ":" ^ string_of_int !char_cntr;
             st_alph = alph;
@@ -2826,22 +2826,50 @@ module SC = struct
             let stream = Stream.of_string data in
             let n_chars = Array.length characters in
             let first_taxon = ref (-1) in 
+
+            let compress_ss (olst:static_state list option):static_state =
+                let union (oa:static_state) (ob:static_state) =
+                    match oa,ob with
+                    | None, _ -> ob
+                    | _, None -> oa
+                    | Some a,Some b ->
+                        let a = match a with
+                            | `Bits s -> BitSet.to_list s
+                            | `List s -> s in
+                        let b = match b with
+                            | `Bits s -> BitSet.to_list s
+                            | `List s -> s in
+                        let b = List.filter (fun x -> List.mem x a) b in
+                        Some (`List (a@b))
+                in
+                match olst with
+                | None -> failwith "What do you want from my life?"
+                | Some lst -> List.fold_right union lst None
+            in
+
             (* A function that takes a parser, a spec and a  stream and gets the
             * necessary element for the matrix *)
-            let rec process_position alph_parser alph_spec stream position =
+            let rec process_position alph_parser alph_spec stream position stack =
                 match Stream.peek stream with
                 | None -> failwith "Short NEXUS matrix?"
                 | Some x ->
                         match x with
-                        | ' '| '\001' .. '\032' -> 
-                                Stream.junk stream;
-                                process_position alph_parser alph_spec stream
-                                position
-                        | x ->
-                                let x = 
-                                    if not alph_spec.st_case then Char.uppercase x 
-                                    else x
-                                in
+                        | ' ' | '\001' .. '\032' -> Stream.junk stream;
+                                process_position alph_parser alph_spec stream position stack
+                        | '[' when style = `Hennig -> Stream.junk stream;
+                                process_position alph_parser alph_spec stream position (Some [])
+                        | '{' when style = `Nexus -> Stream.junk stream;
+                                process_position alph_parser alph_spec stream position (Some [])
+                        | ']' when style = `Hennig -> Stream.junk stream; 
+                                compress_ss stack
+                        | '}' when style = `Nexus -> Stream.junk stream;
+                                compress_ss stack
+                        | x -> 
+                            let x = 
+                                if not alph_spec.st_case then Char.uppercase x 
+                                else x
+                            in
+                            let next =
                                 if x = alph_spec.st_missing.[0] then begin
                                     Stream.junk stream;
                                     None
@@ -2852,10 +2880,8 @@ module SC = struct
                                     in
                                     let _ = Stream.junk stream in
                                     match eqts with
-                                    | [] -> None
-                                    | _ ->
-                                            Some (alph_parser 
-                                            (Stream.of_string (concat eqts)))
+                                        | [] -> None
+                                        | _ ->  Some (alph_parser (Stream.of_string (concat eqts)))
                                 else 
                                     try
                                         match alph_spec.st_matchstate with
@@ -2864,10 +2890,15 @@ module SC = struct
                                                 if x = first.[0] then begin
                                                     Stream.junk stream;
                                                     matrix.(!first_taxon).(position)
-                                                end else Some (alph_parser stream)
-                                    with
-                                    | err ->
-                                            raise err
+                                end else Some (alph_parser stream)
+                                        with
+                                        | err ->
+                                                raise err
+                            in
+                            match stack with 
+                            | None -> next
+                            | Some lst -> process_position alph_parser alph_spec 
+                                                stream position (Some (next::lst))
             in
             let is_space stream =
                 match Stream.peek stream with
@@ -2937,7 +2968,7 @@ module SC = struct
                         else begin
                             let state = 
                                 process_position parsers.(position) 
-                                characters.(position) stream position
+                                characters.(position) stream position None
                             in
                             assign_item x' position state;
                             taxon_processor x (position + 1)
@@ -3503,28 +3534,33 @@ module SC = struct
         let hennig_for_upto is_gap_state file n pos =
                 let lst = hennig_upto n in
                 let alph, equates= 
-                    Nexus.make_symbol_alphabet "7" lst [N.Datatype N.DStandard]
+                    Nexus.make_symbol_alphabet "7" lst [] [N.Datatype N.DStandard]
                 in
                 default_hennig is_gap_state alph equates file pos
 
         let rec generate_default of_type file pos =
+            
             match of_type with
             | Some (`Dna x) -> 
-                    let lst = hennig_upto 4 in
+                    let gap = "-" in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["T"]); ("4",[gap])] in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Dna]
+                        Nexus.make_symbol_alphabet gap [] equ [N.Datatype N.Dna]
                     in
                     default_hennig x alph equates file pos
+
             | Some (`Rna x) ->
-                    let lst = hennig_upto 4 in
+                    let gap = "-" in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["U"]); ("4",[gap])]  in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Rna]
+                        Nexus.make_symbol_alphabet "-" [] equ [N.Datatype N.Rna]
                     in
                     default_hennig x alph equates file pos
             | Some (`Protein x) ->
-                    let lst = hennig_upto 20 in
                     let alph, equates = 
-                        Nexus.make_symbol_alphabet "-" lst [N.Datatype N.Protein]
+                        Nexus.make_symbol_alphabet "-" [] [] [N.Datatype N.Protein]
                     in
                     default_hennig x alph equates file pos
             | Some (`Number x) ->

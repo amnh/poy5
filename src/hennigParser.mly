@@ -40,16 +40,16 @@ command:
     | PROCESS BACKSLASH SEMICOLON { Hennig.Ignore }
     | OPTCODE INT DOT INT SEMICOLON { Hennig.Ignore }
     | CHARNAMECMD char_names_list SEMICOLON { Hennig.Charname $2 }
-    | NSTATES number_of_states { Hennig.Nstates (Some $2) }
+    | NSTATES number_of_states SEMICOLON { Hennig.Nstates (Some $2) }
     | error SEMICOLON { 
         report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         Hennig.Ignore 
     }
 
 gap:
-    |           { None }
     | GAP       { Some `Gap }
     | NOGAP     { Some `Nogap }
+    |           { None }
 
 number_of_states:
     | STAR          { `Number 8 }
