@@ -806,11 +806,6 @@ let create_chrom_med (genome1_ref_code, chrom1) (genome2_ref_code, chrom2) gb_ls
     let loci1_ls = create_loci chrom1.seq subseq1_ls in 
     let loci2_ls = create_loci chrom2.seq subseq2_ls in 
 
-(*    
-    List.iter Subseq.print loci1_ls;
-    print_newline ();
-    List.iter Subseq.print loci2_ls;
-*)
     let chrom_id = !(chrom1.chrom_id) in
     let med, seg_ls, chrom_cost, recost1, recost2 = create_fast_general_ali chrom_id
         genome1_ref_code chrom1.seq loci1_ls genome2_ref_code chrom2.seq loci2_ls gb_ls cost_mat chrom_pams 
@@ -959,7 +954,6 @@ let create_med med1 med2 cost_mat user_chrom_pams =
               g_recost1 := !g_recost1 + recost1;
               g_recost2 := !g_recost2 + recost2;
         | Some chrom1, None -> 
-(*            let med_seq = Sequence.create_median_gap chrom1.seq cost_mat in *)
               let med_seq = chrom1.seq in 
               let med_len = Sequence.cmp_num_not_gap med_seq in 
 
@@ -976,7 +970,8 @@ let create_med med1 med2 cost_mat user_chrom_pams =
                    ref_code1 = child1_genome_ref_code; sta1 = 0;  en1 = chrom1_len - 1;
                    chi1_chrom_id = !(chrom1.chrom_id); alied_seq1 = chrom1.seq; dir1 = `Positive;  
                    ref_code2 = -1; sta2 = -1; en2 = -1;  
-                   chi2_chrom_id = -1;  alied_seq2 = Sequence.create_gap_seq (Sequence.length chrom1.seq); dir2 = `Positive;                          
+                   chi2_chrom_id = -1;  alied_seq2 = Sequence.create_gap_seq (Sequence.length chrom1.seq); 
+                    dir2 = `Positive;                          
                   } 
               in  
 
@@ -995,7 +990,6 @@ let create_med med1 med2 cost_mat user_chrom_pams =
               rev_chrom_med_ls := chrom_med::!rev_chrom_med_ls;                   
 
         | None, Some chrom2 -> 
-(*            let med_seq = Sequence.create_median_gap chrom2.seq cost_mat in*)
               let med_seq = chrom2.seq in
               let med_len = Sequence.cmp_num_not_gap med_seq in 
 
@@ -1241,7 +1235,7 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
 
 
 (** [create_single_map med] returns the map 
-of single states of genome [med] in Tag.Output format *)
+* of single states of genome [med] in Tag.Output format *)
 let create_single_map med : Tags.output = 
     let str = string_of_int in  
  
