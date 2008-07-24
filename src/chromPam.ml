@@ -143,7 +143,7 @@ let chromPairAliPam_default = {
 
     max_3d_len = max_int;
     detected_3d_len = 200;
-    kept_wag = 2;
+    kept_wag = 1;
 }
 
 
@@ -231,6 +231,12 @@ let get_chrom_pam user_chrom_pam =
         match user_chrom_pam.Data.max_3d_len with  
         | None -> chrom_pam
         | Some l -> {chrom_pam with max_3d_len = l}
+    in 
+
+    let chrom_pam = 
+        match user_chrom_pam.Data.max_kept_wag with
+        | None -> chrom_pam
+        | Some max_kept_wag -> {chrom_pam with kept_wag = max_kept_wag}
     in 
 
     chrom_pam

@@ -96,7 +96,7 @@ let annchromPam_default = {
     approx = `BothSeq;
     symmetric = false;
     locus_indel_cost = (10, 100);
-    kept_wag = 2;
+    kept_wag = 1;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -211,6 +211,13 @@ let get_annchrom_pam user_annchrom_pam =
         | None -> chrom_pam
         | Some locus_indel_cost -> {chrom_pam with locus_indel_cost = locus_indel_cost}
     in 
+
+    let chrom_pam = 
+        match user_annchrom_pam.Data.max_kept_wag with
+        | None -> chrom_pam
+        | Some max_kept_wag -> {chrom_pam with kept_wag = max_kept_wag}
+    in 
+
     chrom_pam
 
 let print annchrom alpha = 

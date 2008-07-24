@@ -106,6 +106,10 @@ type dyna_pam_t = {
 
     (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int option;
+
+    (** maximum of Wagner-based alignments are kept during 
+    * the pairwise alignment with rearrangements *)
+    max_kept_wag : int option;
 }
 
 (** [dyna_pam_default] assigns default values for parameters 
@@ -125,6 +129,7 @@ let dyna_pam_default ={
     approx = Some false;
     symmetric = Some true;
     max_3d_len = Some 100;
+    max_kept_wag = Some 1;
 }
 
 type dynamic_hom_spec = {
@@ -2108,7 +2113,8 @@ let set_dyna_pam dyna_pam_ls =
         | `SwapMed c -> {dyna_pam with swap_med = Some c}    
         | `Approx c  -> {dyna_pam with approx = Some c} 
         | `Symmetric c  -> {dyna_pam with symmetric = Some c}
-        | `Max_3D_Len c -> {dyna_pam with max_3d_len = Some c}) 
+        | `Max_3D_Len c -> {dyna_pam with max_3d_len = Some c} 
+        | `Max_kept_wag c -> {dyna_pam with max_kept_wag = Some c}) 
     ~init:dyna_pam_default dyna_pam_ls
 
 let get_dynas data dyna_code = 

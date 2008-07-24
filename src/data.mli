@@ -101,6 +101,10 @@ type dyna_pam_t = {
 
 (* maximum length used to align 3 sequences in order to reduce the time consuming *)
     max_3d_len : int option; 
+
+    (** maximum of Wagner-based alignments are kept during 
+    * the pairwise alignment with rearrangements *)
+    max_kept_wag : int option; 
 }
 
 type dynamic_hom_spec = {
