@@ -24,7 +24,7 @@ let report_error b e =
 %token <string> INT
 %token <string> CHARNAME
 %token <char> CHAR
-%token CCODE COST PROCESS OPTCODE CHARNAMECMD NSTATES DNA PROTEINS NUMBER
+%token CCODE COST PROCESS OPTCODE CHARNAMECMD NSTATES DNA PROTEINS NUMBER GAP NOGAP
 %token LPARENT RPARENT GT EQUAL QUESTION SEMICOLON DASH LSQ RSQ PLUS STAR BACKSLASH LBRACKET RBRACKET DOT 
 %type <Hennig.command> command
 %start command
@@ -40,15 +40,21 @@ command:
     | PROCESS BACKSLASH SEMICOLON { Hennig.Ignore }
     | OPTCODE INT DOT INT SEMICOLON { Hennig.Ignore }
     | CHARNAMECMD char_names_list SEMICOLON { Hennig.Charname $2 }
-    | NSTATES number_of_states { Hennig.Nstates (Some $2) }
+    | NSTATES number_of_states SEMICOLON { Hennig.Nstates (Some $2) }
     | error SEMICOLON { 
         report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         Hennig.Ignore 
     }
+
+gap:
+    | GAP       { Some `Gap }
+    | NOGAP     { Some `Nogap }
+    |           { None }
+
 number_of_states:
     | STAR          { `Number 8 }
-    | DNA           { `Dna }
-    | PROTEINS      { `Proteins }
+    | DNA gap       { `Dna $2 }
+    | PROTEINS gap  { `Protein $2 }
     | NUMBER INT    { `Number (int_of_string $2) }
 char_names_list:
     | CHARNAME char_names_list { 

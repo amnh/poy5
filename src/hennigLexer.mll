@@ -24,8 +24,9 @@
         --> make_all_prefixes 2 "optcode" OPTCODE
         --> make_all_prefixes 2 "cnames"    CHARNAMECMD
         --> make_all_prefixes 2 "nstates" NSTATES
-        --> (fun x -> ("dna", DNA) :: ("prot", PROTEINS) :: ("num", NUMBER) ::
-            x)
+        --> make_all_prefixes 2  "gaps" GAP
+        --> make_all_prefixes 2  "nogaps" NOGAP
+        --> (fun x -> ("dna", DNA) :: ("prot", PROTEINS) :: ("num", NUMBER) :: x)
 
     let _ = 
         List.iter (fun (keyw, tok) -> 
