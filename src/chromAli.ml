@@ -924,14 +924,20 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 pam =
         end else seq_ls
     in 
     
+    let cost1, _ = cmp_cost ch1 mine c2 pam `Chromosome in 
+    let cost2, _ = cmp_cost ch2 mine c2 pam `Chromosome in 
+    let cost3, _ = cmp_cost ch3 mine c2 pam `Chromosome in 
+    let total_cost = cost1 + cost2 + cost3 in
+
     let new_mine_seq = Sequence.concat (List.rev seq_ls) in
     let new_mine = {mine with seq = new_mine_seq} in
 
-    let cost1, _ = cmp_cost ch1 new_mine c2 pam `Chromosome in 
-    let cost2, _ = cmp_cost ch2 new_mine c2 pam `Chromosome in 
-    let cost3, _ = cmp_cost ch3 new_mine c2 pam `Chromosome in 
-
-    cost1 + cost2 + cost3, new_mine
+    let new_cost1, _ = cmp_cost ch1 new_mine c2 pam `Chromosome in 
+    let new_cost2, _ = cmp_cost ch2 new_mine c2 pam `Chromosome in 
+    let new_cost3, _ = cmp_cost ch3 new_mine c2 pam `Chromosome in 
+    let total_new_cost = new_cost1 + new_cost2 + new_cost3 in 
+    if total_new_cost < total_cost then total_new_cost, new_mine
+    else total_cost, mine
 
 
 

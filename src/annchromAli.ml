@@ -96,7 +96,7 @@ let annchromPam_default = {
     approx = `BothSeq;
     symmetric = false;
     locus_indel_cost = (10, 100);
-    kept_wag = 3;
+    kept_wag = 2;
 }
 
 (** [init_seq_t (seq, code)] returns a segment from [seq] and [code]*)
@@ -707,12 +707,21 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
              end               
         ) mine.seq_arr
     in 
-    let mine = {mine with seq_arr = seq_arr} in 
+
     let cost1, recost1 = cmp_cost ch1 mine c2 alpha annchrom_pam in 
     let cost2, recost2 = cmp_cost ch2 mine c2 alpha annchrom_pam in 
     let cost3, recost3 = cmp_cost ch3 mine c2 alpha annchrom_pam in 
+    let total_cost = cost1 + cost2 + cost3 in
 
-    (cost1 + cost2 + cost3), mine
+    let mine3 = {mine with seq_arr = seq_arr} in 
+    let cost1, recost1 = cmp_cost ch1 mine3 c2 alpha annchrom_pam in 
+    let cost2, recost2 = cmp_cost ch2 mine3 c2 alpha annchrom_pam in 
+    let cost3, recost3 = cmp_cost ch3 mine3 c2 alpha annchrom_pam in 
+    let total_cost3 = cost1 + cost2 + cost3 in
+(*    fprintf stdout "%i -> %i\n" total_cost total_cost3; flush stdout;*)
+    if total_cost3 < total_cost then total_cost3, mine3
+    else total_cost, mine
+
 
 
 

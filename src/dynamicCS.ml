@@ -496,7 +496,7 @@ let encoding enc x =
 
 (* We are turning off iterative for high order characters until the algorithms
 * are properly fixed. *)
-let no_iterative_other_than_for_seqs = true
+let no_iterative_other_than_for_seqs = false
 
 (** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
 * set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and
@@ -526,8 +526,8 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
             let prev_cost = ChromCS.distance ch1 mine +. ChromCS.distance ch2 mine in
             modified, prev_cost, new_cost, (ChromCS nc)
 
-    | AnnchromCS ch1, AnnchromCS ch2, AnnchromCS parent, AnnchromCS mine when ch1.AnnchromCS.alph =
-          Alphabet.nucleotides -> 
+    | AnnchromCS ch1, AnnchromCS ch2, AnnchromCS parent, AnnchromCS mine 
+        when ch1.AnnchromCS.alph = Alphabet.nucleotides -> 
           let modified, new_cost, nc = 
               AnnchromCS.readjust to_adjust modified ch1 ch2 parent mine in
           let prev_cost = AnnchromCS.distance ch1 mine +. AnnchromCS.distance ch2 mine in

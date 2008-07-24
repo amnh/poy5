@@ -2403,19 +2403,31 @@ The \poycommand{calculate\_support} command does not output support values by de
                 \argumentdefinition{iterative}{\obligatory{\poylident}}
                 {Applies the Iterative Pass optimization for the tree cost
                 calculations. There are two forms of iterative pass: if the
-                argument value is exact (the default), then a complete three
+                argument value is \poyargument{exact} (the default), then a complete three
                 dimensional alignment is computed, as described for POY 3.0 in~\cite{wheeler2003a}. 
-                Otherwise, if the argument value is approximate, then the iterations
+                Otherwise, if the argument value is \poyargument{approximate}, then the iterations
                 approximate the three dimensional alignment using pairwise
                 alignments. 
-                If the argument value is exact, this method improves the tree
+                For chromosome characters, 
+                the three dimentional alignment for three chromosomes
+                is computed by separating into smaller three dimentional
+                alignments of short sequences whose lengths are smaller 
+                or equal to \poyargument{max\_3d\_len}. The default value
+                is \texttt{200}.
+
+                If the argument value is \poyargument{exact}, this method improves the tree
                 cost estimation but at the expense of a tremendous execution
                 time. When approximate the execution time footprint is much
                 smaller, and far less memory consumption.
-                The iterative argument 
-                can only be applied to nucleotide sequence characters.
+%                The iterative argument 
+%                can only be applied to nucleotide sequence characters.
                 A heuristic strategy is to apply  \poyargument{iterative} at the 
-                very end of an analysis to polish the final set of trees and perform a final search.}
+                very end of an analysis to polish the final set of trees and perform a final search. 
+                
+                Both arguments accept an optional integer, stating the maximum
+                number of iterations that can be performed. If no integer is
+                given, then the procedure iterates until no further tree cost
+                improvement can be made.}
                 {}
                 
 	\begin{statement}
@@ -3199,6 +3211,15 @@ The \poycommand{calculate\_support} command does not output support values by de
 	                    that rearrangement operations can occur between two non-rearranged seeds
 	                    if they are connected (see Figure \ref{fig:chrom}).
 	                    The default value is \texttt{100}}
+                             {minrearrangementlen}
+
+
+                           \argumentdefinition{max\_3d\_len}{\obligatory{\poyint}} 
+                            {The three dimentional alignment for three chromosomes
+                            is computed by separating into smaller three dimentional
+                            alignments of short sequences whose lengths are smaller 
+                            or equalt to \poyargument{max\_3d\_len}. The default value
+                             is \texttt{200}}
                              {minrearrangementlen}
 
  			\begin{figure} [!htbp]

@@ -76,7 +76,7 @@ let breakinvPam_default = {
     circular = 0;
     swap_med = 1;
     symmetric = true;   
-    kept_wag = 3;
+    kept_wag = 2;
 }
 
 
@@ -305,7 +305,7 @@ let create_breakinv_test =
                 let ch = Random.int (num_char - 1) in 
                 if mask_arr.(ch) = true then begin
                     (if Random.int 2 = 0 then fprintf seqfile "%s " char_arr.(ch)
-                    else fprintf seqfile "~%s " char_arr.(ch));
+                    else fprintf seqfile "%s " char_arr.(ch));
                     mask_arr.(ch) <- false;
                 end 
             done;
