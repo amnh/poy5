@@ -103,6 +103,8 @@ type chromosome_args = [
 
     (** maximum length of sequences aligned by 3D-alignment *)
     | `Max_3D_Len of int 
+
+    | `Max_kept_wag of int
 ]
 
 
@@ -1270,7 +1272,9 @@ let create_expr () =
                 [ LIDENT "med_approx"; ":"; ans = boolean -> `Approx ans] |
                 [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
                 [ LIDENT "max_3d_len"; ":"; l = INT -> 
-                      `Max_3D_Len (int_of_string l) ]  
+                      `Max_3D_Len (int_of_string l) ]  |
+                [ LIDENT "max_kept_wag"; ":"; l = INT -> 
+                      `Max_kept_wag (int_of_string l) ]  
             ];
 
         (* Applications *)
