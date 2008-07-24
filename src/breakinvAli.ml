@@ -76,7 +76,7 @@ let breakinvPam_default = {
     circular = 0;
     swap_med = 1;
     symmetric = true;   
-    kept_wag = 2;
+    kept_wag = 1;
 }
 
 
@@ -129,6 +129,12 @@ let get_breakinv_pam user_breakinv_pam =
         match user_breakinv_pam.Data.symmetric with
         | None -> chrom_pam
         | Some sym -> {chrom_pam with symmetric = sym}
+    in 
+
+    let chrom_pam = 
+        match user_breakinv_pam.Data.max_kept_wag with
+        | None -> chrom_pam
+        | Some max_kept_wag -> {chrom_pam with kept_wag = max_kept_wag}
     in 
 
 

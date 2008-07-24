@@ -129,6 +129,7 @@ type chromosome_pam_t = [
     | `Approx of bool 
     | `Symmetric of bool 
     | `Max_3D_Len of int
+    | `Max_kept_wag of int
 ]
 
 type dynamic_char_transform = [

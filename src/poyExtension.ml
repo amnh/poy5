@@ -628,7 +628,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "symmetric"; ":"; ans = boolean -> <:expr<`Symmetric
                 $ans$>>] |
                 [ LIDENT "max_3d_len"; ":"; l = flex_integer ->
-                    <:expr<`Max_3D_Len $l$>> ]  
+                    <:expr<`Max_3D_Len $l$>> ]  |
+                [ LIDENT "max_kept_wag"; ":"; l = flex_integer ->
+                    <:expr<`Max_kept_wag $l$>> ]  
             ];
         calculate_support:
             [

@@ -152,6 +152,7 @@ module Characters = struct
     let approx = "approx"
     let symmetric = "symmetric"
     let max_3d_len = "max_3d_len"
+    let max_kept_wag = "max_kept_wag"
 end
 
 module Nodes = struct
