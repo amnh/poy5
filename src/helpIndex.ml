@@ -63,7 +63,8 @@ let rec help item =
 
 let help_if_exists it =
     try
-        let item = List.assoc it index in
-        output_help_item (it, item)
+        if List.exists (fun (x, _) -> x = it) index then
+            Status.user_message Status.Information 
+            ("You can find information using the command 'help (" ^ it ^ ")'")
     with
     | Not_found -> ()
