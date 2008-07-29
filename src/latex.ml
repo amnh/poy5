@@ -253,7 +253,12 @@ let rec collapse2 = function
     | h :: t -> h :: (collapse2 t)
     | [] -> []
 
-let rec the_parser fstream = 
+let rec the_parser mode fstream = 
+    let brstr = 
+        match mode with
+        | `OnlineHelp -> "\n\n"
+        | `Troff -> "\n.br\n"
+    in
     let is_newline fstream =
         fstream#skip_ws_nl;
         fstream#match_prefix "\\\\"
@@ -287,7 +292,7 @@ let rec the_parser fstream =
     let rec get_param acc fstream =
         fstream#skip_ws_nl;
         if fstream#match_prefix "{" then begin
-            let res = the_parser fstream in
+            let res = the_parser mode fstream in
             get_param (acc @ [(Text res)]) fstream
         end else acc
     in
@@ -317,11 +322,11 @@ let rec the_parser fstream =
         else if is_close_command fstream then 
             List.rev acc
         else if is_newline fstream then
-            split_on_commands ((Text [Word "\n.br\n"]) :: acc) fstream
+            split_on_commands ((Text [Word brstr]) :: acc) fstream
         else if is_command fstream then
             split_on_commands ((get_comm fstream) :: acc) fstream
         else if is_enclosed fstream then
-            split_on_commands ((Text (the_parser fstream)) :: acc) fstream
+            split_on_commands ((Text (the_parser mode fstream)) :: acc) fstream
         else if is_word fstream then
             split_on_commands ((get_word fstream) :: acc) fstream 
         else failwith "Huh?";
@@ -329,11 +334,16 @@ let rec the_parser fstream =
     let res = split_on_commands [] fstream in
     collapse2 (List.map collapse res)
 
-let process generator fstree = 
-    let res = the_parser fstree in
+let process mode fstree = 
+    let res = the_parser mode fstree in
+    let generator = 
+        match mode with
+        | `OnlineHelp -> produce_latex
+        | `Troff -> produce_troff
+    in
     List.iter generator res
 
-let process_file generator filename output_file = 
+let process_file mode filename output_file = 
     let ch = FileStream.Pervasives.open_in (`Local filename) in 
     channel := open_out output_file;
     o (".TH poy 1 LOCAL\n");
@@ -370,9 +380,9 @@ let process_file generator filename output_file =
     http://research.amnh.org/scicomp/projects/poy.php.\n\
     The following are the valid commands for \n\
     .B poy.");
-    process generator ch;
+    process mode ch;
     o "\n.RS\n\n"
 
 let () = 
-    let () = process_file produce_latex "../doc/allcommands.tex" "help.txt"in
-    process_file produce_troff "../doc/allcommands.tex" "manpoy.txt"
+    let () = process_file `OnlineHelp "../doc/allcommands.tex" "help.txt"in
+    process_file `Troff "../doc/allcommands.tex" "manpoy.txt"
