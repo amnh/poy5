@@ -130,7 +130,7 @@ let test_file file =
     in
     R.close_in ch;
     if anywhere_match (Str.regexp "^CLUSTAL") line then Is_Clustal
-    else if anywhere_match (Str.regexp "^\\(\\(xr\\)\\|\\(ns\\)\\|\\(cc\\)\\)") line then Is_Hennig
+    else if Hennig.is_hennig file then Is_Hennig
     (* treat dpread as a hennig file *)
     else if anywhere_match (Str.regexp "COMPLEX") line then
         Is_ComplexTerminals
@@ -496,9 +496,8 @@ end
 
 module Genbank = struct
     let convert_to_fasta ?filename file =
-        let ch, file = FileStream.channel_n_filename file and
-        definition_str = ref "" and
-        outName, chout = 
+        let ch, file = FileStream.channel_n_filename file 
+        and outName, chout = 
 		match filename with
 		| None -> Filename.open_temp_file "fasta" ".tmp"
 		| Some f -> f, open_out f
