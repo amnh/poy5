@@ -134,6 +134,7 @@ val set_console_run : r -> unit
         val max_cost : unit -> float option
         val all_costs : unit -> float list
         val trees : unit -> phylogeny list
+        val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
         val to_string : bool -> string list list 
         val of_string : string -> unit

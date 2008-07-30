@@ -141,6 +141,7 @@ module type S = sig
         val max_cost : unit -> float option
         val all_costs : unit -> float list
         val trees : unit -> phylogeny list
+        val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
         val to_string : bool -> string list list 
         val of_string : string -> unit
@@ -3219,6 +3220,10 @@ let set_console_run r = console_run_val := r
         let trees () =
             let run = get_console_run () in
             Sexpr.to_list run.trees
+        let set_trees trees =
+            let trees = Sexpr.of_list trees in
+            let r = get_console_run () in
+            set_console_run { r with trees = trees }
         let all_costs () = 
             let lst = List.rev_map PhyloTree.get_cost (trees ()) in
             List.sort compare lst
