@@ -448,9 +448,9 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let distances_table = make_distances_table nodes in
         let distance_fn a b = Hashtbl.find distances_table (a, b) 
         and codes = List.map Node.taxon_code nodes in
-        let mst = Mst.kruskal Mst.Furthest distance_fn codes in
+        let mst = Mst.kruskal Mst.Closest distance_fn codes in
         let do_mst () =
-            let data = Mst.dfs_traversal Mst.Furthest2 mst in
+            let data = Mst.dfs_traversal Mst.Closest2 mst in
             List.map (fun x ->
                 List.find (fun y -> 
                     x = Node.taxon_code y) nodes) data 

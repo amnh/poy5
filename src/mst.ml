@@ -98,13 +98,13 @@ let random_list lst =
     Array_ops.randomize arr;
     Array.to_list arr
 
-type priorities = Random | Closest | Furthest2
+type priorities = Random | Closest2 | Furthest2
 
 let process_list_by_method meth lst =
     List.map (fun (x, _) -> x) 
     (match meth with
     | Random -> random_list lst
-    | Closest -> List.sort (fun (_, (x : float)) (_, (y : float)) ->
+    | Closest2 -> List.sort (fun (_, (x : float)) (_, (y : float)) ->
             compare x y) lst
     | Furthest2 -> 
             List.sort (fun (_, (x: float)) (_, (y : float)) -> compare y x) lst)
