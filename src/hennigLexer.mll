@@ -5,29 +5,57 @@
 
     let ( --> ) a b = b a
 
-    let keyword_table = Hashtbl.create 1667
+    (* to avoid complete prefixes of another command *)
+    let full_commands = Hashtbl.create 200 (* there are around 170 full commands *)
+    (* this is the end all Hashtable --initially holds only prefixes *)
+    let keyword_table = Hashtbl.create 1000 (* there are around 700 prefixes *)
 
     let () = 
+       (** [make_all_prefixes min cmd output] 
+        * makes all prefixes, and ONLY prefixes and adds
+        * them to the keyword table. Duplicates are left in, and filtered
+        * latter. The full commands are added to the full_command table. *)
         let make_all_prefixes min_len fullcommand output =
             let max_len = String.length fullcommand in 
             let rec prepend len =
-                if len > max_len then ()
+                if len > (max_len-1) then
+                    Hashtbl.add full_commands fullcommand output
                 else 
                     let comm = 
                         String.uppercase (String.sub fullcommand 0 len) 
                     in
-                    if Hashtbl.mem keyword_table comm then 
-                        Hashtbl.remove keyword_table comm
-                    else Hashtbl.add keyword_table comm output;
+                    (* _could_ do checking here, but we'd have to check later anyway *)
+                    Hashtbl.add keyword_table comm output;
                     prepend (len + 1) 
             in
             prepend min_len 
         in
-        Hashtbl.add keyword_table "DNA"  DNA;
-        Hashtbl.add keyword_table "PROT" PROTEINS;
-        Hashtbl.add keyword_table "NUM" NUMBER;
-        Hashtbl.add keyword_table "GAPS" GAPS;
-        Hashtbl.add keyword_table "NOGAPS" NOGAPS;
+        (** [remove_dups tbl] 
+         * removes dups from the table. Add more prefixes? run this again *)
+        let remove_dups () =
+            let rec remove_all elm =
+                if Hashtbl.mem keyword_table elm then
+                    ( Hashtbl.remove keyword_table elm; remove_all elm )
+                else ()
+            in
+            (* remove dups and full commands from prefixes, completely *)
+            Hashtbl.iter
+                (fun x y ->
+                    if Hashtbl.mem full_commands x then remove_all x
+                    else match Hashtbl.find_all keyword_table x with
+                        | hd :: [] -> ()
+                        | _ -> remove_all x
+                ) keyword_table;
+            (* add in full commands *)
+            Hashtbl.iter (fun x y -> Hashtbl.add keyword_table x y) full_commands
+        in
+        (* full commands, no prefixes allowed. If there is a possibility of a
+        * prefix, then add it to the list after these using make_all_prefixes *)
+        Hashtbl.add full_commands "DNA"  DNA;
+        Hashtbl.add full_commands "PROT" PROTEINS;
+        Hashtbl.add full_commands "NUM" NUMBER;
+        Hashtbl.add full_commands "GAPS" GAPS;
+        Hashtbl.add full_commands "NOGAPS" NOGAPS;
         (* The table of all the commands accepted by TNT in July, 2008 *)
         (* We won't interpret them all, but it should be easy to add support 
         * to some command if needeed, and we will maintain as much compatibility
@@ -199,7 +227,9 @@
         make_all_prefixes 2 "SPRIT" SPRIT;
         make_all_prefixes 2 "TBRIT" TBRIT;
         make_all_prefixes 2 "TRAVTREE" TRAVTREE;
-        make_all_prefixes 2 "VAR" VAR
+        make_all_prefixes 2 "VAR" VAR;
+        (* REMOVE DUPS IS THE LAST OPERATION *)
+        remove_dups ()
 
     let is_prefix a b =
         let la = String.length a in
