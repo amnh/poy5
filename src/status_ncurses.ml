@@ -1056,7 +1056,7 @@ let main_loop f =
             try
                 let c = 
                     if res = 92 then "\\" 
-                    else (Char.escaped (Char.chr res)) 
+                    else String.make 1 (Char.chr res)
                 in
                 begin match accac with
                 | [] ->
