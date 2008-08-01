@@ -820,7 +820,7 @@ let get_taxon_characters data tcode =
 (* Changes in place *)
 let add_static_character_spec data (code, spec) =
     Hashtbl.replace data.character_specs code (Static spec);
-    Hashtbl.replace data.character_names spec.Parser.SC.st_name code;
+    Hashtbl.add data.character_names spec.Parser.SC.st_name code;
     Hashtbl.replace data.character_codes code spec.Parser.SC.st_name
 
 let report_static_input file (taxa, characters, matrix, tree, unaligned) =
@@ -2767,8 +2767,8 @@ let rec get_code_from_name data name_ls =
   let code_ls = List.fold_right 
       ~f:(fun name acc -> 
               try 
-                  let code = Hashtbl.find data.character_names name in
-                  code::acc
+                  let code = Hashtbl.find_all data.character_names name in
+                  code @ acc
               with 
               | Not_found -> 
                       (* We will try to use a regular expression to match the
