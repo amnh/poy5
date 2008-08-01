@@ -274,7 +274,7 @@ and rawtree = parse
 and ignore_quote2 = parse
     | [^ '\'']+['\'']   { rawtree lexbuf }
 and ignore_quote = parse
-    | [^ '\'']+['\'']   { xread lexbuf }
+    | [^ '\'']*['\'']   { xread lexbuf }
 and xread = parse 
       [ ' ' '\t' '\n' '\010' '\013' '\012' ]    { xread lexbuf }
     | [ '\'' ]  { ignore_quote lexbuf }
