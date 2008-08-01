@@ -1,4 +1,20 @@
 EVAL_OBJS_OPT = $(BASE_OBJS_OPT) ../utils/treeCostApprox.ml
+fort.cmx: poyExtension.cmo fort.ml
+	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c fort.ml
+
+portal: $(BASE_OBJS_OPT) compileFlags.cmx phylo.cmx fort.cmx
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
+	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o $@ \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	bigarray.cmxa $^ $(LIBS) 
+
+lower_bound: $(BASE_OBJS_OPT) ../utils/lowerBound.ml
+	ocamlfind ocamlopt -package glpk -linkpkg $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
+	-cclib -L/opt/local/lib -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o $@ \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	bigarray.cmxa $^ $(LIBS) 
 
 evaluating_do: $(EVAL_OBJS_OPT)
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
