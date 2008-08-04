@@ -3293,7 +3293,15 @@ The \poycommand{calculate\_support} command does not output support values by de
                         all generated rearrangements.}
                         {median}
 
-       
+        		      \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
+                        {Defines the maximum number of Wagner\-based possible ancestral sequence
+                        alignments kept to create the next set of alignments during the pairwise alignment
+                        with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,
+                        however, at every step in the pairwise alignment with rearrangement process, the original
+                        order (1...n) is always considered as a potential solution.}
+                        {maxkeptwag}
+                        
+                        
        		     \argumentdefinition{swap\_med}{\obligatory{\poyint}}
                         {Specifies the maximum number of swapping iterations
                         to search for best pairwise alignment of two chromosomes
@@ -3382,7 +3390,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 	          the seeds of homologous blocks set at  \texttt{15} nucleotides and the locus-level gap
 	         opening cost is set at \texttt{50} with a gap extension cost at \texttt{1.0}.}
               
-          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, min\_rearrangement\_len:60, median:1, circular:false)))} 
+          	\poyexample{transform((all, dynamic\_pam:(locus\_breakpoint:10, max\_kept\_wag:2, min\_rearrangement\_len:60, median:1, circular:false)))} 
              	{This example shows the transformation of chromosomal data using the argument \poyargument{dynamic\_pam}
 		to set the locus rearrangement (breakpoint) cost at \texttt{10}, and only strings of \texttt{60} or more nucleotides 
 		are considered in determining possible rearrangements between identified seeds.  The chromosome data are
