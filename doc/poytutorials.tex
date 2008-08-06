@@ -58,7 +58,7 @@ The following script implements a strategy for a thorough search under iterative
 read("9.fas","31.ss",aminoacids:("41.aa"))
 read("inter_tree.tre")
 transform(tcm:(1,2),gap_opening:1)
-set(iterative:true)
+set(iterative:approximate:2)
 swap()
 select()
 report("all_trees",trees:(total),"constree",graphconsensus,
@@ -71,8 +71,8 @@ exit()
 \item \texttt{read("9.fas","31.ss",aminoacids:("41.aa"))} This command imports all the nucleotide sequence datafiles (all files with the extension \texttt{.seq}), a morphological datafile \texttt{morph.ss} in Hennig86 format, and an aminoacid datafile \texttt{myosin.aa}.
 \item \texttt{read("inter\_tree.tre")} This command imports a tree file, \texttt{inter\_tree.tre}, that contains the most optimal tree from prior analyses. 
 \item \texttt{transform(tcm:(1,2),gap\_opening:1)} This command sets the transformation cost matrix for molecular data to be used in calculating the cost of the tree. Note, that in addition to the substitution and indel costs, the \poycommand{transform} specifies the cost for gap opening.
-\item \texttt{set(iterative:true)} This command sets the optimization procedure
-    to iterative pass (full three dimensional alignments).
+\item \texttt{set(iterative:approximate:2)} This command sets the optimization procedure
+    to iterative pass such that approximated three dimensional alignments generated using pairwise alignments will be considered.  The program will iterate either two times, or until no further tress cost improvements can be made.
 \item \texttt{swap(around)} This commands specifies that the the imported tree is subjected to alternating SPR and TBR branch swapping routine (the default of \poy) following the trajectory of search that completely evaluates the neighborhood of the tree (by using \poyargument{around}).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
 \item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
@@ -141,7 +141,7 @@ exit()
 \item \texttt{build()} This commands begins the tree-building step of the search that generates by default 10 random-addition trees. It is essential that trees are either specified from a file or that trees are built and loaded in memory before attempting to calculate support values.
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
-\item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000),\\ swap(tbr,trees:3)} The \poycommand{calculate\_support} command generates support values as specified by the \poyargument{jackknife} argument for each tree held in memory. During each pseudoreplicate half of the characters will be deleted as specified in the \poyargument{remove:0.50}.  The total number of of pseudoreplicates to be performed is designated by the \poyargument{resample:1000} argument. The \poyargument{build(5)} argument indicates the number of Wagner trees to be built in each pseudoreplicate, and the \poyargument{swap(tbr,trees:3)} argument subjects each Wagner build to tbr swapping keeping up to three best trees per search round. 
+\item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000)} The \poycommand{calculate\_support} command generates support values as specified by the \poyargument{jackknife} argument for each tree held in memory. During each pseudoreplicate half of the characters will be deleted as specified in the argument\poyargument{remove:0.50}. 
 \item \texttt{report("jacktree",graphsupports)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a postscript file with jackknife values designated by the name specified (\emph{i.e.} \texttt{jacktree}). 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
