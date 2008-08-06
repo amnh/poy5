@@ -68,14 +68,44 @@ let make_constraint leaves distance set =
             (di, set)
     | _ -> assert false
 
-let produce_LP_instance tcm file fasta = 
+let produce_LP_instance gap_opening tcm file fasta synonyms = 
     match Parser.Tree.of_file (`Local file) with
     | [[tree]] ->
-            let tree = assign_labels tree in
-            let leaves = list_of_leaves tree in
-            let costs, leaves =  (* Compute all the costs *)
-                let seqs = Scripting.DNA.Fasta.of_file false fasta in
-                let tcm = Scripting.DNA.CM.of_file tcm in
+            let costs, leaves, tree =  (* Compute all the costs *)
+                let seqs = 
+                    let seqs = Scripting.DNA.Fasta.of_file false fasta in
+                    List.map (fun (a, b) ->
+                        (if Hashtbl.mem synonyms a then Hashtbl.find synonyms a 
+                        else a), b) seqs
+                in
+                let tree, seqs = 
+                    let res = ref All_sets.StringMap.empty in
+                    let exists = List.map fst seqs in
+                    let res2 =
+                    Parser.Tree.cleanup (fun name ->
+                        let () =
+                            try
+                                let seq = List.assoc name seqs in
+                                res := All_sets.StringMap.add name seq !res;
+                            with
+                            | Not_found -> ()
+                        in
+                        not (List.exists (function x -> name <> "" && name = x) exists)) tree
+                    in
+                    match res2 with
+                    | None -> assert false
+                    | Some res2 ->
+                            res2, All_sets.StringMap.fold (fun a b acc -> (a, b) :: acc)
+                            !res []
+                in
+                let tree = assign_labels tree in
+                let leaves, tree = list_of_leaves tree, tree in
+                let tcm = 
+                    let tcm = Scripting.DNA.CM.of_file tcm in
+                    Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine
+                    gap_opening);
+                    tcm
+                in
                 let tbl = Hashtbl.create 1667 in
                 let cleanup ((a, _), (b, _), c, _) = 
                     Hashtbl.add tbl (List.assoc a leaves, List.assoc b leaves) c
@@ -84,7 +114,7 @@ let produce_LP_instance tcm file fasta =
                 (Scripting.DNA.Align.algn_all seqs tcm);
                 tbl, 
                 List.fold_left (fun acc x -> All_sets.Integers.add (snd x) acc)
-                All_sets.Integers.empty leaves
+                All_sets.Integers.empty leaves, tree
             in
             let total_variables = 
                 ((All_sets.Integers.cardinal leaves) * 2) - 2
@@ -107,12 +137,32 @@ let produce_LP_instance tcm file fasta =
             Array.make total_variables (0., infinity)
     | _ -> assert false
 
-let process_problem tcm treefile fasta = 
-    let a, b, c, d = produce_LP_instance tcm treefile fasta in
+let process_problem gap_opening tcm treefile synfile fasta = 
+    let synonyms = 
+        let ch = open_in synfile in
+        let res = Parser.Dictionary.of_channel ch in
+        close_in ch;
+        res
+    in
+    let gap_opening = int_of_string gap_opening in
+    let a, b, c, d = produce_LP_instance gap_opening tcm treefile fasta synonyms in
     let lp = Glpk.make_problem Glpk.Minimize a b c d in
     Glpk.scale_problem lp;
     Glpk.use_presolver lp true;
     Glpk.simplex lp;
-    Printf.printf "Z:%g\n%!" (Glpk.get_obj_val lp)
+    Glpk.get_obj_val lp
 
-let () = process_problem Sys.argv.(1) Sys.argv.(2) Sys.argv.(3)
+let () = 
+    match Array.to_list Sys.argv with
+    | _ :: a :: b :: c :: d :: tl -> 
+            let res = 
+                List.fold_left (fun acc file ->
+                    acc +. (process_problem a b c d file)) 0. tl
+            in
+            print_float res;
+            print_newline ()
+    | name :: _ ->
+            Printf.fprintf stderr
+            "Usage: %s gap_opening tcm_file tree_file synonyms [fasta_file] ...\n%!" name;
+            exit 1
+    | [] -> assert false
