@@ -1021,6 +1021,29 @@ module Tree = struct
         let tree, _ = build_cannonic_order tree in
         tree
 
+    exception Illegal_argument
+
+    let cleanup ?newroot f tree =
+        let rec aux_cleanup f tree = 
+            match tree with
+            | Leaf x -> 
+                    if f x then []
+                    else [tree]
+            | Node (chld, x) ->
+                    let res = List.flatten (List.map (aux_cleanup f) chld) in
+                    match res with
+                    | [] | [_] -> res
+                    | y -> [Node (y, x)]
+        in
+        match aux_cleanup f tree with
+        | [] -> None
+        | [x] -> Some x
+        | x -> 
+                match newroot with
+                | None -> raise Illegal_argument
+                | Some y -> Some (Node (x, y))
+
+
 end
 
 (** [lor_list_withhash l hash] returns the logical or of the hash values of all

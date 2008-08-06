@@ -140,6 +140,15 @@ module Tree : sig
     val stream_of_file : bool -> filename -> (unit -> (string t * string))
     val cannonic_order : string t -> string t
 
+    exception Illegal_argument
+
+    (* [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
+    * infromation [x] such that [f x = true]. If there is the need for a new
+    * root, then [newroot] must be provided. If the [newroot] is required and
+    * not provided, the function raises an [Illegal_argument] exception. *)
+    val cleanup : ?newroot:'a  -> ('a -> bool) -> 
+        'a t -> 'a t option
+
     val map : ('a -> 'b) -> 'a t -> 'b t
 end
 
