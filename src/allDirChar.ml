@@ -153,6 +153,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
                 in
                 let dist = Node.distance_of_type Node.has_to_single
+                    100000.
                     (AllDirNode.force_val nda)
                     (AllDirNode.force_val ndb) 
                 in
@@ -569,14 +570,6 @@ with type b = AllDirNode.OneDirF.n = struct
     * to improve the overall cost of the tree, using only the
     * [AllDirNode.adjusted] field of each. *)
     let rec adjust_tree max_count nodes ptree =
-        let vertices = 
-            All_sets.Integers.fold (fun x acc  ->
-
-                Tree.post_order_node_visit (fun _ x acc -> Tree.Continue, x ::
-                    acc) x ptree.Ptree.tree acc) ptree.Ptree.tree.Tree.handles
-                    []
-        in
-        let vertices = List.rev vertices in
         let max_count = 
             match max_count with
             | Some x -> x
@@ -1349,7 +1342,7 @@ with type b = AllDirNode.OneDirF.n = struct
         match jxn1 with
         | Tree.Single_Jxn h ->
                 let d = 
-                    Node.Standard.distance 
+                    Node.Standard.distance 0.
                     (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h)
                     tree)))
                     clade_data
@@ -1360,7 +1353,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                 in
                 let ndata = forcer (Edge (h, n)) in
-                let d = Node.Standard.distance clade_data ndata in
+                let d = Node.Standard.distance 0. clade_data ndata in
                 Ptree.Cost d
 
     let cost_fn a b c d e =

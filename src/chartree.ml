@@ -1046,7 +1046,7 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
     match jxn1 with
     | Tree.Single_Jxn h ->
           Ptree.Cost
-              (Node.Standard.distance
+              (Node.Standard.distance 0.
                    (Ptree.get_node_data (Tree.int_of_id h) tree)
                    clade_data)
     | Tree.Edge_Jxn (h, n) ->

@@ -308,7 +308,7 @@ module MakeNormal
     let forest_break_search_tree origin_cost tree =
         (** [median_cost_fn a b] returns the cost of taking the median of [a] and
             [b]---needed for breaking at a median *)
-        let median_cost_fn x y a b = Node.distance ~para:x ~parb:y a b in
+        let median_cost_fn x y a b = Node.distance ~para:x ~parb:y 0. a b in
 
         (** [break edge tree] breaks an edge in the tree and updates the tree data
             accordingly *)

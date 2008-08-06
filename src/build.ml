@@ -403,7 +403,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 and cb = Node.taxon_code b in
                 if Hashtbl.mem tmp (ca, cb) then ()
                 else begin
-                    let d = Node.distance a b in
+                    let d = Node.distance 100000. a b in
                     Hashtbl.add tmp (ca, cb) d;
                     Hashtbl.add tmp (cb, ca) d;
             end) nodes) nodes;
@@ -450,7 +450,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         and codes = List.map Node.taxon_code nodes in
         let mst = Mst.kruskal Mst.Closest distance_fn codes in
         let do_mst () =
-            let data = Mst.dfs_traversal Mst.Closest2 mst in
+            let data = Mst.bfs_traversal Mst.Closest2 mst in
             List.map (fun x ->
                 List.find (fun y -> 
                     x = Node.taxon_code y) nodes) data 

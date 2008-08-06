@@ -40,7 +40,7 @@ module type S = sig
     val fix_preliminary : n -> n
 
     (** [distance a b] calculates the distance between the nodes [a] and [b]. *)
-    val distance : ?para:int option -> ?parb:int option -> n -> n -> float
+    val distance : ?para:int option -> ?parb:int option -> float -> n -> n -> float
 
     (** [median par code prev a b] calculates a median between the nodes [a] and [b].
     * [prev] holds the previously calculated value of that median (could be used

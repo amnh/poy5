@@ -169,11 +169,11 @@ val median_3 : t -> t -> t -> t -> t
 (* Like [distance] but calculates it only 
 * if the type of the characters match one of those listed. *)
 val distance_of_type : 
-    [`Seq | `Breakinv | `Chrom | `Annchrom | `Genome] list  -> t -> t -> float
+    [`Seq | `Breakinv | `Chrom | `Annchrom | `Genome] list  -> float -> t -> t -> float
 
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
-val distance : t -> t -> float
+val distance : float -> t -> t -> float
 
 (** [distance_union a b] returns the union distance between
 * two dynamic character sets [a] and [b] *)

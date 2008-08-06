@@ -585,26 +585,26 @@ module ProtAff = struct
             (!final_cost_matrix.(min (lena - 1) (lenb - 1)).(max (lenb - 1) (lena - 1)))
         let closest parent mine c2 _ =
             let _, s1', s2', cst = align_2 parent mine c2 in
-        let remove_gaps s2' =
-            (* We first define a function to eliminate gaps from the 
-            * final selection *)
-            let remove_gaps gap seq base = 
-                if base <> gap then 
-                    let _ = prepend seq base in
-                    seq
-                else seq
-            in
-            let res = 
-                Sequence.fold_right (remove_gaps (Cost_matrix.Two_D.gap c2)) 
-                (create (length s2')) s2'
-            in
-            prepend res (Cost_matrix.Two_D.gap c2);
-            res
-        in
-                let get_closest v i =
-                    let v' = get s1' i in
-                    Cost_matrix.Two_D.get_closest c2 v' v 
+            let remove_gaps s2' =
+                (* We first define a function to eliminate gaps from the 
+                * final selection *)
+                let remove_gaps gap seq base = 
+                    if base <> gap then 
+                        let _ = prepend seq base in
+                        seq
+                    else seq
                 in
+                let res = 
+                    Sequence.fold_right (remove_gaps (Cost_matrix.Two_D.gap c2)) 
+                    (create (length s2')) s2'
+                in
+                prepend res (Cost_matrix.Two_D.gap c2);
+                res
+            in
+            let get_closest v i =
+                let v' = get s1' i in
+                Cost_matrix.Two_D.get_closest c2 v' v 
+            in
             remove_gaps (Sequence.mapi get_closest s2'), cst
 
      let full_median_2 a b cm _ =
@@ -672,34 +672,64 @@ module DOS = struct
         let c2 = h.c2 in
         let gap = Cost_matrix.Two_D.gap c2 in
         let res, cost = 
-            if Sequence.is_empty ch1.sequence gap then 
-                create ch2.sequence, 0
-            else if Sequence.is_empty ch2.sequence gap then 
-                create ch1.sequence, 0
-            else 
-                let tmpcost, seqm, changed =
-                    match mode with
-                    | `ThreeD _ ->
-                            Sequence.Align.readjust_3d ch1.sequence ch2.sequence
-                            mine.sequence h.c2 h.c3 parent.sequence
-                    | `ApproxD _ ->
-                            Sequence.readjust ch1.sequence ch2.sequence
-                            mine.sequence h.c2 parent.sequence
-                in
-                let rescost = make_cost tmpcost in
-                { mine with sequence = seqm; costs = rescost }, tmpcost
+            let algn s1 s2 =
+                let cm = c2 in
+                match Cost_matrix.Two_D.affine cm with
+                | Cost_matrix.Affine _ ->
+                        let m, _, _, cost, _ = 
+                            Sequence.Align.align_affine_3 s1 s2 cm in
+                        create m, cost
+                | _ ->
+                        let s1', s2', c = 
+                            Sequence.Align.align_2 ~first_gap:true s1 s2 cm
+                            Matrix.default
+                        in
+                        let median = Sequence.Align.median_2 s1' s2' cm in
+                        let (a, _) = Sequence.Align.closest median median cm
+                        Matrix.default in 
+                        create a, c 
+            in
+            let empty1 = Sequence.is_empty ch1.sequence gap 
+            and empty2 = Sequence.is_empty ch2.sequence gap 
+            and emptypar = Sequence.is_empty parent.sequence gap in
+            match empty1, empty2, emptypar with
+            | false, false, false ->
+                    let tmpcost, seqm, changed =
+                        match mode with
+                        | `ThreeD _ ->
+                                Sequence.Align.readjust_3d ch1.sequence ch2.sequence
+                                mine.sequence h.c2 h.c3 parent.sequence
+                        | `ApproxD _ ->
+                                Sequence.readjust ch1.sequence ch2.sequence
+                                mine.sequence h.c2 parent.sequence
+                    in
+                    let rescost = make_cost tmpcost in
+                    { mine with sequence = seqm; costs = rescost },
+                    tmpcost
+            | true, true, _ -> ch1, 0
+            | true, _, true -> ch1, 0
+            | _, true, true -> ch2, 0
+            | false, false, true ->
+                    algn ch1.sequence ch2.sequence
+            | false, true, false ->
+                    algn ch1.sequence parent.sequence
+            | _, false, false ->
+                    algn ch2.sequence parent.sequence
         in
         0 <> compare res.sequence mine.sequence, res, cost
 
     let to_single h parent mine =
         let gap = Cost_matrix.Two_D.gap h.c2 in
-        if Sequence.is_empty parent.sequence gap then
+        if Sequence.is_empty mine.sequence gap then
             create mine.sequence, 0
-        else if Sequence.is_empty mine.sequence gap then
-            create mine.sequence, 0
-        else 
+        else
+            let parent =
+                if Sequence.is_empty parent.sequence gap then 
+                    mine.sequence
+                else parent.sequence 
+            in
             let seqm, tmpcost = 
-                Sequence.Align.closest parent.sequence mine.sequence h.c2 
+                Sequence.Align.closest parent mine.sequence h.c2 
                 Matrix.default 
             in
             let rescost = make_cost tmpcost in
@@ -777,10 +807,10 @@ module DOS = struct
             max = float_of_int (Sequence.Align.max_cost_2 a b h.c2) } in
         { n with sequence = res; costs = rescost }
 
-    let distance alph h a b =
+    let distance alph h missing_distance a b =
         let gap = Cost_matrix.Two_D.gap h.c2 in 
         if Sequence.is_empty a.sequence gap || 
-            Sequence.is_empty b.sequence gap then 0
+            Sequence.is_empty b.sequence gap then missing_distance
         else
 IFDEF USE_VERIFY_COSTS THEN
             let seqa, seqb, cost = 
@@ -1312,13 +1342,14 @@ let median_3 p n c1 c2 =
     in
     { n with characters = characters }
 
-let distance a b = 
+let distance missing_distance a b = 
+    let missing_distance = int_of_float missing_distance in
     let h = a.heuristic in
     let alph = a.alph in
     float_of_int (Array_ops.fold_left_2 (fun acc a b ->
         match a, b with
         | Heuristic_Selection a, Heuristic_Selection b ->
-                acc + (DOS.distance alph h a b) 
+                acc + (DOS.distance alph h missing_distance a b) 
         | Relaxed_Lifted a, Relaxed_Lifted b ->
                 acc + (int_of_float (RL.distance a b))
         | Relaxed_Lifted _, _

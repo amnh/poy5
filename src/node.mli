@@ -116,7 +116,7 @@ val distance_of_type :
       ?parb:int option ->
           [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
             | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
-                    node_data -> node_data -> float
+                    float -> node_data -> node_data -> float
 
 (** [dist_2 delta a b c] calculates the cost of joining a vertex [n] between
 * the vertices [a] and [b]. If the function finds that the cost is greated
