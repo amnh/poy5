@@ -358,7 +358,7 @@ type tabu_join_strategy = [
 * [Input_file chan] loads the trees stored in the input channel cha. *)
 (* So I will modify this set of build methods to wrap them in a nicer manner *)
 type build_strategy = 
-    int * keep_method * cost_calculation list * tabu_join_strategy
+    int * float * keep_method * cost_calculation list * tabu_join_strategy
 
 type build_method = [
     | `Constraint of (int * float * filename option * cost_calculation list)

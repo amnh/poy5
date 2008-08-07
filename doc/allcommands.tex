@@ -30,11 +30,16 @@
 
 	\begin{arguments}
 
-	\argumentdefinition{as\_is}{} 
+        \argumentdefinition{all}{}
+            {Turns off all preference strategies for adding branches
+            and simply tries all possible addition positions for
+            all terminals.}
+            {allbuild}
+
+        \argumentdefinition{as\_is}{} 
             {Indicates that in one of the trees to be built, the terminals are
-            added in the order in which they appear in the 
-            imported datafiles, and all others are built using a random addition
-            sequence.}
+            added in the order in which they appear in the imported datafiles,
+            and all others are built using a random addition sequence.}
             {asis}
 
         \argumentdefinition{branch\_and\_bound}{\optional{\poyfloat}}
@@ -53,6 +58,16 @@
             builds within each constraint.}
             {buildconstraint}
 
+        \argumentdefinition{lookahead}{\obligatory{\poyint}}
+            {The number of trees that can be kept at each build step. If the
+            \poyargument{lookahead} argument 
+            specifies a number $n$, and the best tree found has cost $c$, then the best $n$
+            trees with cost at most $c + threshold$ as specified by
+            the \nccross{threshold}{buildthreshold} command are held for the
+            next build step. If no \poyargument{threshold} command is specified,
+            then it is set to $0$.}
+            {lookahead}
+
         \argumentdefinition{random}{}
             {Generates a tree at random.  All possible trees have equal
             probability.}
@@ -63,12 +78,18 @@
             tree built. This is a default tree-building strategy.}
             {randomized}
 
+        \argumentdefinition{threshold}{\obligatory{\poyfloat}}
+            {The numerical value specifies the extra cost over the current best
+            tree that makes another tree acceptable for the lookahead list. This 
+            parameter is only useful if~\nccross{lookahead} is used.}
+            {buildthreshold}
+            
         \argumentdefinition{trees}{\obligatory{\poyint}}
             {The integer value specifies the number of independent, individual
             Wagner tree builds. The label \poyargument{trees} is optional: it is
             sufficient to specify only the integer value. Therefore, \poycommand{build(5)} is
             equivalent to \poycommand{build(trees:5)}.  Note that  \poyargument{trees} is
-            also used as an argument of the command~\nccross{swap}{swapcommand}
+            also used as an argument of the command \nccross{swap}{swapcommand}
             but with different meaning.
             
             The value \texttt{0} generates no trees but it \emph{retains} all trees in memory.
@@ -76,7 +97,7 @@
             where instead of generating new trees per each node, the searches are
             performed on the trees in the neighborhood of the current trees in memory.}
             {treesbuild}
-            
+
         \argumentdefinition{INTEGER}{}
             {The integer argument specifies the number of independent, individual
             Wagner tree builds. This is a shortcut of the argument \poyargument{trees}.}
@@ -92,14 +113,9 @@
             {This is a shortcut of the argument \poyargument{of\_file}.}
             {}
 
-        \argumentdefinition{all}{}
-            {Turns off all preference strategies for adding branches and simply tries all possible addition
-            positions for all terminals.}
-            {allbuild}
-        
    \end{arguments}
       
-   \poydefaults{trees:10, randomized}
+   \poydefaults{trees:10, randomized, lookahead:1, threshold:0}
        {By default, \poy will build 10 trees using a random addition sequence for
        each of them.}
 

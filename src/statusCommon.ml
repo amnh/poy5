@@ -132,6 +132,7 @@ module CommandCompletion = struct
         "locus_indel";
         "locus_inversion";
         "log";
+        "lookahead";
         "m";
         "margin";
         "max_time";

@@ -534,7 +534,11 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method new_delta _ = ()
 
-        method clone = ({< >} :> wem)
+        method clone =  ({<
+            to_compare = Stack.copy to_compare;
+            to_calculate_for_compare = Stack.copy to_calculate_for_compare;
+            to_do_later = Stack.copy to_do_later;
+             >} :> wem)
 
         method private should_continue_this_path edge x =
             x &&
@@ -565,7 +569,11 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             handle as super
 
             method new_delta _ = ()
-            method clone = ({<>} :> wem)
+        method clone =  ({<
+            to_compare = Stack.copy to_compare;
+            to_calculate_for_compare = Stack.copy to_calculate_for_compare;
+            to_do_later = Stack.copy to_do_later;
+             >} :> wem)
 
             method private should_continue_this_path edge x =
                 x &&
@@ -1785,7 +1793,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 current_tree_cost <- Ptree.get_cost `Adjusted tree;
                 Queue.clear queue
 
-            method clone = ({<>} :> wem)
+            method clone = ({< >} :> wem)
 
             method exclude _ = ()
 

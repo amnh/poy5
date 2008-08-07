@@ -233,7 +233,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let cnt, tst = get_upto max tree_cost_delta_lst [] in
                     srch_trees <- tst;
                     c_delta <- d;
-                    m_max <- cnt;
+                    m_max <- true_max - cnt;
             | [] ->
                     raise (Invalid_argument "The initialization must contain at \
                     least 1 element.")
@@ -262,7 +262,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     failwith "There are no more trees to search in the wagner \
                     manager."
                 
-        method private filterout m_max trees new_cost old_best =
+        method private filterout m_max trees real_cost new_cost old_best =
             let filter_maximum (worst_cost, tree, res) ((_, cur_cost, _) as v) =
                 if cur_cost > worst_cost then begin
                     match tree with
@@ -271,20 +271,27 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 end else (worst_cost, tree, (v :: res))
             in
             let do_filter (counter, results) ((_, cur_cost, _) as v) =
-                if cur_cost > old_best +. m_thr then (counter + 1, results)
+                if cur_cost > (min new_cost old_best) +. m_thr then (counter + 1, results)
                 else (counter, v :: results)
             in
+            (*
             match List.fold_left do_filter (0, []) trees with
             | (0, _) as x -> 
+                    *)
                     if m_max = 0 then 
-                        let acc = (0.0, None, []) in
-                        let _, _, res = 
+                        let acc = (real_cost, None, []) in
+                        let worst_cost, tree, res = 
                             List.fold_left filter_maximum acc trees
                         in
-                        (1, res)
-                    else x
+                        match tree with
+                        | None -> (false, 0, res)
+                        | Some _ -> 
+                                (true, 1, res)
+                    else if m_max < 0 then assert false
+                    else true, 0, trees
+                    (*
             | x -> x
-
+                    *)
         method evaluate =
             let checker ((m_max, cur_best, results) as r) (v, estimate, _) =
                 if estimate > cur_best +. m_thr then  r
@@ -294,15 +301,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         if verify_cost then a, b, c, tabu_mgr, b
                         else a, b, c, tabu_mgr, estimate
                     in
-                    if ( cost_for_comparisons < cur_best ) then begin
+                    if ( cost_for_comparisons <= cur_best ) then begin
                         (* We are ok, we must add this one *)
-                        let counter, results = 
-                            self#filterout m_max results cost_for_comparisons
-                            cost_for_comparisons 
+                        let is_there_room, counter, results = 
+                            self#filterout m_max results cost_for_comparisons 
+                            cost_for_comparisons cur_best 
                         in
-                        m_max - 1 + counter, cost_for_comparisons,
-                        ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) :: 
-                            results
+                        if is_there_room then
+                            m_max - 1 + counter, cost_for_comparisons,
+                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) :: 
+                                results
+                        else m_max, cur_best, results
                     end else if cost_for_comparisons < cur_best +. m_thr then begin
                         (* We are more or less ok, we make the decision based on
                         * m_max *)
@@ -311,21 +320,26 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
                                 results
                         end else begin
-                            let counter, results = 
+                            let is_there_room, counter, results = 
                                 self#filterout m_max results
-                                cost_for_comparisons cur_best 
+                                cost_for_comparisons cost_for_comparisons 
+                                cur_best 
                             in              
-                            m_max - 1 + counter, cur_best,
-                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
-                                results
+                            if is_there_room then
+                                m_max - 1 + counter, cur_best,
+                                ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
+                                    results
+                            else m_max, cur_best, results
                         end
                     end else 
                         m_max, cur_best, results
                 end
             in
-            let _, _, res = 
-                List.fold_left checker (m_max, infinity, []) srch_trees
+            let new_max, _, res = 
+                List.fold_left checker (true_max, infinity, []) srch_trees
             in
+            assert (true_max - new_max = List.length res);
+            m_max <- new_max;
             srch_trees <- res
 
              (** [process cost_fn b_delta cd_nd join_fn j1 j2 t_delta]
@@ -355,7 +369,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             in
             match cost_fn j1 j2 cld_cst cd_nd pt with
             | Ptree.Cost cc ->
-                    let v = 
+                    let (_, real_cost, _) as v = 
                         let tabu_mgr = tabu_mgr#clone in
                         (Lazy.lazy_from_fun (fun () ->
                         let nt, dlt = join_fn [] j1 j2 pt in
@@ -367,13 +381,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     tabu_mgr#break_distance cc;
                     if ( cc <= cld_cst +. m_thr ) then begin
                         (* We are ok, we must add this one *)
-                        let counter, new_search_trees = 
-                            self#filterout m_max srch_trees cc cld_cst 
+                        let is_there_room, counter, new_search_trees = 
+                            self#filterout m_max srch_trees real_cost cc cld_cst 
                         in
-                        tabu_mgr#new_delta cc;
-                        c_delta <- Ptree.Cost cc;
-                        srch_trees <- v :: new_search_trees;
-                        m_max <- m_max - 1 + counter;
+                        if is_there_room then begin
+                            tabu_mgr#new_delta cc;
+                            c_delta <- Ptree.Cost cc;
+                            srch_trees <- v :: new_search_trees;
+                            m_max <- (m_max - 1 + counter) + counter;
+                        end;
                         Tree.Continue 
                     end else Tree.Continue
             | Ptree.NoCost -> Tree.Skip
