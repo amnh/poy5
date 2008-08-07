@@ -101,10 +101,10 @@ let rec produce_latex = function
     | Command ("poycommand", arg) ->
             o "@[<h>";
             List.iter produce_latex arg;
-            o "@]";
+            o " @]";
     | Command ("ccross", [Word arg])
     | Command ("nccross", [Word arg; _]) ->
-            o (arg ^ "(see help (" ^ arg ^ ")) ");
+            o (arg ^ " (see help (" ^ arg ^ ")) ");
     | Command _ -> ()
     | Text lst -> 
             List.iter produce_latex lst;
