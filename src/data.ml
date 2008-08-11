@@ -819,9 +819,11 @@ let get_taxon_characters data tcode =
 
 (* Changes in place *)
 let add_static_character_spec data (code, spec) =
-    Hashtbl.replace data.character_specs code (Static spec);
-    Hashtbl.add data.character_names spec.Parser.SC.st_name code;
-    Hashtbl.replace data.character_codes code spec.Parser.SC.st_name
+    if not spec.Parser.SC.st_eliminate then begin
+        Hashtbl.replace data.character_specs code (Static spec);
+        Hashtbl.add data.character_names spec.Parser.SC.st_name code;
+        Hashtbl.replace data.character_codes code spec.Parser.SC.st_name;
+    end else ()
 
 let report_static_input file (taxa, characters, matrix, tree, unaligned) =
     let characters = Array.length characters 
@@ -1241,13 +1243,16 @@ matrix, trees, sequences) : Parser.SC.file_output) =
                 let _, tcode = process_taxon_code data tname file in
                 let tl = get_taxon_characters data tcode in
                 let add_character column it =
-                    let chcode, _ = codes.(column) in
-                    let specified = 
-                        match it with
-                        | Some _ -> `Specified
-                        | None -> `Unknown
-                    in
-                    Hashtbl.replace tl chcode ((Stat (chcode, it)), specified);
+                    let chcode, spec = codes.(column) in
+                    if not spec.Parser.SC.st_eliminate then begin
+                        let specified = 
+                            match it with
+                            | Some _ -> `Specified
+                            | None -> `Unknown
+                        in
+                        Hashtbl.replace tl chcode 
+                        ((Stat (chcode, it)), specified);
+                    end;
                     (column + 1)
                 in
                 let _ = Array.fold_left ~f:add_character ~init:0 matrix.(row) in
