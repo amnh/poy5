@@ -22,6 +22,14 @@ type support_class = (int * int Tree.CladeFPMap.t) option
 
 type 'a str_htbl = (string, 'a) Hashtbl.t
 
+
+type search_results = {
+    tree_costs_found : int All_sets.FloatMap.t;
+    total_builds : int;
+    total_fuse : int;
+    total_ratchet : int;
+}
+
 type ('a, 'b, 'c) run = {
     description : string option;
     trees : ('a, 'b) Ptree.p_tree Sexpr.t;
@@ -41,6 +49,7 @@ type ('a, 'b, 'c) run = {
     queue : Sampler.ft_queue;
     stored_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
+    search_results : search_results;
 }
 
 val build_has : Methods.cost_calculation -> Methods.build -> bool
@@ -62,6 +71,8 @@ type build_optimum = tree list
 type script = Methods.script
 
 val empty : unit -> r
+
+val args : string array
 
 val run : 
     ?folder:(r -> script -> r) ->

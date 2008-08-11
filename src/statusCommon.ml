@@ -188,6 +188,7 @@ module CommandCompletion = struct
         "script_analysis";
         "search";
         "search_based";
+        "searchsstats";
         "sectorial";
         "seed";
         "seed_length";

@@ -25,6 +25,36 @@ type support_class = (int * int Tree.CladeFPMap.t) option
 
 type 'a str_htbl = (string, 'a) Hashtbl.t
 
+type search_results = {
+    tree_costs_found : int All_sets.FloatMap.t;
+    total_builds : int;
+    total_fuse : int;
+    total_ratchet : int;
+}
+
+(* We define a few functions to deal with the search results type *)
+let empty_search_results = {
+    tree_costs_found = All_sets.FloatMap.empty;
+    total_builds = 0;
+    total_fuse = 0;
+    total_ratchet = 0;
+}
+
+let incr_search_results t cnt sr =
+    match t with
+    | `Builds -> { sr with total_builds = sr.total_builds + cnt }
+    | `Fuse -> { sr with total_fuse = sr.total_fuse + cnt }
+    | `Ratchet -> { sr with total_ratchet = sr.total_ratchet + cnt }
+
+let add_results cost sr =
+    let cnt = 
+        if All_sets.FloatMap.mem cost sr.tree_costs_found then
+            1 + (All_sets.FloatMap.find cost sr.tree_costs_found)
+        else 1
+    in
+    let set = All_sets.FloatMap.add cost cnt sr.tree_costs_found in
+    { sr with tree_costs_found = set }
+
 type ('a, 'b, 'c) run = {
     description : string option;
     trees : ('a, 'b) Ptree.p_tree Sexpr.t;
@@ -44,6 +74,7 @@ type ('a, 'b, 'c) run = {
     queue : Sampler.ft_queue;
     stored_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     original_trees : ('a, 'b) Ptree.p_tree Sexpr.t;
+    search_results : search_results;
 }
 
 let is_forest = function
@@ -77,6 +108,8 @@ module type S = sig
     type script = Methods.script
 
     val empty : unit -> r
+
+    val args : string array
 
     val run : 
         ?folder:(r -> script -> r) ->
@@ -690,6 +723,7 @@ let empty () = {
     queue = Sampler.create ();
     stored_trees = `Empty;
     original_trees = `Empty;
+    search_results = empty_search_results;
 }
 
 let process_random_seed_set run v =
@@ -1286,10 +1320,12 @@ let automated_search folder max_time min_time max_memory min_hits target_cost
 visited user_constraint run =
     let module FPSet = Set.Make (Ptree.Fingerprint) in
     let timer = Timer.start () in
+    let search_results = ref empty_search_results in
     let get_memory () = (Gc.stat ()).Gc.heap_words in
     let command_processor = PoyCommand.of_parsed false in
     let trees = ref run.trees in
     let exhausted = ref FPSet.empty in
+    let ratchets = ref 0 in
     let best_cost = ref 
         (match target_cost with
         | None -> max_float 
@@ -1307,6 +1343,7 @@ visited user_constraint run =
         | `Initial run ->
                 (* We only update the number of hits and the memory change *)
                 let cost = Ptree.get_cost `Adjusted (Sexpr.first run.trees) in
+                search_results := add_results cost !search_results;
                 if cost < !best_cost then begin 
                     best_cost := cost;
                     hits := 1;
@@ -1333,6 +1370,7 @@ visited user_constraint run =
                     else
                         cost_a, (if cost_b = cost_a then hit_a - hit_b else hit_a)
                 in
+                search_results := add_results cost !search_results;
                 best_cost := cost;
                 hits := !hits + hit;
         end;
@@ -1406,15 +1444,15 @@ IFDEF USEPARALLEL THEN
             | _ -> max_int
         in
             let arr = Mpi.allgather 
-                (!iterations_counter, !fuse_counter, !hits, !best_cost, pot_mem)
+                (!iterations_counter, !ratchets, !fuse_counter, !hits, !best_cost, pot_mem)
                 Mpi.comm_world in
-            let iterations_counter, fuse_counter, hits, best, mem = 
-                Array.fold_left (fun (aic, afs, ahts, abest, ax) (ic, fs, hts, best, x) -> 
-                    aic + ic, afs + fs,
+            let iterations_counter, ratchet_counter, fuse_counter, hits, best, mem = 
+                Array.fold_left (fun (aic, ars, afs, ahts, abest, ax) (ic, rs, fs, hts, best, x) -> 
+                    aic + ic, ars + rs, afs + fs,
                         (if best < abest then hts
                         else if best = abest then hts + ahts
                         else ahts), min best abest, max ax x) 
-                    (0, 0, 0, max_float, 0) arr in
+                    (0, 0, 0, 0, max_float, 0) arr in
             let run =
                 (if not_final then
                     folder run [`GatherTrees ([`BestN None], [])]
@@ -1433,9 +1471,23 @@ IFDEF USEPARALLEL THEN
                     { run with trees = Sexpr.union run.trees my_trees }
                 else run
             in
-            run, iterations_counter, fuse_counter, hits, best
+            let search_results = 
+                !search_results 
+                --> incr_search_results `Builds iterations_counter
+                --> incr_search_results `Fuse fuse_counter
+                --> incr_search_results `Ratchet ratchet_counter
+            in
+            { run with search_results = search_results }, 
+            iterations_counter, fuse_counter, hits, best
 ELSE
-        !run, !iterations_counter, !fuse_counter, !hits, !best_cost
+        let search_results = 
+                !search_results 
+                --> incr_search_results `Builds !iterations_counter
+                --> incr_search_results `Fuse !fuse_counter
+                --> incr_search_results `Ratchet !ratchets
+        in
+        { !run with search_results = search_results }, 
+        !iterations_counter, !fuse_counter, !hits, !best_cost
 END
     in
     let exec r c = folder r (command_processor c) in
@@ -1623,6 +1675,7 @@ END
             trees := Sexpr.union nrun.trees !trees;
             update_information (`Initial nrun);
             if do_perturb || 0.5 < Random.float 1.0 then begin
+                if 0. < remaining_time () then incr ratchets;
                 let nrun = exec nrun 
                 (match user_constraint with
                 | None ->
@@ -1714,10 +1767,12 @@ END
                 let len = Sexpr.length !trees in
                 trees := `Empty;
                 for i = 0 to (2 * len) do
-                    incr fuse_counter;
-                    Status.message fuse_iteration_status 
-                    ("Generation " ^ string_of_int !fuse_counter);
-                    update_information (`Others (!run, !run));
+                    if 0. < remaining_time () then begin 
+                        incr fuse_counter;
+                        Status.message fuse_iteration_status 
+                        ("Generation " ^ string_of_int !fuse_counter);
+                        update_information (`Others (!run, !run));
+                    end;
                     Status.full_report fuse_iteration_status;
                     stop_if_necessary `Fuse;
                     let fus = 
@@ -1747,6 +1802,7 @@ END
                     let r = exec !run fus in 
                     update_information (`Others (!run, r));
                     run := r;
+                    stop_if_necessary `Other;
                 done;
                 let r = 
                     let c = command_processor (CPOY select (unique)) in
@@ -2935,7 +2991,8 @@ END
                     end else Hashtbl.add htbl cost 1
                 in
                 Sexpr.leaf_iter adder run.trees;
-                let arr = Array.make_matrix (1 + Hashtbl.length htbl) 2 (`Int 0) in
+                let arr = 
+                    Array.make_matrix (1 + Hashtbl.length htbl) 2 (`Int 0) in
                 let folder a b cnt =
                     arr.(cnt).(0) <- `Float a;
                     arr.(cnt).(1) <- `Int b;
@@ -2960,6 +3017,33 @@ END
                 Status.output_table fo arr;
                 Status.user_message fo "@]\n%!";
                 run
+            | `SearchStats filename ->
+                    let fo = Status.Output (filename, false, []) in
+                    let costs = All_sets.FloatMap.fold (fun a b acc ->
+                        [|string_of_float a; string_of_int b|] :: acc) 
+                        run.search_results.tree_costs_found [] 
+                    in
+                    let costs = List.sort (fun a b -> 
+                        match a, b with
+                        | [|a; _|], [|b; _|] ->
+                                compare (float_of_string a) (float_of_string b)
+                        | _ -> assert false) costs 
+                    in
+                    let costs = 
+                        [|"# of Builds + TBR "; string_of_int
+                        run.search_results.total_builds|] ::
+                        [|"# of Fuse         "; string_of_int
+                        run.search_results.total_fuse|] ::
+                        [|"# of Ratchets     "; string_of_int
+                        run.search_results.total_ratchet|] ::
+                        [|"                  "; "              "|] ::
+                        [|"Tree length       "; "Number of hits"|] :: costs 
+                    in
+                    Status.user_message fo 
+                    "@{<b>Search Stats:@}@[<v 2>@,";
+                    Status.output_table fo (Array.of_list costs);
+                    Status.user_message fo "@]\n%!";
+                    run
             | `Trees (ic, filename) ->
                 PTS.report_trees ic filename run.data run.trees;
                 run

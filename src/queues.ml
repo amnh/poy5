@@ -270,11 +270,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     | Some x -> (cur_cost, Some v, (x :: res))
                 end else (worst_cost, tree, (v :: res))
             in
+            (*
             let do_filter (counter, results) ((_, cur_cost, _) as v) =
                 if cur_cost > (min new_cost old_best) +. m_thr then (counter + 1, results)
                 else (counter, v :: results)
             in
-            (*
             match List.fold_left do_filter (0, []) trees with
             | (0, _) as x -> 
                     *)
