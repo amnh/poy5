@@ -1226,8 +1226,9 @@ let analyze_tcm tcm alph =
                         else if not (is_affine tcm) then
                             AllOneGapSame 
                             (all_excepting_gap, all_and_gap)
-                        else 
+                        else if is_affine tcm then
                             AllSankoff (Some for_sankoff)
+                        else AllSankoff None
                     else if is_affine tcm then
                         AllSankoff (Some for_sankoff)
                     else AllSankoff None
@@ -1237,7 +1238,9 @@ let analyze_tcm tcm alph =
                     else AllSankoff None
         with
         | IsSankoff -> 
+                if is_affine tcm then
                     AllSankoff (Some for_sankoff)
+                else AllSankoff None
     in
     let extract_all all =
         match all with
@@ -1324,7 +1327,7 @@ let analyze_tcm tcm alph =
             in 
             let to_encoding _ acc = subs :: acc in
             get_case, to_parser, to_encoding
-    | AllSankoff _ ->
+    | AllSankoff gap_processing_function ->
             let size = 
                 (* We remove one from the all elements representation *)
                 match Alphabet.get_all alph with
@@ -1412,12 +1415,20 @@ let analyze_tcm tcm alph =
             let all = 
                 (* The size minus 1 for the codes (starting in 0), and another
                 * one for the gap which we code separated *)
-                generate_all [] (size - 2) in
+                let sz  =
+                    match gap_processing_function with
+                    | None -> size - 1
+                    | _ -> size - 2 
+                in
+                generate_all [] sz in
             let gap_holder = 
                 (* We always use all in the gap because we code it separated for
                 * Sankoff characters 
                 if is_metric then [gap_code] else all 
-                *) all
+                *) 
+                match gap_processing_function with
+                | None -> [4]
+                | _ -> all
             in
             let table = Hashtbl.create 67 in
             let find_item it =
