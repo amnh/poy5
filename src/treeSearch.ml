@@ -474,8 +474,8 @@ module MakeNormal
                     TreeOps.join_fn 
                     (Status.user_message (Status.Output (filename, false, [])))
             | `AllVisited filename ->
-                    let join_fn a b c = 
-                        let a, _ = TreeOps.join_fn [] a b c in
+                    let join_fn incr a b c = 
+                        let a, _ = TreeOps.join_fn incr a b c in
                         a
                     in
                     (new SamplerApp.visited join_fn 

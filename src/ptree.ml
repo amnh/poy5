@@ -2514,7 +2514,6 @@ let bremer to_string cost tree generator file =
                     let new_cost, sets = generator input_tree in
                     map :=
                         Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
-                            Printf.printf "The best cost is %d\n" best_cost;
                         if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
                             ((new_cost - cost) < best_cost) then
                             Tree.CladeFPMap.add my_clade (new_cost - cost) acc

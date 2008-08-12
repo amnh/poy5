@@ -527,7 +527,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                       let cst = Ptree.get_cost `Adjusted nt in
                       if cst < cur_best_cost then begin
                           let new_tabu = tabu_mgr#clone in
-                          sampler#process j1 j2 cd_nd pt (Some nt) 
+                          sampler#process incremental j1 j2 cd_nd pt (Some nt) 
                           b_delta cc (Some cst); 
                           cur_best_cost <- cst;
                           new_tabu#update_join nt j_delta;
@@ -535,11 +535,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                           results <- [(nt, cst, new_tabu)] ;
                           Tree.Break 
                       end else begin
-                          sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                          sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                           Tree.Continue
                       end
                   end else begin
-                      sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                      sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                       Tree.Continue
                   end
 
@@ -802,16 +802,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         else ()
                     else ();
                     (* insert self-call here *)
-                    self#trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost
+                    self#trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost
 
         (** [trajectory cc b_delta ljoin ltabu cost] is used to control the
             trajectory of the search.  This version implements first-best search;
             see later for an example of annealing search implemented this way. *)
-        method private trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
+        method private trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
             if ( cc < b_delta ) then begin
                 let nt, j_delta = Lazy.force ljoin in
                 let cst = Ptree.get_cost `Adjusted nt in
-                sampler#process j1 j2 cd_nd pt (Some nt) b_delta 
+                sampler#process incremental j1 j2 cd_nd pt (Some nt) b_delta 
                 cc (Some cst);
                 (*
                 if debug_costfn_opportunistic && (cst <> cost)
@@ -824,12 +824,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         self#refilter;
                         Tree.Break 
                     end else begin
-                        sampler#process j1 j2 cd_nd pt (Some nt) 
+                        sampler#process incremental j1 j2 cd_nd pt (Some nt) 
                         b_delta cc None;
                         Tree.Continue
                     end
                 end else begin
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
                 end
 
@@ -957,7 +957,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost cc ->
                     tabu_mgr#break_distance cc;
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                     if cc < b_delta then 
                       let nt, j_delta = (join_fn incremental j1 j2 pt) in
                       let cst = Ptree.get_cost `Adjusted nt in
@@ -1004,24 +1004,24 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
         method virtual private is_better : float -> float -> bool
 
-        method private trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
+        method private trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
             tree_count <- succ tree_count;
             if self#is_better cc b_delta then begin
                     let nt, j_delta = Lazy.force ljoin in
                     let cst = Ptree.get_cost `Adjusted nt in
                     if self#is_better cst cur_best_cost then begin
                         cur_best_cost <- cst;
-                        sampler#process j1 j2 cd_nd pt (Some nt) b_delta cc 
+                        sampler#process incremental j1 j2 cd_nd pt (Some nt) b_delta cc 
                         (Some cst);
                         let new_tabu = Lazy.force ltabu in
                         srch_trees <- (nt, cst, new_tabu) :: srch_trees;
                         Tree.Break
                     end else begin
-                        sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                        sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                         Tree.Continue
                     end
                 end else begin
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
                 end
     end
@@ -1129,8 +1129,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     if cc < b_delta then
                         let _ = 
-                            sampler#process j1 j2 cd_nd pt None b_delta cc 
-                            None 
+                            sampler#process incremental j1 j2 cd_nd pt 
+                            None b_delta cc None 
                         in
                         let _ = 
                             match file with
@@ -1144,7 +1144,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             | None -> ()
                         in
                         ()
-                    else sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    else sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
             | Ptree.NoCost -> Tree.Skip
 
