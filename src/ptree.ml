@@ -2494,7 +2494,7 @@ let extract_bremer to_string sets =
 (* A function that returns the bremer support tree based on the set of (costs, 
 * tree) of sets, for the input tree *)
 let bremer to_string cost tree generator file =
-    let tree_generator = Parser.Tree.stream_of_file file in
+    let tree_generator = Parser.Tree.stream_of_file true file in
     (* We first create a function that takes a map of clades and best cost found
     * for a tree _not_ containing the set, and a set of clades belonging to a
     * tree, with it's associated cost, and update the map according to the cost

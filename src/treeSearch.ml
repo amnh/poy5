@@ -181,8 +181,11 @@ module MakeNormal
 
     let odebug = Status.user_message Status.Information
 
-    let simplified_report_trees filename data (tree, cost, _) =
-        let fo = Status.Output (filename, false, []) in
+    let simplified_report_trees compress filename data (tree, cost, _) =
+        let fo = 
+            let lst = if compress then [StatusCommon.Compress] else [] in
+            Status.Output (filename, false, lst) 
+        in
         let output tree = 
             let cost = string_of_float cost in
             let tree = 
@@ -447,14 +450,14 @@ module MakeNormal
             match item with
             | `PrintTrajectory filename -> 
                   (new SamplerApp.print_next_tree 
-                  (simplified_report_trees filename data))
+                  (simplified_report_trees false filename data))
             | `KeepBestTrees ->
                     (new SamplerApp.local_optimum_holder queue)
             | `TimeOut time ->
                     (new SamplerApp.timed_cancellation time) 
             | `TimedPrint (time, filename) ->
                     (new SamplerApp.timed_printout queue time 
-                     (simplified_report_trees filename data))
+                     (simplified_report_trees false filename data))
             | `UnionStats (filename, depth) ->
                     new SamplerRes.union_table depth
                     (Status.user_message (Status.Output (filename, false, [])))
@@ -478,8 +481,9 @@ module MakeNormal
                         let a, _ = TreeOps.join_fn incr a b c in
                         a
                     in
+                    let do_compress = None <> filename in
                     (new SamplerApp.visited join_fn 
-                    (simplified_report_trees filename data))
+                    (simplified_report_trees do_compress filename data))
         in
         new Sampler.composer previous ob
 

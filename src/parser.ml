@@ -988,8 +988,13 @@ module Tree = struct
                 Status.user_message Status.Error msg;
                 raise e
 
-    let stream_of_file file =
-        let ch = new FileStream.stream_reader (FileStream.open_in file) in
+    let stream_of_file is_compressed file =
+        let ch = 
+            if is_compressed then
+                new FileStream.compressed_reader (FileStream.open_in file) 
+            else
+                new FileStream.stream_reader (FileStream.open_in file) 
+        in
         match gen_aux_of_stream_gen true ch with
         | `Stream s -> s
         | `Trees _ -> assert false

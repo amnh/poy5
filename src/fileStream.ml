@@ -257,16 +257,59 @@ end
 class stream_reader stream =
 object (self)
     inherit auto_store_reader as super
+
+    method private get_char = Pervasives.input_char stream
         
     (* By default, we want to skip extra newline chars *)
     val mutable last_cr = false
-    method get =
-        let ch = Pervasives.input_char stream in
+    method private process_char ch =
         if ((ch = '\010') || (ch = '\013') || (ch = '\n')) && last_cr then 
             (last_cr <- false; self#get)
         else if ch = '\013' || ch = '\010' || ch = '\n' then 
             (last_cr <- true; '\n')
         else (last_cr <- false; ch)
+    method get =
+        let ch = self#get_char in
+        self#process_char ch
+end
+
+class compressed_reader stream = object (self)
+    inherit stream_reader stream as super
+
+    val mutable table = Lz.initial_table ()
+
+    val mutable buffer = Buffer.create (1024 * 1024) 
+
+    val mutable buffer_length = 0
+    val mutable buffer_position = 0
+
+    method private fill_buffer =
+        Buffer.reset buffer;
+        buffer_length <- 0;
+        buffer_position <- 0;
+        let fst = Pervasives.input_byte stream in
+        let snd = Pervasives.input_byte stream in
+        let int = (fst lsl 8) lor snd in
+        Lz.decompress table [int] buffer;
+        buffer_length <- Buffer.length buffer;
+
+    method private process_char ch =
+        if ((ch = '\010') || (ch = '\013') || (ch = '\n')) && last_cr then 
+            (last_cr <- false; self#get)
+        else if ch = '\013' || ch = '\010' || ch = '\n' then 
+            (last_cr <- true; '\n')
+        else (last_cr <- false; ch)
+
+    method get =
+        if buffer_length = 0 then begin
+            self#fill_buffer;
+            self#get
+        end else begin
+            buffer_length <- buffer_length - 1;
+            let ch = Buffer.nth buffer buffer_position in
+            buffer_position <- buffer_position + 1;
+            self#process_char ch
+        end
 end
 
 type f = [`Local of string | `Remote of string]
