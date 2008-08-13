@@ -3553,8 +3553,8 @@ module SC = struct
             match of_type with
             | Some (`Dna x) -> 
                     let gap = "-" in
-                    let equ =  [("0",["A"]); ("1",["G"]);
-                                ("2",["C"]); ("3",["T"]); ("4",[gap])] in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["T"]); ("4",[gap])] in
                     let alph, equates = 
                         Nexus.make_symbol_alphabet gap [] equ [N.Datatype N.Dna]
                     in
@@ -3562,8 +3562,8 @@ module SC = struct
 
             | Some (`Rna x) ->
                     let gap = "-" in
-                    let equ =  [("0",["A"]); ("1",["G"]);
-                                ("2",["C"]); ("3",["U"]); ("4",[gap])]  in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["U"]); ("4",[gap])]  in
                     let alph, equates = 
                         Nexus.make_symbol_alphabet "-" [] equ [N.Datatype N.Rna]
                     in
