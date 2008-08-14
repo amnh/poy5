@@ -1544,7 +1544,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     (fun x acc -> 
                         try 
                             let w = get_weight x in
-                            Hashtbl.add table w x; 
+                            if Hashtbl.mem table w then
+                                let lst = Hashtbl.find table w in
+                                Hashtbl.replace table w (x :: lst)
+                            else Hashtbl.add table w [x]; 
                             All_sets.Floats.add w acc
                         with
                         | Not_found -> acc) 
@@ -1552,7 +1555,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let res = All_sets.Floats.fold 
                 (fun x acc -> 
-                    let lst = Hashtbl.find_all table x in (x, lst) :: acc) 
+                    let lst = Hashtbl.find table x in 
+                    (x, lst) :: acc) 
                 weights []
             in
             List.fold_left
