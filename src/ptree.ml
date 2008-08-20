@@ -2499,6 +2499,7 @@ let bremer to_string cost tree generator file =
     * for a tree _not_ containing the set, and a set of clades belonging to a
     * tree, with it's associated cost, and update the map according to the cost
     * for the set of clades, only if better. *)
+    let number_of_leaves = List.length (Tree.get_all_leaves tree) in
     let replace_when_smaller map =
         let map = ref map in
         let cntr = ref 1 in
@@ -2514,7 +2515,9 @@ let bremer to_string cost tree generator file =
                     let new_cost, sets = generator input_tree in
                     map :=
                         Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
-                        if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
+                        let len =  All_sets.Integers.cardinal my_clade in
+                        if len < 2 || len = number_of_leaves then acc
+                        else if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
                             ((new_cost - cost) < best_cost) then
                             Tree.CladeFPMap.add my_clade (new_cost - cost) acc
                         else acc) !map !map;
