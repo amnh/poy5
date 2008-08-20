@@ -339,7 +339,7 @@ let rec get_leaves ?(acc=[]) tree handle =
     end
 
 (** [get_all_leaves tree] returns a list of all the leaves in the tree *)
-let get_all_leaves tree =
+let get_all_leaves tree handle =
     let fn handle acc = get_leaves ~acc tree handle in
     All_sets.Integers.fold fn tree.handles []
 
@@ -1780,29 +1780,32 @@ module CladeFP = struct
                 let m = Map.add (Edge (n, p)) (comp set) m in
                 m in
             (* [r p n m] is parent, node, map *)
-            let rec r p n m = match get_node n tree with
-            | Leaf (id, _) ->
-                  let set = Set.singleton id in
-                  set, add p n set m
-            | Single _ -> assert (false)
-            | Interior (_, _, a, b) ->
-                  let aset, m = r n a m in
-                  let bset, m = r n b m in
-                  let set = Set.union aset bset in
-                  set, add p n set m in
-                    match get_node h tree with
-                    | Leaf (id, par) ->
-                          let set = Set.singleton id in
-                          let m = add par id set m in
-                          let _, m = r id par m in
-                          m
-                    | Single _ -> m
-                    | Interior (id, a, b, c) ->
-                          let _, m = r id a m in
-                          let _, m = r id b m in
-                          let _, m = r id c m in
-                          m in
-                (Set.fold calc_component tree.handles Map.empty : t)
+            let rec r p n m = 
+                match get_node n tree with
+                | Leaf (id, _) ->
+                        let set = Set.singleton id in
+                        set, add p n set m
+                | Single _ -> assert (false)
+                | Interior (_, _, a, b) ->
+                        let aset, m = r n a m in
+                        let bset, m = r n b m in
+                        let set = Set.union aset bset in
+                        set, add p n set m 
+            in
+            match get_node h tree with
+            | Leaf (id, par) ->
+                    let set = Set.singleton id in
+                    let m = add par id set m in
+                    let _, m = r id par m in
+                    m
+            | Single _ -> m
+            | Interior (id, a, b, c) ->
+                    let _, m = r id a m in
+                    let _, m = r id b m in
+                    let _, m = r id c m in
+                    m 
+        in
+        (Set.fold calc_component tree.handles Map.empty : t)
 
     module CladeSet = Set.Make (Ordered)
 
