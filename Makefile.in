@@ -46,13 +46,13 @@ transform = @program_transform_name@
 NROFF := @NROFF@
 
 install:
-	$(MKDIR_P) $(bindir)
-	$(INSTALL) ./src/poy $(bindir)/`echo poy | sed -e '$(transform)'`
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(INSTALL) ./src/poy $(DESTDIR)$(bindir)/`echo poy | sed -e '$(transform)'`
 ifeq ($(NROFF), notfound)
 	echo "I could not find nroff, therefore no man pages are being installed"
 else
-	$(MKDIR_P) $(mandir)
-	$(INSTALL) ./src/poy.1 $(mandir)/poy.1
+	$(MKDIR_P) $(DESTDIR)$(mandir)
+	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
 endif
 
 uninstall:
