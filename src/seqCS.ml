@@ -583,6 +583,7 @@ module ProtAff = struct
             initialize_matrices go 1 go si sj;
             align_sequences go 1 go si sj;
             (!final_cost_matrix.(min (lena - 1) (lenb - 1)).(max (lenb - 1) (lena - 1)))
+
         let closest parent mine c2 _ =
             let _, s1', s2', cst = align_2 parent mine c2 in
             let remove_gaps s2' =
@@ -678,6 +679,7 @@ module DOS = struct
                 | Cost_matrix.Affine _ ->
                         let m, _, _, cost, _ = 
                             Sequence.Align.align_affine_3 s1 s2 cm in
+                        let m = Sequence.select_one m cm in
                         create m, cost
                 | _ ->
                         let s1', s2', c = 
@@ -685,8 +687,7 @@ module DOS = struct
                             Matrix.default
                         in
                         let median = Sequence.Align.median_2 s1' s2' cm in
-                        let (a, _) = Sequence.Align.closest median median cm
-                        Matrix.default in 
+                        let a = Sequence.select_one median cm in 
                         create a, c 
             in
             let empty1 = Sequence.is_empty ch1.sequence gap 
