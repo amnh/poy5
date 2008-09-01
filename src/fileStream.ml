@@ -283,15 +283,40 @@ class compressed_reader stream = object (self)
     val mutable buffer_length = 0
     val mutable buffer_position = 0
 
+    val mutable element_to_add = None
+
     method private fill_buffer =
+        let get_byte () =
+            match Sys.os_type with
+            | "Win32" ->
+                    let item = 
+                        match element_to_add with
+                        | None -> Pervasives.input_byte stream 
+                        | Some item -> 
+                                element_to_add <- None;
+                                item
+                    in
+                    if item = 0xD then 
+                        try
+                            let next_item = Pervasives.input_byte stream in
+                            if next_item = 0xA then next_item
+                            else begin
+                                element_to_add <- Some next_item;
+                                item
+                            end
+                        with
+                        | End_of_file -> item
+                    else item
+            | _ -> Pervasives.input_byte stream
+        in
         Buffer.reset buffer;
         buffer_length <- 0;
         buffer_position <- 0;
-        let fst = Pervasives.input_byte stream in
-        let snd = Pervasives.input_byte stream in
+        let fst = get_byte () in
+        let snd = get_byte () in
         let int = (fst lsl 8) lor snd in
         Lz.decompress table [int] buffer;
-        buffer_length <- Buffer.length buffer;
+        buffer_length <- Buffer.length buffer
 
     method private process_char ch =
         if ((ch = '\010') || (ch = '\013') || (ch = '\n')) && last_cr then 
