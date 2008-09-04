@@ -20,43 +20,98 @@
 let () = SadmanOutput.register "Tags" "$Revision: 2554 $"
 
 type tag = string
-type value = tag
+type value = [ `Bool of bool 
+    | `IntFloatTuple of (int * float) 
+    | `IntTuple of (int * int)
+    | `FloatFloatTuple of (float * float) 
+    | `String of string 
+    | `Int of int 
+    | `Float of float 
+    | `Fun of (unit -> string) ]
+
+type 'a struc = [ 'a Sexpr.t | `Delayed of (unit -> 'a Sexpr.t) ]
+
+let eagerly_compute x = 
+    match x with
+    | #Sexpr.t as x -> x
+    | `Delayed f -> f ()
+
 type attribute = tag * value
 type attributes = attribute list
 type output = 
-    (tag * attributes * [`String of string | `Structured of output Sexpr.t])
+    (tag * attributes * [ value | output struc])
 
 let make tag atv out = (tag, atv, out)
 
 let remove_non_alpha_numeric str =
-    Str.global_replace (Str.regexp "[^0-9a-zA-Z]") "_" str
+    Str.global_replace (Str.regexp " ") "_"
+    (Str.global_replace (Str.regexp "[^0-9a-zA-Z]") "_" str)
 
-let to_xml fo item =
+let value_to_string = function
+    | `Bool x -> string_of_bool x
+    | `IntTuple (a, b) -> string_of_int a ^ "," ^ string_of_int b
+    | `IntFloatTuple (a, b) -> string_of_int a ^ "," ^ string_of_float b
+    | `FloatFloatTuple (a, b) -> string_of_float a ^ "," ^ string_of_float b
+    | `String x -> x
+    | `Int x -> string_of_int x
+    | `Float x -> string_of_float x
+    | `Fun x -> x ()
+
+let print_string ch = function
+    | `Bool x -> Printf.fprintf  ch "%B" x
+    | `IntTuple (a, b) -> Printf.fprintf ch "%d,%d" a b
+    | `IntFloatTuple (a, b) -> Printf.fprintf ch "%d,%f" a b
+    | `FloatFloatTuple (a, b) -> Printf.fprintf ch "%f,%f" a b
+    | `String x -> Printf.fprintf ch "%s" x
+    | `Int x -> Printf.fprintf ch "%d" x
+    | `Float x -> Printf.fprintf ch "%f" x
+    | `Fun x -> Printf.fprintf ch "%s" (x ())
+
+let to_xml ch item =
+    let fo = output_string ch in
     let output_attrs (fo : string -> unit) (a, b) =
         fo (remove_non_alpha_numeric a);
         fo "=\"";
-        fo b;
+        print_string ch b;
         fo "\" "
     in
-
-    let rec to_xml fo ((tag, attributes, contents) : output) : unit = 
-        fo " <";
-        fo (remove_non_alpha_numeric tag);
-        fo " ";
-        List.iter (output_attrs fo) attributes;
-        fo ">@\n%!";
-        begin match contents with
-        | `String x -> 
-              fo x; 
-              fo "@\n%!"
-        | `Structured x ->
-                Sexpr.leaf_iter (to_xml fo) x;
-        end;
-        fo ( " </" ^ (remove_non_alpha_numeric tag) ^ ">@\n%!")
+    let stack = Stack.create () in
+    let simplify contents = 
+        match contents with
+        | #struc as x -> 
+                let x = eagerly_compute x in
+                `Structured (Sexpr.to_list x)
+        | #value as x -> x 
+    in
+    let process_queue () =
+        while not (Stack.is_empty stack) do
+            let (tag, contents) = Stack.pop stack in
+            match contents with
+            | #value as x -> 
+                    print_string ch x;
+                    fo "\n";
+                    fo " </"; fo tag; fo ">\n"
+            | `Structured []
+            | `Empty -> fo " </"; fo tag; fo ">\n"
+            | `Structured ((ntag, attributes, contents) :: t) ->
+                    Stack.push (tag, `Structured t) stack;
+                    let ntag = remove_non_alpha_numeric ntag in
+                    fo " <"; fo ntag; fo " ";
+                    List.iter (output_attrs fo) attributes;
+                    fo ">\n";
+                    let contents = simplify contents in
+                    Stack.push (ntag, contents) stack
+        done;
     in
     fo "";
-    to_xml fo item;
-    fo "%!"
+    let tag, attributes, contents = item in
+    let tag = remove_non_alpha_numeric tag in
+    fo " <"; fo tag; fo " ";
+    List.iter (output_attrs fo) attributes;
+    fo ">\n";
+    let contents = simplify contents in
+    Stack.push (tag, contents) stack;
+    process_queue ()
 
 module Alphabet = struct
     let element = "Element"

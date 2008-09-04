@@ -794,13 +794,10 @@ let assign_seq_ref annchrom seq_ref_code =
 (** [create_map med child_ref] returns the map
 * between chromosome [med] and its child [child_ref] *)
 let create_map med child_ref = 
-    let str = string_of_int in  
-
-
+    let str x = `Int x in
     let seq_arr = Array.mapi 
         (fun med_id m ->
              let p_ref_code, p_seq_ord = (str med.ref_code), (str med_id) in
-
              let c_ref_code, c_seq_ord = 
                  match child_ref = med.ref_code1 with
                  | true -> (str med.ref_code1), (str m.seq_ord1)
@@ -808,10 +805,10 @@ let create_map med child_ref =
              in 
              let attributes = [(Tags.GenomeMap.a_ref_code, p_ref_code);
                                (Tags.GenomeMap.a_seq_order, p_seq_ord);
-                               (Tags.GenomeMap.a_dir_seg, "+");
+                               (Tags.GenomeMap.a_dir_seg, `String "+");
                                (Tags.GenomeMap.d_ref_code, c_ref_code); 
                                (Tags.GenomeMap.d_seq_order, c_seq_ord);
-                               (Tags.GenomeMap.d_dir_seg, "+")
+                               (Tags.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
              let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
@@ -821,7 +818,7 @@ let create_map med child_ref =
 
 
     let chrom_map : Tags.output = 
-        (Tags.GenomeMap.chrom, [], `Structured (`Set  (Array.to_list seq_arr))) 
+        (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     match child_ref = med.ref_code1 with
     | true -> med.cost1, med.recost1, chrom_map
@@ -829,21 +826,20 @@ let create_map med child_ref =
 
 
 let create_single_map med =
-    let str = string_of_int in  
+    let str x = `Int x in  
     let seq_arr = Array.map 
         (fun m ->
              let p_ref_code, p_seq_ord = (str med.ref_code2), (str m.seq_ord2) in
-
              let c_ref_code, c_seq_ord = 
                  (str med.ref_code1), (str m.seq_ord1)
              in 
 
              let attributes = [(Tags.GenomeMap.a_ref_code, p_ref_code);
                                (Tags.GenomeMap.a_seq_order, p_seq_ord);
-                               (Tags.GenomeMap.a_dir_seg, "+");
+                               (Tags.GenomeMap.a_dir_seg, `String "+");
                                (Tags.GenomeMap.d_ref_code, c_ref_code); 
                                (Tags.GenomeMap.d_seq_order, c_seq_ord);
-                               (Tags.GenomeMap.d_dir_seg, "+")
+                               (Tags.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
              let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
@@ -853,7 +849,7 @@ let create_single_map med =
 
 
     let chrom_map : Tags.output = 
-        (Tags.GenomeMap.chrom, [], `Structured (`Set  (Array.to_list seq_arr))) 
+        (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     chrom_map
 

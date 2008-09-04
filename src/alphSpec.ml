@@ -63,11 +63,11 @@ let decoder x =
     let len = float_of_int (List.length x) in
     ((e *. len) -. 1.0) /. (e -. 1.0)
 
-let to_formatter t = 
+let to_formatter t : Tags.output Sexpr.t = 
     let mapper (item, prob) =
         `Single 
             (Tags.KolSpecs.alph_element, 
-            [(Tags.KolSpecs.value, item); (Tags.KolSpecs.prob, string_of_float
-            prob)], `Structured `Empty)
+            [(Tags.KolSpecs.value, `String item); (Tags.KolSpecs.prob, `Float
+            prob)], `Empty)
     in
     `Set (List.map mapper t)

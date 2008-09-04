@@ -63,7 +63,7 @@ let distance c d =
 let dist_2 a b c d = distance c d
 
 let to_formatter ref_codes attr t d =
-    let attr = (Tags.KolSpecs.model, get_model t) :: attr in
+    let attr = (Tags.KolSpecs.model, `String (get_model t)) :: attr in
     DynamicCS.to_formatter ref_codes attr  t.characters None d
 
 let f_codes a b = 

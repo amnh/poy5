@@ -1249,7 +1249,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 [] data tree c2 (Some (node_data, my_single_assignment))
             in
             let c1st = `Single child1_formatter and c2st = `Single child2_formatter in
-            (Tags.Trees.tree, [], `Structured (`Set [nodest; c1st; c2st]))
+            (Tags.Trees.tree, [], (`Set [nodest; c1st; c2st]))
     | Tree.Leaf (_, parent_id) -> 
             let node_data = Ptree.get_node_data node_id tree in
             assert (match parent_data with 
@@ -1265,7 +1265,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                     `Single node_formatter
                 with Not_found -> `Empty
             in 
-          (Tags.Trees.tree, [], `Structured nodest)
+          (Tags.Trees.tree, [], nodest)
     | Tree.Single _ ->
           let nodest = 
               let node_data = Ptree.get_node_data node_id tree in 
@@ -1275,7 +1275,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
               in
               `Single node_formatter
           in 
-          (Tags.Trees.tree, [], `Structured nodest)
+          (Tags.Trees.tree, [], nodest)
 
 let handle_to_formatter (pre_ref_codes, fi_ref_codes)
         attr data tree handle_id : Tags.output =
@@ -1312,7 +1312,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
               in 
               let c1 = `Single handle_f and c2 = `Single parent_f in 
               let root = `Single root_formatter in 
-              `Structured (`Set [root; c1; c2])
+              (`Set [root; c1; c2])
         | Tree.Single _ ->
                 let node_single = 
                     let nd = Ptree.get_node_data handle_id tree in
@@ -1322,10 +1322,10 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                     subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
                     [] data tree handle_id node_single 
                 in
-                `Structured (`Single c1)
+                (`Single c1)
     in
     let attr = 
-        (Tags.Trees.cost, string_of_float root.Ptree.component_cost) :: attr
+        (Tags.Trees.cost, `Float root.Ptree.component_cost) :: attr
     in
     (Tags.Trees.tree, attr, data)
 
@@ -1350,8 +1350,8 @@ let to_formatter atr data tree : Tags.output =
                    root_recost := !root_recost +. recost);
              `Single handle_formatter) handles 
     in
-    let atr = (Tags.Trees.recost, string_of_float !root_recost) :: atr in
-    (tag, atr, `Structured (`Set data))
+    let atr = (Tags.Trees.recost, `Float !root_recost) :: atr in
+    (tag, atr, (`Set data))
 
 
 let root_costs tree = 

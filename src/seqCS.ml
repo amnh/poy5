@@ -1434,8 +1434,7 @@ let to_formatter attr t do_to_single d : Tags.output list =
                     let costb, max = 
                         match do_to_single with
                         | None -> 
-                                (string_of_float cost.min) ^ " - " ^ 
-                                (string_of_float cost.max), cost.max
+                                `FloatFloatTuple (cost.min, cost.max), cost.max
                         | Some (Heuristic_Selection par) ->
                                 let par = par.DOS.sequence in
                                 let s1, s2, min = 
@@ -1443,8 +1442,7 @@ let to_formatter attr t do_to_single d : Tags.output list =
                                     par h.c2 Matrix.default
                                 in
                                 let max = Sequence.Align.max_cost_2 s1 s2 h.c2 in
-                                (string_of_int min) ^ " - " ^ (string_of_int max),
-                                float_of_int max
+                                `IntTuple (min, max), float_of_int max
                         | Some (Relaxed_Lifted _) -> assert false
                     in
                     cost, costb, max, seq.DOS.sequence 
@@ -1476,22 +1474,22 @@ let to_formatter attr t do_to_single d : Tags.output list =
                                 let x, _ = RL.to_single x x in
                                 process x.DOS.position
                     in
-                    let bests = string_of_float !best in
+                    let bests = !best in
                     DOS.make_cost (int_of_float !best), 
-                    bests ^ " - " ^ bests, !best,
+                    `FloatFloatTuple (bests, bests), !best,
                     spec.RL.sequence_table.(!my_pos)
         in
-        let seq = Sequence.to_formater seq t.alph in
+        let seq () = Sequence.to_formater seq t.alph in
         let definite_str = 
-            if max > 0. then  "true"
-            else "false"
+            if max > 0. then  `String "true"
+            else `String "false"
         in 
         let attributes = 
-            (Tags.Characters.name, (Data.code_character code d)) ::
+            (Tags.Characters.name, `String (Data.code_character code d)) ::
                 (Tags.Characters.cost, costb) ::
                     (Tags.Characters.definite, definite_str) :: attr
         in
-        let contents = `String seq in
+        let contents = `Fun seq in
         (Tags.Characters.sequence, attributes, contents) :: acc
     in
     let parent = 

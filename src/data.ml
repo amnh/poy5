@@ -1904,24 +1904,24 @@ let synonyms_to_formatter d : Tags.output =
     let synonym t1 t2 acc : Tags.output Sexpr.t list =
         let t1 = `Single (Tags.Data.value, [], `String t1)
         and t2 = `Single (Tags.Data.value, [], `String t2) in
-        `Single (Tags.Data.synonym, [], `Structured (`Set [t1; t2])) :: acc
+        `Single (Tags.Data.synonym, [], (`Set [t1; t2])) :: acc
     in
     let res = All_sets.StringMap.fold synonym d.synonyms [] in
-    Tags.Data.synonyms, [], `Structured (`Set res)
+    Tags.Data.synonyms, [], (`Set res)
 
 let taxon_names_to_formatter d : Tags.output =
     let taxon_name code name acc =
         if All_sets.Strings.mem name d.ignore_taxa_set then acc
         else
             let attr = [
-                (Tags.Data.name, name);
-                (Tags.Data.code, string_of_int code);
+                (Tags.Data.name, `String name);
+                (Tags.Data.code, `Int code);
             ]
             in
-            `Single (Tags.Data.taxon, attr, `Structured `Empty) :: acc
+            `Single (Tags.Data.taxon, attr, `Empty) :: acc
     in
     let res = All_sets.IntegerMap.fold taxon_name d.taxon_codes [] in
-    Tags.Data.taxa, [], `Structured (`Set res)
+    Tags.Data.taxa, [], (`Set res)
 
 let files_to_formatter d : Tags.output =
     let file (f, contents) : Tags.output Sexpr.t =
@@ -1936,57 +1936,58 @@ let files_to_formatter d : Tags.output =
                 `Single (Tags.Data.file_contents, [], `String tmp)
             in
             List.map contents_to_output contents 
-        and name = Tags.Data.filename, f in
-        `Single ((Tags.Data.file, [name], `Structured (`Set contents)) :
+        and name = Tags.Data.filename, `String f in
+        `Single ((Tags.Data.file, [name], (`Set contents)) :
             Tags.output)
     in
-    Tags.Data.files, [], `Structured (`Set (List.map file d.files))
+    Tags.Data.files, [], (`Set (List.map file d.files))
 
 let ignored_taxa_to_formatter d : Tags.output = 
     let taxon x acc =
         `Single (Tags.Data.value, [], `String x) :: acc
     in
     let res = All_sets.Strings.fold taxon d.ignore_taxa_set [] in
-    Tags.Data.ignored_taxa, [], `Structured (`Set res)
+    Tags.Data.ignored_taxa, [], (`Set res)
 
 let ignored_characters_to_formatter d : Tags.output = 
     let character x = `Single (Tags.Data.value, [], `String x) in
     let res = List.map character d.ignore_character_set in
-    Tags.Data.ignored_characters, [], `Structured (`Set res)
+    Tags.Data.ignored_characters, [], (`Set res)
 
 let states_set_to_formatter enc : Tags.output = 
     let set = Parser.OldHennig.Encoding.get_set enc in
     let add item acc =
-        `Single (Tags.Characters.state, [Tags.Characters.value,
-        string_of_int item], `Structured `Empty) :: acc
+        `Single (Tags.Characters.state, 
+            [Tags.Characters.value, `Int item], `Empty) :: 
+                acc
     in
     let res = All_sets.Integers.fold add set [] in
-    Tags.Characters.states, [], `Structured (`Set res)
+    Tags.Characters.states, [], (`Set res)
 
 let pam_spec_to_formatter (state : dyna_state_t) pam =
     let option_to_string contents = function
         | Some x -> contents x
         | None -> assert false
     in
-    let handle_bool = option_to_string string_of_bool 
-    and handle_int = option_to_string string_of_int 
+    let handle_bool = option_to_string (fun x -> `Bool x) 
+    and handle_int = option_to_string (fun x -> `Int x)
     and handle_re_meth x = 
         let conversion =
-            (function `Locus_Breakpoint x | `Locus_Inversion x -> string_of_int x)
+            (function `Locus_Breakpoint x | `Locus_Inversion x -> `Int x)
         in
         match x with
         | Some x -> conversion x
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [Tags.Characters.clas, Tags.Characters.sequence]
+    | `Seq -> [Tags.Characters.clas, `String Tags.Characters.sequence]
     | others -> 
             let clas = 
                 match others with
-                | `Chromosome -> Tags.Characters.chromosome
-                | `Genome -> Tags.Characters.genome
-                | `Annotated -> Tags.Characters.annotated
-                | `Breakinv -> Tags.Characters.breakinv
+                | `Chromosome -> `String Tags.Characters.chromosome
+                | `Genome -> `String Tags.Characters.genome
+                | `Annotated -> `String Tags.Characters.annotated
+                | `Breakinv -> `String Tags.Characters.breakinv
                 | _ -> assert false
             in
 
@@ -1998,14 +1999,12 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
 
             let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
             let locus_indel_e = float locus_indel_e /. 100.0 in
-            let locus_indel_str = string_of_int locus_indel_o ^ ", " 
-                                 ^ string_of_float locus_indel_e 
+            let locus_indel_str = `IntFloatTuple (locus_indel_o, locus_indel_e)
             in
 
             let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
             let chrom_indel_e = float chrom_indel_e /. 100.0 in
-            let chrom_indel_str = string_of_int chrom_indel_o ^ ", " 
-                                 ^ string_of_float chrom_indel_e 
+            let chrom_indel_str = `IntFloatTuple (chrom_indel_o, chrom_indel_e) 
             in
 
             [Tags.Characters.clas, clas; 
@@ -2028,27 +2027,28 @@ let character_spec_to_formatter enc : Tags.output =
     | Kolmogorov d ->
             Tags.Characters.kolmogorov,
             [
-                Tags.Characters.name, d.dhs.filename;
-                Tags.Characters.chars, d.ks.funset;
-                Tags.Characters.alphabet, d.ks.alphset;
-                Tags.Characters.words, d.ks.wordset;
-                Tags.Characters.ints, d.ks.intset;
+                Tags.Characters.name, `String d.dhs.filename;
+                Tags.Characters.chars, `String d.ks.funset;
+                Tags.Characters.alphabet, `String d.ks.alphset;
+                Tags.Characters.words, `String d.ks.wordset;
+                Tags.Characters.ints, `String d.ks.intset;
             ],
-            `Structured `Empty
+            `Empty
     | Static enc ->
-            Parser.SC.to_formatter enc    | Dynamic dspec ->
+            Parser.SC.to_formatter enc    
+    | Dynamic dspec ->
             Tags.Characters.molecular,
-            ( (Tags.Characters.name, dspec.filename) ::
+            ( (Tags.Characters.name, `String dspec.filename) ::
                 (Tags.Characters.initial_assignment, 
                     (match dspec.initial_assignment with
-                    | `DO -> "Direct Optimization"
-                    | `FS _ -> "Fixed States")) ::
-                (Tags.Characters.tcm, dspec.tcm) ::
-                (Tags.Characters.gap_opening, dspec.fo) ::
-                (Tags.Characters.weight, string_of_float dspec.weight) ::
+                    | `DO -> `String "Direct Optimization"
+                    | `FS _ -> `String "Fixed States")) ::
+                (Tags.Characters.tcm, `String dspec.tcm) ::
+                (Tags.Characters.gap_opening, `String dspec.fo) ::
+                (Tags.Characters.weight, `Float dspec.weight) ::
                 (pam_spec_to_formatter dspec.state dspec.pam)
             ),
-            `Structured (`Single (Alphabet.to_formatter dspec.alph))
+            (`Single (Alphabet.to_formatter dspec.alph))
     | Set -> failwith "TODO Set in Data.character_spec_to_formatter"
 
 let characters_to_formatter d : Tags.output =
@@ -2061,14 +2061,13 @@ let characters_to_formatter d : Tags.output =
                     raise err 
         in
         let res = Tags.Characters.character, 
-        [ (Tags.Characters.name, name); ("code", string_of_int
-        code) ],
-        `Structured (`Single (character_spec_to_formatter enc))
+        [ (Tags.Characters.name, `String name); ("code", `Int code) ],
+        (`Single (character_spec_to_formatter enc))
         in
         (`Single res) :: acc
     in
     let res = Hashtbl.fold create d.character_codes [] in
-    Tags.Data.characters, [], `Structured (`Set res)
+    Tags.Data.characters, [], (`Set res)
 
 let to_formatter attr d : Tags.output =
     let syn = `Single (synonyms_to_formatter d)
@@ -2085,7 +2084,6 @@ let to_formatter attr d : Tags.output =
         `Single (CharacSpec.to_formatter index)
     and files = `Single (files_to_formatter d) in
     Tags.Data.data, attr, 
-    `Structured 
     (`Set [names; syn; ignored_taxa; characters; ignored_char; files; 
     spec_index; char_index])
 

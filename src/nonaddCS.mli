@@ -121,7 +121,8 @@ val min_possible_cost : int list option list -> float
 val to_string : t -> string
 (** [to_formatter attrs c parent d : Tags.output list] returns the formatter for
     node c where parent is optional parent of c if available *)
-val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output list
+val to_formatter : Tags.output list -> Tags.attributes -> t -> t option -> 
+    Data.d -> Tags.output list
 
 (** {2 Other standard functions} *)
 

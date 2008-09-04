@@ -229,18 +229,20 @@ let print_median med_ls outfile =
 (** [create_map anc_med des_ref] creates a map from the 
 * ancestor sequence  [anc_med] to descendant sequence whose ref_code is [des_ref]*)
 let create_map anc_med des_ref : (int * int * Tags.output) = 
-    let str = string_of_int in  
+    let str x = `Int x in  
     let seg_ls = List.map 
         (fun m -> 
              let a_ref_code, a_sta, a_en, a_dir  = 
-                 (str anc_med.ref_code), (str m.sta), (str m.en), "+" 
+                 (str anc_med.ref_code), (str m.sta), (str m.en), `String "+" 
              in 
              let d_ref_code, d_sta, d_en, d_dir = 
                  match des_ref = anc_med.ref_code1 with
                  | true ->
-                       (str anc_med.ref_code1), (str m.sta1), (str m.en1), (Utl.get_dir m.dir1) 
+                       (str anc_med.ref_code1), (str m.sta1), (str m.en1), 
+                        `String (Utl.get_dir m.dir1) 
                  | false ->
-                       (str anc_med.ref_code2), (str m.sta2), (str m.en2), (Utl.get_dir m.dir2) 
+                       (str anc_med.ref_code2), (str m.sta2), (str m.en2), 
+                       `String (Utl.get_dir m.dir2) 
              in 
              let attributes = [(Tags.GenomeMap.a_ref_code, a_ref_code);
                                (Tags.GenomeMap.a_start_seg, a_sta);
@@ -259,7 +261,7 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
 
 
     let chrom_map : Tags.output = 
-        (Tags.GenomeMap.chrom, [], `Structured (`Set  seg_ls)) 
+        (Tags.GenomeMap.chrom, [], (`Set  seg_ls)) 
     in 
 
     match des_ref = anc_med.ref_code1 with
@@ -268,14 +270,15 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
 
 
 let create_single_map med : Tags.output = 
-    let str = string_of_int in  
+    let str x = `Int x in  
     let seg_ls = List.map 
         (fun m -> 
              let a_ref_code, a_sta, a_en, a_dir  = 
-                 (str med.ref_code2), (str m.sta2), (str m.en2), "+" 
+                 (str med.ref_code2), (str m.sta2), (str m.en2), `String "+" 
              in 
              let d_ref_code, d_sta, d_en, d_dir = 
-                 (str med.ref_code1), (str m.sta1), (str m.en1), (Utl.get_dir m.dir1) 
+                 (str med.ref_code1), (str m.sta1), (str m.en1), 
+                 `String (Utl.get_dir m.dir1) 
              in 
              let attributes = [(Tags.GenomeMap.a_ref_code, a_ref_code);
                                (Tags.GenomeMap.a_start_seg, a_sta);
@@ -294,7 +297,7 @@ let create_single_map med : Tags.output =
 
 
     let chrom_map : Tags.output = 
-        (Tags.GenomeMap.chrom, [], `Structured (`Set  seg_ls)) 
+        (Tags.GenomeMap.chrom, [], (`Set  seg_ls)) 
     in 
     chrom_map
 

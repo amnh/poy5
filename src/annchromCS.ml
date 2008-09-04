@@ -310,9 +310,9 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                   in                   
                   let cost, recost, map = 
                       match state with
-                      | "Preliminary" ->
+                      | `String "Preliminary" ->
                             AnnchromAli.create_map parent_med med.AnnchromAli.ref_code  
-                      | "Final" ->
+                      | `String "Final" ->
                             AnnchromAli.create_map med parent_med.AnnchromAli.ref_code   
                       | _ ->
                             let cost, recost, med_ls = AnnchromAli.find_med2_ls med
@@ -327,28 +327,20 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
               end 
 
         in  
-
-
         let seqs = AnnchromAli.to_formater med t.alph in  
         let name = Data.code_character code d in  
-
         let cost_str = 
             match state with
-            | "Single" -> (string_of_int cost) ^ " - " ^ (string_of_int cost)
-            | _ -> "0 - " ^ (string_of_int cost)
+            | `String "Single" -> `IntTuple (cost, cost)
+            | _ -> `IntTuple (0, cost)
         in 
-
-        let definite_str = 
-            if cost > 0 then  "true"
-            else "false"
-        in 
-
+        let definite_str =  `Bool (cost > 0) in 
         let attributes =  
-            (Tags.Characters.name, name) ::                     
+            (Tags.Characters.name, `String name) ::                     
                 (Tags.Characters.cost, cost_str) :: 
-                (Tags.Characters.recost, string_of_int recost) :: 
+                (Tags.Characters.recost, `Int recost) :: 
                 (Tags.Characters.definite, definite_str) :: 
-                (Tags.Characters.ref_code, string_of_int med.AnnchromAli.ref_code):: 
+                (Tags.Characters.ref_code, `Int med.AnnchromAli.ref_code):: 
                 attr 
         in 
 
@@ -356,7 +348,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
         | Some map ->
               let content = (Tags.Characters.sequence, [], `String seqs) in  
             (Tags.Characters.chromosome, attributes, 
-             `Structured (`Set [`Single map; `Single content])) :: acc 
+             (`Set [`Single map; `Single content])) :: acc 
         | None ->
             (Tags.Characters.chromosome, attributes, `String seqs):: acc 
         in 

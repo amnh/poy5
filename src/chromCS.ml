@@ -306,7 +306,6 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                           ) med.Chrom.med_ls
             with Not_found -> List.hd med.Chrom.med_ls
         in         
-
         let cost, recost,  map = 
             match parent_t with  
             | None -> 0, 0, None
@@ -318,14 +317,13 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                               (fun med -> 
                                    IntSet.mem med.ChromAli.ref_code ref_codes 
                               ) parent_med.Chrom.med_ls
-
                       with Not_found -> List.hd parent_med.Chrom.med_ls
                   in 
                   let cost, recost, map = 
                       match state with
-                      | "Preliminary" ->
+                      | `String "Preliminary" ->
                             ChromAli.create_map parent_med med.ChromAli.ref_code  
-                      | "Final" ->
+                      | `String "Final" ->
                             ChromAli.create_map med parent_med.ChromAli.ref_code   
                       | _ ->                        
                             let cost, recost, med_ls = ChromAli.find_med2_ls med
@@ -334,41 +332,31 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                             let med = List.hd med_ls in                             
                             let map = ChromAli.create_single_map med in 
                             cost, recost, map
-
                   in 
                   cost, recost, Some map
               end 
         in 
-
         let seq = Sequence.to_formater med.ChromAli.seq t.alph in                   
         let name = Data.code_character code d in  
-        
-
         let cost_str = 
             match state with
-            | "Single" -> (string_of_int cost) ^ " - " ^ (string_of_int cost)
-            | _ -> "0 - " ^ (string_of_int cost)
+            | `String "Single" -> `IntTuple (cost, cost)
+            | _ -> `IntTuple (0, cost)
         in 
-        
-        let definite_str = 
-            if cost > 0 then  "true"
-            else "false"
-        in 
-        
+        let definite_str = `Bool (cost > 0) in 
         let attributes =  
-            (Tags.Characters.name, name) ::                     
+            (Tags.Characters.name, `String name) ::                     
                 (Tags.Characters.cost, cost_str) :: 
-                (Tags.Characters.recost, string_of_int recost) :: 
+                (Tags.Characters.recost, `Int recost) :: 
                 (Tags.Characters.definite, definite_str) :: 
-                (Tags.Characters.ref_code, string_of_int med.ChromAli.ref_code):: 
+                (Tags.Characters.ref_code, `Int med.ChromAli.ref_code):: 
                 attr 
         in 
-
         let acc = match map with
         | Some map ->
               let content = (Tags.Characters.sequence, [], `String seq) in  
             (Tags.Characters.chromosome, attributes, 
-             `Structured (`Set [`Single map; `Single content])) :: acc 
+             (`Set [`Single map; `Single content])) :: acc 
         | None ->
             (Tags.Characters.chromosome, attributes, `String seq):: acc 
         in 

@@ -244,7 +244,7 @@ let to_string a =
             0 ((cardinal a.data) - 1) in
     "[" ^ String.concat " " strlist ^ "]"
 
-let to_formatter attrs c parent d : Tags.output list =
+let to_formatter acc attrs c parent d : Tags.output list =
     let elt_iter elt =
         let rec elt_iter acc elt c cntr =
             if elt = 0 then acc 
@@ -257,10 +257,9 @@ let to_formatter attrs c parent d : Tags.output list =
     let output_character (code, (_, char)) (_, cost) =
         let res = elt_iter char in 
         let attributes =  
-            (Tags.Characters.name, (Data.code_character code d)) :: 
-                (Tags.Characters.cost, string_of_float cost) ::  
-                    (Tags.Characters.definite, if cost > 0.0 then "true" else
-                        "false") ::
+            (Tags.Characters.name, `String (Data.code_character code d)) :: 
+                (Tags.Characters.cost, `Float cost) ::  
+                    (Tags.Characters.definite, `Bool  (cost > 0.0)) ::
                 attrs 
         in 
         let to_sexp = fun x -> 
@@ -268,7 +267,7 @@ let to_formatter attrs c parent d : Tags.output list =
             `String (Data.to_human_readable d code x))
         in
         let contents = `Set (List.map to_sexp res) in 
-        (Tags.Characters.nonadditive, attributes, `Structured contents) 
+        (Tags.Characters.nonadditive, attributes, contents)  
     in
     (* TODO CHANGE HTE CODES HERE *)
     let c_ls = to_simple_list c in 
@@ -277,7 +276,13 @@ let to_formatter attrs c parent d : Tags.output list =
         | None -> Array.to_list (Array.make (List.length c_ls) (0, 0.) ) 
         | Some parent -> distance_list c.data parent.data
     in 
-    List.map2 output_character c_ls dist_list 
+    let rec produce lst1 lst2 =
+        match lst1, lst2 with
+        | h1 :: t1, h2 :: t2 -> (output_character h1 h2) :: (produce t1 t2)
+        | [], [] -> acc
+        | _ -> assert false
+    in
+    produce c_ls dist_list
  
 
 let empty = make_new 0 0

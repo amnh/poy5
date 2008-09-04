@@ -2391,19 +2391,19 @@ module SC = struct
 
     let to_formatter s =
         let info = [
-            (Tags.Characters.source, s.st_filesource);
-            (Tags.Characters.name, s.st_name);
-            (Tags.Characters.weight, string_of_float s.st_weight);
-            (Tags.Characters.missing_symbol, s.st_missing);
+            (Tags.Characters.source, `String s.st_filesource);
+            (Tags.Characters.name, `String s.st_name);
+            (Tags.Characters.weight, `Float s.st_weight);
+            (Tags.Characters.missing_symbol, `String s.st_missing);
             (Tags.Characters.matchstate_symbol, 
-            (match s.st_matchstate with None -> "" | Some x -> x));
-            (Tags.Characters.gap_symbol, s.st_gap);
-            (Tags.Characters.ignore, bool_to_string s.st_eliminate);
-            (Tags.Characters.case, bool_to_string s.st_case);
+            (match s.st_matchstate with None -> `String "" | Some x -> `String x));
+            (Tags.Characters.gap_symbol, `String s.st_gap);
+            (Tags.Characters.ignore, `Bool s.st_eliminate);
+            (Tags.Characters.case, `Bool s.st_case);
             ] 
         in
         let contents = 
-            let lst tag ls = `Single (tag, [], `Structured (`Set ls)) in
+            let lst tag ls = `Single (tag, [], (`Set ls)) in
             let observed_states = 
                 let res = 
                     List.map (fun x -> `Single (Tags.Characters.item,
@@ -2413,8 +2413,8 @@ module SC = struct
             and equivalencies =
                 let res =
                     List.map (fun (a, b) -> `Single (Tags.Characters.equivalent,
-                    [(Tags.Characters.from, a); (Tags.Characters.towards, 
-                        (String.concat " " b))], `Structured `Empty)) 
+                    [(Tags.Characters.from, `String a); (Tags.Characters.towards, 
+                        `String (String.concat " " b))], `Empty)) 
                     s.st_equivalents 
                 in
                 lst Tags.Characters.equivalencies res
@@ -2425,7 +2425,6 @@ module SC = struct
                 in
                 lst Tags.Characters.labels res
             and alph = `Single (Alphabet.to_formatter s.st_alph) in
-            `Structured 
             (`Set [alph; states; observed_states; equivalencies])
         in
         match s.st_type with

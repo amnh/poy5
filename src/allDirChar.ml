@@ -1484,8 +1484,8 @@ with type b = AllDirNode.OneDirF.n = struct
             nd, get_unadjusted parent nd, get_single parent nd
         in
         let merger a b root = 
-            `Structured (`Set [`Single root; `Single a; `Single b]) 
-        and singler a = `Structured (`Single a) 
+            (`Set [`Single root; `Single a; `Single b]) 
+        and singler a = (`Single a) 
         and splitter parent a = get_unadjusted parent a, get_single parent a in
         (* Now we are ready to process the contents of the tree *)
         let rec subtree_to_formatter (pre, fi) cur par 
@@ -1558,14 +1558,14 @@ with type b = AllDirNode.OneDirF.n = struct
                             (b, get_unadjusted a parent) None
                         in
                         recost, (merger a b froot), 
-                        [Tags.Trees.cost, string_of_float r.Ptree.component_cost]
+                        [Tags.Trees.cost, `Float r.Ptree.component_cost]
                 | Some ((`Single a), root) ->
                         let c1 : Tags.output = 
                             let nd = splitter (-1) root in
                             subtree_to_formatter (pre, fi) a a nd
                         in
-                        recost, (`Structured (`Single c1)),
-                        [Tags.Trees.cost, string_of_float r.Ptree.component_cost]
+                        recost, (`Single c1),
+                        [Tags.Trees.cost, `Float r.Ptree.component_cost]
                 | None -> assert false
             in
             recost, ((`Single ((Tags.Trees.tree, attr, contents) : Tags.output)) :: trees)
@@ -1578,17 +1578,17 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         let atr = 
             let cost = Ptree.get_cost `Adjusted tree in
-            (Tags.Trees.recost, string_of_float recost) ::
-            (Tags.Trees.cost, string_of_float cost) :: atr
+            (Tags.Trees.recost, `Float recost) ::
+            (Tags.Trees.cost, `Float cost) :: atr
         in
-        (Tags.Trees.forest, atr, `Structured (`Set trees))
+        (Tags.Trees.forest, atr, `Set trees)
 
     let av_to_formatter ?(pre_ref_codes=IntSet.empty) ?(fi_ref_codes=IntSet.empty) atr data tree = 
         (* We have to include the cost of the tree in the attributed and not get
         * it from the Chartree.to_formatter function. If the cost is adjusted,
         * it might not be the same in the one directional tree. *)
         let cost = Ptree.get_cost `Adjusted tree in
-        let atr = (Tags.Trees.cost, string_of_float cost) :: atr in
+        let atr = (Tags.Trees.cost, `Float cost) :: atr in
         let tree = convert_three_to_one_dir tree in
         Chartree.to_formatter atr data tree 
 

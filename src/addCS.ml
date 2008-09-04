@@ -436,10 +436,8 @@ let to_formatter attr c parent d : Tags.output list =
     | Some parent -> to_list parent  
     | None -> c_ls
     in 
-
     let idx = ref 0 in 
     let output_character (min, max, code, cost) =
-
         let cost = distance (singleton (List.nth c_ls !idx) 0) 
             (singleton (List.nth c_parent_ls !idx) 0) 
         in 
@@ -447,10 +445,9 @@ let to_formatter attr c parent d : Tags.output list =
         
         let attributes = 
             (Tags.Characters.name, 
-            Data.code_character code d) ::
-            (Tags.Characters.cost, string_of_float cost) ::
-                (Tags.Characters.definite, if cost > 0.0 then "true" else
-                    "false") :: attr
+            `String (Data.code_character code d)) ::
+            (Tags.Characters.cost, `Float cost) ::
+                (Tags.Characters.definite, `Bool (cost > 0.0)) :: attr
         in
         let contents = `Set [
             `Single (Tags.Characters.min, [], 
@@ -459,7 +456,7 @@ let to_formatter attr c parent d : Tags.output list =
             `String (Data.to_human_readable d code max))
         ]
         in
-        (Tags.Characters.additive, attributes, `Structured contents)
+        (Tags.Characters.additive, attributes, contents)
     in
     let c = to_list_with_cost c in
     List.map output_character c
