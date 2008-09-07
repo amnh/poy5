@@ -71,13 +71,19 @@ let make_constraint leaves distance set =
     match leaves with
     | [x; y] ->
             let di = distance x y in
-            (di, set)
+            (di, set, `Pair (x, y))
     | _ -> assert false
 
 let produce_LP_instance gap_opening tcm file fasta synonyms = 
     match Parser.Tree.of_file (`Local file) with
     | [[tree]] ->
-            let costs, leaves, tree, rtree =  (* Compute all the costs *)
+            let tcm = 
+                let tcm = Scripting.DNA.CM.of_file tcm in
+                Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine
+                gap_opening);
+                tcm
+            in
+            let sequences, costs, leaves, tree, rtree =  (* Compute all the costs *)
                 let seqs = 
                     let seqs = Scripting.DNA.Fasta.of_file false fasta in
                     List.map (fun (a, b) ->
@@ -112,12 +118,6 @@ let produce_LP_instance gap_opening tcm file fasta synonyms =
                 in
                 let tree as rtree = assign_labels rtree in
                 let leaves, tree = list_of_leaves tree, tree in
-                let tcm = 
-                    let tcm = Scripting.DNA.CM.of_file tcm in
-                    Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine
-                    gap_opening);
-                    tcm
-                in
                 let tbl = Hashtbl.create 1667 in
                 let cleanup ((a, _), (b, _), c, _) = 
                     Printf.printf "%s\t%s\t%d\n%!" a b c;
@@ -125,21 +125,61 @@ let produce_LP_instance gap_opening tcm file fasta synonyms =
                 in
                 List.iter (List.iter cleanup) 
                 (Scripting.DNA.Align.algn_all seqs tcm);
+                List.fold_left (fun acc (name, seq) ->
+                    All_sets.IntegerMap.add (List.assoc name leaves) seq acc)
+                All_sets.IntegerMap.empty seqs,
                 tbl, 
                 List.fold_left (fun acc x -> All_sets.Integers.add (snd x) acc)
                 All_sets.Integers.empty leaves, tree, rtree
             in
+            (* We compute the number of variables that will be involved *)
             let total_variables = 
                 ((All_sets.Integers.cardinal leaves) * 2) - 3
             in
+            (* We create the minimization problem, we want to reduce the total
+            * sum of the variables, each assigned with a factor of one *)
             let minimization_problem = Array.make total_variables 1. in
+            (* Now we compute the constraints, right now, those constraints are
+            * only the all pairs distances *)
             let constraints = 
                 let paths = produce_paths tree in
-                List.map (make_constraint leaves (fun a b -> Hashtbl.find costs (a,
-                b))) paths
+                List.map (make_constraint leaves 
+                    (fun a b -> Hashtbl.find costs (a, b))) paths
+            in
+            let constraints = 
+                let tcm3 = Cost_matrix.Three_D.of_two_dim tcm in
+                let index = Hashtbl.create 1667 in
+                List.iter (fun (_, set, item) -> Hashtbl.add index item set)
+                constraints;
+                let leafs = Array.of_list (All_sets.Integers.elements leaves) in
+                Array_ops.randomize leafs;
+                let rec make_triplets lst acc =
+                    match lst with
+                    | a :: ((b :: c :: _) as t) -> 
+                            let set =
+                                let st1 = 
+                                    try Hashtbl.find index (`Pair (a, b)) with
+                                    | Not_found -> Hashtbl.find index (`Pair (b, a))
+                                in
+                                let st2 = 
+                                    try Hashtbl.find index (`Pair (b, c)) with
+                                    | Not_found -> Hashtbl.find index (`Pair (c, b))
+                                in
+                                Sexpr.union st1 st2 
+                            in
+                            let sa = All_sets.IntegerMap.find a sequences
+                            and sb = All_sets.IntegerMap.find b sequences 
+                            and sc = All_sets.IntegerMap.find c sequences in
+                            let _, d = 
+                                Sequence.Align.align_3_powell_inter sa sb sc tcm tcm3 
+                            in
+                            make_triplets t ((d, set, `Triple (a, b, c)) :: acc)
+                    | _ -> acc
+                in
+                make_triplets (Array.to_list leafs) constraints
             in
             let a, b = 
-                List.fold_left (fun (stacc, cacc) (c, sexp) ->
+                List.fold_left (fun (stacc, cacc) (c, sexp, _) ->
                     let cacc = (float_of_int c, float_of_int max_int) :: cacc in
                     let arr = Array.make total_variables 0. in
                     Sexpr.leaf_iter (fun code ->
