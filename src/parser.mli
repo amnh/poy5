@@ -140,6 +140,7 @@ module Tree : sig
     val stream_of_file : bool -> filename -> (unit -> (string t * string))
     val cannonic_order : string t -> string t
 
+    val map : ('a -> 'b) -> 'a t -> 'b t
 end
 
 
