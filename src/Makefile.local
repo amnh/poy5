@@ -35,6 +35,13 @@ threeDimensionalApproximation: $(BASE_OBJS_OPT) ../utils/threeDimensionalApproxi
 	-o threeDimensionalApproximation $(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa \
 	unix.cmxa str.cmxa bigarray.cmxa $^
 
+triplets: $(BASE_OBJS_OPT) ../utils/triplets.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L$(OCAMLMPI) mpi.cmxa -cclib -L./grappa -cclib  -L/usr/lib -cclib \
+	-L./graphps -cclib -L./ $(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) \
+	-o triplets $(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa \
+	unix.cmxa str.cmxa bigarray.cmxa $^
+
 samplePairwiseDistance: $(BASE_OBJS_OPT) ../utils/samplePairwiseDistance.ml
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
