@@ -32,16 +32,18 @@ let rank = Mpi.comm_rank Mpi.comm_world
 let worldsize = Mpi.comm_size Mpi.comm_world
 
 let compute_triplets file sub indel affine =
+    let tcm = Scripting.DNA.CM.of_sub_indel_affine sub indel affine in
     let seqs = 
         let seqs = 
             if rank > 0 then []
             else
-                Scripting.DNA.Fasta.of_file false file in
+                let seqs =  Scripting.DNA.Fasta.of_file false file in
+                List.map (fun (a, b) -> a, Sequence.select_one b tcm) seqs
+        in
         Mpi.broadcast seqs 0 Mpi.comm_world 
     in
     let index = Hashtbl.create 1667 in
     List.iter (fun (taxon, seq) -> Hashtbl.add index taxon seq) seqs;
-    let tcm = Scripting.DNA.CM.of_sub_indel_affine sub indel affine in
     let tcm3 = Cost_matrix.Three_D.of_two_dim tcm in
     let terminals_arr = Array.of_list (List.map fst seqs) in
     let compute_triplet = compute_triplet (Hashtbl.find index) in
