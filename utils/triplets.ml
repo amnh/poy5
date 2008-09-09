@@ -29,6 +29,7 @@ let compute_triplet toseq tcm tcm3 ((a, b, c) as triple) =
     (snd (Sequence.Align.align_3_powell_inter a_s b_s c_s tcm tcm3)))
 
 let rank = Mpi.comm_rank Mpi.comm_world
+let worldsize = Mpi.comm_size Mpi.comm_world
 
 let compute_triplets file sub indel affine =
     let seqs = 
@@ -47,12 +48,19 @@ let compute_triplets file sub indel affine =
     Array_ops.randomize terminals_arr;
     let triplets = make_triplets terminals_arr in
     let triplets = Array.of_list triplets in
-    let triplet = Mpi.scatter triplets 0 Mpi.comm_world in
-    let triplet = compute_triplet tcm tcm3 triplet in
+    let compute_my_part () =
+        let res = ref [] in
+        for i = 0 to (Array.length triplets) - 1 do
+            if 0 = (i - rank) mod worldsize then
+                res := (compute_triplet tcm tcm3 triplets.(i)) :: !res;
+        done;
+        Array.of_list !res
+    in
+    let triplet = compute_my_part () in
     let triplets = Mpi.gather triplet 0 Mpi.comm_world in
     if 0 = rank then
-        Array.iter (fun ((a, b, c), dist) ->
-            Printf.printf "%s\t%s\t%s\t%d\n%!" a b c dist)
+        Array.iter (Array.iter (fun ((a, b, c), dist) ->
+            Printf.printf "%s\t%s\t%s\t%d\n%!" a b c dist))
         triplets
     else ()
 
