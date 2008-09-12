@@ -1596,7 +1596,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-        let add_codes ((_, x) as y) = y, Array.map snd (Array.of_list x) in
+        let add_codes ((_, x) as y) = 
+            y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 
         and lnadd8code = List.map add_codes lnadd8code
         and lnadd16code = List.map add_codes lnadd16code

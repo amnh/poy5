@@ -4495,6 +4495,11 @@ let to_human_readable data code item =
         | Static x -> x
         | _ -> assert false
     in
+    let item = 
+        match spec.Parser.SC.st_type with
+        | Parser.SC.STUnordered -> List.nth spec.Parser.SC.st_observed item
+        | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
+    in
     let name =
         try List.nth spec.Parser.SC.st_labels item with
         | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
