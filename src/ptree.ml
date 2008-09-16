@@ -1131,8 +1131,9 @@ Tree_Ops.b) search_mgr) breakage =
                 Tree.Single_Jxn a, handle_of a breakage.ptree
         | `Edge (_, a, b, _) -> 
                 if debug then Printf.printf "Joining to %d %d\n%!" a b;
-                assert (handle_of a breakage.ptree = 
-                    handle_of b breakage.ptree);
+                if debug then
+                    assert (handle_of a breakage.ptree = 
+                        handle_of b breakage.ptree);
                 Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
     in
     let rec do_search () =
@@ -1142,8 +1143,10 @@ Tree_Ops.b) search_mgr) breakage =
                 if debug then
                     Printf.printf "Joining in %d %d\n%!" a b;
                 let ahandle = handle_of a breakage.ptree in
-                assert (ahandle = handle_of b breakage.ptree);
-                assert (handle_of_child <> ahandle);
+                if debug then begin
+                    assert (ahandle = handle_of b breakage.ptree);
+                    assert (handle_of_child <> ahandle);
+                end;
                 let parent_jxn = (Tree.Edge_Jxn (a, b)) in
                 let what_to_do_next =
                     search#process Tree_Ops.cost_fn 
@@ -1224,7 +1227,8 @@ let do_search neighborhood tree tabu search =
                 if debug then Printf.printf "Breaking in %d %d\n%!" a b;
                 let breakage = Tree_Ops.break_fn x tree in
                 let breakage = apply_incremental breakage in
-                assert (
+                if debug then
+                    assert (
                     let get_node = function
                         | `Edge (_, a, _, _) | `Single (a, _) -> a
                     in
