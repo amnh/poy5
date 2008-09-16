@@ -903,14 +903,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             Ptree.tabu_mgr), acc_todo) (_, break, r1, r2) =
                 let icost = Ptree.get_cost `Adjusted acc_tree in
                 let ntabu = tabu#clone in
-                let Tree.Edge break = Tree.normalize_edge break tree.Ptree.tree in
-                let tree, a, b, c, d, il = break_fn break tree in
-                let t1_h, t2_h = Tree.get_break_handles a (tree.Ptree.tree) in
-                let t1_h, t2_h = 
-                    Ptree.handle_of t1_h tree, Ptree.handle_of t2_h tree
+                let Tree.Edge break = 
+                    Tree.normalize_edge break tree.Ptree.tree 
                 in
-                let () = ntabu#update_break tree a t1_h t2_h c in
-                let tree, treed = join_fn il r1 r2 tree in
+                let breakage = break_fn break tree in
+                let () = ntabu#update_break breakage in
+                let tree, treed = 
+                    join_fn breakage.Ptree.incremental 
+                    r1 r2 breakage.Ptree.ptree 
+                in
                 let () = ntabu#update_join tree treed in
                 let cost = Ptree.get_cost `Adjusted tree in
                 if cost < icost then 

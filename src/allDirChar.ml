@@ -1145,7 +1145,7 @@ with type b = AllDirNode.OneDirF.n = struct
             { AllDirNode.unadjusted = res; adjusted = res }
         in
         (* Break the topology and update the data *)
-        let ptree, tree_delta, clade_handle =
+        let ptree, tree_delta, clade_handle, tree_handle =
             (* A function that takes one side of a tree delta and updates the
             * tree's data using that information *)
             let update_break_delta delta ptree = 
@@ -1177,7 +1177,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     --> refresh_all_edges false
                     --> refresh_roots
             in
-            ptree, tree_delta, clade_handle
+            ptree, tree_delta, clade_handle, tree_handle
         in
         (* Compare costs, and calculate the break delta *)
         let b_delta =
@@ -1195,7 +1195,42 @@ with type b = AllDirNode.OneDirF.n = struct
                 in
                 (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -. tc
         in
-        ptree, tree_delta, b_delta, clade_node_id, clade_node, []
+        let left, right =
+            let extract_side x side =
+                let component_root x =
+                    let cr = Ptree.get_component_root x ptree in
+                    match cr.Ptree.root_median with
+                    | Some (_, x) -> x
+                    | None -> assert false
+                in
+                { Ptree.clade_id = x; 
+                clade_node = component_root x;
+                topology_delta = side;}
+            in
+            let (left, right) = tree_delta in
+            extract_side tree_handle left, extract_side clade_handle right
+        in
+        assert (left.Ptree.topology_delta = fst tree_delta);
+        assert (right.Ptree.topology_delta = snd tree_delta);
+        assert (
+            let get_handle side = 
+                match side.Ptree.topology_delta with
+                | `Edge (_, a, _, _) -> 
+                        Ptree.handle_of a ptree
+                | `Single (a, _) ->
+                        let res = Ptree.handle_of a ptree in
+                        assert (a = res);
+                        res
+            in
+            get_handle left <> get_handle right);
+        {
+            Ptree.ptree = ptree;
+            tree_delta = tree_delta;
+            break_delta = b_delta;
+            left = left;
+            right = right;
+            incremental = [];
+        }
 
     let get_other_neighbors (a, b) tree acc = 
         let add_one a b acc =
@@ -1214,21 +1249,17 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let break_fn ((s1, s2) as a) b =
         match !Methods.cost with
-        | `Iterative (`ApproxD _) ->
-                let u, v, w, x, y, z = break_fn a b in
-                u, v, w, x, y, z
+        | `Iterative (`ApproxD _) -> break_fn a b
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
         | `Normal -> break_fn a b
         | `Exhaustive_Strong ->
-            let c, d, e, f, g, _ = break_fn a b in
-            let nt = uppass c in
-            nt, d, 
-            (Ptree.get_cost `Adjusted b) -. (Ptree.get_cost `Adjusted nt),
-            f,
-            g,
-            []
+                let breakage = break_fn a b in
+                let nt = uppass breakage.Ptree.ptree in
+                { breakage with Ptree.ptree = nt; incremental = []; 
+                break_delta = (Ptree.get_cost `Adjusted b) -. 
+                    (Ptree.get_cost `Adjusted nt) }
 
     let debug_join_fn = false
 

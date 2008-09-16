@@ -106,8 +106,24 @@ let empty = {
     origin_cost = 0.;
 }
 
-type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree ->
-    (('a, 'b) p_tree * Tree.break_delta * float * int * 'a * incremental list)
+
+type 'a clade_info = {
+    clade_id: int;
+    clade_node: 'a;
+    topology_delta: Tree.side_delta;
+}
+
+type ('a, 'b) breakage = {
+    ptree: ('a, 'b) p_tree;
+    tree_delta: Tree.break_delta;
+    break_delta: float;
+    left: 'a clade_info;
+    right: 'a clade_info;
+    incremental : incremental list;
+}
+
+
+type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 
 type ('a, 'b) join_fn =   
     incremental list ->
@@ -189,9 +205,7 @@ class type ['a, 'b] tabu_mgr = object
     method clone : ('a, 'b) tabu_mgr
     (** Function to create a deep-copy of the tabu. *)
     
-    method update_break :
-        ('a, 'b) p_tree -> Tree.break_delta -> int -> int -> int
-        -> unit
+    method update_break : ('a, 'b) breakage -> unit
     (** Function to update the tabu after a break operation. This function
      * should ensure the invariant that edges in the tabu and the edges in the tree are
      * in sync. Note that directionality could be reversed. *)
@@ -294,10 +308,11 @@ module type SEARCH = sig
       type searcher =
           (a, b) search_mgr ->
           (a, b) search_mgr
+
       type search_step = 
           (a, b) p_tree ->
           (a, b) tabu_mgr ->
-          searcher
+          searcher 
 
       (** [spr_step ptree tabu search] performs one round of SPR searching on
           tree [ptree] using a given tabu manager and search manager. *)
@@ -321,12 +336,10 @@ module type SEARCH = sig
       val tbr_simple : bool -> searcher
 
       val tbr_join :
-          (a, b) search_mgr ->
-          ?updt:incremental list ->
           (a, b) tabu_mgr ->
-          ?rerooted:bool ->
-          (a, b) p_tree ->
-          Tree.join_jxn -> a -> float -> Tree.t_status
+          (a, b) search_mgr ->
+          (a, b) breakage ->
+          Tree.t_status
 
       (** [alternate_spr_tbr search] takes each tree in search manager [search]
           and performs rounds of alternating SPR and TBR until there is no further
@@ -1085,334 +1098,156 @@ let fix_edge ptree ((Tree.Edge (e1, e2)) as edge) =
      * tree are out of sync. *)
     else failwith "fix_edge"
 
-
-(** [joins ptree loc tabu joiner] is a utility function that takes every [loc]
-    (i.e. [`Left] or [`Right]) join edge in [tabu] and passes the join junction to
-    [joiner], a function that will perform the join and return a [Tree] status
-    code *)
-let rec joins ?(counter=0) ptree loc tabu joiner =
-    match tabu#join_edge loc with
-    | None ->
-          if ndebug
-          then odebug ("no more places to join");
-          if ndebug then
-              odebug ("Total number of joins performed is : " ^ 
-              string_of_int counter);
-          (Tree.Continue, counter)
-    | Some edge ->
-          let Tree.Edge (je1, je2) = fix_edge ptree edge in
-          if ndebug
-          then odebug ("trying to join at "
-                       ^ string_of_int je1
-                       ^ ","
-                       ^ string_of_int je2);
-          let j1 = 
-              try
-                  Tree.Edge_Jxn
-                  (Tree.get_node_id je1 ptree.tree,
-                  Tree.get_node_id je2 ptree.tree) 
-              with
-              | err ->
-                      print_endline "Ptree.joins";
-                      raise err
-          in
-          let status = joiner tabu j1 in
-          match status with
-          | Tree.Break -> (Tree.Break, succ counter)
-          | Tree.Continue -> joins ~counter:(succ counter) ptree loc tabu joiner
-          | Tree.Skip -> (Tree.Skip, succ counter)
-
-(** [spr_join search break_delta clade_node clade_id incremental j2 tabu
-    ptree] performs a set of SPR joins.  The parameters are:
-    @param search The search manager to which to feed the results
-    @param break_delta Cost difference from breaking the previous edge
-    @param clade_node Data for clade root node
-    @param clade_id Code of clade root node
-    @param incremental Incremental update information obtained from the break,
-    which should be updated on the join
-    @param j2 Junction in clade on which to join
-    @param tabu Tabu manager to provide join edges
-    @param ptree Tree upon which to operate (already broken)
-*)
-let spr_join search
-        (break_delta : float)
-        (clade_node : Tree_Ops.a) clade_id incremental j2 tabu ptree =
-    let joiner tabu j1 =
-        if ndebug_traject_spr
-        then odebug ("traj: spr join: " ^ Tree.string_of_jxn j1 ^ " and " ^
-                         Tree.string_of_jxn j2);
-        search#process
-            Tree_Ops.cost_fn
-            break_delta                 (* break delta *)
-            clade_node                  (* clade node *)
-            (* clade_id *)
-            Tree_Ops.join_fn
-            incremental
-            j1 j2                       (* junctions *)
-            tabu                        (* current tabu..? *)
-            ptree in                    (* post-break tree *)
-    joins ptree `Left tabu joiner
-
-let swap_tree_and_clade (ptree, tree_delta, break_delta, clade_id, 
-    clade_node, incremental) : ((Tree_Ops.a, Tree_Ops.b) p_tree * 
-    Tree.break_delta * float * int * 'a * incremental list)=
-    let old_tree_delta, old_clade_delta = tree_delta in
-    match old_tree_delta with
-    | `Edge (v, l1, l2, lst) ->
-            let edge = Tree.Edge (l1, l2) in
-            let ptree, newincr = Tree_Ops.reroot_fn false edge ptree in
-            let new_tree_delta = (old_clade_delta, old_tree_delta) in
-            let ptree = Tree_Ops.incremental_uppass ptree incremental in
-            let clade_root = get_component_root l1 ptree in
-            (match clade_root.root_median with
-            | Some (_, clade_node) ->
-                    (ptree, new_tree_delta, break_delta, v, clade_node, 
-                    newincr)
-            | None -> failwith "Unexpected swap_tree_and_clade")
-    | `Single (v, _) -> 
-            let new_tree_delta = old_clade_delta, old_tree_delta in
-            let ptree = Tree_Ops.incremental_uppass ptree incremental in
-            let clade_node = get_node_data v ptree in
-            (ptree, new_tree_delta, break_delta, v, clade_node, [])
-
-let break_side njoins njoins_last search tabu (ptree, tree_delta, break_delta, clade_id, 
-    clade_node, incremental) =
-    if ndebug_break_delta
-    then odebug ("break_delta is " ^ string_of_float break_delta);
-    let t1_h, t2_h = Tree.get_break_handles tree_delta (ptree.tree) in
-    let t1_h, t2_h = handle_of t1_h ptree, handle_of t2_h ptree in
-    let j2 = Tree.side_to_jxn (let (l, r) = tree_delta in r) in
-    let tabu = tabu#clone in
-    tabu#update_break
-        ptree tree_delta t1_h t2_h clade_id;
-    let res, joins =
-        spr_join search break_delta clade_node clade_id incremental j2 tabu
-            ptree in
-    njoins := !njoins + joins;
-    njoins_last := joins;
-    if ndebug_traject_summary
-    then odebug (string_of_int joins ^ " joins");
-    res
-
-let spr_step
-        ptree
-        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr)
-        (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) =
-
-    let nbreaks = ref 0 in
-    let njoins = ref 0 in
-    let njoins_last = ref 0 in
-    if ndebug_traject_spr
-    then odebug "traj: spr: begin";
-    (* break edge (e1, e2) and treat the e2 part as the clade *)
-    (* then try to reattach the clade in each tabu#join_edge location *)
-    (* Try to break in each possible location *)
-    let rec break () =
-        match tabu#break_edge with
-        | None -> if ndebug then odebug "SPR: no more edges to break"
-        | Some e ->
-              let Tree.Edge (e1, e2) = 
-                  let break = fix_edge ptree e in
-                  search#breakin break;
-                  break
-              in
-              if ndebug then odebug ("SPR: breaking at edge "
-                                     ^ string_of_int e1
-                                     ^ ","
-                                     ^ string_of_int e2);
-(*              let test = Tree.depths ptree.tree in*)
-(*              odebug ("SPR: depth " ^ string_of_int (All_sets.TupleMap.find (e2,*)
-(*              -1)*)
-(*              test));*)
-              incr nbreaks;
-              if ndebug || ndebug_traject_summary
-              then odebug "breaking";
-              let (_, _, bdelta, _, _, _) as breakage = 
-                  Tree_Ops.break_fn (e1, e2) ptree 
-              in
-              if bdelta > 0. then
-                  let res =
-                      if not (Tree.is_leaf e1 ptree.tree) then begin
-                              if ndebug || ndebug_traject_summary
-                              then odebug "checking left...";
-                              break_side njoins njoins_last search tabu#clone breakage
-                          end else Tree.Continue
-                  in
-                  match res with
-                  | Tree.Break -> ()
-                  | _ ->
-                          if not (Tree.is_leaf e2 ptree.tree) then begin
-                              if ndebug || ndebug_traject_summary
-                              then odebug "checking right...";
-                              let breakage = swap_tree_and_clade breakage in
-                              match break_side njoins njoins_last search tabu#clone breakage with
-                              | Tree.Break -> ()
-                              | _ -> break ()
-                          end else break ()
-            else break ()
-    in
-
-    break ();
-    if ndebug_traject_summary
-    then odebug (string_of_int !nbreaks ^ " breaks, "
-                 ^ string_of_int !njoins ^ " joins");
-    search(* , (!nbreaks, !njoins, !njoins_last) *)
-
-(** [tbr_join search break_delta clade_node clade_id incremental j2 tabu
-    ptree] performs a set of TBR joins.  The parameters are:
-    @param search The search manager to which to feed the results
-    @param tabu Tabu manager to provide join edges
-    @param ptree Tree upon which to operate (already broken)
-    @param j2 Junction in clade on which to join first
-    @param clade_node Data for clade root node
-    @param break_delta Cost difference from breaking the previous edge
-    @param clade_id Code of clade root node
-*)
-let rec tbr_join search ?(updt=[]) tabu ?(rerooted=false) ptree j2 clade_node
-        break_delta =
-    let reroots = ref 0 in
-    let original_ptree = ptree in
-    let rec reroot new_break_delta updt tabu rerooted ptree j2 the_node =
-        let joiner tabu j1 =
-            if ndebug then odebug "TBR: Joining";
-            if ndebug_traject_tbr
-            then odebug ("traj: tbr join: " ^ Tree.string_of_jxn j1 ^ " and " ^
-                             Tree.string_of_jxn j2);
-            search#process
-                Tree_Ops.cost_fn
-                new_break_delta             (* break delta *)
-                the_node                (* clade node *)
-                (* clade_id *)
-                Tree_Ops.join_fn
-                updt              (* Incremental uppass has been done already *)
-                j1 j2                   (* junctions *)
-                tabu                    (* current tabu..? *)
-                ptree                   (* post-break tree *)
-        in
-        match joins ptree `Left tabu#clone joiner with
-        | Tree.Break, _ -> Tree.Break
-        | Tree.Continue, _ 
-        | Tree.Skip, _ ->
-              match tabu#reroot_edge `Right with
-              | None -> Tree.Continue
-              | Some reroot_edge -> begin
-                    if ndebug then odebug ("TBR: Rerooting");
-                    let ptree, updt = 
-                        Tree_Ops.reroot_fn true reroot_edge original_ptree 
-                    in
-                    let new_break_delta = break_delta +.
-                    ((get_cost `Adjusted original_ptree) -. (get_cost `Adjusted
-                    ptree)) in
-                    let j2, the_node =
-                        let Tree.Edge (e1, e2) = reroot_edge in
-                        let (e1, e2) = (get_handle_id e1 ptree,
-                                        get_node_id e2 ptree) in
-                        let root = get_component_root e1 ptree in
-                        match root.root_median with
-                        | Some (`Edge (l, m), v) ->
-                              Tree.Edge_Jxn (e1, e2), v
-                        | _ -> failwith "Ptree.tbr_step.reroot"
-                    in
-                    incr reroots;
-                    reroot new_break_delta updt tabu true ptree j2 the_node
-                end
-    in
-    let res = reroot break_delta updt tabu#clone rerooted ptree j2 clade_node in
-    if ndebug then 
-        odebug ("Total number of reroots performed " ^ string_of_int
-                    !reroots);
-    res
-
-
-let tbr_step
-        ptree
-        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr)
-        (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) =
-
-    let njoins = ref 0
-    and njoins_last = ref 0 in
-    if ndebug_traject_tbr
-    then odebug "traj: tbr: begin";
-    (* break edge (e1, e2) and treat the e2 part as the clade *)
-    (* then try to reattach the clade in each tabu#join_edge location *)
-    let break_side_reroot tabu e1 e2 =
-        search#breakin (Tree.Edge (e1, e2));
-        let ((ptree, tree_delta, break_delta, clade_id, clade_node, incremental)
-        as breakage) = 
-            Tree_Ops.break_fn (e1, e2) ptree in
-        (* NOTE: we don't update based on [incremental], so the tree is in a
-           slightly inconsistent state.  This is OK in our particular case,
-           since we then proceed to reroot the tree. *)
-
-        let t1_h, t2_h = Tree.get_break_handles tree_delta (ptree.tree) in
-        let l, r = tree_delta in
-        let j2 = Tree.side_to_jxn r in
-
-        if ndebug then odebug ("Breaking at "
-                               ^ string_of_int t1_h
-                               ^ ","
-                               ^ string_of_int t2_h);
-        if ndebug then begin
-            let edges = get_pre_order_edges t2_h ptree in
-            let len = string_of_int (List.length edges) in
-            odebug ("Subtree with " ^ len ^ " edges");
-        end;
-        let tabu = tabu#clone in
-        tabu#update_break
-            ptree tree_delta t1_h t2_h clade_id;
-        let use_spr_instead =
-            let is_single = function `Single _ -> true | _ -> false in
-            (is_single r) || (is_single l) || 
-            ((Node.num_otus None clade_node) < 3) ||
-            ((Node.num_otus None (get_component_root_median t1_h ptree)) < 3)
-        in
-        if use_spr_instead then
-            let () = if ndebug then odebug "Will do spr" else () in
-            match break_side njoins njoins_last search tabu#clone breakage with
-            | Tree.Break -> Tree.Break
-            | _ -> break_side njoins njoins_last search tabu#clone (swap_tree_and_clade breakage)
-        else 
-            let () = if ndebug then odebug "Will do tbr" else () in
-            tbr_join search tabu#clone ptree j2 clade_node break_delta
-    in
-
-    (* Try to break in each possible location *)
-    let breaks = ref 0 in
-    let rec break () =
-        incr breaks;
-        match tabu#break_edge with
-        | None -> ()
-        | Some e ->
-              let Tree.Edge (e1, e2) = e in
-              if ndebug_traject_tbr
-              then odebug ("traj: tbr break: " ^ string_of_int e1 ^ " -> " ^
-                               string_of_int e2);
-              let res = break_side_reroot tabu#clone e1 e2 in
-              match res with
-              | Tree.Break -> ()
-              | _ -> break ()
-    in
-
-    break ();
-    if ndebug then begin
-        odebug ("TBR: done. number of breaks: " ^ string_of_int !breaks);
-    end;
-    search(* , !breaks *)
-
-let tbr_single search =
-    while search#any_trees do
-        let (tree, cost, tabu) = search#next_tree in
-        ignore(tbr_step tree tabu search)
-    done;
-    search
-
 type searcher =
         (Tree_Ops.a, Tree_Ops.b) search_mgr ->
             (Tree_Ops.a, Tree_Ops.b) search_mgr
 type search_step = 
         (Tree_Ops.a, Tree_Ops.b) p_tree ->
             (Tree_Ops.a, Tree_Ops.b) tabu_mgr ->
-                searcher
+                searcher 
+
+let other_side = function `Left -> `Right | `Right -> `Left
+
+let get_side_info side break = 
+    match side with
+    | `Left -> break.left
+    | `Right -> break.right
+
+let apply_incremental breakage =
+    let ptree = 
+        Tree_Ops.incremental_uppass breakage.ptree
+        breakage.incremental
+    in
+    { breakage with ptree = ptree; incremental = [] }
+
+let single_spr_round parent_side child_side 
+(tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a,
+Tree_Ops.b) search_mgr) breakage = 
+    let child_info = get_side_info child_side breakage in
+    let child_jxn, handle_of_child = 
+        match child_info.topology_delta with
+        | `Single (a, _) -> 
+                if debug then Printf.printf "Joining to %d\n%!" a;
+                Tree.Single_Jxn a, handle_of a breakage.ptree
+        | `Edge (_, a, b, _) -> 
+                if debug then Printf.printf "Joining to %d %d\n%!" a b;
+                assert (handle_of a breakage.ptree = 
+                    handle_of b breakage.ptree);
+                Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
+    in
+    let rec do_search () =
+        match tabu#join_edge parent_side with
+        | None -> Tree.Continue
+        | Some (Tree.Edge (a, b)) ->
+                if debug then
+                    Printf.printf "Joining in %d %d\n%!" a b;
+                let ahandle = handle_of a breakage.ptree in
+                assert (ahandle = handle_of b breakage.ptree);
+                assert (handle_of_child <> ahandle);
+                let parent_jxn = (Tree.Edge_Jxn (a, b)) in
+                let what_to_do_next =
+                    search#process Tree_Ops.cost_fn 
+                    breakage.break_delta 
+                    child_info.clade_node
+                    Tree_Ops.join_fn breakage.incremental parent_jxn 
+                    child_jxn tabu breakage.ptree
+                in
+                match what_to_do_next with
+                | Tree.Skip
+                | Tree.Continue -> do_search ()
+                | x -> x
+    in
+    do_search ()
+
+let spr_join tabu search breakage =
+    match single_spr_round `Right `Left tabu search breakage with
+    | Tree.Skip | Tree.Continue -> 
+            single_spr_round `Left `Right tabu search breakage
+    | x -> x
+
+let tbr_join tabu search breakage =
+    let reroot_on_edge to_reroot edge breakage =
+        let ptree, inc = Tree_Ops.reroot_fn true edge breakage.ptree in
+        let Tree.Edge (a, b) = Tree.normalize_edge edge ptree.tree in
+        let create_clade_info clade_info =
+            let handle = handle_of a ptree in
+            match clade_info.topology_delta with
+            | `Edge (w, x, y, z) ->
+                    { clade_info with 
+                        clade_node = get_component_root_median handle ptree;
+                        topology_delta = `Edge (w, a, b, Some handle);
+                    }
+            | `Single _ -> assert false
+        in
+        let breakage =
+            let left, right = breakage.tree_delta in
+            match to_reroot with
+            | `Left -> 
+                    let clade_info = create_clade_info breakage.left in
+                    { breakage with left = clade_info; 
+                        tree_delta = (clade_info.topology_delta, right) }
+            | `Right -> 
+                    let clade_info = create_clade_info breakage.right in
+                    { breakage with right = clade_info; 
+                        tree_delta = (left, clade_info.topology_delta) }
+        in
+        apply_incremental { breakage with ptree = ptree; incremental = inc }
+    in
+    let breakage = apply_incremental breakage in
+    let rec do_search search_breakage =
+        match spr_join tabu#clone search search_breakage with
+        | Tree.Break as x -> x
+        | Tree.Skip | Tree.Continue ->
+                let to_reroot = `Left in
+                match breakage.tree_delta with
+                | (`Single _), _ | _, (`Single _) -> Tree.Continue
+                | (`Edge _), (`Edge _) ->
+                        match tabu#reroot_edge to_reroot with
+                        | None -> 
+                                Tree.Continue
+                        | Some ((Tree.Edge (a, b)) as edge) ->
+                                if debug then
+                                    Printf.printf "Rerooting in %d %d\n%!" a b;
+                                let search_breakage = 
+                                    reroot_on_edge to_reroot edge 
+                                    breakage 
+                                in
+                                do_search search_breakage
+    in
+    do_search breakage
+
+let do_search neighborhood tree tabu search =
+    let rec do_search () =
+        match tabu#break_edge with
+        | None -> Tree.Break
+        | Some (Tree.Edge ((a, b) as x)) -> 
+                if debug then Printf.printf "Breaking in %d %d\n%!" a b;
+                let breakage = Tree_Ops.break_fn x tree in
+                let breakage = apply_incremental breakage in
+                assert (
+                    let get_node = function
+                        | `Edge (_, a, _, _) | `Single (a, _) -> a
+                    in
+                    (handle_of (get_node (fst breakage.tree_delta))
+                    breakage.ptree <> handle_of (get_node (snd
+                    breakage.tree_delta)) breakage.ptree));
+                let new_tabu = tabu#clone in
+                new_tabu#update_break breakage;
+                match neighborhood new_tabu search breakage with
+                | Tree.Break as x -> x
+                | Tree.Skip | Tree.Continue ->
+                        do_search ()
+    in
+    match do_search () with
+    | Tree.Break | Tree.Skip | Tree.Continue -> ()
+
+let tbr_step a b c = 
+    do_search tbr_join a b c;
+    c
+
+let spr_step a b c = 
+    do_search spr_join a b c;
+    c
 
 let search passit (searcher, name) search =
     let status = Status.create name None ("Searching") in
@@ -1446,11 +1281,12 @@ let search_local_next_best (searcher, name) (search : (Tree_Ops.a, Tree_Ops.b)
     with
     | Methods.TimedOut -> search
 
-let spr_simple x = search x (spr_step, "SPR")
-let tbr_simple x = search x (tbr_step, "TBR")
+let spr_simple x = search x (do_search spr_join, "SPR")
+let tbr_simple x = search x (do_search tbr_join, "TBR")
 
-let spr_single = search_local_next_best (spr_step, "SPR")
-let tbr_single = search_local_next_best (tbr_step, "TBR")
+let spr_single = search_local_next_best (do_search spr_join, "SPR")
+let tbr_single = search_local_next_best (do_search tbr_join, "TBR")
+
 
 let alternate spr tbr search =
     let find_best_cost lst = 
@@ -1670,8 +1506,13 @@ let fuse source target terminals =
     assert (ta = sa);
     assert (tb = sb);
     if debug then prerr_endline "About to break";
-    let stree, (sld, srd), _, _, _, sinc = Tree_Ops.break_fn sedge stree 
-    and ttree, (tld, trd), _, _, _, tinc = Tree_Ops.break_fn tedge ttree in
+    let stree, (sld, srd), sinc = 
+        let breakage = Tree_Ops.break_fn sedge stree in
+        breakage.ptree, breakage.tree_delta, breakage.incremental
+    and ttree, (tld, trd), tinc = 
+        let breakage = Tree_Ops.break_fn tedge ttree in
+        breakage.ptree, breakage.tree_delta, breakage.incremental
+    in
     let stree = Tree_Ops.incremental_uppass stree sinc
     and ttree = Tree_Ops.incremental_uppass ttree tinc in
     if debug then prerr_endline "Finished uppass";

@@ -3229,9 +3229,12 @@ let set_console_run r = console_run_val := r
             | Tree.Single _ -> []
         let join x y tree = TreeOps.join_fn [] x y tree 
         let break x tree = 
-            let tree, delta, _, _, _, incr = TreeOps.break_fn x tree in
-            let tree = TreeOps.incremental_uppass tree incr in
-            tree, delta
+            let breakage = TreeOps.break_fn x tree in
+            let tree = 
+                TreeOps.incremental_uppass breakage.Ptree.ptree
+                breakage.Ptree.incremental 
+            in
+            tree, breakage.Ptree.tree_delta
         let reroot edge tree = 
             let a, b = TreeOps.reroot_fn true edge tree in
             let a = TreeOps.incremental_uppass a b in

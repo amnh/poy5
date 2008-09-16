@@ -317,13 +317,10 @@ module MakeNormal
             accordingly *)
         let break edge tree =
             let Tree.Edge(bfrom, bto) = edge in
-            let tree, break_delta, float, int, data, incr =
-                TreeOps.break_fn (bfrom, bto) tree in
-            let tree = TreeOps.uppass tree in
-            tree in
-
+            let breakage = TreeOps.break_fn (bfrom, bto) tree in
+            TreeOps.uppass breakage.Ptree.ptree 
+        in
         let tree = Ptree.set_origin_cost origin_cost tree in
-
         (* Iterate over all the nodes, possibly breaking... *)
         let tree = All_sets.IntegerMap.fold
             (fun id _ tree ->
@@ -379,14 +376,17 @@ module MakeNormal
         be kept. *)
     let rec forest_joins forest =
         let components = Ptree.components forest in
+        (*
         let join_tabu = PhyloTabus.join_to_tree_in_forest forest in
-
+        *)
         let status = Status.create "Attempting to join forest components"
             (Some components) "" in
 
         (** [tbr_joins component] tries to join [component] to all other
             components in the tree *)
-        let tbr_joins component =
+        let tbr_joins component = assert false
+            (* TODO how to handle this? *)
+            (*
             Status.full_report ~adv:component status;
             let tabu, right = join_tabu component in
             let mgr = new PhyloQueues.first_best_srch_mgr (new Sampler.do_nothing) in
@@ -408,11 +408,9 @@ module MakeNormal
                        defiend. *)
                 | None -> assert false
                 | Some (_, clade_node) -> clade_node in
-
             let status =
                 PtreeSearch.tbr_join mgr tabu forest j2 clade_node
                     forest.Ptree.origin_cost in
-
             match status with
             | Tree.Break ->
                   let results = mgr#results in
@@ -421,6 +419,7 @@ module MakeNormal
                   Some forest
             | Tree.Continue
             | Tree.Skip -> None 
+            *)
         in
         let rec try_comp component =
             if component = components

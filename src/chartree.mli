@@ -82,12 +82,6 @@ val uppass :
     establishes the correct cost for the tree. *)
 
 (** {2 Search interface} *)
-type 'a break_fn_t = 
-  Tree.id * Tree.id ->
-  'a p_tree ->
-  'a p_tree * Tree.break_delta * float * int * Node.node_data * 
-  incremental list
-
 (* Clears whatever node and root information should be for the given join_delta,
 * and returns the vertex from which a downpass should be started to update the
 * internal vertices. *)
@@ -95,7 +89,7 @@ val prepare_tree_for_downpass :
   ('a, 'b) Ptree.p_tree ->
   Tree.join_delta -> int * ('a, 'b) Ptree.p_tree
 
-val break_fn : 'a break_fn_t
+val break_fn : (Node.Standard.n, 'b) Ptree.break_fn
 (** [break_fn] is a break function usable for Ptree's searches.  See {!Ptree}
     for more information. *)
 val join_fn :

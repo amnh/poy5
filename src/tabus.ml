@@ -165,9 +165,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method features l = self#inherited_features l
 
-        method virtual update_break :
-            ('a, 'b) Ptree.p_tree -> Tree.break_delta -> int -> int -> int
-            -> unit
+        method virtual update_break : ('a, 'b) Ptree.breakage -> unit
 
         method virtual update_join :
             ('a, 'b) Ptree.p_tree -> Tree.join_delta -> unit
@@ -204,8 +202,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     class type ['a, 'b] edges_manager = object
         method break_distance : float -> unit
         method next_edge : Tree.edge option
-        method update_break : 
-            ('a, 'b) Ptree.p_tree -> Tree.break_delta -> int -> 'a -> unit
+        method update_break : ('a, 'b) Ptree.breakage -> unit
         method update_join : ('a, 'b) Ptree.p_tree -> Tree.join_delta -> unit
         method clone : ('a, 'b) edges_manager
         method exclude : Tree.edge list -> unit
@@ -308,7 +305,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method exclude (edges : Tree.edge list) =
             exclude_edges <- edges
 
-        method private add_to_stack ((Tree.Edge (a, b), (_ : int)) as item) stack =
+        method private add_to_stack ((Tree.Edge (a, b), (_ : int)) as item) 
+        stack =
             if List.exists (undirected_edge (a, b)) exclude_edges then ()
             else Stack.push item stack
 
@@ -354,7 +352,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method features l = ("tabu", "join-once") :: l
 
-        method update_break _ _ _ _ _ =
+        method update_break _ =
             self#clear;
             ()
 
@@ -693,7 +691,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 tree <- ptree.Ptree.tree;
                 starting <- true
 
-            method update_break _ _ _ _ = ()
+            method update_break _ = ()
 
             method clone = ({< >} :> (Node.n, Edge.e) edges_manager)
 
@@ -745,19 +743,92 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     end
 
-    let get_side side delta = 
-        match side, delta with
-        | `Left, (l, _) 
-        | `Right, (_, l) -> l
-        | `Both, _ -> failwith "Both?"
+    let get_side side breakage = 
+        match side with
+        | `Left -> breakage.Ptree.left.Ptree.topology_delta
+        | `Right -> breakage.Ptree.right.Ptree.topology_delta
+        | `Both -> failwith "Both?"
 
     let get_both side delta = 
         match side, delta with
         | `Both, (l, r) -> [l; r]
         | _ -> failwith "No both?"
 
+
+    module type S = sig
+        type 'a t
+        val pop : 'a t -> 'a
+        val push : 'a -> 'a t -> unit
+        val create : unit -> 'a t
+        val is_empty : 'a t -> bool
+        val copy : 'a t -> 'a t 
+        val clear : 'a t -> unit
+        val iter : ('a -> unit) -> 'a t -> unit
+    end
+
+    module SQ (M : S) = struct
+        class generic_distance side max_distance ptree : [Node.n, Edge.e]
+        edges_manager = object (self) 
+            val items = M.create ()
+            val mutable ptree = ptree
+            val mutable exclude = []
+
+            method break_distance _ = ()
+            method next_edge =
+                let debug = false in
+                if debug then begin
+                    Printf.printf "SQ contains\n%!";
+                    M.iter (fun (Tree.Edge (a, b)) ->
+                            Printf.printf "%d,%d\n%!" a b) items;
+                end;
+                if M.is_empty items then None
+                else 
+                    let (Tree.Edge (a, b)) as e = M.pop items in
+                    let () =
+                        let node = Ptree.get_node a ptree in
+                        match node with
+                        | Tree.Interior _ -> 
+                                let c, d = Ptree.other_two_nbrs b node in
+                                M.push (Tree.Edge (c, a)) items;
+                                M.push (Tree.Edge (d, a)) items;
+                                ()
+                        | Tree.Leaf _ | Tree.Single _ -> ()
+                    in
+                    Some e
+
+            method update_break breakage = 
+                ptree <- breakage.Ptree.ptree;
+                let clade =
+                    match side with
+                    | `Left -> breakage.Ptree.left
+                    | `Right -> breakage.Ptree.right
+                in
+                M.clear items;
+                match clade.Ptree.topology_delta with
+                | `Single _ -> ()
+                | `Edge (_, a, b, _) ->
+                        let handle = Ptree.handle_of a breakage.Ptree.ptree in
+                        match Ptree.get_node handle breakage.Ptree.ptree with
+                        | Tree.Interior (a, b, c, d) ->
+                                M.push (Tree.Edge (b, a)) items;
+                                M.push (Tree.Edge (c, a)) items;
+                                M.push (Tree.Edge (d, a)) items;
+                        | Tree.Leaf (a, b) -> M.push (Tree.Edge (b, a)) items;
+                        | Tree.Single _ -> ()
+
+            method update_join _ _ = ()
+            method clone = 
+                ({< items = M.copy items;
+                ptree = ptree; >} :> (Node.n, Edge.e) edges_manager)
+            method exclude edges = exclude <- edges
+        end
+    end
+
+    module DFS = SQ (Stack)
+    module BFS = SQ (Queue)
+
     class virtual dfs_distance_based side max_distance 
-        (ptree : (Node.n, Edge.e) Ptree.p_tree) = object (self)
+        (initial_ptree : (Node.n, Edge.e) Ptree.p_tree) = object (self)
             inherit exclude_edges as super
 
         val to_compare = Stack.create ()
@@ -765,12 +836,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         val to_do_later = Stack.create ()
         val mutable currently_doing = None
         val mutable current_depth = 0
-        val mutable current_joined_ptree = ptree
-        val mutable current_broken_ptree = ptree
+        val mutable current_joined_ptree = initial_ptree
+        val mutable current_broken_ptree = initial_ptree
         val mutable current_delta = 0.0
         val mutable current_clade = None
 
-        method update_join (tree : (Node.n, Edge.e) Ptree.p_tree) (_ : Tree.join_delta) = 
+        method update_join (tree : (Node.n, Edge.e) Ptree.p_tree) 
+            (_ : Tree.join_delta) =
             current_joined_ptree <- tree;
             current_delta <- 0.0
 
@@ -791,21 +863,37 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             Stack.clear to_calculate_for_compare;
             Stack.clear to_do_later
 
-        method update_break (ptree : (Node.n, Edge.e) Ptree.p_tree) 
-            (delta : Tree.break_delta) (_ : int) (clade : Node.n)=
-                let delta = get_side side delta in
-                current_broken_ptree <- ptree;
-                current_clade <- Some clade;
-                current_delta <- (Ptree.get_cost `Adjusted current_joined_ptree) -. 
-                    (Ptree.get_cost `Adjusted current_broken_ptree);
-                self#clear_all_joins;
-                match delta with
-                | `Edge (r, s1, s2, _) ->
-                        let e2 = Some (Tree.Edge (s2, s1)) in
-                        if self#should_continue_this_path e2 true then
-                            self#initialize_children_edges s1 s2 0;
-                        self#initialize_children_edges s2 s1 0;
-                | `Single (_, _) -> ()
+        method update_break breakage =
+            let ptree = breakage.Ptree.ptree in
+            let delta = get_side side breakage in
+            current_broken_ptree <- ptree;
+            current_clade <- 
+                Some (match side with
+                (* We have to select the oposite side *)
+                | `Left -> breakage.Ptree.right.Ptree.clade_node
+                | `Right -> breakage.Ptree.left.Ptree.clade_node);
+            current_delta <- 
+                (Ptree.get_cost `Adjusted current_joined_ptree) -. 
+                (Ptree.get_cost `Adjusted current_broken_ptree);
+            self#clear_all_joins;
+            match delta with
+            | `Single (_, _) -> ()
+            | `Edge (r, s1, s2, _) ->
+                    let add x = 
+                        let e = Tree.Edge (s1, x) in
+                        if self#should_continue_this_path (Some e) true then
+                            let d = if x = s2 then 0 else 1 in
+                            super#add_to_stack (e, d) 
+                            to_calculate_for_compare 
+                        else ()
+                    in
+                    match Ptree.get_node s1 breakage.Ptree.ptree with
+                    | Tree.Interior (s1, a, b, c) ->
+                            add a;
+                            add b;
+                            add c;
+                    | Tree.Leaf (_, a) -> add a;
+                    | Tree.Single _ -> ()
 
         method private select_existant_and_update =
             if Stack.is_empty to_do_later then None
@@ -849,7 +937,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 self#next_edge
             end else begin
                 if do_check then begin
-                    if self#should_continue_this_path edge has_potential then begin
+                    if self#should_continue_this_path edge has_potential then 
+                        begin
                         currently_doing <- edge;
                         current_depth <- depth;
                     end else begin
@@ -862,10 +951,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method break_distance (x : float) =
             begin match currently_doing with
-            | Some edge -> 
-                    Stack.push (edge, current_depth, x) to_compare;
-            | None -> 
-                    ()
+            | Some edge -> Stack.push (edge, current_depth, x) to_compare;
+            | None -> ()
             end;
             currently_doing <- None
 
@@ -913,11 +1000,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             to_do_later = Stack.copy to_do_later;
         >} :> (Node.n, Edge.e) edges_manager)
 
-        method update_break (ptree : (Node.n, Edge.e) Ptree.p_tree) 
-            (delta : Tree.break_delta) (i : int) (clade : Node.n)=
-            super#update_break ptree delta i clade;
+        method update_break breakage =
+            super#update_break breakage;
             self#clearup_remove_first;
-            match get_side side delta with
+            match get_side side breakage with
             | `Edge (o, s1, s2, _) ->
                     let hass1 = All_sets.Integers.mem o do_not_cross in
                     if hass1 then extra_constraints <- [s1; s2];
@@ -946,7 +1032,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                                     | Some clade -> clade
                                     | None -> failwith "No root?"
                                 in
-                                let ca = Ptree.get_node_data a current_broken_ptree in
+                                let ca = 
+                                    Ptree.get_node_data a current_broken_ptree
+                                in
                                 current_delta >= (Node.union_distance clade ca)
                         else true
                     else false)
@@ -969,17 +1057,16 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             All_sets.Integers.empty
             edges
 
-        method update_break (ptree : (Node.n, Edge.e) Ptree.p_tree) 
-            (delta : Tree.break_delta) (i : int) (clade : Node.n)=
+        method update_break breakage =
             extra_constraints <- [];
             let () = 
-                match get_side side delta with
+                match get_side side breakage with
                 | `Edge (o, s1, s2, _) ->
                         let hass1 = All_sets.Integers.mem o do_not_cross in
                         if hass1 then extra_constraints <- [s1; s2];
                 | `Single (_, _) -> ()
             in
-            super#update_break ptree delta i clade;
+            super#update_break breakage
 
         method clone = ({<
             to_compare = Stack.copy to_compare;
@@ -1227,13 +1314,15 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     match Ptree.get_node child current_tree with
                     | Tree.Single _ | Tree.Leaf _ -> ()
                     | node ->
-                    let (a, b) = Tree.other_two_nbrs parent node in
-                    if List.exists (undirected_edge (a, child)) exclude_edges then
-                        ()
-                    else Queue.push (a, child, depth + 1) to_do;
-                    if List.exists (undirected_edge (b, child)) exclude_edges then
-                        ()
-                    else Queue.push (b, child, depth + 1) to_do;
+                            let exists x = 
+                                List.exists (undirected_edge (x,
+                                child)) exclude_edges 
+                            in
+                            let (a, b) = Tree.other_two_nbrs parent node in
+                            if exists a then ()
+                            else Queue.push (a, child, depth + 1) to_do;
+                            if exists b then ()
+                            else Queue.push (b, child, depth + 1) to_do;
                 with
                 | err -> 
                         Printf.fprintf stderr "There is an error?\n%!";
@@ -1258,27 +1347,29 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 self#clearup_remove_first 
             end else ()
 
-        method update_break (ptree : (Node.n, Edge.e) Ptree.p_tree) 
-            (delta : Tree.break_delta) (_ : int) (clade : Node.n)=
+        method update_break breakage =
+                let ptree = breakage.Ptree.ptree in
                 self#clearup_remove_first;
-            current_tree <- ptree;
-            self#clear_queues;
-            match get_side side delta with
-            | `Edge (o, s1, s2, _) ->
-                    let hass1 =
-                        List.exists (undirected_edge (o, s1)) exclude_edges 
-                    and hass2 =
-                        List.exists (undirected_edge (o, s2)) exclude_edges 
-                    in
-                    if hass1 then 
-                        exclude_edges <- 
-                            (self#get_children_edges s1 ptree) @ exclude_edges;
-                    if hass2 then 
-                        exclude_edges <- 
-                            (self#get_children_edges s2 ptree) @ exclude_edges;
-                    Queue.push (s1, s2, 0) to_do;
-                    self#add_children_to_queue s2 s1 0;
-            | `Single (_, _) -> ()
+                current_tree <- ptree;
+                self#clear_queues;
+                match get_side side breakage with
+                | `Edge (o, s1, s2, _) ->
+                        let exists x =
+                            List.exists (undirected_edge (o, x)) exclude_edges
+                        in
+                        let hass1 = exists s1
+                        and hass2 = exists s2 in
+                        if hass1 then 
+                            exclude_edges <- 
+                                (self#get_children_edges s1 ptree) 
+                                @ exclude_edges;
+                        if hass2 then 
+                            exclude_edges <- 
+                                (self#get_children_edges s2 ptree) 
+                                @ exclude_edges;
+                        Queue.push (s1, s2, 0) to_do;
+                        self#add_children_to_queue s2 s1 0;
+                | `Single (_, _) -> ()
 
         method update_join (tree : (Node.n, Edge.e) Ptree.p_tree) (_ : Tree.join_delta) = 
             current_tree <- tree
@@ -1299,7 +1390,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         val mutable edges = initial_edges
         val mutable next_edge = -1
         val mutable end_of_check = (Array.length initial_edges) - 1
-        val mutable break_deltas = []
+        val mutable break_deltas = None
         val mutable this_is_the_end = false
 
         method exclude (_ : Tree.edge list) = ()
@@ -1307,7 +1398,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method clone = 
             ({<
             edges = Array.copy edges;
-            break_deltas = List.map (fun x -> x) break_deltas;
+            break_deltas = break_deltas;
             next_edge = next_edge;
             end_of_check = end_of_check;
             this_is_the_end = this_is_the_end;
@@ -1346,16 +1437,12 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     Some (edges.(next_edge))
                 else Some (edges.(next_edge))
 
-        method update_break (ptree : (Node.n, Edge.e) Ptree.p_tree) 
-            (delta : Tree.break_delta) (_ : int) (clade : Node.n) =
-                let delta = get_both side delta in
-                match break_deltas with
-                | [_; _] -> break_deltas <- delta
-                | _ -> break_deltas <- delta @ break_deltas
+        method update_break breakage = 
+               break_deltas <- Some breakage.Ptree.tree_delta
 
         method update_join (tree : (Node.n, Edge.e) Ptree.p_tree) (join_delta : Tree.join_delta) = 
             self#update_with_deltas tree join_delta;
-            break_deltas <- []
+            break_deltas <- None
 
     end
 
@@ -1373,8 +1460,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method private update_with_deltas tree tdelta =
             let removed = 
                 match break_deltas with
-                | [a; b] -> (Tree.break_to_edge_delta (a, b))
-                | _ -> failwith "No deltas?"
+                | Some (a, b) -> (Tree.break_to_edge_delta (a, b))
+                | None -> failwith "No deltas?"
             and gen_created = Tree.join_to_edge_delta tdelta in
             let created = ref (gen_created.Tree.added @ removed.Tree.added) in
             let is_the_same (Tree.Edge (a, b)) (Tree.Edge (c, d)) = 
@@ -1439,7 +1526,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 with
                 | _ -> None
 
-            method update_break _ delta _ _ = break_delta <- Some delta
+            method update_break breakage = 
+                break_delta <- Some breakage.Ptree.tree_delta
 
             method update_join nt (a, b, _) =
                 current_tree <- nt.Ptree.tree;
@@ -1534,8 +1622,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             es <- false;
             let removed = 
                 match break_deltas with
-                | [a; b] -> (Tree.break_to_edge_delta (a, b))
-                | _ -> failwith "No deltas?"
+                | Some (a, b) -> (Tree.break_to_edge_delta (a, b))
+                | None -> failwith "No deltas?"
             and gen_created = Tree.join_to_edge_delta tdelta in
             let created = ref (gen_created.Tree.added @ removed.Tree.added) in
             let is_the_same (Tree.Edge (a, b)) (Tree.Edge (c, d)) = 
@@ -1581,9 +1669,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method reroot_edge = reroot#next_edge
 
-        method update_break tree a b clade =
-            join#update_break tree a b clade;
-            reroot#update_break tree a b clade
+        method update_break breakage =
+            join#update_break breakage;
+            reroot#update_break breakage
 
         method update_join tree jd =
             join#update_join tree jd;
@@ -1858,10 +1946,20 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     --> update_side delta1 
                     --> update_side delta2
 
-            method update_break ptree my_delta handle node_data =
+            method update_break breakage =
+                let ptree = breakage.Ptree.ptree 
+                and my_delta = breakage.Ptree.tree_delta
+                and handle, node_data = 
+                    let clade_info =
+                        match side with
+                        | `Left -> breakage.Ptree.left
+                        | `Right -> breakage.Ptree.right
+                    in
+                    clade_info.Ptree.clade_id, clade_info.Ptree.clade_node
+                in
                 let t,f =
                     let vertex =
-                        match get_side side my_delta with
+                        match get_side side breakage with
                         | `Single (a, _) 
                         | `Edge (a, _, _, _) -> a
                     in
@@ -1930,16 +2028,14 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 (* The official wagner tabu *)
     let wagner_union ptree handle = new union_dfs_wagner max_int ptree handle
 
-(* The official union_join function *)
-    let union_join max_distance side ptree = new union_dfs side max_distance [] ptree
-
 (* These two union_join are currently being used by andres in his tests. They
 * will be removed when the current union_dfs is officially deprecated *)
     let union_join max_distance side ptree = 
         if max_distance = max_int then new Unions.joiner side dsp 0.7 ptree
         else new union_dfs side max_distance [] ptree
 
-    let distance_join max_distance side ptree = new distance_dfs side max_distance ptree
+    let distance_join max_distance side ptree = 
+        new DFS.generic_distance side max_distance ptree
 
     let generate_partition_edges sets ptree =
         let tree = ptree.Ptree.tree 
@@ -2174,22 +2270,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             last_side <- side;
             let to_join =
                 match side with
-                | `Left -> 
-                        if did_reroot then
-                            (match left_edge with
-                            | (Some x) as e ->
-                                    left_edge <- None;
-                                    e
-                            | None -> left#join_edge)
-                        else left#join_edge
-                | `Right -> 
-                        if did_reroot then
-                            (match right_edge with
-                            | (Some x) as e ->
-                                    right_edge <- None;
-                                    e
-                            | None -> right#join_edge)
-                        else right#join_edge
+                | `Left -> left#join_edge
+                | `Right -> right#join_edge
             in
             if is_banned did_reroot to_join current_banned then 
                 self#join_edge side
@@ -2199,30 +2281,31 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method reroot_edge (side : [`Left | `Right]) =
             did_reroot <- true;
             match side with
-            | `Left -> 
-                    let new_root = left#reroot_edge in
-                    if new_root = left_edge then self#reroot_edge `Left
-                    else new_root
-            | `Right -> 
-                    let new_root = right#reroot_edge in
-                    if new_root = right_edge then self#reroot_edge `Right
-                    else new_root
+            | `Left ->
+                    (match left#reroot_edge with
+                    | None -> None
+                    | new_root ->
+                            if new_root = left_edge then 
+                                self#reroot_edge `Left
+                            else new_root)
+            | `Right ->
+                    match right#reroot_edge with
+                    | None -> None
+                    | new_root ->
+                            if new_root = right_edge then 
+                                self#reroot_edge `Right
+                            else new_root
 
-        method update_break tree (delta : Tree.break_delta) lh rh (_ : int) =
+        method update_break breakage =
+            let tree = breakage.Ptree.ptree in
             did_reroot <- false;
             let () =
-                let get_side = function
+                let my_side = function
                     | (`Edge (_, a, b, _)) -> Some (Tree.Edge (a, b))
                     | _ -> None
                 in
-                left_edge <- get_side (fst delta);
-                right_edge <- get_side (snd delta);
-            in
-            let get_component_root item = 
-                let root = Ptree.get_component_root item tree in
-                match root.Ptree.root_median with
-                | Some (_, b) -> b
-                | None -> failwith "No root?"
+                left_edge <- my_side (get_side `Left breakage);
+                right_edge <- my_side (get_side `Right breakage)
             in
             banned_map :=
                 add_to_banned_list !banned_map last_edge_to_break
@@ -2230,12 +2313,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             current_banned <- 
                 find_banned_for_broke last_edge_to_break
                 !banned_map;
-            let l_cld = get_component_root lh 
-            and r_cld = get_component_root rh in
-            left#update_break tree delta lh r_cld;
-            right#update_break tree delta rh l_cld;
-            break#update_break tree delta rh l_cld;
-            break#update_break tree delta lh r_cld
+            left#update_break breakage;
+            right#update_break breakage;
+            break#update_break breakage
 
         method update_join tree jd =
             banned_map := !banned_map;
