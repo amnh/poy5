@@ -394,7 +394,6 @@ module MakeNormal
                 * forest using the tabu managers. Right now there is no nice way
                 * to do it, and this is a low priority issue, therefore, I am
                 * leaving a note and doing it later. *)
-            *
             (*
             Status.full_report ~adv:component status;
             let tabu, right = join_tabu component in
