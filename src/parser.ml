@@ -2871,7 +2871,7 @@ module SC = struct
                         let b = match b with
                             | `Bits s -> BitSet.to_list s
                             | `List s -> s in
-                        let b = List.filter (fun x -> List.mem x a) b in
+                        let b = List.filter (fun x -> not (List.mem x a)) b in
                         Some (`List (a@b))
                 in
                 match olst with
