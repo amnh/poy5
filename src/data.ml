@@ -3876,7 +3876,6 @@ let to_faswincladfile data filename =
         fo (string_of_int number_of_taxa);
         fo "\n%!";
     in
-    let get_tcm x = get_tcm x data in
     let output_weights (acc, pos) code = 
         match Hashtbl.find data.character_specs code with
         | Static enc ->
@@ -3891,21 +3890,7 @@ let to_faswincladfile data filename =
     in
     let output_character_types () =
         (* We first output the non additive character types *)
-        let unolen, olen = 
-        (Hashtbl.fold (fun c s ((unolen, olen) as acc) ->
-            match s with
-            | Static st when st.Parser.SC.st_type = Parser.SC.STUnordered -> 
-                    unolen + 1, olen
-            | Static st when st.Parser.SC.st_type = Parser.SC.STOrdered -> 
-                    unolen, olen + 1
-            | _ -> acc) data.character_specs (0, 0))
-        in
-        fo ((if unolen > 0 then "cc - 0." ^ string_of_int (unolen - 1) ^ 
-        ";\n" else "") ^ (if olen > 0 then 
-            ("cc + " ^ string_of_int unolen ^ "." ^ 
-        string_of_int (unolen + olen - 1)) else "") ^ "\n");
-        (* Now we output the saknoff character types *)
-        if has_sankoff then
+        let output_element position tcm =
             let output_matrix m = 
                 Array.iter (fun x ->
                     (Array.iter (fun y -> 
@@ -3919,20 +3904,59 @@ let to_faswincladfile data filename =
                     fo " ") m.(0);
                 fo "\n"
             in
-            let output_element position code =
-                let tcm = get_tcm code in 
-                fo ("costs [ " ^ string_of_int position ^ " $" ^
-                string_of_int (Array.length tcm) ^ "\n");
-                output_codes tcm;
-                output_matrix tcm;
-                position + 1
-            in
-            let _ = 
-                List.fold_left ~f:output_element 
-                ~init:(unolen + olen) (List.flatten data.sankoff)
-            in
-            ()
-        else ()
+            fo ("costs [ " ^ string_of_int position ^ " $" ^
+            string_of_int (Array.length tcm) ^ "\n");
+            output_codes tcm;
+            output_matrix tcm;
+        in
+        let output_range x = 
+            match x with
+            | `Single min -> fo (string_of_int min)
+            | `Pair (min, max) ->
+                    fo (string_of_int min);
+                    fo ".";
+                    fo (string_of_int max)
+        in
+        let print_type (x : (([`Pair of (int * int) | `Single of int]) *
+        Parser.SC.st_type) option)  = 
+            match x with
+            | None -> ()
+            | Some (range, Parser.SC.STUnordered) ->
+                    fo "cc - "; output_range range; fo ";\n"
+            | Some (range, Parser.SC.STOrdered) ->
+                    fo "cc + "; output_range range; fo ";\n"
+            | Some ((`Single min), Parser.SC.STSankoff matrix) ->
+                    output_element min matrix
+            | Some ((`Pair (min, max)), Parser.SC.STSankoff matrix) ->
+                    for i = min to max do 
+                        output_element i matrix
+                    done;
+        in
+        let last, _ =
+            List.fold_left ~f:(fun (previous, cnt) code ->
+                let spec = 
+                    match Hashtbl.find data.character_specs code with
+                    | Static x -> x.Parser.SC.st_type
+                    | _ -> assert false
+                in
+                match previous with
+                | None -> (Some ((`Single cnt), spec)), cnt + 1
+                | Some ((`Single min), spec') ->
+                        if spec' = spec then begin
+                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        end else begin
+                            print_type previous;
+                            (Some ((`Single cnt), spec)), cnt + 1
+                        end;
+                | Some ((`Pair (min, max)), spec') ->
+                        if spec' = spec then begin
+                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        end else begin
+                            print_type previous;
+                            (Some ((`Single cnt), spec)), cnt + 1
+                        end;) ~init:(None, 0) all_of_all
+        in
+        print_type last
     in
     let output_character_names () =
         let output_name position code =
