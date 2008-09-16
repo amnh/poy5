@@ -778,22 +778,22 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 let debug = false in
                 if debug then begin
                     Printf.printf "SQ contains\n%!";
-                    M.iter (fun (Tree.Edge (a, b)) ->
-                            Printf.printf "%d,%d\n%!" a b) items;
+                    M.iter (fun ((Tree.Edge (a, b)), d) ->
+                            Printf.printf "%d,%d - %d\n%!" a b d) items;
                 end;
                 if M.is_empty items then None
                 else 
-                    let (Tree.Edge (a, b)) as e = M.pop items in
-                    let () =
+                    let ((Tree.Edge (a, b)) as e, depth) = M.pop items in
+                    if depth < max_distance then begin
                         let node = Ptree.get_node a ptree in
                         match node with
                         | Tree.Interior _ -> 
+                                let newdepth = depth + 1 in
                                 let c, d = Ptree.other_two_nbrs b node in
-                                M.push (Tree.Edge (c, a)) items;
-                                M.push (Tree.Edge (d, a)) items;
-                                ()
+                                M.push ((Tree.Edge (c, a)), newdepth) items;
+                                M.push ((Tree.Edge (d, a)), newdepth) items;
                         | Tree.Leaf _ | Tree.Single _ -> ()
-                    in
+                    end;
                     Some e
 
             method update_break breakage = 
@@ -810,10 +810,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                         let handle = Ptree.handle_of a breakage.Ptree.ptree in
                         match Ptree.get_node handle breakage.Ptree.ptree with
                         | Tree.Interior (a, b, c, d) ->
-                                M.push (Tree.Edge (b, a)) items;
-                                M.push (Tree.Edge (c, a)) items;
-                                M.push (Tree.Edge (d, a)) items;
-                        | Tree.Leaf (a, b) -> M.push (Tree.Edge (b, a)) items;
+                                M.push ((Tree.Edge (b, a)), 0) items;
+                                M.push ((Tree.Edge (c, a)), 1) items;
+                                M.push ((Tree.Edge (d, a)), 1) items;
+                        | Tree.Leaf (a, b) -> M.push ((Tree.Edge (b, a)), 0) items;
                         | Tree.Single _ -> ()
 
             method update_join _ _ = ()
