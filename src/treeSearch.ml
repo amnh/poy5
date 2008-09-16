@@ -384,8 +384,17 @@ module MakeNormal
 
         (** [tbr_joins component] tries to join [component] to all other
             components in the tree *)
-        let tbr_joins component = assert false
-            (* TODO how to handle this? *)
+        let tbr_joins component = 
+            failwith "Forest searches are off in this release"
+            (* TODO:
+                * To get the forest search working again, we need to modify the
+                * tabu managers so that instead of using left and right uses a
+                * code assigned to each individual component. That's the only
+                * way to get the necessary way to connect multiple elements in a
+                * forest using the tabu managers. Right now there is no nice way
+                * to do it, and this is a low priority issue, therefore, I am
+                * leaving a note and doing it later. *)
+            *
             (*
             Status.full_report ~adv:component status;
             let tabu, right = join_tabu component in
