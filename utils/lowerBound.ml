@@ -74,36 +74,31 @@ let make_constraint leaves distance set =
             (di, set, `Pair (x, y))
     | _ -> assert false
 
-let produce_LP_instance gap_opening tcm file fasta synonyms = 
-    match Parser.Tree.of_file (`Local file) with
+let produce_LP_instance treefile synonyms pairs triplets = 
+    match Parser.Tree.of_file (`Local treefile) with
     | [[tree]] ->
-            let tcm = 
-                let tcm = Scripting.DNA.CM.of_file tcm in
-                Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine
-                gap_opening);
-                tcm
-            in
-            let sequences, costs, leaves, tree, rtree =  (* Compute all the costs *)
-                let seqs = 
-                    let seqs = Scripting.DNA.Fasta.of_file false fasta in
-                    List.map (fun (a, b) ->
-                        (if Hashtbl.mem synonyms a then Hashtbl.find synonyms a 
-                        else a), b) seqs
-                in
-                let rtree, seqs = 
-                    let res = ref All_sets.StringMap.empty in
-                    let exists = List.map fst seqs in
+            let costs, leaves, tree, rtree, leaf_dict =  (* Compute all the costs *)
+                let rtree = 
+                    let exists = 
+                        let tmp =
+                            List.fold_left (fun acc ((a, b), _) ->
+                                All_sets.Strings.add b
+                                (All_sets.Strings.add a acc))
+                            All_sets.Strings.empty pairs
+                        in
+                        match triplets with
+                        | None -> tmp
+                        | Some triplets ->
+                                List.fold_left (fun acc ((a, b, c), _) ->
+                                    All_sets.Strings.add c
+                                    (All_sets.Strings.add b
+                                    (All_sets.Strings.add a acc)))
+                                tmp triplets
+                    in
                     let cnt = ref (-1) in
                     let res2 =
                     Parser.Tree.cleanup (fun name ->
-                        let () =
-                            try
-                                let seq = List.assoc name seqs in
-                                res := All_sets.StringMap.add name seq !res;
-                            with
-                            | Not_found -> ()
-                        in
-                        let res = (name = "") || not (List.exists (( = ) name) exists) in
+                        let res = (name = "") || not (All_sets.Strings.mem name exists) in
                         if res then res
                         else 
                             let () = incr cnt in
@@ -112,25 +107,18 @@ let produce_LP_instance gap_opening tcm file fasta synonyms =
                     in
                     match res2 with
                     | None -> assert false
-                    | Some res2 ->
-                            res2, All_sets.StringMap.fold (fun a b acc -> (a, b) :: acc)
-                            !res []
+                    | Some res2 -> res2
                 in
                 let tree as rtree = assign_labels rtree in
                 let leaves, tree = list_of_leaves tree, tree in
                 let tbl = Hashtbl.create 1667 in
-                let cleanup ((a, _), (b, _), c, _) = 
-                    Printf.printf "%s\t%s\t%d\n%!" a b c;
-                    Hashtbl.add tbl (List.assoc a leaves, List.assoc b leaves) c
+                let cleanup ((a, b), d) = 
+                    Hashtbl.add tbl (List.assoc a leaves, List.assoc b leaves) d
                 in
-                List.iter (List.iter cleanup) 
-                (Scripting.DNA.Align.algn_all seqs tcm);
-                List.fold_left (fun acc (name, seq) ->
-                    All_sets.IntegerMap.add (List.assoc name leaves) seq acc)
-                All_sets.IntegerMap.empty seqs,
+                List.iter cleanup pairs;
                 tbl, 
                 List.fold_left (fun acc x -> All_sets.Integers.add (snd x) acc)
-                All_sets.Integers.empty leaves, tree, rtree
+                All_sets.Integers.empty leaves, tree, rtree, leaves
             in
             (* We compute the number of variables that will be involved *)
             let total_variables = 
@@ -142,41 +130,42 @@ let produce_LP_instance gap_opening tcm file fasta synonyms =
             (* Now we compute the constraints, right now, those constraints are
             * only the all pairs distances *)
             let constraints = 
-                let paths = produce_paths tree in
-                List.map (make_constraint leaves 
-                    (fun a b -> Hashtbl.find costs (a, b))) paths
+                match pairs with
+                | [] -> []
+                | _ ->
+                        let paths = produce_paths tree in
+                        List.map (make_constraint leaves 
+                        (fun a b -> Hashtbl.find costs (a, b))) paths
             in
             let constraints = 
-                let tcm3 = Cost_matrix.Three_D.of_two_dim tcm in
-                let index = Hashtbl.create 1667 in
-                List.iter (fun (_, set, item) -> Hashtbl.add index item set)
-                constraints;
-                let leafs = Array.of_list (All_sets.Integers.elements leaves) in
-                Array_ops.randomize leafs;
-                let rec make_triplets lst acc =
-                    match lst with
-                    | a :: ((b :: c :: _) as t) -> 
-                            let set =
-                                let st1 = 
-                                    try Hashtbl.find index (`Pair (a, b)) with
-                                    | Not_found -> Hashtbl.find index (`Pair (b, a))
-                                in
-                                let st2 = 
-                                    try Hashtbl.find index (`Pair (b, c)) with
-                                    | Not_found -> Hashtbl.find index (`Pair (c, b))
-                                in
-                                Sexpr.union st1 st2 
-                            in
-                            let sa = All_sets.IntegerMap.find a sequences
-                            and sb = All_sets.IntegerMap.find b sequences 
-                            and sc = All_sets.IntegerMap.find c sequences in
-                            let _, d = 
-                                Sequence.Align.align_3_powell_inter sa sb sc tcm tcm3 
-                            in
-                            make_triplets t ((d, set, `Triple (a, b, c)) :: acc)
-                    | _ -> acc
-                in
-                make_triplets (Array.to_list leafs) constraints
+                match triplets with
+                | None -> constraints
+                | Some triplets ->
+                    let index = Hashtbl.create 1667 in
+                    List.iter (fun (_, set, item) -> Hashtbl.add index item set)
+                    constraints;
+                    let leafs = Array.of_list (All_sets.Integers.elements leaves) in
+                    Array_ops.randomize leafs;
+                    let create_triplet ((a, b, c) as tr, distance) =
+                        let assoc x = List.assoc x leaf_dict in
+                        let a = assoc a
+                        and b = assoc b
+                        and c = assoc c in
+                        let find x y = 
+                            try Hashtbl.find index (`Pair (x, y)) with
+                            Not_found -> Hashtbl.find index (`Pair (y, x))
+                        in
+                        let set = Sexpr.union (find a b) (find b c) in
+                        (distance, set, `Triple tr)
+                    in
+                    let rec make_triplets triplets acc =
+                        match triplets with
+                        | hd :: tl ->
+                                let new_constraint = create_triplet hd in
+                                make_triplets tl (new_constraint :: acc)
+                        | [] -> acc
+                    in
+                    make_triplets triplets constraints
             in
             let a, b = 
                 List.fold_left (fun (stacc, cacc) (c, sexp, _) ->
@@ -191,20 +180,47 @@ let produce_LP_instance gap_opening tcm file fasta synonyms =
             Array.make total_variables (0., float_of_int max_int), rtree
     | _ -> assert false
 
-let process_problem gap_opening tcm treefile synfile fasta = 
+
+let distances_file processor file =
+    let res = ref [] 
+    and ch = open_in file in
+    try while true do
+        res := (processor ch) :: !res
+    done; assert false with End_of_file -> !res
+
+let triplets_file find_synonym b = distances_file (fun ch -> 
+    Scanf.sscanf (input_line ch) "%s\t%s\t%s\t%d" (fun a b c d -> 
+        ((find_synonym a, find_synonym b, find_synonym c), d))) b
+
+let duplets_file find_synonym b = distances_file (fun ch -> 
+    Scanf.sscanf (input_line ch) "%s\t%s\t%d" (fun a b d -> ((find_synonym a,
+    find_synonym b), d))) b
+
+let process_problem treefile synfile (pairs, triplets) = 
     let synonyms = 
-        let ch = open_in synfile in
-        let res = Parser.Dictionary.of_channel ch in
-        close_in ch;
-        res
+        match synfile with
+        | None -> Hashtbl.create 2
+        | Some synfile ->
+                let ch = open_in synfile in
+                let res = Parser.Dictionary.of_channel ch in
+                close_in ch;
+                res
     in
-    let gap_opening = int_of_string gap_opening in
-    let a, b, c, d, tree = produce_LP_instance gap_opening tcm treefile fasta synonyms in
+    let syn x = try Hashtbl.find synonyms x with Not_found -> x in
+    let triplets = 
+        match triplets with
+        | None -> None
+        | Some triplets -> Some (triplets_file syn triplets) in
+    let pairs = duplets_file syn pairs in
+    let a, b, c, d, tree = 
+        produce_LP_instance treefile synonyms pairs triplets 
+    in
     let lp = Glpk.make_problem Glpk.Minimize a b c d in
-    Glpk.scale_problem lp;
+    Glpk.set_message_level lp 0;
     Glpk.use_presolver lp true;
     Glpk.simplex lp;
     let res = Glpk.get_obj_val lp in
+    (*
     let variables = Glpk.get_col_primals lp in
     let tree = Parser.Tree.map (fun x ->
         let name, x =
@@ -214,22 +230,43 @@ let process_problem gap_opening tcm treefile synfile fasta =
         in
         try name ^ ":" ^ string_of_float variables.(x) with
         | _ -> name) tree in
-    res, tree
+    *)
+    res
+
+let rec make_pairs lst =
+    match lst with
+    | f :: s :: tl -> (f, Some s) :: make_pairs tl
+    | [] -> []
+    | _ -> failwith "Input files must come in pairs"
+
+let tree = ref None
+let use_triplets = ref false
+let synonyms = ref None
+let input_files = ref []
+
+let () =
+    let options = 
+        [("-tree", (Arg.String (fun x -> tree := Some x)), "The tree file");
+        ("-triplets", (Arg.Unit (fun () -> use_triplets := true)), 
+        "Use triplets file");
+        ("-synonyms", (Arg.String (fun x -> synonyms := Some x)), 
+        "The synonyms file")] 
+    in
+    let usage = "./lower_bound [OPTION] input_file [input_file *]" in
+    Arg.parse options (fun x -> input_files := x :: !input_files) usage
 
 let () = 
-    match Array.to_list Sys.argv with
-    | _ :: a :: b :: c :: d :: tl -> 
-            let res = 
-                List.fold_left (fun acc file ->
-                    let res, tree = process_problem a b c d file in
-                    Printf.printf "Solution to this problem is : %f\n%!" res;
-                    AsciiTree.draw_parenthesis stdout tree;
-                    acc +. res) 0. tl
+    match !tree with
+    | None -> ()
+    | Some tree ->
+            let res =
+                let tl =
+                    if !use_triplets then make_pairs !input_files
+                    else List.map (fun x -> (x, None)) !input_files
+                in
+                List.fold_left (fun acc dist ->
+                    acc +. (process_problem tree !synonyms dist)) 
+                0. tl
             in
             print_float res;
             print_newline ()
-    | name :: _ ->
-            Printf.fprintf stderr
-            "Usage: %s gap_opening tcm_file tree_file synonyms [fasta_file] ...\n%!" name;
-            exit 1
-    | [] -> assert false
