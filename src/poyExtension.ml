@@ -35,6 +35,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             <:expr<`Local $str:x$>>) x
 
     let expr_poy = Gram.Entry.mk "expr_poy" 
+    let arg_poy = Gram.Entry.mk "arg_poy"
 
     let rec exSem_of_list = function
         | [] -> 
@@ -71,7 +72,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         | None -> <:expr<None>>
 
     EXTEND Gram
-        GLOBAL: expr_poy;
+        GLOBAL: expr_poy arg_poy;
         expr_poy: [ [ 
             x = LIST1 [a = transform -> `S a 
                     | a = fuse -> `S a 
@@ -85,19 +86,35 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     | x = read -> `S x 
                     | x = rename -> `S x
                     | x = search -> `S x
+                    | x = simp_expr -> `S x
                     | x = cur_expr -> `L x ]
         -> x] ];
+        arg_poy: [ 
+            [ x = swap_argument -> x ] |
+            [ x = fuse_argument -> x ] |
+            [ x = build_argument -> x ] |
+            [ x = select_argument -> x ] |
+            [ x = transform_argument -> x ] |
+            [ x = read_argument -> x ] | 
+            [ x = perturb_argument -> x ] 
+        ];
         (* Application commands *)
         cur_expr: [[ "["; x = expr; "]" -> x ]];
+        simp_expr: [[ "{"; x = expr; "}" -> x ]];
         (* Transforming taxa or characters *)
         setting:
             [
-                [ LIDENT "timer"; ":"; x = flex_integer -> <:expr<`TimerInterval $x$>> ] |
-                [ LIDENT "history"; ":"; x = flex_integer -> <:expr<`HistorySize $x$>> ] |
-                [ LIDENT "log"; ":"; x = flex_string -> <:expr<`Logfile (Some $x$)>> ] |
+                [ LIDENT "timer"; ":"; x = flex_integer -> 
+                    <:expr<`TimerInterval $x$>> ] |
+                [ LIDENT "history"; ":"; x = flex_integer -> 
+                    <:expr<`HistorySize $x$>> ] |
+                [ LIDENT "log"; ":"; x = flex_string -> 
+                    <:expr<`Logfile (Some $x$)>> ] |
                 [ LIDENT "nolog" -> <:expr<`Logfile None>> ] |
-                [ LIDENT "seed"; ":"; x = flex_integer -> <:expr<`SetSeed $x$>> ] |
-                [ LIDENT "root"; ":"; x = flex_string -> <:expr<`RootName $x$>> ] |
+                [ LIDENT "seed"; ":"; x = flex_integer -> 
+                    <:expr<`SetSeed $x$>> ] |
+                [ LIDENT "root"; ":"; x = flex_string -> 
+                    <:expr<`RootName $x$>> ] |
                 [ LIDENT "exhaustive_do" -> <:expr<`Exhaustive_Weak>> ] |
                 [ LIDENT "iterative"; ":"; x = iterative_mode -> 
                     <:expr<`Iterative $x$>> ] |
@@ -117,16 +134,18 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`Exit>> ] |
                 [ LIDENT "recover"; left_parenthesis; right_parenthesis -> 
                     <:expr<`Recover>> ] |
-                [ LIDENT "clear_recovered"; left_parenthesis; right_parenthesis -> 
-                    <:expr<`ClearRecovered>> ] |
+                [ LIDENT "clear_recovered"; left_parenthesis; 
+                    right_parenthesis -> <:expr<`ClearRecovered>> ] |
                 [ LIDENT "quit" ; left_parenthesis; right_parenthesis ->
                     <:expr<`Exit>> ] |
                 [ LIDENT "echo"; left_parenthesis; a = flex_string; OPT ",";
-                    x = LIST0 [x = output_class -> x ] SEP ","; right_parenthesis -> 
+                    x = LIST0 [x = output_class -> x ] SEP ","; 
+                    right_parenthesis -> 
                         <:expr<`Echo ($a$, $exSem_of_list x$)>> ] |
                 [ LIDENT "help"; left_parenthesis; a = OPT optional_string; 
                     right_parenthesis -> <:expr<`Help $handle_optional a$>> ] |
-                [ LIDENT "set"; left_parenthesis; b = LIST0 [x = setting -> x] SEP ","; 
+                [ LIDENT "set"; left_parenthesis; 
+                    b = LIST0 [x = setting -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Set ($exSem_of_list b$)>> ] |
                 [ LIDENT "redraw"; left_parenthesis; right_parenthesis ->
                     <:expr<`Redraw>> ] |
@@ -145,10 +164,13 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     right_parenthesis -> <:expr<`InspectFile $a$>> ] |
                 [ LIDENT "rediagnose"; left_parenthesis; 
                     right_parenthesis -> <:expr<`ReDiagnose>> ] |
-                [ LIDENT "run"; left_parenthesis; a = LIST0 [x = flex_string -> x] SEP ","; 
-                    right_parenthesis -> <:expr<`ReadScript $exSem_of_list a$>> ] |
-                [ LIDENT "cd"; left_parenthesis; a = flex_string; right_parenthesis ->
-                    <:expr<`ChangeWDir $a$>> ] |
+                [ LIDENT "run"; left_parenthesis; 
+                    a = LIST0 [x = flex_string -> x] SEP ","; 
+                    right_parenthesis -> 
+                        <:expr<`ReadScript $exSem_of_list a$>> ] |
+                [ LIDENT "cd"; left_parenthesis; a = flex_string; 
+                    right_parenthesis ->
+                        <:expr<`ChangeWDir $a$>> ] |
                 [ LIDENT "pwd"; left_parenthesis; right_parenthesis -> 
                     <:expr<`PrintWDir>> ]
             ];
@@ -170,12 +192,14 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         read:
             [
+                [ LIDENT "read"; "{"; x = expr; "}" -> <:expr< `Read $x$>> ] | 
                 [ LIDENT "read"; left_parenthesis; a = LIST0 [x = read_argument
                 -> x] SEP ","; 
-                    right_parenthesis -> <:expr<`Read $exSem_of_list a$>> ]
+                    right_parenthesis -> <:expr<`Read $exSem_of_list a$>> ] 
             ];
         read_argument:
             [ 
+                [ "{"; x = expr; "}" -> x ] |
                 [ LIDENT "annotated"; ":"; left_parenthesis; a = LIST1 [x =
                     otherfiles -> x] SEP ","; 
                     right_parenthesis -> <:expr<`AnnotatedFiles $exSem_of_list
@@ -258,6 +282,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         rename_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ x = STRING -> <:expr<`File $str:x$>> ] | 
                 [ x = charortax -> <:expr<$x$>>  ] |
                 [ left_parenthesis; a = STRING; ","; b = STRING; right_parenthesis -> 
@@ -268,6 +293,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         build:
             [
+                [ LIDENT "build"; "{"; a = expr; "}" -> <:expr<`Build $a$>> ] |
                 [ LIDENT "build"; left_parenthesis; a = LIST0 [x =
                     build_argument -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Build $exSem_of_list a$ >>]
@@ -288,6 +314,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         build_argument:
             [
+                [ "{"; x = cur_expr; "}" -> x ] |
                 [ x = threshold_and_trees -> x ] |
                 [ x = build_method -> x ] |
                 [ x = join_method -> x ] |
@@ -343,17 +370,20 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         perturb:
             [
-                [ LIDENT "perturb"; left_parenthesis; x = LIST0 [x =
+                [ LIDENT "perturb"; "{"; x = expr; "}" -> <:expr<`Perturb $x$>>]
+                | [ LIDENT "perturb"; left_parenthesis; x = LIST0 [x =
                     perturb_argument -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Perturb $exSem_of_list x$>> ]
             ];
         perturb_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ x = ratchet -> x ]  |
                 [ x = resample -> x ] |
                 [ x = swap -> x ] |
                 [ x = transform -> x ] |
-                [ LIDENT "iterations"; ":"; x = flex_integer -> <:expr<`Repeat $x$>> ]
+                [ LIDENT "iterations"; ":"; x = flex_integer -> 
+                    <:expr<`Iterations $x$>> ]
             ];
         ratchet:
             [
@@ -368,6 +398,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         report:
             [
+                [ LIDENT "report"; "{"; x = expr; "}" -> <:expr<`Report $x$>> ] |
                 [ LIDENT "report"; left_parenthesis; a = LIST0 [x =
                     report_argument -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Report $exSem_of_list a$>> ]
@@ -433,6 +464,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         report_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ x = flex_string -> <:expr<`File $x$>> ] |
                 [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                     match y with
@@ -490,12 +522,15 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         transform:
             [
+                [ LIDENT "transform"; "{"; x = expr; "}" -> <:expr<`Transform
+                $x$>> ] |
                 [ LIDENT "transform"; left_parenthesis; 
                     x = LIST0 [ x = transform_argument -> x] SEP ","; right_parenthesis ->
-                        <:expr<(`Transform $exSem_of_list x$ )>> ]
+                        <:expr<(`Transform $exSem_of_list x$ )>> ] 
             ];
         transform_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ left_parenthesis; x = identifiers; ","; t = transform_method; 
                     right_parenthesis -> <:expr<(x, t)>> ] |
                 [ t = transform_method -> <:expr<(`All, $t$)>> ]
@@ -573,6 +608,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         std_search_argument:
             [   
+                [ "{"; x = expr; "}" -> x ] |
                 [ LIDENT "memory"; ":"; x = memory -> <:expr<`MaxRam $x$>> ] |
                 [ LIDENT "hits"; ":"; x = flex_float -> <:expr<`MinHits $x$>> ] |
                 [ LIDENT "target_cost"; ":"; x = flex_float -> <:expr<`Target $x$>> ] |
@@ -608,7 +644,6 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "chrom_breakpoint"; ":"; c = flex_integer -> 
                       <:expr<`Chrom_Breakpoint $c$>> ]  |
                 [ LIDENT "circular"; ":"; e = boolean -> <:expr<`Circular $e$>>] |
-
                 [ LIDENT "locus_indel"; ":"; left_parenthesis; o = flex_integer; 
                     ","; e = flex_float; right_parenthesis ->
                       <:expr<`Locus_Indel_Cost ( $o$, 
@@ -639,18 +674,22 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         calculate_support:
             [
+                [ LIDENT "calculate_support"; "{"; x = expr; "}" ->
+                    <:expr<`Supports $x$>> ] |
                 [ LIDENT "calculate_support"; left_parenthesis; a = LIST0
                 [x = support_argument -> x]  SEP ","; 
                 right_parenthesis -> <:expr<`Support $exSem_of_list a$>> ]
             ];
         fuse:
             [
+                [ LIDENT "fuse"; "{"; a = expr; "}" -> <:expr<`Fuse $a$>> ] |
                 [ LIDENT "fuse"; left_parenthesis; a = LIST0 [x = fuse_argument
                 -> x] SEP ","; 
                     right_parenthesis -> <:expr<(`Fuse $exSem_of_list a$)>> ]
             ];
         fuse_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ LIDENT "keep"; ":"; i = flex_integer -> <:expr<`Keep $i$>> ]
             |   [ LIDENT "iterations"; ":"; i = flex_integer ->
                     <:expr<`Iterations $i$>> ]
@@ -670,6 +709,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [ [ "-"; cto = flex_integer -> cto ] ];
         support_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ x = build -> x ] |
                 [ x = swap -> x ] |
                 [ x = support_method -> x ]
@@ -698,12 +738,14 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         (* Selecting characters or taxa *)
         select:
             [
-                [ LIDENT "select"; left_parenthesis; x = LIST0 [x =
+                [ LIDENT "select"; "{"; x = expr; "}" -> <:expr<`Select $x$>>]
+                | [ LIDENT "select"; left_parenthesis; x = LIST0 [x =
                     select_argument -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Select $exSem_of_list x$>> ]
             ];
         select_argument:
             [
+                [ "{"; x = expr; "}" -> x ] |
                 [ x = identifiers -> x ] |
                 [ x = charortax -> x ] |
                 [ x = seltrees -> x ] |
@@ -758,9 +800,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         swap:
             [
-                [ LIDENT "swap"; left_parenthesis; a = LIST0 [x = swap_argument
-                -> x] SEP ","; 
-                    right_parenthesis -> <:expr<`Swap $exSem_of_list a$>> ]
+                [ LIDENT "swap"; "{"; x = expr; "}" -> <:expr<`Swap $x$>> ] |
+                [ LIDENT "swap"; left_parenthesis; 
+                    a = LIST0 [x = swap_argument -> x] SEP ","; 
+                    right_parenthesis -> <:expr<`Swap $exSem_of_list a$>> ] 
             ];
         swap_argument:
             [
@@ -776,7 +819,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ a = trajectory_method -> a ] |
                 [ a = break_method -> a ] |
                 [ a = reroot_method -> a ] |
-                [ a = join_method -> a ] 
+                [ a = join_method -> a ] |
+                [ "{"; x = expr; "}" -> x ]
             ];
         trajectory_method:
             [
@@ -867,6 +911,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
     EXTEND Gram
     Syntax.expr : LEVEL "top" [
         [ "CPOY"; s = expr_poy -> exSemCom_of_list s ] |
+        [ "APOY"; s = arg_poy -> s ] |
         [ "POY"; s = expr_poy -> 
             <:expr<Phylo.parsed_run (PoyCommand.of_parsed True 
             $exSemCom_of_list s$)>> ] |

@@ -323,7 +323,7 @@ type reporta = [
 type perturba = [
     | `Ratchet of (float * int)
     | `Resample of (int * charortax)
-    | `Repeat of int
+    | `Iterations of int
     | swap
     | transform
 ]
@@ -765,7 +765,7 @@ let transform_perturb (tr, m, sw, it) = function
     | `Ratchet _ as x -> (tr, x, sw, it)
     | `Resample (x, `Taxa) -> tr, `Resample (`Taxa x), sw, it
     | `Resample (x, `Characters) -> tr, `Resample (`Characters x), sw, it
-    | `Repeat it -> tr, m, sw, it
+    | `Iterations it -> tr, m, sw, it
 
 let transform_perturb_arguments x : Methods.script list = 
     let tr, a, b, c = List.fold_left transform_perturb perturb_default x in
@@ -1534,7 +1534,7 @@ let create_expr () =
                 [ x = resample -> x ] |
                 [ x = swap -> (x :> perturba) ] |
                 [ x = transform -> (x :> perturba) ] |
-                [ LIDENT "iterations"; ":"; x = INT -> `Repeat (int_of_string x) ]
+                [ LIDENT "iterations"; ":"; x = INT -> `Iterations (int_of_string x) ]
             ];
         ratchet:
             [
