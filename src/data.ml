@@ -676,6 +676,7 @@ let process_trees data file =
     try
         let ch, file = FileStream.channel_n_filename file in
         let trees = Parser.Tree.of_channel ch in
+        let () = close_in ch in
         let len = List.length trees in
         let msg = 
             "@[The@ file@ " ^ StatusCommon.escape file ^ 

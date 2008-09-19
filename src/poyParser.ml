@@ -502,29 +502,31 @@ let guess_class_and_add_file annotated is_prealigned data filename =
 let explode_filenames files = 
     let explode_filename file = 
         let file = FileStream.filename file in
-        let ch = 
-            let file = 
-                if Sys.os_type = "Win32" then file
-                else if Sys.os_type = "Unix" then
-                    Str.global_replace (Str.regexp "\\\\ ") "\\ " file
-                else file
-            in
-            let line = 
-                match Sys.os_type with
-                | "Win32" -> ("dir /B \"" ^ file ^ "\" 2> NUL")
-                | _ -> "ls -1 " ^ file ^ " 2> /dev/null"
-            in
-            Unix.open_process_in line 
-            in
-        let res = Parser.IgnoreList.of_channel ch in
-        close_in ch;
-        match res with
-        | [] -> 
-                let msg = "@[No@ file@ matching@ @{<b>" ^ StatusCommon.escape file ^ 
-                "@}@ found.@]" in
-                Status.user_message Status.Error msg;
-                failwith "File not found"
-        | _ -> res
-    in
-    List.flatten (List.map explode_filename files)
+        if Sys.file_exists file then [file]
+        else
+            let ch = 
+                let file = 
+                    if Sys.os_type = "Win32" then file
+                    else if Sys.os_type = "Unix" then
+                        Str.global_replace (Str.regexp "\\\\ ") "\\ " file
+                    else file
+                in
+                let line = 
+                    match Sys.os_type with
+                    | "Win32" -> ("dir /B \"" ^ file ^ "\" 2> NUL")
+                    | _ -> "ls -1 " ^ file ^ " 2> /dev/null"
+                in
+                Unix.open_process_in line 
+                in
+            let res = Parser.IgnoreList.of_channel ch in
+            close_in ch;
+            match res with
+            | [] -> 
+                    let msg = "@[No@ file@ matching@ @{<b>" ^ StatusCommon.escape file ^ 
+                    "@}@ found.@]" in
+                    Status.user_message Status.Error msg;
+                    failwith "File not found"
+            | _ -> res
+        in
+        List.flatten (List.map explode_filename files)
 

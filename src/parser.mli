@@ -137,7 +137,9 @@ module Tree : sig
     * the trees in the input file [f]. If no more trees are found, an
     * End_of_file exception is raised. The function _requires_ that the trees be
     * separated with associated information, semicolons, or stars.*)
-    val stream_of_file : bool -> filename -> (unit -> (string t * string))
+    val stream_of_file : bool -> filename -> 
+        ((unit -> (string t * string)) * (unit -> unit))
+
     val cannonic_order : string t -> string t
 
     exception Illegal_argument

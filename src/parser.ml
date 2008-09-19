@@ -965,7 +965,7 @@ module Tree = struct
     let gen_of_channel f ch =
         try
             let stream = new FileStream.stream_reader ch in
-            f stream;
+            f stream
         with
         | End_of_file -> failwith "Unexpected end of file"
 
@@ -974,7 +974,9 @@ module Tree = struct
     let gen_of_file f file =
         try
             let ch = FileStream.open_in file in
-            f ch
+            let x = f ch in
+            close_in ch;
+            x
         with
         | Failure msg ->
                 let file = FileStream.filename file in
@@ -989,14 +991,15 @@ module Tree = struct
                 raise e
 
     let stream_of_file is_compressed file =
+        let real_ch = FileStream.open_in file in
         let ch = 
             if is_compressed then
-                new FileStream.compressed_reader (FileStream.open_in file) 
+                new FileStream.compressed_reader real_ch
             else
-                new FileStream.stream_reader (FileStream.open_in file) 
+                new FileStream.stream_reader real_ch
         in
         match gen_aux_of_stream_gen true ch with
-        | `Stream s -> s
+        | `Stream s -> s, (fun () -> close_in real_ch)
         | `Trees _ -> assert false
 
     let of_file file = gen_of_file of_channel file
