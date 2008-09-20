@@ -491,7 +491,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     Data.process_molecular_file 
                     "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    annotated Alphabet.nucleotides false `Seq data filename
+                    annotated Alphabet.nucleotides is_prealigned `Seq data filename
             | Parser.Is_ComplexTerminals ->
                     let data = add_file [Data.Characters] in
                     file_type_message "Complex@ terminals@ definition@ file";
