@@ -382,13 +382,22 @@ let process_tree prev lst =
                 let process_tree_file data file =
                     let file = `Remote file in
                     let tr = Parser.Tree.of_file file in
+                    let tr = 
+                        let cnt = ref 0 in
+                        List.map (fun x -> (x, FileStream.filename file, (incr
+                        cnt; !cnt))) tr
+                    in
                     { data with Data.trees = data.Data.trees @ tr }
                 in
                 List.fold_left ~f:process_tree_file ~init:data
                 treefiles 
         | TreesList trees ->
-                List.fold_left ~f:(fun acc x -> { acc with Data.trees =
-                    (Parser.Tree.of_string x) @ acc.Data.trees })
+                let cnt = ref 0 in
+                List.fold_left ~f:(fun acc x -> 
+                    let trees = Parser.Tree.of_string x in
+                    let trees = List.map (fun x -> (x, "", (incr cnt; !cnt)))
+                    trees in
+                    { acc with Data.trees = trees @ acc.Data.trees })
                 ~init:data trees 
         | Protein_Sequences _ | EProbability _ | FProbability _ ->
                 failwith "Grammar not yet supported. "

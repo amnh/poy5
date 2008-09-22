@@ -502,9 +502,9 @@ let process_input run (meth : Methods.input) =
     (* check whether this read any trees *)
     if [] = d.Data.trees then update_trees_to_data false false run
     else
-        let trees =
-            Build.prebuilt run.data.Data.trees (run.data, run.nodes)
-        in
+        let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
+        let trees = List.map (fun (x, _, _) -> x) run.data.Data.trees in
+        let trees = Build.prebuilt trees (run.data, run.nodes) in
         let trees = Sexpr.to_list trees in
         let total_trees = (Sexpr.to_list run.trees) @ trees in
         let total_trees = Sexpr.of_list total_trees in

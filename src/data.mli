@@ -31,6 +31,8 @@ type contents =
     | CostMatrix  (** A transformation cost matrix *)
     | Trees       (** Trees *)
 
+type parsed_trees = ((string Parser.Tree.t list) * string * int)
+
 type dyna_state_t = [
 (** A short sequence, no rearrangements are allowed*)
 | `Seq
@@ -315,7 +317,7 @@ type d = {
     ignore_taxa_set : All_sets.Strings.t;
     (* The set of taxa to be ignored in the analysis *)
     ignore_character_set : string list;
-    trees : string Parser.Tree.t list list;
+    trees : parsed_trees list;
     non_additive_1 : int list;
     non_additive_8 : int list;
     non_additive_16 : int list;
@@ -599,3 +601,5 @@ val apply_on_static :
             d -> (int * float) list
 
 val repack_codes : d -> d
+
+val verify_trees : d -> parsed_trees -> unit

@@ -631,7 +631,7 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                         Ptree.choose_leaf f)
         | Some file ->
                 match (Data.process_trees data file).Data.trees with
-                | [[one]] -> one
+                | [([t], _, _) as one] -> Data.verify_trees data one; t
                 | _ -> failwith "Illegal input constraint file"
     in
     let perform_build () =
@@ -646,6 +646,8 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
         | `Prebuilt file -> 
                 let data = Data.process_trees data file in
                 let trees = data.Data.trees in
+                let () = List.iter (Data.verify_trees data) trees in
+                let trees = List.map (fun (a, _, _) -> a) trees in
                 prebuilt trees d
         | `Build (n, build_meth, lst) ->
                 let new_nodes = nodes in
