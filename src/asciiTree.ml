@@ -227,14 +227,14 @@ let draw_parenthesis do_sort my_printer t =
     in
     printer t
 
-let for_formatter ?(separator = " ") newick leafsonly t =
+let for_formatter ?(separator = " ") split_lines newick leafsonly t =
     let t = sort_tree t in
     let separator = 
         match newick with 
         | true -> ","
         | false -> separator
     in 
-
+    let splitter = if split_lines then "@," else "" in
     let rec generator () =
         let sep = ref "" in
         fun acc t ->
@@ -242,7 +242,7 @@ let for_formatter ?(separator = " ") newick leafsonly t =
             | Parser.Tree.Leaf str ->
                     let str  = StatusCommon.escape str in
                     let res = acc ^ !sep ^ str in
-                    sep := "@," ^ separator;
+                    sep := splitter ^ separator;
                     res
             | Parser.Tree.Node (chld, str) ->
                     let str = StatusCommon.escape str in
@@ -250,8 +250,8 @@ let for_formatter ?(separator = " ") newick leafsonly t =
 
                     let acc = List.fold_left (generator ()) acc chld in
                     let acc = acc ^ ")" in
-                    sep := "@," ^ separator;
-                    if str = "" || leafsonly then acc ^ "@," 
-                    else acc ^ "[" ^ str ^ "]@," 
+                    sep := splitter ^ separator;
+                    if str = "" || leafsonly then acc ^ splitter
+                    else acc ^ "[" ^ str ^ "]" ^ splitter
     in
     generator () "" t

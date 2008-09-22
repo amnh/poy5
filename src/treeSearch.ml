@@ -197,7 +197,8 @@ module MakeNormal
             in
             let output tree =
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter true true tree);
+                Status.user_message fo 
+                (AsciiTree.for_formatter false true true tree);
                 Status.user_message fo ("[" ^ cost ^ "]");
                 Status.user_message fo "@]@," in
             List.iter output tree
@@ -216,6 +217,11 @@ module MakeNormal
         in
         let report_tree_len = 
             List.exists (function `Total -> true | _ -> false) ic
+        in
+        let newline = if use_hennig_style then "" else "@\n" in
+        let ic = 
+            if use_hennig_style then (`Margin (1000000010 - 1)) :: ic
+            else ic
         in
         (*
         let newick = 
@@ -246,24 +252,27 @@ module MakeNormal
             in
             let output tree =
                 if use_hennig_style && not !is_first then 
-                    Status.user_message fo "@,*@,"
+                    Status.user_message fo " * "
                 else is_first := false;
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter (not
-                use_hennig_style) leafsonly tree);
+                Status.user_message fo 
+                (AsciiTree.for_formatter (not use_hennig_style ) 
+                (not use_hennig_style) leafsonly tree);
                 if leafsonly && report_tree_len then
                     Status.user_message fo ("[" ^ cost ^ "]");
                 if not use_hennig_style then
                     Status.user_message fo ";";
-                Status.user_message fo "@]@\n" in
+                Status.user_message fo "@]";
+                Status.user_message fo newline;
+            in
             List.iter output tree
         in
-        Status.user_message fo "@[<v>";
+        Status.user_message fo (if use_hennig_style then "@[" else "@[<v>");
         if use_hennig_style then Status.user_message fo "tread ";
         Sexpr.leaf_iter (output) trees;
         if use_hennig_style then Status.user_message fo ";";
-        Status.user_message fo "@]";
-        Status.user_message (Status.Output (filename, false, !fo_ls)) "%!";
+        Status.user_message fo (if use_hennig_style then  "@]" else "@]@\n" );
+        Status.user_message (Status.Output (filename, false, !fo_ls)) "@\n%!";
         StatusCommon.Files.set_margin filename ori_margin 
               
 
@@ -796,7 +805,8 @@ let forest_search data queue origin_cost search trees =
             Status.user_message fo "@[<v>";
             Status.user_message fo 
             ("@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
-            Status.user_message fo (AsciiTree.for_formatter true false res);
+            Status.user_message fo (AsciiTree.for_formatter false true false 
+            res);
             Status.user_message fo "@]@]\n%!";
         end else
             match filename with
