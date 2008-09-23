@@ -1784,8 +1784,9 @@ let add_character_spec spec code data =
     end else raise Illegal_argument;
     data
 
-let taxon_code name data =
-    All_sets.StringMap.find name data.taxon_names
+let rec taxon_code name data =
+    try All_sets.StringMap.find name data.taxon_names with
+    | Not_found -> taxon_code (All_sets.StringMap.find name data.synonyms) data
 
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with
