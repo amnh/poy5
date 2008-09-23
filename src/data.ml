@@ -671,6 +671,7 @@ let trim taxon =
     else taxon
 
 let verify_trees data ((tree, file, position) : parsed_trees) =
+    let esc_file = StatusCommon.escape file in
     let rec leafs acc tree = 
         match tree with
         | Parser.Tree.Node (c, _) ->
@@ -687,9 +688,11 @@ let verify_trees data ((tree, file, position) : parsed_trees) =
                 All_sets.StringMap.remove taxon map
             else 
                 let msg = 
-                    ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ " 
-                    ^ file ^ "@ has@ the@ terminal@ "
-                    ^ taxon ^ "@ and@ there@ is@ no@ data@ loaded@ for@ it")
+                    ("input@ tree@ " ^ string_of_int position ^ 
+                    (if "" <> file then "@ of@ file@ " ^ esc_file else "") ^
+                    "@ has@ the@ terminal@ "
+                    ^ StatusCommon.escape taxon ^ 
+                    "@ and@ there@ is@ no@ data@ loaded@ for@ it")
                 in
                 let () = Status.user_message Status.Error msg in
                 failwith "Data not found"
@@ -698,8 +701,7 @@ let verify_trees data ((tree, file, position) : parsed_trees) =
     let leafs = List.fold_left ~f:leafs ~init:[] tree in
     let _ =
         warn_if_repeated_and_choose_uniquely leafs 
-        ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ")
-        file 
+        ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
     in
     let res = 
         List.fold_left ~f:(stop_if_not_all_terminals_in_tree )
@@ -708,15 +710,23 @@ let verify_trees data ((tree, file, position) : parsed_trees) =
     in
     if All_sets.StringMap.is_empty res then ()
     else 
-        let msg = 
-            "The@ following@ terminals@ in@ the@ input@ tree@ " ^
-            string_of_int position ^ "@ have@ no@ characters@ loaded:@ " ^
-            (All_sets.StringMap.fold (fun a _ acc -> 
-                a ^ ";@ " ^ acc) res ".@ I@ need@ all@ the@ terminals" ^
-                "@ to@ have@ loaded@ characters.")
+        let taxa = 
+            (String.concat ", "
+            (List.map StatusCommon.escape 
+                (All_sets.StringMap.fold (fun a _ acc -> a :: acc) res [])))
         in
-        let () = Status.user_message Status.Error msg in
-        failwith "Data now found"
+        let file_string =
+            if "" <> file then "@ of@ file@ " ^ esc_file else ""
+        in
+        let msg = 
+            "The@ following@ terminals@ do@ not@ appear@ in@ the@ input@ "
+            ^ "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
+            ".@ Beware@ that@ this@ tree@ will@ be@ incompatible@ with@ any@ " ^
+            "@ other@ trees@ built@ by@ POY,@ as@ some@ terminals@ appearing@ "
+            ^ "in@ the@ new@ trees@ will@ be@ missing@ on@ this@ one@ and@ " ^ 
+            "could@ cause@ errors." 
+        in
+        Status.user_message Status.Warning msg
 
 let process_trees data file =
     try
