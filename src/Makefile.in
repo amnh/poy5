@@ -443,9 +443,9 @@ status.cma status.cmxa: ./config.log
 # All the libraries specialized for certain size in the character set.
 # First we define the sed scripts that will replace the names with the
 # approprate needs 
-SED8 = sed "s/nonadd_/nonadd8_/g"
-SED16 = sed "s/nonadd_/nonadd16_/g"
-SED32 = sed "s/nonadd_/nonadd32_/g"
+SED8 = sed "s/nonadd_/nonadd8_/g; s/NONADDSIZE/8/g"
+SED16 = sed "s/nonadd_/nonadd16_/g; s/NONADDSIZE/16/g"
+SED32 = sed "s/nonadd_/nonadd32_/g; s/NONADDSIZE/32/g"
 
 nonaddCS8.ml: nonaddCS.ml
 	$(SED8) $< > $@

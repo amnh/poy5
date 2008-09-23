@@ -73,6 +73,7 @@ let to_union x = x
 external code : ct -> int = "char_nonadd_CAML_code"
 let elt_code (code, _) = code
 let color = Character.Grey
+let block_size = NONADDSIZE
 
 (* This is the default cost of a new element.  Unfortunately, we are not always
    given a cost when creating an element, so this is necessary. *)
@@ -416,9 +417,13 @@ let of_parser data codes (elts, code) n =
     let make_set elts =
         let nelts = Array.length elts in
         let true_nelts = Array.length elts in
-        let set = make_new_unsafe true_nelts code in
+        let set = make_new true_nelts code in
+        let max_elements = block_size * ((nelts / block_size) + 1) in
         let rec filler item =
-            if item = nelts then ()
+            if item = max_elements then ()
+            else if item >= nelts then 
+                let () = set_elt set item 1 in 
+                filler (item + 1)
             else 
                 let (elt, eltcode) = elts.(item) in
                 let observed = 
@@ -447,7 +452,7 @@ let of_parser data codes (elts, code) n =
                     List.fold_left (fun acc item -> acc lor (matcher item)) 0 
                     elt
                 in
-                set_elt set item elt;
+                let () = set_elt set item elt in
                 filler (item + 1) 
         in
         filler 0;
