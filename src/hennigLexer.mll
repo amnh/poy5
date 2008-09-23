@@ -226,7 +226,7 @@
         make_all_prefixes 2 "SLAVESET" SLAVESET;
         make_all_prefixes 2 "SPRIT" SPRIT;
         make_all_prefixes 2 "TBRIT" TBRIT;
-        make_all_prefixes 2 "TRAVTREE" TRAVTREE;
+        make_all_prefixes 3 "TRAVTREE" TRAVTREE;
         make_all_prefixes 2 "VAR" VAR;
         (* REMOVE DUPS IS THE LAST OPERATION *)
         remove_dups ()
@@ -256,7 +256,7 @@ rule token = parse
     | [ ')' ] { RPARENT }
     | [ 'a'-'z' 'A'-'Z']+ as word { 
         let uword = String.uppercase word in
-        try Hashtbl.find keyword_table uword with 
+        try Hashtbl.find keyword_table uword with
         | Not_found -> 
                 if is_prefix uword "TREAD" then rawtree lexbuf
                 else if is_prefix uword "XREAD" then raw lexbuf
