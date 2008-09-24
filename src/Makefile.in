@@ -278,7 +278,7 @@ all_libs: status_ncurses.cma status_flat.cma sequences.cma distances.cma \
 -include Makefile.local
 
 clean::
-	rm -f *.annot *.cmi *.cmo *.cmx* *.o *.a *.so \
+	rm -f .depend *.annot *.cmi *.cmo *.cmx* *.o *.a *.so \
 	mpoy_console poy_test mpoy poy *.cma nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml \
 	nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c hennigParser.ml hennigParser.mli hennigLexer.ml \
 	nexusParser.ml nexusParser.mli nexusLexier.ml \
@@ -596,7 +596,11 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStre
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: config.h poyExtension.cmo kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+.depend: compileFlags.cmo sadmanOutput.cmo statusCommon.cmo status.cmi \
+	timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi all_sets.cmi \
+	fileStream.cmo sequence.cmi bitSet.cmi parser.cmi config.h \
+	poyExtension.cmo nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c \
+	nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
