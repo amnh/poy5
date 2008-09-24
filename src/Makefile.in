@@ -8,6 +8,9 @@
 
 # Change whatever options (compilers, compiler options, and so on) in this file
 # Cleanup spaces so that we recognize proper options
+
+all: clean depend poy
+
 SHELL = /bin/sh
 VPATH = @srcdir@
 
@@ -88,7 +91,7 @@ endif
 READLINE:=
 ifeq ($(USEINTERFACE), readline)
 	DEFOPTS := $(DEFOPTS) -DUSEREADLINE
-	CCOPT := $(CCOPT) -ccopt -lreadline
+	CCOPT := $(CCOPT) -cclib -lreadline
 	READLINE := readlineml.o
 	INTERFACE = status_flat.cma 
 endif
@@ -173,8 +176,6 @@ OPTIONSPREPROCESSOR := -pp 'camlp4orf poyExtension.cmo $(DEFOPTS)'
 
 
 SUBDIRS = grappa graphps
-
-all: clean depend poy
 
 grappa/grappa.cmxa:
 	$(MAKE) -C grappa grappa.cmxa
@@ -343,14 +344,15 @@ status_html.cma: status.cmi statusCommon.cmo status_html.ml
 	$(OCAMLC) -custom -g -a -o $@ statusCommon.cmo status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
-status.cmo: status.ml
-	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo status.ml \
-	$(MKLIBOPT)  $(CCOPT) $(PROFILE)
+status.cmo: config.h status.ml
+	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo \
+		status.ml $(MKLIBOPT)  $(CCOPT) $(PROFILE)
 
-status_flat.cma: poyExtension.cmo lz.cmo statusCommon.cmo status.cmi status_flat.ml
+status_flat.cma: config.h poyExtension.cmo lz.cmo statusCommon.cmo \
+	status.cmi status_flat.ml
 	cp status_flat.ml status.ml
-	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo status.ml \
-	$(MKLIBOPT)  $(CCOPT) $(PROFILE)
+	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo \
+		status.ml $(MKLIBOPT)  $(CCOPT) $(PROFILE)
 
 distances.cma: sequences.cma $(DISTANCE_LIBS)
 	$(OCAMLC) $(OCAML_INCLUDES) -custom -a -o $@ $(^:sequences.cma=) $(MKLIBOPT) $(CCOPT)
@@ -379,14 +381,15 @@ status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
 	$(OCAMLOPT) -a -o $@ statusCommon.cmx status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
 
-status.cmx:
-	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml $(MKLIBOPT) \
-	$(CCOPT) $(PROFILE)
+status.cmx: config.h status.ml
+	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml \
+		$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_flat.cmxa: poyExtension.cmo status.cmi lz.cmx statusCommon.cmx status_flat.ml
+status_flat.cmxa: config.h poyExtension.cmo status.cmi lz.cmx \
+	statusCommon.cmx status_flat.ml
 	cp status_flat.ml status.ml
-	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml $(MKLIBOPT) \
-	$(CCOPT) $(PROFILE)
+	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml \
+		$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
 status_gtk2.cmxa: status.cmi lz.cmx statusCommon.cmx status_gtk2.ml
 	cp status_gtk2.ml status.ml
@@ -447,25 +450,31 @@ SED8 = sed "s/nonadd_/nonadd8_/g; s/NONADDSIZE/8/g"
 SED16 = sed "s/nonadd_/nonadd16_/g; s/NONADDSIZE/16/g"
 SED32 = sed "s/nonadd_/nonadd32_/g; s/NONADDSIZE/32/g"
 
-nonaddCS8.ml: nonaddCS.ml
+nonaddCS8.ml: parser.cmi nonaddCS.ml
+	$(SED8) nonaddCS.ml > $@
+
+nonaddCS16.ml: parser.cmi nonaddCS.ml
+	$(SED16) nonaddCS.ml > $@
+
+nonaddCS32.ml: parser.cmi nonaddCS.ml
+	$(SED32) nonaddCS.ml > $@
+
+nonaddCSc8.c: nonaddCSc.c
 	$(SED8) $< > $@
 
-nonaddCS16.ml: nonaddCS.ml
-	$(SED16) $< > $@
-
-nonaddCS32.ml: nonaddCS.ml
-	$(SED32) $< > $@
-
-nonaddCSc8.o: nonaddCSc.c
-	$(SED8) $< > ${@:.o=.c}
+nonaddCSc8.o: nonaddCSc8.c
 	$(OCAMLOPT) $(CCOPT) -ccopt -DCHARSIZE=8 -c -I $(INCLUDE) ${@:.o=.c} $(PROFILE)
 
-nonaddCSc16.o: nonaddCSc.c
-	$(SED16) $< > ${@:.o=.c}
+nonaddCSc16.c: nonaddCSc.c
+	$(SED16) $< > $@
+
+nonaddCSc16.o: nonaddCSc16.c
 	$(OCAMLOPT) $(CCOPT) -ccopt -DCHARSIZE=16 -c -I $(INCLUDE) ${@:.o=.c} $(PROFILE)
 
-nonaddCSc32.o: nonaddCSc.c
-	$(SED32) $< > ${@:.o=.c}
+nonaddCSc32.c: nonaddCSc.c
+	$(SED32) $< > $@
+
+nonaddCSc32.o: nonaddCSc32.c
 	$(OCAMLOPT) $(CCOPT) -ccopt -DCHARSIZE=32 -c -I $(INCLUDE) ${@:.o=.c} $(PROFILE)
 
 add.o: memstack.o
@@ -528,27 +537,32 @@ poyParser.cma: kolmoExtension.cmo poyParser.ml
 	$(OCAMLC) -g $(PREPROCESSOR:-unsafe=) -I +camlp4 $(OCAML_INCLUDES:-unsafe=) -c $(DEBUG:-unsafe=) poyParser.ml
 status_gtk2.cmo: status_gtk2.ml
 	$(OCAMLC) -I +lablgtk2 $(OCAML_INCLUDES) -c $(DEBUG) status_gtk2.ml
-main.cmo: poyExtension.cmo arguments.cmo phylo.cmo main.ml
+main.cmo: poyExtension.cmo arguments.cmo phylo.cmo main.ml config.h
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) main.ml
-main.cmx: poyExtension.cmo arguments.cmx phylo.cmx main.ml
+main.cmx: poyExtension.cmo arguments.cmx phylo.cmx main.ml config.h
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c main.ml
 sadmanOutput.cmo: sadmanOutput.cmi sadmanOutput.ml
 	$(OCAMLC) $(OCAML_INCLUDES) -c $(DEBUG) sadmanOutput.ml
 sadmanOutput.cmx: sadmanOutput.cmi sadmanOutput.ml
 	$(OCAMLOPT) $(OFLAGS) $(OCAML_INCLUDES) -c sadmanOutput.ml
-sequence.cmi: poyExtension.cmo matrix.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi sequence.mli
+sequence.cmi: config.h poyExtension.cmo matrix.cmi cost_matrix.cmi \
+	alphabet.cmi all_sets.cmi sequence.mli
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) sequence.mli
-sequence.cmo: poyExtension.cmo sadmanOutput.cmi matrix.cmi fingerPrint.cmi cost_matrix.cmi \
-    alphabet.cmi all_sets.cmi sequence.cmi sequence.ml
+sequence.cmo: config.h poyExtension.cmo sadmanOutput.cmi matrix.cmi \
+	fingerPrint.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi sequence.cmi \
+	sequence.ml
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) sequence.ml
-sequence.cmx: poyExtension.cmo sadmanOutput.cmx matrix.cmx fingerPrint.cmx cost_matrix.cmx \
-    alphabet.cmx all_sets.cmx sequence.cmi sequence.ml
+sequence.cmx: config.h poyExtension.cmo sadmanOutput.cmx matrix.cmx \
+	fingerPrint.cmx cost_matrix.cmx  alphabet.cmx all_sets.cmx sequence.cmi \
+	sequence.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c sequence.ml
-seqCS.cmo: poyExtension.cmo tags.cmo status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
-    intSpec.cmi data.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi seqCS.ml
+seqCS.cmo: config.h poyExtension.cmo tags.cmo status.cmi sequence.cmi \
+	sadmanOutput.cmi matrix.cmi intSpec.cmi data.cmi cost_matrix.cmi \
+	alphabet.cmi all_sets.cmi seqCS.ml
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) seqCS.ml
-seqCS.cmx: poyExtension.cmo tags.cmx status.cmi sequence.cmi sadmanOutput.cmi matrix.cmi \
-    intSpec.cmi data.cmi cost_matrix.cmi alphabet.cmi all_sets.cmi seqCS.ml
+seqCS.cmx: config.h poyExtension.cmo tags.cmx status.cmi sequence.cmi \
+	sadmanOutput.cmi matrix.cmi intSpec.cmi data.cmi cost_matrix.cmi \
+	alphabet.cmi all_sets.cmi seqCS.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c seqCS.ml
 node.cmi: node.mli
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.mli
@@ -556,21 +570,21 @@ node.cmo: node.cmi node.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.ml
 node.cmx: node.cmi node.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c node.ml
-scripting.cmo: poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
+scripting.cmo: config.h poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) scripting.ml
-scripting.cmx: poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
+scripting.cmx: config.h poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c scripting.ml
-timer.cmo: poyExtension.cmo timer.cmi timer.ml
+timer.cmo: config.h poyExtension.cmo timer.cmi timer.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) timer.ml
-timer.cmx: poyExtension.cmo timer.cmi timer.ml
+timer.cmx: config.h poyExtension.cmo timer.cmi timer.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c timer.ml
-fileStream.cmo: poyExtension.cmo lz.cmo fileStream.ml
+fileStream.cmo: config.h poyExtension.cmo lz.cmo fileStream.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) fileStream.ml
-fileStream.cmx: poyExtension.cmo lz.cmx fileStream.ml
+fileStream.cmx: config.h poyExtension.cmo lz.cmx fileStream.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c fileStream.ml
-statusCommon.cmo: poyExtension.cmo lz.cmo statusCommon.ml
+statusCommon.cmo: config.h poyExtension.cmo lz.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
-statusCommon.cmx: poyExtension.cmo lz.cmx statusCommon.ml
+statusCommon.cmx: config.h poyExtension.cmo lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
 
 
@@ -582,7 +596,7 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStre
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: poyExtension.cmo kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+.depend: config.h poyExtension.cmo kolmoExtension.cmo nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
@@ -639,7 +653,7 @@ nexusLexer.ml: nexus.cmo nexusParser.cmi nexusLexer.mll
 .m.o:
 	$(CC) -I `$(OCAMLC) -where` -c -framework Cocoa $< 
 
-.c.o:
+.c.o: config.h
 	$(OCAMLOPT) -ccopt "$(DEFOPTS)" $(CCOPT) -c -I $(INCLUDE) $< $(PROFILE)
 
 mpoy: $(MAIN_OBJS)
