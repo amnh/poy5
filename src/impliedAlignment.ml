@@ -1332,16 +1332,10 @@ let analyze_tcm tcm alph =
                 (* We remove one from the all elements representation *)
                 match Alphabet.get_all alph with
                 | Some _ -> (Alphabet.distinct_size alph) - 1 
-                | None -> 
-                      Alphabet.distinct_size alph
+                | None -> Alphabet.distinct_size alph
             in
             let is_metric = Cost_matrix.Two_D.is_metric tcm in
             let make_tcm () =
-                let size = 
-                    (* We will assume that the source of the non metricity is
-                    * the gap *)
-                    if is_metric then size else size - 1
-                in
                 match Alphabet.kind alph with
                 | Alphabet.Simple_Bit_Flags ->
                         Array.init size (fun x -> Array.init size 
@@ -1349,6 +1343,7 @@ let analyze_tcm tcm alph =
                             Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm)) 
                 | Alphabet.Sequential ->
                       let tcm_size = Cost_matrix.Two_D.alphabet_size tcm in
+                      Printf.printf "The ALPHABET size is %d\n%!" tcm_size;
                       let all = 
                           match Alphabet.get_all alph with
                           | None -> (-1)
