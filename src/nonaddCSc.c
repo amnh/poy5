@@ -134,7 +134,6 @@ typedef CHARTYPE nac;
 
 
 #if defined( __APPLE_ALTIVEC__ )
-#warning ALTIVEC
 /* To use this, we need the options:
  * -maltivec -mabi=altivec -mpim-altivec */
 
@@ -216,7 +215,6 @@ nonadd_print_ptr ("alloc", malloc (sizeof(vect) * ((size / BLOCK_LEN) + 1)))
 #else  /* no MMX */
 #ifndef VECT_SIZE
 #define VECT_SIZE 64
-#warning DEFINING_VECT_SIZE
 #endif
 
 #define BLOCK_LEN (VECT_SIZE / CHARSIZE)
