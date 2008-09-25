@@ -991,7 +991,7 @@ module Tree = struct
                 raise e
 
     let stream_of_file is_compressed file =
-        let real_ch = FileStream.open_in file in
+        let real_ch = FileStream.open_in_bin file in
         let ch = 
             if is_compressed then
                 new FileStream.compressed_reader real_ch
