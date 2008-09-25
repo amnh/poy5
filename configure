@@ -671,6 +671,7 @@ with_version_number
 enable_mpi
 enable_shared_hd
 enable_long_sequences
+enable_xslt
 enable_likelihood
 enable_large_alphabets
 enable_cost_verification
@@ -1331,6 +1332,8 @@ Optional Features:
                           default search strategies. If you are analyzing
                           fragments shorted than, say 12.000 bp, you are
                           unlikely to need this option.
+  --enable-xslt           Enable the postprocessing of XML output using XSLT
+                          templates. This option requires libxml2.
   --enable-likelihood     Enable the use of static and dynamic likelihood
                           functions. This option requires an implementation of
                           lapack and blas to be installed.
@@ -3071,6 +3074,15 @@ if test "${enable_long_sequences+set}" = set; then
 else
   USE_LONG_SEQUENCES=false
 fi
+
+
+# Check whether --enable-xslt was given.
+if test "${enable_xslt+set}" = set; then
+  enableval=$enable_xslt; USE_XSLT=true
+else
+  USE_XSLT=false
+fi
+
 
 
 # Check whether --enable-likelihood was given.

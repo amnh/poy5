@@ -56,6 +56,12 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
               [USE_LONG_SEQUENCES=true], 
               [USE_LONG_SEQUENCES=false])
 
+AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
+              [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
+               [USE_XSLT=true],
+               [USE_XSLT=false])
+
+
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
               [Enable the use of static and dynamic likelihood functions. This
                option requires an implementation of lapack and blas to be installed.])],
