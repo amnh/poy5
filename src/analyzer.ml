@@ -286,8 +286,10 @@ let dependency_relations (init : Methods.script) =
                         [([Data], [Data; Trees], init, Linnearizable)]
                 | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
                         [([Data; Trees], [Data; Trees], init, Parallelizable)]
-                | `Build (_, (`Constraint (_, _, None, _)), _) ->
+                | `Build (_, (`Constraint (_, _, Some _, _)), _) ->
                         [([Data; Trees], [Trees], init, Parallelizable)]
+                | `Build (_, (`Constraint (_, _, None, _)), _) ->
+                        [([Data; Trees], [Trees], init, NonComposable)]
                 | `Build _
                 | `Build_Random _ ->
                         [([Data], [Trees], init, Parallelizable)]
