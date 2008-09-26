@@ -1120,7 +1120,23 @@ let apply_incremental breakage =
     in
     { breakage with ptree = ptree; incremental = [] }
 
-let single_spr_round parent_side child_side 
+let simplify x jxn = 
+    let compare x y =
+        match x, y with
+        | `Single (x, _), Tree.Single_Jxn y -> x = y
+        | `Edge (_, l1, l2, _), Tree.Edge_Jxn (a, b) ->
+                (a = l1 && b = l2) || (b = l1 && a = l2)
+        | _ -> false
+    in
+    match x with
+    | `Pair (x, y) -> 
+            if compare x jxn then `Single y
+            else if compare y jxn then `Single x
+            else `Pair (x, y)
+    | `Single y -> if compare y jxn then `Same else x
+    | `Same -> assert false
+
+let single_spr_round pb parent_side child_side 
 (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a,
 Tree_Ops.b) search_mgr) breakage = 
     let child_info = get_side_info child_side breakage in
@@ -1136,6 +1152,13 @@ Tree_Ops.b) search_mgr) breakage =
                         handle_of b breakage.ptree);
                 Tree.Edge_Jxn (a, b), handle_of a breakage.ptree
     in
+    let npb = simplify pb child_jxn in
+    let simplifier = 
+        match npb with
+        | `Pair _ -> fun x _ -> x
+        | `Single _ -> simplify
+        | `Same -> assert false
+    in
     let rec do_search () =
         match tabu#join_edge parent_side with
         | None -> Tree.Continue
@@ -1148,27 +1171,30 @@ Tree_Ops.b) search_mgr) breakage =
                     assert (handle_of_child <> ahandle);
                 end;
                 let parent_jxn = (Tree.Edge_Jxn (a, b)) in
-                let what_to_do_next =
-                    search#process Tree_Ops.cost_fn 
-                    breakage.break_delta 
-                    child_info.clade_node
-                    Tree_Ops.join_fn breakage.incremental parent_jxn 
-                    child_jxn tabu breakage.ptree
-                in
-                match what_to_do_next with
-                | Tree.Skip
-                | Tree.Continue -> do_search ()
-                | x -> x
+                match simplifier npb parent_jxn with
+                | `Same -> do_search ()
+                | _ ->
+                        let what_to_do_next =
+                            search#process Tree_Ops.cost_fn 
+                            breakage.break_delta 
+                            child_info.clade_node
+                            Tree_Ops.join_fn breakage.incremental parent_jxn 
+                            child_jxn tabu breakage.ptree
+                        in
+                        match what_to_do_next with
+                        | Tree.Skip
+                        | Tree.Continue -> do_search ()
+                        | x -> x
     in
     do_search ()
 
-let spr_join tabu search breakage =
-    match single_spr_round `Right `Left tabu search breakage with
+let spr_join pb tabu search breakage =
+    match single_spr_round pb `Right `Left tabu search breakage with
     | Tree.Skip | Tree.Continue -> 
-            single_spr_round `Left `Right tabu search breakage
+            single_spr_round pb `Left `Right tabu search breakage
     | x -> x
 
-let tbr_join tabu search breakage =
+let tbr_join pb tabu search breakage =
     let reroot_on_edge to_reroot edge breakage =
         let ptree, inc = Tree_Ops.reroot_fn true edge breakage.ptree in
         let Tree.Edge (a, b) = Tree.normalize_edge edge ptree.tree in
@@ -1198,7 +1224,7 @@ let tbr_join tabu search breakage =
     in
     let breakage = apply_incremental breakage in
     let rec do_search search_breakage =
-        match spr_join tabu#clone search search_breakage with
+        match spr_join pb tabu#clone search search_breakage with
         | Tree.Break as x -> x
         | Tree.Skip | Tree.Continue ->
                 let to_reroot = `Left in
@@ -1219,6 +1245,8 @@ let tbr_join tabu search breakage =
     in
     do_search breakage
 
+let breakage_to_pb x = `Pair x.tree_delta
+
 let do_search neighborhood tree tabu search =
     let rec do_search () =
         match tabu#break_edge with
@@ -1237,7 +1265,9 @@ let do_search neighborhood tree tabu search =
                     breakage.tree_delta)) breakage.ptree));
                 let new_tabu = tabu#clone in
                 new_tabu#update_break breakage;
-                match neighborhood new_tabu search breakage with
+                (* We use pb to avoid evaluating again the initial tree *)
+                let pb = breakage_to_pb breakage in
+                match neighborhood pb new_tabu search breakage with
                 | Tree.Break as x -> x
                 | Tree.Skip | Tree.Continue ->
                         do_search ()
@@ -1290,6 +1320,9 @@ let tbr_simple x = search x (do_search tbr_join, "TBR")
 
 let spr_single = search_local_next_best (do_search spr_join, "SPR")
 let tbr_single = search_local_next_best (do_search tbr_join, "TBR")
+
+let tbr_join a b c = tbr_join (breakage_to_pb c) a b c
+let spr_join a b c = spr_join (breakage_to_pb c) a b c
 
 
 let alternate spr tbr search =
