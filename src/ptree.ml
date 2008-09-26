@@ -1224,10 +1224,10 @@ let tbr_join pb tabu search breakage =
     in
     let breakage = apply_incremental breakage in
     let rec do_search search_breakage =
-        match spr_join pb tabu#clone search search_breakage with
+        match single_spr_round pb `Left `Right tabu#clone search search_breakage with
         | Tree.Break as x -> x
         | Tree.Skip | Tree.Continue ->
-                let to_reroot = `Left in
+                let to_reroot = `Right in
                 match breakage.tree_delta with
                 | (`Single _), _ | _, (`Single _) -> Tree.Continue
                 | (`Edge _), (`Edge _) ->
