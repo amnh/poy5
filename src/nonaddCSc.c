@@ -11,8 +11,8 @@
 #include <caml/custom.h>
 #include <caml/alloc.h>
 #include <caml/intext.h>
-#include <assert.h>
 #define NDEBUG 1
+#include <assert.h>
 #include "nonaddCSc.h"
 #include <stdio.h>
 #include <string.h>
