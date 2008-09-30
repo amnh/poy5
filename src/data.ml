@@ -3104,6 +3104,9 @@ let set_likelihood data
                 | `Estimate -> 
                         let base_p = compute_priors data chars u_gap in
                         Parser.SC.Estimated (base_p)
+                | `Constant ->
+                        let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
+                        Parser.SC.Given (base_p)
                 | `Given arr -> 
                         let arr = Array.of_list arr in
                         if alph_size = Array.length arr then

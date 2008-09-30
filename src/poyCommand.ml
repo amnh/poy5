@@ -1143,6 +1143,7 @@ let create_expr () =
         ml_priors:
             [ 
                 [ "estimate" -> `Estimate ] |
+                [ "constant" -> `Constant ] | 
                 [ "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
                     right_parenthesis -> `Given x ]
