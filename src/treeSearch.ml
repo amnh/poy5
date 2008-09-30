@@ -260,14 +260,14 @@ module MakeNormal
                 (not use_hennig_style) leafsonly tree);
                 if leafsonly && report_tree_len then
                     Status.user_message fo ("[" ^ cost ^ "]");
-                if not use_hennig_style then
-                    Status.user_message fo ";";
+                if not use_hennig_style then Status.user_message fo ";"
+                else Status.user_message fo "@?";
                 Status.user_message fo "@]";
                 Status.user_message fo newline;
             in
             List.iter output tree
         in
-        Status.user_message fo (if use_hennig_style then "@[" else "@[<v>");
+        Status.user_message fo (if use_hennig_style then "@[<h>" else "@[<v>");
         if use_hennig_style then Status.user_message fo "tread ";
         Sexpr.leaf_iter (output) trees;
         if use_hennig_style then Status.user_message fo ";";
