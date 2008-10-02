@@ -571,9 +571,9 @@ seqCS.cmx: config.h poyExtension.cmo tags.cmx status.cmi sequence.cmi \
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(CCOPT) -c seqCS.ml
 node.cmi: node.mli
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.mli
-node.cmo: node.cmi node.ml
+node.cmo: config.h node.cmi node.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) node.ml
-node.cmx: node.cmi node.ml
+node.cmx: config.h node.cmi node.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) $(CCOPT) -c node.ml
 scripting.cmo: config.h poyExtension.cmo poyExtension.cmo scripting.cmi scripting.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) scripting.ml

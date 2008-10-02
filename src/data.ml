@@ -3980,6 +3980,8 @@ let to_faswincladfile data filename =
                     for i = min to max do 
                         output_element i matrix
                     done;
+            | Some (_, Parser.SC.STLikelihood _) -> 
+                    failwith "Hennig files do not support likelihood characters"
         in
         fo "@[<v 0>";
         let last, _ =
@@ -4573,7 +4575,7 @@ let to_human_readable data code item =
     let item = 
         match spec.Parser.SC.st_type with
         | Parser.SC.STUnordered -> List.nth spec.Parser.SC.st_observed item
-        | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
+        | Parser.SC.STLikelihood _ | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
     in
     let name =
         try List.nth spec.Parser.SC.st_labels item with
