@@ -2960,8 +2960,8 @@ fi
 done
 
 
-# Extract the first word of "nroff", so it can be a program name with args.
-set dummy nroff; ac_word=$2
+# Extract the first word of "groff", so it can be a program name with args.
+set dummy groff; ac_word=$2
 { $as_echo "$as_me:$LINENO: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_prog_NROFF+set}" = set; then
@@ -2977,7 +2977,7 @@ do
   test -z "$as_dir" && as_dir=.
   for ac_exec_ext in '' $ac_executable_extensions; do
   if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_NROFF="nroff"
+    ac_cv_prog_NROFF="groff"
     $as_echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi

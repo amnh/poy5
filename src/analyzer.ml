@@ -1468,8 +1468,8 @@ list)=
                                 (`ParallelPipeline (times, acc, comp, continue))
                                 :: tl)))
             | `Branch_and_Bound (_, _, _, _, cost_calculation)
-            | `LocalOptimum (_, _, _, _, cost_calculation, _, _, _, _, _, _) 
-            | `PerturbateNSearch (cost_calculation, _, _, _) ->
+            | `LocalOptimum { Methods.cc = cost_calculation } 
+            | `PerturbateNSearch (_, _, `LocalOptimum { Methods.cc = cost_calculation } , _) ->
                     if List.exists is_tree_dependent cost_calculation then
                         let name = emit_name [] in
                         (`Store ([`Trees], name)) ::
