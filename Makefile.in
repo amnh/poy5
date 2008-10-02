@@ -38,7 +38,7 @@ poy_test:
 	cd ./src/; $(MAKE) poy_test
 	cp ./src/poy_test ./test/
 
-.PHONY:	subdirs $(SUBDIRS) clean driver install
+.PHONY:	subdirs $(SUBDIRS) clean driver install distclean
 subdirs:	$(SUBDIRS)
 
 transform = @program_transform_name@
@@ -183,3 +183,14 @@ clean:
 	  $(MAKE) clean; \
 	  cd ..; \
 	done
+
+distclean: clean
+	rm -f config.log
+	rm -f config.status
+	rm -f test/poy_test
+	@for subs in $(SUBDIRS); do \
+	  cd $$subs; \
+	  $(MAKE) distclean; \
+	  cd ..; \
+	done
+	rm -f Makefile

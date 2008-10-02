@@ -279,16 +279,21 @@ all_libs: status_ncurses.cma status_flat.cma sequences.cma distances.cma \
 
 clean::
 	rm -f .depend *.annot *.cmi *.cmo *.cmx* *.o *.a *.so \
-	mpoy_console poy_test mpoy poy *.cma nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml \
-	nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c hennigParser.ml hennigParser.mli hennigLexer.ml \
-	nexusParser.ml nexusParser.mli nexusLexier.ml \
-	status.ml ocaml-str \
+	mpoy_console poy_test mpoy poy *.cma nonaddCS8.ml nonaddCS16.ml \
+	nonaddCS32.ml nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c hennigParser.ml \
+	hennigParser.mli hennigLexer.ml nexusParser.ml nexusParser.mli \
+	nexusLexier.ml status.ml ocaml-str \
 	$(LOCAL_CLEAN) 
 	@for subs in $(SUBDIRS); do \
 	  cd $$subs; \
 	  $(MAKE) clean; \
 	  cd ..; \
 	done
+
+distclean: clean
+	rm -f Makefile buildNumber.ml commandLexer.ml compileFlags.ml config.h \
+		config.log config.status graphps/Makefile graphps/graphps.o \
+		grappa/Makefile help.ml help.txt manpoy.txt nexusLexer.ml poy.1
 
 depend: .depend
 
@@ -418,7 +423,7 @@ trees.cmxa : $(CHARACTER:.cmo=.cmx)  ${TREE:.cmo=.cmx}
 sadmanlib.cmxa: $(SADMAN:.cmo=.cmx)
 	$(OCAMLOPT) -a -o $@ $^ $(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-.PHONY: subdirs $(SUBDIRS) clean driver doc buildNumber.ml
+.PHONY: subdirs $(SUBDIRS) clean distclean driver doc buildNumber.ml
 
 # -d .. puts stuff in prev directory
 # -dot outputs dependency graph as .dot
