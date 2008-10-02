@@ -473,17 +473,17 @@ add.o: memstack.o
 poy.1: help.txt
 
 # Help file gets made using OCaml script
-help.txt: compileFlags.cmx sadmanOutput.cmx statusCommon.cmx \
+help.txt: compileFlags.cmx sadmanOutput.cmx lz.cmx statusCommon.cmx \
 	buildNumber.cmx fileStream.cmx latex.ml ../doc/allcommands.tex
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
+	sadmanOutput.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
 	$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
+	sadmanOutput.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
 endif
 ifeq ($(USEWIN32), true)
 	./latex_helper.exe 
