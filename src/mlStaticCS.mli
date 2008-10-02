@@ -119,6 +119,11 @@ external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 external gamma_rates: float -> float -> int -> 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
+
+(** [estimate_time a b ] -> time
+* estimates the time between two nodes *)
+val estimate_time : t -> t -> float * float
+
 (** [register] -> ()
  * register the likelihood operations for the garbage collection deserialization *)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -192,7 +197,7 @@ val compare_data : t -> t -> int
  * readjustement, [length] is the new edge length of children (time), and [adjusted] is 
  * the newly adjusted vertex [mine]. *)
 val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->  
-    t -> t -> t -> float -> float -> float ->
+    t -> t -> t -> float -> float ->
     (* modified set * old_mle * new_mle * (new_branch_lengths) * new node *)
     All_sets.Integers.t * float * float * (float*float) * t
 
@@ -213,4 +218,5 @@ val root_cost : t -> float
 val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)
-val to_formatter : Tags.attributes ->t -> float ->t option -> Data.d -> Tags.output list
+val to_formatter : Tags.attributes ->t -> float option * float option -> 
+                        t option -> Data.d -> Tags.output list

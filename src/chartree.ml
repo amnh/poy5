@@ -151,7 +151,7 @@ let downpass_handle handle ({Ptree.tree=tree} as ptree) =
                            Not_found -> None
                    in
                    let median =
-                       Node.Standard.median None (Some nid) selfdata ch1data ch2data in
+                       Node.Standard.median (Some nid) selfdata ch1data ch2data in
                    (Tree.Continue,
                     Ptree.add_node_data nid median curr_tree))
         handle
@@ -210,7 +210,7 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let otherdata =
                              Ptree.get_node_data otherid ptree in
                          let median3 =
-                             Node.median_3 otherdata mydata mydata mydata 
+                             Node.Standard.final_states None otherdata mydata mydata mydata 
                          in
                          let ptree = Ptree.add_node_data selfid median3 ptree in
                          (Tree.Continue, ptree) (* OTU *)
@@ -222,13 +222,13 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let otherdata =
                              Ptree.get_node_data otherid ptree in
                          let root_prelim =
-                             Node.Standard.median None None None mydata otherdata in
+                             Node.Standard.median None None mydata otherdata in
                          virt_root := Some (`Edge (selfid, otherid), root_prelim);
                          let tree_cost = Node.Standard.root_cost root_prelim in
                          if debug_uppass_which_handle
                          then odebug "uppass: handle is leaf";
                          let mydata =
-                             Node.median_3 root_prelim mydata mydata mydata 
+                             Node.Standard.final_states None root_prelim mydata mydata mydata 
                          in
                          let ptree = Ptree.add_node_data selfid mydata ptree in
                          let ptree = 
@@ -252,10 +252,10 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          if debug_uppass_which_handle
                          then odebug "uppass: handle is internal";
                          let root_prelim =
-                             Node.Standard.median None None None mydata pardata in
+                             Node.Standard.median None None mydata pardata in
                          let tree_cost = Node.Standard.root_cost root_prelim in
                          virt_root := Some (`Edge (nid, ch1id), root_prelim);
-                         let median3 = Node.median_3
+                         let median3 = Node.Standard.final_states None
                              root_prelim
                              mydata
                              ch1data
@@ -279,7 +279,7 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let pardata = get_parent nid parent_id ptree in
                          let ch1data = get_node ch1id ptree in
                          let ch2data = get_node ch2id ptree in
-                         let median3 = Node.median_3
+                         let median3 = Node.Standard.final_states None
                              pardata
                              mydata
                              ch1data
@@ -369,7 +369,7 @@ let downpass_step ptree node_id c1 c2 =
                     Status.user_message Status.Error msg;
                     raise err
     in
-    (Node.Standard.median None node_id selfdata c1d c2d), selfdata
+    (Node.Standard.median node_id selfdata c1d c2d), selfdata
 
 (** [iterate e (a,b)r t] iterates the branch lengths, for likelihood characters.
  * [e] is returned as the edges for the nodes that need to be updated because of
@@ -384,13 +384,10 @@ let iterate edges ((Tree.Edge (a, b)) as root) ptree =
         assert( gpar <> c1 && gpar <> c2 );
         if All_sets.Integers.mem par edgeset then
             let gd id = Ptree.get_node_data id ptree in
-            let pard, c1d, c2d = 
-                Node.edge_iterator (Some (gd gpar)) (gd par) (gd c1) (gd c2)
+            let pard = 
+                Node.Standard.edge_iterator (Some (gd gpar)) (gd par) (gd c1) (gd c2)
             in
-            let ptree = ptree
-                        --> Ptree.add_node_data c1 c1d
-                        --> Ptree.add_node_data c2 c2d
-                        --> Ptree.add_node_data par pard in
+            let ptree = Ptree.add_node_data par pard ptree in
             let edgeset =
                 All_sets.Integers.add (Ptree.get_parent par ptree) edgeset
             in
@@ -734,7 +731,7 @@ let rec incremental_downpass_path_to_handle acc prev ptree = function
 
 
 let simple_uppass ptree parentd selfd c1d c2d node_id =
-    let median3 = Node.median_3 parentd selfd c1d c2d in
+    let median3 = Node.Standard.final_states None parentd selfd c1d c2d in
     if 0 = Node.compare_uppass selfd median3 then 
         None 
     else 
@@ -744,7 +741,7 @@ let incremental_downpass node_id ptree =
     aux_incremental_downpass MAll [] None ptree node_id
     
 let simple_uppass_in_leaf ptree parentd selfd node_id =
-    let median3 = Node.median_3 parentd selfd selfd selfd in
+    let median3 = Node.Standard.final_states None parentd selfd selfd selfd in
     Ptree.add_node_data node_id median3 ptree
 
 let incremental_uppass_step ptree node_id =
@@ -1039,7 +1036,7 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
                       (Ptree.get_node_data h tree))
         | Tree.Edge_Jxn (h, n) ->
               assert (0 = Node.compare_downpass clade_data
-                      (Node.Standard.median None None None
+                      (Node.Standard.median None None
                            (Ptree.get_node_data h tree)
                            (Ptree.get_node_data n tree)))
     end;

@@ -295,7 +295,7 @@ let sankoff_convert_fn ?(c=0.95) tcm =
                                              Node.cost = 0.;
                                              Node.sum_cost = 0.;
                                              Node.weight = 1.;
-                                            Node.time = 0.}) additives in
+                                            Node.time = None,None}) additives in
         let additives = List.map (fun a -> Node.Add a) additives in
         additives @ acc
 

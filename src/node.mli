@@ -28,8 +28,9 @@ type 'a r = {
     cost        : float; (** Total cost of the set of characters *)
     sum_cost    : float; (** Total cost up to this node in tree (inc'l) *)
     weight      : float; (** The weight of the set of characters *)
-    time        : float;  (** The time length of the edge connecting this node
-                            and its parent *)
+    time        : float option * float option;
+                         (** time that this node connecst to it's children,
+                          * first is the min_taxon_code, second is the other *)
 }
 
 (** Schemes for origin and loss costs *)
@@ -124,10 +125,11 @@ val distance_of_type :
 * In that case, the actual cost of the join is unknown. *)
 val dist_2 : float -> node_data -> node_data -> node_data -> float
 
-(** [median_3 par x a b] calculates a median between [par], [a], and [b].
+(** [final_states par x a b] calculates a median between [par], [a], and [b].
 * This median does not need to be optimal, but should be as good as
-* possible. *)
-val median_3 : node_data -> node_data -> node_data -> node_data -> node_data
+* possible.
+val final_states : node_data -> node_data -> node_data -> node_data -> node_data
+*)
 
 (** [set_node_cost c n] creates a fresh node [e] such that 
 * [node_cost e = c], but otherwise undistinguishable from [n]. *)
@@ -176,26 +178,29 @@ val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_da
 (** [edge_iterator gp p a b] is a function to iterate the branch lengths of
  * likelihood characters of parent [p], with children [a] and [b], and grand
  * parent [gp], which is optional. This function will return new node_data for 
- * [p] and new branch lengths for [a] and [b] on completion. When gp is NONE
- * then we assume this is an edge node, and split *)
+ * [p], the branch lengths should be transfered to other directions via
+ * uppass_heuristic
 val edge_iterator : node_data option -> node_data -> node_data -> node_data ->
-        node_data * node_data * node_data
+                    node_data
+*)
 
-(** [readjust ch1 ch2 par mine] returns a heuristically selected set of nodes which
-* is located somewhere in between [ch1], [ch2], and [par], which are the two
-* children and parent of [mine]. If no better node than [mine] can be found,
-* then [mine] itself is returned.
+(** [readjust mode to_adjust ch1 ch2 par mine] returns a heuristically selected
+* set of nodes which is located somewhere in between [ch1], [ch2], and [par], 
+* which are the two children and parent of [mine]. If no better node than [mine] 
+* can be found, then [mine] itself is returned.
 *
-* When only parsimony characters are being adjusted, the returned first element
-* in the tupe holds [`Mine x], where [x] is the readjusted [mine]. When
-* likelihood characters are inside the node, the first element in the tuple
-* containes [`MineNChildren (x, y, z)] where [x] containes the readjusted
-* [mine], [y] the readjusted [ch1] and [z] the readjusted [ch2]. For static
-* homology characters, the only parameter readjusted in [y] and [z] is their
-* branch length specification. *)
-val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data -> node_data -> node_data ->
-    node_data -> [`Mine of node_data | `MineNChildren of (node_data * node_data
-    * node_data) ] * All_sets.Integers.t
+* Characters to adjust are help in [to_adjust], and characters that have changed
+* are added into the second return value. [mode] is used in Dynamic Homology.
+val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data ->
+    node_data -> node_data -> node_data -> node_data * All_sets.Integers.t
+*)
+
+(* [median_w_times code node_1 node_2 times_1 times_2] 
+ * uses the time data of nodes in different directions, [times_1] and [times_2]
+ * to fill in the other directions with children [node_1] and [node_2].
+*)
+val median_w_times : int option -> node_data -> node_data -> node_data 
+                     -> node_data option -> node_data option -> node_data
 
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 
@@ -220,5 +225,3 @@ val to_string : node_data -> string
 val print : node_data -> unit
 val copy_chrom_map : node_data -> node_data -> node_data
 val median_counter : int ref
-val extract_time : node_data -> float list
-val apply_time : node_data -> node_data -> node_data

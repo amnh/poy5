@@ -1606,9 +1606,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 let self_data = Ptree.get_node_data self ptree 
                                 and other_data = Ptree.get_node_data other ptree
                                 in
-                                let single = 
-                                    Node.to_single (Some root) (Some self) 
+                                let single =
+                                    Node.to_single (Some root)
+                                                    (Some self) other_data
+                                                    (Some other) self_data
+                                                   (IntSet.empty, IntSet.empty)
+                                    (*
+                                    Node.to_single
+                                    (Some root) (Some self) 
                                     other_data (Some other) self_data 
+                                    *)
                                 in
                                 Ptree.add_node_data self single ptree
                             in

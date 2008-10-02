@@ -45,13 +45,21 @@ module type S = sig
     (** [median par code prev a b] calculates a median between the nodes [a] and [b].
     * [prev] holds the previously calculated value of that median (could be used
     * for heuristic or speedup purposes). *)
-    val median : int option -> int option -> n option -> n -> n -> n
+    val median : int option -> n option -> n -> n -> n
 
-    (** [median_3 granpa par cur a b] updates creates a fresh node starting with [cur] 
-     * which has parent [par], and children [a] and [b]. The median is not a
-     * three dimensional median, but only updates the final assignment
-     * information. [granpa] is the parental code of [par]. *)
-    val median_3 : int option -> n -> n -> n -> n -> n
+    (** [final_states granpa par cur a b] creates new node with [cur], parent
+    * [par], children [a] and [b]. and parent of parent [grandpa]. This only
+    * updates the final_assignment for the specified direction. *)
+    val final_states : int option -> n -> n -> n -> n -> n
+
+    (** [uppass_heuristic granpa par cur a b] updates a node in three
+     * directions in AllDirF. In One Direction and Standard we call the
+     * final_states functions --which used to be `median_3`. This function will
+     * fill in the data from the downpass in the other directions --passing the
+     * data from [cur] to [a] and [b] as it's children, and recieving the data
+     * from [par] as it's parent. This data, in likelihood, are the `times` or
+     * branch lengths *)
+    val uppass_heuristic : int option -> n -> n -> n -> n -> n
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)
@@ -61,13 +69,13 @@ module type S = sig
     * when the parent has code [par].
     * If [n] was created using [load_data] (see below), [tree_cost n = 0],
     * otherwise, if it was created using [median a b] (or subsequently the
-    * [median_3] of such a median), then [total_cost n = (total_cost a) +.
+    * [final_states] of such a median), then [total_cost n = (total_cost a) +.
     * (total_cost b) +. (distance a b)]. *)
     val total_cost : int option -> n -> float
 
     (** [node_cost n] calculates the cost of generating [n]. If [n] was created
     * using [load_data], then [node_cost n = 0], otherwise if it was created
-    * using [median a b] (or subsequently the [median_3] of such a median), then
+    * using [median a b] (or subsequently the [final_states] of such a median), then
     * [node_cost n = distance a b]. *)
     val node_cost : int option -> n -> float
 
@@ -259,7 +267,9 @@ module type S = sig
         int -> (int * n) list -> int list -> int list -> n list
 
     val root_cost : n -> float
-    val to_single : n option -> int option -> n -> int option -> n -> n
+    val to_single : n option -> int option -> n -> int option -> n -> 
+                        All_sets.Integers.t * All_sets.Integers.t -> n
+                    
     val character_costs : int option -> n -> ([`NonAdd | `Add | `Sank] * int * float) list
     (* The following group of functions return the preliminary and final
     * assignments for a given vertex for each type, in the sets as grouped for
@@ -275,23 +285,26 @@ module type S = sig
     (* Map all the internal codes of a node using the function *)
     val recode : (int -> int) -> n -> n
 
-    (* extract times from characters *)
-    val extract_time : int option -> n -> float list
-
     val to_other : n -> other_n
 
-    (** [edge_iterator gpar mine child1 child2] -> mine,child1,child2
-     * iterates the edges of child1 and child2 to find a minimum. All three
-     * nodes are modified, mine with the new vector, child1 and child2 with
-     * their respective new times.
-     * *)
-    val edge_iterator : n option -> n -> n -> n -> (n * n * n)
+    (** [edge_iterator mine child1 child2] -> mine,child1,child2
+     * iterates the edges of child1 and child2 to find a minimum. main node is
+     * modified, and in AllDirF the two children are also updated.
+     *)
+    val edge_iterator : n option -> n -> n -> n -> n
+
+    (** [readjust dir mode to_adjust ch1 ch2 par mine] -> mine * to_adjust
+     *
+     * Adjusts [mine] with children [ch1],[ch2] and parent [par], using
+     * direction [dir] --as grand parent, if needed. Returns an updated [mine]
+     * with a set heuristically determined in the same spirit of [to_adjust].
+     *
+     * Dynamic uses [mode] to determine if approximations or three dimension
+     * medians are calculated.
+    **)
+    val readjust : int option -> [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> 
+        n -> n-> n-> n -> n * All_sets.Integers.t
+
     val force : n -> n
 
-    (** [apply_time par cur time] -> {cur with time = time}
-     * applies the time to c2 . No other calculations are done aside from
-     * setting the value --this is usually taken care of during the next iteration
-     * of a post order traversal, thus not done here. 
-     * *)
-    val apply_time : n -> n -> n
 end

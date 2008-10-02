@@ -100,12 +100,6 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *
     float -> float*float*float = 
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
-external s_bigarray: 
-    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
-    "likelihood_CAML_StoBigarray"
-external bigarray_s: 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
-    "likelihood_CAML_BigarraytoS"
 external loglikelihood:
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     float = "likelihood_CAML_loglikelihood"
@@ -150,6 +144,13 @@ let ba2array a =
     for i = 1 to (asize-1) do
         afray.(i) <- a.{i};
     done; afray
+
+external s_bigarray: 
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    "likelihood_CAML_StoBigarray"
+external bigarray_s: 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
+    "likelihood_CAML_BigarraytoS"
 
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
@@ -255,6 +256,10 @@ let m_file f_rr a_size =
         done;
         srm.{r,r} <- -. !diag;
     done; srm
+
+(* ------------------------------------------------------------------------- *)
+(* estimation functions *)
+let estimate_time a b = 0.75 , 0.75
 
 (* ------------------------------------------------------------------------- *)
 (* required functions *)
@@ -412,6 +417,7 @@ let of_parser spec characters =
                 Array.make a_size 1.0 
             else
                 let pl = List.fold_right set_in lst (list_of a_size 0.0) in
+                assert( a_size = List.length pl);
                 Array.of_list (sublist pl 0 a_size)
     in
 
@@ -434,7 +440,7 @@ let of_parser spec characters =
 
 let f_abs x = if x < 0.0 then -.x else x
 let pack lst = `Structured (`Set (List.map (fun x -> `Single x) lst))
-(* Tags.attributes ->t ->t option ->Data.d *)
+(* Tags.attributes -> t -> t option -> Data.d *)
 let to_formatter attr mine minet _ data :Tags.output list =
     (** get the alphabet **)
     let alpha = Data.get_alphabet data (Array.get mine.codes 0) in
@@ -457,13 +463,26 @@ let to_formatter attr mine minet _ data :Tags.output list =
         let r = Array.to_list (barray_matrix ch_s) in
         _ray2 f_char r (Array.to_list co_s) in
 
+    let str_t1 = match fst minet with
+        | Some x -> string_of_float x
+        | None -> "None"
+    and str_t2 = match snd minet with
+        | Some y -> string_of_float y
+        | None -> "None" in
+
     let attrib :Tags.attribute list = 
         (Tags.Data.code,string_of_int mine.code) :: 
-        (Tags.Nodes.time, string_of_float minet) ::
+        (Tags.Nodes.min_time, str_t1) :: (Tags.Nodes.oth_time, str_t2) ::
         (Tags.Characters.mle, string_of_float mine.mle) :: attr in
 
+    let parameters p = Array.to_list (
+        Array.mapi (fun idx x -> (Tags.Data.param idx, string_of_float x)) p)
+    in
+
     let con = pack (
-                (Tags.Characters.model, (Tags.Data.modeltype, mine.model.name) :: [], 
+                (
+                    Tags.Characters.model,
+                    (Tags.Data.modeltype, mine.model.name) :: parameters mine.model.param,
                     pack ((f_prior mine.model.pi_0) :: [])
                 ) :: 
                 (Tags.Data.characters,[],
@@ -472,7 +491,7 @@ let to_formatter attr mine minet _ data :Tags.output list =
 (* -> Tags.output list *)
 
 (* readjust the branch lengths to create better mle score *)
-let readjust xopt x c1 c2 mine c_t1 c_t2 mine_t =
+let readjust xopt x c1 c2 mine c_t1 c_t2 =
     let model = c1.model and mcpy = mine in
 (*    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *)
     let (nta,ntb,nl) = match model.ui with
@@ -536,3 +555,66 @@ let f_codes_comp t codes =
     { t with chars = filter t.chars opt_idx }
 
 let compare_data a b = compare_chars a.chars b.chars
+
+(* -----------------------------------------
+ * Simple testing function for the main functions of calculating likelihood of
+ * the system. Exact tree from 'Computational Molecular Evolution' - Ziheng Yang
+ * Page 104, fig 4.2, for Chapter/Section 4.2.2.2
+ *     __   
+ *    /  \
+ *   /\   \
+ *  /\ \  /\
+ *  T C A C C
+*)
+open Bigarray
+let test_methods () =
+    let lv_a = [| 1.0;0.0;0.0;0.0; |] and lv_c = [| 0.0;1.0;0.0;0.0; |] 
+    and lv_g = [| 0.0;0.0;1.0;0.0; |] and lv_t = [| 0.0;0.0;0.0;1.0; |] 
+    and lv_n = [| 1.0;1.0;1.0;1.0; |] and lv_y = [| 0.0;1.0;0.0;1.0; |]
+    and lv_r = [| 1.0;0.0;1.0;0.0; |] in
+
+    let quick_diagonalize q =
+        let d  = Array2.create float64 c_layout 4 4 in
+        let () = Array2.fill d 0.0 in
+        let () = diagonalize_sym q d in 
+        q,d 
+    in
+
+    let u, d = quick_diagonalize (m_k2p 0.5 0.25 4)
+    and rates= Array1.of_array float64 c_layout ([| 1.0 |])
+    and probs= Array1.of_array float64 c_layout ([| 1.0 |])
+    and prior= Array1.of_array float64 c_layout ([| 0.25;0.25;0.25;0.25 |]) in
+
+    let set_1 = bigarray_s (Array2.of_array float64 c_layout ([| lv_t |]))
+    and set_2 = bigarray_s (Array2.of_array float64 c_layout ([| lv_c |]))
+    and set_3 = bigarray_s (Array2.of_array float64 c_layout ([| lv_a |]))
+    and set_4 = bigarray_s (Array2.of_array float64 c_layout ([| lv_g |])) in
+
+    (* - test 1 *)
+    let set_tc  = median_sym u d 0.2 0.2 set_1 set_2 rates probs in
+    let set_cc  = median_sym u d 0.2 0.2 set_2 set_2 rates probs in
+    let set_tca = median_sym u d 0.1 0.2 set_tc set_3 rates probs in
+    let set_root= median_sym u d 0.1 0.1 set_tca set_cc rates probs in
+    let f_cost = loglikelihood set_root prior in
+    Printf.printf "1Loglikelihood: %f\n%!" f_cost;
+
+    (* -- test 2 *)
+    let test2 = bigarray_s (Array2.of_array float64 c_layout ([| lv_n |])) in
+    let root2 = median_sym u d 0.5 0.5 test2 test2 rates probs in
+    let array_res = s_bigarray root2 in
+    let f_ost = loglikelihood root2 prior in
+    Printf.printf "2Loglikelihood: %f\n%!" f_ost;
+    print_barray2 array_res;
+
+    (* --- test 3 *)
+    let u,d = quick_diagonalize (m_jc69 0.25 4) in
+    let node_a = median_sym u d 1.50 0.75 set_2 set_4 rates probs
+    and node_b = median_sym u d 1.00 1.25 set_2 set_4 rates probs
+    and node_c = median_sym u d 1.00 1.25 set_4 set_2 rates probs in
+    let f_osta = loglikelihood node_a prior 
+    and f_ostb = loglikelihood node_b prior
+    and f_ostc = loglikelihood node_c prior in
+    Printf.printf "3Loglikelihood: %f == %f == %f\n%!" f_osta f_ostb f_ostc;
+
+    (* ---- test 4
+    let node_a = median_sym u d *)

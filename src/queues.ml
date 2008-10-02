@@ -1159,17 +1159,13 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             let root_median =
                 match j1 with
                 | Tree.Single_Jxn h ->
-                      Node.median None None None
-                          (Ptree.get_node_data h tree)
-                          cd_nd
+                      Node.median None None (Ptree.get_node_data h tree) cd_nd
                 | Tree.Edge_Jxn (h, n) ->
-                      let j1median = Node.median
-                          None None None
-                          (Ptree.get_node_data h tree)
-                          (Ptree.get_node_data n tree) in
-                      Node.median None None None
-                          j1median
-                          cd_nd in
+                      let j1median = Node.median None None 
+                                        (Ptree.get_node_data h tree)
+                                        (Ptree.get_node_data n tree) in
+                      Node.median None None j1median cd_nd
+            in
             (* run through each character... *)
             (* (extract those we've created) *)
             let char_list = Node.support_chars starting None root_median in

@@ -168,7 +168,8 @@ module Nodes = struct
     let notu = "Number of OTUS"
     let child1_name = "Child1's name"
     let child2_name = "Child2's name"
-    let time = "Time"
+    let min_time = "Minimum Code Child Time"
+    let oth_time = "Other Child Time"
 end
 
 module Trees = struct
@@ -198,6 +199,7 @@ module Data = struct
     let ignored_characters = "Ignored Characters"
     let characters = "Characters"
     let modeltype = "Model_Type"
+    let param x = "Parameter_"^(string_of_int x)
 end
 
 (* The Kolmogorov complexity characters specifications *)
