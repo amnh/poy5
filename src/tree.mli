@@ -245,8 +245,6 @@ module CladeFPMap : (Map.S with type key = CladeFP.fp)
 val get_vertices_to_handle :  int -> u_tree -> int list
 val fix_handle_neighbor : int -> int -> u_tree -> u_tree
 
-val get_all_leaves : u_tree -> int list
-
 (******* Tree Fusing *)
 
 val source_to_target :

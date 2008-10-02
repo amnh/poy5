@@ -339,7 +339,7 @@ let rec get_leaves ?(acc=[]) tree handle =
     end
 
 (** [get_all_leaves tree] returns a list of all the leaves in the tree *)
-let get_all_leaves tree handle =
+let get_all_leaves tree =
     let fn handle acc = get_leaves ~acc tree handle in
     All_sets.Integers.fold fn tree.handles []
 
