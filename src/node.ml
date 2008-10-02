@@ -612,7 +612,7 @@ let check_time (n1:node_data) (n2:node_data) : bool =
                     false
             ELSE
                 true
-            ENDIF
+            END
         | c1::t1,c2::t2 -> ct_map t1 t2
         | [],[] -> true
         | _ -> failwith "inconsistent character lengths"
@@ -2068,20 +2068,23 @@ let sing = [ (Tags.Characters.cclass, Tags.Nodes.single) ]
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
  
-    | StaticMl cb, StaticMl ca -> (
-        match root with
+    | StaticMl cb, StaticMl ca -> 
+IFDEF USE_LIKELIHOOD THEN
+        (match root with
         | None -> mine
         | Some root -> (* this is the root handle *)
             assert(ca.time = cb.time);
             let times = ca.time /. 2.0 in
             let res = MlStaticCS.median ca.preliminary cb.preliminary times times in
             let cost = MlStaticCS.root_cost res in
-            StaticMl
-                { preliminary=res;final=res;
-                  cost = (ca.weight *. cost);
-                  sum_cost = cost;
-                  weight = ca.weight; time = 0.}) 
-
+            StaticMl 
+            { preliminary=res;final=res;
+            cost = (ca.weight *. cost);
+            sum_cost = cost;
+            weight = ca.weight; time = 0.})
+ELSE
+            failwith likelihood_error
+END
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)

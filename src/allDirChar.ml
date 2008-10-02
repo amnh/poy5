@@ -569,7 +569,11 @@ with type b = AllDirNode.OneDirF.n = struct
     * to improve the overall cost of the tree, using only the
     * [AllDirNode.adjusted] field of each. *)
     let rec adjust_tree max_count nodes ptree =
-
+        let max_count = 
+            match max_count with
+            | Some x -> x
+            | None -> max_int
+        in
         (* process node data and direction into a AllDirF.node *)
         let process par mine mine' mineo = 
             let curr_un = match mineo.AllDirNode.unadjusted with

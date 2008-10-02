@@ -159,7 +159,7 @@ val to_single_root : ChromCS.IntSet.t -> t -> float * float * t
 * parent of [mine] respectively). The function returns a triple [(a, b, c)],
 * where [a] is the previous cost of [mine], [b] is the new cost of [c] as [ch1]
 * and [ch2] parent, and [c] is the new readjusted [mine]. *)
-val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> All_sets.Integers.t -> t -> t -> t -> t -> 
+val readjust : [`ThreeD of int option | `ApproxD of int option ] -> All_sets.Integers.t option -> All_sets.Integers.t -> t -> t -> t -> t -> 
     All_sets.Integers.t * float * float * t 
 
 (** [median_3 p n c1 c2] creates the median among
