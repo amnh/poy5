@@ -1891,11 +1891,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let result = 
                 IFDEF USE_LIKELIHOOD THEN
                 let single_ml_group result lst =
-                    Printf.printf "Starting Conversion\n%!";
                     match lst with
-                    | [] -> Printf.printf "Ending Conversion\n%!"; result
+                    | [] -> result
                     | h :: t -> (* We do have some characters to add *)
-                            Printf.printf "\tAdding Character\n%!";
                             let spec = 
                                 match Hashtbl.find
                                     (!data).Data.character_specs h with

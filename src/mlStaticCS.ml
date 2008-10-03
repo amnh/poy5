@@ -463,15 +463,15 @@ let to_formatter attr mine minet _ data :Tags.output list =
         _ray2 f_char r (Array.to_list co_s) in
 
     let str_t1 = match fst minet with
-        | Some x -> string_of_float x
-        | None -> "None"
+        | Some x -> `Float x
+        | None -> `String "None"
     and str_t2 = match snd minet with
-        | Some y -> string_of_float y
-        | None -> "None" in
+        | Some y -> `Float y
+        | None -> `String "None" in
 
     let attrib :Tags.attribute list = 
         (Tags.Data.code, `Int mine.code) :: 
-        (Tags.Nodes.time, `Float minet) ::
+        (Tags.Nodes.min_time, str_t1) :: (Tags.Nodes.oth_time, str_t2) ::
         (Tags.Characters.mle, `Float mine.mle) :: attr in
 
     let parameters p = Array.to_list (
