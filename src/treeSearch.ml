@@ -181,8 +181,11 @@ module MakeNormal
 
     let odebug = Status.user_message Status.Information
 
-    let simplified_report_trees filename data (tree, cost, _) =
-        let fo = Status.Output (filename, false, []) in
+    let simplified_report_trees compress filename data (tree, cost, _) =
+        let fo = 
+            let lst = if compress then [StatusCommon.Compress] else [] in
+            Status.Output (filename, false, lst) 
+        in
         let output tree = 
             let cost = string_of_float cost in
             let tree = 
@@ -194,7 +197,8 @@ module MakeNormal
             in
             let output tree =
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter true true tree);
+                Status.user_message fo 
+                (AsciiTree.for_formatter false true true tree);
                 Status.user_message fo ("[" ^ cost ^ "]");
                 Status.user_message fo "@]@," in
             List.iter output tree
@@ -213,6 +217,11 @@ module MakeNormal
         in
         let report_tree_len = 
             List.exists (function `Total -> true | _ -> false) ic
+        in
+        let newline = if use_hennig_style then "" else "@\n" in
+        let ic = 
+            if use_hennig_style then (`Margin (1000000010 - 1)) :: ic
+            else ic
         in
         (*
         let newick = 
@@ -243,24 +252,27 @@ module MakeNormal
             in
             let output tree =
                 if use_hennig_style && not !is_first then 
-                    Status.user_message fo "@,*@,"
+                    Status.user_message fo " * "
                 else is_first := false;
                 Status.user_message fo "@[";
-                Status.user_message fo (AsciiTree.for_formatter (not
-                use_hennig_style) leafsonly tree);
+                Status.user_message fo 
+                (AsciiTree.for_formatter (not use_hennig_style ) 
+                (not use_hennig_style) leafsonly tree);
                 if leafsonly && report_tree_len then
                     Status.user_message fo ("[" ^ cost ^ "]");
-                if not use_hennig_style then
-                    Status.user_message fo ";";
-                Status.user_message fo "@]@\n" in
+                if not use_hennig_style then Status.user_message fo ";"
+                else Status.user_message fo "@?";
+                Status.user_message fo "@]";
+                Status.user_message fo newline;
+            in
             List.iter output tree
         in
-        Status.user_message fo "@[<v>";
+        Status.user_message fo (if use_hennig_style then "@[<h>" else "@[<v>");
         if use_hennig_style then Status.user_message fo "tread ";
         Sexpr.leaf_iter (output) trees;
         if use_hennig_style then Status.user_message fo ";";
-        Status.user_message fo "@]";
-        Status.user_message (Status.Output (filename, false, !fo_ls)) "%!";
+        Status.user_message fo (if use_hennig_style then  "@]" else "@]@\n" );
+        Status.user_message (Status.Output (filename, false, !fo_ls)) "@\n%!";
         StatusCommon.Files.set_margin filename ori_margin 
               
 
@@ -308,19 +320,16 @@ module MakeNormal
     let forest_break_search_tree origin_cost tree =
         (** [median_cost_fn a b] returns the cost of taking the median of [a] and
             [b]---needed for breaking at a median *)
-        let median_cost_fn x y a b = Node.distance ~para:x ~parb:y a b in
+        let median_cost_fn x y a b = Node.distance ~para:x ~parb:y 0. a b in
 
         (** [break edge tree] breaks an edge in the tree and updates the tree data
             accordingly *)
         let break edge tree =
             let Tree.Edge(bfrom, bto) = edge in
-            let tree, break_delta, float, int, data, incr =
-                TreeOps.break_fn (bfrom, bto) tree in
-            let tree = TreeOps.uppass tree in
-            tree in
-
+            let breakage = TreeOps.break_fn (bfrom, bto) tree in
+            TreeOps.uppass breakage.Ptree.ptree 
+        in
         let tree = Ptree.set_origin_cost origin_cost tree in
-
         (* Iterate over all the nodes, possibly breaking... *)
         let tree = All_sets.IntegerMap.fold
             (fun id _ tree ->
@@ -376,14 +385,25 @@ module MakeNormal
         be kept. *)
     let rec forest_joins forest =
         let components = Ptree.components forest in
+        (*
         let join_tabu = PhyloTabus.join_to_tree_in_forest forest in
-
+        *)
         let status = Status.create "Attempting to join forest components"
             (Some components) "" in
 
         (** [tbr_joins component] tries to join [component] to all other
             components in the tree *)
-        let tbr_joins component =
+        let tbr_joins component = 
+            failwith "Forest searches are off in this release"
+            (* TODO:
+                * To get the forest search working again, we need to modify the
+                * tabu managers so that instead of using left and right uses a
+                * code assigned to each individual component. That's the only
+                * way to get the necessary way to connect multiple elements in a
+                * forest using the tabu managers. Right now there is no nice way
+                * to do it, and this is a low priority issue, therefore, I am
+                * leaving a note and doing it later. *)
+            (*
             Status.full_report ~adv:component status;
             let tabu, right = join_tabu component in
             let mgr = new PhyloQueues.first_best_srch_mgr (new Sampler.do_nothing) in
@@ -405,11 +425,9 @@ module MakeNormal
                        defiend. *)
                 | None -> assert false
                 | Some (_, clade_node) -> clade_node in
-
             let status =
                 PtreeSearch.tbr_join mgr tabu forest j2 clade_node
                     forest.Ptree.origin_cost in
-
             match status with
             | Tree.Break ->
                   let results = mgr#results in
@@ -418,6 +436,7 @@ module MakeNormal
                   Some forest
             | Tree.Continue
             | Tree.Skip -> None 
+            *)
         in
         let rec try_comp component =
             if component = components
@@ -447,14 +466,14 @@ module MakeNormal
             match item with
             | `PrintTrajectory filename -> 
                   (new SamplerApp.print_next_tree 
-                  (simplified_report_trees filename data))
+                  (simplified_report_trees false filename data))
             | `KeepBestTrees ->
                     (new SamplerApp.local_optimum_holder queue)
             | `TimeOut time ->
                     (new SamplerApp.timed_cancellation time) 
             | `TimedPrint (time, filename) ->
                     (new SamplerApp.timed_printout queue time 
-                     (simplified_report_trees filename data))
+                     (simplified_report_trees false filename data))
             | `UnionStats (filename, depth) ->
                     new SamplerRes.union_table depth
                     (Status.user_message (Status.Output (filename, false, [])))
@@ -474,12 +493,13 @@ module MakeNormal
                     TreeOps.join_fn 
                     (Status.user_message (Status.Output (filename, false, [])))
             | `AllVisited filename ->
-                    let join_fn a b c = 
-                        let a, _ = TreeOps.join_fn [] a b c in
+                    let join_fn incr a b c = 
+                        let a, _ = TreeOps.join_fn incr a b c in
                         a
                     in
+                    let do_compress = None <> filename in
                     (new SamplerApp.visited join_fn 
-                    (simplified_report_trees filename data))
+                    (simplified_report_trees do_compress filename data))
         in
         new Sampler.composer previous ob
 
@@ -569,7 +589,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
     in
     let partition_for_other_tabus =
         match l_opt.Methods.tabu_join with
-        | `Partition [] -> 
+        | `Partition _ -> 
                 Some (`Sets (Lazy.force sets))
                 (* TMP
                 Some (`Height 2)
@@ -785,7 +805,8 @@ let forest_search data queue origin_cost search trees =
             Status.user_message fo "@[<v>";
             Status.user_message fo 
             ("@[" ^ majority_text ^ "@ Majority@ Consensus Tree@]@,@[");
-            Status.user_message fo (AsciiTree.for_formatter true false res);
+            Status.user_message fo (AsciiTree.for_formatter false true false 
+            res);
             Status.user_message fo "@]@]\n%!";
         end else
             match filename with

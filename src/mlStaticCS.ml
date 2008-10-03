@@ -439,8 +439,7 @@ let of_parser spec characters =
     }
 
 let f_abs x = if x < 0.0 then -.x else x
-let pack lst = `Structured (`Set (List.map (fun x -> `Single x) lst))
-(* Tags.attributes -> t -> t option -> Data.d *)
+let pack lst = (`Set (List.map (fun x -> `Single x) lst))
 let to_formatter attr mine minet _ data :Tags.output list =
     (** get the alphabet **)
     let alpha = Data.get_alphabet data (Array.get mine.codes 0) in
@@ -450,10 +449,10 @@ let to_formatter attr mine minet _ data :Tags.output list =
     let _rayi f v = pack (Array.to_list (Array.mapi f v)) in
     (** pack individual elements into an ID **)
     let f_element c p :Tags.output =
-        (Alphabet.find_code c alpha, [], `String (string_of_float p)) in
+        (Alphabet.find_code c alpha, [], `Float p) in
     (** pack a single character into an ID **)
     let f_char c cc:Tags.output = 
-        let a_char = (Tags.Data.code, string_of_int cc) in
+        let a_char = (Tags.Data.code, `Int cc) in
         (Tags.Characters.character, [a_char], (_rayi f_element c)) in
     (** pack the priors of the model **)
     let f_prior priors :Tags.output = let pi = ba2array priors in
@@ -471,18 +470,16 @@ let to_formatter attr mine minet _ data :Tags.output list =
         | None -> "None" in
 
     let attrib :Tags.attribute list = 
-        (Tags.Data.code,string_of_int mine.code) :: 
-        (Tags.Nodes.min_time, str_t1) :: (Tags.Nodes.oth_time, str_t2) ::
-        (Tags.Characters.mle, string_of_float mine.mle) :: attr in
+        (Tags.Data.code, `Int mine.code) :: 
+        (Tags.Nodes.time, `Float minet) ::
+        (Tags.Characters.mle, `Float mine.mle) :: attr in
 
     let parameters p = Array.to_list (
         Array.mapi (fun idx x -> (Tags.Data.param idx, string_of_float x)) p)
     in
 
     let con = pack (
-                (
-                    Tags.Characters.model,
-                    (Tags.Data.modeltype, mine.model.name) :: parameters mine.model.param,
+                (Tags.Characters.model, (Tags.Data.modeltype, `String mine.model.name) :: [], 
                     pack ((f_prior mine.model.pi_0) :: [])
                 ) :: 
                 (Tags.Data.characters,[],

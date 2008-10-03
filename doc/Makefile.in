@@ -1,5 +1,7 @@
 MERCURIAL := @MERCURIAL@ id -i
 
+.PHONY: clean distclean
+
 QuickStart.pdf: QuickStart.tex
 	pdflatex $<; pdflatex $<; pdflatex $< 
 
@@ -9,3 +11,6 @@ commands.pdf: commands.tex allcommands.tex poy3commands.tex  QuickStart.tex poyl
 clean:
 	rm -f *.aux *.pdf *.log *.idx *.ind *.out *.toc *.ilg *.bbl *.blg
 
+distclean: clean
+	rm -f version.tex
+	rm -f Makefile

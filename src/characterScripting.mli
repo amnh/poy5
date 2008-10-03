@@ -52,7 +52,7 @@ module type S = sig
         | `Floats of float Sexpr.t
     ]
 
-    val distance : cs -> cs -> float
+    val distance : float -> cs -> cs -> float
 
     val median : cs -> cs -> cs
 

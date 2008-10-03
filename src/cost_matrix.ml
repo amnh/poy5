@@ -527,7 +527,7 @@ module Two_D = struct
                 fill_best_cost_and_median_for_all_combinations m a_sz
             else
                 let _ = 
-                    Status.user_message Status.Error 
+                    Status.user_message Status.Warning 
                     "You@ are@ loading@ a@ non-metric@ TCM"
                 in
                 fill_best_cost_and_median_for_all_combinations_bitwise m a_sz

@@ -49,14 +49,13 @@ let print alpha =
 
 let to_formatter alph : Tags.output =
     let element_to_tags string code acc =
-        let code = string_of_int code in
-        (`Single (Tags.Alphabet.element, [(Tags.Alphabet.value, string);
-        (Tags.Alphabet.code, code)], `Structured `Empty)) :: acc
+        (`Single (Tags.Alphabet.element, [(Tags.Alphabet.value, `String string);
+        (Tags.Alphabet.code, `Int code)], `Empty)) :: acc
     in
     let res = 
         `Set (All_sets.StringMap.fold element_to_tags alph.string_to_code [])
     in
-    Tags.Characters.alphabet, [], `Structured res
+    Tags.Characters.alphabet, [], res
 
 
 (* The alphabet type *)

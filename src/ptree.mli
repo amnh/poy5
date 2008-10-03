@@ -74,8 +74,22 @@ type phylogeny = (Node.node_data, unit) p_tree
 val empty : ('a, 'b) p_tree
 (** The empty phylogenetic tree. *)
 
-type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree ->
-    (('a, 'b) p_tree * Tree.break_delta * float * int * 'a * incremental list )
+type 'a clade_info = {
+    clade_id: int;
+    clade_node: 'a;
+    topology_delta: Tree.side_delta;
+}
+
+type ('a, 'b) breakage = {
+    ptree: ('a, 'b) p_tree;
+    tree_delta: Tree.break_delta;
+    break_delta: float;
+    left: 'a clade_info;
+    right: 'a clade_info;
+    incremental : incremental list;
+}
+
+type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 (** type of function that breaks the tree at a given break jxn and returns the
 * tree with the edge broken, change in the tree topology, any additional data
 * that might be useful to the caller, the cost of breaking the tree at this jxn
@@ -187,11 +201,8 @@ class type ['a, 'b] tabu_mgr = object
     method features : (string * string) list -> (string * string) list
     method join_edge : [ `Left | `Right ] -> Tree.edge option
     method reroot_edge : [`Left | `Right] -> Tree.edge option
-    method update_break :
-        ('a, 'b) p_tree -> Tree.break_delta -> int -> int -> int -> unit
-    method update_join : 
-        ('a, 'b) p_tree -> Tree.join_delta -> unit
-
+    method update_break : ('a, 'b) breakage -> unit
+    method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method break_edges : Tree.edge list
 
 end 
@@ -262,7 +273,7 @@ module type SEARCH = sig
       type search_step = 
           (a, b) p_tree ->
           (a, b) tabu_mgr ->
-          searcher
+          searcher 
 
       (** [spr_step ptree tabu search] performs one round of SPR searching on
           tree [ptree] using a given tabu manager and search manager. *)
@@ -286,12 +297,10 @@ module type SEARCH = sig
       val tbr_simple : bool -> searcher
 
       val tbr_join :
-          (a, b) search_mgr ->
-          ?updt:incremental list ->
           (a, b) tabu_mgr ->
-          ?rerooted:bool ->
-          (a, b) p_tree ->
-          Tree.join_jxn -> a -> float -> Tree.t_status
+          (a, b) search_mgr ->
+          (a, b) breakage ->
+          Tree.t_status
 
       (** [alternate spr_searcher tbr_searcher search] takes each tree in search manager [search]
           and performs rounds of alternating SPR and TBR until there is no further

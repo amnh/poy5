@@ -295,8 +295,6 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                           ) med.Breakinv.med_ls
             with Not_found -> failwith "Not found med -> to_formatter -> BreakinvCS"
         in         
-
-
         let cost, recost =
             match parent_t with  
             | None -> 0, 0
@@ -307,36 +305,27 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                            IntSet.mem med.BreakinvAli.ref_code ref_codes 
                       ) parent_med_ls.Breakinv.med_ls
                   in                                                                  
-
                   let cost, recost =
                       match state with
-                      | "Preliminary" ->
+                      | `String "Preliminary" ->
                             BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code  
-                      | "Final" ->
+                      | `String "Final" ->
                             BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code                               
                       | _ ->
                             let cost = IntMap.find code t.costs in 
                             let recost = IntMap.find code t.recosts in 
                             (int_of_float cost), (int_of_float recost)
-
                   in 
                   cost, recost
               end 
-
         in  
-
         let seq = Sequence.to_formater med.BreakinvAli.seq t.alph in
         let name = Data.code_character code d in 
-
-        let definite_str = 
-            if cost > 0 then  "true"
-            else "false"
-        in 
-
+        let definite_str = `Bool (cost > 0) in 
         let attributes = 
-            (Tags.Characters.name, name) ::                    
-            (Tags.Characters.cost, string_of_int cost) ::
-            (Tags.Characters.recost, string_of_int recost) :: 
+            (Tags.Characters.name, `String name) ::                    
+            (Tags.Characters.cost, `Int cost) ::
+            (Tags.Characters.recost, `Int recost) :: 
             (Tags.Characters.definite, definite_str) :: 
             attr
         in

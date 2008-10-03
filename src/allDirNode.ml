@@ -145,8 +145,8 @@ module OneDirF :
         and b = force_val b in
         f a b
 
-    let distance ?(para=None) ?(parb=None) a b =
-        apply_f_on_lazy Node.Standard.distance a b
+    let distance ?(para=None) ?(parb=None) missing_distance a b =
+        apply_f_on_lazy (Node.Standard.distance missing_distance) a b
 
     let character_costs x n = 
         Node.Standard.character_costs x (force_val n)
@@ -434,27 +434,28 @@ type nad8 = Node.Standard.nad8 = struct
         let node = { d' with lazy_node = lazy_node } in
         { d with unadjusted = [node] }
 
-    let distance ?(para=None) ?(parb=None) a b =
+    let distance ?(para=None) ?(parb=None) missing_distance a b =
+        let one_f = OneDirF.distance missing_distance in
         match a.unadjusted, b.unadjusted with
-        | [a], [b] -> OneDirF.distance a.lazy_node b.lazy_node
+        | [a], [b] -> one_f a.lazy_node b.lazy_node
         | a, [b] -> 
                 (match parb with
                 | None -> failwith "AlldNode.distance 1"
                 | Some para -> 
                         let a = not_with para a in
-                        OneDirF.distance a.lazy_node b.lazy_node)
+                        one_f a.lazy_node b.lazy_node)
         | [a], b -> 
                 (match para with
                 | None -> failwith "AlldNode.distance 2"
                 | Some parb -> 
                         let b = not_with parb b in
-                        OneDirF.distance a.lazy_node b.lazy_node)
+                        one_f a.lazy_node b.lazy_node)
         | a, b -> 
                 (match para, parb with
                 | Some para, Some parb -> 
                         let a = not_with para a 
                         and b = not_with parb b in
-                        OneDirF.distance a.lazy_node b.lazy_node
+                        one_f a.lazy_node b.lazy_node
                 | _ -> failwith "AlldNode.distance 3")
 
     let apply_on_one_direction f x n =

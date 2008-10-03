@@ -18,6 +18,8 @@ AC_SUBST(MERCURIAL)
 
 AC_CHECK_PROGS([MERCURIAL], [hg])
 
+AC_CHECK_PROG([NROFF], [groff], [groff], [notfound])
+
 AC_ARG_ENABLE([graphics], [AS_HELP_STRING([--enable-graphics],
               [Force POY to support graphical trees on screen. Valid options are none, ocaml, and tk. The default is none.])], [USEGRAPHICS=$enableval], [USEGRAPHICS=none])
 
@@ -53,6 +55,12 @@ AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences],
               [Enable the analysis of sequences longer than 16383 elements (The limit would be  2^31 or 2^63 for 32 bit and 64 bit architectures respectively). When using this option, more memory will be needed for the default search strategies. If you are analyzing fragments shorted than, say 12.000 bp, you are unlikely to need this option.])], 
               [USE_LONG_SEQUENCES=true], 
               [USE_LONG_SEQUENCES=false])
+
+AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
+              [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
+               [USE_XSLT=true],
+               [USE_XSLT=false])
+
 
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
               [Enable the use of static and dynamic likelihood functions. This

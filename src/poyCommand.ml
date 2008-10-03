@@ -152,7 +152,7 @@ type transform = [
 type cost_calculation = [
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative of [ `ThreeD | `ApproxD ] 
+    | `Iterative of [ `ThreeD of int option | `ApproxD of int option ] 
     | `Normal_plus_Vitamines
     | `Normal
 ]
@@ -170,6 +170,7 @@ type thresh_trees = [
 
 type builda = [
     | thresh_trees
+    | `Lookahead of int
     | `Prebuilt of Methods.filename
     | `Mst
     | `DistancesRnd
@@ -298,6 +299,7 @@ type reporta = [
     | `MstR
     | `TreeCosts
     | `TreesStats
+    | `SearchStats 
     | `TimeDelta of string
     | `SequenceStats of old_identifiers
     | `Ci of old_identifiers option
@@ -321,7 +323,7 @@ type reporta = [
 type perturba = [
     | `Ratchet of (float * int)
     | `Resample of (int * charortax)
-    | `Repeat of int
+    | `Iterations of int
     | swap
     | transform
 ]
@@ -358,6 +360,8 @@ type std_searcha = [
     | `MaxTime of float
     | `MinTime of float
     | `Target of float
+    | `Visited of string option
+    | `ConstraintFile of string 
 ]
 
 type command = [
@@ -440,7 +444,7 @@ let modify_acc acc c = function
     | files -> (`Other (files, c)) :: acc
 
 (* Building *)
-let build_default_method_args = (1, `Last, [], `UnionBased None)
+let build_default_method_args = (1, 0.0, `Last, [], `UnionBased None)
 let build_default_method = `Wagner_Rnd build_default_method_args
 let build_default = (10, build_default_method, [])
 
@@ -470,11 +474,11 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                 | Some x -> Some (`Local x)
             in
             begin match meth with
-            | `Wagner_Ordered (keep_max, keep_method, lst, _) 
-            | `Wagner_Distances (keep_max, keep_method, lst, _) 
-            | `Wagner_Mst (keep_max, keep_method, lst, _)
-            | `Build_Random (keep_max, keep_method, lst, _) 
-            | `Wagner_Rnd (keep_max, keep_method, lst, _) -> 
+            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
+            | `Build_Random (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
                     (n, (`Constraint (1, 0.0, file, lst)), trans)
             | `Branch_and_Bound _ ->
                     failwith
@@ -488,11 +492,11 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             end
     | `Branch_and_Bound bound ->
             begin match meth with
-            | `Wagner_Ordered (keep_max, keep_method, lst, _) 
-            | `Wagner_Distances (keep_max, keep_method, lst, _) 
-            | `Wagner_Mst (keep_max, keep_method, lst, _)
-            | `Build_Random (keep_max, keep_method, lst, _) 
-            | `Wagner_Rnd (keep_max, keep_method, lst, _) -> 
+            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
+            | `Build_Random (keep_max, _, keep_method, lst, _) 
+            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
                     (n, (`Branch_and_Bound (bound, None, keep_method,
                     keep_max, lst)), trans)
             | `Branch_and_Bound x ->
@@ -564,24 +568,59 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                     failwith
                     "Branch and bound tree has already been selected as build method."
             end
-    | `Threshold _ ->
-            acc
+    | `Threshold x ->
+            let converter (a, _, c, d, e) = (a, x, c, d, e) in
+            let nmeth = 
+                match meth with
+                | `Branch_and_Bound _
+                | `Constraint _
+                | `Build_Random _
+                | `Prebuilt _ -> meth
+                | `Wagner_Distances y -> 
+                        `Wagner_Distances (converter y)
+                | `Wagner_Mst y -> 
+                        `Wagner_Mst (converter y)
+                | `Wagner_Rnd y -> 
+                        `Wagner_Rnd (converter y)
+                | `Wagner_Ordered y -> 
+                        `Wagner_Ordered (converter y)
+            in
+            n, nmeth, trans
     | `Trees x ->
             (x, meth, trans)
+    | `Lookahead x ->
+            let converter (_, b, c, d, e) = (x, b, c, d, e) in
+            let nmeth = 
+                match meth with
+                | `Branch_and_Bound _
+                | `Constraint _
+                | `Build_Random _
+                | `Prebuilt _ -> meth
+                | `Wagner_Distances y -> 
+                        `Wagner_Distances (converter y)
+                | `Wagner_Mst y -> 
+                        `Wagner_Mst (converter y)
+                | `Wagner_Rnd y -> 
+                        `Wagner_Rnd (converter y)
+                | `Wagner_Ordered y -> 
+                        `Wagner_Ordered (converter y)
+            in
+            n, nmeth, trans
     | `Last
     | `First
     | `Keep_Random as x -> 
+            let converter (a, b, _, c, d) = (a, b, x, c, d) in
             let nmeth = 
                 match meth with
                 | `Constraint _
                 | `Prebuilt _ -> meth
-                | `Wagner_Distances (a, _, c, d) -> 
-                        `Wagner_Distances (a, x, c, d)
-                | `Wagner_Mst (a, _, c, d) -> 
-                        `Wagner_Mst (a, x, c, d)
-                | `Wagner_Rnd (a, _, c, d) -> `Wagner_Rnd (a, x, c, d)
-                | `Wagner_Ordered (a, _, c, d) -> `Wagner_Ordered (a, x, c, d)
-                | `Build_Random (a, _, c, d) -> `Build_Random (a, x, c, d)
+                | `Wagner_Distances y -> 
+                        `Wagner_Distances (converter y)
+                | `Wagner_Mst y -> 
+                        `Wagner_Mst (converter y)
+                | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+                | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+                | `Build_Random y -> `Build_Random (converter y)
                 | `Branch_and_Bound (a, b, _, c, d) ->
                         `Branch_and_Bound (a, b, x, c, d)
             in
@@ -590,21 +629,22 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             let t = transform_transform_arguments x in
             (n, meth, (t @ trans))
     | #Methods.tabu_join_strategy as tabu ->
+            let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
             let nmeth = 
                 match meth with
                 | `Constraint _
                 | `Branch_and_Bound _
                 | `Prebuilt _ -> meth
-                | `Wagner_Distances (a, b, c, _) -> 
-                        `Wagner_Distances (a, b, c, tabu)
-                | `Wagner_Mst (a, b, c, _) -> 
-                        `Wagner_Mst (a, b, c, tabu)
-                | `Wagner_Rnd (a, b, c, _) -> 
-                        `Wagner_Rnd (a, b, c, tabu)
-                | `Wagner_Ordered (a, b, c, d) -> 
-                        `Wagner_Ordered (a, b, c, tabu)
-                | `Build_Random (a, b, c, _) -> 
-                        `Build_Random (a, b, c, tabu)
+                | `Wagner_Distances y -> 
+                        `Wagner_Distances (converter y)
+                | `Wagner_Mst y -> 
+                        `Wagner_Mst (converter y)
+                | `Wagner_Rnd y -> 
+                        `Wagner_Rnd (converter y)
+                | `Wagner_Ordered y -> 
+                        `Wagner_Ordered (converter y)
+                | `Build_Random y -> 
+                        `Build_Random (converter y)
 
             in
             n, nmeth, trans
@@ -725,7 +765,7 @@ let transform_perturb (tr, m, sw, it) = function
     | `Ratchet _ as x -> (tr, x, sw, it)
     | `Resample (x, `Taxa) -> tr, `Resample (`Taxa x), sw, it
     | `Resample (x, `Characters) -> tr, `Resample (`Characters x), sw, it
-    | `Repeat it -> tr, m, sw, it
+    | `Iterations it -> tr, m, sw, it
 
 let transform_perturb_arguments x : Methods.script list = 
     let tr, a, b, c = List.fold_left transform_perturb perturb_default x in
@@ -803,6 +843,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`TreeCosts (file)) :: acc, file
     | `TreesStats ->
             (`TreesStats (file)) :: acc, file
+    | `SearchStats ->
+            (`SearchStats (file)) :: acc, file
     | `TimeDelta str ->
             (`TimeDelta (str, file)) :: acc, file
     | `Consensus v ->
@@ -997,13 +1039,16 @@ let transform_search items =
     | _ -> failwith "Forgot to update the list of options of search?"
 
 let transform_stdsearch items = 
-    `StandardSearch (List.fold_left (fun (a, e, b, c, d) x ->
+    `StandardSearch (List.fold_left (fun (a, e, b, c, d, f, g) x ->
         match x with
-        | `MaxTime x -> (Some x, e, b, c, d)
-        | `MinTime x -> (a, Some x, b, c, d)
-        | `MaxRam x -> (a, e, b, Some x, d)
-        | `MinHits x -> (a, e, Some x, c, d)
-        | `Target x -> (a, e, b, c, Some x)) (None, None, None, None, None) items)
+        | `MaxTime x -> (Some x, e, b, c, d, f, g)
+        | `MinTime x -> (a, Some x, b, c, d, f, g)
+        | `MaxRam x -> (a, e, b, Some x, d, f, g)
+        | `MinHits x -> (a, e, Some x, c, d, f, g)
+        | `Visited x -> (a, e, b, c, d, Some x, g)
+        | `ConstraintFile x -> (a, e, b, c, d, f, Some x)
+        | `Target x -> (a, e, b, c, Some x, f, g)) (None, None, None, None, None,
+        None, None) items)
 
 
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
@@ -1386,8 +1431,19 @@ let create_expr () =
             ];
         iterative_mode:
             [ 
-                [ LIDENT "exact" -> `ThreeD ] |
-                [ LIDENT "approximate" -> `ApproxD ]
+                [ LIDENT "exact"; iterations = OPT optional_integer_or_float  ->
+                    let iterations = 
+                        match iterations with 
+                        None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `ThreeD iterations ] |
+                [ LIDENT "approximate"; iterations = OPT
+                optional_integer_or_float -> 
+                    let iterations =
+                        match iterations with
+                        | None -> None | Some x -> Some (int_of_string x)
+                    in
+                    `ApproxD iterations ]
             ];
         (* Reporting *)
         report:
@@ -1417,6 +1473,7 @@ let create_expr () =
                     match x with
                     | Some x -> `Trees x | None -> `Trees [] ] |
                 [ LIDENT "treestats" -> `TreesStats ] |
+                [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] | 
@@ -1478,7 +1535,7 @@ let create_expr () =
                 [ x = resample -> x ] |
                 [ x = swap -> (x :> perturba) ] |
                 [ x = transform -> (x :> perturba) ] |
-                [ LIDENT "iterations"; ":"; x = INT -> `Repeat (int_of_string x) ]
+                [ LIDENT "iterations"; ":"; x = INT -> `Iterations (int_of_string x) ]
             ];
         ratchet:
             [
@@ -1603,7 +1660,10 @@ let create_expr () =
                 [ LIDENT "hits"; ":"; x = INT -> `MinHits (int_of_string x) ] |
                 [ LIDENT "max_time"; ":"; x = time -> `MaxTime (float_of_int x)
                 ] |
-                [ LIDENT "min_time"; ":"; x = time -> `MinTime (float_of_int x) ]
+                [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
+                [ LIDENT "min_time"; ":"; x = time -> 
+                    `MinTime (float_of_int x) ] |
+                [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]
             ];
         search:
             [
@@ -1756,7 +1816,9 @@ let create_expr () =
                 [ x = build_method -> (x :> builda) ] |
                 [ x = join_method -> (x :> builda) ] |
                 [ x = keep_method -> (x :> builda) ] |
-                [ x = cost_calculation -> (x :> builda) ]
+                [ x = cost_calculation -> (x :> builda) ] |
+                [ LIDENT "lookahead"; ":"; x = INT -> 
+                    `Lookahead (int_of_string x) ]
             ];
         threshold_and_trees:
             [

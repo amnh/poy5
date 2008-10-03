@@ -42,7 +42,8 @@ class type ['a, 'b] search_manager_sampler = object
     * cost d, which heuristic join cost e while the actual join cost (if appears
     * better), f. *)
     method process : 
-            Tree.join_jxn -> Tree.join_jxn -> 'a ->
+            Ptree.incremental list ->
+                Tree.join_jxn -> Tree.join_jxn -> 'a ->
                 ('a, 'b) Ptree.p_tree -> ('a, 'b) Ptree.p_tree option -> 
                     float -> float -> float option -> unit
     method any_trees : bool -> unit
@@ -54,7 +55,7 @@ end
 class ['a, 'b] do_nothing : ['a, 'b] search_manager_sampler = object
     method init _ = ()
     method clone = ({<>} :> ('a, 'b) search_manager_sampler)
-    method process _ _ _ _ _ _ _ _ = 
+    method process _ _ _ _ _ _ _ _ _ = 
         StatusCommon.process_parallel_messages Status.user_message
     method any_trees _ = ()
     method next_tree _  = ()
@@ -75,9 +76,9 @@ class ['a, 'b] composer (f : ('a, 'b) search_manager_sampler)
 
     method clone = ({<f = f#clone; s = s#clone>} :> ('a, 'b) search_manager_sampler)
 
-    method process a b n c d y e x = 
-        f#process a b n c d y e x;
-        s#process a b n c d y e x;
+    method process z a b n c d y e x = 
+        f#process z a b n c d y e x;
+        s#process z a b n c d y e x;
 
     method any_trees a =
         f#any_trees a;
@@ -130,7 +131,7 @@ module MakeApp (Node : NodeSig.S)
 
         method clone = ({<>} :> ('a, 'b) search_manager_sampler)
 
-        method process _ _ _ _ tree _ _ cost = 
+        method process _ _ _ _ _ tree _ _ cost = 
             match tree with
             | None -> ()
             | Some tree ->
@@ -177,8 +178,8 @@ module MakeApp (Node : NodeSig.S)
 
         method clone = ({<>} :> ('a, 'b) search_manager_sampler)
 
-        method process j1 j2 _ tree _ _ _ _ = 
-            let tree = join_tree j1 j2 tree in
+        method process incremental j1 j2 _ tree _ _ _ _ = 
+            let tree = join_tree incremental j1 j2 tree in
             let cost = Ptree.get_cost `Adjusted tree in
             printer (tree.Ptree.tree, cost, ())
     end
@@ -210,7 +211,7 @@ module MakeApp (Node : NodeSig.S)
             method private timed_operation _ =
                 self#print_stack
 
-            method process _ _ _ _ _ _ _ _ =
+            method process _ _ _ _ _ _ _ _ _ =
                 if time < Timer.wall timer then 
                     self#print_stack
                 else ()
@@ -220,7 +221,7 @@ module MakeApp (Node : NodeSig.S)
         [Node.n, Edge.e] search_manager_sampler = object 
             inherit timed_trajectory time
 
-            method process _ _ _ _ _ _ _ _ =
+            method process _ _ _ _ _ _ _ _ _ =
                 if time < Timer.wall timer then 
                     raise Methods.TimedOut
                 else ()
@@ -413,7 +414,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
                             let _ = union_tree <- Some res in
                             res
 
-        method process edge _ vertex tree _ delta cost real_cost = 
+        method process _ edge _ vertex tree _ delta cost real_cost = 
             let str_delta = string_of_float delta in
             let union_tree = self#update_tree tree in
             let _ =
@@ -514,7 +515,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
                     print (string_of_int counter ^ "\t");
                     counter <- 0
 
-        method process edge _ _ _ _ _ _ x = 
+        method process _ edge _ _ _ _ _ _ x = 
             match x with
             | Some _ ->
                     print (string_of_int counter ^ "\t");
@@ -538,9 +539,9 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
                         cost <- string_of_float (Ptree.get_cost `Adjusted h)
                 | _ -> ()
 
-            method process j1 j2 _ pt _ bd _ _ =
+            method process incremental j1 j2 _ pt _ bd _ _ =
                 let total_cost = 
-                    let joined, _ = join_fn [] j1 j2 pt in
+                    let joined, _ = join_fn incremental j1 j2 pt in
                     let total_cost = Ptree.get_cost `Adjusted joined in
                     string_of_float total_cost
                 in

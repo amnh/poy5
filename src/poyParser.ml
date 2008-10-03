@@ -382,13 +382,22 @@ let process_tree prev lst =
                 let process_tree_file data file =
                     let file = `Remote file in
                     let tr = Parser.Tree.of_file file in
+                    let tr = 
+                        let cnt = ref 0 in
+                        List.map (fun x -> (x, FileStream.filename file, (incr
+                        cnt; !cnt))) tr
+                    in
                     { data with Data.trees = data.Data.trees @ tr }
                 in
                 List.fold_left ~f:process_tree_file ~init:data
                 treefiles 
         | TreesList trees ->
-                List.fold_left ~f:(fun acc x -> { acc with Data.trees =
-                    (Parser.Tree.of_string x) @ acc.Data.trees })
+                let cnt = ref 0 in
+                List.fold_left ~f:(fun acc x -> 
+                    let trees = Parser.Tree.of_string x in
+                    let trees = List.map (fun x -> (x, "", (incr cnt; !cnt)))
+                    trees in
+                    { acc with Data.trees = trees @ acc.Data.trees })
                 ~init:data trees 
         | Protein_Sequences _ | EProbability _ | FProbability _ ->
                 failwith "Grammar not yet supported. "
@@ -491,7 +500,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     Data.process_molecular_file 
                     "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    annotated Alphabet.nucleotides false `Seq data filename
+                    annotated Alphabet.nucleotides is_prealigned `Seq data filename
             | Parser.Is_ComplexTerminals ->
                     let data = add_file [Data.Characters] in
                     file_type_message "Complex@ terminals@ definition@ file";
@@ -502,29 +511,31 @@ let guess_class_and_add_file annotated is_prealigned data filename =
 let explode_filenames files = 
     let explode_filename file = 
         let file = FileStream.filename file in
-        let ch = 
-            let file = 
-                if Sys.os_type = "Win32" then file
-                else if Sys.os_type = "Unix" then
-                    Str.global_replace (Str.regexp "\\\\ ") "\\ " file
-                else file
-            in
-            let line = 
-                match Sys.os_type with
-                | "Win32" -> ("dir /B \"" ^ file ^ "\" 2> NUL")
-                | _ -> "ls -1 " ^ file ^ " 2> /dev/null"
-            in
-            Unix.open_process_in line 
-            in
-        let res = Parser.IgnoreList.of_channel ch in
-        close_in ch;
-        match res with
-        | [] -> 
-                let msg = "@[No@ file@ matching@ @{<b>" ^ StatusCommon.escape file ^ 
-                "@}@ found.@]" in
-                Status.user_message Status.Error msg;
-                failwith "File not found"
-        | _ -> res
-    in
-    List.flatten (List.map explode_filename files)
+        if Sys.file_exists file then [file]
+        else
+            let ch = 
+                let file = 
+                    if Sys.os_type = "Win32" then file
+                    else if Sys.os_type = "Unix" then
+                        Str.global_replace (Str.regexp "\\\\ ") "\\ " file
+                    else file
+                in
+                let line = 
+                    match Sys.os_type with
+                    | "Win32" -> ("dir /B \"" ^ file ^ "\" 2> NUL")
+                    | _ -> "ls -1 " ^ file ^ " 2> /dev/null"
+                in
+                Unix.open_process_in line 
+                in
+            let res = Parser.IgnoreList.of_channel ch in
+            close_in ch;
+            match res with
+            | [] -> 
+                    let msg = "@[No@ file@ matching@ @{<b>" ^ StatusCommon.escape file ^ 
+                    "@}@ found.@]" in
+                    Status.user_message Status.Error msg;
+                    failwith "File not found"
+            | _ -> res
+        in
+        List.flatten (List.map explode_filename files)
 

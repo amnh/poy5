@@ -2,6 +2,8 @@
 SHELL = /bin/sh
 VPATH = @srcdir@
 
+.PHONY: clean distclean
+
 subdirs = @subdirs@
 top_srcdir = @top_srcdir@
 srcdir = @srcdir@
@@ -78,6 +80,10 @@ clean::
 
 clean::
 	rm -f *.cm* *.o *.a
+
+distclean: clean
+	rm -f Makefile config.h config.log config.status
+
 depend:
 	$(OCAMLDEP) *.ml > .depend
 	gcc -MM $(CFLAGS) *.c >> .depend

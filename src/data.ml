@@ -37,6 +37,8 @@ type dynhom_opts =
 (** The valid types of contents of a file *)
 type contents = Characters | CostMatrix | Trees 
 
+type parsed_trees = ((string Parser.Tree.t list) * string * int)
+
 type dyna_state_t = [
     (** A short sequence, no rearrangements are allowed*)
     | `Seq
@@ -329,7 +331,7 @@ type d = {
     (* The set of taxa to be ignored in the analysis *)
     ignore_character_set : string list;
     (* The set of loaded trees *)
-    trees : string Parser.Tree.t list list;
+    trees : parsed_trees list;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -653,35 +655,91 @@ let warn_if_repeated_and_choose_uniquely list str file =
     All_sets.Strings.fold (fun x acc -> x :: acc) selected []
 
 
-let process_trees data file =
-    let check_tree cnt trees =
-        let check_tree tree = 
-            let rec leafs acc tree = 
-                match tree with
-                | Parser.Tree.Node (c, _) ->
-                        List.fold_left ~f:leafs ~init:acc c
-                | Parser.Tree.Leaf x -> x :: acc
-            in
-            let leafs = leafs [] tree in
-            let _ =
-                warn_if_repeated_and_choose_uniquely leafs 
-                ("input@ tree@ " ^ string_of_int cnt ^ "@ of@ file@ ")
-                (FileStream.filename file)
-            in
-            ()
-        in
-        List.iter ~f:check_tree trees;
-        cnt + 1
+let trim taxon =
+    let rec non_empty_position x n fmod res =
+        if x = n then (res x)
+        else 
+            match taxon.[x] with
+            | ' ' | '\t' -> non_empty_position (fmod x) n fmod res
+            | _ -> x
     in
+    let len = String.length taxon in
+    if 0 < len then 
+        let start = non_empty_position 0 len succ pred
+        and final = non_empty_position (len - 1) (-1) pred succ in
+        String.sub taxon start (final - start + 1) 
+    else taxon
+
+let verify_trees data ((tree, file, position) : parsed_trees) =
+    let esc_file = StatusCommon.escape file in
+    let rec leafs acc tree = 
+        match tree with
+        | Parser.Tree.Node (c, _) ->
+                List.fold_left ~f:leafs ~init:acc c
+        | Parser.Tree.Leaf x -> x :: acc
+    in
+    let rec stop_if_not_all_terminals_in_tree map taxon =
+        let taxon = trim taxon in
+        if All_sets.StringMap.mem taxon data.synonyms then
+            stop_if_not_all_terminals_in_tree map
+            (All_sets.StringMap.find taxon data.synonyms)
+        else 
+            if All_sets.StringMap.mem taxon map then 
+                All_sets.StringMap.remove taxon map
+            else 
+                let msg = 
+                    ("input@ tree@ " ^ string_of_int position ^ 
+                    (if "" <> file then "@ of@ file@ " ^ esc_file else "") ^
+                    "@ has@ the@ terminal@ "
+                    ^ StatusCommon.escape taxon ^ 
+                    "@ and@ there@ is@ no@ data@ loaded@ for@ it")
+                in
+                let () = Status.user_message Status.Error msg in
+                failwith "Data not found"
+                    
+    in
+    let leafs = List.fold_left ~f:leafs ~init:[] tree in
+    let _ =
+        warn_if_repeated_and_choose_uniquely leafs 
+        ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
+    in
+    let res = 
+        List.fold_left ~f:(stop_if_not_all_terminals_in_tree )
+        ~init:data.taxon_names
+        leafs
+    in
+    if All_sets.StringMap.is_empty res then ()
+    else 
+        let taxa = 
+            (String.concat ", "
+            (List.map StatusCommon.escape 
+                (All_sets.StringMap.fold (fun a _ acc -> a :: acc) res [])))
+        in
+        let file_string =
+            if "" <> file then "@ of@ file@ " ^ esc_file else ""
+        in
+        let msg = 
+            "The@ following@ terminals@ do@ not@ appear@ in@ the@ input@ "
+            ^ "tree@ " ^ string_of_int position ^ file_string ^ "@ :@ " ^ taxa ^
+            ".@ Beware@ that@ this@ tree@ will@ be@ incompatible@ with@ any@ " ^
+            "@ other@ trees@ built@ by@ POY,@ as@ some@ terminals@ appearing@ "
+            ^ "in@ the@ new@ trees@ will@ be@ missing@ on@ this@ one@ and@ " ^ 
+            "could@ cause@ errors." 
+        in
+        Status.user_message Status.Warning msg
+
+let process_trees data file =
     try
         let ch, file = FileStream.channel_n_filename file in
         let trees = Parser.Tree.of_channel ch in
+        let () = close_in ch in
         let len = List.length trees in
         let msg = 
             "@[The@ file@ " ^ StatusCommon.escape file ^ 
             "@ contains@ " ^ string_of_int len ^ "@ trees.@]"
         in
-        let _ = List.fold_left ~f:check_tree ~init:1 trees in
+        let cnt = ref 0 in
+        let trees = List.map ~f:(fun x -> incr cnt; (x, file, !cnt)) trees in
         Status.user_message Status.Information msg;
         { data with trees = data.trees @ trees }
     with
@@ -758,21 +816,6 @@ let pick_code_for_root code data =
                 data 
             else { data with root_at = Some code }
 
-let trim taxon =
-    let rec non_empty_position x n fmod res =
-        if x = n then (res x)
-        else 
-            match taxon.[x] with
-            | ' ' | '\t' -> non_empty_position (fmod x) n fmod res
-            | _ -> x
-    in
-    let len = String.length taxon in
-    if 0 < len then 
-        let start = non_empty_position 0 len succ pred
-        and final = non_empty_position (len - 1) (-1) pred succ in
-        String.sub taxon start (final - start + 1) 
-    else taxon
-
 (** Returns a [d] with the following condition: if [taxon] is present in [data]
  * then [data] is returned, otherwise, [data] with the added name and assigned code
  * is returned. In addition, if there is no preferred taxon assigned to the
@@ -819,9 +862,11 @@ let get_taxon_characters data tcode =
 
 (* Changes in place *)
 let add_static_character_spec data (code, spec) =
-    Hashtbl.replace data.character_specs code (Static spec);
-    Hashtbl.replace data.character_names spec.Parser.SC.st_name code;
-    Hashtbl.replace data.character_codes code spec.Parser.SC.st_name
+    if not spec.Parser.SC.st_eliminate then begin
+        Hashtbl.replace data.character_specs code (Static spec);
+        Hashtbl.add data.character_names spec.Parser.SC.st_name code;
+        Hashtbl.replace data.character_codes code spec.Parser.SC.st_name;
+    end else ()
 
 let report_static_input file (taxa, characters, matrix, tree, unaligned) =
     let characters = Array.length characters 
@@ -1241,13 +1286,16 @@ matrix, trees, sequences) : Parser.SC.file_output) =
                 let _, tcode = process_taxon_code data tname file in
                 let tl = get_taxon_characters data tcode in
                 let add_character column it =
-                    let chcode, _ = codes.(column) in
-                    let specified = 
-                        match it with
-                        | Some _ -> `Specified
-                        | None -> `Unknown
-                    in
-                    Hashtbl.replace tl chcode ((Stat (chcode, it)), specified);
+                    let chcode, spec = codes.(column) in
+                    if not spec.Parser.SC.st_eliminate then begin
+                        let specified = 
+                            match it with
+                            | Some _ -> `Specified
+                            | None -> `Unknown
+                        in
+                        Hashtbl.replace tl chcode 
+                        ((Stat (chcode, it)), specified);
+                    end;
                     (column + 1)
                 in
                 let _ = Array.fold_left ~f:add_character ~init:0 matrix.(row) in
@@ -1256,7 +1304,11 @@ matrix, trees, sequences) : Parser.SC.file_output) =
                 Status.full_report ~adv:(did + 1) st;
     done;
     (* We add the trees *)
-    let data = { data with trees = data.trees @ trees } in
+    let data = 
+        let cnt = ref 0 in
+        let trees = List.rev trees in
+        let trees = List.map ~f:(fun x -> x, file, (incr cnt; !cnt)) trees in
+        { data with trees = data.trees @ trees } in
     (* Now time to add the molecular sequences *)
     let data = 
         let single_sequence_adder data (alphabet, sequences) =
@@ -1732,8 +1784,9 @@ let add_character_spec spec code data =
     end else raise Illegal_argument;
     data
 
-let taxon_code name data =
-    All_sets.StringMap.find name data.taxon_names
+let rec taxon_code name data =
+    try All_sets.StringMap.find name data.taxon_names with
+    | Not_found -> taxon_code (All_sets.StringMap.find name data.synonyms) data
 
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with
@@ -1899,24 +1952,24 @@ let synonyms_to_formatter d : Tags.output =
     let synonym t1 t2 acc : Tags.output Sexpr.t list =
         let t1 = `Single (Tags.Data.value, [], `String t1)
         and t2 = `Single (Tags.Data.value, [], `String t2) in
-        `Single (Tags.Data.synonym, [], `Structured (`Set [t1; t2])) :: acc
+        `Single (Tags.Data.synonym, [], (`Set [t1; t2])) :: acc
     in
     let res = All_sets.StringMap.fold synonym d.synonyms [] in
-    Tags.Data.synonyms, [], `Structured (`Set res)
+    Tags.Data.synonyms, [], (`Set res)
 
 let taxon_names_to_formatter d : Tags.output =
     let taxon_name code name acc =
         if All_sets.Strings.mem name d.ignore_taxa_set then acc
         else
             let attr = [
-                (Tags.Data.name, name);
-                (Tags.Data.code, string_of_int code);
+                (Tags.Data.name, `String name);
+                (Tags.Data.code, `Int code);
             ]
             in
-            `Single (Tags.Data.taxon, attr, `Structured `Empty) :: acc
+            `Single (Tags.Data.taxon, attr, `Empty) :: acc
     in
     let res = All_sets.IntegerMap.fold taxon_name d.taxon_codes [] in
-    Tags.Data.taxa, [], `Structured (`Set res)
+    Tags.Data.taxa, [], (`Set res)
 
 let files_to_formatter d : Tags.output =
     let file (f, contents) : Tags.output Sexpr.t =
@@ -1931,57 +1984,58 @@ let files_to_formatter d : Tags.output =
                 `Single (Tags.Data.file_contents, [], `String tmp)
             in
             List.map contents_to_output contents 
-        and name = Tags.Data.filename, f in
-        `Single ((Tags.Data.file, [name], `Structured (`Set contents)) :
+        and name = Tags.Data.filename, `String f in
+        `Single ((Tags.Data.file, [name], (`Set contents)) :
             Tags.output)
     in
-    Tags.Data.files, [], `Structured (`Set (List.map file d.files))
+    Tags.Data.files, [], (`Set (List.map file d.files))
 
 let ignored_taxa_to_formatter d : Tags.output = 
     let taxon x acc =
         `Single (Tags.Data.value, [], `String x) :: acc
     in
     let res = All_sets.Strings.fold taxon d.ignore_taxa_set [] in
-    Tags.Data.ignored_taxa, [], `Structured (`Set res)
+    Tags.Data.ignored_taxa, [], (`Set res)
 
 let ignored_characters_to_formatter d : Tags.output = 
     let character x = `Single (Tags.Data.value, [], `String x) in
     let res = List.map character d.ignore_character_set in
-    Tags.Data.ignored_characters, [], `Structured (`Set res)
+    Tags.Data.ignored_characters, [], (`Set res)
 
 let states_set_to_formatter enc : Tags.output = 
     let set = Parser.OldHennig.Encoding.get_set enc in
     let add item acc =
-        `Single (Tags.Characters.state, [Tags.Characters.value,
-        string_of_int item], `Structured `Empty) :: acc
+        `Single (Tags.Characters.state, 
+            [Tags.Characters.value, `Int item], `Empty) :: 
+                acc
     in
     let res = All_sets.Integers.fold add set [] in
-    Tags.Characters.states, [], `Structured (`Set res)
+    Tags.Characters.states, [], (`Set res)
 
 let pam_spec_to_formatter (state : dyna_state_t) pam =
     let option_to_string contents = function
         | Some x -> contents x
         | None -> assert false
     in
-    let handle_bool = option_to_string string_of_bool 
-    and handle_int = option_to_string string_of_int 
+    let handle_bool = option_to_string (fun x -> `Bool x) 
+    and handle_int = option_to_string (fun x -> `Int x)
     and handle_re_meth x = 
         let conversion =
-            (function `Locus_Breakpoint x | `Locus_Inversion x -> string_of_int x)
+            (function `Locus_Breakpoint x | `Locus_Inversion x -> `Int x)
         in
         match x with
         | Some x -> conversion x
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [Tags.Characters.clas, Tags.Characters.sequence]
+    | `Seq -> [Tags.Characters.clas, `String Tags.Characters.sequence]
     | others -> 
             let clas = 
                 match others with
-                | `Chromosome -> Tags.Characters.chromosome
-                | `Genome -> Tags.Characters.genome
-                | `Annotated -> Tags.Characters.annotated
-                | `Breakinv -> Tags.Characters.breakinv
+                | `Chromosome -> `String Tags.Characters.chromosome
+                | `Genome -> `String Tags.Characters.genome
+                | `Annotated -> `String Tags.Characters.annotated
+                | `Breakinv -> `String Tags.Characters.breakinv
                 | _ -> assert false
             in
 
@@ -1993,14 +2047,12 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
 
             let locus_indel_o, locus_indel_e = deref pam.locus_indel_cost in
             let locus_indel_e = float locus_indel_e /. 100.0 in
-            let locus_indel_str = string_of_int locus_indel_o ^ ", " 
-                                 ^ string_of_float locus_indel_e 
+            let locus_indel_str = `IntFloatTuple (locus_indel_o, locus_indel_e)
             in
 
             let chrom_indel_o, chrom_indel_e = deref pam.chrom_indel_cost in
             let chrom_indel_e = float chrom_indel_e /. 100.0 in
-            let chrom_indel_str = string_of_int chrom_indel_o ^ ", " 
-                                 ^ string_of_float chrom_indel_e 
+            let chrom_indel_str = `IntFloatTuple (chrom_indel_o, chrom_indel_e) 
             in
 
             [Tags.Characters.clas, clas; 
@@ -2023,27 +2075,28 @@ let character_spec_to_formatter enc : Tags.output =
     | Kolmogorov d ->
             Tags.Characters.kolmogorov,
             [
-                Tags.Characters.name, d.dhs.filename;
-                Tags.Characters.chars, d.ks.funset;
-                Tags.Characters.alphabet, d.ks.alphset;
-                Tags.Characters.words, d.ks.wordset;
-                Tags.Characters.ints, d.ks.intset;
+                Tags.Characters.name, `String d.dhs.filename;
+                Tags.Characters.chars, `String d.ks.funset;
+                Tags.Characters.alphabet, `String d.ks.alphset;
+                Tags.Characters.words, `String d.ks.wordset;
+                Tags.Characters.ints, `String d.ks.intset;
             ],
-            `Structured `Empty
+            `Empty
     | Static enc ->
-            Parser.SC.to_formatter enc    | Dynamic dspec ->
+            Parser.SC.to_formatter enc    
+    | Dynamic dspec ->
             Tags.Characters.molecular,
-            ( (Tags.Characters.name, dspec.filename) ::
+            ( (Tags.Characters.name, `String dspec.filename) ::
                 (Tags.Characters.initial_assignment, 
                     (match dspec.initial_assignment with
-                    | `DO -> "Direct Optimization"
-                    | `FS _ -> "Fixed States")) ::
-                (Tags.Characters.tcm, dspec.tcm) ::
-                (Tags.Characters.gap_opening, dspec.fo) ::
-                (Tags.Characters.weight, string_of_float dspec.weight) ::
+                    | `DO -> `String "Direct Optimization"
+                    | `FS _ -> `String "Fixed States")) ::
+                (Tags.Characters.tcm, `String dspec.tcm) ::
+                (Tags.Characters.gap_opening, `String dspec.fo) ::
+                (Tags.Characters.weight, `Float dspec.weight) ::
                 (pam_spec_to_formatter dspec.state dspec.pam)
             ),
-            `Structured (`Single (Alphabet.to_formatter dspec.alph))
+            (`Single (Alphabet.to_formatter dspec.alph))
     | Set -> failwith "TODO Set in Data.character_spec_to_formatter"
 
 let characters_to_formatter d : Tags.output =
@@ -2056,14 +2109,13 @@ let characters_to_formatter d : Tags.output =
                     raise err 
         in
         let res = Tags.Characters.character, 
-        [ (Tags.Characters.name, name); ("code", string_of_int
-        code) ],
-        `Structured (`Single (character_spec_to_formatter enc))
+        [ (Tags.Characters.name, `String name); ("code", `Int code) ],
+        (`Single (character_spec_to_formatter enc))
         in
         (`Single res) :: acc
     in
     let res = Hashtbl.fold create d.character_codes [] in
-    Tags.Data.characters, [], `Structured (`Set res)
+    Tags.Data.characters, [], (`Set res)
 
 let to_formatter attr d : Tags.output =
     let syn = `Single (synonyms_to_formatter d)
@@ -2080,7 +2132,6 @@ let to_formatter attr d : Tags.output =
         `Single (CharacSpec.to_formatter index)
     and files = `Single (files_to_formatter d) in
     Tags.Data.data, attr, 
-    `Structured 
     (`Set [names; syn; ignored_taxa; characters; ignored_char; files; 
     spec_index; char_index])
 
@@ -2767,8 +2818,8 @@ let rec get_code_from_name data name_ls =
   let code_ls = List.fold_right 
       ~f:(fun name acc -> 
               try 
-                  let code = Hashtbl.find data.character_names name in
-                  code::acc
+                  let code = Hashtbl.find_all data.character_names name in
+                  code @ acc
               with 
               | Not_found -> 
                       (* We will try to use a regular expression to match the
@@ -3801,7 +3852,6 @@ let to_faswincladfile data filename =
         | [] -> false
         | _ -> true
     in
-    StatusCommon.Files.set_margin filename 100000;
     let fo = Status.user_message (Status.Output (filename, false, [])) in
     let all_of_all = 
         List.sort ~cmp:( - )
@@ -3820,7 +3870,7 @@ let to_faswincladfile data filename =
     in
     let state_to_string code t =
         match t with
-        | None -> "?%!"
+        | None -> "?@?"
         | Some lst ->
                 let lst =
                     match lst with
@@ -3828,18 +3878,18 @@ let to_faswincladfile data filename =
                     | `Bits lst -> BitSet.to_list lst 
                 in
                 match lst with
-                | [] -> "-%!"
-                | [item] -> (string_of_int item) ^ "%!" 
+                | [] -> "-@?"
+                | [item] -> (string_of_int item) ^ "@?" 
                 | lst ->
                         let lst = List.sort ~cmp:( - ) lst in
                         "[" ^ String.concat sep 
-                        (List.map string_of_int lst) ^ "]%!"
+                        (List.map string_of_int lst) ^ "]@?"
     in
     let produce_character fo taxon charset code =
         let _ =
             try
                 match Hashtbl.find charset code with
-                | (_, `Unknown) -> fo "?%!"
+                | (_, `Unknown) -> fo "?@?"
                 | (spec, _) ->
                         match spec with
                         | Stat (_, t) -> 
@@ -3848,7 +3898,7 @@ let to_faswincladfile data filename =
                                 failwith 
                                 "Fastwinclad files do not support sequences"
             with
-            | Not_found -> fo "?%!"
+            | Not_found -> fo "?@?"
         in
         fo sep
     in
@@ -3862,82 +3912,112 @@ let to_faswincladfile data filename =
                 let charset = get_taxon_characters data tid in
                 List.iter (produce_character fo tid charset) all_of_all
             in
-            fo "\n%!";
+            fo "@.@?";
         end
     in
     let output_all_taxa () = 
         All_sets.IntegerMap.iter output_taxon data.taxon_codes;
-        fo ";\n";
+        fo ";@.";
     in
     let output_header () = 
-        fo (if has_sankoff then "dpread\n" else "xread\n");
+        fo (if has_sankoff then "@[<v 0>dpread " else "@[<v 0>xread ");
+        fo "'Generated by POY 4.0' ";
         fo (string_of_int number_of_characters);
         fo " ";
         fo (string_of_int number_of_taxa);
-        fo "\n%!";
+        fo "@]@.@?";
     in
-    let get_tcm x = get_tcm x data in
     let output_weights (acc, pos) code = 
         match Hashtbl.find data.character_specs code with
         | Static enc ->
                 let weight = enc.Parser.SC.st_weight in 
                 if weight = 1. then (acc, pos + 1)
-                else (acc ^ "ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
-                string_of_int pos ^ ";\n", pos + 1)
+                else (acc ^ "@[<v 0>ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
+                string_of_int pos ^ ";@]@.", pos + 1)
         | _ -> failwith "Sequence characters are not supported in fastwinclad"
     in
     let weights, _ = 
-        List.fold_left ~f:output_weights ~init:("", 0) all_of_all 
+        List.fold_left ~f:output_weights ~init:("@[<v 0>", 0) all_of_all 
     in
+    let weights = weights ^ "@]@." in
     let output_character_types () =
         (* We first output the non additive character types *)
-        let unolen, olen = 
-        (Hashtbl.fold (fun c s ((unolen, olen) as acc) ->
-            match s with
-            | Static st when st.Parser.SC.st_type = Parser.SC.STUnordered -> 
-                    unolen + 1, olen
-            | Static st when st.Parser.SC.st_type = Parser.SC.STOrdered -> 
-                    unolen, olen + 1
-            | _ -> acc) data.character_specs (0, 0))
-        in
-        fo ((if unolen > 0 then "cc - 0." ^ string_of_int (unolen - 1) ^ 
-        ";\n" else "") ^ (if olen > 0 then 
-            ("cc + " ^ string_of_int unolen ^ "." ^ 
-        string_of_int (unolen + olen - 1)) else "") ^ "\n");
-        (* Now we output the saknoff character types *)
-        if has_sankoff then
+        let output_element position tcm =
             let output_matrix m = 
                 Array.iter (fun x ->
                     (Array.iter (fun y -> 
                         fo (string_of_int y);
-                        fo " ") x; fo "\n")) m;
-                        fo ";\n"
+                        fo " ") x; fo "@.")) m;
+                        fo ";@]@."
             in
             let output_codes m =
                 Array.iteri (fun pos _ -> 
                     fo (string_of_int pos);
                     fo " ") m.(0);
-                fo "\n"
+                fo "@."
             in
-            let output_element position code =
-                let tcm = get_tcm code in 
-                fo ("costs [ " ^ string_of_int position ^ " $" ^
-                string_of_int (Array.length tcm) ^ "\n");
-                output_codes tcm;
-                output_matrix tcm;
-                position + 1
-            in
-            let _ = 
-                List.fold_left ~f:output_element 
-                ~init:(unolen + olen) (List.flatten data.sankoff)
-            in
-            ()
-        else ()
+            fo ("@[<v 0>costs [ " ^ string_of_int position ^ " $" ^
+            string_of_int (Array.length tcm) ^ "@.");
+            output_codes tcm;
+            output_matrix tcm;
+        in
+        let output_range x = 
+            match x with
+            | `Single min -> fo (string_of_int min)
+            | `Pair (min, max) ->
+                    fo (string_of_int min);
+                    fo ".";
+                    fo (string_of_int max)
+        in
+        let print_type (x : (([`Pair of (int * int) | `Single of int]) *
+        Parser.SC.st_type) option)  = 
+            match x with
+            | None -> ()
+            | Some (range, Parser.SC.STUnordered) ->
+                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
+            | Some (range, Parser.SC.STOrdered) ->
+                    fo "@[<v 0>cc + "; output_range range; fo ";@]@."
+            | Some ((`Single min), Parser.SC.STSankoff matrix) ->
+                    output_element min matrix
+            | Some ((`Pair (min, max)), Parser.SC.STSankoff matrix) ->
+                    for i = min to max do 
+                        output_element i matrix
+                    done;
+            | Some (_, Parser.SC.STLikelihood _) -> 
+                    failwith "Hennig files do not support likelihood characters"
+        in
+        fo "@[<v 0>";
+        let last, _ =
+            List.fold_left ~f:(fun (previous, cnt) code ->
+                let spec = 
+                    match Hashtbl.find data.character_specs code with
+                    | Static x -> x.Parser.SC.st_type
+                    | _ -> assert false
+                in
+                match previous with
+                | None -> (Some ((`Single cnt), spec)), cnt + 1
+                | Some ((`Single min), spec') ->
+                        if spec' = spec then begin
+                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        end else begin
+                            print_type previous;
+                            (Some ((`Single cnt), spec)), cnt + 1
+                        end;
+                | Some ((`Pair (min, max)), spec') ->
+                        if spec' = spec then begin
+                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        end else begin
+                            print_type previous;
+                            (Some ((`Single cnt), spec)), cnt + 1
+                        end;) ~init:(None, 0) all_of_all
+        in
+        print_type last;
+        fo "@]"
     in
     let output_character_names () =
         let output_name position code =
             let name = Hashtbl.find data.character_codes code in
-            fo ("{" ^ string_of_int position ^ " " ^ name ^ " ");
+            fo ("@[{" ^ string_of_int position ^ " " ^ name ^ " ");
             let labels = 
                 match Hashtbl.find data.character_specs code with
                 | Dynamic _
@@ -3952,16 +4032,16 @@ let to_faswincladfile data filename =
                         | lst -> lst
             in
             List.iter ~f:(fun x -> fo x; fo " ") labels;
-            fo ";\n";
+            fo ";@]@.";
             position + 1
         in
         (* The misterious commands for old programs *)
-        fo "#\n";
-        fo "$\n";
-        fo ";\n";
-        fo "cn ";
+        fo "@[<v 0>#@.";
+        fo "$@.";
+        fo ";@.";
+        fo "@[<v 0>cn ";
         let _ = List.fold_left ~f:output_name ~init:0 all_of_all in
-        fo ";\n"
+        fo ";@]@]@."
     in
     fo "@[<v 0>";
     output_header ();
@@ -3969,8 +4049,8 @@ let to_faswincladfile data filename =
     output_character_types ();
     fo weights;
     output_character_names ();
-    fo "\n";
-    fo "@]%!"
+    fo "@.";
+    fo "@]@?"
 
 let report_taxon_file_cross_reference chars data filename =
     let files_arr, taxa = 
@@ -4494,6 +4574,11 @@ let to_human_readable data code item =
         match Hashtbl.find data.character_specs code with
         | Static x -> x
         | _ -> assert false
+    in
+    let item = 
+        match spec.Parser.SC.st_type with
+        | Parser.SC.STUnordered -> List.nth spec.Parser.SC.st_observed item
+        | Parser.SC.STLikelihood _ | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
     in
     let name =
         try List.nth spec.Parser.SC.st_labels item with

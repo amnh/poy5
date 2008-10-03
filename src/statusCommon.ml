@@ -23,7 +23,7 @@ let () = SadmanOutput.register "StatusCommon" "$Revision: 2871 $"
 
 external string_to_format : string -> ('a, 'b, 'c) format = "%identity"
 
-type formatter_output = | Margin of int
+type formatter_output = | Margin of int | Compress
 
 let escape str =
     let str = Str.global_replace (Str.regexp "%") "%%" str in
@@ -132,6 +132,7 @@ module CommandCompletion = struct
         "locus_indel";
         "locus_inversion";
         "log";
+        "lookahead";
         "m";
         "margin";
         "max_time";
@@ -187,6 +188,7 @@ module CommandCompletion = struct
         "script_analysis";
         "search";
         "search_based";
+        "searchsstats";
         "sectorial";
         "seed";
         "seed_length";
@@ -326,7 +328,8 @@ module Files = struct
     let opened_files = Hashtbl.create 7
 
     let close_all_opened_files () =
-        let closer _ (ch, _) =
+        let closer _ (ch, _, close) =
+            close ();
             close_out ch
         in
         Hashtbl.iter closer opened_files 
@@ -340,6 +343,7 @@ module Files = struct
                                    Format.pp_print_flush f ();
                                    Format.pp_set_margin f m
                                end
+                       | Compress -> ()
                   ) fo_ls
 
     let get_margin filename =         
@@ -347,7 +351,7 @@ module Files = struct
         | None -> Format.get_margin ()
         | Some filename ->
               try  
-                  let _, fo =  Hashtbl.find opened_files filename in   
+                  let _, fo, _ =  Hashtbl.find opened_files filename in   
                   Format.pp_get_margin  fo ()   
               with  Not_found -> Format.get_margin () 
 
@@ -355,23 +359,52 @@ module Files = struct
 
     let openf ?(mode = `Append) name fo_ls = 
         if Hashtbl.mem opened_files name then 
-            let _, f = Hashtbl.find opened_files name in 
+            let _, f, _ = Hashtbl.find opened_files name in 
             let _ = assign_formatter_output f fo_ls in
             f
         else 
+            let is_compressed = 
+                List.exists (function Compress -> true | _ ->
+                false) fo_ls 
+            in
             (let file_options = 
                 match mode with
                 | `Append ->
                         [Pervasives.Open_wronly; Pervasives.Open_append;
-                        Pervasives.Open_creat; Pervasives.Open_text] 
+                        Pervasives.Open_creat; Pervasives.Open_text]
                 | `New ->
                         [Pervasives.Open_wronly; Pervasives.Open_trunc;
-                        Pervasives.Open_creat; Pervasives.Open_text] 
+                        Pervasives.Open_creat; Pervasives.Open_text]
             in
             let ch = open_out_gen file_options 0o644 name in
-            let f = Format.formatter_of_out_channel ch in
+            let f, before_closing = 
+                if not is_compressed then
+                    Format.formatter_of_out_channel ch, fun () -> ()
+                else 
+                    let lst = ref [] in
+                    let table = Lz.initial_table () in
+                    let output_binary_int ch int =
+                        let fst = (int land 0xFF00) lsr 8
+                        and snd = (int land 0xFF) in
+                        output_byte ch fst;
+                        output_byte ch snd
+                    in
+                    let flush () =
+                        List.iter (output_binary_int ch) (List.rev !lst);
+                        lst := []
+                    in
+                    let out string initial length =
+                        lst := Lz.compress ~initial ~length table string !lst
+                    in
+                    Format.make_formatter out flush,
+                    fun () -> 
+                        flush ();
+                        match !(table.Lz.state) with
+                        | None -> ()
+                        | Some x -> output_binary_int ch x
+            in
             assign_formatter_output f fo_ls;
-            Hashtbl.add opened_files name (ch, f);
+            Hashtbl.add opened_files name (ch, f, before_closing);
             f)
 
     let set_margin filename margin = 
@@ -383,21 +416,24 @@ module Files = struct
 
 
     let flush () = 
-        Hashtbl.iter (fun _ (ch, f) -> 
+        Hashtbl.iter (fun _ (ch, f, _) -> 
             Format.pp_print_flush f ();
             flush ch) opened_files 
 
 
     let closef name () =
         if Hashtbl.mem opened_files name then
-            (let ch, _ = Hashtbl.find opened_files name in
+            (let ch, f, close = Hashtbl.find opened_files name in
+            Format.pp_print_flush f ();
+            Pervasives.flush ch;
+            close ();
             Hashtbl.remove opened_files name;
             close_out ch)
         else ()
 
     let rec channel name =
         if Hashtbl.mem opened_files name then
-            let ch, _ = Hashtbl.find opened_files name in
+            let ch, _, _ = Hashtbl.find opened_files name in
             ch
         else 
             let _ = openf name [] in

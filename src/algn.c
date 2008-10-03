@@ -1834,14 +1834,18 @@ __inline void
 #else
 inline void
 #endif
-FILL_EXTEND_BLOCK_DIAGONAL_NOBT (SEQT si_base, SEQT sj_base, int j, \
+FILL_EXTEND_BLOCK_DIAGONAL_NOBT (SEQT si_base, SEQT sj_base, SEQT si_prev_base, 
+        SEQT sj_prev_base, int gap_open, int j, \
         int *extend_block_diagonal, const int *prev_extend_block_diagonal, 
         const int *prev_close_block_diagonal) {
     int ext_cost, open_cost;
-    int diag;
-    diag = ((TMPGAP & si_base) && (TMPGAP & sj_base))?0:HIGH_NUM;
+    int diag, open_diag, flag, flag2;
+    flag = ((TMPGAP & si_base) && (TMPGAP & sj_base));
+    flag2= (!(TMPGAP & si_prev_base) && (!(TMPGAP & sj_base)));
+    diag = flag?0:HIGH_NUM;
+    open_diag = flag?(flag2?0:(2 * gap_open)):HIGH_NUM;
     ext_cost = prev_extend_block_diagonal[j - 1] + diag;
-    open_cost = prev_close_block_diagonal[j - 1] + diag;
+    open_cost = prev_close_block_diagonal[j - 1] + open_diag;
     if (ext_cost < open_cost) 
         extend_block_diagonal[j] = ext_cost;
     else 
@@ -1854,13 +1858,16 @@ __inline DIRECTION_MATRIX
 #else
 inline DIRECTION_MATRIX
 #endif
-FILL_EXTEND_BLOCK_DIAGONAL (SEQT si_base, SEQT sj_base, int j, \
+FILL_EXTEND_BLOCK_DIAGONAL (SEQT si_base, SEQT sj_base, SEQT si_prev_base, SEQT sj_prev_base, \
+        int gap_open, int j, \
         int *extend_block_diagonal, const int *prev_extend_block_diagonal, 
         const int *prev_close_block_diagonal, \
         DIRECTION_MATRIX direction_matrix) {
     int ext_cost, open_cost;
-    int diag;
+    int diag, open_diag;
     diag = ((TMPGAP & si_base) && (TMPGAP & sj_base))?0:HIGH_NUM;
+    open_diag = (!(TMPGAP & si_prev_base) && (!(TMPGAP & sj_base)) && (TMPGAP & si_base) && (TMPGAP & sj_base))?
+        0:(((TMPGAP & si_base) && (TMPGAP & sj_base))?(2 * gap_open):HIGH_NUM);
     ext_cost = prev_extend_block_diagonal[j - 1] + diag;
     open_cost = prev_close_block_diagonal[j - 1] + diag;
     if (ext_cost < open_cost) {
@@ -2365,7 +2372,7 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
             FILL_EXTEND_VERTICAL_NOBT(si_vertical_extension, si_gap_extension,si_gap_opening,j, \
                     extend_vertical,prev_extend_vertical,c, \
                     prev_close_block_diagonal);
-            FILL_EXTEND_BLOCK_DIAGONAL_NOBT(ic,jc,j,extend_block_diagonal, 
+            FILL_EXTEND_BLOCK_DIAGONAL_NOBT(ic,jc,ip,jp,gap_open,j,extend_block_diagonal, 
                     prev_extend_block_diagonal, \
                     prev_close_block_diagonal);
             FILL_CLOSE_BLOCK_DIAGONAL_NOBT(ic,jc,si_no_gap,sj_no_gap, \
@@ -2502,7 +2509,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
                     extend_vertical,prev_extend_vertical,c, \
                     prev_close_block_diagonal,tmp_direction_matrix);
             tmp_direction_matrix =
-                FILL_EXTEND_BLOCK_DIAGONAL(ic,jc,j,extend_block_diagonal, 
+                FILL_EXTEND_BLOCK_DIAGONAL(ic,jc,ip,jp,gap_open,j,extend_block_diagonal, 
                     prev_extend_block_diagonal, \
                     prev_close_block_diagonal, tmp_direction_matrix);
             tmp_direction_matrix =

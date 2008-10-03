@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 
 type mst
-type priorities = Random | Closest | Furthest2
+type priorities = Random | Closest2 | Furthest2
 type mst_preference = Closest | Furthest
 
 val kruskal : mst_preference -> (int -> int -> float) -> int list -> mst

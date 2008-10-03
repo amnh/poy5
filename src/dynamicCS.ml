@@ -309,7 +309,7 @@ let median_3 p n c1 c2 =
 
 (* Like [distance] but calculates it only 
 * if the type of the characters match one of those listed. *)
-let distance_of_type t a b =
+let distance_of_type t missing_distance a b =
     let has_t x = List.exists (fun z -> z = x) t in
     let has_seq = has_t `Seq 
     and has_chrom = has_t `Chrom 
@@ -317,7 +317,7 @@ let distance_of_type t a b =
     and has_break = has_t `Breakinv
     and has_ann = has_t `Annchrom in
     match a, b with
-    | SeqCS a, SeqCS b when has_seq -> (SeqCS.distance a b)
+    | SeqCS a, SeqCS b when has_seq -> (SeqCS.distance missing_distance a b)
     | ChromCS a, ChromCS b when has_chrom -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b when has_gen -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b when has_break -> BreakinvCS.distance a b  
@@ -326,9 +326,9 @@ let distance_of_type t a b =
 
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
-let distance a b = 
+let distance missing_distance a b = 
     match a, b with   
-    | SeqCS a, SeqCS b -> (SeqCS.distance a b)
+    | SeqCS a, SeqCS b -> (SeqCS.distance missing_distance a b)
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b -> BreakinvCS.distance a b  
@@ -512,7 +512,7 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
         Alphabet.nucleotides -> 
             let modified, new_cost, nc = 
                 SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine in
-            let prev_cost = SeqCS.distance ch1 mine +. SeqCS.distance ch2 mine in
+            let prev_cost = SeqCS.distance 0. ch1 mine +. SeqCS.distance 0. ch2 mine in
             modified, prev_cost, new_cost, (SeqCS nc)
 
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  

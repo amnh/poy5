@@ -69,46 +69,47 @@ let sort_matrix mtx =
     Array.sort comparator mtx
 
 let build_contents_row ((_, attributes, contents) : Tags.output)  =
-    let mapper (_, value) = StatusCommon.escape value in
+    let mapper (_, value) = StatusCommon.escape (Tags.value_to_string value) in
     match contents with
-    | `Structured _ -> (* We will ignore the structured contents for a table *)
+    | #Tags.struc -> (* We will ignore the structured contents for a table *)
             let res = Array.of_list attributes in
             Array.map mapper res
-    | `String v ->
+    | #Tags.value as v ->
             let res = 
-                Array.of_list (List.rev ( (v, v) :: (List.rev attributes)))
+                Array.of_list (List.rev ( ("", v) :: (List.rev attributes)))
             in
             Array.map mapper res
 
 let build_names_row ?(contents_name = " ") (_, attributes, _) =
     let mapper (name, _) = "@{<b>" ^ name ^ "@}" in
     let res = 
-        Array.of_list (List.rev ((contents_name, contents_name) :: 
+        Array.of_list (List.rev ((contents_name, `String contents_name) :: 
             (List.rev attributes))) 
     in
     Array.map mapper res
 
-type t = [ `String of string | `Structured of Tags.output Sexpr.t ]
+type t = [ Tags.value | Tags.output Tags.struc ]
 
 let build_set (contents : t) = 
     let res = Buffer.create 16 in
     let rec add_items (_, _, x) =
         match x with
-        | `String v -> 
-                Buffer.add_string res v;
+        | #Tags.value as v -> 
+                Buffer.add_string res (Tags.value_to_string v);
                 Buffer.add_string res ", ";
-        | `Structured x ->
+        | #Tags.struc as x ->
+                let x = Tags.eagerly_compute x in
                 Sexpr.leaf_iter add_items x
     in
     let _ =
         match contents with
-        | `Structured `Empty -> Buffer.add_string res " ";
-        | `Structured todo ->
+        | #Tags.struc as todo ->
+                let todo = Tags.eagerly_compute todo in
                 Buffer.add_string res "{";
                 Sexpr.leaf_iter add_items todo;
                 Buffer.add_string res "}";
-        | `String v -> 
-                Buffer.add_string res v
+        | #Tags.value as v -> 
+                Buffer.add_string res (Tags.value_to_string v)
     in
     (Buffer.contents res)
 
@@ -149,17 +150,20 @@ let filter_tag tag (item : Tags.output) : Tags.output list =
             else acc
         in
         match contents with
-        | `Structured x ->
+        | #Tags.struc as x ->
+                let x = Tags.eagerly_compute x in
                 Sexpr.fold_left build nacc x
-        | `String _ -> nacc
+        | #Tags.value -> nacc
     in
     List.rev (build [] item)
 
 let rec build_values_as_list st (_, _, contents) =
     match contents with
-    | `Structured x -> Sexpr.leaf_iter (build_values_as_list st) x
-    | `String x -> 
-            Status.user_message st (StatusCommon.escape x);
+    | #Tags.struc as x -> 
+            let x = Tags.eagerly_compute x in
+            Sexpr.leaf_iter (build_values_as_list st) x
+    | #Tags.value as v -> 
+            Status.user_message st (StatusCommon.escape (Tags.value_to_string v));
             Status.user_message st ";@ "
     
 let output_rows st matrix = 
@@ -192,7 +196,8 @@ let output_characters st (characters : Tags.output)=
 
 let output_taxa st (_, _, taxa) =
     match taxa with
-    | `Structured x ->
+    | #Tags.struc as x ->
+            let x = Tags.eagerly_compute x in
             let lst = Sexpr.to_list x in
             let mtx = build_table_with_contents_as_set lst in
             sort_matrix mtx;
@@ -202,7 +207,7 @@ let output_taxa st (_, _, taxa) =
             Status.user_message st "@\n";
             Status.output_table st mtx;
             Status.user_message st "@]@]@\n"
-    | `String _ -> ()
+    | #Tags.value -> ()
 
 (* [output_files st c] outputs the list of files from the output c as a list of
 * elements separated by semicolon. All the contents, all the values are
@@ -218,7 +223,7 @@ let format_attributes st attributes =
         Status.user_message st "@[";
         Status.user_message st (a);
         Status.user_message st " : ";
-        Status.user_message st (b);
+        Status.user_message st (Tags.value_to_string b);
         Status.user_message st "@]@\n";
     in
     Status.user_message st "@[<v 0>@\n";
@@ -237,8 +242,8 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.output) =
     else begin
         let str = 
             match contents with
-            | `Structured _ ->  "@[<v 4>@ "
-            | `String _ -> "@[@ "
+            | #Tags.struc ->  "@[<v 4>@ "
+            | #Tags.value -> "@[@ "
         in
         Status.user_message st "@{<b>";
         Status.user_message st tag;
@@ -248,10 +253,11 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.output) =
         format_attributes st attributes;
         Status.user_message st "@ ";
         begin match contents with
-        | `Structured sexpr ->
+        | #Tags.struc as sexpr ->
+                let sexpr = Tags.eagerly_compute sexpr in
                 Sexpr.leaf_iter (aux_data_to_status st) sexpr
-        | `String value ->
-                let value = StatusCommon.escape value in
+        | #Tags.value as v ->
+                let value = StatusCommon.escape (Tags.value_to_string v) in
                 Status.user_message st value;
         end;
         Status.user_message st "@]@\n@]@\n"
@@ -263,7 +269,10 @@ let data_to_status filename tag =
     StatusCommon.Files.set_margin filename 0;
     let st = Status.Output (filename, false, []) in
     if is_xml_filename filename then
-        Tags.to_xml (Status.user_message st) tag
+        let filename = 
+            match filename with | Some x -> x | None -> assert false in
+        let ch = StatusCommon.Files.channel filename in
+        Tags.to_xml ch tag
     else begin
         aux_data_to_status st tag;
         Status.user_message st "%!"
@@ -283,49 +292,39 @@ let get_name_class_and_cost attr =
     | Some name, Some cclass, Some cost -> name, cclass, cost 
     | _, _, _ -> raise (Illegal_formater "get_name_class_and_cost")
 
-let get_recost attr = 
-    try
-        let (_, recost) = 
-            List.find (fun (tag, _) -> tag = Tags.Characters.recost) attr
-        in
-        recost
-    with Not_found -> raise (Illegal_formater "No rearrangement cost")
+let find_item tag lst = (List.assoc tag lst)
 
+let get_recost attr = find_item Tags.Characters.recost attr
 
-let get_ref_code attr = 
-    try
-        let (_, ref_code) = 
-            List.find (fun (tag, _) -> tag = Tags.Characters.ref_code) attr
-        in
-        ref_code
-    with Not_found -> raise (Illegal_formater "No reference code")
+let get_ref_code attr = find_item Tags.Characters.ref_code attr
 
-
-let get_map attr = "Available only in XML format"
+let get_map attr = `String "Available only in XML format"
 
 
 let min_and_max ((x, y) as acc) (a, _, c) = 
     match c with
-    | `String c ->
-            let c = StatusCommon.escape c in
+    | #Tags.value as c ->
+            let c = StatusCommon.escape (Tags.value_to_string c) in
             if a = Tags.Characters.min then
                 (Some (c), y)
             else if a = Tags.Characters.max then
                 (x, Some (c))
             else acc
-    | `Structured _ ->
+    | #Tags.struc ->
             raise (Illegal_formater "min_and_max")
 
-let addcs_to_formater (tag, attr, cont) = 
+let addcs_to_formater ((tag, attr, cont) : Tags.output) = 
     if tag = Tags.Characters.additive then begin
         let name, cclass, cost = get_name_class_and_cost attr in
-        let recost = "0." in 
-        let chrom_ref = "-" in 
-        let map = "-" in 
+        let recost = `Float 0. in 
+        let chrom_ref = `String "-" in 
+        let map = chrom_ref in 
         let minmax = 
             match cont with
-            | `Structured x -> Sexpr.fold_left min_and_max (None, None) x
-            | `String _ -> raise (Illegal_formater "addcs_to_formater")
+            | #Tags.struc as x -> 
+                    let x = Tags.eagerly_compute x in
+                    Sexpr.fold_left min_and_max (None, None) x
+            | #Tags.value -> raise (Illegal_formater "addcs_to_formater")
         in
         match minmax with
         | Some min, Some max -> 
@@ -335,11 +334,13 @@ let addcs_to_formater (tag, attr, cont) =
                 Buffer.add_string c ", ";
                 Buffer.add_string c max;
                 Buffer.add_string c "]";
-                [|name; cclass; cost; recost; chrom_ref; map; Buffer.contents c|]
+                [|name; cclass; cost; recost;
+                chrom_ref; map; 
+                `String (Buffer.contents c)|]
         | _ -> raise (Illegal_formater "addcs_to_formater 2")
     end else raise (Illegal_formater "addcs_to_formater 3")
 
-let nonaddcs_to_formater (tag, attr, cont) =
+let nonaddcs_to_formater ((tag, attr, cont) : Tags.output) =
     if tag = Tags.Characters.nonadditive then begin
         let (_, name) = 
             List.find (fun (a, _) -> a = Tags.Characters.name) attr
@@ -351,71 +352,73 @@ let nonaddcs_to_formater (tag, attr, cont) =
             try List.find (fun (a, _) -> a = Tags.Characters.cost) attr 
             with Not_found -> 
                 let str = " " in
-                str, str
+                str, `String str
         in
-        let recost = "0." in 
-        let chrom_ref = "0." in 
-        let map = "-" in 
+        let recost = `String "0." in 
+        let chrom_ref = `String "0." in 
+        let map = `String "-" in 
         let states = 
             match cont with
-            | `Structured x -> (* This is what we expect *)
+            | #Tags.struc as x -> (* This is what we expect *)
+                    let x = Tags.eagerly_compute x in
                     let c = Buffer.create 10 in
                     Buffer.add_string c "{";
                     Sexpr.leaf_iter (fun (_, _, x) ->
                         match x with
-                        | `String x -> 
-                                Buffer.add_string c x;
+                        | #Tags.value as x -> 
+                                Buffer.add_string c (Tags.value_to_string x);
                                 Buffer.add_string c ",";
-                        | `Structured _ ->
+                        | _ ->
                                 raise (Illegal_formater "nonaddcs_to_formater"))
                         x;
                     Buffer.add_string c "}";
                     StatusCommon.escape (Buffer.contents c)
-            | `String _ -> raise (Illegal_formater "nonaddcs_to_formater 2")
+            | #Tags.value -> raise (Illegal_formater "nonaddcs_to_formater 2")
         in
-
-
-        [| name; cclass; cost; recost; chrom_ref; map; states |]
+        [| name; cclass; cost; recost; chrom_ref; map; `String states |]
     end else raise (Illegal_formater "nonaddcs_to_formater")
 
 
-let sankcs_to_formater (tag, attr, cont) =
+let sankcs_to_formater ((tag, attr, cont) : Tags.output) =
     if tag = Tags.Characters.sankoff then
         nonaddcs_to_formater (Tags.Characters.nonadditive, attr,cont)
     else raise (Illegal_formater "sankcs_to_formater")
 
-let seq_to_formater ((tag, attr, cont) : Tags.output) =
+let seq_to_formater ((tag, attr, cont) : Tags.output) : Tags.value array  =
     if tag = Tags.Characters.sequence then begin
         let name, cclass, cost = get_name_class_and_cost attr in
-        let chrom_ref = "-" in 
-        let recost = "0." in 
-        let map = "-" in 
+        let chrom_ref = `String "-" in 
+        let recost = `Float 0. in 
+        let map = chrom_ref in
         match cont with
-        | `String v ->
-                let v = StatusCommon.escape v in
+        | #Tags.value as v ->
+                let v = `Fun (fun () -> StatusCommon.escape
+                (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | `Structured _ -> 
-                raise (Illegal_formater "seq_to_formater")
+        | #Tags.struc -> raise (Illegal_formater "seq_to_formater")
     end else raise (Illegal_formater ("seq_to_formater"))
 
 
 let breakinv_to_formater ((tag, attr, cont) : Tags.output) =
     if tag = Tags.Characters.breakinv then begin
         let name, cclass, cost = get_name_class_and_cost attr in
-        let breakinv_ref = "-" in 
+        let breakinv_ref = `String "-" in 
         let recost = get_recost attr in 
-        let map = "-" in 
-
-        let _, _, cont = match cont with 
-        | `Structured cont -> List.hd (List.rev (Sexpr.to_list cont)) 
-        | `String _  -> "", [], cont
+        let map = breakinv_ref in 
+        let cont = match cont with 
+        | #Tags.struc as cont -> 
+                let cont = Tags.eagerly_compute cont in
+                (match List.rev (Sexpr.to_list cont) with
+                | (_, _, cont) :: _ -> cont
+                | [] -> `Empty)
+        | #Tags.value  -> cont
         in 
-
         match cont with
-        | `String v ->
-                let v = StatusCommon.escape v in
+        | #Tags.value as v ->
+                let v = `Fun (fun () -> StatusCommon.escape
+                (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; breakinv_ref; map; v|]
-        | `Structured _ -> 
+        | #Tags.struc ->
                 raise (Illegal_formater "breakinv_to_formater")
     end else raise (Illegal_formater ("breakinv_to_formater"))
 
@@ -426,18 +429,22 @@ let chrom_to_formater ((tag, attr, cont) : Tags.output) =
         let recost = get_recost attr in 
         let chrom_ref = get_ref_code attr in 
         let map = get_map attr in 
-
-
-        let _, _, cont = match cont with 
-        | `Structured cont -> List.hd (List.rev (Sexpr.to_list cont)) 
-        | `String _  -> "", [], cont
+        let cont =
+            match cont with 
+            | #Tags.struc as cont -> 
+                    let cont = Tags.eagerly_compute cont in
+                    (match List.rev (Sexpr.to_list cont) with
+                    | (_, _, h) :: _ -> h
+                    | [] -> `Empty)
+            | #Tags.value -> cont
         in 
 
         match cont with
-        | `String v ->
-                let v = StatusCommon.escape v in
+        | #Tags.value as v -> 
+                let v = `Fun (fun () -> StatusCommon.escape
+                (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | `Structured _ -> 
+        | #Tags.struc ->
                 raise (Illegal_formater "chrom_to_formater")
     end else raise (Illegal_formater ("chrom_to_formater"))
 
@@ -450,16 +457,21 @@ let genome_to_formater ((tag, attr, cont) : Tags.output) =
         let map = get_map attr in 
 
 
-        let _, _, cont = match cont with 
-        | `Structured cont -> List.hd (List.rev (Sexpr.to_list cont)) 
-        | `String _  -> "", [], cont
+        let cont = match cont with 
+        | #Tags.struc as cont -> 
+                let cont = Tags.eagerly_compute cont in
+                (match (List.rev (Sexpr.to_list cont))  with
+                | (_, _, h) :: _ -> h
+                | [] -> `Empty)
+        | #Tags.value -> cont
         in 
 
         match cont with
-        | `String v ->
-                let v = StatusCommon.escape v in
+        | #Tags.value as v ->
+                let v = `Fun (fun () -> StatusCommon.escape
+                (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; genome_ref; map; v|]
-        | `Structured _ -> 
+        | #Tags.struc ->
                 raise (Illegal_formater "genome_to_formater")
     end else raise (Illegal_formater ("genome_to_formater"))
 
@@ -471,16 +483,21 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.output) =
         let chrom_ref = get_ref_code attr in
         let map = get_map attr in 
 
-        let _, _, cont = match cont with 
-        | `Structured cont -> List.hd (List.rev (Sexpr.to_list cont)) 
-        | `String _  -> "", [], cont
+        let cont = match cont with 
+        | #Tags.struc as cont -> 
+                let cont = Tags.eagerly_compute cont in
+                (match (List.rev (Sexpr.to_list cont))  with
+                | (_, _, h) :: _ -> h
+                | [] -> `Empty)
+        | #Tags.value  -> cont
         in 
 
         match cont with
-        | `String v ->
-                let v = StatusCommon.escape v in
+        | #Tags.value as v ->
+                let v = `Fun (fun () -> StatusCommon.escape
+                (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | `Structured _ -> 
+        | #Tags.struc ->
                 raise (Illegal_formater "annchrom_to_formater")
     end else raise (Illegal_formater ("annchrom_to_formater"))
 
@@ -504,10 +521,10 @@ let likelihood_to_formater ((tag, attr, cont): Tags.output) =
         let name    = _get attr Tags.Data.code and
             cclass  = _get attr Tags.Characters.cclass and
             cost    = _get attr Tags.Characters.mle and
-            recost  = "X" and
-            chrom   = "X" and
-            mmap    = "X" and
-            states  = "X" in
+            recost  = `String "X" and
+            chrom   = `String "X" and
+            mmap    = `String "X" and
+            states  = `String "X" in
 
         [| name; cclass; cost; recost; chrom; mmap; states |]
     end else raise (Illegal_formater "likelihood_to_formater")
@@ -526,29 +543,31 @@ let node_character_to_formater ((tag, _, _) as v) =
     else raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
 
 let node_to_formater st ((tag, attr, cont) : Tags.output) =
+    let assoc x y = Tags.value_to_string (List.assoc x y) in
     if tag = Tags.Nodes.node then begin
-        let (_, name) = 
-            List.find (fun (a, _) -> a = Tags.Characters.name) attr
-        and (_, child1_name) = 
-            List.find (fun (a, _) -> a = Tags.Nodes.child1_name) attr
-        and (_, child2_name) = 
-            List.find (fun (a, _) -> a = Tags.Nodes.child2_name) attr
+        let name = assoc Tags.Characters.name attr 
+        and child1_name = assoc Tags.Nodes.child1_name attr
+        and child2_name = assoc Tags.Nodes.child2_name attr in
+        let cost =
+            try assoc Tags.Characters.cost attr with 
+            Not_found -> " "
         in
-        let (_, cost) =
-            try List.find (fun (a, _) -> a = Tags.Characters.cost) attr 
-            with Not_found -> " ", " "
-        in
-        let (_, recost) =
-            try List.find (fun (a, _) -> a = Tags.Characters.recost) attr 
-            with Not_found -> " ", " "
+        let recost =
+            try assoc Tags.Characters.recost attr with 
+            Not_found -> " "
         in
         let lst = 
             match cont with
-            | `Structured x -> Sexpr.to_list x
-            | `String _ -> raise (Illegal_formater "node_to_formater 2")
+            | #Tags.struc as x -> 
+                    let x = Tags.eagerly_compute x in
+                    Sexpr.to_list x
+            | #Tags.value -> raise (Illegal_formater "node_to_formater 2")
         in
         let lst = List.map node_character_to_formater lst in
-        let lst = [|"@{<u>Characters@}"; "@{<u>Class@}"; "@{<u>Cost@}"; "@{<u>Rearrangement Cost@}"; "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; "@{<u>States@}"|] :: lst
+        let lst = [|"@{<u>Characters@}"; "@{<u>Class@}"; 
+        "@{<u>Cost@}"; "@{<u>Rearrangement Cost@}"; 
+        "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; 
+        "@{<u>States@}"|] :: (List.map (Array.map Tags.value_to_string) lst)
         in
         Status.user_message st ("@\n@\n@[<v 0>@{<b>" ^ name ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Cost " ^ cost ^ "@}@\n");
@@ -562,22 +581,21 @@ let node_to_formater st ((tag, attr, cont) : Tags.output) =
     end else raise (Illegal_formater "node_to_formater")
 
 let forest_to_formater st ((tag, attr, cont) as v) =
-    let (_, cost) = 
-        try List.find (fun (a, _) -> a = Tags.Characters.cost) attr 
-        with Not_found -> " ", " "
+    let find x y = 
+        try Tags.value_to_string (List.assoc x y) with Not_found -> " " 
     in
-    let (_, recost) = 
-        try List.find (fun (a, _) -> a = Tags.Characters.recost) attr 
-        with Not_found -> " ", " "
-    in
+    let cost = find Tags.Characters.cost attr in
+    let recost = find Tags.Characters.recost attr in
     match cont with
-    | `Structured x ->
+    | #Tags.struc ->
             let rec do_nodes ((tag, _, cont) as x) =
                 if tag = Tags.Nodes.node then node_to_formater st x
                 else 
                     match cont with
-                    | `Structured v -> Sexpr.leaf_iter do_nodes v
-                    | `String _ -> ()
+                    | #Tags.struc as v -> 
+                            let v = Tags.eagerly_compute v in
+                            Sexpr.leaf_iter do_nodes v
+                    | #Tags.value -> ()
             in
             Status.user_message st ("@[<v 4>@{<b>Tree@}@\n@{<u>Tree cost: @}");
             Status.user_message st (cost ^ "@\n");
@@ -585,7 +603,7 @@ let forest_to_formater st ((tag, attr, cont) as v) =
             Status.user_message st (recost ^ "@\n@\n");
             do_nodes v;
             Status.user_message st ("@]");
-    | `String _ -> 
+    |  #Tags.value -> 
             raise (Illegal_formater "forest_to_formater")
 
 let trees_to_formater st ((tag, _, _) as r) =
@@ -598,5 +616,8 @@ let trees_to_formater filename fo_ls tree =
     StatusCommon.Files.set_margin filename 0;
     let st = Status.Output (filename, false, fo_ls) in
     if is_xml_filename filename then
-        Tags.to_xml (Status.user_message st) tree
+        let filename = 
+            match filename with | Some x -> x | None -> assert false in
+        let ch = StatusCommon.Files.channel filename in
+        Tags.to_xml ch tree
     else trees_to_formater st tree

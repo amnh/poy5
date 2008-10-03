@@ -31,7 +31,8 @@ let debugging = 4
 let barrier = 5
 
 type cost_modes = [ `Normal | `Normal_plus_Vitamines | `Exhaustive_Weak |
-`Exhaustive_Strong | `Iterative of [`ThreeD | `ApproxD]  ]
+`Exhaustive_Strong | `Iterative of [`ThreeD of int option | `ApproxD of int
+option ]  ]
 let cost : cost_modes ref = 
     ref `Normal
 
@@ -224,6 +225,7 @@ type report = [
     | `Trees of (information_contained list * string option)
     | `TreeCosts of string option
     | `TreesStats of string option
+    | `SearchStats of string option
     | `TimeDelta of (string * string option)
     | `Clades of string                 (* file prefix *)
     | `CrossReferences of (characters option * string option)
@@ -357,7 +359,7 @@ type tabu_join_strategy = [
 * [Input_file chan] loads the trees stored in the input channel cha. *)
 (* So I will modify this set of build methods to wrap them in a nicer manner *)
 type build_strategy = 
-    int * keep_method * cost_calculation list * tabu_join_strategy
+    int * float * keep_method * cost_calculation list * tabu_join_strategy
 
 type build_method = [
     | `Constraint of (int * float * filename option * cost_calculation list)
@@ -674,7 +676,7 @@ type application = [
     | `Normal_plus_Vitamines
     | `Exhaustive_Weak
     | `Exhaustive_Strong
-    | `Iterative of [`ThreeD | `ApproxD ]
+    | `Iterative of [`ThreeD of int option | `ApproxD of int option ]
     | `ReDiagnose
     | `SetSeed of int
     | `InspectFile of string
@@ -719,7 +721,8 @@ type script = [
     | `GatherBremer
     | `SelectYourTrees
     | `StandardSearch of 
-        (float option * float option * int option * int option * float option)
+        (float option * float option * int option * 
+        int option * float option * string option option * string option)
     | input
     | transform
     | build

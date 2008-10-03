@@ -1,5 +1,10 @@
 /* Parser for nexus files */
 %{
+let mesquite_error =
+    ("This@ seems@ to@ be@ a@ Mesquite@ \"NEXUS\"@ file.@ Unfortunately@ " ^
+    "Mesquite@ has@ invented@ a@ new@ command@ TITLE@ that@ is@ not@ a@ " ^
+    "valid@ NEXUS@ command.@ You@ will@ have@ to@ remove@ it@ by@ hand.@ " ^
+    "Your@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
 let parse_error s = 
     try
         let b = (Parsing.symbol_start_pos ()) 
@@ -164,6 +169,9 @@ header:
 block:
     | BEGIN TAXA SEMICOLON taxa END SEMICOLON  
         { Nexus.Taxa $4 }
+    | BEGIN TAXA SEMICOLON IDENT error END SEMICOLON 
+        { if $4 = "TITLE" then Status.user_message Status.Error mesquite_error;
+            raise Parsing.Parse_error }
     | BEGIN CHARACTERS SEMICOLON characters END SEMICOLON 
         { Nexus.Characters $4 }
     | BEGIN DATA SEMICOLON characters END SEMICOLON

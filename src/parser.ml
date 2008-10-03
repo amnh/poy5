@@ -130,7 +130,7 @@ let test_file file =
     in
     R.close_in ch;
     if anywhere_match (Str.regexp "^CLUSTAL") line then Is_Clustal
-    else if anywhere_match (Str.regexp "^\\(\\(xr\\)\\|\\(ns\\)\\|\\(cc\\)\\)") line then Is_Hennig
+    else if Hennig.is_hennig file then Is_Hennig
     (* treat dpread as a hennig file *)
     else if anywhere_match (Str.regexp "COMPLEX") line then
         Is_ComplexTerminals
@@ -496,9 +496,8 @@ end
 
 module Genbank = struct
     let convert_to_fasta ?filename file =
-        let ch, file = FileStream.channel_n_filename file and
-        definition_str = ref "" and
-        outName, chout = 
+        let ch, file = FileStream.channel_n_filename file 
+        and outName, chout = 
 		match filename with
 		| None -> Filename.open_temp_file "fasta" ".tmp"
 		| Some f -> f, open_out f
@@ -506,16 +505,22 @@ module Genbank = struct
         try
             while true do
                 let line = input_line ch in
+                (*
                 if Str.string_match (Str.regexp 
                 " *\\(VERSION+ *\\) \\([a-zA-Z0-9.]+\\) *GI:\\([0-9]+\\)") 
                 line 0 then 
                     output_string chout 
                     (">gi|" ^ (Str.matched_group 3 line) ^ "|" ^
                     (Str.matched_group 2 line) ^ "|" ^ !definition_str)
-                else if Str.string_match (Str.regexp 
-                " *\\(DEFINITION+ *\\) \\([a-zA-Z0-9 ,]+\\)") line 0 then 
-                    definition_str :=  (Str.matched_group 2 line) ^ "\n"
-                else
+                *)
+                if Str.string_match (Str.regexp 
+                " *\\(ORGANISM+ *\\) \\([a-zA-Z0-9 ,]+\\)") line 0 then begin
+                    let str = Str.matched_group 2 line in
+                    let str = Str.global_replace (Str.regexp " ") "_" str in
+                    output_string chout ">";
+                    output_string chout str;
+                    output_string chout "\n";
+                end else
                     if Str.string_match 
                     (Str.regexp " *\\([0-9]+\\) \\([a-zA-Z ]+\\)+") line 0 then
                         let temp = Str.matched_group 2 line in
@@ -960,7 +965,7 @@ module Tree = struct
     let gen_of_channel f ch =
         try
             let stream = new FileStream.stream_reader ch in
-            f stream;
+            f stream
         with
         | End_of_file -> failwith "Unexpected end of file"
 
@@ -969,7 +974,9 @@ module Tree = struct
     let gen_of_file f file =
         try
             let ch = FileStream.open_in file in
-            f ch
+            let x = f ch in
+            close_in ch;
+            x
         with
         | Failure msg ->
                 let file = FileStream.filename file in
@@ -983,10 +990,16 @@ module Tree = struct
                 Status.user_message Status.Error msg;
                 raise e
 
-    let stream_of_file file =
-        let ch = new FileStream.stream_reader (FileStream.open_in file) in
+    let stream_of_file is_compressed file =
+        let real_ch = FileStream.open_in_bin file in
+        let ch = 
+            if is_compressed then
+                new FileStream.compressed_reader real_ch
+            else
+                new FileStream.stream_reader real_ch
+        in
         match gen_aux_of_stream_gen true ch with
-        | `Stream s -> s
+        | `Stream s -> s, (fun () -> close_in real_ch)
         | `Trees _ -> assert false
 
     let of_file file = gen_of_file of_channel file
@@ -1010,6 +1023,29 @@ module Tree = struct
         in
         let tree, _ = build_cannonic_order tree in
         tree
+
+    exception Illegal_argument
+
+    let cleanup ?newroot f tree =
+        let rec aux_cleanup f tree = 
+            match tree with
+            | Leaf x -> 
+                    if f x then []
+                    else [tree]
+            | Node (chld, x) ->
+                    let res = List.flatten (List.map (aux_cleanup f) chld) in
+                    match res with
+                    | [] | [_] -> res
+                    | y -> [Node (y, x)]
+        in
+        match aux_cleanup f tree with
+        | [] -> None
+        | [x] -> Some x
+        | x -> 
+                match newroot with
+                | None -> raise Illegal_argument
+                | Some y -> Some (Node (x, y))
+
 
 end
 
@@ -2381,19 +2417,19 @@ module SC = struct
 
     let to_formatter s =
         let info = [
-            (Tags.Characters.source, s.st_filesource);
-            (Tags.Characters.name, s.st_name);
-            (Tags.Characters.weight, string_of_float s.st_weight);
-            (Tags.Characters.missing_symbol, s.st_missing);
+            (Tags.Characters.source, `String s.st_filesource);
+            (Tags.Characters.name, `String s.st_name);
+            (Tags.Characters.weight, `Float s.st_weight);
+            (Tags.Characters.missing_symbol, `String s.st_missing);
             (Tags.Characters.matchstate_symbol, 
-            (match s.st_matchstate with None -> "" | Some x -> x));
-            (Tags.Characters.gap_symbol, s.st_gap);
-            (Tags.Characters.ignore, bool_to_string s.st_eliminate);
-            (Tags.Characters.case, bool_to_string s.st_case);
+            (match s.st_matchstate with None -> `String "" | Some x -> `String x));
+            (Tags.Characters.gap_symbol, `String s.st_gap);
+            (Tags.Characters.ignore, `Bool s.st_eliminate);
+            (Tags.Characters.case, `Bool s.st_case);
             ] 
         in
         let contents = 
-            let lst tag ls = `Single (tag, [], `Structured (`Set ls)) in
+            let lst tag ls = `Single (tag, [], (`Set ls)) in
             let observed_states = 
                 let res = 
                     List.map (fun x -> `Single (Tags.Characters.item,
@@ -2403,8 +2439,8 @@ module SC = struct
             and equivalencies =
                 let res =
                     List.map (fun (a, b) -> `Single (Tags.Characters.equivalent,
-                    [(Tags.Characters.from, a); (Tags.Characters.towards, 
-                        (String.concat " " b))], `Structured `Empty)) 
+                    [(Tags.Characters.from, `String a); (Tags.Characters.towards, 
+                        `String (String.concat " " b))], `Empty)) 
                     s.st_equivalents 
                 in
                 lst Tags.Characters.equivalencies res
@@ -2415,7 +2451,6 @@ module SC = struct
                 in
                 lst Tags.Characters.labels res
             and alph = `Single (Alphabet.to_formatter s.st_alph) in
-            `Structured 
             (`Set [alph; states; observed_states; equivalencies])
         in
         match s.st_type with
@@ -2839,7 +2874,7 @@ module SC = struct
                         let b = match b with
                             | `Bits s -> BitSet.to_list s
                             | `List s -> s in
-                        let b = List.filter (fun x -> List.mem x a) b in
+                        let b = List.filter (fun x -> not (List.mem x a)) b in
                         Some (`List (a@b))
                 in
                 match olst with
@@ -3543,8 +3578,8 @@ module SC = struct
             match of_type with
             | Some (`Dna x) -> 
                     let gap = "-" in
-                    let equ =  [("0",["A"]); ("1",["G"]);
-                                ("2",["C"]); ("3",["T"]); ("4",[gap])] in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["T"]); ("4",[gap])] in
                     let alph, equates = 
                         Nexus.make_symbol_alphabet gap [] equ [N.Datatype N.Dna]
                     in
@@ -3552,8 +3587,8 @@ module SC = struct
 
             | Some (`Rna x) ->
                     let gap = "-" in
-                    let equ =  [("0",["A"]); ("1",["G"]);
-                                ("2",["C"]); ("3",["U"]); ("4",[gap])]  in
+                    let equ =  [("0",["A"]); ("1",["C"]);
+                                ("2",["G"]); ("3",["U"]); ("4",[gap])]  in
                     let alph, equates = 
                         Nexus.make_symbol_alphabet "-" [] equ [N.Datatype N.Rna]
                     in

@@ -489,15 +489,15 @@ let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
 (*    let lst = List.map (Hashtbl.find used_observed) lst in *)
     let attributes = 
         let cost = elt_distance tcm elt elt_parent in
-        (Tags.Characters.name, (Data.code_character elt.ecode d)) ::
-        (Tags.Characters.cost, string_of_float cost) :: 
-        (Tags.Characters.definite, if cost > 0. then "true" else "false") :: 
+        (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
+        (Tags.Characters.cost, `Float cost) :: 
+        (Tags.Characters.definite, `Bool (cost > 0.)) :: 
             attr
     in
     let create = fun x ->
         `Single (Tags.Characters.value, [], `String x)
     in
-    (Tags.Characters.sankoff, attributes, `Structured (`Set (List.map create
+    (Tags.Characters.sankoff, attributes, (`Set (List.map create
     lst)))
 
 

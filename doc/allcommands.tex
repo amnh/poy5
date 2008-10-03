@@ -30,11 +30,16 @@
 
 	\begin{arguments}
 
-	\argumentdefinition{as\_is}{} 
+        \argumentdefinition{all}{}
+            {Turns off all preference strategies for adding branches
+            and simply tries all possible addition positions for
+            all terminals.}
+            {allbuild}
+
+        \argumentdefinition{as\_is}{} 
             {Indicates that in one of the trees to be built, the terminals are
-            added in the order in which they appear in the 
-            imported datafiles, and all others are built using a random addition
-            sequence.}
+            added in the order in which they appear in the imported datafiles,
+            and all others are built using a random addition sequence.}
             {asis}
 
         \argumentdefinition{branch\_and\_bound}{\optional{\poyfloat}}
@@ -53,6 +58,16 @@
             builds within each constraint.}
             {buildconstraint}
 
+        \argumentdefinition{lookahead}{\obligatory{\poyint}}
+            {The number of trees that can be kept at each build step. If the
+            \poyargument{lookahead} argument 
+            specifies a number $n$, and the best tree found has cost $c$, then the best $n$
+            trees with cost at most $c + threshold$ as specified by
+            the \nccross{threshold}{buildthreshold} command are held for the
+            next build step. If no \poyargument{threshold} command is specified,
+            then it is set to $0$.}
+            {lookahead}
+
         \argumentdefinition{random}{}
             {Generates a tree at random.  All possible trees have equal
             probability.}
@@ -63,12 +78,18 @@
             tree built. This is a default tree-building strategy.}
             {randomized}
 
+        \argumentdefinition{threshold}{\obligatory{\poyfloat}}
+            {The numerical value specifies the extra cost over the current best
+            tree that makes another tree acceptable for the lookahead list. This 
+            parameter is only useful if~\nccross{lookahead} is used.}
+            {buildthreshold}
+            
         \argumentdefinition{trees}{\obligatory{\poyint}}
             {The integer value specifies the number of independent, individual
             Wagner tree builds. The label \poyargument{trees} is optional: it is
             sufficient to specify only the integer value. Therefore, \poycommand{build(5)} is
             equivalent to \poycommand{build(trees:5)}.  Note that  \poyargument{trees} is
-            also used as an argument of the command~\nccross{swap}{swapcommand}
+            also used as an argument of the command \nccross{swap}{swapcommand}
             but with different meaning.
             
             The value \texttt{0} generates no trees but it \emph{retains} all trees in memory.
@@ -76,7 +97,7 @@
             where instead of generating new trees per each node, the searches are
             performed on the trees in the neighborhood of the current trees in memory.}
             {treesbuild}
-            
+
         \argumentdefinition{INTEGER}{}
             {The integer argument specifies the number of independent, individual
             Wagner tree builds. This is a shortcut of the argument \poyargument{trees}.}
@@ -92,14 +113,9 @@
             {This is a shortcut of the argument \poyargument{of\_file}.}
             {}
 
-        \argumentdefinition{all}{}
-            {Turns off all preference strategies for adding branches and simply tries all possible addition
-            positions for all terminals.}
-            {allbuild}
-        
    \end{arguments}
       
-   \poydefaults{trees:10, randomized}
+   \poydefaults{trees:10, randomized, lookahead:1, threshold:0}
        {By default, \poy will build 10 trees using a random addition sequence for
        each of them.}
 
@@ -906,7 +922,8 @@ The \poycommand{calculate\_support} command does not output support values by de
             It is important, however, to verify that the data was interpreted properly (using
             the command \poycommand{report}).
             
-            The terminal names, as well as input file names, must not contain spaces, “at” or percentage symbols.
+            The terminal names, as well as input file names, must not contain
+            spaces, ``at'' or percentage symbols.
         \end{statement}
           
         \begin{statement}
@@ -1442,6 +1459,18 @@ The \poycommand{calculate\_support} command does not output support values by de
                 cost regimes, a list of excluded
                 characters, and a list of input files.} 
                 {data}
+
+            \argumentdefinition{searchstats}{}
+                {Outputs a summary of the results of the last search command,
+                including the number of builds, fuse, ratchet, and the costs of
+                the trees found.}
+                {searchstats}
+
+            \argumentdefinition{searchstats}{}
+                {Outputs a summary of the results of the last search command,
+                including the number of builds, fuse, ratchet, and the costs of
+                the trees found.}
+                {searchstats}
 
             \argumentdefinition{seq\_stats}{\obligatory{identifiers}}
                 {Outputs a summary of the sequences specified in the argument
@@ -2007,6 +2036,9 @@ The \poycommand{calculate\_support} command does not output support values by de
 
 	\begin{arguments}
 
+        \argumentdefinition{constraint}{\obligatory{\poystring}}{For a complete
+        description see \nccross{constraint}{buildconstraint}.}{searchconstraint}
+
         \argumentdefinition{hits}{\obligatory{\poyint}}{Specifies the minimum number of
         times that the minimum cost must be reached before aborting the search. 
         The \poyargument{hits} argument is not used in parallel processing}{}
@@ -2039,6 +2071,11 @@ The \poycommand{calculate\_support} command does not output support values by de
         \argumentdefinition{target\_cost}{\obligatory{\poyfloat}}{Specifies the 
         upper limit for the cost of the shortest tree.}{targetcost}
 
+        \argumentdefinition{visited}{\optional{\poystring}}{For a complete
+        description see \ccross{visited}. Note that this argument has a
+        tremendous execution time cost, as printing the trees becomes a
+        bottleneck for the application.}{searchvisited}
+
 	\end{arguments}
 
     \poydefaults{max\_time:0:1:0, min\_time:0:1:0, memory:gb:2}{Under default
@@ -2050,16 +2087,17 @@ The \poycommand{calculate\_support} command does not output support values by de
                 In order to maximize computational efficiency when using \poycommand{search} 
                 in parallel processing environments the \poyargument{hits}
                 argument is ignored. However, a diverse set of trees which
-                include the current best trees found ammong all the processes is
+                include the current best trees found among all the processes is
                 desirable to improve the potential of tree fusing.
 
-                To guarantee that separate processes
-                exchange trees and seed each other's fuse step, it
-                is advisable to use few successive search commands
-                when executing the program in parallel, to ensure
-                proper tree exchange between different processes,
-                increasing their probability of finding better trees
-                during the fuse step.
+                POY will \emph{only exchange trees between processes at the end
+                of each search command}. Therefore,
+                to guarantee that separate processes seed each other with the
+                best trees they have found every number of hours,
+                it is advisable to use few successive search commands
+                when executing the program in parallel. Each search will still
+                be run in parallel, but after each one, trees will be exchanged
+                between processors, to initiate each successive round of search.
         \end{statement}
 
         
@@ -2419,8 +2457,6 @@ The \poycommand{calculate\_support} command does not output support values by de
                 cost estimation but at the expense of a tremendous execution
                 time. When approximate the execution time footprint is much
                 smaller, and far less memory consumption.
-%                The iterative argument 
-%                can only be applied to nucleotide sequence characters.
                 A heuristic strategy is to apply  \poyargument{iterative} at the 
                 very end of an analysis to polish the final set of trees and perform a final search. 
                 
@@ -2475,6 +2511,19 @@ The \poycommand{calculate\_support} command does not output support values by de
             {This commands selects terminal \texttt{Mytilus\_edulis} as a root
             for the output trees.}
             
+            \poyexample{set (iterative:exact)}
+            {Turns on the iterative exact algorithm in all the nucleotide
+            sequence characters. The program will iterate on each vertex of the
+            tree until no further tree cost improvements can be made.}
+
+            \poyexample{set (iterative:approximate:2)}
+            {Turns on the iterative approximate algorithm in all the nucleotide
+            sequence characters. The program will iterate either two times, or
+            until no further tree cost improvements can be made, whichever
+            happens first.}
+
+            \poyexample{set (iterative:exact:2)}
+            {Same as the previous, but using the exact algorithm insted.}
      \end{poyexamples}
      
 	\begin{poyalso}

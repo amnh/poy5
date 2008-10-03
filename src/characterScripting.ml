@@ -53,7 +53,7 @@ module type S = sig
         | `Floats of float Sexpr.t
     ]
 
-    val distance : cs -> cs -> float
+    val distance : float -> cs -> cs -> float
 
     val median : cs -> cs -> cs
 
@@ -81,7 +81,7 @@ type character_input_output = [
     | `Floats of float Sexpr.t
 ]
 
-let distance a b =
+let distance missing_distance a b =
     (* TODO: Sets *)
     match a, b with
     | Nonadd8 s, Nonadd8 t -> 
@@ -95,8 +95,7 @@ let distance a b =
     | Sank s, Sank t ->
           SankCS.distance s t
     | Dynamic s, Dynamic t ->
-          let d =  DynamicCS.distance s t in
-          d
+          DynamicCS.distance missing_distance s t 
     | Set s, Set t -> assert false      (* TODO: Set *)
     | Dynamic _, _ | Sank _, _ | Add _, _ 
     | Nonadd32 _, _ | Nonadd16 _, _ | Nonadd8 _, _
@@ -128,7 +127,7 @@ let median a b =
 let character_operations = function
     | `Distance (a, b) ->
             let res = 
-                Sexpr.all_to_all distance a b
+                Sexpr.all_to_all (distance 0.) a b
             in
             `Floats res
     | `Median (a, b) -> 
@@ -210,7 +209,7 @@ let scriptchar_operations nodes data meth : character_input_output =
                 filter_char_operations nodes data tx code 
             in
             let distance = fun (charsa, charsb) ->
-                Sexpr.all_to_all distance charsa charsb 
+                Sexpr.all_to_all (distance 0.) charsa charsb 
             in
             `Floats 
             ((`Set (List.map distance tuples_of_characters) : float Sexpr.t))

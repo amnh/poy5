@@ -1151,7 +1151,7 @@ let edge_distance clas nodea nodeb =
                         (* Observe that we REQUIRE the single assignment for
                         * this collapse to be correct. *)
                         let d = 
-                            DynamicCS.distance a.preliminary b.preliminary 
+                            DynamicCS.distance 0. a.preliminary b.preliminary 
                         in
                         a.weight *. d
                 | `Static -> 0.)
@@ -1187,7 +1187,7 @@ let edge_distance clas nodea nodeb =
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
 | `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ]
 
-let distance_of_type ?(para=None) ?(parb=None) t
+let distance_of_type ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
     let has_t x = List.exists (fun z -> z = x) t
     and filter_dynamic res x = 
@@ -1214,7 +1214,7 @@ let distance_of_type ?(para=None) ?(parb=None) t
         | Sank a, Sank b when has_sank ->
               a.weight *. SankCS.distance a.final b.final
         | Dynamic a, Dynamic b ->
-              a.weight *. DynamicCS.distance_of_type dy_t a.final b.final
+              a.weight *. DynamicCS.distance_of_type dy_t missing_distance a.final b.final
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
@@ -1245,7 +1245,7 @@ let distance_of_type ?(para=None) ?(parb=None) t
     distance_lists chs1 chs2 0.
 
 
-let distance ?(para=None) ?(parb=None) 
+let distance ?(para=None) ?(parb=None)  missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
     let rec distance_two ch1 ch2 =
         match ch1, ch2 with
@@ -1260,7 +1260,7 @@ let distance ?(para=None) ?(parb=None)
         | Sank a, Sank b ->
               a.weight *. SankCS.distance a.final b.final
         | Dynamic a, Dynamic b ->
-              a.weight *. DynamicCS.distance a.final b.final
+              a.weight *. DynamicCS.distance missing_distance a.final b.final
         | Kolmo a, Kolmo b ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b ->
@@ -1652,7 +1652,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     (fun x acc -> 
                         try 
                             let w = get_weight x in
-                            Hashtbl.add table w x; 
+                            if Hashtbl.mem table w then
+                                let lst = Hashtbl.find table w in
+                                Hashtbl.replace table w (x :: lst)
+                            else Hashtbl.add table w [x]; 
                             All_sets.Floats.add w acc
                         with
                         | Not_found -> acc) 
@@ -1660,7 +1663,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let res = All_sets.Floats.fold 
                 (fun x acc -> 
-                    let lst = Hashtbl.find_all table x in (x, lst) :: acc) 
+                    let lst = Hashtbl.find table x in 
+                    (x, lst) :: acc) 
                 weights []
             in
             List.fold_left
@@ -1700,7 +1704,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
-        let add_codes ((_, x) as y) = y, Array.map snd (Array.of_list x) in
+        let add_codes ((_, x) as y) = 
+            y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 
         and lnadd8code = List.map add_codes lnadd8code
         and lnadd16code = List.map add_codes lnadd16code
@@ -2171,18 +2176,17 @@ let output_total_cost ch i =
     let between () = print_endline (string_of_float i) in
     print_item print_endline "<cost>" "</cost>" between
 
-let pre = [ (Tags.Characters.cclass, Tags.Nodes.preliminary) ]
-let fin = [ (Tags.Characters.cclass, Tags.Nodes.final) ]
-let sing = [ (Tags.Characters.cclass, Tags.Nodes.single) ]
+let pre = [ (Tags.Characters.cclass, `String Tags.Nodes.preliminary) ]
+let fin = [ (Tags.Characters.cclass, `String Tags.Nodes.final) ]
+let sing = [ (Tags.Characters.cclass, `String Tags.Nodes.single) ]
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
- 
-    | StaticMl cb, StaticMl ca -> (
-        match root with
+    | StaticMl cb, StaticMl ca -> 
+IFDEF USE_LIKELIHOOD THEN
+        (match root with
         | None -> mine
         | Some root -> (* this is the root handle *)
-            IFDEF USE_LIKELIHOOD THEN
                 let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                 let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
                 let cost = MlStaticCS.root_cost res in
@@ -2191,11 +2195,11 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
                       cost = (ca.weight *. cost);
                       sum_cost = cost;
                       weight = ca.weight; time = None,None
-                    } 
-            ELSE
-                failwith likelihood_error
-            END
-            )
+                    }
+        )
+ELSE
+        failwith likelihood_error
+END
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)
@@ -2339,31 +2343,38 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
     | Nonadd8 cs, _, _ -> begin
           match parent_cs with 
           | None ->
-                NonaddCS8.to_formatter pre cs.preliminary None d
-                @ NonaddCS8.to_formatter fin cs.final None  d
+                NonaddCS8.to_formatter 
+                (NonaddCS8.to_formatter [] fin cs.final None  d) pre
+                cs.preliminary None d
           | Some ((Nonadd8 parent_cs), _) ->
-                NonaddCS8.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-            @ NonaddCS8.to_formatter fin cs.final (Some parent_cs.final) d  
+                NonaddCS8.to_formatter 
+                (NonaddCS8.to_formatter [] fin cs.final 
+                (Some parent_cs.final) d) pre cs.preliminary 
+                (Some parent_cs.preliminary) d
             | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml"
       end 
     | Nonadd16 cs, _, _ -> begin 
           match parent_cs with  
           | None ->
-                NonaddCS16.to_formatter pre cs.preliminary None d
-                @ NonaddCS16.to_formatter fin cs.final None  d
+                NonaddCS16.to_formatter (NonaddCS16.to_formatter [] fin cs.final
+                None  d) pre cs.preliminary None d
           | Some ((Nonadd16 parent_cs), _) ->
-                NonaddCS16.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-            @ NonaddCS16.to_formatter fin cs.final (Some parent_cs.final) d  
+                NonaddCS16.to_formatter 
+                (NonaddCS16.to_formatter [] fin cs.final (Some parent_cs.final)
+                d)  
+                 pre cs.preliminary (Some parent_cs.preliminary) d
           | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml" 
       end  
     | Nonadd32 cs, _, _ -> begin
           match parent_cs with  
           | None -> 
-                NonaddCS32.to_formatter pre cs.preliminary None d
-                @ NonaddCS32.to_formatter fin cs.final None  d 
+                NonaddCS32.to_formatter 
+                (NonaddCS32.to_formatter [] fin cs.final None  d)
+                pre cs.preliminary None d
           | Some ((Nonadd32 parent_cs), _) -> 
-                NonaddCS32.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ NonaddCS32.to_formatter fin cs.final (Some parent_cs.final) d  
+                NonaddCS32.to_formatter 
+                (NonaddCS32.to_formatter [] fin cs.final (Some parent_cs.final) d) 
+                pre cs.preliminary (Some parent_cs.preliminary) d
           | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml" 
       end   
     | Add cs, _, _-> begin
@@ -2394,7 +2405,6 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
                 @ 
                 (DynamicCS.to_formatter pre_ref_codes sing 
                 cs_single.preliminary None d)
-
           | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
                 (DynamicCS.to_formatter pre_ref_codes pre cs.preliminary
                 (Some parent_cs.preliminary) d) 
@@ -2412,7 +2422,7 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
               KolmoCS.to_formatter fi_ref_codes  fin x.final d
     | Set x, _, Set x_single ->
           let attributes =
-              [(Tags.Characters.name, (Data.code_character x.final.sid d))] in
+              [(Tags.Characters.name, `String (Data.code_character x.final.sid d))] in
           let sub a = 
               (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
               * error, though I can't see where ... *)
@@ -2420,7 +2430,7 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
               (cs_to_formatter (pre_ref_codes, fi_ref_codes) d a None) in
           let sub : (Tags.output Sexpr.t list) = List.map2 (fun a b -> `Set
           (sub (a, b))) x.final.set x_single.final.set in
-          let cont = `Structured (`Set sub) in
+          let cont = `Set sub in
           [(Tags.Characters.set, attributes, cont)]
     | StaticMl cs,_, _ -> 
         IFDEF USE_LIKELIHOOD THEN
@@ -2464,14 +2474,14 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
     in
     let node_name = get_node_name node_id in 
     let attr = 
-        (Tags.Nodes.cost, string_of_float 0.) :: 
-        (Tags.Nodes.recost, string_of_float 0.) :: 
-        (Tags.Nodes.node_cost, string_of_float node_data.node_cost) ::
-        (Tags.Nodes.name, node_name) ::
-        (Tags.Nodes.child1_name, "") ::
-        (Tags.Nodes.child2_name, "") ::
-        (Tags.Nodes.nce, string_of_int node_data.num_child_edges) ::
-        (Tags.Nodes.notu, string_of_int node_data.num_otus) :: acc
+        (Tags.Nodes.cost, `Float 0.) :: 
+        (Tags.Nodes.recost, `Float 0.) :: 
+        (Tags.Nodes.node_cost, `Float node_data.node_cost) ::
+        (Tags.Nodes.name, `String node_name) ::
+        (Tags.Nodes.child1_name, `String "") ::        
+        (Tags.Nodes.child2_name, `String "") ::        
+        (Tags.Nodes.nce, `Int node_data.num_child_edges) ::
+        (Tags.Nodes.notu, `Int node_data.num_otus) :: acc
     in
     let get_parent item = 
         match parent_data with
@@ -2480,7 +2490,9 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
                 (Some ((List.nth a.characters item), (List.nth b.characters
                 item)))
     in
-    let children, _ = List.fold_left 
+    let children =
+        `Delayed (fun () ->
+            `Set (fst (List.fold_left 
         (fun (acc, item) cs ->
             let parent_data = get_parent item in
              let res = 
@@ -2491,9 +2503,9 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
              res @ acc, item + 1
         ) ([], 0) 
         (List.map2 (fun a b -> a, b) 
-        node_data.characters node_single.characters)
+        node_data.characters node_single.characters))))
     in
-    (Tags.Nodes.node, attr, `Structured (`Set children))
+    (Tags.Nodes.node, attr, children)
 
 (** [copy_chrom_map source des] copies the chromosome map
 * which creates chromosome [source] to chromosome map which creates chromosome [des] *)
@@ -2541,17 +2553,19 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
     let attr = 
         (Tags.Nodes.cost, 
          (match parent_node_data_opt with 
-          | None -> "0." 
-          | _ -> (string_of_float node_data.total_cost))):: 
-        (Tags.Nodes.recost, string_of_float subtree_recost) :: 
-        (Tags.Nodes.node_cost, string_of_float node_data.node_cost) ::
-        (Tags.Nodes.name, node_name) ::
-        (Tags.Nodes.child1_name, child1_name) ::        
-        (Tags.Nodes.child2_name, child2_name) ::        
-        (Tags.Nodes.nce, string_of_int node_data.num_child_edges) ::
-        (Tags.Nodes.notu, string_of_int node_data.num_otus) :: acc
+          | None -> `Float 0.
+          | _ -> `Float node_data.total_cost)):: 
+        (Tags.Nodes.recost, `Float subtree_recost) :: 
+        (Tags.Nodes.node_cost, `Float node_data.node_cost) ::
+        (Tags.Nodes.name, `String node_name) ::
+        (Tags.Nodes.child1_name, `String child1_name) ::        
+        (Tags.Nodes.child2_name, `String child2_name) ::        
+        (Tags.Nodes.nce, `Int node_data.num_child_edges) ::
+        (Tags.Nodes.notu, `Int node_data.num_otus) :: acc
     in
-    let children, _ = List.fold_left 
+    let children =
+        `Delayed (fun () ->
+        `Set (fst (List.fold_left 
         (fun (acc, idx) cs ->
              let parent_cs = 
                  match parent_node_data_opt with 
@@ -2566,10 +2580,11 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
              let res = cs_to_formatter (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
 
              let res = List.map (fun ch -> `Single ch) res in 
-             (res @ acc), (idx + 1)) ([], 0) (List.map2 (fun a b -> a, b) node_data.characters 
-             node_single.characters)
+             (res @ acc), (idx + 1)) ([], 0) 
+             (List.map2 (fun a b -> a, b) node_data.characters 
+             node_single.characters))))
     in
-    (Tags.Nodes.node, attr, `Structured (`Set children))
+    (Tags.Nodes.node, attr, children)
 
 let to_xml data ch node = ()
 

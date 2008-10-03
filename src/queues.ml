@@ -233,7 +233,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let cnt, tst = get_upto max tree_cost_delta_lst [] in
                     srch_trees <- tst;
                     c_delta <- d;
-                    m_max <- cnt;
+                    m_max <- true_max - cnt;
             | [] ->
                     raise (Invalid_argument "The initialization must contain at \
                     least 1 element.")
@@ -262,7 +262,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     failwith "There are no more trees to search in the wagner \
                     manager."
                 
-        method private filterout m_max trees new_cost old_best =
+        method private filterout m_max trees real_cost new_cost old_best =
             let filter_maximum (worst_cost, tree, res) ((_, cur_cost, _) as v) =
                 if cur_cost > worst_cost then begin
                     match tree with
@@ -270,21 +270,28 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     | Some x -> (cur_cost, Some v, (x :: res))
                 end else (worst_cost, tree, (v :: res))
             in
+            (*
             let do_filter (counter, results) ((_, cur_cost, _) as v) =
-                if cur_cost > old_best +. m_thr then (counter + 1, results)
+                if cur_cost > (min new_cost old_best) +. m_thr then (counter + 1, results)
                 else (counter, v :: results)
             in
             match List.fold_left do_filter (0, []) trees with
             | (0, _) as x -> 
+                    *)
                     if m_max = 0 then 
-                        let acc = (0.0, None, []) in
-                        let _, _, res = 
+                        let acc = (real_cost, None, []) in
+                        let worst_cost, tree, res = 
                             List.fold_left filter_maximum acc trees
                         in
-                        (1, res)
-                    else x
+                        match tree with
+                        | None -> (false, 0, res)
+                        | Some _ -> 
+                                (true, 1, res)
+                    else if m_max < 0 then assert false
+                    else true, 0, trees
+                    (*
             | x -> x
-
+                    *)
         method evaluate =
             let checker ((m_max, cur_best, results) as r) (v, estimate, _) =
                 if estimate > cur_best +. m_thr then  r
@@ -294,15 +301,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         if verify_cost then a, b, c, tabu_mgr, b
                         else a, b, c, tabu_mgr, estimate
                     in
-                    if ( cost_for_comparisons < cur_best ) then begin
+                    if ( cost_for_comparisons <= cur_best ) then begin
                         (* We are ok, we must add this one *)
-                        let counter, results = 
-                            self#filterout m_max results cost_for_comparisons
-                            cost_for_comparisons 
+                        let is_there_room, counter, results = 
+                            self#filterout m_max results cost_for_comparisons 
+                            cost_for_comparisons cur_best 
                         in
-                        m_max - 1 + counter, cost_for_comparisons,
-                        ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) :: 
-                            results
+                        if is_there_room then
+                            m_max - 1 + counter, cost_for_comparisons,
+                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) :: 
+                                results
+                        else m_max, cur_best, results
                     end else if cost_for_comparisons < cur_best +. m_thr then begin
                         (* We are more or less ok, we make the decision based on
                         * m_max *)
@@ -311,21 +320,26 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
                                 results
                         end else begin
-                            let counter, results = 
+                            let is_there_room, counter, results = 
                                 self#filterout m_max results
-                                cost_for_comparisons cur_best 
+                                cost_for_comparisons cost_for_comparisons 
+                                cur_best 
                             in              
-                            m_max - 1 + counter, cur_best,
-                            ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
-                                results
+                            if is_there_room then
+                                m_max - 1 + counter, cur_best,
+                                ((Lazy.lazy_from_val (a, b, c, tabu_mgr)), b, c) ::
+                                    results
+                            else m_max, cur_best, results
                         end
                     end else 
                         m_max, cur_best, results
                 end
             in
-            let _, _, res = 
-                List.fold_left checker (m_max, infinity, []) srch_trees
+            let new_max, _, res = 
+                List.fold_left checker (true_max, infinity, []) srch_trees
             in
+            assert (true_max - new_max = List.length res);
+            m_max <- new_max;
             srch_trees <- res
 
              (** [process cost_fn b_delta cd_nd join_fn j1 j2 t_delta]
@@ -355,7 +369,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             in
             match cost_fn j1 j2 cld_cst cd_nd pt with
             | Ptree.Cost cc ->
-                    let v = 
+                    let (_, real_cost, _) as v = 
                         let tabu_mgr = tabu_mgr#clone in
                         (Lazy.lazy_from_fun (fun () ->
                         let nt, dlt = join_fn [] j1 j2 pt in
@@ -367,13 +381,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     tabu_mgr#break_distance cc;
                     if ( cc <= cld_cst +. m_thr ) then begin
                         (* We are ok, we must add this one *)
-                        let counter, new_search_trees = 
-                            self#filterout m_max srch_trees cc cld_cst 
+                        let is_there_room, counter, new_search_trees = 
+                            self#filterout m_max srch_trees real_cost cc cld_cst 
                         in
-                        tabu_mgr#new_delta cc;
-                        c_delta <- Ptree.Cost cc;
-                        srch_trees <- v :: new_search_trees;
-                        m_max <- m_max - 1 + counter;
+                        if is_there_room then begin
+                            tabu_mgr#new_delta cc;
+                            c_delta <- Ptree.Cost cc;
+                            srch_trees <- v :: new_search_trees;
+                            m_max <- (m_max - 1 + counter) + counter;
+                        end;
                         Tree.Continue 
                     end else Tree.Continue
             | Ptree.NoCost -> Tree.Skip
@@ -511,7 +527,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                       let cst = Ptree.get_cost `Adjusted nt in
                       if cst < cur_best_cost then begin
                           let new_tabu = tabu_mgr#clone in
-                          sampler#process j1 j2 cd_nd pt (Some nt) 
+                          sampler#process incremental j1 j2 cd_nd pt (Some nt) 
                           b_delta cc (Some cst); 
                           cur_best_cost <- cst;
                           new_tabu#update_join nt j_delta;
@@ -519,11 +535,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                           results <- [(nt, cst, new_tabu)] ;
                           Tree.Break 
                       end else begin
-                          sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                          sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                           Tree.Continue
                       end
                   end else begin
-                      sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                      sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                       Tree.Continue
                   end
 
@@ -786,16 +802,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         else ()
                     else ();
                     (* insert self-call here *)
-                    self#trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost
+                    self#trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost
 
         (** [trajectory cc b_delta ljoin ltabu cost] is used to control the
             trajectory of the search.  This version implements first-best search;
             see later for an example of annealing search implemented this way. *)
-        method private trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
+        method private trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
             if ( cc < b_delta ) then begin
                 let nt, j_delta = Lazy.force ljoin in
                 let cst = Ptree.get_cost `Adjusted nt in
-                sampler#process j1 j2 cd_nd pt (Some nt) b_delta 
+                sampler#process incremental j1 j2 cd_nd pt (Some nt) b_delta 
                 cc (Some cst);
                 (*
                 if debug_costfn_opportunistic && (cst <> cost)
@@ -808,12 +824,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         self#refilter;
                         Tree.Break 
                     end else begin
-                        sampler#process j1 j2 cd_nd pt (Some nt) 
+                        sampler#process incremental j1 j2 cd_nd pt (Some nt) 
                         b_delta cc None;
                         Tree.Continue
                     end
                 end else begin
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
                 end
 
@@ -887,14 +903,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             Ptree.tabu_mgr), acc_todo) (_, break, r1, r2) =
                 let icost = Ptree.get_cost `Adjusted acc_tree in
                 let ntabu = tabu#clone in
-                let Tree.Edge break = Tree.normalize_edge break tree.Ptree.tree in
-                let tree, a, b, c, d, il = break_fn break tree in
-                let t1_h, t2_h = Tree.get_break_handles a (tree.Ptree.tree) in
-                let t1_h, t2_h = 
-                    Ptree.handle_of t1_h tree, Ptree.handle_of t2_h tree
+                let Tree.Edge break = 
+                    Tree.normalize_edge break tree.Ptree.tree 
                 in
-                let () = ntabu#update_break tree a t1_h t2_h c in
-                let tree, treed = join_fn il r1 r2 tree in
+                let breakage = break_fn break tree in
+                let () = ntabu#update_break breakage in
+                let tree, treed = 
+                    join_fn breakage.Ptree.incremental 
+                    r1 r2 breakage.Ptree.ptree 
+                in
                 let () = ntabu#update_join tree treed in
                 let cost = Ptree.get_cost `Adjusted tree in
                 if cost < icost then 
@@ -941,7 +958,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost cc ->
                     tabu_mgr#break_distance cc;
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None; 
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                     if cc < b_delta then 
                       let nt, j_delta = (join_fn incremental j1 j2 pt) in
                       let cst = Ptree.get_cost `Adjusted nt in
@@ -988,24 +1005,24 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
         method virtual private is_better : float -> float -> bool
 
-        method private trajectory cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
+        method private trajectory incremental cc cd_nd b_delta j1 j2 pt ljoin ltabu cost =
             tree_count <- succ tree_count;
             if self#is_better cc b_delta then begin
                     let nt, j_delta = Lazy.force ljoin in
                     let cst = Ptree.get_cost `Adjusted nt in
                     if self#is_better cst cur_best_cost then begin
                         cur_best_cost <- cst;
-                        sampler#process j1 j2 cd_nd pt (Some nt) b_delta cc 
+                        sampler#process incremental j1 j2 cd_nd pt (Some nt) b_delta cc 
                         (Some cst);
                         let new_tabu = Lazy.force ltabu in
                         srch_trees <- (nt, cst, new_tabu) :: srch_trees;
                         Tree.Break
                     end else begin
-                        sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                        sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                         Tree.Continue
                     end
                 end else begin
-                    sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
                 end
     end
@@ -1113,8 +1130,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     if cc < b_delta then
                         let _ = 
-                            sampler#process j1 j2 cd_nd pt None b_delta cc 
-                            None 
+                            sampler#process incremental j1 j2 cd_nd pt 
+                            None b_delta cc None 
                         in
                         let _ = 
                             match file with
@@ -1128,7 +1145,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                             | None -> ()
                         in
                         ()
-                    else sampler#process j1 j2 cd_nd pt None b_delta cc None;
+                    else sampler#process incremental j1 j2 cd_nd pt None b_delta cc None;
                     Tree.Continue
             | Ptree.NoCost -> Tree.Skip
 

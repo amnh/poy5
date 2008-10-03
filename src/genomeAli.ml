@@ -1184,18 +1184,19 @@ let compare med1 med2 =
 (** [create_map anc_med des_ref] returns the map
 * from ancestor genome [anc_med] to descendant genome [des_ref] *)
 let create_map anc_med des_ref : (int * int * Tags.output) = 
-    let str = string_of_int in  
- 
+    let str x = `Int x in  
     let create_chrom_map m =      
         let a_chrom_id, a_sta, a_en, a_dir  = 
-            (str m.med_chrom_id), (str m.sta), (str m.en), "+" 
+            (str m.med_chrom_id), (str m.sta), (str m.en), `String "+" 
         in 
         let d_chrom_id, d_sta, d_en, d_dir = 
             match des_ref = anc_med.genome_ref_code1 with
             | true ->
-                  (str m.chi1_chrom_id), (str m.sta1), (str m.en1), (Utl.get_dir m.dir1) 
+                  (str m.chi1_chrom_id), (str m.sta1), (str m.en1), 
+                  `String (Utl.get_dir m.dir1) 
             | false ->
-                  (str m.chi2_chrom_id), (str m.sta2), (str m.en2), (Utl.get_dir m.dir2) 
+                  (str m.chi2_chrom_id), (str m.sta2), (str m.en2), 
+                    `String (Utl.get_dir m.dir2) 
         in 
         let attributes = [(Tags.GenomeMap.a_chrom_id, a_chrom_id);
                           (Tags.GenomeMap.a_start_seg, a_sta);
@@ -1215,7 +1216,7 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
         (fun chrom -> 
              let seg_ls = List.map create_chrom_map chrom.map in
              let chrom_map : Tags.output = 
-                 (Tags.GenomeMap.chrom, [], `Structured (`Set seg_ls))
+                 (Tags.GenomeMap.chrom, [], (`Set seg_ls))
              in 
              `Single chrom_map
         ) (Array.to_list anc_med.chrom_arr) 
@@ -1226,7 +1227,7 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
     in 
 
     let genome_map : Tags.output = 
-        (Tags.GenomeMap.genome, attributes, `Structured (`Set chrom_map_ls)) 
+        (Tags.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
     in 
 
     match des_ref = anc_med.genome_ref_code1 with
@@ -1237,14 +1238,16 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
 (** [create_single_map med] returns the map 
 * of single states of genome [med] in Tag.Output format *)
 let create_single_map med : Tags.output = 
-    let str = string_of_int in  
+    let str x = `Int x in  
  
     let create_chrom_map m =      
         let a_chrom_id, a_sta, a_en, a_dir  = 
-            (str m.chi2_chrom_id), (str m.sta2), (str m.en2), (Utl.get_dir m.dir2)
+            (str m.chi2_chrom_id), (str m.sta2), (str m.en2), 
+            `String (Utl.get_dir m.dir2)
         in 
         let d_chrom_id, d_sta, d_en, d_dir = 
-            (str m.chi1_chrom_id), (str m.sta1), (str m.en1), (Utl.get_dir m.dir1) 
+            (str m.chi1_chrom_id), (str m.sta1), (str m.en1), 
+            `String (Utl.get_dir m.dir1) 
         in 
         let attributes = [(Tags.GenomeMap.a_chrom_id, a_chrom_id);
                           (Tags.GenomeMap.a_start_seg, a_sta);
@@ -1264,7 +1267,7 @@ let create_single_map med : Tags.output =
         (fun chrom -> 
              let seg_ls = List.map create_chrom_map chrom.map in
              let chrom_map : Tags.output = 
-                 (Tags.GenomeMap.chrom, [], `Structured (`Set seg_ls))
+                 (Tags.GenomeMap.chrom, [], (`Set seg_ls))
              in 
              `Single chrom_map
         ) (Array.to_list med.chrom_arr) 
@@ -1275,7 +1278,7 @@ let create_single_map med : Tags.output =
     in 
 
     let genome_map : Tags.output = 
-        (Tags.GenomeMap.genome, attributes, `Structured (`Set chrom_map_ls)) 
+        (Tags.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
     in 
 
     genome_map 

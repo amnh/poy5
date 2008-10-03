@@ -134,7 +134,6 @@ typedef CHARTYPE nac;
 
 
 #if defined( __APPLE_ALTIVEC__ )
-#warning ALTIVEC
 /* To use this, we need the options:
  * -maltivec -mabi=altivec -mpim-altivec */
 
@@ -223,6 +222,8 @@ nonadd_print_ptr ("alloc", malloc (sizeof(vect) * ((size / BLOCK_LEN) + 1)))
 #define ZERO_VECTOR (union _vectnac_u) ((nac) 0x0UL)
 
 typedef nac vect[BLOCK_LEN];
+
+#define compute_size(len) ((sizeof (struct _naca_t) + ((sizeof(vect) * ((BLOCK_LEN * ((len / BLOCK_LEN) + 1)))))))
 
 #define VLOOP_BEGIN int __iter_for_vloop; \
 for (__iter_for_vloop = 0; __iter_for_vloop < BLOCK_LEN; __iter_for_vloop++) {
@@ -447,8 +448,7 @@ nonadd_median (const nacat a,
         VSET (v_unn, VOR  (VGET (a->data[i]), VGET (b->data[i])));
         VSET (v_res, VCMP (VGET (v_int), VGET (zero.v)));
 
-        VCOUNT (v_res, added_cost, nelts);
-
+        VCOUNT(v_res,added_cost,nelts);
         VSET (v_res, VAND (VGET (v_res), VGET (v_unn)));
         VSET (v_res, VOR  (VGET (v_res), VGET (v_int)));
 
@@ -641,7 +641,9 @@ nonadd_nacat_compare (value v1, value v2)
 
 /** @} */
 
+#ifndef compute_size
 #define compute_size(len) ((sizeof (struct _naca_t) + ((sizeof(vect) * ((len / BLOCK_LEN) + 1)))))
+#endif
 /** Serialize a #nacat value */
 void
 nonadd_nacat_serialize (value v,

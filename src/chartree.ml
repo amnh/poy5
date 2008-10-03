@@ -904,11 +904,6 @@ let update_tree_data_break (tree_delta, clade_delta) ptree =
     let ptree, _ = update_tree_data_break true tree_delta ptree in
     update_tree_data_break false clade_delta ptree
 
-type 'a break_fn_t = 
-  Tree.id * Tree.id ->
-  'a p_tree ->
-  'a p_tree * Tree.break_delta * float * int * Node.node_data * incremental list
-
 let reroot_fn (_ : bool) edge ptree =
     let Tree.Edge (h, n) = edge in
     let my_handle = Ptree.handle_of h ptree in
@@ -966,28 +961,71 @@ let break_fn (tree_node, clade_node_id) ptree =
             failwith "Break update is failing";
         end;
     end;
-    ptree, tree_delta,
-    b_delta, (Tree.int_of_id clade_node_id), clade_node, udlt
+    let left, right =
+        let component_root x =
+            let cr = Ptree.get_component_root x ptree in
+            match cr.Ptree.root_median with
+            | Some (_, b) -> b
+            | None -> assert false
+        in
+        let extract_side x side =
+            { Ptree.clade_id = x; 
+            clade_node = component_root x;
+            topology_delta = side;}
+        in
+        let (left, right) = tree_delta in
+        extract_side tree_handle left, extract_side clade_handle right
+    in
+    {
+        Ptree.ptree = ptree; 
+        tree_delta = tree_delta;
+        break_delta = b_delta;
+        left = left;
+        right = right;
+        incremental = udlt;
+    }
 
 let prepare_tree_for_downpass ptree tree_delta =
     match tree_delta with
     | (`Edge (v, _, _, _)), (`Single (h, true)), _ ->
+            if debug_joinfn then Printf.printf "Removing the vertex %d\n%!" v;
             let ptree = Ptree.remove_node_data v ptree in
             v, Ptree.remove_root_of_component h ptree
     | (`Single (v, _)), (`Single (h, true)), _ ->
             v, Ptree.remove_root_of_component h ptree
     | (`Edge (v, _, _, _)), (`Edge (r, a, b, Some h)), _ ->
+            if debug_joinfn then 
+                Printf.printf "Removing the vertices %d and %d\n%!" v r;
             (let ptree = Ptree.remove_root_of_component h ptree in
             let ptree = Ptree.remove_node_data r ptree in
             let ptree = Ptree.remove_node_data v ptree in
             r, ptree)
     | (`Single (v, _)), (`Edge (r, a, b, Some h)), _ ->
+            if debug_joinfn then Printf.printf "Removing the vertex %d\n%!" r;
             let ptree = Ptree.remove_root_of_component h ptree in
             let ptree = Ptree.remove_node_data r ptree in
             r, ptree
     | _ -> failwith "Unexpected Chartree.join_fn"
 
 let join_topologies_and_data jxn1 jxn2 ptree = 
+    let ptree = 
+        match jxn2 with
+        | Tree.Single_Jxn _ -> ptree
+        | Tree.Edge_Jxn (a, b) -> 
+                let do_reroot () = 
+                    let ptree, incr = 
+                        reroot_fn true (Tree.Edge (a, b)) ptree in
+                    incremental_uppass ptree incr
+                in
+                let handle = Ptree.handle_of a ptree in
+                let root = Ptree.get_component_root handle ptree in
+                match root.Ptree.root_median with
+                | Some ((`Single _), _)
+                | None -> do_reroot ()
+                | Some ((`Edge (x, y)), _) when 
+                    (x <> a || y <> b) && (x <> b || y <> a) -> do_reroot ()
+                | _ -> ptree
+    in
     let ret, tree_delta = Tree.join jxn1 jxn2 ptree.Ptree.tree in
     let ptree = { ptree with Ptree.tree = ret } in
     let v, ptree = prepare_tree_for_downpass ptree tree_delta in
@@ -1043,7 +1081,7 @@ let cost_fn jxn1 jxn2 delta clade_data tree =
     match jxn1 with
     | Tree.Single_Jxn h ->
           Ptree.Cost
-              (Node.Standard.distance
+              (Node.Standard.distance 0.
                    (Ptree.get_node_data (Tree.int_of_id h) tree)
                    clade_data)
     | Tree.Edge_Jxn (h, n) ->
@@ -1246,7 +1284,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 [] data tree c2 (Some (node_data, my_single_assignment))
             in
             let c1st = `Single child1_formatter and c2st = `Single child2_formatter in
-            (Tags.Trees.tree, [], `Structured (`Set [nodest; c1st; c2st]))
+            (Tags.Trees.tree, [], (`Set [nodest; c1st; c2st]))
     | Tree.Leaf (_, parent_id) -> 
             let node_data = Ptree.get_node_data node_id tree in
             assert (match parent_data with 
@@ -1262,7 +1300,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                     `Single node_formatter
                 with Not_found -> `Empty
             in 
-          (Tags.Trees.tree, [], `Structured nodest)
+          (Tags.Trees.tree, [], nodest)
     | Tree.Single _ ->
           let nodest = 
               let node_data = Ptree.get_node_data node_id tree in 
@@ -1272,7 +1310,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
               in
               `Single node_formatter
           in 
-          (Tags.Trees.tree, [], `Structured nodest)
+          (Tags.Trees.tree, [], nodest)
 
 let handle_to_formatter (pre_ref_codes, fi_ref_codes)
         attr data tree handle_id : Tags.output =
@@ -1309,7 +1347,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
               in 
               let c1 = `Single handle_f and c2 = `Single parent_f in 
               let root = `Single root_formatter in 
-              `Structured (`Set [root; c1; c2])
+              (`Set [root; c1; c2])
         | Tree.Single _ ->
                 let node_single = 
                     let nd = Ptree.get_node_data handle_id tree in
@@ -1319,10 +1357,10 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                     subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
                     [] data tree handle_id node_single 
                 in
-                `Structured (`Single c1)
+                (`Single c1)
     in
     let attr = 
-        (Tags.Trees.cost, string_of_float root.Ptree.component_cost) :: attr
+        (Tags.Trees.cost, `Float root.Ptree.component_cost) :: attr
     in
     (Tags.Trees.tree, attr, data)
 
@@ -1347,8 +1385,8 @@ let to_formatter atr data tree : Tags.output =
                    root_recost := !root_recost +. recost);
              `Single handle_formatter) handles 
     in
-    let atr = (Tags.Trees.recost, string_of_float !root_recost) :: atr in
-    (tag, atr, `Structured (`Set data))
+    let atr = (Tags.Trees.recost, `Float !root_recost) :: atr in
+    (tag, atr, (`Set data))
 
 
 let root_costs tree = 

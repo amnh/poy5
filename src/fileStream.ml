@@ -257,23 +257,94 @@ end
 class stream_reader stream =
 object (self)
     inherit auto_store_reader as super
+
+    method private get_char = Pervasives.input_char stream
         
     (* By default, we want to skip extra newline chars *)
     val mutable last_cr = false
-    method get =
-        let ch = Pervasives.input_char stream in
+    method private process_char ch =
         if ((ch = '\010') || (ch = '\013') || (ch = '\n')) && last_cr then 
             (last_cr <- false; self#get)
         else if ch = '\013' || ch = '\010' || ch = '\n' then 
             (last_cr <- true; '\n')
         else (last_cr <- false; ch)
+    method get =
+        let ch = self#get_char in
+        self#process_char ch
+end
+
+class compressed_reader stream = object (self)
+    inherit stream_reader stream as super
+
+    val mutable table = Lz.initial_table ()
+
+    val mutable buffer = Buffer.create (1024 * 1024) 
+
+    val mutable buffer_length = 0
+    val mutable buffer_position = 0
+
+    val mutable element_to_add = None
+
+    method private fill_buffer =
+        let input_byte stream = 
+            Pervasives.input_byte stream
+        in
+        let get_byte () =
+            match Sys.os_type with
+            | "Win32" ->
+                    let item = 
+                        match element_to_add with
+                        | None -> input_byte stream 
+                        | Some item -> 
+                                element_to_add <- None;
+                                item
+                    in
+                    if item = 0xD then 
+                        try
+                            let next_item = input_byte stream in
+                            if next_item = 0xA then next_item
+                            else begin
+                                element_to_add <- Some next_item;
+                                item
+                            end
+                        with
+                        | End_of_file -> item
+                    else item
+            | _ -> input_byte stream
+        in
+        Buffer.reset buffer;
+        buffer_length <- 0;
+        buffer_position <- 0;
+        let fst = get_byte () in
+        let snd = get_byte () in
+        let int = (fst lsl 8) lor snd in
+        Lz.decompress table [int] buffer;
+        buffer_length <- Buffer.length buffer
+
+    method private process_char ch =
+        if ((ch = '\010') || (ch = '\013') || (ch = '\n')) && last_cr then 
+            (last_cr <- false; self#get)
+        else if ch = '\013' || ch = '\010' || ch = '\n' then 
+            (last_cr <- true; '\n')
+        else (last_cr <- false; ch)
+
+    method get =
+        if buffer_length = 0 then begin
+            self#fill_buffer;
+            self#get
+        end else begin
+            buffer_length <- buffer_length - 1;
+            let ch = Buffer.nth buffer buffer_position in
+            buffer_position <- buffer_position + 1;
+            self#process_char ch
+        end
 end
 
 type f = [`Local of string | `Remote of string]
 
-let read_contents file = 
+let read_contents opener file = 
     let b = Buffer.create (1024 * 1024) in
-    let ch = open_in file in
+    let ch = opener file in
     try
         while true do
             Buffer.add_char b (input_char ch);
@@ -286,10 +357,10 @@ let filename = function
     | `Local f 
     | `Remote f -> f
 
-let open_in fn = 
+let open_in opener fn = 
     StatusCommon.Files.flush ();
     match fn with
-    | `Local file -> open_in file
+    | `Local file -> opener file
     | `Remote file ->
 IFDEF USENOSHAREDHD THEN
             let rank = Mpi.comm_rank Mpi.comm_world in
@@ -299,17 +370,21 @@ IFDEF USENOSHAREDHD THEN
             let output = open_out tmp in
             let contents =
                 if 0 = Mpi.comm_rank Mpi.comm_world then begin
-                    read_contents file
+                    read_contents opener file
                 end else Buffer.create 1
             in
             let file = Mpi.broadcast contents 0 Mpi.comm_world in
             Buffer.output_buffer output file; 
             flush output;
             close_out output;
-            open_in tmp
+            opener tmp
 ELSE
-            open_in file
+            opener file
 END
+
+let open_in_bin x = open_in Pervasives.open_in_bin x
+
+let open_in x = open_in Pervasives.open_in x
 
 let channel_n_filename fn = 
     open_in fn, filename fn
