@@ -892,7 +892,15 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     transform_node_characters trees (data, nodes) (`Static_Aprox (`Some
                     (true, chars), true)))
         | `UseLikelihood x ->
+            IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_likelihood data x)
+            ELSE
+                Status.user_message Status.Warning
+                ("Likelihood is not enabled. No transformation is being applied"
+                ^". Please download a different binary with likelihood enabled"^
+                " or contact support on the mailing list");
+                data,nodes
+            END
         | `Independent chars -> 
                 data --> Data.independent chars --> Node.load_data
         | `Prealigned_Transform chars ->

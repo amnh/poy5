@@ -591,13 +591,14 @@ statusCommon.cmo: config.h poyExtension.cmo lz.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
 statusCommon.cmx: config.h poyExtension.cmo lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
-
+charTransform.cmo: config.h charTransform.cmi charTransform.ml
+	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) charTransform.ml
 
 # Generics for all the builds
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .c .o
 
-OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml 
+OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml charTransform.ml
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
