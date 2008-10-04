@@ -210,6 +210,8 @@ class type ['a, 'b] tabu_mgr = object
      * should ensure the invariant that edges in the tabu and the edges in the tree are
      * in sync. Note that directionality could be reversed. *)
 
+    method update_reroot : ('a, 'b) breakage -> unit
+
     method update_join : 
         ('a, 'b) p_tree -> Tree.join_delta -> unit
         
@@ -1241,6 +1243,7 @@ let tbr_join pb tabu search breakage =
                                     reroot_on_edge to_reroot edge 
                                     breakage 
                                 in
+                                tabu#update_reroot search_breakage;
                                 do_search search_breakage
     in
     do_search breakage
