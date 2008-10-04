@@ -36,6 +36,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
 
     let expr_poy = Gram.Entry.mk "expr_poy" 
     let arg_poy = Gram.Entry.mk "arg_poy"
+    let single_poy = Gram.Entry.mk "single_poy"
 
     let rec exSem_of_list = function
         | [] -> 
@@ -72,7 +73,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         | None -> <:expr<None>>
 
     EXTEND Gram
-        GLOBAL: expr_poy arg_poy;
+        GLOBAL: expr_poy arg_poy single_poy;
         expr_poy: [ [ 
             x = LIST1 [a = transform -> `S a 
                     | a = fuse -> `S a 
@@ -89,6 +90,22 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     | x = simp_expr -> `S x
                     | x = cur_expr -> `L x ]
         -> x] ];
+        single_poy : [
+            [ a = transform -> a ] 
+            | [ a = fuse -> a ]
+            | [ a = calculate_support -> a ]
+            | [ a = report -> a ]
+            | [ a = select -> a ]
+            | [ a = perturb -> a ]
+            | [ a = swap -> a ]
+            | [ a = build -> a ]
+            | [ a = application_command -> a ]
+            | [ x = read -> x ]
+            | [ x = rename -> x ]
+            | [ x = search -> x ]
+            | [ x = simp_expr -> x ]
+            | [ x = cur_expr -> x ]
+        ];
         arg_poy: [ 
             [ x = swap_argument -> x ] |
             [ x = fuse_argument -> x ] |
@@ -610,7 +627,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [   
                 [ "{"; x = expr; "}" -> x ] |
                 [ LIDENT "memory"; ":"; x = memory -> <:expr<`MaxRam $x$>> ] |
-                [ LIDENT "hits"; ":"; x = flex_float -> <:expr<`MinHits $x$>> ] |
+                [ LIDENT "hits"; ":"; x = flex_integer -> <:expr<`MinHits $x$>> ] |
                 [ LIDENT "target_cost"; ":"; x = flex_float -> <:expr<`Target $x$>> ] |
                 [ LIDENT "max_time"; ":"; x = time -> <:expr<`MaxTime $x$>> ] |
                 [ LIDENT "min_time"; ":"; x = time -> <:expr<`MinTime $x$>> ] |
@@ -911,6 +928,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
     EXTEND Gram
     Syntax.expr : LEVEL "top" [
         [ "CPOY"; s = expr_poy -> exSemCom_of_list s ] |
+        [ "SPOY"; s = single_poy -> s ] |
         [ "APOY"; s = arg_poy -> s ] |
         [ "POY"; s = expr_poy -> 
             <:expr<Phylo.parsed_run (PoyCommand.of_parsed True 
