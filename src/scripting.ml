@@ -1699,66 +1699,68 @@ END
     | Exit ->
             Status.finished search_iteration_status;
             let do_exhaustive_round r =
-                let r' = r in
-                let compare_trees a b =
-                    let cost = Ptree.get_cost `Adjusted in
-                    compare (cost a) (cost b)
-                in
-                let prev = !Methods.cost in
-                match prev with
-                | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
-                | `Normal | `Normal_plus_Vitamines ->
-                        try
-                            let potential, not_potential = 
-                                Sexpr.split (fun x ->
-                                not 
-                                (FPSet.mem (Ptree.Fingerprint.fingerprint x)
-                                !exhausted)) r.trees 
-                            in
-                            match List.sort compare_trees 
-                                (Sexpr.to_list potential) with
-                            | [] -> r
-                            | h :: t ->
-                                    let r = { r with trees = `Single h } in
-                                    Methods.cost := `Exhaustive_Weak;
-                                    let r = 
-                                        exec r 
-                                        (match visited, user_constraint with
-                                        | None, None ->
-                                                (CPOY swap (timeout:[remaining_time ()]))
-                                        | Some (Some file), None ->
-                                                (CPOY swap (visited:[file], 
-                                                timeout:[remaining_time ()]))
-                                        | Some None, None ->
-                                                (CPOY swap (visited, 
-                                                timeout:[remaining_time ()]))
-                                        | None, Some cnst ->
-                                                (CPOY swap (constraint_p:(file:[cnst]),
-                                                timeout:[remaining_time ()]))
-                                        | Some (Some file), Some cnst ->
-                                                (CPOY swap (visited:[file], 
-                                                constraint_p:(file:[cnst]),
-                                                timeout:[remaining_time ()]))
-                                        | Some None, Some cnst ->
-                                                (CPOY swap (constraint_p:(file:[cnst]),
-                                                visited, 
-                                                timeout:[remaining_time ()])))
-                                    in
-                                    let h = Sexpr.first r.trees in
-                                    exhausted := FPSet.add 
-                                    (Ptree.Fingerprint.fingerprint h)
-                                    !exhausted;
+                if not (Data.has_dynamic r.data) then r
+                else
+                    let r' = r in
+                    let compare_trees a b =
+                        let cost = Ptree.get_cost `Adjusted in
+                        compare (cost a) (cost b)
+                    in
+                    let prev = !Methods.cost in
+                    match prev with
+                    | `Exhaustive_Weak | `Exhaustive_Strong | `Iterative _ -> r
+                    | `Normal | `Normal_plus_Vitamines ->
+                            try
+                                let potential, not_potential = 
+                                    Sexpr.split (fun x ->
+                                    not 
+                                    (FPSet.mem (Ptree.Fingerprint.fingerprint x)
+                                    !exhausted)) r.trees 
+                                in
+                                match List.sort compare_trees 
+                                    (Sexpr.to_list potential) with
+                                | [] -> r
+                                | h :: t ->
+                                        let r = { r with trees = `Single h } in
+                                        Methods.cost := `Exhaustive_Weak;
+                                        let r = 
+                                            exec r 
+                                            (match visited, user_constraint with
+                                            | None, None ->
+                                                    (CPOY swap (timeout:[remaining_time ()]))
+                                            | Some (Some file), None ->
+                                                    (CPOY swap (visited:[file], 
+                                                    timeout:[remaining_time ()]))
+                                            | Some None, None ->
+                                                    (CPOY swap (visited, 
+                                                    timeout:[remaining_time ()]))
+                                            | None, Some cnst ->
+                                                    (CPOY swap (constraint_p:(file:[cnst]),
+                                                    timeout:[remaining_time ()]))
+                                            | Some (Some file), Some cnst ->
+                                                    (CPOY swap (visited:[file], 
+                                                    constraint_p:(file:[cnst]),
+                                                    timeout:[remaining_time ()]))
+                                            | Some None, Some cnst ->
+                                                    (CPOY swap (constraint_p:(file:[cnst]),
+                                                    visited, 
+                                                    timeout:[remaining_time ()])))
+                                        in
+                                        let h = Sexpr.first r.trees in
+                                        exhausted := FPSet.add 
+                                        (Ptree.Fingerprint.fingerprint h)
+                                        !exhausted;
+                                        Methods.cost := prev;
+                                        let r =
+                                            { r with trees = Sexpr.union r.trees (Sexpr.union
+                                            not_potential (Sexpr.of_list t)) }
+                                        in
+                                        update_information (`Others (r', r));
+                                        r
+                            with
+                            | err ->
                                     Methods.cost := prev;
-                                    let r =
-                                        { r with trees = Sexpr.union r.trees (Sexpr.union
-                                        not_potential (Sexpr.of_list t)) }
-                                    in
-                                    update_information (`Others (r', r));
-                                    r
-                        with
-                        | err ->
-                                Methods.cost := prev;
-                                raise err
+                                    raise err
             in
             let fuse_iteration_status = 
                 Status.create "Fusing Trees" None "" in
