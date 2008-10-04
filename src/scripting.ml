@@ -1319,6 +1319,7 @@ END
 let automated_search folder max_time min_time max_memory min_hits target_cost
 visited user_constraint run =
     let module FPSet = Set.Make (Ptree.Fingerprint) in
+    let has_dynamic = Data.has_dynamic run.data in
     let timer = Timer.start () in
     let search_results = ref empty_search_results in
     let get_memory () = (Gc.stat ()).Gc.heap_words in
@@ -1491,6 +1492,41 @@ ELSE
 END
     in
     let exec r c = folder r (command_processor c) in
+    let add_visited acc = 
+        match visited with
+        | Some (Some file) -> (APOY visited:[file]) :: acc
+        | Some None -> (APOY visited) :: acc
+        | None -> acc
+    in
+    let add_constraint acc =
+        match user_constraint with
+        | None -> acc
+        | Some file -> (APOY constraint_p:(file:[file])) :: acc
+    in
+    let add_constraint_iterations nrun acc =
+        match user_constraint with
+        | None when !iterations_counter > 4 ->
+                let trees =
+                    match sort_trees !trees with
+                    | a :: b :: c :: _ -> [a; b; c]
+                    | a :: b :: _ -> [a; b]
+                    | [a] -> [a]
+                    | _ -> assert false
+                in
+                let trees = Sexpr.of_list trees in
+                let sts = 
+                    TreeSearch.sets
+                    (`Partition [])
+                    nrun.data
+                    (Sexpr.union trees nrun.trees)
+                in
+                (APOY sets:[sts]) :: acc
+        | _ -> add_constraint acc
+    in
+    let add_all acc = 
+        if has_dynamic then (APOY all) :: acc
+        else acc
+    in
     try
     while true do
     let search_iteration_status = Status.create "RAS + TBR" None "" in
@@ -1504,191 +1540,101 @@ END
             !iterations_counter);
             Status.full_report search_iteration_status;
             let nrun = 
-                match user_constraint with
-                | None -> exec !run (CPOY build (1)) 
-                | Some file -> exec !run (CPOY build (constraint_p:[file], 1))
+                let initial = [APOY trees:1] in
+                exec !run (CPOY build {initial --> add_constraint})
             in
             let build_cost = get_cost nrun in
             let prev_time = Timer.wall timer in
             let nrun = 
                 let command =
-                match visited, user_constraint with
-                | None, None ->
-                        (CPOY swap (tbr, timeout:[remaining_time ()]))
-                | Some (Some file), None ->
-                        (CPOY swap (tbr, timeout:[remaining_time ()],
-                        visited:[file]))
-                | Some None, None ->
-                        (CPOY swap (tbr, timeout:[remaining_time ()],
-                        visited))
-                | None, Some cnst ->
-                        (CPOY swap (tbr, constraint_p:(file:[cnst]), 
-                        timeout:[remaining_time ()]))
-                | Some (Some file), Some cnst ->
-                        (CPOY swap (tbr, constraint_p:(file:[cnst]),
-                        timeout:[remaining_time ()],
-                        visited:[file]))
-                | Some None, Some cnst ->
-                        (CPOY swap (tbr, timeout:[remaining_time ()],
-                        constraint_p:(file:[cnst]), visited))
+                    let initial = 
+                        [APOY tbr; APOY timeout:[remaining_time ()]]
+                    in
+                    CPOY swap { initial --> add_constraint --> add_visited }
                 in
                 exec nrun command
             in
             let search_time = (Timer.wall timer) -. prev_time in
             let do_perturb = build_cost = get_cost nrun in
-            let prev_trees = !trees in
             let prev_meth = !Methods.cost in
             let nrun, do_perturb = 
                 if do_perturb && (0.3 < Random.float 1.) then 
                     nrun, do_perturb
                 else
-                    if (0.5 <= Random.float 1.) then
-                        let cmd = 
-                            if !iterations_counter > 4 then
-                                let trees =
-                                    match sort_trees !trees with
-                                    | a :: b :: c :: _ -> [a; b; c]
-                                    | a :: b :: _ -> [a; b]
-                                    | [a] -> [a]
-                                    | _ -> assert false
-                                in
-                                let trees = Sexpr.of_list trees in
-                                let sts = 
-                                    TreeSearch.sets
-                                    (`Partition [])
-                                    nrun.data
-                                    (Sexpr.union trees nrun.trees)
-                                in
-                                (match visited with
-                                | None ->
-                                        (CPOY swap
-                                        (sets:[sts], all, tbr, timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | Some (Some file) ->
-                                        (CPOY swap
-                                        (sets:[sts], visited:[file], all, 
-                                        tbr, timeout:[min
-                                        (remaining_time ()) (search_time /.
-                                        2.)]))
-                                | Some None ->
-                                        (CPOY swap
-                                        (sets:[sts], visited, all, 
-                                        tbr, timeout:[min
-                                        (remaining_time ()) (search_time /.
-                                        2.)])))
-                            else 
-                                match visited, user_constraint with
-                                | None, None ->
-                                        (CPOY swap (tbr, all, timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | Some (Some file), None ->
-                                        (CPOY swap (visited:[file], tbr, all, 
-                                        timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | Some None, None ->
-                                        (CPOY swap (visited, tbr, all, 
-                                        timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | None, Some cnst ->
-                                        (CPOY swap (tbr, constraint_p:(file:[cnst]), 
-                                        all, timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | Some (Some file), Some cnst ->
-                                        (CPOY swap (visited:[file], constraint_p:(file:[cnst]), 
-                                        tbr, all, timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                                | Some None , Some cnst ->
-                                        (CPOY swap (visited, constraint_p:(file:[cnst]),
-                                        tbr, all, timeout:[min
-                                        (remaining_time ()) (search_time /. 2.)]))
-                        in
-                        let nrun = exec nrun cmd in
-                        nrun, false
+                    if not has_dynamic then nrun, true
                     else
-                    match !Methods.cost with
-                    | `Normal_plus_Vitamines | `Normal -> 
-                            Methods.cost := `Exhaustive_Weak;
-                            (try
-                                let cmd = 
-                                    if !iterations_counter > 4 then
-                                        let trees =
-                                            match sort_trees !trees with
-                                            | a :: b :: c :: _ -> [a; b; c]
-                                            | a :: b :: _ -> [a; b]
-                                            | [a] -> [a]
-                                            | _ -> assert false
-                                        in
-                                        let trees = Sexpr.of_list trees in
-                                        let sts = 
-                                            TreeSearch.sets
-                                            (`Partition [])
-                                            nrun.data
-                                            (Sexpr.union trees nrun.trees)
-                                        in
-                                        match visited with
-                                        | None ->
-                                                (CPOY swap
-                                                (sets:[sts], tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some (Some file) ->
-                                                (CPOY swap
-                                                (sets:[sts], visited:[file], tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some None ->
-                                                (CPOY swap
-                                                (sets:[sts], visited, tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                    else 
-                                        match visited, user_constraint with
-                                        | None, None ->
-                                                (CPOY swap (tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some (Some file), None ->
-                                                (CPOY swap (visited:[file], tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some None, None ->
-                                                (CPOY swap (visited, tbr, timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | None, Some cnst ->
-                                                (CPOY swap (tbr, constraint_p:(file:[cnst]),
-                                                timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some (Some file), Some cnst ->
-                                                (CPOY swap (visited:[file], tbr, 
-                                                constraint_p:(file:[cnst]),
-                                                timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                        | Some None, Some cnst ->
-                                                (CPOY swap (visited, tbr, constraint_p:(file:[cnst]),
-                                                timeout:[min
-                                                (remaining_time ()) (search_time /. 2.)]))
-                                in
-                                let nrun = exec nrun cmd in
-                                nrun, false
-                            with
-                            | err ->
-                                    Methods.cost := prev_meth;
-                                    raise err)
-                    | _ -> nrun, false
+                        let initial = 
+                            let time = 
+                                min (remaining_time ()) (search_time /. 2.) 
+                            in
+                            [APOY timeout:[time]; APOY tbr] 
+                        in
+                        try 
+                            let args = 
+                                if (0.5 > Random.float 1.) && 
+                                    ((prev_meth = `Normal_plus_Vitamines) ||
+                                    (prev_meth = `Normal)) then
+                                        Methods.cost := `Exhaustive_Weak
+                                else ();
+                                initial --> add_constraint_iterations nrun --> 
+                                    add_visited --> add_all
+                            in
+                            let nrun = exec nrun (CPOY swap {args}) in
+                            nrun, false
+                        with
+                        | err ->
+                                Methods.cost := prev_meth;
+                                raise err
             in
             Methods.cost := prev_meth;
             trees := Sexpr.union nrun.trees !trees;
             update_information (`Initial nrun);
             if do_perturb || 0.5 < Random.float 1.0 then begin
-                if 0. < remaining_time () then incr ratchets;
-                let nrun = exec nrun 
-                (match user_constraint with
-                | None ->
-                    (CPOY 
-                    perturb (iterations:4, transform (tcm:(1,1), static_approx), 
-                    swap (tbr, timeout:[remaining_time ()])))
-                | Some cnst ->
-                    (CPOY 
-                    perturb (iterations:4, transform (tcm:(1,1), static_approx), 
-                    swap (constraint_p:(file:[cnst]), tbr,
-                    timeout:[remaining_time ()]))))
+                let comparison a b = 
+                    let gc = Ptree.get_cost `Adjusted in
+                    if (i mod 2) = 0 then
+                        compare (gc a) (gc b)
+                    else
+                        let cost_comparison = 
+                            if (gc a) < (gc b) then
+                                if 0.66 < Random.float 1. then (-1)
+                                else 1
+                            else if (gc a) > (gc b) then
+                                if 0.66 < Random.float 1. then 1
+                                else (-1)
+                            else 0
+                    in
+                    match cost_comparison with
+                    | 0 -> if Random.bool () then 1 else -1
+                    | x -> x
                 in
-                trees := Sexpr.union nrun.trees prev_trees;
+                if 0. < remaining_time () then incr ratchets;
+                (* We need to pick one tree from all those in memory *)
+                let nrun = 
+                    !trees --> Sexpr.to_list 
+                    --> List.sort comparison 
+                    --> List.hd
+                    --> fun x -> { nrun with trees = `Single x }
+                in
+                let swap_args = 
+                    let time =
+                        let r = remaining_time () in
+                        if has_dynamic then r
+                        else min r (search_time /. 2.)
+                    in
+                    [APOY tbr; APOY timeout:[time]] --> add_constraint
+                in
+                let nrun = 
+                    exec nrun 
+                    (CPOY 
+                    perturb (iterations:4, transform (tcm:(1,1), static_approx), 
+                    swap { swap_args }))
+                in
+                let nrun =
+                    if has_dynamic then nrun
+                    else exec nrun (CPOY swap ())
+                in
+                trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
             end;
             select_if_necessary ();
@@ -1699,7 +1645,7 @@ END
     | Exit ->
             Status.finished search_iteration_status;
             let do_exhaustive_round r =
-                if not (Data.has_dynamic r.data) then r
+                if not has_dynamic then r
                 else
                     let r' = r in
                     let compare_trees a b =
@@ -1724,27 +1670,11 @@ END
                                         let r = { r with trees = `Single h } in
                                         Methods.cost := `Exhaustive_Weak;
                                         let r = 
-                                            exec r 
-                                            (match visited, user_constraint with
-                                            | None, None ->
-                                                    (CPOY swap (timeout:[remaining_time ()]))
-                                            | Some (Some file), None ->
-                                                    (CPOY swap (visited:[file], 
-                                                    timeout:[remaining_time ()]))
-                                            | Some None, None ->
-                                                    (CPOY swap (visited, 
-                                                    timeout:[remaining_time ()]))
-                                            | None, Some cnst ->
-                                                    (CPOY swap (constraint_p:(file:[cnst]),
-                                                    timeout:[remaining_time ()]))
-                                            | Some (Some file), Some cnst ->
-                                                    (CPOY swap (visited:[file], 
-                                                    constraint_p:(file:[cnst]),
-                                                    timeout:[remaining_time ()]))
-                                            | Some None, Some cnst ->
-                                                    (CPOY swap (constraint_p:(file:[cnst]),
-                                                    visited, 
-                                                    timeout:[remaining_time ()])))
+                                            let args = 
+                                                [APOY timeout:[remaining_time ()]] -->
+                                                    add_visited --> add_constraint
+                                            in
+                                            exec r (CPOY swap {args})
                                         in
                                         let h = Sexpr.first r.trees in
                                         exhausted := FPSet.add 
@@ -1778,28 +1708,11 @@ END
                     Status.full_report fuse_iteration_status;
                     stop_if_necessary `Fuse;
                     let fus = 
-                        match visited, user_constraint with
-                        | None, None ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                timeout:[remaining_time ()])) 
-                        | Some (Some file), None ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                visited:[file], timeout:[remaining_time ()])) 
-                        | Some None, None ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                visited, timeout:[remaining_time ()])) 
-                        | None, Some cnst ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                constraint_p:(file:[cnst]),
-                                timeout:[remaining_time ()])) 
-                        | Some (Some file), Some cnst ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                constraint_p:(file:[cnst]),
-                                visited:[file], timeout:[remaining_time ()])) 
-                        | Some None, Some cnst ->
-                                CPOY fuse (iterations:1, swap (tbr,
-                                constraint_p:(file:[cnst]),
-                                visited, timeout:[remaining_time ()])) 
+                        let swap_args = 
+                            [APOY tbr; APOY timeout:[remaining_time()]] -->
+                                add_visited --> add_constraint
+                        in
+                        CPOY fuse (iterations:1, swap { swap_args })
                     in
                     let r = exec !run fus in 
                     update_information (`Others (!run, r));
