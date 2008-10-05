@@ -1503,16 +1503,21 @@ END
         | None -> acc
         | Some file -> (APOY constraint_p:(file:[file])) :: acc
     in
-    let add_constraint_iterations nrun acc =
+    let get_top_n n =
+        let trees = sort_trees !trees in
+        let rec get_n n tl acc =
+            if n > 0 then 
+                match tl with
+                | h :: t -> get_n (n - 1) t (h :: acc)
+                | [] -> acc
+            else acc
+        in
+        get_n n trees []
+    in
+    let add_constraint_iterations condition trees nrun acc =
         match user_constraint with
-        | None when !iterations_counter > 4 ->
-                let trees =
-                    match sort_trees !trees with
-                    | a :: b :: c :: _ -> [a; b; c]
-                    | a :: b :: _ -> [a; b]
-                    | [a] -> [a]
-                    | _ -> assert false
-                in
+        | None when condition ->
+                let trees = get_top_n trees in
                 let trees = Sexpr.of_list trees in
                 let sts = 
                     TreeSearch.sets
@@ -1526,6 +1531,9 @@ END
     let add_all acc = 
         if has_dynamic then (APOY all) :: acc
         else acc
+    in
+    let add_randomized acc =
+        if Random.bool () then ((APOY randomized) :: acc) else acc
     in
     try
     while true do
@@ -1550,7 +1558,8 @@ END
                     let initial = 
                         [APOY tbr; APOY timeout:[remaining_time ()]]
                     in
-                    CPOY swap { initial --> add_constraint --> add_visited }
+                    CPOY swap 
+                    { initial --> add_constraint --> add_visited }
                 in
                 exec nrun command
             in
@@ -1576,7 +1585,9 @@ END
                                     (prev_meth = `Normal)) then
                                         Methods.cost := `Exhaustive_Weak
                                 else ();
-                                initial --> add_constraint_iterations nrun --> 
+                                initial --> 
+                                    add_constraint_iterations
+                                    (!iterations_counter >= 4) 4 nrun --> 
                                     add_visited --> add_all
                             in
                             let nrun = exec nrun (CPOY swap {args}) in
@@ -1611,10 +1622,13 @@ END
                 if 0. < remaining_time () then incr ratchets;
                 (* We need to pick one tree from all those in memory *)
                 let nrun = 
-                    !trees --> Sexpr.to_list 
-                    --> List.sort comparison 
-                    --> List.hd
-                    --> fun x -> { nrun with trees = `Single x }
+                    let arr =
+                        !trees --> Sexpr.to_list 
+                        --> Array.of_list
+                    in
+                    Array_ops.randomize arr;
+                    Array.stable_sort comparison arr;
+                    --> fun x -> { nrun with trees = `Single arr.(0) }
                 in
                 let swap_args = 
                     let time =
@@ -1626,13 +1640,16 @@ END
                 in
                 let nrun = 
                     exec nrun 
-                    (CPOY 
-                    perturb (iterations:4, transform (tcm:(1,1), static_approx), 
-                    swap { swap_args }))
+                    (if has_dynamic then
+                        (CPOY 
+                        perturb (iterations:4, transform (tcm:(1,1), static_approx), 
+                        swap { swap_args }))
+                    else
+                        (CPOY 
+                        perturb (iterations:4, swap { swap_args })))
                 in
                 let nrun =
-                    if has_dynamic then nrun
-                    else exec nrun (CPOY swap ())
+                    exec nrun (CPOY swap (randomized))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
@@ -1710,7 +1727,7 @@ END
                     let fus = 
                         let swap_args = 
                             [APOY tbr; APOY timeout:[remaining_time()]] -->
-                                add_visited --> add_constraint
+                                add_randomized --> add_visited --> add_constraint
                         in
                         CPOY fuse (iterations:1, swap { swap_args })
                     in
