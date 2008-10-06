@@ -1646,10 +1646,8 @@ END
                         swap { swap_args }))
                     else
                         (CPOY 
-                        perturb (iterations:4, swap { swap_args })))
-                in
-                let nrun =
-                    exec nrun (CPOY swap (randomized))
+                        perturb (iterations:4, swap { swap_args }) 
+                        swap (timeout:[remaining_time ()], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
