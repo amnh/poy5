@@ -346,8 +346,8 @@ let process mode fstree =
 let process_file mode filename output_file = 
     let ch = FileStream.Pervasives.open_in (`Local filename) in 
     channel := open_out output_file;
-    o (".TH poy 1 LOCAL\n");
-    o (".SH NAME\npoy - A phylogenetic analysis program using dynamic \
+    o (".TH POY 1 LOCAL\n");
+    o (".SH NAME\npoy \\- A phylogenetic analysis program using dynamic \
     homologies\n.SH SYNOPSIS\n.B poy [options] filename.\n\
     .SH DESCRIPTION\npoy is a phylogenetic analysis program for morphological \
     and molecular characters with support for dynamic homology characters: \
@@ -381,8 +381,12 @@ let process_file mode filename output_file =
     The following are the valid commands for \n\
     .B poy.");
     process mode ch;
-    o "\n.RS\n\n"
+    o "\n.SH AUTHOR\npoy was written by Andres Varon, Le Sy Vinh, \
+    Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
+    by Andres Varon, Le Sy Vinh, Ilya Bomash, Ward Wheeler, \
+    Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
+    Taran Grant, and William Leo Smith.\n.RS\n\n"
 
 let () = 
     let () = process_file `OnlineHelp "../doc/allcommands.tex" "help.txt"in
-    process_file `Troff "../doc/allcommands.tex" "manpoy.txt"
+    process_file `Troff "../doc/allcommands.tex" "poy.1"
