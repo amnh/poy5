@@ -113,7 +113,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [ x = select_argument -> x ] |
             [ x = transform_argument -> x ] |
             [ x = read_argument -> x ] | 
-            [ x = perturb_argument -> x ] 
+            [ x = perturb_argument -> x ] |
+            [ x = support_argument -> x ] |
+            [ x = std_search_argument -> x ] 
         ];
         (* Application commands *)
         cur_expr: [[ "["; x = expr; "]" -> x ]];
@@ -634,11 +636,12 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "visited"; ":"; x = flex_string -> <:expr<`Visited
                 (Some $x$)>> ] |
                 [ LIDENT "visited" -> <:expr<`Visited None>> ] |
-                [ LIDENT "constraint"; ":"; x = flex_string -> 
+                [ LIDENT "constraint_s"; ":"; x = flex_string -> 
                     <:expr<`ConstraintFile $x$>> ]
             ];
         search:
             [
+                [ LIDENT "search"; "{"; x = expr; "}" -> <:expr<`StandardSearch $x$>> ] |
                 [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
                     std_search_argument -> x ] SEP ",";  right_parenthesis ->
                     <:expr<`StandardSearch $exSem_of_list a$>>] 

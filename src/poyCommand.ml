@@ -225,7 +225,7 @@ type supporta = [
     | build
     | swap
     | `Bremer
-    | `Jackknife of [ `Select of string | `Resample of string ] list
+    | `Jackknife of [ `Select of float | `Resample of int ] list
     | `Bootstrap of int option
 ]
 
@@ -798,9 +798,9 @@ let transform_support (meth, (ss, sr, ssw, sb)) = function
     | `Jackknife items ->
             let process_item (a, b, c, sb) = function
                 | `Select x -> 
-                        ((float_of_string x), b, c, sb)
+                        (x, b, c, sb)
                 | `Resample x ->
-                        (a, int_of_string x, c, sb)
+                        (a, x, c, sb)
             in
             let r = List.fold_left process_item (ss, sr, ssw, sb) items in
             (`Jackknife, r)
@@ -2012,8 +2012,9 @@ let create_expr () =
             ];
         jackknifea:
             [
-                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select x ] |
-                [ LIDENT "resample"; ":"; x = INT -> `Resample x ]
+                [ LIDENT "remove"; ":"; x = integer_or_float -> `Select
+                (float_of_string x) ] |
+                [ LIDENT "resample"; ":"; x = INT -> `Resample (int_of_string x) ]
             ];
         (* Shared items *)
         left_parenthesis: [ [ "(" ] ];

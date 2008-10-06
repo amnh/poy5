@@ -256,9 +256,13 @@ BASE_OBJS :=  lz.cmo memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) sleep.o \
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo main.cmo
 
+PORTAL_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo portal.cmo
+
 BASE_OBJS_OPT = $(patsubst %.cmo,%.cmx, $(patsubst %.cma,%.cmxa, $(BASE_OBJS)))
 
 MAIN_OBJS_OPT = $(patsubst %.cmo,%.cmx, $(patsubst %.cma,%.cmxa, $(MAIN_OBJS)))
+
+PORTAL_OBJS_OPT = $(patsubst %.cmo,%.cmx, $(patsubst %.cma,%.cmxa, $(PORTAL_OBJS)))
 
 TEST_OBJS = $(BASE_OBJS) sadmanlib.cma test_scripts.cmo
 
@@ -281,7 +285,7 @@ clean::
 	mpoy_console poy_test mpoy poy *.cma nonaddCS8.ml nonaddCS16.ml \
 	nonaddCS32.ml nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c hennigParser.ml \
 	hennigParser.mli hennigLexer.ml nexusParser.ml nexusParser.mli \
-	nexusLexier.ml status.ml ocaml-str \
+	nexusLexier.ml status.ml ocaml-str poy_server \
 	$(LOCAL_CLEAN) 
 	@for subs in $(SUBDIRS); do \
 	  cd $$subs; \
@@ -585,6 +589,12 @@ statusCommon.cmo: config.h poyExtension.cmo lz.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
 statusCommon.cmx: config.h poyExtension.cmo lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
+portal.cmo: poyExtension.cmo phylo.cmo portal.ml
+	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) \
+		portal.ml
+portal.cmx: poyExtension.cmo phylo.cmx portal.ml
+	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) \
+		-c portal.ml
 charTransform.cmo: config.h charTransform.cmi charTransform.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) charTransform.ml
 charTransform.cmx: config.h charTransform.cmi charTransform.ml
@@ -594,7 +604,9 @@ charTransform.cmx: config.h charTransform.cmi charTransform.ml
 
 .SUFFIXES: .ml .mli .cmo .cmx .cmi .c .o
 
-OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml fileStream.ml statusCommon.ml sequence.ml sequence.mli timer.ml scripting.ml main.ml charTransform.ml
+OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml \
+					 fileStream.ml statusCommon.ml sequence.ml sequence.mli \
+					 timer.ml scripting.ml charTransform.ml main.ml portal.ml
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
@@ -690,6 +702,21 @@ else
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
+endif
+
+poy_server: $(PORTAL_OBJS_OPT)
+ifeq ($(USEPARALLEL), true)
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -cclib -L./grappa \
+	-cclib -L./graphps -cclib -L./ \
+	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
+	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
+	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LIBS) 
+else
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
+	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o $@ \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	bigarray.cmxa $^ $(LIBS) 
 endif
 
 poy_test: $(TEST_OBJS_OPT)
