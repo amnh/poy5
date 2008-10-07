@@ -50,7 +50,7 @@ important limitation is the hard coded number of input files and file names).
 					<language>perl</language>
 					<code>" -input infile1"</code>
 				</format>
-				<group>0</group>
+				<group>1</group>
 				<filenames>infile1</filenames>
                 <comment>
                     <value>
@@ -143,7 +143,7 @@ important limitation is the hard coded number of input files and file names).
                     <code>($value &amp;&amp; $value > 0) ? " -substitutions $value" : ""</code>
 				</format>
                 <vdef><value>1</value></vdef>
-				<group>0</group>
+				<group>1</group>
 			</attributes>
 		</parameter>
 
@@ -159,7 +159,7 @@ important limitation is the hard coded number of input files and file names).
                     <code>($value &amp;&amp; $value > 0) ? " -indels $value" : ""</code>
 				</format>
                 <vdef><value>1</value></vdef>
-				<group>0</group>
+				<group>1</group>
 			</attributes>
 		</parameter>
 
@@ -175,7 +175,7 @@ important limitation is the hard coded number of input files and file names).
                     <code>($value &amp;&amp; $value > (-1)) ? " -gapopening $value" : ""</code>
 				</format>
                 <vdef><value>0</value></vdef>
-				<group>0</group>
+				<group>1</group>
 			</attributes>
 		</parameter>
 
@@ -302,6 +302,14 @@ important limitation is the hard coded number of input files and file names).
 			</attributes>
 		</parameter>
 
+        <parameter type="Paragraph">
+            <paragraph>
+                <name>supportparagraph</name>
+                <prompt>Support calculation (require input tree)</prompt>
+                <group>2</group>
+
+            <parameters>
+
 		<parameter type="Excl" ismandatory="0">
 			<name>support</name>
 			<attributes>
@@ -348,7 +356,7 @@ important limitation is the hard coded number of input files and file names).
                 </prompt>
                 <precond>
                     <language>perl</language>
-                    <code>$support eq "bootstrap" </code>
+                    <code>$support eq "jackknife" </code>
                 </precond>
                 <group>2</group>
                 <format>
@@ -356,6 +364,9 @@ important limitation is the hard coded number of input files and file names).
                     <code>($value &amp;&amp; $value > 0) ? " -resample $value" : ""</code>
                 </format>
             </attributes>
+        </parameter>
+            </parameters>
+            </paragraph>
         </parameter>
 
 		<!-- output files, both postscript and text -->
