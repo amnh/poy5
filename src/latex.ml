@@ -383,7 +383,7 @@ let process_file mode filename output_file =
     process mode ch;
     o "\n.SH AUTHOR\npoy was written by Andres Varon, Le Sy Vinh, \
     Illya Bomash, and Ward Wheeler.\n.PP\nThis manual page was written \
-    by Andres Varon, Le Sy Vinh, Ilya Bomash, Ward Wheeler, \
+    by Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, \
     Ilya Temkin, Megan Cevasco, Kurt M. Pickett, Julian Faivovich, \
     Taran Grant, and William Leo Smith.\n.RS\n\n"
 
