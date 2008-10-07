@@ -41,8 +41,17 @@ let () =
         ("-terminals", Arg.String (assgn_opt terminals), "FILE Terminals file to be used.");
     ] in
     let usage = "portal [OPTIONS]" in
-    Arg.parse params 
-    (fun x -> raise (Arg.Bad ("Illegal anonymous argument: " ^ x ^". Maybe you want to use the -input argument?"))) usage
+    try
+        Arg.parse_argv Phylo.args params 
+        (fun x -> raise (Arg.Bad ("Illegal anonymous argument: " ^ x ^". Maybe you want to use the -input argument?"))) usage
+    with
+    | Arg.Help _ -> 
+            Arg.usage params usage; 
+            exit 0
+    | Arg.Bad str ->
+            prerr_string ("Bad argument: " ^ str);
+            Arg.usage params usage;
+            exit 1
 
 let () = 
     match !input_files with
