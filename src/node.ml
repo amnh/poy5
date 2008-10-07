@@ -324,6 +324,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         failwith "Node.median: Cannot estimate time." )
                 | None, None ->
                     MlStaticCS.estimate_time ca.preliminary cb.preliminary 
+                | _ , _ -> raise (Illegal_argument "cs_median")
             in
             let median = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
             let n_cost = MlStaticCS.root_cost median in
@@ -929,8 +930,6 @@ let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_da
                 !median_counter
     in
 
-    let bfun ts = get_some (fst ts) in
-
     let new_characters = match time_1,time_2 with
         | Some (nd_t1,ft1), Some (nd_t2,ft2) ->
             map5 (fun x a b -> cs_median code nd_1 nd_2 (Some x) (Some (a,ft1)) (Some (b,ft2)))
@@ -1218,10 +1217,13 @@ let distance_of_type ?(para=None) ?(parb=None) t missing_distance
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
         | StaticMl a, StaticMl b when has_staticml ->
-            (* Don't sum over branches for likelihood *)
+            (* Used in root minus cost, must be 0! *)
             IFDEF USE_LIKELIHOOD THEN
-                let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                a.weight *. ml_root_cost x
+                0.0
+                (*
+                    let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
+                    a.weight *. ml_root_cost x
+                *)
             ELSE
                 failwith likelihood_error
             END
