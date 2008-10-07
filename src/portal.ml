@@ -83,6 +83,7 @@ let () =
                 | None -> (APOY swap ())
                 | Some x -> (APOY swap (constraint_p:(file:[x])))
             in
+            let trees = Phylo.Runtime.trees () in
             let () =
                 match !support with
                 | "" -> 
@@ -105,6 +106,9 @@ let () =
                         POY 
                             search (visited:[tmp_trees], hits:10,
                             max_time:0:0:[(!minutes /. 2.)])
+                            select (best:0);
+                        Phylo.Runtime.set_trees trees;
+                        POY
                             report ([output_support], supports:bremer:[tmp_trees])
                             report ([output_graph_support],
                                 graphsupports:bremer:[tmp_trees])
