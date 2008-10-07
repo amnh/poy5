@@ -68,7 +68,7 @@ make install
 For SWAMI, PISE, or web portals that provide access to the basics of the
 application, a non-interactive version with limited functionality is provided as
 the poy_server application. To compile it for sequential or parallel execution,
-use the instructions above. Then do:
+use the instructions above with the flat or readline interface. Then do:
 
 make poy_server
 make install_server
