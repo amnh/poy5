@@ -1626,9 +1626,15 @@ END
                         !trees --> Sexpr.to_list 
                         --> Array.of_list
                     in
+                    let pos = 
+                        if (i mod 2) = 0 && 1 < Array.length arr then 
+                            (* One of the top 5 *)
+                            Random.int (min 5 (Array.length arr))
+                        else 0
+                    in
                     Array_ops.randomize arr;
                     Array.stable_sort comparison arr;
-                    --> fun x -> { nrun with trees = `Single arr.(0) }
+                    { nrun with trees = `Single arr.(pos) }
                 in
                 let swap_args = 
                     let time =
