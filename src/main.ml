@@ -45,8 +45,17 @@ let () = SadmanOutput.register "Main" "$Revision: 2871 $"
 let () = Status.init ()
 
 let () =
-    Arg.parse_argv Phylo.args Arguments.parse_list Arguments.anon_fun 
-    Arguments.usage 
+    try
+        Arg.parse_argv Phylo.args Arguments.parse_list Arguments.anon_fun 
+        Arguments.usage 
+    with
+    | Arg.Help _ ->
+            Arg.usage Arguments.parse_list Arguments.usage;
+            exit 0
+    | Arg.Bad x ->
+            prerr_string ("Bad argument: " ^ x);
+            Arg.usage Arguments.parse_list Arguments.usage;
+            exit 1
 
 (** Catch errors or not;  helpful for debugging *)
 let debug_pass_errors = false
