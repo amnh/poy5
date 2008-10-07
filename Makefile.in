@@ -40,8 +40,10 @@ poy_test:
 
 MERCURIAL :=@MERCURIAL@
 
-poy_server: poy
+poy_server: poy xml/swami.xml
 	cd src; $(MAKE) poy_server
+
+xml/swami.xml: xml/swami.xml.in
 	cd xml; sed "s/VERSION/<version>4.0.`$(MERCURIAL)`<\/version>/g" swami.xml.in > swami.xml
 
 .PHONY:	subdirs $(SUBDIRS) clean driver install distclean
