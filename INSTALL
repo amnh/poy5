@@ -1,13 +1,35 @@
+*****************************************************************************
+Contents
+*****************************************************************************
+
+1- General requirements
+2- Compiling POY for one processor
+3- Compiling POY for parallel execution
+4- Compiling POY for SWAMI, PISE, or web portals
+
+*****************************************************************************
+1- General requirements
+*****************************************************************************
+
 In order to compile POY, the minimal requirements are:
 
-- Objective Caml version 3.10.0, which can be found in
+- Objective Caml version >= 3.10.0, which can be found in
   http://www.ocaml.org.
 
 - An ISO 99 C compiler.
 
 - The GNU Make toolbox (version 3.80).
 
-- Readline or ncurses
+For the readline interface the readline library is needed, and for the ncurses
+interface then ncurses is needed. If none of them is available, use the flat
+interface. 
+
+The last command should probably be run as superuser. Check the configuration
+options with ./configure --help.
+
+*****************************************************************************
+2- Compiling POY for one processor
+*****************************************************************************
 
 To compile the program, first modify the relevant paths and options in config 
 (there is a brief description on each group of options or you can see the
@@ -17,7 +39,39 @@ program's documentation), and then simply:
 make 
 make install 
 
-The last command should probably be run as superuser. Check the configuration
-options with ./configure --help.
+By default the compilation scripts will try to use the ncurses, or the readline
+interface if available. If none is, it may fail. In that case use the flat
+interface as follows:
 
-Enjoy!
+./configure --enable-interface=flat
+make
+make install
+
+
+*****************************************************************************
+3- Compiling POY for parallel execution
+*****************************************************************************
+
+For parallel execution you must use the flat interface. None of the others is
+recommendable. You also need MPI installed. To compile follow your MPI
+implementation recommendations, but a typical compilation would be:
+
+./configure --enable-interface=flat --enable-mpi CC=mpicc
+make
+make install
+
+
+*****************************************************************************
+4- Compiling POY for SWAMI, PISE, or web portals
+*****************************************************************************
+
+For SWAMI, PISE, or web portals that provide access to the basics of the
+application, a non-interactive version with limited functionality is provided as
+the poy_server application. To compile it for sequential or parallel execution,
+use the instructions above. Then do:
+
+make poy_server
+make install_server
+
+The program documentation is available in poy_server --help. The SWAMI xml
+description is available in xml/swami.xml

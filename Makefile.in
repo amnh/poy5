@@ -38,6 +38,12 @@ poy_test:
 	cd ./src/; $(MAKE) poy_test
 	cp ./src/poy_test ./test/
 
+MERCURIAL :=@MERCURIAL@
+
+poy_server: poy
+	cd src; $(MAKE) poy_server
+	cd xml; sed "s/VERSION/<version>4.0.`$(MERCURIAL)`<\/version>/g" swami.xml.in > swami.xml
+
 .PHONY:	subdirs $(SUBDIRS) clean driver install distclean
 subdirs:	$(SUBDIRS)
 
@@ -48,6 +54,9 @@ install:
 	$(INSTALL) ./src/poy $(DESTDIR)$(bindir)/`echo poy | sed -e '$(transform)'`
 	$(MKDIR_P) $(DESTDIR)$(mandir)
 	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
+
+install_server: install
+	$(INSTALL) ./src/poy_server $(DESTDIR)$(bindir)/`echo poy_server | sed -e '$(transform)'` 
 
 uninstall:
 	rm -f $(bindir)/`echo poy | sed '$(transform)'`

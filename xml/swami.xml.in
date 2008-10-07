@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE pise SYSTEM "http://www.phylo.org/dev/rami/PARSER/pise.dtd">
+<!-- <pise xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="pise.xsd">-->
+
+<!--
+This XML is for the special purpose version of POY. To compile it see the
+instructions in the INSTALL file available in the source code of the program,
+available at http://research.amnh.org/scicomp/projects/poy.php.
+
+The functionality provided in this interface is rather limited, but will serve
+as starting point for future versions of it. In particular, a few limitations of
+the SWAMI environment do not let us have a more flexible setup (for now the most
+important limitation is the hard coded number of input files and file names). 
+-->
+
+<pise>	
+	<head>
+		<title>POY</title>
+        VERSION
+		<description>Phylogenetic tree inference using dynamic homologies.</description>
+		<authors>Andres Varon, Le Sy Vinh, Ilya Bomash, and Ward Wheeler</authors>
+        <reference>Varon, A., L. S. Vinh, I. Bomash, W. C.Wheeler. 2008. POY
+            4.0. American Museum of Natural History.
+            http://research.amnh.org/scicomp/projects/poy.php</reference>
+		<category>Phylogeny / Alignment</category>
+        <doclink>http://research.amnh.org/scicomp/projects/poy.php</doclink>
+	</head>
+	<command>poy</command>
+	
+	<parameters>
+
+		<!-- command name -->
+		<parameter ishidden="1" type="String">
+			<name>poy_server</name>
+			<attributes>
+				<format>
+					<language>perl</language>
+					<code>"poy_server"</code>
+				</format>
+				<group>0</group>
+			</attributes>
+		</parameter>
+
+		<!-- required input file -->
+		<parameter ismandatory="1" issimple="1" isinput="1" type="InFile">
+			<name>infile1</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile1"</code>
+				</format>
+				<group>0</group>
+				<filenames>infile1</filenames>
+                <comment>
+                    <value>
+                        All files that could be accepted in the command read ("file") are
+                        acceptable input in this field, that includes (but is not limited
+                        to) FASTA, NEXUS, Hennig (TNT/NONA), and Newick tree formats.
+                        Aminoacid files or custom alphabet definitions (for example for
+                        locus sequences), are currently not supported in the portal.
+                    </value>
+                </comment>
+			</attributes>
+		</parameter>
+
+        <!-- other optional input files, we give them a total of 5 files that
+        the user can provide in the input -->
+		<parameter issimple="1" type="InFile">
+			<name>infile2</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile2"</code>
+				</format>
+				<group>1</group>
+				<filenames>infile2</filenames>
+			</attributes>
+		</parameter>
+
+		<parameter issimple="1" type="InFile">
+			<name>infile3</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile3"</code>
+				</format>
+				<group>1</group>
+				<filenames>infile3</filenames>
+			</attributes>
+		</parameter>
+
+		<parameter issimple="1" type="InFile">
+			<name>infile4</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile4"</code>
+				</format>
+				<group>1</group>
+				<filenames>infile4</filenames>
+			</attributes>
+		</parameter>
+
+		<parameter issimple="1" type="InFile">
+			<name>infile5</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile5"</code>
+				</format>
+				<group>1</group>
+				<filenames>infile5</filenames>
+			</attributes>
+		</parameter>
+
+		<parameter issimple="1" type="InFile">
+			<name>infile6</name>
+			<attributes>
+				<prompt>Input File</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -input infile6"</code>
+				</format>
+				<group>1</group>
+				<filenames>infile6</filenames>
+			</attributes>
+		</parameter>
+
+
+
+		<!-- -substitution argument to specify the cost of a substitution -->
+		<parameter issimple="1" type="Integer" ismandatory="1">
+			<name>substitutions</name>
+			<attributes>
+                <prompt>Substitution cost</prompt>
+				<format>
+					<language>perl</language>
+                    <code>($value &amp;&amp; $value > 0) ? " -substitutions $value" : ""</code>
+				</format>
+                <vdef><value>1</value></vdef>
+				<group>0</group>
+			</attributes>
+		</parameter>
+
+		<!-- -indel argument to specify the cost of a substitution -->
+		<!-- 
+		-->
+		<parameter issimple="1" type="Integer" ismandatory="1">
+			<name>indels</name>
+			<attributes>
+                <prompt>Individual insertion and deletion cost</prompt>
+				<format>
+					<language>perl</language>
+                    <code>($value &amp;&amp; $value > 0) ? " -indels $value" : ""</code>
+				</format>
+                <vdef><value>1</value></vdef>
+				<group>0</group>
+			</attributes>
+		</parameter>
+
+		<!-- -gap_opening argument to specify the cost of a substitution -->
+		<!-- 
+		-->
+		<parameter issimple="1" type="Integer" ismandatory="1">
+			<name>gapopening</name>
+			<attributes>
+                <prompt>Gap opening cost</prompt>
+				<format>
+					<language>perl</language>
+                    <code>($value &amp;&amp; $value > (-1)) ? " -gapopening $value" : ""</code>
+				</format>
+                <vdef><value>0</value></vdef>
+				<group>0</group>
+			</attributes>
+		</parameter>
+
+        <parameter type="InFile">
+			<name>terminalsfile</name>
+			<attributes>
+				<prompt>Terminals file</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -terminals terminalsfile"</code>
+				</format>
+				<group>1</group>
+				<filenames>terminalsfile</filenames>
+                <comment>
+                    <value>
+                        File containing the list of terminals appearing in
+                        the input files that should be included in the analysis.
+                        One terminal per line.
+                    </value>
+                </comment>
+			</attributes>
+        </parameter>
+
+        <parameter type="InFile">
+			<name>synonyms</name>
+			<attributes>
+				<prompt>Synonyms file</prompt>
+				<format>
+					<language>perl</language>
+					<code>" -synonyms synonymsfile"</code>
+				</format>
+				<group>1</group>
+				<filenames>synonymsfile</filenames>
+                <comment>
+                    <value>
+                        A synonyms file is useful to quickly map names of
+                        terminals that are different in various files to a
+                        unique name, or to the name that the user wants for
+                        publication. 
+                    </value>
+                    <value>
+                        For example, each input file could be a FASTA format
+                        with the Genbank accession number as terminal name. In
+                        this way, a Chicken with 3 genes in the data set could
+                        appear as AF1 in File1, BC2 in File2, and CX3 in File3,
+                        while the corresponding Human genes appear as XB1, YR4,
+                        and ZE3.
+                        To recognize them all as Chicken, and Human genes, it is
+                        sufficient to provide a synonym file with the following
+                        2 lines:
+                    </value>
+                    <value>
+                        Chicken AF1 BC2 CX3
+                    </value>
+                    <value>
+                        Human XB1 YR4 ZE3
+                    </value>
+                    <value>
+                        There should be one line for each set of terminals in
+                        the input file that should be synonyms of a single
+                        resulting terminal.
+                    </value>
+                </comment>
+			</attributes>
+        </parameter>
+
+		<!-- outgroup -->
+		<parameter issimple="1" type="String">
+			<name>outgroup</name>
+			<attributes>
+				<prompt>Outgroup</prompt>
+				<format>
+					<language>perl</language>
+					<code>(defined $value)? " -outgroup '$value'" : "" </code>
+				</format>
+				<group>2</group>
+			</attributes>
+		</parameter>
+
+		<!-- constraint (-g) -->
+		<parameter type="InFile">
+			<name>constraint</name>
+			<attributes>
+				<prompt>Constraint tree</prompt>
+				<filenames>constraint.file</filenames>
+				<format>
+					<language>perl</language>
+					<!-- 
+						parameters of type Results are always processed so we need to check
+						whether we actually got a value entered.
+					-->
+					<code>defined $value ? " -constraint constraint.file" : ""</code>
+				</format>
+				<group>2</group>
+				<comment>
+                    <value>
+                        A constraint file contains a tree with all the terminals
+                        contained in the input files (or the terminals file if
+                        it is selected), that POY should respect during the
+                        search. That is, all the binary trees that POY evaluate
+                        must be resolutions of the polytomies defined in the
+                        constraint file. The file format could be any of the
+                        tree formats read by POY (e.g. newick).  
+                    </value>
+                    <value>
+                        For example, if the file contains (A B C (D E)) then the
+                        trees (A (B (C (D E)))), ((A (B C)) (D E)) would be
+                        alowed during the search, but ((A D) ((B C) E)) as D and
+                        E are not sister terminals.
+                    </value>
+				</comment>
+			</attributes>
+		</parameter>
+
+		<parameter type="Integer">
+			<name>randomseed</name>
+			<attributes>
+				<prompt>Random seed for the program initialization.</prompt>
+				<format>
+					<language>perl</language>
+					<code>($value) ? " -randomseed $value" : ""</code>
+				</format>
+				<group>2</group>
+			</attributes>
+		</parameter>
+
+		<parameter type="Excl" ismandatory="0">
+			<name>support</name>
+			<attributes>
+				<prompt>Support calculation (requires a tree in one of the
+                input files)</prompt>
+				<vlist>
+					<value>bremer</value>
+					<label>bremer</label>
+					<value>jackknife</value>
+					<label>jackknife</label>
+					<value>bootstrap</value>
+					<label>bootstrap</label>
+				</vlist>
+                <format>
+                    <language>perl</language>
+                    <code>" -support $value"</code>
+                </format>
+				<group>2</group>
+			</attributes>
+		</parameter>
+
+        <parameter type="Integer">
+            <name>pseudoreplicates</name>
+            <attributes>
+                <prompt>Number of pseudoreplicates for bootstrap and jakknife</prompt>
+                <precond>
+                    <language>perl</language>
+                    <code>$support eq "jackknife" || $support eq "bootstrap" </code>
+                </precond>
+                <group>2</group>
+                <format>
+                    <language>perl</language>
+                    <code>($value &amp;&amp; $value > 0) ? " -pseudoreplicates $value" : ""</code>
+                </format>
+            </attributes>
+        </parameter>
+
+        <parameter type="Integer">
+            <name>resample</name>
+            <attributes>
+                <prompt>
+                    Percentage of characters to be removed per
+                    pseudoreplicate during jackknife
+                </prompt>
+                <precond>
+                    <language>perl</language>
+                    <code>$support eq "bootstrap" </code>
+                </precond>
+                <group>2</group>
+                <format>
+                    <language>perl</language>
+                    <code>($value &amp;&amp; $value > 0) ? " -resample $value" : ""</code>
+                </format>
+            </attributes>
+        </parameter>
+
+		<!-- output files, both postscript and text -->
+		<parameter type="Results">
+			<name>outputfile</name>
+			<attributes>
+				<filenames>*.ps *.result</filenames>
+			</attributes>
+		</parameter>
+
+	</parameters>
+</pise>

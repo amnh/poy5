@@ -256,7 +256,7 @@ BASE_OBJS :=  lz.cmo memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) sleep.o \
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo main.cmo
 
-PORTAL_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo portal.cmo
+PORTAL_OBJS = $(BASE_OBJS) compileFlags.cmo phylo.cmo portal.cmo
 
 BASE_OBJS_OPT = $(patsubst %.cmo,%.cmx, $(patsubst %.cma,%.cmxa, $(BASE_OBJS)))
 
