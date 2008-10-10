@@ -1556,7 +1556,7 @@ END
             let nrun = 
                 let command =
                     let initial = 
-                        [APOY tbr; APOY timeout:[remaining_time ()]]
+                        [APOY tbr; APOY timeout:[`Dynamic remaining_time]]
                     in
                     CPOY swap 
                     { initial --> add_constraint --> add_visited }
@@ -1573,10 +1573,10 @@ END
                     if not has_dynamic then nrun, true
                     else
                         let initial = 
-                            let time = 
+                            let time () = 
                                 min (remaining_time ()) (search_time /. 2.) 
                             in
-                            [APOY timeout:[time]; APOY tbr] 
+                            [APOY timeout:[`Dynamic time]; APOY tbr] 
                         in
                         try 
                             let args = 
@@ -1636,24 +1636,25 @@ END
                     Array.stable_sort comparison arr;
                     { nrun with trees = `Single arr.(pos) }
                 in
+                let time () =
+                    let r = remaining_time () in
+                    if has_dynamic then r
+                    else min r (search_time /. 2.)
+                in
                 let swap_args = 
-                    let time =
-                        let r = remaining_time () in
-                        if has_dynamic then r
-                        else min r (search_time /. 2.)
-                    in
-                    [APOY tbr; APOY timeout:[time]] --> add_constraint
+                    [APOY tbr; APOY timeout:[`Dynamic time]] --> add_constraint
                 in
                 let nrun = 
                     exec nrun 
                     (if has_dynamic then
                         (CPOY 
-                        perturb (iterations:4, transform (tcm:(1,1), static_approx), 
+                        perturb (iterations:4, transform (tcm:(1,1),
+                        static_approx), timeout:[`Dynamic time],
                         swap { swap_args }))
                     else
                         (CPOY 
                         perturb (iterations:4, swap { swap_args }) 
-                        swap (timeout:[remaining_time ()], randomized)))
+                        swap (timeout:[`Dynamic remaining_time], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
                 update_information (`Initial nrun);
@@ -1692,7 +1693,7 @@ END
                                         Methods.cost := `Exhaustive_Weak;
                                         let r = 
                                             let args = 
-                                                [APOY timeout:[remaining_time ()]] -->
+                                                [APOY timeout:[`Dynamic remaining_time]] -->
                                                     add_visited --> add_constraint
                                             in
                                             exec r (CPOY swap {args})
@@ -1730,7 +1731,7 @@ END
                     stop_if_necessary `Fuse;
                     let fus = 
                         let swap_args = 
-                            [APOY tbr; APOY timeout:[remaining_time()]] -->
+                            [APOY tbr; APOY timeout:[`Dynamic remaining_time]] -->
                                 add_randomized --> add_visited --> add_constraint
                         in
                         CPOY fuse (iterations:1, swap { swap_args })
@@ -2529,7 +2530,7 @@ END
                 run.data run.queue }
     | #Methods.escape_local as meth ->
             warn_if_no_trees_in_memory run.trees;
-            let (`PerturbateNSearch (tr, _, search_meth, _)) = meth in
+            let (`PerturbateNSearch (tr, _, search_meth, _, _)) = meth in
             let choose_best trees = 
                 (* A function to select the best between the
                 resulting trees and the previously existing trees *)

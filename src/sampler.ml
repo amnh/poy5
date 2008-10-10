@@ -218,7 +218,13 @@ module MakeApp (Node : NodeSig.S)
     end
 
     class ['a] timed_cancellation time :
-        [Node.n, Edge.e] search_manager_sampler = object 
+        [Node.n, Edge.e] search_manager_sampler = 
+            let time = 
+                match time with
+                | `Fixed x -> x
+                | `Dynamic f -> f ()
+            in
+            object 
             inherit timed_trajectory time
 
             method process _ _ _ _ _ _ _ _ _ =

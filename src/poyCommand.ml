@@ -324,6 +324,7 @@ type perturba = [
     | `Ratchet of (float * int)
     | `Resample of (int * charortax)
     | `Iterations of int
+    | `TimeOut of Methods.timer
     | swap
     | transform
 ]
@@ -754,22 +755,24 @@ let perturb_default_perturb = `Ratchet (0.25, 2)
 let perturb_transform = []
 let perturb_default = 
     (perturb_transform, perturb_default_perturb, perturb_default_swap, 
-    perturb_default_iterations)
-let transform_perturb (tr, m, sw, it) = function
+    perturb_default_iterations, None)
+let transform_perturb (tr, m, sw, it, timeout) = function
+    | `TimeOut x -> (tr, m, sw, it, Some x)
     | `Transform x  ->
             let x = transform_transform_arguments x in
-            ((x @ tr), m, sw, it)
+            ((x @ tr), m, sw, it, timeout)
     | `Swap x -> 
             let x = transform_swap_arguments x in
-            tr, m, x, it
-    | `Ratchet _ as x -> (tr, x, sw, it)
-    | `Resample (x, `Taxa) -> tr, `Resample (`Taxa x), sw, it
-    | `Resample (x, `Characters) -> tr, `Resample (`Characters x), sw, it
-    | `Iterations it -> tr, m, sw, it
+            tr, m, x, it, timeout
+    | `Ratchet _ as x -> (tr, x, sw, it, timeout)
+    | `Resample (x, `Taxa) -> tr, `Resample (`Taxa x), sw, it, timeout
+    | `Resample (x, `Characters) -> 
+            tr, `Resample (`Characters x), sw, it, timeout
+    | `Iterations it -> tr, m, sw, it, timeout
 
 let transform_perturb_arguments x : Methods.script list = 
-    let tr, a, b, c = List.fold_left transform_perturb perturb_default x in
-    `PerturbateNSearch (tr, a, b, c) :: []
+    let tr, a, b, c, d = List.fold_left transform_perturb perturb_default x in
+    `PerturbateNSearch (tr, a, b, c, d) :: []
 
 (* Support *)
 let support_default_swap = `LocalOptimum swap_default
@@ -1535,6 +1538,8 @@ let create_expr () =
                 [ x = resample -> x ] |
                 [ x = swap -> (x :> perturba) ] |
                 [ x = transform -> (x :> perturba) ] |
+                [ LIDENT "timeout"; ":"; x = integer_or_float -> `TimeOut
+                (`Fixed (float_of_string x))] |
                 [ LIDENT "iterations"; ":"; x = INT -> `Iterations (int_of_string x) ]
             ];
         ratchet:
@@ -1903,7 +1908,7 @@ let create_expr () =
         sample_method:
             [
                 [ LIDENT "timeout"; ":"; x = integer_or_float -> 
-                    `TimeOut (float_of_string x) ] |
+                    `TimeOut (`Fixed (float_of_string x)) ] |
                 [ LIDENT "timedprint"; ":"; left_parenthesis; x = integer_or_float; ","; 
                     y = STRING; right_parenthesis -> 
                         `TimedPrint (float_of_string x, Some y) ] |

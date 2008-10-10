@@ -402,7 +402,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ x = swap -> x ] |
                 [ x = transform -> x ] |
                 [ LIDENT "iterations"; ":"; x = flex_integer -> 
-                    <:expr<`Iterations $x$>> ]
+                    <:expr<`Iterations $x$>> ] |
+                [ LIDENT "timeout"; ":"; x = flex_float -> 
+                    <:expr<`TimeOut $x$>> ]
             ];
         ratchet:
             [

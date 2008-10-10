@@ -1472,7 +1472,8 @@ list)=
                                 :: tl)))
             | `Branch_and_Bound (_, _, _, _, cost_calculation)
             | `LocalOptimum { Methods.cc = cost_calculation } 
-            | `PerturbateNSearch (_, _, `LocalOptimum { Methods.cc = cost_calculation } , _) ->
+            | `PerturbateNSearch (_, _, `LocalOptimum { Methods.cc =
+                cost_calculation } , _, _) ->
                     if List.exists is_tree_dependent cost_calculation then
                         let name = emit_name [] in
                         (`Store ([`Trees], name)) ::
@@ -2086,13 +2087,13 @@ let rec make_remote_files (init : Methods.script) =
             `Partition files in
         `LocalOptimum { l_opt with Methods.tabu_join = tm }
 
-    | `PerturbateNSearch (tl, pm, lo, v) ->
+    | `PerturbateNSearch (tl, pm, lo, v, timer) ->
             let tl = 
                 handle_subtypes 
                 (function #Methods.transform as x -> x | _ -> failwith "Huh?")
                 tl
             and lo = handle_lo lo in
-            `PerturbateNSearch (tl, pm, lo, v)
+            `PerturbateNSearch (tl, pm, lo, v, timer)
     | `Fusing (a, b, c, d, lo, f) ->
             let lo = handle_lo lo in
             `Fusing (a, b, c, d, lo, f)
