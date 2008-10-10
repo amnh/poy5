@@ -1649,11 +1649,12 @@ END
                     (if has_dynamic then
                         (CPOY 
                         perturb (iterations:4, transform (tcm:(1,1),
-                        static_approx), timeout:[`Dynamic time],
+                        static_approx), timeout:[`Dynamic remaining_time],
                         swap { swap_args }))
                     else
                         (CPOY 
-                        perturb (iterations:4, swap { swap_args }) 
+                        perturb (iterations:4, timeout:[`Dynamic
+                        remaining_time], swap { swap_args }) 
                         swap (timeout:[`Dynamic remaining_time], randomized)))
                 in
                 trees := Sexpr.union nrun.trees !trees;
