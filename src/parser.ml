@@ -826,48 +826,44 @@ module Tree = struct
                         read_branch acc
         in
         let rec read_tree acc1 acc2 =
-            try
-                stream#skip_ws_nl;
-                match stream#getch with
+            let () = try stream#skip_ws_nl; with | End_of_file -> () in
+            match stream#getch_safe with
+            | None -> acc2 :: acc1
+            | Some v -> (match v with
                 | '(' -> 
-                        let res = 
-                            try read_branch [] with
-                            | End_of_file -> 
-                                    let msg = "Unexpected end of file" in
-                                    raise (Illegal_tree_format msg)
-                        in
-                        read_tree acc1 ((res, "") :: acc2)
+                    let res = 
+                        try read_branch [] with
+                        | End_of_file -> 
+                                let msg = "Unexpected end of file" in
+                                raise (Illegal_tree_format msg)
+                    in
+                    read_tree acc1 ((res, "") :: acc2)
                 | '*'
                 | ';' -> 
-                        let acc1 = acc2 :: acc1 in
-                        (try read_tree acc1 [] with
-                        | End_of_file -> acc1)
+                    let acc1 = acc2 :: acc1 in
+                    read_tree acc1 []
                 | '[' -> 
-                        let contents = 
-                            try get_cost_bracket () with
-                            | End_of_file ->
-                                    let msg = "Unexpected end of file" in
-                                    raise (Illegal_tree_format msg)
-                        in
-                        let acc2 = 
-                            match acc2 with
-                            | (h, _) :: t -> (h, contents) :: t
-                            | [] -> 
-                                    let msg = "Unexpected cost spec" in
-                                    raise (Illegal_tree_format msg)
-                        in
-                        read_tree acc1 acc2
+                    let contents = 
+                        try get_cost_bracket () with
+                        | End_of_file ->
+                                let msg = "Unexpected end of file" in
+                                raise (Illegal_tree_format msg)
+                    in
+                    let acc2 = 
+                        match acc2 with
+                        | (h, _) :: t -> (h, contents) :: t
+                        | [] -> 
+                                let msg = "Unexpected cost spec" in
+                                raise (Illegal_tree_format msg)
+                    in
+                    read_tree acc1 acc2
                 | v -> 
-                        let character = stream#get_position in
-                        let ch = Char.escaped v in
-                        let message = "Unexpected character " ^ ch ^ 
-                        " in position " ^ string_of_int character in
-                        failwith message
-            with
-            | End_of_file -> 
-                    match acc2 with
-                    | [] -> acc1
-                    | _ -> acc2 :: acc1
+                    let character = stream#get_position in
+                    let ch = Char.escaped v in
+                    let message = "Unexpected character " ^ ch ^ 
+                    " in position " ^ string_of_int character in
+                    failwith message
+                )
         in
         let read_tree_str =
             let acc2 = ref None in
@@ -927,7 +923,7 @@ module Tree = struct
 
     let aux_of_stream stream =
         let trees = gen_aux_of_stream stream in
-        List.map (List.map (fun (a, _) -> a)) trees
+        List.rev_map (List.rev_map (fun (a, _) -> a)) trees
 
     let aux_of_string str =
         let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
@@ -3706,8 +3702,7 @@ module SC = struct
                                         | None -> str 
                                     with _ -> str)
                                 t in
-                            let trees = List.map (List.map m) trees in
-                            List.map (fun t -> t) trees
+                            List.rev_map (List.rev_map m) trees
                         with _ -> []
                     in
                     mode, taxa, characters, matrix, trees @ new_trees
