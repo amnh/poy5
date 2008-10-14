@@ -593,6 +593,8 @@ statusCommon.cmx: config.h poyExtension.cmo lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
 charTransform.cmo: config.h charTransform.cmi charTransform.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) charTransform.ml
+charTransform.cmx: config.h charTransform.cmi charTransform.ml
+	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c charTransform.ml
 
 # Generics for all the builds
 
