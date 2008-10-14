@@ -202,6 +202,7 @@ class type ['a, 'b] tabu_mgr = object
     method join_edge : [ `Left | `Right ] -> Tree.edge option
     method reroot_edge : [`Left | `Right] -> Tree.edge option
     method update_break : ('a, 'b) breakage -> unit
+    method update_reroot : ('a, 'b) breakage -> unit
     method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method break_edges : Tree.edge list
 

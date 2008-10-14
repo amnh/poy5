@@ -337,44 +337,62 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 "Rolling Taxon Weights back to original"
 
     let escape_local data queue trees = function
-        | `PerturbateNSearch (_, pert_method, search_method, iterations) ->
+        | `PerturbateNSearch 
+            (_, pert_method, (`LocalOptimum search_method), iterations, timer) ->
                 let st = 
                     Status.create "Perturb Iteration" (Some iterations) ""
                 in
                 let trees = ref trees in
-                for i = 1 to iterations do
-                    Status.full_report ~adv:i st;
-                    let todo = Sexpr.length !trees in
-                    let title = get_title pert_method in
-                    let status = Status.create title (Some todo) "trees in \
-                    the current optimum" in
-                    Status.report status;
-                    let mapper = fun tree ->
-                        let data, x = perturbate_in_tree pert_method data tree in
-                        let x = TS.diagnose x in
-                        let did = Status.get_achieved status in
-                        Status.full_report ~adv:(did + 1) status;
-                        data, x
-                    in
-                    let prepared_trees = Sexpr.map mapper !trees in
-                    let set = 
-                        let prepared_trees = Sexpr.map snd prepared_trees in
-                        let `LocalOptimum tabu = search_method in
-                        TreeSearch.sets tabu.Methods.tabu_join data 
-                        prepared_trees 
-                    in
-                    let new_optimal = 
-                        let f = TS.find_local_optimum in
-                        let res = 
-                            Sexpr.map (fun (data, tree) ->
-                            f data queue (`Single tree) set search_method) 
-                            prepared_trees
-                        in
-                        Sexpr.flatten res
-                    in
-                    trees := perturbe data new_optimal (undo pert_method);
-                    Status.finished status;
-                done;
+                let wall = Timer.start () in
+                let check_time = 
+                    match timer with
+                    | None -> fun () -> ()
+                    | Some x ->
+                            let max_time = 
+                                match x with
+                                | `Fixed x -> x
+                                | `Dynamic x -> x () 
+                            in
+                            fun () -> 
+                                if max_time < Timer.wall wall then raise Exit
+                                else ()
+                in
+                let () =
+                    try for i = 1 to iterations do
+                            check_time ();
+                            Status.full_report ~adv:i st;
+                            let todo = Sexpr.length !trees in
+                            let title = get_title pert_method in
+                            let status = Status.create title (Some todo) "trees in \
+                            the current optimum" in
+                            Status.report status;
+                            let mapper = fun tree ->
+                                let data, x = perturbate_in_tree pert_method data tree in
+                                let x = TS.diagnose x in
+                                let did = Status.get_achieved status in
+                                Status.full_report ~adv:(did + 1) status;
+                                data, x
+                            in
+                            let prepared_trees = Sexpr.map mapper !trees in
+                            let set = 
+                                let prepared_trees = Sexpr.map snd prepared_trees in
+                                TreeSearch.sets search_method.Methods.tabu_join data 
+                                prepared_trees 
+                            in
+                            let new_optimal = 
+                                let f = TS.find_local_optimum in
+                                let res = 
+                                    Sexpr.map (fun (data, tree) ->
+                                    f data queue (`Single tree) set
+                                    (`LocalOptimum search_method))
+                                    prepared_trees
+                                in
+                                Sexpr.flatten res
+                            in
+                            trees := perturbe data new_optimal (undo pert_method);
+                            Status.finished status;
+                        done with Exit -> ()
+                in
                 Status.finished st;
                 !trees
 
