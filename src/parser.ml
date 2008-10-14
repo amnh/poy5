@@ -1072,7 +1072,13 @@ module Tree = struct
         let real_ch = FileStream.open_in_bin file in
         let ch = 
             if is_compressed then
-                new FileStream.compressed_reader real_ch
+                let protocol = 
+                    let ch = FileStream.open_in_bin file in
+                    let res = Lz.detect_type ch in
+                    close_in ch;
+                    res
+                in
+                new FileStream.compressed_reader protocol real_ch
             else
                 new FileStream.stream_reader real_ch
         in

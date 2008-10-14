@@ -245,14 +245,14 @@ ifneq ($(USEWIN32), true)
 	GETRUSAGE := getrusage.o
 endif
 
-BASE_OBJS :=  lz.cmo memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) sleep.o \
-	timer.cmo $(GETRUSAGE) compileFlags.cmo buildNumber.cmo \
-	version.cmo sadmanlib.cma $(INTERFACE) \
-	sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo sequences.cma  \
-	array_ops.cmo $(PARSER) distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) \
-	trees.cma diagnosis.cmo supports.cmo help.cmo helpIndex.cmo \
-	analyzer.cmo commandLexer.cmo poyCommand.cmo poyFile.cmo $(XSLT_COMPONENTS) \
-	scripting.cmo
+BASE_OBJS :=  compileFlags.cmo sadmanlib.cma poyFile.cmo lz.cmo \
+	memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) \
+	sleep.o timer.cmo $(GETRUSAGE) buildNumber.cmo version.cmo \
+	$(INTERFACE) sexpr.cmo tags.cmo poyFormaters.cmo fileStream.cmo \
+	sequences.cma array_ops.cmo $(PARSER) distances.cma methods.cmo \
+	$(LIKELIHOOD_COMPONENTS) $(CHARACTER) trees.cma diagnosis.cmo \
+	supports.cmo help.cmo helpIndex.cmo analyzer.cmo commandLexer.cmo \
+	poyCommand.cmo $(XSLT_COMPONENTS) scripting.cmo
 
 MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo main.cmo
 
@@ -330,24 +330,24 @@ compileFlags.ml: ./config.log
 
 # The libraries
 status_ncurses.cma : dequeue.cmo status.cmi ncurses.o ncursesML.cmo \
-	statusCommon.cmo status_ncurses.ml
+	poyFile.cmo lz.cmo statusCommon.cmo status_ncurses.ml
 	cp status_ncurses.ml status.ml
 	$(OCAMLC) $(CCOPT) -custom -g -a -o $(@) ncurses.o \
 	ncursesML.cmo dequeue.cmo statusCommon.cmo status.ml $(MKLIBOPT) \
 	$(PROFILE) $(LDFLAGS) $(LIBS) 
 
-status_gtk2.cma: status.cmi statusCommon.cmo status_gtk2.ml
+status_gtk2.cma: status.cmi poyFile.cmo lz.cmo statusCommon.cmo status_gtk2.ml
 	cp status_gtk2.ml status.ml
 	$(OCAMLC) -custom -g -a -o $@ -I +lablgtk2 statusCommon.cmo status.ml \
 	$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_cocoa.cma: status.cmi statusCommon.cmo status_cocoa.ml PoyStatus.o \
-	PoyController.o CocoaCaml.o
+status_cocoa.cma: status.cmi poyFile.cmo lz.cmo statusCommon.cmo \
+	status_cocoa.ml PoyStatus.o PoyController.o CocoaCaml.o
 	cp status_cocoa.ml status.ml
 	$(OCAMLC) -custom -g -a -o $@ PoyStatus.o PoyController.o \
 	CocoaCaml.o statusCommon.cmo status.ml $(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_html.cma: status.cmi statusCommon.cmo status_html.ml
+status_html.cma: status.cmi poyFile.cmo lz.cmo statusCommon.cmo status_html.ml
 	cp status_html.ml status.ml
 	$(OCAMLC) -custom -g -a -o $@ statusCommon.cmo status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
@@ -356,7 +356,7 @@ status.cmo: config.h status.ml
 	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo \
 		status.ml $(MKLIBOPT)  $(CCOPT) $(PROFILE)
 
-status_flat.cma: config.h poyExtension.cmo lz.cmo statusCommon.cmo \
+status_flat.cma: config.h poyExtension.cmo poyFile.cmo lz.cmo statusCommon.cmo \
 	status.cmi status_flat.ml
 	cp status_flat.ml status.ml
 	$(OCAMLC) -custom -g -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmo \
@@ -378,13 +378,13 @@ sadmanlib.cma: $(SADMAN)
 	$(OCAMLC) -a -o $@ $^ $(CCOPT) $(MKLIBOPT)
 
 status_ncurses.cmxa : dequeue.cmx status.cmi ncurses.o ncursesML.cmx \
-	statusCommon.cmx status_ncurses.ml
+	poyFile.cmx lz.cmx statusCommon.cmx status_ncurses.ml
 	cp status_ncurses.ml status.ml
 	$(OCAMLOPT) $(CCOPT) -a -o $@ \
 	ncurses.o dequeue.cmx ncursesML.cmx \
 	statusCommon.cmx status.ml $(MKLIBOPT) $(PROFILE) $(LDFLAGS) $(LIBS) 
 
-status_html.cmxa: status.cmi statusCommon.cmx status_html.ml
+status_html.cmxa: status.cmi poyFile.cmx lz.cmx statusCommon.cmx status_html.ml
 	cp status_html.ml status.ml
 	$(OCAMLOPT) -a -o $@ statusCommon.cmx status.ml $(MKLIBOPT) \
 	$(CCOPT) $(PROFILE)
@@ -393,18 +393,19 @@ status.cmx: config.h status.ml
 	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml \
 		$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_flat.cmxa: config.h poyExtension.cmo status.cmi lz.cmx \
+status_flat.cmxa: config.h poyExtension.cmo status.cmi poyFile.cmx lz.cmx \
 	statusCommon.cmx status_flat.ml
 	cp status_flat.ml status.ml
 	$(OCAMLOPT) -a -o $@ $(OPTIONSPREPROCESSOR) statusCommon.cmx status.ml \
 		$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_gtk2.cmxa: status.cmi lz.cmx statusCommon.cmx status_gtk2.ml
+status_gtk2.cmxa: status.cmi poyFile.cmx lz.cmx statusCommon.cmx status_gtk2.ml
 	cp status_gtk2.ml status.ml
 	$(OCAMLOPT) -a -o $@ -I +lablgtk2 statusCommon.cmx status.ml \
 	$(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-status_cocoa.cmxa: status.cmi lz.cmx statusCommon.cmx status_cocoa.ml PoyStatus.o \
+status_cocoa.cmxa: status.cmi poyFile.cmx lz.cmx statusCommon.cmx \
+	status_cocoa.ml PoyStatus.o \
 	PoyController.o CocoaCaml.o
 	cp status_cocoa.ml status.ml
 	$(OCAMLOPT) -a -o $@ PoyStatus.o PoyController.o \
@@ -490,17 +491,17 @@ add.o: memstack.o
 poy.1: help.txt
 
 # Help file gets made using OCaml script
-help.txt: compileFlags.cmx sadmanOutput.cmx lz.cmx statusCommon.cmx \
+help.txt: compileFlags.cmx sadmanOutput.cmx poyFile.cmx lz.cmx statusCommon.cmx \
 	buildNumber.cmx fileStream.cmx latex.ml ../doc/allcommands.tex
 ifeq ($(USEPARALLEL), true)
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
 	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
+	sadmanOutput.cmx poyFile.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
 	$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
 	unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
+	sadmanOutput.cmx poyFile.cmx lz.cmx statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
 endif
 ifeq ($(USEWIN32), true)
 	./latex_helper.exe 
@@ -581,13 +582,13 @@ timer.cmo: config.h poyExtension.cmo timer.cmi timer.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) timer.ml
 timer.cmx: config.h poyExtension.cmo timer.cmi timer.ml
 	$(OCAMLOPT) $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c timer.ml
-fileStream.cmo: config.h poyExtension.cmo lz.cmo fileStream.ml
+fileStream.cmo: config.h poyExtension.cmo poyFile.cmo lz.cmo fileStream.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) fileStream.ml
-fileStream.cmx: config.h poyExtension.cmo lz.cmx fileStream.ml
+fileStream.cmx: config.h poyExtension.cmo poyFile.cmx lz.cmx fileStream.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c fileStream.ml
-statusCommon.cmo: config.h poyExtension.cmo lz.cmo statusCommon.ml
+statusCommon.cmo: config.h poyExtension.cmo poyFile.cmo lz.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
-statusCommon.cmx: config.h poyExtension.cmo lz.cmx statusCommon.ml
+statusCommon.cmx: config.h poyExtension.cmo poyFile.cmx lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
 portal.cmo: poyExtension.cmo phylo.cmo portal.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) \
@@ -610,11 +611,12 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml \
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: compileFlags.cmo sadmanOutput.cmo statusCommon.cmo status.cmi \
-	timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi all_sets.cmi \
-	fileStream.cmo sequence.cmi bitSet.cmi parser.cmi config.h \
-	poyExtension.cmo nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c \
-	nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml *.mli *.c *.h
+.depend: compileFlags.cmo sadmanOutput.cmo poyFile.cmo lz.cmo statusCommon.cmo \
+	status.cmi timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi \
+	all_sets.cmi fileStream.cmo sequence.cmi bitSet.cmi parser.cmi \
+	config.h poyExtension.cmo nonaddCSc8.c nonaddCSc16.c \
+	nonaddCSc32.c nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml \
+	*.mli *.c *.h
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
