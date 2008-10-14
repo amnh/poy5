@@ -92,7 +92,7 @@ let is_ws_nl = function
     | _ -> false
 
 let is_taxon_delimiter = function
-    | '[' | ']' | '(' | ')' | ',' | ';' | ' ' | '\t' | '\010' | '\013' -> true
+    | '[' | ']' | '(' | ')' | ',' | ';' | ' ' | '\t' | '\010' | '\013' | ':' -> true
     | _ -> false
 
 let is_unacceptable_in_taxon_name = function
