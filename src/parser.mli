@@ -133,6 +133,20 @@ module Tree : sig
     * [of_string]. *)
     val of_file_annotated : filename -> (string t * string) list list
 
+    (** [of_string_branches] is simmilar to [of_string] excepting that the
+    * returned list includes the associated information contained after the
+    * colon together with each tree, instead of ignoring it as [of_string]
+    * does. *)
+    val of_string_branches : string -> ((string * float option) t) list list
+
+    (** [of_channel_branches] is to [of_channel] as [of_string_branches] is to
+    * [of_string]. *)
+    val of_channel_branches : in_channel -> ((string * float option) t) list list
+
+    (** [of_file_branches] is to [of_file] as [of_string_branches] is to
+    * [of_string]. *)
+    val of_file_branches : filename -> ((string * float option) t) list list
+
     (** [stream_of_file f] produces a function that returns on each call one of
     * the trees in the input file [f]. If no more trees are found, an
     * End_of_file exception is raised. The function _requires_ that the trees be

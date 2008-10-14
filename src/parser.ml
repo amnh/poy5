@@ -777,6 +777,8 @@ module Tree = struct
         | Leaf d -> Leaf (fn d)
         | Node (list, d) ->
               Node (List.map (map fn) list, fn d)
+    
+    let rem_bl t = List.rev_map (List.rev_map (map fst)) t
 
     let gen_aux_of_stream_gen do_stream stream =
         let taxon_name x = not (FileStream.is_taxon_delimiter x) in
@@ -794,21 +796,45 @@ module Tree = struct
         let read_taxon_name () = 
             stream#read_while taxon_name
         in
-        let rec read_branch acc =
+    
+        let rec read_branch_length acc : float option=
+            match stream#getch with
+            | v when not (taxon_name v) -> 
+                stream#putback v;
+                let str = String.concat "" (List.map 
+                                                    (fun x -> String.make 1 x)
+                                                    (List.rev acc))
+                in
+                Some (float_of_string str)
+            | ('0' .. '9') as v -> read_branch_length (v :: acc)
+            | '.' -> read_branch_length ('.' :: acc)
+            | ':' -> read_branch_length acc
+            |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
+        in
+
+        let rec read_branch acc : (string * float option) t =
             stream#skip_ws_nl;
             match stream#getch with
             | '(' -> 
                     let res = read_branch [] in
                     read_branch (res :: acc)
             | ')' -> 
-                    Node (acc, "")
+                    Node (acc, ("",None))
             | '[' -> 
                     ignore_cost_bracket ();
+                    read_branch acc
+            | ':' ->
+                    let dist = read_branch_length [] in
+                    let acc = (match acc with
+                     | Leaf (t,_) ::tl      -> Leaf ((t,dist)) :: tl
+                     | Node (a, (t,_)) ::tl -> Node ((a, (t,dist))) :: tl
+                     | _ -> raise (Illegal_tree_format "Unexpected Character")
+                    ) in
                     read_branch acc
             | v when taxon_name v ->
                     stream#putback v;
                     let taxon = read_taxon_name () in
-                    read_branch ((Leaf taxon) :: acc)
+                    read_branch ((Leaf (taxon,None)) :: acc)
             | v ->
                     let character = stream#get_position in
                     let ch = Char.escaped v in
@@ -831,38 +857,49 @@ module Tree = struct
             | None -> acc2 :: acc1
             | Some v -> (match v with
                 | '(' -> 
-                    let res = 
-                        try read_branch [] with
-                        | End_of_file -> 
-                                let msg = "Unexpected end of file" in
-                                raise (Illegal_tree_format msg)
-                    in
-                    read_tree acc1 ((res, "") :: acc2)
+                        let res = 
+                            try read_branch [] with
+                            | End_of_file -> 
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        read_tree acc1 ((res, "") :: acc2)
                 | '*'
                 | ';' -> 
-                    let acc1 = acc2 :: acc1 in
-                    read_tree acc1 []
+                        let acc1 = acc2 :: acc1 in
+                        read_tree acc1 []
+                | ':' ->
+                        let dist = read_branch_length [] in
+                        let acc2 = (match acc2 with
+                         | ((Node (lst,(name,None))),q) :: tl ->
+                                 ((Node (lst,(name,dist))),q) :: tl
+                         | ((Leaf (name,None)),q) :: tl ->
+                                 ((Leaf (name,dist)),q) :: tl
+                         | _ -> raise 
+                            (Illegal_tree_format "Unexpected Character")
+                        ) in
+                        read_tree acc1 acc2
                 | '[' -> 
-                    let contents = 
-                        try get_cost_bracket () with
-                        | End_of_file ->
-                                let msg = "Unexpected end of file" in
-                                raise (Illegal_tree_format msg)
-                    in
-                    let acc2 = 
-                        match acc2 with
-                        | (h, _) :: t -> (h, contents) :: t
-                        | [] -> 
-                                let msg = "Unexpected cost spec" in
-                                raise (Illegal_tree_format msg)
-                    in
-                    read_tree acc1 acc2
+                        let contents = 
+                            try get_cost_bracket () with
+                            | End_of_file ->
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        let acc2 = 
+                            match acc2 with
+                            | (h, _) :: t -> (h, contents) :: t
+                            | [] -> 
+                                    let msg = "Unexpected cost spec" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        read_tree acc1 acc2
                 | v -> 
-                    let character = stream#get_position in
-                    let ch = Char.escaped v in
-                    let message = "Unexpected character " ^ ch ^ 
-                    " in position " ^ string_of_int character in
-                    failwith message
+                        let character = stream#get_position in
+                        let ch = Char.escaped v in
+                        let message = "Unexpected character " ^ ch ^ 
+                        " in position " ^ string_of_int character in
+                        failwith message
                 )
         in
         let read_tree_str =
@@ -885,11 +922,21 @@ module Tree = struct
                 | '*'
                 | ';' -> 
                         (match !acc2 with
-                        | None -> raise (Illegal_tree_format "No trees to
-                        read?")
+                        | None -> raise (Illegal_tree_format "No trees to read?")
                         | Some tree ->
                                 acc2 := None;
                                 tree)
+                | ':' -> let dist = read_branch_length [] in
+                         (match !acc2 with
+                          | Some ((Node (lst,(name,_))),q) ->
+                                  acc2 := None;
+                                 ((Node (lst,(name,dist))),q)
+                          | Some ((Leaf (name,_)),q) ->
+                                  acc2 := None;
+                                 ((Leaf (name,dist)),q)
+                          | _ -> raise 
+                            (Illegal_tree_format "Unexpected Character")
+                         )
                 | '[' -> 
                         let contents = 
                             try get_cost_bracket () with
@@ -918,12 +965,47 @@ module Tree = struct
 
     let gen_aux_of_stream str = 
         match gen_aux_of_stream_gen false str with
-        | `Trees t -> t
+        | `Trees t ->  t
         | `Stream _ -> assert false
-
     let aux_of_stream stream =
         let trees = gen_aux_of_stream stream in
-        List.rev_map (List.rev_map (fun (a, _) -> a)) trees
+        List.rev_map (List.rev_map fst) trees
+
+(* 
+    let aux_of_string_bl str = 
+        let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
+        let res = Str.full_split (Str.regexp "[(), ]") str in
+        let process = function
+            | Str.Delim a -> Str.Delim (trim a)
+            | a -> a
+        in
+        let res = List.map (process) res in
+        let builder ((state, readed) as next) item =
+            match item, state with 
+            | Str.Delim "(", _ -> (readed :: state), []
+            | Str.Delim ")", hd :: tl -> tl, (Node (readed, ("",None))) :: hd
+            | Str.Delim ";", _ | Str.Delim "", _ | Str.Delim " ", _  -> next
+            | Str.Delim str, _ when str.[0] = '[' -> next
+            | Str.Text x, _ when x.[0] = ':' ->
+                let xf = float_of_string (String.sub x 1 ((String.length x)-1)) in
+                (match readed with (* pop out last element and apply the time to it *)
+                 | Leaf (str,_)::tl -> state, (Leaf (str, Some xf)) :: tl
+                 | Node (lst,(str,_))::tl -> state, Node (lst,(str,Some xf)) :: tl
+                 | _ -> raise (Illegal_tree_format ("Unexpected "^x))
+                )
+            | Str.Text x, _ ->
+                (match Str.split (Str.regexp ":") x with
+                 | [x]   -> state, (Leaf (x,None)) :: readed
+                 | [x;y] -> let y = float_of_string y in
+                            state, (Leaf (x,Some y)) :: readed
+                 | _ -> raise (Illegal_tree_format ("Unexpected char "^x))
+                )
+            | Str.Delim ")", [] -> raise (Illegal_tree_format "Unexpected )")
+            | Str.Delim x, _ -> 
+                raise (Illegal_tree_format ("Unexpected character." ^ x))
+        in
+        let _, res = List.fold_left (builder) ([], []) res in
+        res
 
     let aux_of_string str =
         let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
@@ -946,7 +1028,7 @@ module Tree = struct
         in
         let _, res = List.fold_left (builder) ([], []) res in
         res
-
+*)
 
     let gen_of_string f str = 
         try
@@ -956,7 +1038,7 @@ module Tree = struct
         | Trailing_characters -> 
                 raise (Illegal_tree_format "Trailing characters in tree.")
 
-    let of_string str = gen_of_string aux_of_stream str
+    let of_string str = rem_bl (gen_of_string aux_of_stream str)
 
     let gen_of_channel f ch =
         try
@@ -965,7 +1047,7 @@ module Tree = struct
         with
         | End_of_file -> failwith "Unexpected end of file"
 
-    let of_channel ch = gen_of_channel aux_of_stream ch
+    let of_channel ch = rem_bl (gen_of_channel aux_of_stream ch)
 
     let gen_of_file f file =
         try
@@ -995,17 +1077,32 @@ module Tree = struct
                 new FileStream.stream_reader real_ch
         in
         match gen_aux_of_stream_gen true ch with
-        | `Stream s -> s, (fun () -> close_in real_ch)
+        | `Stream s -> (fun () -> (fun (t,s) -> map fst t,s) (s ())) , (fun () -> close_in real_ch)
         | `Trees _ -> assert false
 
     let of_file file = gen_of_file of_channel file
 
-    let of_file_annotated = gen_of_file (gen_of_channel gen_aux_of_stream) 
+    let of_file_annotated file =
+        List.rev_map
+            (List.rev_map
+                (fun (t,s) -> map (fst) t,s))
+        (gen_of_file (gen_of_channel gen_aux_of_stream) file)
 
-    let of_channel_annotated = gen_of_channel gen_aux_of_stream 
+    let of_channel_annotated cha = 
+        List.rev_map
+            (List.rev_map 
+                (fun (t,s) -> map (fst) t,s))
+            (gen_of_channel gen_aux_of_stream cha)
 
-    let of_string_annotated = 
-        gen_of_string gen_aux_of_stream 
+    let of_string_annotated str = 
+        List.rev_map
+            (List.rev_map 
+                (fun (t,s) -> map (fst) t,s))
+            (gen_of_string gen_aux_of_stream str)
+
+    let of_string_branches str = gen_of_string (aux_of_stream) str
+    let of_channel_branches ch = gen_of_channel (aux_of_stream) ch
+    let of_file_branches file  = gen_of_file (of_channel_branches) file
 
     let cannonic_order tree =
         let rec build_cannonic_order = function
@@ -1041,8 +1138,6 @@ module Tree = struct
                 match newroot with
                 | None -> raise Illegal_argument
                 | Some y -> Some (Node (x, y))
-
-
 end
 
 (** [lor_list_withhash l hash] returns the logical or of the hash values of all
