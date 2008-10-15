@@ -97,6 +97,11 @@ type elt = {
     (* M.(s) is a cached value; it depends on E and beta, so we reset it during
      * the downpass. *)
     mutable m : cost array option;
+
+    (* Scratch area for the diagnosis, it is safe to do funcky things with it
+    * because we only use it during the diagnosis *)
+    mutable best_states : int list;
+
 }
 (* The Sankoff character type *)
 type t = { 
@@ -197,6 +202,7 @@ let empty_elt =
       e = [||];
       m = None;
       ecode = (-1);
+      best_states = [];
     }
 
 let codes {elts=elts} =
@@ -477,21 +483,27 @@ let dist_2 r a d =
     !acc
 
 let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
-(*    let used_observed = Data.get_used_observed elt.ecode d in *)
-    let (cost, lst) = Array.fold_left (fun ((min, minlist) as acc) x ->
-        if is_inf x then acc 
+    let of_parent = elt_parent.best_states in
+    let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
+        let of_parent =
+            match of_parent with
+            | [] -> [pos]
+            | _ -> of_parent
+        in
+        if is_inf x then (pos + 1, min, minlist)
         else
-            if x < min then (x, [x])
-            else if x = min then (x, (x :: minlist))
-            else acc) (max_int, []) elt.e
+            let dists = List.map (fun y -> tcm.(pos).(y) + x) of_parent in
+            List.fold_left (fun (pos, min, minlist) x ->
+            if x < min then (pos + 1, x, [pos])
+            else if x = min then (pos + 1, x, (pos :: minlist))
+            else (pos + 1, min, minlist)) acc dists)  (0, max_int, []) elt.e
     in
+    elt_parent.best_states <- lst;
     let lst = List.map (Data.to_human_readable d elt.ecode) lst in 
-(*    let lst = List.map (Hashtbl.find used_observed) lst in *)
     let attributes = 
-        let cost = elt_distance tcm elt elt_parent in
         (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
-        (Tags.Characters.cost, `Float cost) :: 
-        (Tags.Characters.definite, `Bool (cost > 0.)) :: 
+        (Tags.Characters.cost, `Int cost) :: 
+        (Tags.Characters.definite, `Bool (cost > 0)) :: 
             attr
     in
     let create = fun x ->
