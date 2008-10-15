@@ -512,21 +512,10 @@ let likelihood_to_formater ((tag, attr, cont): Tags.output) =
             | _ -> raise (Illegal_formater ("Data not found: "^y) )
         in 
 
-        (** 
-            Class :: Preliminary
-            Code :: *int*
-            Time :: *float*
-            Likelihood :: *float*
-        **)
         let name    = _get attr Tags.Data.code and
             cclass  = _get attr Tags.Characters.cclass and
-            cost    = _get attr Tags.Characters.mle and
-            recost  = `String "X" and
-            chrom   = `String "X" and
-            mmap    = `String "X" and
-            states  = `String "X" in
-
-        [| name; cclass; cost; recost; chrom; mmap; states |]
+            cost    = _get attr Tags.Characters.mle in
+        [| name; cclass; cost; |]
     end else raise (Illegal_formater "likelihood_to_formater")
 
 

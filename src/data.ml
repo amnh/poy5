@@ -3934,7 +3934,7 @@ let to_faswincladfile data filename =
                 if weight = 1. then (acc, pos + 1)
                 else (acc ^ "@[<v 0>ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
                 string_of_int pos ^ ";@]@.", pos + 1)
-        | _ -> failwith "Sequence characters are not supported in fastwinclad"
+        | _ -> failwith "Sequence characters are not supported in phastwinclad"
     in
     let weights, _ = 
         List.fold_left ~f:output_weights ~init:("@[<v 0>", 0) all_of_all 
@@ -3983,8 +3983,9 @@ let to_faswincladfile data filename =
                     for i = min to max do 
                         output_element i matrix
                     done;
-            | Some (_, Parser.SC.STLikelihood _) -> 
-                    failwith "Hennig files do not support likelihood characters"
+            | Some (range, Parser.SC.STLikelihood _) -> 
+                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
+                    (* failwith "Hennig files do not support likelihood characters" *)
         in
         fo "@[<v 0>";
         let last, _ =
