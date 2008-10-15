@@ -433,11 +433,13 @@ type trajectory_method = [
     | `PoyDrifting of (float * float)
     | `Annealing of (float * float) ]
 
+type timer = [ `Fixed of float | `Dynamic of (unit -> float) ]
+
 type samples = [
     | `KeepBestTrees 
     | `AllVisited of string option
     | `PrintTrajectory of string option
-    | `TimeOut of float
+    | `TimeOut of timer 
     | `TimedPrint of (float * string option)
     | `UnionStats of (string option * int)
     | `RootUnionDistr of string option
@@ -505,7 +507,7 @@ type perturb_method = [
     | `FixImpliedAlignments of (characters * bool) ]
 
 type escape_local = [`PerturbateNSearch of (transform list * perturb_method *
-local_optimum * int) ]
+local_optimum * int * timer option) ]
 
 (** Method employed in the character weighting. 
 *

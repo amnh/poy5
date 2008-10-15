@@ -1343,7 +1343,6 @@ let analyze_tcm tcm alph =
                             Cost_matrix.Two_D.cost (1 lsl x) (1 lsl y) tcm)) 
                 | Alphabet.Sequential ->
                       let tcm_size = Cost_matrix.Two_D.alphabet_size tcm in
-                      Printf.printf "The ALPHABET size is %d\n%!" tcm_size;
                       let all = 
                           match Alphabet.get_all alph with
                           | None -> (-1)

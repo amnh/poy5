@@ -167,6 +167,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         method virtual update_break : ('a, 'b) Ptree.breakage -> unit
 
+        method update_reroot (_ :  ('a, 'b) Ptree.breakage) = ()
+
         method virtual update_join :
             ('a, 'b) Ptree.p_tree -> Tree.join_delta -> unit
 
@@ -203,6 +205,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method break_distance : float -> unit
         method next_edge : Tree.edge option
         method update_break : ('a, 'b) Ptree.breakage -> unit
+        method update_reroot : ('a, 'b) Ptree.breakage -> unit
         method update_join : ('a, 'b) Ptree.p_tree -> Tree.join_delta -> unit
         method clone : ('a, 'b) edges_manager
         method exclude : Tree.edge list -> unit
@@ -692,6 +695,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 starting <- true
 
             method update_break _ = ()
+            method update_reroot _ = ()
 
             method clone = ({< >} :> (Node.n, Edge.e) edges_manager)
 
@@ -816,6 +820,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                         | Tree.Leaf (a, b) -> M.push ((Tree.Edge (b, a)), 0) items;
                         | Tree.Single _ -> ()
 
+            method update_reroot _  = ()
+
             method update_join _ _ = ()
             method clone = 
                 ({< items = M.copy items;
@@ -840,6 +846,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         val mutable current_broken_ptree = initial_ptree
         val mutable current_delta = 0.0
         val mutable current_clade = None
+
+        method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
 
         method update_join (tree : (Node.n, Edge.e) Ptree.p_tree) 
             (_ : Tree.join_delta) =
@@ -1298,6 +1306,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         val mutable remove_first = 0
 
+        method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
         method exclude edges = 
             exclude_edges <- edges
 
@@ -1457,6 +1466,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         object (self)
             inherit all_edges `Both (calculate_edges ptree) ptree
 
+        method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
         method private update_with_deltas tree tdelta =
             let removed = 
                 match break_deltas with
@@ -1513,6 +1523,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 ptree.Ptree.tree.Tree.d_edges
                 EdgeSet.empty;
 
+        method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
             val mutable break_delta = None
             val mutable current_tree = ptree.Ptree.tree
 
@@ -1613,6 +1624,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             as super
 
         val mutable es = early_stop
+        method update_reroot (_  : (Node.n, Edge.e) Ptree.breakage) = ()
 
         method next_edge =
             if es && (next_edge > (Array.length edges) / 2) then None
@@ -1680,6 +1692,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method update_iterate tree = 
             iterate#update_iterate tree
             
+        method update_reroot breakage = 
+            join#update_reroot breakage;
+            reroot#update_reroot breakage
+
         method clone = {< 
             join = join#clone;
             reroot = reroot#clone;
@@ -1735,7 +1751,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                             ("Failed to find " ^ string_of_int union_code);
                             raise err
                 in
-                if dist < delta then 
+                if dist <= delta then 
                     All_sets.Integers.add y t, f
                 else t, All_sets.Integers.add y f
             in
@@ -1918,6 +1934,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             val mutable clusters = initial_clusters
             val mutable to_update_down = None 
 
+            method update_reroot breakage = self#update_break breakage
 
             method break_distance _ = ()
 
@@ -1958,8 +1975,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     clade_info.Ptree.clade_id, clade_info.Ptree.clade_node
                 in
                 let t,f =
+                    let other_side = 
+                        match side with
+                        | `Left -> `Right
+                        | `Right -> `Left 
+                    in
                     let vertex =
-                        match get_side side breakage with
+                        match get_side other_side breakage with
                         | `Single (a, _) 
                         | `Edge (a, _, _, _) -> a
                     in
@@ -2316,6 +2338,11 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             left#update_break breakage;
             right#update_break breakage;
             break#update_break breakage
+
+        method update_reroot breakage =
+            left#update_reroot breakage;
+            right#update_reroot breakage;
+            break#update_reroot breakage
 
         method update_join tree jd =
             banned_map := !banned_map;

@@ -38,22 +38,27 @@ poy_test:
 	cd ./src/; $(MAKE) poy_test
 	cp ./src/poy_test ./test/
 
+MERCURIAL :=@MERCURIAL@
+
+poy_server: poy xml/swami.xml
+	cd src; $(MAKE) poy_server
+
+xml/swami.xml: xml/swami.xml.in
+	cd xml; sed "s/VERSION/<version>4.0.`$(MERCURIAL)`<\/version>/g" swami.xml.in > swami.xml
+
 .PHONY:	subdirs $(SUBDIRS) clean driver install distclean
 subdirs:	$(SUBDIRS)
 
 transform = @program_transform_name@
 
-NROFF := @NROFF@
-
 install:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(INSTALL) ./src/poy $(DESTDIR)$(bindir)/`echo poy | sed -e '$(transform)'`
-ifeq ($(NROFF), notfound)
-	echo "I could not find nroff, therefore no man pages are being installed"
-else
 	$(MKDIR_P) $(DESTDIR)$(mandir)
 	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
-endif
+
+install_server: install
+	$(INSTALL) ./src/poy_server $(DESTDIR)$(bindir)/`echo poy_server | sed -e '$(transform)'` 
 
 uninstall:
 	rm -f $(bindir)/`echo poy | sed '$(transform)'`
