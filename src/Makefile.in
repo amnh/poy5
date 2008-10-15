@@ -616,7 +616,7 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml \
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: compileFlags.cmo sadmanOutput.cmo poyFile.cmo lz.cmo statusCommon.cmo \
+.depend: compileFlags.cmo sadmanOutput.cmo poyFile.cmi lz.cmo statusCommon.cmo \
 	status.cmi timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi \
 	all_sets.cmi fileStream.cmo sequence.cmi bitSet.cmi parser.cmi \
 	config.h poyExtension.cmo nonaddCSc8.c nonaddCSc16.c \
