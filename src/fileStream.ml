@@ -273,7 +273,9 @@ object (self)
         self#process_char ch
 end
 
-class compressed_reader stream = object (self)
+class compressed_reader protocol stream = 
+    let () = Lz.skip_header stream protocol in
+    object (self)
     inherit stream_reader stream as super
 
     val mutable table = Lz.initial_table ()
@@ -287,7 +289,7 @@ class compressed_reader stream = object (self)
 
     method private fill_buffer =
         let input_byte stream = 
-            Pervasives.input_byte stream
+            Pervasives.input_byte stream 
         in
         let get_byte () =
             match Sys.os_type with
@@ -318,7 +320,7 @@ class compressed_reader stream = object (self)
         let fst = get_byte () in
         let snd = get_byte () in
         let int = (fst lsl 8) lor snd in
-        Lz.decompress table [int] buffer;
+        Lz.decompress protocol table [int] buffer;
         buffer_length <- Buffer.length buffer
 
     method private process_char ch =

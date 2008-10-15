@@ -1201,15 +1201,19 @@ let create_expr () =
                 [",";"gap"; x =  OPT optional_boolean ->
                     match x with 
                     | None -> `GapAsCharacter false
-                    | Some x -> `GapAsCharacter x ] |
-                [ _ -> `GapAsCharacter false ]
+                    | Some x -> `GapAsCharacter x ]
             ];
         transform_method:
             [
                 [ LIDENT "independent" -> `Independent ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = ml_gaps; right_parenthesis ->
+                    y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
+                        let z =
+                            match z with
+                            | None -> `GapAsCharacter false
+                            | Some x -> x
+                        in
                         `UseLikelihood (w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |

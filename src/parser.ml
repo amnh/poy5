@@ -852,9 +852,17 @@ module Tree = struct
                         read_branch acc
         in
         let rec read_tree acc1 acc2 =
+            let prepend acc2 acc1 =
+                (* We have to do this to avoid bogus warnings when we read a
+                * separator that closes the list of trees (for example a
+                * trailing semicolon) *)
+                match acc2 with
+                | [] -> acc1
+                | acc2 -> acc2 :: acc1 
+            in
             let () = try stream#skip_ws_nl; with | End_of_file -> () in
             match stream#getch_safe with
-            | None -> acc2 :: acc1
+            | None -> prepend acc2 acc1
             | Some v -> (match v with
                 | '(' -> 
                         let res = 
@@ -866,7 +874,7 @@ module Tree = struct
                         read_tree acc1 ((res, "") :: acc2)
                 | '*'
                 | ';' -> 
-                        let acc1 = acc2 :: acc1 in
+                        let acc1 = prepend acc2 acc1 in
                         read_tree acc1 []
                 | ':' ->
                         let dist = read_branch_length [] in
@@ -1072,7 +1080,13 @@ module Tree = struct
         let real_ch = FileStream.open_in_bin file in
         let ch = 
             if is_compressed then
-                new FileStream.compressed_reader real_ch
+                let protocol = 
+                    let ch = FileStream.open_in_bin file in
+                    let res = Lz.detect_type ch in
+                    close_in ch;
+                    res
+                in
+                new FileStream.compressed_reader protocol real_ch
             else
                 new FileStream.stream_reader real_ch
         in

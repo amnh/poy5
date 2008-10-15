@@ -208,12 +208,14 @@ let get_state = get_triple
 
 let to_list_with_cost t = 
     let len = get_length t in
+    let chars = t.characters in
     let rec build it acc = 
         if it < 0 then acc
         else begin 
             try
                 let res = 
-                    get_min t it, get_max t it, get_code t it, get_cost t it
+                    pos_get_min chars it, pos_get_max chars it, 
+                    get_code t it, pos_get_cost chars it
                 in
                 build (it - 1) (res :: acc)
             with
@@ -224,11 +226,13 @@ let to_list_with_cost t =
 
 let to_list t = 
     let len = get_length t in
+    let chars = t.characters in
     let rec build it acc = 
         if it < 0 then acc
         else begin 
             try
-                let res = get_min t it, get_max t it, get_code t it in
+                let res = pos_get_min chars it, 
+                pos_get_max chars it, get_code t it in
                 build (it - 1) (res :: acc)
             with
            | Failure "Not_found" -> build (it - 1) acc

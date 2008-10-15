@@ -378,9 +378,10 @@ module Files = struct
             in
             let ch = open_out_gen file_options 0o644 name in
             let f, before_closing = 
-                if not is_compressed then
+                if not is_compressed then begin
                     Format.formatter_of_out_channel ch, fun () -> ()
-                else 
+                end else 
+                    let () = Lz.output_header Lz.latest ch in
                     let lst = ref [] in
                     let table = Lz.initial_table () in
                     let output_binary_int ch int =

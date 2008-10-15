@@ -2789,8 +2789,7 @@ END
                                                             [|name; res|]
                                                         with 
                                                         | Not_found ->
-                                                                if min_val =
-                                                                    max_val.
+                                                                if min_val = max_val
                                                                 then [|name;
                                                                 "uninformative"|]
                                                                 else [|name;

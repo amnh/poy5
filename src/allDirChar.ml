@@ -197,60 +197,6 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         new_cost
 
-    let convert_three_to_one_dir tree = 
-        (* We will convert the tree in a one direction tree, then we will use
-        * the standard Chartree.to_formatter function. *)
-        let tree = 
-            (* We convert the tree to a one direction one *)
-            let simple_conversion prev curr acc = 
-                let node =
-                    let data = Ptree.get_node_data curr tree in
- (**)               AllDirNode.not_with prev data.AllDirNode.unadjusted
-                in
-                Ptree.add_node_data curr (AllDirNode.force_val node.AllDirNode.lazy_node) acc
-            in
-            All_sets.IntegerMap.fold (fun _ root acc ->
-                match root.Ptree.root_median with
-                | Some ((`Edge (a, b)), r) ->
-                        let r = 
-                            match r.AllDirNode.unadjusted with
-                            | [r] -> r
-                            | _ -> failwith "No root?1"
-                        in
-                        let acc = 
-                            let t = Tree.reroot (a, b) acc.Ptree.tree in
-                            { acc with Ptree.tree = t } 
-                        in
-                        let acc = 
-                            Tree.post_order_node_with_edge_visit_simple
-                            simple_conversion (Tree.Edge (a, b))
-                            acc.Ptree.tree acc
-                        in
-                        Ptree.assign_root_to_connected_component 
-                            a
-                            (Some ((`Edge (a, b)), AllDirNode.force_val r.AllDirNode.lazy_node))
-                            root.Ptree.component_cost
-                            (Some root.Ptree.adjusted_component_cost)
-                            acc
-                | Some (`Single a, r) -> 
-                        let r = 
-                            match r.AllDirNode.unadjusted with
-                            | [r] -> r
-                            | _ -> failwith "No root?1"
-                        in
-                        Ptree.assign_root_to_connected_component
-                        a (Some ((`Single a), 
-                        AllDirNode.force_val r.AllDirNode.lazy_node))
-                        root.Ptree.component_cost 
-                        (Some root.Ptree.adjusted_component_cost)
-                        acc
-                | _ -> failwith "No root2?")
-            tree.Ptree.component_root 
-            { Ptree.empty with Ptree.tree = tree.Ptree.tree }
-        in 
-        let tree = tree --> Chartree.uppass in
-        tree
-
     let check_assertion_two_nbrs a b c =
         if a <> Tree.get_id b then true
         else 
@@ -1411,8 +1357,6 @@ with type b = AllDirNode.OneDirF.n = struct
 
         let tree = assign_final_states tree in
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in 
-
-
 (*
         Utl.printIntSet pre_ref_codes;
         Utl.printIntSet fi_ref_codes;
@@ -1462,10 +1406,6 @@ with type b = AllDirNode.OneDirF.n = struct
                     (Tags.Trees.tree, [], singler nodest)
         in
         let handle_to_formatter (pre, fi) handle (recost, trees) =
-(*
-            let treecost = check_cost tree handle in 
-            Printf.fprintf stdout "Tree cost for diagnosis: %f\n" treecost;
-*)
             let r = Ptree.get_component_root handle tree in
             let recost, contents, attr =
                 match r.Ptree.root_median with
@@ -1520,15 +1460,6 @@ with type b = AllDirNode.OneDirF.n = struct
             (Tags.Trees.cost, `Float cost) :: atr
         in
         (Tags.Trees.forest, atr, `Set trees)
-
-    let av_to_formatter ?(pre_ref_codes=IntSet.empty) ?(fi_ref_codes=IntSet.empty) atr data tree = 
-        (* We have to include the cost of the tree in the attributed and not get
-        * it from the Chartree.to_formatter function. If the cost is adjusted,
-        * it might not be the same in the one directional tree. *)
-        let cost = Ptree.get_cost `Adjusted tree in
-        let atr = (Tags.Trees.cost, `Float cost) :: atr in
-        let tree = convert_three_to_one_dir tree in
-        Chartree.to_formatter atr data tree 
 
 end
 
