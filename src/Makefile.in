@@ -52,6 +52,7 @@ OCAMLYACC := @OCAMLYACC@
 MERCURIAL := @MERCURIAL@
 EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
+NATIVEDYNLINK := @NATIVEDYNLINK@
 
 INCLUDE = `$(OCAMLC) -where`
 export DEPEND = .depend
@@ -71,6 +72,10 @@ endif
 -include $(PWD)/$(DEPEND)
 
 DEFOPTS :=
+ifeq ($(NATIVEDYNLINK), dynlink.cmxa)
+	DEFOPTS := -DUSE_NATIVEDYNLINK $(DEFOPTS)
+endif
+
 XSLT_COMPONENTS :=
 ifeq ($(USE_XSLT), true)
 	XSLT_COMPONENTS := mlxslt.o xslt.cmo
@@ -697,12 +702,13 @@ ifeq ($(USEPARALLEL), true)
 	-cclib -L./graphps -cclib -L./ \
 	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
-	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
+	$(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa \
+	$^ $(LDFLAGS) $(LIBS) 
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy \
-	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	$(GRAPHICS:.cma=.cmxa) $(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 endif
 
@@ -712,12 +718,12 @@ ifeq ($(USEPARALLEL), true)
 	-cclib -L./graphps -cclib -L./ \
 	-cclib -L$(OCAMLMPI) $(CCOPT) $(PROFILE) \
 	-cclib -lcamlgrappa -o $@ mpi.cmxa $(GRAPHICS:.cma=.cmxa) \
-	camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LIBS) 
+	$(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^ $(LIBS) 
 else
 	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
 	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o $@ \
-	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	$(GRAPHICS:.cma=.cmxa) $(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 	bigarray.cmxa $^ $(LIBS) 
 endif
 
@@ -725,7 +731,7 @@ poy_test: $(TEST_OBJS_OPT)
 	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
 	$(CCOPT) -cclib -lcamlgrappa $(PROFILE) -o poy_test \
-	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	$(GRAPHICS:.cma=.cmxa) $(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 	bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 
 
 # Interactive console to test various features

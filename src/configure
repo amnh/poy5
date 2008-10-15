@@ -701,6 +701,7 @@ OCAMLYACC
 MERCURIAL
 OCAMLFLAGS
 EXTRAS
+NATIVEDYNLINK
 XSLT_CONFIG
 CPP
 GREP
@@ -2622,6 +2623,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 # What are we going to substitute in the Makefile
+
+
 
 
 
@@ -4961,6 +4964,8 @@ $as_echo "$OCAMLVERSION" >&6; }
 case $OCAMLVERSION in
     3.10.*)
     ;;
+    3.11.*)
+    NATIVEDYNLINK="dynlink.cmxa";;
     *)
     { $as_echo "$as_me:$LINENO: result: no" >&5
 $as_echo "no" >&6; }
