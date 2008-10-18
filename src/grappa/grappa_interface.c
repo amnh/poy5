@@ -36,7 +36,7 @@ struct genome_arr_t
     int num_gene;
 };
 
-void genome_arr_CAML_free (value c_genome_arr) {
+void grappa_CAML_genome_arr_free (value c_genome_arr) {
     //printf("Start of genone_arr_CAML_free\n"); fflush(stdout); 
     struct genome_arr_t *genome_arr;
     struct genome_struct *genome;
@@ -67,7 +67,7 @@ static struct custom_operations genomeOps = {
 
 static struct custom_operations genomeArrOps = {
     "http://www.amnh.org/poy/genome/grappa.0.1",
-    &genome_arr_CAML_free, 
+    &grappa_CAML_genome_arr_free, 
 //    custom_finalize_default,
     custom_compare_default,
     custom_hash_default,
@@ -75,7 +75,7 @@ static struct custom_operations genomeArrOps = {
     custom_deserialize_default,
 };
 
-value print_genome_CAML(value c_genome, value c_num_gen) {
+value grappa_CAML_print_genome(value c_genome, value c_num_gen) {
     CAMLparam2(c_genome, c_num_gen);
     struct genome_struct *genome;
     int i, num_gen;
@@ -90,7 +90,7 @@ value print_genome_CAML(value c_genome, value c_num_gen) {
     CAMLreturn (Val_unit);
 }
             
-value print_genome_arr_CAML (value c_genome_arr, value c_num_genome, value c_num_gen) {
+value grappa_CAML_print_genome_arr (value c_genome_arr, value c_num_genome, value c_num_gen) {
     CAMLparam3(c_genome_arr, c_num_genome, c_num_gen);
     struct genome_arr_t *genome_arr;
     int i,j;
@@ -112,7 +112,7 @@ value print_genome_arr_CAML (value c_genome_arr, value c_num_genome, value c_num
     CAMLreturn (Val_unit);
 }
 
-value get_num_genome_CAML (value c_genome_arr) {
+value grappa_CAML_get_num_genome (value c_genome_arr) {
     int num_genome;
     CAMLparam1 (c_genome_arr);
     struct genome_arr_t *genome_arr;
@@ -122,14 +122,14 @@ value get_num_genome_CAML (value c_genome_arr) {
 }
 
 
-value get_num_gene_CAML (value c_genome_arr) {
+value grappa_CAML_get_num_gene (value c_genome_arr) {
     CAMLparam1 (c_genome_arr);
     struct genome_arr_t *genome_arr;
     genome_arr = (struct genome_arr_t *) Data_custom_val (c_genome_arr);
     CAMLreturn (Val_int(genome_arr->num_gene));
 }
 
-value get_one_genome_CAML(value c_genome_arr, value c_index) {
+value grappa_CAML_get_one_genome(value c_genome_arr, value c_index) {
     CAMLparam2(c_genome_arr,c_index);
     struct genome_arr_t *genome_arr;
     struct genome_struct *genome;
@@ -173,7 +173,7 @@ value get_one_genome_CAML(value c_genome_arr, value c_index) {
  num-- the number of gene in each genome (i.e., the length of gene1;
  the length of both must be the same)
  circular-- an int that's positive if genome are circular */
-value cmp_inv_dis_CAML(value c_gene1, value c_gene2, 
+value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2, 
 				      value c_num_gen, value c_circular) {
     CAMLparam4(c_gene1, c_gene2, c_num_gen, c_circular); 
     int num_gene, distance, circ;
@@ -196,7 +196,7 @@ value cmp_inv_dis_CAML(value c_gene1, value c_gene2,
 
 
 /*****************************************************************/
-value create_empty_genome_arr_CAML(value numgenome, value numgene)
+value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
 {
     int Numgenome, Numgene, i;
     struct genome_struct *genome_list;
@@ -237,7 +237,7 @@ value create_empty_genome_arr_CAML(value numgenome, value numgene)
     CAMLreturn(c_genome_arr); 
 }
 
-value set_CAML (value c_genome_arr, value c_genome_no, value c_index, value c_gene_no) {
+value grappa_CAML_set (value c_genome_arr, value c_genome_no, value c_index, value c_gene_no) {
     struct genome_arr_t *genome_arr;
     int index, genome_no, gene_no;
     CAMLparam4 (c_genome_arr, c_genome_no, c_index, c_gene_no);
@@ -251,4 +251,70 @@ value set_CAML (value c_genome_arr, value c_genome_no, value c_index, value c_ge
     CAMLreturn(Val_unit);
 }
 
+/*
+ * See the OCaml interface for more information about this function. Notice that
+ * it produce an inverted list of transformations, that is corrected in the
+ * OCaml side. *)
+ */
+
+value 
+grappa_CAML_inversions (value genes1, value genes2, 
+        value c_num_genes, value dist) {
+    CAMLparam4(genes1, genes2, c_num_genes, dist);
+    CAMLlocal3(resulttmp, result, r);
+    List intermediate_reversals_list;
+    int num_genes, i, j, inv_dist;
+    struct genome_arr_t *genes1_arr, *genes2_arr;
+    struct genome_struct *permutation, *origin;
+    int *temp_genes;
+    Reversal *rev;
+    result = Val_int(0); /* We start with the empty list */
+
+    inv_dist = Int_val(dist);
+
+    permutation = (struct genome_struct *) Data_custom_val (genes1);
+    origin = (struct genome_struct *) Data_custom_val (genes2);
+    /* First one in should be ancestor-- the permutation that you want to
+       transform into the descendant (even though "origin" is a confusing
+       thing to call descendant) */
+    num_genes = Int_val(c_num_genes);
+
+    temp_genes = (int *)malloc(num_genes * sizeof(int));
+
+    if (0 == num_genes) CAMLreturn(result);
+    /* Initialize list that will be used to store the sorting reversals
+       found between the permutations at each step. */
+    init_list(&intermediate_reversals_list, (num_genes + 1) * num_genes,
+            sizeof(Reversal *));
+
+    i = 0;
+
+    do {
+
+        clear_list(&intermediate_reversals_list);
+
+        find_all_sorting_reversals(&intermediate_reversals_list, NULL, permutation,
+                origin, num_genes, NULL);
+
+        if  (list_size(&intermediate_reversals_list) > 0) {
+            rev = (Reversal *)list_get(&intermediate_reversals_list, 0);
+            copy_with_reversal(temp_genes, permutation->genes, num_genes, rev);
+            permcopy(permutation->genes, temp_genes, num_genes);
+            r = caml_alloc_tuple(2);
+            Store_field(r,0,Val_int(rev->start + 1));
+            Store_field(r,1,Val_int(rev->stop));
+            resulttmp = caml_alloc(2,0);
+            Store_field(resulttmp,0,r);
+            Store_field(resulttmp,1,result);
+            result = resulttmp;
+        }
+
+        i++;
+
+    } while (list_size(&intermediate_reversals_list) > 0);
+
+    fflush(stdout); /* Change so can be stderr, too? */
+
+    CAMLreturn(result);
+}
 

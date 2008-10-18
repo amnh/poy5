@@ -13,23 +13,33 @@ type genome_arr
 
 
 
-external c_get_num_genome : genome_arr -> int = "get_num_genome_CAML"
-external c_get_num_gene : genome_arr -> int = "get_num_gene_CAML"
+external c_get_num_genome : genome_arr -> int = "grappa_CAML_get_num_genome"
+external c_get_num_gene : genome_arr -> int = "grappa_CAML_get_num_gene"
 
 
 (* takes a genome and the number of genes and print it *)
-external c_print_genome : genome -> int -> unit = "print_genome_CAML"
+external c_print_genome : genome -> int -> unit = "grappa_CAML_print_genome"
 
 (* takes a genome and the number of genes and print it *)
-external c_print_genome_arr : genome_arr -> int -> int -> unit = "print_genome_arr_CAML"
+external c_print_genome_arr : genome_arr -> int -> int -> unit = "grappa_CAML_print_genome_arr"
 
 
 (*give index in array and returns the one genome at that index *)
-external c_get_one_genome : genome_arr -> int -> genome = "get_one_genome_CAML"
+external c_get_one_genome : genome_arr -> int -> genome = "grappa_CAML_get_one_genome"
 
 (*  for the distance returned *)
-external c_cmp_inv_dis : genome -> genome -> int -> int -> int =  "cmp_inv_dis_CAML"
+external c_cmp_inv_dis : genome -> genome -> int -> int -> int =  "grappa_CAML_cmp_inv_dis"
 
-external c_create_empty_genome_arr : int -> int -> genome_arr = "create_empty_genome_arr_CAML"
+(* See [inversions] *)
+external c_inversions : 
+    genome -> genome -> int -> int -> (int * int) list  = 
+        "grappa_CAML_inversions"
 
-external c_set : genome_arr -> int -> int -> int -> unit = "set_CAML"
+(** [inversions g1 g2 ngenes dist] produce a list of tuples, with a sequence of
+* inversions that convert [g2] into [g1], with [ngenes] genes, and at inversion
+* distance [dist]. *)
+let inversions a b c d = List.rev (c_inversions a b c d)
+
+external c_create_empty_genome_arr : int -> int -> genome_arr = "grappa_CAML_create_empty_genome_arr"
+
+external c_set : genome_arr -> int -> int -> int -> unit = "grappa_CAML_set"
