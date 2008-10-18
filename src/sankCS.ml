@@ -100,7 +100,7 @@ type elt = {
 
     (* Scratch area for the diagnosis, it is safe to do funcky things with it
     * because we only use it during the diagnosis *)
-    mutable best_states : int list;
+    best_states : int list;
 
 }
 (* The Sankoff character type *)
@@ -402,8 +402,38 @@ let elt_median_3 tcm a n l r =          (* ancestor, node, left, right *)
         done;
         !best
     in
+    let mybest =
+        let abest = 
+            match a.best_states with
+            | [] -> 
+                    (* We pick the smallest of the parent *)
+                    let cost = ref infinity in
+                    let res = ref [] in
+                    Array.iteri (fun pos poscost ->
+                        if !cost = poscost then res := pos :: !res
+                        else if !cost < poscost then begin 
+                            cost := poscost;
+                            res := [pos];
+                        end;) a.s;
+                    !res
+            | x -> x
+        in
+        let lst = ref [] in
+        let best_cost = ref infinity in
+        Array.iteri (fun pos cost -> 
+            let mycost = List.fold_left (fun best parentpos ->
+                min best (cost + tcm.(pos).(parentpos))) infinity abest
+            in
+            if mycost = !best_cost then 
+                lst := pos :: !lst
+            else if mycost < !best_cost then begin
+                best_cost := mycost;
+                lst := [pos]
+            end else ()) n.s;
+        !lst
+    in
     let e = Array.init states init_e in
-    { n with e = e; m = None; }
+    { n with e = e; m = None; best_states = mybest }
 
 let median_3 a n l r =
     let tcm = n.tcm in
@@ -483,34 +513,71 @@ let dist_2 r a d =
     !acc
 
 let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
-    let of_parent = elt_parent.best_states in
-    let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
-        let of_parent =
-            match of_parent with
-            | [] -> [pos]
-            | _ -> of_parent
-        in
-        if is_inf x then (pos + 1, min, minlist)
-        else
-            let dists = List.map (fun y -> tcm.(pos).(y) + x) of_parent in
-            List.fold_left (fun (pos, min, minlist) x ->
-            if x < min then (pos + 1, x, [pos])
-            else if x = min then (pos + 1, x, (pos :: minlist))
-            else (pos + 1, min, minlist)) acc dists)  (0, max_int, []) elt.e
-    in
-    elt_parent.best_states <- lst;
-    let lst = List.map (Data.to_human_readable d elt.ecode) lst in 
-    let attributes = 
-        (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
-        (Tags.Characters.cost, `Int cost) :: 
-        (Tags.Characters.definite, `Bool (cost > 0)) :: 
-            attr
-    in
-    let create = fun x ->
-        `Single (Tags.Characters.value, [], `String x)
-    in
-    (Tags.Characters.sankoff, attributes, (`Set (List.map create
-    lst)))
+    match attr with
+    | [_, `String x] -> 
+            if x = Tags.Nodes.preliminary then
+                (* In this case we just pick the smallest of all mine *)
+                let of_parent = elt_parent.best_states in
+                let lst = ref []
+                and cost = ref infinity in
+                let () =
+                    Array.iteri (fun pos mycost ->
+                        if mycost < !cost then begin
+                            cost := mycost;
+                            lst := [pos];
+                        end else if mycost = !cost then lst := pos :: !lst
+                        else ()) elt.s
+                in
+                let lst = List.map (Data.to_human_readable d elt.ecode) !lst in 
+                let attributes = 
+                    (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
+                    (Tags.Characters.cost, `Int !cost) :: 
+                    (Tags.Characters.definite, `Bool (!cost > 0)) :: 
+                        attr
+                in
+                let create = fun x ->
+                    `Single (Tags.Characters.value, [], `String x)
+                in
+                (Tags.Characters.sankoff, attributes, (`Set (List.map create
+                lst)))
+            else if x = Tags.Nodes.final then 
+                let of_parent = elt_parent.best_states in
+                let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
+                    let of_parent =
+                        match of_parent with
+                        | [] -> [pos]
+                        | _ -> of_parent
+                    in
+                    if is_inf x then (pos + 1, min, minlist)
+                    else
+                        let dists = List.map (fun y -> 
+                            tcm.(pos).(y) + x) of_parent in
+                        let didit = ref false in
+                        let newpos = pos + 1 in
+                        List.fold_left (fun (_, min, minlist) x ->
+                        if x < min then begin
+                            didit := true;
+                            (newpos, x, [pos])
+                        end else if x = min && not !didit then begin 
+                            didit := true;
+                            (newpos, x, (pos :: minlist))
+                        end else (newpos, min, minlist)) acc dists)  (0, max_int, []) elt.s
+                in
+                let lst = List.map (Data.to_human_readable d elt.ecode) lst in 
+                let attributes = 
+                    (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
+                    (Tags.Characters.cost, `Int cost) :: 
+                    (Tags.Characters.definite, `Bool (cost > 0)) :: 
+                        attr
+                in
+                let create = fun x ->
+                    `Single (Tags.Characters.value, [], `String x)
+                in
+                (Tags.Characters.sankoff, attributes, (`Set (List.map create
+                lst)))
+            else assert false
+
+    | _ -> assert false
 
 
 let to_formatter attr a (parent : t option) d : Tags.output list =
