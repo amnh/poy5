@@ -260,9 +260,10 @@ let () =
     | None -> ()
     | Some tree ->
             let res =
+                let input_files = List.rev !input_files in
                 let tl =
-                    if !use_triplets then make_pairs !input_files
-                    else List.map (fun x -> (x, None)) !input_files
+                    if !use_triplets then make_pairs input_files
+                    else List.map (fun x -> (x, None)) input_files
                 in
                 List.fold_left (fun acc dist ->
                     acc +. (process_problem tree !synonyms dist)) 
