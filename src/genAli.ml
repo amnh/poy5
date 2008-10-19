@@ -79,19 +79,18 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =
 * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 let cmp_cost state code1_arr code2_arr recode2_arr 
         (cost_mat : Cost_matrix.Two_D.m) gap re_meth circular orientation = 
-    let seq1 = Sequence.init (fun idx -> code1_arr.(idx)) (Array.length code1_arr) in
-    let reseq2 = Sequence.init (fun idx -> recode2_arr.(idx)) (Array.length recode2_arr) in
-
-
+    let seq1 = Sequence.of_array code1_arr
+    and reseq2 = Sequence.of_array recode2_arr in
     let alied_seq1, alied_reseq2, editing_cost =  
         Sequence.Align.align_2 ~first_gap:false seq1 reseq2 cost_mat
             Matrix.default  
     in   
-
     let alied_code1_arr = Sequence.to_array alied_seq1 in 
     let alied_recode2_arr = Sequence.to_array alied_reseq2 in 
-
-    let recost1, recost2 = cmp_recost state code1_arr code2_arr recode2_arr re_meth circular orientation in 
+    let recost1, recost2 = 
+        cmp_recost state code1_arr code2_arr recode2_arr re_meth circular 
+        orientation 
+    in 
    (editing_cost + recost1 + recost2), (recost1, recost2), alied_code1_arr, alied_recode2_arr
 
 
@@ -227,19 +226,15 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
 let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
         max_swap_med circular orientation =
-
     let gap = Alphabet.get_gap alpha in 
-    let seq1 : int array = Sequence.to_array seq1 in 
-    let seq2 : int array = Sequence.to_array seq2 in 
-    
-    let wag_seq2 : int array = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
+    let seq1 = Sequence.to_array seq1 in 
+    let seq2 = Sequence.to_array seq2 in 
+    let wag_seq2 = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
         gap re_meth circular orientation
     in 
-
     let init_cost, recost, alied_seq1, alied_seq2 = 
         cmp_cost state seq1 seq2 wag_seq2 gen_cost_mat gap re_meth circular orientation
     in 
-
     let _, best_seq2 = 
         match max_swap_med with 
         | 0 -> init_cost, wag_seq2
@@ -247,14 +242,11 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
               multi_swap_locus state seq1 seq2 wag_seq2 init_cost  
                   gen_cost_mat gap re_meth max_swap_med circular orientation 0
     in   
-
     let final_cost, recost, alied_seq1, alied_seq2 =   
         cmp_cost state seq1 seq2 best_seq2 gen_cost_mat gap re_meth circular orientation
     in   
-
-    let ali_len = Array.length alied_seq1 in 
-    let alied_seq1 = Sequence.init (fun idx -> alied_seq1.(idx)) ali_len in
-    let alied_seq2 = Sequence.init (fun idx -> alied_seq2.(idx)) ali_len in
+    let alied_seq1 = Sequence.of_array alied_seq1 in
+    let alied_seq2 = Sequence.of_array alied_seq2 in
     final_cost, recost, alied_seq1, alied_seq2  
 
 

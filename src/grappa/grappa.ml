@@ -30,6 +30,10 @@ external c_get_one_genome : genome_arr -> int -> genome = "grappa_CAML_get_one_g
 (*  for the distance returned *)
 external c_cmp_inv_dis : genome -> genome -> int -> int -> int =  "grappa_CAML_cmp_inv_dis"
 
+let inversion_distance a b c d = 
+    c_cmp_inv_dis a b c (if d then 1 else 0)
+
+
 (* See [inversions] *)
 external c_inversions : 
     genome -> genome -> int -> int -> (int * int) list  = 
@@ -43,3 +47,20 @@ let inversions a b c d = List.rev (c_inversions a b c d)
 external c_create_empty_genome_arr : int -> int -> genome_arr = "grappa_CAML_create_empty_genome_arr"
 
 external c_set : genome_arr -> int -> int -> int -> unit = "grappa_CAML_set"
+
+let genomes arr = 
+    (* Create an array of genomes *)
+    let total = Array.length arr in
+    if total = 0 then c_create_empty_genome_arr 0 0
+    else 
+        let genes = Array.length arr.(0) in
+        let res = c_create_empty_genome_arr total genes in
+        let () = 
+            Array.iteri (fun a chrom ->
+                Array.iteri (c_set res a) chrom) arr
+        in
+        res
+
+let genes arr = 
+    let genomes = genomes arr in
+    Array.init (Array.length arr) (c_get_one_genome genomes)
