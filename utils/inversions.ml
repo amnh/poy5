@@ -114,15 +114,19 @@ let generate_transformations origin rearrangements =
     Array.of_list (List.rev modifications), Array.of_list rearrangements
 
 let print_inversions back_table a b circular file side separation = 
+    let len = Array.length a in
+    let _, rearrangements = inversion_events a b circular in
+    let genomes, rearrangements = generate_transformations a rearrangements in
     let () = 
         match file with
         | None -> Graphps.open_graph ""
         | Some file -> 
                 Graphps.open_ps file;
-                Graphps.open_graph file 
+                Graphps.open_graph ("" ^ string_of_int ((2 + len) * side) ^ "x" ^
+                string_of_int (((Array.length rearrangements) * separation) +
+                ((2 + (Array.length rearrangements)) * side)) ^ "")
+
     in
-    let _, rearrangements = inversion_events a b circular in
-    let genomes, rearrangements = generate_transformations a rearrangements in
     print_genes back_table (side, side) genomes side separation;
     print_rearrangements (side, side) rearrangements side separation;
     Graphps.close_graph ()
