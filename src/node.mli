@@ -173,6 +173,10 @@ val to_single : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data option ->
 (** [to_single_root n] is equivalent to [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_data
 
+(** [apply_time a b n] applies the time [a] to the minimum child node and [b] to the
+* other. If _None is passed the data isn't changed_. *)
+val apply_time : float option -> float option -> node_data -> node_data
+
 (** [edge_iterator gp p a b] is a function to iterate the branch lengths of
  * likelihood characters of parent [p], with children [a] and [b], and grand
  * parent [gp], which is optional. This function will return new node_data for 

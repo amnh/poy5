@@ -721,6 +721,7 @@ let test_tree tree =
 let (-->) a b = b a
 
 let add_tree_to d add_to tree =
+    let tree = Parser.Tree.strip_tree tree in
     let avail_codes = ref add_to.avail_ids in
     let cg = 
         fun () -> 
@@ -843,10 +844,11 @@ let convert_to trees data =
         in
         { tree with avail_ids = aux (2 * total) [] }
     in
-    let rec verify_leaves acc = function
-        | Parser.Tree.Node (cld, _) ->
-                List.fold_left verify_leaves acc cld
-        | Parser.Tree.Leaf name -> 
+    let verify_leaves acc t =
+        let rec verify_leaves f acc = function
+            | Parser.Tree.Node (cld, _) ->
+                List.fold_left (verify_leaves f) acc cld
+            | Parser.Tree.Leaf name -> let name = f name in
                 try 
                     let code = Data.taxon_code name data in
                     (Hashtbl.mem data.Data.taxon_characters code) && acc
@@ -856,6 +858,12 @@ let convert_to trees data =
                         ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
                         ^ "loaded. Please@ verify@ your@ input@ files.");
                         false
+        in match t with
+            | Parser.Tree.Flat t
+            | Parser.Tree.Annotated (t,_) ->
+                    (verify_leaves (fun x -> x) true t) & acc
+            | Parser.Tree.Branches t ->
+                    (verify_leaves (fst) true t) & acc
     in
     if not (List.fold_left verify_leaves true trees) then
         failwith "Illegal input tree"

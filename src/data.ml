@@ -37,7 +37,7 @@ type dynhom_opts =
 (** The valid types of contents of a file *)
 type contents = Characters | CostMatrix | Trees 
 
-type parsed_trees = ((string Parser.Tree.t list) * string * int)
+type parsed_trees = ((Parser.Tree.tree_types list) * string * int)
 
 type dyna_state_t = [
     (** A short sequence, no rearrangements are allowed*)
@@ -672,11 +672,16 @@ let trim taxon =
 
 let verify_trees data ((tree, file, position) : parsed_trees) =
     let esc_file = StatusCommon.escape file in
-    let rec leafs acc tree = 
+    let leafs acc tree = 
+        let rec leaves f acc subtree = match subtree with
+            | Parser.Tree.Node (c, _) ->
+                List.fold_left ~f:(leaves f) ~init:acc c
+            | Parser.Tree.Leaf x -> (f x) :: acc
+        in
         match tree with
-        | Parser.Tree.Node (c, _) ->
-                List.fold_left ~f:leafs ~init:acc c
-        | Parser.Tree.Leaf x -> x :: acc
+        | Parser.Tree.Annotated (t,_) 
+        | Parser.Tree.Flat t -> leaves (fun x -> x) acc t
+        | Parser.Tree.Branches t -> leaves (fst) acc t
     in
     let rec stop_if_not_all_terminals_in_tree map taxon =
         let taxon = trim taxon in

@@ -640,6 +640,25 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     c0
     END
 
+let apply_time a b nd =
+    let rec apply_times nd = match nd with
+        | StaticMl stuff ->
+            IFDEF USE_LIKELIHOOD THEN
+                let t = match a,b with
+                    | Some _,Some _ -> a,b
+                    | Some _, _     -> a,(snd stuff.time)
+                    | _, Some _     -> (fst stuff.time),b
+                    | None, None    -> stuff.time
+                in
+                StaticMl { stuff with time = t }
+            ELSE
+                nd
+            END
+        | b -> b
+    in
+    {nd with characters = List.map apply_times nd.characters }
+
+
 let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> 
@@ -890,37 +909,19 @@ let median code old a b =
  * calculation of the median between [nd1] and [nd2].
 **)
 let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_data option) = 
-    let get_some x = match x with | Some x -> x | None -> failwith "Inconsistency" in
+    let get_some f x = match f x with | Some x -> x | None -> failwith "Inconsistency" in
 
-
-    (* stuff here *)
     let time_1 = match time_1 with
-        | Some nd_t1 -> if nd_t1.min_child_code = nd_1.min_child_code then
-                            Some (nd_t1, 
-                                 (fun (x,y) -> match x with | Some x -> x
-                                                            | None -> failwith
-                                                                "inconsistency")
-                                 )
-                        else
-                            Some (nd_t1,
-                                 (fun (x,y) -> match y with | Some y -> y
-                                                            | None -> failwith
-                                                                "inconsistency")
-                                 )
+        | Some nd_t1 -> 
+            if nd_t1.min_child_code = nd_1.min_child_code
+            then Some (nd_t1, get_some (fst))
+            else Some (nd_t1, get_some (snd))
         | None -> None 
     and time_2 =  match time_2 with
-        | Some nd_t2 -> if nd_t2.min_child_code = nd_2.min_child_code then
-                            Some (nd_t2, 
-                                 (fun (x,y) -> match x with | Some x -> x
-                                                            | None -> failwith
-                                                                "inconsistency")
-                                 )
-                        else
-                            Some (nd_t2, 
-                                 (fun (x,y) -> match y with | Some y -> y 
-                                                            | None -> failwith
-                                                                "inconsistency")
-                                 )
+        | Some nd_t2 -> 
+            if nd_t2.min_child_code = nd_2.min_child_code
+            then Some (nd_t2, get_some (fst))
+            else Some (nd_t2, get_some (snd))
         | None -> None
     and code   = 
         match code with

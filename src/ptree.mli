@@ -344,17 +344,17 @@ module type SEARCH = sig
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          string Parser.Tree.t list ->
+          Parser.Tree.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
-                    string -> string Parser.Tree.t list
+                    string -> Parser.Tree.tree_types list
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> string -> 
-                    string Parser.Tree.t
+                    Parser.Tree.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -363,20 +363,20 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Data.d -> string Parser.Tree.t
+        bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> Data.d -> string -> string Parser.Tree.t
+        bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
         val build_forest :
             bool -> (a, b) p_tree ->
-          Data.d -> string -> string Parser.Tree.t list
+          Data.d -> string -> Parser.Tree.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> Data.d -> string -> string Parser.Tree.t
+            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Data.d -> string Parser.Tree.t list
+            bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> string Parser.Tree.t list
+            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types list
 
 
         val to_xml : 
@@ -531,11 +531,11 @@ val get_parent_or_root_data :
 
 val choose_leaf : ('a, 'b) p_tree -> int
 
-val cannonize :  string Parser.Tree.t -> string * string Parser.Tree.t
+(* val cannonize :  Parser.Tree.tree_types -> string * Parser.Tree.tree_types *)
 
 val consensus :
     (('a, 'b) p_tree -> int -> int -> bool) -> (int -> string) -> int -> 
-    ('a, 'b) p_tree list -> int -> string Parser.Tree.t
+    ('a, 'b) p_tree list -> int -> Parser.Tree.tree_types
 
 val add_tree_to_counters :
     (int -> int -> bool) -> int Tree.CladeFPMap.t ->
@@ -547,10 +547,10 @@ val add_consensus_to_counters :
 
 val supports :
     (int -> string) -> int -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
-    string Parser.Tree.t
+     Parser.Tree.tree_types
 
 val extract_bremer :  (All_sets.Integers.elt -> string) ->
-  int Tree.CladeFPMap.t -> string Parser.Tree.t
+  int Tree.CladeFPMap.t -> Parser.Tree.tree_types  
 
 (** [bremer to_string cost t conversion file] calculates a bremer support tree (for
 * printing purposes) of the tree [t] (which must be properly rooted) which has
@@ -567,10 +567,10 @@ val extract_bremer :  (All_sets.Integers.elt -> string) ->
 * not containing the child clade of the branch within [sets]. *)
 val bremer :
     (int -> string) -> int -> Tree.u_tree -> 
-              ((string Parser.Tree.t * string) -> (int * Tree.CladeFP.CladeSet.t)) ->
-          Parser.filename -> 
-              string Parser.Tree.t
+              ((Parser.Tree.tree_types) -> (int * Tree.CladeFP.CladeSet.t)) ->
+          Parser.filename -> Parser.Tree.tree_types
+              
 val preprocessed_consensus :
   (All_sets.Integers.elt -> string) ->
-  int -> int -> int Tree.CladeFPMap.t -> string Parser.Tree.t
+  int -> int -> int Tree.CladeFPMap.t -> Parser.Tree.tree_types
 

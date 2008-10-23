@@ -31,7 +31,7 @@ type contents =
     | CostMatrix  (** A transformation cost matrix *)
     | Trees       (** Trees *)
 
-type parsed_trees = ((string Parser.Tree.t list) * string * int)
+type parsed_trees = ((Parser.Tree.tree_types list) * string * int)
 
 type dyna_state_t = [
 (** A short sequence, no rearrangements are allowed*)

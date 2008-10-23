@@ -765,20 +765,50 @@ module Phylip = struct
     
 end
 
+(* Parser for trees in (a (b c)) format *)
 module Tree = struct
-    (* Parser for trees in (a (b c)) format *)
 
-    type 'a t = Leaf of 'a | Node of 'a t list * 'a
     (* A simple representation of a tree *)
+    type 'a t = Leaf of 'a | Node of 'a t list * 'a
+
+    (* types of trees that can be returned *)
+    type tree_types =
+          Flat of string t
+        | Annotated of (string t * string)
+        | Branches of ((string * float option) t)
 
     exception Trailing_characters
 
+    (* map on tree w/out annotations *)
     let rec map fn = function
-        | Leaf d -> Leaf (fn d)
-        | Node (list, d) ->
+        | (Leaf d) -> Leaf (fn d)
+        | Node (list,d) ->
               Node (List.map (map fn) list, fn d)
-    
-    let rem_bl t = List.rev_map (List.rev_map (map fst)) t
+    (* map on tree w/ annotations *)
+    let rec map_annot fn t = match t with
+        | (Leaf d),str -> Leaf (fn d),str
+        | Node (list,d),str -> (Node (List.map (map fn) list, fn d)),str
+    (* map on post_processed tree *)
+    let map_tree fn = function
+        | Annotated t -> Annotated (map_annot fn t)
+        | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
+        | Flat t -> Flat (map fn t)
+
+    (* fold_left on tree data *)
+    let fold_left_data fn a t =
+        let rec fold_left_data2 fn a t = match t with
+            | Leaf d -> fn a d
+            | Node (list,d) ->
+                fn (List.fold_left (fold_left_data2 fn) a list) d
+        in
+        match t with
+        | (Leaf d),str -> (fn a d)
+        | ((Node (list, d)),str) ->
+            fn (List.fold_left (fold_left_data2 fn) a list) d
+    (* fold_left on tree annotations *)
+    let fold_left_annot fn a t = match t with
+        | (Leaf d),str -> fn a str
+        | (Node (list, d)),str -> fn a str
 
     let gen_aux_of_stream_gen do_stream stream =
         let taxon_name x = not (FileStream.is_taxon_delimiter x) in
@@ -796,7 +826,7 @@ module Tree = struct
         let read_taxon_name () = 
             stream#read_while taxon_name
         in
-    
+   
         let rec read_branch_length acc : float option=
             match stream#getch with
             | v when not (taxon_name v) -> 
@@ -971,73 +1001,33 @@ module Tree = struct
         if not do_stream then `Trees (read_tree [] [])
         else `Stream (read_tree_str)
 
-    let gen_aux_of_stream str = 
-        match gen_aux_of_stream_gen false str with
-        | `Trees t ->  t
+    (* post_processing function for trees. Will figure out what type of tree we
+    * are parsing and apply the correct varient type *)
+    let post_process (t:(string * float option) t * string):tree_types = 
+        let branches_exist t = 
+                (fun a d -> fold_left_data
+                   (fun a (s,d) -> match d with | None -> a | _ -> true)
+                    a d) false t
+        and annotations_exist (t,str) = match str with
+            | "" -> false
+            | _ -> true
+        in
+        let remove_branches (t,s) = map (fst) t,s
+        and remove_annot (t,s) = t
+        and remove_all (t,s)  = map (fst) t in
+
+        match annotations_exist t,branches_exist t with
+        | false,false -> Flat (remove_all t)
+        | false,true  -> Annotated (remove_branches t)
+        | true,false  -> Branches (remove_annot t)
+        | true,true   -> failwith "Not implemented yet"
+
+    (** general function for trees *)
+    let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with
+        | `Trees t -> List.rev_map (List.rev_map (post_process)) t
         | `Stream _ -> assert false
-    let aux_of_stream stream =
-        let trees = gen_aux_of_stream stream in
-        List.rev_map (List.rev_map fst) trees
-
-(* 
-    let aux_of_string_bl str = 
-        let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
-        let res = Str.full_split (Str.regexp "[(), ]") str in
-        let process = function
-            | Str.Delim a -> Str.Delim (trim a)
-            | a -> a
-        in
-        let res = List.map (process) res in
-        let builder ((state, readed) as next) item =
-            match item, state with 
-            | Str.Delim "(", _ -> (readed :: state), []
-            | Str.Delim ")", hd :: tl -> tl, (Node (readed, ("",None))) :: hd
-            | Str.Delim ";", _ | Str.Delim "", _ | Str.Delim " ", _  -> next
-            | Str.Delim str, _ when str.[0] = '[' -> next
-            | Str.Text x, _ when x.[0] = ':' ->
-                let xf = float_of_string (String.sub x 1 ((String.length x)-1)) in
-                (match readed with (* pop out last element and apply the time to it *)
-                 | Leaf (str,_)::tl -> state, (Leaf (str, Some xf)) :: tl
-                 | Node (lst,(str,_))::tl -> state, Node (lst,(str,Some xf)) :: tl
-                 | _ -> raise (Illegal_tree_format ("Unexpected "^x))
-                )
-            | Str.Text x, _ ->
-                (match Str.split (Str.regexp ":") x with
-                 | [x]   -> state, (Leaf (x,None)) :: readed
-                 | [x;y] -> let y = float_of_string y in
-                            state, (Leaf (x,Some y)) :: readed
-                 | _ -> raise (Illegal_tree_format ("Unexpected char "^x))
-                )
-            | Str.Delim ")", [] -> raise (Illegal_tree_format "Unexpected )")
-            | Str.Delim x, _ -> 
-                raise (Illegal_tree_format ("Unexpected character." ^ x))
-        in
-        let _, res = List.fold_left (builder) ([], []) res in
-        res
-
-    let aux_of_string str =
-        let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
-        let res = Str.full_split (Str.regexp "[(), ]") str in
-        let process = function
-            | Str.Delim a -> Str.Delim (trim a)
-            | a -> a
-        in
-        let res = List.map (process) res in
-        let builder ((state, readed) as next) item =
-            match item, state with 
-            | Str.Delim "(", _ -> (readed :: state), []
-            | Str.Delim ")", hd :: tl -> tl, (Node (readed, "")) :: hd
-            | Str.Delim ";", _ | Str.Delim "", _ | Str.Delim " ", _  -> next
-            | Str.Delim str, _ when str.[0] = '[' -> next
-            | Str.Text x, _ -> (state, (Leaf x) :: readed)
-            | Str.Delim ")", [] -> raise (Illegal_tree_format "Unexpected )")
-            | Str.Delim x, _ -> 
-                    raise (Illegal_tree_format ("Unexpected character." ^ x))
-        in
-        let _, res = List.fold_left (builder) ([], []) res in
-        res
-*)
-
+    
+    (** [(gen_)of_string ...] **)
     let gen_of_string f str = 
         try
             let stream = new FileStream.string_reader str in
@@ -1045,18 +1035,18 @@ module Tree = struct
         with
         | Trailing_characters -> 
                 raise (Illegal_tree_format "Trailing characters in tree.")
+    let of_string str = gen_of_string gen_aux_of_stream str
 
-    let of_string str = rem_bl (gen_of_string aux_of_stream str)
-
+    (** [(gen_)of_channel ...] **)
     let gen_of_channel f ch =
         try
             let stream = new FileStream.stream_reader ch in
             f stream
         with
         | End_of_file -> failwith "Unexpected end of file"
+    let of_channel ch = gen_of_channel gen_aux_of_stream ch
 
-    let of_channel ch = rem_bl (gen_of_channel aux_of_stream ch)
-
+    (** [(gen_)of_file ...] **)
     let gen_of_file f file =
         try
             let ch = FileStream.open_in file in
@@ -1075,7 +1065,9 @@ module Tree = struct
                 ".@ The@ error@ message@ is@ @[" ^ err ^ "@]"in
                 Status.user_message Status.Error msg;
                 raise e
+    let of_file file = gen_of_file of_channel file
 
+    (** [stream of_file .. ] *)
     let stream_of_file is_compressed file =
         let real_ch = FileStream.open_in_bin file in
         let ch = 
@@ -1091,47 +1083,38 @@ module Tree = struct
                 new FileStream.stream_reader real_ch
         in
         match gen_aux_of_stream_gen true ch with
-        | `Stream s -> (fun () -> (fun (t,s) -> map fst t,s) (s ())) , (fun () -> close_in real_ch)
+        | `Stream s -> (fun () -> post_process (s ())), (fun () -> close_in real_ch)
         | `Trees _ -> assert false
 
-    let of_file file = gen_of_file of_channel file
-
-    let of_file_annotated file =
-        List.rev_map
-            (List.rev_map
-                (fun (t,s) -> map (fst) t,s))
-        (gen_of_file (gen_of_channel gen_aux_of_stream) file)
-
-    let of_channel_annotated cha = 
-        List.rev_map
-            (List.rev_map 
-                (fun (t,s) -> map (fst) t,s))
-            (gen_of_channel gen_aux_of_stream cha)
-
-    let of_string_annotated str = 
-        List.rev_map
-            (List.rev_map 
-                (fun (t,s) -> map (fst) t,s))
-            (gen_of_string gen_aux_of_stream str)
-
-    let of_string_branches str = gen_of_string (aux_of_stream) str
-    let of_channel_branches ch = gen_of_channel (aux_of_stream) ch
-    let of_file_branches file  = gen_of_file (of_channel_branches) file
-
     let cannonic_order tree =
-        let rec build_cannonic_order = function
+        let rec build_cannonic_order fn = function
             | Leaf d -> (Leaf d, d)
             | Node (chld , cnt) ->
-                    let res = List.map build_cannonic_order chld in
-                    let nch = List.sort (fun (_, a) (_, b) -> compare a b) res in
+                    let nch = List.sort fn (List.map (build_cannonic_order fn) chld) in
                     let _, b = List.hd nch in
                     let nch = List.map (fun (x, _) -> x) nch in
                     Node (nch, cnt), b
         in
-        let tree, _ = build_cannonic_order tree in
-        tree
+        match tree with
+            | Annotated (t,str) ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Annotated (tree,str)
+            | Flat t ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Flat tree
+            | Branches t ->
+                let tree,_ = build_cannonic_order 
+                                (fun (_,(d1,_)) (_,(d2,_)) -> compare d1 d2)
+                                t
+                in Branches tree
 
     exception Illegal_argument
+
+    let strip_tree = function
+        | Annotated (t,_) | Flat t -> t
+        | Branches t -> map (fst) t
 
     let cleanup ?newroot f tree =
         let rec aux_cleanup f tree = 
@@ -1145,13 +1128,25 @@ module Tree = struct
                     | [] | [_] -> res
                     | y -> [Node (y, x)]
         in
-        match aux_cleanup f tree with
-        | [] -> None
-        | [x] -> Some x
-        | x -> 
-                match newroot with
-                | None -> raise Illegal_argument
-                | Some y -> Some (Node (x, y))
+        match tree with
+        | Annotated (t,str) -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Annotated (x,str))
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Annotated (Node (x, y),str)))
+        | Branches t -> (match aux_cleanup (fun (s,d) -> f s) t with
+             | [] -> None
+             | [x] -> Some (Branches x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Branches (Node (x,(y,None)))))
+        | Flat t -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Flat x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Flat (Node (x, y))))
 end
 
 (** [lor_list_withhash l hash] returns the logical or of the hash values of all
@@ -1178,7 +1173,7 @@ module OldHennig = struct
         | Ordered of int 
         | Unordered of int
         | Sankoff of (int array array * int)
-        | Tree of (string Tree.t) list
+        | Tree of Tree.tree_types list
         | Unkown_option of string
 
     (* Set of regexes to match all the supported commands in a Hennig86 file *)
@@ -1363,18 +1358,16 @@ module OldHennig = struct
                 let trees = Tree.of_string tree in
                 (* convert them to taxa *)
                 try
-                    let m t = Tree.map
-                        (fun str ->
-                             let name =
-                                 try
-                                     let i = int_of_string str in
-                                     let (name, _) = List.nth taxa_data i in
-                                     name
-                                 with _ -> str in
-                             name)
-                        t in
-                    let trees = List.map (List.map m) trees in
-                    List.map (fun t -> Tree t) trees
+                    let m (t:Tree.tree_types):Tree.tree_types = Tree.map_tree
+                                (fun str ->
+                                    let name = try
+                                        fst (List.nth taxa_data (int_of_string str))
+                                        with _ -> str in
+                                    name)
+                                t
+                    in
+                    let trees = List.rev_map (List.rev_map m) trees in
+                    List.rev_map (fun t -> Tree t) trees
                 with _ -> []
             end else [Unkown_option x]
         with
@@ -1951,7 +1944,7 @@ module OldHennig = struct
             (Array.length encoding_specs) ^ " characters.")
         end;
         Status.finished parser_status;
-        encoding_specs, make_list names res, trees
+        encoding_specs, make_list names res,trees
 
     let of_file f =
         let ch = FileStream.open_in f in
@@ -2495,7 +2488,7 @@ module SC = struct
 
     type file_output =
         (string option array * static_spec array * static_state array array * 
-        string Tree.t list list * 
+        Tree.tree_types list list * 
         ((Alphabet.a * (Sequence.s list list list * taxon) list) list))
 
     let st_type_to_string = function
@@ -3529,11 +3522,12 @@ module SC = struct
                                 | _ -> name
             in
             let rec translate_branch = function
-                | Nexus.Leaf (name, _) -> Tree.Leaf (process_name name)
-                | Nexus.Node (a, _, _) ->
-                        Tree.Node (List.map translate_branch a, "")
+                | Nexus.Leaf (name, d) -> 
+                        Tree.Leaf (process_name name,d)
+                | Nexus.Node (a, n, d) ->
+                        Tree.Node (List.map translate_branch a, ("",d))
             in
-            [translate_branch tree]
+            [ Tree.post_process (translate_branch tree,"") ]
 
         let process_parsed file 
         ((txn_cntr, char_cntr, taxa, characters, matrix, trees, unaligned) as acc) 
@@ -3803,7 +3797,7 @@ module SC = struct
                         let trees = Tree.of_string new_trees in
                         (* convert them to taxa *)
                         try
-                            let m t = Tree.map
+                            let m t = Tree.map_tree
                                 (fun str ->
                                     try 
                                         match taxa.(int_of_string str) with

@@ -167,7 +167,7 @@ val other_two_nbrs : int -> node -> int * int
 val get_path_to_handle : int -> u_tree -> int * edge list
 val break : break_jxn -> u_tree -> u_tree * break_delta
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
-val convert_to : string Parser.Tree.t list -> Data.d -> u_tree
+val convert_to : Parser.Tree.tree_types list -> Data.d -> u_tree
 val make_disjoint_tree : int list -> u_tree
 val move_handle : int -> u_tree -> u_tree * int list
 val edge_map : (edge -> 'a) -> u_tree -> (edge * 'a) list
