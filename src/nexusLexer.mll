@@ -12,6 +12,7 @@
         ("BOTH", fun x -> BOTH x);
         ("CHANGESET", fun x -> CHANGESET x);
         ("CHARACTER", fun x -> CHARACTER x);
+        ("CHARACTERBRANCH", fun x -> CHARACTERBRANCH x);   (* used in POY block *)
         ("CHARACTERS", fun x -> CHARACTERS x);
         ("CHARLABELS", fun x -> CHARLABELS x);
         ("CHARPARTITION", fun x -> CHARPARTITION x);
@@ -57,6 +58,7 @@
         ("LABELS", fun x -> LABELS x);
         ("LOWER", fun x -> LOWER x); 
         ("MAM", fun x -> MAM x);
+        ("MAP", fun x -> MAP x);                (* used in POY block *)
         ("MATCHCHAR", fun x -> MATCHCHAR x);
         ("MATRIX", fun x -> MATRIX x);
         ("MAX", fun x -> MAX x);
@@ -67,6 +69,7 @@
         ("MISSING", fun x -> MISSING x);
         ("MISSING", fun x -> MISSING x);
         ("MTDNA", fun x -> MTDNA x);
+        ("NAMES", fun x -> NAMES x);            (* used in POY block *)
         ("NCHAR", fun x -> NCHAR x);
         ("NEWSTATE", fun x -> NEWSTATE x);
         ("NEWTAXA", fun x -> NEWTAXA x);
@@ -81,6 +84,7 @@
         ("PICT", fun x -> PICT x);
         ("PICTURE", fun x -> PICTURE x);
         ("POLYTCOUNT", fun x -> POLYTCOUNT x);
+        ("POY", fun x -> POY x);                (* POY block start *)
         ("PROTEIN", fun x -> PROTEIN x);
         ("RESOURCE", fun x -> RESOURCE x);
         ("RESPECTCASE", fun x -> RESPECTCASE x);
@@ -109,6 +113,7 @@
         ("TRANSLATE", fun x -> TRANSLATE x);
         ("TRANSPOSE", fun x -> TRANSPOSE x);
         ("TREE", fun x -> TREE x);
+        ("UTREE", fun x -> UTREE x);
         ("TREEPARTITION", fun x -> TREEPARTITION x);
         ("TREES", fun x -> TREES x);
         ("TREESET", fun x -> TREESET x);
@@ -147,7 +152,7 @@ and comment = parse
                         if !comment_depth = 0 then token lexbuf else
                             comment lexbuf}
 and cstree = parse
-      [ ^ ';']+ as id   { DATA_CSTREE id }
+      [ ^ ';']+ as id   { DATACSTREE id }
 and token = parse
       [ ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ]       { token lexbuf } 
       (* skip blanks *)
@@ -158,23 +163,24 @@ and token = parse
             | "#NEXUS" -> NEXUS
             | "PICTURE"
             | "TEXT"
-            | "MATRIX" 
+            | "MATRIX"
+            | "UTREE"
             | "TREE" -> raw lexbuf
             | x -> (Hashtbl.find keyword_table string) id
         with
         | Not_found -> IDENT id }
     | [ '"' ]           { inquotes lexbuf }
-    | [ '\'' ]           { insinglequotes lexbuf }
+    | [ '\'']           { insinglequotes lexbuf }
     | [ ';' ]           { SEMICOLON }
     | [ ':' ]           { COLON }
     | [ '=' ]           { EQUAL }
     | [ ',' ]           { COMMA }
     | [ '/' ]           { BACKSLASH }
     | [ '-' ]           { DASH }
-    | [ '(']            { LPARENT }
-    | [ ')']            { RPARENT }
+    | [ '(' ]           { LPARENT }
+    | [ ')' ]           { RPARENT }
     | [ '*' ]           { STAR }
-    | [ '[']            { incr comment_depth; comment lexbuf }
+    | [ '[' ]           { incr comment_depth; comment lexbuf }
     | ['0'-'9']+ ['.'] ['0'-'9']* as i { FLOAT i }
     | ['0'-'9']+ as i   { INTEGER i }
     | [ '\''][^ '\'']*['\''] as i { IDENT i }
@@ -189,8 +195,10 @@ and tree_tokens = parse
     | [ ';' ] { SEMICOLON }
     | [ '(' ] { LPARENT }
     | [ ')' ] { RPARENT }
+    | [ '[' ] { LBRACKET }
+    | [ ']' ] { RBRACKET }
     | ['0'-'9']+['.']['0'-'9']* as i { FLOAT i }
     | ['0'-'9']+ as i { INTEGER i }
-    | [^ '(' ')' ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ';' ':' ',' ]+ as i
+    | [^ '(' ')' '[' ']' ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ';' ':' ',' ]+ as i
         { IDENT i }
     | eof           { EOF }

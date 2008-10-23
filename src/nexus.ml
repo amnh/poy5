@@ -97,6 +97,9 @@ type assumption_items =
     | ExcludeSet of assumption_set
     | AncestralDef of assumption_set
 
+type poy_data =          (* trees , characters, (nodes , length) *)
+    | CharacterBranch of string list option * string list option * (string * float) list
+
 type block = 
      Taxa of (string * string list) 
     | Characters of char_data 
@@ -104,12 +107,15 @@ type block =
     list * string)
     | Ignore of string
     | Unaligned of unalg_data
-    | Trees of ((string * string) list * string list) 
+    | Trees of (string * string) list * string list 
     | Notes of ((set_pair list * source * string) option * (set_pair list *
     pictureformat option * pictureencoding option * source * string) option) 
     | Assumptions of assumption_items list 
     | Error of string
+    | POY of poy_data list
 
-type tree = 
-    | Leaf of (string * float option)
-    | Node of (tree list * string option * float option)
+type tree_i = 
+    | Leaf of (string * (float option * string option))
+    | Node of (tree_i list * string option * (float option * string option))
+
+type tree = string option * tree_i

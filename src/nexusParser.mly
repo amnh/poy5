@@ -34,6 +34,7 @@ let report_error text b e =
 %token <string> CHANGESET
 %token <char> CHAR
 %token <string> CHARACTER
+%token <string> CHARACTERBRANCH
 %token <string> CHARACTERS
 %token <string> CHARLABELS
 %token <string> CHARPARTITION
@@ -47,7 +48,7 @@ let report_error text b e =
 %token <string> COUNT
 %token <string> CSTREE
 %token <string> DATA
-%token <string> DATA_CSTREE
+%token <string> DATACSTREE
 %token <string> QUOTED
 %token <string> SINGLEQUOTED
 %token <string> DATATYPE
@@ -80,6 +81,7 @@ let report_error text b e =
 %token <string> LABELS
 %token <string> LOWER
 %token <string> MAM
+%token <string> MAP
 %token <string> MATCHCHAR
 %token <string> MATRIX
 %token <string> MAX
@@ -89,6 +91,7 @@ let report_error text b e =
 %token <string> MINSTEPS
 %token <string> MISSING
 %token <string> MTDNA
+%token <string> NAMES
 %token <string> NCHAR
 %token <string> NEWSTATE
 %token <string> NEWTAXA
@@ -100,6 +103,7 @@ let report_error text b e =
 %token <string> NUCLEOTIDE
 %token <string> NUCORDER
 %token <string> OPTIONS
+%token <string> POY
 %token <string> PICT
 %token <string> PICTURE
 %token <string> POLYTCOUNT
@@ -131,6 +135,7 @@ let report_error text b e =
 %token <string> TRANSLATE
 %token <string> TRANSPOSE
 %token <string> TREE
+%token <string> UTREE
 %token <string> TREEPARTITION
 %token <string> TREES
 %token <string> TREESET
@@ -147,7 +152,7 @@ let report_error text b e =
 %token <string> YEAST
 %token <string> EIDENT
 %token NEXUS SEMICOLON EQUAL COMMA QUOTE BACKSLASH DASH LPARENT RPARENT STAR
-COLON
+COLON LBRACKET RBRACKET
 %token <string> IDENT
 %token <string> FLOAT
 %token <string> INTEGER
@@ -178,8 +183,8 @@ block:
         { Nexus.Characters $4 }
     | BEGIN UNALIGNED SEMICOLON unaligned END SEMICOLON
         { Nexus.Unaligned $4 }
-    | BEGIN TREES SEMICOLON trees END SEMICOLON
-        { Nexus.Trees $4 }
+    | BEGIN TREES SEMICOLON optional_translate tree_list END SEMICOLON
+        { Nexus.Trees ($4,$5) }
     | BEGIN NOTES SEMICOLON notes END SEMICOLON 
         { Nexus.Notes $4 }
     | BEGIN DISTANCES SEMICOLON distances END SEMICOLON 
@@ -200,6 +205,8 @@ block:
         { Nexus.Error $2 }
     | BEGIN SETS SEMICOLON error END SEMICOLON
         { Nexus.Error $2 }
+    | BEGIN POY SEMICOLON poy_block END SEMICOLON
+        { Nexus.POY $4 }
     ;
 assumptions:
     | assumption_items assumptions { $1 :: $2 }
@@ -240,7 +247,7 @@ user_type_definition:
     | EQUAL INTEGER numbers_and_chars { Nexus.StepMatrix ($2, $3) }
     | STEPMATRIX EQUAL INTEGER numbers_and_chars 
         { Nexus.StepMatrix ($3, $4) }
-    | CSTREE DATA_CSTREE { Nexus.CSTree $2 }
+    | CSTREE DATACSTREE { Nexus.CSTree $2 }
     ;
 numbers_and_chars:
     | number_and_char numbers_and_chars { $1 :: $2 }
@@ -358,20 +365,47 @@ pictureencoding:
     | UUENCODE { Nexus.UUEncode }
     | BINHEX    { Nexus.BinHex }
     ;
-trees:
-    | optional_translate tree_list { ($1, $2) }
-    ;
 optional_translate:
+    | TRANSLATE names SEMICOLON 
+        { snd (List.fold_left (fun (i,acc) x -> (i+1),(string_of_int i,x)::acc) (1,[]) $2) }
     | TRANSLATE pairs_list SEMICOLON { $2 }
     | { [] }
     ;
 tree_list:
-    | DATA SEMICOLON tree_list { $1 :: $3 }
-    | DATA SEMICOLON { [ $1 ] }
+    | optional_tree_prequel DATA SEMICOLON tree_list { $2 :: $4 }
+    | optional_tree_prequel DATA SEMICOLON { [$2] }
+    ;
+optional_tree_prequel:
+    | TREE do_star optional_label EQUAL {$3}
+    | UTREE do_star optional_label EQUAL {$3}
+    | { None }
+    ;
+poy_block:
+    | CHARACTERBRANCH optional_tree_names optional_char_names
+                  MAP pairs_list_float SEMICOLON poy_block
+        { Nexus.CharacterBranch ($2, $3, $5) :: $7 }
+    | { [] }
+    ;
+optional_tree_names:
+    | TREES EQUAL names { Some $3 } 
+    |                   { None }
+    ;
+optional_char_names:
+    | NAMES EQUAL names { Some $3 }
+    |                   { None }
+    ;
+names:
+    | IDENT COMMA names { $1 :: $3 }
+    | INTEGER COMMA names { $1 :: $3 }
+    | IDENT SEMICOLON { [$1] }
     ;
 pairs_list:
     | IDENT IDENT COMMA pairs_list { ($1, $2) :: $4 }
     | IDENT IDENT { [$1, $2] }
+    ;
+pairs_list_float:
+    | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
+    | IDENT FLOAT SEMICOLON { [($1,(float_of_string $2))] }
     ;
 characters:
     | DIMENSIONS optional_taxa_dimensions NCHAR EQUAL INTEGER SEMICOLON 
@@ -572,7 +606,7 @@ any_thing_minus_end:
     | CONTINUOUS { () }
     | COUNT { () }
     | CSTREE { () }
-    | DATA_CSTREE { () }
+    | DATACSTREE { () }
     | QUOTED { () }
     | DATATYPE { () }
     | DEFTYPE { () }
@@ -676,12 +710,13 @@ any_thing_minus_end:
     | RPARENT { () }
     ;
 tree:
-    | do_star IDENT EQUAL single_tree EOF { $4 }
+    | do_star optional_label EQUAL single_tree EOF { ($2,$4) }
+    | do_star optional_label EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | IDENT optional_length { Nexus.Leaf ($1, $2) }
-    | LPARENT single_tree_list RPARENT optional_label optional_length 
-                            { Nexus.Node ($2, $4, $5) }
+    | IDENT optional_length optional_comment { Nexus.Leaf ($1, ($2, $3)) }
+    | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
+                            { Nexus.Node ($2, $4, ($5, $6)) }
     ;
 single_tree_list:
     | single_tree COMMA single_tree_list { $1 :: $3 }
@@ -690,6 +725,10 @@ single_tree_list:
 optional_length:
     | COLON INTEGER { Some (float_of_string $2) }
     | COLON FLOAT { Some (float_of_string $2) }
+    | { None }
+    ;
+optional_comment:
+    | LBRACKET IDENT RBRACKET { Some $2 }
     | { None }
     ;
 optional_label:

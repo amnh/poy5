@@ -842,29 +842,34 @@ module Tree = struct
             |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
         in
 
-        let rec read_branch acc : (string * float option) t =
+        let rec read_branch acc : (string * (float option * string option)) t =
             stream#skip_ws_nl;
             match stream#getch with
             | '(' -> 
                     let res = read_branch [] in
                     read_branch (res :: acc)
             | ')' -> 
-                    Node (acc, ("",None))
+                    Node (acc, ("",(None,None)))
             | '[' -> 
-                    ignore_cost_bracket ();
+                    let bracket = Some (get_cost_bracket ()) in
+                    let acc = (match acc with
+                     | Leaf (t,(branch,_)) ::tl      -> Leaf ((t,(branch,bracket))) :: tl
+                     | Node (a, (t,(branch,_))) ::tl -> Node ((a, (t,(branch,bracket)))) :: tl
+                     | _ -> raise (Illegal_tree_format "Unexpected Character")
+                    ) in
                     read_branch acc
             | ':' ->
-                    let dist = read_branch_length [] in
+                    let branch = read_branch_length [] in
                     let acc = (match acc with
-                     | Leaf (t,_) ::tl      -> Leaf ((t,dist)) :: tl
-                     | Node (a, (t,_)) ::tl -> Node ((a, (t,dist))) :: tl
+                     | Leaf (t,(_,bracket)) ::tl      -> Leaf ((t,(branch,bracket))) :: tl
+                     | Node (a,(t,(_,bracket))) ::tl -> Node ((a, (t,(branch,bracket)))) :: tl
                      | _ -> raise (Illegal_tree_format "Unexpected Character")
                     ) in
                     read_branch acc
             | v when taxon_name v ->
                     stream#putback v;
                     let taxon = read_taxon_name () in
-                    read_branch ((Leaf (taxon,None)) :: acc)
+                    read_branch ((Leaf (taxon,(None,None))) :: acc)
             | v ->
                     let character = stream#get_position in
                     let ch = Char.escaped v in
@@ -909,10 +914,10 @@ module Tree = struct
                 | ':' ->
                         let dist = read_branch_length [] in
                         let acc2 = (match acc2 with
-                         | ((Node (lst,(name,None))),q) :: tl ->
-                                 ((Node (lst,(name,dist))),q) :: tl
-                         | ((Leaf (name,None)),q) :: tl ->
-                                 ((Leaf (name,dist)),q) :: tl
+                         | ((Node (lst,(name,(None,bracket)))),q) :: tl ->
+                                 ((Node (lst,(name,(dist,bracket)))),q) :: tl
+                         | ((Leaf (name,(None,bracket))),q) :: tl ->
+                                 ((Leaf (name,(dist,bracket))),q) :: tl
                          | _ -> raise 
                             (Illegal_tree_format "Unexpected Character")
                         ) in
@@ -966,12 +971,12 @@ module Tree = struct
                                 tree)
                 | ':' -> let dist = read_branch_length [] in
                          (match !acc2 with
-                          | Some ((Node (lst,(name,_))),q) ->
+                          | Some ((Node (lst,(name,(_,bracket)))),q) ->
                                   acc2 := None;
-                                 ((Node (lst,(name,dist))),q)
-                          | Some ((Leaf (name,_)),q) ->
+                                 ((Node (lst,(name,(dist,bracket)))),q)
+                          | Some ((Leaf (name,(_,bracket))),q) ->
                                   acc2 := None;
-                                 ((Leaf (name,dist)),q)
+                                 ((Leaf (name,(dist,bracket))),q)
                           | _ -> raise 
                             (Illegal_tree_format "Unexpected Character")
                          )
@@ -2926,7 +2931,11 @@ module SC = struct
             let start = ref 0 in
             while !start < len do
                 begin match string.[!start] with
-                | '[' -> start := in_comment (!start + 1) 
+                | '[' -> 
+                    (match string.[1+(!start)],string.[2+(!start)] with
+                     | '&','p' | '&','P' -> Buffer.add_char b '['
+                     | _ -> start := in_comment (!start + 1)
+                    ) 
                 | x -> Buffer.add_char b x
                 end;
                 incr start;
@@ -3503,7 +3512,7 @@ module SC = struct
             let lex = Lexing.from_string tree in
             NexusParser.tree NexusLexer.tree_tokens lex
 
-        let generate_parser_friendly translations taxa tree =
+        let generate_parser_friendly translations taxa (name,tree) =
             let rec process_name name =
                 try 
                     process_name (List.assoc name translations)
@@ -3563,8 +3572,7 @@ module SC = struct
                         generate_parser_friendly translations taxa (process_tree tree)
                     in
                     let newtrees = List.map handle_tree newtrees in
-                    (txn_cntr, char_cntr, taxa, characters, matrix, trees @
-                    newtrees, unaligned)
+                    (txn_cntr, char_cntr, taxa, characters, matrix, trees @ newtrees, unaligned)
             | Nexus.Unaligned data ->
                     let char_spec = 
                         default_static char_cntr file data.Nexus.unal_format 0
@@ -3585,6 +3593,12 @@ module SC = struct
                     let res = Fasta.of_string (AlphSeq alph) unal in
                     (txn_cntr, char_cntr, taxa, characters, matrix, trees, 
                     ((alph, res) :: unaligned))
+            | Nexus.POY block ->
+                List.iter
+                (fun x -> match x with
+                 | Nexus.CharacterBranch (trees, sets, bls) -> failwith "DONE"
+                ) block;
+                (txn_cntr,char_cntr,taxa,characters,matrix,trees,unaligned)
             | _ -> acc
 
         let of_channel ch file =
