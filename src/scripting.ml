@@ -949,13 +949,13 @@ let get_trees_for_support support_class run =
                         fs)
     in
     match support_class with
-    | `Bremer (Some input_file) ->
+    | `Bremer (Some input_files) ->
                 S.bremer_of_input_file_but_trust_input_cost 
                 (match run.data.Data.root_at with
                 | Some x -> x | None -> failwith "no root?")
                 (fun x -> Data.code_taxon x run.data)
                 run.data
-                input_file
+                input_files
                 run.trees, 
                 "Bremer"
     | `Bremer None ->

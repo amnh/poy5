@@ -1998,7 +1998,11 @@ let create_expr () =
             ];
         support_names:
             [
-                [ LIDENT "bremer"; ":"; x = STRING -> `Bremer (Some (`Local x)) ] |
+                [ LIDENT "bremer"; ":"; x = STRING -> `Bremer (Some [(`Local x)]) ] |
+                [ LIDENT "bremer"; ":"; left_parenthesis; x = LIST1 [ y = STRING
+                -> y] SEP ",";
+                    right_parenthesis -> 
+                        `Bremer (Some (List.map (fun x -> `Local x) x))] |
                 [ LIDENT "bremer" -> `Bremer None ] |
                 [ LIDENT "jackknife"; y = OPT [ x = summary_class -> x ] -> 
                     match y with

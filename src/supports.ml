@@ -51,13 +51,13 @@ module type S = sig
 
 val bremer_of_input_file :
     (Tree.u_tree -> string -> int) -> int ->
-        (int -> string) -> Data.d -> Methods.filename -> 
+        (int -> string) -> Data.d -> Methods.filename list -> 
             (a, b) Ptree.p_tree Sexpr.t -> string Parser.Tree.t Sexpr.t
 
 (** Like [bremer_of_input_file] but trust whatever input cost is provided with
 * each tree .*)
 val bremer_of_input_file_but_trust_input_cost : int ->
-    (int -> string) -> Data.d -> Methods.filename -> 
+    (int -> string) -> Data.d -> Methods.filename list -> 
         (a, b) Ptree.p_tree Sexpr.t -> string Parser.Tree.t Sexpr.t
 
 

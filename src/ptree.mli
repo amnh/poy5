@@ -568,7 +568,7 @@ val extract_bremer :  (All_sets.Integers.elt -> string) ->
 val bremer :
     (int -> string) -> int -> Tree.u_tree -> 
               ((string Parser.Tree.t * string) -> (int * Tree.CladeFP.CladeSet.t)) ->
-          Parser.filename -> 
+          Parser.filename list -> 
               string Parser.Tree.t
 val preprocessed_consensus :
   (All_sets.Integers.elt -> string) ->

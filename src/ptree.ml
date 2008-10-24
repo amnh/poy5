@@ -2374,9 +2374,9 @@ let extract_bremer to_string sets =
 
 (* A function that returns the bremer support tree based on the set of (costs, 
 * tree) of sets, for the input tree *)
-let bremer to_string cost tree generator file =
-    let tree_generator, close_tree_generator = 
-        Parser.Tree.stream_of_file true file 
+let bremer to_string cost tree generator files =
+    let tree_file_handlers = 
+        ref (List.map (Parser.Tree.stream_of_file true) files) 
     in
     (* We first create a function that takes a map of clades and best cost found
     * for a tree _not_ containing the set, and a set of clades belonging to a
@@ -2390,32 +2390,36 @@ let bremer to_string cost tree generator file =
             Status.create "Bremer Estimation" None 
             "Comparing tree with trees in file" 
         in
-        try
-            while true do
-                try 
-                    Status.full_report ~adv:!cntr status;
-                    let input_tree = tree_generator () in
-                    let new_cost, sets = generator input_tree in
-                    map :=
-                        Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
-                        let len =  All_sets.Integers.cardinal my_clade in
-                        if len < 2 || len = number_of_leaves then acc
-                        else if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
-                            ((new_cost - cost) < best_cost) then
-                            Tree.CladeFPMap.add my_clade (new_cost - cost) acc
-                        else acc) !map !map;
-                    incr cntr;
-                with
-                | End_of_file as err -> raise err 
-                | _ -> ()
-            done;
-            close_tree_generator ();
-            !map
-        with
-        | End_of_file -> 
-                close_tree_generator ();
-                Status.finished status;
-                !map
+        while [] <> !tree_file_handlers do
+            match !tree_file_handlers with
+            | (tree_generator, close_tree_generator) :: t ->
+                    tree_file_handlers := t;
+                    (try while true do
+                                try 
+                                    Status.full_report ~adv:!cntr status;
+                                    let input_tree = tree_generator () in
+                                    let new_cost, sets = generator input_tree in
+                                    map :=
+                                        Tree.CladeFPMap.fold (fun my_clade best_cost acc ->
+                                        let len =  All_sets.Integers.cardinal my_clade in
+                                        if len < 2 || len = number_of_leaves then acc
+                                        else if (not (Tree.CladeFP.CladeSet.mem my_clade sets)) &&
+                                            ((new_cost - cost) < best_cost) then
+                                            Tree.CladeFPMap.add my_clade (new_cost - cost) acc
+                                        else acc) !map !map;
+                                    incr cntr;
+                                with
+                                | End_of_file as err -> raise err 
+                                | _ -> ()
+                            done;
+                            close_tree_generator ();
+                    with
+                    | End_of_file -> 
+                            close_tree_generator ();
+                            Status.finished status)
+            | [] -> ()
+        done;
+        !map
     in
     (** We create a map with all the sets of clades in the input tree *)
     let map : int Tree.CladeFPMap.t = 

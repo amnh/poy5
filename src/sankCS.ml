@@ -517,7 +517,6 @@ let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
     | [_, `String x] -> 
             if x = Tags.Nodes.preliminary then
                 (* In this case we just pick the smallest of all mine *)
-                let of_parent = elt_parent.best_states in
                 let lst = ref []
                 and cost = ref infinity in
                 let () =

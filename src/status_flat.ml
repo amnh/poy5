@@ -105,11 +105,16 @@ let to_do_if_parallel = ref (fun t m ->
         | _ -> Format.pp_print_flush ch ()
     end;
     let _ = 
-        match StatusCommon.information_redirected () with
-        | Some filename ->
+        match t, StatusCommon.information_redirected () with
+        | (Output (None, _, opt)), Some filename ->
+              let f = StatusCommon.Files.openf filename opt in
+              Format.fprintf f msg; 
+        | Information, Some filename
+        | Warning, Some filename
+        | Error, Some filename ->
               let f = StatusCommon.Files.openf filename [] in
               Format.fprintf f msg; 
-        | None -> ()
+        | _, None -> ()
     in
     f ())
 
@@ -231,9 +236,14 @@ let do_output_table t v =
                 let do_nothing = fun () -> () in
                 StatusCommon.Tables.output f false do_nothing v;
                 let _ = 
-                    match StatusCommon.information_redirected () with
-                    | None -> ()
-                    | Some filename ->
+                    match t, StatusCommon.information_redirected () with
+                    | _, None -> ()
+                    | (Output (None, _, opt)), Some filename ->
+                            let f = StatusCommon.Files.openf filename opt in
+                            StatusCommon.Tables.output f false do_nothing v 
+                    | Information, Some filename
+                    | Warning, Some filename 
+                    | Error, Some filename ->
                             let f = StatusCommon.Files.openf filename [] in
                             StatusCommon.Tables.output f false do_nothing v 
                 in
