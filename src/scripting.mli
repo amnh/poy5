@@ -139,6 +139,7 @@ val set_console_run : r -> unit
         val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
             phylogeny list 
     end
+
     module Runtime : sig
         type phylogeny = (a, b) Ptree.p_tree
         val min_cost : unit -> float option
@@ -150,6 +151,8 @@ val set_console_run : r -> unit
         val to_string : bool -> string list list 
         val of_string : string -> unit
     end
+
+    module Node : NodeSig.S with type n = a
 
 
 end
