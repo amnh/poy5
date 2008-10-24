@@ -467,7 +467,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         summary_class:
             [ 
                 [ ":"; LIDENT "individual" -> <:expr<`Individual>> ] | 
-                [ ":"; LIDENT "consensus" -> <:expr<`Consensus>> ]
+                [ ":"; LIDENT "consensus" -> <:expr<`Consensus>> ] |
+                [ ":"; x = flex_string -> <:expr<`InputFile $x$ >> ]
             ];
         support_names:
             [

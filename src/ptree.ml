@@ -2250,6 +2250,27 @@ let add_tree_to_counters is_collapsable counters (tree : Tree.u_tree) =
     in
     All_sets.Integers.fold (add_handle tree) (Tree.get_handles tree) counters
 
+let rec make_tree_counters code_generator counters tree = 
+    let add_singleton node =
+        let single = All_sets.Integers.singleton node in
+        add_or_not false single counters
+    in
+    match tree with
+    | Parser.Tree.Leaf d -> add_singleton (code_generator d)
+    | Parser.Tree.Node (lst, _) ->
+            let all_sets, counters =
+                List.fold_left (fun (all_sets, counters) child ->
+                    let its_sets, counters = 
+                        make_tree_counters code_generator counters child
+                    in
+                    (its_sets :: all_sets, counters)) ([], counters) lst
+            in
+            let all_sets = 
+                List.fold_left All_sets.Integers.union
+                All_sets.Integers.empty all_sets
+            in
+            add_or_not false all_sets counters
+
 let add_consensus_to_counters counters trees = 
     let new_counter = 
         List.fold_left (fun acc (is_collapsable, b) -> 
@@ -2357,15 +2378,26 @@ let extract_counters sets set =
     set
     Tree.CladeFPMap.empty
 
-let supports to_string maj number_of_samples tree sets =
+let generic_supports generate_tree_sets to_string maj number_of_samples tree sets =
     let coder = ref 0 in
     let tree_builder = 
         build_a_tree to_string number_of_samples true coder
     in
-    tree 
-    --> add_tree_to_counters (fun _ _ -> false) Tree.CladeFPMap.empty 
+    tree --> generate_tree_sets
     --> extract_counters sets
     --> make_tree maj coder tree_builder
+
+let supports to_string maj number_of_samples tree sets =
+    generic_supports (add_tree_to_counters (fun _ _ -> false)
+    Tree.CladeFPMap.empty) to_string maj number_of_samples tree sets
+
+let support_of_input to_string maj number_of_samples tree data sets = 
+    let creating_counters lst = 
+        List.fold_left (fun acc x ->
+            snd (make_tree_counters (fun x -> Data.taxon_code x data) acc x)) 
+        Tree.CladeFPMap.empty lst
+    in
+    generic_supports creating_counters to_string maj number_of_samples tree sets
 
 let extract_bremer to_string sets =
     let coder = ref 0 in

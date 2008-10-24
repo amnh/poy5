@@ -940,6 +940,19 @@ let get_trees_for_support support_class run =
                             tree.Ptree.tree
                             fs)
                         run.trees
+                | `InputFile x ->
+                        let trees = Parser.Tree.of_file (`Local x) in
+                        Sexpr.of_list
+                        (List.map 
+                        (fun tree ->
+                            Ptree.support_of_input
+                            (fun x -> Data.code_taxon x run.data)
+                            0
+                            (float_of_int iterations)
+                            tree
+                            run.data
+                            fs)
+                        trees)
                 | `Consensus ->
                         `Single 
                         (Ptree.preprocessed_consensus 

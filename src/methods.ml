@@ -212,7 +212,7 @@ type diagnosis = [
     | `AllRootsCost of string option
     | `Implied_Alignment of (string option * characters * bool)]
 
-type summary_class = [ `Individual | `Consensus ]
+type summary_class = [ `Individual | `Consensus | `InputFile of string ]
 
 type support_output = [
     | `Bremer of filename list option

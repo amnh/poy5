@@ -1597,13 +1597,17 @@ The \poycommand{calculate\_support} command does not output support values by de
                 
                 \poyargument{jackknife} and \poyargument{bootstrap} accept an
                 optional argument with two possible values:
-                \poyargument{individual} or \poyargument{consensus}.
+                \poyargument{individual}, \poyargument{consensus}, or a
+                \poystring.
                 \poyargument{individual}
                 reports the support value for each tree held in memory: if there
                 are a hundred trees stored in memory, for each one, the support
                 values for each tree are reported. \poyargument{consensus}
                 generates a ``consensus'' tree, with the clades that have
-                support higher than 50 percent. The default behavior, when no
+                support higher than 50 percent. \poystring labels the branches
+                in the input trees contained in the inputfile located in the path of
+                the \poystring (e.g.\ to assign support values to the branches of a consensus
+                tree). The default behavior, when no
                 \poyargument{individual} or \poyargument{consensus} value is
                 provided, is \poyargument{individual}.}
                 {supports}
