@@ -19,7 +19,7 @@
 
 type compress = Single of int | Pair of (int * int)
 
-type protocol = NoCompression | Compressed of int
+type protocol = [ `NoCompression | `Compressed of int ]
 (** 
 * NoCompression has no compression turned on.
 * Compressed uses compression in different versions:
@@ -58,7 +58,7 @@ let initial_table () =
     }
 
 (* Always compress with the latest protocol version *)
-let latest = Compressed 2
+let latest = `Compressed 2
 
 let add_to_tables protocol table code =
     (* Because of the way we print files, using only shorts, we can support a
@@ -72,9 +72,9 @@ let add_to_tables protocol table code =
             end else ()
         in
         match protocol with
-        | Compressed 1 | NoCompression -> ()
-        | Compressed 2 -> table.state := None
-        | Compressed x -> 
+        | `Compressed 1 | `NoCompression -> ()
+        | `Compressed 2 -> table.state := None
+        | `Compressed x -> 
                 failwith ("Unknown protocol format " ^ string_of_int x)
     else begin
         Hashtbl.replace table.encoding_table code !(table.cnt); 
@@ -132,7 +132,7 @@ let decode protocol table string h =
             | Some previous ->
                     let potential = Pair (previous, i) in
                     if Hashtbl.mem table.encoding_table potential then begin
-                        if !(table.cnt) > 0xFFFF && protocol = Compressed 1 then
+                        if !(table.cnt) > 0xFFFF && protocol = `Compressed 1 then
                             begin
                                 incr table.did_exit;
                             if !(table.did_exit) = 20 then raise Exit;
@@ -145,7 +145,7 @@ let decode protocol table string h =
         in
         Buffer.add_char string (Char.chr i)
     in
-    if (protocol = Compressed 1) && (Some h) = !(table.sticky_state) then ()
+    if (protocol = `Compressed 1) && (Some h) = !(table.sticky_state) then ()
     else List.iter handle_encoding (aux_decode [] table string h)
 
 let rec decompress protocol table compressed string = 
@@ -173,7 +173,7 @@ let protocol_minor_version = 0x0000
 
 let valid_headers = 
     [(magic_number1, magic_number2, poy_major_version, poy_minor_version, 
-        protocol_major_version, protocol_minor_version), Compressed 2 ]
+        protocol_major_version, protocol_minor_version), `Compressed 2 ]
 
 let valid_protocols = List.map (fun (a, b) -> b, a) valid_headers
 
@@ -190,17 +190,19 @@ let output_header protocol ch =
 
 let detect_type ch = 
     match Pervasives.input_byte ch with
-    | 0 -> Compressed 1
+    | 0 -> 
+            `Compressed 1
     | 1 -> 
             (let the_header = PoyFile.get_header ch in
             try List.assoc the_header valid_headers with
             | Not_found -> raise PoyFile.InvalidFile)
-    | x -> NoCompression
+    | 31 -> `Zlib
+    | x -> `NoCompression
 
 let skip_header ch protocol =
     match protocol with
-    | NoCompression | Compressed 1 -> ()
-    | Compressed 2 ->
+    | `NoCompression | `Compressed 1 -> ()
+    | `Compressed 2 ->
             (* We get rid of the protocol flag, and then the header itself *)
             let _ = input_byte ch in
             let _ = PoyFile.get_header ch in

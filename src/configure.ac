@@ -221,4 +221,5 @@ AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 AC_CONFIG_FILES([Makefile
                  graphps/Makefile
                  grappa/Makefile])
+AC_CONFIG_SUBDIRS([gz-0.5.7])
 AC_OUTPUT

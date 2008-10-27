@@ -254,11 +254,11 @@ end
 
 (** [stream_reader stream] constructs a stream reader object from an input
     stream *)
-class stream_reader stream =
+class stream_reader input_char stream =
 object (self)
     inherit auto_store_reader as super
 
-    method private get_char = Pervasives.input_char stream
+    method private get_char = input_char stream
         
     (* By default, we want to skip extra newline chars *)
     val mutable last_cr = false
@@ -273,10 +273,14 @@ object (self)
         self#process_char ch
 end
 
+let stream_reader stream = new stream_reader Pervasives.input_char stream
+
+let gz_reader stream = new stream_reader Gz.input_char stream
+
 class compressed_reader protocol stream = 
     let () = Lz.skip_header stream protocol in
     object (self)
-    inherit stream_reader stream as super
+    inherit stream_reader Pervasives.input_char stream as super
 
     val mutable table = Lz.initial_table ()
 
@@ -386,6 +390,8 @@ END
 
 let open_in_bin x = open_in Pervasives.open_in_bin x
 
+let open_in_gz x = open_in Gz.open_in x
+
 let open_in x = open_in Pervasives.open_in x
 
 let channel_n_filename fn = 
@@ -394,7 +400,7 @@ let channel_n_filename fn =
 class file_reader file =
     let stream = open_in file in
 object (self)
-    inherit stream_reader stream
+    inherit stream_reader Pervasives.input_char stream
 
     method close_in = Pervasives.close_in stream
 end

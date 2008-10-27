@@ -152,7 +152,7 @@ module Tree : sig
     * End_of_file exception is raised. The function _requires_ that the trees be
     * separated with associated information, semicolons, or stars.*)
     val stream_of_file : bool -> filename -> 
-        ((unit -> (string t * string)) * (unit -> unit))
+        ((unit -> ((string * float option) t * string)) * (unit -> unit))
 
     val cannonic_order : string t -> string t
 

@@ -2430,6 +2430,10 @@ let bremer to_string cost tree generator files =
                                 try 
                                     Status.full_report ~adv:!cntr status;
                                     let input_tree = tree_generator () in
+                                    let input_tree = 
+                                        (Parser.Tree.map fst (fst input_tree)),
+                                        snd input_tree 
+                                    in
                                     let new_cost, sets = generator input_tree in
                                     map :=
                                         Tree.CladeFPMap.fold (fun my_clade best_cost acc ->

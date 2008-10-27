@@ -387,7 +387,7 @@ module Fasta = struct
             else acc) [] res
 
     let of_channel t ch =
-        of_channel_obj t (new FileStream.stream_reader ch)
+        of_channel_obj t (FileStream.stream_reader ch)
 
     let of_string t str =
         of_channel_obj t (new FileStream.string_reader str)
@@ -1050,7 +1050,7 @@ module Tree = struct
 
     let gen_of_channel f ch =
         try
-            let stream = new FileStream.stream_reader ch in
+            let stream = FileStream.stream_reader ch in
             f stream
         with
         | End_of_file -> failwith "Unexpected end of file"
@@ -1077,8 +1077,7 @@ module Tree = struct
                 raise e
 
     let stream_of_file is_compressed file =
-        let real_ch = FileStream.open_in_bin file in
-        let ch = 
+        let ch, to_close = 
             if is_compressed then
                 let protocol = 
                     let ch = FileStream.open_in_bin file in
@@ -1086,13 +1085,32 @@ module Tree = struct
                     close_in ch;
                     res
                 in
-                new FileStream.compressed_reader protocol real_ch
+                match protocol with
+                | `Zlib -> 
+                        let real_ch = FileStream.open_in_gz file in
+                        FileStream.gz_reader real_ch,
+                        `Zlib real_ch
+                | #Lz.protocol as protocol ->
+                        match protocol with
+                        | `Compressed x -> 
+                                let real_ch = FileStream.open_in_bin file in
+                                new FileStream.compressed_reader protocol real_ch, 
+                                `Regular real_ch
+                        | `NoCompression -> 
+                                let real_ch = FileStream.open_in_bin file in
+                                FileStream.stream_reader real_ch,
+                                `Regular real_ch
             else
-                new FileStream.stream_reader real_ch
+                let real_ch = FileStream.open_in_bin file in
+                FileStream.stream_reader real_ch, `Regular real_ch
         in
         match gen_aux_of_stream_gen true ch with
-        | `Stream s -> (fun () -> (fun (t,s) -> map fst t,s) (s ())) , (fun () -> close_in real_ch)
         | `Trees _ -> assert false
+        | `Stream s -> 
+                s, 
+                match to_close with
+                | `Regular real_ch -> (fun () -> close_in real_ch)
+                | `Zlib real_ch -> (fun () -> Gz.close_in real_ch)
 
     let of_file file = gen_of_file of_channel file
 
@@ -1764,7 +1782,7 @@ module OldHennig = struct
 
     let list_list_to_matrix x = Array.of_list (List.map (Array.of_list) x)
 
-    let objectify_channel ch = new FileStream.stream_reader ch
+    let objectify_channel ch = FileStream.stream_reader ch
 
     (* Checks whether the given channel contains a possible hennig86 file and
      * extracts the header information (number of characters, taxa and the rest of the
@@ -4101,7 +4119,7 @@ end
 module Dictionary = struct
 
     let of_channel ch = 
-        let input_handler = new FileStream.stream_reader ch in
+        let input_handler = FileStream.stream_reader ch in
         let rec reader hash counter = 
             try
                 let line = input_handler#read_line in
@@ -4223,7 +4241,7 @@ end
 
 module IgnoreList = struct
     let of_channel ch = 
-        let input_handler = new FileStream.stream_reader ch in
+        let input_handler = FileStream.stream_reader ch in
         let res = ref [] in
         try
             while true do

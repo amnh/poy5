@@ -330,7 +330,9 @@ module Files = struct
     let close_all_opened_files () =
         let closer _ (ch, _, close) =
             close ();
-            close_out ch
+            match ch with
+            | `NotCompressed ch -> close_out ch
+            | `Zlib ch -> Gz.close_out ch
         in
         Hashtbl.iter closer opened_files 
 
@@ -380,33 +382,24 @@ module Files = struct
                         [Pervasives.Open_wronly; Pervasives.Open_trunc;
                         Pervasives.Open_creat; Pervasives.Open_text]
             in
-            let ch = open_out_gen file_options 0o644 name in
+            let ch = 
+                if not is_compressed then
+                    `NotCompressed (open_out_gen file_options 0o644 name)
+                else `Zlib (Gz.open_out name)
+            in
             let f, before_closing = 
-                if not is_compressed then begin
+                match ch with
+                | `NotCompressed ch ->
                     Format.formatter_of_out_channel ch, fun () -> ()
-                end else 
-                    let () = Lz.output_header Lz.latest ch in
-                    let lst = ref [] in
-                    let table = Lz.initial_table () in
-                    let output_binary_int ch int =
-                        let fst = (int land 0xFF00) lsr 8
-                        and snd = (int land 0xFF) in
-                        output_byte ch fst;
-                        output_byte ch snd
-                    in
-                    let flush () =
-                        List.iter (output_binary_int ch) (List.rev !lst);
-                        lst := []
-                    in
+                | `Zlib ch ->
+                    let flush () = Gz.flush ch in
                     let out string initial length =
-                        lst := Lz.compress ~initial ~length table string !lst
+                        for i = initial to initial + length - 1 do
+                            Gz.output_char ch string.[i];
+                        done
                     in
                     Format.make_formatter out flush,
-                    fun () -> 
-                        flush ();
-                        match !(table.Lz.state) with
-                        | None -> ()
-                        | Some x -> output_binary_int ch x
+                    fun () ->  Gz.flush ~flush:Gz.Finish_flush ch
             in
             assign_formatter_output f fo_ls;
             Hashtbl.add opened_files name (ch, f, before_closing);
@@ -423,17 +416,27 @@ module Files = struct
     let flush () = 
         Hashtbl.iter (fun _ (ch, f, _) -> 
             Format.pp_print_flush f ();
-            flush ch) opened_files 
+            match ch with
+            | `NotCompressed ch -> flush ch
+            | `Zlib ch -> Gz.flush ~flush:Gz.Full_flush ch) opened_files 
 
 
     let closef name () =
         if Hashtbl.mem opened_files name then
             (let ch, f, close = Hashtbl.find opened_files name in
             Format.pp_print_flush f ();
-            Pervasives.flush ch;
-            close ();
-            Hashtbl.remove opened_files name;
-            close_out ch)
+            let () = 
+                match ch with
+                | `NotCompressed ch -> 
+                        Pervasives.flush ch;
+                        close ();
+                        Pervasives.close_out ch;
+                | `Zlib ch -> 
+                        Gz.flush ~flush:Gz.Full_flush ch;
+                        close ();
+                        Gz.close_out ch;
+            in
+            Hashtbl.remove opened_files name)
         else ()
 
     let rec channel name =

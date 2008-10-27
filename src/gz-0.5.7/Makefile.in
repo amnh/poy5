@@ -1,0 +1,115 @@
+OCAMLC := @OCAMLC@
+OCAMLOPT := @OCAMLOPT@
+OCAMLDEP := @OCAMLDEP@
+OCAMLLIB := @OCAMLLIB@
+OCAMLFIND := @OCAMLFIND@
+OCAMLDOC := @OCAMLDOC@
+OCAMLMKLIB := @OCAMLMKLIB@
+OCAMLMKTOP := @OCAMLMKTOP@
+
+INSTALL := @INSTALL@
+INSTALL_DATA := @INSTALL_DATA@
+INSTALLDIR := @INSTALLDIR@
+
+CLIBS := $(filter -l%,@LIBS@)
+CLIBSDIR := $(filter -L%,@LIBS@)
+BZ_PREFIX := @BZ_PREFIX@
+CPPFLAGS = $(if $(BZ_PREFIX),-D BZ_PREFIX) @CPPFLAGS@
+
+NAME := gz
+VERSION := 0.5.6
+INSTALLFILES := {gz,bz}.{cmi,cmx,mli} gz.{a,cma,cmxa} dllmlgz.so libmlgz.a
+
+DISTSRC := {gz,bz}.{ml,mli} c_{gz,bz}.c io.h \
+	  aclocal.m4 install-sh \
+	  Makefile.in configure configure.in \
+	  META README LICENSE doc
+
+ifndef OCAMLOPT
+all : stub lib
+else
+all : stub lib libopt
+endif
+
+ifdef OCAMLFIND
+install : findlib-install
+else
+install : normal-install
+endif
+
+stub   : dllmlgz.so libmlgz.a
+lib    : gz.cma
+libopt : gz.cmxa
+
+libmlgz.a dllmlgz.so :  c_gz.o c_bz.o
+	$(OCAMLMKLIB) -oc mlgz $^ $(CLIBS) $(CLIBSDIR)
+
+gz.cma : gz.cmo bz.cmo
+	$(OCAMLMKLIB) -oc mlgz -o gz $^ $(CLIBS) $(CLIBSDIR)
+
+gz.cmxa : gz.cmx bz.cmx
+	$(OCAMLMKLIB) -oc mlgz -o gz $^ $(CLIBS) $(CLIBSDIR)
+
+top : 
+	$(OCAMLMKTOP) -o ocamlgz -I $(INSTALLDIR) gz.cma
+
+
+test : INCDIR= $(if $(OCAMLFIND),$(shell ocamlfind query gz),$(INSTALLDIR))
+test : test.ml
+	$(OCAMLC) -o $@ -dllpath $(INCDIR) -I $(INCDIR) gz.cma $^
+
+test.opt : INCDIR= $(if $(OCAMLFIND),$(shell ocamlfind query gz),$(INSTALLDIR))
+test.opt : test.ml
+	$(OCAMLOPT) -o $@ -I $(INCDIR) gz.cmxa $^
+
+normal-install: all
+	mkdir -p $(INSTALLDIR)
+	$(INSTALL_DATA) $(INSTALLFILES) $(INSTALLDIR)
+	@echo "You need to put a link to the shared stub in $$($(OCAMLC) -where)/stublibs"
+
+findlib-install: all
+	-$(OCAMLFIND) remove $(NAME)
+	$(OCAMLFIND) install $(NAME) META $(INSTALLFILES)
+
+clean:
+	rm -f *.cm* *.a *.so *.o *.opt ocamlgz test test.opt
+
+ifdef OCAMLDOC
+doc : doc/index.html
+doc/index.html : gz.mli bz.mli
+	mkdir -p
+	$(OCAMLDOC) -html -d doc $^ 
+else
+doc : ; $(error "you need ocamldoc to generate the documentation")
+endif
+
+dist: doc $(NAME)-$(VERSION).tar.gz
+
+$(NAME)-$(VERSION).tar.gz: dummy
+	cd .. && mv $(NAME) $(NAME)-$(VERSION) && \
+	tar zcvf $@ $(addprefix $(NAME)-$(VERSION)/, $(DISTSRC)) && \
+	mv $(NAME)-$(VERSION) $(NAME)
+
+.PHONY: all lib libopt clean doc dist normal-install findlib-install dummy stub
+
+%.cmo : %.ml
+	$(OCAMLC) -c $<
+
+%.cmx : %.ml
+	$(OCAMLOPT) -c $<
+
+%.cmi : %.mli
+	$(OCAMLC) -c $<
+
+%.o : %.c
+	$(OCAMLC) -ccopt "$(CPPFLAGS) $(CFLAGS)" -c $<
+
+.depend : $(wildcard *.ml *.mli)
+	-@$(OCAMLDEP) $^ > .depend
+
+-include .depend
+
+configure : configure.in aclocal.m4
+	autoconf
+aclocal.m4 : ocaml.m4
+	aclocal -I .

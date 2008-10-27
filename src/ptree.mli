@@ -571,7 +571,7 @@ val extract_bremer :  (All_sets.Integers.elt -> string) ->
 * not containing the child clade of the branch within [sets]. *)
 val bremer :
     (int -> string) -> int -> Tree.u_tree -> 
-              ((string Parser.Tree.t * string) -> (int * Tree.CladeFP.CladeSet.t)) ->
+              ((string  Parser.Tree.t * string) -> (int * Tree.CladeFP.CladeSet.t)) ->
           Parser.filename list -> 
               string Parser.Tree.t
 val preprocessed_consensus :
