@@ -327,6 +327,8 @@ module Files = struct
 
     let opened_files = Hashtbl.create 7
 
+    let is_open file = Hashtbl.mem opened_files file
+
     let close_all_opened_files () =
         let closer _ (ch, _, close) =
             close ();

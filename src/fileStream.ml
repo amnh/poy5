@@ -363,8 +363,14 @@ let filename = function
     | `Local f 
     | `Remote f -> f
 
-let open_in opener fn = 
+let open_in close_it opener fn = 
     StatusCommon.Files.flush ();
+    if close_it then begin
+        let name = filename fn in
+        if StatusCommon.Files.is_open name then 
+                StatusCommon.Files.closef name ()
+        else ()
+    end;
     match fn with
     | `Local file -> opener file
     | `Remote file ->
@@ -388,11 +394,11 @@ ELSE
             opener file
 END
 
-let open_in_bin x = open_in Pervasives.open_in_bin x
+let open_in_bin x = open_in false Pervasives.open_in_bin x
 
-let open_in_gz x = open_in Gz.open_in x
+let open_in_gz x = open_in true Gz.open_in x
 
-let open_in x = open_in Pervasives.open_in x
+let open_in x = open_in false Pervasives.open_in x
 
 let channel_n_filename fn = 
     open_in fn, filename fn
