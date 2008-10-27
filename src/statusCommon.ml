@@ -368,6 +368,10 @@ module Files = struct
                 false) fo_ls 
             in
             (let file_options = 
+                if is_compressed then
+                    [Pervasives.Open_wronly; Pervasives.Open_trunc;
+                    Pervasives.Open_creat; Pervasives.Open_binary]
+                else
                 match mode with
                 | `Append ->
                         [Pervasives.Open_wronly; Pervasives.Open_append;
