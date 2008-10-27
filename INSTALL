@@ -22,8 +22,6 @@ In order to compile POY, the minimal requirements are:
 
 - The zlib compression library (http://www.zlib.net).
 
-- The bzip2 compression library (http://www.bzip2.org).
-
 For the readline interface the readline library is needed, and for the ncurses
 interface then ncurses is needed. If none of them is available, use the flat
 interface. 

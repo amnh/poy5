@@ -74,7 +74,7 @@ cd ../
 
 if [ $ncurses -eq 1 ]; then
     # We first compile the regular ncurses interface
-    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=ncurses CFLAGS="-O3 -msse3 -L/home/andres/PDCurses-3.3/win32/ -I /home/andres/PDCurses-3.3/"
+    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=ncurses CFLAGS="-O3 -msse3 -L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/ -I /home/andres/zlib/include -I /home/andres/PDCurses-3.3/"
     compile_executable
     if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/ncurses_poy.exe; then
         echo "I could not replace the poy executable in the distribution"
@@ -84,7 +84,7 @@ fi
 
 if [ $sequential -eq 1 ]; then
     # Now we compile the html interface
-    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=html CFLAGS="-msse3 -O3"
+    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=html CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib  -I /home/andres/zlib/include"
     compile_executable
     if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/seq_poy.exe; then
         echo "I could not replace the executable in the distribution"
@@ -94,7 +94,7 @@ fi
 
 if [ $parallel -eq 1 ]; then
     # Now we compile the parallel interface
-    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="-msse3 -O3 -L/cygdrive/c/mpich2/lib -I /cygdrive/c/mpich2/include" LIBS="-lmpi"
+    ./configure --with-version-number=$version $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib -L/cygdrive/c/mpich2/lib -I /home/andres/zlib/include -I /cygdrive/c/mpich2/include" LIBS="-lmpi"
     make clean
     make
     if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/par_poy.exe; then

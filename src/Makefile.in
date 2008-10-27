@@ -28,7 +28,7 @@ CC = @CC@
 CPPFLAGS = @CPPFLAGS@
 CFLAGS = $(CPPFLAGS) @CFLAGS@ 
 LDFLAGS = -cclib '@LDFLAGS@'
-LIBS = -cclib "@LIBS@"
+LIBS = -cclib "-lz @LIBS@"
 INSTALL = @INSTALL@
 
 USEPARALLEL := @USEPARALLEL@
@@ -57,7 +57,7 @@ NATIVEDYNLINK := @NATIVEDYNLINK@
 INCLUDE = `$(OCAMLC) -where`
 export DEPEND = .depend
 
-CCOPT :=  -cc $(CC) -ccopt -L./gz-0.5.7 -ccopt "$(CFLAGS)" -ccopt "-I $(INCLUDE)"
+CCOPT :=  -cc $(CC) -cclib "-L./gz-0.5.7 -lmlgz" -ccopt "$(CFLAGS)" -ccopt "-I $(INCLUDE)"
 
 DEPEND := .depend
 
@@ -504,13 +504,14 @@ poy.1: help.txt
 help.txt: compileFlags.cmx sadmanOutput.cmx poyFile.cmx lz.cmx statusCommon.cmx \
 	buildNumber.cmx gz-0.5.7/gz.cmxa fileStream.cmx latex.ml ../doc/allcommands.tex
 ifeq ($(USEPARALLEL), true)
-	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper -cclib \
-	-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
-	sadmanOutput.cmx poyFile.cmx lz.cmx gz-0.5.7/gz.cmxa statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
-	$(LDFLAGS) $(LIBS)
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
+		-cclib "-L./gz-0.5.7 -lmlgz" -cclib \
+		-L$(OCAMLMPI) mpi.cmxa unix.cmxa str.cmxa compileFlags.cmx \
+		sadmanOutput.cmx poyFile.cmx lz.cmx gz-0.5.7/gz.cmxa statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml \
+		$(LDFLAGS) $(LIBS)
 else 
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES) $(CCOPT) -o latex_helper \
-	unix.cmxa str.cmxa compileFlags.cmx \
+	unix.cmxa str.cmxa compileFlags.cmx -cclib "-L./gz-0.5.7 -lmlgz" \
 	sadmanOutput.cmx poyFile.cmx lz.cmx gz-0.5.7/gz.cmxa statusCommon.cmx fileStream.cmx buildNumber.cmx latex.ml $(LIBS)
 endif
 ifeq ($(USEWIN32), true)
@@ -596,9 +597,9 @@ fileStream.cmo: config.h gz-0.5.7/gz.cma poyExtension.cmo poyFile.cmo lz.cmo fil
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) fileStream.ml
 fileStream.cmx: config.h gz-0.5.7/gz.cmxa poyExtension.cmo poyFile.cmx lz.cmx fileStream.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c fileStream.ml
-statusCommon.cmo: config.h gz-0.5.7/gz.cma poyExtension.cmo poyFile.cmo lz.cmo statusCommon.ml
+statusCommon.cmo: config.h poyExtension.cmo poyFile.cmo gz-0.5.7/gz.cma lz.cmo statusCommon.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) statusCommon.ml
-statusCommon.cmx: config.h gz-0.5.7/gz.cmxa poyExtension.cmo poyFile.cmx lz.cmx statusCommon.ml
+statusCommon.cmx: config.h poyExtension.cmo poyFile.cmx gz-0.5.7/gz.cmxa lz.cmx statusCommon.ml
 	$(OCAMLOPT)   $(OPTIONSPREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) -c statusCommon.ml
 portal.cmo: poyExtension.cmo phylo.cmo portal.ml
 	$(OCAMLC)   $(OPTIONSPREPROCESSOR) $(OCAML_INCLUDES) -c $(DEBUG) \

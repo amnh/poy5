@@ -11,16 +11,18 @@ INSTALL := @INSTALL@
 INSTALL_DATA := @INSTALL_DATA@
 INSTALLDIR := @INSTALLDIR@
 
-CLIBS := $(filter -l%,@LIBS@)
-CLIBSDIR := $(filter -L%,@LIBS@)
+CLIBS := -cclib "$(filter -l%,@LIBS@)"
+CLIBSDIR := -cclib "$(filter -L%,@LIBS@)"
 BZ_PREFIX := @BZ_PREFIX@
 CPPFLAGS = $(if $(BZ_PREFIX),-D BZ_PREFIX) @CPPFLAGS@
+CFLAGS := @CFLAGS@
+CC := @CC@
 
 NAME := gz
 VERSION := 0.5.6
-INSTALLFILES := {gz,bz}.{cmi,cmx,mli} gz.{a,cma,cmxa} dllmlgz.so libmlgz.a
+INSTALLFILES := {gz}.{cmi,cmx,mli} gz.{a,cma,cmxa} dllmlgz.so libmlgz.a
 
-DISTSRC := {gz,bz}.{ml,mli} c_{gz,bz}.c io.h \
+DISTSRC := {gz}.{ml,mli} c_{gz}.c io.h \
 	  aclocal.m4 install-sh \
 	  Makefile.in configure configure.in \
 	  META README LICENSE doc
@@ -41,26 +43,26 @@ stub   : dllmlgz.so libmlgz.a
 lib    : gz.cma
 libopt : gz.cmxa
 
-libmlgz.a dllmlgz.so :  c_gz.o c_bz.o
-	$(OCAMLMKLIB) -oc mlgz $^ $(CLIBS) $(CLIBSDIR)
+libmlgz.a dllmlgz.so :  c_gz.o 
+	ar rc $@ $^
 
-gz.cma : gz.cmo bz.cmo
-	$(OCAMLMKLIB) -oc mlgz -o gz $^ $(CLIBS) $(CLIBSDIR)
+gz.cma : gz.cmo 
+	$(OCAMLC) -cc $(CC) -ccopt "$(CFLAGS)" -custom -g -a -o $(@) $^ $(CLIBS) $(CLIBSDIR)
 
-gz.cmxa : gz.cmx bz.cmx
-	$(OCAMLMKLIB) -oc mlgz -o gz $^ $(CLIBS) $(CLIBSDIR)
+gz.cmxa : gz.cmx 
+	$(OCAMLOPT) -cc $(CC) -ccopt "$(CFLAGS)" -a -o $@ $^ $(CLIBS) $(CLIBSDIR)
 
 top : 
-	$(OCAMLMKTOP) -o ocamlgz -I $(INSTALLDIR) gz.cma
+	$(OCAMLMKTOP) -cc $(CC) -o ocamlgz -I $(INSTALLDIR) gz.cma
 
 
 test : INCDIR= $(if $(OCAMLFIND),$(shell ocamlfind query gz),$(INSTALLDIR))
 test : test.ml
-	$(OCAMLC) -o $@ -dllpath $(INCDIR) -I $(INCDIR) gz.cma $^
+	$(OCAMLC) -cc $(CC) -o $@ -dllpath $(INCDIR) -I $(INCDIR) gz.cma $^
 
 test.opt : INCDIR= $(if $(OCAMLFIND),$(shell ocamlfind query gz),$(INSTALLDIR))
 test.opt : test.ml
-	$(OCAMLOPT) -o $@ -I $(INCDIR) gz.cmxa $^
+	$(OCAMLOPT) -cc $(CC) -o $@ -I $(INCDIR) gz.cmxa $^
 
 normal-install: all
 	mkdir -p $(INSTALLDIR)
@@ -76,7 +78,7 @@ clean:
 
 ifdef OCAMLDOC
 doc : doc/index.html
-doc/index.html : gz.mli bz.mli
+doc/index.html : gz.mli 
 	mkdir -p
 	$(OCAMLDOC) -html -d doc $^ 
 else
@@ -93,16 +95,16 @@ $(NAME)-$(VERSION).tar.gz: dummy
 .PHONY: all lib libopt clean doc dist normal-install findlib-install dummy stub
 
 %.cmo : %.ml
-	$(OCAMLC) -c $<
+	$(OCAMLC) -cc $(CC) -ccopt "$(CFLAGS)"  -c $<
 
 %.cmx : %.ml
-	$(OCAMLOPT) -c $<
+	$(OCAMLOPT) -cc $(CC) -ccopt "$(CFLAGS)" -c $<
 
 %.cmi : %.mli
-	$(OCAMLC) -c $<
+	$(OCAMLC) -cc $(CC) -ccopt "$(CFLAGS)" -c $<
 
 %.o : %.c
-	$(OCAMLC) -ccopt "$(CPPFLAGS) $(CFLAGS)" -c $<
+	$(OCAMLC) -cc $(CC) -ccopt "$(CPPFLAGS) $(CFLAGS)" -c $<
 
 .depend : $(wildcard *.ml *.mli)
 	-@$(OCAMLDEP) $^ > .depend
