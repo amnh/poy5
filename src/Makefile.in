@@ -319,11 +319,11 @@ ctags: *.c
 	ctags -o ctags *.c
 
 # Runtime options
-buildNumber.cmx: $(filter-out buildNumber.ml, $(wildcard *.ml)) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
+buildNumber.cmx: $(filter-out help.ml, $(filter-out buildNumber.ml, $(wildcard *.ml))) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
 	echo "let build = \" " `$(MERCURIAL)` "\"" > buildNumber.ml
 	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c buildNumber.ml $(PROFILE:-unsafe=) $(CCOPT:-unsafe)
 
-buildNumber.cmo: $(filter-out buildNumber.ml, $(wildcard *.ml)) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
+buildNumber.cmo: $(filter-out help.ml, $(filter-out buildNumber.ml, $(wildcard *.ml))) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
 	echo "let build = \" " `$(MERCURIAL)` "\"" > buildNumber.ml
 	$(OCAMLC) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c buildNumber.ml $(CCOPT:-unsafe)
 
@@ -639,7 +639,7 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml \
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
 .depend: compileFlags.cmo sadmanOutput.cmo sadman.cmi sadman.cmo poyFile.cmi lz.cmo statusCommon.cmo \
-	status.cmi timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi \
+	status.cmi $(INTERFACE) timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi \
 	all_sets.cmi fileStream.cmo sequence.cmi bitSet.cmi parser.cmi \
 	config.h poyExtension.cmo nonaddCSc8.c nonaddCSc16.c \
 	nonaddCSc32.c nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml \
