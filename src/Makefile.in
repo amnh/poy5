@@ -338,6 +338,8 @@ compileFlags.ml: ./config.log
 	echo "let str_interface = \"" `grep USEINTERFACE ./config.log` "\"" >> $@
 	echo "let str_graphics = \"" `grep USEGRAPHICS ./config.log` "\"" >> $@
 
+status.ml: $(INTERFACE)
+
 # The libraries
 status_ncurses.cma : dequeue.cmo status.cmi ncurses.o ncursesML.cmo \
 	poyFile.cmo lz.cmo statusCommon.cmo status_ncurses.ml
@@ -622,12 +624,12 @@ OPTIONPREPROCESSED = node.mli node.ml status_flat.ml status.ml seqCS.ml \
 
 DOCFILTER = $(CAMLP4PROCESSED) $(OPTIONPREPROCESSED)
 
-.depend: compileFlags.cmo sadmanOutput.cmo poyFile.cmi lz.cmo statusCommon.cmo \
+.depend: compileFlags.cmo $(SADMAN) poyFile.cmi lz.cmo statusCommon.cmo \
 	status.cmi timer.cmi sexpr.cmi enum.cmi tags.cmo alphabet.cmi \
 	all_sets.cmi fileStream.cmo sequence.cmi bitSet.cmi parser.cmi \
 	config.h poyExtension.cmo nonaddCSc8.c nonaddCSc16.c \
 	nonaddCSc32.c nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml *.ml \
-	*.mli *.c *.h
+	*.mli *.c *.h grappa/*.ml* graphps/*.ml*
 	$(OCAMLDEP) $(OCAML_INCLUDES) \
 	$(filter-out $(DOCFILTER), $(wildcard *.ml)) \
 	$(filter-out $(DOCFILTER:.ml=.mli), $(wildcard *.mli)) > .depend 
