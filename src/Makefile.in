@@ -319,8 +319,14 @@ ctags: *.c
 	ctags -o ctags *.c
 
 # Runtime options
-buildNumber.ml: 
-	echo "let build = \" " `$(MERCURIAL)` "\"" > $@
+buildNumber.cmx: $(filter-out buildNumber.ml, $(wildcard *.ml)) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
+	echo "let build = \" " `$(MERCURIAL)` "\"" > buildNumber.ml
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c buildNumber.ml $(PROFILE:-unsafe=) $(CCOPT:-unsafe)
+
+buildNumber.cmo: $(filter-out buildNumber.ml, $(wildcard *.ml)) *.c *.mli grappa/*.ml grappa/*.mli graphps/*.mli graphps/*.ml grappa/*.c grappa/*.h gz-0.5.7/*.c gz-0.5.7/*.h gz-0.5.7/*.ml gz-0.5.7/*.mli
+	echo "let build = \" " `$(MERCURIAL)` "\"" > buildNumber.ml
+	$(OCAMLC) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c buildNumber.ml $(CCOPT:-unsafe)
+
 
 compileFlags.ml: ./config.log
 	echo "(** automatically generated description of compile-time flags *)" \
@@ -439,7 +445,7 @@ trees.cmxa : $(CHARACTER:.cmo=.cmx)  ${TREE:.cmo=.cmx}
 sadmanlib.cmxa: $(SADMAN:.cmo=.cmx)
 	$(OCAMLOPT) -a -o $@ $^ $(MKLIBOPT) $(CCOPT) $(PROFILE)
 
-.PHONY: subdirs $(SUBDIRS) clean distclean driver doc buildNumber.ml
+.PHONY: subdirs $(SUBDIRS) clean distclean driver doc 
 
 # -d .. puts stuff in prev directory
 # -dot outputs dependency graph as .dot
@@ -524,8 +530,16 @@ else
 	rm latex_helper
 endif
 
-help.ml: help.txt ocaml-str helpRead.ml
+help.cmx: help.txt ocaml-str helpRead.ml
 	./ocaml-str
+	$(OCAMLOPT) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c help.ml \
+		$(PROFILE:-unsafe=) $(CCOPT:-unsafe)
+
+help.cmo: help.txt ocaml-str helpRead.ml
+	./ocaml-str
+	$(OCAMLC) $(OFLAGS:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c help.ml \
+		$(CCOPT:-unsafe)
+
 help.html: help.txt ocaml-str helpRead.ml
 	./ocaml-str -html
 # Static loading to support OS X and Cygwin...
@@ -764,5 +778,5 @@ else
 		bigarray.cma $^ $(LDFLAGS) $(LIBS) 
 endif
 
--include $(PWD)/$(DEPEND)
+include $(DEPEND)
 
