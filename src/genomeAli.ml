@@ -552,8 +552,8 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                     let is_free = Subseq.is_free sq2 in
                     (if is_free = false then begin
                          let gb_id = List.hd sq2.Subseq.block_id_ls in 
-                         let gb = List.find (fun gb -> gb.block_id = gb_id) gb_ls in 
-                         (if gb.chrom2_id = chrom_id then 
+                         let gb1 = List.find (fun gb1 -> gb1.block_id = gb_id) gb_ls in 
+                         (if gb1.chrom2_id = chrom_id then 
                               mark2_arr.(sq2.Subseq.id) <- true);
                      end);  
                ) loci2_arr;
@@ -598,14 +598,14 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
         else if sq2_id > 0 then chrom_id, sq2_id, `Positive
         else begin (* sq2_id = -1 *)
             let gb_id = List.hd sq1.Subseq.block_id_ls in  
-            let gb = List.find (fun gb -> gb.block_id = gb_id) gb_ls in              
-            let b = gb.block in 
-            if gb.chrom2_id = chrom_id then begin
+            let gb1 = List.find (fun gb1 -> gb1.block_id = gb_id) gb_ls in              
+            let b = gb1.block in 
+            if gb1.chrom2_id = chrom_id then begin
                 let sq2 = List.find 
                     (fun locus2 -> locus2.Subseq.sta = b.Block.sta2) loci2_ls 
                 in
                 chrom_id, sq2.Subseq.id, b.Block.direction
-            end else gb.chrom2_id, -1, `Positive
+            end else gb1.chrom2_id, -1, `Positive
         end 
     in   
     
@@ -686,8 +686,8 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                     end 
              | false ->
                    let gb_id = List.hd sq1.Subseq.block_id_ls in 
-                   let gb = List.find (fun gb -> gb.block_id = gb_id) gb_ls in 
-                   let b = gb.block in 
+                   let gbcp4 = List.find (fun gbcp4 -> gbcp4.block_id = gb_id) gb_ls in 
+                   let b = gbcp4.block in 
                    let alied_seq1 =  Utl.deref b.Block.alied_seq1 in
                    let alied_seq2=  Utl.deref b.Block.alied_seq2 in
 
@@ -708,11 +708,11 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
                        alied_med = med;
                        
                        ref_code1 = genome1_ref_code;
-                       sta1 = b.Block.sta1; en1 = b.Block.en1; chi1_chrom_id = gb.chrom1_id;
+                       sta1 = b.Block.sta1; en1 = b.Block.en1; chi1_chrom_id = gbcp4.chrom1_id;
                        alied_seq1 = alied_seq1; dir1 = `Positive;
                        
                        ref_code2 = genome2_ref_code;
-                       sta2 = b.Block.sta2; en2 = b.Block.en2; chi2_chrom_id = gb.chrom2_id;
+                       sta2 = b.Block.sta2; en2 = b.Block.en2; chi2_chrom_id = gbcp4.chrom2_id;
                        alied_seq2 = alied_seq2; dir2 = b.Block.direction;
                       }
                    in 
@@ -773,13 +773,13 @@ let create_fast_general_ali chrom_id genome1_ref_code chrom1_seq loci1_ls
 let create_chrom_med (genome1_ref_code, chrom1) (genome2_ref_code, chrom2) gb_ls cost_mat chrom_pams = 
     let subseq1_ls = 
         List.fold_left  
-        (fun subseq1_ls gb -> 
-             if gb.chrom1_id = !(chrom1.chrom_id) then begin
+        (fun subseq1_ls gbcp4 -> 
+             if gbcp4.chrom1_id = !(chrom1.chrom_id) then begin
                  let subseq1 = 
                      {Subseq.id = -1;
-                      Subseq.sta = gb.block.Block.sta1; 
-                      Subseq.en = gb.block.Block.en1; 
-                      Subseq.block_id_ls = [gb.block_id]} 
+                      Subseq.sta = gbcp4.block.Block.sta1; 
+                      Subseq.en = gbcp4.block.Block.en1; 
+                      Subseq.block_id_ls = [gbcp4.block_id]} 
                  in 
                  subseq1::subseq1_ls
              end else subseq1_ls
@@ -789,13 +789,13 @@ let create_chrom_med (genome1_ref_code, chrom1) (genome2_ref_code, chrom2) gb_ls
 
     let subseq2_ls = 
         List.fold_left  
-        (fun subseq2_ls gb -> 
-             if gb.chrom2_id = !(chrom2.chrom_id) then begin
+        (fun subseq2_ls gbcp4 -> 
+             if gbcp4.chrom2_id = !(chrom2.chrom_id) then begin
                  let subseq2 = 
                      {Subseq.id = -1;  
-                      Subseq.sta = gb.block.Block.sta2; 
-                      Subseq.en = gb.block.Block.en2; 
-                      Subseq.block_id_ls = [gb.block_id]} 
+                      Subseq.sta = gbcp4.block.Block.sta2; 
+                      Subseq.en = gbcp4.block.Block.en2; 
+                      Subseq.block_id_ls = [gbcp4.block_id]} 
                  in 
                  subseq2::subseq2_ls
              end else subseq2_ls
@@ -848,16 +848,16 @@ let create_genome_blocks med1 med2 cost_mat chrom_pams =
 
               gb_ls := List.fold_left 
                   (fun gb_ls block -> 
-                       let gb = {block_id = !gb_id; chrom1_id  = chrom_id;
+                       let gbcp4 = {block_id = !gb_id; chrom1_id  = chrom_id;
                                  chrom2_id = chrom_id; block = block}
                        in 
                        incr gb_id;
-                       gb::gb_ls
+                       gbcp4::gb_ls
                   ) !gb_ls blocks;                               
         | _, _ -> ()    
     done;
 
-    let is_overlaped gb gb_ls = 
+    let is_overlaped gbcp4 gb_ls = 
         let loci_overlaped s1 e1 s2 e2 = 
             if (e1 < s2) or (e2 < s1) then false
             else true
@@ -865,10 +865,10 @@ let create_genome_blocks med1 med2 cost_mat chrom_pams =
     
         List.fold_left
             (fun overlaped gb2 -> 
-                 let b1 = gb.block and b2 = gb2.block in 
-                 if (gb.chrom1_id = gb2.chrom1_id) &&
+                 let b1 = gbcp4.block and b2 = gb2.block in 
+                 if (gbcp4.chrom1_id = gb2.chrom1_id) &&
                      (loci_overlaped b1.Block.sta1 b1.Block.en1 b2.Block.sta1 b2.Block.en1) then true
-                 else if (gb.chrom2_id = gb2.chrom2_id) && 
+                 else if (gbcp4.chrom2_id = gb2.chrom2_id) && 
                      (loci_overlaped b1.Block.sta2 b1.Block.en2 b2.Block.sta2 b2.Block.en2) then true
                  else overlaped
             ) false gb_ls  
@@ -902,13 +902,13 @@ let create_genome_blocks med1 med2 cost_mat chrom_pams =
               
                 gb_ls := List.fold_left  
                   (fun gb_ls block -> 
-                       let gb = {block_id = !gb_id; chrom1_id = !(chrom1.chrom_id);
+                       let gbcp4 = {block_id = !gb_id; chrom1_id = !(chrom1.chrom_id);
                                  chrom2_id = !(chrom2.chrom_id); block = block}
                        in                        
                        incr gb_id;
 
-                       if is_overlaped gb gb_ls then gb_ls
-                       else gb::gb_ls
+                       if is_overlaped gbcp4 gb_ls then gb_ls
+                       else gbcp4::gb_ls
                   ) !gb_ls blocks                
             end 
         done

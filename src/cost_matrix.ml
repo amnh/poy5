@@ -257,24 +257,24 @@ module Two_D = struct
         | _, Linnear
         | _, No_Alignment -> fun item -> item
         | _ ->
-                fun item ->
+                (fun item ->
                     if gap <> item && (0 <> (gap land item)) then
                         gap
-                    else item
+                    else item)
 
     let xor a b =
-        (a || b) && (not (a && b))
+        ((a || b) && (not (a && b)));;
 
     let fill_best_cost_and_median_for_all_combinations_bitwise m a_sz =
         let find_best_combination get_cost l1 l2 =
             let aux_find_best_combination m i (best, med, worst) j =
-                let mb = get_cost i j in
+                let mb1 = get_cost i j in
                 let best, median = 
-                    if mb < best then mb, i lor j
-                    else if mb = best then mb, i lor j lor med
+                    if mb1 < best then mb1, i lor j
+                    else if mb1 = best then mb1, i lor j lor med
                     else best, med
                 in
-                best, median, max mb worst
+                best, median, max mb1 worst
             in
             let process l1 l2 acc = 
                 List.fold_left (fun acc i ->

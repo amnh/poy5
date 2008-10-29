@@ -197,8 +197,9 @@
         make_all_prefixes 2 "CONTINUE" CONTINUE;
         make_all_prefixes 2 "COPYTREE" COPYTREE;
         make_all_prefixes 2 "CHKBREAK" CHKBREAK;
-        make_all_prefixes 2 "ELSE" ELSE;
-        make_all_prefixes 2 "END" END;
+        (* Comment them out because of clash with Camlp4.
+        * make_all_prefixes 2 "ELSE" ELSE;
+        make_all_prefixes 2 "END" END;*)
         make_all_prefixes 2 "ENDLOOP" ENDLOOP;
         make_all_prefixes 2 "ENDSWAP" ENDSWAP;
         make_all_prefixes 2 "ERRMSG" ERRMSG;

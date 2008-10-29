@@ -161,8 +161,6 @@ let report_error b e =
 %token CONTINUE
 %token COPYTREE
 %token CHKBREAK
-%token ELSE
-%token END
 %token ENDLOOP
 %token ENDSWAP
 %token ERRMSG

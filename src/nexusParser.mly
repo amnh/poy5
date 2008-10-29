@@ -59,7 +59,7 @@ let report_error text b e =
 %token <string> DROS
 %token <string> ELIMINATE
 %token <string> ENCODE
-%token <string> END
+%token <string> ENDNEXUS
 %token <string> EPS
 %token <string> EQUATE
 %token <string> EXSET
@@ -167,38 +167,38 @@ header:
     | NEXUS { () }
     ;
 block:
-    | BEGIN TAXA SEMICOLON taxa END SEMICOLON  
+    | BEGIN TAXA SEMICOLON taxa ENDNEXUS SEMICOLON  
         { Nexus.Taxa $4 }
-    | BEGIN TAXA SEMICOLON IDENT error END SEMICOLON 
+    | BEGIN TAXA SEMICOLON IDENT error ENDNEXUS SEMICOLON 
         { if $4 = "TITLE" then Status.user_message Status.Error mesquite_error;
             raise Parsing.Parse_error }
-    | BEGIN CHARACTERS SEMICOLON characters END SEMICOLON 
+    | BEGIN CHARACTERS SEMICOLON characters ENDNEXUS SEMICOLON 
         { Nexus.Characters $4 }
-    | BEGIN DATA SEMICOLON characters END SEMICOLON
+    | BEGIN DATA SEMICOLON characters ENDNEXUS SEMICOLON
         { Nexus.Characters $4 }
-    | BEGIN UNALIGNED SEMICOLON unaligned END SEMICOLON
+    | BEGIN UNALIGNED SEMICOLON unaligned ENDNEXUS SEMICOLON
         { Nexus.Unaligned $4 }
-    | BEGIN TREES SEMICOLON trees END SEMICOLON
+    | BEGIN TREES SEMICOLON trees ENDNEXUS SEMICOLON
         { Nexus.Trees $4 }
-    | BEGIN NOTES SEMICOLON notes END SEMICOLON 
+    | BEGIN NOTES SEMICOLON notes ENDNEXUS SEMICOLON 
         { Nexus.Notes $4 }
-    | BEGIN DISTANCES SEMICOLON distances END SEMICOLON 
+    | BEGIN DISTANCES SEMICOLON distances ENDNEXUS SEMICOLON 
         { Nexus.Distances $4 }
-    | BEGIN ASSUMPTIONS SEMICOLON assumptions END SEMICOLON
+    | BEGIN ASSUMPTIONS SEMICOLON assumptions ENDNEXUS SEMICOLON
         { Nexus.Assumptions $4 }
-    | BEGIN SETS SEMICOLON list_of_anything END SEMICOLON
+    | BEGIN SETS SEMICOLON list_of_anything ENDNEXUS SEMICOLON
         { Nexus.Ignore $2 }
-    | BEGIN IDENT error END SEMICOLON
+    | BEGIN IDENT error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
-    | BEGIN TAXA SEMICOLON error END SEMICOLON  
+    | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
         { Nexus.Error $2 }
-    | BEGIN UNALIGNED SEMICOLON error END SEMICOLON
+    | BEGIN UNALIGNED SEMICOLON error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
-    | BEGIN NOTES SEMICOLON error END SEMICOLON 
+    | BEGIN NOTES SEMICOLON error ENDNEXUS SEMICOLON 
         { Nexus.Error $2 }
-    | BEGIN DISTANCES SEMICOLON error END SEMICOLON 
+    | BEGIN DISTANCES SEMICOLON error ENDNEXUS SEMICOLON 
         { Nexus.Error $2 }
-    | BEGIN SETS SEMICOLON error END SEMICOLON
+    | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
     ;
 assumptions:

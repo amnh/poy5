@@ -35,7 +35,7 @@
         ("DROS", fun x -> DROS x);
         ("ELIMINATE", fun x -> ELIMINATE x);
         ("ENCODE", fun x -> ENCODE x);
-        ("END", fun x -> END x);
+        ("END", fun x -> ENDNEXUS x);
         ("EPS", fun x -> EPS x);
         ("EQUATE", fun x -> EQUATE x);
         ("EXSET", fun x -> EXSET x);
