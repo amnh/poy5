@@ -17,29 +17,6 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(** A library to handle a simple list of prime numbers *)
-
-(** [get_pn min max] gets the prime numbers between min and max, as long as max
-* <= 100.000 .*)
-val get_pn : int -> int -> int list
-
-(* Functions to get the closest prime number less than or greater than the 
-   given input. *)
-val get_pn_lt : int -> int
-val get_pn_gt : int -> int
-
-(** [first_n n]
-    returns an array with the first n primes. *)
-val first_n : int -> int array
-
-
-(** [all_pn ()] returns a fresh array with all the stored integers in the library. *)
-val all_pn : unit -> int array
-
-(** [random min max] retrieves a random prime number between min and max, as long
-* as max <= 100.000. *)
-val random : int -> int -> int
-
 module Probable : sig
     val is_prime : ?tests:int -> int -> bool
     val next_prime_gt : int -> int
