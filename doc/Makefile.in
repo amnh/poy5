@@ -2,6 +2,18 @@ MERCURIAL := @MERCURIAL@ id -i
 
 .PHONY: clean distclean
 
+../src/buildNumber.cmo: 
+	$(MAKE) -C ../src buildNumber.cmo
+
+../src/compileFlags.cmo: 
+	$(MAKE) -C ../src compileFlags.cmo
+
+version.tex: ../src/compileFlags.cmo ../src/buildNumber.cmo ../src/version.cmo makeVersion.ml
+ 	$(OCAML) -noprompt str.cma ../src/compileFlags.cmo ../src/buildNumber.cmo  ../src/version.cmo -I ../src/ makeVersion.ml > version.tex
+ 
+version: ../src/compileFlags.cmo ../src/buildNumber.cmo ../src/version.cmo makeVersion.ml
+ 	$(OCAML) -noprompt str.cma ../src/compileFlags.cmo ../src/buildNumber.cmo  ../src/version.cmo -I ../src/ makeVersion.ml -text
+
 QuickStart.pdf: QuickStart.tex
 	pdflatex $<; pdflatex $<; pdflatex $< 
 
