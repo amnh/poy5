@@ -36,12 +36,50 @@ let is_true str = if Str.string_match truere str 0 then  "on" else "off"
 let rephrase str = Str.global_replace (Str.regexp " +") "@ " str
 
 (* The Version Values *)
-let name = "Development"
-let string = "@[@[Welcome to @{<b>POY@} 4.1." ^
-            (Str.global_replace (Str.regexp " +") "" BuildNumber.build) ^ "@]@." ^
+let name = "Black Sabath"
+let major_version = 5
+let minor_version = 0
+let release_version = 0
+let patch_version = Str.global_replace (Str.regexp " +") ""  BuildNumber.build
+type release_options = Development | Candidate of int | Official
+let release_option = Development
+
+let ( --> ) a b = b a
+let append a b = b ^ a
+
+let if_run a f b c = if a then f b c else c 
+
+let option_to_string b =
+    let build_string = " build " 
+    and rcstring = " Release Candidate " in
+    match release_option with
+    | Development ->
+            b 
+            --> append " Development"
+            --> append build_string
+            --> append patch_version
+    | Official -> b
+    | Candidate x ->
+            b 
+            --> append rcstring
+            --> append (string_of_int x) 
+
+let small_version_string = 
+    let concatenator x acc = acc ^ string_of_int x in
+    let dot = "." in
+    "" 
+    --> concatenator major_version --> append dot
+    --> concatenator minor_version 
+    --> if_run (0 <> release_version) append dot
+    --> if_run (0 <> release_version) concatenator release_version 
+
+let version_string = option_to_string small_version_string
+
+
+let string = "@[@[Welcome to @{<b>POY@} " ^ version_string ^ "@]@." ^
                      rephrase ("@[compiled" ^ CompileFlags.time
                       ^ "with parallel " ^ is_true CompileFlags.str_parallel
                       ^ ", interface " ^ get_interface CompileFlags.str_interface
                       ^ ", graphics " ^ get_graphics CompileFlags.str_graphics ^
                       "@]@,@[" ^
-                     "POY version 4.0, Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History. POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")
+                     "POY version " ^ version_string ^ ", Copyright (C) 2007, 2008 Andres Varon, Le Sy Vinh, Illya Bomash, Ward Wheeler, and the American Museum of Natural History. POY 4.0 comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under the GNU General Public License Version 2, June 1991.@]@]")
