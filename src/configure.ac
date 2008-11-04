@@ -189,13 +189,13 @@ OCAMLVERSION=`$OCAMLOPT -version`
 AC_MSG_RESULT([$OCAMLVERSION])
 
 case $OCAMLVERSION in 
-    3.10.*)
+    3.10.2)
     ;;
     3.11.*)
     NATIVEDYNLINK="dynlink.cmxa";;
     *)
     AC_MSG_RESULT([no])
-    AC_MSG_FAILURE([POY requires OCaml version 3.10.0 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])
+    AC_MSG_FAILURE([POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])
     ;;
 esac
 
