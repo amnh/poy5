@@ -69,7 +69,7 @@ static value Val_ptr(gzFile ptr)
 /* get library version */
 value mlgz_zlibversion(value unit)
 {
-  return copy_string(zlibVersion());
+  return caml_copy_string(zlibVersion());
 }
 
 /* standard stub code now ... */
