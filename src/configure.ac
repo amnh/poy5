@@ -189,7 +189,7 @@ OCAMLVERSION=`$OCAMLOPT -version`
 AC_MSG_RESULT([$OCAMLVERSION])
 
 case $OCAMLVERSION in 
-    3.10.2)
+    3.10.2*)
     ;;
     3.11.*)
     NATIVEDYNLINK="dynlink.cmxa";;
