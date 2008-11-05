@@ -174,7 +174,7 @@ ifeq ($(USEWIN32), true)
 	DEFOPTS := $(DEFOPTS) -DUSEWIN32
 endif
 
-OPTIONSPREPROCESSOR := -pp 'camlp4orf poyExtension.cmo $(DEFOPTS)'
+OPTIONSPREPROCESSOR := -pp '$(CAMLP4ORF) poyExtension.cmo $(DEFOPTS)'
 
 
 SUBDIRS = grappa graphps gz-0.5.7
