@@ -223,8 +223,6 @@ nonadd_print_ptr ("alloc", malloc (sizeof(vect) * ((size / BLOCK_LEN) + 1)))
 
 typedef nac vect[BLOCK_LEN];
 
-#define compute_size(len) ((sizeof (struct _naca_t) + ((sizeof(vect) * ((BLOCK_LEN * ((len / BLOCK_LEN) + 1)))))))
-
 #define VLOOP_BEGIN int __iter_for_vloop; \
 for (__iter_for_vloop = 0; __iter_for_vloop < BLOCK_LEN; __iter_for_vloop++) {
 #define VLOOP_END }
@@ -641,9 +639,7 @@ nonadd_nacat_compare (value v1, value v2)
 
 /** @} */
 
-#ifndef compute_size
 #define compute_size(len) ((sizeof (struct _naca_t) + ((sizeof(vect) * ((len / BLOCK_LEN) + 1)))))
-#endif
 /** Serialize a #nacat value */
 void
 nonadd_nacat_serialize (value v,

@@ -174,6 +174,8 @@ let to_list x =
 external of_list_helper : ct -> (int * e * float) list -> int -> unit
     = "char_nonadd_CAML_of_list_helper"
 
+let sizes = ref All_sets.Integers.empty
+
 let of_list_helper a b =
     let len = List.length a in
     let new_item = make_new_unsafe len b in
@@ -418,12 +420,8 @@ let of_parser data codes (elts, code) n =
         let nelts = Array.length elts in
         let true_nelts = Array.length elts in
         let set = make_new true_nelts code in
-        let max_elements = block_size * ((nelts / block_size) + 1) in
         let rec filler item =
-            if item = max_elements then ()
-            else if item >= nelts then 
-                let () = set_elt set item 1 in 
-                filler (item + 1)
+            if item = nelts then ()
             else 
                 let (elt, eltcode) = elts.(item) in
                 let observed = 
