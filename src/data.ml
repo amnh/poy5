@@ -615,13 +615,13 @@ let add_synonyms_file data file =
         Status.user_message Status.Information msg;
         Hashtbl.fold (fun a b c -> add_synonym c (a, b)) syns data 
     with
-    | Sys_error err ->
+    | (Sys_error err) as exn ->
             let file = FileStream.filename file in
             let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
             "list@ of@ synonyms.@ @ The@ system@ error@ message@ is@ " ^ err ^
             ".@]" in
             output_error msg;
-            data
+            raise exn
 
 let warn_if_repeated_and_choose_uniquely list str file =
     let repeated, selected = 
