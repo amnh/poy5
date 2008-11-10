@@ -44,7 +44,7 @@ This command imports all the nucleotide sequence datafiles (all files with the e
 \item \texttt{perturb(transform(static\_approx),iterations:15,ratchet:\\(0.2,3))} This command subjects the resulting trees to 15 rounds of ratchet, re-weighting 20\% of characters by a factor of 2. During ratcheting, the dynamic homology characters are transformed into static homology characters, so that the fraction of nucleotides (rather than of sequence fragments) is being re-weighted. This step, that begins at multiple local maxima, is intended to further traverse the tree space in search of a global optimum.
 \item \texttt{fuse(iterations:200,swap())} In this step, up to 200 swappings of subtrees identical in terminal composition but different in topology, are performed between pairs of best trees recovered in the previous step. This is another strategy for further exploration of tree space. Each resulting tree is further refined by local branch swapping under the default parameters of \poycommand{swap}.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PostScript format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
+\item \texttt{report("all\_trees",trees:(total),"constree",\\graphconsensus,"diagnosis",diagnosis)} This command produces a series of outputs of the results of the search. It includes a file containing best trees in parenthetical notation and their costs (\texttt{all\_trees}), a graphical representation (in PDF format) of the strict consensus (\texttt{constree}), and the diagnoses for all best trees (\texttt{diagnosis}).
 \item \texttt{report(timer:"search end")} This command stops timing the duration of search, initiated by the command \texttt{report(timer:"search start")}.
 \item \texttt{set(nolog)} This command stops reporting any output to the log file, \texttt{all\_data\_search.log}.
 \item \texttt{exit()} This commands ends the \poy session.
@@ -96,7 +96,7 @@ exit()
 
 (* Bremer support part 2: Bremer calculations *)
 read("18s.fas",28s.fas","my.tree")
-report("support_tree.ps",graphsupports:bremer:"tmp.trees")
+report("support_tree.pdf",graphsupports:bremer:"tmp.trees")
 exit()
 \end{verbatim}
 
@@ -112,7 +112,7 @@ exit()
 
 \item \texttt{(* Bremer support part 2: Bremer calculations *)}  A comment indicating the intent of the commands which follow.
 \item \texttt{read("18s.fas","28s.fas","my.tree")} This command imports the nucleotide sequence files \texttt{18s.fas, 28s.fas} and the tree file, \texttt{my.tree} for which the support values will be generated.  It is important to only read the selected \texttt{"my.tree"} file rather than the expansive  \texttt{"tmp.trees"} file which will be used in bremer calculations.
-\item \texttt{report("support\_tree.ps",graphsupports:bremer:"tmp.trees")} \\The \poycommand{report} command in combination with a file name and the \\ \poyargument{graphsupports} generates a postscript file designated by the name \texttt{support\_tree.ps} with bremer values for the selected trees held in \texttt{tmp.trees}.  It is strongly recommended that this more exhaustive approach is used for calculating Bremer supports rather than simply using the \\ \poyargument{graphsupports} default s.  
+\item \texttt{report("support\_tree.pdf",graphsupports:bremer:"tmp.trees")} \\The \poycommand{report} command in combination with a file name and the \\ \poyargument{graphsupports} generates a pdf file designated by the name \texttt{support\_tree.pdf} with bremer values for the selected trees held in \texttt{tmp.trees}.  It is strongly recommended that this more exhaustive approach is used for calculating Bremer supports rather than simply using the \\ \poyargument{graphsupports} default s.  
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -142,7 +142,7 @@ exit()
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
 \item \texttt{calculate\_support(jackknife,(remove:0.50,resample:1000)} The \poycommand{calculate\_support} command generates support values as specified by the \poyargument{jackknife} argument for each tree held in memory. During each pseudoreplicate half of the characters will be deleted as specified in the argument\poyargument{remove:0.50}. 
-\item \texttt{report("jacktree",graphsupports)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a postscript file with jackknife values designated by the name specified (\emph{i.e.} \texttt{jacktree}). 
+\item \texttt{report("jacktree",graphsupports:jackknife)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphsupports} generates a pdf file with jackknife values designated by the name specified (\emph{i.e.} \texttt{jacktree}). 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -164,14 +164,14 @@ build(100)
 swap(timeout:3600)
 select()
 report("111.tre",trees:(total) ,"111con.tre",consensus,
-"111con.ps",graphconsensus)
+"111con.pdf",graphconsensus)
 use("original_data")
 transform(tcm:"112.txt")
 build(100)
 swap(timeout:3600)
 select()
 report("112.tre",trees:(total),"112con.tre",consensus,
-"112con.ps",graphconsensus)
+"112con.pdf",graphconsensus)
 exit()
 \end{verbatim}
 
@@ -184,13 +184,13 @@ exit()
 \item \texttt{build(100)} This commands begins tree-building step of the search that generates 250 random-addition trees. A large number of independent starting point insures that thee large portion of tree space have been examined.
 \item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that each of the 100 trees build in the previous step is subjected to alternating SPR and TBR branch swapping routine (the default of \poy). The argument \poyargument{timeout} specifies that 3600 seconds are allocated for swapping and the search is going to be stopped after reaching this limit. Because sensitivity analysis consists of multiple independent searches, it can take a tremendous amount of time to complete each one of them. In this example, \poyargument{timeout} is used to prevent the searches from running too long. Using \poyargument{timeout} is optional and can obviously produce suboptimal results due to insufficient time allocated to searching. A reasonable timeout value can be experimentally obtained by the analysis under one cost regime and monitoring time it takes to complete the search (using the argument \poyargument{timer} of the command \poycommand{set}). The advantage of using \poyargument{timeout} is saving time in cases where a local optimum is quickly reached and the search is trapped in its neighborhood.
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report("111.tre",trees:(total) ,"111con.tre",consensus,\\"111con.ps", graphconsensus)} This command produces a file containing best tree(s) in parenthetical notation and their costs (\texttt{111.tre}), a a file containing the strict consensus in parenthetical notation \\(\texttt{111con.tre}), and a graphical representation (in PostScript format) of the strict consensus (\texttt{111con.ps}).
+\item \texttt{report("111.tre",trees:(total) ,"111con.tre",consensus,\\"111con.pdf", graphconsensus)} This command produces a file containing best tree(s) in parenthetical notation and their costs (\texttt{111.tre}), a a file containing the strict consensus in parenthetical notation \\(\texttt{111con.tre}), and a graphical representation (in PDF format) of the strict consensus (\texttt{111con.pdf}).
 \item \texttt{use("original\_data")} This command restored the original (non-trans\-formed) data from the temporary file \texttt{original\_data} generated by \poycommand{store}.
 \item \texttt{transform(tcm:"112.txt")} This command applies a different transformation cost matrix from the file \texttt{112.txt} to for another round of tree searching under this new cost regime.
 \item \texttt{build(100)} This commands begins tree-building step of the search that generates 100 random-addition trees. A large number of independent starting point insures that thee large portion of tree space have been examined.
 \item \texttt{swap(timeout:3600)} \poycommand{swap} specifies that each of the 100 trees build in the previous step is subjected to alternating SPR and TBR branch swapping routine (the default of \poy) to be interrupted after 3600 seconds (see the description in the previous iteration of the command above).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory.
-\item \texttt{report("112.tre",trees:(total),"112con.tre",consensus,\\"112con.ps", graphconsensus)} This command produces a set of the same kinds of outputs as generated during the first search (see above) but under a new cost regime.
+\item \texttt{report("112.tre",trees:(total),"112con.tre",consensus,\\"112con.pdf", graphconsensus)} This command produces a set of the same kinds of outputs as generated during the first search (see above) but under a new cost regime.
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -224,7 +224,7 @@ exit()
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
 \item \texttt{report("chrom",diagnosis)}  The \poycommand{report} command in combination with a file name and the \poyargument{diagnosis} outputs the optimal median states and edge values to a specified file (\texttt{chrom}). 
-\item \texttt{report("consensustree",graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a postscript strict consensus file of the trees generated (\texttt{consensustree}). 
+\item \texttt{report("consensustree",graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a pdf strict consensus file of the trees generated (\texttt{consensustree}). 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}
 
@@ -317,6 +317,6 @@ exit()
 \item \texttt{swap()} The \poycommand{swap} command specifies that each of the trees be subjected to an alternating SPR and TBR branch swapping routine (the default of \poy).
 \item \texttt{select()} Upon completion of branch swapping, this command retains only optimal and topologically unique trees; all other trees are discarded from memory. 
 \item \texttt{report("genome",diagnosis)}  The \poycommand{report} command in combination with a file name and the \poyargument{diagnosis} outputs the optimal median states and edge values to a specified file (\texttt{genome}). 
-\item \texttt{report("genconsens",graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a postscript strict consensus file of the trees generated (\texttt{genconsensus}). 
+\item \texttt{report("genconsens",graphconsensus)}  The \poycommand{report} command in combination with a file name and the \poyargument{graphconsensus} generates a pdf strict consensus file of the trees generated (\texttt{genconsensus}). 
 \item \texttt{exit()} This commands ends the \poy session.
 \end{itemize}

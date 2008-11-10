@@ -20,7 +20,7 @@
 let () = SadmanOutput.register "GraphTree" "$Revision"
 
 let leaf_distance = 20
-let depth_distance = 20
+let depth_distance = 30
 
 module type GRAPHICS_TYPE = sig
     type color = int
@@ -30,6 +30,8 @@ module type GRAPHICS_TYPE = sig
     val foreground : color 
     val lineto : int -> int -> unit 
     val moveto : int -> int -> unit 
+    val polyline : (int * int) list -> unit
+    val open_file : string -> unit
     val open_graph : string -> unit
     val plot : int -> int -> unit 
     val red : color
@@ -38,6 +40,7 @@ module type GRAPHICS_TYPE = sig
     val size_y : unit -> int
     val text_size : string -> int * int
     val display : unit -> unit
+    val add_page : unit -> unit
 end
 
 
@@ -60,9 +63,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
         let x1, y1 = from_point and
         x2, y2 = to_point in
         G.moveto x1 y1;
-        G.lineto x1 y2;
-        G.moveto x1 y2;
-        G.lineto x2 y2;
+        G.polyline [(x1, y1); (x1, y2); (x2, y2)];
         ()
 
 
@@ -120,7 +121,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
        num_leaves = ref 0 and
        longest_name = ref 0 in
        calc_depth_leaves t d max_depth num_leaves longest_name;
-       let fontWidth, fontHeight = G.text_size "A" in
+       let fontWidth, fontHeight = G.text_size "m" in
        let deltaY = leaf_distance and
        deltaX = depth_distance in
        let total_height = leaf_distance * !num_leaves in
@@ -158,11 +159,22 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                            String.sub name 0 (name_len - 1) 
                        else name
                    in
-                   G.moveto (x - (fontWidth * (name_len)) - 1)
+                   G.moveto (x - (fontWidth * (name_len)) - 3)
                    (avg + fontHeight/2);
                    G.draw_string name;
                    G.set_color prev_color;
-                   List.iter (draw_edges (x, avg)) coord_children;
+                   let () =
+                       match coord_children with
+                       | [_] | [] -> failwith "I need at least two children"
+                       | (a, b) :: tl ->
+                               match List.rev tl with 
+                               | (c, d) :: tl ->
+                                       G.polyline 
+                                       [(a, b); (x, b); (x, d); (c, d)];
+                                       List.iter (fun (c, d) -> 
+                                           G.polyline [(x, d); (c, d)]) tl
+                               | _ -> assert false 
+                   in
                    G.plot x avg;
                    (x, avg)
        in

@@ -755,7 +755,7 @@ endif
 poy_test: $(TEST_OBJS_OPT)
 	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib \
 		-cclib -L./gz-0.5.7 -cclib -L./grappa \
-		-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+		-cclib  -L/usr/lib -cclib -L./camlpdf-0.3 -cclib -L./graphps -cclib -L./  \
 		$(CCOPT) -cclib -lmlgz -cclib -lcamlgrappa $(PROFILE) -o poy_test \
 		$(GRAPHICS:.cma=.cmxa) $(NATIVEDYNLINK) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 		bigarray.cmxa $^ $(LDFLAGS) $(LIBS) 

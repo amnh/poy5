@@ -1498,7 +1498,7 @@ The \poycommand{calculate\_support} command does not output support values by de
 
 		\begin{argumentgroup}{Trees}
             {This set of arguments outputs tree representations
-            in parenthetical, ascii (simple text), or postscript formats.
+            in parenthetical, ascii (simple text), or PDF formats.
             The arguments specify the types of tree outputs. They include
             actual trees resulting from current searches, or imported from
             files, their consensus trees, or trees displaying support values.
@@ -1548,14 +1548,14 @@ The \poycommand{calculate\_support} command does not output support values by de
             \argumentdefinition{graphconsensus}{\optional{\poyint}}
                 {Same as \poyargument{consensus} except for consensus trees are
                 reported in graphical format, either in the ascii format on
-                screen or in the postscript format if redirected to a file.}
+                screen or in the PDF format if redirected to a file.}
                 {}
 
             \argumentdefinition{graphsupports}{\optional{argument}}
                 {This command outputs a tree with support values that have
                 been previously calculated using the
                 \nccross{calculate\_support}{calculatesupport} either on screen
-                in ascii format, or, if specified, to a file in postscript
+                in ascii format, or, if specified, to a file in PDF
                 format. The argument values are the same as for 
                 \poyargument{supports} (\emph{i.e.} \poyargument{bremer},
                 \poyargument{jackknife}, and \poyargument{bootstrap}).} 
@@ -1872,14 +1872,14 @@ The \poycommand{calculate\_support} command does not output support values by de
 		
 		\poyexample{report("filename", graphtrees)} 
             {This command saves all trees in memory in
-            postcript format to the file \texttt{filename.ps}.}
+            PDF format to the file \texttt{filename.pdf}.}
 
 		\poyexample{report(asciitrees, "file1", trees:(newick, nomargin), \\ "file2", graphtrees)}
 		{This command displays a tree in ascii format on screen and outputs
 		to \texttt{file1} trees with zero-length branches collapsed in Newick format
 		in a single line (using no margin, the format compatible with \emph{TreeView}). It
 		also writes to \texttt{file2} the graphical representation of these trees in
-		postscript format.}
+		PDF format.}
 
         \poyexample{report("hennig.ss", phastwinclad, trees:(hennig, total))}
             {This command outputs all the static homology characters, including their cost
