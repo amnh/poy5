@@ -585,6 +585,7 @@ module SC : sig
     (** [of_old_spec filename alph old position] converts an old static homology
     * specification to the new style. *)
     val of_old_spec : 
+        ?separator:string ->
         string -> Alphabet.a -> OldHennig.Encoding.s -> int -> 
             static_spec
 
@@ -595,6 +596,7 @@ module SC : sig
      * style of static homology parsed file to the new style, with (optional)
      * assignment of [alphabets], and is assigned [st_filesource] [filename]. *)
     val of_old_parser : 
+        ?separator:string ->
         string ->
         Alphabet.a array option ->
         OldHennig.Encoding.s array * (t array * string) list * string Tree.t list list ->

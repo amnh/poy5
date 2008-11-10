@@ -3883,9 +3883,9 @@ module SC = struct
         in
         generate_alphabet alph gap
 
-    let of_old_spec filename alph spec pos =
+    let of_old_spec ?(separator=":") filename alph spec pos =
         let newspec = 
-            spec_of_alph alph filename (filename ^ ":" ^ string_of_int pos)
+            spec_of_alph alph filename (filename ^ separator ^ string_of_int pos)
         in
         let newspec =
             if not spec.OldHennig.active then 
@@ -3939,7 +3939,7 @@ module SC = struct
             let () = Hashtbl.add table_of_atoms data res in
             res
 
-    let of_old_parser filename alphabet (specs, data, trees) : file_output =
+    let of_old_parser ?(separator=":") filename alphabet (specs, data, trees) : file_output =
         let taxa, data = 
             let data, taxa = List.split data in
             Array.map (fun x -> Some x) (Array.of_list taxa),
@@ -3957,7 +3957,7 @@ module SC = struct
                             Hashtbl.replace table x a) specs;
                     let alph = Array.map (Hashtbl.find table) specs in
                     Array.init nchars (fun x ->
-                        of_old_spec filename alph.(x) specs.(x) x)
+                        of_old_spec ~separator filename alph.(x) specs.(x) x)
             | Some alphs ->
                     let table = Hashtbl.create 1667 in
                     Array.iteri (fun pos x ->
@@ -3966,7 +3966,7 @@ module SC = struct
                             specs.(pos))) alphs;
                     let alphs = Array.map (Hashtbl.find table) alphs in
                     Array.init nchars (fun x ->
-                        of_old_spec filename 
+                        of_old_spec ~separator filename 
                         alphs.(x) 
                         specs.(x) x)
         in

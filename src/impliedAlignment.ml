@@ -1463,7 +1463,7 @@ module type S = sig
         int list -> Data.d ->
         tree -> Methods.implied_alignment list
 
-    val to_static_homologies : string -> bool ->
+    val to_static_homologies : bool ->
         (tree -> int list -> tree) ->
             bool  -> Methods.characters -> Data.d -> tree -> Data.d
 
@@ -2200,7 +2200,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let arr = Array.mapi updater encs in
         arr, species, trees
 
-    let to_static_character remove_non_informative character iamtx data = 
+    let to_static_character ?(separator=":") remove_non_informative character iamtx data = 
         let st = 
             Status.create "Static Approximation" None 
             "Converting implied alignments to static characters"
@@ -2213,7 +2213,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
-            Parser.SC.of_old_parser character (Some alphabets) (encodings, b, c)
+            Parser.SC.of_old_parser ~separator character (Some alphabets) (encodings, b, c)
         in
         Status.finished st;
         character, res
@@ -2293,26 +2293,22 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         codes
     
-    let to_static_homologies prefix ignore filter_fn remove_noninformative 
+    let to_static_homologies ignore filter_fn remove_noninformative 
             (chars : Methods.characters)  data tree = 
         let codes = get_char_codes chars data in
         let names = List.map (fun x -> Data.code_character x data) codes in
         let all_to_add = 
             List.fold_left (fun acc code -> 
+                let prefix = Data.code_character code data in
                 let _, ia = 
                     aux_create_implied_alignment filter_fn [code] data tree 
                 in
                 assert (1 = List.length ia);
                 let ia = List.hd ia in
 
-                let name =
-                    let code = 
-                        incr data.Data.character_code_gen;
-                        string_of_int !(data.Data.character_code_gen)
-                    in
-                    prefix ^ code
-                in
-                (to_static_character remove_noninformative name ia data) :: acc) 
+                let name = prefix in
+                let separator = ":ia:" in
+                (to_static_character ~separator remove_noninformative name ia data) :: acc) 
             []
             codes
         in

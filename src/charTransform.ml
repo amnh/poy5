@@ -240,7 +240,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         Status.report st;
         let new_data = 
-            IA.to_static_homologies "ImpliedAlignment" true filter_characters
+            IA.to_static_homologies true filter_characters
             remove_non_informative chars data tree 
         in
         Status.full_report ~msg:"Regenerating the nodes" st;
@@ -796,7 +796,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         | [] -> tree
 
     let process_static_approx prefix remove chars remove_non_informative data filter tree =
-        IA.to_static_homologies prefix remove 
+        IA.to_static_homologies remove 
         filter_characters remove_non_informative 
         chars data tree
 
