@@ -4593,10 +4593,11 @@ let apply_boolean nonadd_f add_f data char =
             * characters first *)
             let generate_characters_list () = 
                 Hashtbl.fold (fun taxon chars acc ->
-                    try match Hashtbl.find chars char with
-                    | (Stat (_, states)), _  -> 
-                            states :: acc
-                    | _ -> assert false
+                    try 
+                        match Hashtbl.find chars char with
+                        | (Stat (_, states)), _  -> 
+                                states :: acc
+                        | _ -> assert false
                     with
                     | Not_found -> None :: acc)
                 data.taxon_characters []
@@ -4626,9 +4627,10 @@ let apply_on_static ordered unordered sankoff likelihood char data =
         | Static spec ->
                 let specified_static_chars = 
                     Hashtbl.fold (fun a b acc -> 
-                        match Hashtbl.find b code with
+                        try match Hashtbl.find b code with
                         | (Stat (_, x), `Specified) -> x :: acc
-                        | _ -> acc) data.taxon_characters []
+                        | _ -> acc
+                        with Not_found -> acc) data.taxon_characters []
                 in
                 let res = 
                     match spec.Parser.SC.st_type with
