@@ -19,7 +19,10 @@ CFLAGS = $(CPPFLAGS) @CFLAGS@
 LDFLAGS = @LDFLAGS@
 LIBS = @LIBS@
 INSTALL = @INSTALL@
+MKDIR_P = @MKDIR_P@
 USEPARALLEL := @USEPARALLEL@
+USE_LARGE_MESSAGES := @USE_LARGE_MESSAGES@
+OCAML = @OCAML@
 
 SUBDIRS = ocamlmpi src doc
 
@@ -35,15 +38,34 @@ poy_test:
 	cd ./src/; $(MAKE) poy_test
 	cp ./src/poy_test ./test/
 
-MERCURIAL :=@MERCURIAL@
+./src/version.cmo: ./src/version.ml
+	$(MAKE) -C ./src version.cmo
 
-poy_server: poy xml/swami.xml
+./src/buildNumber.ml:
+	$(MAKE) -C ./src buildNumber.ml 
+
+./src/buildNumber.cmo: ./src/buildNumber.ml
+	$(MAKE) -C ./src buildNumber.cmo
+
+./src/compileFlags.ml:
+	$(MAKE) -C ./src compileFlags.ml 
+
+./src/compileFlags.cmo: ./src/compileFlags.ml
+	$(MAKE) -C ./src compileFlags.cmo
+
+version: ./src/compileFlags.cmo ./src/buildNumber.cmo ./src/version.cmo ./doc/makeVersion.ml
+	$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text
+
+poy_server: poy xml/swami.xml version
 	cd src; $(MAKE) poy_server
 
-xml/swami.xml: xml/swami.xml.in
-	cd xml; sed "s/VERSION/<version>4.0.`$(MERCURIAL)`<\/version>/g" swami.xml.in > swami.xml
+xml/swami.xml: version xml/swami.xml.in
+	export RESULT=`$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
 
-.PHONY:	subdirs $(SUBDIRS) clean driver install distclean
+VERSION: version 
+	export RESULT=`$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text`; echo "POY $${RESULT}" > VERSION
+
+.PHONY:	subdirs $(SUBDIRS) clean driver install distclean version
 subdirs:	$(SUBDIRS)
 
 transform = @program_transform_name@
