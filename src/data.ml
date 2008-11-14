@@ -578,9 +578,14 @@ let get_weights data =
     data.character_specs []
 
 (* Returns a fresh object with the added synonym from [a] to [b] to [data]. *)
-let add_synonym data (a, b) =
+let rec aux_add_synonym stack data (a, b) =
     (* We need to check if [a] already has an assigned synonym *)
-    if All_sets.StringMap.mem a data.synonyms then begin
+    if (a = b) then begin
+        let msg = String.concat " to " (a :: (List.rev (b :: stack))) in
+        Status.user_message Status.Warning 
+        ("I'm ignoring the self-synonym " ^ msg);
+        data
+    end else if All_sets.StringMap.mem a data.synonyms then begin
         (* Hum ... so we do have a synonym, we need now to check if [(a, b)]
          * is consistent with whatever is stored currently in [data],
          * otherwise this is an exception *)
@@ -593,27 +598,35 @@ let add_synonym data (a, b) =
                 in
                 output_error msg
             in
-            let ns = All_sets.StringMap.add a b data.synonyms in
-            { data with synonyms = ns }
+            if All_sets.StringMap.mem b data.synonyms then 
+                aux_add_synonym (b :: stack) data 
+                (a, All_sets.StringMap.find b data.synonyms)
+            else
+                let ns = All_sets.StringMap.add a b data.synonyms in
+                { data with synonyms = ns }
         end else data
+    end else if All_sets.StringMap.mem b data.synonyms then begin
+        aux_add_synonym (b :: stack) data (a, All_sets.StringMap.find b data.synonyms)
     end else begin 
         (* [a] doesn't have a synonym, so we simply add it *)
         let ns = All_sets.StringMap.add a b data.synonyms in
         { data with synonyms = ns }
     end
 
+let add_synonym = aux_add_synonym []
+
 let add_synonyms_file data file = 
     try
         let ch, file = FileStream.channel_n_filename file in
-        let syns = Parser.Dictionary.of_channel ch in
+        let syns = Parser.Dictionary.of_channel_assoc ch in
         close_in ch;
-        let len = Hashtbl.length syns in
+        let len = List.length syns in
         let msg = 
             "@[The@ file@ " ^ StatusCommon.escape file ^ 
             "@ contains@ " ^ string_of_int len ^ "@ synonyms.@]"
         in
         Status.user_message Status.Information msg;
-        Hashtbl.fold (fun a b c -> add_synonym c (a, b)) syns data 
+        List.fold_left ~f:add_synonym ~init:data syns
     with
     | (Sys_error err) as exn ->
             let file = FileStream.filename file in
