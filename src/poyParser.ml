@@ -511,7 +511,10 @@ let guess_class_and_add_file annotated is_prealigned data filename =
 let explode_filenames files = 
     let explode_filename file = 
         let file = FileStream.filename file in
-        if Sys.file_exists file then [file]
+        (* Warning: For some strange reason, if we run file_exists in
+        * windows, then we can not catch the interrupt signal in the 
+        * application. That suck for end users (ctr-C doesn't work). *)
+        if Sys.os_type <> "Win32" && Sys.file_exists file then [file]
         else
             let ch = 
                 let file = 
