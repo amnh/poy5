@@ -173,7 +173,7 @@ module type Tree_Operations =
             Methods.local_optimum -> (string * string) list -> 
                 (string * string) list
         val clear_internals : (a, b) p_tree -> (a, b) p_tree
-        val downpass : (a, b) p_tree -> (a, b) p_tree
+        val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
         val uppass : (a, b) p_tree -> (a, b) p_tree
         val incremental_uppass : 
             (a, b) p_tree -> incremental list -> (a, b) p_tree
@@ -365,7 +365,7 @@ module type SEARCH = sig
       val get_trees_considered : unit -> int
       val reset_trees_considered : unit -> unit
       val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : (a, b) p_tree -> (a, b) p_tree
+      val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
       (** [fuse_generations trees terminals max_trees tree_weight tree_keep iterations
@@ -390,7 +390,7 @@ module type SEARCH = sig
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          Parser.Tree.tree_types list ->
+          string option * Parser.Tree.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
@@ -1756,26 +1756,6 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
     @param d Data.d the data associated with the parser tree.
     @return p_tree that corresponds to the Parser.Tree.t *)
 let convert_to tree (d, nd_data_lst) = 
-    (*
-    let find_nd code node_data = 
-        List.find (fun x -> code = (Node.taxon_code x)) node_data in
-    let rec over_tree node = match node with
-        | Parser.Tree.Node (child,(name,branch)) ->
-            (match List.map over_tree child with
-             | [(b1,nd1);(b2,nd2)] ->
-                let tc = Data.taxon_code name d in
-                let new_node = Node.apply_time b1 b2 (find_nd tc nd_data_lst) in
-                branch, (new_node) :: (List.rev_append nd1 nd2)
-
-             | _ -> failwith "Please wait while computer crashes...")
-        | Parser.Tree.Leaf (name,branch) ->
-            let taxon_c = Data.taxon_code name d in
-            branch,(find_nd taxon_c nd_data_lst)::[]
-    in
-
-    let _, nd_data_lst = over_tree tree in
-    *)
-
     (* convert the Parser.Tree.t to Tree.u_tree *)
     let ut = Tree.convert_to tree d in
     let pt = { empty with tree = ut } in
@@ -1792,15 +1772,12 @@ let convert_to tree (d, nd_data_lst) =
     @param collapse is a function that check weather or not a branch can be
     collapsed.
     @return the ptree in the form of a Parser.Tree.t *)
-
-(** TODO:: BRANCH LENGTHS **)
+(* TODO:: BRANCH LENGTHS *)
 let build_trees (tree : Tree.u_tree) str_gen collapse root =
     let sortthem a b ao bo data ad bd =
         match String.compare ao bo with
-        | 0 | 1 -> 
-                Parser.Tree.Node (b @ a, data), bd + 1, bo
-        | _ -> 
-                Parser.Tree.Node (a @ b, data), bd + 1, ao
+        | 0 | 1 -> Parser.Tree.Node (b @ a, data), bd + 1, bo
+        | _ -> Parser.Tree.Node (a @ b, data), bd + 1, ao
     in
     let get_children = function
         | Parser.Tree.Leaf _ as x -> [x]
@@ -1955,6 +1932,7 @@ let compare_trees a b =
     | Parser.Tree.Branches t1, Parser.Tree.Branches t2 -> compare true t1 t2
     | Parser.Tree.Annotated (t1,_), Parser.Tree.Annotated (t2,_) -> compare true t1 t2
     | Parser.Tree.Flat t1, Parser.Tree.Flat t2 -> compare true t1 t2
+    | Parser.Tree.Characters t1, Parser.Tree.Characters t2 -> compare true t1 t2
     | _ -> failwith "Fill this all in??! really?"
 
 let get_unique trees =
@@ -2059,6 +2037,13 @@ let build_forest_as_tree collapse tree pd cost =
                     | _ -> failwith "consistency"
                 ) trees in
             Parser.Tree.Flat (Parser.Tree.Node (chillens, "forest"))
+        | Parser.Tree.Characters t ->
+            let chillens = List.map 
+                (fun x -> match x with
+                    | Parser.Tree.Characters x -> x
+                    | _ -> failwith "consistency"
+                ) trees in
+            Parser.Tree.Characters (Parser.Tree.Node (chillens, ("forest",None)))
         | Parser.Tree.Branches t ->
             let chillens = List.map 
                 (fun x -> match x with

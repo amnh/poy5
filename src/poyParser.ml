@@ -384,18 +384,19 @@ let process_tree prev lst =
                     let tr = Parser.Tree.of_file file in
                     let tr = 
                         let cnt = ref 0 in
-                        List.map (fun x -> (x, FileStream.filename file, (incr
-                        cnt; !cnt))) tr
+                        List.map 
+                            (fun x -> 
+                                (None,x), FileStream.filename file, (incr cnt; !cnt)
+                            ) tr
                     in
                     { data with Data.trees = data.Data.trees @ tr }
                 in
-                List.fold_left ~f:process_tree_file ~init:data
-                treefiles 
+                List.fold_left ~f:process_tree_file ~init:data treefiles 
         | TreesList trees ->
                 let cnt = ref 0 in
                 List.fold_left ~f:(fun acc x -> 
                     let trees = Parser.Tree.of_string x in
-                    let trees = List.map (fun x -> (x, "", (incr cnt; !cnt)))
+                    let trees = List.map (fun x -> (None,x), "", (incr cnt; !cnt))
                     trees in
                     { acc with Data.trees = trees @ acc.Data.trees })
                 ~init:data trees 

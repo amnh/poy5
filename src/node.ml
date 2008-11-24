@@ -308,23 +308,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
             let t1, t2 = match t1,t2 with
-                | Some (StaticMl x,fx), Some (StaticMl y,fy) -> 
-                    fx x.time, fy y.time 
-                | Some (StaticMl x,fx), None -> (match prev with 
+                | Some (time1), Some (time2) -> time1,time2 
+                | Some (time1), None -> (match prev with 
                     | Some (StaticMl prev) ->
                         let a,b = MlStaticCS.estimate_time prev.preliminary ca.preliminary in
-                        fx x.time, a +. b
+                        time1, a +. b
                     | None ->
                         failwith "Node.median: Cannot estimate time." )
-                | None, Some (StaticMl y,fy) -> (match prev with 
+                | None, Some (time2) -> (match prev with 
                     | Some (StaticMl prev) ->
                         let a,b = MlStaticCS.estimate_time prev.preliminary ca.preliminary in
-                        a +. b, fy y.time
+                        a +. b, time2
                     | None ->
                         failwith "Node.median: Cannot estimate time." )
                 | None, None ->
                     MlStaticCS.estimate_time ca.preliminary cb.preliminary 
-                | _ , _ -> raise (Illegal_argument "cs_median")
             in
             let median = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
             let n_cost = MlStaticCS.root_cost median in
@@ -858,7 +856,30 @@ let get_set =
 
 let median_counter = ref (-1)
 
-let median code old a b =
+let median ?brancha ?branchb code old a b =
+
+    let values_match code_ray tbl =
+        if Array.length code_ray = 0 then true else
+        let value = Hashtbl.find tbl (code_ray.(0)) in
+        Array.fold_left 
+            (fun acc x -> 
+                acc && (value = (Hashtbl.find tbl x)))
+            true
+            code_ray
+    in
+
+    let convert_2_lst chars tbl =
+        List.map (fun x -> match x with
+                    | StaticMl z -> (match tbl with
+                        | Some x ->
+                            let codes = MlStaticCS.get_codes z.preliminary in
+                            assert( values_match codes x );
+                            Some (Hashtbl.find x codes.(1))
+                        | None -> None)
+                    | _ -> None
+                 ) chars.characters
+    in
+
     (* the code is negative if we are calculating on an edge *)
     let code = 
         match code with
@@ -867,6 +888,10 @@ let median code old a b =
                 decr median_counter;
                 !median_counter
     in
+
+
+    let brancha = convert_2_lst a brancha
+    and branchb = convert_2_lst a branchb in
     (*
     Printf.printf "Code of median is %d with children %d and %d\n%!" code 
     a.taxon_code b.taxon_code;
@@ -874,11 +899,16 @@ let median code old a b =
     let new_characters =
         match old with
         | None -> 
-                map2 (cs_median code a b None None None)
-                a.characters b.characters
+                map4 (cs_median code a b None)
+                brancha
+                branchb
+                a.characters
+                b.characters
         | Some c ->
-                    map3 (fun x -> cs_median code a b (Some x) None None)
+                    map5 (fun x -> cs_median code a b (Some x))
                     c.characters
+                    brancha
+                    branchb
                     a.characters
                     b.characters
     in
@@ -911,6 +941,18 @@ let median code old a b =
 let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_data option) = 
     let get_some f x = match f x with | Some x -> x | None -> failwith "Inconsistency" in
 
+    let convert_2_lst = function
+        | Some (x,fn) -> 
+                List.map (fun y -> match y with
+                            | StaticMl z -> Some (fn z.time)
+                            | _ -> None
+                         ) x.characters
+        | None -> 
+                let rec mk num = if num = 0 then []
+                                 else None :: (mk (num-1)) in
+                mk (List.length nd_1.characters)
+    in
+
     let time_1 = match time_1 with
         | Some nd_t1 -> 
             if nd_t1.min_child_code = nd_1.min_child_code
@@ -923,6 +965,7 @@ let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_da
             then Some (nd_t2, get_some (fst))
             else Some (nd_t2, get_some (snd))
         | None -> None
+
     and code   = 
         match code with
         | Some code -> code
@@ -931,29 +974,11 @@ let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_da
                 !median_counter
     in
 
-    let new_characters = match time_1,time_2 with
-        | Some (nd_t1,ft1), Some (nd_t2,ft2) ->
-            map5 (fun x a b -> cs_median code nd_1 nd_2 (Some x) (Some (a,ft1)) (Some (b,ft2)))
+    let new_characters =
+        map5 (fun x -> cs_median code nd_1 nd_2 (Some x) )
                     prev.characters
-                    nd_t1.characters
-                    nd_t2.characters
-                    nd_1.characters
-                    nd_2.characters
-       | Some (nd_t1,ft1), None ->
-            map4 (fun x a -> cs_median code nd_1 nd_2 (Some x) (Some (a,ft1)) None)
-                    prev.characters
-                    nd_t1.characters
-                    nd_1.characters
-                    nd_2.characters
-       | None, Some (nd_t2,ft2) ->
-            map4 (fun x b -> cs_median code nd_1 nd_2 (Some x) None (Some (b,ft2)))
-                    prev.characters
-                    nd_t2.characters
-                    nd_1.characters
-                    nd_2.characters
-        | None, None ->
-            map3 (fun x -> cs_median code nd_1 nd_2 (Some x) None None)
-                    prev.characters
+                    (convert_2_lst time_1)
+                    (convert_2_lst time_2)
                     nd_1.characters
                     nd_2.characters
     in
@@ -1626,6 +1651,12 @@ let classify size doit chars data =
     if doit then Some (classify size chars data)
     else None
 
+module OrderedML = struct
+    type t = Parser.SC.ml_model
+    let compare a b = Pervasives.compare a b
+end
+module MLModelMap = Map.Make (OrderedML)
+
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
     kolmogorov static_ml data cost_mode =
@@ -1676,27 +1707,41 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     (List.map (fun x -> w, x) lst)) :: acc)
                 [] res
         in
-        let group_ml_by_codes lst = 
-            let hstbl = Hashtbl.create 97 in
+        let group_ml_by_model lst =
             let set_codes = 
                 List.fold_left (fun acc code ->
                     match Hashtbl.find (!data).Data.character_specs code with
-                    | Data.Static spec -> 
-                            let model = 
-                                match spec.Parser.SC.st_type with
+                    | Data.Static spec ->
+                            let model = match spec.Parser.SC.st_type with
                                 | Parser.SC.STLikelihood x -> x
                                 | _ -> assert false
                             in
-                            Hashtbl.add hstbl model.Parser.SC.set_code code;
-                            let group = model.Parser.SC.set_code in
-                            if All_sets.Integers.mem group acc then
-                                acc
-                            else All_sets.Integers.add group acc
+                            try
+                                let old = MLModelMap.find model acc in
+                                MLModelMap.add model (code::old) acc
+                            with | Not_found ->
+                                MLModelMap.add model ([code]) acc
                     | _ -> assert false)
-                All_sets.Integers.empty lst
+                MLModelMap.empty lst
             in
-            List.map (Hashtbl.find_all hstbl) 
-            (All_sets.Integers.elements set_codes)
+            MLModelMap.fold (fun k elm acc -> elm::acc) set_codes []
+
+        and group_by_sets lst = 
+            let curr = Hashtbl.create 1667 in
+            let sets = List.fold_left
+                (fun acc code ->
+                    try
+                        let name = Hashtbl.find (!data).Data.character_codes code in
+                        let set = Hashtbl.find (!data).Data.character_nsets name in
+                        Hashtbl.add curr set code;
+                        if List.mem set acc then
+                            acc
+                        else
+                            set::acc
+                    with | Not_found -> 
+                        Hashtbl.add curr "" code; acc )
+                [] lst in
+            List.map (Hashtbl.find_all curr) sets
         in
         let nadd8weights = classify 8 do_classify lnadd8code !data
         and nadd16weights = classify 16 do_classify lnadd16code !data
@@ -1705,8 +1750,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
-        and lstaticmlcode = group_ml_by_codes static_ml
+        and lstaticmlcode = 
+            List.flatten (List.map (group_ml_by_model) (group_by_sets static_ml))
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
+
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
         let laddcode = List.map add_codes laddcode 

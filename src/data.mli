@@ -31,7 +31,7 @@ type contents =
     | CostMatrix  (** A transformation cost matrix *)
     | Trees       (** Trees *)
 
-type parsed_trees = ((Parser.Tree.tree_types list) * string * int)
+type parsed_trees = ((string option * Parser.Tree.tree_types list) * string * int)
 
 type dyna_state_t = [
 (** A short sequence, no rearrangements are allowed*)
@@ -199,6 +199,7 @@ type bool_characters = [
     | `Some of (bool * int list)
     | `Names of (bool * string list)
     | `Random of float
+    | `CharSet of (bool * string list)
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
@@ -211,6 +212,7 @@ type characters = [
     | `Some of int list 
     | `Names of string list
     | `Random of float
+    | `CharSet of string list
     | `AllStatic
     | `AllDynamic
     | `Missing of (bool * int)
@@ -311,6 +313,10 @@ type d = {
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
     character_codes : (int, string) Hashtbl.t;
+    (* character set names to the list of charcter names *)
+    character_sets : (string, string list) Hashtbl.t;
+    (* A map between the character name and it's set *)
+    character_nsets : (string, string) Hashtbl.t;
     (* A map between the character codes and their specifications *)
     character_specs : (int, specs) Hashtbl.t;
     (** The set of taxa to be ignored in the analysis *)
@@ -318,6 +324,7 @@ type d = {
     (* The set of taxa to be ignored in the analysis *)
     ignore_character_set : string list;
     trees : parsed_trees list;
+    branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     non_additive_1 : int list;
     non_additive_8 : int list;
     non_additive_16 : int list;
@@ -356,8 +363,6 @@ val to_channel : out_channel -> d -> unit
  * data [d]. *)
 val code_taxon : int -> d -> string
 
-val independent : bool_characters -> d -> d
-
 (** [taxon_code n d] finds the code assigned to taxon [n] in the dataset 
  * [d]. *)
 val taxon_code : string -> d -> int
@@ -376,7 +381,6 @@ val process_parsed_sequences :
     string -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> bool ->
     Alphabet.a -> string -> dyna_state_t -> d -> 
     (Sequence.s list list list * Parser.taxon) list -> d
-            
 
 val process_molecular_file : string -> Cost_matrix.Two_D.m ->
     Cost_matrix.Three_D.m -> bool -> Alphabet.a -> bool -> 
@@ -401,7 +405,8 @@ val process_analyze_only_file : bool -> d -> Parser.filename list -> d
 val number_of_taxa : d -> int
 
 val process_analyze_only_taxa : 
-    [`Random of float | `Names of (bool * string list) | `Missing of (bool * int) ] -> d -> d
+    [`Random of float | `CharSet of (bool * string list) 
+    | `Names of (bool * string list) | `Missing of (bool * int) ] -> d -> d
 
 val categorize : d -> d
 

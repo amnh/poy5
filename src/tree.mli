@@ -126,12 +126,14 @@ val join_to_edge_delta : join_delta -> edge_delta
     of the connected components (when the tree is not fully connected). 
     There is one handle per connected component in the tree. *)
 type u_tree = {
+    tree_name : string option;
     u_topo : node All_sets.IntegerMap.t; (** Stores the tree topology as node
                                              records *)
     d_edges : EdgeSet.t;                (** Set of edges *)
     handles : All_sets.Integers.t;      (** Set of handle ids *)
     avail_ids : id list;                (** Unused ids available for reuse *)
     new_ids : id;                       (** Where to start numbering new ids *)
+    names : (int,string) Hashtbl.t;     (** numbers to name of nodes/subtrees *)
 }
 
 val get_break_handles : break_delta -> u_tree -> id * id
@@ -167,7 +169,7 @@ val other_two_nbrs : int -> node -> int * int
 val get_path_to_handle : int -> u_tree -> int * edge list
 val break : break_jxn -> u_tree -> u_tree * break_delta
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
-val convert_to : Parser.Tree.tree_types list -> Data.d -> u_tree
+val convert_to : string option * Parser.Tree.tree_types list -> Data.d -> u_tree
 val make_disjoint_tree : int list -> u_tree
 val move_handle : int -> u_tree -> u_tree * int list
 val edge_map : (edge -> 'a) -> u_tree -> (edge * 'a) list

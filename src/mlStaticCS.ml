@@ -18,7 +18,7 @@
 (* USA                                                                        *)
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
-let debug = false 
+let debug = false
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -39,7 +39,6 @@ type cm = { (* character model *)
     d: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui:(float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; }
 type t = {
-    code: int;
     mle: float;          (* -log likelihood of char set *)
     model: cm;
     codes: int array;
@@ -125,6 +124,8 @@ let print_barray2 a =
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
+
+let get_codes a = a.codes
 
 (* ------------------------------------------------------------------------- *)
 (* conversion/utility functions *)
@@ -310,12 +311,11 @@ let of_parser spec characters =
         | _ -> failwith "not a likelihood model" in 
 
     let (a_size,a_gap) = 
+        let alph = Alphabet.to_sequential (spec.Parser.SC.st_alph) in
         match model.Parser.SC.use_gap with
-        | true -> 
-            ( Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph)), -1 ) 
-        | false ->
-            ( Alphabet.size(Alphabet.to_sequential(spec.Parser.SC.st_alph))-1,
-              Alphabet.get_gap( spec.Parser.SC.st_alph ) ) in
+        | true -> Alphabet.size alph, (-1)
+        | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
+    in
 
     let variation,probabilities =
         (* set up all the probability and rates *)
@@ -357,8 +357,8 @@ let of_parser spec characters =
     let priors =
         match model.Parser.SC.base_priors with
         | Parser.SC.Estimated p
-        | Parser.SC.Given p -> 
-            assert(a_size = Array.length p); p in
+        | Parser.SC.Given p -> assert(a_size = Array.length p); p
+    in
 
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
     let sym = ref false in
@@ -425,7 +425,6 @@ let of_parser spec characters =
     let ba_chars = (Array.map loop_ characters) in (* create initial arrays *)
     let ba_chars = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout ba_chars in
     {
-        code = model.Parser.SC.set_code;
          mle = 0.0;
        model = {
             rate = variation;
@@ -470,7 +469,6 @@ let to_formatter attr mine minet _ data :Tags.output list =
         | None -> `String "None" in
 
     let attrib :Tags.attribute list = 
-        (Tags.Data.code, `Int mine.code) :: 
         (Tags.Nodes.min_time, str_t1) :: (Tags.Nodes.oth_time, str_t2) ::
         (Tags.Characters.mle, `Float mine.mle) :: attr in
 
@@ -611,7 +609,11 @@ let test_methods () =
     let f_osta = loglikelihood node_a prior 
     and f_ostb = loglikelihood node_b prior
     and f_ostc = loglikelihood node_c prior in
-    Printf.printf "3Loglikelihood: %f == %f == %f\n%!" f_osta f_ostb f_ostc;
+    let () = Printf.printf "3Loglikelihood: %f == %f == %f\n%!" f_osta f_ostb f_ostc in
+    ()
 
     (* ---- test 4
     let node_a = median_sym u d *)
+
+        
+let () = if debug then test_methods () else ()

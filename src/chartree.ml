@@ -158,7 +158,7 @@ let downpass_handle handle ({Ptree.tree=tree} as ptree) =
         tree
         ptree
 
-let downpass ({Ptree.tree=tree} as ptree) =
+let downpass ?data ({Ptree.tree=tree} as ptree) =
     Handles.fold
         downpass_handle
         (Tree.get_handles tree)

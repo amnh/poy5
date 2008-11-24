@@ -112,6 +112,10 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
         | Parser.Tree.Branches t ->
             calc_depth_leaves 
                     (fun (x,_) -> x) t depth max_depth num_leaves longest_name
+        | Parser.Tree.Characters t ->
+            calc_depth_leaves 
+                    (fun (x,_) -> x) t depth max_depth num_leaves longest_name
+
 
     (** [draw_tree t] takes a t which is a Parser.Tree.t type and draws a tree 
     *   also have optional arguments title, size and leafColor - The graph

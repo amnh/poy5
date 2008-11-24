@@ -45,7 +45,8 @@ module type S = sig
     (** [median par code prev a b] calculates a median between the nodes [a] and [b].
     * [prev] holds the previously calculated value of that median (could be used
     * for heuristic or speedup purposes). *)
-    val median : int option -> n option -> n -> n -> n
+    val median : ?brancha:(int,float) Hashtbl.t -> ?branchb:(int,float) Hashtbl.t -> 
+                     int option -> n option -> n -> n -> n
 
     (** [final_states granpa par cur a b] creates new node with [cur], parent
     * [par], children [a] and [b]. and parent of parent [grandpa]. This only

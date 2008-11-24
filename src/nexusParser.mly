@@ -79,6 +79,7 @@ let report_error text b e =
 %token <string> ITEMS
 %token <string> JPEG
 %token <string> LABELS
+%token <string> LIKELIHOOD
 %token <string> LOWER
 %token <string> MAM
 %token <string> MAP
@@ -90,6 +91,7 @@ let report_error text b e =
 %token <string> MIN
 %token <string> MINSTEPS
 %token <string> MISSING
+%token <string> MODEL
 %token <string> MTDNA
 %token <string> NAMES
 %token <string> NCHAR
@@ -103,10 +105,12 @@ let report_error text b e =
 %token <string> NUCLEOTIDE
 %token <string> NUCORDER
 %token <string> OPTIONS
+%token <string> PARAMETERS
 %token <string> POY
 %token <string> PICT
 %token <string> PICTURE
 %token <string> POLYTCOUNT
+%token <string> PRIORS
 %token <string> PROTEIN
 %token <string> RESOURCE
 %token <string> RESPECTCASE
@@ -147,6 +151,7 @@ let report_error text b e =
 %token <string> USERTYPE
 %token <string> UUENCODE
 %token <string> VARIANCE
+%token <string> VARIATION
 %token <string> VECTOR
 %token <string> WTSET
 %token <string> YEAST
@@ -191,8 +196,8 @@ block:
         { Nexus.Distances $4 }
     | BEGIN ASSUMPTIONS SEMICOLON assumptions END SEMICOLON
         { Nexus.Assumptions $4 }
-    | BEGIN SETS SEMICOLON list_of_anything END SEMICOLON
-        { Nexus.Ignore $2 }
+    | BEGIN SETS SEMICOLON sets_block END SEMICOLON
+        { Nexus.Sets $4 }
     | BEGIN IDENT error END SEMICOLON
         { Nexus.Error $2 }
     | BEGIN TAXA SEMICOLON error END SEMICOLON  
@@ -222,6 +227,12 @@ assumption_items:
     | error                         
     { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         raise Parsing.Parse_error }
+    ;
+
+sets_block:
+    | CHARSET IDENT EQUAL characterset_list SEMICOLON sets_block { ($2, $4) :: $6 }
+    | CHARSET IDENT EQUAL characterset_list SEMICOLON { ($2,$4) :: [] }
+    | any_thing_minus_end sets_block { $2 }
     ;
 optional_assumption_options:
     | OPTIONS deftype polytcount gapmode SEMICOLON { ($2, $3, $4) }
@@ -366,7 +377,7 @@ pictureencoding:
     | BINHEX    { Nexus.BinHex }
     ;
 optional_translate:
-    | TRANSLATE names SEMICOLON 
+    | TRANSLATE names SEMICOLON
         { snd (List.fold_left (fun (i,acc) x -> (i+1),(string_of_int i,x)::acc) (1,[]) $2) }
     | TRANSLATE pairs_list SEMICOLON { $2 }
     | { [] }
@@ -381,18 +392,31 @@ optional_tree_prequel:
     | { None }
     ;
 poy_block:
-    | CHARACTERBRANCH optional_tree_names optional_char_names
+    | CHARACTERBRANCH TREES EQUAL names NAMES EQUAL characterset_list SEMICOLON
                   MAP pairs_list_float SEMICOLON poy_block
-        { Nexus.CharacterBranch ($2, $3, $5) :: $7 }
+        { Nexus.CharacterBranch ($4, $7, $10) :: $12}
+
+    | LIKELIHOOD model_block poy_block { Nexus.Likelihood $2 :: $3 }
     | { [] }
     ;
-optional_tree_names:
-    | TREES EQUAL names { Some $3 } 
-    |                   { None }
+model_block:
+    | MODEL EQUAL IDENT SEMICOLON model_block
+            { (Nexus.Model $3) :: $5 }
+    | VARIATION EQUAL IDENT SEMICOLON model_block
+            { (Nexus.Variation $3) :: $5 }
+    | PRIORS EQUAL pairs_list_float model_block
+            { (Nexus.Priors $3) :: $4 }
+    | CHARSET EQUAL characterset_list SEMICOLON model_block
+            { (Nexus.Chars $3) :: $5 }
+    | PARAMETERS EQUAL float_list model_block
+            { (Nexus.Parameters $3) :: $4 }
+    | SEMICOLON { [] }
     ;
-optional_char_names:
-    | NAMES EQUAL names { Some $3 }
-    |                   { None }
+float_list:
+    | FLOAT float_list      { (float_of_string $1) :: $2 }
+    | INTEGER float_list    { (float_of_string $1) :: $2 }
+    | FLOAT SEMICOLON       { [(float_of_string $1)] }
+    | INTEGER SEMICOLON     { [(float_of_string $1)] }
     ;
 names:
     | IDENT COMMA names { $1 :: $3 }
@@ -570,13 +594,9 @@ characterset:
     | INTEGER DASH CHAR    { Nexus.Range ($1, None) }
     | INTEGER DASH INTEGER { Nexus.Range ($1, Some $3) }
     | INTEGER              { Nexus.Single ($1) }
-    | IDENT                { Nexus.Name $1 }
+    | IDENT                { Nexus.CharSet $1 }
     | SINGLEQUOTED         { Nexus.Name $1 }
     | CHAR                 { Nexus.Name (String.make 1 $1) }
-    ;
-list_of_anything:
-    | any_thing_minus_end list_of_anything { () }
-    | any_thing_minus_end { () }
     ;
 any_thing_minus_end:
     | TAXA  { () }
@@ -597,7 +617,6 @@ any_thing_minus_end:
     | CHARACTER { () }
     | CHARLABELS { () }
     | CHARPARTITION { () }
-    | CHARSET { () }
     | CHARSTATELABELS { () }
     | CODEORDER { () }
     | CODESET { () }
@@ -709,9 +728,10 @@ any_thing_minus_end:
     | LPARENT { () }
     | RPARENT { () }
     ;
+
+/* Entry of the Tree Parser */
 tree:
-    | do_star optional_label EQUAL single_tree EOF { ($2,$4) }
-    | do_star optional_label EQUAL single_tree EOF { ($2,$4) }
+    | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
     | IDENT optional_length optional_comment { Nexus.Leaf ($1, ($2, $3)) }

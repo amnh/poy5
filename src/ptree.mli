@@ -147,7 +147,7 @@ module type Tree_Operations =
     val string_of_node : a -> string
     val features : Methods.local_optimum -> (string * string) list -> (string * string) list
     val clear_internals : (a, b) p_tree -> (a, b) p_tree
-    val downpass : (a, b) p_tree -> (a, b) p_tree
+    val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  
@@ -321,7 +321,7 @@ module type SEARCH = sig
       val get_trees_considered : unit -> int
       val reset_trees_considered : unit -> unit
       val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : (a, b) p_tree -> (a, b) p_tree
+      val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
     (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
@@ -344,7 +344,7 @@ module type SEARCH = sig
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          Parser.Tree.tree_types list ->
+          string option * Parser.Tree.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 

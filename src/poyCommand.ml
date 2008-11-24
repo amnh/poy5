@@ -46,6 +46,7 @@ type old_identifiers = [
     | `All
     | `Names of (bool * string list)
     | `Some of (bool * int list)
+    | `CharSet of (bool * string list)
     | `AllDynamic
     | `AllStatic
     | `Missing of bool * int
@@ -2044,12 +2045,18 @@ let create_expr () =
                 [ LIDENT "not"; LIDENT "names"; ":"; left_parenthesis; x = LIST0
                 [x = STRING -> x] SEP ","; 
                     right_parenthesis -> `Names (false, x) ] |
+                [ LIDENT "not"; LIDENT "sets"; ":"; left_parenthesis; x = LIST0
+                [x = STRING -> x] SEP ","; 
+                    right_parenthesis -> `CharSet (false, x) ] |
                 [ LIDENT "not"; LIDENT "codes"; ":"; left_parenthesis; x = LIST0
                 [x = INT -> x] SEP ","; 
                     right_parenthesis -> `Some (false, List.map int_of_string x) ] |
                 [ LIDENT "names"; ":"; left_parenthesis; x = LIST0 [x = STRING
                 -> x] SEP ","; 
                     right_parenthesis -> `Names (true, x) ] |
+                [ LIDENT "sets"; ":"; left_parenthesis; x = LIST0 [x = STRING
+                -> x] SEP ","; 
+                    right_parenthesis -> `CharSet (true, x) ] |
                 [ LIDENT "codes"; ":"; left_parenthesis; x = LIST0 [x = INT ->
                     x] SEP ","; 
                     right_parenthesis -> `Some (true, List.map int_of_string x) ] |

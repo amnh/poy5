@@ -56,6 +56,7 @@
         ("ITEMS", fun x -> ITEMS x);
         ("JPEG", fun x -> JPEG x);
         ("LABELS", fun x -> LABELS x);
+        ("LIKELIHOOD", fun x -> LIKELIHOOD x);
         ("LOWER", fun x -> LOWER x); 
         ("MAM", fun x -> MAM x);
         ("MAP", fun x -> MAP x);                (* used in POY block *)
@@ -68,6 +69,7 @@
         ("MINSTEPS", fun x -> MINSTEPS x);
         ("MISSING", fun x -> MISSING x);
         ("MISSING", fun x -> MISSING x);
+        ("MODEL", fun x -> MODEL x);
         ("MTDNA", fun x -> MTDNA x);
         ("NAMES", fun x -> NAMES x);            (* used in POY block *)
         ("NCHAR", fun x -> NCHAR x);
@@ -81,10 +83,12 @@
         ("NUCLEOTIDE", fun x -> NUCLEOTIDE x);
         ("NUCORDER", fun x -> NUCORDER x);
         ("OPTIONS", fun x -> OPTIONS x);
+        ("PARAMETERS", fun x -> PARAMETERS x);
         ("PICT", fun x -> PICT x);
         ("PICTURE", fun x -> PICTURE x);
         ("POLYTCOUNT", fun x -> POLYTCOUNT x);
         ("POY", fun x -> POY x);                (* POY block start *)
+        ("PRIORS", fun x -> PRIORS x);
         ("PROTEIN", fun x -> PROTEIN x);
         ("RESOURCE", fun x -> RESOURCE x);
         ("RESPECTCASE", fun x -> RESPECTCASE x);
@@ -125,6 +129,7 @@
         ("USERTYPE", fun x -> USERTYPE x);
         ("UUENCODE", fun x -> UUENCODE x);
         ("VARIANCE", fun x -> VARIANCE x);
+        ("VARIATION", fun x -> VARIATION x);
         ("VECTOR", fun x -> VECTOR x);
         ("WTSET", fun x -> WTSET x);
         ("YEAST", fun x -> YEAST x);

@@ -705,7 +705,7 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
         let expected_cost = match tree with
             | Parser.Tree.Annotated (_,str) -> str
             | _ -> failwith "No Expected Cost" in
-        let tree = Tree.convert_to [tree] data in
+        let tree = Tree.convert_to (None,[tree]) data in
         let tree = Tree.reroot (pair tree) tree in
         process_cost tree expected_cost, Tree.CladeFP.sets tree
 

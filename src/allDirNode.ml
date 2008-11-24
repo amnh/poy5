@@ -172,9 +172,32 @@ module OneDirF :
     let get_mlstatic x n =
         Node.Standard.get_mlstatic x (force_val n)
 
-    let median my_code old a b = 
-        lazy_from_fun 
-        (fun () -> apply_f_on_lazy (Node.Standard.median my_code None) a b)
+    let median ?brancha ?branchb my_code old a b = 
+        match brancha,branchb with
+        | Some x,Some y ->
+                lazy_from_fun 
+                (fun () ->
+                    apply_f_on_lazy
+                        (Node.Standard.median ~brancha:x ~branchb:y my_code None)
+                        a b)
+        | None , None -> 
+                lazy_from_fun 
+                (fun () ->
+                    apply_f_on_lazy
+                        (Node.Standard.median my_code None)
+                        a b)
+        | Some x, None ->
+                lazy_from_fun 
+                (fun () ->
+                    apply_f_on_lazy
+                        (Node.Standard.median ~brancha:x my_code None)
+                        a b)
+        | None, Some y ->
+                lazy_from_fun 
+                (fun () ->
+                    apply_f_on_lazy
+                        (Node.Standard.median ~branchb:y my_code None)
+                        a b)
 
     let edge_iterator par_opt mine ch1 ch2 = 
         let n_mine = Node.Standard.edge_iterator (force_opt par_opt)
@@ -520,7 +543,7 @@ type nad8 = Node.Standard.nad8 = struct
         in
         { mine with adjusted=[node_dir]; },modified
 
-    let median my_code old a b =
+    let median ?brancha ?branchb my_code old a b =
         let na, nb,code = 
             match my_code with
             | Some code ->
@@ -545,8 +568,16 @@ type nad8 = Node.Standard.nad8 = struct
             | None -> None
         in
 
-        let lazy_node = 
-            OneDirF.median my_code old na.lazy_node nb.lazy_node in
+        let lazy_node = match brancha,branchb with
+            | Some x, Some y ->
+                OneDirF.median ~brancha:x ~branchb:y my_code old na.lazy_node nb.lazy_node
+            | None, None ->
+                OneDirF.median my_code old na.lazy_node nb.lazy_node
+            | Some x,None -> failwith "do later"
+                OneDirF.median ~brancha:x my_code old na.lazy_node nb.lazy_node
+            | None,Some y -> failwith "do later"
+                OneDirF.median ~branchb:y my_code old na.lazy_node nb.lazy_node
+        in
         let node = {
             lazy_node = lazy_node;
             dir = Some (na.code, nb.code); 

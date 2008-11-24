@@ -57,6 +57,9 @@ let sort_tree tree =
     | Parser.Tree.Branches tree ->
         let tree, _, _ = aux_sort_tree tree in
         Parser.Tree.Branches tree
+    | Parser.Tree.Characters tree ->
+        let tree, _ ,_ = aux_sort_tree tree in
+        Parser.Tree.Characters tree
 
 (** [draw b a] outputs a (crappy) ascii tree [a] in the channel [b]. [sep]
 * establishes the number of lines separating each leaf and [bd] the number of
@@ -174,13 +177,21 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
         match t with
         | Parser.Tree.Annotated (t,_) | Parser.Tree.Flat t -> 
                 let _ = filler (fun x -> x) t 0 0 in ()
-
         | Parser.Tree.Branches t ->
                 let _ = filler 
                             (fun (x,t) ->
                                 match t with
                                 | Some t ->
                                     Printf.ksprintf (fun x -> x) "%s:%f" x t
+                                | None -> x
+                            ) t 0 0 in
+                ()
+        | Parser.Tree.Characters t ->
+                let _ = filler 
+                            (fun (x,t) ->
+                                match t with
+                                | Some t ->
+                                    Printf.ksprintf (fun x -> x) "%s:%s" x t
                                 | None -> x
                             ) t 0 0 in
                 ()
@@ -277,6 +288,22 @@ let draw_parenthesis do_sort my_printer (t:Parser.Tree.tree_types) =
                     | s ,None -> d_str "[%s]" s
                 )
                 t
+    | Parser.Tree.Characters t ->
+            printer 
+                (fun (x,y) ->
+                    match y with
+                    | Some y -> d_str "%s[%s]" x y
+                    | None -> x
+                )
+                (fun (x,y) ->
+                    match x,y with
+                    | "",Some t -> d_str "[%s]" t
+                    | "",None -> ""
+                    | s ,Some t -> d_str "[%s][%s]" s t
+                    | s ,None -> d_str "[%s]" s
+                )
+                t
+
 
 let for_formatter ?(separator = " ") split_lines newick leafsonly t =
     let t = sort_tree t in
@@ -320,5 +347,14 @@ let for_formatter ?(separator = " ") split_lines newick leafsonly t =
                       (fun (x,y) -> if x = "" || leafsonly then ""
                                   else match y with
                                     | Some y -> Printf.ksprintf (fun x->x) "[%s]:%f" x y
+                                    | None -> "[" ^ x ^ "]" ))
+                      "" t
+    | Parser.Tree.Characters t ->
+            (generator (fun (x,y) -> match y with
+                        | Some y -> Printf.ksprintf (fun x->x) "[%s][%s]" x y
+                        | None   -> x)
+                      (fun (x,y) -> if x = "" || leafsonly then ""
+                                  else match y with
+                                    | Some y -> Printf.ksprintf (fun x->x) "[%s][%s]" x y
                                     | None -> "[" ^ x ^ "]" ))
                       "" t

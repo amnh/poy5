@@ -2275,6 +2275,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         let codes = Data.get_chars_codes data (`Names names) in
                         if dont_complement then `Some codes
                         else Data.complement_characters data (`Some codes)
+                | `CharSet (dont_complement, names) ->
+                        let codes = Data.get_chars_codes data (`CharSet names) in
+                        if dont_complement then `Some codes
+                        else Data.complement_characters data (`Some codes)
                 | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x ->
                         `Some (Data.get_chars_codes data x)
             in

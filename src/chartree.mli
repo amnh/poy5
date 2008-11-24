@@ -56,12 +56,13 @@ val print_node_data_indent :
 val downpass_handle :
   int ->
   'a p_tree -> 'a p_tree
+
 (** [downpass_handle handle tree] performs a downpass operation on the tree in
     [tree] with handle [handle].  This downpass uses existing nodes as previous
     alignments.  This operation is {i not} sufficient for having a correct cost
     associated with the tree. *)
-val downpass :
-  'a p_tree -> 'a p_tree
+val downpass : ?data:Data.d -> 'a p_tree -> 'a p_tree
+
 (** [downpass tree] performs a downpass on each handle of [tree] *)
 val force_downpass_handle :
   int ->

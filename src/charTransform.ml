@@ -813,6 +813,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         let codes = Data.get_chars_codes data (`Names names) in
                         if dont_complement then `Some codes
                         else Data.complement_characters data (`Some codes)
+                | `CharSet (dont_complement, names) ->
+                        let codes = Data.get_chars_codes data (`CharSet names) in
+                        if dont_complement then `Some codes
+                        else Data.complement_characters data (`Some codes)
                 | `Missing _ | `All | `AllStatic | `AllDynamic as x ->
                         `Some (Data.get_chars_codes data x)
                 | `Random fraction ->
@@ -919,8 +923,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 " or contact support on the mailing list");
                 data,nodes
             END
-        | `Independent chars -> 
-                data --> Data.independent chars --> Node.load_data
+        | `Independent chars -> failwith "this isn't a command right now"
         | `Prealigned_Transform chars ->
                 data 
                 --> (fun d -> Data.prealigned_characters

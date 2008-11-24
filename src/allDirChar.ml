@@ -26,6 +26,7 @@ let debug_node_fn = false       (* node creation *)
 let debug_adjust_fn = false
 let debug_clear_subtree = false
 let debug_join_fn = false
+let debug_branch_fn = true
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -72,13 +73,21 @@ with type b = AllDirNode.OneDirF.n = struct
             (fun () -> Node.Standard.median None None dataa datab)
 
     (* Creates a valid vertex that only has the downpass information *)
-    let create_lazy_interior_down ptree code a b =
+    let create_lazy_interior_down ?brancha ?branchb ptree code a b =
         if debug_node_fn then
             info_user_message "Creating lazy interior down between %d and %d" a b
         else ();
         let a_nd = Ptree.get_node_data a ptree 
         and b_nd = Ptree.get_node_data b ptree in
-        AllDirNode.AllDirF.median code None a_nd b_nd
+        match brancha,branchb with
+        | Some x,Some y ->
+            AllDirNode.AllDirF.median ~brancha:x ~branchb:y code None a_nd b_nd
+        | None, None ->
+            AllDirNode.AllDirF.median code None a_nd b_nd
+        | Some x,None ->
+            AllDirNode.AllDirF.median ~brancha:x code None a_nd b_nd
+        | None,Some y ->
+            AllDirNode.AllDirF.median ~branchb:y code None a_nd b_nd
 
     (* Creates a valid vertex that has the downpass and uppass information.
     * [a] and [b] have to be the component of the currently calculated subtree
@@ -680,10 +689,42 @@ with type b = AllDirNode.OneDirF.n = struct
         ptree
 
     (* ------------------------------------------------------------------------ *)
-
-    let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
+    let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
+        info_user_message "Internal Downpass";
         (* Traverse every vertex in the tree and assign the downpass and uppass
         * information using the lazy all direction nodes *)
+        let hashdoublefind data tree node_id = 
+            let transform_keys keylation table =
+                let ntable = Hashtbl.create 27 in
+                Hashtbl.iter 
+                    (fun name length ->
+                        try Hashtbl.add ntable (Hashtbl.find keylation name) length
+                        with | Not_found ->
+                            if debug_branch_fn then
+                                error_user_message "Couldn't find character name %s" name
+                            else ()
+                    ) table;
+                ntable
+            in
+            match tree.Tree.tree_name with
+            | Some tree_n ->
+                let tree_n = String.uppercase tree_n in
+               (try let tree_t = Hashtbl.find data.Data.branches (tree_n) in
+                    try let node_n = Hashtbl.find (tree.Tree.names) node_id in
+                        let node_n = String.uppercase node_n in
+                        try let char_n = Hashtbl.find tree_t node_n in
+                            Some (transform_keys data.Data.character_names char_n)
+                        with | Not_found ->
+                            if debug_branch_fn then
+                                error_user_message "Couldn't find node name %s" node_n; None
+                    with | Not_found ->
+                        if debug_branch_fn then
+                            error_user_message "Couldn't find node id %d" node_id; None
+                with | Not_found ->
+                    if debug_branch_fn then
+                        error_user_message "Couldn't find tree name %s" tree_n; None)
+            | None -> None
+        in
         let ptree = 
             (* A function to add  the vertices using a post order traversal 
             * from the Ptree library. *)
@@ -703,8 +744,23 @@ with type b = AllDirNode.OneDirF.n = struct
                                     Tree.other_two_nbrs prev v
                             | None -> a, b
                         in
-                        let interior = 
-                            create_lazy_interior_down ptree (Some code) a b
+                        let interior = match data with
+                            | Some data ->
+                                let x = hashdoublefind data ptree.Ptree.tree a
+                                and y = hashdoublefind data ptree.Ptree.tree b in
+                                (match x,y with
+                                 | Some x,Some y ->
+                                    create_lazy_interior_down
+                                        ~brancha:x ~branchb:y ptree (Some code) a b
+                                 | None, Some y ->
+                                    create_lazy_interior_down
+                                        ~branchb:y ptree (Some code) a b
+                                 | Some x, None ->
+                                    create_lazy_interior_down
+                                        ~brancha:x ptree (Some code) a b
+                                 | None,None ->
+                                      create_lazy_interior_down ptree (Some code) a b)
+                            | None -> create_lazy_interior_down ptree (Some code) a b
                         in
                         Tree.Continue, Ptree.add_node_data code interior ptree
             in
@@ -834,7 +890,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
 
-    let downpass ptree = 
+    let downpass ?data ptree = 
         current_snapshot "AllDirChar.downpass a";
 
         let res = 
@@ -842,15 +898,15 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> internal_downpass true ptree
+            | `Normal -> internal_downpass ?data true ptree
             | `Iterative (`ApproxD iterations) ->
-                    ptree --> internal_downpass true -->
+                    ptree --> internal_downpass ?data true -->
                         pick_best_root -->
                         assign_single --> 
                         adjust_tree iterations None 
             | `Iterative (`ThreeD iterations) ->
                     ptree
-                    --> internal_downpass true
+                    --> internal_downpass ?data true
                     --> pick_best_root
                     --> assign_single
                     --> adjust_tree iterations None

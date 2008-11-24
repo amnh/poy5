@@ -220,3 +220,5 @@ val distance : t -> t -> float -> float -> float
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Tags.attributes ->t -> float option * float option -> 
                         t option -> Data.d -> Tags.output list
+
+val get_codes : t -> int array
