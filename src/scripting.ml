@@ -375,7 +375,13 @@ let load_data (meth : Methods.input) data nodes =
                     (PoyParser.guess_class_and_add_file annotated is_prealigned) 
                 data 
                 files
-        | `Nucleotides files ->
+        | `PartitionedFile files 
+        | `Nucleotides files  as meth ->
+                let mode = 
+                    match meth with
+                    | `PartitionedFile _ -> `Partitioned Data.Clip
+                    | `Nucleotides _ -> `DO
+                in
                 let files = explode_filenames files in
                 let data = 
                     List.fold_left 
@@ -387,7 +393,8 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left 
                 (fun d f -> Data.process_molecular_file "tcm:(1,2)"
                 Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                annotated Alphabet.nucleotides is_prealigned `Seq d f) 
+                annotated Alphabet.nucleotides 
+                mode  is_prealigned `Seq d f) 
                 data files
         | `Chromosome files ->
 (** read chromosome data from files each chromosome is 
@@ -401,7 +408,7 @@ let load_data (meth : Methods.input) data nodes =
                 List.fold_left (fun d f ->
                     Data.process_molecular_file "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    annotated Alphabet.nucleotides false `Chromosome d f) 
+                    annotated Alphabet.nucleotides `DO false `Chromosome d f) 
                 data files
         | `Genome files -> 
 (** read genome data from files each genome is 
@@ -415,7 +422,7 @@ let load_data (meth : Methods.input) data nodes =
                 let data = List.fold_left (fun d f ->
                     Data.process_molecular_file "tcm:(1,2)"
                     Cost_matrix.Two_D.default Cost_matrix.Three_D.default
-                    annotated Alphabet.nucleotides false `Genome d f) 
+                    annotated Alphabet.nucleotides `DO false `Genome d f) 
                 data files
                 in 
                 data
@@ -433,7 +440,7 @@ let load_data (meth : Methods.input) data nodes =
                     Data.process_molecular_file 
                     "tcm:(1,2)" Cost_matrix.Two_D.default_aminoacids
                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                    annotated Alphabet.aminoacids is_prealigned `Seq d f) 
+                    annotated Alphabet.aminoacids `DO is_prealigned `Seq d f) 
                 data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
                 let data = Data.add_file data [Data.Characters] seq in
@@ -449,7 +456,8 @@ let load_data (meth : Methods.input) data nodes =
                     !prealigned_files;
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
-                tcmfile twod threed annotated alphabet is_prealigned `Seq data seq 
+                tcmfile twod threed annotated alphabet `DO 
+                is_prealigned `Seq data seq 
         | `Breakinv (seq, alph, read_options) ->
 (** read breakinv data from files each breakinv is 
 * presented as a sequence of general alphabets *)
@@ -463,7 +471,7 @@ let load_data (meth : Methods.input) data nodes =
                     Parser.PAlphabet.of_file alph orientation init3D 
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file tcmfile twod threed
-                annotated alphabet is_prealigned `Breakinv data seq
+                annotated alphabet `DO is_prealigned `Breakinv data seq
         | `ComplexTerminals files ->
                 List.fold_left Data.process_complex_terminals data 
                 (explode_filenames files)
@@ -2908,6 +2916,15 @@ END
                     (* Flush the formatter *)
                     Status.user_message (Status.Output (filename, false, []))
                     "@]%!";                     
+                    run
+            | `GraphicDiagnosis filename ->
+                    let trees =                          
+                        let classify = false in
+                        let run = update_trees_to_data ~classify false true run in
+                        Sexpr.map (TreeOps.to_formatter [] run.data) run.trees  
+                    in 
+                    GraphicsPs.display_diagnosis "Diagnosis" filename trees;
+                    (* Flush the formatter *)
                     run
             | `TimeDelta (title, filename) ->
                     let prev_time = !range_timer in

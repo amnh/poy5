@@ -29,6 +29,7 @@ type read_option_t = [
 type otherfiles = [
     | `AutoDetect of string
     | `Nucleotides of string list
+    | `PartitionedFile of string list
     | `Aminoacids of string list
     | `GeneralAlphabetSeq of (string * string * read_option_t list) 
     | `Breakinv of (string * string * read_option_t list)
@@ -132,6 +133,7 @@ type transform_method = [
     | `Prioritize
     | `SearchBased
     | `Fixed_States
+    | `Partitioned
     | `Direct_Optimization
     | `SeqToChrom of chromosome_args list
     | `ChangeDynPam of chromosome_args list
@@ -316,6 +318,7 @@ type reporta = [
     | `GraphicSupports of Methods.support_output option
     | `AllRootsCost
     | `Implied_Alignments of identifiers * bool
+    | `GraphicDiagnosis
     | `Diagnosis
     | `Nodes
 ]
@@ -425,6 +428,7 @@ let transform_transform acc (id, x) =
             | `Prioritize -> `Prioritize :: acc
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
+            | `Partitioned -> (`Partitioned id) :: acc
             | `Direct_Optimization -> (`Direct_Optimization id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
             | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
@@ -885,6 +889,10 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             | #Methods.characters as id ->
                     (`Implied_Alignment (file, id, include_header)) :: acc, file
             | _ -> acc, file)
+    | `GraphicDiagnosis -> 
+            (match file with
+            | None -> (`Diagnosis file) :: acc, file
+            | Some file -> (`GraphicDiagnosis file) :: acc, Some file)
     | `Diagnosis -> 
             (`Diagnosis file) :: acc, file
     | `Nodes ->
@@ -1219,6 +1227,7 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
+                [ LIDENT "partitioned" -> `Partitioned ] | 
                 [ LIDENT "fixed_states" -> `Fixed_States ] |
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
@@ -1510,6 +1519,7 @@ let create_expr () =
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
                     `GraphicSupports y ] |
                 [ LIDENT "diagnosis" -> `Diagnosis ] |
+                [ LIDENT "graphdiagnosis" -> `GraphicDiagnosis ] |
                 [ LIDENT "data" -> `Data ] |
                 [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" ->
                     `Xslt (a, b) ] |
@@ -1735,6 +1745,9 @@ let create_expr () =
         otherfiles:
             [
                 [ f = STRING -> `AutoDetect [`Local f] ] |
+                [ LIDENT "partitioned"; ":"; left_parenthesis; a = LIST1 [ x =
+                    STRING -> x ] SEP ","; right_parenthesis -> `PartitionedFile
+                    (to_local a) ] |
                 [ LIDENT "nucleotides"; ":"; left_parenthesis; a = LIST1 [x =
                     STRING -> x] SEP ","; 
                     right_parenthesis -> `Nucleotides (to_local a) ] |

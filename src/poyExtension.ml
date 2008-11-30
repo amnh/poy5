@@ -249,6 +249,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [
                 [ f = STRING -> <:expr<`AutoDetect $exSem_of_list (to_local [f])$>> ] |
                 [ f = cur_expr -> <:expr<`AutoDetect [`Local $f$]>> ] |
+                [ LIDENT "partitioned"; ":"; left_parenthesis; a = LIST1 [x =
+                    STRING -> x] SEP ","; 
+                    right_parenthesis -> <:expr<`PartitionedFile $exSem_of_list (to_local
+                    a)$>> ] |
                 [ LIDENT "nucleotides"; ":"; left_parenthesis; a = LIST1 [x =
                     STRING -> x] SEP ","; 
                     right_parenthesis -> <:expr<`Nucleotides $exSem_of_list (to_local
@@ -569,6 +573,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "tcm"; ":"; "("; x = flex_integer; ","; y
                 = flex_integer; ")" -> <:expr<`Gap ($x$, $y$)>> ] |
                 [ LIDENT "tcm"; ":";  x = flex_string -> <:expr<`Tcm $x$>> ] |
+                [ LIDENT "partitioned" -> <:expr<`Partitioned>> ] |
                 [ LIDENT "fixed_states" -> <:expr<`Fixed_States>> ] |
                 [ LIDENT "direct_optimization" -> <:expr<`Direct_Optimization>> ] |
                 [ LIDENT "gap_opening"; ":"; x = flex_integer -> <:expr<`AffGap $x$>> ] |

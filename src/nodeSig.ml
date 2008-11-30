@@ -254,7 +254,7 @@ module type S = sig
 
         (* [get_sequence code union] returns the character [code] of the
         * [union], provided that [code] refers to a sequence character. *)
-        val get_sequence : int option -> int -> u -> Sequence.Unions.u
+        val get_sequence : int option -> int -> u -> SeqCS.union_element
 
     end
 

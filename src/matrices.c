@@ -233,6 +233,21 @@ mat_CAML_print_algn_2d (value res, value mw, value mh) {
     CAMLreturn (Val_unit);
 }
 
+value
+mat_CAML_get_value (value res, value mw, value mh, value vrow, value vcolumn) {
+    CAMLparam5(res, mw, mh, vrow, vcolumn);
+    matricest m;
+    int w, h, row, column; 
+    DIRECTION_MATRIX *mm;
+    m = Matrices_struct(res);
+    w = Int_val(mw);
+    h = Int_val(mh);
+    row = Int_val(vrow);
+    column = Int_val(vcolumn);
+    mm = mat_get_2d_direct(m);
+    CAMLreturn (Val_int(*(mm + (row * w) + column)));
+}
+
 void
 mat_print_algn_3d (matricest m, int w, int h, int d) {
     int *mm;

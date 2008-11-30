@@ -17,9 +17,10 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+type t  
+IFDEF USE_LIKELIHOOD THEN
 type s  (* abstract type: contains matrix of character codes *)
 type cm
-type t  
 
 (** two functions to convert from double** to Bigarray.Array2 *)
 external s_bigarray: 
@@ -220,3 +221,4 @@ val distance : t -> t -> float -> float -> float
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Tags.attributes ->t -> float option * float option -> 
                         t option -> Data.d -> Tags.output list
+END

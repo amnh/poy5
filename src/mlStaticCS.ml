@@ -18,6 +18,7 @@
 (* USA                                                                        *)
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
+IFDEF USE_LIKELIHOOD THEN
 let debug = false 
 
 (** caml links to garbage collection for deserialization **)
@@ -615,3 +616,6 @@ let test_methods () =
 
     (* ---- test 4
     let node_a = median_sym u d *)
+ELSE 
+    type t = unit
+END

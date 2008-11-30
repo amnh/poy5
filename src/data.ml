@@ -134,15 +134,23 @@ let dyna_pam_default ={
     max_kept_wag = Some 1;
 }
 
+type clip = Clip | NoClip
+
+type dyna_initial_assgn = [ 
+    | `Partitioned of clip
+    | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
+    | `DO 
+    | `FS of 
+            ((float array array) * 
+            (Sequence.s array) * 
+            ((int, int) Hashtbl.t))  ]
+
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
     tcm : string;
     fo : string;
-    initial_assignment : [ 
-        | `DO 
-        | `FS of ((float array array) * (Sequence.s
-        array) * ((int, int) Hashtbl.t))  ];
+    initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m;
     alph : Alphabet.a;
@@ -510,6 +518,8 @@ let is_fs data code =
     | Dynamic x -> 
             match x.initial_assignment with
             | `FS _ -> true
+            | `Partitioned _
+            | `AutoPartitioned _
             | `DO -> false
 
 let get_empty_seq alph = 
@@ -1017,8 +1027,11 @@ let repack_codes data =
     process_available recode_character check data greatest_char_code 
     available_char_codes
 
-let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet 
-    file dyna_state data res =
+let ( --> ) a b = b a
+
+let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet 
+    file dyna_state data (res : (Sequence.s list list list *
+    All_sets.StringMap.key) list)  =
     let data = duplicate data in
     let res = 
         (* Place a single sequence together with its taxon *)
@@ -1030,7 +1043,6 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
                           let res1 = List.flatten res2 in
                           List.map (fun s -> s, b) res1) res
         in
-     
         (* Place each locus in a list containing all the taxa *)
         let arr = 
             let lst = List.map (Array.of_list) tmp in
@@ -1093,11 +1105,10 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
         | true -> `Annotated
         | false -> dyna_state
     in 
-    let add_character items max_len data = 
+    let add_character data = 
         let file = 
-            match annotated or (dyna_state = `Chromosome) with 
-            | false -> locus_name () 
-            | true -> original_filename
+            if  annotated || (dyna_state = `Chromosome) then original_filename
+            else locus_name () 
         in
         incr data.character_code_gen;
         let chcode = !(data.character_code_gen) in
@@ -1106,7 +1117,7 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
             fs = data.current_fs_file;
             tcm = tcmfile;
             fo = "0";
-            initial_assignment = `DO;
+            initial_assignment = default_mode;
             tcm2d = tcm;
             tcm3d = tcm3;
             alph = alphabet;
@@ -1120,15 +1131,7 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
         chcode, data
     in 
     let single_loci_processor acc res = 
-        let chcode, data = 
-            let get_lengths (a, b) (seq, _) =
-                a + 1, max b (Sequence.length seq)
-            in
-            let items, max_len = 
-                List.fold_left ~f:get_lengths ~init:(0, 0) res 
-            in
-            add_character items max_len acc 
-        in 
+        let chcode, data = add_character acc in 
         (* Now a function to process one taxon at a time to be 
         * folded over the taxa collected in the [file]. *)
         let process_a_taxon data (seq, taxon) =
@@ -1139,15 +1142,23 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
             in
             let tl = get_taxon_characters data tcode in
             let seqa = 
+                let makeone seqa = 
+                    {seq=seqa; code = -1}
+                in
                 match dyna_state with 
-                | `Seq -> seq
-                | _ -> Sequence.del_first_char seq 
+                | `Seq -> Array.map makeone seq
+                | _ -> Array.map (fun x -> x --> 
+                        Sequence.del_first_char --> makeone) seq 
             in 
-            let seq = {seq=seqa; code = -1} in
-            let dyna_data = {seq_arr =  [|seq|]} in 
+            let dyna_data = {seq_arr =  seqa} in 
             let _ = 
                 let spc =
-                    if 2 <= Sequence.length seqa then `Specified
+                    let maxlen =
+                        Array.fold_left ~f:(fun acc x ->
+                            max acc (Sequence.length x.seq)) ~init:0 
+                        seqa
+                    in
+                    if 2 <= maxlen then `Specified
                     else `Unknown
                 in
                 Hashtbl.replace tl chcode (Dyna (chcode, dyna_data), spc) 
@@ -1164,12 +1175,7 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
         let mat = Array.map Array.of_list arr in 
         let locus0 = mat.(0) in 
         let num_taxa = Array.length locus0 in 
-        let chcode, data = 
-            let max_len = 
-                Array.fold_left ~f:(fun x (seq, _) -> max x (Sequence.length seq)) ~init:0 locus0
-            in
-            add_character num_taxa max_len data 
-        in 
+        let chcode, data = add_character data in 
         data.seg_code_gen := 0;
         let rec add_taxon data t = 
             match t >= num_taxa with
@@ -1223,7 +1229,7 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
                  )
             )
         in 
-        let chcode, data =  add_character num_genome !max_chrom_len data in 
+        let chcode, data =  add_character data in 
         Array.fold_left 
             ~f:(fun data chrom_arr ->
                  let chrom_ls = Array.fold_left 
@@ -1253,12 +1259,33 @@ let process_parsed_sequences tcmfile tcm tcm3 annotated alphabet
                  data
             ) ~init:data genome_arr
     in 
+    let individual_fragments x = 
+        List.map (List.map ~f:(fun (seq, t) -> [|seq|], t)) x
+    in
+    let merge_fragments x =
+        match x with
+        | h :: t ->
+                let h = List.map ~f:(fun (seq, t) -> [seq], t) h in
+                let merged =
+                    List.fold_left 
+                    ~f:(fun merged next ->
+                        List.map2 ~f:(fun (seq, t) (locus, t2) ->
+                            assert (t = t2);
+                            (locus :: seq, t)) merged next) ~init:h t
+                in
+                List.rev_map (fun (lst, taxon) ->
+                    Array.of_list (List.rev lst), taxon) merged
+        | [] -> []
+    in
     let data = 
-        match annotated with  
-        | false -> 
-              if dyna_state = `Genome then process_genome data
-              else List.fold_left ~f:single_loci_processor ~init:data res 
-        | true ->  process_annotated_chrom data 
+        if annotated then process_annotated_chrom data 
+        else if dyna_state = `Genome then process_genome data
+        else if `DO = default_mode then
+            (res --> individual_fragments -->
+            List.fold_left ~f:single_loci_processor ~init:data)
+        else 
+            (res --> merge_fragments -->
+            single_loci_processor data)
     in 
     data
 
@@ -1338,7 +1365,7 @@ matrix, trees, sequences) : Parser.SC.file_output) =
                 size 1 1 all_elements
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences "tcm:(1,2)" tcm tcm3d false alphabet file
+            process_parsed_sequences "tcm:(1,2)" tcm tcm3d `DO false alphabet file
             `Seq data sequences
         in
         List.fold_left ~f:single_sequence_adder ~init:data sequences
@@ -1509,12 +1536,13 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
             data
     end
 
-let process_molecular_file tcmfile tcm tcm3 annotated alphabet is_prealigned dyna_state data file = 
+let process_molecular_file tcmfile tcm tcm3 annotated alphabet 
+mode is_prealigned dyna_state data file = 
     let data =
         aux_process_molecular_file 
         tcmfile tcm tcm3 alphabet
         (fun alph parsed -> 
-            process_parsed_sequences tcmfile tcm tcm3 annotated 
+            process_parsed_sequences tcmfile tcm tcm3 mode annotated 
             alph (FileStream.filename file) dyna_state data parsed)
         (fun x -> 
             if not is_prealigned then Parser.AlphSeq x
@@ -2102,6 +2130,12 @@ let character_spec_to_formatter enc : Tags.output =
             ( (Tags.Characters.name, `String dspec.filename) ::
                 (Tags.Characters.initial_assignment, 
                     (match dspec.initial_assignment with
+                    | `AutoPartitioned (_, size, _) -> 
+                            `String 
+                            ("AutoPartition of size " ^ string_of_int size ^ 
+                            " with DO")
+                    | `Partitioned _ -> 
+                            `String "User provided partition with DO"
                     | `DO -> `String "Direct Optimization"
                     | `FS _ -> `String "Fixed States")) ::
                 (Tags.Characters.tcm, `String dspec.tcm) ::
@@ -3532,7 +3566,7 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
                 let ia_arr = FullTupleMap.find (t_code, char_code) t_ch_ia_map in
                 let ia_arr = 
                     Array.map 
-                    (fun ia ->
+                    (function `DO ia | `Last ia | `First ia ->
                         let seq = Sequence.of_code_arr ia Alphabet.gap in 
                         Sequence.prepend_char seq Alphabet.gap)
                     ia_arr
@@ -3541,11 +3575,51 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
             with Not_found -> seqs) 
             data.taxon_codes []
         in                   
-        process_parsed_sequences tcmfile tcm tcm3d false alph
+        process_parsed_sequences tcmfile tcm tcm3d `DO false alph
         char_name `Seq data seqs) ~init:data 
         tran_code_ls 
     in 
     categorize data
+
+
+let get_sequences_of_code data code =
+    let process_taxon tcode chars acc =
+        try
+            let (tc, _) = Hashtbl.find chars code in
+            match tc with
+            | Dyna (_, c) -> (tcode, (c.seq_arr.(0)).seq)  :: acc
+            | _ -> failwith "Impossible?"
+        with
+        | Not_found -> acc
+    in
+    (Hashtbl.fold process_taxon 
+    data.taxon_characters [])
+
+let auto_partition data code =
+    let dhs =
+        match Hashtbl.find data.character_specs code with
+        | Dynamic dhs -> dhs
+        | _ -> assert false
+    in
+    let taxa = 
+        let gap = Alphabet.get_gap dhs.alph in
+        let taxa = get_sequences_of_code data code in
+        List.filter (fun (_, a) -> not (Sequence.is_empty a gap)) taxa 
+    in
+    let partitions = Splitting.partition dhs.tcm2d taxa in
+    match partitions with
+    | (_, ((_ :: _) as h)) :: _ ->  
+            let res = Hashtbl.create 1667 in
+            let size = 1 + (List.length h) in
+            List.iter 
+                (fun (code, part) -> Hashtbl.add res code part)
+                partitions;
+            Hashtbl.replace data.character_specs code 
+            (Dynamic { dhs with 
+                initial_assignment = `AutoPartitioned (Clip, size, res)})
+    | _ -> 
+            Status.user_message Status.Information 
+            "There are no potential partitions"
 
 let compute_fixed_states data code =
     let dhs =
@@ -3713,8 +3787,6 @@ let assign_tcm_to_characters_from_file data chars file =
                 Some (FileStream.filename f)
     in
     assign_tcm_to_characters data chars file None tcm
-
-let ( --> ) a b = b a
 
 let classify_characters_by_alphabet_size data chars =
     let is_dynamic_character x = 
@@ -4245,6 +4317,8 @@ let make_fixed_states chars data =
         | Dynamic dhs -> 
                 (match dhs.initial_assignment with
                 | `FS _ -> ()
+                | `Partitioned _
+                | `AutoPartitioned _
                 | `DO -> compute_fixed_states data code)
         | _ -> failwith "How could this happen?"
     in
@@ -4258,6 +4332,8 @@ let make_direct_optimization chars data =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs ->
                 (match dhs.initial_assignment with
+                | `AutoPartitioned _
+                | `Partitioned _
                 | `FS _ -> 
                         Hashtbl.replace data.character_specs code 
                         (Dynamic { dhs with initial_assignment = `DO })
@@ -4267,6 +4343,23 @@ let make_direct_optimization chars data =
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
     List.iter ~f:convert_and_process codes;
     data
+
+let make_partitioned chars data =
+    let data = duplicate data in
+    let convert_and_process code =
+        match Hashtbl.find data.character_specs code with
+        | Dynamic dhs -> 
+                (match dhs.initial_assignment with
+                | `FS _ -> ()
+                | `AutoPartitioned _
+                | `Partitioned _
+                | `DO -> auto_partition data code)
+        | _ -> failwith "How could this happen?"
+    in
+    let codes = get_code_from_characters_restricted_comp `Dynamic data chars in
+    List.iter ~f:convert_and_process codes;
+    data
+
 
 let number_of_taxa d = 
     Hashtbl.fold  (fun _ _ num_taxa -> num_taxa + 1) d.taxon_characters 0  

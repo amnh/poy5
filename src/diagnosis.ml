@@ -136,19 +136,33 @@ closef data to_process =
                                 in
                                  (* Check if the sequence is missing data *)
                                 let preprocess_sequence x =
-                                    let len = Array.length x in
-                                    let rec check it =
-                                        if it = len then true
-                                        else if x.(it) = 0 then check (it + 1)
-                                        else false
-                                    in
-                                    if check 0 then
-                                        for i = len - 1 downto 0 do
-                                            x.(i) <- 0;
-                                        done
-                                    else ()
+                                    match x with
+                                    | `DO x -> x
+                                    | `Last x
+                                    | `First x as m ->
+                                            let all = Utl.deref
+                                            (Alphabet.get_all alphabet) in 
+                                            let len = Array.length x in
+                                            try
+                                                match m with
+                                                | `Last x ->
+                                                        for i = len - 1 downto 0 do
+                                                            if x.(i) <> 0 then
+                                                                raise Exit
+                                                            else x.(i) <- all;
+                                                        done;
+                                                        x
+                                                | `First x ->
+                                                        for i = 0 to len - 1 do
+                                                            if x.(i) <> 0 then
+                                                                raise Exit
+                                                            else x.(i) <- all;
+                                                        done;
+                                                        x
+                                            with
+                                            | Exit -> x
                                 in
-                                let () = preprocess_sequence sequence in
+                                let sequence = preprocess_sequence sequence in
                                 let accumulator = 
                                     Array.fold_left (seqf alphabet gap) 
                                     (taxonf name) sequence 

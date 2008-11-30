@@ -23,6 +23,7 @@ type m
 external create : unit -> m = "mat_CAML_create_general"
 external print_2d : m -> int -> int -> unit = "mat_CAML_print_algn_2d"
 external print_3d : m -> int -> int -> int -> unit = "mat_CAML_print_algn_3d"
+external get_dir : m -> int -> int -> int -> int -> int = "mat_CAML_get_value"
 external init : unit -> unit = "mat_CAML_initialize"
 let default = create ()
 let _ = 

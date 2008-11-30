@@ -27,7 +27,7 @@ exception NotASequence of int
 
 (** A sequence representation used in the generation of an implied alignment *)
 type ias = {
-    seq : Sequence.s;    (** The sequence contained *)
+    seq : Sequence.Clip.s;    (** The sequence contained *)
     codes : (int, int) Hashtbl.t;
     (** The code of each position in the sequence *)
     homologous: (int, int Sexpr.t) Hashtbl.t;
@@ -79,7 +79,7 @@ val code_generator : unit -> cg
  * state indicate the type of sequence, i.e., Sequence, Chromosome, Annotated,
  * Genome, Breakinv....
  *)
-val create_ias : dyna_state_t -> Sequence.s -> int -> cg -> ias
+val create_ias : dyna_state_t -> Sequence.Clip.s -> int -> cg -> ias
 
 exception IsSankoff
 
@@ -106,7 +106,9 @@ module type S = sig
     * [t], where the first element of the tuple [t] is a function that removes a
     * gap from the alphabet set of the sequences contained in tree (it implies
     * that [t] only has one sequence). *)
-    val of_tree : ((int -> int) * tree) -> Methods.implied_alignment
+    val of_tree : 
+        ((Data.dyna_state_t * Data.dyna_initial_assgn) * (int -> int) * tree) -> 
+        Methods.implied_alignment
 
     val create : (tree -> int list -> tree) ->
         int list -> Data.d ->

@@ -114,10 +114,12 @@ val code : t -> int
 
 (** [leaf_sequences a] turns dynamic character set [a] 
 * into a set of chromosome arrays *)
-val leaf_sequences : t -> Sequence.s array SeqCS.Codes.t
+val leaf_sequences : t -> 
+    [ `DO of Sequence.s | `First of Sequence.s | `Last of Sequence.s ] 
+    array SeqCS.Codes.t
 
 (** [unions a] returns the union of dynamic character set [a] *)
-val unions : u -> Sequence.Unions.u option SeqCS.Codes.t
+val unions : u -> SeqCS.union_element option SeqCS.Codes.t
 
 val to_union : t -> u
 val union : t -> u -> u -> u
@@ -221,7 +223,7 @@ val tabu_distance : t -> t -> float
 val get_active_ref_code : t -> ChromCS.IntSet.t * ChromCS.IntSet.t
 
 val cardinal : t -> int
-val get_sequence_union : SeqCS.Codes.key -> u -> Sequence.Unions.u option
+val get_sequence_union : SeqCS.Codes.key -> u -> SeqCS.union_element option
 
 val encoding :
   (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->

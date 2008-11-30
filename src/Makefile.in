@@ -276,7 +276,7 @@ BASE_OBJS :=  camlpdf-0.3/zlibstubs.o gz-0.5.7/gz.cma compileFlags.cmo sadmanlib
 	timer.cmo $(GETRUSAGE) buildNumber.cmo version.cmo \
 	$(INTERFACE) sexpr.cmo xml.cmo poyFormaters.cmo \
 	fileStream.cmo sequences.cma $(CAMLPDFOBJ) array_ops.cmo $(PARSER) \
-	distances.cma $(LIKELIHOOD_COMPONENTS) $(CHARACTER) methods.cmo trees.cma diagnosis.cmo \
+	distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) trees.cma diagnosis.cmo \
 	supports.cmo help.cmo helpIndex.cmo analyzer.cmo \
 	commandLexer.cmo poyCommand.cmo $(XSLT_COMPONENTS) scripting.cmo \
 
@@ -582,6 +582,9 @@ nexusParser.mli: nexusParser.ml
 %.cmxs: %.cmx
 	$(OCAMLOPT) -shared -o $@ $<
 
+%.cmxs: %.cmx
+	$(OCAMLOPT) -shared -o $@ $<
+
 %.cmi: %.mli poyExtension.cmo
 	$(OCAMLC) $(OPTIONSPREPROCESSOR) -I +camlp4 $(OCAML_INCLUDES) $(DEBUG) $<
 
@@ -821,5 +824,7 @@ poyParser.cmx: poyParser.ml
 		$(OCAML_INCLUDES:-unsafe=) $(CCOPT:-unsafe=) -c $<
 poyExtension.cmo: kolmoExtension.cmo poyExtension.ml
 	$(OCAMLC) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
+poyExtension.cmx: poyExtension.ml
+	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
 poyExtension.cmx: kolmoExtension.cmx poyExtension.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml

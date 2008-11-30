@@ -24,6 +24,11 @@ let () = SadmanOutput.register "SeqCS" "$Revision: 2871 $"
 
 module Codes = All_sets.IntegerMap
 
+type union_element = 
+    | Single of Sequence.Unions.u
+    | Array of Sequence.Unions.u array
+
+
 type cost_tuple = {
     min : float;
     max : float;
@@ -656,6 +661,9 @@ module DOS = struct
             position : int;
         }
 
+    let safe_reverse x = 
+        { x with sequence = Sequence.safe_reverse x.sequence }
+
     let create seq = {
         sequence = seq;
         aligned_children = Raw seq, Raw seq, Raw seq;
@@ -858,6 +866,434 @@ ELSE
             Matrix.default)
 END
 
+        let dist_2 h n a b =
+            let gap = Cost_matrix.Two_D.gap h.c2 in
+            let tmp =
+                if Sequence.is_empty a.sequence gap then
+                    n.sequence
+                else 
+                    Sequence.Align.full_median_2 a.sequence
+                    b.sequence h.c2 Matrix.default
+            in
+            let cost = 
+                Sequence.Align.cost_2 n.sequence tmp h.c2
+                Matrix.default
+            in
+            cost
+
+        let compare a b =
+            Sequence.compare a.sequence b.sequence
+end
+
+module PartitionedDOS = struct
+    type fragment = 
+        | DO of DOS.do_single_sequence
+        | First of DOS.do_single_sequence
+        | Last of DOS.do_single_sequence
+
+    type partitioned_sequence = fragment array
+
+    let create mode clip alph =
+        let seqs =
+            match mode with
+            | `Partitioned seqs -> seqs
+            | `AutoPartitioned (splits, seq) ->
+                    let seqs = Sequence.split splits seq alph in
+                    Array.of_list seqs 
+        in
+        let last = (Array.length seqs) - 1 in
+        Array.mapi (fun pos x -> 
+            if pos = 0 && clip = Data.Clip then
+                First (DOS.create x)
+            else if pos = last && clip = Data.Clip then
+                Last (DOS.create x)
+            else DO (DOS.create x)) seqs
+
+    let empty clip size alph = 
+        let s = Sequence.create 1 in
+        Sequence.prepend s (Alphabet.get_gap alph);
+        let cr = DOS.create s in
+        Array.init size (fun x -> 
+            if x = 0 && clip = Data.Clip then
+                First cr
+            else if x = size - 1 && Data.Clip = clip then
+                Last cr
+            else DO cr)
+
+    let to_union a = Array.map (function 
+        | Last x
+        | First x
+        | DO x -> DOS.to_union x) a
+
+    let clip_n_fix s1 s2 = 
+        (* We return the sequences with their corrections, and functions 
+        * to correct the median and the pairwise alignments *)
+        let identity x = x in
+        let aux s1 s2 s1len s2len =
+            assert (s1len >= s2len);
+            if s1len > (s2len *. Sequence.Clip.fraction) then
+                (* We eliminate enough to make the length difference 
+                * only 10% of the overall length *)
+                let maxlen = truncate (s2len *. Sequence.Clip.fraction) in
+                let dif = (truncate s1len) - maxlen in
+                let cnt = ref (truncate s1len) in
+                let s1' = Sequence.init (fun x ->
+                    decr cnt;
+                    if x = 0 then Sequence.get s1.DOS.sequence 0
+                    else Sequence.get s1.DOS.sequence !cnt) maxlen 
+                in
+                let s1' = { s1 with DOS.sequence = s1' } in
+                let add_bottom x =
+                    let len = Sequence.length x.DOS.sequence in
+                    let newx = Sequence.create (len + dif) in
+                    for i = (len - 1) downto 1 do
+                        Sequence.prepend newx 
+                        (Sequence.get x.DOS.sequence i);
+                    done;
+                    { x with DOS.sequence = newx }
+                in
+                let fixs1 x =
+                    let newx = add_bottom x in
+                    for i = dif downto 0 do
+                        Sequence.prepend newx.DOS.sequence 
+                        (Sequence.get s1.DOS.sequence i);
+                    done;
+                    newx
+                in
+                let fixs2 x =
+                    let newx = add_bottom x in
+                    let gap = Sequence.get s1.DOS.sequence 0 in
+                    for i = dif downto 0 do
+                        Sequence.prepend newx.DOS.sequence gap;
+                    done;
+                    newx
+                in
+                let fixmedian x = 
+                    let newx = add_bottom x in
+                    for i = dif downto 0 do
+                        Sequence.prepend newx.DOS.sequence
+                        (Sequence.get s1.DOS.sequence i)
+                    done;
+                    newx
+                in
+                assert (s1.DOS.sequence = (fixs1 s1').DOS.sequence);
+                s1', s2, fixs1, fixs2, fixmedian, fixs1, identity
+            else 
+                s1, s2, identity, identity, identity, identity, identity
+        in
+        let s1len = float_of_int (Sequence.length s1.DOS.sequence)
+        and s2len = float_of_int (Sequence.length s2.DOS.sequence) in
+        if s1len >= s2len then aux s1 s2 s1len s2len
+        else 
+            let a, b, c, d, e, f, g = aux s2 s1 s2len s1len in
+            b, a, d, c, e, g, f
+
+    let readjust mode h ch1 ch2 parent mine =
+        let cost = ref 0 in
+        let is_0 = ref true in
+        let res =
+            Array.init (Array.length ch1) (fun i ->
+                match ch1.(i), ch2.(i), parent.(i), mine.(i) with
+                | _, _, _, First _ 
+                | _, _, First _, _ 
+                | _, First _, _, _ 
+                | First _, _, _, _ 
+                | _, _, _, Last _ 
+                | _, _, Last _, _ 
+                | _, Last _, _, _ 
+                | Last _, _, _, _  ->
+                        mine.(i)
+                | DO ch1, DO ch2, DO parent, DO mine ->
+                        let x, y, z = 
+                            DOS.readjust mode h ch1 ch2 parent mine 
+                        in
+                        is_0 := !is_0 && x;
+                        cost := !cost + z;
+                        DO y)
+        in
+        !is_0, res, !cost
+
+    let identity x = x
+
+    let to_single h parent mine =
+        let tmp_cost = ref 0 in
+        let gap = Cost_matrix.Two_D.gap h.c2 in
+        let to_single_tip reverse parent mine =
+            if Sequence.is_empty mine.DOS.sequence gap then
+                mine
+            else 
+                let parent = 
+                    if Sequence.is_empty parent.DOS.sequence gap then
+                        mine
+                    else parent
+                in
+                let parent = reverse parent
+                and mine = reverse mine in
+                let parent', mine', _, _, _, _, fixmine = 
+                    clip_n_fix parent mine 
+                in
+                let x, y = DOS.to_single h parent' mine' in
+                tmp_cost := y + !tmp_cost;
+                reverse (fixmine x)
+        in
+        let res = Array.init (Array.length mine) (fun i ->
+            match parent.(i), mine.(i) with
+            | DO parent, First mine
+            | First parent, First mine -> 
+                    First (to_single_tip identity parent mine)
+            | First parent, DO mine ->
+                    DO (to_single_tip identity parent mine)
+            | DO parent, Last mine
+            | Last parent, Last mine -> 
+                    Last (to_single_tip DOS.safe_reverse parent mine)
+            | Last parent, DO mine ->
+                    DO (to_single_tip DOS.safe_reverse parent mine)
+            | DO parent, DO mine ->
+                    let x, y = DOS.to_single h parent mine in
+                    tmp_cost := y + !tmp_cost;
+                    DO x
+            | Last _, First _
+            | First _, Last _ -> assert false)
+        in
+        res, !tmp_cost
+
+    let median alph code h a b =
+        let tmpcost = ref 0 in
+        let median_of_tip reverse a b =
+            let gap = Cost_matrix.Two_D.gap h.c2 in 
+            if Sequence.is_empty a.DOS.sequence gap then
+                DOS.create b.DOS.sequence
+            else if Sequence.is_empty b.DOS.sequence gap then
+                DOS.create a.DOS.sequence
+            else 
+                let a = reverse a
+                and b = reverse b in
+                let a, b, fixa, fixb, fixmedian, _, _ = clip_n_fix a b in
+                let seqm, tmpa, tmpb, cost, seqmwg =
+                    match Cost_matrix.Two_D.affine h.c2 with
+                    | Cost_matrix.Affine _ -> 
+                            Sequence.Align.align_affine_3 
+                            a.DOS.sequence b.DOS.sequence h.c2
+                    | _ ->
+                            let tmpa, tmpb, cost = 
+                                Sequence.Align.align_2 a.DOS.sequence 
+                                b.DOS.sequence h.c2 Matrix.default
+                            in
+                            let seqm = Sequence.Align.ancestor_2 tmpa tmpb h.c2 in
+                            let seqmwg = 
+                                Sequence.Align.median_2_with_gaps tmpa tmpb h.c2 
+                            in
+                            seqm, tmpa, tmpb, cost, seqmwg
+                in
+                let rescost = DOS.make_cost cost in
+                let a = reverse (fixa a)
+                and b = reverse (fixb b)
+                and tmpa = reverse (fixa (DOS.create tmpa))
+                and tmpb = reverse (fixb (DOS.create tmpb))
+                and seqm = reverse (fixmedian (DOS.create seqm))
+                and seqmwg = reverse (fixmedian (DOS.create seqmwg)) in
+                let ba = 
+                    DOS.seq_to_bitset gap tmpa.DOS.sequence (Raw a.DOS.sequence)
+                and bb = 
+                    DOS.seq_to_bitset gap tmpb.DOS.sequence (Raw b.DOS.sequence) 
+                and bm = 
+                    DOS.seq_to_bitset gap seqmwg.DOS.sequence 
+                    (Raw seqm.DOS.sequence) 
+                in
+                (*
+                assert (tmpa.DOS.sequence = DOS.bitset_to_seq gap ba);
+                assert (tmpb.DOS.sequence = DOS.bitset_to_seq gap bb);
+                assert (seqmwg.DOS.sequence = DOS.bitset_to_seq gap bm);
+                *)
+                tmpcost := !tmpcost + cost;
+                { DOS.sequence = seqm.DOS.sequence; 
+                aligned_children = (ba, bb, bm); 
+                costs = rescost; position = 0 }
+        in
+        let res = 
+            Array.init (Array.length a) (fun i ->
+                match a.(i), b.(i) with
+                | DO a, First b
+                | First a, DO b -> DO (median_of_tip identity a b)
+                | First a, First b -> First (median_of_tip identity a b)
+                | Last a, DO b
+                | DO a, Last b -> DO (median_of_tip DOS.safe_reverse a b)
+                | Last a, Last b -> Last (median_of_tip DOS.safe_reverse a b)
+                | DO a, DO b ->
+                        let x, y = DOS.median alph code h a b in
+                        tmpcost := y + !tmpcost;
+                        DO x
+                | First _, _
+                | Last _, _ -> assert false
+                )
+        in
+        res, !tmpcost
+
+    let median_3_no_union h p n c1 c2 =
+        Array.init (Array.length n) (fun i ->
+            match p.(i), n.(i), c1.(i), c2.(i) with
+            | Last p, Last n, Last c1, Last c2 
+            | First p, First n, First c1, First c2 ->
+                    assert (false) (* TODO *)
+            | DO p, DO n, DO c1, DO c2 ->
+                    DO (DOS.median_3_no_union h p n c1 c2)
+            | Last _, _, _, _
+            | First _, _, _, _
+            | DO _, _, _, _ -> assert false)
+
+    let median_3_union h p n c1 c2 =
+        Array.init (Array.length n) (fun i ->
+            match p.(i), n.(i), c1.(i), c2.(i) with
+            | First p, First n, First c1, First c2 -> 
+                    First n
+            | Last p, Last n, Last c1, Last c2 ->
+                    Last n
+            | DO p, DO n, DO c1, DO c2 ->
+                    DO (DOS.median_3_union h p n c1 c2)
+            | First _, _, _, _
+            | Last _, _, _, _
+            | DO _, _, _, _ -> assert false)
+
+    let distance alph h missing_distance a b =
+        let dist = ref 0 in
+        let distance_tip reverse a b =
+            let a = reverse a
+            and b = reverse b in
+            let a, b, _, _, _, _, _ = clip_n_fix a b in
+            dist := !dist + DOS.distance alph h missing_distance a b
+        in
+        for i = (Array.length a) - 1 downto 0 do
+            match a.(i), b.(i) with
+            | First a, DO b
+            | DO a, First b
+            | First a, First b -> distance_tip identity a b
+            | DO a, Last b 
+            | Last a, DO b
+            | Last a, Last b -> distance_tip DOS.safe_reverse a b
+            | DO a, DO b -> 
+                    dist := !dist + DOS.distance alph h missing_distance a b
+            | Last _, First _
+            | First _, Last _ -> assert false
+        done;
+        !dist
+
+    let merge arr = 
+        let total_len, min, max = 
+            Array.fold_left (fun (total_len, mincost, maxcost) x -> 
+                match x with
+                | Last x 
+                | First x
+                | DO x ->
+                        total_len + Sequence.length x.DOS.sequence,
+                        mincost +. x.DOS.costs.min,
+                        maxcost +. x.DOS.costs.max)
+            (0, 0., 0.) arr
+        in
+        let res = Sequence.create total_len in
+        for i = (Array.length arr) - 1 downto 0 do
+            match arr.(i) with
+            | Last seq
+            | First seq
+            | DO seq ->
+                    let seq = seq.DOS.sequence in
+                    let len = Sequence.length seq in
+                    for j = (len - 1) downto 1 do
+                        Sequence.prepend  res (Sequence.get seq j);
+                    done;
+                    if i = 0 then Sequence.prepend res (Sequence.get seq 0) ;
+        done;
+        { DOS.sequence = res;
+        aligned_children = Raw res, Raw res, Raw res;
+        costs = {min = min; max = max};
+        position = 0 }
+
+
+    let dist_2 h n a b =
+        let total = ref 0 in
+        let do_one n a b =
+            let a, b, _, _, fixmedian, _, _ = clip_n_fix a b in
+            let gap = Cost_matrix.Two_D.gap h.c2 in
+            let tmp =
+                if Sequence.is_empty a.DOS.sequence gap then
+                    n.DOS.sequence
+                else 
+                    Sequence.Align.full_median_2 a.DOS.sequence
+                    b.DOS.sequence h.c2 Matrix.default
+            in
+            let tmp = fixmedian { a with DOS.sequence = tmp } in
+            let cost = 
+                let n, tmp, _, _, _, _, _ = clip_n_fix n tmp in
+                Sequence.Align.cost_2 n.DOS.sequence 
+                tmp.DOS.sequence  h.c2 Matrix.default
+            in
+            total := !total + cost
+        in
+        for i = (Array.length n) - 1 downto 0 do
+            match n.(i), a.(i), b.(i) with
+            | DO n, First a, First b
+            | First n, DO a, First b
+            | First n, First a, DO b
+            | DO n, DO a, First b
+            | DO n, First a, DO b
+            | First n, DO a, DO b
+            | First n, First a, First b -> do_one n a b
+            | DO n, Last a, Last b
+            | Last n, DO a, Last b
+            | Last n, Last a, DO b
+            | DO n, DO a, Last b
+            | DO n, Last a, DO b
+            | Last n, DO a, DO b
+            | Last n, Last a, Last b ->
+                    let n = DOS.safe_reverse n
+                    and a = DOS.safe_reverse a
+                    and b = DOS.safe_reverse b in
+                    do_one n a b
+            | DO n, DO a, DO b ->
+                    total := !total + (DOS.dist_2 h n a b)
+            | First _, _, _
+            | Last _, _, _
+            | DO _, _, _ -> assert false
+        done;
+        !total
+
+    let compare a b =
+        let compare = ref 0 in
+        try
+            for i = 0 to (Array.length a) - 1 do
+                match a.(i), b.(i) with
+                | First a, First b 
+                | Last a, Last b
+                | DO a, DO b -> 
+                        compare := DOS.compare a b;
+                        if !compare <> 0 then raise Exit
+                | _, DO _ 
+                | First _, _ -> 
+                        compare := -1;
+                        raise Exit
+                | DO _, _
+                | Last _, First _ -> 
+                        compare := 1;
+                        raise Exit
+            done;
+            0
+        with 
+        | Exit -> !compare
+
+    let tabu_distance a =
+        Array.fold_left (fun sum y -> 
+            match y with
+            | First y
+            | Last y
+            | DO y -> y.DOS.costs.max +. sum) 0.0 a
+
+    let encoding enc arr =
+        Array.fold_left (fun sum x ->
+            match x with
+            | First x
+            | Last x
+            | DO x -> sum +. (Sequence.encoding enc x.DOS.sequence)) 0. arr
+
+
 end
 
 
@@ -968,6 +1404,7 @@ module RL = struct
 end
 type sequence_characters =
 | Heuristic_Selection of DOS.do_single_sequence
+| Partitioned of PartitionedDOS.partitioned_sequence
 | Relaxed_Lifted of (RL.relaxed_lifted * RL.fs_sequences)
 
 (** A sequence character type. *)
@@ -985,11 +1422,12 @@ type t = {
 module Union = struct
     (* The union of sequences *)
     type ustr = {
-        unions : Sequence.Unions.u option array;
+        unions : union_element option array;
         u_c2 : Cost_matrix.Two_D.m;
         u_alph : Alphabet.a;
         u_codes : int array;
     }
+
 
     type u = ustr option
 
@@ -1001,7 +1439,20 @@ module Union = struct
                     match acc with
                     | 0 -> 
                             (match x, y with
-                            | Some x, Some y -> Sequence.Unions.compare x y
+                            | Some (Single x), Some (Single y) -> Sequence.Unions.compare x y
+                            | Some (Array x), Some (Array y) -> 
+                                    (let res = ref 0 in
+                                    try
+                                        for i = 0 to (Array.length x) - 1 do
+                                            res := Sequence.Unions.compare x.(i)
+                                            y.(i);
+                                            if !res <> 0 then raise Exit
+                                        done;
+                                        0
+                                    with
+                                    Exit -> !res)
+                            | Some (Single _), Some (Array _) -> -1
+                            | Some (Array _), Some (Single _) -> 1
                             | None, None -> 0
                             | Some _, None -> 1
                             | None, Some _ -> -1)
@@ -1022,16 +1473,23 @@ module Union = struct
         match x with
         | None -> 0.0
         | Some x ->
+                let single_saturation (acc, len) x =
+                    let nlen = Sequence.length x.Sequence.Unions.seq 
+                    and sat = 
+                        Sequence.poly_saturation x.Sequence.Unions.seq v 
+                    in
+                    acc +. (sat *. (float_of_int nlen)), len + nlen
+                in
                 let sat, len =
                     Array.fold_left (fun ((acc, len) as acc1) x ->
                         match x with
                         | None -> acc1 
-                        | Some x ->
-                            let nlen = Sequence.length x.Sequence.Unions.seq 
-                            and sat = 
-                                Sequence.poly_saturation x.Sequence.Unions.seq v 
-                            in
-                            acc +. (sat *. (float_of_int nlen)), len + nlen) 
+                        | Some x -> 
+                                match x with
+                                | Single x -> single_saturation acc1 x
+                                | Array x -> 
+                                        Array.fold_left single_saturation 
+                                        acc1 x)
                     (0.0, 0) x.unions 
                 in
                 sat /. (float_of_int len)
@@ -1041,25 +1499,43 @@ module Union = struct
         | Some ua, Some ub ->
                 let c2 = ua.u_c2 in
                 let gap = Cost_matrix.Two_D.gap c2 in
+                let do_one self uniona unionb =
+                    let tmpa, tmpb, tmpc = self.DOS.aligned_children in
+                    let tmpa = DOS.bitset_to_seq gap tmpa 
+                    and tmpb = DOS.bitset_to_seq gap tmpb 
+                    and tmpc = DOS.bitset_to_seq gap tmpc in
+                    if Sequence.is_empty uniona.Sequence.Unions.seq gap then
+                        unionb 
+                    else if Sequence.is_empty unionb.Sequence.Unions.seq gap 
+                    then
+                        uniona 
+                    else 
+                        (Sequence.Unions.union tmpa tmpb tmpc uniona unionb c2)
+                in
                 let union uniona unionb self =
                     match self with
                     | Heuristic_Selection self ->
-                        let tmpa, tmpb, tmpc = self.DOS.aligned_children in
-                        let tmpa = DOS.bitset_to_seq gap tmpa 
-                        and tmpb = DOS.bitset_to_seq gap tmpb 
-                        and tmpc = DOS.bitset_to_seq gap tmpc in
                         (match uniona, unionb with
-                        | Some uniona, Some unionb ->
-                            if Sequence.is_empty uniona.Sequence.Unions.seq gap then
-                                Some unionb 
-                            else if Sequence.is_empty unionb.Sequence.Unions.seq gap 
-                            then
-                                Some uniona 
-                            else 
-                                Some (Sequence.Unions.union tmpa tmpb tmpc uniona unionb
-                                c2)
+                        | Some (Single uniona), Some (Single unionb) ->
+                                Some (Single (do_one self uniona unionb))
                         | _ -> assert false)
                     | Relaxed_Lifted _ -> None
+                    | Partitioned self -> 
+                            (match uniona, unionb with
+                            | Some (Array uniona), Some (Array unionb) ->
+                                    let arr = 
+                                        Array_ops.map_3 (fun a b c ->
+                                            let a = 
+                                                match a with
+                                                | PartitionedDOS.Last a 
+                                                | PartitionedDOS.First a
+                                                | PartitionedDOS.DO a -> a
+                                            in
+                                            do_one a b c)
+                                            self uniona unionb
+                                    in
+                                    Some (Array arr)
+                            | _ -> assert false)
                 in
                 let union = 
                     Array_ops.map_3 union ua.unions ub.unions
@@ -1079,31 +1555,36 @@ module Union = struct
                 in
                 let gap = Cost_matrix.Two_D.gap a.u_c2 in
                 let distance =
+                    let one_distance acc seqa seqb = 
+                        let seqa = seqa.Sequence.Unions.seq
+                        and seqb = seqb.Sequence.Unions.seq in
+                        if Sequence.is_empty seqa gap || 
+                        Sequence.is_empty seqb gap then
+                            acc
+                        else
+                            let deltaw = 
+                                let tmp = 
+                                    (max (Sequence.length seqa) 
+                                    (Sequence.length seqb)) -
+                                    (min (Sequence.length seqa) 
+                                    (Sequence.length seqb)) 
+                                in
+                                if tmp > 8 then tmp 
+                                else 8
+                            in
+                            acc +.
+                            (sub_factor *. 
+                            (let d = 
+                                Sequence.Align.cost_2 ~deltaw:deltaw
+                                seqa seqb a.u_c2 Matrix.default in
+                            float_of_int d))
+                    in
                     Array_ops.fold_left_2 (fun acc seqa seqb ->
                         match seqa, seqb with
-                        | Some seqa, Some seqb ->
-                                let seqa = seqa.Sequence.Unions.seq
-                                and seqb = seqb.Sequence.Unions.seq in
-                                if Sequence.is_empty seqa gap || 
-                                Sequence.is_empty seqb gap then
-                                    acc
-                                else
-                                    let deltaw = 
-                                        let tmp = 
-                                            (max (Sequence.length seqa) 
-                                            (Sequence.length seqb)) -
-                                            (min (Sequence.length seqa) 
-                                            (Sequence.length seqb)) 
-                                        in
-                                        if tmp > 8 then tmp 
-                                        else 8
-                                    in
-                                    acc +.
-                                    (sub_factor *. 
-                                    (let d = 
-                                        Sequence.Align.cost_2 ~deltaw:deltaw
-                                        seqa seqb a.u_c2 Matrix.default in
-                                    float_of_int d))
+                        | Some (Single seqa), Some (Single seqb) -> 
+                                one_distance acc seqa seqb
+                        | Some (Array seqa), Some (Array seqb) ->
+                                Array_ops.fold_left_2 one_distance acc seqa seqb
                         | None, None -> acc
                         | _ -> assert false)
                     0. a.unions b.unions
@@ -1150,8 +1631,14 @@ let empty code c2 alph =
 let to_union a = 
     if a.alph = Alphabet.nucleotides then
         let new_unions = Array.map (function
-            | Heuristic_Selection x -> Some (DOS.to_union x)
-            | Relaxed_Lifted _ -> None) a.characters in
+            | Heuristic_Selection x -> Some (Single (DOS.to_union x))
+            | Relaxed_Lifted _ -> None
+            | Partitioned s -> 
+                    Some (Array (Array.map (function
+                        | PartitionedDOS.Last x
+                        | PartitionedDOS.First x
+                        | PartitionedDOS.DO x -> DOS.to_union x) s))) 
+        a.characters in
         Some { Union.unions = new_unions;
             u_c2 = a.heuristic.c2;
             u_alph = a.alph;
@@ -1163,6 +1650,9 @@ let to_string a =
         let code = string_of_int code 
         and seq = 
             match seq with
+            | Partitioned seq ->
+                    let seq = PartitionedDOS.merge seq in
+                    Sequence.to_formater seq.DOS.sequence a.alph
             | Heuristic_Selection seq ->
                     Sequence.to_formater seq.DOS.sequence a.alph
             | Relaxed_Lifted (_, b) -> 
@@ -1181,9 +1671,22 @@ let of_array spec sc code taxon =
     let c3 = spec.Data.tcm3d in
     let heur = make_default_heuristic ~c3 spec.Data.tcm2d in
     let create_item (x, _) =
-        match spec.Data.initial_assignment with
-        | `DO -> Heuristic_Selection (DOS.create x)
-        | `FS (distances, sequences, taxon_codes) ->
+        match spec.Data.initial_assignment, x with
+        | `Partitioned clip, x ->
+                Partitioned
+                (PartitionedDOS.create (`Partitioned x) clip spec.Data.alph)
+        | `AutoPartitioned (clip, size, table), [|x|] ->
+                Partitioned 
+                    (try
+                        let partition = Hashtbl.find table taxon in
+                        (PartitionedDOS.create (`AutoPartitioned
+                        (partition, x)) clip 
+                        spec.Data.alph)
+                    with
+                    | Not_found ->  
+                            PartitionedDOS.empty clip size spec.Data.alph)
+        | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
+        | `FS (distances, sequences, taxon_codes), [|x|] ->
                 let tbl = { RL.distance_table = distances; sequence_table =
                     sequences } 
                 in
@@ -1201,6 +1704,10 @@ let of_array spec sc code taxon =
                 and left = Array.init len (fun x -> x) in
                 Relaxed_Lifted 
                 (tbl, {RL.states =states; left = left; right = left })
+        | `AutoPartitioned _, _ 
+        | `DO, _
+        | `FS _, _ -> assert false
+
     in
     let codes = Array.map snd sc in
     let characters = Array.map create_item sc in
@@ -1265,6 +1772,10 @@ let to_single parent mine =
     let characters =
         Array_ops.map_2 (fun a b ->
             match a, b with
+            | Partitioned a, Partitioned b ->
+                    let res, c = PartitionedDOS.to_single mine.heuristic a b in
+                    total_cost := c + !total_cost;
+                    Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
                     let res, c = DOS.to_single mine.heuristic a b in
                     total_cost := c + !total_cost;
@@ -1277,6 +1788,8 @@ let to_single parent mine =
                     let res, c = RL.to_single_parent_done a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
+            | Partitioned _, _
+            | _, Partitioned _
             | Relaxed_Lifted _, _ -> assert false) parent.characters
                     mine.characters
     in
@@ -1292,6 +1805,10 @@ let median code a b =
     let characters =
         Array_ops.map_2 (fun a b ->
             match a, b with
+            | Partitioned a, Partitioned b ->
+                    let res, c = PartitionedDOS.median alph code h a b in
+                    total_cost := c + !total_cost;
+                    Partitioned res
             | Heuristic_Selection a, Heuristic_Selection b ->
                     let res, c = DOS.median alph code h a b in
                     total_cost := c + !total_cost;
@@ -1300,6 +1817,8 @@ let median code a b =
                     let res, c = RL.median code a b in
                     total_cost := (int_of_float c) + !total_cost;
                     Relaxed_Lifted res
+            | Partitioned _, _
+            | _, Partitioned _
             | Relaxed_Lifted _, _
             | _, Relaxed_Lifted _ -> assert false) a.characters b.characters
     in
@@ -1322,6 +1841,8 @@ let median_3 p n c1 c2 =
             | Relaxed_Lifted a, Relaxed_Lifted b, 
                 Relaxed_Lifted c, Relaxed_Lifted d ->
                     Relaxed_Lifted (g h a b c d)
+            | Partitioned _, Partitioned _, Partitioned _, Partitioned _ ->
+                    b
             | _ -> assert false)
         a b c d
     in
@@ -1349,10 +1870,14 @@ let distance missing_distance a b =
     let alph = a.alph in
     float_of_int (Array_ops.fold_left_2 (fun acc a b ->
         match a, b with
+        | Partitioned a, Partitioned b ->
+                acc + (PartitionedDOS.distance alph h missing_distance a b)
         | Heuristic_Selection a, Heuristic_Selection b ->
                 acc + (DOS.distance alph h missing_distance a b) 
         | Relaxed_Lifted a, Relaxed_Lifted b ->
                 acc + (int_of_float (RL.distance a b))
+        | Partitioned _, _
+        | _, Partitioned _
         | Relaxed_Lifted _, _
         | _, Relaxed_Lifted _ -> assert false) 0 a.characters b.characters)
 
@@ -1361,30 +1886,25 @@ let dist_2 delta n a b =
     let delta = int_of_float delta in
     let x, deltaleft =
         Array_ops.fold_left_3 (fun (acc, deltaleft) n a b ->
-            match n, a, b with
-            | Heuristic_Selection n, 
-                Heuristic_Selection a, Heuristic_Selection b ->
-                    let gap = Cost_matrix.Two_D.gap h.c2 in
-                    if deltaleft < 0 then (max_int, deltaleft)
-                    else
-                        let tmp =
-                            if Sequence.is_empty a.DOS.sequence gap then
-                                n.DOS.sequence
-                            else 
-                                Sequence.Align.full_median_2 a.DOS.sequence
-                                b.DOS.sequence h.c2 Matrix.default
-                        in
-                        let cost = 
-                            Sequence.Align.cost_2 n.DOS.sequence tmp h.c2
-                            Matrix.default
-                        in
+            if deltaleft < 0 then (max_int / 10, deltaleft)
+            else
+                match n, a, b with
+                | Partitioned n, Partitioned a, Partitioned b ->
+                        let cost = PartitionedDOS.dist_2 h n a b in
                         (acc + cost), (deltaleft - cost)
-            | Relaxed_Lifted n, Relaxed_Lifted a, Relaxed_Lifted b ->
-                    let cost = RL.dist_2 n a b in
-                    (acc + cost), (deltaleft - cost)
-            | Relaxed_Lifted _, _ , _
-            | _, Relaxed_Lifted _ , _
-            | _, _, Relaxed_Lifted _ -> assert false) (0, delta) 
+                | Heuristic_Selection n, 
+                    Heuristic_Selection a, Heuristic_Selection b ->
+                        let cost = DOS.dist_2 h n a b in
+                        (acc + cost), (deltaleft - cost)
+                | Relaxed_Lifted n, Relaxed_Lifted a, Relaxed_Lifted b ->
+                        let cost = RL.dist_2 n a b in
+                        (acc + cost), (deltaleft - cost)
+                | Partitioned _, _, _
+                | _, Partitioned _, _
+                | _, _, Partitioned _
+                | Relaxed_Lifted _, _ , _
+                | _, Relaxed_Lifted _ , _
+                | _, _, Relaxed_Lifted _ -> assert false) (0, delta) 
                         n.characters a.characters b.characters
     in
     float_of_int x 
@@ -1415,9 +1935,13 @@ let compare_data a b =
         else
             match a, b with
             | Heuristic_Selection a, Heuristic_Selection b ->
-                    Sequence.compare a.DOS.sequence b.DOS.sequence
+                    DOS.compare a b
             | Relaxed_Lifted a, Relaxed_Lifted b ->
                     compare a b
+            | Partitioned a, Partitioned b ->
+                    PartitionedDOS.compare a b
+            | Partitioned _, _
+            | _, Partitioned _
             | Relaxed_Lifted _, _
             | _, Relaxed_Lifted _ -> assert false)
     0 a.characters b.characters
@@ -1427,25 +1951,72 @@ let ( --> ) a b = b a
 let to_formatter attr t do_to_single d : Tags.output list = 
     let h = t.heuristic in
     let rec output_sequence acc code seq do_to_single =
+        let one_sequence (cmin, cmax, ccost, seqs) par seq =
+            let cost = seq.DOS.costs in
+            match par with
+            | None -> 
+                    (cmin +. cost.min), (cmax +. cost.max), 
+                    ccost +. cost.max, seq.DOS.sequence :: seqs
+            | Some par -> 
+                    let par = par.DOS.sequence in
+                    let s1, s2, min = 
+                        Sequence.Align.align_2 seq.DOS.sequence 
+                        par h.c2 Matrix.default
+                    in
+                    let max = Sequence.Align.max_cost_2 s1 s2 h.c2 in
+                    (cmin +. (float_of_int min)), 
+                    (cmax +. (float_of_int max)),
+                    ccost +. cost.max, seq.DOS.sequence :: seqs
+        in
         let cost, costb, max, seq =
             match seq with
+            | Partitioned seqs -> 
+                    let min, max, total, seqs =
+                        match do_to_single with
+                        | None -> Array.fold_left (fun acc a ->
+                                match a with
+                                | PartitionedDOS.Last a 
+                                | PartitionedDOS.First a
+                                | PartitionedDOS.DO a -> 
+                                        one_sequence acc None a) 
+                                (0.,0.,0.,[]) seqs
+                        | Some (Partitioned par) ->
+                                Array_ops.fold_left_2 (fun acc a b ->
+                                    match a, b with
+                                    | PartitionedDOS.Last a, 
+                                        PartitionedDOS.Last b 
+                                    | PartitionedDOS.First a, 
+                                        PartitionedDOS.First b
+                                    | PartitionedDOS.DO a, 
+                                        PartitionedDOS.DO b -> 
+                                            one_sequence acc (Some b) a
+                                    | _ -> assert false)
+                                (0., 0., 0., []) seqs par
+                        | Some _ -> assert false
+                    in
+                    { min = min; max = max }, (`FloatFloatTuple (min, max)),
+                    max, seqs
             | Heuristic_Selection seq ->
                     let cost = seq.DOS.costs in
                     let costb, max = 
                         match do_to_single with
                         | None -> 
-                                `FloatFloatTuple (cost.min, cost.max), cost.max
+                                `FloatFloatTuple (cost.min, cost.max),
+                                cost.max
                         | Some (Heuristic_Selection par) ->
                                 let par = par.DOS.sequence in
                                 let s1, s2, min = 
                                     Sequence.Align.align_2 seq.DOS.sequence 
                                     par h.c2 Matrix.default
                                 in
-                                let max = Sequence.Align.max_cost_2 s1 s2 h.c2 in
+                                let max = 
+                                    Sequence.Align.max_cost_2 s1 s2 h.c2 
+                                in
                                 `IntTuple (min, max), float_of_int max
+                        | Some (Partitioned _) -> assert false 
                         | Some (Relaxed_Lifted _) -> assert false
                     in
-                    cost, costb, max, seq.DOS.sequence 
+                    cost, costb, max, [seq.DOS.sequence]
             | Relaxed_Lifted (spec, seq) -> 
                     let best = ref max_float in
                     let my_pos = ref (-1) in
@@ -1468,6 +2039,8 @@ let to_formatter attr t do_to_single d : Tags.output list =
                                         best := v;
                                         my_pos := pos; end else ()) 
                                 seq.RL.states;
+                        | Some (Partitioned par) ->
+                                assert false; (* TODO *)
                         | Some (Heuristic_Selection par) ->
                                 process par.DOS.position
                         | Some (Relaxed_Lifted x) -> 
@@ -1477,9 +2050,17 @@ let to_formatter attr t do_to_single d : Tags.output list =
                     let bests = !best in
                     DOS.make_cost (int_of_float !best), 
                     `FloatFloatTuple (bests, bests), !best,
-                    spec.RL.sequence_table.(!my_pos)
+                    [spec.RL.sequence_table.(!my_pos)]
         in
-        let seq () = Sequence.to_formater seq t.alph in
+        let seq () = 
+            match seq with
+            | [] -> assert false
+            | seq -> 
+                    String.concat "#" 
+                    (List.map (fun x -> 
+                        let x = Sequence.del_first_char x in
+                        Sequence.to_formater x t.alph) seq)
+        in
         let definite_str = 
             if max > 0. then  `String "true"
             else `String "false"
@@ -1503,6 +2084,7 @@ let to_formatter attr t do_to_single d : Tags.output list =
 let tabu_distance a = 
     Array.fold_left (fun sum y -> 
         match y with
+        | Partitioned x -> sum +. (PartitionedDOS.tabu_distance x)
         | Relaxed_Lifted _ -> sum
         | Heuristic_Selection y ->
                 y.DOS.costs.max +. sum) 0.0 a.characters
@@ -1512,6 +2094,7 @@ let explode cs =
     Array_ops.fold_left_2
     (fun acc code seq ->
         match seq with
+        | Partitioned _
         | Relaxed_Lifted _ -> failwith "TODO 12345"
         | Heuristic_Selection seq ->
             (code, seq.DOS.sequence, h.c2, h.c3, cs.alph) :: acc)
@@ -1522,6 +2105,7 @@ let explode cs =
 let encoding enc x =
     Array.fold_left (fun acc x -> 
         match x with
+        | Partitioned x -> acc +. (PartitionedDOS.encoding enc x)
         | Relaxed_Lifted _ -> acc
         | Heuristic_Selection x -> 
                 acc +. (Sequence.encoding enc x.DOS.sequence)) 

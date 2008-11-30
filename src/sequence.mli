@@ -34,6 +34,8 @@ type s
 val reverse : s -> s
 (** [reverse s1] returns a reversed fresh copy of s1. *)
 
+val safe_reverse : s -> s
+
 val reverse_ip : s -> unit
 (** [reverse_ip s1] reverse in place s1. *)
 
@@ -125,7 +127,7 @@ external set : (s -> int -> int -> unit) = "seq_CAML_set"
 (** [set s1 p v] sets the value v in the position p of s1. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 
-external get : (s -> int -> int) = "seq_CAML_get"
+val get : (s -> int -> int) 
 (** [get s1 p] returns the contents of s1 in position p. If p > (get_capacity
  * s1) raise an Invalid_Argument error. *)
 
@@ -154,8 +156,6 @@ val to_string : s -> Alphabet.a -> string
 
 val to_formater : s -> Alphabet.a -> string
 (* Same as [to_string] but with @ and % escaped for the formating functions *)
-
-
 
 val print : Pervasives.out_channel -> s -> Alphabet.a -> unit
 (** [print x y z] prints the sequence y in the channel x using alphabet z. If
@@ -651,3 +651,33 @@ val get_single_seq : s -> Cost_matrix.Two_D.m -> s
 * returns the locus indel cost of locus [s] *)
 val cmp_locus_indel_cost :
   s -> Cost_matrix.Two_D.m -> int * int -> int
+
+module Clip : sig
+    val fraction : float
+    type old_s = s
+    type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
+    module Align : sig
+        val align_2 : ?first_gap:bool -> s -> s -> 
+            Cost_matrix.Two_D.m -> Matrix.m -> s * s * int * int
+    end
+    val extract_s : s -> old_s
+    val cmp_ali_cost :
+      s -> s -> [> `Positive ] -> Cost_matrix.Two_D.m -> int
+    val cmp_gap_cost : int * int -> s -> int
+    val complement_chrom : Alphabet.a -> s -> s
+    val concat : s list -> s
+    val create : [`DO | `First | `Last ] -> int -> s
+    val delete_gap : ?gap_code:int -> s -> s
+    val foldi : ('a -> int -> int -> 'a) -> 'a -> s -> 'a
+    val get : s -> int -> int
+    val get_empty_seq : [`DO | `First | `Last ] -> s
+    val init : [`DO | `First | `Last ] -> (int -> int) -> int -> s
+    val is_empty : s -> int -> bool
+    val length : s -> int
+    val prepend : s -> int -> unit
+    val sub : s -> int -> int -> s
+    val to_array : s -> int array
+    val to_formater : s -> Alphabet.a -> string
+    val to_string : s -> Alphabet.a -> string
+    val safe_reverse : s -> s
+end

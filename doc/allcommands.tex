@@ -1118,8 +1118,19 @@ The \poycommand{calculate\_support} command does not output support values by de
             
         \argumentdefinition{nucleotides}{\obligatory{(\poystring list)}}
             {Specifies that the data in the list of files hold nucleotide
-            sequences in FASTA format.} 
+            sequences in FASTA format. The sequences can be divided in smaller
+            fragments using a pound sign, and each fragment is visible as an
+            individual character.} 
             {}
+
+        \argumentdefinition{partitioned}{}
+            {Specifies that the data in the list of files hold nucleotide
+            sequences in FASTA format, divided in multiple fragments using the
+            pound sign. All sequences must have the same number of fragments.
+            The tip fragments are aligned at each vertex of the tree after
+            correcting their length, assuming that large length variations would
+            be caused by missing data.} 
+            {readpartitioned}
             
 	\begin{statement}
             By default, upon importing prealigned sequence data, all the gaps are
@@ -1549,6 +1560,12 @@ The \poycommand{calculate\_support} command does not output support values by de
                 {Same as \poyargument{consensus} except for consensus trees are
                 reported in graphical format, either in the ascii format on
                 screen or in the PDF format if redirected to a file.}
+                {}
+
+            \argumentdefinition{graphdiagnosis}{}
+                {Output the diagnosis in PDF format. The PDF is compressed, and
+                contains the trees and links to see the diagnosis of each vertex
+                in the tree.}
                 {}
 
             \argumentdefinition{graphsupports}{\optional{argument}}
@@ -2948,8 +2965,17 @@ The \poycommand{calculate\_support} command does not output support values by de
             {Evaluates each fragment and if a long region appears 
             to have no indels, then the fragment is broken inside that region.
             Any number of partitions can occur along a fragment. Fragmenting
-            long sequences greatly accelerates searching. This method is applicable only to dynamic homology characters.}
+            long sequences greatly accelerates searching. This method is
+            applicable only to dynamic homology characters, and requires a tree
+            in memory.}
             {autosequencepartition}
+
+        \argumentdefinition{partitioned}{}
+            {Simmilar to the previous, with the difference that no tree is
+            required prior the partition, and large sequence length variations
+            at the tips are treated as missing data.}
+            {transformpartitioned}
+
 
         \argumentdefinition{direct\_optimization}{}
           {Transforms the characters specified so that the initial assignment of sequences to 

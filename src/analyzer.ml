@@ -198,13 +198,13 @@ let dependency_relations (init : Methods.script) =
                 | `Iterative _
                 | `Normal_plus_Vitamines
                 | `Normal ->
-                        [([Data; Trees], [Trees], init, Linnearizable)]
+                        [([Data; Trees], [Trees], init, NonComposable)]
                 | `ReDiagnose ->
-                        [([Data; Trees], [Trees], init, Linnearizable)]
+                        [([Data; Trees], [Trees], init, NonComposable)]
                 | `Graph (filename, _)
                 | `Ascii (filename, _) ->
                         let output = filename_to_list filename in
-                        [([Trees; Data] @ output, output, init, Linnearizable)]
+                        [([Trees; Data] @ output, output, init, NonComposable)]
                 | `InspectFile filename ->
                         [((input [filename]) @ output, output, init, NonComposable)]
             in
@@ -226,6 +226,7 @@ let dependency_relations (init : Methods.script) =
                 | `Poyfile files
                 | `AutoDetect files
                 | `Nucleotides files
+                | `PartitionedFile files
                 | `Aminoacids files
                 | `Chromosome files
                 | `Genome files
@@ -251,6 +252,7 @@ let dependency_relations (init : Methods.script) =
                 | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
+                | `Partitioned _
                 | `Direct_Optimization _
                 | `Prioritize
                 | `ReWeight _
@@ -394,6 +396,10 @@ let dependency_relations (init : Methods.script) =
                         let fn = filename_to_list filename in
                         [(trees @ fn, fn, init, NonComposable)], filename,
                         false
+                | `GraphicDiagnosis filename ->
+                        let fn = filename_to_list (Some filename) in
+                        [(datantrees @ fn, fn, init, NonComposable)], 
+                        Some filename, false
                 | `Diagnosis filename
                 | `AllRootsCost filename
                 | `Trees (_, filename)
@@ -1599,6 +1605,7 @@ let script_to_string (init : Methods.script) =
                 | `Breakinv_to_Custom _
                 | `Seq_to_Kolmogorov _
                 | `Fixed_States _
+                | `Partitioned _
                 | `Direct_Optimization _
                 | `Prioritize
                 | `ReWeight _
@@ -1715,6 +1722,8 @@ let script_to_string (init : Methods.script) =
                 | `Consensus (_, _)
                 | `GraphicConsensus (_, _) ->
                         "@[report the consensus@]"
+                | `GraphicDiagnosis filename ->
+                        "@[report in " ^ filename ^ " the diagnosis@]"
                 | `Diagnosis filename ->
                         (match filename with
                         | None -> "@[report the diagnosis@]"
@@ -1756,17 +1765,17 @@ let script_to_string (init : Methods.script) =
             in
             res
     | `Entry -> "@[beginning of the program@]"
+    | `Barrier -> "@[Wait for other processors to reach this point@]"
+    | `GatherTrees _ -> "@[Exchange trees with other processes@]"
+    | `GatherJackknife -> "@[Exchange Jackknife values with other processes@]"
+    | `GatherBremer  -> "@[Exchange Bremer values with other processes@]"
+    | `GatherBootstrap -> "@[Exchange Bootstrap values with other processes@]" 
+    | `SelectYourTrees -> "@[Each processor selects the trees it will work on@]"
     | `Skip
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
     | `ParallelPipeline _
-    | `Barrier 
-    | `GatherTrees _
-    | `GatherJackknife 
-    | `GatherBremer 
-    | `SelectYourTrees 
-    | `GatherBootstrap 
     | `GetStored -> 
             (* These are produced by the analyzer itself, so they can't occur in
             * a script and make no sense by themselves *)
@@ -1807,14 +1816,15 @@ let outputdep fo dep lst =
     outputlist fo lst
 
 let rec explain_tree ?(deps=true) fo colors tree =
+    let deps = false in
     match tree with
     | InteractiveState _ -> ()
     | Parallel x ->
             fo ("@[in parallel:@]@,@[<v 2>@,@[<v>");
             explain_tree fo colors x.todo_p;
-            fo "@]@,@[while keeping the following invariant:@]@,@[<v>";
+            fo "@]@,@[<v 2>@[while keeping the following invariant:@]@,@[<v>";
             explain_tree fo colors x.composer;
-            fo "@]@]@,";
+            fo "@]@]@]@,";
             explain_tree fo colors x.next
     | Concurrent x ->
             fo (script_to_string x.run);
@@ -1848,7 +1858,7 @@ let rec explain_tree ?(deps=true) fo colors tree =
             | `GetStored, [child] -> explain_tree fo colors child;
             | _, children ->
                     colors x.exploders;
-                    outputlist fo x.thread;
+                    (* outputlist fo x.thread;*)
                     if deps then begin
                         let dep = List.fold_left filter_unique [] !(x.unique) in
                         fo "with {@[<v 2>@,@[<v>";
@@ -1862,7 +1872,7 @@ let rec explain_tree ?(deps=true) fo colors tree =
                     | [] -> ()
                     | [chld] -> explain_tree fo colors chld;
                     | children ->
-                            fo ("@}@,@[<v 2>@,@[<v>@[I@ will@ " ^
+                            fo ("@}@,@[<v 2>@[<v>@[I@ will@ " ^
                             "calculate@ the@ following@ in@ " ^
                             "separate@ processors@ (if available)@]@,@,");
                             let processor = ref 1 in
@@ -1880,7 +1890,9 @@ let remove_first tree =
     | tree -> [tree]
 
 let explain_tree filename script =
-    let fo = Status.user_message (Status.Output (filename, false, [])) in
+    let output = Status.user_message (Status.Output (filename, false, [])) in
+    let buffer = Buffer.create 1000 in
+    let fo = Buffer.add_string buffer in
     let colors = colors fo in
     fo "@[<v>";
     let _ = (* Now we print the explanation *)
@@ -1889,7 +1901,8 @@ let explain_tree filename script =
         --> List.iter 
             (fun t -> explain_tree fo colors t; fo "@,@,") 
     in
-    fo "@]%!"
+    fo "@]%!";
+    output (Buffer.contents buffer)
 
 let my_part mine n a = 
     let rest = a - ((a / n) * n) in
@@ -1973,6 +1986,7 @@ let is_master_only (init : Methods.script) =
     | `Supports (_, _)
     | `Consensus (_, _)
     | `GraphicConsensus (_, _)
+    | `GraphicDiagnosis _
     | `Diagnosis _
     | `AllRootsCost _
     | `Trees _
@@ -2028,6 +2042,7 @@ let rec make_remote_files (init : Methods.script) =
             `AnalyzeOnlyCharacterFiles (b, mrl files)
     | `Poyfile files -> `Poyfile (mrl files)
     | `AutoDetect files -> `AutoDetect (mrl files)
+    | `PartitionedFile files -> `PartitionedFile (mrl files)
     | `Nucleotides files -> `Nucleotides (mrl files)
     | `Aminoacids files -> `Aminoacids (mrl files)
     | `GeneralAlphabetSeq (a, b, c) ->
@@ -2047,6 +2062,7 @@ let rec make_remote_files (init : Methods.script) =
                 | `Poyfile files -> `Poyfile (mrl files)
                 | `AutoDetect files -> `AutoDetect (mrl files)
                 | `Nucleotides files -> `Nucleotides (mrl files)
+                | `PartitionedFile files -> `PartitionedFile (mrl files)
                 | `Aminoacids files -> `Aminoacids (mrl files)
                 | `GeneralAlphabetSeq (a, b, c) ->
                         `GeneralAlphabetSeq (mr a, mr b, c)

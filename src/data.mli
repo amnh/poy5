@@ -108,16 +108,23 @@ type dyna_pam_t = {
     * the pairwise alignment with rearrangements *)
     max_kept_wag : int option; 
 }
+type clip = Clip | NoClip
+
+type dyna_initial_assgn = [ 
+    | `Partitioned of clip
+    | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
+    | `DO 
+    | `FS of 
+            ((float array array) * 
+            (Sequence.s array) * 
+            ((int, int) Hashtbl.t))  ]
 
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
     tcm : string;
     fo : string;
-    initial_assignment : [ 
-        | `DO 
-        | `FS of ((float array array) * (Sequence.s
-        array) * ((int, int) Hashtbl.t))  ];
+    initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : Cost_matrix.Three_D.m;
     alph : Alphabet.a;
@@ -373,13 +380,14 @@ val get_weight : int -> d -> float
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences : 
-    string -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m -> bool ->
+    string -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m 
+    -> dyna_initial_assgn -> bool ->
     Alphabet.a -> string -> dyna_state_t -> d -> 
     (Sequence.s list list list * Parser.taxon) list -> d
             
 
 val process_molecular_file : string -> Cost_matrix.Two_D.m ->
-    Cost_matrix.Three_D.m -> bool -> Alphabet.a -> bool -> 
+    Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
         dyna_state_t -> d -> Parser.filename -> d
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> Parser.filename -> d
@@ -533,6 +541,8 @@ val file_exists : d -> Parser.filename -> bool
 val make_fixed_states : bool_characters -> d -> d
 
 val make_direct_optimization : bool_characters -> d -> d
+
+val make_partitioned : bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
 val has_likelihood: d -> bool 

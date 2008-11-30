@@ -153,41 +153,44 @@ let leaf_sequences (a : t) =
             for i = (SeqCS.cardinal a) - 1 downto 0 do
                 map := IntMap.add a.SeqCS.codes.(i)
                     (match a.SeqCS.characters.(i) with
-                    | SeqCS.Heuristic_Selection x -> [|x.SeqCS.DOS.sequence|]
+                    | SeqCS.Partitioned x ->
+                            Array.map (function 
+                                | SeqCS.PartitionedDOS.Last x ->
+                                        `Last x.SeqCS.DOS.sequence
+                                | SeqCS.PartitionedDOS.DO x  ->
+                                        `DO x.SeqCS.DOS.sequence
+                                | SeqCS.PartitionedDOS.First x ->
+                                        `First x.SeqCS.DOS.sequence) x
+                    | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
                     | SeqCS.Relaxed_Lifted (t, x) -> 
                             let p = SeqCS.RL.find_smallest x in
-                            [|t.SeqCS.RL.sequence_table.(p)|]) !map
+                            [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map
             done;
             !map
     | BreakinvCS a ->          
           IntMap.map 
               (fun med  -> 
-                   [|(List.hd med.Breakinv.med_ls).BreakinvAli.seq|]
+                   [|`DO (List.hd med.Breakinv.med_ls).BreakinvAli.seq|]
               ) a.BreakinvCS.meds
-
-
     | ChromCS a ->          
           IntMap.map 
               (fun med  -> 
-                   [|(List.hd med.Chrom.med_ls).ChromAli.seq|]
+                   [|`DO (List.hd med.Chrom.med_ls).ChromAli.seq|]
               ) a.ChromCS.meds
-
     | AnnchromCS a ->
           IntMap.map 
               (fun med  -> 
                    let seqt_arr = 
                        (List.hd med.Annchrom.med_ls).AnnchromAli.seq_arr 
                    in
-                   Array.map (fun seqt -> seqt.AnnchromAli.seq) seqt_arr
+                   Array.map (fun seqt -> `DO seqt.AnnchromAli.seq) seqt_arr
               ) a.AnnchromCS.meds
-
-
     | GenomeCS a ->
           IntMap.map 
               (fun med  -> 
                    let seq_arr = Array.map 
                        (fun chromt -> 
-                            chromt.GenomeAli.seq
+                            `DO chromt.GenomeAli.seq
                        ) (List.hd med.Genome.med_ls).GenomeAli.chrom_arr 
                    in
                    seq_arr
@@ -244,24 +247,36 @@ let poly_saturation x v =
 let of_array spec genome_arr code taxon num_taxa = 
     match spec.Data.state with
     | `Seq | `Breakinv | `Chromosome as meth ->
-            let seq_arr = 
-                Array.map 
-                (fun (genome_data, genome_code) ->
-                    let first_seq = genome_data.Data.seq_arr.(0).Data.seq in  
-                    (first_seq, genome_code)) genome_arr
-            in 
             begin match meth with
             | `Seq -> 
+                    let seq_arr = 
+                        Array.map 
+                        (fun (genome_data, genome_code) ->
+                            let seqs = 
+                                Array.map (fun x -> x.Data.seq)
+                                genome_data.Data.seq_arr
+                            in  
+                            (seqs, genome_code)) genome_arr
+                    in 
                     let t = SeqCS.of_array spec seq_arr code taxon in
                     SeqCS t
-            | `Breakinv -> 
-                    let t = BreakinvCS.of_array spec seq_arr code in
-                    BreakinvCS t
-            | `Chromosome  ->
-                    let t = 
-                        ChromCS.of_array spec seq_arr code taxon num_taxa 
+            | `Breakinv | `Chromosome as meth ->
+                    let seq_arr = 
+                        Array.map 
+                        (fun (genome_data, genome_code) ->
+                            let first_seq = 
+                                genome_data.Data.seq_arr.(0).Data.seq in  
+                            (first_seq, genome_code)) genome_arr
                     in 
-                    ChromCS t
+                    match meth with
+                    | `Breakinv -> 
+                            let t = BreakinvCS.of_array spec seq_arr code in
+                            BreakinvCS t
+                    | `Chromosome  ->
+                            let t = 
+                                ChromCS.of_array spec seq_arr code taxon num_taxa 
+                            in 
+                            ChromCS t
             end
     | `Annotated -> 
           let t = AnnchromCS.of_array spec genome_arr code  taxon num_taxa in

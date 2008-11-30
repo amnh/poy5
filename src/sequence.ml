@@ -46,6 +46,11 @@ external length : (s -> int) = "seq_CAML_length";;
 
 external get : (s -> int -> int) = "seq_CAML_get";;
 
+let get s x =
+    assert (x >= 0);
+    assert (x < length s);
+    get s x
+
 external count : (int -> s -> int) = "seq_CAML_count";;
 
 (*
@@ -154,6 +159,16 @@ let reverse s1 =
     let sp = create (length s1) in
     c_reverse s1 sp;
     sp;;
+
+let safe_reverse x = 
+    let gap = get x 0 in
+    let y = create (length x) in
+    for i = 1 to (length x) - 1 do
+        prepend y (get x i);
+    done;
+    prepend y gap;
+    y
+
 
 let rec aux_of_list seq l it =
     match l with 
@@ -1973,8 +1988,6 @@ let complement a s =
 
 let complement_chrom = aux_complement 0 
 
-
-
 (** [is_existed_code code seq] returns true
 * if the [code] is in the sequence [seq], otherwise false *)
 let is_existed_code code seq = 
@@ -2424,3 +2437,148 @@ let cmp_locus_indel_cost s c2 locus_indel =
         end 
     in
     cmp 1 f1 f2
+
+module Clip = struct
+    type old_s = s
+    type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
+
+    let extract_s s = 
+        match s with
+        | `DO x | `First x | `Last x -> x
+
+    let fraction = 1.00
+
+    let clip_n_fix s1 s2 = 
+        (* We return the sequences with their corrections, and functions 
+        * to correct the median and the pairwise alignments *)
+        let identity x = x in
+        let aux s1 s2 s1len s2len =
+            assert (s1len >= s2len);
+            if s1len > (s2len *. fraction) then
+                (* We eliminate enough to make the length difference 
+                * only 10% of the overall length *)
+                let maxlen = truncate (s2len *. fraction) in
+                let dif = (truncate s1len) - maxlen in
+                let cnt = ref (truncate s1len) in
+                let s1' = init (fun x ->
+                    decr cnt;
+                    if x = 0 then get s1 0
+                    else get s1 !cnt) maxlen 
+                in
+                let add_bottom x =
+                    let len = length x in
+                    let newx = create (len + dif) in
+                    for i = (len - 1) downto 1 do
+                        prepend newx (get x i);
+                    done;
+                    newx
+                in
+                let fixs1 x =
+                    let newx = add_bottom x in
+                    for i = dif downto 0 do
+                        prepend newx (get s1 i);
+                    done;
+                    newx
+                in
+                let fixs2 x =
+                    let newx = add_bottom x in
+                    let gap = get s1 0 in
+                    for i = dif downto 0 do
+                        prepend newx gap;
+                    done;
+                    newx
+                in
+                s1', s2, fixs1, fixs2, dif
+            else 
+                s1, s2, identity, identity, 0
+        in
+        let s1len = float_of_int (length s1)
+        and s2len = float_of_int (length s2) in
+        if s1len >= s2len then aux s1 s2 s1len s2len
+        else 
+            let a, b, c, d, dif = aux s2 s1 s2len s1len in
+            b, a, d, c, dif
+
+    module Align = struct
+        let align_2 ?(first_gap=true) (s1 : s) (s2 : s) c m =
+            let algn_and_fix s1 s2 = 
+                let s1, s2, f1, f2, dif = clip_n_fix s1 s2 in
+                let s1, s2, cost = Align.align_2 ~first_gap s1 s2 c m in
+                (f1 s1), (f2 s2), cost, dif
+            in
+            match s1, s2 with
+            | `DO s1, `DO s2 -> 
+                    let s1, s2, cost = Align.align_2 ~first_gap s1 s2 c m in
+                    `DO s1, `DO s2, cost, 0
+            | `Last s1, `DO s2
+            | `DO s1, `Last s2
+            | `Last s1, `Last s2 ->
+                    let s1 = safe_reverse s1
+                    and s2 = safe_reverse s2 in
+                    let s1, s2, cost, dif = algn_and_fix s1 s2 in
+                    `Last (safe_reverse s1), `Last (safe_reverse s2), cost, dif
+            | `First s1, `DO s2
+            | `DO s1, `First s2
+            | `First s1, `First s2 ->
+                    let s1, s2, cost, dif = algn_and_fix s1 s2 in
+                    `First s1, `First s2, cost, dif
+            | `First s1, `Last s2 -> assert false
+            | `Last s1, `First s2 -> assert false
+    end
+
+    let cmp_ali_cost a b c d =
+        cmp_ali_cost (extract_s a) (extract_s b) c d
+    let cmp_gap_cost a s = cmp_gap_cost a (extract_s s)
+    let complement_chrom alph s =
+        match s with
+        | `DO s -> `DO (complement_chrom alph s)
+        | `First s -> `First (complement_chrom alph s)
+        | `Last s -> `Last (complement_chrom alph s)
+
+    let concat s = 
+        `DO (concat (List.map extract_s s))
+
+    let create kind len = 
+        let s = create len in
+        match kind with
+        | `DO -> `DO s
+        | `Last -> `Last s
+        | `First -> `First s
+
+    let delete_gap ?(gap_code = dna_gap) s = 
+        match s with
+        | `DO s -> `DO (delete_gap ~gap_code s)
+        | `Last s -> `Last (delete_gap ~gap_code s)
+        | `First s -> `First (delete_gap ~gap_code s)
+    let foldi f acc s = foldi f acc (extract_s s)
+    let get s i = get (extract_s s) i
+    let get_empty_seq kind = 
+        let empty = get_empty_seq () in
+        match kind with
+        | `DO -> `DO empty
+        | `First -> `First empty
+        | `Last -> `Last empty
+    let init kind f l = 
+        let s = init f l in
+        match kind with
+        | `DO -> `DO s
+        | `First -> `First s
+        | `Last -> `Last s
+    let is_empty s gap = is_empty (extract_s s) gap
+    let length s = length (extract_s s)
+    let prepend s i = prepend (extract_s s) i
+    let sub s a b = 
+        match s with
+        | `DO s -> `DO (sub s a b)
+        | `First s -> `First (sub s a b)
+        | `Last s -> `Last (sub s a b)
+
+    let to_array s = to_array (extract_s s)
+    let to_formater s alph = to_formater (extract_s s) alph
+    let to_string s alph = to_string (extract_s s) alph
+    let safe_reverse s =
+        match s with
+        | `DO s -> `DO (safe_reverse s)
+        | `First s -> `First (safe_reverse s)
+        | `Last s -> `Last (safe_reverse s)
+end

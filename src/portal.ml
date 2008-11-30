@@ -26,17 +26,21 @@ let () =
     let params = 
         Arg.align
         [
-        ("-constraint", Arg.String (assgn_opt constraintfile), "FILE File to be used as constraint for the tree search.");
+        ("-constraint", Arg.String (assgn_opt constraintfile), 
+        "FILE File to be used as constraint for the tree search.");
         ("-gapopening", Arg.Int (assgn gapopening), "INT Gap opening parameter. Default: 0.");
         ("-indels", Arg.Int (assgn indels), "INT Indel parameter. Default: 1.");
         ("-input", Arg.String (fun x -> input_files := x :: !input_files), "FILE An input file, in any format");
-        ("-minutes", Arg.Float (assgn minutes), "FLOAT Total number of minutes spent in the search. Default: 71 hours.");
-        ("-outgroup", Arg.String (assgn_opt out_group_file), "FILE Name of the terminal that should be used as outgroup");
+        ("-minutes", Arg.Float (assgn minutes), 
+        "FLOAT Total number of minutes spent in the search. Default: 71 hours.");
+        ("-outgroup", Arg.String (assgn_opt out_group_file), 
+        "FILE Name of the terminal that should be used as outgroup");
         ("-pseudoreplicates", Arg.Int (assgn_opt pseudoreplicates), "INT Number of pseudoreplicates to be used");
         ("-randomseed", Arg.Int (assgn_opt randomseed), "INT Random number generator seed to be used.");
         ("-remove", Arg.Float (assgn_opt remove), "FLOAT Percentage of characters to be removed");
         ("-substitutions", Arg.Int (assgn substitutions), "INT Substitution parameter. By Default: 2.");
-        ("-support", Arg.String (assgn support), "[jackknife|bootstrap|bremer] Support values to be computed. Valid options are jackknife, bootstrap, and bremer.");
+        ("-support", Arg.String (assgn support), 
+        "[jackknife|bootstrap|bremer] Support values to be computed. Valid options are jackknife, bootstrap, and bremer.");
         ("-synonyms", Arg.String (assgn_opt synonyms), "FILE File containing the list of synonyms to be used.");
         ("-terminals", Arg.String (assgn_opt terminals), "FILE Terminals file to be used.");
     ] in
