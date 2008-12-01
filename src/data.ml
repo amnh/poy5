@@ -1096,9 +1096,9 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
     let original_filename = file in
     let locus_name = 
         let c = ref (-1) in
-        fun () ->
+        ref (fun () ->
             incr c;
-            file ^ ":" ^ string_of_int !c
+            file ^ ":" ^ string_of_int !c)
     in
     let dyna_state = 
         match annotated with
@@ -1107,8 +1107,11 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
     in 
     let add_character data = 
         let file = 
-            if  annotated || (dyna_state = `Chromosome) then original_filename
-            else locus_name () 
+            if  annotated || (dyna_state = `Chromosome) then 
+                original_filename
+            else match default_mode with
+            | `FS _ | `DO | `AutoPartitioned _ -> (!locus_name) () 
+            | `Partitioned _ -> original_filename
         in
         incr data.character_code_gen;
         let chcode = !(data.character_code_gen) in
@@ -1281,8 +1284,12 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
         if annotated then process_annotated_chrom data 
         else if dyna_state = `Genome then process_genome data
         else if `DO = default_mode then
-            (res --> individual_fragments -->
-            List.fold_left ~f:single_loci_processor ~init:data)
+            match (res --> individual_fragments) with
+            | [x] ->
+                    locus_name := (fun () -> original_filename);
+                    single_loci_processor data x
+            | [] -> data
+            | x -> List.fold_left ~f:single_loci_processor ~init:data x
         else 
             (res --> merge_fragments -->
             single_loci_processor data)
