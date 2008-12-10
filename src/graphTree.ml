@@ -255,7 +255,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
 
     (** draw_diagnosis *)    
     let draw_diagnosis ?(prefix="") ?(size="") ?(leafColor=G.black) 
-    display (t : Tags.output) =
+    display (t : Tags.xml) =
         let nodes = ref [] in
         let t =
             match t with

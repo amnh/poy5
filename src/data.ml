@@ -1996,71 +1996,67 @@ let get_used_observed code d =
     | Some x -> x
     | None -> failwith "Data.get_used_observed"
 
-let synonyms_to_formatter d : Tags.output =
-    let synonym t1 t2 acc : Tags.output Sexpr.t list =
-        let t1 = `Single (Tags.Data.value, [], `String t1)
-        and t2 = `Single (Tags.Data.value, [], `String t2) in
-        `Single (Tags.Data.synonym, [], (`Set [t1; t2])) :: acc
+let make_value_formatter x = (PXML -[Tags.Data.value][`String x]--)
+
+let synonyms_to_formatter d : Tags.xml =
+    let module T = Tags.Data in
+    let synonym t1 t2 acc : Tags.xml Sexpr.t list =
+        (PXML -[T.synonym]
+            { make_value_formatter t1 }
+            { make_value_formatter t2 } --) :: acc
     in
     let res = All_sets.StringMap.fold synonym d.synonyms [] in
-    Tags.Data.synonyms, [], (`Set res)
+    (RXML -[T.synonyms] { set res }--)
 
-let taxon_names_to_formatter d : Tags.output =
+let taxon_names_to_formatter d : Tags.xml =
+    let module T = Tags.Data in
     let taxon_name code name acc =
         if All_sets.Strings.mem name d.ignore_taxa_set then acc
         else
-            let attr = [
-                (Tags.Data.name, `String name);
-                (Tags.Data.code, `Int code);
-            ]
-            in
-            `Single (Tags.Data.taxon, attr, `Empty) :: acc
+            (PXML -[T.taxon] 
+                ([T.name] = [`String name])
+                ([T.code] = [`Int code]) --) :: acc
     in
     let res = All_sets.IntegerMap.fold taxon_name d.taxon_codes [] in
-    Tags.Data.taxa, [], (`Set res)
+    (RXML -[T.taxa] { set res } --)
 
-let files_to_formatter d : Tags.output =
-    let file (f, contents) : Tags.output Sexpr.t =
-        let contents = 
-            let contents_to_output item =
-                let tmp = 
-                    match item with
+let files_to_formatter d : Tags.xml =
+    let module T = Tags.Data in
+    let file (f, contents) : Tags.xml Sexpr.t =
+        let aux item =
+            let tmp = 
+                `String 
+                    (match item with
                     | Characters -> Tags.Data.characters
                     | CostMatrix -> Tags.Data.cost_matrix
-                    | Trees -> Tags.Data.trees
-                in
-                `Single (Tags.Data.file_contents, [], `String tmp)
+                    | Trees -> Tags.Data.trees)
             in
-            List.map contents_to_output contents 
-        and name = Tags.Data.filename, `String f in
-        `Single ((Tags.Data.file, [name], (`Set contents)) :
-            Tags.output)
+            (PXML -[T.file_contents] [tmp] --)
+        in
+        (PXML -[T.file] 
+            ([T.filename] = [`String f]) { set List.map aux contents } --)
     in
-    Tags.Data.files, [], (`Set (List.map file d.files))
+    (RXML -[T.files] { set List.map file d.files } --)
 
-let ignored_taxa_to_formatter d : Tags.output = 
-    let taxon x acc =
-        `Single (Tags.Data.value, [], `String x) :: acc
-    in
+let ignored_taxa_to_formatter d : Tags.xml = 
+    let module T = Tags.Data in
+    let taxon x acc = (make_value_formatter x) :: acc in
     let res = All_sets.Strings.fold taxon d.ignore_taxa_set [] in
-    Tags.Data.ignored_taxa, [], (`Set res)
+    (RXML -[T.ignored_taxa] { set res } --)
 
-let ignored_characters_to_formatter d : Tags.output = 
-    let character x = `Single (Tags.Data.value, [], `String x) in
-    let res = List.map character d.ignore_character_set in
-    Tags.Data.ignored_characters, [], (`Set res)
+let ignored_characters_to_formatter d : Tags.xml = 
+    let module T = Tags.Data in
+    let res = List.map make_value_formatter d.ignore_character_set in
+    (RXML -[T.ignored_characters] { set res } --)
 
-let states_set_to_formatter enc : Tags.output = 
+let states_set_to_formatter enc : Tags.xml = 
+    let module T = Tags.Characters in
     let set = Parser.OldHennig.Encoding.get_set enc in
-    let add item acc =
-        `Single (Tags.Characters.state, 
-            [Tags.Characters.value, `Int item], `Empty) :: 
-                acc
-    in
-    let res = All_sets.Integers.fold add set [] in
-    Tags.Characters.states, [], (`Set res)
+    let add item acc = (PXML -[T.state] ([T.value] = [`Int item]) --) :: acc in
+    (RXML -[T.states] { set All_sets.Integers.fold add set [] } --)
 
 let pam_spec_to_formatter (state : dyna_state_t) pam =
+    let module T = Tags.Characters in
     let option_to_string contents = function
         | Some x -> contents x
         | None -> assert false
@@ -2076,14 +2072,14 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
         | None -> assert false
     in
     match (state : dyna_state_t) with
-    | `Seq -> [Tags.Characters.clas, `String Tags.Characters.sequence]
+    | `Seq -> [T.clas, `String T.sequence]
     | others -> 
             let clas = 
                 match others with
-                | `Chromosome -> `String Tags.Characters.chromosome
-                | `Genome -> `String Tags.Characters.genome
-                | `Annotated -> `String Tags.Characters.annotated
-                | `Breakinv -> `String Tags.Characters.breakinv
+                | `Chromosome -> `String T.chromosome
+                | `Genome -> `String T.genome
+                | `Annotated -> `String T.annotated
+                | `Breakinv -> `String T.breakinv
                 | _ -> assert false
             in
 
@@ -2103,57 +2099,57 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
             let chrom_indel_str = `IntFloatTuple (chrom_indel_o, chrom_indel_e) 
             in
 
-            [Tags.Characters.clas, clas; 
-            Tags.Characters.seed_len, handle_int pam.seed_len; 
-            Tags.Characters.re_meth, handle_re_meth pam.re_meth;
-            Tags.Characters.circular, handle_int pam.circular;
-            Tags.Characters.locus_indel_cost, locus_indel_str;
-            Tags.Characters.chrom_indel_cost, chrom_indel_str;
-            Tags.Characters.chrom_hom, handle_int pam.chrom_hom;
-            Tags.Characters.chrom_breakpoint, handle_int pam.chrom_breakpoint;
-            Tags.Characters.sig_block_len, handle_int pam.sig_block_len;
-            Tags.Characters.rearranged_len, handle_int pam.rearranged_len;
-            Tags.Characters.keep_median, handle_int pam.keep_median;
-            Tags.Characters.swap_med, handle_int pam.swap_med;
-            Tags.Characters.approx, handle_bool pam.approx;
-            Tags.Characters.symmetric, handle_bool pam.symmetric;]
+            (AXML
+            ([T.clas] = [clas]) 
+            ([T.seed_len] = [handle_int pam.seed_len]) 
+            ([T.re_meth] = [handle_re_meth pam.re_meth])
+            ([T.circular] = [handle_int pam.circular])
+            ([T.locus_indel_cost] = [locus_indel_str])
+            ([T.chrom_indel_cost] = [chrom_indel_str])
+            ([T.chrom_hom] = [handle_int pam.chrom_hom])
+            ([T.chrom_breakpoint] = [handle_int pam.chrom_breakpoint])
+            ([T.sig_block_len] = [handle_int pam.sig_block_len])
+            ([T.rearranged_len] = [handle_int pam.rearranged_len])
+            ([T.keep_median] = [handle_int pam.keep_median])
+            ([T.swap_med] = [handle_int pam.swap_med])
+            ([T.approx] = [handle_bool pam.approx])
+            ([T.symmetric] =  [handle_bool pam.symmetric]))
 
-let character_spec_to_formatter enc : Tags.output =
+let character_spec_to_formatter enc : Tags.xml =
+    let module T = Tags.Characters in
     match enc with
     | Kolmogorov d ->
-            Tags.Characters.kolmogorov,
-            [
-                Tags.Characters.name, `String d.dhs.filename;
-                Tags.Characters.chars, `String d.ks.funset;
-                Tags.Characters.alphabet, `String d.ks.alphset;
-                Tags.Characters.words, `String d.ks.wordset;
-                Tags.Characters.ints, `String d.ks.intset;
-            ],
-            `Empty
-    | Static enc ->
-            Parser.SC.to_formatter enc    
+            (RXML -[T.kolmogorov]
+                ([T.name] = [`String d.dhs.filename])
+                ([T.chars] = [`String d.ks.funset])
+                ([T.alphabet] = [`String d.ks.alphset])
+                ([T.words] = [`String d.ks.wordset])
+                ([T.ints] = [`String d.ks.intset]) --)
+    | Static enc -> Parser.SC.to_formatter enc    
     | Dynamic dspec ->
-            Tags.Characters.molecular,
-            ( (Tags.Characters.name, `String dspec.filename) ::
-                (Tags.Characters.initial_assignment, 
-                    (match dspec.initial_assignment with
-                    | `AutoPartitioned (_, size, _) -> 
-                            `String 
-                            ("AutoPartition of size " ^ string_of_int size ^ 
-                            " with DO")
-                    | `Partitioned _ -> 
-                            `String "User provided partition with DO"
-                    | `DO -> `String "Direct Optimization"
-                    | `FS _ -> `String "Fixed States")) ::
-                (Tags.Characters.tcm, `String dspec.tcm) ::
-                (Tags.Characters.gap_opening, `String dspec.fo) ::
-                (Tags.Characters.weight, `Float dspec.weight) ::
-                (pam_spec_to_formatter dspec.state dspec.pam)
-            ),
-            (`Single (Alphabet.to_formatter dspec.alph))
+            let initial =
+                match dspec.initial_assignment with
+                | `AutoPartitioned (_, size, _) -> 
+                        `String 
+                        ("AutoPartition of size " ^ string_of_int size ^ 
+                        " with DO")
+                | `Partitioned _ -> 
+                        `String "User provided partition with DO"
+                | `DO -> `String "Direct Optimization"
+                | `FS _ -> `String "Fixed States"
+            in
+            (RXML -[T.molecular]
+                ([T.name] = [`String dspec.filename])
+                ([T.initial_assignment] = [initial])
+                ([T.tcm] = [`String dspec.tcm])
+                ([T.gap_opening] = [`String dspec.fo])
+                ([Tags.Characters.weight] = [`Float dspec.weight])
+                ([pam_spec_to_formatter dspec.state dspec.pam])
+                { single Alphabet.to_formatter dspec.alph } --)
     | Set -> failwith "TODO Set in Data.character_spec_to_formatter"
 
-let characters_to_formatter d : Tags.output =
+let characters_to_formatter d : Tags.xml =
+    let module T = Tags.Data in
     let create code name acc =
         let enc = 
             try Hashtbl.find d.character_specs code with
@@ -2162,32 +2158,23 @@ let characters_to_formatter d : Tags.output =
                     prerr_newline ();
                     raise err 
         in
-        let res = Tags.Characters.character, 
-        [ (Tags.Characters.name, `String name); ("code", `Int code) ],
-        (`Single (character_spec_to_formatter enc))
-        in
-        (`Single res) :: acc
+        (PXML -[T.characters] 
+            ([T.name] = [`String name])
+            ("code" = [`Int code])
+            { single character_spec_to_formatter enc } --) :: acc
     in
-    let res = Hashtbl.fold create d.character_codes [] in
-    Tags.Data.characters, [], (`Set res)
+    (RXML -[T.characters] { set Hashtbl.fold create d.character_codes [] } --)
 
-let to_formatter attr d : Tags.output =
-    let syn = `Single (synonyms_to_formatter d)
-    and names = `Single (taxon_names_to_formatter d)
-    and ignored_taxa = `Single (ignored_taxa_to_formatter d)
-    and ignored_char = `Single (ignored_characters_to_formatter d)
-    and characters = `Single (characters_to_formatter d)
-    and spec_index = `Single (SpecIndex.to_formatter d.specification_index)
-    and char_index = 
-        let index = List.map (fun (a, b) ->
-            a, CharacSpec.estimate_prob b)
-            d.character_index 
-        in
-        `Single (CharacSpec.to_formatter index)
-    and files = `Single (files_to_formatter d) in
-    Tags.Data.data, attr, 
-    (`Set [names; syn; ignored_taxa; characters; ignored_char; files; 
-    spec_index; char_index])
+let to_formatter attr d : Tags.xml =
+    (RXML -[Tags.Data.data] ([attr]) 
+        { single taxon_names_to_formatter d }
+        { single synonyms_to_formatter d }
+        { single ignored_taxa_to_formatter d }
+        { single characters_to_formatter d }
+        { single ignored_characters_to_formatter d }
+        { single files_to_formatter d } 
+        { single SpecIndex.to_formatter d.specification_index }
+        --)
 
 let likelihood_sets = ref 0 
 

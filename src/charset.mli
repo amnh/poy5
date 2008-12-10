@@ -167,5 +167,5 @@ sig
 
     val reroot_median : t -> t -> t
     val dist_2 : t -> t -> t -> float
-    val to_formatter : Tags.attributes -> t -> Data.d -> Tags.output list
+    val to_formatter : Tags.attributes -> t -> Data.d -> Tags.xml list
 end

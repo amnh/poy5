@@ -228,7 +228,7 @@ let print_median med_ls outfile =
 
 (** [create_map anc_med des_ref] creates a map from the 
 * ancestor sequence  [anc_med] to descendant sequence whose ref_code is [des_ref]*)
-let create_map anc_med des_ref : (int * int * Tags.output) = 
+let create_map anc_med des_ref : (int * int * Tags.xml) = 
     let str x = `Int x in  
     let seg_ls = List.map 
         (fun m -> 
@@ -254,13 +254,13 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
                                (Tags.GenomeMap.d_dir_seg, d_dir )
                               ] 
              in 
-             let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) anc_med.chrom_map 
     in 
 
 
-    let chrom_map : Tags.output = 
+    let chrom_map : Tags.xml = 
         (Tags.GenomeMap.chrom, [], (`Set  seg_ls)) 
     in 
 
@@ -269,7 +269,7 @@ let create_map anc_med des_ref : (int * int * Tags.output) =
     | false -> anc_med.cost2, anc_med.recost2, chrom_map
 
 
-let create_single_map med : Tags.output = 
+let create_single_map med : Tags.xml = 
     let str x = `Int x in  
     let seg_ls = List.map 
         (fun m -> 
@@ -290,13 +290,13 @@ let create_single_map med : Tags.output =
                                (Tags.GenomeMap.d_dir_seg, d_dir )
                               ] 
              in 
-             let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) med.chrom_map 
     in 
 
 
-    let chrom_map : Tags.output = 
+    let chrom_map : Tags.xml = 
         (Tags.GenomeMap.chrom, [], (`Set  seg_ls)) 
     in 
     chrom_map

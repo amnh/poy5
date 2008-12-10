@@ -144,9 +144,9 @@ val assign_seq_ref : annchrom_t -> int -> annchrom_t * int
 
 (** [create_map med child_ref] returns the map
 * between chromosome [med] and its child [child_ref] *)
-val create_map : annchrom_t -> int -> int * int * Tags.output
+val create_map : annchrom_t -> int -> int * int * Tags.xml
 
-val create_single_map : annchrom_t -> Tags.output
+val create_single_map : annchrom_t -> Tags.xml
 
 
 (** [to_single single_parent child_ref c2] returns

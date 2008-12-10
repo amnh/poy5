@@ -811,13 +811,13 @@ let create_map med child_ref =
                                (Tags.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
-             let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) med.seq_arr
     in 
 
 
-    let chrom_map : Tags.output = 
+    let chrom_map : Tags.xml = 
         (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     match child_ref = med.ref_code1 with
@@ -842,13 +842,13 @@ let create_single_map med =
                                (Tags.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
-             let m : Tags.output = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) med.seq_arr
     in 
 
 
-    let chrom_map : Tags.output = 
+    let chrom_map : Tags.xml = 
         (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     chrom_map

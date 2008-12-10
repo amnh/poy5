@@ -33,6 +33,20 @@ let change_working_directory str =
             "path.\n");
             exit 1
 
+let process_kml_plugin plugin =
+IFDEF USE_NATIVEDYNLINK THEN
+    if Sys.file_exists plugin then 
+        let extension = if Dynlink.is_native then "cmxs" else "cmo" in
+        if Filename.check_suffix plugin extension then Dynlink.loadfile plugin
+        else 
+            failwith ("A plugin for this executable must have extension " ^
+            extension)
+    else failwith ("Could not find KML plugin " ^ plugin)
+ELSE
+    failwith "This version of POY was compiled without plugin support"
+END
+
+
 let parse_list = [
     ("-w", Arg.String change_working_directory,
     "Run poy in the specified working directory"); 
@@ -42,7 +56,9 @@ let parse_list = [
     ("-q", Arg.Unit (fun () -> only_run_argument_script := true), 
     "Don't wait for input other than the program argument script.");
     ("-no-output-xml", Arg.Unit (fun () -> SadmanOutput.do_sadman := false),
-    "Do not generate the output.xml file.")
+    "Do not generate the output.xml file.");
+    ("-kml", Arg.String process_kml_plugin, 
+    "Load the selected plugin in the KML formatters.")
 ]
 
 let anon_fun str =

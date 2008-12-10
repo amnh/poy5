@@ -201,6 +201,9 @@ let dependency_relations (init : Methods.script) =
                         [([Data; Trees], [Trees], init, NonComposable)]
                 | `ReDiagnose ->
                         [([Data; Trees], [Trees], init, NonComposable)]
+                | `KML (_, _, filename) ->
+                        let output = filename_to_list (Some filename) in
+                        [([Trees; Data] @ output, output, init, NonComposable)]
                 | `Graph (filename, _)
                 | `Ascii (filename, _) ->
                         let output = filename_to_list filename in
@@ -1552,6 +1555,8 @@ let script_to_string (init : Methods.script) =
                         "@[print my working directory@]"
                 | `Memory _ ->
                         "@[print my memory statistics@]"
+                | `KML _ ->
+                        "@[produce a KML file@]"
                 | `TimerInterval _ ->
                         "@[change the timer interval@]"
                 | `HistorySize _ ->
@@ -1971,6 +1976,7 @@ let is_master_only (init : Methods.script) =
     | `ExplainScript _
     | `PrintWDir 
     | `Memory _ 
+    | `KML _
     | `HistorySize _ 
     | `Redraw 
     | `Echo _  

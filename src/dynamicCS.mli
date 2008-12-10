@@ -212,7 +212,7 @@ val compare_union : u -> u -> int
 * dynamic character set [t] into Tag.output format *) 
 val to_formatter :
   ChromCS.IntSet.t ->
-  Tags.attribute list -> t -> t option -> Data.d -> Tags.output list
+  Tags.attribute list -> t -> t option -> Data.d -> Tags.xml Sexpr.t list
 
 (** [tabu_distance a_final b_final] returns the 
 * tabu distance between dynamic character set [a_final] and [b_final] *)

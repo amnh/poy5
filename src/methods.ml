@@ -676,6 +676,7 @@ type application = [
     | `Graph of (string option * bool)
     | `Ascii of (string option * bool)
     | `Memory of string option
+    | `KML of (string option * filename * string)
     | `TimerInterval of int
     | `HistorySize of int
     | `Logfile of string option

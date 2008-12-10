@@ -434,7 +434,8 @@ let state_to_xml ch c (_ : Data.d) =
     let c = to_list_with_cost c in
     List.iter print_character c
 
-let to_formatter attr c parent d : Tags.output list =
+let to_formatter attr c parent d : Tags.xml Sexpr.t list =
+    let module T = Tags.Characters in
     let c_ls = to_list c in   
     let c_parent_ls = match parent with 
     | Some parent -> to_list parent  
@@ -446,21 +447,18 @@ let to_formatter attr c parent d : Tags.output list =
             (singleton (List.nth c_parent_ls !idx) 0) 
         in 
         incr idx; 
-        
-        let attributes = 
-            (Tags.Characters.name, 
-            `String (Data.code_character code d)) ::
-            (Tags.Characters.cost, `Float cost) ::
-                (Tags.Characters.definite, `Bool (cost > 0.0)) :: attr
-        in
-        let contents = `Set [
-            `Single (Tags.Characters.min, [], 
-            `String (Data.to_human_readable d code min));
-            `Single (Tags.Characters.max, [], 
-            `String (Data.to_human_readable d code max))
-        ]
-        in
-        (Tags.Characters.additive, attributes, contents)
+        (PXML 
+            -[T.additive]
+                (* Attributes *)
+                ([T.name] = [`String (Data.code_character code d)])
+                ([T.cost] = [`Float cost])
+                ([T.definite] = [`Bool (cost > 0.0)])
+                ([attr])
+
+                (*Contents *)
+                -[T.min] { `String (Data.to_human_readable d code min) } --
+                -[T.max] { `String (Data.to_human_readable d code max) } --
+            --)
     in
     let c = to_list_with_cost c in
     List.map output_character c

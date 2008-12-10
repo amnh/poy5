@@ -1948,7 +1948,7 @@ let compare_data a b =
 
 let ( --> ) a b = b a 
 
-let to_formatter attr t do_to_single d : Tags.output list = 
+let to_formatter attr t do_to_single d : Tags.xml Sexpr.t list = 
     let h = t.heuristic in
     let rec output_sequence acc code seq do_to_single =
         let one_sequence (cmin, cmax, ccost, seqs) par seq =
@@ -2065,19 +2065,22 @@ let to_formatter attr t do_to_single d : Tags.output list =
             if max > 0. then  `String "true"
             else `String "false"
         in 
-        let attributes = 
-            (Tags.Characters.name, `String (Data.code_character code d)) ::
-                (Tags.Characters.cost, costb) ::
-                    (Tags.Characters.definite, definite_str) :: attr
-        in
-        let contents = `Fun seq in
-        (Tags.Characters.sequence, attributes, contents) :: acc
+        let module T = Tags.Characters in
+        (PXML 
+            -[T.sequence] 
+                (* Attributes *)
+                ([T.name] = [`String (Data.code_character code d)])
+                ([T.cost] = [costb])
+                ([T.definite] = [definite_str])
+                ([attr])
+                
+                { `Fun seq }
+            --) :: acc
     in
     let parent = 
         match do_to_single with
         | None -> Array.map (fun _ -> None) t.characters
-        | Some x -> 
-                Array.map (fun x -> Some x) x.characters
+        | Some x -> Array.map (fun x -> Some x) x.characters
     in
     Array_ops.fold_left_3 output_sequence [] t.codes t.characters parent
 

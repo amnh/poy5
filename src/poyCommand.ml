@@ -294,6 +294,7 @@ type reporta = [
     | `File of string
     | `Data
     | `Xslt of (string * string)
+    | `KML of (string * string)
     | `Ascii of bool
     | `Memory
     | `Graph of bool
@@ -825,6 +826,11 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
     | `Data -> (`Dataset file) :: acc, file
     | `Xslt x -> (`Xslt x) :: acc, file
     | `Ascii x -> (`Ascii (file, x)) :: acc, file
+    | `KML (plugin, out_file) -> 
+            (match file with
+            | None -> failwith "KML generation requires an output file"
+            | Some f -> 
+                    (`KML (Some plugin, `Local out_file, f)) :: acc, file)
     | `Memory -> (`Memory file) :: acc, file
     | `Graph x -> 
             begin match acc, file with
@@ -1471,6 +1477,9 @@ let create_expr () =
         report_argument:
             [
                 [ x = STRING -> `File x ] |
+                [ LIDENT "kml"; ":"; left_parenthesis; 
+                    plugin = LIDENT; ","; csv = STRING;
+                right_parenthesis -> `KML (plugin, csv) ] |
                 [ LIDENT "new"; ":"; x = STRING ->
                     StatusCommon.Files.closef x ();
                     let _ = StatusCommon.Files.openf ~mode:`New x in

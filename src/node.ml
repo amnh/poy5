@@ -2338,7 +2338,7 @@ let get_active_ref_code node_data =
         ) (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) node_data.characters 
 
 let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d 
-    (cs , cs_single) (parent_cs : (cs * cs) option) : Tags.output list = 
+    (cs , cs_single) (parent_cs : (cs * cs) option) : Tags.xml Sexpr.t list = 
     match cs,  parent_cs, cs_single with
     | Nonadd8 cs, _, _ -> begin
           match parent_cs with 
@@ -2426,12 +2426,12 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           let sub a = 
               (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
               * error, though I can't see where ... *)
-              List.map (fun a -> `Single a) 
-              (cs_to_formatter (pre_ref_codes, fi_ref_codes) d a None) in
-          let sub : (Tags.output Sexpr.t list) = List.map2 (fun a b -> `Set
+              (cs_to_formatter (pre_ref_codes, fi_ref_codes) d a None) 
+          in
+          let sub : (Tags.xml Sexpr.t list) = List.map2 (fun a b -> `Set
           (sub (a, b))) x.final.set x_single.final.set in
           let cont = `Set sub in
-          [(Tags.Characters.set, attributes, cont)]
+          [`Single (Tags.Characters.set, attributes, cont)]
     | StaticMl cs,_, _ -> 
         IFDEF USE_LIKELIHOOD THEN
         begin
@@ -2467,22 +2467,12 @@ let cmp_subtree_recost node_data =
 
 let to_formatter_single (pre_ref_codes, fi_ref_codes) 
     (acc : Tags.attributes) 
-    d (node_data, node_single) (node_id : int) parent_data : Tags.output =
+    d (node_data, node_single) (node_id : int) parent_data : Tags.xml =
     let get_node_name id = 
         try Data.code_taxon id d 
         with | Not_found -> string_of_int id 
     in
     let node_name = get_node_name node_id in 
-    let attr = 
-        (Tags.Nodes.cost, `Float 0.) :: 
-        (Tags.Nodes.recost, `Float 0.) :: 
-        (Tags.Nodes.node_cost, `Float node_data.node_cost) ::
-        (Tags.Nodes.name, `String node_name) ::
-        (Tags.Nodes.child1_name, `String "") ::        
-        (Tags.Nodes.child2_name, `String "") ::        
-        (Tags.Nodes.nce, `Int node_data.num_child_edges) ::
-        (Tags.Nodes.notu, `Int node_data.num_otus) :: acc
-    in
     let get_parent item = 
         match parent_data with
         | None -> None
@@ -2499,13 +2489,24 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
                  cs_to_formatter 
                  (pre_ref_codes, fi_ref_codes) d cs parent_data 
             in 
-             let res = List.map (fun ch -> `Single ch) res in 
              res @ acc, item + 1
         ) ([], 0) 
         (List.map2 (fun a b -> a, b) 
         node_data.characters node_single.characters))))
     in
-    (Tags.Nodes.node, attr, children)
+    let module T = Tags.Nodes in
+    (RXML 
+        -[T.node]
+            ([T.cost] = 0.)
+            ([T.recost] = 0.)
+            ([T.node_cost] = [`Float node_data.node_cost])
+            ([T.name] = [`String node_name])
+            ([T.child1_name] = "")
+            ([T.child2_name] = "")
+            ([T.nce] = [`Int node_data.num_child_edges])
+            ([T.notu] = [`Int node_data.num_otus])
+            ([acc])
+            { children } --)
 
 (** [copy_chrom_map source des] copies the chromosome map
 * which creates chromosome [source] to chromosome map which creates chromosome [des] *)
@@ -2530,7 +2531,8 @@ let copy_chrom_map source des =
 
 let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         acc d (node_data, node_single) node_id (child1_id,  child1_node_data)
-        (child2_id,  child2_node_data) (parent_node_data_opt : (node_data * node_data) option) : Tags.output =
+        (child2_id,  child2_node_data) (parent_node_data_opt : (node_data *
+        node_data) option) : Tags.xml =
 
     let get_node_name id =  
         try Data.code_taxon id d with 
@@ -2550,20 +2552,23 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         child1_recost +. 
         child2_recost +. 
         (cmp_node_recost node_data) in 
-    let attr = 
-        (Tags.Nodes.cost, 
-         (match parent_node_data_opt with 
-          | None -> `Float 0.
-          | _ -> `Float node_data.total_cost)):: 
-        (Tags.Nodes.recost, `Float subtree_recost) :: 
-        (Tags.Nodes.node_cost, `Float node_data.node_cost) ::
-        (Tags.Nodes.name, `String node_name) ::
-        (Tags.Nodes.child1_name, `String child1_name) ::        
-        (Tags.Nodes.child2_name, `String child2_name) ::        
-        (Tags.Nodes.nce, `Int node_data.num_child_edges) ::
-        (Tags.Nodes.notu, `Int node_data.num_otus) :: acc
+    let module T = Tags.Nodes in
+    let attr : Tags.attributes = 
+        (AXML
+            ([T.cost] =
+                 [match parent_node_data_opt with 
+                  | None -> `Float 0.
+                  | _ -> `Float node_data.total_cost])
+            ([T.recost] = [`Float subtree_recost])
+            ([T.node_cost] = [`Float subtree_recost])
+            ([T.name] = [`String node_name])
+            ([T.child1_name] = [`String child1_name])
+            ([T.child2_name] = [`String child2_name])
+            ([T.nce] = [`Int node_data.num_child_edges])
+            ([T.notu] = [`Int node_data.num_otus])
+            ([acc]))
     in
-    let children =
+    let children : Tags.xml Tags.contents =
         `Delayed (fun () ->
         `Set (fst (List.fold_left 
         (fun (acc, idx) cs ->
@@ -2578,13 +2583,11 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
                  | _ -> None
              in  
              let res = cs_to_formatter (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
-
-             let res = List.map (fun ch -> `Single ch) res in 
              (res @ acc), (idx + 1)) ([], 0) 
              (List.map2 (fun a b -> a, b) node_data.characters 
              node_single.characters))))
     in
-    (Tags.Nodes.node, attr, children)
+    (RXML -[T.node] ([attr]) { children } --)
 
 let to_xml data ch node = ()
 

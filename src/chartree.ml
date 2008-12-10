@@ -1248,7 +1248,7 @@ let get_active_ref_code tree =
     anaylzing node is the handle or handle's ancestor *)
 let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
         attr data tree node_id 
-        (parent_data : (Node.node_data * Node.node_data) option) : Tags.output =
+        (parent_data : (Node.node_data * Node.node_data) option) : Tags.xml =
     match Ptree.get_node node_id tree with
     | Tree.Interior (_, parent_id, c1, c2)  ->
             let node_data = Ptree.get_node_data node_id tree
@@ -1313,7 +1313,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
           (Tags.Trees.tree, [], nodest)
 
 let handle_to_formatter (pre_ref_codes, fi_ref_codes)
-        attr data tree handle_id : Tags.output =
+        attr data tree handle_id : Tags.xml =
     let root = Ptree.get_component_root handle_id tree in
     let data = 
         match Ptree.get_node handle_id tree with
@@ -1364,7 +1364,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
     in
     (Tags.Trees.tree, attr, data)
 
-let to_formatter atr data tree : Tags.output =
+let to_formatter atr data tree : Tags.xml =
         (* We don't include the cost of the tree because it comes from the three
         * directional tree attributes. *)
     let (pre_ref_codes, fi_ref_codes) = get_active_ref_code tree in

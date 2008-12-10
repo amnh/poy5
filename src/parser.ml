@@ -2539,52 +2539,51 @@ module SC = struct
         ^ bool_to_string s.st_case
 
     let to_formatter s =
-        let info = [
-            (Tags.Characters.source, `String s.st_filesource);
-            (Tags.Characters.name, `String s.st_name);
-            (Tags.Characters.weight, `Float s.st_weight);
-            (Tags.Characters.missing_symbol, `String s.st_missing);
-            (Tags.Characters.matchstate_symbol, 
-            (match s.st_matchstate with None -> `String "" | Some x -> `String x));
-            (Tags.Characters.gap_symbol, `String s.st_gap);
-            (Tags.Characters.ignore, `Bool s.st_eliminate);
-            (Tags.Characters.case, `Bool s.st_case);
-            ] 
+        let module T = Tags.Characters in
+        let lst tag ls = (PXML -[tag] {set ls} --) in
+        let observed_states = 
+            let res = 
+                List.map (fun x -> PXML -[T.item] {`Int x} --) s.st_observed 
+            in
+            lst T.observed res
+        and equivalencies =
+            let res =
+                List.map (fun (a, b) -> 
+                    PXML -[T.equivalent] 
+                        ([T.from] = [`String a])
+                        ([T.towards] = [`String (String.concat " " b)]) --)
+                s.st_equivalents 
+            in
+            lst T.equivalencies res
+        and states = 
+            let res = 
+                List.map (fun x -> 
+                    PXML -[T.label] {`String x}--) s.st_labels 
+            in
+            lst T.labels res
         in
-        let contents = 
-            let lst tag ls = `Single (tag, [], (`Set ls)) in
-            let observed_states = 
-                let res = 
-                    List.map (fun x -> `Single (Tags.Characters.item,
-                    [], `String (string_of_int x))) s.st_observed
-                in
-                lst Tags.Characters.observed res
-            and equivalencies =
-                let res =
-                    List.map (fun (a, b) -> `Single (Tags.Characters.equivalent,
-                    [(Tags.Characters.from, `String a); (Tags.Characters.towards, 
-                        `String (String.concat " " b))], `Empty)) 
-                    s.st_equivalents 
-                in
-                lst Tags.Characters.equivalencies res
-            and states = 
-                let res = 
-                    List.map (fun x -> `Single (Tags.Characters.label,
-                    [], `String x)) s.st_labels 
-                in
-                lst Tags.Characters.labels res
-            and alph = `Single (Alphabet.to_formatter s.st_alph) in
-            (`Set [alph; states; observed_states; equivalencies])
+        let ch_type =
+            match s.st_type with
+            | STUnordered -> T.nonadditive
+            | STOrdered -> T.additive
+            | STSankoff _ -> T.sankoff
+            | STLikelihood _ -> T.likelihood
         in
-        match s.st_type with
-        | STUnordered ->
-                Tags.Characters.nonadditive, info, contents
-        | STOrdered ->
-                Tags.Characters.additive, info, contents
-        | STSankoff _ ->
-                Tags.Characters.sankoff, info, contents
-        | STLikelihood _ ->
-                Tags.Characters.likelihood, info, contents
+        (RXML -[ch_type] 
+            ([T.source] = [`String s.st_filesource])
+            ([T.name] = [`String s.st_name])
+            ([T.weight] = [`Float s.st_weight])
+            ([T.missing_symbol] = [`String s.st_missing])
+            ([T.matchstate_symbol] = 
+                [match s.st_matchstate with 
+                | None -> `String "" | Some x -> `String x])
+            ([T.gap_symbol] = [`String s.st_gap])
+            ([T.ignore] = [`Bool s.st_eliminate])
+            ([T.case] = [`Bool s.st_case])
+            { single Alphabet.to_formatter s.st_alph }
+            { states }
+            { observed_states }
+            { equivalencies } --)
 
     module N = Nexus
     module Nexus = struct

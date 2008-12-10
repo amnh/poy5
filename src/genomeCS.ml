@@ -238,9 +238,8 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between  genome character set [t] and 
 * its parents [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
     let _, state = List.hd attr in   
-
     let output_genome code med acc =
         let med = 
             try
@@ -272,7 +271,6 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                             let med = List.hd med_ls in 
                             
                             let map = GenomeAli.create_single_map med in 
-
                             cost, (recost1 + recost2), map
                       | _ -> failwith "Fucking up at the to_formatter in GenomeCS.ml"
                   in 
@@ -285,33 +283,29 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
         let chromStr_arr = Array.map 
             (fun chrom -> Sequence.to_formater chrom Alphabet.nucleotides) chrom_arr 
         in
-
-        let genome = String.concat " @@ " (Array.to_list chromStr_arr) in 
+        let genome () = String.concat " @@ " (Array.to_list chromStr_arr) in 
         let name = Data.code_character code d in  
         let cost_str = 
             match state with
             | `String "Single" -> `IntTuple (cost, cost)
             | _ -> `IntTuple (0, cost)
         in 
-        let definite_str = `Bool (cost > 0) in 
-        let attributes =  
-            (Tags.Characters.name, `String name) ::                     
-                (Tags.Characters.cost, cost_str) :: 
-                (Tags.Characters.recost, `Int recost) :: 
-                (Tags.Characters.definite, definite_str) :: 
-                (Tags.Characters.ref_code, `Int med.GenomeAli.genome_ref_code):: 
-                attr 
-        in 
+        let module T = Tags.Characters in
+        (PXML 
+            -[T.genome] 
+                (* Attributes *)
+                ([T.name] = [`String name])
+                ([T.cost] = [cost_str])
+                ([T.recost] = [`Int recost])
+                ([T.definite] = [`Bool (cost > 0)])
+                ([T.ref_code] = [`Int med.GenomeAli.genome_ref_code])
+                ([attr])
+                { match map with
+                | None -> (PXML ---)
+                | Some map -> `Single map}
 
-        let acc = match map with
-        | Some map ->
-              let content = (Tags.Characters.sequence, [], `String genome) in  
-            (Tags.Characters.genome, attributes, 
-             (`Set [`Single map; `Single content])) :: acc 
-        | None ->
-            (Tags.Characters.genome, attributes, `String genome):: acc 
-        in 
-        acc
+                -[T.sequence] [`Fun genome] --
+            --) :: acc
     in
     IntMap.fold output_genome t.meds []
 

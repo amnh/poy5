@@ -1353,7 +1353,7 @@ with type b = AllDirNode.OneDirF.n = struct
         ptree
 
     let to_formatter (atr : Tags.attributes) (data : Data.d) 
-            (tree : (a, b) Ptree.p_tree) : Tags.output =
+            (tree : (a, b) Ptree.p_tree) : Tags.xml =
 
         let tree = assign_final_states tree in
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in 
@@ -1367,11 +1367,10 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         let merger a b root = 
             (`Set [`Single root; `Single a; `Single b]) 
-        and singler a = (`Single a) 
         and splitter parent a = get_unadjusted parent a, get_single parent a in
         (* Now we are ready to process the contents of the tree *)
         let rec subtree_to_formatter (pre, fi) cur par 
-                ((node_parent, single_parent) as tmp2) : Tags.output =
+                ((node_parent, single_parent) as tmp2) : Tags.xml =
             match Ptree.get_node cur tree with
             | (Tree.Interior _) as nd ->
                     let cur_data = Ptree.get_node_data cur tree in
@@ -1387,7 +1386,10 @@ with type b = AllDirNode.OneDirF.n = struct
                     in
                     let ch1 = subtree_to_formatter (pre, fi) ch1 cur tmp in
                     let ch2 = subtree_to_formatter (pre, fi) ch2 cur tmp in
-                    ((Tags.Trees.tree, [], merger ch1 ch2 mine) : Tags.output)
+                    ((RXML 
+                        -[Tags.Trees.tree] 
+                            {single mine} { single ch1 } 
+                            { single ch2 } --) : Tags.xml)
             | (Tree.Leaf (_, par)) ->
                     let node_data = Ptree.get_node_data cur tree in
                     
@@ -1396,14 +1398,14 @@ with type b = AllDirNode.OneDirF.n = struct
                         (pre, fi) [] data 
                         (splitter par node_data) cur (Some tmp2)
                     in
-                    (Tags.Trees.tree, [], singler nodest)
+                    (RXML -[Tags.Trees.tree] { single nodest }--)
             | (Tree.Single _) ->
                     let node_data = Ptree.get_node_data cur tree in
                     let nodest = 
                         Node.to_formatter_single
                         (pre, fi) [] data (splitter (-1) node_data) cur None
                     in
-                    (Tags.Trees.tree, [], singler nodest)
+                    (RXML -[Tags.Trees.tree] { single nodest } --)
         in
         let handle_to_formatter (pre, fi) handle (recost, trees) =
             let r = Ptree.get_component_root handle tree in
@@ -1423,11 +1425,11 @@ with type b = AllDirNode.OneDirF.n = struct
                             let s_root = Node.copy_chrom_map root s in 
                             (root, s_root), s
                         in
-                        let a : Tags.output = 
+                        let a : Tags.xml = 
                             subtree_to_formatter (pre, fi) a b sroot
-                        and b : Tags.output = 
+                        and b : Tags.xml = 
                             subtree_to_formatter (pre, fi) b a sroot
-                        and froot : Tags.output =
+                        and froot : Tags.xml =
                             let handle = Ptree.get_node_data a tree 
                             and parent = Ptree.get_node_data b tree in
                             Node.to_formatter_subtree 
@@ -1438,7 +1440,7 @@ with type b = AllDirNode.OneDirF.n = struct
                         recost, (merger a b froot), 
                         [Tags.Trees.cost, `Float r.Ptree.component_cost]
                 | Some ((`Single a), root) ->
-                        let c1 : Tags.output = 
+                        let c1 : Tags.xml = 
                             let nd = splitter (-1) root in
                             subtree_to_formatter (pre, fi) a a nd
                         in
@@ -1446,7 +1448,9 @@ with type b = AllDirNode.OneDirF.n = struct
                         [Tags.Trees.cost, `Float r.Ptree.component_cost]
                 | None -> assert false
             in
-            recost, ((`Single ((Tags.Trees.tree, attr, contents) : Tags.output)) :: trees)
+            recost, 
+            (((PXML -[Tags.Trees.tree] ([attr]) { contents }--)) ::
+                trees)
         in
         let recost, trees =
             All_sets.Integers.fold 
@@ -1454,12 +1458,12 @@ with type b = AllDirNode.OneDirF.n = struct
             (Ptree.get_handles tree)
             (0., [])
         in
-        let atr = 
-            let cost = Ptree.get_cost `Adjusted tree in
-            (Tags.Trees.recost, `Float recost) ::
-            (Tags.Trees.cost, `Float cost) :: atr
-        in
-        (Tags.Trees.forest, atr, `Set trees)
+        let cost = Ptree.get_cost `Adjusted tree in
+        (RXML -[Tags.Trees.forest] 
+            ([Tags.Trees.recost] = [`Float recost])
+            ([Tags.Trees.cost] = [`Float cost])
+            ([atr])
+            { set trees } --)
 
 end
 

@@ -98,6 +98,184 @@ module type S = sig
     type c
     type tree = (a, b) Ptree.p_tree 
 
+    module Kml : sig
+        type phylogeny = tree
+
+        module GIS : sig 
+
+            type point = { 
+                latitude : float;
+                longitude : float;
+                altitude : float;
+            }
+
+            type triangle = (point * point * point)
+
+            (* Estimate the horizontal distance between points, in meters *)
+            val horizontal_distance : point -> point -> float
+            
+            (* Calculate a point located in the center between two points *)
+            val center_points : point -> point -> point
+
+            (* Find the centroid of a triangle *)
+            val center_triangle : triangle -> point
+
+        end
+
+        module TemporalGIS : sig
+            type date = (int * int * int) option (* Year month day *)
+
+            type sample = {
+                coordinates : GIS.point;
+                date : date;
+            }
+
+            (* Compare a pair of dates and return the minimum *)
+            val min_date : date -> date -> date
+
+            (* Produce a hash table of terminals and their corresponding samples, as
+            * read from a csv file *)
+            val csv : string -> (Tags.unstructured, sample) Hashtbl.t
+        end
+
+        module KTree : sig
+            (* A module to easily process trees for KML generation *)
+
+            (* POY uses internally a relatively complex data structure to hold the
+            * trees, this is a sipmlified version that has all the information in XML
+            * like format. Only binary trees are alowed, and each is a tuple, consisting
+            * of the contents of the vertex in the phylogenetic tree, and the temporal
+            * and geographic information associated with it. The leaves are exactly the
+            * input data, while the interior vertices are computed by POY or user
+            * provided plugins. *)
+            type simplified_topology = (Tags.xml * TemporalGIS.sample) Parser.Tree.t
+
+            (* The represenatation of the name of a node. We don't use plain strings
+            * because they would make the generation of the XML a little bit too verbose
+            * *)
+            type node_name = Tags.unstructured 
+
+            (* The topology of a tree, with the simplified version of the topology, and
+            * quick access to the nodes of the tree, and the ancestors. This suplies
+            * some functions that the simplified_topology can nos perform (like finding
+            * the ancestor of a tree or quickly reaching a particular vertex of the
+            * tree). *)
+            type topology =
+                { ancestors : (Tags.unstructured, Tags.xml Tags.contents option) Hashtbl.t;
+                nodes : (Tags.unstructured, Tags.xml) Hashtbl.t;
+                topo : simplified_topology }
+
+
+            (* The default tree adjustment function *)
+            val adjust_tree : simplified_topology -> simplified_topology
+
+            (* [process data csv phylogeny] producess a topology consisting of the
+            * contents computed in the [phylogeny] tree, with temporal and geographic
+            * information contained in the CSV file [csv], and all the data
+            * representation [data]. *)
+            val process : Data.d -> string -> phylogeny -> topology
+
+            (* [ancestor topology vertex] gets the ancestor of the [vertex] in the
+            * [topology]. The output is optional as the root of the tree has no
+            * ancestor. *)
+            val ancestor : topology -> node_name -> Tags.xml Tags.contents option
+
+            (* [children topology vertex] gets the pair of the vertex [vertex] in the
+            * [topology]. The output is optional as the leaves of the tree have no
+            * children. *)
+            val children : topology -> node_name -> (node_name * node_name) option
+
+            (* [sister topology vertex] gets the sister group of the [vertex] in the
+            * [topology] (that is, the other child of the ancestor of [vertex]). 
+            * The output is optional as the root has no sister. *)
+            val sister : topology -> node_name ->  node_name option
+
+            (** [node topology vertex] extracts all the data about [vertex] contained 
+            * in the original phylogeny as stored in [topology]. *)
+            val node : topology -> node_name -> Tags.xml
+
+
+            (** [is_root topology vertex] is true iff [vertex] is the root of the
+            * [topology] *)
+            val is_root : topology -> node_name -> bool
+
+            (** [extract_gis simplified_topology] extracts the temporal and gis
+            * information stored in the root vertex of the [simplified_topology]. *)
+            val extract_gis : simplified_topology -> TemporalGIS.sample
+
+        end
+
+        module KFile : sig
+            (** The following types are needed to produce a Plugin for POY. *)
+
+            (** [node_information data topology vertex] produces an HTML-equivalent
+            * structure with the information that should be printed about the [vertex] in
+            * the [topology]. [data] is provided in case the specification of some of
+            * the characters in [vertex] or the [vertex] itself is needed. *)
+            type node_information = 
+                Data.d -> KTree.topology -> Tags.unstructured -> 
+                    [ Tags.unstructured | Tags.xml Tags.simple_struc ]
+
+            (** [create_node node_information data topology vertex parent_sample
+            *   child1_sample child2_sample vertex_sample] produces the XML structure
+            *   with the representation of [vertex] in the KML file. The information
+            *   about the vertex should be generated and enclosed in a CDATA using the
+            *   [node_information] function provided in the argument. The
+            *   [parent_sample], [child1_sample], and [child2_sample] are provided for
+            *   convenience, as the main goal of this function is to print the node and
+            *   edges connected with it. *)
+            type create_node =
+                    node_information -> Data.d -> KTree.topology ->
+                    Tags.xml -> TemporalGIS.sample option -> 
+                        TemporalGIS.sample option ->
+                        TemporalGIS.sample option ->TemporalGIS.sample -> 
+                            Tags.xml Sexpr.t
+
+
+            (** [adjust_tree simple_topology] beautifies the location of the vertices in
+             * the tree *)
+            type adjust_tree = KTree.simplified_topology -> KTree.simplified_topology
+
+            (** [styles ()] produces all the styles used in the KML. *)
+            type styles = unit -> Tags.xml Sexpr.t
+
+            type folder = {
+                name : string;
+                node_information : node_information;
+                create_node : create_node option;
+            }
+
+            type plugin = {
+                folders : folder list;
+                adjust_tree : adjust_tree;
+                styles : styles;
+            }
+
+            (** [default ] is the default plugin *)
+            val default : plugin
+
+            (** [register_plugin name plugin] registers the [plugin] under the [name]
+             * provided. This plugin will be usable in the user interface using the
+             * command report (kml:name). *)
+            val register_plugin : string -> plugin -> unit
+
+            (** [has_plugin name] is [true] iff [register_plugin name plugin] has been
+            * called before *)
+            val has_plugin : string -> bool
+
+            (** [kml ?plugin name output data csv tree] dumps in the file [output] a
+            * KML file using the [plugin] selected for the tree [tree] and using the
+            * [csv] file with the geographic and temporal information. The KML will be
+            * registerd with the [name] provided. If not [plugin] is given, then
+            * [default] is selected .*)
+            val kml : ?plugin:string -> string -> string -> Data.d -> string ->
+                phylogeny Sexpr.t -> unit
+
+
+            val create_line : TemporalGIS.sample option -> TemporalGIS.sample -> 
+                Tags.xml Tags.contents
+        end
+    end
     type r = (a, b, c) run
 
     type minimum_spanning_tree = tree 
@@ -194,6 +372,846 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
     type a = Node.n
     type b = Edge.e
     type c = CScrp.cs
+    type tree = (a, b) Ptree.p_tree 
+
+    module Kml = struct
+        exception IllegalCVS
+
+        type phylogeny = tree
+
+        module GIS = struct
+
+            type point = { 
+                latitude : float; 
+                longitude : float;
+                altitude : float;
+            }
+
+            let horizontal_distance a b =
+                let to_rad x = x /. 57.2958 (* 180 / pi *) in
+                let convert a = 
+                    { a with latitude = to_rad a.latitude; 
+                    longitude = to_rad a.longitude }
+                in
+                let a = convert a
+                and b = convert b in
+                let r = 63787000. (* Kilometers *) in
+                let dist = 
+                    r *. acos (((sin a.latitude) *. (sin b.latitude)) +.
+                    ((cos a.latitude) *. (cos b.latitude) *. (cos (b.longitude -.
+                    a.longitude))))
+                in
+                dist
+
+            type triangle = (point * point * point)
+
+            let latitude_middle a b = (a.latitude +. b.latitude) /. 2. 
+
+            let longitude_middle a b = 
+                let dif = a.longitude -. b.longitude in
+                let mid = (a.longitude +. b.longitude) /. 2. in
+                if dif > 180. then mid -. 180.
+                else if dif < (-. 180.) then mid +. 180.
+                else mid
+
+            let altitude_middle a b = 
+                (a.altitude +. b.altitude) /. 2.
+
+            let altitude_delta a b =
+                let d = horizontal_distance a b in
+                if d < 50000. then d
+                else 50000.
+
+            let center_points a b =
+                { latitude = latitude_middle a b; 
+                longitude = longitude_middle a b;
+                altitude = altitude_middle a b}
+
+            let point_mid a b = 
+                let max_altitude = 
+                    (altitude_delta a b) +. (max a.altitude b.altitude)
+                in
+                { latitude = latitude_middle a b; 
+                longitude = longitude_middle a b;
+                altitude = max_altitude; }
+
+            let rec point_mid2 i a b =
+                if i = 0 then b
+                else 
+                    let b = point_mid a b in
+                    point_mid2 (i - 1) a b
+
+
+            let center_triangle (a, b, c) =
+                let rec aux iterations (a, b, c) =
+                    if iterations = 0 then a
+                    else
+                        let iterations = iterations - 1 in
+                        if a = b && b = c then a
+                        else aux iterations 
+                            (point_mid a b, point_mid b c, point_mid a c)
+                in
+                aux 5 (a, b, c)
+
+            let rec triangle_mid iterations (a, b, c) = 
+                if iterations = 0 then a
+                else
+                    let iterations = iterations - 1 in
+                    if a = b && b = c then a
+                    else triangle_mid iterations 
+                        (point_mid a b, point_mid b c, point_mid a c)
+
+            let triangle_mid (a, b, c) =
+                let ab = horizontal_distance a b
+                and bc = horizontal_distance b c
+                and ac = horizontal_distance a c in
+                if 10000. > min (min ab bc) ac then
+                    if ab < bc then
+                        if ab < ac then (point_mid a b) 
+                        else (point_mid a c) 
+                    else if bc < ac then (point_mid b c) 
+                    else (point_mid a c) 
+                else triangle_mid 5 (a, b, c)
+
+
+        end
+
+        module TemporalGIS = struct
+
+            open GIS 
+
+            type date = (int * int * int) option 
+            type sample = { coordinates : GIS.point; 
+            date : date}
+
+            let min_date a b =
+                match a, b with
+                | x, None
+                | None, x -> x
+                | Some (yeara, ma, da), Some (yearb, mb, db) ->
+                        if yeara = yearb then
+                            if ma = mb then
+                                if da = db then a
+                                else if da < db then a
+                                else b
+                            else if ma < mb then a
+                            else b
+                        else if yeara < yearb then a
+                        else b
+
+            let initial_ancestor x y =
+                { coordinates = point_mid x.coordinates y.coordinates;
+                date = min_date x.date y.date }
+
+            let adjust_ancestor mine x y z =
+                let altitude = mine.coordinates.altitude in
+                let coord = 
+                    triangle_mid (x.coordinates, y.coordinates, z.coordinates)
+                in
+                { mine with coordinates = { coord with altitude = altitude }}
+
+            let csv file =
+                (* We need to read the file and output the hash table
+                with all of * the coordinates and time if available *)
+                let ch = open_in file in
+                let res = Hashtbl.create 1667 in
+                try
+                    (* We read the first line to check what is the input 
+                    * contents *)
+                    let line = input_line ch in
+                    let comma = Str.regexp ","
+                    and space = Str.regexp " " in
+                    let with_date name lat long year month day =
+                        Hashtbl.add res (`String name)
+                        { coordinates = 
+                            { latitude = lat; longitude = long; altitude = 0.}; 
+                            date = Some (year, month, day) }
+                    and without_date name lat long =
+                        Hashtbl.add res (`String name)
+                        {coordinates = 
+                            {latitude = lat; longitude = long; altitude = 0.};
+                        date = None}
+                    in
+                    let has_date = 
+                        match Str.split comma (Str.global_replace space "" line) with
+                        | [a; b; c; d] ->
+                                let aref = "strain_name" in
+                                if aref = aref then 
+                                    if b = "latitude" then 
+                                        if c = "longitude" then
+                                            if d = "date" then true
+                                            else raise IllegalCVS
+                                        else raise IllegalCVS
+                                    else raise IllegalCVS
+                                else 
+                                    raise IllegalCVS
+                        | [a; b; c] ->
+                                if 
+                                    a = "strain_name" && b = "latitude" && 
+                                    c = "longitude" then false
+                                else raise IllegalCVS
+                        | "strain_name" :: "latitude" :: "longitude" :: tl  ->
+                                (match tl with
+                                | [] -> false
+                                | ["date"] -> true
+                                | _ -> raise IllegalCVS)
+                        | lst -> raise IllegalCVS
+                    in
+                    while true do
+                        let line = input_line ch in
+                        match Str.split comma line with
+                        | [a; b; c] when not has_date ->
+                                without_date a (float_of_string b) (float_of_string c)
+                        | [a; b; c; d] when has_date ->
+                                (match Str.split (Str.regexp "-") d with
+                                | [x; y; z] ->
+                                        with_date a (float_of_string b) 
+                                        (float_of_string c) (int_of_string x) 
+                                        (int_of_string y) (int_of_string z)
+                                | _ -> 
+                                        prerr_string line;
+                                        raise IllegalCVS)
+                        | _ -> 
+                                prerr_string line;
+                                raise IllegalCVS
+                    done;
+                    assert false
+                with
+                | End_of_file -> 
+                        close_in ch;
+                        res
+        end
+
+
+        module KTree = struct
+
+            type node_name = Tags.unstructured 
+            let index_formatter data tree =
+                let tree = TreeOps.to_formatter [] data tree in
+                let nodes =
+                    let rec get_nodes acc ((x, _, sub) as n) =
+                        match x with
+                        | "Node" -> (n :: acc)
+                        | _ ->
+                                match sub with
+                                | #Sexpr.t as sub ->
+                                        Sexpr.fold_left get_nodes  acc sub
+                                | _ -> acc
+                    in
+                    get_nodes [] tree
+                in
+                let tbl = Hashtbl.create 1667 in
+                List.iter (fun node -> 
+                    let name = Tags.Util.attribute Tags.Nodes.name node in
+                    Hashtbl.add tbl name node) nodes;
+                tbl
+
+            let extract_gis x = 
+                snd 
+                (match x with  Parser.Tree.Leaf x | Parser.Tree.Node (_, x) -> x)
+
+            let empty = 
+                { TemporalGIS.coordinates = 
+                    { GIS.latitude = 0.; longitude = 0.; altitude = 0.};
+                date = None }
+
+            let create_simplified_topology gis_table nodes data tree =
+                let get_name code =
+                    try `String (Data.code_taxon code data) with
+                    | Not_found -> `String (string_of_int code)
+                in
+                let get_node code = 
+                    try Hashtbl.find nodes (get_name code) with
+                    | er -> 
+                            raise er
+                in
+                let get_gis code = 
+                    let name = get_name code in
+                    try Hashtbl.find gis_table name with
+                    | er ->
+                            raise er
+                in
+                match Ptree.get_roots tree with
+                | [x] -> 
+                        (match x.Ptree.root_median with
+                        | Some ((`Single x), root) ->  
+                                let node = get_node x in
+                                let gis = get_gis x in
+                                Parser.Tree.Leaf (node, gis)
+                        | Some ((`Edge edge), root) ->
+                                let leaf _ cur _ =
+                                    let node = get_node cur in
+                                    let gis = get_gis cur in
+                                    Parser.Tree.Leaf (node, gis)
+                                and internal _ cur x y =
+                                    let xgis = extract_gis x
+                                    and ygis = extract_gis y in
+                                    let my_gis = TemporalGIS.initial_ancestor xgis ygis in
+                                    let node = get_node cur in
+                                    Parser.Tree.Node ([x; y], (node, my_gis))
+                                in
+                                let node = 
+                                    try Hashtbl.find nodes (`String "root") with
+                                    | err -> 
+                                            raise err
+                                in
+                                let left, right = 
+                                    Tree.post_order_node_with_edge_visit leaf 
+                                    internal (Tree.Edge edge) tree.Ptree.tree 
+                                    (Parser.Tree.Leaf (node, empty))
+                                in
+                                let gis = 
+                                    TemporalGIS.initial_ancestor (extract_gis left) 
+                                    (extract_gis right)
+                                in
+                                Parser.Tree.Node ([left; right], (node, gis))
+                        | None -> assert false)
+                | _ -> failwith "Kml generation requires forest of only one tree"
+
+            let adjust_tree tree =
+                let rec downpass iterations tree = 
+                    if iterations = 0 then tree
+                    else
+                        let rec aux parent_gis tree =
+                            match tree with
+                            | Parser.Tree.Leaf _ -> (tree, false)
+                            | Parser.Tree.Node ([x; y], (node, gis)) ->
+                                    let x, x_changed = aux gis x
+                                    and y, y_changed = aux gis y in
+                                    let my_gis = 
+                                        TemporalGIS.adjust_ancestor gis parent_gis 
+                                        (extract_gis x) (extract_gis y) 
+                                    in
+                                    Parser.Tree.Node ([x; y], (node, my_gis)), 
+                                    x_changed || y_changed || my_gis <> gis
+                            | _ -> assert false
+                        in
+                        match tree with
+                        | Parser.Tree.Leaf _ -> tree
+                        | Parser.Tree.Node ([x; y], (node, root_gis)) ->
+                                let x_gis = extract_gis x in
+                                let y, y_changed = aux x_gis y in
+                                let y_gis = extract_gis y in
+                                let x, x_changed = aux y_gis x in
+                                let root_gis = 
+                                    TemporalGIS.initial_ancestor (extract_gis x) 
+                                    (extract_gis y)
+                                in
+                                let res = 
+                                    Parser.Tree.Node ([y; x], (node, root_gis)) in
+                                if x_changed || y_changed then 
+                                    downpass (iterations - 1) res
+                                else res
+                        | _ -> assert false
+                in
+                downpass 30 tree
+
+            let parent_table tree =
+                let res = Hashtbl.create 1667 in
+                let rec aux parent tree =
+                    let name = 
+                        match tree with
+                        | Parser.Tree.Leaf (x, _) ->
+                                Tags.Util.attribute Tags.Nodes.name x
+                        | Parser.Tree.Node (chld, (x, _)) ->
+                                let name = Tags.Util.attribute Tags.Nodes.name x in
+                                List.iter (aux (Some (name :> Tags.xml Tags.contents))) chld;
+                                name
+                    in
+                    Hashtbl.add res name parent;
+                in 
+                aux None tree;
+                res
+
+            type simplified_topology = (Tags.xml * TemporalGIS.sample) Parser.Tree.t
+            type topology = 
+                { ancestors : (Tags.unstructured, Tags.xml Tags.contents option) Hashtbl.t;
+                  nodes : (Tags.unstructured, Tags.xml) Hashtbl.t; 
+                  topo : simplified_topology; } 
+
+
+            let process data csv tree =
+                let csv = TemporalGIS.csv csv in
+                let nodes = index_formatter data tree in
+                let topo = create_simplified_topology csv nodes data tree in
+                let ancestors = parent_table topo in
+                { ancestors = ancestors; nodes = nodes; topo = topo }
+
+            let ancestor topo node =
+                try Hashtbl.find topo.ancestors node with
+                | Not_found -> None
+
+            let children topo node =
+                let (_, attrs, _) = Hashtbl.find topo.nodes node in
+                match 
+                List.filter (fun (x, _) ->
+                    x = Tags.Nodes.child1_name || x = Tags.Nodes.child2_name) attrs
+                with
+                | [] -> None
+                | [(_, `String ""); (_, `String "")] -> None
+                | [(_, x); (_, y)] -> Some (x, y)
+                | _ -> assert false
+
+            let sister topo node =
+                let ance = ancestor topo node in
+                match ance with
+                | None -> None
+                | Some (#Tags.unstructured as ance) ->
+                    let children = children topo ance in
+                    (match children with
+                    | Some (a, b) ->
+                            if a = node then Some b
+                            else begin
+                                assert (b = node);
+                                Some a
+                            end
+                    | None -> assert false)
+                | Some _ -> assert false
+
+            let node topo node =
+                Hashtbl.find topo.nodes node 
+
+            let is_root topo node = None = ancestor topo node
+        end
+
+        module KFile = struct
+
+            (* Apply the function on the value if not None, otherwise produce the empty
+            * contents *)
+            let optional contents v =
+                match v with
+                | None -> (PXML ---)
+                | Some v -> contents v
+
+            (* A function to generate the summary of the immediate neighbors of a node
+            * *)
+            let family_summary topology node () : Tags.xml Sexpr.t =
+                let do_row title contents =
+                    let c = 
+                        match contents with
+                        | `String contents -> contents
+                        | _ -> ""
+                    in
+                    (PXML 
+                        -tr -td (align=right) -font (size="+1") [`String title] -- --
+                            -td -a 
+                                (href=[`String ("#pm_" ^ c)])
+                            [(contents :> Tags.xml Tags.contents)] -- --
+                        --)
+                in
+                let make_pair (l, r) = `Set [do_row "Descendant:" l; do_row "Descendant:" r] in
+                let ancestor = KTree.ancestor topology node
+                and sister = KTree.sister topology node
+                and children = KTree.children topology node in
+                (PXML
+                    -table 
+                        -tr -td (colspan=2) (align=center)
+                            -b -font (size="+2") (color="#000000")
+                                "Family Summary"
+                            -- --
+                        -- --
+                        { optional (do_row "Ancestor:") ancestor }
+                        { optional (do_row "Sister:") sister }
+                        { optional make_pair children } --)
+
+            let ( --> ) a b = b a
+
+            let is_transition str1 str2 =
+                match str1, str2 with
+                | "A", "G"
+                | "G", "A"
+                | "C", "T"
+                | "T", "C" -> true
+                | _ -> false
+
+            let is_transversion str1 str2 = not (is_transition str1 str2)
+
+            let white = `String "#FFFFFF"
+            let gray = `String "#E1E1E1"
+
+            let transforms_text data tree node () =
+                (* How will the transformations look like *)
+                let ancestor = KTree.ancestor tree node in
+                let coherce x  = (x :> Tags.xml Tags.contents) in
+                match ancestor with
+                | None -> 
+                        (* We are at the root, we don't show any transforms *)
+                        (PXML ---)
+                | Some ancestor ->
+                        let ancestor = 
+                            match ancestor with
+                            | #Tags.unstructured as ancestor -> KTree.node tree ancestor
+                            | _ -> assert false
+                        and node = KTree.node tree node in
+                        (* Good, so we have to traverse the list of characters and do
+                        * accordingly *)
+                        let process_pair node ancestor =
+                            let tag = Tags.Util.tag node in
+                            assert (tag = (Tags.Util.tag ancestor));
+                            (* We define a function that processes a pair of characters,
+                            * we filter what we are interested on *)
+                            let use_final = 
+                                tag = Tags.Characters.nonadditive || 
+                                tag = Tags.Characters.additive || 
+                                tag = Tags.Characters.sankoff
+                            in
+                            let cost = Tags.Util.attribute Tags.Characters.cost node
+                            and name = Tags.Util.attribute Tags.Characters.name node in
+                            let clas = Tags.Util.attribute Tags.Characters.cclass node in
+                            assert (clas = 
+                                Tags.Util.attribute Tags.Characters.cclass ancestor);
+                            let costn =
+                                match cost with
+                                | `FloatFloatTuple (costn, _)
+                                | `Float costn -> costn
+                                | `IntTuple (costn, _) -> float_of_int costn
+                                | _ -> 0.
+                            in
+                            if costn > 0. && use_final && 
+                            ((`String Tags.Nodes.final) = clas) then
+                                (* A function to ge the list of states contained 
+                                * in a node *)
+                                let get_chars x =
+                                    x 
+                                    --> Tags.Util.children Tags.Characters.value 
+                                    --> Sexpr.map Tags.Util.value
+                                    --> Sexpr.map Tags.value_to_string
+                                    --> Sexpr.to_list
+                                    --> String.concat ";" 
+                                in
+                                let node_chars = get_chars node
+                                and ance_chars = get_chars ancestor in
+                                let t = 
+                                    let name = Tags.value_to_string name in
+                                    let code = Data.character_code name data in
+                                    let alph = Data.get_alphabet data code in
+                                    let alph = Alphabet.to_sequential alph in
+                                    let alph = Alphabet.to_list alph in
+                                    let alph = List.map fst alph in
+                                    let res =
+                                        if alph = ["A"; "C"; "G"; "T"] ||
+                                            alph = ["A"; "C"; "G"; "T"; "-"] then
+                                            if ance_chars = "-" then "Ins"
+                                            else if node_chars = "-" then "Del"
+                                            else if is_transition node_chars
+                                            ance_chars then "Ti"
+                                            else if is_transversion node_chars
+                                            ance_chars then "Tv"
+                                            else "ABC"
+                                        else "ABC"
+                                    in
+                                    `String res
+                                    in
+                                (PXML
+                                -tr -td (align=left) (bgcolor=[white]) { coherce name } --
+                                    -td (align=left) (bgcolor=[gray]) -font (size="+1") 
+                                        { `String ance_chars } -- --
+                                    -td (align=left) (bgcolor=[white]) -font (size="+1") 
+                                        { `String node_chars } -- --
+                                    -td (align=left) (bgcolor=[gray]) { coherce t } --
+                                    -td (align=left) (bgcolor=[white]) { coherce cost } -- --)
+                            else if costn > 0. && 
+                                (`String Tags.Nodes.single) = clas then
+                                let get_chars x = 
+                                    x --> Tags.Util.value --> Tags.value_to_string
+                                in
+                                let ance_chars = get_chars ancestor
+                                and node_chars = get_chars node in
+                                (PXML
+                                -tr -td (align=left) (bgcolor=[white]) { coherce name } --
+                                    -td (align=left) (bgcolor=[gray])
+                                        -font (size="+1") { `String ance_chars } -- --
+                                    -td (align=left) (bgcolor=[white]) -font (size="+1") 
+                                        { `String node_chars } -- --
+                                    -td (align=left) (bgcolor=[gray]) 
+                                        { `String "Sequence" } --
+                                    -td (align=left) (bgcolor=[white]) 
+                                        { coherce cost } -- --)
+                            else 
+                                (PXML ---)
+                        in
+                        let get_list_of_all_characters (_, _, n) =
+                            match n with
+                            | `Delayed f -> Sexpr.to_list (f ())
+                            | #Sexpr.t as n -> Sexpr.to_list n
+                            | `CDATA _
+                            | #Tags.unstructured -> []
+                        in
+                        let node_characters = get_list_of_all_characters node 
+                        and ance_characters = get_list_of_all_characters ancestor in
+                        let title color content = 
+                            (PXML -td (align=left) (bgcolor=[color]) 
+                                -i { `String content } -- --) 
+                        in
+                        (PXML 
+                            -table (border=0) (align=left) -font (color="#A4BFDB")
+                                -tr -td (colspan=3) (align=left) -b -font 
+                                    (size="+2") (color="#000000") Transformations
+                                -- -- --
+                                -tr
+                                    { title white "Position" }
+                                    { title gray "Ancestor" }
+                                    { title white "Descendant" }
+                                    { title gray "Type" }
+                                    { title white "Cost" }
+                                --
+                                { set List.map2 process_pair node_characters 
+                                ance_characters }
+                            -- -- --)
+
+            let create_coords point =
+                (string_of_float point.GIS.longitude ^ "," ^ 
+                string_of_float point.GIS.latitude ^ "," ^
+                string_of_float point.GIS.altitude)
+
+            let create_line parent_gis gis =
+                (PXML -LineString
+                    -altitudeMode relativeToGround --
+                    -coordinates 
+                        [ match parent_gis with
+                        | None -> `Empty
+                        | Some x -> 
+                                `String 
+                                    (create_coords gis.TemporalGIS.coordinates ^ 
+                                    " " ^ create_coords x.TemporalGIS.coordinates)] 
+                    --
+                --)
+
+
+            let associated_info data tree name =
+                let is_root = KTree.is_root tree name in
+                (PXML -text -body (bgcolor="#ffffff") 
+                    -table (width=400) 
+                        -tr 
+                            -td { `Delayed (family_summary tree name) } -- 
+                            {if is_root then (PXML ---) 
+                            else
+                               (PXML -td 
+                               { `Delayed (transforms_text data tree name) } --)}
+                        -- -- -- --)
+
+            (* A function that generates the contents that should be printed in the node
+            * ballon box of the KML files.  *)
+            type node_information = 
+                Data.d -> KTree.topology -> Tags.unstructured -> 
+                    [ Tags.unstructured | Tags.xml Tags.simple_struc ]
+
+            let place_node (associated_info : node_information) data tree node parent_gis left_gis right_gis gis 
+            : Tags.xml Sexpr.t =
+                let name = Tags.Util.attribute Tags.Nodes.name node in
+                let is_root = KTree.is_root tree name in
+                let id = Tags.value_to_string name in
+                let summary : Tags.xml Tags.contents =
+                    (PXML { PCDATA {associated_info data tree name} }) 
+                in
+                (PXML 
+                -Placemark 
+                        (* Only one attribute *)
+                        (id=[`String ("pm_" ^ id)])
+                        -visibility --
+                        -name { `String id } --
+                        -Snippet (maxLines=0) empty --
+                        -LookAt
+                            - longitude [`Float gis.TemporalGIS.coordinates.GIS.longitude] --
+                            - latitude [`Float gis.TemporalGIS.coordinates.GIS.latitude] --
+                            - altitude [`Float gis.TemporalGIS.coordinates.GIS.altitude] --
+                            - range 500 --
+                            - tilt 10 --
+                            - heading 0 --
+                        --
+                        { match gis.TemporalGIS.date with
+                        | None -> (PXML ---)
+                        | Some (y, m, d) -> 
+                                let str = 
+                                    String.concat "-" 
+                                    (List.map string_of_int [y; m; d])
+                                in
+                                (PXML -TimeSpan -"begin" {`String str} -- --)}
+                        - description { summary } --
+                        - styleUrl "#00" --
+                        - Style
+                            { if is_root then 
+                                (PXML 
+                                    - BallonStyle 
+                                        -textColor "FF000000" --
+                                        -bgColor "FFffffff" --
+                                    --)
+                            else (PXML ---) }
+                            - LineStyle 
+                                (id=[`String ("ls_" ^ id)])
+                                -color "FFffffff" --
+                            --
+                        --
+                        -MultiGeometry
+                            -Point (id=[`String id])
+                                -altitudeMode relativeToGround --
+                                -coordinates 
+                                    [ `String (create_coords gis.TemporalGIS.coordinates)  ] --
+                            --
+                            { create_line parent_gis gis }
+                            { create_line left_gis gis }
+                            { create_line right_gis gis }
+                        --
+                    --)
+
+            let default_styles () = 
+                let supramap_url suffix =
+                    `String ("http://supramap.osu.edu/supramap/" ^ suffix) in
+                let a = (PXML 
+                    -Style (id="00a") 
+                        -IconStyle -scale 0.35 -- 
+                            -Icon -href { supramap_url "images/circle.png" } --
+                        -- --
+                        -LabelStyle -scale 0 -- --
+                        -LineStyle -width 1.5 -- --
+                    --)
+                and b = (PXML
+                    -Style (id="00b")
+                        -IconStyle -scale 0.75 -- 
+                            -Icon -href { supramap_url "images/circle.png" } --
+                        -- --
+                        -LabelStyle --
+                        -LineStyle -width 1.5 -- --
+                    --) 
+                and c = (PXML 
+                    -Style (id="00c")
+                        -IconStyle -scale 0.95 -- 
+                            -Icon -href { supramap_url "images/circle.png" } --
+                        -- --
+                        -LabelStyle --
+                        -LineStyle -width 4 -- --
+                    --)
+                and d = (PXML 
+                    -StyleMap (id="00") 
+                        -Pair -key normal -- -styleUrl "#00a" -- --
+                        -Pair -key highlight -- -styleUrl "#00c" -- --
+                    --)
+                and e = (PXML
+                    -StyleMap (id="01") 
+                        -Pair -key normal -- -styleUrl "#00b" -- --
+                        -Pair -key highlight -- -styleUrl "#00c" -- --
+                    --)
+                in
+                (PXML { set [a; b; c; d; e] })
+
+            let base_ml style name contents : Tags.xml Sexpr.t =
+                (PXML 
+                    -kml (xmlns="http://earth.google.com/kml/2.0")
+                        -Document
+                            -Name {`String name} --
+                            { set (style () :: contents) }
+                        --
+                    --)
+
+
+            (* A function to produce a node in the sphere. *)
+            type create_node =
+                    node_information -> Data.d -> KTree.topology ->
+                    Tags.xml -> TemporalGIS.sample option -> 
+                        TemporalGIS.sample option ->
+                        TemporalGIS.sample option ->TemporalGIS.sample -> 
+                            Tags.xml Sexpr.t
+
+            type adjust_tree = KTree.simplified_topology -> KTree.simplified_topology
+
+            type styles = unit -> Tags.xml Sexpr.t
+
+            type folder = {
+                name : string;
+                node_information : node_information;
+                create_node : create_node option;
+            }
+
+            type plugin = {
+                folders : folder list;
+                adjust_tree : adjust_tree;
+                styles : styles;
+            }
+
+            let plugins : (string, plugin) Hashtbl.t = Hashtbl.create 1667 
+
+            let register_plugin name plugin =
+                if Hashtbl.mem plugins name then 
+                    failwith "Plugin already exists"
+                else Hashtbl.add plugins name plugin
+
+
+            let get_plugin name =
+                try Hashtbl.find plugins name with
+                | Not_found -> failwith "Plugin not found"
+
+            let contents adjust_tree data csv tree folder =
+                let place_node =
+                    match folder.create_node with
+                    | None -> place_node
+                    | Some x -> x
+                in
+                let topology = KTree.process data csv tree in
+                let topology = 
+                    { topology with KTree.topo = adjust_tree topology.KTree.topo }
+                in
+                let res = ref [] in
+                let rec aux parent_gis tree =
+                    match tree with
+                    | Parser.Tree.Leaf (node, gis) -> 
+                            res := 
+                                (place_node folder.node_information 
+                                data topology node parent_gis None None gis) :: !res
+                    | Parser.Tree.Node ([l;r] as chld, (node, gis)) ->
+                            let l = Some (KTree.extract_gis l)
+                            and r = Some (KTree.extract_gis r) in
+                            res := 
+                                (place_node folder.node_information
+                                data topology node parent_gis l r gis) 
+                                    :: !res;
+                            List.iter (aux (Some gis)) chld
+                    | _ -> assert false
+                in
+                aux None topology.KTree.topo;
+                (PXML -Folder -name {`String folder.name} -- { set !res } --)
+
+            let default =
+                let folder = 
+                    { name = "Tree";
+                    node_information = associated_info; 
+                    create_node = None }
+                in
+                { folders = [folder]; 
+                 adjust_tree = KTree.adjust_tree; 
+                 styles = default_styles }
+
+            let () = register_plugin "default" default
+
+            let generate_kml name plugin data csv trees : Tags.xml Sexpr.t = 
+                let cnt = ref 0 in
+                let trees =
+                    Sexpr.map (fun tree ->
+                        incr cnt;
+                        let res =
+                            List.map (contents plugin.adjust_tree data csv tree) 
+                            plugin.folders 
+                        in
+                        (PXML -Folder -name {`Int !cnt} -- { set res } --)) trees
+                in
+                base_ml plugin.styles name (Sexpr.to_list trees)
+
+            let has_plugin name = Hashtbl.mem plugins name
+
+            let kml ?(plugin="default") name file data csv trees =
+                let ch = open_out file in
+                let kml = generate_kml name (get_plugin plugin) data csv trees in
+                output_string ch "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+                let () =
+                    match kml with
+                    | `Single kml -> Tags.to_xml ch kml;
+                    | _ -> assert false
+                in
+                close_out ch
+
+
+        end
+
+    end
 
 
 module MainBuild = Build
@@ -207,7 +1225,6 @@ module PTS = TreeSearch.Make (Node) (Edge) (TreeOps)
 module D = Diagnosis.Make (Node) (Edge) (TreeOps)
 module S = Supports.Make (Node) (Edge) (TreeOps)
 
-type tree = (a, b) Ptree.p_tree 
 
 type r = (a, b, c) run
 
@@ -1914,6 +2931,24 @@ end
              let memory_usage = report_memory () in
              Status.user_message (Status.Output (filename, false,[])) memory_usage;
              run
+     | `KML (plugin, csv, output_file) ->
+            let trees =                          
+                let classify = false in
+                let run = update_trees_to_data ~classify false true run in
+                run.trees  
+            in 
+            let plugin = 
+                match plugin with 
+                | None -> "default"
+                | Some x -> x
+            in
+            let csv = 
+                match csv with
+                | `Local f -> f
+                | `Remote f -> failwith "The csv must be available locally"
+            in
+            Kml.KFile.kml ~plugin "POY analysis" output_file run.data csv trees;
+            run
      | `InspectFile str ->
              try 
                  let (desc, _, _, _, _, _, _) = PoyFile.read_file str in

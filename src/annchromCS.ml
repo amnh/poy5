@@ -287,7 +287,7 @@ let readjust to_adjust modified ch1 ch2 parent mine =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between annotated chromosme character set [t] and its parents
 * [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
     let _, state = List.hd attr in 
     let output_annchrom code med acc =
         let med = 
@@ -325,7 +325,6 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                   in 
                   cost, recost, Some map
               end 
-
         in  
         let seqs = AnnchromAli.to_formater med t.alph in  
         let name = Data.code_character code d in  
@@ -334,28 +333,26 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
             | `String "Single" -> `IntTuple (cost, cost)
             | _ -> `IntTuple (0, cost)
         in 
-        let definite_str =  `Bool (cost > 0) in 
-        let attributes =  
-            (Tags.Characters.name, `String name) ::                     
-                (Tags.Characters.cost, cost_str) :: 
-                (Tags.Characters.recost, `Int recost) :: 
-                (Tags.Characters.definite, definite_str) :: 
-                (Tags.Characters.ref_code, `Int med.AnnchromAli.ref_code):: 
-                attr 
-        in 
+        let module T = Tags.Characters in
+        (PXML 
+            -[T.chromosome]
+                (* Attributes *)
+                ([T.name] = [`String name])
+                ([T.cost] = [ cost_str])
+                ([T.recost] = [`Int recost])
+                ([T.definite] = [`Bool (cost > 0)])
+                ([T.ref_code] = [`Int med.AnnchromAli.ref_code])
+                ([attr])
 
-        let acc = match map with
-        | Some map ->
-              let content = (Tags.Characters.sequence, [], `String seqs) in  
-            (Tags.Characters.chromosome, attributes, 
-             (`Set [`Single map; `Single content])) :: acc 
-        | None ->
-            (Tags.Characters.chromosome, attributes, `String seqs):: acc 
-        in 
-        acc
+                (* Contents *)
+                { match map with
+                | None -> (PXML ---)
+                | Some map -> `Single map }
+
+                -[T.sequence] [`String seqs] --
+            --) :: acc
     in
     IntMap.fold output_annchrom t.meds []
-
 
 
 (** [get_active_ref_code t] returns active reference codes

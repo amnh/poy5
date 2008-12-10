@@ -283,7 +283,7 @@ module Of(Elt : Character.CHARACTER) = struct
                              else " " ^ str)
                  "" t)
 
-    let to_formatter attr c d : Tags.output list =
+    let to_formatter attr c d : Tags.xml list =
         []                              (* TODO: output *)
 
     let par_id = get_par_id ()

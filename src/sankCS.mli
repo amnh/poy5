@@ -67,9 +67,10 @@ val f_codes : t -> All_sets.Integers.t -> t
 val f_codes_comp : t -> All_sets.Integers.t -> t
     (** filter the Sankoff set given a list of codes to exclude *)
 
-(** [to_formatter attrs c parent d : Tags.output list] returns the formatter for
+(** [to_formatter attrs c parent d : Tags.xml list] returns the formatter for
     node c where parent is optional parent of c if available *)
-val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output list
+val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.xml
+Sexpr.t list
 
 val get_all_possible_assignments : int list option list -> int list list 
 

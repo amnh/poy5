@@ -295,9 +295,8 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between  chromosme character set [t] and 
 * its parents [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
     let _, state = List.hd attr in   
-
     let output_chrom code med acc =
         let med = 
             try
@@ -336,31 +335,31 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
                   cost, recost, Some map
               end 
         in 
-        let seq = Sequence.to_formater med.ChromAli.seq t.alph in                   
+        let seq = Sequence.to_formater med.ChromAli.seq t.alph in
         let name = Data.code_character code d in  
         let cost_str = 
             match state with
             | `String "Single" -> `IntTuple (cost, cost)
             | _ -> `IntTuple (0, cost)
         in 
-        let definite_str = `Bool (cost > 0) in 
-        let attributes =  
-            (Tags.Characters.name, `String name) ::                     
-                (Tags.Characters.cost, cost_str) :: 
-                (Tags.Characters.recost, `Int recost) :: 
-                (Tags.Characters.definite, definite_str) :: 
-                (Tags.Characters.ref_code, `Int med.ChromAli.ref_code):: 
-                attr 
-        in 
-        let acc = match map with
-        | Some map ->
-              let content = (Tags.Characters.sequence, [], `String seq) in  
-            (Tags.Characters.chromosome, attributes, 
-             (`Set [`Single map; `Single content])) :: acc 
-        | None ->
-            (Tags.Characters.chromosome, attributes, `String seq):: acc 
-        in 
-        acc
+        let module T = Tags.Characters in
+        (PXML 
+            -[T.chromosome] 
+                (* Attributes *)
+                ([T.name] = [`String name])
+                ([T.cost] = [cost_str])
+                ([T.recost] = [`Int recost])
+                ([T.definite] = [`Bool (cost > 0)])
+                ([T.ref_code] = [`Int med.ChromAli.ref_code])
+                ([attr])
+
+                (* Contents, first the optional map, then everything else *)
+                { match map with
+                | None -> (PXML ---)
+                | Some map -> `Single map}
+
+                -[T.sequence] { `String seq } --
+            --) :: acc
     in
     IntMap.fold output_chrom t.meds []
 

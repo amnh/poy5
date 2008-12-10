@@ -433,7 +433,7 @@ let rec compare_union a b =
 
 (** [to_formatter ref_codes attr t parent_t] returns
 * dynamic character set [t] into Tag.output format *) 
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
     match t, parent_t with 
     | SeqCS t, _ -> begin
             match parent_t with

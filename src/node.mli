@@ -145,11 +145,12 @@ val cmp_subtree_recost : node_data -> float
 val to_formatter_single :
     ChromCS.IntSet.t * ChromCS.IntSet.t ->    
         Tags.attributes ->
-            Data.d -> (node_data * node_data) -> int -> (node_data * node_data) option -> Tags.output
+            Data.d -> (node_data * node_data) -> int -> (node_data * node_data)
+            option -> Tags.xml 
 
 
 (**
- * [to_formatter_subtree (final, prel) b c d e f g h] creates Tags.output of the contents 
+ * [to_formatter_subtree (final, prel) b c d e f g h] creates Tags.xml of the contents 
 * of the node [d] with code [e], using as attributed [b], eliminating the
 * chromosomal characters [final] and [prel], with children of code and node
 * content [f] and [g], and with [(parent node * parent single assignment node)]
@@ -158,8 +159,7 @@ val to_formatter_single :
 val to_formatter_subtree : ChromCS.IntSet.t * ChromCS.IntSet.t -> Tags.attributes ->
   Data.d -> (node_data * node_data) -> int ->
     int *  node_data -> int *  node_data -> 
-        (node_data * node_data) option -> Tags.output
-
+        (node_data * node_data) option -> Tags.xml 
 
 (** [to_single (pre_ref_code, fi_ref_code) root p n] returns a node that contains per character a single state
  * which is closest to [p] among those available in [n]. Useful for tree length

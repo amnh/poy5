@@ -281,9 +281,10 @@ val to_string : t -> string
 val state_to_xml : 
     Pervasives.out_channel -> t -> Data.d -> unit
 
-(** [to_formatter attrs c parent d : Tags.output list] returns the formatter for
+(** [to_formatter attrs c parent d : Tags.xml list] returns the formatter for
     node c where parent is optional parent of c if available *)
-val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.output list
+val to_formatter : Tags.attributes -> t -> t option -> Data.d -> Tags.xml
+Sexpr.t list
 
 (** {2 Convenient Modules} *)
 

@@ -171,7 +171,7 @@ module type Tree_Operations =
 
         val to_formatter :  
             Tags.attributes -> Data.d -> (a, b) p_tree ->
-            Tags.output
+            Tags.xml
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
         val unadjust : (a, b) p_tree -> (a, b) p_tree

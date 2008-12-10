@@ -20,7 +20,8 @@
 let () = SadmanOutput.register "Tags" "$Revision: 2554 $"
 
 type tag = string
-type value = [ `Bool of bool 
+
+type unstructured = [ `Bool of bool 
     | `IntFloatTuple of (int * float) 
     | `IntTuple of (int * int)
     | `FloatFloatTuple of (float * float) 
@@ -29,17 +30,25 @@ type value = [ `Bool of bool
     | `Float of float 
     | `Fun of (unit -> string) ]
 
-type 'a struc = [ 'a Sexpr.t | `Delayed of (unit -> 'a Sexpr.t) ]
+type 'b simple_struc =
+    [ `Delayed of (unit -> 'b Sexpr.t)
+    | `Empty
+    | `Set of 'b Sexpr.t list
+    | `Single of 'b ]
+
+type 'a struc =
+    [ 'a simple_struc 
+    | `CDATA of [ unstructured | 'a simple_struc] ]
 
 let eagerly_compute x = 
     match x with
     | #Sexpr.t as x -> x
     | `Delayed f -> f ()
 
-type attribute = tag * value
+type attribute = tag * unstructured
 type attributes = attribute list
-type output = 
-    (tag * attributes * [ value | output struc])
+type 'a contents = [ unstructured | 'a struc]
+type xml = (tag * attributes * xml contents)
 
 let make tag atv out = (tag, atv, out)
 
@@ -64,43 +73,62 @@ let print_string ch = function
     | `FloatFloatTuple (a, b) -> Printf.fprintf ch "%f,%f" a b
     | `String x -> Printf.fprintf ch "%s" x
     | `Int x -> Printf.fprintf ch "%d" x
-    | `Float x -> Printf.fprintf ch "%f" x
+    | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
     | `Fun x -> Printf.fprintf ch "%s" (x ())
 
-let to_xml ch item =
+let to_xml ch (item : xml) =
     let fo = output_string ch in
     let output_attrs (fo : string -> unit) (a, b) =
+        fo " ";
         fo (remove_non_alpha_numeric a);
         fo "=\"";
         print_string ch b;
-        fo "\" "
+        fo "\""
     in
     let stack = Stack.create () in
-    let simplify contents = 
+    let simplify (contents : xml contents) = 
         match contents with
-        | #struc as x -> 
+        | #simple_struc as x -> 
                 let x = eagerly_compute x in
                 `Structured (Sexpr.to_list x)
-        | #value as x -> x 
+        | #unstructured as x -> x 
+        | `CDATA (#unstructured as x) -> `CDATA (Some x)
+        | `CDATA (#simple_struc as x) ->
+                let x = eagerly_compute x in
+                `CDATA (Some (`Structured (Sexpr.to_list x)))
     in
     let process_queue () =
         while not (Stack.is_empty stack) do
+            let close_tag tag =
+                match tag with
+                | None -> ()
+                | Some tag -> fo "</"; fo tag; fo ">\n"
+            in
             let (tag, contents) = Stack.pop stack in
             match contents with
-            | #value as x -> 
+            | #unstructured as x -> 
                     print_string ch x;
-                    fo "\n";
-                    fo " </"; fo tag; fo ">\n"
+                    close_tag tag;
+            | `CDATA None -> fo "]]>";
+            | `CDATA (Some (#unstructured as v)) ->
+                    fo "<![CDATA[";
+                    Stack.push (None, `CDATA None) stack;
+                    Stack.push (None, v) stack;
+            | `CDATA (Some ((`Structured _) as t)) ->
+                    Stack.push (tag, `Structured []) stack;
+                    fo "<![CDATA[";
+                    Stack.push (None, `CDATA None) stack;
+                    Stack.push (None, t) stack;
             | `Structured []
-            | `Empty -> fo " </"; fo tag; fo ">\n"
+            | `Empty -> close_tag tag
             | `Structured ((ntag, attributes, contents) :: t) ->
                     Stack.push (tag, `Structured t) stack;
                     let ntag = remove_non_alpha_numeric ntag in
-                    fo " <"; fo ntag; fo " ";
+                    fo "<"; fo ntag; 
                     List.iter (output_attrs fo) attributes;
-                    fo ">\n";
+                    fo ">";
                     let contents = simplify contents in
-                    Stack.push (ntag, contents) stack
+                    Stack.push ((Some ntag), contents) stack
         done;
     in
     fo "";
@@ -110,7 +138,7 @@ let to_xml ch item =
     List.iter (output_attrs fo) attributes;
     fo ">\n";
     let contents = simplify contents in
-    Stack.push (tag, contents) stack;
+    Stack.push ((Some tag), contents) stack;
     process_queue ()
 
 module Alphabet = struct
@@ -317,4 +345,28 @@ module GenomeMap = struct
     let dir_seg = "Direction"        
     let a_dir_seg = "AncestorDirection"        
     let d_dir_seg = "DescendantDirection"        
+end
+module Util = struct
+    let attribute name ((_, atts, _) : xml) =
+        List.assoc name atts
+
+    let tag ((t, _, _) : xml) = t
+
+    let contents ((_, _, c) : xml) = c
+
+    let attributes ((_, a, _) : xml) = a
+
+    let rec children search_tag ((a, b, chld) : xml) = 
+        match chld with
+        | `Delayed f -> 
+                children search_tag (a, b, (f () :> xml contents))
+        | #unstructured 
+        | `CDATA _ -> `Empty
+        | #Sexpr.t as chld ->
+                Sexpr.filter (fun x -> search_tag = tag x) chld
+
+    let value ((_, _, c) : xml) =
+        match c with
+        | #unstructured as v -> v
+        | _ -> failwith "Not a value"
 end

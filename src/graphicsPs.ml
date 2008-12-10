@@ -163,13 +163,16 @@ let display_node prefix display node =
         let acc = translate curr_width height width acc (0., -.10.) in
         let acc =
             match children with
-            | #Tags.value as v -> add_contents acc (Tags.value_to_string v)
-            | `Empty -> acc
-            | `Single x -> aux_print_it_all acc x
-            | `Set x -> List.fold_left (fun acc x -> 
-                    Sexpr.fold_left (aux_print_it_all) acc x) acc x
-            | `Delayed x ->
-                    Sexpr.fold_left (aux_print_it_all) acc (x ())
+            | #Tags.unstructured as v -> add_contents acc (Tags.value_to_string v)
+            | #Tags.simple_struc as v ->
+                    (match v with
+                    | `Empty -> acc
+                    | `Single x -> aux_print_it_all acc x
+                    | `Set x -> List.fold_left (fun acc x -> 
+                            Sexpr.fold_left (aux_print_it_all) acc x) acc x
+                    | `Delayed x ->
+                            Sexpr.fold_left (aux_print_it_all) acc (x ()))
+            | `CDATA _ -> failwith "GraphPS can't handle CDATA yet"
         in
         translate curr_width height width acc (-.20., 0.)
     in

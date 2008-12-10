@@ -194,7 +194,14 @@ case $OCAMLVERSION in
     3.10.2*)
     ;;
     3.11.*)
-    NATIVEDYNLINK="dynlink.cmxa";;
+        AC_MSG_CHECKING([if OCaml supports dynamic linking in this architecture])
+        if ${OCAMLOPT} -shared -o str.cmxs str.cmxa ; then
+            AC_MSG_RESULT([yes])
+            NATIVEDYNLINK="dynlink.cmxa"
+        else 
+            AC_MSG_RESULT([no])
+            NATIVEDYNLINK=""
+        fi;;
     *)
     AC_MSG_RESULT([no])
     AC_MSG_FAILURE([POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])

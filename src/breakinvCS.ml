@@ -285,7 +285,7 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between breakinv character set [t] and its parents
 * [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
     let _, state = List.hd attr in 
     let output_breakinv code med acc =
         let med = 
@@ -320,17 +320,18 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.output list =
               end 
         in  
         let seq = Sequence.to_formater med.BreakinvAli.seq t.alph in
-        let name = Data.code_character code d in 
-        let definite_str = `Bool (cost > 0) in 
-        let attributes = 
-            (Tags.Characters.name, `String name) ::                    
-            (Tags.Characters.cost, `Int cost) ::
-            (Tags.Characters.recost, `Int recost) :: 
-            (Tags.Characters.definite, definite_str) :: 
-            attr
-        in
-        let contents = `String seq in
-        (Tags.Characters.breakinv, attributes, contents) :: acc
+        let module T = Tags.Characters in
+        (PXML 
+            -[T.breakinv]
+                (* Attributes *)
+                ([T.name] = [`String (Data.code_character code d)])
+                ([T.cost] = [`Int cost])
+                ([T.recost] = [`Int recost])
+                ([T.definite] = [`Bool (cost > 0)])
+                ([attr])
+
+                { `String seq }
+            --) :: acc
     in
     IntMap.fold output_breakinv t.meds []
 

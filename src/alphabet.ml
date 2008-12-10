@@ -47,7 +47,7 @@ let print alpha =
     alpha.code_to_string;
     print_newline ()
 
-let to_formatter alph : Tags.output =
+let to_formatter alph : Tags.xml =
     let element_to_tags string code acc =
         (`Single (Tags.Alphabet.element, [(Tags.Alphabet.value, `String string);
         (Tags.Alphabet.code, `Int code)], `Empty)) :: acc

@@ -512,74 +512,69 @@ let dist_2 r a d =
     done;
     !acc
 
-let elt_to_formatter attr d tcm elt elt_parent : Tags.output =
+let elt_to_formatter attr d tcm elt elt_parent : Tags.xml Sexpr.t =
+    let module T = Tags.Characters in
     match attr with
     | [_, `String x] -> 
-            if x = Tags.Nodes.preliminary then
-                (* In this case we just pick the smallest of all mine *)
-                let lst = ref []
-                and cost = ref infinity in
-                let () =
-                    Array.iteri (fun pos mycost ->
-                        if mycost < !cost then begin
-                            cost := mycost;
-                            lst := [pos];
-                        end else if mycost = !cost then lst := pos :: !lst
-                        else ()) elt.s
-                in
-                let lst = List.map (Data.to_human_readable d elt.ecode) !lst in 
-                let attributes = 
-                    (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
-                    (Tags.Characters.cost, `Int !cost) :: 
-                    (Tags.Characters.definite, `Bool (!cost > 0)) :: 
-                        attr
-                in
-                let create = fun x ->
-                    `Single (Tags.Characters.value, [], `String x)
-                in
-                (Tags.Characters.sankoff, attributes, (`Set (List.map create
-                lst)))
-            else if x = Tags.Nodes.final then 
-                let of_parent = elt_parent.best_states in
-                let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
-                    let of_parent =
-                        match of_parent with
-                        | [] -> [pos]
-                        | _ -> of_parent
+            let cost, lst =
+                if x = Tags.Nodes.preliminary then
+                    (* In this case we just pick the smallest of all mine *)
+                    let lst = ref []
+                    and cost = ref infinity in
+                    let () =
+                        Array.iteri (fun pos mycost ->
+                            if mycost < !cost then begin
+                                cost := mycost;
+                                lst := [pos];
+                            end else if mycost = !cost then lst := pos :: !lst
+                            else ()) elt.s
                     in
-                    if is_inf x then (pos + 1, min, minlist)
-                    else
-                        let dists = List.map (fun y -> 
-                            tcm.(pos).(y) + x) of_parent in
-                        let didit = ref false in
-                        let newpos = pos + 1 in
-                        List.fold_left (fun (_, min, minlist) x ->
-                        if x < min then begin
-                            didit := true;
-                            (newpos, x, [pos])
-                        end else if x = min && not !didit then begin 
-                            didit := true;
-                            (newpos, x, (pos :: minlist))
-                        end else (newpos, min, minlist)) acc dists)  (0, max_int, []) elt.s
-                in
-                let lst = List.map (Data.to_human_readable d elt.ecode) lst in 
-                let attributes = 
-                    (Tags.Characters.name, `String (Data.code_character elt.ecode d)) ::
-                    (Tags.Characters.cost, `Int cost) :: 
-                    (Tags.Characters.definite, `Bool (cost > 0)) :: 
-                        attr
-                in
-                let create = fun x ->
-                    `Single (Tags.Characters.value, [], `String x)
-                in
-                (Tags.Characters.sankoff, attributes, (`Set (List.map create
-                lst)))
-            else assert false
+                    !cost, !lst
+                else if x = Tags.Nodes.final then 
+                    let of_parent = elt_parent.best_states in
+                    let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
+                        let of_parent =
+                            match of_parent with
+                            | [] -> [pos]
+                            | _ -> of_parent
+                        in
+                        if is_inf x then (pos + 1, min, minlist)
+                        else
+                            let dists = List.map (fun y -> 
+                                tcm.(pos).(y) + x) of_parent in
+                            let didit = ref false in
+                            let newpos = pos + 1 in
+                            List.fold_left (fun (_, min, minlist) x ->
+                            if x < min then begin
+                                didit := true;
+                                (newpos, x, [pos])
+                            end else if x = min && not !didit then begin 
+                                didit := true;
+                                (newpos, x, (pos :: minlist))
+                            end else (newpos, min, minlist)) acc dists)  (0, max_int, []) elt.s
+                    in
+                    cost, lst
+                else assert false
+            in
+            let create x = 
+                (PXML -[T.value] 
+                    [ `String (Data.to_human_readable d elt.ecode x) ] -- ) 
+            in
+            (PXML 
+                -[T.sankoff] 
+                    (* Attributes *)
+                    ([T.name] = [`String (Data.code_character elt.ecode d)])
+                    ([T.cost] = [`Int cost])
+                    ([T.definite] = [`Bool (cost > 0)])
+                    ([attr])
 
+                    (* Contents *)
+                    { `Set (List.map create lst) } 
+                --)
     | _ -> assert false
 
 
-let to_formatter attr a (parent : t option) d : Tags.output list =
+let to_formatter attr a (parent : t option) d : Tags.xml Sexpr.t list =
     let items = Array.to_list a.elts in
     let items_parent = match parent with 
     | Some parent -> Array.to_list parent.elts 
