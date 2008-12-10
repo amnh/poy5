@@ -177,7 +177,7 @@ type tree = (a, b) Ptree.p_tree
             * the characters in [vertex] or the [vertex] itself is needed. *)
             type node_information = 
                 Data.d -> KTree.topology -> Tags.unstructured -> 
-                    [ Tags.unstructured | Tags.xml Tags.simple_struc ]
+                    [ Tags.unstructured | Tags.xml Tags.structured ]
 
             (** [create_node node_information data topology vertex parent_sample
             *   child1_sample child2_sample vertex_sample] produces the XML structure

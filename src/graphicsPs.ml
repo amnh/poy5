@@ -164,7 +164,7 @@ let display_node prefix display node =
         let acc =
             match children with
             | #Tags.unstructured as v -> add_contents acc (Tags.value_to_string v)
-            | #Tags.simple_struc as v ->
+            | #Tags.structured as v ->
                     (match v with
                     | `Empty -> acc
                     | `Single x -> aux_print_it_all acc x

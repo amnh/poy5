@@ -30,15 +30,15 @@ type unstructured = [ `Bool of bool
     | `Float of float 
     | `Fun of (unit -> string) ]
 
-type 'b simple_struc =
+type 'b structured =
     [ `Delayed of (unit -> 'b Sexpr.t)
     | `Empty
     | `Set of 'b Sexpr.t list
     | `Single of 'b ]
 
-type 'a struc =
-    [ 'a simple_struc 
-    | `CDATA of [ unstructured | 'a simple_struc] ]
+type 'a structured_xml =
+    [ 'a structured 
+    | `CDATA of [ unstructured | 'a structured] ]
 
 let eagerly_compute x = 
     match x with
@@ -47,7 +47,7 @@ let eagerly_compute x =
 
 type attribute = tag * unstructured
 type attributes = attribute list
-type 'a contents = [ unstructured | 'a struc]
+type 'a contents = [ unstructured | 'a structured_xml]
 type xml = (tag * attributes * xml contents)
 
 let make tag atv out = (tag, atv, out)
@@ -88,12 +88,12 @@ let to_xml ch (item : xml) =
     let stack = Stack.create () in
     let simplify (contents : xml contents) = 
         match contents with
-        | #simple_struc as x -> 
+        | #structured as x -> 
                 let x = eagerly_compute x in
                 `Structured (Sexpr.to_list x)
         | #unstructured as x -> x 
         | `CDATA (#unstructured as x) -> `CDATA (Some x)
-        | `CDATA (#simple_struc as x) ->
+        | `CDATA (#structured as x) ->
                 let x = eagerly_compute x in
                 `CDATA (Some (`Structured (Sexpr.to_list x)))
     in

@@ -71,7 +71,7 @@ let sort_matrix mtx =
 let build_contents_row ((_, attributes, contents) : Tags.xml)  =
     let mapper (_, value) = StatusCommon.escape (Tags.value_to_string value) in
     match contents with
-    | #Tags.struc -> (* We will ignore the structured contents for a table *)
+    | #Tags.structured_xml -> (* We will ignore the structured contents for a table *)
             let res = Array.of_list attributes in
             Array.map mapper res
     | #Tags.unstructured as v ->
@@ -88,7 +88,7 @@ let build_names_row ?(contents_name = " ") (_, attributes, _) =
     in
     Array.map mapper res
 
-type t = [ Tags.unstructured | Tags.xml Tags.struc ]
+type t = [ Tags.unstructured | Tags.xml Tags.structured_xml ]
 
 let build_set (contents : t) = 
     let res = Buffer.create 16 in
@@ -97,14 +97,14 @@ let build_set (contents : t) =
         | #Tags.unstructured as v -> 
                 Buffer.add_string res (Tags.value_to_string v);
                 Buffer.add_string res ", ";
-        | #Tags.simple_struc as x ->
+        | #Tags.structured as x ->
                 let x = Tags.eagerly_compute x in
                 Sexpr.leaf_iter add_items x
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     in
     let _ =
         match contents with
-        | #Tags.simple_struc as todo ->
+        | #Tags.structured as todo ->
                 let todo = Tags.eagerly_compute todo in
                 Buffer.add_string res "{";
                 Sexpr.leaf_iter add_items todo;
@@ -152,7 +152,7 @@ let filter_tag tag (item : Tags.xml) : Tags.xml list =
             else acc
         in
         match contents with
-        | #Tags.simple_struc as x ->
+        | #Tags.structured as x ->
                 let x = Tags.eagerly_compute x in
                 Sexpr.fold_left build nacc x
         | #Tags.unstructured -> nacc
@@ -162,7 +162,7 @@ let filter_tag tag (item : Tags.xml) : Tags.xml list =
 
 let rec build_values_as_list st (_, _, contents) =
     match contents with
-    | #Tags.simple_struc as x -> 
+    | #Tags.structured as x -> 
             let x = Tags.eagerly_compute x in
             Sexpr.leaf_iter (build_values_as_list st) x
     | #Tags.unstructured as v -> 
@@ -200,7 +200,7 @@ let output_characters st (characters : Tags.xml)=
 
 let output_taxa st (_, _, taxa) =
     match taxa with
-    | #Tags.simple_struc as x ->
+    | #Tags.structured as x ->
             let x = Tags.eagerly_compute x in
             let lst = Sexpr.to_list x in
             let mtx = build_table_with_contents_as_set lst in
@@ -247,7 +247,7 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.xml) =
     else begin
         let str = 
             match contents with
-            | #Tags.simple_struc ->  "@[<v 4>@ "
+            | #Tags.structured ->  "@[<v 4>@ "
             | #Tags.unstructured -> "@[@ "
             | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
         in
@@ -259,7 +259,7 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.xml) =
         format_attributes st attributes;
         Status.user_message st "@ ";
         begin match contents with
-        | #Tags.simple_struc as sexpr ->
+        | #Tags.structured as sexpr ->
                 let sexpr = Tags.eagerly_compute sexpr in
                 Sexpr.leaf_iter (aux_data_to_status st) sexpr
         | #Tags.unstructured as v ->
@@ -320,7 +320,7 @@ let min_and_max ((x, y) as acc) (a, _, c) =
             else if a = Tags.Characters.max then
                 (x, Some (c))
             else acc
-    | #Tags.struc ->
+    | #Tags.structured_xml ->
             raise (Illegal_formater "min_and_max")
 
 let addcs_to_formater ((tag, attr, cont) : Tags.xml) = 
@@ -331,7 +331,7 @@ let addcs_to_formater ((tag, attr, cont) : Tags.xml) =
         let map = chrom_ref in 
         let minmax = 
             match cont with
-            | #Tags.simple_struc as x -> 
+            | #Tags.structured as x -> 
                     let x = Tags.eagerly_compute x in
                     Sexpr.fold_left min_and_max (None, None) x
             | _ -> raise (Illegal_formater "addcs_to_formater")
@@ -369,7 +369,7 @@ let nonaddcs_to_formater ((tag, attr, cont) : Tags.xml) =
         let map = `String "-" in 
         let states = 
             match cont with
-            | #Tags.simple_struc as x -> (* This is what we expect *)
+            | #Tags.structured as x -> (* This is what we expect *)
                     let x = Tags.eagerly_compute x in
                     let c = Buffer.create 10 in
                     Buffer.add_string c "{";
@@ -405,7 +405,7 @@ let seq_to_formater ((tag, attr, cont) : Tags.xml) : Tags.unstructured array  =
                 let v = `Fun (fun () -> StatusCommon.escape
                 (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.struc -> raise (Illegal_formater "seq_to_formater")
+        | #Tags.structured_xml -> raise (Illegal_formater "seq_to_formater")
     end else raise (Illegal_formater ("seq_to_formater"))
 
 
@@ -416,7 +416,7 @@ let breakinv_to_formater ((tag, attr, cont) : Tags.xml) =
         let recost = get_recost attr in 
         let map = breakinv_ref in 
         let cont = match cont with 
-        | #Tags.simple_struc as cont -> 
+        | #Tags.structured as cont -> 
                 let cont = Tags.eagerly_compute cont in
                 (match List.rev (Sexpr.to_list cont) with
                 | (_, _, cont) :: _ -> cont
@@ -428,7 +428,7 @@ let breakinv_to_formater ((tag, attr, cont) : Tags.xml) =
                 let v = `Fun (fun () -> StatusCommon.escape
                 (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; breakinv_ref; map; v|]
-        | #Tags.struc ->
+        | #Tags.structured_xml ->
                 raise (Illegal_formater "breakinv_to_formater")
     end else raise (Illegal_formater ("breakinv_to_formater"))
 
@@ -441,7 +441,7 @@ let chrom_to_formater ((tag, attr, cont) : Tags.xml) =
         let map = get_map attr in 
         let cont =
             match cont with 
-            | #Tags.simple_struc as cont -> 
+            | #Tags.structured as cont -> 
                     let cont = Tags.eagerly_compute cont in
                     (match List.rev (Sexpr.to_list cont) with
                     | (_, _, h) :: _ -> h
@@ -454,7 +454,7 @@ let chrom_to_formater ((tag, attr, cont) : Tags.xml) =
                 let v = `Fun (fun () -> StatusCommon.escape
                 (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.struc ->
+        | #Tags.structured_xml ->
                 raise (Illegal_formater "chrom_to_formater")
     end else raise (Illegal_formater ("chrom_to_formater"))
 
@@ -468,7 +468,7 @@ let genome_to_formater ((tag, attr, cont) : Tags.xml) =
 
 
         let cont = match cont with 
-        | #Tags.simple_struc as cont -> 
+        | #Tags.structured as cont -> 
                 let cont = Tags.eagerly_compute cont in
                 (match (List.rev (Sexpr.to_list cont))  with
                 | (_, _, h) :: _ -> h
@@ -481,7 +481,7 @@ let genome_to_formater ((tag, attr, cont) : Tags.xml) =
                 let v = `Fun (fun () -> StatusCommon.escape
                 (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; genome_ref; map; v|]
-        | #Tags.struc ->
+        | #Tags.structured_xml ->
                 raise (Illegal_formater "genome_to_formater")
     end else raise (Illegal_formater ("genome_to_formater"))
 
@@ -494,7 +494,7 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.xml) =
         let map = get_map attr in 
 
         let cont = match cont with 
-        | #Tags.simple_struc as cont -> 
+        | #Tags.structured as cont -> 
                 let cont = Tags.eagerly_compute cont in
                 (match (List.rev (Sexpr.to_list cont))  with
                 | (_, _, h) :: _ -> h
@@ -507,7 +507,7 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.xml) =
                 let v = `Fun (fun () -> StatusCommon.escape
                 (Tags.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.struc ->
+        | #Tags.structured_xml ->
                 raise (Illegal_formater "annchrom_to_formater")
     end else raise (Illegal_formater ("annchrom_to_formater"))
 
@@ -568,7 +568,7 @@ let node_to_formater st ((tag, attr, cont) : Tags.xml) =
         in
         let lst = 
             match cont with
-            | #Tags.simple_struc as x -> 
+            | #Tags.structured as x -> 
                     let x = Tags.eagerly_compute x in
                     Sexpr.to_list x
             | _ -> raise (Illegal_formater "node_to_formater 2")
@@ -597,12 +597,12 @@ let forest_to_formater st ((tag, attr, cont) as v) =
     let cost = find Tags.Characters.cost attr in
     let recost = find Tags.Characters.recost attr in
     match cont with
-    | #Tags.simple_struc ->
+    | #Tags.structured ->
             let rec do_nodes ((tag, _, cont) as x) =
                 if tag = Tags.Nodes.node then node_to_formater st x
                 else 
                     match cont with
-                    | #Tags.simple_struc as v -> 
+                    | #Tags.structured as v -> 
                             let v = Tags.eagerly_compute v in
                             Sexpr.leaf_iter do_nodes v
                     | _ -> ()
