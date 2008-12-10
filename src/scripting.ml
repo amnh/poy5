@@ -602,7 +602,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 in
                 let tbl = Hashtbl.create 1667 in
                 List.iter (fun node -> 
-                    let name = Tags.Util.attribute Tags.Nodes.name node in
+                    let name = Tags.attribute Tags.Nodes.name node in
                     Hashtbl.add tbl name node) nodes;
                 tbl
 
@@ -712,9 +712,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                     let name = 
                         match tree with
                         | Parser.Tree.Leaf (x, _) ->
-                                Tags.Util.attribute Tags.Nodes.name x
+                                Tags.attribute Tags.Nodes.name x
                         | Parser.Tree.Node (chld, (x, _)) ->
-                                let name = Tags.Util.attribute Tags.Nodes.name x in
+                                let name = Tags.attribute Tags.Nodes.name x in
                                 List.iter (aux (Some (name :> Tags.xml Tags.contents))) chld;
                                 name
                     in
@@ -846,8 +846,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                         (* Good, so we have to traverse the list of characters and do
                         * accordingly *)
                         let process_pair node ancestor =
-                            let tag = Tags.Util.tag node in
-                            assert (tag = (Tags.Util.tag ancestor));
+                            let tag = Tags.tag node in
+                            assert (tag = (Tags.tag ancestor));
                             (* We define a function that processes a pair of characters,
                             * we filter what we are interested on *)
                             let use_final = 
@@ -855,11 +855,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                 tag = Tags.Characters.additive || 
                                 tag = Tags.Characters.sankoff
                             in
-                            let cost = Tags.Util.attribute Tags.Characters.cost node
-                            and name = Tags.Util.attribute Tags.Characters.name node in
-                            let clas = Tags.Util.attribute Tags.Characters.cclass node in
+                            let cost = Tags.attribute Tags.Characters.cost node
+                            and name = Tags.attribute Tags.Characters.name node in
+                            let clas = Tags.attribute Tags.Characters.cclass node in
                             assert (clas = 
-                                Tags.Util.attribute Tags.Characters.cclass ancestor);
+                                Tags.attribute Tags.Characters.cclass ancestor);
                             let costn =
                                 match cost with
                                 | `FloatFloatTuple (costn, _)
@@ -873,8 +873,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                 * in a node *)
                                 let get_chars x =
                                     x 
-                                    --> Tags.Util.children Tags.Characters.value 
-                                    --> Sexpr.map Tags.Util.value
+                                    --> Tags.children Tags.Characters.value 
+                                    --> Sexpr.map Tags.value
                                     --> Sexpr.map Tags.value_to_string
                                     --> Sexpr.to_list
                                     --> String.concat ";" 
@@ -913,7 +913,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                             else if costn > 0. && 
                                 (`String Tags.Nodes.single) = clas then
                                 let get_chars x = 
-                                    x --> Tags.Util.value --> Tags.value_to_string
+                                    x --> Tags.value --> Tags.value_to_string
                                 in
                                 let ance_chars = get_chars ancestor
                                 and node_chars = get_chars node in
@@ -998,7 +998,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             let place_node (associated_info : node_information) data tree node parent_gis left_gis right_gis gis 
             : Tags.xml Sexpr.t =
-                let name = Tags.Util.attribute Tags.Nodes.name node in
+                let name = Tags.attribute Tags.Nodes.name node in
                 let is_root = KTree.is_root tree name in
                 let id = Tags.value_to_string name in
                 let summary : Tags.xml Tags.contents =
@@ -1203,7 +1203,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 output_string ch "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
                 let () =
                     match kml with
-                    | `Single kml -> Tags.to_xml ch kml;
+                    | `Single kml -> Tags.to_file ch kml;
                     | _ -> assert false
                 in
                 close_out ch

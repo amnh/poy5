@@ -280,7 +280,7 @@ let data_to_status filename tag =
             match filename with | Some x -> x | None -> assert false in
         let ch = StatusCommon.Files.channel filename in
         match ch with
-        | `NotCompressed ch -> Tags.to_xml ch tag
+        | `NotCompressed ch -> Tags.to_file ch tag
         | `Zlib ch -> 
                 failwith "Output fo XML in compressed format is not supported"
     else begin
@@ -630,7 +630,7 @@ let trees_to_formater filename fo_ls tree =
             match filename with | Some x -> x | None -> assert false in
         let ch = StatusCommon.Files.channel filename in
         match ch with
-        | `NotCompressed ch -> Tags.to_xml ch tree
+        | `NotCompressed ch -> Tags.to_file ch tree
         | `Zlib ch -> 
                 failwith "Output fo XML in compressed format is not supported"
     else trees_to_formater st tree

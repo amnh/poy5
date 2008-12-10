@@ -40,106 +40,10 @@ type 'a structured_xml =
     [ 'a structured 
     | `CDATA of [ unstructured | 'a structured] ]
 
-let eagerly_compute x = 
-    match x with
-    | #Sexpr.t as x -> x
-    | `Delayed f -> f ()
-
 type attribute = tag * unstructured
 type attributes = attribute list
 type 'a contents = [ unstructured | 'a structured_xml]
 type xml = (tag * attributes * xml contents)
-
-let make tag atv out = (tag, atv, out)
-
-let remove_non_alpha_numeric str =
-    Str.global_replace (Str.regexp " ") "_"
-    (Str.global_replace (Str.regexp "[^0-9a-zA-Z]") "_" str)
-
-let value_to_string = function
-    | `Bool x -> string_of_bool x
-    | `IntTuple (a, b) -> string_of_int a ^ "," ^ string_of_int b
-    | `IntFloatTuple (a, b) -> string_of_int a ^ "," ^ string_of_float b
-    | `FloatFloatTuple (a, b) -> string_of_float a ^ "," ^ string_of_float b
-    | `String x -> x
-    | `Int x -> string_of_int x
-    | `Float x -> string_of_float x
-    | `Fun x -> x ()
-
-let print_string ch = function
-    | `Bool x -> Printf.fprintf  ch "%B" x
-    | `IntTuple (a, b) -> Printf.fprintf ch "%d,%d" a b
-    | `IntFloatTuple (a, b) -> Printf.fprintf ch "%d,%f" a b
-    | `FloatFloatTuple (a, b) -> Printf.fprintf ch "%f,%f" a b
-    | `String x -> Printf.fprintf ch "%s" x
-    | `Int x -> Printf.fprintf ch "%d" x
-    | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
-    | `Fun x -> Printf.fprintf ch "%s" (x ())
-
-let to_xml ch (item : xml) =
-    let fo = output_string ch in
-    let output_attrs (fo : string -> unit) (a, b) =
-        fo " ";
-        fo (remove_non_alpha_numeric a);
-        fo "=\"";
-        print_string ch b;
-        fo "\""
-    in
-    let stack = Stack.create () in
-    let simplify (contents : xml contents) = 
-        match contents with
-        | #structured as x -> 
-                let x = eagerly_compute x in
-                `Structured (Sexpr.to_list x)
-        | #unstructured as x -> x 
-        | `CDATA (#unstructured as x) -> `CDATA (Some x)
-        | `CDATA (#structured as x) ->
-                let x = eagerly_compute x in
-                `CDATA (Some (`Structured (Sexpr.to_list x)))
-    in
-    let process_queue () =
-        while not (Stack.is_empty stack) do
-            let close_tag tag =
-                match tag with
-                | None -> ()
-                | Some tag -> fo "</"; fo tag; fo ">\n"
-            in
-            let (tag, contents) = Stack.pop stack in
-            match contents with
-            | #unstructured as x -> 
-                    print_string ch x;
-                    close_tag tag;
-            | `CDATA None -> fo "]]>";
-            | `CDATA (Some (#unstructured as v)) ->
-                    fo "<![CDATA[";
-                    Stack.push (None, `CDATA None) stack;
-                    Stack.push (None, v) stack;
-            | `CDATA (Some ((`Structured _) as t)) ->
-                    Stack.push (tag, `Structured []) stack;
-                    fo "<![CDATA[";
-                    Stack.push (None, `CDATA None) stack;
-                    Stack.push (None, t) stack;
-            | `Structured []
-            | `Empty -> close_tag tag
-            | `Structured ((ntag, attributes, contents) :: t) ->
-                    Stack.push (tag, `Structured t) stack;
-                    let ntag = remove_non_alpha_numeric ntag in
-                    fo "<"; fo ntag; 
-                    List.iter (output_attrs fo) attributes;
-                    fo ">";
-                    let contents = simplify contents in
-                    Stack.push ((Some ntag), contents) stack
-        done;
-    in
-    fo "";
-    let tag, attributes, contents = item in
-    let tag = remove_non_alpha_numeric tag in
-    fo " <"; fo tag; fo " ";
-    List.iter (output_attrs fo) attributes;
-    fo ">\n";
-    let contents = simplify contents in
-    Stack.push ((Some tag), contents) stack;
-    process_queue ()
 
 module Alphabet = struct
     let element = "Element"
@@ -346,27 +250,125 @@ module GenomeMap = struct
     let a_dir_seg = "AncestorDirection"        
     let d_dir_seg = "DescendantDirection"        
 end
-module Util = struct
-    let attribute name ((_, atts, _) : xml) =
-        List.assoc name atts
 
-    let tag ((t, _, _) : xml) = t
+let attribute name ((_, atts, _) : xml) =
+    List.assoc name atts
 
-    let contents ((_, _, c) : xml) = c
+let tag ((t, _, _) : xml) = t
 
-    let attributes ((_, a, _) : xml) = a
+let contents ((_, _, c) : xml) = c
 
-    let rec children search_tag ((a, b, chld) : xml) = 
-        match chld with
-        | `Delayed f -> 
-                children search_tag (a, b, (f () :> xml contents))
-        | #unstructured 
-        | `CDATA _ -> `Empty
-        | #Sexpr.t as chld ->
-                Sexpr.filter (fun x -> search_tag = tag x) chld
+let attributes ((_, a, _) : xml) = a
 
-    let value ((_, _, c) : xml) =
-        match c with
-        | #unstructured as v -> v
-        | _ -> failwith "Not a value"
-end
+let rec children search_tag ((a, b, chld) : xml) = 
+    match chld with
+    | `Delayed f -> 
+            children search_tag (a, b, (f () :> xml contents))
+    | #unstructured 
+    | `CDATA _ -> `Empty
+    | #Sexpr.t as chld ->
+            Sexpr.filter (fun x -> search_tag = tag x) chld
+
+let value ((_, _, c) : xml) =
+    match c with
+    | #unstructured as v -> v
+    | _ -> failwith "Not a value"
+
+let coherce x = (x :> xml contents)
+
+let make tag atv out = (tag, atv, out)
+
+let remove_non_alpha_numeric str =
+    Str.global_replace (Str.regexp " ") "_"
+    (Str.global_replace (Str.regexp "[^0-9a-zA-Z]") "_" str)
+
+let value_to_string = function
+    | `Bool x -> string_of_bool x
+    | `IntTuple (a, b) -> string_of_int a ^ "," ^ string_of_int b
+    | `IntFloatTuple (a, b) -> string_of_int a ^ "," ^ string_of_float b
+    | `FloatFloatTuple (a, b) -> string_of_float a ^ "," ^ string_of_float b
+    | `String x -> x
+    | `Int x -> string_of_int x
+    | `Float x -> string_of_float x
+    | `Fun x -> x ()
+
+let print_string ch = function
+    | `Bool x -> Printf.fprintf  ch "%B" x
+    | `IntTuple (a, b) -> Printf.fprintf ch "%d,%d" a b
+    | `IntFloatTuple (a, b) -> Printf.fprintf ch "%d,%f" a b
+    | `FloatFloatTuple (a, b) -> Printf.fprintf ch "%f,%f" a b
+    | `String x -> Printf.fprintf ch "%s" x
+    | `Int x -> Printf.fprintf ch "%d" x
+    | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
+    | `Fun x -> Printf.fprintf ch "%s" (x ())
+let eagerly_compute x = 
+    match x with
+    | #Sexpr.t as x -> x
+    | `Delayed f -> f ()
+
+
+let to_file ch (item : xml) =
+    let fo = output_string ch in
+    let output_attrs (fo : string -> unit) (a, b) =
+        fo " ";
+        fo (remove_non_alpha_numeric a);
+        fo "=\"";
+        print_string ch b;
+        fo "\""
+    in
+    let stack = Stack.create () in
+    let simplify (contents : xml contents) = 
+        match contents with
+        | #structured as x -> 
+                let x = eagerly_compute x in
+                `Structured (Sexpr.to_list x)
+        | #unstructured as x -> x 
+        | `CDATA (#unstructured as x) -> `CDATA (Some x)
+        | `CDATA (#structured as x) ->
+                let x = eagerly_compute x in
+                `CDATA (Some (`Structured (Sexpr.to_list x)))
+    in
+    let process_queue () =
+        while not (Stack.is_empty stack) do
+            let close_tag tag =
+                match tag with
+                | None -> ()
+                | Some tag -> fo "</"; fo tag; fo ">\n"
+            in
+            let (tag, contents) = Stack.pop stack in
+            match contents with
+            | #unstructured as x -> 
+                    print_string ch x;
+                    close_tag tag;
+            | `CDATA None -> fo "]]>";
+            | `CDATA (Some (#unstructured as v)) ->
+                    fo "<![CDATA[";
+                    Stack.push (None, `CDATA None) stack;
+                    Stack.push (None, v) stack;
+            | `CDATA (Some ((`Structured _) as t)) ->
+                    Stack.push (tag, `Structured []) stack;
+                    fo "<![CDATA[";
+                    Stack.push (None, `CDATA None) stack;
+                    Stack.push (None, t) stack;
+            | `Structured []
+            | `Empty -> close_tag tag
+            | `Structured ((ntag, attributes, contents) :: t) ->
+                    Stack.push (tag, `Structured t) stack;
+                    let ntag = remove_non_alpha_numeric ntag in
+                    fo "<"; fo ntag; 
+                    List.iter (output_attrs fo) attributes;
+                    fo ">";
+                    let contents = simplify contents in
+                    Stack.push ((Some ntag), contents) stack
+        done;
+    in
+    fo "";
+    let tag, attributes, contents = item in
+    let tag = remove_non_alpha_numeric tag in
+    fo " <"; fo tag; fo " ";
+    List.iter (output_attrs fo) attributes;
+    fo ">\n";
+    let contents = simplify contents in
+    Stack.push ((Some tag), contents) stack;
+    process_queue ()
+
