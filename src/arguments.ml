@@ -33,7 +33,7 @@ let change_working_directory str =
             "path.\n");
             exit 1
 
-let process_kml_plugin plugin =
+let process_poy_plugin plugin =
 IFDEF USE_NATIVEDYNLINK THEN
     if Sys.file_exists plugin then 
         let extension = if Dynlink.is_native then "cmxs" else "cmo" in
@@ -57,8 +57,8 @@ let parse_list = [
     "Don't wait for input other than the program argument script.");
     ("-no-output-xml", Arg.Unit (fun () -> SadmanOutput.do_sadman := false),
     "Do not generate the output.xml file.");
-    ("-kml", Arg.String process_kml_plugin, 
-    "Load the selected plugin in the KML formatters.")
+    ("-plugin", Arg.String process_poy_plugin, 
+    "Load the selected plugins.")
 ]
 
 let anon_fun str =

@@ -261,6 +261,7 @@ type output_class = [
 
 type application = [
     | `Version
+    | `Plugin of (string * Methods.plugin_arguments)
     | `ChangeWDir of string
     | `PrintWDir
     | `Exit
@@ -1071,6 +1072,7 @@ let transform_stdsearch items =
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
     match meth with
     | `Version
+    | `Plugin _
     | `Exit 
     | `Recover
     | `ClearRecovered
@@ -1639,7 +1641,26 @@ let create_expr () =
                 [ t = rename -> (t :> command) ] |
                 [ t = application_command -> (t :> command) ] |
                 [ t = fuse -> (t :> command) ] |
-                [ t = loop -> (t :> command) ]
+                [ t = loop -> (t :> command) ] |
+                [ t = plugin -> (t :> command) ]
+            ];
+        plugin: 
+            [
+                [ x = LIDENT; left_parenthesis; y = OPT plugin_args;
+                right_parenthesis -> 
+                    match y with
+                    | None -> `Plugin (x, `Empty)
+                    | Some y -> `Plugin (x, y) ]
+            ];
+        plugin_args:
+            [   
+                [ x = FLOAT -> `Float (float_of_string x) ] |
+                [ x = INT -> `Int (int_of_string x) ] |
+                [ x = STRING -> `String x ] |
+                [ x = LIDENT -> `Lident x ] | 
+                [ x = LIDENT; ":"; y = plugin_args -> `Labled (x, y)] |
+                [ left_parenthesis; x = LIST0 [ x = plugin_args -> x] SEP ",";
+                right_parenthesis -> `List x ]
             ];
         loop:
             [

@@ -278,6 +278,8 @@ module type S = sig
     end
     type r = (a, b, c) run
 
+    val register_plugin : string -> (Methods.plugin_arguments -> r -> r) -> unit
+
     type minimum_spanning_tree = tree 
     type build = minimum_spanning_tree list
     type minimum_spanning_family = minimum_spanning_tree list
@@ -1227,6 +1229,18 @@ module S = Supports.Make (Node) (Edge) (TreeOps)
 
 
 type r = (a, b, c) run
+
+    type plugin_function = Methods.plugin_arguments -> r -> r
+
+    let plugins : (string, plugin_function) Hashtbl.t = Hashtbl.create 97
+
+    let register_plugin name f =
+        if Hashtbl.mem plugins name then begin
+            Status.user_message Status.Error 
+                ("There is already a plugin registering the function " ^ name);
+            failwith "Function already exists"
+        end else
+            Hashtbl.add plugins name f
 
 type minimum_spanning_tree = tree 
 type build = minimum_spanning_tree list
@@ -2833,6 +2847,15 @@ let rec process_application run item =
                         process_application run `ReDiagnose
             else run
     | `Exit -> exit 0
+    | `Plugin (name, args) ->
+            if Hashtbl.mem plugins name then
+                let f = Hashtbl.find plugins name in
+                f args run
+            else begin
+                Status.user_message Status.Error 
+                ("There is no command " ^ name);
+                failwith ("Illegal command " ^ name)
+            end
     | `Version ->
             Status.user_message Status.Information Version.string;
             run
