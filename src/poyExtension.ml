@@ -88,6 +88,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [ "-"; "--" -> <:expr<`Empty>> ] |
             [ "{"; LIDENT "single"; x = expr; "}" -> <:expr<`Single $x$>> ] |
             [ "{"; LIDENT "set"; x = expr; "}" -> <:expr<`Set $x$>> ] |
+            [ "{"; LIDENT "string"; x = expr; "}" -> <:expr<`String $x$>> ] |
+            [ "{"; LIDENT "int"; x = expr; "}" -> <:expr<`Int $x$>> ] |
+            [ "{"; LIDENT "float"; x = expr; "}" -> <:expr<`Float $x$>> ] |
+            [ "{"; LIDENT "delayed"; x = expr; "}" -> <:expr<`Delayed $x$>> ] |
             [ "-"; LIDENT "set"; x = LIST1 [ x = xml_poy -> x]; "--" -> 
                 <:expr<`Set $exSem_of_list x$>> ] |
             [ "{"; x = expr; "}" -> x ] |
@@ -128,6 +132,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [ x = STRING -> <:expr<`String $str:x$>> ] |
             [ x = INT -> <:expr<`Int $int:x$>> ] |
             [ x = FLOAT -> <:expr<`Float $flo:x$>> ] |
+            [ "["; LIDENT "string"; x = expr; "]" -> <:expr<`String $x$>> ] |
+            [ "["; LIDENT "int"; x = expr; "]" -> <:expr<`Int $x$>> ] |
+            [ "["; LIDENT "float"; x = expr; "]" -> <:expr<`Float $x$>> ] |
             [ "["; x = expr; "]" -> <:expr<$x$>> ]
         ];
         contents : [
