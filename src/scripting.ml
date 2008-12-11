@@ -278,7 +278,7 @@ module type S = sig
     end
     type r = (a, b, c) run
 
-    val register_plugin : string -> (Methods.plugin_arguments -> r -> r) -> unit
+    val register_function : string -> (Methods.plugin_arguments -> r -> r) -> unit
 
     type minimum_spanning_tree = tree 
     type build = minimum_spanning_tree list
@@ -1234,7 +1234,7 @@ type r = (a, b, c) run
 
     let plugins : (string, plugin_function) Hashtbl.t = Hashtbl.create 97
 
-    let register_plugin name f =
+    let register_function name f =
         if Hashtbl.mem plugins name then begin
             Status.user_message Status.Error 
                 ("There is already a plugin registering the function " ^ name);
