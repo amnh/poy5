@@ -243,7 +243,7 @@ type tree = (a, b) Ptree.p_tree
 type r = (a, b, c) run
 
     val register_function : 
-        string -> (Methods.plugin_arguments -> r -> r) -> unit
+        string -> (Methods.script Methods.plugin_arguments -> r -> r) -> unit
 
 type minimum_spanning_tree = tree 
 type build = minimum_spanning_tree list

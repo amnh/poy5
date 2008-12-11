@@ -662,17 +662,18 @@ type clear_item = [
     | `SequencePool
 ]
 
-type plugin_arguments = 
+type 'a plugin_arguments = 
     [ `Empty
     | `Float of float 
     | `Int of int
     | `String of string
     | `Lident of string
-    | `Labled of (string * plugin_arguments)
-    | `List of plugin_arguments list ]
+    | `Labled of (string * 'a plugin_arguments)
+    | `List of 'a plugin_arguments list 
+    | `Command of 'a
+]
 
 type application = [
-    | `Plugin of (string * plugin_arguments)
     | `Version
     | `Exit
     | `Interactive
@@ -741,6 +742,7 @@ type script = [
     | `StandardSearch of 
         (float option * float option * int option * 
         int option * float option * string option option * string option)
+    | `Plugin of (string * script plugin_arguments)
     | input
     | transform
     | build

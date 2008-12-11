@@ -261,7 +261,6 @@ type output_class = [
 
 type application = [
     | `Version
-    | `Plugin of (string * Methods.plugin_arguments)
     | `ChangeWDir of string
     | `PrintWDir
     | `Exit
@@ -378,6 +377,7 @@ type command = [
     | `Support of supporta list
     | `Calculate of charoper list
     | `Report of reporta list
+    | `Plugin of (string * command Methods.plugin_arguments)
     | `Select of selecta list
     | `Rename of renamea list
     | `Search of searcha list
@@ -1071,8 +1071,23 @@ let transform_stdsearch items =
 
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
     match meth with
+    | `Plugin (name, commands) ->
+            let rec process_contents x =
+                match x with
+                | `Lident _
+                | `Float _ | `Empty | `Int _ | `String _ as x
+                -> x
+                | `Labled (name, args) ->
+                        `Labled (name, process_contents args)
+                | `List lst ->
+                        `List (List.map process_contents lst)
+                | `Command c -> 
+                        let c = transform_command [] c in
+                        let c = List.map (fun x -> `Command x) c in
+                        `List c
+            in
+            (`Plugin (name, process_contents commands)) :: acc
     | `Version
-    | `Plugin _
     | `Exit 
     | `Recover
     | `ClearRecovered

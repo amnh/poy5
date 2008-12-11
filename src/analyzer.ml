@@ -157,9 +157,6 @@ let dependency_relations (init : Methods.script) =
     | #Methods.application as meth ->
             let res = 
                 match meth with
-                | `Plugin _ -> 
-                        let all = all [] [] in
-                        [(all, all, init, NonComposable)]
                 | `Version -> [(output, output, init, Invariant)]
                 | `Interactive
                 | `Exit -> 
@@ -451,6 +448,9 @@ let dependency_relations (init : Methods.script) =
                         else ()
             else  ();
             res
+    | `Plugin _ -> 
+            let all = all [] [] in
+            [(all, all, init, NonComposable)]
     | `StoreTrees
     | `UnionStored
     | `OnEachTree _
@@ -1546,8 +1546,6 @@ let script_to_string (init : Methods.script) =
     | #Methods.application as meth ->
             let res = 
                 match meth with
-                | `Plugin _ -> 
-                        "@[execute a plugin function@]"
                 | `Version -> 
                         "@[output the version@]"
                 | `Exit -> 
@@ -1774,6 +1772,8 @@ let script_to_string (init : Methods.script) =
                         "@[change the root@]"
             in
             res
+    | `Plugin _ -> 
+            "@[execute a plugin function@]"
     | `Entry -> "@[beginning of the program@]"
     | `Barrier -> "@[Wait for other processors to reach this point@]"
     | `GatherTrees _ -> "@[Exchange trees with other processes@]"

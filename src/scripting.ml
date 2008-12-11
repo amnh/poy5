@@ -278,7 +278,7 @@ module type S = sig
     end
     type r = (a, b, c) run
 
-    val register_function : string -> (Methods.plugin_arguments -> r -> r) -> unit
+    val register_function : string -> (Methods.script Methods.plugin_arguments -> r -> r) -> unit
 
     type minimum_spanning_tree = tree 
     type build = minimum_spanning_tree list
@@ -1230,7 +1230,7 @@ module S = Supports.Make (Node) (Edge) (TreeOps)
 
 type r = (a, b, c) run
 
-    type plugin_function = Methods.plugin_arguments -> r -> r
+    type plugin_function = Methods.script Methods.plugin_arguments -> r -> r
 
     let plugins : (string, plugin_function) Hashtbl.t = Hashtbl.create 97
 
@@ -2847,15 +2847,6 @@ let rec process_application run item =
                         process_application run `ReDiagnose
             else run
     | `Exit -> exit 0
-    | `Plugin (name, args) ->
-            if Hashtbl.mem plugins name then
-                let f = Hashtbl.find plugins name in
-                f args run
-            else begin
-                Status.user_message Status.Error 
-                ("There is no command " ^ name);
-                failwith ("Illegal command " ^ name)
-            end
     | `Version ->
             Status.user_message Status.Information Version.string;
             run
@@ -3444,6 +3435,15 @@ ELSE
 END
     | `Skip
     | `Entry -> run
+    | `Plugin (name, args) ->
+            if Hashtbl.mem plugins name then
+                let f = Hashtbl.find plugins name in
+                f args run
+            else begin
+                Status.user_message Status.Error 
+                ("There is no command " ^ name);
+                failwith ("Illegal command " ^ name)
+            end
     | `StoreTrees -> 
             { run with trees = `Empty; stored_trees = run.trees }
     | `UnionStored ->
