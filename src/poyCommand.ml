@@ -1661,19 +1661,21 @@ let create_expr () =
             ];
         plugin: 
             [
-                [ x = LIDENT; left_parenthesis; y = OPT plugin_args;
-                right_parenthesis -> 
+                [ x = LIDENT; left_parenthesis; 
+                    y = LIST0 [ x = plugin_args -> x] SEP ",";
+                        right_parenthesis -> 
                     match y with
-                    | None -> `Plugin (x, `Empty)
-                    | Some y -> `Plugin (x, y) ]
+                    | [] -> `Plugin (x, `Empty)
+                    | [y] -> `Plugin (x, y) 
+                    | y -> `Plugin (x, `List y) ]
             ];
         plugin_args:
             [   
                 [ x = FLOAT -> `Float (float_of_string x) ] |
                 [ x = INT -> `Int (int_of_string x) ] |
                 [ x = STRING -> `String x ] |
-                [ x = LIDENT -> `Lident x ] | 
                 [ x = LIDENT; ":"; y = plugin_args -> `Labled (x, y)] |
+                [ x = LIDENT -> `Lident x ] | 
                 [ left_parenthesis; x = LIST0 [ x = plugin_args -> x] SEP ",";
                 right_parenthesis -> `List x ]
             ];

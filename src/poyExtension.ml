@@ -159,7 +159,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     | x = rename -> `S x
                     | x = search -> `S x
                     | x = simp_expr -> `S x
-                    | x = cur_expr -> `L x ]
+                    | x = cur_expr -> `L x 
+                    | x = plugin -> `S x
+            ]
         -> x] ];
         single_poy : [
             [ a = transform -> a ] 
@@ -174,6 +176,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             | [ x = read -> x ]
             | [ x = rename -> x ]
             | [ x = search -> x ]
+            | [ x = plugin -> x ]
             | [ x = simp_expr -> x ]
             | [ x = cur_expr -> x ]
         ];
@@ -189,6 +192,28 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [ x = std_search_argument -> x ] 
         ];
         (* Application commands *)
+        plugin: 
+            [
+                [ x = LIDENT; left_parenthesis; 
+                    y = LIST0 [ x = plugin_args -> x] SEP ",";
+                        right_parenthesis -> 
+                    match y with
+                    | [] -> <:expr<`Plugin ($str:x$, `Empty)>>
+                    | [y] -> <:expr<`Plugin ($str:x$, $y$)>>
+                    | y -> <:expr<`Plugin ($str:x$, `List $exSem_of_list y$)>> ]
+            ];
+        plugin_args:
+            [   
+                [ x = FLOAT -> <:expr<`Float ($flo:x$)>> ] |
+                [ x = INT -> <:expr<`Int ($int:x$)>> ] |
+                [ x = STRING -> <:expr<`String $str:x$>> ] |
+                [ x = LIDENT; ":"; y = plugin_args -> 
+                    <:expr<`Labled ($str:x$, $y$)>>] |
+                [ x = LIDENT -> <:expr<`Lident $str:x$>> ] | 
+                [ left_parenthesis; x = 
+                    LIST0 [ x = plugin_args -> x] SEP ",";
+                right_parenthesis -> <:expr<`List $exSem_of_list x$>> ]
+            ];
         cur_expr: [[ "["; x = expr; "]" -> x ]];
         simp_expr: [[ "{"; x = expr; "}" -> x ]];
         (* Transforming taxa or characters *)
@@ -563,6 +588,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             [
                 [ "{"; x = expr; "}" -> x ] |
                 [ x = flex_string -> <:expr<`File $x$>> ] |
+                [ LIDENT "kml"; ":"; left_parenthesis; 
+                    plugin = LIDENT; ","; csv = flex_string;
+                right_parenthesis -> 
+                    <:expr<`KML ($str:plugin$, $csv$)>> ] |
                 [ LIDENT "asciitrees" ; y = OPT optional_collapse -> 
                     match y with
                     | None -> <:expr<`Ascii False>> 
