@@ -1,8 +1,8 @@
 let rec to_phyloxml tree : Xml.xml =
     match tree with
-    | Parser.Tree.Leaf name ->  (RXML -clade -name { string name } -- -- )
+    | Parser.Tree.Leaf name ->  (RXML -clade -"branch_length" { int 1 } -- -name { string name } -- -- )
     | Parser.Tree.Node (chld, name) ->
-            (RXML -clade -name { string name } --  
+            (RXML -clade -"branch_length" { int 1 } -- -name { string name } --  
                 { set List.map (fun x -> `Single (to_phyloxml x)) chld }
             --)
 
