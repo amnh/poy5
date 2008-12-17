@@ -175,7 +175,7 @@ val to_single_root : ChromCS.IntSet.t * ChromCS.IntSet.t -> node_data -> node_da
 
 (** [apply_time a b n] applies the time [a] to the minimum child node and [b] to the
 * other. If _None is passed the data isn't changed_. *)
-val apply_time : float option -> float option -> node_data -> node_data
+val apply_time : node_data -> node_data -> node_data
 
 (** [edge_iterator gp p a b] is a function to iterate the branch lengths of
  * likelihood characters of parent [p], with children [a] and [b], and grand
@@ -201,8 +201,18 @@ val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data 
  * uses the time data of nodes in different directions, [times_1] and [times_2]
  * to fill in the other directions with children [node_1] and [node_2].
 *)
-val median_w_times : int option -> node_data -> node_data -> node_data 
-                     -> node_data option -> node_data option -> node_data
+val median_w_times : int option -> node_data option -> node_data -> node_data 
+                     -> float option list -> float option list -> node_data
+
+val get_min_taxon_code : node_data -> int
+
+(**[get_times_between(_tbl tbl) nd child_code]
+ * helper functions to unify the distribution of times in three directions
+ * --either from input tree or from the post_order downpass *)
+val get_times_between : node_data -> node_data -> float option list
+val get_times_between_tbl : (int,float) Hashtbl.t -> node_data
+                                -> float option list
+val verify_time : node_data -> node_data -> node_data -> node_data option -> bool
 
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 

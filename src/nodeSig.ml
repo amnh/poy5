@@ -45,8 +45,8 @@ module type S = sig
     (** [median par code prev a b] calculates a median between the nodes [a] and [b].
     * [prev] holds the previously calculated value of that median (could be used
     * for heuristic or speedup purposes). *)
-    val median : ?brancha:(int,float) Hashtbl.t -> ?branchb:(int,float) Hashtbl.t -> 
-                     int option -> n option -> n -> n -> n
+    val median : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t ->
+                        int option -> n option -> n -> n -> n
 
     (** [final_states granpa par cur a b] creates new node with [cur], parent
     * [par], children [a] and [b]. and parent of parent [grandpa]. This only
@@ -60,7 +60,10 @@ module type S = sig
      * data from [cur] to [a] and [b] as it's children, and recieving the data
      * from [par] as it's parent. This data, in likelihood, are the `times` or
      * branch lengths *)
-    val uppass_heuristic : int option -> n -> n -> n -> n -> n
+    val uppass_heuristic : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t -> 
+                                int option -> n -> n -> n -> n -> n
+    (** [apply_time curr par] applies the time in par to cur --used for leafs **)
+    val apply_time : n -> n -> n
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)

@@ -19,6 +19,8 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
+let eager_lazy = true
+
 type exclude = Node.exclude
 
 type direction = (int * int) option
@@ -38,9 +40,12 @@ let force_opt = function
     | None -> None 
 
 let lazy_from_fun x =
-    let l = Lazy (Lazy.lazy_from_fun x) in
-    Eager (force_val l)
-
+    if eager_lazy then
+        let l = Lazy (Lazy.lazy_from_fun x) in
+        Eager (force_val l)
+    else
+        Lazy (Lazy.lazy_from_fun x)
+    
 let lazy_from_val x = Eager x
 
 let force x = Eager (force_val x)
@@ -59,8 +64,9 @@ type node_data = {
 
 let to_n node = Eager node
 
-(* printf with (k)ontinuations applied to failwith *)
 let failwithf format = Printf.ksprintf failwith format
+let info_user_message format = 
+    Printf.ksprintf (Status.user_message Status.Information) format
 
 let has_code code n =
     match n.dir with
@@ -110,10 +116,16 @@ let either_with c n = (* grabs a node that has this branch c--n *)
     assert( 0 <> List.length n);
     match List.filter (fun x -> not (has_code c x)) n with
         | hd::tl -> hd
-        | [] -> 
-            List.iter print_pairs n; (* conversly to other 'with's, print
-            containing pairs, since we know it's empty already *)
-            failwithf "AllDirNode.either_with %d of %d has 0 matching values." c (get_code n)
+        | [] -> (match n with
+            | [x] ->
+                Printf.printf "Singular with (%s)\n%!"
+                        (match x.dir with
+                        | None -> "None"
+                        | Some (a, b) -> Printf.ksprintf (fun x -> x) "%d, %d" a b);
+                    x
+            |  _  -> List.iter print_pairs n;
+            failwithf ("AllDirNode.either_with %d of %d has 0 matching"^^
+                        " values in %d total.") c (get_code n) (List.length n))
 
 module OneDirF : 
     NodeSig.S with type e = exclude with type n = a_node with type other_n =
@@ -172,32 +184,12 @@ module OneDirF :
     let get_mlstatic x n =
         Node.Standard.get_mlstatic x (force_val n)
 
-    let median ?brancha ?branchb my_code old a b = 
-        match brancha,branchb with
-        | Some x,Some y ->
-                lazy_from_fun 
-                (fun () ->
-                    apply_f_on_lazy
-                        (Node.Standard.median ~brancha:x ~branchb:y my_code None)
-                        a b)
-        | None , None -> 
-                lazy_from_fun 
-                (fun () ->
-                    apply_f_on_lazy
-                        (Node.Standard.median my_code None)
-                        a b)
-        | Some x, None ->
-                lazy_from_fun 
-                (fun () ->
-                    apply_f_on_lazy
-                        (Node.Standard.median ~brancha:x my_code None)
-                        a b)
-        | None, Some y ->
-                lazy_from_fun 
-                (fun () ->
-                    apply_f_on_lazy
-                        (Node.Standard.median ~branchb:y my_code None)
-                        a b)
+    let median ?branches my_code old a b = 
+        lazy_from_fun 
+        (fun () ->
+            apply_f_on_lazy
+                (Node.Standard.median ?branches my_code None)
+                a b)
 
     let edge_iterator par_opt mine ch1 ch2 = 
         let n_mine = Node.Standard.edge_iterator (force_opt par_opt)
@@ -218,7 +210,10 @@ module OneDirF :
             b
         )
 
-    let uppass_heuristic = final_states
+    let apply_time x y =
+        lazy_from_fun (fun () -> apply_f_on_lazy Node.Standard.apply_time x y)
+
+    let uppass_heuristic ?branches = final_states
 
     let to_string v = Node.Standard.to_string (force_val v)
 
@@ -543,7 +538,7 @@ type nad8 = Node.Standard.nad8 = struct
         in
         { mine with adjusted=[node_dir]; },modified
 
-    let median ?brancha ?branchb my_code old a b =
+    let median ?branches my_code old a b =
         let na, nb,code = 
             match my_code with
             | Some code ->
@@ -551,13 +546,6 @@ type nad8 = Node.Standard.nad8 = struct
             | None ->
                     not_with (taxon_code b) a.adjusted,
                     not_with (taxon_code a) b.adjusted, -1
-                    (* failwith "AllDirNode.AllDirF.median no code" *)
-                    (* (match a.adjusted,b.adjusted with 
-                         | [x],[y] -> x , y , -1
-                         |  x , y -> failwithf ("AllDirNode.median got no code"
-                                     ^^"butwith %d and %d directions, respecively.")
-                                     (List.length x) (List.length y)
-                    ) *)
         in
         let old = match old with
             | Some oldness -> 
@@ -568,15 +556,8 @@ type nad8 = Node.Standard.nad8 = struct
             | None -> None
         in
 
-        let lazy_node = match brancha,branchb with
-            | Some x, Some y ->
-                OneDirF.median ~brancha:x ~branchb:y my_code old na.lazy_node nb.lazy_node
-            | None, None ->
-                OneDirF.median my_code old na.lazy_node nb.lazy_node
-            | Some x,None -> failwith "do later"
-                OneDirF.median ~brancha:x my_code old na.lazy_node nb.lazy_node
-            | None,Some y -> failwith "do later"
-                OneDirF.median ~branchb:y my_code old na.lazy_node nb.lazy_node
+        let lazy_node =
+                OneDirF.median ?branches my_code old na.lazy_node nb.lazy_node
         in
         let node = {
             lazy_node = lazy_node;
@@ -604,62 +585,99 @@ type nad8 = Node.Standard.nad8 = struct
                         npar.lazy_node ncur.lazy_node na.lazy_node nb.lazy_node;
             dir = Some (na.code, nb.code);
             code = taxon_code cur;
-        }
-        in
+        } in
         match cur.unadjusted with
         | [_] -> { cur with unadjusted = [node] }
         | _ ->
                 let x, y = yes_with (taxon_code par) cur.unadjusted in
                 { cur with unadjusted = [x; y; node] }
 
-    (** [uppass_heuristic curr ch1 ch2 par] 
+    (** [apply_time child parent] applies time from parent into child --used on
+     * leaves when the uppass_heuristic doesn't normally run over *)
+    let apply_time child parent =
+        Printf.printf "applying time to %d from %d\n%!" (taxon_code child)
+        (taxon_code parent);
+        let get_dir p xun = (not_with (taxon_code p) xun).lazy_node in
+        let has_with code n = match n.dir with
+            | None -> true 
+            | Some (a,b) -> a = code || b = code in
+        let node =
+            let a_node = match
+                List.filter (has_with (taxon_code child)) parent.unadjusted with
+                | [hd] -> Printf.printf "A Leaf(%d)!\n%!" (taxon_code child); hd
+                | [hd;_] -> hd
+                | [] -> failwith "AllDirNode.apply_time: No directions to find time"
+                | _  -> failwith "AllDirNode.apply_time: Too many directions to find time"
+            in
+            OneDirF.apply_time (get_dir parent child.unadjusted) a_node.lazy_node
+        in
+        let node = [{
+            lazy_node= node;
+            dir = None;
+            code = taxon_code child;
+        }] in
+        { unadjusted = node; adjusted = node; }
+
+    (** [uppass_heuristic tbl curr ch1 ch2 par]
      * [cur], at this point will have one direction ([ch1],[ch2]), after this call
      * it will fill in the other directions, lazily, with [par]. This process will
-     * update the nodes, the times (likelihood), et cetera. 
+     * update the nodes, the times (likelihood), et cetera, with lazy values.
      *            cb'
      *   ca'       |
      *    \      [cB]---cb'
      *     \     //
      *    [cA]==[M] < dir_A
      *     /     \\
-     *    /      [pC]---cc'
+     *    /      [pC]--gp?
      *   ca'       |
-     *            gp
+     *            gp?
     **)
-    let uppass_heuristic _ m a b c = 
+    let uppass_heuristic ?branches _ m a b c =
         let get_dir parc x = force_val (not_with parc x.unadjusted).lazy_node in
-
         let ac,bc,cc,mc = taxon_code a, taxon_code b, taxon_code c, taxon_code m in
+        let data_c2m = get_dir cc m in
         let time_M2C = 
-            let lst = List.filter (fun x -> not (has_code mc x)) c.unadjusted in
-            match lst with
-            | [] -> None
-            | h :: _ -> Some (force_val h.lazy_node)
+            match List.filter (fun x -> not (has_code mc x)) c.unadjusted with
+                | h :: _ ->
+                    Node.get_times_between (force_val h.lazy_node) data_c2m
+                | [] -> match c.unadjusted with
+                    | [single] ->
+                        (match branches with
+                        | Some tbl -> 
+                            Node.get_times_between_tbl 
+                                        (Hashtbl.find tbl cc)
+                                        (force_val single.lazy_node)
+                        | None ->
+                            Node.get_times_between (get_dir mc c) data_c2m
+                        )
+                    | _ -> failwith "AllDirNode: uppass_heuristic"
         and nd_c = get_dir mc c
-        and time_M2AB = Some (get_dir cc m) in
-
-(*        let node_A = OneDirF.median (Some mc) prev nd_c (get_dir mc b)*)
-(*        and node_B = OneDirF.median (Some mc) prev nd_c (get_dir mc a) in*)
+        and time_M2A,time_M2B = (* ignore table since its used for root *)
+                Node.get_times_between data_c2m (get_dir mc a),
+                Node.get_times_between data_c2m (get_dir mc b)
+        in
 
         let node_A = lazy_from_fun
                 (fun () -> Node.median_w_times 
-                    (Some mc) (get_dir cc m) nd_c (get_dir mc b) time_M2C time_M2AB)
-        and node_B = lazy_from_fun 
+                                (Some mc) (Some data_c2m) nd_c
+                                    (get_dir mc b) time_M2C time_M2B )
+        and node_B = lazy_from_fun
                 (fun () -> Node.median_w_times 
-                    (Some mc) (get_dir cc m) nd_c (get_dir mc a) time_M2C time_M2AB)
+                                (Some mc) (Some data_c2m) nd_c
+                                    (get_dir mc a) time_M2C time_M2A )
         in
 
         let dir_A= { code= mc; lazy_node= node_A; dir= Some(bc,cc); }
         and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,cc); }
-        and dir_C= { (not_with cc m.unadjusted) with code= mc; dir= Some(ac,bc); } in
+        and dir_C= { code= mc; lazy_node= lazy_from_val data_c2m; dir= Some(ac,bc); } in
 
         let allDir = [ dir_A ; dir_B ; dir_C ] in
         { unadjusted = allDir; adjusted = allDir }
 
-    let to_string nodes = 
-        let res = 
+    let to_string nodes =
+        let res =
             List.map (fun x -> OneDirF.to_string x.lazy_node)
-            nodes.unadjusted 
+            nodes.unadjusted
         in
         String.concat "\n" res
 
@@ -909,3 +927,42 @@ type 'a node_hybrid = {
 module HybridF = struct
     let get_dynamic x = x.dy
 end
+
+(** [verify_branch_lengths a b c m] verify an internal node [m] *)
+let verify_branch_lengths a b c m : bool =
+    info_user_message "Verifying Branch Lengths";
+    let taxon_code = AllDirF.taxon_code in
+    let get_dir parc x = force_val (not_with parc x.unadjusted).lazy_node in
+
+    (* verify x with internal *)
+    let verify internal x =
+        let ic = taxon_code internal and xc = taxon_code x in
+        let m_1,m_2 = yes_with xc internal.unadjusted
+        and m_oth = get_dir xc internal
+        and x_s =
+            let x_oth = get_dir ic x in
+            match List.filter (fun y -> not (has_code ic y))
+                              x.unadjusted with
+            | [one;two] -> [(one,Some x_oth);(two,Some x_oth)]
+            | [] -> [(not_with ic x.unadjusted,None)]
+            | err -> failwithf "Verify -- %d directions found" (List.length err)
+        and string_pairs r = match r.dir with
+            | None -> "None"
+            | Some (a,b) -> Printf.ksprintf (fun x -> x) "%d,%d" a b
+        in
+
+        List.fold_right
+            (fun (x,x_oth) ac1 ->
+                List.fold_right
+                    (fun m ac2 ->
+                        let res = Node.verify_time (force_val m.lazy_node) m_oth
+                                                   (force_val x.lazy_node) x_oth
+                        in
+                        info_user_message "Verified (%s) and (%s) between %d and %d: %b"
+                            (string_pairs m) (string_pairs x) m.code x.code res;
+                        res && ac2
+                    ) [m_1;m_2] ac1
+            ) x_s true
+    in
+    (* verify each direction *)
+    List.fold_right (fun x acc -> acc && (verify m x)) [a;b;c] true

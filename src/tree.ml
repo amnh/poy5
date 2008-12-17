@@ -748,7 +748,9 @@ let add_tree_to d add_to tree =
                             raise err
                 in
                 let () = match nname with
-                    | Some x -> Hashtbl.replace add_to.names tc x
+                    | Some x ->
+                            let x = String.uppercase x in
+                            Hashtbl.replace add_to.names tc x
                     | None -> ()
                 in
                 Parser.Tree.Leaf (Leaf (tc, parent)), tc
@@ -776,7 +778,9 @@ let add_tree_to d add_to tree =
                 in
                 let sc = cg () in
                 let () = match nname with
-                    | Some x -> Hashtbl.replace add_to.names sc x
+                    | Some x -> 
+                        let x = String.uppercase x in
+                        Hashtbl.replace add_to.names sc x
                     | None -> ()
                 in
                 let child_nodes = resolve_more_children child_nodes in

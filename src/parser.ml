@@ -780,6 +780,21 @@ module Tree = struct
         | Branches of ((string * float option) t)
         | Characters of ((string * string option) t)
 
+    let print_tree t = 
+        let rec n_spaces n = if n = 0 then "" else (n_spaces (n-1))^"\t" in
+        let rec print_nodes printer depth = function
+            | Leaf dat -> Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat)
+            | Node (lst,dat) -> 
+                    Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat);
+                    List.iter (print_nodes printer (depth+1)) lst
+        and ident = fun x -> x
+        and get_some f = function | Some x -> f x | None -> "None" in
+        match t with
+            | Flat t -> print_nodes ident 0 t
+            | Annotated (t,a) -> print_nodes ident 0 (Node ([t],a))
+            | Branches t -> print_nodes (fun (x,l) -> x^"["^(get_some (string_of_float) l)^"]") 0 t
+            | Characters t -> print_nodes (fun (x,y) -> x^"["^(get_some (ident) y)^"]") 0 t
+
     exception Trailing_characters
 
     (* map on tree w/out annotations *)
@@ -2596,7 +2611,7 @@ module SC = struct
         unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     }
-    let empty_parsed = {
+    let empty_parsed () = {
         char_cntr = ref 0;
         taxa = [||];
         characters = [||];
@@ -2742,13 +2757,13 @@ module SC = struct
                             ("W", 18, None); 
                             ("Y", 19, None); 
                             ("*", 20, None);
-                            (gap, 21, None);] @ prepro_symbols)
+                            (gap, 21, None);])
                             gap None Alphabet.Sequential,
                             [("B", ["D"; "N"]); ("Z", ["E"; "Q"])] @ more_equates
                     | Nexus.Rna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("U", 3,
-                            None); (gap, 4, None)] @ prepro_symbols)
+                            None); (gap, 4, None)] )
                             gap None Alphabet.Sequential,
                             [("R", ["A"; "G"]);
                             ("Y", ["C"; "U"]);
@@ -2765,7 +2780,7 @@ module SC = struct
                     | Nexus.Nucleotide | Nexus.Dna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
-                            None); (gap, 4, None)] @ prepro_symbols)
+                            None); (gap, 4, None)] )
                             gap None Alphabet.Sequential,
                             [("R", ["A"; "G"]);
                             ("Y", ["C"; "T"]);
@@ -3683,7 +3698,7 @@ module SC = struct
                                             Hashtbl.replace node_tbl char_name length
                                         ) bls
                                 ) chars
-                        ) trees;
+                        ) trees
                 in
 
                 (* LIKELIHOOD tag:: process model and characters *)
@@ -3762,7 +3777,6 @@ module SC = struct
                                             acc.characters.(i) <-
                                                 { acc.characters.(i) with
                                                     st_type = m;
-                                                    st_alph = Alphabet.dna;
                                                 }
                                         )
                                   )
@@ -3788,7 +3802,7 @@ module SC = struct
                 | NexusLexer.Eof -> List.rev !res
             in
             let ret = 
-                let a = List.fold_left (process_parsed file) empty_parsed parsed in
+                let a = List.fold_left (process_parsed file) (empty_parsed ()) parsed in
                 (* Now it is time to correct the order of the terminals to 
                 * guarantee the default rooting of the tree. *)
                 let tlen = Array.length a.taxa 
@@ -4008,7 +4022,10 @@ module SC = struct
                 | HennigLexer.Eof -> List.rev !res
             in
             let res =
-                let _, data = List.fold_left (process_command file) (None,empty_parsed) parsed in
+                let _, data = List.fold_left (process_command file)
+                                             (None,(empty_parsed ()))
+                                             parsed
+                in
                 (* Now it is time to correct the order of the terminals to 
                 * guarantee the default rooting of the tree. *)
                 let tlen = Array.length data.taxa
@@ -4135,7 +4152,7 @@ module SC = struct
                     new_specs.(y) specs.(y) data.(x).(y)))
         in
         Nexus.fill_observed new_specs new_data;
-        { empty_parsed with
+        { (empty_parsed ()) with
             taxa = taxa;
             characters = new_specs;
             matrix = new_data;

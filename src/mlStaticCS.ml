@@ -260,7 +260,7 @@ let m_file f_rr a_size =
 
 (* ------------------------------------------------------------------------- *)
 (* estimation functions *)
-let estimate_time a b = 0.75 , 0.75
+let estimate_time a b = 0.2 , 0.2
 
 (* ------------------------------------------------------------------------- *)
 (* required functions *)
@@ -304,14 +304,14 @@ let rec sublist l a b =
     | _ -> []
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec characters =
-    let model = spec.Parser.SC.st_type in
-    let model =
-        match model with
+    let model = match spec.Parser.SC.st_type with
         | Parser.SC.STLikelihood m -> m 
-        | _ -> failwith "not a likelihood model" in 
+        | _ -> failwith "not a likelihood model"
+    in 
 
     let (a_size,a_gap) = 
-        let alph = Alphabet.to_sequential (spec.Parser.SC.st_alph) in
+        let alph = spec.Parser.SC.st_alph in
+        Alphabet.print alph;
         match model.Parser.SC.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
@@ -440,22 +440,21 @@ let of_parser spec characters =
 let f_abs x = if x < 0.0 then -.x else x
 let pack lst = (`Set (List.map (fun x -> `Single x) lst))
 let to_formatter attr mine minet _ data :Tags.output list =
-    (** get the alphabet **)
-    let alpha = Data.get_alphabet data (Array.get mine.codes 0) in
     (** map functions over a set, into a single, then pack: with index, and with 2 lists **)
     let _ray f v = pack (Array.to_list (Array.map f v)) in
     let _ray2 f v c = pack (List.map2 f v c) in
     let _rayi f v = pack (Array.to_list (Array.mapi f v)) in
     (** pack individual elements into an ID **)
-    let f_element c p :Tags.output =
-        (Alphabet.find_code c alpha, [], `Float p) in
+    let f_element code c p :Tags.output =
+        let alph_char = Data.to_human_readable data code c in
+        (alph_char, [], `Float p) in
     (** pack a single character into an ID **)
-    let f_char c cc:Tags.output = 
+    let f_char c cc :Tags.output = 
         let a_char = (Tags.Data.code, `Int cc) in
-        (Tags.Characters.character, [a_char], (_rayi f_element c)) in
-    (** pack the priors of the model **)
+        (Tags.Characters.character, [a_char], (_rayi (f_element cc) c)) in
+    (** pack the priors of the model
     let f_prior priors :Tags.output = let pi = ba2array priors in
-        (Tags.Characters.prior, [], (_rayi f_element pi)) in
+        (Tags.Characters.prior, [], (_rayi f_element pi)) in *)
     (** function to pack a whole character set **)
     let f_chars ch_s co_s =
         let r = Array.to_list (barray_matrix ch_s) in
@@ -478,7 +477,7 @@ let to_formatter attr mine minet _ data :Tags.output list =
 
     let con = pack (
                 (Tags.Characters.model, (Tags.Data.modeltype, `String mine.model.name) :: [], 
-                    pack ((f_prior mine.model.pi_0) :: [])
+                    pack  ( (* (f_prior mine.model.pi_0) :: *) [])
                 ) :: 
                 (Tags.Data.characters,[],
                     (f_chars (s_bigarray mine.chars) mine.codes)) :: []) in
@@ -488,7 +487,7 @@ let to_formatter attr mine minet _ data :Tags.output list =
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
     let model = c1.model and mcpy = mine in
-(*    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *)
+    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in
     let (nta,ntb,nl) = match model.ui with
         | None ->
             readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
@@ -496,7 +495,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         | Some ui ->
             readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
                     c_t2 model.rate model.prob model.pi_0 mine.mle in
-(*    let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
+    let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in
     if (nta = c_t1 && ntb = c_t2) then
         (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
     else
@@ -615,5 +614,4 @@ let test_methods () =
     (* ---- test 4
     let node_a = median_sym u d *)
 
-        
 let () = if debug then test_methods () else ()

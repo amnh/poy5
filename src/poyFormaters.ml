@@ -404,7 +404,7 @@ let breakinv_to_formater ((tag, attr, cont) : Tags.output) =
         let name, cclass, cost = get_name_class_and_cost attr in
         let breakinv_ref = `String "-" in 
         let recost = get_recost attr in 
-        let map = breakinv_ref in 
+        let map = breakinv_ref in
         let cont = match cont with 
         | #Tags.struc as cont -> 
                 let cont = Tags.eagerly_compute cont in
@@ -512,10 +512,9 @@ let likelihood_to_formater ((tag, attr, cont): Tags.output) =
             | _ -> raise (Illegal_formater ("Data not found: "^y) )
         in 
 
-        let name    = _get attr Tags.Data.code and
-            cclass  = _get attr Tags.Characters.cclass and
-            cost    = _get attr Tags.Characters.mle in
-        [| name; cclass; cost; |]
+        let cclass  = _get attr Tags.Characters.cclass
+        and cost    = _get attr Tags.Characters.mle in
+        [| cclass; cost; |]
     end else raise (Illegal_formater "likelihood_to_formater")
 
 

@@ -1327,8 +1327,50 @@ let gen_add_static_parsed_file do_duplicate data file (file_out : Parser.SC.file
     let data = 
         let cnt = ref 0 in
         let trees = List.rev_map ~f:
-                (fun x -> x, file, (incr cnt; !cnt)) file_out.Parser.SC.trees in
+                (fun x ->
+                    (x, file, (incr cnt; !cnt))) file_out.Parser.SC.trees in
         { data with trees = data.trees @ trees } in
+    (* combine the branch lengths of the root if it's a rooted tree *)
+    let () =
+        let unroot_branch_lengths table tree node1 node2 =
+            try
+                let t_tbl = Hashtbl.find table (String.uppercase tree) in
+                let n_1 = Hashtbl.find t_tbl (String.uppercase node1)
+                and n_2 = Hashtbl.find t_tbl (String.uppercase node2) in
+                Hashtbl.iter 
+                    (fun c_name length ->
+                        let n_length = length +. (Hashtbl.find n_2 c_name) in
+                        let () = Hashtbl.replace n_2 c_name n_length
+                        and () = Hashtbl.replace n_1 c_name n_length in
+                        () )
+                    n_1
+            with | Not_found -> failwith ("Cannot find tree "^tree^
+                                            " or nodes ("^node1^","^node2^")")
+        in
+        let get_stuff = function | Parser.Tree.Node (_,d) | Parser.Tree.Leaf d -> snd d in
+        let combine_on_one ((name,trees),_,_) = match name with
+            | Some name -> 
+                List.iter (fun t -> match t with
+                    | Parser.Tree.Flat t | Parser.Tree.Annotated (t,_) -> ()
+                    | Parser.Tree.Branches t -> ()
+                    | Parser.Tree.Characters t -> 
+                        let () = match t with
+                            | Parser.Tree.Leaf _ -> ()
+                            | Parser.Tree.Node (lst,_) -> match lst with
+                                | [l1;l2] ->
+                                    (match (get_stuff l1),(get_stuff l2) with
+                                     | Some x,Some y ->
+                                        unroot_branch_lengths 
+                                            file_out.Parser.SC.branches name x y
+                                     | _ -> ()
+                                    )
+                                | _ -> ()
+                        in ()
+                    ) trees
+            | None -> ()
+        in
+        List.iter (combine_on_one) data.trees
+    in
     (* Now time to add the molecular sequences *)
     let data = 
         let single_sequence_adder data (alphabet, sequences) =
@@ -1892,6 +1934,7 @@ let categorize data =
                      sankoff = [];
                      dynamics = [];
                      kolmogorov = [];
+                     static_ml = [];
                } in                         
     let data = repack_codes data in
     let categorizer code spec data =
@@ -4465,7 +4508,7 @@ let process_prealigned analyze_tcm data code : (string * Parser.SC.file_output) 
                 Parser.SC.of_old_atom table newenc.(y) enc matrix.(x).(y)))
     in
     let res =
-        { Parser.SC.empty_parsed with
+        { (Parser.SC.empty_parsed ()) with
           Parser.SC.taxa = Array.of_list names;
           characters = newenc;
           matrix = matrix;
@@ -4632,8 +4675,13 @@ let to_human_readable data code item =
         | Parser.SC.STLikelihood _ | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
     in
     let name =
-        try List.nth spec.Parser.SC.st_labels item with
-        | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
+        try 
+            try List.nth spec.Parser.SC.st_labels item with
+            | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
+        with
+            | (Alphabet.Illegal_Code n) as err ->
+                Alphabet.print spec.Parser.SC.st_alph;
+                raise err
     in
     name
 

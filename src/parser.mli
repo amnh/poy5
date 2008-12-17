@@ -111,6 +111,9 @@ module Tree : sig
         | Branches of ((string * float option) t)
         | Characters of ((string * string option) t)
 
+    (** [print_tree t] prints a tree **)
+    val print_tree : tree_types -> unit
+
     (** [of_string x] given a string x of a tree in the form (a (b c)), returns
     * its representation as an internal t type. If an error occurs, an
     * Illegal_tree_format error is raised. *)
@@ -537,7 +540,7 @@ module SC : sig
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     }
 
-    val empty_parsed : file_output
+    val empty_parsed : unit -> file_output
 
     val static_state_to_list : 
         [ `Bits of BitSet.t | `List of int list ] -> int list
