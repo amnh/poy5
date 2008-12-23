@@ -311,7 +311,6 @@ let of_parser spec characters =
 
     let (a_size,a_gap) = 
         let alph = spec.Parser.SC.st_alph in
-        Alphabet.print alph;
         match model.Parser.SC.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
