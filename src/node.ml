@@ -204,6 +204,47 @@ type node_data =
 
 let get_min_taxon_code nd = nd.min_child_code
 
+let map2 f a b =
+    let rec mapper a b acc =
+        match a, b with
+        | (ha :: ta), (hb :: tb) ->
+                mapper ta tb ((f ha hb) :: acc)
+        | [], [] -> List.rev acc
+        | _ -> raise (Illegal_argument "map2")
+    in
+    mapper a b []
+
+let map3 f a b c =
+    let rec mapper a b c acc =
+        match a, b, c with
+        | (ha :: ta), (hb :: tb), (hc :: tc) ->
+              mapper ta tb tc ((f ha hb hc) :: acc)
+        | [], [], [] -> List.rev acc
+        | _ -> raise (Illegal_argument "map3")
+    in
+    mapper a b c []
+
+let map4 f a b c d =
+    let rec mapper a b c d acc =
+        match a, b, c, d with
+        | (ha :: ta), (hb :: tb), (hc :: tc), (hd :: td) ->
+                mapper ta tb tc td ((f ha hb hc hd) :: acc)
+        | [], [], [], [] -> List.rev acc
+        | _ -> 
+                raise (Illegal_argument "map4")
+    in
+    mapper a b c d []
+
+let map5 f a b c d e=
+    let rec mapper a b c d e acc =
+        match a, b, c, d, e with
+        | (ha :: ta), (hb :: tb), (hc :: tc), (hd :: td),(he :: te) ->
+                mapper ta tb tc td te ((f ha hb hc hd he) :: acc)
+        | [], [], [], [], [] -> List.rev acc
+        | _ -> 
+                raise (Illegal_argument "map4")
+    in
+    mapper a b c d e []
 
 let recode f n = 
     { n with taxon_code = f n.taxon_code }
@@ -309,20 +350,20 @@ let float_close ?(epsilon=0.001) a b =
     (abs_float diff) < epsilon
 
 let failwithf format = Printf.ksprintf (failwith) format
-let rec cs_median code anode bnode prev t1 t2 a b = 
-    match a, b with 
+let rec cs_median code anode bnode prev t1 t2 a b =
+    match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
                     | Some (time1), Some (time2) ->
-                        time1,time2 
+                        time1,time2
                     | Some (time1), None ->
                         let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                         if (a +. b) -. time1 > 0.0 then
                             time1,(a +. b) -. time1
-                        else 
+                        else
                             failwith "Node.median: Cannot estimate Time with given"
                     | None, Some (time2) ->
                         let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
@@ -331,20 +372,22 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         else
                             failwith "Node.median: Cannot estimate time with given"
                     | None, None ->
-                        MlStaticCS.estimate_time ca.preliminary cb.preliminary 
+                        MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
                 if code < 0 then
                     if t1 = t2 then
                         (t1 /. 2.0, t2 /. 2.0)
                     else
                         failwithf "Node.median: time inconsistent, %f(%d) %f(%d)"
-                                t1 (anode.taxon_code) t2 (bnode.taxon_code) 
+                                t1 (anode.taxon_code) t2 (bnode.taxon_code)
                 else (t1,t2)
             in 
-            
-            info_user_message
-                "Calculating %d with %f(%d) and %f(%d)"
-                code t1 anode.taxon_code t2 bnode.taxon_code;
+
+            if debug then 
+                info_user_message
+                    "Calculating %d with %f(%d) and %f(%d)"
+                    code t1 anode.taxon_code t2 bnode.taxon_code
+            else ();
 
             let median = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
             let n_cost = MlStaticCS.root_cost median in
@@ -548,49 +591,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
     | Dynamic _, _ |  Set _, _ | Kolmo _, _ | StaticMl _, _ -> 
             raise (Illegal_argument "cs_median")
 
-let map2 f a b =
-    let rec mapper a b acc =
-        match a, b with
-        | (ha :: ta), (hb :: tb) ->
-                mapper ta tb ((f ha hb) :: acc)
-        | [], [] -> List.rev acc
-        | _ -> raise (Illegal_argument "map2")
-    in
-    mapper a b []
-
-let map3 f a b c =
-    let rec mapper a b c acc =
-        match a, b, c with
-        | (ha :: ta), (hb :: tb), (hc :: tc) ->
-              mapper ta tb tc ((f ha hb hc) :: acc)
-        | [], [], [] -> List.rev acc
-        | _ -> raise (Illegal_argument "map3")
-    in
-    mapper a b c []
-
-let map4 f a b c d =
-    let rec mapper a b c d acc =
-        match a, b, c, d with
-        | (ha :: ta), (hb :: tb), (hc :: tc), (hd :: td) ->
-                mapper ta tb tc td ((f ha hb hc hd) :: acc)
-        | [], [], [], [] -> List.rev acc
-        | _ -> 
-                raise (Illegal_argument "map4")
-    in
-    mapper a b c d []
-
-let map5 f a b c d e=
-    let rec mapper a b c d e acc =
-        match a, b, c, d, e with
-        | (ha :: ta), (hb :: tb), (hc :: tc), (hd :: td),(he :: te) ->
-                mapper ta tb tc td te ((f ha hb hc hd he) :: acc)
-        | [], [], [], [], [] -> List.rev acc
-        | _ -> 
-                raise (Illegal_argument "map4")
-    in
-    mapper a b c d e []
-
-
 (** [edge iterator gp rent c1 c2]
  * iterates the branch lengths in the character set that are ML characters. *) 
 let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_data) = 
@@ -660,15 +660,20 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     c0
     END
 
-let apply_time child parent =
+let apply_time ?given child parent =
     let f = if child.min_child_code = parent.min_child_code then fst else snd in
     let p_opt to_string = function | None -> "None" | Some x -> to_string x in
-    let rec apply_times c p = match c,p with
+    let rec apply_times g c p = match c,p with
         | StaticMl cnd,StaticMl pnd ->
             IFDEF USE_LIKELIHOOD THEN (* only modify first part of tuple *)
-                let time = f pnd.time in
-                info_user_message "Applying %s to %d -- %d"
-                    (p_opt string_of_float time) (child.taxon_code) (parent.taxon_code);
+                let time = match g with
+                            | Some _ -> g
+                            | None -> f pnd.time
+                in
+                if debug then
+                    info_user_message "Applying %s to %d -- %d"
+                        (p_opt string_of_float time) (child.taxon_code) (parent.taxon_code)
+                else ();
                 StaticMl { cnd with time = time,time (* f pnd.time,snd cnd.time *)}
             ELSE
                 cnd (* although this shouldn't happen *)
@@ -676,32 +681,34 @@ let apply_time child parent =
         | _ -> c
     in
     {
-      child with
-         characters = List.map2 apply_times child.characters parent.characters
+      child with characters = match given with
+            | Some x -> map3 apply_times x child.characters parent.characters
+            | None ->  map2 (apply_times None) child.characters parent.characters
     }
 
 (** [verify_time] has A and B which share an edge, and oA and oB which share an
  * edge with A and B respectively but not with B and A respectively *)
 let verify_time a oa b ob = 
     (* define the function to extract from tuple locations of the time *)
-    let f1 = if a.min_child_code < oa.min_child_code then fst else snd
-    and f2 = match ob with
-            | None -> fst
+    let f1 x = if a.min_child_code < oa.min_child_code then fst x else snd x
+    and f2 x = match ob with
+            | None -> fst x
             | Some ob ->
-                    if b.min_child_code < ob.min_child_code then fst else snd
-    and compare_opt one two = match one,two with
+                    if b.min_child_code < ob.min_child_code then fst x else snd x
+    in let compare_opt one two = match one,two with
         | Some x,Some y ->
-                info_user_message "Checking times: %f(%d) == %f(%d)??"
-                        x a.taxon_code y b.taxon_code; x = y
+                info_user_message "Checking times: %f(%d)(%s) == %f(%d)(%s)??"
+                        x a.taxon_code (f1 ("fst","snd")) y b.taxon_code 
+                        (f2 ("fst","snd")) ; x = y
         | None, None ->
-                info_user_message "Checking times: None(%d) == None(%d)??"
+                info_user_message "Checking times: None(%d)(fst) == None(%d)(fst)??"
                         a.taxon_code b.taxon_code; true
         | Some x,None ->
-                info_user_message "Checking times: %f(%d) == None(%d)??"
-                        x a.taxon_code b.taxon_code; false
+                info_user_message "Checking times: %f(%d)(%s) == None(%d)(fst)??"
+                        x a.taxon_code (f1 ("fst","snd")) b.taxon_code; false
         | None,Some y ->
-                info_user_message "Checking times: None(%d) == %f(%d)??"
-                        a.taxon_code y b.taxon_code; false
+                info_user_message "Checking times: None(%d)(fst) == %f(%d)(%s)??"
+                        a.taxon_code y b.taxon_code (f2 ("fst","snd")); false
     in
     let verify_ f1 f2 acc a b = match a,b with
         | StaticMl a,StaticMl b ->
@@ -2308,6 +2315,19 @@ let pre = [ (Tags.Characters.cclass, `String Tags.Nodes.preliminary) ]
 let fin = [ (Tags.Characters.cclass, `String Tags.Nodes.final) ]
 let sing = [ (Tags.Characters.cclass, `String Tags.Nodes.single) ]
 
+let estimate_time a b =
+    let estimate_ ca cb = match ca,cb with
+    | StaticMl ca, StaticMl cb -> 
+        IFDEF USE_LIKELIHOOD THEN
+            let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+            Some (t1+.t2)
+        ELSE
+            None
+        END
+    | _,_ -> None
+    in
+    map2 (estimate_) a.characters b.characters
+
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
     | StaticMl cb, StaticMl ca -> 
@@ -3474,6 +3494,7 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median = median
         let apply_time = apply_time
+        let estimate_time = estimate_time
         let final_states _ = final_states
         let uppass_heuristic ?branches = final_states
         let to_string = to_string

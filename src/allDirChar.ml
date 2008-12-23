@@ -21,8 +21,8 @@ let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
 
 module IntSet = All_sets.Integers
 
-let debug_profile_memory = true
-let debug_node_fn = true       (* node creation *)
+let debug_profile_memory = false
+let debug_node_fn = true      (* node creation *)
 let debug_adjust_fn = true
 let debug_clear_subtree = true
 let debug_join_fn = true
@@ -730,7 +730,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
     (** [internal_downpass] Traverse every vertex in the tree and assign the
      * downpass and uppass information using the lazy all direction nodes *)
-    let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
+    let internal_downpass ?data do_post do_roots (ptree : phylogeny) : phylogeny =
         info_user_message "Internal Downpass";
 
         (* function to process tree->node->charactername to int->float hashtbl
@@ -780,7 +780,6 @@ with type b = AllDirNode.OneDirF.n = struct
             | None -> None
         in
 
-        (* *)
         let ptree = 
             (* A function to add  the vertices using a post order traversal 
             * from the Ptree library. *)
@@ -793,7 +792,11 @@ with type b = AllDirNode.OneDirF.n = struct
                         assert (All_sets.IntegerMap.mem code ptree.Ptree.node_data);
                         Tree.Continue, ptree
                 | (Tree.Interior (_, par, a, b)) as v ->
-                        info_user_message "Adding Vertex (%d) Post Order: %d(%d,%d)" code par a b;
+                        if debug_branch_fn then
+                            info_user_message "Adding Vertex (%d) Post Order: %d(%d,%d)" 
+                                                code par a b
+                        else ();
+
                         let a, b = 
                             match prev with
                             | Some prev -> 
@@ -811,54 +814,58 @@ with type b = AllDirNode.OneDirF.n = struct
                             | None ->
                                 create_lazy_interior_down ptree (Some code) a b
                         in
-                        Tree.Continue, Ptree.add_node_data code interior ptree
-            in
+                        let tree = Ptree.add_node_data code interior ptree in
+                        Tree.Continue,tree
+
             (* A function to add the vertices using a pre order traversal from
             * the Ptree library *)
-            let add_vertex_pre_order prev code (ptree:phylogeny) =
+            and add_vertex_pre_order prev code (ptree:phylogeny) =
                 current_snapshot "AllDirChar.internal_downpass.add_vertex_pre_order";
                 match Ptree.get_node code ptree with
+                    (* do something here *)
                 | Tree.Single x -> Tree.Continue, ptree
                 | Tree.Leaf (_, p) ->
-                        info_user_message "Adding Leaf (%d) Pre Order: (%d)" code p;
+                        if debug_branch_fn then
+                            info_user_message "Adding Leaf (%d) Pre Order: (%d)" code p
+                        else ();
                         let leaf = AllDirNode.AllDirF.apply_time
                                                 (Ptree.get_node_data code ptree)
                                                 (Ptree.get_node_data p ptree) in
                         Tree.Continue, Ptree.add_node_data code leaf ptree
                 | (Tree.Interior (_, par, a, b)) as v ->
-                        info_user_message "Adding Interior (%d) Pre Order: %d(%d,%d)" code par a b;
+                        if debug_branch_fn then
+                            info_user_message "Adding Interior (%d) Pre Order: %d(%d,%d)"
+                                                code par a b
+                        else ();
                         let a, b, prev =
                             match prev with
                             | Some prev ->
                                     assert (check_assertion_two_nbrs prev v "4");
                                     let a, b = Tree.other_two_nbrs prev v in
                                     a, b, prev
-                            | None -> 
-                                    a, b, par
+                            | None -> a, b, par
                         in
                         let interior = match data with
-                            | Some data -> (* prev is used for when we're at a root only *)
-                               (match hashdoublefind data ptree.Ptree.tree [a;b;code;prev] with
-                                | Some x -> create_lazy_interior_up 
-                                                ~branches:x ptree code a b prev
-                                | None -> 
-                                    create_lazy_interior_up ptree code a b prev)
-                            | None -> 
-                                    create_lazy_interior_up ptree code a b prev
-                        in
-                        Tree.Continue, 
-                        Ptree.add_node_data code interior ptree
+                            | Some data -> 
+                                (match hashdoublefind data ptree.Ptree.tree
+                                        [a;b;code;prev] with
+                                    | Some x -> create_lazy_interior_up
+                                        ~branches:x ptree code a b prev
+                                    | None -> create_lazy_interior_up ptree code
+                                    a b prev)
+                            | None -> create_lazy_interior_up ptree code a b prev in
+                        Tree.Continue, Ptree.add_node_data code interior ptree
             in
             All_sets.Integers.fold 
-                (fun x (ptree:phylogeny) -> 
-                    let ptree = Ptree.post_order_node_visit 
+                (fun x (ptree:phylogeny) ->
+                    ptree -->
+                        (fun ptree ->
+                            if do_post then 
+                                    Ptree.post_order_node_visit 
                                         add_vertex_post_order x ptree ptree
-                    in
-                    let ptree = Ptree.pre_order_node_visit
-                                      add_vertex_pre_order x ptree ptree
-                    in
-                    assert( verify_downpass x ptree );
-                    ptree
+                            else ptree)
+                        --> (fun ptree -> Ptree.pre_order_node_visit
+                                            add_vertex_pre_order x ptree ptree)
                 )
                 ptree.Ptree.tree.Tree.handles
                 ptree
@@ -872,7 +879,7 @@ with type b = AllDirNode.OneDirF.n = struct
                 refresh_all_edges false
 
     let clear_internals = 
-        internal_downpass false
+        internal_downpass true false
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -962,19 +969,20 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> internal_downpass ?data true ptree
+            | `Normal -> internal_downpass ?data true true ptree
             | `Iterative (`ApproxD iterations) ->
-                    ptree --> internal_downpass ?data true -->
+                    ptree --> internal_downpass ?data true true -->
                         pick_best_root -->
                         assign_single --> 
                         adjust_tree iterations None 
             | `Iterative (`ThreeD iterations) ->
                     ptree
-                    --> internal_downpass ?data true
+                    --> internal_downpass ?data true true
                     --> pick_best_root
                     --> assign_single
                     --> adjust_tree iterations None
-                    --> refresh_all_edges true
+                    --> internal_downpass ?data false true
+                    (* --> refresh_all_edges true *)
         in
         current_snapshot "AllDirChar.downpass b";
         res
@@ -1101,7 +1109,7 @@ with type b = AllDirNode.OneDirF.n = struct
                 clade_node --> fun x -> x.AllDirNode.unadjusted
                     --> AllDirNode.not_with tree_node 
                     --> force_node
-            in (* TODO:: verify with likelihood *)
+            in
             clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost,
             let res = [AllDirNode.not_with tree_node 
             clade_node.AllDirNode.unadjusted]

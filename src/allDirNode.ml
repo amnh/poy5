@@ -67,6 +67,8 @@ let to_n node = Eager node
 let failwithf format = Printf.ksprintf failwith format
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
+let error_user_message format = 
+    Printf.ksprintf (Status.user_message Status.Error) format
 
 let has_code code n =
     match n.dir with
@@ -210,8 +212,11 @@ module OneDirF :
             b
         )
 
-    let apply_time x y =
-        lazy_from_fun (fun () -> apply_f_on_lazy Node.Standard.apply_time x y)
+    let apply_time ?given x y =
+        lazy_from_fun (fun () -> apply_f_on_lazy (Node.Standard.apply_time ?given) x y)
+
+    let estimate_time x y =
+        Node.Standard.estimate_time (force_val x) (force_val y)
 
     let uppass_heuristic ?branches = final_states
 
@@ -588,28 +593,35 @@ type nad8 = Node.Standard.nad8 = struct
         } in
         match cur.unadjusted with
         | [_] -> { cur with unadjusted = [node] }
-        | _ ->
-                let x, y = yes_with (taxon_code par) cur.unadjusted in
+        | _ ->  let x, y = yes_with (taxon_code par) cur.unadjusted in
                 { cur with unadjusted = [x; y; node] }
+
+    let estimate_time left right = 
+        let get_dir p c = (not_with (taxon_code p) c.unadjusted).lazy_node in
+        OneDirF.estimate_time (get_dir left right) (get_dir right left)
 
     (** [apply_time child parent] applies time from parent into child --used on
      * leaves when the uppass_heuristic doesn't normally run over *)
-    let apply_time child parent =
+    let apply_time ?given child parent =
         Printf.printf "applying time to %d from %d\n%!" (taxon_code child)
         (taxon_code parent);
         let get_dir p xun = (not_with (taxon_code p) xun).lazy_node in
         let has_with code n = match n.dir with
             | None -> true 
             | Some (a,b) -> a = code || b = code in
-        let node =
-            let a_node = match
-                List.filter (has_with (taxon_code child)) parent.unadjusted with
-                | [hd] -> Printf.printf "A Leaf(%d)!\n%!" (taxon_code child); hd
-                | [hd;_] -> hd
-                | [] -> failwith "AllDirNode.apply_time: No directions to find time"
-                | _  -> failwith "AllDirNode.apply_time: Too many directions to find time"
-            in
-            OneDirF.apply_time (get_dir parent child.unadjusted) a_node.lazy_node
+        let node = match
+            List.filter (has_with (taxon_code child)) parent.unadjusted with
+            | [hd] 
+            | [hd;_] -> OneDirF.apply_time (get_dir parent child.unadjusted)
+                                           hd.lazy_node
+            | [] -> 
+                let t = match given with 
+                        | Some x -> x
+                        | None -> estimate_time child parent
+                in
+                OneDirF.apply_time ~given:t (get_dir parent child.unadjusted)
+                                            (get_dir child parent.unadjusted)
+            | _  -> failwith "AllDirNode.apply_time: Too many directions to find time"
         in
         let node = [{
             lazy_node= node;
@@ -958,8 +970,12 @@ let verify_branch_lengths a b c m : bool =
                         let res = Node.verify_time (force_val m.lazy_node) m_oth
                                                    (force_val x.lazy_node) x_oth
                         in
-                        info_user_message "Verified (%s) and (%s) between %d and %d: %b"
-                            (string_pairs m) (string_pairs x) m.code x.code res;
+                        if res then
+                            info_user_message "Verified (%s) and (%s) between %d and %d"
+                                (string_pairs m) (string_pairs x) m.code x.code
+                        else
+                            error_user_message "Failed (%s) and (%s) between %d and %d"
+                                (string_pairs m) (string_pairs x) m.code x.code;
                         res && ac2
                     ) [m_1;m_2] ac1
             ) x_s true

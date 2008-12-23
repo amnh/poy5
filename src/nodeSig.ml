@@ -62,8 +62,11 @@ module type S = sig
      * branch lengths *)
     val uppass_heuristic : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t -> 
                                 int option -> n -> n -> n -> n -> n
-    (** [apply_time curr par] applies the time in par to cur --used for leafs **)
-    val apply_time : n -> n -> n
+    (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
+    val apply_time : ?given:(float option list) -> n -> n -> n
+
+    (** [estimate_time left right] estimates the time between left and right **)
+    val estimate_time : n -> n -> float option list
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)
