@@ -1517,7 +1517,7 @@ let load_data (meth : Methods.input) data nodes =
                 let data = reader false true data meth in
                 let files = List.flatten !prealigned_files in
                 let chars = `Names (true, (List.rev_map (function 
-                    `Local x | `Remote x -> (x ^ ":.*")) files)) in
+                    `Local x | `Remote x -> (x ^ ".*")) files)) in
                 prealigned_files := [];
                 let data = 
                     match tcm with
