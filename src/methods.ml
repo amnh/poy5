@@ -177,7 +177,7 @@ type char_transform = [
     | `Static_Aprox of (characters * bool)
     | `Search_Based of characters
     | `Fixed_States of characters
-    | `Partitioned of characters
+    | `Partitioned of ([`Clip | `NoClip] * characters)
     | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))
     | `Automatic_Static_Aprox of bool

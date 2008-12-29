@@ -1068,7 +1068,8 @@ module PartitionedDOS = struct
             else 
                 let a = reverse a
                 and b = reverse b in
-                let a, b, fixa, fixb, fixmedian, _, _ = clip_n_fix a b in
+                let a, b, fixma, fixmb, fixmedian, fixa, fixb = 
+                    clip_n_fix a b in
                 let seqm, tmpa, tmpb, cost, seqmwg =
                     match Cost_matrix.Two_D.affine h.c2 with
                     | Cost_matrix.Affine _ -> 
@@ -1086,10 +1087,12 @@ module PartitionedDOS = struct
                             seqm, tmpa, tmpb, cost, seqmwg
                 in
                 let rescost = DOS.make_cost cost in
-                let a = reverse (fixa a)
-                and b = reverse (fixb b)
-                and tmpa = reverse (fixa (DOS.create tmpa))
-                and tmpb = reverse (fixb (DOS.create tmpb))
+                let a = fixa a in
+                let b = fixb b in
+                let a = reverse a
+                and b = reverse b in
+                let tmpa = reverse (fixma (DOS.create tmpa))
+                and tmpb = reverse (fixmb (DOS.create tmpb))
                 and seqm = reverse (fixmedian (DOS.create seqm))
                 and seqmwg = reverse (fixmedian (DOS.create seqmwg)) in
                 let ba = 
@@ -1100,11 +1103,21 @@ module PartitionedDOS = struct
                     DOS.seq_to_bitset gap seqmwg.DOS.sequence 
                     (Raw seqm.DOS.sequence) 
                 in
-                (*
-                assert (tmpa.DOS.sequence = DOS.bitset_to_seq gap ba);
-                assert (tmpb.DOS.sequence = DOS.bitset_to_seq gap bb);
+                assert (
+                    if not (tmpa.DOS.sequence = DOS.bitset_to_seq gap ba) then
+                        begin
+                            Sequence.printDNA tmpa.DOS.sequence;
+                            Sequence.printDNA (DOS.bitset_to_seq gap ba);
+                            false
+                        end else true);
+                assert (
+                    if not (tmpb.DOS.sequence = DOS.bitset_to_seq gap bb) then
+                        begin
+                            Sequence.printDNA tmpb.DOS.sequence;
+                            Sequence.printDNA (DOS.bitset_to_seq gap bb);
+                            false
+                        end else true);
                 assert (seqmwg.DOS.sequence = DOS.bitset_to_seq gap bm);
-                *)
                 tmpcost := !tmpcost + cost;
                 { DOS.sequence = seqm.DOS.sequence; 
                 aligned_children = (ba, bb, bm); 
@@ -1500,16 +1513,16 @@ module Union = struct
                 let c2 = ua.u_c2 in
                 let gap = Cost_matrix.Two_D.gap c2 in
                 let do_one self uniona unionb =
-                    let tmpa, tmpb, tmpc = self.DOS.aligned_children in
-                    let tmpa = DOS.bitset_to_seq gap tmpa 
-                    and tmpb = DOS.bitset_to_seq gap tmpb 
-                    and tmpc = DOS.bitset_to_seq gap tmpc in
                     if Sequence.is_empty uniona.Sequence.Unions.seq gap then
                         unionb 
                     else if Sequence.is_empty unionb.Sequence.Unions.seq gap 
                     then
                         uniona 
                     else 
+                        let tmpa, tmpb, tmpc = self.DOS.aligned_children in
+                        let tmpa = DOS.bitset_to_seq gap tmpa 
+                        and tmpb = DOS.bitset_to_seq gap tmpb 
+                        and tmpc = DOS.bitset_to_seq gap tmpc in
                         (Sequence.Unions.union tmpa tmpb tmpc uniona unionb c2)
                 in
                 let union uniona unionb self =

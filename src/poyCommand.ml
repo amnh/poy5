@@ -133,7 +133,7 @@ type transform_method = [
     | `Prioritize
     | `SearchBased
     | `Fixed_States
-    | `Partitioned
+    | `Partitioned of [`Clip | `NoClip]
     | `Direct_Optimization
     | `SeqToChrom of chromosome_args list
     | `ChangeDynPam of chromosome_args list
@@ -430,7 +430,7 @@ let transform_transform acc (id, x) =
             | `Prioritize -> `Prioritize :: acc
             | `SearchBased -> (`Search_Based id) :: acc
             | `Fixed_States -> (`Fixed_States id) :: acc
-            | `Partitioned -> (`Partitioned id) :: acc
+            | `Partitioned mode -> (`Partitioned (mode, id)) :: acc
             | `Direct_Optimization -> (`Direct_Optimization id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
             | `CustomToBreakinv x -> (`Custom_to_Breakinv (id, x)) :: acc
@@ -1236,6 +1236,11 @@ let create_expr () =
                     | None -> `GapAsCharacter false
                     | Some x -> `GapAsCharacter x ]
             ];
+        partitioned_mode:
+            [   
+                [ LIDENT "clip" -> `Clip ] |
+                [ LIDENT "noclip" -> `NoClip ]
+            ];
         transform_method:
             [
                 [ LIDENT "independent" -> `Independent ] |
@@ -1252,7 +1257,8 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
-                [ LIDENT "partitioned" -> `Partitioned ] | 
+                [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
+                    `Partitioned x ] | 
                 [ LIDENT "fixed_states" -> `Fixed_States ] |
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 

@@ -1023,9 +1023,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.make_fixed_states chars
                 --> Data.categorize
                 --> Node.load_data 
-        | `Partitioned chars ->
+        | `Partitioned (mode, chars) ->
                 data
-                --> Data.make_partitioned chars 
+                --> Data.make_partitioned mode chars 
                 --> Data.categorize
                 --> Node.load_data
         | `Direct_Optimization chars ->

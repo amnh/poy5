@@ -3589,7 +3589,12 @@ let get_sequences_of_code data code =
     (Hashtbl.fold process_taxon 
     data.taxon_characters [])
 
-let auto_partition data code =
+let auto_partition mode data code =
+    let mode = 
+        match mode with
+        | `Clip -> Clip
+        | `NoClip -> NoClip
+    in
     let dhs =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
@@ -3610,7 +3615,7 @@ let auto_partition data code =
                 partitions;
             Hashtbl.replace data.character_specs code 
             (Dynamic { dhs with 
-                initial_assignment = `AutoPartitioned (Clip, size, res)})
+                initial_assignment = `AutoPartitioned (mode, size, res)})
     | _ -> 
             Status.user_message Status.Information 
             "There are no potential partitions"
@@ -4338,7 +4343,7 @@ let make_direct_optimization chars data =
     List.iter ~f:convert_and_process codes;
     data
 
-let make_partitioned chars data =
+let make_partitioned mode chars data =
     let data = duplicate data in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
@@ -4347,7 +4352,7 @@ let make_partitioned chars data =
                 | `FS _ -> ()
                 | `AutoPartitioned _
                 | `Partitioned _
-                | `DO -> auto_partition data code)
+                | `DO -> auto_partition mode data code)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in

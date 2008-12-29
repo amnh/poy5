@@ -542,7 +542,7 @@ val make_fixed_states : bool_characters -> d -> d
 
 val make_direct_optimization : bool_characters -> d -> d
 
-val make_partitioned : bool_characters -> d -> d
+val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
 val has_likelihood: d -> bool 

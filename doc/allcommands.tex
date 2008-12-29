@@ -2970,10 +2970,14 @@ The \poycommand{calculate\_support} command does not output support values by de
             in memory.}
             {autosequencepartition}
 
-        \argumentdefinition{partitioned}{}
+        \argumentdefinition{partitioned}{\poylident}
             {Simmilar to the previous, with the difference that no tree is
             required prior the partition, and large sequence length variations
-            at the tips are treated as missing data.}
+            at the tips are treated as missing data. If \poylident is clip then
+            a large difference in length in the tips is assumed to be caused by
+            missing data. For clip to take effect, at least two fragments must
+            be found. If \poylident is noclip, then tips are treated like
+            any other fragment.}
             {transformpartitioned}
 
 
