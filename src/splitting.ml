@@ -528,14 +528,14 @@ let do_splits minlen a b lst seqs =
         | [] -> []
     in
     let lst = invert lst in
-    let rec make_pairs ((_, seq) as pair) lst =
+    let rec make_pairs lst =
         match lst with
         | a :: ((b :: _) as tl) ->
-                (a, b) :: make_pairs pair tl 
+                (a, b) :: make_pairs tl 
         | [a] -> [(a, a)]
         | [] -> []
     in
-    List.map2 make_pairs seqs lst
+    List.map make_pairs lst
 
 let of_list cm original = 
     let rec transitives (fst, prev, preex) lst =
