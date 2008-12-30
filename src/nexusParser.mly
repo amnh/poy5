@@ -2,9 +2,9 @@
 %{
 let mesquite_error =
     ("This@ seems@ to@ be@ a@ Mesquite@ \"NEXUS\"@ file.@ Unfortunately@ " ^
-    "Mesquite@ has@ invented@ a@ new@ command@ TITLE@ that@ is@ not@ a@ " ^
-    "valid@ NEXUS@ command.@ You@ will@ have@ to@ remove@ it@ by@ hand.@ " ^
-    "Your@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
+    "Mesquite@ has@ invented@ new@ commands@ (like@ TITLE)@ that@ are@ not@ a@ " ^
+    "valid@ in@ NEXUS@ files.@ You@ will@ have@ to@ clean@ it@ by@ hand,@ " ^
+    "but@ better@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
 let parse_error s = 
     try
         let b = (Parsing.symbol_start_pos ()) 
