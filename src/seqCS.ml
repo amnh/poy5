@@ -1057,6 +1057,8 @@ module PartitionedDOS = struct
         in
         res, !tmp_cost
 
+
+
     let median alph code h a b =
         let tmpcost = ref 0 in
         let median_of_tip reverse a b =
@@ -1086,7 +1088,10 @@ module PartitionedDOS = struct
                             in
                             seqm, tmpa, tmpb, cost, seqmwg
                 in
-                let rescost = DOS.make_cost cost in
+                let rescost = 
+                    DOS.make_cost 
+                    (Sequence.Clip.correct_distance gap h.c2 tmpa tmpb cost) 
+                in
                 let a = fixa a in
                 let b = fixb b in
                 let a = reverse a
@@ -1167,13 +1172,16 @@ module PartitionedDOS = struct
             | Last _, _, _, _
             | DO _, _, _, _ -> assert false)
 
+
     let distance alph h missing_distance a b =
         let dist = ref 0 in
         let distance_tip reverse a b =
             let a = reverse a
             and b = reverse b in
             let a, b, _, _, _, _, _ = clip_n_fix a b in
-            dist := !dist + DOS.distance alph h missing_distance a b
+            dist := !dist + 
+                Sequence.Clip.corrected_distance h.c2 missing_distance
+                a.DOS.sequence b.DOS.sequence
         in
         for i = (Array.length a) - 1 downto 0 do
             match a.(i), b.(i) with
@@ -1447,7 +1455,7 @@ module Union = struct
     let compare_union a b =
         match a, b with
         | Some a, Some b ->
-                Array_ops.fold_left_2 
+                Array_ops.fold_right_2 
                 (fun acc x y ->
                     match acc with
                     | 0 -> 
@@ -1592,12 +1600,12 @@ module Union = struct
                                 seqa seqb a.u_c2 Matrix.default in
                             float_of_int d))
                     in
-                    Array_ops.fold_left_2 (fun acc seqa seqb ->
+                    Array_ops.fold_right_2 (fun acc seqa seqb ->
                         match seqa, seqb with
                         | Some (Single seqa), Some (Single seqb) -> 
                                 one_distance acc seqa seqb
                         | Some (Array seqa), Some (Array seqb) ->
-                                Array_ops.fold_left_2 one_distance acc seqa seqb
+                                Array_ops.fold_right_2 one_distance acc seqa seqb
                         | None, None -> acc
                         | _ -> assert false)
                     0. a.unions b.unions
@@ -1678,7 +1686,7 @@ let to_string a =
         in
         acc ^ code ^ ": " ^ seq ^ "; "
     in
-    Array_ops.fold_left_2 builder "" a.codes a.characters 
+    Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
     let c3 = spec.Data.tcm3d in
@@ -1737,7 +1745,7 @@ let of_array spec sc code taxon =
 let of_list spec lst code = of_array spec (Array.of_list lst) code
 
 let same_codes a b =
-    Array_ops.fold_left_2 (fun acc a b -> acc && (a = b)) true a.codes b.codes
+    Array_ops.fold_right_2 (fun acc a b -> acc && (a = b)) true a.codes b.codes
 
 (** [readjust ch1 ch2 par mine] returns a tuple [(a, b)], where [b] is the 
 * set of sequences generated from (heuristically) readjusting [mine] to 
@@ -1881,7 +1889,7 @@ let distance missing_distance a b =
     let missing_distance = int_of_float missing_distance in
     let h = a.heuristic in
     let alph = a.alph in
-    float_of_int (Array_ops.fold_left_2 (fun acc a b ->
+    float_of_int (Array_ops.fold_right_2 (fun acc a b ->
         match a, b with
         | Partitioned a, Partitioned b ->
                 acc + (PartitionedDOS.distance alph h missing_distance a b)
@@ -1898,7 +1906,7 @@ let dist_2 delta n a b =
     let h = n.heuristic in
     let delta = int_of_float delta in
     let x, deltaleft =
-        Array_ops.fold_left_3 (fun (acc, deltaleft) n a b ->
+        Array_ops.fold_right_3 (fun (acc, deltaleft) n a b ->
             if deltaleft < 0 then (max_int / 10, deltaleft)
             else
                 match n, a, b with
@@ -1943,7 +1951,7 @@ let f_codes s c =
     f_codes (fun a b -> (All_sets.Integers.mem a b)) s c
 
 let compare_data a b =
-    Array_ops.fold_left_2 (fun acc a b ->
+    Array_ops.fold_right_2 (fun acc a b ->
         if acc <> 0 then acc
         else
             match a, b with
@@ -1986,15 +1994,15 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
             | Partitioned seqs -> 
                     let min, max, total, seqs =
                         match do_to_single with
-                        | None -> Array.fold_left (fun acc a ->
+                        | None -> Array.fold_right (fun a acc ->
                                 match a with
                                 | PartitionedDOS.Last a 
                                 | PartitionedDOS.First a
                                 | PartitionedDOS.DO a -> 
                                         one_sequence acc None a) 
-                                (0.,0.,0.,[]) seqs
+                                seqs (0.,0.,0.,[]) 
                         | Some (Partitioned par) ->
-                                Array_ops.fold_left_2 (fun acc a b ->
+                                Array_ops.fold_right_2 (fun acc a b ->
                                     match a, b with
                                     | PartitionedDOS.Last a, 
                                         PartitionedDOS.Last b 
@@ -2095,7 +2103,7 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
         | None -> Array.map (fun _ -> None) t.characters
         | Some x -> Array.map (fun x -> Some x) x.characters
     in
-    Array_ops.fold_left_3 output_sequence [] t.codes t.characters parent
+    Array_ops.fold_right_3 output_sequence [] t.codes t.characters parent
 
 let tabu_distance a = 
     Array.fold_left (fun sum y -> 
@@ -2107,7 +2115,7 @@ let tabu_distance a =
 
 let explode cs = 
     let h = cs.heuristic in
-    Array_ops.fold_left_2
+    Array_ops.fold_right_2
     (fun acc code seq ->
         match seq with
         | Partitioned _

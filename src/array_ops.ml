@@ -149,7 +149,7 @@ let map_5 f a b c d e =
     assert (Array.length e = Array.length b);
     Array.init (Array.length a) (fun x -> f a.(x) b.(x) c.(x) d.(x) e.(x)) 
 
-let fold_left_2 f acc a b =
+let fold_right_2 f acc a b =
     let acc = ref acc in
     assert (Array.length a = Array.length b);
     for i = (Array.length a) - 1 downto 0 do
@@ -157,7 +157,7 @@ let fold_left_2 f acc a b =
     done;
     !acc
 
-let fold_left_3 f acc a b c =
+let fold_right_3 f acc a b c =
     let acc = ref acc in
     assert (Array.length a = Array.length b);
     assert (Array.length c = Array.length b);
@@ -166,7 +166,7 @@ let fold_left_3 f acc a b c =
     done;
     !acc
 
-let fold_left_4 f acc a b c d =
+let fold_right_4 f acc a b c d =
     let acc = ref acc in
     assert (Array.length a = Array.length b);
     assert (Array.length c = Array.length b);

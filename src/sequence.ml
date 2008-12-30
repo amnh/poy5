@@ -2439,6 +2439,43 @@ let cmp_locus_indel_cost s c2 locus_indel =
     cmp 1 f1 f2
 
 module Clip = struct
+
+    let count_tip_gaps gap seqa seqb =
+        let rec aux pos acc = 
+            let abase = get seqa pos
+            and bbase = get seqb pos in
+            if gap = abase || gap = bbase then
+                if gap = abase && gap = bbase then 
+                    aux (pos + 1) acc
+                else aux (pos + 1) (acc + 1)
+            else acc
+        in
+        aux 0 0
+
+    let correct_distance gap c2 seqa seqb cost =
+        let gap_opening = Cost_matrix.Two_D.gap_opening c2 in
+        let is_gap seq pos = gap = get seq pos in
+        let rec add_initial pos acc =
+            if is_gap seqa pos || is_gap seqb pos then
+                add_initial (pos + 1)
+                (acc + (Cost_matrix.Two_D.cost (get seqa pos) 
+                (get seqb pos) c2))
+            else acc
+        in
+        let subst = add_initial 0 0 in
+        if subst = 0 then cost
+        else cost - (subst + gap_opening)
+
+    let corrected_distance c2 missing_distance a b =
+        let gap = Cost_matrix.Two_D.gap c2 in
+        if is_empty a gap || is_empty b gap then 
+            missing_distance
+        else
+            let seqa, seqb, cost = 
+                Align.align_2 a b c2 Matrix.default
+            in
+            correct_distance gap c2 seqa seqb cost
+
     type old_s = s
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
 
@@ -2501,27 +2538,35 @@ module Clip = struct
 
     module Align = struct
         let align_2 ?(first_gap=true) (s1 : s) (s2 : s) c m =
+            let gap = Cost_matrix.Two_D.gap c in
             let algn_and_fix s1 s2 = 
                 let s1, s2, f1, f2, dif = clip_n_fix s1 s2 in
                 let s1, s2, cost = Align.align_2 ~first_gap s1 s2 c m in
-                (f1 s1), (f2 s2), cost, dif
+                let cost = correct_distance gap c s1 s2 cost in
+                let tip = count_tip_gaps gap s1 s2 in
+                (f1 s1), (f2 s2), cost, dif + tip, s1, s1
             in
             match s1, s2 with
             | `DO s1, `DO s2 -> 
                     let s1, s2, cost = Align.align_2 ~first_gap s1 s2 c m in
-                    `DO s1, `DO s2, cost, 0
+                    `DO s1, `DO s2, cost, 0, `DO s1, `DO s2
             | `Last s1, `DO s2
             | `DO s1, `Last s2
             | `Last s1, `Last s2 ->
                     let s1 = safe_reverse s1
                     and s2 = safe_reverse s2 in
-                    let s1, s2, cost, dif = algn_and_fix s1 s2 in
-                    `Last (safe_reverse s1), `Last (safe_reverse s2), cost, dif
+                    let s1, s2, cost, dif, s1o, s2o = 
+                        algn_and_fix s1 s2 in
+                    `Last (safe_reverse s1), `Last (safe_reverse s2), 
+                    cost, dif, `Last (safe_reverse s1o),
+                    `Last (safe_reverse s2o)
             | `First s1, `DO s2
             | `DO s1, `First s2
             | `First s1, `First s2 ->
-                    let s1, s2, cost, dif = algn_and_fix s1 s2 in
-                    `First s1, `First s2, cost, dif
+                    let s1, s2, cost, dif, s1o, s2o = 
+                        algn_and_fix s1 s2 in
+                    `First s1, `First s2, cost, dif, 
+                    `First s1o, `First s2o
             | `First s1, `Last s2 -> assert false
             | `Last s1, `First s2 -> assert false
     end

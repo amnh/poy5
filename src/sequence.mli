@@ -655,10 +655,14 @@ val cmp_locus_indel_cost :
 module Clip : sig
     val fraction : float
     type old_s = s
+    val count_tip_gaps : int -> old_s -> old_s -> int
+    val correct_distance : int -> Cost_matrix.Two_D.m -> old_s -> old_s -> int
+    -> int
+    val corrected_distance : Cost_matrix.Two_D.m -> int -> old_s -> old_s -> int
     type s = [ `DO of old_s | `First of old_s | `Last of old_s ]
     module Align : sig
         val align_2 : ?first_gap:bool -> s -> s -> 
-            Cost_matrix.Two_D.m -> Matrix.m -> s * s * int * int
+            Cost_matrix.Two_D.m -> Matrix.m -> s * s * int * int * s * s
     end
     val extract_s : s -> old_s
     val cmp_ali_cost :

@@ -289,12 +289,12 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                     a.seq, b.seq, 0, `Both, `Set [inds; anb_indels], 0
                 
                 end else
-                    let a, b, c, clip_length = 
+                    let a, b, c, clip_length, anoclip, bnoclip = 
                         Sequence.Clip.Align.align_2 a.seq b.seq cm
                         Matrix.default 
                     in
                     let inds = 
-                        calculate_indels a b alph bchld 
+                        calculate_indels anoclip bnoclip alph bchld 
                     in
                     a, b, c, `Both, `Set [inds; anb_indels], clip_length
             end 
@@ -309,6 +309,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     in
     if print_algn_debug then print_debug a' b' a b Matrix.default;
     let lena' = Sequence.Clip.length a' in
+    let maxlenab' = max (Sequence.Clip.length b') lena' in
     let anc = Sequence.Clip.create kind (lena' + 1) 
     and a_ord = a.order
     and b_ord = b.order in
@@ -337,7 +338,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                       | `Breakinv -> it_b
                       | _ -> 
                               if ((kind = `First) && (position < clip_length)) 
-                                || ((kind = `Last) && (position > lena' -
+                                || ((kind = `Last) && (position > maxlenab' -
                                 clip_length)) then 
                                   if it_a = gap then it_b
                                   else 
@@ -2147,7 +2148,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             c, (mis_sta, s)) 
                                         s_arr 
                                     in 
-                                    List.append (Array.to_list s_arr') acc, funs)  
+                                    List.rev_append (Array.to_list s_arr') acc, funs)  
                                 s acc)
                         ([], All_sets.IntegerMap.empty) sequence 
                     in
@@ -2176,7 +2177,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                                                 * 15 is all
                                                                 * minus gap
                                                                 * *)
-                                                                x.(pos) <- 15;
+                                                                x.(pos) <- 31;
                                                                 fix_one next
                                                                  (next pos) x
                                                         end else ()
