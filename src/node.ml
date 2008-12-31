@@ -75,7 +75,6 @@ let same_ct_method a b =
 
 let ct_same_methods = Utl.pairwisep same_ct_method
 
-
 type 'a css = {
     sid : int;
     set : 'a list;
@@ -676,7 +675,7 @@ let apply_time ?given child parent =
                 else ();
                 StaticMl { cnd with time = time,time (* f pnd.time,snd cnd.time *)}
             ELSE
-                cnd (* although this shouldn't happen *)
+                cnd
             END
         | _ -> c
     in
@@ -1006,9 +1005,10 @@ let get_times_between (nd:node_data) (child:node_data) =
     List.map (fun x -> match x with
                 | StaticMl z ->
                     let ret = f z.time in
-                    info_user_message "Using %s between %d and %d (%s)"
+                    if debug then
+                        info_user_message "Using %s between %d and %d (%s)"
                             (get_some ret) nd.taxon_code child.taxon_code
-                            (f ("fst","snd"));
+                            (f ("fst","snd")) else ();
                     ret
                 | _ -> None)
              nd.characters
@@ -1807,7 +1807,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
 
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in
-            let sets = List.fold_left
+            let sets = List.fold_left (* list of all the set names *)
                 (fun acc code ->
                     try
                         let name = Hashtbl.find (!data).Data.character_codes code in
@@ -1817,9 +1817,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             acc
                         else
                             set::acc
-                    with | Not_found -> 
+                    with | Not_found ->
                         Hashtbl.add curr "" code; acc )
-                [] lst in
+                [""] lst in
             List.map (Hashtbl.find_all curr) sets
         in
         let nadd8weights = classify 8 do_classify lnadd8code !data
@@ -1829,8 +1829,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
+
+        (* and lstaticmlcode = group_ml_by_model static_ml *)
         and lstaticmlcode = 
-            List.flatten (List.map (group_ml_by_model) (group_by_sets static_ml))
+            List.flatten (List.map (group_ml_by_model) (group_by_sets
+            static_ml))
+
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
 
         (*
