@@ -176,5 +176,21 @@ let fold_left_4 f acc a b c d =
     done;
     !acc
 
+let split size arr =
+    let len = Array.length arr in
+    let remainder = len - ((len / size) * size) in
+    let fraction = len / size in
+    Array.init size (fun pos ->
+        if remainder = 0 then
+            Array.sub arr (pos * fraction) fraction
+        else if remainder > pos then
+            Array.sub arr ((pos * fraction) + pos)
+            (fraction + 1)
+        else
+            Array.sub arr ((pos * fraction) + remainder)
+            fraction)
+
+
+
 
 (* vim: set sw=4 ts=4 et tw=80 : *)

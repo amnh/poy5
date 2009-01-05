@@ -65,4 +65,6 @@ val fold_left_3 : ('a -> 'b -> 'c -> 'd -> 'a) -> 'a -> 'b array -> 'c array ->
     'd array -> 'a
 val fold_left_4 : ('a -> 'b -> 'c -> 'd -> 'e -> 'a) -> 'a -> 'b array -> 'c array ->
     'd array -> 'e array -> 'a
+
+val split : int -> 'a array -> 'a array array
 (* vim:sw=4 et tw=80 : *)
