@@ -53,6 +53,18 @@ evaluating_do: $(EVAL_OBJS_OPT)
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o evaluating_do \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
 
+fastaFilter: $(BASE_OBJS_OPT) ../utils/fastaFilter.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o fastaFilter \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+
+allPairs: $(BASE_OBJS_OPT) ../utils/allPairs.ml
+	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o allPairs \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa $^
+
 evaluate_mem: $(BASE_OBJS_OPT) ../utils/test_memory_reading_trees.ml
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
 	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
