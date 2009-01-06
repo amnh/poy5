@@ -8,7 +8,7 @@ let lexer = Genlex.make_lexer ["("; ")"; ":"; ","]
 
 let rec parse_tree = parser
     | [< 'Kwd "("; t1 = internal_tree; 'Kwd ","; t2 =  internal_tree; 'Kwd ")";
-'Kwd ":"; 'Ident root >] ->
+'Ident root >] ->
             Node (t1, t2, (root, 0.0)) 
 and internal_tree = parser
     [< leaf = node >] -> Leaf leaf
