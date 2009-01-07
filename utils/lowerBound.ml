@@ -19,7 +19,7 @@ let assign_labels tree =
 let merge_paths left right code =
     let left_pass_back = Sexpr.map (Sexpr.union code) left
     and right_pass_back = Sexpr.map (Sexpr.union code) right in
-    let all_connected = Sexpr.all_to_all Sexpr.union left_pass_back right in
+    let all_connected = Sexpr.all_to_all Sexpr.union left right in
     let all_to_pass_back = Sexpr.union left_pass_back right_pass_back in
     all_connected, all_to_pass_back
 
@@ -98,7 +98,8 @@ let produce_LP_instance treefile synonyms pairs triplets =
                     let cnt = ref (-1) in
                     let res2 =
                     Parser.Tree.cleanup (fun name ->
-                        let res = (name = "") || not (All_sets.Strings.mem name exists) in
+                        let res = (name = "") || 
+                            not (All_sets.Strings.mem name exists) in
                         if res then res
                         else 
                             let () = incr cnt in
@@ -196,6 +197,16 @@ let duplets_file find_synonym b = distances_file (fun ch ->
     Scanf.sscanf (input_line ch) "%s\t%s\t%d" (fun a b d -> ((find_synonym a,
     find_synonym b), d))) b
 
+let rec print_tree tree =
+    match tree with
+    | Parser.Tree.Leaf str -> print_string str; print_string " "
+    | Parser.Tree.Node (chld, str) ->
+            print_string "(";
+            List.iter print_tree chld;
+            print_string ")";
+            print_string str;
+            print_string " "
+
 let process_problem treefile synfile (pairs, triplets) = 
     let synonyms = 
         match synfile with
@@ -220,18 +231,20 @@ let process_problem treefile synfile (pairs, triplets) =
     Glpk.use_presolver lp true;
     Glpk.simplex lp;
     let res = Glpk.get_obj_val lp in
-    (*
     let variables = Glpk.get_col_primals lp in
+    (*
+    let res = Array.fold_left (fun acc x -> acc +. (ceil x)) 0. variables in
     let tree = Parser.Tree.map (fun x ->
         let name, x =
             match x with
             | String x -> x
             | Integer x -> "", x
         in
-        try name ^ ":" ^ string_of_float variables.(x) with
+        try name ^ ":" ^ string_of_float (ceil variables.(x)) with
         | _ -> name) tree in
+    print_tree tree;
     *)
-    res
+    ceil res
 
 let rec make_pairs lst =
     match lst with
