@@ -1,5 +1,6 @@
 (* A program to compute a set of triplets distances (sequences). *)
 let arg = Mpi.init Sys.argv
+let () = Random.self_init ()
 
 let make_triplets arr =
     let res = ref [] in
@@ -31,6 +32,19 @@ let compute_triplet toseq tcm tcm3 ((a, b, c) as triple) =
 let rank = Mpi.comm_rank Mpi.comm_world
 let worldsize = Mpi.comm_size Mpi.comm_world
 
+let tip_to_tip arr =
+    let len = Array.length arr in
+    let half = len / 2 in
+    let f = Array.sub arr 0 half
+    and s = Array.sub arr half (len - half) in
+    let s = Array.of_list (List.rev (Array.to_list s)) in
+    let res = ref [] in
+    for i = 0 to (Array.length f) - 1 do
+        res := f.(i) :: s.(i) :: !res;
+    done;
+    if Array.length s > Array.length f then res := s.(half) :: !res;
+    List.rev !res
+
 let terminals_arr seqs treefile =
     if treefile = "" then
         let terminals_arr = Array.of_list (List.map fst seqs) in
@@ -48,7 +62,9 @@ let terminals_arr seqs treefile =
                     | Parser.Tree.Node (chld, _) ->
                             List.iter (fun x -> Queue.push x queue) chld
                 done;
-                Array.of_list (List.rev !res)
+                let res = List.rev !res in
+                let other = tip_to_tip (Array.of_list res) in
+                Array.of_list (res @ other)
         | _ -> failwith "We can only accept one tree per input file, no forest"
 
 
@@ -72,7 +88,8 @@ let compute_triplets treefile file sub indel affine =
     let triplets = Array.of_list triplets in
     let compute_my_part () =
         let res = ref [] in
-        for i = 0 to (Array.length triplets) - 1 do
+        let mylen = ((Array.length triplets) / worldsize) * worldsize in
+        for i = 0 to mylen - 1 do
             if 0 = (i - rank) mod worldsize then
                 res := (compute_triplet tcm tcm3 triplets.(i)) :: !res;
         done;
