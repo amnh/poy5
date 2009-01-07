@@ -31,7 +31,28 @@ let compute_triplet toseq tcm tcm3 ((a, b, c) as triple) =
 let rank = Mpi.comm_rank Mpi.comm_world
 let worldsize = Mpi.comm_size Mpi.comm_world
 
-let compute_triplets file sub indel affine =
+let terminals_arr seqs treefile =
+    if treefile = "" then
+        let terminals_arr = Array.of_list (List.map fst seqs) in
+        Array_ops.randomize terminals_arr;
+        terminals_arr
+    else
+        match Parser.Tree.of_file (`Local treefile) with
+        | [[tree]] ->
+                let queue = Queue.create () in
+                Queue.push tree queue;
+                let res = ref [] in
+                while not (Queue.is_empty queue) do
+                    match Queue.pop queue with
+                    | Parser.Tree.Leaf str -> res := str :: !res
+                    | Parser.Tree.Node (chld, _) ->
+                            List.iter (fun x -> Queue.push x queue) chld
+                done;
+                Array.of_list (List.rev !res)
+        | _ -> failwith "We can only accept one tree per input file, no forest"
+
+
+let compute_triplets treefile file sub indel affine =
     let tcm = Scripting.DNA.CM.of_sub_indel_affine sub indel affine in
     let seqs = 
         let seqs = 
@@ -45,9 +66,8 @@ let compute_triplets file sub indel affine =
     let index = Hashtbl.create 1667 in
     List.iter (fun (taxon, seq) -> Hashtbl.add index taxon seq) seqs;
     let tcm3 = Cost_matrix.Three_D.of_two_dim tcm in
-    let terminals_arr = Array.of_list (List.map fst seqs) in
     let compute_triplet = compute_triplet (Hashtbl.find index) in
-    Array_ops.randomize terminals_arr;
+    let terminals_arr = terminals_arr seqs treefile in
     let triplets = make_triplets terminals_arr in
     let triplets = Array.of_list triplets in
     let compute_my_part () =
@@ -70,20 +90,20 @@ let gap_opening = ref 0
 let indel = ref 1
 let substitution = ref 1
 let input_file = ref ""
-
-let assign x y = x := y
+let tree = ref ""
 
 let parse_list = [
-    ("-gap-opening", (Arg.Int (assign gap_opening)), "Gap opening");
-    ("-indel", (Arg.Int (assign indel)), "Indel");
-    ("-substitution", (Arg.Int (assign substitution)), "Substitution");
+    ("-gap-opening", (Arg.Set_int gap_opening), "Gap opening");
+    ("-indel", (Arg.Set_int indel), "Indel");
+    ("-substitution", (Arg.Set_int substitution), "Substitution");
+    ("-tree", (Arg.Set_string tree), "The guide tree");
 ]
 
-let anon_fun x = assign input_file x
+let anon_fun x = input_file := x
 
 let () = Arg.parse_argv arg  parse_list anon_fun "triplets [OPTIONS] fasta_file.fas"
 
 let () = 
     match !input_file with
     | "" -> exit 1
-    | _ -> compute_triplets !input_file !substitution !indel !gap_opening
+    | _ -> compute_triplets !tree !input_file !substitution !indel !gap_opening
