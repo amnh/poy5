@@ -1293,6 +1293,7 @@ let report_memory () =
     --> fun x -> x ^ "@]@]%!"
 
 let explode_filenames files =
+    (*
 IFDEF USEPARALLEL THEN
     let is_master = 0 = Mpi.comm_rank Mpi.comm_world in
     let files = 
@@ -1309,8 +1310,11 @@ IFDEF USEPARALLEL THEN
     | `Error str -> 
             failwith ("Failed reading file with exception " ^ str)
 ELSE
+    *)
    List.map (fun x -> `Local x)  (PoyParser.explode_filenames files)
+   (*
 END
+   *)
 
 
 let update_trees_to_data ?(classify=true) force load_data run =

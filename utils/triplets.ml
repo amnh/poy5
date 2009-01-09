@@ -75,10 +75,12 @@ let compute_triplets treefile file sub indel affine =
             if rank > 0 then []
             else
                 let seqs =  Scripting.DNA.Fasta.of_file false file in
-                List.map (fun (a, b) -> a, Sequence.select_one b tcm) seqs
+                List.map (fun (a, b) -> a, Scripting.DNA.Seq.to_string
+                (Sequence.select_one b tcm)) seqs
         in
         Mpi.broadcast seqs 0 Mpi.comm_world 
     in
+    let seqs = List.map (fun (a, b) -> a, Scripting.DNA.Seq.of_string b) seqs in
     let index = Hashtbl.create 1667 in
     List.iter (fun (taxon, seq) -> Hashtbl.add index taxon seq) seqs;
     let tcm3 = Cost_matrix.Three_D.of_two_dim tcm in
@@ -123,4 +125,7 @@ let () = Arg.parse_argv arg  parse_list anon_fun "triplets [OPTIONS] fasta_file.
 let () = 
     match !input_file with
     | "" -> exit 1
-    | _ -> compute_triplets !tree !input_file !substitution !indel !gap_opening
+    | _ -> 
+            let () = compute_triplets !input_file !substitution !indel
+            !gap_opening in
+            Mpi.finalize ()

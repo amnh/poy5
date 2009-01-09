@@ -110,7 +110,7 @@ splitFasta: $(BASE_OBJS_OPT) ../utils/splitFasta.ml
 
 randomFasta: $(BASE_OBJS_OPT) ../utils/randomFasta.ml 
 	$(OCAMLOPT) $(PREPROCESSOR) $(OCAML_INCLUDES) -verbose -ccopt -v -cclib \
-	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	-L./grappa -cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  -cclib -L$(OCAMLMPI) mpi.cmxa \
 	$(CCOPT) -cclib -lcamlgrappa $(NCURSES_LIBRARIES) $(PROFILE) -o randomFasta \
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa bigarray.cmxa nums.cmxa $^
 
