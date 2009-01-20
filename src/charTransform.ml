@@ -54,12 +54,11 @@ module type S = sig
 
     (** [substitute_nodes nodes tree] replaces the nodes in tree with the nodes with
         the same taxon code from the list *)
-    val substitute_nodes : a list -> tree -> tree
+    val substitute_nodes : ?data:Data.d -> a list -> tree -> tree
 
     (** [transform_tree f tree] applies a transformation function [f] on all the
         leaves of [tree] and returns the updated tree *)
-    val transform_tree :
-        (a -> a) -> tree -> tree
+    val transform_tree : ?data:Data.d -> (a -> a) -> tree -> tree
 
     val transform_nodes :
       tree Sexpr.t ->
@@ -172,7 +171,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
               Ptree.node_data = new_node_data;
               Ptree.component_root = component_root }
 
-    let substitute_nodes nodes tree =
+    let substitute_nodes ?data nodes tree =
         let adder acc x = 
             All_sets.IntegerMap.add (Node.taxon_code x) x acc
         in
@@ -182,7 +181,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let tree = { tree with Ptree.node_data = node_data } in
         let st = Status.create "Diagnosis"  None "Recalculating original tree" in
         Status.report st;
-        let res = TreeOps.uppass (TreeOps.downpass tree) in
+        let res = TreeOps.uppass (TreeOps.downpass ?data tree) in
         Status.finished st;
         res
 
@@ -313,10 +312,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         Sexpr.map_status "Perturbing"
             (fun x -> let _, t = perturbate_in_tree meth data x in t) trees
 
-    let transform_tree f t =
+    let transform_tree ?data f t =
         let leaves = Ptree.get_all_leaves t in
         let leaves = List.map f leaves in
-        substitute_nodes leaves t
+        substitute_nodes ?data leaves t
 
     let undo = function 
         | `Ratchet _ -> `UnRatchet

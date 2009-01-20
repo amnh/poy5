@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
-let eager_lazy = true
+let eager_lazy = false
 
 type exclude = Node.exclude
 
@@ -141,9 +141,7 @@ module OneDirF :
     type e = exclude
 
     let recode f n = 
-        lazy_from_fun (fun () -> 
-            let n = force_val n in
-            (Node.Standard.recode f n))
+        lazy_from_fun (fun () -> Node.Standard.recode f (force_val n))
 
     let compare a b = 
         Node.Standard.compare (force_val a) (force_val b)
@@ -603,8 +601,6 @@ type nad8 = Node.Standard.nad8 = struct
     (** [apply_time child parent] applies time from parent into child --used on
      * leaves when the uppass_heuristic doesn't normally run over *)
     let apply_time ?given child parent =
-        Printf.printf "applying time to %d from %d\n%!" (taxon_code child)
-        (taxon_code parent);
         let get_dir p xun = (not_with (taxon_code p) xun).lazy_node in
         let has_with code n = match n.dir with
             | None -> true 

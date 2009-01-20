@@ -141,6 +141,7 @@ let rec to_string_ch ch1 =
         ELSE
             failwith likelihood_error
         END
+
 let extract_cost = function
     | Nonadd8 v -> v.cost
     | Nonadd16 v -> v.cost
@@ -158,7 +159,7 @@ let extract_cost = function
         END
 
 let get_characters_cost chars =
-    List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars 
+    List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars
 
 (** Helper function for recursing into sets *)
 let setrec a fn = { a with set = List.map fn a.set }
@@ -170,7 +171,7 @@ let set_update_cost = function
     | Set a ->
           (match a.preliminary.smethod with
            | `Strictly_Same ->
-                 let cost = 
+                 let cost =
                      List.fold_left
                          (fun acc m -> acc +. extract_cost m)
                          0. a.preliminary.set in
@@ -183,8 +184,8 @@ let set_update_cost = function
 
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 
-type node_data = 
-    { 
+type node_data =
+    {
         characters : cs list;
         total_cost : float;
         node_cost : float;
@@ -241,7 +242,7 @@ let map5 f a b c d e=
                 mapper ta tb tc td te ((f ha hb hc hd he) :: acc)
         | [], [], [], [], [] -> List.rev acc
         | _ -> 
-                raise (Illegal_argument "map4")
+                raise (Illegal_argument "map5")
     in
     mapper a b c d e []
 
@@ -324,7 +325,7 @@ let total_cost _ a = a.total_cost
 let rec prelim_to_final =
     function
         | StaticMl a -> 
-            IFDEF USE_LIKELIHOOD THEN        
+            IFDEF USE_LIKELIHOOD THEN
                 StaticMl (cs_prelim_to_final a)
             ELSE
                 failwith likelihood_error
@@ -373,7 +374,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     | None, None ->
                         MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
-                if code < 0 then
+                if code <= 0 then
                     if t1 = t2 then
                         (t1 /. 2.0, t2 /. 2.0)
                     else
@@ -1262,7 +1263,6 @@ let edge_distance clas nodea nodeb =
               a.weight *. KolmoCS.tabu_distance a.final b.final
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
                 a.weight *. ml_root_cost x
             ELSE
@@ -1372,7 +1372,7 @@ let distance ?(para=None) ?(parb=None)  missing_distance
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                a.weight *. ml_root_cost x
+                a.weight *. ((ml_root_cost x) -. (ml_root_cost ch1) -. (ml_root_cost ch2))
             ELSE
                 failwith likelihood_error
             END

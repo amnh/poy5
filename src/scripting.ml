@@ -318,7 +318,7 @@ let update_trees_to_data ?(classify=true) force load_data run =
             let ach = Status.get_achieved st in
             if are_leaves_different then
                 let tree = { tree with Ptree.node_data = nodes } in
-                let res = CT.transform_tree replacer tree in
+                let res = CT.transform_tree ~data:run.data replacer tree in
                 let () = Status.full_report ~adv:(ach + 1) st in
                 res
             else 

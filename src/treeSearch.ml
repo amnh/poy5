@@ -659,7 +659,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     let res = (search_fn queue_manager)#results in
                     List.map (fun (a, _, _) ->
                         if a.Ptree.tree <> tree.Ptree.tree then
-                            let a = PtreeSearch.uppass a in
+                            let a = PtreeSearch.uppass (PtreeSearch.downpass a) in
                             (a, Ptree.get_cost `Adjusted a)
                         else (a, Ptree.get_cost `Adjusted a)) res
                 with

@@ -53,9 +53,7 @@ val print_node_data_indent :
 
 (** {2 Downpass and Uppass} *)
 
-val downpass_handle :
-  int ->
-  'a p_tree -> 'a p_tree
+val downpass_handle : ?data:Data.d -> int -> 'a p_tree -> 'a p_tree 
 
 (** [downpass_handle handle tree] performs a downpass operation on the tree in
     [tree] with handle [handle].  This downpass uses existing nodes as previous
@@ -64,9 +62,8 @@ val downpass_handle :
 val downpass : ?data:Data.d -> 'a p_tree -> 'a p_tree
 
 (** [downpass tree] performs a downpass on each handle of [tree] *)
-val force_downpass_handle :
-  int ->
-  'a p_tree -> 'a p_tree
+val force_downpass_handle : (* ?data:Data.d -> *) int -> 'a p_tree -> 'a p_tree
+
 (** As above, but this downpass discards existing HTU nodes.  Useful for
     replacing the nodes in the OTU leaves. *)
 val force_downpass :
