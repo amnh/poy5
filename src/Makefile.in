@@ -97,11 +97,7 @@ ifeq ($(USE_XSLT), true)
 	DEFOPTS := -DUSE_XSLT $(DEFOPTS)
 endif
 
-LIKELIHOOD_CHAR :=
-LIKELIHOOD_COMPONENTS :=
 ifeq ($(USE_LIKELIHOOD), true)
-	LIKELIHOOD_COMPONENTS := gamma.o likelihood.o mlStaticCS.cmo
-	LIKELIHOOD_CHAR := mlStaticCS.cmo
 	DEFOPTS := -DUSE_LIKELIHOOD $(DEFOPTS)
 endif
 
@@ -233,7 +229,7 @@ BREAKINV_OBJS = breakinvAli.cmo breakinv.cmo breakinvCS.cmo
 
 ANNCHROM_OBJS = annchromAli.cmo annchrom.cmo annchromCS.cmo
 
-CHARACTER = char_add.cmo char_nonadd.cmo $(LIKELIHOOD_CHAR) \
+CHARACTER = char_add.cmo char_nonadd.cmo mlStaticCS.cmo \
 	sankCS.cmo seqCS.cmo $(CHROM_OBJS) $(GENOME_OBJS) $(BREAKINV_OBJS) $(ANNCHROM_OBJS) \
 	dynamicCS.cmo kolmoCS.cmo nodeSig.cmo node.cmo allDirNode.cmo edge.cmo \
 	characterScripting.cmo  metric.cmo 
@@ -271,12 +267,13 @@ ifneq ($(USEWIN32), true)
 	GETRUSAGE := getrusage.o
 endif
 
-BASE_OBJS :=  camlpdf-0.3/zlibstubs.o gz-0.5.7/gz.cma compileFlags.cmo sadmanlib.cma poyFile.cmo lz.cmo \
+BASE_OBJS :=  camlpdf-0.3/zlibstubs.o gamma.o likelihood.o gz-0.5.7/gz.cma \
+	compileFlags.cmo sadmanlib.cma poyFile.cmo lz.cmo \
 	memProfiler.cmo enum.cmo bitSet.cmo $(READLINE) sleep.o \
 	timer.cmo $(GETRUSAGE) buildNumber.cmo version.cmo \
 	$(INTERFACE) sexpr.cmo xml.cmo poyFormaters.cmo \
 	fileStream.cmo sequences.cma $(CAMLPDFOBJ) array_ops.cmo $(PARSER) \
-	distances.cma methods.cmo $(LIKELIHOOD_COMPONENTS) $(CHARACTER) trees.cma diagnosis.cmo \
+	distances.cma methods.cmo $(CHARACTER) trees.cma diagnosis.cmo \
 	supports.cmo help.cmo helpIndex.cmo analyzer.cmo \
 	commandLexer.cmo poyCommand.cmo $(XSLT_COMPONENTS) scripting.cmo \
 
@@ -739,12 +736,12 @@ NOPREPROCESSOR= tabus.ml sampler.ml
 	chromCS.ml genomeAli.mli genomeAli.ml genome.mli genome.ml genomeCS.mli \
 	genomeCS.ml breakinvAli.mli breakinvAli.ml breakinv.mli breakinv.ml \
 	breakinvCS.ml annchromAli.mli annchromAli.ml annchrom.mli \
-	annchrom.ml annchromCS.mli annchromCS.ml dynamicCS.mli dynamicCS.ml  
+	annchrom.ml annchromCS.mli annchromCS.ml kolmoCS.ml dynamicCS.mli dynamicCS.ml  
 	$(OCAMLDEP) $(OCAML_INCLUDES) $(OPTIONSPREPROCESSOR) \
 		$(filter-out poyExtension.cmo $(NOPREPROCESSOR) ,$^) > $@
 
 .depend7: poyExtension.cmo nonaddCS8.ml nonaddCS32.ml nonaddCS16.ml nodeSig.ml node.mli \
-	node.ml allDirNode.ml edge.mli edge.ml characterScripting.mli \
+	mlStaticCS.mli mlStaticCS.ml node.ml allDirNode.ml edge.mli edge.ml characterScripting.mli \
 	characterScripting.ml metric.mli metric.ml  
 	$(OCAMLDEP) $(OCAML_INCLUDES) $(OPTIONSPREPROCESSOR) \
 		$(filter-out poyExtension.cmo $(NOPREPROCESSOR) ,$^) > $@
@@ -788,7 +785,7 @@ NOPREPROCESSOR= tabus.ml sampler.ml
 	$(OCAMLDEP) $(OCAML_INCLUDES) $(OPTIONSPREPROCESSOR) \
 		$(filter-out poyExtension.cmo $(NOPREPROCESSOR) ,$^) > $@
 
-PREPROCESSED=scripting.cmo seqCS.cmo sequence.cmo statusCommon.cmo timer.cmo
+PREPROCESSED=scripting.cmo seqCS.cmo sequence.cmo statusCommon.cmo timer.cmo mlStaticCS.cmo mlStaticCS.cmi
 $(PREPROCESSED): config.h
 
 include .dependbn
@@ -825,6 +822,4 @@ poyParser.cmx: poyParser.ml
 poyExtension.cmo: kolmoExtension.cmo poyExtension.ml
 	$(OCAMLC) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
 poyExtension.cmx: poyExtension.ml
-	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml
-poyExtension.cmx: kolmoExtension.cmx poyExtension.ml
 	$(OCAMLOPT) $(PREPROCESSOR:-unsafe=) $(OCAML_INCLUDES:-unsafe=) -c poyExtension.ml

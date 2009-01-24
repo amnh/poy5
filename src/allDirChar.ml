@@ -563,16 +563,12 @@ with type b = AllDirNode.OneDirF.n = struct
 
         (* adjust the root and return the best cost *)
         let adjust_root_n_cost handle root a b ptree =
-    
             if debug_adjust_fn then
                 info_user_message "Adjusting root with %d,%d then None" a b
             else ();
-
             let sets = get_active_ref_code ptree (*pre_ref_codes,fi_ref_codes*)
             and a_nd = Ptree.get_node_data a ptree
-            and b_nd = Ptree.get_node_data b ptree
-            and r_code = AllDirNode.get_code (root.AllDirNode.unadjusted) in
-
+            and b_nd = Ptree.get_node_data b ptree in
             let new_root = 
                 (AllDirNode.AllDirF.median None (Some root) a_nd b_nd)
                 --> (fun x -> AllDirNode.AllDirF.edge_iterator None x a_nd b_nd)

@@ -2222,6 +2222,7 @@ module Kolmogorov = struct
                                 else incr i
                             done;
                             acc
+                    | Partitioned _
                     | Relaxed_Lifted _ -> assert false
                 in
                 let cost = Array.fold_left pair_cost (ref 0.0) t.characters in

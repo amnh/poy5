@@ -1,3 +1,5 @@
+#include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
+#ifdef USE_LIKELIHOOD   
 #include <stdio.h>
 #include <stdlib.h> //malloc, srand, RAND_MAX
 #include <string.h> //memcpy, memset
@@ -27,3 +29,4 @@ void gamma_rates(double* rates, const double alpha, const double beta,
 //incomplete gamma ratio; based on AS32 by Bhattacharjee (1970)
 double gamma_i( const double x, const double a);
 
+#endif /* USE_LIKELIHOOD */

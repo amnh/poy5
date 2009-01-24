@@ -22,6 +22,7 @@
 #include <assert.h>
 
 #include "config.h"
+#ifdef USE_LIKELIHOOD   
 #include <math.h>   //log,exp
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -180,3 +181,4 @@ value gamma_CAML_rates( value a, value b, value c )
     CAMLreturn( rates );
 }
 //------------------------------------------------------------------------------
+#endif /* USE_LIKELIHOOD */

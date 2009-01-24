@@ -16,6 +16,8 @@
 /* along with this program; if not, write to the Free Software                */
 /* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   */
 /* USA                                                                        */
+#include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
+#ifdef USE_LIKELIHOOD   
 #include <stdio.h>
 #include <stdlib.h> //malloc, srand, RAND_MAX
 #include <string.h> //memcpy, memset
@@ -141,3 +143,4 @@ readjust_walk_sym(const double* U,const double* D,
                    const struct ml* a,const struct ml* b,struct ml* b_c,
                     double* ta,double* tb,double* b_mle,const double* rates,
                      const double *p, const int g_n,const double pi);
+#endif /* USE_LIKELIHOOD */

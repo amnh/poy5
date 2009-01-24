@@ -220,5 +220,5 @@ val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Xml.attributes ->t -> float option * float option -> 
-                        t option -> Data.d -> Xml.output list
+                        t option -> Data.d -> Xml.xml list
 END

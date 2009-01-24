@@ -315,13 +315,15 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         let a,b = MlStaticCS.estimate_time prev.preliminary ca.preliminary in
                         fx x.time, a +. b
                     | None ->
-                        failwith "Node.median: Cannot estimate time." )
+                        failwith "Node.median: Cannot estimate time." 
+                    | Some _ -> assert false)
                 | None, Some (StaticMl y,fy) -> (match prev with 
                     | Some (StaticMl prev) ->
                         let a,b = MlStaticCS.estimate_time prev.preliminary ca.preliminary in
                         a +. b, fy y.time
                     | None ->
-                        failwith "Node.median: Cannot estimate time." )
+                        failwith "Node.median: Cannot estimate time." 
+                    | Some _ -> assert false)
                 | None, None ->
                     MlStaticCS.estimate_time ca.preliminary cb.preliminary 
                 | _ , _ -> raise (Illegal_argument "cs_median")
@@ -890,9 +892,6 @@ let median code old a b =
  * calculation of the median between [nd1] and [nd2].
 **)
 let median_w_times code prev nd_1 nd_2 (time_1:node_data option) (time_2:node_data option) = 
-    let get_some x = match x with | Some x -> x | None -> failwith "Inconsistency" in
-
-
     (* stuff here *)
     let time_1 = match time_1 with
         | Some nd_t1 -> if nd_t1.min_child_code = nd_1.min_child_code then
@@ -1675,28 +1674,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                     (List.map (fun x -> w, x) lst)) :: acc)
                 [] res
         in
-        let group_ml_by_codes lst = 
-            let hstbl = Hashtbl.create 97 in
-            let set_codes = 
-                List.fold_left (fun acc code ->
-                    match Hashtbl.find (!data).Data.character_specs code with
-                    | Data.Static spec -> 
-                            let model = 
-                                match spec.Parser.SC.st_type with
-                                | Parser.SC.STLikelihood x -> x
-                                | _ -> assert false
-                            in
-                            Hashtbl.add hstbl model.Parser.SC.set_code code;
-                            let group = model.Parser.SC.set_code in
-                            if All_sets.Integers.mem group acc then
-                                acc
-                            else All_sets.Integers.add group acc
-                    | _ -> assert false)
-                All_sets.Integers.empty lst
-            in
-            List.map (Hashtbl.find_all hstbl) 
-            (All_sets.Integers.elements set_codes)
-        in
         let nadd8weights = classify 8 do_classify lnadd8code !data
         and nadd16weights = classify 16 do_classify lnadd16code !data
         and nadd32weights = classify 32 do_classify lnadd32code !data in
@@ -1704,7 +1681,6 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd8code = group_in_weights nadd8weights lnadd8code
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
-        and lstaticmlcode = group_ml_by_codes static_ml
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
         let add_codes ((_, x) as y) = 
             y, Array.map snd (Array.of_list (List.rev x)) in
@@ -1912,6 +1888,29 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             weight = 1.; time = None,None } in
                             { result with characters = c :: result.characters }
                 in
+                let group_ml_by_codes lst = 
+                    let hstbl = Hashtbl.create 97 in
+                    let set_codes = 
+                        List.fold_left (fun acc code ->
+                            match Hashtbl.find (!data).Data.character_specs code with
+                            | Data.Static spec -> 
+                                    let model = 
+                                        match spec.Parser.SC.st_type with
+                                        | Parser.SC.STLikelihood x -> x
+                                        | _ -> assert false
+                                    in
+                                    Hashtbl.add hstbl model.Parser.SC.set_code code;
+                                    let group = model.Parser.SC.set_code in
+                                    if All_sets.Integers.mem group acc then
+                                        acc
+                                    else All_sets.Integers.add group acc
+                            | _ -> assert false)
+                        All_sets.Integers.empty lst
+                    in
+                    List.map (Hashtbl.find_all hstbl) 
+                    (All_sets.Integers.elements set_codes)
+                in
+                let lstaticmlcode = group_ml_by_codes static_ml in
                 List.fold_left single_ml_group result lstaticmlcode
                 ELSE
                 result
@@ -2250,13 +2249,10 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         else ch2, ch1
     in
     let modified = ref All_sets.Integers.empty in
-    let adjusted_likelihood = ref false in
     let cs_readjust c1 c2 parent mine =
         match c1, c2, parent, mine with 
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
-                adjusted_likelihood := true;
-
                 let am,bm = if ch1.min_child_code < ch2.min_child_code
                             then c1,c2 else c2,c1 in
 
@@ -2281,7 +2277,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             ELSE
                 failwith likelihood_error
             END
-        | ((Dynamic c1) as c1'), ((Dynamic c2) as c2'), Dynamic parent, Dynamic mine ->
+        | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
                     DynamicCS.readjust mode to_adjust !modified c1.preliminary c2.preliminary
                     parent.preliminary mine.preliminary
@@ -2434,14 +2430,15 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           [`Single (Xml.Characters.set, attributes, cont)]
     | StaticMl cs,_, _ -> 
         IFDEF USE_LIKELIHOOD THEN
-        begin
-          match parent_cs with 
-          | None ->
-                MlStaticCS.to_formatter pre cs.preliminary cs.time None d
-          | Some ((StaticMl parent_cs), _) ->
-                MlStaticCS.to_formatter pre cs.preliminary cs.time (Some parent_cs.preliminary) d
-          | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
-        end
+            let formatted = 
+                match parent_cs with 
+                | None ->
+                        MlStaticCS.to_formatter pre cs.preliminary cs.time None d
+                | Some ((StaticMl parent_cs), _) ->
+                        MlStaticCS.to_formatter pre cs.preliminary cs.time (Some parent_cs.preliminary) d
+                | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
+            in
+            List.map (fun x -> `Single x) formatted
         ELSE
             failwith likelihood_error
         END
