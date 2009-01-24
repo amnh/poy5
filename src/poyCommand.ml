@@ -716,11 +716,8 @@ let transform_swap l_opt (param : swapa) = match param with
 
 
 let transform_swap_arguments (lst : swapa list) =
-    let (space, thres, keep, keepm, cclist, origin, traj, break_tabu,
-join_tabu, reroot_tabu, samples) =
-        List.fold_left transform_swap swap_default lst in
-    `LocalOptimum (space, thres, keep, keepm, List.rev cclist, origin, traj,
-    break_tabu, join_tabu, reroot_tabu, samples)
+    let options = List.fold_left transform_swap swap_default lst in
+    `LocalOptimum { options with Methods.cc = List.rev options.Methods.cc } 
 
 (* Fusing *)
 let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)

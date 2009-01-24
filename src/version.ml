@@ -54,7 +54,7 @@ let option_to_string b =
     and rcstring = " Release Candidate " in
     match release_option with
     | Development ->
-            b 
+            name
             --> append " Development"
             --> append build_string
             --> append patch_version
