@@ -285,7 +285,7 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between breakinv character set [t] and its parents
 * [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list = 
     let _, state = List.hd attr in 
     let output_breakinv code med acc =
         let med = 
@@ -320,7 +320,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Tags.xml Sexpr.t lis
               end 
         in  
         let seq = Sequence.to_formater med.BreakinvAli.seq t.alph in
-        let module T = Tags.Characters in
+        let module T = Xml.Characters in
         (PXML 
             -[T.breakinv]
                 (* Attributes *)

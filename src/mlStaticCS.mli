@@ -219,6 +219,6 @@ val root_cost : t -> float
 val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)
-val to_formatter : Tags.attributes ->t -> float option * float option -> 
-                        t option -> Data.d -> Tags.output list
+val to_formatter : Xml.attributes ->t -> float option * float option -> 
+                        t option -> Data.d -> Xml.output list
 END

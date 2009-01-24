@@ -119,11 +119,11 @@ val max_possible_cost : int list option list -> float
 val min_possible_cost : int list option list -> float
 
 val to_string : t -> string
-(** [to_formatter attrs c parent d : Tags.xml list] returns the formatter for
+(** [to_formatter attrs c parent d : Xml.xml list] returns the formatter for
     node c where parent is optional parent of c if available *)
-val to_formatter : Tags.xml Sexpr.t list -> 
-    Tags.attributes -> t -> t option -> Data.d -> 
-        Tags.xml Sexpr.t list
+val to_formatter : Xml.xml Sexpr.t list -> 
+    Xml.attributes -> t -> t option -> Data.d -> 
+        Xml.xml Sexpr.t list
 
 (** {2 Other standard functions} *)
 

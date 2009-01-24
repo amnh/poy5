@@ -30,11 +30,11 @@ type u = DynamicCS.u
 
 let get_model set = 
     match set.model.Data.ks.Data.kolmo_spec.Data.mo with
-    | Data.InDels _ -> Tags.KolSpecs.indelsonly
-    | Data.InDelSub _ -> Tags.KolSpecs.indelsub
-    | Data.Subs _ -> Tags.KolSpecs.subsonly
-    | Data.AffInDelAffSub _ -> Tags.KolSpecs.affineindelsaffsub
-    | Data.AffInDelSub _ -> Tags.KolSpecs.affineindelssub
+    | Data.InDels _ -> Xml.KolSpecs.indelsonly
+    | Data.InDelSub _ -> Xml.KolSpecs.indelsub
+    | Data.Subs _ -> Xml.KolSpecs.subsonly
+    | Data.AffInDelAffSub _ -> Xml.KolSpecs.affineindelsaffsub
+    | Data.AffInDelSub _ -> Xml.KolSpecs.affineindelssub
 
 let to_string set = 
     let model = get_model set in
@@ -63,7 +63,7 @@ let distance c d =
 let dist_2 a b c d = distance c d
 
 let to_formatter ref_codes attr t d =
-    let attr = (Tags.KolSpecs.model, `String (get_model t)) :: attr in
+    let attr = (Xml.KolSpecs.model, `String (get_model t)) :: attr in
     DynamicCS.to_formatter ref_codes attr  t.characters None d
 
 let f_codes a b = 

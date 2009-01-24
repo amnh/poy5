@@ -147,22 +147,22 @@ val incremental_downpass :
             | `HandleNC of int * int
             | `No_Children of int ] list
 
-(** [subtree_to_formatter a b c d e f g] creates Tags.xml of the contents of
+(** [subtree_to_formatter a b c d e f g] creates Xml.xml of the contents of
 * the subtree rooted by the node with code [e] in the phylogenetic tree [d],
 * using as attributes of the root of the subtree [b], and as parent contents,
 * and single assignment to the parent contents the tuple [g]. *)
 val subtree_to_formatter : 
     ChromCS.IntSet.t * ChromCS.IntSet.t ->
-    Tags.attributes -> Data.d -> Ptree.phylogeny -> int ->
-    (Node.node_data * Node.node_data) option -> Tags.xml
+    Xml.attributes -> Data.d -> Ptree.phylogeny -> int ->
+    (Node.node_data * Node.node_data) option -> Xml.xml
 
 val handle_to_formatter : 
     All_sets.Integers.t * All_sets.Integers.t -> 
-        Tags.attributes -> Data.d -> Ptree.phylogeny -> 
-            int -> Tags.xml
+        Xml.attributes -> Data.d -> Ptree.phylogeny -> 
+            int -> Xml.xml
 
 val to_formatter :
-        Tags.attributes ->
-        Data.d -> (Node.node_data, 'a) Ptree.p_tree -> Tags.xml
+        Xml.attributes ->
+        Data.d -> (Node.node_data, 'a) Ptree.p_tree -> Xml.xml
 
 val get_active_ref_code :(Node.node_data, 'a) Ptree.p_tree -> All_sets.Integers.t * All_sets.Integers.t

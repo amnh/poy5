@@ -221,13 +221,13 @@ let k c =
 
 let to_formatter items =
     let mapper (name, spec) =
-        `Single (Tags.KolSpecs.char_spec, 
-        [(Tags.KolSpecs.char_name, `String name); (Tags.KolSpecs.prob, `Float
+        `Single (Xml.KolSpecs.char_spec, 
+        [(Xml.KolSpecs.char_name, `String name); (Xml.KolSpecs.prob, `Float
         (k spec))], 
         (`Set 
             (List.map (fun (func, prob) ->
-                `Single (Tags.KolSpecs.char_fun, [(Tags.KolSpecs.fun_name,
-                `String func); (Tags.KolSpecs.prob, `Float prob)], `Empty)) 
+                `Single (Xml.KolSpecs.char_fun, [(Xml.KolSpecs.fun_name,
+                `String func); (Xml.KolSpecs.prob, `Float prob)], `Empty)) 
             spec.probabilities)))
     in
     let res = 
@@ -235,4 +235,4 @@ let to_formatter items =
         | [] -> `Empty
         | items -> `Set (List.map mapper items)
     in
-    (Tags.KolSpecs.char_index, [], res)
+    (Xml.KolSpecs.char_index, [], res)

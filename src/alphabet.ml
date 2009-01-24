@@ -47,15 +47,15 @@ let print alpha =
     alpha.code_to_string;
     print_newline ()
 
-let to_formatter alph : Tags.xml =
+let to_formatter alph : Xml.xml =
     let element_to_tags string code acc =
-        (`Single (Tags.Alphabet.element, [(Tags.Alphabet.value, `String string);
-        (Tags.Alphabet.code, `Int code)], `Empty)) :: acc
+        (`Single (Xml.Alphabet.element, [(Xml.Alphabet.value, `String string);
+        (Xml.Alphabet.code, `Int code)], `Empty)) :: acc
     in
     let res = 
         `Set (All_sets.StringMap.fold element_to_tags alph.string_to_code [])
     in
-    Tags.Characters.alphabet, [], res
+    Xml.Characters.alphabet, [], res
 
 
 (* The alphabet type *)

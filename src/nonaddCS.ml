@@ -247,8 +247,8 @@ let to_string a =
             0 ((cardinal a.data) - 1) in
     "[" ^ String.concat " " strlist ^ "]"
 
-let to_formatter acc attrs c parent d : Tags.xml Sexpr.t list =
-    let module T = Tags.Characters in
+let to_formatter acc attrs c parent d : Xml.xml Sexpr.t list =
+    let module T = Xml.Characters in
     let elt_iter elt =
         let rec elt_iter acc elt c cntr =
             if elt = 0 then acc 

@@ -67,4 +67,4 @@ val length : alph:t -> elem:string -> float
 (** [decoder a] calculates the [a] decoder length in nats. *)
 val decoder : t -> float
 
-val to_formatter : t -> Tags.xml Sexpr.t
+val to_formatter : t -> Xml.xml Sexpr.t

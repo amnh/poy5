@@ -2539,7 +2539,7 @@ module SC = struct
         ^ bool_to_string s.st_case
 
     let to_formatter s =
-        let module T = Tags.Characters in
+        let module T = Xml.Characters in
         let lst tag ls = (PXML -[tag] {set ls} --) in
         let observed_states = 
             let res = 

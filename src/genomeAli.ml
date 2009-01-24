@@ -1183,7 +1183,7 @@ let compare med1 med2 =
 
 (** [create_map anc_med des_ref] returns the map
 * from ancestor genome [anc_med] to descendant genome [des_ref] *)
-let create_map anc_med des_ref : (int * int * Tags.xml) = 
+let create_map anc_med des_ref : (int * int * Xml.xml) = 
     let str x = `Int x in  
     let create_chrom_map m =      
         let a_chrom_id, a_sta, a_en, a_dir  = 
@@ -1198,36 +1198,36 @@ let create_map anc_med des_ref : (int * int * Tags.xml) =
                   (str m.chi2_chrom_id), (str m.sta2), (str m.en2), 
                     `String (Utl.get_dir m.dir2) 
         in 
-        let attributes = [(Tags.GenomeMap.a_chrom_id, a_chrom_id);
-                          (Tags.GenomeMap.a_start_seg, a_sta);
-                          (Tags.GenomeMap.a_end_seg, a_en);
-                          (Tags.GenomeMap.a_dir_seg, a_dir);
-                          (Tags.GenomeMap.d_chrom_id, d_chrom_id);
-                          (Tags.GenomeMap.d_start_seg, d_sta);
-                          (Tags.GenomeMap.d_end_seg, d_en);
-                          (Tags.GenomeMap.d_dir_seg, d_dir)
+        let attributes = [(Xml.GenomeMap.a_chrom_id, a_chrom_id);
+                          (Xml.GenomeMap.a_start_seg, a_sta);
+                          (Xml.GenomeMap.a_end_seg, a_en);
+                          (Xml.GenomeMap.a_dir_seg, a_dir);
+                          (Xml.GenomeMap.d_chrom_id, d_chrom_id);
+                          (Xml.GenomeMap.d_start_seg, d_sta);
+                          (Xml.GenomeMap.d_end_seg, d_en);
+                          (Xml.GenomeMap.d_dir_seg, d_dir)
                          ] 
         in 
-        let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
+        let m : Xml.xml = (Xml.GenomeMap.seg, attributes, `String "") in 
         `Single m
     in   
     
     let chrom_map_ls = List.map 
         (fun chrom -> 
              let seg_ls = List.map create_chrom_map chrom.map in
-             let chrom_map : Tags.xml = 
-                 (Tags.GenomeMap.chrom, [], (`Set seg_ls))
+             let chrom_map : Xml.xml = 
+                 (Xml.GenomeMap.chrom, [], (`Set seg_ls))
              in 
              `Single chrom_map
         ) (Array.to_list anc_med.chrom_arr) 
     in 
 
-    let attributes = [(Tags.GenomeMap.a_ref_code, str anc_med.genome_ref_code); 
-                      (Tags.GenomeMap.d_ref_code, str des_ref)] 
+    let attributes = [(Xml.GenomeMap.a_ref_code, str anc_med.genome_ref_code); 
+                      (Xml.GenomeMap.d_ref_code, str des_ref)] 
     in 
 
-    let genome_map : Tags.xml = 
-        (Tags.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
+    let genome_map : Xml.xml = 
+        (Xml.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
     in 
 
     match des_ref = anc_med.genome_ref_code1 with
@@ -1237,7 +1237,7 @@ let create_map anc_med des_ref : (int * int * Tags.xml) =
 
 (** [create_single_map med] returns the map 
 * of single states of genome [med] in Tag.Output format *)
-let create_single_map med : Tags.xml = 
+let create_single_map med : Xml.xml = 
     let str x = `Int x in  
  
     let create_chrom_map m =      
@@ -1249,36 +1249,36 @@ let create_single_map med : Tags.xml =
             (str m.chi1_chrom_id), (str m.sta1), (str m.en1), 
             `String (Utl.get_dir m.dir1) 
         in 
-        let attributes = [(Tags.GenomeMap.a_chrom_id, a_chrom_id);
-                          (Tags.GenomeMap.a_start_seg, a_sta);
-                          (Tags.GenomeMap.a_end_seg, a_en);
-                          (Tags.GenomeMap.a_dir_seg, a_dir);
-                          (Tags.GenomeMap.d_chrom_id, d_chrom_id);
-                          (Tags.GenomeMap.d_start_seg, d_sta);
-                          (Tags.GenomeMap.d_end_seg, d_en);
-                          (Tags.GenomeMap.d_dir_seg, d_dir)
+        let attributes = [(Xml.GenomeMap.a_chrom_id, a_chrom_id);
+                          (Xml.GenomeMap.a_start_seg, a_sta);
+                          (Xml.GenomeMap.a_end_seg, a_en);
+                          (Xml.GenomeMap.a_dir_seg, a_dir);
+                          (Xml.GenomeMap.d_chrom_id, d_chrom_id);
+                          (Xml.GenomeMap.d_start_seg, d_sta);
+                          (Xml.GenomeMap.d_end_seg, d_en);
+                          (Xml.GenomeMap.d_dir_seg, d_dir)
                          ] 
         in 
-        let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
+        let m : Xml.xml = (Xml.GenomeMap.seg, attributes, `String "") in 
         `Single m
     in   
     
     let chrom_map_ls = List.map 
         (fun chrom -> 
              let seg_ls = List.map create_chrom_map chrom.map in
-             let chrom_map : Tags.xml = 
-                 (Tags.GenomeMap.chrom, [], (`Set seg_ls))
+             let chrom_map : Xml.xml = 
+                 (Xml.GenomeMap.chrom, [], (`Set seg_ls))
              in 
              `Single chrom_map
         ) (Array.to_list med.chrom_arr) 
     in 
 
-    let attributes = [(Tags.GenomeMap.a_ref_code, str med.genome_ref_code2); 
-                      (Tags.GenomeMap.d_ref_code, str med.genome_ref_code1)] 
+    let attributes = [(Xml.GenomeMap.a_ref_code, str med.genome_ref_code2); 
+                      (Xml.GenomeMap.d_ref_code, str med.genome_ref_code1)] 
     in 
 
-    let genome_map : Tags.xml = 
-        (Tags.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
+    let genome_map : Xml.xml = 
+        (Xml.GenomeMap.genome, attributes, (`Set chrom_map_ls)) 
     in 
 
     genome_map 

@@ -198,11 +198,11 @@ val compare : med_t -> med_t -> int
 
 (** [create_map anc_med des_ref] returns the map
 * from ancestor genome [anc_med] to descendant genome [des_ref] *)
-val create_map : med_t -> int -> int * int * Tags.xml
+val create_map : med_t -> int -> int * int * Xml.xml
 
 (** [create_single_map med] returns the map 
 of single states of genome [med] in Tag.Output format *)
-val create_single_map : med_t -> Tags.xml
+val create_single_map : med_t -> Xml.xml
 
 
 (** [to_single single_parent med c2 pam] creates

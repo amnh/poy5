@@ -148,9 +148,9 @@ let display_node prefix display node =
     in
     let one_attribute (name, contents) =
         if name = "Name" && None = !node_name then
-            node_name := Some (Tags.value_to_string contents)
+            node_name := Some (Xml.value_to_string contents)
         else ();
-        name ^ " = \"" ^ Tags.value_to_string contents ^ "\" "
+        name ^ " = \"" ^ Xml.value_to_string contents ^ "\" "
     in
     let make_attributes attributes = 
         String.concat " " (List.map one_attribute attributes)
@@ -163,8 +163,8 @@ let display_node prefix display node =
         let acc = translate curr_width height width acc (0., -.10.) in
         let acc =
             match children with
-            | #Tags.unstructured as v -> add_contents acc (Tags.value_to_string v)
-            | #Tags.structured as v ->
+            | #Xml.unstructured as v -> add_contents acc (Xml.value_to_string v)
+            | #Xml.structured as v ->
                     (match v with
                     | `Empty -> acc
                     | `Single x -> aux_print_it_all acc x

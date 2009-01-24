@@ -441,7 +441,7 @@ let of_parser spec characters =
 
 let f_abs x = if x < 0.0 then -.x else x
 let pack lst = (`Set (List.map (fun x -> `Single x) lst))
-let to_formatter attr mine minet _ data :Tags.output list =
+let to_formatter attr mine minet _ data :Xml.output list =
     (** get the alphabet **)
     let alpha = Data.get_alphabet data (Array.get mine.codes 0) in
     (** map functions over a set, into a single, then pack: with index, and with 2 lists **)
@@ -449,15 +449,15 @@ let to_formatter attr mine minet _ data :Tags.output list =
     let _ray2 f v c = pack (List.map2 f v c) in
     let _rayi f v = pack (Array.to_list (Array.mapi f v)) in
     (** pack individual elements into an ID **)
-    let f_element c p :Tags.output =
+    let f_element c p :Xml.output =
         (Alphabet.find_code c alpha, [], `Float p) in
     (** pack a single character into an ID **)
-    let f_char c cc:Tags.output = 
-        let a_char = (Tags.Data.code, `Int cc) in
-        (Tags.Characters.character, [a_char], (_rayi f_element c)) in
+    let f_char c cc:Xml.output = 
+        let a_char = (Xml.Data.code, `Int cc) in
+        (Xml.Characters.character, [a_char], (_rayi f_element c)) in
     (** pack the priors of the model **)
-    let f_prior priors :Tags.output = let pi = ba2array priors in
-        (Tags.Characters.prior, [], (_rayi f_element pi)) in
+    let f_prior priors :Xml.output = let pi = ba2array priors in
+        (Xml.Characters.prior, [], (_rayi f_element pi)) in
     (** function to pack a whole character set **)
     let f_chars ch_s co_s =
         let r = Array.to_list (barray_matrix ch_s) in
@@ -470,23 +470,23 @@ let to_formatter attr mine minet _ data :Tags.output list =
         | Some y -> `Float y
         | None -> `String "None" in
 
-    let attrib :Tags.attribute list = 
-        (Tags.Data.code, `Int mine.code) :: 
-        (Tags.Nodes.min_time, str_t1) :: (Tags.Nodes.oth_time, str_t2) ::
-        (Tags.Characters.mle, `Float mine.mle) :: attr in
+    let attrib :Xml.attribute list = 
+        (Xml.Data.code, `Int mine.code) :: 
+        (Xml.Nodes.min_time, str_t1) :: (Xml.Nodes.oth_time, str_t2) ::
+        (Xml.Characters.mle, `Float mine.mle) :: attr in
 
     let parameters p = Array.to_list (
-        Array.mapi (fun idx x -> (Tags.Data.param idx, string_of_float x)) p)
+        Array.mapi (fun idx x -> (Xml.Data.param idx, string_of_float x)) p)
     in
 
     let con = pack (
-                (Tags.Characters.model, (Tags.Data.modeltype, `String mine.model.name) :: [], 
+                (Xml.Characters.model, (Xml.Data.modeltype, `String mine.model.name) :: [], 
                     pack ((f_prior mine.model.pi_0) :: [])
                 ) :: 
-                (Tags.Data.characters,[],
+                (Xml.Data.characters,[],
                     (f_chars (s_bigarray mine.chars) mine.codes)) :: []) in
-    [(Tags.Characters.likelihood, attrib, con)]
-(* -> Tags.output list *)
+    [(Xml.Characters.likelihood, attrib, con)]
+(* -> Xml.output list *)
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =

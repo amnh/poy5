@@ -68,13 +68,13 @@ let sort_matrix mtx =
     Array.iteri (fun x str -> mtx.(0).(x) <- " " ^ str) mtx.(0);
     Array.sort comparator mtx
 
-let build_contents_row ((_, attributes, contents) : Tags.xml)  =
-    let mapper (_, value) = StatusCommon.escape (Tags.value_to_string value) in
+let build_contents_row ((_, attributes, contents) : Xml.xml)  =
+    let mapper (_, value) = StatusCommon.escape (Xml.value_to_string value) in
     match contents with
-    | #Tags.structured_xml -> (* We will ignore the structured contents for a table *)
+    | #Xml.structured_xml -> (* We will ignore the structured contents for a table *)
             let res = Array.of_list attributes in
             Array.map mapper res
-    | #Tags.unstructured as v ->
+    | #Xml.unstructured as v ->
             let res = 
                 Array.of_list (List.rev ( ("", v) :: (List.rev attributes)))
             in
@@ -88,36 +88,36 @@ let build_names_row ?(contents_name = " ") (_, attributes, _) =
     in
     Array.map mapper res
 
-type t = [ Tags.unstructured | Tags.xml Tags.structured_xml ]
+type t = [ Xml.unstructured | Xml.xml Xml.structured_xml ]
 
 let build_set (contents : t) = 
     let res = Buffer.create 16 in
     let rec add_items (_, _, x) =
         match x with
-        | #Tags.unstructured as v -> 
-                Buffer.add_string res (Tags.value_to_string v);
+        | #Xml.unstructured as v -> 
+                Buffer.add_string res (Xml.value_to_string v);
                 Buffer.add_string res ", ";
-        | #Tags.structured as x ->
-                let x = Tags.eagerly_compute x in
+        | #Xml.structured as x ->
+                let x = Xml.eagerly_compute x in
                 Sexpr.leaf_iter add_items x
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     in
     let _ =
         match contents with
-        | #Tags.structured as todo ->
-                let todo = Tags.eagerly_compute todo in
+        | #Xml.structured as todo ->
+                let todo = Xml.eagerly_compute todo in
                 Buffer.add_string res "{";
                 Sexpr.leaf_iter add_items todo;
                 Buffer.add_string res "}";
-        | #Tags.unstructured as v -> 
-                Buffer.add_string res (Tags.value_to_string v)
+        | #Xml.unstructured as v -> 
+                Buffer.add_string res (Xml.value_to_string v)
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     in
     (Buffer.contents res)
 
 let build_table_with_contents_as_set ?(cn = " ") (lst :
-    Tags.xml list) = 
-    let mapper ((a, b, contents) : Tags.xml) : Tags.xml = 
+    Xml.xml list) = 
+    let mapper ((a, b, contents) : Xml.xml) : Xml.xml = 
         (a, b, `String (build_set contents))
     in
     match lst with
@@ -130,21 +130,21 @@ let build_table_with_contents_as_set ?(cn = " ") (lst :
 let character_type_as_attribute (tag, attributes, contents) =
     let t = "Type" in
     let attr = 
-        if tag = Tags.Characters.additive then 
+        if tag = Xml.Characters.additive then 
             "Additive"
-        else if tag = Tags.Characters.nonadditive then 
+        else if tag = Xml.Characters.nonadditive then 
             "Non Additive"
-        else if tag = Tags.Characters.sankoff then 
+        else if tag = Xml.Characters.sankoff then 
             "Sankoff"
-        else if tag = Tags.Characters.molecular then 
+        else if tag = Xml.Characters.molecular then 
             "Molecular"
-        else if tag = Tags.Characters.kolmogorov then 
+        else if tag = Xml.Characters.kolmogorov then 
             "Kolmogorov"
         else failwith "Unexpected"
     in
     (tag, ((t, attr) :: attributes), contents)
 
-let filter_tag tag (item : Tags.xml) : Tags.xml list =
+let filter_tag tag (item : Xml.xml) : Xml.xml list =
     let rec build acc ((mytag, _, contents) as item) =
         let nacc = 
             if tag  = mytag then 
@@ -152,29 +152,29 @@ let filter_tag tag (item : Tags.xml) : Tags.xml list =
             else acc
         in
         match contents with
-        | #Tags.structured as x ->
-                let x = Tags.eagerly_compute x in
+        | #Xml.structured as x ->
+                let x = Xml.eagerly_compute x in
                 Sexpr.fold_left build nacc x
-        | #Tags.unstructured -> nacc
+        | #Xml.unstructured -> nacc
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     in
     List.rev (build [] item)
 
 let rec build_values_as_list st (_, _, contents) =
     match contents with
-    | #Tags.structured as x -> 
-            let x = Tags.eagerly_compute x in
+    | #Xml.structured as x -> 
+            let x = Xml.eagerly_compute x in
             Sexpr.leaf_iter (build_values_as_list st) x
-    | #Tags.unstructured as v -> 
-            Status.user_message st (StatusCommon.escape (Tags.value_to_string v));
+    | #Xml.unstructured as v -> 
+            Status.user_message st (StatusCommon.escape (Xml.value_to_string v));
             Status.user_message st ";@ "
     | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
     
 let output_rows st matrix = 
     Status.user_message st (string_of_int ((Array.length matrix) - 1))
 
-let output_characters st (characters : Tags.xml)=
-    let output_table_of_list title cn (lst : Tags.xml list) =
+let output_characters st (characters : Xml.xml)=
+    let output_table_of_list title cn (lst : Xml.xml list) =
         let matrix = build_table_with_contents_as_set ~cn:cn lst in
         sort_matrix matrix;
         Status.user_message st ("@[<v 4>@{<b>" ^ title ^ 
@@ -185,11 +185,11 @@ let output_characters st (characters : Tags.xml)=
         Status.user_message st "@]@]@\n"
     in
     (* For each tag we will output the appropriate character *)
-    let additive = filter_tag Tags.Characters.additive characters
-    and nonadditive = filter_tag Tags.Characters.nonadditive characters
-    and sankoff = filter_tag Tags.Characters.sankoff characters
-    and molecular = filter_tag Tags.Characters.molecular characters
-    and kolmogorov = filter_tag Tags.Characters.kolmogorov characters in
+    let additive = filter_tag Xml.Characters.additive characters
+    and nonadditive = filter_tag Xml.Characters.nonadditive characters
+    and sankoff = filter_tag Xml.Characters.sankoff characters
+    and molecular = filter_tag Xml.Characters.molecular characters
+    and kolmogorov = filter_tag Xml.Characters.kolmogorov characters in
     Status.user_message st "@[<v 4>@{<b>Characters@}@\n@[<v 0>";
     output_table_of_list "Non Additive" "Set" nonadditive;
     output_table_of_list "Additive" "Range" additive;
@@ -200,8 +200,8 @@ let output_characters st (characters : Tags.xml)=
 
 let output_taxa st (_, _, taxa) =
     match taxa with
-    | #Tags.structured as x ->
-            let x = Tags.eagerly_compute x in
+    | #Xml.structured as x ->
+            let x = Xml.eagerly_compute x in
             let lst = Sexpr.to_list x in
             let mtx = build_table_with_contents_as_set lst in
             sort_matrix mtx;
@@ -211,7 +211,7 @@ let output_taxa st (_, _, taxa) =
             Status.user_message st "@\n";
             Status.output_table st mtx;
             Status.user_message st "@]@]@\n"
-    | #Tags.unstructured -> ()
+    | #Xml.unstructured -> ()
     | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
 
 (* [output_files st c] outputs the list of files from the output c as a list of
@@ -228,27 +228,27 @@ let format_attributes st attributes =
         Status.user_message st "@[";
         Status.user_message st (a);
         Status.user_message st " : ";
-        Status.user_message st (Tags.value_to_string b);
+        Status.user_message st (Xml.value_to_string b);
         Status.user_message st "@]@\n";
     in
     Status.user_message st "@[<v 0>@\n";
     List.iter format_attribute attributes;
     Status.user_message st "@]"
 
-let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.xml) =
-    if tag = Tags.Data.characters then output_characters st c
-    else if tag = Tags.Data.taxa then output_taxa st c
+let rec aux_data_to_status st ((tag, attributes, contents) as c : Xml.xml) =
+    if tag = Xml.Data.characters then output_characters st c
+    else if tag = Xml.Data.taxa then output_taxa st c
     (*
-    else if tag = Tags.Data.files then output_list "Files" st c
+    else if tag = Xml.Data.files then output_list "Files" st c
     *)
-    else if tag = Tags.Data.ignored_taxa then output_list "Ignored taxa" st c
-    else if tag = Tags.Data.ignored_characters then output_list "Ignored characters" st c
-    (* TODO else if tag = Tags.Data.synonyms then output_synonyms st c *)
+    else if tag = Xml.Data.ignored_taxa then output_list "Ignored taxa" st c
+    else if tag = Xml.Data.ignored_characters then output_list "Ignored characters" st c
+    (* TODO else if tag = Xml.Data.synonyms then output_synonyms st c *)
     else begin
         let str = 
             match contents with
-            | #Tags.structured ->  "@[<v 4>@ "
-            | #Tags.unstructured -> "@[@ "
+            | #Xml.structured ->  "@[<v 4>@ "
+            | #Xml.unstructured -> "@[@ "
             | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
         in
         Status.user_message st "@{<b>";
@@ -259,11 +259,11 @@ let rec aux_data_to_status st ((tag, attributes, contents) as c : Tags.xml) =
         format_attributes st attributes;
         Status.user_message st "@ ";
         begin match contents with
-        | #Tags.structured as sexpr ->
-                let sexpr = Tags.eagerly_compute sexpr in
+        | #Xml.structured as sexpr ->
+                let sexpr = Xml.eagerly_compute sexpr in
                 Sexpr.leaf_iter (aux_data_to_status st) sexpr
-        | #Tags.unstructured as v ->
-                let value = StatusCommon.escape (Tags.value_to_string v) in
+        | #Xml.unstructured as v ->
+                let value = StatusCommon.escape (Xml.value_to_string v) in
                 Status.user_message st value;
         | `CDATA _ -> failwith "Can't handle CDATA contents in poyFormaters"
         end;
@@ -280,7 +280,7 @@ let data_to_status filename tag =
             match filename with | Some x -> x | None -> assert false in
         let ch = StatusCommon.Files.channel filename in
         match ch with
-        | `NotCompressed ch -> Tags.to_file ch tag
+        | `NotCompressed ch -> Xml.to_file ch tag
         | `Zlib ch -> 
                 failwith "Output fo XML in compressed format is not supported"
     else begin
@@ -290,11 +290,11 @@ let data_to_status filename tag =
 
 let get_name_class_and_cost attr = 
     let get_them ((a, cclass, b) as acc) (tag, value) =
-        if tag = Tags.Characters.name then
+        if tag = Xml.Characters.name then
             (Some value), cclass, b
-        else if tag = Tags.Characters.cclass then 
+        else if tag = Xml.Characters.cclass then 
             a, (Some value), b
-        else if tag = Tags.Characters.cost then
+        else if tag = Xml.Characters.cost then
             a, cclass, (Some value)
         else acc
     in
@@ -304,35 +304,35 @@ let get_name_class_and_cost attr =
 
 let find_item tag lst = (List.assoc tag lst)
 
-let get_recost attr = find_item Tags.Characters.recost attr
+let get_recost attr = find_item Xml.Characters.recost attr
 
-let get_ref_code attr = find_item Tags.Characters.ref_code attr
+let get_ref_code attr = find_item Xml.Characters.ref_code attr
 
 let get_map attr = `String "Available only in XML format"
 
 
 let min_and_max ((x, y) as acc) (a, _, c) = 
     match c with
-    | #Tags.unstructured as c ->
-            let c = StatusCommon.escape (Tags.value_to_string c) in
-            if a = Tags.Characters.min then
+    | #Xml.unstructured as c ->
+            let c = StatusCommon.escape (Xml.value_to_string c) in
+            if a = Xml.Characters.min then
                 (Some (c), y)
-            else if a = Tags.Characters.max then
+            else if a = Xml.Characters.max then
                 (x, Some (c))
             else acc
-    | #Tags.structured_xml ->
+    | #Xml.structured_xml ->
             raise (Illegal_formater "min_and_max")
 
-let addcs_to_formater ((tag, attr, cont) : Tags.xml) = 
-    if tag = Tags.Characters.additive then begin
+let addcs_to_formater ((tag, attr, cont) : Xml.xml) = 
+    if tag = Xml.Characters.additive then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let recost = `Float 0. in 
         let chrom_ref = `String "-" in 
         let map = chrom_ref in 
         let minmax = 
             match cont with
-            | #Tags.structured as x -> 
-                    let x = Tags.eagerly_compute x in
+            | #Xml.structured as x -> 
+                    let x = Xml.eagerly_compute x in
                     Sexpr.fold_left min_and_max (None, None) x
             | _ -> raise (Illegal_formater "addcs_to_formater")
         in
@@ -350,16 +350,16 @@ let addcs_to_formater ((tag, attr, cont) : Tags.xml) =
         | _ -> raise (Illegal_formater "addcs_to_formater 2")
     end else raise (Illegal_formater "addcs_to_formater 3")
 
-let nonaddcs_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.nonadditive then begin
+let nonaddcs_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.nonadditive then begin
         let (_, name) = 
-            List.find (fun (a, _) -> a = Tags.Characters.name) attr
+            List.find (fun (a, _) -> a = Xml.Characters.name) attr
         in
         let (_, cclass) = 
-            List.find (fun (a, _) -> a = Tags.Characters.cclass) attr
+            List.find (fun (a, _) -> a = Xml.Characters.cclass) attr
         in
         let (_, cost) =
-            try List.find (fun (a, _) -> a = Tags.Characters.cost) attr 
+            try List.find (fun (a, _) -> a = Xml.Characters.cost) attr 
             with Not_found -> 
                 let str = " " in
                 str, `String str
@@ -369,14 +369,14 @@ let nonaddcs_to_formater ((tag, attr, cont) : Tags.xml) =
         let map = `String "-" in 
         let states = 
             match cont with
-            | #Tags.structured as x -> (* This is what we expect *)
-                    let x = Tags.eagerly_compute x in
+            | #Xml.structured as x -> (* This is what we expect *)
+                    let x = Xml.eagerly_compute x in
                     let c = Buffer.create 10 in
                     Buffer.add_string c "{";
                     Sexpr.leaf_iter (fun (_, _, x) ->
                         match x with
-                        | #Tags.unstructured as x -> 
-                                Buffer.add_string c (Tags.value_to_string x);
+                        | #Xml.unstructured as x -> 
+                                Buffer.add_string c (Xml.value_to_string x);
                                 Buffer.add_string c ",";
                         | _ ->
                                 raise (Illegal_formater "nonaddcs_to_formater"))
@@ -389,60 +389,60 @@ let nonaddcs_to_formater ((tag, attr, cont) : Tags.xml) =
     end else raise (Illegal_formater "nonaddcs_to_formater")
 
 
-let sankcs_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.sankoff then
-        nonaddcs_to_formater (Tags.Characters.nonadditive, attr,cont)
+let sankcs_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.sankoff then
+        nonaddcs_to_formater (Xml.Characters.nonadditive, attr,cont)
     else raise (Illegal_formater "sankcs_to_formater")
 
-let seq_to_formater ((tag, attr, cont) : Tags.xml) : Tags.unstructured array  =
-    if tag = Tags.Characters.sequence then begin
+let seq_to_formater ((tag, attr, cont) : Xml.xml) : Xml.unstructured array  =
+    if tag = Xml.Characters.sequence then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let chrom_ref = `String "-" in 
         let recost = `Float 0. in 
         let map = chrom_ref in
         match cont with
-        | #Tags.unstructured as v ->
+        | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape
-                (Tags.value_to_string v)) in
+                (Xml.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.structured_xml -> raise (Illegal_formater "seq_to_formater")
+        | #Xml.structured_xml -> raise (Illegal_formater "seq_to_formater")
     end else raise (Illegal_formater ("seq_to_formater"))
 
 
-let breakinv_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.breakinv then begin
+let breakinv_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.breakinv then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let breakinv_ref = `String "-" in 
         let recost = get_recost attr in 
         let map = breakinv_ref in 
         let cont = match cont with 
-        | #Tags.structured as cont -> 
-                let cont = Tags.eagerly_compute cont in
+        | #Xml.structured as cont -> 
+                let cont = Xml.eagerly_compute cont in
                 (match List.rev (Sexpr.to_list cont) with
                 | (_, _, cont) :: _ -> cont
                 | [] -> `Empty)
         | _  -> cont
         in 
         match cont with
-        | #Tags.unstructured as v ->
+        | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape
-                (Tags.value_to_string v)) in
+                (Xml.value_to_string v)) in
                 [|name; cclass; cost; recost; breakinv_ref; map; v|]
-        | #Tags.structured_xml ->
+        | #Xml.structured_xml ->
                 raise (Illegal_formater "breakinv_to_formater")
     end else raise (Illegal_formater ("breakinv_to_formater"))
 
 
-let chrom_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.chromosome then begin
+let chrom_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.chromosome then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let recost = get_recost attr in 
         let chrom_ref = get_ref_code attr in 
         let map = get_map attr in 
         let cont =
             match cont with 
-            | #Tags.structured as cont -> 
-                    let cont = Tags.eagerly_compute cont in
+            | #Xml.structured as cont -> 
+                    let cont = Xml.eagerly_compute cont in
                     (match List.rev (Sexpr.to_list cont) with
                     | (_, _, h) :: _ -> h
                     | [] -> `Empty)
@@ -450,17 +450,17 @@ let chrom_to_formater ((tag, attr, cont) : Tags.xml) =
         in 
 
         match cont with
-        | #Tags.unstructured as v -> 
+        | #Xml.unstructured as v -> 
                 let v = `Fun (fun () -> StatusCommon.escape
-                (Tags.value_to_string v)) in
+                (Xml.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.structured_xml ->
+        | #Xml.structured_xml ->
                 raise (Illegal_formater "chrom_to_formater")
     end else raise (Illegal_formater ("chrom_to_formater"))
 
 
-let genome_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.genome then begin
+let genome_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.genome then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let recost = get_recost attr in 
         let genome_ref = get_ref_code attr in 
@@ -468,8 +468,8 @@ let genome_to_formater ((tag, attr, cont) : Tags.xml) =
 
 
         let cont = match cont with 
-        | #Tags.structured as cont -> 
-                let cont = Tags.eagerly_compute cont in
+        | #Xml.structured as cont -> 
+                let cont = Xml.eagerly_compute cont in
                 (match (List.rev (Sexpr.to_list cont))  with
                 | (_, _, h) :: _ -> h
                 | [] -> `Empty)
@@ -477,25 +477,25 @@ let genome_to_formater ((tag, attr, cont) : Tags.xml) =
         in 
 
         match cont with
-        | #Tags.unstructured as v ->
+        | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape
-                (Tags.value_to_string v)) in
+                (Xml.value_to_string v)) in
                 [|name; cclass; cost; recost; genome_ref; map; v|]
-        | #Tags.structured_xml ->
+        | #Xml.structured_xml ->
                 raise (Illegal_formater "genome_to_formater")
     end else raise (Illegal_formater ("genome_to_formater"))
 
 
-let annchrom_to_formater ((tag, attr, cont) : Tags.xml) =
-    if tag = Tags.Characters.annchrom then begin
+let annchrom_to_formater ((tag, attr, cont) : Xml.xml) =
+    if tag = Xml.Characters.annchrom then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let recost = get_recost attr in 
         let chrom_ref = get_ref_code attr in
         let map = get_map attr in 
 
         let cont = match cont with 
-        | #Tags.structured as cont -> 
-                let cont = Tags.eagerly_compute cont in
+        | #Xml.structured as cont -> 
+                let cont = Xml.eagerly_compute cont in
                 (match (List.rev (Sexpr.to_list cont))  with
                 | (_, _, h) :: _ -> h
                 | [] -> `Empty)
@@ -503,17 +503,17 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.xml) =
         in 
 
         match cont with
-        | #Tags.unstructured as v ->
+        | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape
-                (Tags.value_to_string v)) in
+                (Xml.value_to_string v)) in
                 [|name; cclass; cost; recost; chrom_ref; map; v|]
-        | #Tags.structured_xml ->
+        | #Xml.structured_xml ->
                 raise (Illegal_formater "annchrom_to_formater")
     end else raise (Illegal_formater ("annchrom_to_formater"))
 
 
-let likelihood_to_formater ((tag, attr, cont): Tags.xml) = 
-    if tag = Tags.Characters.likelihood then begin
+let likelihood_to_formater ((tag, attr, cont): Xml.xml) = 
+    if tag = Xml.Characters.likelihood then begin
 
         let rec _get x y = 
             match x with
@@ -528,9 +528,9 @@ let likelihood_to_formater ((tag, attr, cont): Tags.xml) =
             Time :: *float*
             Likelihood :: *float*
         **)
-        let name    = _get attr Tags.Data.code and
-            cclass  = _get attr Tags.Characters.cclass and
-            cost    = _get attr Tags.Characters.mle and
+        let name    = _get attr Xml.Data.code and
+            cclass  = _get attr Xml.Characters.cclass and
+            cost    = _get attr Xml.Characters.mle and
             recost  = `String "X" and
             chrom   = `String "X" and
             mmap    = `String "X" and
@@ -541,35 +541,35 @@ let likelihood_to_formater ((tag, attr, cont): Tags.xml) =
 
 
 let node_character_to_formater ((tag, _, _) as v) =
-    if tag = Tags.Characters.sequence then seq_to_formater v
-    else if tag = Tags.Characters.chromosome then chrom_to_formater v
-    else if tag = Tags.Characters.genome then genome_to_formater v
-    else if tag = Tags.Characters.breakinv then breakinv_to_formater v
-    else if tag = Tags.Characters.annchrom then annchrom_to_formater v
-    else if tag = Tags.Characters.sankoff then sankcs_to_formater v
-    else if tag = Tags.Characters.nonadditive then nonaddcs_to_formater v
-    else if tag = Tags.Characters.additive then addcs_to_formater v
-    else if tag = Tags.Characters.likelihood then likelihood_to_formater v
+    if tag = Xml.Characters.sequence then seq_to_formater v
+    else if tag = Xml.Characters.chromosome then chrom_to_formater v
+    else if tag = Xml.Characters.genome then genome_to_formater v
+    else if tag = Xml.Characters.breakinv then breakinv_to_formater v
+    else if tag = Xml.Characters.annchrom then annchrom_to_formater v
+    else if tag = Xml.Characters.sankoff then sankcs_to_formater v
+    else if tag = Xml.Characters.nonadditive then nonaddcs_to_formater v
+    else if tag = Xml.Characters.additive then addcs_to_formater v
+    else if tag = Xml.Characters.likelihood then likelihood_to_formater v
     else raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
 
-let node_to_formater st ((tag, attr, cont) : Tags.xml) =
-    let assoc x y = Tags.value_to_string (List.assoc x y) in
-    if tag = Tags.Nodes.node then begin
-        let name = assoc Tags.Characters.name attr 
-        and child1_name = assoc Tags.Nodes.child1_name attr
-        and child2_name = assoc Tags.Nodes.child2_name attr in
+let node_to_formater st ((tag, attr, cont) : Xml.xml) =
+    let assoc x y = Xml.value_to_string (List.assoc x y) in
+    if tag = Xml.Nodes.node then begin
+        let name = assoc Xml.Characters.name attr 
+        and child1_name = assoc Xml.Nodes.child1_name attr
+        and child2_name = assoc Xml.Nodes.child2_name attr in
         let cost =
-            try assoc Tags.Characters.cost attr with 
+            try assoc Xml.Characters.cost attr with 
             Not_found -> " "
         in
         let recost =
-            try assoc Tags.Characters.recost attr with 
+            try assoc Xml.Characters.recost attr with 
             Not_found -> " "
         in
         let lst = 
             match cont with
-            | #Tags.structured as x -> 
-                    let x = Tags.eagerly_compute x in
+            | #Xml.structured as x -> 
+                    let x = Xml.eagerly_compute x in
                     Sexpr.to_list x
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
@@ -577,7 +577,7 @@ let node_to_formater st ((tag, attr, cont) : Tags.xml) =
         let lst = [|"@{<u>Characters@}"; "@{<u>Class@}"; 
         "@{<u>Cost@}"; "@{<u>Rearrangement Cost@}"; 
         "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; 
-        "@{<u>States@}"|] :: (List.map (Array.map Tags.value_to_string) lst)
+        "@{<u>States@}"|] :: (List.map (Array.map Xml.value_to_string) lst)
         in
         Status.user_message st ("@\n@\n@[<v 0>@{<b>" ^ name ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Cost " ^ cost ^ "@}@\n");
@@ -592,18 +592,18 @@ let node_to_formater st ((tag, attr, cont) : Tags.xml) =
 
 let forest_to_formater st ((tag, attr, cont) as v) =
     let find x y = 
-        try Tags.value_to_string (List.assoc x y) with Not_found -> " " 
+        try Xml.value_to_string (List.assoc x y) with Not_found -> " " 
     in
-    let cost = find Tags.Characters.cost attr in
-    let recost = find Tags.Characters.recost attr in
+    let cost = find Xml.Characters.cost attr in
+    let recost = find Xml.Characters.recost attr in
     match cont with
-    | #Tags.structured ->
+    | #Xml.structured ->
             let rec do_nodes ((tag, _, cont) as x) =
-                if tag = Tags.Nodes.node then node_to_formater st x
+                if tag = Xml.Nodes.node then node_to_formater st x
                 else 
                     match cont with
-                    | #Tags.structured as v -> 
-                            let v = Tags.eagerly_compute v in
+                    | #Xml.structured as v -> 
+                            let v = Xml.eagerly_compute v in
                             Sexpr.leaf_iter do_nodes v
                     | _ -> ()
             in
@@ -617,7 +617,7 @@ let forest_to_formater st ((tag, attr, cont) as v) =
             raise (Illegal_formater "forest_to_formater")
 
 let trees_to_formater st ((tag, _, _) as r) =
-    if tag = Tags.Trees.forest || tag = Tags.Trees.tree then
+    if tag = Xml.Trees.forest || tag = Xml.Trees.tree then
         forest_to_formater st r
     else raise (Illegal_formater "trees_to_formater")
 
@@ -630,7 +630,7 @@ let trees_to_formater filename fo_ls tree =
             match filename with | Some x -> x | None -> assert false in
         let ch = StatusCommon.Files.channel filename in
         match ch with
-        | `NotCompressed ch -> Tags.to_file ch tree
+        | `NotCompressed ch -> Xml.to_file ch tree
         | `Zlib ch -> 
                 failwith "Output fo XML in compressed format is not supported"
     else trees_to_formater st tree

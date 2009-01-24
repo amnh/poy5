@@ -92,11 +92,11 @@ let decoder c =
             (float_of_int len) /. (log 2.)
             
 
-let to_formatter t : Tags.xml Sexpr.t =
-    `Single (Tags.KolSpecs.int_set, 
-    [(Tags.KolSpecs.min, `Int t.min); 
-    (Tags.KolSpecs.max, `Int t.max);
-    (Tags.KolSpecs.prob, `Float (decoder t))], `Empty)
+let to_formatter t : Xml.xml Sexpr.t =
+    `Single (Xml.KolSpecs.int_set, 
+    [(Xml.KolSpecs.min, `Int t.min); 
+    (Xml.KolSpecs.max, `Int t.max);
+    (Xml.KolSpecs.prob, `Float (decoder t))], `Empty)
 
 let bounds x = x.min, x.max
 

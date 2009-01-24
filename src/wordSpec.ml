@@ -64,10 +64,10 @@ let to_list w =
     done;
     !res
 
-let to_formatter t : Tags.xml Sexpr.t =
+let to_formatter t : Xml.xml Sexpr.t =
     `Single 
-    (((Tags.KolSpecs.word_set, 
-    [(Tags.KolSpecs.min, `Int t.minlen);
-    (Tags.KolSpecs.max, `Int t.maxlen)], 
-    (AlphSpec.to_formatter t.alph :> Tags.xml Tags.contents ))) : 
-        Tags.xml)
+    (((Xml.KolSpecs.word_set, 
+    [(Xml.KolSpecs.min, `Int t.minlen);
+    (Xml.KolSpecs.max, `Int t.maxlen)], 
+    (AlphSpec.to_formatter t.alph :> Xml.xml Xml.contents ))) : 
+        Xml.xml)

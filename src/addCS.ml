@@ -434,8 +434,8 @@ let state_to_xml ch c (_ : Data.d) =
     let c = to_list_with_cost c in
     List.iter print_character c
 
-let to_formatter attr c parent d : Tags.xml Sexpr.t list =
-    let module T = Tags.Characters in
+let to_formatter attr c parent d : Xml.xml Sexpr.t list =
+    let module T = Xml.Characters in
     let c_ls = to_list c in   
     let c_parent_ls = match parent with 
     | Some parent -> to_list parent  

@@ -22,7 +22,7 @@
 * This module specifies a lightweight version of a tree that can be used to
 * express sets of data in tree like form. The module uses polymorphic variant
 * types to eliminate the possibility of circular dependencies, and simplify the
-* use of more complex structured types, like those defined in the [Tags] module.
+* use of more complex structured types, like those defined in the [Xml] module.
 * *)
 
 

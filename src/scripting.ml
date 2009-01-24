@@ -135,7 +135,7 @@ module type S = sig
 
             (* Produce a hash table of terminals and their corresponding samples, as
             * read from a csv file *)
-            val csv : string -> (Tags.unstructured, sample) Hashtbl.t
+            val csv : string -> (Xml.unstructured, sample) Hashtbl.t
         end
 
         module KTree : sig
@@ -148,12 +148,12 @@ module type S = sig
             * and geographic information associated with it. The leaves are exactly the
             * input data, while the interior vertices are computed by POY or user
             * provided plugins. *)
-            type simplified_topology = (Tags.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
 
             (* The represenatation of the name of a node. We don't use plain strings
             * because they would make the generation of the XML a little bit too verbose
             * *)
-            type node_name = Tags.unstructured 
+            type node_name = Xml.unstructured 
 
             (* The topology of a tree, with the simplified version of the topology, and
             * quick access to the nodes of the tree, and the ancestors. This suplies
@@ -161,8 +161,8 @@ module type S = sig
             * the ancestor of a tree or quickly reaching a particular vertex of the
             * tree). *)
             type topology =
-                { ancestors : (Tags.unstructured, Tags.xml Tags.contents option) Hashtbl.t;
-                nodes : (Tags.unstructured, Tags.xml) Hashtbl.t;
+                { ancestors : (Xml.unstructured, Xml.xml Xml.contents option) Hashtbl.t;
+                nodes : (Xml.unstructured, Xml.xml) Hashtbl.t;
                 topo : simplified_topology }
 
 
@@ -178,7 +178,7 @@ module type S = sig
             (* [ancestor topology vertex] gets the ancestor of the [vertex] in the
             * [topology]. The output is optional as the root of the tree has no
             * ancestor. *)
-            val ancestor : topology -> node_name -> Tags.xml Tags.contents option
+            val ancestor : topology -> node_name -> Xml.xml Xml.contents option
 
             (* [children topology vertex] gets the pair of the vertex [vertex] in the
             * [topology]. The output is optional as the leaves of the tree have no
@@ -192,7 +192,7 @@ module type S = sig
 
             (** [node topology vertex] extracts all the data about [vertex] contained 
             * in the original phylogeny as stored in [topology]. *)
-            val node : topology -> node_name -> Tags.xml
+            val node : topology -> node_name -> Xml.xml
 
 
             (** [is_root topology vertex] is true iff [vertex] is the root of the
@@ -213,8 +213,8 @@ module type S = sig
             * the [topology]. [data] is provided in case the specification of some of
             * the characters in [vertex] or the [vertex] itself is needed. *)
             type node_information = 
-                Data.d -> KTree.topology -> Tags.unstructured -> 
-                    [ Tags.unstructured | Tags.xml Tags.structured ]
+                Data.d -> KTree.topology -> Xml.unstructured -> 
+                    [ Xml.unstructured | Xml.xml Xml.structured ]
 
             (** [create_node node_information data topology vertex parent_sample
             *   child1_sample child2_sample vertex_sample] produces the XML structure
@@ -226,10 +226,10 @@ module type S = sig
             *   edges connected with it. *)
             type create_node =
                     node_information -> Data.d -> KTree.topology ->
-                    Tags.xml -> TemporalGIS.sample option -> 
+                    Xml.xml -> TemporalGIS.sample option -> 
                         TemporalGIS.sample option ->
                         TemporalGIS.sample option ->TemporalGIS.sample -> 
-                            Tags.xml Sexpr.t
+                            Xml.xml Sexpr.t
 
 
             (** [adjust_tree simple_topology] beautifies the location of the vertices in
@@ -237,7 +237,7 @@ module type S = sig
             type adjust_tree = KTree.simplified_topology -> KTree.simplified_topology
 
             (** [styles ()] produces all the styles used in the KML. *)
-            type styles = unit -> Tags.xml Sexpr.t
+            type styles = unit -> Xml.xml Sexpr.t
 
             type folder = {
                 name : string;
@@ -273,7 +273,7 @@ module type S = sig
 
 
             val create_line : TemporalGIS.sample option -> TemporalGIS.sample -> 
-                Tags.xml Tags.contents
+                Xml.xml Xml.contents
         end
     end
     type r = (a, b, c) run
@@ -585,7 +585,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
         module KTree = struct
 
-            type node_name = Tags.unstructured 
+            type node_name = Xml.unstructured 
             let index_formatter data tree =
                 let tree = TreeOps.to_formatter [] data tree in
                 let nodes =
@@ -602,7 +602,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 in
                 let tbl = Hashtbl.create 1667 in
                 List.iter (fun node -> 
-                    let name = Tags.attribute Tags.Nodes.name node in
+                    let name = Xml.attribute Xml.Nodes.name node in
                     Hashtbl.add tbl name node) nodes;
                 tbl
 
@@ -712,10 +712,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                     let name = 
                         match tree with
                         | Parser.Tree.Leaf (x, _) ->
-                                Tags.attribute Tags.Nodes.name x
+                                Xml.attribute Xml.Nodes.name x
                         | Parser.Tree.Node (chld, (x, _)) ->
-                                let name = Tags.attribute Tags.Nodes.name x in
-                                List.iter (aux (Some (name :> Tags.xml Tags.contents))) chld;
+                                let name = Xml.attribute Xml.Nodes.name x in
+                                List.iter (aux (Some (name :> Xml.xml Xml.contents))) chld;
                                 name
                     in
                     Hashtbl.add res name parent;
@@ -723,10 +723,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 aux None tree;
                 res
 
-            type simplified_topology = (Tags.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
             type topology = 
-                { ancestors : (Tags.unstructured, Tags.xml Tags.contents option) Hashtbl.t;
-                  nodes : (Tags.unstructured, Tags.xml) Hashtbl.t; 
+                { ancestors : (Xml.unstructured, Xml.xml Xml.contents option) Hashtbl.t;
+                  nodes : (Xml.unstructured, Xml.xml) Hashtbl.t; 
                   topo : simplified_topology; } 
 
 
@@ -745,7 +745,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 let (_, attrs, _) = Hashtbl.find topo.nodes node in
                 match 
                 List.filter (fun (x, _) ->
-                    x = Tags.Nodes.child1_name || x = Tags.Nodes.child2_name) attrs
+                    x = Xml.Nodes.child1_name || x = Xml.Nodes.child2_name) attrs
                 with
                 | [] -> None
                 | [(_, `String ""); (_, `String "")] -> None
@@ -756,7 +756,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 let ance = ancestor topo node in
                 match ance with
                 | None -> None
-                | Some (#Tags.unstructured as ance) ->
+                | Some (#Xml.unstructured as ance) ->
                     let children = children topo ance in
                     (match children with
                     | Some (a, b) ->
@@ -785,7 +785,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             (* A function to generate the summary of the immediate neighbors of a node
             * *)
-            let family_summary topology node () : Tags.xml Sexpr.t =
+            let family_summary topology node () : Xml.xml Sexpr.t =
                 let do_row title contents =
                     let c = 
                         match contents with
@@ -796,7 +796,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                         -tr -td (align=right) -font (size="+1") [`String title] -- --
                             -td -a 
                                 (href=[`String ("#pm_" ^ c)])
-                            [(contents :> Tags.xml Tags.contents)] -- --
+                            [(contents :> Xml.xml Xml.contents)] -- --
                         --)
                 in
                 let make_pair (l, r) = `Set [do_row "Descendant:" l; do_row "Descendant:" r] in
@@ -832,7 +832,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
             let transforms_text data tree node () =
                 (* How will the transformations look like *)
                 let ancestor = KTree.ancestor tree node in
-                let coherce x  = (x :> Tags.xml Tags.contents) in
+                let coherce x  = (x :> Xml.xml Xml.contents) in
                 match ancestor with
                 | None -> 
                         (* We are at the root, we don't show any transforms *)
@@ -840,26 +840,26 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 | Some ancestor ->
                         let ancestor = 
                             match ancestor with
-                            | #Tags.unstructured as ancestor -> KTree.node tree ancestor
+                            | #Xml.unstructured as ancestor -> KTree.node tree ancestor
                             | _ -> assert false
                         and node = KTree.node tree node in
                         (* Good, so we have to traverse the list of characters and do
                         * accordingly *)
                         let process_pair node ancestor =
-                            let tag = Tags.tag node in
-                            assert (tag = (Tags.tag ancestor));
+                            let tag = Xml.tag node in
+                            assert (tag = (Xml.tag ancestor));
                             (* We define a function that processes a pair of characters,
                             * we filter what we are interested on *)
                             let use_final = 
-                                tag = Tags.Characters.nonadditive || 
-                                tag = Tags.Characters.additive || 
-                                tag = Tags.Characters.sankoff
+                                tag = Xml.Characters.nonadditive || 
+                                tag = Xml.Characters.additive || 
+                                tag = Xml.Characters.sankoff
                             in
-                            let cost = Tags.attribute Tags.Characters.cost node
-                            and name = Tags.attribute Tags.Characters.name node in
-                            let clas = Tags.attribute Tags.Characters.cclass node in
+                            let cost = Xml.attribute Xml.Characters.cost node
+                            and name = Xml.attribute Xml.Characters.name node in
+                            let clas = Xml.attribute Xml.Characters.cclass node in
                             assert (clas = 
-                                Tags.attribute Tags.Characters.cclass ancestor);
+                                Xml.attribute Xml.Characters.cclass ancestor);
                             let costn =
                                 match cost with
                                 | `FloatFloatTuple (costn, _)
@@ -868,21 +868,21 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                 | _ -> 0.
                             in
                             if costn > 0. && use_final && 
-                            ((`String Tags.Nodes.final) = clas) then
+                            ((`String Xml.Nodes.final) = clas) then
                                 (* A function to ge the list of states contained 
                                 * in a node *)
                                 let get_chars x =
                                     x 
-                                    --> Tags.children Tags.Characters.value 
-                                    --> Sexpr.map Tags.value
-                                    --> Sexpr.map Tags.value_to_string
+                                    --> Xml.children Xml.Characters.value 
+                                    --> Sexpr.map Xml.value
+                                    --> Sexpr.map Xml.value_to_string
                                     --> Sexpr.to_list
                                     --> String.concat ";" 
                                 in
                                 let node_chars = get_chars node
                                 and ance_chars = get_chars ancestor in
                                 let t = 
-                                    let name = Tags.value_to_string name in
+                                    let name = Xml.value_to_string name in
                                     let code = Data.character_code name data in
                                     let alph = Data.get_alphabet data code in
                                     let alph = Alphabet.to_sequential alph in
@@ -911,9 +911,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                     -td (align=left) (bgcolor=[gray]) { coherce t } --
                                     -td (align=left) (bgcolor=[white]) { coherce cost } -- --)
                             else if costn > 0. && 
-                                (`String Tags.Nodes.single) = clas then
+                                (`String Xml.Nodes.single) = clas then
                                 let get_chars x = 
-                                    x --> Tags.value --> Tags.value_to_string
+                                    x --> Xml.value --> Xml.value_to_string
                                 in
                                 let ance_chars = get_chars ancestor
                                 and node_chars = get_chars node in
@@ -935,7 +935,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                             | `Delayed f -> Sexpr.to_list (f ())
                             | #Sexpr.t as n -> Sexpr.to_list n
                             | `CDATA _
-                            | #Tags.unstructured -> []
+                            | #Xml.unstructured -> []
                         in
                         let node_characters = get_list_of_all_characters node 
                         and ance_characters = get_list_of_all_characters ancestor in
@@ -993,15 +993,15 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
             (* A function that generates the contents that should be printed in the node
             * ballon box of the KML files.  *)
             type node_information = 
-                Data.d -> KTree.topology -> Tags.unstructured -> 
-                    [ Tags.unstructured | Tags.xml Tags.structured ]
+                Data.d -> KTree.topology -> Xml.unstructured -> 
+                    [ Xml.unstructured | Xml.xml Xml.structured ]
 
             let place_node (associated_info : node_information) data tree node parent_gis left_gis right_gis gis 
-            : Tags.xml Sexpr.t =
-                let name = Tags.attribute Tags.Nodes.name node in
+            : Xml.xml Sexpr.t =
+                let name = Xml.attribute Xml.Nodes.name node in
                 let is_root = KTree.is_root tree name in
-                let id = Tags.value_to_string name in
-                let summary : Tags.xml Tags.contents =
+                let id = Xml.value_to_string name in
+                let summary : Xml.xml Xml.contents =
                     (PXML { PCDATA {associated_info data tree name} }) 
                 in
                 (PXML 
@@ -1094,7 +1094,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 in
                 (PXML { set [a; b; c; d; e] })
 
-            let base_ml style name contents : Tags.xml Sexpr.t =
+            let base_ml style name contents : Xml.xml Sexpr.t =
                 (PXML 
                     -kml (xmlns="http://earth.google.com/kml/2.0")
                         -Document
@@ -1107,14 +1107,14 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
             (* A function to produce a node in the sphere. *)
             type create_node =
                     node_information -> Data.d -> KTree.topology ->
-                    Tags.xml -> TemporalGIS.sample option -> 
+                    Xml.xml -> TemporalGIS.sample option -> 
                         TemporalGIS.sample option ->
                         TemporalGIS.sample option ->TemporalGIS.sample -> 
-                            Tags.xml Sexpr.t
+                            Xml.xml Sexpr.t
 
             type adjust_tree = KTree.simplified_topology -> KTree.simplified_topology
 
-            type styles = unit -> Tags.xml Sexpr.t
+            type styles = unit -> Xml.xml Sexpr.t
 
             type folder = {
                 name : string;
@@ -1182,7 +1182,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             let () = register_plugin "default" default
 
-            let generate_kml name plugin data csv trees : Tags.xml Sexpr.t = 
+            let generate_kml name plugin data csv trees : Xml.xml Sexpr.t = 
                 let cnt = ref 0 in
                 let trees =
                     Sexpr.map (fun tree ->
@@ -1203,7 +1203,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 output_string ch "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
                 let () =
                     match kml with
-                    | `Single kml -> Tags.to_file ch kml;
+                    | `Single kml -> Xml.to_file ch kml;
                     | _ -> assert false
                 in
                 close_out ch

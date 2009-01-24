@@ -1248,7 +1248,7 @@ let get_active_ref_code tree =
     anaylzing node is the handle or handle's ancestor *)
 let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
         attr data tree node_id 
-        (parent_data : (Node.node_data * Node.node_data) option) : Tags.xml =
+        (parent_data : (Node.node_data * Node.node_data) option) : Xml.xml =
     match Ptree.get_node node_id tree with
     | Tree.Interior (_, parent_id, c1, c2)  ->
             let node_data = Ptree.get_node_data node_id tree
@@ -1284,7 +1284,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 [] data tree c2 (Some (node_data, my_single_assignment))
             in
             let c1st = `Single child1_formatter and c2st = `Single child2_formatter in
-            (Tags.Trees.tree, [], (`Set [nodest; c1st; c2st]))
+            (Xml.Trees.tree, [], (`Set [nodest; c1st; c2st]))
     | Tree.Leaf (_, parent_id) -> 
             let node_data = Ptree.get_node_data node_id tree in
             assert (match parent_data with 
@@ -1300,7 +1300,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                     `Single node_formatter
                 with Not_found -> `Empty
             in 
-          (Tags.Trees.tree, [], nodest)
+          (Xml.Trees.tree, [], nodest)
     | Tree.Single _ ->
           let nodest = 
               let node_data = Ptree.get_node_data node_id tree in 
@@ -1310,10 +1310,10 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
               in
               `Single node_formatter
           in 
-          (Tags.Trees.tree, [], nodest)
+          (Xml.Trees.tree, [], nodest)
 
 let handle_to_formatter (pre_ref_codes, fi_ref_codes)
-        attr data tree handle_id : Tags.xml =
+        attr data tree handle_id : Xml.xml =
     let root = Ptree.get_component_root handle_id tree in
     let data = 
         match Ptree.get_node handle_id tree with
@@ -1360,15 +1360,15 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                 (`Single c1)
     in
     let attr = 
-        (Tags.Trees.cost, `Float root.Ptree.component_cost) :: attr
+        (Xml.Trees.cost, `Float root.Ptree.component_cost) :: attr
     in
-    (Tags.Trees.tree, attr, data)
+    (Xml.Trees.tree, attr, data)
 
-let to_formatter atr data tree : Tags.xml =
+let to_formatter atr data tree : Xml.xml =
         (* We don't include the cost of the tree because it comes from the three
         * directional tree attributes. *)
     let (pre_ref_codes, fi_ref_codes) = get_active_ref_code tree in
-    let tag = Tags.Trees.forest in
+    let tag = Xml.Trees.forest in
     let handles = All_sets.Integers.elements tree.Ptree.tree.Tree.handles in
     let root_recost = ref 0. in 
     let data = 
@@ -1385,7 +1385,7 @@ let to_formatter atr data tree : Tags.xml =
                    root_recost := !root_recost +. recost);
              `Single handle_formatter) handles 
     in
-    let atr = (Tags.Trees.recost, `Float !root_recost) :: atr in
+    let atr = (Xml.Trees.recost, `Float !root_recost) :: atr in
     (tag, atr, (`Set data))
 
 

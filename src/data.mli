@@ -435,19 +435,19 @@ val add_multiple_static_parsed_file : d -> (string * Parser.SC.file_output) list
 
 val get_used_observed : int -> d -> (int, int) Hashtbl.t
 
-val characters_to_formatter :  d -> Tags.xml
+val characters_to_formatter :  d -> Xml.xml
 
-val character_spec_to_formatter : specs -> Tags.xml
+val character_spec_to_formatter : specs -> Xml.xml
 
-val ignored_taxa_to_formatter : d -> Tags.xml
+val ignored_taxa_to_formatter : d -> Xml.xml
 
-val files_to_formatter : d -> Tags.xml
+val files_to_formatter : d -> Xml.xml
 
-val taxon_names_to_formatter : d -> Tags.xml
+val taxon_names_to_formatter : d -> Xml.xml
 
-val synonyms_to_formatter : d -> Tags.xml
+val synonyms_to_formatter : d -> Xml.xml
 
-val to_formatter : Tags.attributes -> d -> Tags.xml 
+val to_formatter : Xml.attributes -> d -> Xml.xml 
 
 val get_code_from_characters_restricted :
     [ `Dynamic |  `NonAdditive | `Likelihood | 

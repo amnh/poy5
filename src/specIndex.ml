@@ -78,23 +78,23 @@ let k c =
     List.fold_left ~f:process ~init:0.0 c
 
 
-type ff = Tags.xml Tags.contents 
-let to_formatter s : Tags.xml =
+type ff = Xml.xml Xml.contents 
+let to_formatter s : Xml.xml =
     let mapper (name, item) =
-        let name = (Tags.KolSpecs.spec_name, `String name) in
+        let name = (Xml.KolSpecs.spec_name, `String name) in
         match item with
         | Alph t -> 
-                let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.alphabet) in
-                ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((AlphSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
+                let clas = (Xml.KolSpecs.spec_class, `String Xml.KolSpecs.alphabet) in
+                ((`Single (Xml.KolSpecs.set_spec, [clas; name], 
+                ((AlphSpec.to_formatter t) :> ff))) : Xml.xml Sexpr.t)
         | Int t ->
-                let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.integers) in
-                ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((IntSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
+                let clas = (Xml.KolSpecs.spec_class, `String Xml.KolSpecs.integers) in
+                ((`Single (Xml.KolSpecs.set_spec, [clas; name], 
+                ((IntSpec.to_formatter t) :> ff))) : Xml.xml Sexpr.t)
         | Word t ->
-                let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.words) in
-                ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((WordSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
+                let clas = (Xml.KolSpecs.spec_class, `String Xml.KolSpecs.words) in
+                ((`Single (Xml.KolSpecs.set_spec, [clas; name], 
+                ((WordSpec.to_formatter t) :> ff))) : Xml.xml Sexpr.t)
     in
-    let items : Tags.xml Sexpr.t list = List.map mapper s in
-    (Tags.KolSpecs.spec_index, [], (`Set items))
+    let items : Xml.xml Sexpr.t list = List.map mapper s in
+    (Xml.KolSpecs.spec_index, [], (`Set items))

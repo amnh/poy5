@@ -99,7 +99,7 @@ val f_codes_comp : t -> All_sets.Integers.t -> t
 val compare_data : t -> t -> int
 val to_formatter :
   IntSet.t ->
-  Tags.attribute list -> t -> t option -> Data.d -> Tags.xml Sexpr.t list
+  Xml.attribute list -> t -> t option -> Data.d -> Xml.xml Sexpr.t list
 val get_active_ref_code : t -> IntSet.t * IntSet.t
 val to_single : IntSet.t -> t option -> t -> t -> float * float * t
 val copy_chrom_map : t -> t -> t

@@ -2176,9 +2176,9 @@ let output_total_cost ch i =
     let between () = print_endline (string_of_float i) in
     print_item print_endline "<cost>" "</cost>" between
 
-let pre = [ (Tags.Characters.cclass, `String Tags.Nodes.preliminary) ]
-let fin = [ (Tags.Characters.cclass, `String Tags.Nodes.final) ]
-let sing = [ (Tags.Characters.cclass, `String Tags.Nodes.single) ]
+let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
+let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
+let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
@@ -2338,7 +2338,7 @@ let get_active_ref_code node_data =
         ) (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) node_data.characters 
 
 let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d 
-    (cs , cs_single) (parent_cs : (cs * cs) option) : Tags.xml Sexpr.t list = 
+    (cs , cs_single) (parent_cs : (cs * cs) option) : Xml.xml Sexpr.t list = 
     match cs,  parent_cs, cs_single with
     | Nonadd8 cs, _, _ -> begin
           match parent_cs with 
@@ -2422,16 +2422,16 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
               KolmoCS.to_formatter fi_ref_codes  fin x.final d
     | Set x, _, Set x_single ->
           let attributes =
-              [(Tags.Characters.name, `String (Data.code_character x.final.sid d))] in
+              [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
           let sub a = 
               (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
               * error, though I can't see where ... *)
               (cs_to_formatter (pre_ref_codes, fi_ref_codes) d a None) 
           in
-          let sub : (Tags.xml Sexpr.t list) = List.map2 (fun a b -> `Set
+          let sub : (Xml.xml Sexpr.t list) = List.map2 (fun a b -> `Set
           (sub (a, b))) x.final.set x_single.final.set in
           let cont = `Set sub in
-          [`Single (Tags.Characters.set, attributes, cont)]
+          [`Single (Xml.Characters.set, attributes, cont)]
     | StaticMl cs,_, _ -> 
         IFDEF USE_LIKELIHOOD THEN
         begin
@@ -2466,8 +2466,8 @@ let cmp_subtree_recost node_data =
 
 
 let to_formatter_single (pre_ref_codes, fi_ref_codes) 
-    (acc : Tags.attributes) 
-    d (node_data, node_single) (node_id : int) parent_data : Tags.xml =
+    (acc : Xml.attributes) 
+    d (node_data, node_single) (node_id : int) parent_data : Xml.xml =
     let get_node_name id = 
         try Data.code_taxon id d 
         with | Not_found -> string_of_int id 
@@ -2494,7 +2494,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
         (List.map2 (fun a b -> a, b) 
         node_data.characters node_single.characters))))
     in
-    let module T = Tags.Nodes in
+    let module T = Xml.Nodes in
     (RXML 
         -[T.node]
             ([T.cost] = 0.)
@@ -2532,7 +2532,7 @@ let copy_chrom_map source des =
 let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         acc d (node_data, node_single) node_id (child1_id,  child1_node_data)
         (child2_id,  child2_node_data) (parent_node_data_opt : (node_data *
-        node_data) option) : Tags.xml =
+        node_data) option) : Xml.xml =
 
     let get_node_name id =  
         try Data.code_taxon id d with 
@@ -2552,8 +2552,8 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         child1_recost +. 
         child2_recost +. 
         (cmp_node_recost node_data) in 
-    let module T = Tags.Nodes in
-    let attr : Tags.attributes = 
+    let module T = Xml.Nodes in
+    let attr : Xml.attributes = 
         (AXML
             ([T.cost] =
                  [match parent_node_data_opt with 
@@ -2568,7 +2568,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
             ([T.notu] = [`Int node_data.num_otus])
             ([acc]))
     in
-    let children : Tags.xml Tags.contents =
+    let children : Xml.xml Xml.contents =
         `Delayed (fun () ->
         `Set (fst (List.fold_left 
         (fun (acc, idx) cs ->

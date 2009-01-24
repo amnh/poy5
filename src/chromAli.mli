@@ -79,9 +79,9 @@ val print_median : med_t list -> string -> unit
 
 (** [create_map anc_med des_ref] creates a map from the 
 * ancestor sequence  [anc_med] to descendant sequence whose ref_code is [des_ref]*)
-val create_map : med_t -> int -> int * int * Tags.xml
+val create_map : med_t -> int -> int * int * Xml.xml
 
-val create_single_map : med_t -> Tags.xml
+val create_single_map : med_t -> Xml.xml
 
 (** [create_global_map seq1 seq2 cost_mat ali_pam] creates the 
 *  global map between two chromosomes [seq1] and [seq2] 

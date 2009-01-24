@@ -1996,11 +1996,11 @@ let get_used_observed code d =
     | Some x -> x
     | None -> failwith "Data.get_used_observed"
 
-let make_value_formatter x = (PXML -[Tags.Data.value][`String x]--)
+let make_value_formatter x = (PXML -[Xml.Data.value][`String x]--)
 
-let synonyms_to_formatter d : Tags.xml =
-    let module T = Tags.Data in
-    let synonym t1 t2 acc : Tags.xml Sexpr.t list =
+let synonyms_to_formatter d : Xml.xml =
+    let module T = Xml.Data in
+    let synonym t1 t2 acc : Xml.xml Sexpr.t list =
         (PXML -[T.synonym]
             { make_value_formatter t1 }
             { make_value_formatter t2 } --) :: acc
@@ -2008,8 +2008,8 @@ let synonyms_to_formatter d : Tags.xml =
     let res = All_sets.StringMap.fold synonym d.synonyms [] in
     (RXML -[T.synonyms] { set res }--)
 
-let taxon_names_to_formatter d : Tags.xml =
-    let module T = Tags.Data in
+let taxon_names_to_formatter d : Xml.xml =
+    let module T = Xml.Data in
     let taxon_name code name acc =
         if All_sets.Strings.mem name d.ignore_taxa_set then acc
         else
@@ -2020,16 +2020,16 @@ let taxon_names_to_formatter d : Tags.xml =
     let res = All_sets.IntegerMap.fold taxon_name d.taxon_codes [] in
     (RXML -[T.taxa] { set res } --)
 
-let files_to_formatter d : Tags.xml =
-    let module T = Tags.Data in
-    let file (f, contents) : Tags.xml Sexpr.t =
+let files_to_formatter d : Xml.xml =
+    let module T = Xml.Data in
+    let file (f, contents) : Xml.xml Sexpr.t =
         let aux item =
             let tmp = 
                 `String 
                     (match item with
-                    | Characters -> Tags.Data.characters
-                    | CostMatrix -> Tags.Data.cost_matrix
-                    | Trees -> Tags.Data.trees)
+                    | Characters -> Xml.Data.characters
+                    | CostMatrix -> Xml.Data.cost_matrix
+                    | Trees -> Xml.Data.trees)
             in
             (PXML -[T.file_contents] [tmp] --)
         in
@@ -2038,25 +2038,25 @@ let files_to_formatter d : Tags.xml =
     in
     (RXML -[T.files] { set List.map file d.files } --)
 
-let ignored_taxa_to_formatter d : Tags.xml = 
-    let module T = Tags.Data in
+let ignored_taxa_to_formatter d : Xml.xml = 
+    let module T = Xml.Data in
     let taxon x acc = (make_value_formatter x) :: acc in
     let res = All_sets.Strings.fold taxon d.ignore_taxa_set [] in
     (RXML -[T.ignored_taxa] { set res } --)
 
-let ignored_characters_to_formatter d : Tags.xml = 
-    let module T = Tags.Data in
+let ignored_characters_to_formatter d : Xml.xml = 
+    let module T = Xml.Data in
     let res = List.map make_value_formatter d.ignore_character_set in
     (RXML -[T.ignored_characters] { set res } --)
 
-let states_set_to_formatter enc : Tags.xml = 
-    let module T = Tags.Characters in
+let states_set_to_formatter enc : Xml.xml = 
+    let module T = Xml.Characters in
     let set = Parser.OldHennig.Encoding.get_set enc in
     let add item acc = (PXML -[T.state] ([T.value] = [`Int item]) --) :: acc in
     (RXML -[T.states] { set All_sets.Integers.fold add set [] } --)
 
 let pam_spec_to_formatter (state : dyna_state_t) pam =
-    let module T = Tags.Characters in
+    let module T = Xml.Characters in
     let option_to_string contents = function
         | Some x -> contents x
         | None -> assert false
@@ -2115,8 +2115,8 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
             ([T.approx] = [handle_bool pam.approx])
             ([T.symmetric] =  [handle_bool pam.symmetric]))
 
-let character_spec_to_formatter enc : Tags.xml =
-    let module T = Tags.Characters in
+let character_spec_to_formatter enc : Xml.xml =
+    let module T = Xml.Characters in
     match enc with
     | Kolmogorov d ->
             (RXML -[T.kolmogorov]
@@ -2143,13 +2143,13 @@ let character_spec_to_formatter enc : Tags.xml =
                 ([T.initial_assignment] = [initial])
                 ([T.tcm] = [`String dspec.tcm])
                 ([T.gap_opening] = [`String dspec.fo])
-                ([Tags.Characters.weight] = [`Float dspec.weight])
+                ([Xml.Characters.weight] = [`Float dspec.weight])
                 ([pam_spec_to_formatter dspec.state dspec.pam])
                 { single Alphabet.to_formatter dspec.alph } --)
     | Set -> failwith "TODO Set in Data.character_spec_to_formatter"
 
-let characters_to_formatter d : Tags.xml =
-    let module T = Tags.Data in
+let characters_to_formatter d : Xml.xml =
+    let module T = Xml.Data in
     let create code name acc =
         let enc = 
             try Hashtbl.find d.character_specs code with
@@ -2165,8 +2165,8 @@ let characters_to_formatter d : Tags.xml =
     in
     (RXML -[T.characters] { set Hashtbl.fold create d.character_codes [] } --)
 
-let to_formatter attr d : Tags.xml =
-    (RXML -[Tags.Data.data] ([attr]) 
+let to_formatter attr d : Xml.xml =
+    (RXML -[Xml.Data.data] ([attr]) 
         { single taxon_names_to_formatter d }
         { single synonyms_to_formatter d }
         { single ignored_taxa_to_formatter d }

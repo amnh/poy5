@@ -1948,7 +1948,7 @@ let compare_data a b =
 
 let ( --> ) a b = b a 
 
-let to_formatter attr t do_to_single d : Tags.xml Sexpr.t list = 
+let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list = 
     let h = t.heuristic in
     let rec output_sequence acc code seq do_to_single =
         let one_sequence (cmin, cmax, ccost, seqs) par seq =
@@ -2065,7 +2065,7 @@ let to_formatter attr t do_to_single d : Tags.xml Sexpr.t list =
             if max > 0. then  `String "true"
             else `String "false"
         in 
-        let module T = Tags.Characters in
+        let module T = Xml.Characters in
         (PXML 
             -[T.sequence] 
                 (* Attributes *)

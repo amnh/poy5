@@ -150,7 +150,7 @@ val to_list : a -> (string * int) list
 
 (** [to_formatter a] produce a text-only representation of the alphabet [a].
 * Useful for uniform end-user reporting. *)
-val to_formatter : a -> Tags.xml
+val to_formatter : a -> Xml.xml
 
 module Lexer : sig
 

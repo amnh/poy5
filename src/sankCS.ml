@@ -512,12 +512,12 @@ let dist_2 r a d =
     done;
     !acc
 
-let elt_to_formatter attr d tcm elt elt_parent : Tags.xml Sexpr.t =
-    let module T = Tags.Characters in
+let elt_to_formatter attr d tcm elt elt_parent : Xml.xml Sexpr.t =
+    let module T = Xml.Characters in
     match attr with
     | [_, `String x] -> 
             let cost, lst =
-                if x = Tags.Nodes.preliminary then
+                if x = Xml.Nodes.preliminary then
                     (* In this case we just pick the smallest of all mine *)
                     let lst = ref []
                     and cost = ref infinity in
@@ -530,7 +530,7 @@ let elt_to_formatter attr d tcm elt elt_parent : Tags.xml Sexpr.t =
                             else ()) elt.s
                     in
                     !cost, !lst
-                else if x = Tags.Nodes.final then 
+                else if x = Xml.Nodes.final then 
                     let of_parent = elt_parent.best_states in
                     let (_, cost, lst) = Array.fold_left (fun ((pos, min, minlist)  as acc) x ->
                         let of_parent =
@@ -574,7 +574,7 @@ let elt_to_formatter attr d tcm elt elt_parent : Tags.xml Sexpr.t =
     | _ -> assert false
 
 
-let to_formatter attr a (parent : t option) d : Tags.xml Sexpr.t list =
+let to_formatter attr a (parent : t option) d : Xml.xml Sexpr.t list =
     let items = Array.to_list a.elts in
     let items_parent = match parent with 
     | Some parent -> Array.to_list parent.elts 

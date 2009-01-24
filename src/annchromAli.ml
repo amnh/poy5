@@ -803,22 +803,22 @@ let create_map med child_ref =
                  | true -> (str med.ref_code1), (str m.seq_ord1)
                  | false -> (str med.ref_code2), (str m.seq_ord2)
              in 
-             let attributes = [(Tags.GenomeMap.a_ref_code, p_ref_code);
-                               (Tags.GenomeMap.a_seq_order, p_seq_ord);
-                               (Tags.GenomeMap.a_dir_seg, `String "+");
-                               (Tags.GenomeMap.d_ref_code, c_ref_code); 
-                               (Tags.GenomeMap.d_seq_order, c_seq_ord);
-                               (Tags.GenomeMap.d_dir_seg, `String "+")
+             let attributes = [(Xml.GenomeMap.a_ref_code, p_ref_code);
+                               (Xml.GenomeMap.a_seq_order, p_seq_ord);
+                               (Xml.GenomeMap.a_dir_seg, `String "+");
+                               (Xml.GenomeMap.d_ref_code, c_ref_code); 
+                               (Xml.GenomeMap.d_seq_order, c_seq_ord);
+                               (Xml.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
-             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Xml.xml = (Xml.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) med.seq_arr
     in 
 
 
-    let chrom_map : Tags.xml = 
-        (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
+    let chrom_map : Xml.xml = 
+        (Xml.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     match child_ref = med.ref_code1 with
     | true -> med.cost1, med.recost1, chrom_map
@@ -834,22 +834,22 @@ let create_single_map med =
                  (str med.ref_code1), (str m.seq_ord1)
              in 
 
-             let attributes = [(Tags.GenomeMap.a_ref_code, p_ref_code);
-                               (Tags.GenomeMap.a_seq_order, p_seq_ord);
-                               (Tags.GenomeMap.a_dir_seg, `String "+");
-                               (Tags.GenomeMap.d_ref_code, c_ref_code); 
-                               (Tags.GenomeMap.d_seq_order, c_seq_ord);
-                               (Tags.GenomeMap.d_dir_seg, `String "+")
+             let attributes = [(Xml.GenomeMap.a_ref_code, p_ref_code);
+                               (Xml.GenomeMap.a_seq_order, p_seq_ord);
+                               (Xml.GenomeMap.a_dir_seg, `String "+");
+                               (Xml.GenomeMap.d_ref_code, c_ref_code); 
+                               (Xml.GenomeMap.d_seq_order, c_seq_ord);
+                               (Xml.GenomeMap.d_dir_seg, `String "+")
                               ] 
              in 
-             let m : Tags.xml = (Tags.GenomeMap.seg, attributes, `String "") in 
+             let m : Xml.xml = (Xml.GenomeMap.seg, attributes, `String "") in 
              `Single m
         ) med.seq_arr
     in 
 
 
-    let chrom_map : Tags.xml = 
-        (Tags.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
+    let chrom_map : Xml.xml = 
+        (Xml.GenomeMap.chrom, [], (`Set  (Array.to_list seq_arr))) 
     in 
     chrom_map
 

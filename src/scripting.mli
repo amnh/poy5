@@ -98,7 +98,7 @@ type tree = (a, b) Ptree.p_tree
 
             (* Produce a hash table of terminals and their corresponding samples, as
             * read from a csv file *)
-            val csv : string -> (Tags.unstructured, sample) Hashtbl.t
+            val csv : string -> (Xml.unstructured, sample) Hashtbl.t
         end
 
         module KTree : sig
@@ -111,12 +111,12 @@ type tree = (a, b) Ptree.p_tree
             * and geographic information associated with it. The leaves are exactly the
             * input data, while the interior vertices are computed by POY or user
             * provided plugins. *)
-            type simplified_topology = (Tags.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
 
             (* The represenatation of the name of a node. We don't use plain strings
             * because they would make the generation of the XML a little bit too verbose
             * *)
-            type node_name = Tags.unstructured 
+            type node_name = Xml.unstructured 
 
             (* The topology of a tree, with the simplified version of the topology, and
             * quick access to the nodes of the tree, and the ancestors. This suplies
@@ -124,8 +124,8 @@ type tree = (a, b) Ptree.p_tree
             * the ancestor of a tree or quickly reaching a particular vertex of the
             * tree). *)
             type topology =
-                { ancestors : (Tags.unstructured, Tags.xml Tags.contents option) Hashtbl.t;
-                nodes : (Tags.unstructured, Tags.xml) Hashtbl.t;
+                { ancestors : (Xml.unstructured, Xml.xml Xml.contents option) Hashtbl.t;
+                nodes : (Xml.unstructured, Xml.xml) Hashtbl.t;
                 topo : simplified_topology }
 
 
@@ -141,7 +141,7 @@ type tree = (a, b) Ptree.p_tree
             (* [ancestor topology vertex] gets the ancestor of the [vertex] in the
             * [topology]. The output is optional as the root of the tree has no
             * ancestor. *)
-            val ancestor : topology -> node_name -> Tags.xml Tags.contents option
+            val ancestor : topology -> node_name -> Xml.xml Xml.contents option
 
             (* [children topology vertex] gets the pair of the vertex [vertex] in the
             * [topology]. The output is optional as the leaves of the tree have no
@@ -155,7 +155,7 @@ type tree = (a, b) Ptree.p_tree
 
             (** [node topology vertex] extracts all the data about [vertex] contained 
             * in the original phylogeny as stored in [topology]. *)
-            val node : topology -> node_name -> Tags.xml
+            val node : topology -> node_name -> Xml.xml
 
 
             (** [is_root topology vertex] is true iff [vertex] is the root of the
@@ -176,8 +176,8 @@ type tree = (a, b) Ptree.p_tree
             * the [topology]. [data] is provided in case the specification of some of
             * the characters in [vertex] or the [vertex] itself is needed. *)
             type node_information = 
-                Data.d -> KTree.topology -> Tags.unstructured -> 
-                    [ Tags.unstructured | Tags.xml Tags.structured ]
+                Data.d -> KTree.topology -> Xml.unstructured -> 
+                    [ Xml.unstructured | Xml.xml Xml.structured ]
 
             (** [create_node node_information data topology vertex parent_sample
             *   child1_sample child2_sample vertex_sample] produces the XML structure
@@ -189,10 +189,10 @@ type tree = (a, b) Ptree.p_tree
             *   edges connected with it. *)
             type create_node =
                     node_information -> Data.d -> KTree.topology ->
-                    Tags.xml -> TemporalGIS.sample option -> 
+                    Xml.xml -> TemporalGIS.sample option -> 
                         TemporalGIS.sample option ->
                         TemporalGIS.sample option ->TemporalGIS.sample -> 
-                            Tags.xml Sexpr.t
+                            Xml.xml Sexpr.t
 
 
             (** [adjust_tree simple_topology] beautifies the location of the vertices in
@@ -200,7 +200,7 @@ type tree = (a, b) Ptree.p_tree
             type adjust_tree = KTree.simplified_topology -> KTree.simplified_topology
 
             (** [styles ()] produces all the styles used in the KML. *)
-            type styles = unit -> Tags.xml Sexpr.t
+            type styles = unit -> Xml.xml Sexpr.t
 
             type folder = {
                 name : string;
@@ -236,7 +236,7 @@ type tree = (a, b) Ptree.p_tree
 
 
             val create_line : TemporalGIS.sample option -> TemporalGIS.sample -> 
-                Tags.xml Tags.contents
+                Xml.xml Xml.contents
         end
     end
 

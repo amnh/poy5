@@ -151,7 +151,7 @@ module type Tree_Operations =
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  
-        Tags.attributes -> Data.d -> (a, b) p_tree -> Tags.xml 
+        Xml.attributes -> Data.d -> (a, b) p_tree -> Xml.xml 
     (** [root_costs t] returns all possible roots in a tree (eg. every edge)
     * and the respective tree cost associated with it. *)
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list

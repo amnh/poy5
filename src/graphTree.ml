@@ -211,7 +211,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
            | (x, _, _) -> []
 
        let get_name (_, x, _) =
-           Tags.value_to_string (List.assoc "Name" x) 
+           Xml.value_to_string (List.assoc "Name" x) 
 
        let get_node (_, _, x) =
            let res = 
@@ -255,7 +255,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
 
     (** draw_diagnosis *)    
     let draw_diagnosis ?(prefix="") ?(size="") ?(leafColor=G.black) 
-    display (t : Tags.xml) =
+    display (t : Xml.xml) =
         let nodes = ref [] in
         let t =
             match t with
