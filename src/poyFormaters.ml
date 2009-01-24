@@ -512,7 +512,7 @@ let annchrom_to_formater ((tag, attr, cont) : Tags.xml) =
     end else raise (Illegal_formater ("annchrom_to_formater"))
 
 
-let likelihood_to_formater ((tag, attr, cont): Tags.output) = 
+let likelihood_to_formater ((tag, attr, cont): Tags.xml) = 
     if tag = Tags.Characters.likelihood then begin
 
         let rec _get x y = 

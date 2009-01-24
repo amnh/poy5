@@ -78,23 +78,23 @@ let k c =
     List.fold_left ~f:process ~init:0.0 c
 
 
-type ff = [ Tags.value | Tags.output Tags.struc]
-let to_formatter s : Tags.output =
+type ff = Tags.xml Tags.contents 
+let to_formatter s : Tags.xml =
     let mapper (name, item) =
         let name = (Tags.KolSpecs.spec_name, `String name) in
         match item with
         | Alph t -> 
                 let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.alphabet) in
                 ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((AlphSpec.to_formatter t) :> ff))) : Tags.output Sexpr.t)
+                ((AlphSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
         | Int t ->
                 let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.integers) in
                 ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((IntSpec.to_formatter t) :> ff))) : Tags.output Sexpr.t)
+                ((IntSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
         | Word t ->
                 let clas = (Tags.KolSpecs.spec_class, `String Tags.KolSpecs.words) in
                 ((`Single (Tags.KolSpecs.set_spec, [clas; name], 
-                ((WordSpec.to_formatter t) :> ff))) : Tags.output Sexpr.t)
+                ((WordSpec.to_formatter t) :> ff))) : Tags.xml Sexpr.t)
     in
-    let items : Tags.output Sexpr.t list = List.map mapper s in
+    let items : Tags.xml Sexpr.t list = List.map mapper s in
     (Tags.KolSpecs.spec_index, [], (`Set items))

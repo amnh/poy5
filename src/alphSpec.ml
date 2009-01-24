@@ -63,7 +63,7 @@ let decoder x =
     let len = float_of_int (List.length x) in
     ((e *. len) -. 1.0) /. (e -. 1.0)
 
-let to_formatter t : Tags.output Sexpr.t = 
+let to_formatter t : Tags.xml Sexpr.t = 
     let mapper (item, prob) =
         `Single 
             (Tags.KolSpecs.alph_element, 

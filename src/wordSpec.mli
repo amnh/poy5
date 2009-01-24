@@ -53,4 +53,4 @@ val wordlength : word:t -> elem:string -> float
 * length in the word specifications [t]. *)
 val to_list : t -> (int * float) list
 
-val to_formatter : t -> Tags.output Sexpr.t
+val to_formatter : t -> Tags.xml Sexpr.t

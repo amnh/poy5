@@ -36,7 +36,7 @@ val codes : ints:t -> codes:p -> t
 val length : ints:t -> elem:int -> float
 val to_list : t -> (int * float) list
 val decoder : t -> float
-val to_formatter : t -> Tags.output Sexpr.t
+val to_formatter : t -> Tags.xml Sexpr.t
 val bounds : t -> (int * int)
 val get_class : t -> func
 
