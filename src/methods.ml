@@ -446,6 +446,7 @@ type samples = [
     | `RootUnionDistr of string option
     | `AttemptsDistr of string option
     | `BreakVsJoin of string option
+    | `Likelihood of string option
 ]
 
 type local_opt = {

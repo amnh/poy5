@@ -7,6 +7,7 @@
         ("ANCSTATES", fun x -> ANCSTATES x);
         ("ASSUMPTIONS", fun x -> ASSUMPTIONS x);
         ("AVERAGE", fun x -> AVERAGE x);
+        ("ALPHA", fun x -> ALPHA x);
         ("BEGIN", fun x -> BEGIN x);
         ("BINHEX", fun x -> BINHEX x);
         ("BOTH", fun x -> BOTH x);
@@ -84,6 +85,7 @@
         ("NUCORDER", fun x -> NUCORDER x);
         ("OPTIONS", fun x -> OPTIONS x);
         ("PARAMETERS", fun x -> PARAMETERS x);
+        ("PERCENT", fun x -> PERCENT x);
         ("PICT", fun x -> PICT x);
         ("PICTURE", fun x -> PICTURE x);
         ("POLYTCOUNT", fun x -> POLYTCOUNT x);
@@ -95,6 +97,7 @@
         ("RNA", fun x -> RNA x);
         ("SAMPLESIZE", fun x -> SAMPLESIZE x);
         ("SETS", fun x -> SETS x);
+        ("SITES", fun x -> SITES x);
         ("SOURCE", fun x -> SOURCE x);
         ("STANDARD", fun x -> STANDARD x);
         ("STATE", fun x -> STATE x);

@@ -3702,16 +3702,24 @@ module SC = struct
                 in
 
                 (* LIKELIHOOD tag:: process model and characters *)
-                let proc_model (((name,var,param,lst,gap) as model),chars) = function
+                let proc_model (((name,((kind,site,alpha,invar) as var),
+                                    param,lst,gap) as model), chars) = function
                     | Nexus.Model name -> ((name,var,param,lst,gap),chars)
-                    | Nexus.Variation var -> ((name,var,param,lst,gap),chars)
                     | Nexus.Parameters param -> ((name,var,param,lst,gap),chars)
                     | Nexus.Chars chars -> (model,chars)
                     | Nexus.Priors lst -> ((name,var,param,lst,gap),chars)
                     | Nexus.GapMode gap -> ((name,var,param,lst,gap),chars)
+                    | Nexus.Variation kind -> 
+                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                    | Nexus.Variation_Sites site ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                    | Nexus.Variation_Alpha alpha ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                    | Nexus.Variation_Invar invar ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
                 in
                 (* verify enough data in a model *)
-                let verify_model ((name,var,param,priors,gap),chars) =
+                let verify_model ((name,(var,site,alpha,invar),param,priors,gap),chars) =
                     let submatrix = match String.uppercase name with
                         | "JC69" -> (match param with
                                 | [single] -> JC69 single
@@ -3736,8 +3744,13 @@ module SC = struct
                                             "likelihood model in nexus format")
                         | _ -> failwith "No Model Specified"
                     and variation = match String.uppercase var with
-                        | "GAMMA" | "THETA" ->
-                            failwithf "%s is not implemented yet from nexus file" var
+                        | "GAMMA" -> Gamma (int_of_string site,
+                                             float_of_string alpha,
+                                             float_of_string alpha)
+                        | "THETA" -> Theta (int_of_string site,
+                                             float_of_string alpha,
+                                             float_of_string alpha,
+                                             float_of_string invar)
                         | "NONE" | "CONSTANT" | "" | _ -> Invariant
                     and gap = match String.uppercase gap with
                         | "TRUE" -> true
@@ -3765,7 +3778,7 @@ module SC = struct
                         let m,characters_to_modify =
                             verify_model 
                                 (List.fold_left proc_model 
-                                                (("","",[],[],""),[]) 
+                                                (("",("","","",""),[],[],""),[]) 
                                                 params
                                 )
                         in
@@ -3815,7 +3828,6 @@ module SC = struct
                     matrix = matrix}
             in
             ret
-
     end
 
     module Hennig = struct

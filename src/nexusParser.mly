@@ -4,7 +4,7 @@ let mesquite_error =
     ("This@ seems@ to@ be@ a@ Mesquite@ \"NEXUS\"@ file.@ Unfortunately@ " ^
     "Mesquite@ has@ invented@ a@ new@ command@ TITLE@ that@ is@ not@ a@ " ^
     "valid@ NEXUS@ command.@ You@ will@ have@ to@ remove@ it@ by@ hand.@ " ^
-    "Your@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
+    "You@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
 let parse_error s = 
     try
         let b = (Parsing.symbol_start_pos ()) 
@@ -25,6 +25,7 @@ let report_error text b e =
     ^ e ^ " in the " ^ text)
 %}
 %token EOF
+%token <string> ALPHA
 %token <string> ANCSTATES
 %token <string> ASSUMPTIONS
 %token <string> AVERAGE
@@ -106,6 +107,7 @@ let report_error text b e =
 %token <string> NUCORDER
 %token <string> OPTIONS
 %token <string> PARAMETERS
+%token <string> PERCENT
 %token <string> POY
 %token <string> PICT
 %token <string> PICTURE
@@ -117,6 +119,7 @@ let report_error text b e =
 %token <string> RNA
 %token <string> SAMPLESIZE
 %token <string> SETS
+%token <string> SITES
 %token <string> SOURCE
 %token <string> STANDARD
 %token <string> STATE
@@ -404,6 +407,12 @@ model_block:
             { (Nexus.Model $3) :: $5 }
     | VARIATION EQUAL IDENT SEMICOLON model_block
             { (Nexus.Variation $3) :: $5 }
+    | SITES EQUAL INTEGER SEMICOLON model_block
+            { (Nexus.Variation_Sites $3) :: $5 }
+    | PERCENT EQUAL FLOAT SEMICOLON model_block
+            { (Nexus.Variation_Invar $3) :: $5 }
+    | ALPHA EQUAL FLOAT SEMICOLON model_block
+            { (Nexus.Variation_Alpha $3) :: $5 }
     | PRIORS EQUAL pairs_list_float model_block
             { (Nexus.Priors $3) :: $4 }
     | CHARSET EQUAL characterset_list SEMICOLON model_block

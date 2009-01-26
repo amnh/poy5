@@ -103,6 +103,9 @@ type assumption_items =
 type likelihood_model = 
     | Model of string
     | Variation of string
+    | Variation_Sites of string
+    | Variation_Alpha of string
+    | Variation_Invar of string
     | Priors of (string * float) list
     | Chars of charset list
     | Parameters of float list
