@@ -16,6 +16,13 @@ solutionTree: $(BASE_OBJS_OPT) compileFlags.cmx phylo.cmx ../utils/solutionTree.
 	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
 	bigarray.cmxa $^ $(LIBS) 
 
+build_benchmark: $(BASE_OBJS_OPT) compileFlags.cmx phylo.cmx ../utils/build_benchmark.cmx
+	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
+	-cclib  -L/usr/lib -cclib -L./graphps -cclib -L./  \
+	$(CCOPT) -cclib -L$(OCAMLMPI) mpi.cmxa -cclib -lcamlgrappa $(PROFILE) -o $@ \
+	$(GRAPHICS:.cma=.cmxa) camlp4fulllib.cmxa unix.cmxa str.cmxa \
+	bigarray.cmxa $^ $(LIBS) 
+
 
 splitting: $(BASE_OBJS_OPT) compileFlags.cmx phylo.cmx splitting.cmx
 	$(OCAMLOPT) $(PREPROCESSOR) $(OFLAGS) $(OCAML_INCLUDES) $(EXTRAS) -verbose -ccopt -v -cclib -L./grappa \
