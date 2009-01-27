@@ -363,6 +363,8 @@ let filename = function
     | `Local f 
     | `Remote f -> f
 
+let do_broadcast = ref true
+
 let open_in close_it opener fn = 
     StatusCommon.Files.flush ();
     if close_it then begin
@@ -375,21 +377,24 @@ let open_in close_it opener fn =
     | `Local file -> opener file
     | `Remote file ->
 IFDEF USENOSHAREDHD THEN
-            let rank = Mpi.comm_rank Mpi.comm_world in
-            let tmp = 
-                Filename.temp_file "POY" (".input_" ^ string_of_int rank) 
-            in
-            let output = open_out tmp in
-            let contents =
-                if 0 = Mpi.comm_rank Mpi.comm_world then begin
-                    read_contents opener file
-                end else Buffer.create 1
-            in
-            let file = Mpi.broadcast contents 0 Mpi.comm_world in
-            Buffer.output_buffer output file; 
-            flush output;
-            close_out output;
-            opener tmp
+            if !do_broadcast then begin
+                let rank = Mpi.comm_rank Mpi.comm_world in
+                let tmp = 
+                    Filename.temp_file "POY" 
+                    (".input_" ^ string_of_int rank) 
+                in
+                let output = open_out tmp in
+                let contents =
+                    if 0 = Mpi.comm_rank Mpi.comm_world then begin
+                        read_contents opener file
+                    end else Buffer.create 1
+                in
+                let file = Mpi.broadcast contents 0 Mpi.comm_world in
+                Buffer.output_buffer output file; 
+                flush output;
+                close_out output;
+                opener tmp
+            end else opener file
 ELSE
             opener file
 END
