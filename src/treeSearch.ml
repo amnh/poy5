@@ -469,6 +469,8 @@ module MakeNormal
                   (simplified_report_trees false filename data))
             | `KeepBestTrees ->
                     (new SamplerApp.local_optimum_holder queue)
+            | `MaxTreesEvaluated trees ->
+                    (new SamplerApp.counted_cancellation trees) 
             | `TimeOut time ->
                     (new SamplerApp.timed_cancellation time) 
             | `TimedPrint (time, filename) ->

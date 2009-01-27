@@ -236,6 +236,21 @@ module MakeApp (Node : NodeSig.S)
                 raise Methods.TimedOut
     end
 
+    class counted_cancellation max_count :
+        [Node.n, Edge.e] search_manager_sampler = object (self)
+            inherit [Node.n, Edge.e] do_nothing
+            val mutable counter = 0
+
+            method process _ _ _ _ _ _ _ _ _ =
+                counter <- counter + 1;
+                if counter <= max_count then ()
+                else raise Methods.TimedOut
+
+            method next_tree _ = 
+                counter <- counter + 1;
+                if counter <= max_count then ()
+                else raise Methods.TimedOut
+        end
 end
 
 module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = struct

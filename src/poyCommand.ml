@@ -1976,6 +1976,8 @@ let create_expr () =
             ];
         sample_method:
             [
+                [ LIDENT "_maxtrees"; x = integer ->
+                    `MaxTreesEvaluated x ] |
                 [ LIDENT "timeout"; ":"; x = integer_or_float -> 
                     `TimeOut (`Fixed (float_of_string x)) ] |
                 [ LIDENT "timedprint"; ":"; left_parenthesis; x = integer_or_float; ","; 

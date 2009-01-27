@@ -966,6 +966,8 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         sample_method:
             [
+                [ LIDENT "_maxtrees"; ":"; x = flex_integer ->
+                    <:expr<`MaxTreesEvaluated $x$>> ] |
                 [ LIDENT "timeout"; ":"; x = flex_float -> 
                     <:expr<`TimeOut $x$>> ] |
                 [ LIDENT "timedprint"; ":"; left_parenthesis; x = flex_float; ","; 
