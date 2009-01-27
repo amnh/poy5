@@ -438,7 +438,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ x = build_method -> x ] |
                 [ x = join_method -> x ] |
                 [ x = keep_method -> x ] |
-                [ x = cost_calculation -> x ]
+                [ x = cost_calculation -> x ] |
+                [ LIDENT "lookahead"; ":"; x = flex_integer -> 
+                    <:expr<`Lookahead $x$>> ]
             ];
         flex_float:
             [
