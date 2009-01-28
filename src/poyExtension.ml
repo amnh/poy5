@@ -320,8 +320,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     right_parenthesis -> <:expr<`AnnotatedFiles $exSem_of_list
                     a$>> ] |
                 [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles;
-                ","; b = prealigned_costs; right_parenthesis ->
-                    <:expr<`Prealigned ($a$, $b$)>> ] |
+                ","; b = prealigned_costs; ","; LIDENT "gap_opening"; c =
+                    optional_integer; 
+                right_parenthesis ->
+                    <:expr<`Prealigned ($a$, $b$, $c$)>> ] |
                 [ x = otherfiles -> x ]
             ];
         prealigned_costs:

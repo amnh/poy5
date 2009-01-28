@@ -552,10 +552,15 @@ val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Ha
 module Sample : sig
     val generate : d -> [ `Bootstrap | `Jackknife of float ] -> d
 end
+type tcm_class =
+    [ `AllOne of int
+    | `AllOneGapSame of (int * int)
+    | `AffinePartition of (int * int * int)
+    | `AllSankoff of (string -> int) option]
 
 val prealigned_characters :   
     (Cost_matrix.Two_D.m -> Alphabet.a ->
-              'a * ([> `Exists ] -> int -> Parser.t list -> 
+              tcm_class * ([> `Exists ] -> int -> Parser.t list -> 
                   Parser.t list) *
                  (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list ->
                      (Alphabet.a * Parser.OldHennig.Encoding.s) list)) ->

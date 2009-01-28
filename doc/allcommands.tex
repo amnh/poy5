@@ -1140,7 +1140,7 @@ The \poycommand{calculate\_support} command does not output support values by de
           \end{statement}
         
         \argumentdefinition{prealigned}{\obligatory{(read argument,
-        tcm:\poystring)}}
+        tcm:\poystring [,gap\_opening:\poyint])}}
             {Specifies that \\ the input sequences are prealigned and
             should be assigned the transformation cost matrix from the 
             input file defined by the string argument. (See the argument~\nccross{tcm}{transformtcm} 
@@ -1148,10 +1148,10 @@ The \poycommand{calculate\_support} command does not output support values by de
             {}
         
         \argumentdefinition{prealigned}{\obligatory{(read argument,
-        tcm:(\poyint, \poyint))}}
+        tcm:(\poyint, \poyint) [,gap\_opening:\poyint])}}
             {Specifies that\\ the input sequences are prealigned and should be
             assigned substitution and indel costs as defined by the
-            \poyargument{tcm} argument. (See the argument~\nccross{tcm}{transformtcm} 
+            \poyargument{tcm} and \poyargument{gapopening} arguments. (See the argument~\nccross{tcm}{transformtcm} 
             of the command \poycommand{transform}.)}
             {prealigned2}
 

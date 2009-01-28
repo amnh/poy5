@@ -1149,10 +1149,10 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
 exception IsSankoff
 
 type matrix_class = 
-    | AllOne of int
-    | AllOneGapSame of (int * int)
-    | AffinePartition of (int * int * int)
-    | AllSankoff of (string -> int) option 
+    [ `AllOne of int
+    | `AllOneGapSame of (int * int)
+    | `AffinePartition of (int * int * int)
+    | `AllSankoff of (string -> int) option ]
     (* If using affine gap cost or non metric tcm (where gaps and substitutions
     * need to be split), we pass a function to compute
     * the cost of an indel block to deal with affine. *)
@@ -1257,29 +1257,29 @@ let analyze_tcm tcm alph =
             | Alphabet.Simple_Bit_Flags ->
                     if 32 > Alphabet.distinct_size alph then
                         if all_same_affine () then
-                            AffinePartition 
+                            `AffinePartition 
                             (all_excepting_gap, all_and_gap, 
                             get_gap_opening tcm)
                         else if all_excepting_gap = all_and_gap then 
-                            AllOne all_excepting_gap
+                            `AllOne all_excepting_gap
                         else if not (is_affine tcm) then
-                            AllOneGapSame 
+                            `AllOneGapSame 
                             (all_excepting_gap, all_and_gap)
                         else if is_affine tcm then
-                            AllSankoff (Some for_sankoff)
-                        else AllSankoff None
+                            `AllSankoff (Some for_sankoff)
+                        else `AllSankoff None
                     else if is_affine tcm then
-                        AllSankoff (Some for_sankoff)
-                    else AllSankoff None
+                        `AllSankoff (Some for_sankoff)
+                    else `AllSankoff None
             | _ -> 
                     if is_affine tcm then 
-                        AllSankoff (Some for_sankoff)
-                    else AllSankoff None
+                        `AllSankoff (Some for_sankoff)
+                    else `AllSankoff None
         with
         | IsSankoff -> 
                 if is_affine tcm then
-                    AllSankoff (Some for_sankoff)
-                else AllSankoff None
+                    `AllSankoff (Some for_sankoff)
+                else `AllSankoff None
     in
     let extract_all all =
         match all with
@@ -1297,7 +1297,7 @@ let analyze_tcm tcm alph =
         end
     in
     match get_case with
-    | AllOne weight ->
+    | `AllOne weight ->
             (* We assume that we have dna sequences *)
             let all = extract_all all in
             let encoding = 
@@ -1312,7 +1312,7 @@ let analyze_tcm tcm alph =
                 | `Exists, x -> (find_item x) :: acc
             and to_encoding _ acc = encoding :: acc in
             get_case, to_parser, to_encoding
-    | AllOneGapSame (subsc, gapcost) ->
+    | `AllOneGapSame (subsc, gapcost) ->
             let present_absent = 
                 present_absent_alph,
                 (Parser.OldHennig.Encoding.gap_encoding gapcost)
@@ -1340,7 +1340,7 @@ let analyze_tcm tcm alph =
                 subs :: present_absent :: acc
             in
             get_case, to_parser, to_encoding
-    | AffinePartition (subsc, gapcost, gapopening) ->
+    | `AffinePartition (subsc, gapcost, gapopening) ->
             (* We have to partition the column in three columns, each
             * corresponding to gap opening, gap extension, and substitution.
             * We will have to filter out columns that are not gap opening
@@ -1366,7 +1366,7 @@ let analyze_tcm tcm alph =
             in 
             let to_encoding _ acc = subs :: acc in
             get_case, to_parser, to_encoding
-    | AllSankoff gap_processing_function ->
+    | `AllSankoff gap_processing_function ->
             let size = 
                 (* We remove one from the all elements representation *)
                 match Alphabet.get_all alph with
@@ -2202,10 +2202,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             let seq_len = Array.length s in 
                                             let seq_op, seq_ex = 
                                                 match clas with
-                                                | AllOne gapc -> 0, gapc
-                                                | AllOneGapSame (_, gapc) ->  0, gapc
-                                                | AffinePartition (_, ex, op) -> op, ex
-                                                | AllSankoff _ -> 
+                                                | `AllOne gapc -> 0, gapc
+                                                | `AllOneGapSame (_, gapc) ->  0, gapc
+                                                | `AffinePartition (_, ex, op) -> op, ex
+                                                | `AllSankoff _ -> 
                                                         (* This is an error, but
                                                         * I am confused with the
                                                         * handling of seq_ex
@@ -2241,7 +2241,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             clas,
                             (Array.fold_right (to_parser is_missing) s acc), 
                             (Array.fold_right to_encoding s acc2))
-                        (AllSankoff None, [], []) sequence 
+                        (`AllSankoff None, [], []) sequence 
                     in 
                     let name = 
                         try Data.code_taxon taxcode data with
@@ -2260,7 +2260,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 in
                                 Some encf), clas
                 in
-                (match List.fold_left process_each ([], None, AllSankoff None) all_taxa with
+                (match List.fold_left process_each ([], None, `AllSankoff None) all_taxa with
                 | r, Some enc, clas -> 
                         let arr = 
                             Array.of_list enc, (List.map (fun (x, y) ->
@@ -2268,7 +2268,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         in
                         let (a, b) = 
                             match clas with
-                            | AffinePartition (subs, gapcost, gapopening) ->
+                            | `AffinePartition (subs, gapcost, gapopening) ->
                                     (* We have to postprocess and check by
                                     * groups of three whether or not we have a
                                     * gap opening indeed *)
@@ -2277,7 +2277,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     in
                                     List.fold_left
                                     (post_process_affine_gap_cost f data) arr all_blocks
-                            | AllSankoff (Some f) -> 
+                            | `AllSankoff (Some f) -> 
                                     List.fold_left 
                                     (post_process_affine_gap_cost f data) arr
                                     all_blocks

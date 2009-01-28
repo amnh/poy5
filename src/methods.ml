@@ -78,7 +78,7 @@ type simple_input = [
 
 type input = [
     | simple_input
-    | `Prealigned of (simple_input * prealigned_costs)
+    | `Prealigned of (simple_input * prealigned_costs * int)
     | `AnnotatedFiles of simple_input list
 ]
 

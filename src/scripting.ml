@@ -1516,7 +1516,7 @@ let load_data (meth : Methods.input) data nodes =
               List.fold_left (reader true false) data files
         | #Methods.simple_input as meth -> 
               reader false false data meth
-        | `Prealigned (meth, tcm) ->
+        | `Prealigned (meth, tcm, gap_opening) ->
                 prealigned_files := [];
                 let data = reader false true data meth in
                 let files = List.flatten !prealigned_files in
@@ -1527,10 +1527,16 @@ let load_data (meth : Methods.input) data nodes =
                     match tcm with
                     | `Assign_Transformation_Cost_Matrix file ->
                             Data.assign_tcm_to_characters_from_file data chars
-                            (Some file)
+                            (Some file) 
                     | `Create_Transformation_Cost_Matrix (trans, gaps) ->
                             Data.assign_transformation_gaps data chars trans
-                            gaps
+                            gaps 
+                in
+                let data =
+                    if gap_opening > 0 then
+                        Data.assign_affine_gap_cost data chars
+                        (Cost_matrix.Affine gap_opening)
+                    else data
                 in
                 Data.prealigned_characters ImpliedAlignment.analyze_tcm data
                 chars

@@ -84,10 +84,10 @@ val create_ias : dyna_state_t -> Sequence.Clip.s -> int -> cg -> ias
 exception IsSankoff
 
 type matrix_class = 
-    | AllOne of int
-    | AllOneGapSame of (int * int)
-    | AffinePartition of (int * int * int)
-    | AllSankoff of (string -> int) option
+    [ `AllOne of int
+    | `AllOneGapSame of (int * int)
+    | `AffinePartition of (int * int * int)
+    | `AllSankoff of (string -> int) option]
 
 val analyze_tcm :
     Cost_matrix.Two_D.m -> Alphabet.a ->

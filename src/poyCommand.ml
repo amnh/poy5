@@ -34,7 +34,7 @@ type otherfiles = [
     | `GeneralAlphabetSeq of (string * string * read_option_t list) 
     | `Breakinv of (string * string * read_option_t list)
     | `Chromosome of string list
-    | `Prealigned of (otherfiles * Methods.prealigned_costs)
+    | `Prealigned of (otherfiles * Methods.prealigned_costs * int)
     | `Genome of string list
     | `ComplexTerminals of string list
 ]
@@ -1784,14 +1784,22 @@ let create_expr () =
                     right_parenthesis -> 
                         `Create_Transformation_Cost_Matrix (int_of_string x, int_of_string y) ]
             ];
+        prealigned_gap_opening:
+            [ 
+                [ ","; LIDENT "gap_opening"; x = integer -> x ]
+            ];
         read_argument:
             [ 
                 [ LIDENT "annotated"; ":"; left_parenthesis; a = LIST1 [x =
                     otherfiles -> x] SEP ","; 
                     right_parenthesis -> ((`AnnotatedFiles a) :> Methods.input) ] |
                 [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles;
-                ","; b = prealigned_costs; right_parenthesis -> `Prealigned (a,
-                b) ] |
+                ","; b = prealigned_costs; c = OPT prealigned_gap_opening; 
+                right_parenthesis -> 
+                    match c with
+                    | None -> `Prealigned (a, b, 0) 
+                    | Some x -> `Prealigned (a, b, x) 
+                ] |
                 [ x = otherfiles -> (x :> Methods.input) ]
             ];
         otherfiles:
