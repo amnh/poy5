@@ -330,6 +330,7 @@ val set_console_run : r -> unit
         val trees : unit -> phylogeny list
         val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
+        val nodes : unit -> a list
         val to_string : bool -> string list list 
         val of_string : string -> unit
     end

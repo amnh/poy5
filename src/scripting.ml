@@ -356,6 +356,7 @@ module type S = sig
         val trees : unit -> phylogeny list
         val set_trees : phylogeny list -> unit
         val data : unit -> Data.d
+        val nodes : unit -> a list
         val to_string : bool -> string list list 
         val of_string : string -> unit
     end
@@ -4355,6 +4356,11 @@ let set_console_run r = console_run_val := r
         let data () = 
             let run = get_console_run () in
             run.data
+
+        let nodes () = 
+            let run = get_console_run () in
+            run.nodes
+
         let to_string bool =
             let run = get_console_run () in
             let trees = trees () in
