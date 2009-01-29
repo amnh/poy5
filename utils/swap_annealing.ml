@@ -75,7 +75,6 @@ let process_tree tree =
 let process_file substitution gap_extension gap_opening line = 
     (* First prepare the data *)
     let file, tree = parse_line line in
-    Printf.printf "WILL READ: %s\n%!" file;
     NPOY 
         wipe ()
         read ([file])
@@ -98,29 +97,17 @@ let process_file substitution gap_extension gap_opening line =
         in
         Array.map runit
         [| CPOY swap (annealing:([two], 12));
-        CPOY swap (annealing:([two], 25));
         CPOY swap (annealing:([two], 50));
-        CPOY swap (annealing:([two], 100));
-        CPOY swap (annealing:([two], 125));
         CPOY swap (annealing:([two], 250));
         CPOY swap (annealing:([two], 500));
-        CPOY swap (annealing:([two], 1000));
         CPOY swap (annealing:([five], 12));
-        CPOY swap (annealing:([five], 25));
         CPOY swap (annealing:([five], 50));
-        CPOY swap (annealing:([five], 100));
-        CPOY swap (annealing:([five], 125));
         CPOY swap (annealing:([five], 250));
         CPOY swap (annealing:([five], 500));
-        CPOY swap (annealing:([five], 1000));
         CPOY swap (annealing:([ten], 12));
-        CPOY swap (annealing:([ten], 25));
         CPOY swap (annealing:([ten], 50));
-        CPOY swap (annealing:([ten], 100));
-        CPOY swap (annealing:([ten], 125));
         CPOY swap (annealing:([ten], 250));
-        CPOY swap (annealing:([ten], 500));
-        CPOY swap (annealing:([ten], 1000))|]
+        CPOY swap (annealing:([ten], 500))|]
     in
     let nres = 
         Array.map (function None -> "NA" | Some (x, _) -> 
