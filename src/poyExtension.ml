@@ -421,7 +421,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         join_method:
             [
-                [ LIDENT "sectorial"; x = OPT flex_integer -> 
+                [ LIDENT "sectorial"; x = OPT optional_integer -> 
                     <:expr<`UnionBased $handle_optional x$>> ]|
                 [ LIDENT "all"; x = OPT optional_integer -> <:expr<`AllBased
                 $handle_optional x$>> ] |
