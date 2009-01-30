@@ -36,6 +36,7 @@ let rec build_features meth =
             in
             ("type", "prebuilt") :: 
             ("filename", fn) :: []
+    | `Nj -> ("type", "neighbor joining") :: []
     | `Build (n, meth, _) ->
             let other_features str max_n = 
                 [ ("type", str); 
@@ -51,6 +52,7 @@ let rec build_features meth =
                             other_features "minimum spanning tree wagner" max_n
                     | `Wagner_Distances (max_n, _,  _, _, _) ->
                             other_features "distances based tree wagner" max_n
+                    | `Nj
                     | (`Branch_and_Bound _) 
                     | (`Prebuilt _) as x ->
                             build_features x
@@ -76,6 +78,7 @@ list) : Methods.transform list =
 
 let rec get_transformations (meth : Methods.build) : Methods.transform list =
     match meth with
+    | `Nj
     | `Prebuilt _ -> []
     | `Build (n, build_meth, trans) ->
             List.fold_right remove_exact (trans @ 
@@ -87,6 +90,7 @@ let rec get_transformations (meth : Methods.build) : Methods.transform list =
             | `Wagner_Ordered (_, _, _, trans, _)
             | `Constraint (_, _, _, trans)
             | `Build_Random (_, _, _, trans, _) -> trans
+            | `Nj
             | `Prebuilt _ -> [])) []
     | `Branch_and_Bound (_, _, _, _, trans)
     | `Build_Random (_, _, _, trans, _) -> 
@@ -410,19 +414,137 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         `Set (List.map (fun (x, _) -> 
             `Single (TreeOps.uppass x)) res)
 
-    let make_distances_table nodes = 
+    let make_distances_table ?(both=true) nodes = 
         let tmp = Hashtbl.create 99991 in
         List.iter (fun a ->
             List.iter (fun b ->
                 let ca = Node.taxon_code a
                 and cb = Node.taxon_code b in
-                if Hashtbl.mem tmp (ca, cb) then ()
-                else begin
-                    let d = Node.distance 100000. a b in
-                    Hashtbl.add tmp (ca, cb) d;
-                    Hashtbl.add tmp (cb, ca) d;
+                if ca = cb then ()
+                else
+                    if Hashtbl.mem tmp (ca, cb) then ()
+                    else begin
+                        let d = Node.distance 100000. a b in
+                        Hashtbl.add tmp (ca, cb) d;
+                        if both then Hashtbl.add tmp (cb, ca) d;
             end) nodes) nodes;
             tmp
+
+    module OrderedPairs = struct
+        type t = (float * (int * int))
+        let compare a b = compare ((fst a) : float) (fst b)
+    end
+
+    module H = Heap.Make (OrderedPairs)
+
+    let table_of_trees nodes = 
+        let tbl = Hashtbl.create 1667 in
+        List.iter (fun n -> Hashtbl.add tbl (Node.taxon_code n)
+        (Parser.Tree.Leaf (Node.taxon_code n))) nodes;
+        tbl
+
+    let set_of_trees nodes =
+        List.fold_left (fun acc x ->
+            All_sets.Integers.add (Node.taxon_code x) acc) 
+        All_sets.Integers.empty nodes
+
+    let (-->) a b = b a 
+
+    let nj_qtable table terminals =
+        let d x y = Hashtbl.find table ((min x y), (max x y)) in
+        let r = float_of_int (All_sets.Integers.cardinal terminals) in
+        let q_table = Hashtbl.create 99991 in
+        Hashtbl.iter (fun ((i, j) as p) dist ->
+            let sum =
+                All_sets.Integers.fold (fun c sum ->
+                    sum -.
+                    (if c = i then 0. else d c i) -.
+                    (if c = j then 0.  else d c j)) 
+                terminals 0.
+            in
+            Hashtbl.add q_table p (((r -. 2.) *. dist) +. sum)) table;
+        q_table
+
+    let nj_distance_to_ancestor table terminals f g =
+        let d x y = Hashtbl.find table ((min x y), (max x y)) in
+        let sum_of_distance_to x =
+            All_sets.Integers.fold (fun y sum -> sum +. (d x y)) terminals 0.
+        in
+        let r = float_of_int (All_sets.Integers.cardinal terminals) in
+        ((0.5 *. (d f g)) 
+        +.  ((1. /. (2. *. (r -. 2.))) *.
+            ((sum_of_distance_to f) -. (sum_of_distance_to g))))
+
+    let nj_new_distance table distance_fu distance_gu f g k =
+        let d x y = Hashtbl.find table ((min x y), (max x y)) in
+        ((0.5 *. ((d f k) -.  distance_fu)) +.
+        (0.5 *. ((d g k) -.  distance_gu)))
+
+    let join_trees code distance_table a b tree_table trees heap =
+        let trees = 
+            trees
+            --> All_sets.Integers.remove a 
+            --> All_sets.Integers.remove b 
+        in
+        let ta = Hashtbl.find tree_table a
+        and tb = Hashtbl.find tree_table b in
+        let tab = Parser.Tree.Node ([ta; tb], code) in
+        Hashtbl.add tree_table code tab;
+        let heap = 
+            let distance_acode = 
+                nj_distance_to_ancestor distance_table trees a b
+            and distance_bcode = 
+                nj_distance_to_ancestor distance_table trees b a
+            in
+            All_sets.Integers.fold (fun c heap ->
+                let dc = 
+                    nj_new_distance distance_table distance_acode
+                    distance_bcode a b c
+                in
+                let pair = (code, c) in
+                Hashtbl.add distance_table pair dc;
+                H.insert (dc, pair) heap) trees heap
+        in
+        let trees = All_sets.Integers.add code trees in
+        trees, code - 1, heap
+
+
+    let rec merge_nj_trees code distance_table tree_table trees heap =
+        let (_, (a, b)) = H.findMin heap in
+        let heap = H.deleteMin heap in
+        if All_sets.Integers.mem a trees && 
+            All_sets.Integers.mem b trees then
+                join_trees code distance_table a b tree_table trees heap
+        else 
+            merge_nj_trees code distance_table tree_table trees heap
+
+    let nj data nodes = 
+        let distance_table = 
+            let both = false in
+            make_distances_table ~both nodes 
+        in
+        let heap =
+            Hashtbl.fold 
+            (fun x y acc ->
+                H.insert (y, x) acc) 
+            distance_table H.empty
+        in
+        let tree_table = table_of_trees nodes in
+        let trees = set_of_trees nodes in
+        let rec complete_merge code trees heap =
+            if 1 = All_sets.Integers.cardinal trees then
+                Hashtbl.find tree_table (All_sets.Integers.choose trees)
+            else 
+                let trees, code, heap = 
+                    merge_nj_trees code distance_table tree_table trees heap
+                in
+                complete_merge code trees heap
+        in
+        let tree = complete_merge (-1) trees heap in
+        Parser.Tree.map (fun x -> 
+            if x >= 0 then Data.code_taxon x data 
+            else "") tree
+
 
     let distances_ordered nodes = 
         let distances_table = make_distances_table nodes in
@@ -649,6 +771,18 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                 let () = List.iter (Data.verify_trees data) trees in
                 let trees = List.map (fun (a, _, _) -> a) trees in
                 prebuilt trees d
+        | `Nj ->
+                let tree = nj data nodes in
+                let rec printit = function
+                    | Parser.Tree.Node (chld, _) -> 
+                            print_string "( ";
+                            List.iter printit chld;
+                            print_string " )";
+                    | Parser.Tree.Leaf chld ->
+                            print_string chld
+                in
+                printit tree;
+                prebuilt [[tree]] d
         | `Build (n, build_meth, lst) ->
                 let new_nodes = nodes in
                 (** TODO: Add different cost calculation heuristic methods *)
@@ -725,6 +859,7 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                             in
                             let () = Status.finished status in
                             Sexpr.of_list (Sexpr.to_list lst)
+                    | `Nj
                     | (`Prebuilt _) as x -> build_initial_trees trees data nodes x
                     | `Build_Random _ ->
                             let st = Status.create "Random Trees build" (Some n)

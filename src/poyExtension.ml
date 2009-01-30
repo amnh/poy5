@@ -482,6 +482,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`Branch_and_Bound $thresh$>> ] |
                 [ LIDENT "constraint_p"; x = OPT optional_string -> 
                     <:expr<`Constraint $handle_optional x$>> ] |
+                [ LIDENT "nj" -> <:expr<`Nj>> ] | 
                 [ LIDENT "_mst" -> <:expr<`Mst>> ] |
                 [ LIDENT "_distances" -> <:expr<`DistancesRnd>> ]
             ];

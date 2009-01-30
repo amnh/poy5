@@ -250,7 +250,7 @@ TREE = tree.cmo rtree.cmo hash_tbl.cmo gen_rtree.cmo \
 	graphps/graphps.cmo $(TREEOUTPUT) ptree.cmo searchInformation.cmo \
 	chartree.cmo sparceMatrix.cmo unionTree.cmo allDirChar.cmo sampler.cmo \
 	queues.cmo tabus.cmo treeSearch.cmo impliedAlignment.cmo charTransform.cmo \
-	mst.cmo build.cmo 
+	mst.cmo heap.cmo build.cmo 
 
 DISTANCE_LIBS = character.cmo memstack.o add.o nonaddCS8.cmo \
 	nonaddCSc8.o nonaddCS16.cmo nonaddCSc16.o nonaddCS32.cmo nonaddCSc32.o addCS.cmo 
@@ -769,7 +769,7 @@ NOPREPROCESSOR= tabus.ml sampler.ml
 	ncursesML.ml status.ml sampler.ml \
 	queues.ml tabus.ml treeSearch.mli treeSearch.ml \
 	impliedAlignment.mli impliedAlignment.ml charTransform.mli \
-	charTransform.ml mst.mli mst.ml build.mli build.ml
+	charTransform.ml mst.mli mst.ml heap.ml build.mli build.ml
 	$(OCAMLDEP) $(OCAML_INCLUDES: -unsafe=) $(NOPREPROCESSOR) > $@
 	$(OCAMLDEP) $(OCAML_INCLUDES) $(OPTIONSPREPROCESSOR) \
 		$(filter-out poyExtension.cmo $(NOPREPROCESSOR) ,$^) >> $@

@@ -287,6 +287,7 @@ let dependency_relations (init : Methods.script) =
             let res = 
                 match meth with
                 | `Branch_and_Bound _
+                | `Nj
                 | `Prebuilt _ ->
                         [([Data], [Data; Trees], init, Linnearizable)]
                 | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
@@ -1641,6 +1642,7 @@ let script_to_string (init : Methods.script) =
                 match meth with
                 | `Branch_and_Bound _ ->
                         "@[Build trees using branch and bound@]"
+                | `Nj -> "@[build trees using neighbor joining@]"
                 | `Prebuilt _ ->
                         "@[load the trees from a file@]"
                 | `Build _

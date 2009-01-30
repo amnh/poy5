@@ -86,6 +86,7 @@ let has_something x = List.exists (is_something x)
 
 let build_has item = function
     | `Mst _ 
+    | `Nj
     | `Prebuilt _ -> false
     | `Branch_and_Bound (_, _, _, _, l) 
     | `Build (_, _, l)

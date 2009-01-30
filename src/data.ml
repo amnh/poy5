@@ -4480,7 +4480,7 @@ let process_prealigned analyze_tcm data code : (string * Parser.SC.file_output) 
                     handle_start seq j;
                     handle_end seq j;
                 done;
-                handle_end seq ((Sequence.length seq) - 1);
+                handle_end seq ((Sequence.length seq) - 2);
             done;
             res
         else 

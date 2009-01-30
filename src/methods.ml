@@ -375,11 +375,13 @@ type build_method = [
     | `Wagner_Distances of build_strategy
     | `Wagner_Ordered of build_strategy
     | `Build_Random of build_strategy
+    | `Nj
     | `Prebuilt of filename ]
 
 type parallelizable_build = build_method
 
 type build = [
+    | `Nj
     | `Prebuilt of filename
     | `Build of int * build_method * cost_calculation list
     | `Build_Random of build_strategy
