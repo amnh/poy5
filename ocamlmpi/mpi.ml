@@ -356,7 +356,6 @@ external allgather_int: int -> int array -> communicator -> unit
   = "caml_mpi_allgather_int"
 
 let allgather data comm =
-  let myself = comm_rank comm in
   let nprocs = comm_size comm in
   let send_buffer = Marshal.to_string data [Marshal.Closures] in
   (* Gather lengths for all data *)
