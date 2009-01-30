@@ -773,15 +773,6 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                 prebuilt trees d
         | `Nj ->
                 let tree = nj data nodes in
-                let rec printit = function
-                    | Parser.Tree.Node (chld, _) -> 
-                            print_string "( ";
-                            List.iter printit chld;
-                            print_string " )";
-                    | Parser.Tree.Leaf chld ->
-                            print_string chld
-                in
-                printit tree;
                 prebuilt [[tree]] d
         | `Build (n, build_meth, lst) ->
                 let new_nodes = nodes in
