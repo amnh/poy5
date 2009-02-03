@@ -110,6 +110,7 @@ type likelihood_model =
     | Chars of charset list
     | Parameters of float list
     | GapMode of string
+    | Files of string
 
 type poy_data =          (* trees , characters, (nodes , length) *)
     | CharacterBranch of string list * charset list * (string * float) list

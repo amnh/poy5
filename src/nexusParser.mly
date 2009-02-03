@@ -419,8 +419,11 @@ model_block:
             { (Nexus.Chars $3) :: $5 }
     | PARAMETERS EQUAL float_list model_block
             { (Nexus.Parameters $3) :: $4 }
+    | FILE EQUAL QUOTED SEMICOLON model_block
+            { (Nexus.Files $3) :: $5 }
     | SEMICOLON { [] }
     ;
+
 float_list:
     | FLOAT float_list      { (float_of_string $1) :: $2 }
     | INTEGER float_list    { (float_of_string $1) :: $2 }

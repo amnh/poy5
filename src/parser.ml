@@ -1200,6 +1200,49 @@ module Tree = struct
                     | Some y -> Some (Flat (Node (x, y))))
 end
 
+module TransformationCostMatrix = struct
+
+    let of_channel = Cost_matrix.Two_D.of_channel
+
+    let of_file ?(use_comb = true) file all_elements =
+        let ch = FileStream.Pervasives.open_in file in
+        let res = of_channel ~use_comb all_elements ch in
+        ch#close_in;
+        res
+
+    let of_channel_nocomb = Cost_matrix.Two_D.of_channel_nocomb
+
+    let fm_of_file file =
+        (* explode a string around a character;filtering empty results *)
+        let explode str ch =
+            let rec expl s i l =
+                if String.contains_from s i ch then
+                    let spac = String.index_from s i ch in
+	                let word = String.sub s i (spac-i) in
+                    expl s (spac+1) (word::l)
+                else
+                    let final = String.sub s i ((String.length s)-i) in
+                    final::l in
+
+            List.filter(fun x-> if x = "" then false else true) 
+                        (List.rev (expl str 0 [])) in
+
+        (* read a channel line by line and applying f into a list *)
+        let rec read_loop f chan =
+            try 
+                let line = FileStream.Pervasives.input_line chan in
+                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
+            with e -> [] in
+
+        let f = FileStream.Pervasives.open_in file in
+        let mat = read_loop (explode) f in
+        let _ = FileStream.Pervasives.close_in f in 
+        mat
+
+    let of_list = Cost_matrix.Two_D.of_list
+
+end
+
 (** [lor_list_withhash l hash] returns the logical or of the hash values of all
     of the values in [l] *)
 let lor_list_withhash l hash =
@@ -3703,23 +3746,25 @@ module SC = struct
 
                 (* LIKELIHOOD tag:: process model and characters *)
                 let proc_model (((name,((kind,site,alpha,invar) as var),
-                                    param,lst,gap) as model), chars) = function
-                    | Nexus.Model name -> ((name,var,param,lst,gap),chars)
-                    | Nexus.Parameters param -> ((name,var,param,lst,gap),chars)
+                                    param,lst,gap,file) as model), chars) = function
+                    | Nexus.Model name -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.Parameters param -> ((name,var,param,lst,gap,file),chars)
                     | Nexus.Chars chars -> (model,chars)
-                    | Nexus.Priors lst -> ((name,var,param,lst,gap),chars)
-                    | Nexus.GapMode gap -> ((name,var,param,lst,gap),chars)
+                    | Nexus.Priors lst -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.GapMode gap -> ((name,var,param,lst,gap,file),chars)
                     | Nexus.Variation kind -> 
-                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
                     | Nexus.Variation_Sites site ->
-                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
                     | Nexus.Variation_Alpha alpha ->
-                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
                     | Nexus.Variation_Invar invar ->
-                            ((name,(kind,site,alpha,invar),param,lst,gap),chars)
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                    | Nexus.Files name -> let file = Some name in
+                            ((name,var,param,lst,gap,file),chars)
                 in
                 (* verify enough data in a model *)
-                let verify_model ((name,(var,site,alpha,invar),param,priors,gap),chars) =
+                let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
                     let submatrix = match String.uppercase name with
                         | "JC69" -> (match param with
                                 | [single] -> JC69 single
@@ -3740,8 +3785,13 @@ module SC = struct
                                 | h1::h2::h3::[] -> TN93 (h1,h2,h3)
                                 | _ -> failwith "Parameters don't match model")
                         | "GTR" -> GTR (Array.of_list param)
-                        | "File"-> failwith ("Cannot use an external file as a"^
-                                            "likelihood model in nexus format")
+                        | "GIVEN"-> (match file with
+                                | Some name ->
+                                    let mat = Array.of_list (List.map (Array.of_list)
+                                         (TransformationCostMatrix.fm_of_file
+                                         (`Local name))) in
+                                    File mat
+                                | _ -> failwith "File not specified")
                         | _ -> failwith "No Model Specified"
                     and variation = match String.uppercase var with
                         | "GAMMA" -> Gamma (int_of_string site,
@@ -3778,7 +3828,7 @@ module SC = struct
                         let m,characters_to_modify =
                             verify_model 
                                 (List.fold_left proc_model 
-                                                (("",("","","",""),[],[],""),[]) 
+                                                (("",("","","",""),[],[],"",None),[]) 
                                                 params
                                 )
                         in
@@ -4176,48 +4226,6 @@ module SC = struct
 
 end
 
-module TransformationCostMatrix = struct
-
-    let of_channel = Cost_matrix.Two_D.of_channel
-
-    let of_file ?(use_comb = true) file all_elements =
-        let ch = FileStream.Pervasives.open_in file in
-        let res = of_channel ~use_comb all_elements ch in
-        ch#close_in;
-        res
-
-    let of_channel_nocomb = Cost_matrix.Two_D.of_channel_nocomb
-
-    let fm_of_file file =
-        (* explode a string around a character;filtering empty results *)
-        let explode str ch =
-            let rec expl s i l =
-                if String.contains_from s i ch then
-                    let spac = String.index_from s i ch in
-	                let word = String.sub s i (spac-i) in
-                    expl s (spac+1) (word::l)
-                else
-                    let final = String.sub s i ((String.length s)-i) in
-                    final::l in
-
-            List.filter(fun x-> if x = "" then false else true) 
-                        (List.rev (expl str 0 [])) in
-
-        (* read a channel line by line and applying f into a list *)
-        let rec read_loop f chan =
-            try 
-                let line = FileStream.Pervasives.input_line chan in
-                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
-            with e -> [] in
-
-        let f = FileStream.Pervasives.open_in file in
-        let mat = read_loop (explode) f in
-        let _ = FileStream.Pervasives.close_in f in 
-        mat
-
-    let of_list = Cost_matrix.Two_D.of_list
-
-end
 
 module PAlphabet = struct
     let of_file fn orientation init3D = 
