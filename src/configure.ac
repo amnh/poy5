@@ -35,6 +35,7 @@ AC_SUBST(LIBS)
 AC_SUBST(OCAMLFLAGS)
 AC_SUBST(EXTRAS)
 AC_SUBST(NATIVEDYNLINK)
+AC_SUBST(USE_NATIVEDYNLINK)
 
 USEWIN32=false
 
@@ -194,13 +195,14 @@ case $OCAMLVERSION in
     3.10.2*)
     ;;
     3.11.*)
+        NATIVEDYNLINK="dynlink.cmxa"
         AC_MSG_CHECKING([if OCaml supports dynamic linking in this architecture])
         if ${OCAMLOPT} -shared -o str.cmxs str.cmxa ; then
             AC_MSG_RESULT([yes])
-            NATIVEDYNLINK="dynlink.cmxa"
+            USE_NATIVEDYNLINK="true"
         else 
             AC_MSG_RESULT([no])
-            NATIVEDYNLINK=""
+            USE_NATIVEDYNLINK="true"
         fi;;
     *)
     AC_MSG_RESULT([no])
