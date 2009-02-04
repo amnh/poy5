@@ -185,6 +185,11 @@ module type Tree_Operations =
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
         val unadjust : (a, b) p_tree -> (a, b) p_tree
+
+        (* verifiction functions *)
+        val verify_downpass : int -> (a,b) p_tree -> bool
+        val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
+
     end 
 
 class type ['a, 'b] wagner_edges_mgr = object

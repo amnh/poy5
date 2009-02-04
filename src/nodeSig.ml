@@ -63,7 +63,7 @@ module type S = sig
     val uppass_heuristic : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t -> 
                                 int option -> n -> n -> n -> n -> n
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
-    val apply_time : ?given:(float option list) -> n -> n -> n
+    val apply_time : n -> n -> n
 
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
@@ -299,6 +299,11 @@ module type S = sig
      * modified, and in AllDirF the two children are also updated.
      *)
     val edge_iterator : n option -> n -> n -> n -> n
+
+
+    (** [dump_node printer node parent] prints the node data for the current node to
+     * printer *)
+    val dump_node : (string -> unit) -> n -> n -> unit
 
     (** [readjust dir mode to_adjust ch1 ch2 par mine] -> mine * to_adjust
      *

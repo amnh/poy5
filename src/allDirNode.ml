@@ -114,7 +114,7 @@ let with_both c1 c2 n = (* grabs a node in the direction not in c1 or c2 *)
     | [x] -> x
     |  x  -> raise Not_found
 
-let either_with c n = (* grabs a node that has this branch c--n *)
+let either_with c n = (* grabs a node that has this branch c--n, in n *)
     assert( 0 <> List.length n);
     match List.filter (fun x -> not (has_code c x)) n with
         | hd::tl -> hd
@@ -184,6 +184,8 @@ module OneDirF :
     let get_mlstatic x n =
         Node.Standard.get_mlstatic x (force_val n)
 
+    let dump_node f x y = Node.Standard.dump_node f (force_val x) (force_val y)
+
     let median ?branches my_code old a b = 
         lazy_from_fun 
         (fun () ->
@@ -200,7 +202,7 @@ module OneDirF :
         let node,set = Node.Standard.readjust gp mode set_2adjust
                             (force_val a) (force_val b) (force_val c) (force_val mine)
         in
-        (to_n node),set
+        (to_n node,set)
 
     let final_states x par cur a b = 
         lazy_from_fun 
@@ -210,8 +212,8 @@ module OneDirF :
             b
         )
 
-    let apply_time ?given x y =
-        lazy_from_fun (fun () -> apply_f_on_lazy (Node.Standard.apply_time ?given) x y)
+    let apply_time x y =
+        lazy_from_fun (fun () -> apply_f_on_lazy Node.Standard.apply_time x y)
 
     let estimate_time x y =
         Node.Standard.estimate_time (force_val x) (force_val y)
@@ -414,7 +416,7 @@ type nad8 = Node.Standard.nad8 = struct
             | _, [] -> 1
         in
         dir_compare a.unadjusted b.unadjusted
-        
+
     let recode_anode f n = 
         { 
             lazy_node = OneDirF.recode f n.lazy_node;
@@ -504,6 +506,11 @@ type nad8 = Node.Standard.nad8 = struct
                 h.code
         | [] -> failwith "AllDirNode.taxon_code"
 
+    let dump_node f child par = 
+        OneDirF.dump_node f
+        (not_with (taxon_code par) child.unadjusted).lazy_node
+        (either_with (taxon_code child) par.unadjusted).lazy_node
+
     let edge_iterator par mine ch1 ch2 = 
         let get_dir p n = (not_with (taxon_code p) n.unadjusted).lazy_node in
         let atom, btom, parofm = match par with
@@ -539,7 +546,8 @@ type nad8 = Node.Standard.nad8 = struct
                 dir = Some( (taxon_code ch1),(taxon_code ch2));
                 code = taxon_code mine; } 
         in
-        { mine with adjusted=[node_dir]; },modified
+        let node = { mine with adjusted=[node_dir]; } in
+        (node,modified)
 
     let median ?branches my_code old a b =
         let na, nb,code = 
@@ -552,7 +560,6 @@ type nad8 = Node.Standard.nad8 = struct
         in
         let old = match old with
             | Some oldness -> 
-                (* assert( code = get_code oldness.unadjusted ); *)
                 (try let n = with_both na.code nb.code oldness.unadjusted in
                      Some (n.lazy_node) with
                  | Not_found -> None )
@@ -600,7 +607,7 @@ type nad8 = Node.Standard.nad8 = struct
 
     (** [apply_time child parent] applies time from parent into child --used on
      * leaves when the uppass_heuristic doesn't normally run over *)
-    let apply_time ?given child parent =
+    let apply_time child parent =
         let get_dir p xun = (not_with (taxon_code p) xun).lazy_node in
         let has_with code n = match n.dir with
             | None -> true 
@@ -611,12 +618,8 @@ type nad8 = Node.Standard.nad8 = struct
             | [hd;_] -> OneDirF.apply_time (get_dir parent child.unadjusted)
                                            hd.lazy_node
             | [] -> 
-                let t = match given with 
-                        | Some x -> x
-                        | None -> estimate_time child parent
-                in
-                OneDirF.apply_time ~given:t (get_dir parent child.unadjusted)
-                                            (get_dir child parent.unadjusted)
+                OneDirF.apply_time (get_dir parent child.unadjusted)
+                                   (get_dir child parent.unadjusted)
             | _  -> failwith "AllDirNode.apply_time: Too many directions to find time"
         in
         let node = [{

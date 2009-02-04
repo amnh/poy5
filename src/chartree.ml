@@ -1407,6 +1407,9 @@ let root_costs tree =
         Ptree.pre_order_edge_visit get_cost handle tree acc)
     (Tree.get_handles tree.Ptree.tree) []
 
+let dump_tree printer h tree = ()
+
+
 module TreeOps = struct
     type a = Node.node_data
     type b = Node.node_data
@@ -1427,4 +1430,8 @@ module TreeOps = struct
     let get_active_ref_code = get_active_ref_code
     let root_costs = root_costs
     let unadjust ptree = ptree
+    
+    (* TODO: anything to verify? *)
+    let verify_downpass _ _ = true 
+    let dump_tree = dump_tree
 end

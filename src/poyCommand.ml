@@ -1930,7 +1930,9 @@ let create_expr () =
                 [ LIDENT "_attemptsdistr"; ":"; x = STRING ->
                     `AttemptsDistr (Some x) ] |
                 [ LIDENT "_breakvsjoin"; x = OPT string_arg ->
-                    `BreakVsJoin x ]
+                    `BreakVsJoin x ] |
+                [ LIDENT "_likelihood"; x = OPT string_arg ->
+                    `Likelihood x ]
             ];
         swap_method:
             [

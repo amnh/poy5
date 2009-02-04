@@ -660,30 +660,26 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     c0
     END
 
-let apply_time ?given child parent =
+let apply_time child parent =
     let f = if child.min_child_code = parent.min_child_code then fst else snd in
     let p_opt to_string = function | None -> "None" | Some x -> to_string x in
-    let rec apply_times g c p = match c,p with
+    let rec apply_times c p = match c,p with
         | StaticMl cnd,StaticMl pnd ->
             IFDEF USE_LIKELIHOOD THEN (* only modify first part of tuple *)
-                let time = match g with
-                            | Some _ -> g
-                            | None -> f pnd.time
-                in
+                let time = f pnd.time in
                 if debug then
                     info_user_message "Applying %s to %d -- %d"
                         (p_opt string_of_float time) (child.taxon_code) (parent.taxon_code)
                 else ();
                 StaticMl { cnd with time = time,time (* f pnd.time,snd cnd.time *)}
             ELSE
-                cnd
+                c
             END
         | _ -> c
     in
     {
-      child with characters = match given with
-            | Some x -> map3 apply_times x child.characters parent.characters
-            | None ->  map2 (apply_times None) child.characters parent.characters
+      child with characters =
+             List.map2 apply_times child.characters parent.characters
     }
 
 (** [verify_time] has A and B which share an edge, and oA and oB which share an
@@ -933,13 +929,17 @@ let median ?branches code old a b =
     in
     let convert_2_lst chars tbl =
         List.map (fun x -> match x with
-                    | StaticMl z -> (match tbl with
+                    | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
+                        (match tbl with
                         | Some x ->
                             let x = Hashtbl.find x chars.taxon_code in
                             let codes = MlStaticCS.get_codes z.preliminary in
                             assert(((Array.length codes) > 0) && (values_match codes x));
                             Some (Hashtbl.find x codes.(0))
                         | None -> None)
+                        ELSE
+                            None
+                        END
                     | _ -> None
                  ) chars.characters
     in
@@ -1005,12 +1005,16 @@ let get_times_between (nd:node_data) (child:node_data) =
     let f = if nd.min_child_code >= child_code then fst else snd in
     List.map (fun x -> match x with
                 | StaticMl z ->
+                    IFDEF USE_LIKELIHOOD THEN
                     let ret = f z.time in
                     if debug then
                         info_user_message "Using %s between %d and %d (%s)"
                             (get_some ret) nd.taxon_code child.taxon_code
                             (f ("fst","snd")) else ();
                     ret
+                    ELSE
+                        None
+                    END
                 | _ -> None)
              nd.characters
 
@@ -1026,11 +1030,15 @@ let get_times_between_tbl tbl (nd:node_data) =
     in
     List.map (fun x -> match x with
                 | StaticMl z -> 
+                    IFDEF USE_LIKELIHOOD THEN
                     (try
                         let codes = MlStaticCS.get_codes z.preliminary in
                         assert(((Array.length codes) > 0) && (values_match codes tbl));
                         Some (Hashtbl.find tbl codes.(0))
                     with Not_found -> None)
+                    ELSE
+                        None
+                    END
                 | _ -> None)
              nd.characters
 
@@ -2319,6 +2327,21 @@ let pre = [ (Tags.Characters.cclass, `String Tags.Nodes.preliminary) ]
 let fin = [ (Tags.Characters.cclass, `String Tags.Nodes.final) ]
 let sing = [ (Tags.Characters.cclass, `String Tags.Nodes.single) ]
 
+let dump_node printer node par = 
+    let f = if node.min_child_code = par.min_child_code then fst else snd in
+    let strs x = match f x with | None -> "none"
+                                | Some x -> string_of_float x in
+    let rec dump_map a p = match a,p with
+        | StaticMl a, StaticMl p ->
+            IFDEF USE_LIKELIHOOD THEN
+                printer (strs p.time)
+            ELSE
+                ()
+            END
+        | _ -> ()
+    in
+    List.iter2 dump_map node.characters par.characters
+
 let estimate_time a b =
     let estimate_ ca cb = match ca,cb with
     | StaticMl ca, StaticMl cb -> 
@@ -3530,6 +3553,7 @@ module Standard :
         let prioritize = prioritize
         let reprioritize = reprioritize
         let edge_iterator = edge_iterator
+        let dump_node = dump_node
         let readjust _ = readjust
         module T = T
         module Union = Union
