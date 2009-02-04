@@ -38,7 +38,7 @@ class type ['a, 'b] search_manager_sampler = object
     method init : 
         (('a, 'b) Ptree.p_tree * float * Ptree.clade_cost) list -> unit
     method clone : ('a, 'b) search_manager_sampler
-    (* process a b c d e f joins the tree c in positions a and b, with delta
+    (* [process a b c d e f g h i j] joins the tree c in positions a and b, with delta
     * cost d, which heuristic join cost e while the actual join cost (if appears
     * better), f. *)
     method process : 
@@ -238,7 +238,8 @@ module MakeApp (Node : NodeSig.S)
 
 end
 
-module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = struct
+module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
+            (TreeOps : Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) = struct
 
     let proportion a b = (float_of_int a) /. (float_of_int b)
 
@@ -400,6 +401,80 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
         let seq = get_sequence_data node in
         string_of_float (total_saturation seq)
 
+    (* samper to verify a trees likelihood properties
+     *      -- Tree cost > 0
+     *      -- All root medians have the same score
+     *      -- Verify branch lengths in all directions *) 
+    class ['a] likelihood_verification print tree_print = object (self)
+        inherit [Node.n, 'a] do_nothing
+
+        method process incremental jux1 jux2 vertex tree new_tree delta cost real_cost =
+            let failwithf format = Printf.ksprintf (failwith) format in
+
+            let check cost = match cost with
+                | None -> true
+                | Some cost -> match classify_float cost with
+                    | FP_normal -> true
+                    | FP_zero | FP_nan | FP_subnormal | FP_infinite -> false
+            in
+
+            let tree,_ = TreeOps.join_fn incremental jux1 jux2 tree in
+            let cost = Ptree.get_cost `Adjusted tree in
+
+            (* check for 0 costs *)
+            Printf.ksprintf
+                    (print) "Verifying costs %f and %s...\n%!" 
+                            cost (match real_cost with
+                                        | Some x -> string_of_float x
+                                        | None -> "none");
+            (* in next rev
+            if (check (Some cost)) && (check real_cost) then begin
+                All_sets.Integers.iter
+                    (fun x -> TreeOps.dump_tree (print) x tree)
+                    tree.Ptree.tree.Tree.handles;
+                print "\n";
+                tree_print (tree.Ptree.tree, cost, ());
+                print "\npassed\n"
+            end else begin
+                All_sets.Integers.iter
+                    (fun x -> TreeOps.dump_tree (print) x tree)
+                    tree.Ptree.tree.Tree.handles;
+                print "\n";
+                tree_print (tree.Ptree.tree, cost, ());
+                failwith "0 cost, failed!"
+            end;
+            *)
+
+            (* all medians equal *)
+            let cost_list = TreeOps.root_costs tree in
+            let cost_passed,offending = match cost_list with
+                | (_,v)::tl ->
+                    List.fold_right
+                        (fun (_,x) (a,o) ->
+                            if abs_float (x-.v) > 0.00001 then false,x
+                            else (a,o) )
+                        tl (true,0.0)
+                | [] -> true,0.0
+            in
+            if not cost_passed then begin
+                let str = List.fold_right 
+                    ((fun s (_,x) a -> (string_of_float x)^s^a) ", ")
+                    cost_list ""
+                in
+                failwithf "Inconsistent Root Costs: %s in %s" (string_of_float offending) str;
+            end
+            (*
+            let () = All_sets.Integers.iter
+                (fun x ->
+                    let res1 = TreeOps.verify_downpass x tree in
+                    if res1 then
+                        print ("Verified Downpass of "^(string_of_int x))
+                    else failwith "Inconsistent Downpass"
+                ) tree.Ptree.tree.Tree.handles in
+            *)
+            ()
+    end
+
     class ['a] union_table depth print = object (self)
         inherit [Node.n, 'a] do_nothing 
 
@@ -414,11 +489,11 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
                     union_tree <- Some res;
                     res
             | Some v ->
-                        if v.Ptree.tree == new_tree.Ptree.tree then v
-                        else 
-                            let res = union_depth new_tree depth in
-                            let _ = union_tree <- Some res in
-                            res
+                    if v.Ptree.tree == new_tree.Ptree.tree then v
+                    else 
+                        let res = union_depth new_tree depth in
+                        let _ = union_tree <- Some res in
+                        res
 
         method process _ edge _ vertex tree _ delta cost real_cost = 
             let str_delta = string_of_float delta in
@@ -530,8 +605,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
                     counter <- counter + 1
     end
 
-    class ['a] break_n_join_distances (join_fn : (Node.n, 'a) Ptree.join_fn) 
-    print =
+    class ['a] break_n_join_distances print =
         object (self)
             inherit [Node.n, 'a] do_nothing
 
@@ -547,7 +621,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = s
 
             method process incremental j1 j2 _ pt _ bd _ _ =
                 let total_cost = 
-                    let joined, _ = join_fn incremental j1 j2 pt in
+                    let joined, _ = TreeOps.join_fn incremental j1 j2 pt in
                     let total_cost = Ptree.get_cost `Adjusted joined in
                     string_of_float total_cost
                 in

@@ -48,8 +48,8 @@ module type S = sig
         (a, b) Ptree.p_tree
 
       val find_local_optimum :
-          ?base_sampler:(a, b) Sampler.search_manager_sampler ->  ?queue : (float array * (int * int) list * int * Status.status *
-          int ref * float) ->
+          ?base_sampler:(a, b) Sampler.search_manager_sampler -> 
+              ?queue : (float array * (int * int) list * int * Status.status * int ref * float) ->
           Data.d ->
               Sampler.ft_queue ->
                   (a, b) Ptree.p_tree Sexpr.t ->
@@ -167,7 +167,7 @@ module MakeNormal
 
     module PtreeSearch = Ptree.Search (Node) (Edge) (TreeOps)
     module SamplerApp = Sampler.MakeApp (Node) (Edge)
-    module SamplerRes = Sampler.MakeRes (Node) (Edge)
+    module SamplerRes = Sampler.MakeRes (Node) (Edge) (TreeOps)
     module PhyloQueues = Queues.Make (Node) (Edge)
     module PhyloTabus = Tabus.Make (Node) (Edge)
 
@@ -490,8 +490,12 @@ module MakeNormal
                     (Status.user_message (Status.Output (filename, false, [])))
             | `BreakVsJoin filename ->
                     new SamplerRes.break_n_join_distances 
-                    TreeOps.join_fn 
                     (Status.user_message (Status.Output (filename, false, [])))
+            | `Likelihood filename ->
+                    let do_compress = None <> filename in
+                    new SamplerRes.likelihood_verification
+                        (Status.user_message (Status.Output (filename, false, [])))
+                        (simplified_report_trees do_compress filename data)
             | `AllVisited filename ->
                     let join_fn incr a b c = 
                         let a, _ = TreeOps.join_fn incr a b c in
@@ -659,7 +663,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     let res = (search_fn queue_manager)#results in
                     List.map (fun (a, _, _) ->
                         if a.Ptree.tree <> tree.Ptree.tree then
-                            let a = PtreeSearch.uppass (PtreeSearch.downpass a) in
+                            let a = PtreeSearch.uppass a in 
                             (a, Ptree.get_cost `Adjusted a)
                         else (a, Ptree.get_cost `Adjusted a)) res
                 with
