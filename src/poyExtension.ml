@@ -331,14 +331,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "tcm"; ":";  x = STRING ->
                     <:expr<(`Assign_Transformation_Cost_Matrix (`Local
                     $str:x$))>> ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
-                    right_parenthesis -> 
-                        <:expr<`Create_Transformation_Cost_Matrix ($int:x$,
-                        $int:y$)>> ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; x = cur_expr; ","; y = cur_expr; 
-                    right_parenthesis -> 
+                [ LIDENT "tcm"; ":"; left_parenthesis; x = flex_integer; ","; y
+                = flex_integer; right_parenthesis -> 
                         <:expr<`Create_Transformation_Cost_Matrix ($x$,
-                        $y$)>> ] | 
+                        $y$)>> ] |
                 [ LIDENT "tcm"; ":";  x = cur_expr ->
                     <:expr<(`Assign_Transformation_Cost_Matrix (`Local
                     $x$))>> ]
