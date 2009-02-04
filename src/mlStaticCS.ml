@@ -18,8 +18,6 @@
 (* USA                                                                        *)
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
-let debug = false
-
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
 let () = register ()
@@ -38,11 +36,13 @@ type cm = { (* character model *)
     u: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     d: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui:(float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; }
+
 type t = {
-    mle: float;          (* -log likelihood of char set *)
+    mle: float;
     model: cm;
     codes: int array;
-    chars: s; }
+    chars: s;
+}
 
 external diagonalize_gtr: (* U D Ui *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -53,7 +53,7 @@ external diagonalize_sym: (* U D *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     unit = "likelihood_CAML_diagonalize_sym"
-external compose_gtr: (* U D Ui *)
+external compose_gtr: (* U D Ui t *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
@@ -549,68 +549,59 @@ let f_codes_comp t codes =
 
 let compare_data a b = compare_chars a.chars b.chars
 
-(* -----------------------------------------
- * Simple testing function for the main functions of calculating likelihood of
- * the system. Exact tree from 'Computational Molecular Evolution' - Ziheng Yang
- * Page 104, fig 4.2, for Chapter/Section 4.2.2.2
- *     __   
- *    /  \
- *   /\   \
- *  /\ \  /\
- *  T C A C C
+(*
+ * -===================================================-
+ *  A pure ocaml implementation of the median functions
 *)
-open Bigarray
-let test_methods () =
-    let lv_a = [| 1.0;0.0;0.0;0.0; |] and lv_c = [| 0.0;1.0;0.0;0.0; |] 
-    and lv_g = [| 0.0;0.0;1.0;0.0; |] and lv_t = [| 0.0;0.0;0.0;1.0; |] 
-    and lv_n = [| 1.0;1.0;1.0;1.0; |] and lv_y = [| 0.0;1.0;0.0;1.0; |]
-    and lv_r = [| 1.0;0.0;1.0;0.0; |] in
 
-    let quick_diagonalize q =
-        let d  = Array2.create float64 c_layout 4 4 in
-        let () = Array2.fill d 0.0 in
-        let () = diagonalize_sym q d in 
-        q,d 
+(* MAP -- 2 *)
+let array_map2 f a1 a2 =
+    let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
+        for i = 1 to ((Array.length a1)-1) do
+            x.(i) <- f a1.(i) a2.(i)
+        done; x
+
+(* sum of product of two vectors *)
+let dot_product v1 v2 = 
+    let r = array_map2 ( *. ) v1 v2 in
+    let res = Array.fold_right (+.) r 0.0 in
+    res
+
+(* negative log liklihood *)
+let mle a priors =
+    let res x = -. log (dot_product x priors) in
+    Array.fold_right (+.) (Array.map res a) 0.0
+
+(* calculate a new nodes mle and prob_vectors *)
+let median_char p_1 p_2 a b = 
+    (* calculates one element of the probability vector *)
+    let median_element a b p1 p2 x = 
+        let x1 = Array.get p1 x and x2 = Array.get p2 x in
+        let right_sum = dot_product a x1 and lefts_sum = dot_product b x2 in
+        lefts_sum *. right_sum
     in
+    let curried_c = median_element a b p_1 p_2 in
+    let npv = Array.init (Array.length a) curried_c in
+    npv
 
-    let u, d = quick_diagonalize (m_k2p 0.5 0.25 4)
-    and rates= Array1.of_array float64 c_layout ([| 1.0 |])
-    and probs= Array1.of_array float64 c_layout ([| 1.0 |])
-    and prior= Array1.of_array float64 c_layout ([| 0.25;0.25;0.25;0.25 |]) in
+(* empty argument is 'previous' *)
+let median_fmat a_vec b_vec a_mat b_mat =
+    array_map2 (median_char a_mat b_mat) a_vec b_vec
 
-    let set_1 = bigarray_s (Array2.of_array float64 c_layout ([| lv_t |]))
-    and set_2 = bigarray_s (Array2.of_array float64 c_layout ([| lv_c |]))
-    and set_3 = bigarray_s (Array2.of_array float64 c_layout ([| lv_a |]))
-    and set_4 = bigarray_s (Array2.of_array float64 c_layout ([| lv_g |])) in
-
-    (* - test 1 *)
-    let set_tc  = median_sym u d 0.2 0.2 set_1 set_2 rates probs in
-    let set_cc  = median_sym u d 0.2 0.2 set_2 set_2 rates probs in
-    let set_tca = median_sym u d 0.1 0.2 set_tc set_3 rates probs in
-    let set_root= median_sym u d 0.1 0.1 set_tca set_cc rates probs in
-    let f_cost = loglikelihood set_root prior in
-    Printf.printf "1Loglikelihood: %f\n%!" f_cost;
-
-    (* -- test 2 *)
-    let test2 = bigarray_s (Array2.of_array float64 c_layout ([| lv_n |])) in
-    let root2 = median_sym u d 0.5 0.5 test2 test2 rates probs in
-    let array_res = s_bigarray root2 in
-    let f_ost = loglikelihood root2 prior in
-    Printf.printf "2Loglikelihood: %f\n%!" f_ost;
-    print_barray2 array_res;
-
-    (* --- test 3 *)
-    let u,d = quick_diagonalize (m_jc69 0.25 4) in
-    let node_a = median_sym u d 1.50 0.75 set_2 set_4 rates probs
-    and node_b = median_sym u d 1.00 1.25 set_2 set_4 rates probs
-    and node_c = median_sym u d 1.00 1.25 set_4 set_2 rates probs in
-    let f_osta = loglikelihood node_a prior 
-    and f_ostb = loglikelihood node_b prior
-    and f_ostc = loglikelihood node_c prior in
-    let () = Printf.printf "3Loglikelihood: %f == %f == %f\n%!" f_osta f_ostb f_ostc in
-    ()
-
-    (* ---- test 4
-    let node_a = median_sym u d *)
-
-let () = if debug then test_methods () else ()
+(**
+ * converts the stored variables into float array/matrices and computes mle
+ *)
+let mle_ocaml (a:t) (b:t) (t1:float) (t2:float) : (float array array * float) = 
+    let make_matrix model t = 
+        barray_matrix
+            (match model.ui with
+            | Some ui -> compose_gtr model.u model.d ui t
+            | None -> compose_sym model.u model.d t)
+    in
+    let a_m = make_matrix a.model t1 
+    and b_m = make_matrix b.model t2
+    and ach = barray_matrix (s_bigarray a.chars)
+    and bch = barray_matrix (s_bigarray b.chars)
+    and pi_ = ba2array (a.model.pi_0) in
+    let root = median_fmat ach bch a_m b_m in
+    root, (mle root pi_)
