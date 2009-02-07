@@ -4,6 +4,24 @@
 
 open Camlp4.Sig
 
+type primitives = [ `S | `K | `Label of string | `Node of primitives list | `Debugger of string | `Lazy of primitives Lazy.t]
+
+type 'a kolmo_function =
+    [ `Let of (name * arguments * 'a definition)
+    | `Rec of (name * arguments * 'a definition) ]
+and name = string
+and arguments = string list 
+and 'a definition =
+    [ `Value of 'a values
+    | `IfElse of ('a condition * 'a definition * 'a definition)
+    | `Letin of ('a kolmo_function * 'a definition) ]
+and 'a condition = [ `Condition of 'a definition ]
+and 'a values =
+    [ `Apply of (string * ('a definition list))
+    | `Integer of string 
+    | `Expr of 'a ]
+
+
 module Id = struct
     let name = "SKLanguage"
     let version = "0.1"
@@ -97,4 +115,89 @@ end
 
 let () =
     let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
+    ()
+
+module IdSKOcaml = struct
+    let name = "SKOcaml"
+    let version = "0.1"
+end
+
+module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
+    open Syntax
+
+    let rec exSem_of_list = function
+        | [] -> 
+                let _loc = Loc.ghost in
+                <:expr<[]>>
+        | [x] -> 
+                let _loc = Ast.loc_of_expr x in
+                <:expr< [$x$]>>
+        | x :: xs ->
+                let _loc = Ast.loc_of_expr x in
+                <:expr< [$x$ :: $exSem_of_list xs$] >> 
+
+    let ocaml_sk = Gram.Entry.mk "ocaml_sk"
+    let definition = Gram.Entry.mk "definition"
+
+    EXTEND Gram 
+    GLOBAL: ocaml_sk definition;
+    ocaml_sk: [
+        [ KEYWORD "let";  KEYWORD "rec";
+            (name, arguments, definition) = sk_definition ->
+                <:expr<`Rec ($name$, $arguments$, $definition$)>> ] |
+        [ KEYWORD "let"; 
+            (name, arguments, definition) = sk_definition ->
+                <:expr<`Let ($name$, $arguments$, $definition$)>> ] 
+    ];
+    sk_definition: [
+        [ arguments = LIST1 [ x = LIDENT -> <:expr<$str:x$>>];
+            "="; 
+            def = definition -> 
+                match arguments with
+                | name :: arguments ->
+                        (<:expr<$name$>>, exSem_of_list arguments,
+                        <:expr<$def$>>) 
+                | [] -> assert false]
+    ];
+    definition: [
+        [ "("; x = definition; ")" -> x ] |
+        [ KEYWORD "if"; x = condition; KEYWORD "then"; y = definition; 
+            KEYWORD "else"; z = definition -> 
+                <:expr<`IfElse ($x$, $y$, $z$)>> ] |
+        [ f = ocaml_sk; KEYWORD "in"; d = definition -> 
+                <:expr<`Letin ($f$, $d$)>> ] |
+        [ v = values -> <:expr<`Value $v$>> ] 
+    ];
+    condition: [
+        [ a = definition -> <:expr<`Condition $a$>> ]
+    ];
+    values: [
+        [ a = LIDENT; b = LIST0 
+            [ x = sub_definition -> x] -> 
+            <:expr<`Apply ($str:a$, $exSem_of_list b$)>> ] |
+        [ b = INT -> <:expr<`Integer $str:b$>> ] |
+        [ "["; e = expr; "]" -> <:expr<`Expr $e$>> ] 
+    ];
+    sub_definition: [
+        [ "("; x = definition; ")" -> x ] |
+        [ x = LIDENT -> <:expr<`Value (`Apply ($str:x$, []))>> ] |
+        [ b = INT -> <:expr<`Value (`Integer $str:b$)>> ] |
+        [ "["; e = expr; "]" -> <:expr<`Value (`Expr $e$)>> ] 
+    ];
+    END;;
+
+    EXTEND Gram
+    Syntax.expr : LEVEL "top" [ 
+        [ UIDENT "OCAMLSK"; s = LIST1 [ x = ocaml_sk -> x] -> 
+            <:expr<List.iter Kolmo.Compiler.compile $exSem_of_list s$>> ] |
+        [ UIDENT "OCAMLSKV"; s = definition -> 
+            <:expr<Kolmo.S_K.eval (Kolmo.Compiler.evaluate $s$)>> ] 
+    ];
+    END;;
+
+    include Syntax
+end
+
+let () =
+    let module M = Camlp4.Register.OCamlSyntaxExtension (IdSKOcaml) (SKOcamlLanguage) in 
     ()

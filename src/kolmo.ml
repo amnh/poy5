@@ -1753,6 +1753,186 @@ module PM = struct
 
 end
 
+module Compiler = struct
+    type 'a kolmo_function =
+        [ `Let of (name * arguments * 'a definition)
+        | `Rec of (name * arguments * 'a definition) ]
+    and name = string
+    and arguments = string list 
+    and 'a definition =
+        [ `Value of 'a values
+        | `IfElse of ('a condition * 'a definition * 'a definition)
+        | `Letin of ('a kolmo_function * 'a definition) ]
+    and 'a condition = [ `Condition of 'a definition ]
+    and 'a values =
+        [ `Apply of (string * ('a definition list))
+        | `Integer of string 
+        | `Expr of 'a ]
+
+    type environment_item = Argument of string | S_K of S_K.primitives
+
+    let fixedpoint = (SK (S S K (S (K (S S(S(S S K))))K)))
+
+    let add_function env isrecursive name arguments definition =
+        let f =
+            if not isrecursive then
+                S_K.create definition arguments 
+            else 
+                let tmp = S_K.create definition (name :: arguments) in
+                S_K.create (SK ([fixedpoint] [tmp])) []
+        in
+        All_sets.StringMap.add name (S_K f) env
+
+    let add_args environment arg =
+        All_sets.StringMap.add arg (Argument arg) environment
+
+    let rec of_int x =
+        let m_true = (SK K) in 
+        let m_false = (SK (S K)) in
+        let m_pair = S_K.create (SK (c a b)) (LS a b c) in
+        let m_church_zero = (SK ([m_pair] [m_false] K)) in
+        let s_church_successor x = (SK ([m_pair] [m_true] [x])) in
+        if x < 0 then failwith "Invalid argument" 
+        else
+            if x = 0 then m_church_zero
+            else s_church_successor (of_int (x - 1))
+
+    let rec create_sk must_be_defined arguments environment definition =
+        match definition with
+        | `Value v -> 
+                (match v with
+                | `Apply (s, args) -> 
+                        (try 
+                            let args = 
+                                List.map 
+                                (create_sk must_be_defined arguments environment)
+                                args
+                            in
+                            match All_sets.StringMap.find s environment with
+                            | Argument s -> 
+                                    (match args with
+                                    | [] -> `Label s
+                                    | _ -> `Node ((`Label s) :: args))
+                            | S_K s -> 
+                                    (match args with
+                                    | [] -> s
+                                    | _ -> `Node (s :: args))
+                        with Not_found ->
+                            if must_be_defined then
+                                failwith ("Unbound value " ^ s)
+                            else `Label s)
+                | `Integer s ->
+                        of_int (int_of_string s)
+                | `Expr x -> x)
+        | `IfElse (`Condition cond, a, b) -> 
+                let cond = create_sk true arguments environment cond
+                and a = create_sk true arguments environment a
+                and b = create_sk true arguments environment b in
+                (SK ([cond] [a] [b]))
+        | `Letin (new_fun, def) -> 
+                let env = compile environment new_fun in
+                create_sk true arguments env def
+    and compile environment (spec : S_K.primitives kolmo_function)  =
+        let (name, arguments, definition), isrecursive =
+            match spec with
+            | `Let x -> x, false
+            | `Rec x -> x, true
+        in
+        let definition = 
+            let new_env = 
+                let arguments = 
+                    if isrecursive then name :: arguments
+                    else arguments
+                in
+                List.fold_left add_args environment arguments in
+            create_sk true arguments new_env definition 
+        in
+        add_function environment isrecursive name arguments definition
+
+    let environment = ref All_sets.StringMap.empty
+
+    let compile spec = 
+        environment := compile !environment spec
+
+    let evaluate def =
+        create_sk false [] !environment def
+
+    let get name =
+        match All_sets.StringMap.find name !environment with
+        | S_K x -> x
+        | Argument _ -> assert false
+
+        (* We initialize the environment with some basic definitions *)
+    let () =
+        OCAMLSK 
+            let m_true = [SK K] 
+            let m_false = [SK (S K)]
+            let m_and y x = if x then y else x                                  
+            let m_or x y = if x then x else y                          
+            let m_not x = if x then m_false else m_true
+            let first = m_true                                                    
+            let second = m_false
+            let head = first
+            let tail = second
+            let m_pair a b c =   c a b
+            let pair = m_pair
+            let zero = pair m_false [SK K]
+            let successor x = pair m_true x                                   
+            let predecessor x = x second                                
+            let not_zero x = x head    
+            let rec equal a b =
+                if (m_and (not_zero a) (not_zero b)) then
+                    (equal (predecessor a) (predecessor b))
+                else
+                    (if (m_not (m_or (not_zero a) (not_zero b))) then
+                        m_true
+                    else m_false)
+            let rec add x y = 
+                if (not_zero x) then (add (predecessor x) (successor y))
+                else y
+            let rec substract x y =
+                if (not_zero y) then (substract (predecessor x) (predecessor y))
+                else x
+            let rec multiply x y =
+                if (not_zero y) then 
+                    (add x (multiply x (predecessor y)))
+                else 0
+            let to_bool x = x [SK S] [SK K] [SK K] m_not m_true
+
+            (* All of the functions that we now apply must take a callback
+            * function that will be applied over the accumulator. *)
+            let decode_base callback a b =
+                callback (pair (to_bool a) (to_bool b))
+
+            (* We define a vanilla function that decodes the church integer in
+            * the following stream *)
+            let decode_church_integer acc next = 
+                if (to_bool next) then 
+                    (decode_church_integer (successor acc))
+                else acc
+
+            (* Now we define a function that decodes church integers with
+            * continuation passing style *)
+            let decode_church_integer callback acc next = 
+                if (to_bool next) then
+                    (decode_church_integer callback (successor acc))
+                else (callback acc)
+
+            (* We will define the structure of a generic Huffman like decoder
+            * for streams of S and K *)
+            let leaf x = pair [SK K] x
+            let is_leaf x = first x
+            let is_internal x = m_not (is_leaf x)
+            let rec basic_decoder tree next =
+                if (is_leaf tree) then
+                    (let a = second tree in
+                    (a next))
+                else 
+                    (basic_decoder (to_bool next) (second tree))
+
+    ;;
+end
+
 module Primitives = struct
     (** Primitive operations in an SK machine. In the following functions, any
     * one starting with an m_ is intended to be a macro that can be directly
@@ -2423,3 +2603,4 @@ module IndPM = struct
     *)
 
 end
+
