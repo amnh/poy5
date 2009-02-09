@@ -278,7 +278,8 @@ BASE_OBJS :=  camlpdf-0.3/zlibstubs.o gamma.o likelihood.o gz-0.5.7/gz.cma \
 	supports.cmo help.cmo helpIndex.cmo analyzer.cmo \
 	commandLexer.cmo poyCommand.cmo $(XSLT_COMPONENTS) scripting.cmo \
 
-MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo phylo.cmo main.cmo
+MAIN_OBJS = $(BASE_OBJS) arguments.cmo compileFlags.cmo kolmo.cmo phylo.cmo \
+			main.cmo
 
 PORTAL_OBJS = $(BASE_OBJS) compileFlags.cmo phylo.cmo portal.cmo
 
@@ -781,7 +782,7 @@ NOPREPROCESSOR= tabus.ml sampler.ml
 
 .depend13: poyExtension.cmo helpIndex.ml analyzer.mli analyzer.ml commandLexer.ml \
 	commandLexer.ml xslt.ml scripting.mli scripting.ml \
-	arguments.ml phylo.ml main.ml \
+	arguments.ml kolmo.mli kolmo.ml phylo.ml main.ml \
 	test_scripts.ml portal.ml
 	$(OCAMLDEP) $(OCAML_INCLUDES) $(OPTIONSPREPROCESSOR) \
 		$(filter-out poyExtension.cmo $(NOPREPROCESSOR) ,$^) > $@

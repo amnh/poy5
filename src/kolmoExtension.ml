@@ -7,7 +7,8 @@ open Camlp4.Sig
 type primitives = [ `S | `K | `Label of string | `Node of primitives list | `Debugger of string | `Lazy of primitives Lazy.t]
 
 type 'a kolmo_function =
-    [ `Let of (name * arguments * 'a definition)
+    [ `Module of 'a kolmo_function list
+    | `Let of (name * arguments * 'a definition)
     | `Rec of (name * arguments * 'a definition) ]
 and name = string
 and arguments = string list 
@@ -17,7 +18,7 @@ and 'a definition =
     | `Letin of ('a kolmo_function * 'a definition) ]
 and 'a condition = [ `Condition of 'a definition ]
 and 'a values =
-    [ `Apply of (string * ('a definition list))
+    [ `Apply of (string list * string * ('a definition list))
     | `Integer of string 
     | `Expr of 'a ]
 
@@ -142,6 +143,9 @@ module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
     EXTEND Gram 
     GLOBAL: ocaml_sk definition;
     ocaml_sk: [
+        [ KEYWORD "module"; n = UIDENT; "="; KEYWORD "struct";
+            x = LIST1 [ x = ocaml_sk -> x]; KEYWORD "end" ->
+                <:expr<`Module ($str:n$, $exSem_of_list x$)>> ] |
         [ KEYWORD "let";  KEYWORD "rec";
             (name, arguments, definition) = sk_definition ->
                 <:expr<`Rec ($name$, $arguments$, $definition$)>> ] |
@@ -174,13 +178,17 @@ module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
     values: [
         [ a = LIDENT; b = LIST0 
             [ x = sub_definition -> x] -> 
-            <:expr<`Apply ($str:a$, $exSem_of_list b$)>> ] |
+            <:expr<`Apply ([], $str:a$, $exSem_of_list b$)>> ] |
+        [ mods = LIST1 [x = UIDENT; "." -> <:expr<$str:x$>>];
+            a = LIDENT; b = LIST0 
+            [ x = sub_definition -> x] -> 
+            <:expr<`Apply ($exSem_of_list mods$, $str:a$, $exSem_of_list b$)>> ] |
         [ b = INT -> <:expr<`Integer $str:b$>> ] |
         [ "["; e = expr; "]" -> <:expr<`Expr $e$>> ] 
     ];
     sub_definition: [
         [ "("; x = definition; ")" -> x ] |
-        [ x = LIDENT -> <:expr<`Value (`Apply ($str:x$, []))>> ] |
+        [ x = LIDENT -> <:expr<`Value (`Apply ([], $str:x$, []))>> ] |
         [ b = INT -> <:expr<`Value (`Integer $str:b$)>> ] |
         [ "["; e = expr; "]" -> <:expr<`Value (`Expr $e$)>> ] 
     ];

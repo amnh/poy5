@@ -46,6 +46,29 @@ module S_K :
     val create : primitives -> string list -> primitives
   end
 
+module Compiler : sig
+
+    type 'a kolmo_function =
+        [ `Module of (name * ('a kolmo_function list))
+        | `Let of (name * arguments * 'a definition)
+        | `Rec of (name * arguments * 'a definition) ]
+    and name = string
+    and arguments = string list 
+    and 'a definition =
+        [ `Value of 'a values
+        | `IfElse of ('a condition * 'a definition * 'a definition)
+        | `Letin of ('a kolmo_function * 'a definition) ]
+    and 'a condition = [ `Condition of 'a definition ]
+    and 'a values =
+        [ `Apply of (string list * string * ('a definition list))
+        | `Integer of string 
+        | `Expr of 'a ]
+
+    val compile : S_K.primitives kolmo_function -> unit
+    val evaluate : S_K.primitives definition -> S_K.primitives
+    val get : string -> S_K.primitives
+end
+
 (** Primitive operations in an SK machine *)
 module Primitives : sig
     (** Primitive operations in an SK machine. In the following functions, any
@@ -211,7 +234,7 @@ module Primitives : sig
 
     (** An implementation of [Integer] using church's representation, the same
     * as that in the [Primitives] module. *)
-    module ChurchIntegers : Integer
+    module ChurchIntegers : Integer with type extras = unit
 
 
     (** An implementation of [Integer] for logarithmic integers. It is optimal

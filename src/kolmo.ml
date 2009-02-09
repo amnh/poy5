@@ -1755,7 +1755,8 @@ end
 
 module Compiler = struct
     type 'a kolmo_function =
-        [ `Let of (name * arguments * 'a definition)
+        [ `Module of (name * 'a kolmo_function list)
+        | `Let of (name * arguments * 'a definition)
         | `Rec of (name * arguments * 'a definition) ]
     and name = string
     and arguments = string list 
@@ -1765,26 +1766,35 @@ module Compiler = struct
         | `Letin of ('a kolmo_function * 'a definition) ]
     and 'a condition = [ `Condition of 'a definition ]
     and 'a values =
-        [ `Apply of (string * ('a definition list))
+        [ `Apply of (string list * string * ('a definition list))
         | `Integer of string 
         | `Expr of 'a ]
 
-    type environment_item = Argument of string | S_K of S_K.primitives
+    type environment_item = 
+        | Argument of string 
+        | S_K of S_K.primitives 
+        | SKModule of environment_item All_sets.StringMap.t
 
     let fixedpoint = (SK (S S K (S (K (S S(S(S S K))))K)))
 
     let add_function env isrecursive name arguments definition =
-        let f =
-            if not isrecursive then
-                S_K.create definition arguments 
-            else 
-                let tmp = S_K.create definition (name :: arguments) in
-                S_K.create (SK ([fixedpoint] [tmp])) []
-        in
-        All_sets.StringMap.add name (S_K f) env
+        match env with
+        | h :: t ->
+                let f =
+                    if not isrecursive then
+                        S_K.create definition arguments 
+                    else 
+                        let tmp = S_K.create definition (name :: arguments) in
+                        S_K.create (SK ([fixedpoint] [tmp])) []
+                in
+                (All_sets.StringMap.add name (S_K f) h) :: t
+        | _ -> assert false
 
     let add_args environment arg =
-        All_sets.StringMap.add arg (Argument arg) environment
+        match environment with
+        | h :: t ->
+                (All_sets.StringMap.add arg (Argument arg) h) :: t
+        | _ -> assert false
 
     let rec of_int x =
         let m_true = (SK K) in 
@@ -1797,18 +1807,31 @@ module Compiler = struct
             if x = 0 then m_church_zero
             else s_church_successor (of_int (x - 1))
 
+    let rec find_in_environment mustbedefined s environment = 
+        match environment with
+        | [] -> raise Not_found
+        | h :: t ->
+                try All_sets.StringMap.find s h with
+                | Not_found -> find_in_environment mustbedefined s t
+
     let rec create_sk must_be_defined arguments environment definition =
         match definition with
         | `Value v -> 
                 (match v with
-                | `Apply (s, args) -> 
+                | `Apply (modules, s, args) -> 
                         (try 
                             let args = 
                                 List.map 
                                 (create_sk must_be_defined arguments environment)
                                 args
                             in
-                            match All_sets.StringMap.find s environment with
+                            let modenv = 
+                                List.fold_left (fun env name ->
+                                    match find_in_environment true name env with
+                                    | SKModule env -> env :: environment
+                                    | _ -> assert false) environment modules
+                            in
+                            match find_in_environment must_be_defined s modenv with
                             | Argument s -> 
                                     (match args with
                                     | [] -> `Label s
@@ -1817,6 +1840,7 @@ module Compiler = struct
                                     (match args with
                                     | [] -> s
                                     | _ -> `Node (s :: args))
+                            | SKModule _ -> raise Not_found
                         with Not_found ->
                             if must_be_defined then
                                 failwith ("Unbound value " ^ s)
@@ -1833,23 +1857,37 @@ module Compiler = struct
                 let env = compile environment new_fun in
                 create_sk true arguments env def
     and compile environment (spec : S_K.primitives kolmo_function)  =
-        let (name, arguments, definition), isrecursive =
-            match spec with
-            | `Let x -> x, false
-            | `Rec x -> x, true
-        in
-        let definition = 
-            let new_env = 
-                let arguments = 
-                    if isrecursive then name :: arguments
-                    else arguments
+        match spec with
+        | `Module (modname, lst) ->
+                let modenv = 
+                    List.fold_left compile (All_sets.StringMap.empty ::
+                        environment) lst
                 in
-                List.fold_left add_args environment arguments in
-            create_sk true arguments new_env definition 
-        in
-        add_function environment isrecursive name arguments definition
+                (match modenv with
+                | f :: s :: t ->
+                        let s = 
+                            All_sets.StringMap.add modname (SKModule f) s
+                        in
+                        s :: t
+                | _ -> assert false)
+        | `Let _ | `Rec _ as spec ->
+                let (name, arguments, definition), isrecursive =
+                    match spec with
+                    | `Let x -> x, false
+                    | `Rec x -> x, true
+                in
+                let definition = 
+                    let new_env = 
+                        let arguments = 
+                            if isrecursive then name :: arguments
+                            else arguments
+                        in
+                        List.fold_left add_args environment arguments in
+                    create_sk true arguments new_env definition 
+                in
+                add_function environment isrecursive name arguments definition
 
-    let environment = ref All_sets.StringMap.empty
+    let environment = ref [All_sets.StringMap.empty]
 
     let compile spec = 
         environment := compile !environment spec
@@ -1858,79 +1896,14 @@ module Compiler = struct
         create_sk false [] !environment def
 
     let get name =
-        match All_sets.StringMap.find name !environment with
-        | S_K x -> x
-        | Argument _ -> assert false
+        match !environment with
+        | [environment] ->
+                (match All_sets.StringMap.find name environment with
+                | S_K x -> x
+                | SKModule _
+                | Argument _ -> assert false)
+        | _ -> assert false
 
-        (* We initialize the environment with some basic definitions *)
-    let () =
-        OCAMLSK 
-            let m_true = [SK K] 
-            let m_false = [SK (S K)]
-            let m_and y x = if x then y else x                                  
-            let m_or x y = if x then x else y                          
-            let m_not x = if x then m_false else m_true
-            let first = m_true                                                    
-            let second = m_false
-            let head = first
-            let tail = second
-            let m_pair a b c =   c a b
-            let pair = m_pair
-            let zero = pair m_false [SK K]
-            let successor x = pair m_true x                                   
-            let predecessor x = x second                                
-            let not_zero x = x head    
-            let rec equal a b =
-                if (m_and (not_zero a) (not_zero b)) then
-                    (equal (predecessor a) (predecessor b))
-                else
-                    (if (m_not (m_or (not_zero a) (not_zero b))) then
-                        m_true
-                    else m_false)
-            let rec add x y = 
-                if (not_zero x) then (add (predecessor x) (successor y))
-                else y
-            let rec substract x y =
-                if (not_zero y) then (substract (predecessor x) (predecessor y))
-                else x
-            let rec multiply x y =
-                if (not_zero y) then 
-                    (add x (multiply x (predecessor y)))
-                else 0
-            let to_bool x = x [SK S] [SK K] [SK K] m_not m_true
-
-            (* All of the functions that we now apply must take a callback
-            * function that will be applied over the accumulator. *)
-            let decode_base callback a b =
-                callback (pair (to_bool a) (to_bool b))
-
-            (* We define a vanilla function that decodes the church integer in
-            * the following stream *)
-            let decode_church_integer acc next = 
-                if (to_bool next) then 
-                    (decode_church_integer (successor acc))
-                else acc
-
-            (* Now we define a function that decodes church integers with
-            * continuation passing style *)
-            let decode_church_integer callback acc next = 
-                if (to_bool next) then
-                    (decode_church_integer callback (successor acc))
-                else (callback acc)
-
-            (* We will define the structure of a generic Huffman like decoder
-            * for streams of S and K *)
-            let leaf x = pair [SK K] x
-            let is_leaf x = first x
-            let is_internal x = m_not (is_leaf x)
-            let rec basic_decoder tree next =
-                if (is_leaf tree) then
-                    (let a = second tree in
-                    (a next))
-                else 
-                    (basic_decoder (to_bool next) (second tree))
-
-    ;;
 end
 
 module Primitives = struct
@@ -2073,24 +2046,14 @@ module Primitives = struct
         * representation with as many K as there can be *)
         type extras = unit 
 
-        let zero = S_K.eval (SK (Pair S K))
-        let not_zero x = (SK ([m_head] [x]))
+        let zero = m_church_zero
+        let not_zero x = m_church_not_zero
         let ml_zero_signal x = 
            (SK (S K)) = S_K.eval (not_zero x)
 
-        let to_int () a = 
-            let rec aux_to_int acc a =
-                if ml_zero_signal a then acc
-                else aux_to_int (acc + 1) (s_church_predecessor a)
-            in
-            aux_to_int 0 a
+        let to_int () = to_int
 
-        let of_int () a = 
-            let rec aux_of_int acc a =
-                if a = 0 then acc
-                else aux_of_int (s_church_successor acc) (a - 1)
-            in
-            S_K.eval (aux_of_int zero a)
+        let of_int () = of_int
 
         let to_church () = SK I
     end
