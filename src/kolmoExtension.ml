@@ -1,7 +1,5 @@
 (* A File that defines OCaml extensions and a DSL for SK operations and
 * definitions *)
-
-
 open Camlp4.Sig
 
 type primitives = [ `S | `K | `Label of string | `Node of primitives list | `Debugger of string | `Lazy of primitives Lazy.t]
@@ -30,7 +28,7 @@ module Id = struct
     let version = "0.1"
 end
 
-module SKLanguage (Syntax : Camlp4Syntax) = struct
+module SKLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
     open Syntax
 
     (* An SK expression *)
@@ -73,14 +71,25 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
         | Debg (item, _loc) ->
                 <:expr< (`Debugger ( $item$ )) >> 
 
+    let rec sk_to_ocaml = function
+        | S _loc -> `S
+        | K _loc -> `K
+        | Label (v, _loc) -> `Label v
+        | Expr (item, _loc) -> assert false
+        | Debg (item, _loc) -> `Debugger item
+        | Node (items, _loc) -> 
+                let es = List.map sk_to_ocaml items in
+                match es with
+                | [es] -> es
+                | _ -> `Node es
+
+
     let expression_converter _loc x =
         let res = bare_expression_converter x in
         <:expr< `Processed $res$>>
 
     let lst_to_expr _loc lst = 
         exSem_of_list (List.map (fun x -> <:expr<$str:x$>>) lst)
-
-    let expr_sk = Gram.Entry.mk "expr_sk"
 
     let sklst_to_expr _loc lst =
         let rec aux_to_expr lst = 
@@ -91,42 +100,51 @@ module SKLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`Node [`Label "Pair"; $h$; $at$]>>
         in
         aux_to_expr (List.map bare_expression_converter lst)
-    EXTEND Gram 
-    expr_sk: [
-        [ UIDENT "S" -> S _loc ] | 
-        [ UIDENT "K" -> K _loc ] | 
-        [ v = UIDENT -> Label (v, _loc) ] | 
-        [ v = LIDENT -> Label (v, _loc) ] |
-        [ "["; x = expr; "]" -> Expr (x, _loc) ] |
-        [ "{"; x = expr; "}" -> Debg (x, _loc) ] |
-        [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
-    END;;
+
+    let create_grammar () =
+        let expr_sk = Gram.Entry.mk "expr_sk" in
+        EXTEND Gram 
+        expr_sk: [
+            [ UIDENT "S" -> S _loc ] | 
+            [ UIDENT "K" -> K _loc ] | 
+            [ v = UIDENT -> Label (v, _loc) ] | 
+            [ v = LIDENT -> Label (v, _loc) ] |
+            [ "("; x = LIST1 [ x = expr_sk -> x] ; ")" -> Node (x, _loc) ] ];
+        END;
+        expr_sk
 
 (*            Gram.Entry.clear Syntax.str_item *)
-
-    EXTEND Gram
-    Syntax.expr : LEVEL "top" [ 
-        [ UIDENT "SK"; s = expr_sk -> bare_expression_converter s 
-        | UIDENT "LS"; s = LIST0 [x = UIDENT -> x | x = LIDENT -> x] -> 
-                lst_to_expr _loc s 
-        | UIDENT "SKLS"; s = LIST0 [ x = expr_sk -> x ] -> 
-                sklst_to_expr _loc s ]];
-    END;;
+    let init () =
+        let expr_sk = create_grammar () in
+        EXTEND Gram 
+        expr_sk: [
+            [ "["; x = Syntax.expr; "]" -> Expr (x, _loc) ] |
+            [ "{"; x = Syntax.expr; "}" -> Debg (x, _loc) ] 
+        ];
+        END;
+        EXTEND Gram
+        Syntax.expr : LEVEL "top" [ 
+            [ UIDENT "SK"; s = expr_sk -> bare_expression_converter s 
+            | UIDENT "LS"; s = LIST0 [x = UIDENT -> x | x = LIDENT -> x] -> 
+                    lst_to_expr _loc s 
+            | UIDENT "SKLS"; s = LIST0 [ x = expr_sk -> x ] -> 
+                    sklst_to_expr _loc s ]];
+        END;;
 
     include Syntax
 end
-
-let () =
-    let module M = Camlp4.Register.OCamlSyntaxExtension (Id) (SKLanguage) in 
-    ()
 
 module IdSKOcaml = struct
     let name = "SKOcaml"
     let version = "0.1"
 end
 
-module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
+module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
     open Syntax
+
+    module MySKLanguage = SKLanguage (Gram) (Syntax)
+
+    let () = MySKLanguage.init ()
 
     let rec exSem_of_list = function
         | [] -> 
@@ -139,86 +157,199 @@ module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
                 let _loc = Ast.loc_of_expr x in
                 <:expr< [$x$ :: $exSem_of_list xs$] >> 
 
-    let ocaml_sk = Gram.Entry.mk "ocaml_sk"
-    let definition = Gram.Entry.mk "definition"
+    type 'a kolmo_function =
+        | Module of (name * 'a kolmo_function list * Syntax.Ast.loc)
+        | LetVal of (name * arguments * 'a definition * Syntax.Ast.loc)
+        | RecVal of (name * arguments * 'a definition * Syntax.Ast.loc) 
+        | Let of (name * arguments * 'a definition * Syntax.Ast.loc)
+        | Rec of (name * arguments * 'a definition * Syntax.Ast.loc) 
+    and name = (string * Syntax.Ast.loc)
+    and arguments = name list 
+    and 'a definition =
+        | Value of ('a values * Syntax.Ast.loc)
+        | IfElse of ('a condition * 'a definition * 'a definition *
+        Syntax.Ast.loc)
+        | Letin of ('a kolmo_function * 'a definition * Syntax.Ast.loc)
+    and 'a condition = Condition of ('a definition * Syntax.Ast.loc)
+    and 'a values =
+        | Apply of (name list * name * ('a definition list) * Syntax.Ast.loc)
+        | Integer of name 
+        | Expr of 'a
 
-    EXTEND Gram 
-    GLOBAL: ocaml_sk definition;
-    ocaml_sk: [
-        [ KEYWORD "module"; n = UIDENT; "="; KEYWORD "struct";
-            x = LIST1 [ x = ocaml_sk -> x]; KEYWORD "end" ->
-                <:expr<`Module ($str:n$, $exSem_of_list x$)>> ] |
-        [ KEYWORD "val";  KEYWORD "rec";
-            (name, arguments, definition) = sk_definition ->
-                <:expr<`RecVal ($name$, $arguments$, $definition$)>> ] |
-        [ KEYWORD "val"; 
-            (name, arguments, definition) = sk_definition ->
-                <:expr<`LetVal ($name$, $arguments$, $definition$)>> ] |
-        [ KEYWORD "let";  KEYWORD "rec";
-            (name, arguments, definition) = sk_definition ->
-                <:expr<`Rec ($name$, $arguments$, $definition$)>> ] |
-        [ KEYWORD "let"; 
-            (name, arguments, definition) = sk_definition ->
-                <:expr<`Let ($name$, $arguments$, $definition$)>> ] 
-    ];
-    sk_definition: [
-        [ arguments = LIST1 [ x = LIDENT -> <:expr<$str:x$>>];
-            "="; 
-            def = definition -> 
-                match arguments with
-                | name :: arguments ->
-                        (<:expr<$name$>>, exSem_of_list arguments,
-                        <:expr<$def$>>) 
-                | [] -> assert false]
-    ];
-    definition: [
-        [ "("; x = definition; ")" -> x ] |
-        [ KEYWORD "if"; x = condition; KEYWORD "then"; y = definition; 
-            KEYWORD "else"; z = definition -> 
-                <:expr<`IfElse ($x$, $y$, $z$)>> ] |
-        [ f = ocaml_sk; KEYWORD "in"; d = definition -> 
-                <:expr<`Letin ($f$, $d$)>> ] |
-        [ v = values -> <:expr<`Value $v$>> ] 
-    ];
-    condition: [
-        [ a = definition -> <:expr<`Condition $a$>> ]
-    ];
-    values: [
-        [ a = LIDENT; b = LIST0 
-            [ x = sub_definition -> x] -> 
-            <:expr<`Apply ([], $str:a$, $exSem_of_list b$)>> ] |
-        [ mods = LIST1 [x = UIDENT; "." -> <:expr<$str:x$>>];
-            a = LIDENT; b = LIST0 
-            [ x = sub_definition -> x] -> 
-            <:expr<`Apply ($exSem_of_list mods$, $str:a$, $exSem_of_list b$)>> ] |
-        [ b = INT -> <:expr<`Integer $str:b$>> ] |
-        [ "["; e = expr; "]" -> <:expr<`Expr $e$>> ] 
-    ];
-    sub_definition: [
-        [ "("; x = definition; ")" -> x ] |
-        [ x = LIDENT -> <:expr<`Value (`Apply ([], $str:x$, []))>> ] |
-        [ b = INT -> <:expr<`Value (`Integer $str:b$)>> ] |
-        [ mods = LIST1 [x = UIDENT; "." -> <:expr<$str:x$>>];
-            a = LIDENT; b = LIST0 
-            [ x = sub_definition -> x] -> 
-            <:expr<`Value (`Apply ($exSem_of_list mods$, $str:a$, $exSem_of_list
-            b$))>> ] |
-        [ "["; e = expr; "]" -> <:expr<`Value (`Expr $e$)>> ] 
-    ];
-    END;;
+    let rec to_ast = function
+        | Module ((n, _), x, _loc) ->
+                <:expr<`Module ($str:n$, 
+                    $exSem_of_list (List.map to_ast x)$)>>
+        | LetVal ((name, _), arguments, definition, _loc) ->
+                <:expr<`LetVal($str:name$, 
+                    $exSem_of_list (args_to_ast arguments)$, 
+                    $def_to_ast definition$)>>
+        | RecVal ((name, _), arguments, definition, _loc) ->
+                <:expr<`RecVal($str:name$, 
+                    $exSem_of_list (args_to_ast arguments)$, 
+                    $def_to_ast definition$)>>
+        | Let ((name, _), arguments, definition, _loc) ->
+                <:expr<`Let($str:name$, 
+                    $exSem_of_list (args_to_ast arguments)$, 
+                    $def_to_ast definition$)>>
+        | Rec ((name, _), arguments, definition, _loc) ->
+                <:expr<`Rec($str:name$, 
+                    $exSem_of_list (args_to_ast arguments)$, 
+                    $def_to_ast definition$)>>
+    and def_to_ast = function 
+        | Value (values, _loc) -> <:expr<`Value $values_to_ast values$>>
+        | IfElse (condition, def1, def2, _loc) ->
+                <:expr<`IfElse ($condition_to_ast condition$,  
+                    $def_to_ast def1$, $def_to_ast def2$)>>
+        | Letin (f, d, _loc) ->
+                <:expr<`Letin($to_ast f$, $def_to_ast d$)>>
+    and string_to_ast (x, _loc) = <:expr<$str:x$>> 
+    and args_to_ast args = List.map string_to_ast args 
+    and condition_to_ast = function
+        | Condition (def, _loc) -> <:expr<`Condition ($def_to_ast def$)>>
+    and values_to_ast = function
+        | Apply (a, b, defs, _loc) -> 
+                <:expr<`Apply($exSem_of_list (args_to_ast a)$, 
+                    $string_to_ast b$, 
+                    $exSem_of_list (List.map def_to_ast defs)$)>>
+        | Integer ((_, _loc) as x) -> <:expr<`Integer $string_to_ast x$>>
+        | Expr (x, _loc) -> <:expr<`Expr $x$>>
 
-    EXTEND Gram
-    Syntax.expr : LEVEL "top" [ 
-        [ UIDENT "OCAMLSKS"; s = ocaml_sk -> <:expr<$s$>> ] |
-        [ UIDENT "OCAMLSK"; s = LIST1 [ x = ocaml_sk -> x] -> 
-            <:expr<$exSem_of_list s$>> ] |
-        [ UIDENT "OCAMLSKV"; s = definition -> <:expr<$s$>> ] 
-    ];
-    END;;
+    let rec to_ocaml = function
+        | Module (name, x, _loc) ->
+                `Module (fst name, List.map to_ocaml x) 
+        | LetVal (name, arguments, definition, _loc) ->
+                `LetVal (fst name, List.map fst arguments, def_to_ocaml definition)
+        | RecVal (name, arguments, definition, _loc) ->
+                `RecVal (fst name, List.map fst arguments, 
+                    def_to_ocaml definition)
+        | Let (name, arguments, definition, _loc) ->
+                `Let (fst name, List.map fst arguments, def_to_ocaml definition)
+        | Rec (name, arguments, definition, _loc) ->
+                `Rec (fst name, List.map fst arguments, def_to_ocaml definition)
+    and def_to_ocaml = function 
+        | Value (values, _loc) -> 
+                `Value (values_to_ocaml values)
+        | IfElse (condition, def1, def2, _loc) ->
+                `IfElse (condition_to_ocaml condition,  
+                    def_to_ocaml def1, def_to_ocaml def2)
+        | Letin (f, d, _loc) ->
+                `Letin(to_ocaml f, def_to_ocaml d)
+    and string_to_ocaml (x, _loc) = x
+    and args_to_ocaml args = List.map string_to_ocaml args 
+    and condition_to_ocaml = function
+        | Condition (def, _loc) -> `Condition (def_to_ocaml def)
+    and values_to_ocaml = function
+        | Apply (a, b, defs, _loc) -> 
+                `Apply((args_to_ocaml a), string_to_ocaml b, 
+                    (List.map def_to_ocaml defs))
+        | Integer ((_, _loc) as x) -> `Integer (string_to_ocaml x)
+        | Expr (x, _) -> MySKLanguage.sk_to_ocaml x
+
+    let create_grammar my_expression =
+        let ocaml_sk = Gram.Entry.mk "ocaml_sk" in
+        let definition = Gram.Entry.mk "definition" in
+        EXTEND Gram 
+        GLOBAL: ocaml_sk definition;
+        ocaml_sk: [
+            [ KEYWORD "module"; n = UIDENT; "="; KEYWORD "struct";
+                x = LIST1 [ x = ocaml_sk -> x]; KEYWORD "end" ->
+                    Module ((n, _loc), x, _loc) ] |
+            [ KEYWORD "val";  KEYWORD "rec";
+                (name, arguments, definition) = sk_definition ->
+                    RecVal (name, arguments, definition, _loc) ] |
+            [ KEYWORD "val"; 
+                (name, arguments, definition) = sk_definition ->
+                    LetVal (name, arguments, definition, _loc) ] |
+            [ KEYWORD "let";  KEYWORD "rec";
+                (name, arguments, definition) = sk_definition ->
+                    Rec (name, arguments, definition, _loc) ] |
+            [ KEYWORD "let"; 
+                (name, arguments, definition) = sk_definition ->
+                    Let (name, arguments, definition, _loc) ] 
+        ];
+        sk_definition: [
+            [ arguments = LIST1 [ x = LIDENT -> (x, _loc)];
+                "="; 
+                def = definition -> 
+                    match arguments with
+                    | name :: arguments ->
+                            (name, arguments, def) 
+                    | [] -> assert false]
+        ];
+        definition: [
+            [ "("; x = definition; ")" -> x ] |
+            [ KEYWORD "if"; x = condition; KEYWORD "then"; y = definition; 
+                KEYWORD "else"; z = definition -> 
+                    IfElse (x, y, z, _loc) ] |
+            [ f = ocaml_sk; KEYWORD "in"; d = definition -> 
+                    Letin (f, d, _loc) ] |
+            [ v = values -> Value (v, _loc) ] 
+        ];
+        condition: [
+            [ a = definition -> Condition (a, _loc) ]
+        ];
+        values: [
+            [ a = LIDENT; b = LIST0 
+                [ x = sub_definition -> x] -> Apply ([], (a, _loc), b, _loc) ] |
+            [ mods = LIST1 [x = UIDENT; "." -> (x, _loc)];
+                a = LIDENT; b = LIST0 
+                [ x = sub_definition -> x] -> Apply (mods, (a, _loc), b, _loc) ] |
+            [ b = INT -> Integer (b, _loc) ] 
+                | [ "["; e = my_expression; "]" -> Expr (e, _loc) ] 
+        ];
+        sub_definition: [
+            [ "("; x = definition; ")" -> x ] |
+            [ x = LIDENT -> Value (Apply ([], (x, _loc), [], _loc), _loc) ] |
+            [ b = INT -> Value (Integer (b, _loc), _loc) ] |
+            [ mods = LIST1 [x = UIDENT; "." -> (x, _loc) ];
+                a = LIDENT; b = LIST0 
+                [ x = sub_definition -> x] -> 
+                Value (Apply (mods, (a, _loc), b, _loc), _loc) ] 
+            | [ "["; e = my_expression; "]" -> Value (Expr (e, _loc), _loc) ] 
+        ];
+        END;
+        ocaml_sk, definition
+
+    let second_extend () =
+        let ocaml_sk, definition = create_grammar expr in
+        EXTEND Gram
+        Syntax.expr : LEVEL "top" [ 
+            [ UIDENT "OCAMLSK"; s = LIST1 [ x = ocaml_sk -> x] -> 
+                <:expr<$exSem_of_list (List.map to_ast s)$>> ] |
+            [ UIDENT "OCAMLSKV"; s = definition -> <:expr<$def_to_ast s$>> ] 
+        ];
+        END;;
 
     include Syntax
 end
 
+module SKOcamlLanguageExt (Syntax : Camlp4Syntax) = struct
+    module S = SKOcamlLanguage (Camlp4.PreCast.Gram) (Syntax)
+    open S
+    let () = 
+        let () = second_extend () in
+        ()
+    include S
+end
+
 let () =
-    let module M = Camlp4.Register.OCamlSyntaxExtension (IdSKOcaml) (SKOcamlLanguage) in 
+    let module M = 
+        Camlp4.Register.OCamlSyntaxExtension (IdSKOcaml) (SKOcamlLanguageExt) 
+    in 
     ()
+
+module Gram = Camlp4.PreCast.Gram 
+module MySKOcaml = SKOcamlLanguage (Gram) (Camlp4.PreCast.Syntax)
+
+let of_stream str =
+    let sk_expr = MySKOcaml.MySKLanguage.create_grammar () in
+    let ocaml_sk, _ = MySKOcaml.create_grammar sk_expr in
+    MySKOcaml.to_ocaml (Gram.parse ocaml_sk (Camlp4.PreCast.Loc.mk "<stream>")
+    str)
+
+let of_channel ch =
+    of_stream (Stream.of_channel ch)
+
+let of_string str =
+    of_stream (Stream.of_string str)
