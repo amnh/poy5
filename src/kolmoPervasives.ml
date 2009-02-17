@@ -1,4 +1,5 @@
-OCAMLSK 
+let pervasives = 
+    OCAMLSK 
     let m_true = [SK K] 
     let m_false = [SK (S K)]
     let m_and y x = if x then y else x                                  
@@ -66,6 +67,27 @@ OCAMLSK
             else acc
     end
 
+    module Stack = struct
+        let empty = pair [SK K] [SK K]
+        let push x stack  = pair [SK S] (pair x stack)
+        let pop stack = first (second stack)
+        let rest stack = second stack
+        let is_empty stack = Stream.to_bool (first stack)
+    end
+
+    module Dna = struct
+        let empty = pair [SK K] [SK K]
+        let prepend x stack  = pair [SK S] (pair x stack)
+        let rest stack = second stack
+        let is_empty stack = Stream.to_bool (first stack)
+        let first stack = first (second stack)
+    end
+
+    let rec insert sequence base position =
+        if Church.not_zero position then 
+            (Dna.prepend (Dna.first sequence) (insert (Dna.rest sequence) base
+            (Church.predecessor position)))
+        else (Dna.prepend base sequence)
 
     (* We will define the structure of a generic Huffman like decoder
     * for streams of S and K *)
@@ -185,13 +207,6 @@ OCAMLSK
 
         end
 
-        module Stack = struct
-            let empty = pair [SK K] [SK K]
-            let push x stack  = pair [SK S] (pair x stack)
-            let pop stack = first (second stack)
-            let rest stack = second stack
-            let is_empty stack = Stream.to_bool (first stack)
-        end
 
 
         module Tree = struct
@@ -209,30 +224,160 @@ OCAMLSK
 
     module PhyloTree = struct
 
+        module Stream = struct
+            (* We don't use the continuation in this version *)
+            let to_bool continuation x = x [SK S] [SK K] [SK K] m_not m_true
+        end
+
+        module Stack = struct
+            let empty = pair [SK K] [SK K]
+            let push continuation x stack  = pair [SK S] (pair x stack)
+            let pop continuation stack = first (second stack)
+            let rest continuation stack = second stack
+            let is_empty continuation stack = Stream.to_bool (first stack)
+        end
+
         module Decoder = struct
-            let rec generic_decoder decoder tree acc next =
+
+            let rec generic_decoder decoder tree next =
                 let side =
                     if (Stream.to_bool next) then first tree
                     else second tree
                 in
                 let tip = second side in
                 if (Stream.to_bool (first side)) then 
-                    (generic_decoder decoder tip acc)
-                else (tip (generic_decoder decoder decoder) acc)
+                    (generic_decoder decoder tip)
+                else (tip (generic_decoder decoder decoder))
                         
-
             let leaf x = pair [SK K] x
 
             let node x y = pair (pair [SK S] x) (pair [SK S] y)
+        end
 
+        module Dna = struct
+            let empty = Stack.empty
+            let prepend = Stack.push 
+            let prepend_rev continuation seq x = 
+                continuation (Stack.push continuation x seq)
+            let head = Stack.pop 
+            let tail = Stack.rest 
+            let is_empty = Stack.is_empty 
+
+            let rec _aux_length acc seq = 
+                if (Stack.is_empty seq) then acc
+                else _aux_length (Church.successor acc) seq
+
+            let length seq = _aux_length 0 seq
+
+            let decode_base continuation a b =
+                continuation (pair (Stream.to_bool a) (Stream.to_bool b))
+
+            let _aux_append_base continuation seq = 
+                decode_base (prepend_rev continuation seq)
+
+            let rec _aux_decode_sequence continuation cnt seq =
+                if (Church.not_zero cnt) then
+                    (_aux_append_base (_aux_decode_sequence continuation
+                    (Church.predecessor cnt)))
+                else (continuation seq)
+
+            let _aux_decode_sequence continuation cnt =
+                _aux_decode_sequence continuation cnt empty
+
+            let decode_sequence continuation =
+                Continuation.IntegerDecoderC.uniform 
+                (_aux_decode_sequence continuation)
         end
 
         module Independent = struct
-            let pair continuation a b = continuation (pair b a)
 
-            let insertion continuation acc =
-                (pair continuation (second acc))
+            let rec _aux_do_insert sequence offset base =
+                if (Church.not_zero offset) then
+                    (Dna.prepend (Dna.head sequence) 
+                        (_aux_do_insert (Dna.tail sequence) (Church.predecessor
+                        offset) base))
+                else (Dna.prepend base sequence)
+
+            let _aux_prepend_to_stack continuation stack sequence offset base =
+                continuation 
+                (Stack.push (_aux_do_insert sequence offset base) stack)
+
+            let _aux_prepend_base continuation stack sequence offset = 
+                Dna.decode_base
+                (_aux_prepend_to_stack continuation stack sequence offset)
+
+            let _aux_prepend_offset continuation stack sequence =
+                Continuation.IntegerDecoder.uniform 
+                (_aux_prepend_base continuation stack sequence) 
+
+            let insert continuation results stack =
+                _aux_prepend_offset (continuation results) (Stack.rest stack)
+                (Stack.pop stack)
+
+            let rec _aux_do_substitute sequence offset base =
+                if (Church.not_zero offset) then
+                    (Dna.prepend (Dna.head sequence) 
+                        (_aux_do_insert (Dna.tail sequence) (Church.predecessor
+                        offset) base))
+                else (Dna.prepend base (Dna.tail sequence))
+
+            let _aux_prepend_to_results continuation stack sequence offset base =
+                continuation 
+                (Stack.push (_aux_do_substitute sequence offset base)
+                stack)
+
+            let _aux_prepend_base continuation stack sequence offset = 
+                Dna.decode_base
+                (_aux_prepend_to_results continuation stack sequence offset)
+
+            let _aux_prepend_offset continuation stack sequence =
+                Continuation.IntegerDecoder.uniform 
+                (_aux_prepend_base continuation stack sequence) 
+
+            let substitute continuation results stack =
+                _aux_prepend_offset (continuation results) (Stack.rest stack)
+                (Stack.pop stack)
+
+            let rec _aux_do_delete sequence offset =
+                if (Church.not_zero offset) then
+                    (Dna.prepend (Dna.head sequence) 
+                        (_aux_do_insert (Dna.tail sequence) (Church.predecessor
+                        offset)))
+                else (Dna.tail sequence)
+
+            let _aux_prepend_to_results continuation stack sequence offset =
+                continuation 
+                (Stack.push (_aux_do_delete sequence offset) stack)
+
+            let _aux_prepend_offset continuation stack sequence =
+                Continuation.IntegerDecoder.uniform 
+                (_aux_prepend_to_results continuation stack sequence) 
+
+            let delete continuation results stack =
+                _aux_prepend_offset (continuation results) (Stack.rest stack)
+                (Stack.pop stack)
 
         end
+
+        module Branch = struct
+            let leaf continuation results stack =
+                continuation (Stack.push (Stack.pop stack) results) 
+                (Stack.rest stack)
+
+            let interior continuation results stack =
+                continuation results (Stack.push (Stack.pop stack) stack)
+
+            let ended continuation results stack = results
+
+        end
+
+        module Tree = struct
+            let _aux_root continuation results stack seq =
+                continuation results (Stack.push seq stack)
+
+            let root continuation results stack = 
+                Dna.decode_sequence (_aux_root continuation results stack)
+        end
+
 
     end

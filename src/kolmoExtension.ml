@@ -8,6 +8,8 @@ type primitives = [ `S | `K | `Label of string | `Node of primitives list | `Deb
 
 type 'a kolmo_function =
     [ `Module of 'a kolmo_function list
+    | `LetVal of (name * arguments * 'a definition)
+    | `RecVal of (name * arguments * 'a definition) 
     | `Let of (name * arguments * 'a definition)
     | `Rec of (name * arguments * 'a definition) ]
 and name = string
@@ -146,6 +148,12 @@ module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
         [ KEYWORD "module"; n = UIDENT; "="; KEYWORD "struct";
             x = LIST1 [ x = ocaml_sk -> x]; KEYWORD "end" ->
                 <:expr<`Module ($str:n$, $exSem_of_list x$)>> ] |
+        [ KEYWORD "val";  KEYWORD "rec";
+            (name, arguments, definition) = sk_definition ->
+                <:expr<`RecVal ($name$, $arguments$, $definition$)>> ] |
+        [ KEYWORD "val"; 
+            (name, arguments, definition) = sk_definition ->
+                <:expr<`LetVal ($name$, $arguments$, $definition$)>> ] |
         [ KEYWORD "let";  KEYWORD "rec";
             (name, arguments, definition) = sk_definition ->
                 <:expr<`Rec ($name$, $arguments$, $definition$)>> ] |
@@ -190,16 +198,21 @@ module SKOcamlLanguage (Syntax : Camlp4Syntax) = struct
         [ "("; x = definition; ")" -> x ] |
         [ x = LIDENT -> <:expr<`Value (`Apply ([], $str:x$, []))>> ] |
         [ b = INT -> <:expr<`Value (`Integer $str:b$)>> ] |
+        [ mods = LIST1 [x = UIDENT; "." -> <:expr<$str:x$>>];
+            a = LIDENT; b = LIST0 
+            [ x = sub_definition -> x] -> 
+            <:expr<`Value (`Apply ($exSem_of_list mods$, $str:a$, $exSem_of_list
+            b$))>> ] |
         [ "["; e = expr; "]" -> <:expr<`Value (`Expr $e$)>> ] 
     ];
     END;;
 
     EXTEND Gram
     Syntax.expr : LEVEL "top" [ 
+        [ UIDENT "OCAMLSKS"; s = ocaml_sk -> <:expr<$s$>> ] |
         [ UIDENT "OCAMLSK"; s = LIST1 [ x = ocaml_sk -> x] -> 
-            <:expr<List.iter Kolmo.Compiler.compile $exSem_of_list s$>> ] |
-        [ UIDENT "OCAMLSKV"; s = definition -> 
-            <:expr<Kolmo.S_K.eval (Kolmo.Compiler.evaluate $s$)>> ] 
+            <:expr<$exSem_of_list s$>> ] |
+        [ UIDENT "OCAMLSKV"; s = definition -> <:expr<$s$>> ] 
     ];
     END;;
 

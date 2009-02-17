@@ -50,6 +50,8 @@ module Compiler : sig
 
     type 'a kolmo_function =
         [ `Module of (name * ('a kolmo_function list))
+        | `LetVal of (name * arguments * 'a definition)
+        | `RecVal of (name * arguments * 'a definition) 
         | `Let of (name * arguments * 'a definition)
         | `Rec of (name * arguments * 'a definition) ]
     and name = string
@@ -64,9 +66,17 @@ module Compiler : sig
         | `Integer of string 
         | `Expr of 'a ]
 
-    val compile : S_K.primitives kolmo_function -> unit
+    val compile_decoder : S_K.primitives kolmo_function list ->  
+        (string * int) list -> unit
+    val compile : S_K.primitives kolmo_function list -> unit
+    val clear : unit -> unit
     val evaluate : S_K.primitives definition -> S_K.primitives
     val get : string -> S_K.primitives
+    val decoder : unit -> (string * int * S_K.primitives) list
+    val final_code : unit -> S_K.primitives list All_sets.IntegerMap.t
+    val tree_of_decoder : unit -> 
+        S_K.primitives * (string * int * S_K.primitives) list * 
+        S_K.primitives list All_sets.IntegerMap.t
 end
 
 (** Primitive operations in an SK machine *)
