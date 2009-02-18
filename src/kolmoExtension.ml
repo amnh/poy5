@@ -246,6 +246,65 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
         | Integer ((_, _loc) as x) -> `Integer (string_to_ocaml x)
         | Expr (x, _) -> MySKLanguage.sk_to_ocaml x
 
+    type loc =Syntax.Ast.loc
+
+    type range = (string * string)
+
+    type pair = (string * string * loc)
+    type distribution = (string * (pair list) * loc)
+    type options = 
+        | EProbability of (pair list * loc)
+        | FProbability of (distribution * loc)
+
+    type 'a kolmo_specification =
+        | Alphabet of (string * string list * options option * loc)
+        | Character of (string * 'a * options option * loc)
+        | WordSet of (string * string * range * options option * loc)
+        | IntSet of (string * range * options option * loc)
+
+    let create_specification machine_parser =
+        let character = Gram.Entry.mk "kolmo_character"
+        and alphabet = Gram.Entry.mk "kolmo_alphabet" 
+        and words = Gram.Entry.mk "kolmo_word"
+        and integers = Gram.Entry.mk "kolmo_integers" in
+        EXTEND Gram
+        GLOBAL: character alphabet words integers;
+        character :[
+            [ LIDENT "character"; name = UIDENT; ":"; specs = machine_parser;
+            opt = OPT options; KEYWORD "end" -> 
+                Character (name, specs, opt, _loc) ]
+        ];
+        alphabet :[
+            [ LIDENT "alphabet"; name = UIDENT; ":"; alph = LIST1 [x = UIDENT ->
+                x] ; opt = OPT options; KEYWORD "end" -> 
+                    Alphabet (name, alph, opt, _loc) ]
+        ];
+        words :[
+            [ LIDENT "wordset"; name = UIDENT; LIDENT "of"; alph = UIDENT; 
+                "["; min = INT; max = INT; "]"; opt = OPT
+                options; KEYWORD "end" -> 
+                    WordSet (name, alph, (min, max), opt, _loc) ]
+        ];
+        integers :[
+            [ LIDENT "integers"; name = UIDENT; "["; min = INT; max = INT; 
+            opt = OPT options; KEYWORD "end" -> IntSet (name, (min, max), opt,
+            _loc) ]
+        ];
+        options :[
+            [ KEYWORD "with"; LIDENT "probability"; "{"; x = LIST1 [ x =
+                assigned_prob -> x ]; "}" -> EProbability (x, _loc) ] |
+            [ KEYWORD "with"; d = distribution -> FProbability (d, _loc) ] 
+        ];
+        assigned_prob :[
+            [ x = LIDENT; "="; y = FLOAT -> (x, y, _loc) ]
+        ];
+        distribution :[
+            [ x = LIDENT; parameters =  LIST1 [ x = assigned_prob -> x ] -> 
+                (x, parameters, _loc) ]
+        ];
+        END;
+        character, alphabet, words, integers
+
     let create_grammar my_expression =
         let ocaml_sk = Gram.Entry.mk "ocaml_sk" in
         let definition = Gram.Entry.mk "definition" in
