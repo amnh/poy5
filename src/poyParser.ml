@@ -61,115 +61,117 @@ type spec =
 
 open Camlp4.PreCast
 let verbosity = ref Max
-let expr = Gram.Entry.mk "expr"
-
 let print_verbosity a b = 
     match a, !verbosity with
     | Max, Max | Med, Med | Med, Max | Min, _ -> print_endline b
     | _ -> ()
 
-EXTEND Gram
-    GLOBAL: expr;
-    expr: [ [a = LIST1 [x = recexpr -> x]; `EOI -> a] ];
-    recexpr: 
-        [ 
-            [ "define"; "character"; name = UIDENT; "as"; 
-            specs = LIST1 [x = character_funcs -> x]; opt = OPT options;
-            "end_def"
-            -> Character (name, specs, opt) ] |
-            [ "define"; "set_def"; name = UIDENT; "as"; "alphabet"; "with"; "{"; 
-            alph = LIST1 [x = UIDENT -> x] SEP ";"; "}"; opt = OPT options ;
-            "end_def" -> 
-                Alphabet (name, alph, opt) ] |
-            [ "define"; "set_def"; name = UIDENT; "as"; "wordset"; "with"; 
-            alph = UIDENT; "with"; "["; min = INT; max = INT; "]";
-            opt = OPT options; "end_def" -> 
-                let range = int_of_string min, int_of_string max in
-                WordSet (name, alph, range, opt) ] |
-            [ "define"; "set_def"; name = UIDENT; "as"; "integers"; "with"; "["; 
-            min = INT; max = INT; "]"; opt = OPT options; "end_def" -> 
-                let range = int_of_string min, int_of_string max in
-                IntSet (name, range, opt) ] 
-        ];
-    heading_char_funcs:
-        [ 
-            [ "let"; name = LIDENT; params = LIST0 [x = params -> x] -> name, params]
-        ];
-    character_funcs:
-        [
-            [ n = heading_char_funcs; "="; res = u_lang_exprs  -> 
-                let (a, b) = n in a, b, res ]
-        ];
-    params:
-        [ 
-            [ name = LIDENT; ":"; set = UIDENT -> (name, set) ]
-        ];
-    u_function_application:
-        [
-            [ "prep"; b = u_lang_apps; s = u_lang_apps -> Prepend (b, s) ] 
-            | [ "head_k"; s = u_lang_apps -> Head s ] 
-            | [ "tail_k"; s = u_lang_apps -> Tail s ] 
-            | [ "pre"; s = u_lang_apps -> Predecessor s ] 
-            | [ "suc"; s = u_lang_apps -> Successor s ] 
-            | [ fname = LIDENT; res = LIST0 [x = u_lang_apps -> x] -> 
-                    Application (fname, res) ] (* Careful with this one! *)
-        ];
-    u_lang_apps:
-        [
-            [ a = LIDENT -> Variable a ] |
-            [ a = constant -> a ] |
-            [ "("; a = u_lang_exprs_1; ")" -> a ]
-        ];
-    u_lang_exprs:
-        [ 
-            [ "if"; a = u_lang_bool; "then"; b = u_lang_exprs; "else"; 
-            c = u_lang_exprs -> IfThen (a, b, c) ] |
-            [ r = u_lang_exprs_1 -> r ] |
-            [ a = constant -> a ] 
-        ];
-    u_lang_exprs_1:
-        [
-            [ "("; r = u_lang_exprs_1; ")" -> r ] |
-            [ r = u_function_application -> r ] |
-            [ r = constant -> r ]
-        ];
-    options: 
-        [ 
-            [ "with"; "probability"; "{"; probs = LIST1 [x = assigned_prob -> x] SEP ";";
-            "}" -> EProbability ("", probs) ] |
-            [ "with"; "probability"; f = distributions -> FProbability f ] 
-        ];
-    distributions:
-        [
-            [ "poisson"; x = FLOAT -> Poisson (float_of_string x) ]
-        ];
-    assigned_prob: 
-        [ 
-            [ el = fname_for_prob; "="; prb = FLOAT -> (el, float_of_string prb)]
-        ];
-    fname_for_prob:
-        [
-            [ el = "prep" -> Gram.Token.to_string el ] |
-            [ el = "head_k" -> Gram.Token.to_string el ] |
-            [ el = "tail_k" -> Gram.Token.to_string el ] |
-            [ el = "pre" -> Gram.Token.to_string el ] |
-            [ el = "suc" -> Gram.Token.to_string el ] |
-            [ el = UIDENT -> el] |
-            [ el = LIDENT -> el ]
-        ];
-    constant:
-        [
-            [ r = STRING; ":"; t = UIDENT -> CString (r, t) ] | 
-            [ r = INT; ":"; t = UIDENT -> CInt ((int_of_string r), t) ] |
-            [ r = CHAR; ":"; t = UIDENT -> CBase (r, t) ]
-        ];
-    u_lang_bool:
-        [
-            [ v = LIDENT; "=="; r = constant -> Bool (v, r)] 
-        ];
-END
+let make_expr () =
+    let expr = Gram.Entry.mk "expr" in
+    EXTEND Gram
+        GLOBAL: expr;
+        expr: [ [a = LIST1 [x = recexpr -> x]; `EOI -> a] ];
+        recexpr: 
+            [ 
+                [ "define"; "character"; name = UIDENT; "as"; 
+                specs = LIST1 [x = character_funcs -> x]; opt = OPT options;
+                "end_def"
+                -> Character (name, specs, opt) ] |
+                [ "define"; "set_def"; name = UIDENT; "as"; "alphabet"; "with"; "{"; 
+                alph = LIST1 [x = UIDENT -> x] SEP ";"; "}"; opt = OPT options ;
+                "end_def" -> 
+                    Alphabet (name, alph, opt) ] |
+                [ "define"; "set_def"; name = UIDENT; "as"; "wordset"; "with"; 
+                alph = UIDENT; "with"; "["; min = INT; max = INT; "]";
+                opt = OPT options; "end_def" -> 
+                    let range = int_of_string min, int_of_string max in
+                    WordSet (name, alph, range, opt) ] |
+                [ "define"; "set_def"; name = UIDENT; "as"; "integers"; "with"; "["; 
+                min = INT; max = INT; "]"; opt = OPT options; "end_def" -> 
+                    let range = int_of_string min, int_of_string max in
+                    IntSet (name, range, opt) ] 
+            ];
+        heading_char_funcs:
+            [ 
+                [ "let"; name = LIDENT; params = LIST0 [x = params -> x] -> name, params]
+            ];
+        character_funcs:
+            [
+                [ n = heading_char_funcs; "="; res = u_lang_exprs  -> 
+                    let (a, b) = n in a, b, res ]
+            ];
+        params:
+            [ 
+                [ name = LIDENT; ":"; set = UIDENT -> (name, set) ]
+            ];
+        u_function_application:
+            [
+                [ "prep"; b = u_lang_apps; s = u_lang_apps -> Prepend (b, s) ] 
+                | [ "head_k"; s = u_lang_apps -> Head s ] 
+                | [ "tail_k"; s = u_lang_apps -> Tail s ] 
+                | [ "pre"; s = u_lang_apps -> Predecessor s ] 
+                | [ "suc"; s = u_lang_apps -> Successor s ] 
+                | [ fname = LIDENT; res = LIST0 [x = u_lang_apps -> x] -> 
+                        Application (fname, res) ] (* Careful with this one! *)
+            ];
+        u_lang_apps:
+            [
+                [ a = LIDENT -> Variable a ] |
+                [ a = constant -> a ] |
+                [ "("; a = u_lang_exprs_1; ")" -> a ]
+            ];
+        u_lang_exprs:
+            [ 
+                [ "if"; a = u_lang_bool; "then"; b = u_lang_exprs; "else"; 
+                c = u_lang_exprs -> IfThen (a, b, c) ] |
+                [ r = u_lang_exprs_1 -> r ] |
+                [ a = constant -> a ] 
+            ];
+        u_lang_exprs_1:
+            [
+                [ "("; r = u_lang_exprs_1; ")" -> r ] |
+                [ r = u_function_application -> r ] |
+                [ r = constant -> r ]
+            ];
+        options: 
+            [ 
+                [ "with"; "probability"; "{"; probs = LIST1 [x = assigned_prob -> x] SEP ";";
+                "}" -> EProbability ("", probs) ] |
+                [ "with"; "probability"; f = distributions -> FProbability f ] 
+            ];
+        distributions:
+            [
+                [ "poisson"; x = FLOAT -> Poisson (float_of_string x) ]
+            ];
+        assigned_prob: 
+            [ 
+                [ el = fname_for_prob; "="; prb = FLOAT -> (el, float_of_string prb)]
+            ];
+        fname_for_prob:
+            [
+                [ el = "prep" -> Gram.Token.to_string el ] |
+                [ el = "head_k" -> Gram.Token.to_string el ] |
+                [ el = "tail_k" -> Gram.Token.to_string el ] |
+                [ el = "pre" -> Gram.Token.to_string el ] |
+                [ el = "suc" -> Gram.Token.to_string el ] |
+                [ el = UIDENT -> el] |
+                [ el = LIDENT -> el ]
+            ];
+        constant:
+            [
+                [ r = STRING; ":"; t = UIDENT -> CString (r, t) ] | 
+                [ r = INT; ":"; t = UIDENT -> CInt ((int_of_string r), t) ] |
+                [ r = CHAR; ":"; t = UIDENT -> CBase (r, t) ]
+            ];
+        u_lang_bool:
+            [
+                [ v = LIDENT; "=="; r = constant -> Bool (v, r)] 
+            ];
+    END;
+    expr
 
 let of_channel ch = 
+    let expr = make_expr () in
     let st = Stream.of_channel ch in
     Gram.parse expr (Loc.mk "<stream>") st
 
