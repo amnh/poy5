@@ -2,7 +2,13 @@
 * definitions *)
 open Camlp4.Sig
 
-type primitives = [ `S | `K | `Label of string | `Node of primitives list | `Debugger of string | `Lazy of primitives Lazy.t]
+type primitives = 
+    [ `S 
+    | `K 
+    | `Label of string 
+    | `Node of primitives list 
+    | `Debugger of string 
+    | `Lazy of primitives Lazy.t ]
 
 type 'a kolmo_function =
     [ `Module of 'a kolmo_function list
@@ -71,12 +77,13 @@ module SKLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
         | Debg (item, _loc) ->
                 <:expr< (`Debugger ( $item$ )) >> 
 
-    let rec sk_to_ocaml = function
+    let rec sk_to_ocaml x : primitives = 
+        match x with
         | S _loc -> `S
         | K _loc -> `K
         | Label (v, _loc) -> `Label v
-        | Expr (item, _loc) -> assert false
-        | Debg (item, _loc) -> `Debugger item
+        | Expr _
+        | Debg _ -> assert false 
         | Node (items, _loc) -> 
                 let es = List.map sk_to_ocaml items in
                 match es with
@@ -244,7 +251,9 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
                 `Apply((args_to_ocaml a), string_to_ocaml b, 
                     (List.map def_to_ocaml defs))
         | Integer ((_, _loc) as x) -> `Integer (string_to_ocaml x)
-        | Expr (x, _) -> MySKLanguage.sk_to_ocaml x
+        | Expr (x, _) -> `Expr (MySKLanguage.sk_to_ocaml x)
+
+
 
     type loc =Syntax.Ast.loc
 
@@ -262,33 +271,49 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
         | WordSet of (string * string * range * options option * loc)
         | IntSet of (string * range * options option * loc)
 
+    let pair_to_ocaml (a, b, _) = (a, float_of_string b)
+
+    let options_to_ocaml = function
+        | Some (EProbability (probs, _)) -> 
+                Some (`EProbability (List.map pair_to_ocaml probs))
+        | Some (FProbability ((name, parameters, _), _)) ->
+                Some (`FProbability (name, List.map pair_to_ocaml parameters))
+        | None -> None
+
+    let range_to_ocaml (a, b) = (float_of_string a, float_of_string b)
+
+    let rec spec_to_ocaml = function
+        | Alphabet (name, elements, options, _) ->
+                `Alphabet (name, elements, options_to_ocaml options)
+        | Character (name, definition, options, _) ->
+                `Character 
+                    (name, List.map to_ocaml definition, 
+                    options_to_ocaml options)
+        | WordSet (name, alphabet, range, options, _) ->
+                let range = range_to_ocaml range in
+                `WordSet (name, alphabet, range, options_to_ocaml options)
+        | IntSet (name, range, options, _) ->
+                `IntSet (name, range_to_ocaml range, options_to_ocaml options)
+
+
     let create_specification machine_parser =
-        let character = Gram.Entry.mk "kolmo_character"
-        and alphabet = Gram.Entry.mk "kolmo_alphabet" 
-        and words = Gram.Entry.mk "kolmo_word"
-        and integers = Gram.Entry.mk "kolmo_integers" in
+        let spec = Gram.Entry.mk "kolmo_spec" in 
         EXTEND Gram
-        GLOBAL: character alphabet words integers;
-        character :[
-            [ LIDENT "character"; name = UIDENT; ":"; specs = machine_parser;
-            opt = OPT options; KEYWORD "end" -> 
-                Character (name, specs, opt, _loc) ]
-        ];
-        alphabet :[
+        GLOBAL: spec;
+        spec: [
+            [ LIDENT "character"; name = UIDENT; ":"; specs = 
+                LIST1 [x = machine_parser -> x]; opt = OPT options; 
+                KEYWORD "end" -> Character (name, specs, opt, _loc) ] |
             [ LIDENT "alphabet"; name = UIDENT; ":"; alph = LIST1 [x = UIDENT ->
                 x] ; opt = OPT options; KEYWORD "end" -> 
-                    Alphabet (name, alph, opt, _loc) ]
-        ];
-        words :[
+                    Alphabet (name, alph, opt, _loc) ] |
             [ LIDENT "wordset"; name = UIDENT; LIDENT "of"; alph = UIDENT; 
                 "["; min = INT; max = INT; "]"; opt = OPT
                 options; KEYWORD "end" -> 
-                    WordSet (name, alph, (min, max), opt, _loc) ]
-        ];
-        integers :[
+                    WordSet (name, alph, (min, max), opt, _loc) ] |
             [ LIDENT "integers"; name = UIDENT; "["; min = INT; max = INT; 
             opt = OPT options; KEYWORD "end" -> IntSet (name, (min, max), opt,
-            _loc) ]
+            _loc) ] 
         ];
         options :[
             [ KEYWORD "with"; LIDENT "probability"; "{"; x = LIST1 [ x =
@@ -303,7 +328,7 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
                 (x, parameters, _loc) ]
         ];
         END;
-        character, alphabet, words, integers
+        spec
 
     let create_grammar my_expression =
         let ocaml_sk = Gram.Entry.mk "ocaml_sk" in
@@ -402,10 +427,16 @@ module Gram = Camlp4.PreCast.Gram
 module MySKOcaml = SKOcamlLanguage (Gram) (Camlp4.PreCast.Syntax)
 
 let of_stream str =
-    let sk_expr = MySKOcaml.MySKLanguage.create_grammar () in
-    let ocaml_sk, _ = MySKOcaml.create_grammar sk_expr in
-    MySKOcaml.to_ocaml (Gram.parse ocaml_sk (Camlp4.PreCast.Loc.mk "<stream>")
-    str)
+    try
+        let sk_expr = MySKOcaml.MySKLanguage.create_grammar () in
+        let ocaml_sk, _ = MySKOcaml.create_grammar sk_expr in
+        let kolmo_spec = MySKOcaml.create_specification ocaml_sk in
+        MySKOcaml.spec_to_ocaml (Gram.parse kolmo_spec (Camlp4.PreCast.Loc.mk "<stream>")
+        str)
+    with
+    | (Camlp4.PreCast.Loc.Exc_located (err, _)) as error ->
+            print_endline (Camlp4.PreCast.Loc.to_string err);
+            raise error
 
 let of_channel ch =
     of_stream (Stream.of_channel ch)
