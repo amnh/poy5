@@ -72,7 +72,6 @@ let to_union x = x
 
 external code : ct -> int = "char_nonadd_CAML_code"
 let elt_code (code, _) = code
-let color = Character.Grey
 let block_size = NONADDSIZE
 
 (* This is the default cost of a new element.  Unfortunately, we are not always
@@ -383,8 +382,6 @@ let minus a b =
 let random f a =
     of_list (List.filter (fun _ -> f ()) (to_list a))
 
-external get_heu : ct -> Character.h = "char_nonadd_CAML_get_heu"
-
 let fold f s a =
     List.fold_left
         (fun accum (code, elt, cost) ->
@@ -409,11 +406,11 @@ let f_codes_comp a codes =
 let f_colors a col = empty
 
 let iter f a =
-    List.iter (fun (code, elt, _) -> f elt code color) (to_list a)
+    List.iter (fun (code, elt, _) -> f elt code) (to_list a)
 
 let map f a =
     of_list (List.map (fun (code, elt, cost) ->
-                           (code, f elt code color, cost)) (to_list a))
+                           (code, f elt code, cost)) (to_list a))
 
 let is_empty a =
     cardinal a = 0

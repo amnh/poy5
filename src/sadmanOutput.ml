@@ -106,7 +106,6 @@ let get_module_versions () = !module_versions
 
 let runtime_properties =
     [("os-type", Sys.os_type);
-     ("compile.ccopt", CompileFlags.ccopt);
      ("compile.ocamlc", CompileFlags.ocamlc);
      ("compile.ocamlopt", CompileFlags.ocamlopt);
     ]

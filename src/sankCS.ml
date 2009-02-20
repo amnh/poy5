@@ -72,8 +72,6 @@ type cm = int array array               (* never have infinity *)
 
 type gen = int * int * cm
 
-let color = Character.Black
-
 type elt = {
     ecode : int;
     
@@ -111,8 +109,6 @@ type t = {
     (* The transformation cost matrix to be used for this character (and its
      * homologous characters) *)
     tcm : cm;
-    (* The color of the character being used *)
-    color : Character.c;
 
     (* A bunch of individual characters *)
     elts : elt array;
@@ -192,7 +188,6 @@ let assert_ninf a x y=
 let empty =
     { elts = [||];
       code = (-1);
-      color = Character.Black;
       tcm = [|[||]|];
     }
 
@@ -283,7 +278,7 @@ let rand_gen () =
 (* let make_rand (num, code, states, tcm) = *)
 (*     let states = Array.init states (fun _ -> Cost (1 + (Random.int states))) in *)
 (*     canonize *)
-(*         { empty with s = states; code = code; color = Character.Black; tcm = tcm } *)
+(*         { empty with s = states; code = code; tcm = tcm } *)
 
 let get_minstates {e=a} =
     let (_, list) = 
@@ -584,8 +579,7 @@ let to_formatter attr a (parent : t option) d : Xml.xml Sexpr.t list =
     List.map2 (elt_to_formatter attr d tcm) items  items_parent
 
 let make_onestate code tcm state =
-    { empty with
-        code = code;
+    { code = code;
         tcm = tcm;
         elts = [|canonize tcm { empty_elt with
                      ecode = code;
@@ -601,8 +595,7 @@ let make_randstate code tcm =
 
 let make_n_randstate scode codefn n tcm =
     let states = Array.length tcm in
-    { empty with
-          code = scode;
+    { code = scode;
           tcm = tcm;
           elts =
             Array.init n
@@ -621,8 +614,7 @@ let make_n_randstate scode codefn n tcm =
 
 let make_sank code tcm eltlist =
     let nstates = Array.length tcm in
-    { empty with
-          code = code;
+    { code = code;
           tcm = tcm;
           elts =
             let list = List.map
@@ -675,8 +667,7 @@ let of_parser tcm (arr, taxcode) mycode =
     in
 
     let elts = Array.map make_elt arr in
-    ({ empty with
-           elts = elts;
+    ({ elts = elts;
            tcm = tcm;
            code = mycode;
      }, taxcode)

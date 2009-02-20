@@ -719,29 +719,6 @@ let make_disjoint_tree leaf_data_map =
     let bt = Tree.make_disjoint_tree nodes in
         { empty with tree = bt ; node_data = leaf_data_map }
 
-(** [build_consensus out_grp rt_id ptrees]
-    @param maj the majority desired. 
-    @param out_grp the leaf node at which the ptrees are rooted to get 
-        the rooted topologies used for building consensus trees. 
-    @param rt_id the id of the added root node. 
-    @param ptrees the list of ptrees whose consensus is desired. 
-    @return the consensus tree and an assoc-list of the node-ids and the node
-        data. *)
-let build_consensus maj out_grp rt_id ptrees = 
-    (* extract the topologies of the ptrees. *)
-    let utrees = List.map (fun ptree -> ptree.tree) ptrees in
-    (* root the topologies using out-group to get rooted versions. *)
-    let rtrees = List.map 
-                    (fun utree -> (Rtree.root_at out_grp rt_id utree))
-                    utrees in
-    assert (List.for_all (fun x -> Rtree.is_root rt_id x) rtrees);
-    (* build the consensus tree out of those rooted trees. *)
-    let num_nodes = Rtree.get_num_nodes rt_id (List.hd rtrees) in
-    let rtrees = List.map (fun rtree -> (rt_id, rtree)) rtrees in
-    let croot_id, ctree, nd_indx_tbl, indx_nd_tbl = 
-        Gen_rtree.build_ctree maj num_nodes rtrees in
-        croot_id, ctree, nd_indx_tbl, indx_nd_tbl
-
 let get_component_root handle ptree = 
     All_sets.IntegerMap.find handle ptree.component_root
 

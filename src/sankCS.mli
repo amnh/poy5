@@ -26,7 +26,6 @@ type t                                  (** The type of the set *)
 type elt                                (** The type of set elements *)
 
 (** {2 Standard functions} *)
-val color : Character.c
 val code : t -> int                     (** The code of a set *)
 val to_list : t -> (int * int array) list
 val ecode : elt -> int                  (** The code of an element *)

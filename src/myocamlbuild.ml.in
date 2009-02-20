@@ -1,0 +1,213 @@
+open Ocamlbuild_plugin
+open Command
+
+(* Configuration section *)
+let zlib_lib = "-lz"
+
+let static = true
+
+let cc = "@CC@"
+let cflags = "@CFLAGS@"
+let clibs = "@LIBS@"
+
+let split string = 
+    let len = String.length string in
+    let res = ref [] in
+    let cur = Buffer.create 29 in
+    for i = 0 to len - 1 do
+        if string.[i] = ' ' then begin
+            res := (Buffer.contents cur) :: !res;
+            Buffer.clear cur;
+        end else begin
+            Buffer.add_char cur string.[i];
+        end;
+    done;
+    res := (Buffer.contents cur) :: !res;
+    List.rev !res
+
+let process_flags ocaml_option cflags =
+    let cflags = split cflags in
+    let cflags = List.map (fun x -> A x) cflags in 
+    let cflags = 
+        let rec addcopt lst =
+            match lst with
+            | [] -> []
+            | h :: t -> A ocaml_option :: h :: (addcopt t)
+        in
+        addcopt cflags
+    in
+
+    A"-cc" ::  A cc :: cflags
+
+let allcflags = 
+    A"-cc" ::  A cc :: 
+        ((process_flags "-ccopt" cflags) @ 
+        (process_flags "-cclib" clibs))
+
+(* List of headers *)
+let headers =
+    [
+        "matrices.c";
+        "cm.c";
+        "seq.c";
+        "array_pool.c";
+        "union.c";
+        "add.h";
+        "algn.h";
+        "array_pool.h";
+        "avl.h";
+        "cm.h";
+        "config.h";
+        "gamma.h";
+        "grappa/all_inversion_medians.h";
+        "grappa/all_sorting_reversals.h";
+        "grappa/bbtsp.h";
+        "grappa/binencode.h";
+        "grappa/bitvector.h";
+        "grappa/cheaptsp.h";
+        "grappa/circ_order.h";
+        "grappa/circular_ordering.h";
+        "grappa/condense.h";
+        "grappa/condense3.h";
+        "grappa/const_tree.h";
+        "grappa/convert.h";
+        "grappa/correction.h";
+        "grappa/gen_tree.h";
+        "grappa/getopt3.h";
+        "grappa/greedy_median.h";
+        "grappa/growTree.h";
+        "grappa/hashtable.h";
+        "grappa/inittree.h";
+        "grappa/invdist.h";
+        "grappa/inversion_median.h";
+        "grappa/inversion_median_alberto.h";
+        "grappa/labeltree.h";
+        "grappa/lists.h";
+        "grappa/lk_main.h";
+        "grappa/med_util.h";
+        "grappa/mythread_rwlock.h";
+        "grappa/neighborj.h";
+        "grappa/priority_stack.h";
+        "grappa/randomBSD.h";
+        "grappa/read_input.h";
+        "grappa/simpleio.h";
+        "grappa/sorting_reversal_median.h";
+        "grappa/specialinit.h";
+        "grappa/specialtsp.h";
+        "grappa/structs.h";
+        "grappa/uf.h";
+        "grappa/vertex_factory.h";
+        "gz-0.5.7/io.h";
+        "likelihood.h";
+        "matrices.h";
+        "memstack.h";
+        "noaddset.h";
+        "nonaddCSc.h";
+        "seq.h";
+        "ukkCommon.h";
+        "union.h";
+        "zarr.h";
+        "ocamlmpi/camlmpi.h"]
+;;
+
+dispatch begin function
+| After_rules ->
+
+    (* When one make a C library that use the zlib with ocamlmklib,
+       then issue these flags. *)
+    flag ["ocamlmklib"; "c"; "use_zlib"]
+         (S[A zlib_lib]);
+
+    (* When one compile C code using the zlib *)
+    flag ["link"; "ocaml"; "use_zlib"] (S[A"-cclib"; A zlib_lib]);
+
+    (* If `static' is true then every ocaml link in bytecode will add -custom *)
+    if static then flag ["link"; "ocaml"; "byte"] (A"-custom");
+
+    flag ["link"; "ocaml"; "use_poy"]
+         (S[A"-cclib"; A"-lpoycside"; A"-cclib"; A"-L."]);
+
+    flag ["c"] (S[A"-ccopt"; A"-I"; A"-ccopt"; A"/usr/include/malloc"]);
+    flag ["c"; "use_char8"] (S[A"-ccopt"; A"-DCHARSIZE=8"]);
+    flag ["c"; "use_char16"] (S[A"-ccopt"; A"-DCHARSIZE=16"]);
+    flag ["c"; "use_char32"] (S[A"-ccopt"; A"-DCHARSIZE=32"]);
+
+    dep  ["link"; "ocaml"; "use_poy"] ["libpoycside.a"];
+
+    dep ["ocaml"; "pp"; "use_extensions"] ["poyExtension.cmo"; "kolmoExtension.cmo"];
+    dep ["ocaml"; "ocamldep"; "use_extensions"] ["poyExtension.cmo"; "kolmoExtension.cmo"];
+
+    flag ["link"; "ocaml"; "byte"; "use_grappa"]
+         (S[A"-cclib"; A"-lgrappa"; A"-cclib"; A"-L."]);
+
+    flag ["link"; "library"; "ocaml"; "native"; "use_grappa"]
+         (S[A"-cclib"; A"-lgrappa"]);
+
+    dep  ["link"; "ocaml"; "use_grappa"] ["libgrappa.a"];
+
+    flag ["link"; "ocaml"; "use_camlp4o"] (S[A"-I"; A"+camlp4"]);
+    flag ["link"; "ocaml"; "native"; "use_camlp4o"] (A"camlp4o.cmxa");
+    flag ["link"; "ocaml"; "byte"; "use_camlp4o"] (A"camlp4o.cma");
+
+    flag ["ocaml"; "compile"; "use_camlp4o"] (S[(A"-I"); A"+camlp4"]);
+
+    flag ["link"; "ocaml"; "byte"; "use_gzcaml"]
+         (S[A"-dllib"; A"-lzlibstubs"; A"-cclib"; A"-lzlibstubs"; 
+         A"-dllib"; A"-lgzcaml"; A"-cclib"; A"-lgzcaml"]);
+
+    flag ["link"; "library"; "ocaml"; "native"; "use_gzcaml"]
+         (S[A"-cclib"; A"-lzlibstubs"; A"-cclib"; A"-lgzcaml"]);
+
+    flag ["c"; "compile"; "use_nativedynlink"]
+        (S[A"-ccopt"; A"-DUSE_NATIVEDYNLINK"]);
+
+    flag ["c"; "compile"; "use_xslt"]
+        (S[A"-ccopt"; A"-DUSE_XSLT"]);
+
+    flag ["c"; "compile"; "use_likelihood"]
+        (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
+
+    flag ["c"; "compile"; "use_readline"]
+        (S[A"-ccopt"; A"-DUSEREADLINE"]);
+
+    flag ["c"; "compile"; "use_ncurses"]
+        (S[A"-ccopt"; A"-DUSENCURSES"]);
+
+    flag ["c"; "compile"; "use_parallel"]
+        (S[A"-ccopt"; A"-DUSEPARALLEL"]);
+
+    flag ["link"; "ocaml"; "use_parallel"]
+        (S[A"-cclib"; A"-lmpicaml"]);
+
+    flag ["c"; "compile"; "use_nosharedhd"]
+        (S[A"-ccopt"; A"-DUSENOSHAREDHD"]);
+
+    flag ["c"; "compile"; "use_large_messages"]
+        (S[A"-ccopt"; A"-DUSE_LARGE_MESSAGES"]);
+
+    flag ["c"; "compile"; "use_long_sequences"]
+        (S[A"-ccopt"; A"-DUSE_LONG_SEQUENCES"]);
+
+    flag ["c"; "compile"; "use_large_alphabets"]
+        (S[A"-ccopt"; A"-DUSE_LARGE_ALPHABETS"]);
+
+    flag ["c"; "compile"; "use_verify_costs"]
+        (S[A"-ccopt"; A"-DUSE_VERIFY_COSTS"]);
+
+    flag ["c"; "compile"; "use_win32"]
+        (S[A"-ccopt"; A"-DUSEWIN32"]);
+
+    flag ["c"; "compile"] (S allcflags);
+    flag ["c"; "link"] (S allcflags);
+    flag ["ocaml"; "compile"] (S allcflags);
+    flag ["ocaml"; "link"] (S allcflags);
+
+    dep  ["link"; "ocaml"; "use_gzcaml"] ["libgzcaml.a"; "libzlibstubs.a"];
+    dep  ["link"; "ocaml"; "use_parallel"] ["libmpicaml.a"];
+
+    (* As an approximation all our C files use the headers.
+       Note: This will import headers in the build directory. *)
+    dep  ["compile"; "c"] headers;
+| _ -> ()
+
+end

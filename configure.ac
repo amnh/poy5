@@ -117,6 +117,5 @@ esac
 AC_CONFIG_FILES([Makefile
                  doc/Makefile
                  test/Makefile])
-AC_CONFIG_SUBDIRS([ocamlmpi
-                   src])
+AC_CONFIG_SUBDIRS([src])
 AC_OUTPUT

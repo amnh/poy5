@@ -33,6 +33,7 @@
 #include <sys/resource.h>
 #endif
 
+#ifndef USEWIN32
 value
 CAML_getrusage (value v) {
     CAMLparam1(v);
@@ -63,3 +64,4 @@ CAML_getrusage (value v) {
     Store_field(res, 15, Val_long(holder.ru_nivcsw));
     CAMLreturn(res);
 }
+#endif /* USEWIN32 */

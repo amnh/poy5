@@ -55,7 +55,6 @@ external union : ct -> cu -> cu -> cu = "char_nonadd_CAML_basic_union"
 external to_union : ct -> cu = "char_nonadd_CAML_to_union"
 
 val elt_code : e -> int
-val color : Character.c
 
 (** {2 Creation} *)
 
@@ -132,7 +131,6 @@ val compare_data : t -> t -> int
 val empty : t
 val add : e -> float -> t -> t
 val del : int -> t -> t
-val colors : t -> (int * Character.c) list
 val codes : t -> int list
 val costs : t -> (int * float) list
 val get_elt_withcode : int -> t -> e option
@@ -141,13 +139,10 @@ val substitute : t -> t -> t
 val merge : t -> t -> t
 val minus : t -> t -> t
 val random : (unit -> bool) -> t -> t
-external get_heu : ct -> Character.h = "char_nonadd_CAML_get_heu"
-external set_heu : Character.h -> ct -> ct = "char_nonadd_CAML_set_heu"
 val fold : (e -> 'a -> 'a) -> 'a -> t -> 'a
 val filter : (int * e * float -> bool) -> t -> t
 val f_codes : t -> All_sets.Integers.t -> t
 val f_codes_comp : t -> All_sets.Integers.t -> t
-val f_colors : t -> Character.c -> t
-val iter : (e -> int -> Character.c -> unit) -> t -> unit
-val map : (e -> int -> Character.c -> e) -> t -> t
+val iter : (e -> int -> unit) -> t -> unit
+val map : (e -> int -> e) -> t -> t
 val is_empty : t -> bool

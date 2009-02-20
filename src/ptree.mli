@@ -460,14 +460,6 @@ val pre_order_edge_visit :
 val print_tree : int -> ('a, 'b) p_tree -> unit
 val print_forest : ('a, 'b) p_tree -> unit
 val make_disjoint_tree : 'a All_sets.IntegerMap.t -> ('a, 'b) p_tree
-val build_consensus :
-  int ->
-  int ->
-  int ->
-  ('a, 'b) p_tree list ->
-  int * Gen_rtree.g_rtree * (int, int) Hashtbl.t *
-  (int, int) Hashtbl.t
-
 
 module Search (Node : NodeSig.S) 
     (Edge : Edge.EdgeSig with type n = Node.n) (Tree_Ops : Tree_Operations with type a = Node.n with

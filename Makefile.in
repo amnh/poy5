@@ -35,8 +35,8 @@ else
 endif
 
 poy_test:
-	cd ./src/; $(MAKE) poy_test
-	cp ./src/poy_test ./test/
+	cd ./src/; $(MAKE) poy_test.native
+	cp ./src/poy_test.native ./test/poy_test
 
 ./src/version.cmo: ./src/version.ml
 	$(MAKE) -C ./src version.cmo
@@ -56,8 +56,8 @@ poy_test:
 version: ./src/compileFlags.cmo ./src/buildNumber.cmo ./src/version.cmo ./doc/makeVersion.ml
 	$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text
 
-poy_server: poy xml/swami.xml version
-	cd src; $(MAKE) poy_server
+portal.native: poy xml/swami.xml version
+	cd src; $(MAKE) portal.native
 
 xml/swami.xml: version xml/swami.xml.in
 	export RESULT=`$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
@@ -77,7 +77,7 @@ install:
 	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
 
 install_server: install
-	$(INSTALL) ./src/poy_server $(DESTDIR)$(bindir)/`echo poy_server | sed -e '$(transform)'` 
+	$(INSTALL) ./src/portal.native $(DESTDIR)$(bindir)/`echo portal.native | sed -e '$(transform)'` 
 
 uninstall:
 	rm -f $(bindir)/`echo poy | sed '$(transform)'`

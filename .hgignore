@@ -61,3 +61,6 @@ mpoy.dSYM
 mpoy_console.dSYM
 poy_test
 universal
+_build
+_tag
+myocamlbuild.ml

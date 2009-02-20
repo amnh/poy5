@@ -477,7 +477,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                     else (point_mid a c) 
                 else triangle_mid 5 (a, b, c)
 
-
         end
 
         module TemporalGIS = struct
@@ -3115,6 +3114,383 @@ let mask_bit bit complete_mask =
 let compute_other_rank bit = world_size --> complete_mask --> mask_bit bit
 
 END
+
+    module SymbolTable = struct
+        type 'a arguments_pv = 
+            [ `Float of string 
+            | `Int of string 
+            | `String of string
+            | `Labeled of (string * 'a arguments_pv)
+            | `Lident of string
+            | `CommandArg of 'a
+            | `List of 'a arguments_pv list ]
+
+        type pc_pv = Analyzer.pc_pv
+
+        exception ExistingSymbol of string
+
+        let table = Hashtbl.create 1667
+
+        let add symbol f requirements = 
+            if Hashtbl.mem table symbol then raise (ExistingSymbol symbol)
+            else begin
+                Hashtbl.add Analyzer.dependency_table symbol requirements;
+                Hashtbl.add table symbol f;
+            end
+
+        let replace symbol f requirements =
+            Hashtbl.replace table symbol f;
+            Hashtbl.replace Analyzer.dependency_table symbol requirements
+
+        let execute symbol run arguments =
+            try (Hashtbl.find table symbol) run arguments with
+            | Not_found -> failwith ("Undefined function " ^ symbol)
+
+        let execute (run : r) (command : Analyzer.pc_pv) =
+            match command with
+            | `Command (symbol, arguments) -> execute symbol run arguments
+
+
+        module Registration = struct
+            exception IllegalArgument of 
+                (string * Analyzer.pc_pv Analyzer.arguments_pv) 
+
+            module type Registrar = sig
+                type arguments
+                val default_argument : arguments
+                val process_argument : 
+                    arguments ->
+                        Analyzer.pc_pv Analyzer.arguments_pv -> 
+                            arguments
+                val execute : r -> arguments -> r
+                val name : string
+                val dependencies : arguments -> Analyzer.dependencies
+            end
+
+            module Generator (Implementation : Registrar) = struct
+                let process_arguments args =
+                    List.fold_left Implementation.process_argument
+                    Implementation.default_argument args 
+                let to_register_execution run arguments = 
+                    Implementation.execute run (process_arguments arguments)
+
+                let to_register_dependencies arguments = 
+                    Implementation.dependencies (process_arguments arguments)
+                let () = 
+                    replace Implementation.name to_register_execution
+                    to_register_dependencies
+            end
+
+            (*
+            module Build = struct
+                type arguments = (int * Methods.build * Methods.transform list)
+                let name = "build"
+
+                let process_argument ((n, meth, trans) as acc) (argument :
+                    Analyzer.pc_pv Analyzer.arguments_pv) =
+                    match argument with
+                    | `Lident "random" ->
+                            begin match meth with
+                            | `Nj
+                            | `Prebuilt _ -> acc
+                            | `Wagner_Ordered x 
+                            | `Wagner_Distances x 
+                            | `Wagner_Mst x
+                            | `Build_Random x 
+                            | `Wagner_Rnd x -> 
+                                    (n, (`Build_Random x), trans)
+                            | `Constraint _ ->
+                                    raise (IllegalArgument ("Constraint tree \
+                                    has already been selected as build \
+                                    method.", argument))
+                            | `Branch_and_Bound _ ->
+                                    raise (IllegalArgument ("Branch and bound \
+                                    tree has already been selected as build \
+                                    method.", argument))
+                            end
+                    | `Lident "constraint" | `Labeled ("constraint", _) as opt ->
+                            let file = 
+                                match opt with
+                                | `Lident "constraint" -> None
+                                | `Labeled ("constraint", `String x) -> Some (`Local x)
+                                | _ -> 
+                                        raise (IllegalArgument ("constraint
+                                        expects a string with filename.",
+                                        argument))
+                            in
+                            begin match meth with
+                            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
+                            | `Build_Random (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
+                                    (n, (`Constraint (1, 0.0, file, lst)), trans)
+                            | `Branch_and_Bound _ ->
+                                    raise (IllegalArgument ("Branch and bound \
+                                    has already been selected as build method.", 
+                                    argument))
+                            | `Constraint _ ->
+                                    raise (IllegalArgument ("Constraint has \
+                                    already been selected as build method.",
+                                    argument))
+                            | `Nj -> 
+                                    raise (IllegalArgument ("Neighbor joining \
+                                    has already been selected as build method.", 
+                                    argument))
+                            | `Prebuilt _ -> 
+                                    raise (IllegalArgument ("Prebuilt has \
+                                    already been selected as build method.", 
+                                    argument))
+                            end
+                    | `Lident "branch_and_bound"
+                    | `Labeled ("branch_and_bound", `Int _)
+                    | `Labeled ("branch_and_bound", `Float _) as opt ->
+                            let bound = 
+                                match opt with
+                                | `Lident _ -> None
+                                | `Labeled (_, `Int x)
+                                | `Labeled (_, `Float x) -> float_of_string x
+                            in
+                            begin match meth with
+                            | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Mst (keep_max, _, keep_method, lst, _)
+                            | `Build_Random (keep_max, _, keep_method, lst, _) 
+                            | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
+                                    (n, (`Branch_and_Bound (bound, None, keep_method,
+                                    keep_max, lst)), trans)
+                            | `Branch_and_Bound x ->
+                                    (n, `Branch_and_Bound x, trans)
+                            | `Constraint _ ->
+                                    raise (IllegalArgument ("Constraint has \
+                                    already been selected as build method.",
+                                    argument))
+                            | `Nj -> 
+                                    raise (IllegalArgument ("Neighbor joining \
+                                    has already been selected as build method.",
+                                    argument))
+                            | `Prebuilt _ -> 
+                                    raise (IllegalArgument ("Prebuilt has \
+                                    already been selected as build method.",
+                                    argument))
+                            end
+                    | `Lident "_distances" ->
+                            begin match meth with
+                            | `Prebuilt _
+                            | `Wagner_Distances _ -> acc
+                            | `Wagner_Mst x
+                            | `Wagner_Rnd x 
+                            | `Wagner_Ordered x
+                            | `Build_Random x -> (n, (`Wagner_Distances x), trans)
+                            | `Constraint _ ->
+                                    failwith 
+                                    "Constraint has already been selected as build method."
+                            | `Branch_and_Bound _ -> 
+                                    failwith
+                                    "Branch and bound tree has already been selected as build method."
+                            | `Nj -> 
+                                    failwith 
+                                    "Neighbor joining has already been selected as build method."
+                            end
+                    | `Lident "_mst" ->
+                            begin match meth with
+                            | `Prebuilt _
+                            | `Wagner_Mst _ -> acc
+                            | `Wagner_Distances x
+                            | `Wagner_Rnd x 
+                            | `Wagner_Ordered x
+                            | `Build_Random x -> (n, (`Wagner_Mst x), trans)
+                            | `Constraint _ ->
+                                    failwith 
+                                    "Constraint has already been selected as build method."
+                            | `Branch_and_Bound _ -> 
+                                    failwith
+                                    "Branch and bound tree has already been selected as build method."
+                            | `Nj -> 
+                                    failwith 
+                                    "Neighbor joining has already been selected as build method."
+                            end
+                    | `Lident "randomized" ->
+                            begin match meth with
+                            | `Prebuilt _
+                            | `Wagner_Rnd _ -> acc
+                            | `Wagner_Distances x
+                            | `Wagner_Mst x
+                            | `Wagner_Ordered x
+                            | `Build_Random x -> (n, (`Wagner_Rnd x), trans)
+                            | `Constraint _ ->
+                                    failwith 
+                                    "Constraint has already been selected as build method."
+                            | `Branch_and_Bound _ -> 
+                                    failwith
+                                    "Branch and bound tree has already been selected as build method."
+                            | `Nj -> 
+                                    failwith 
+                                    "Neighbor joining has already been selected as build method."
+                            end
+                    | `Lident "as_is" ->
+                            begin match meth with
+                            | `Prebuilt _
+                            | `Wagner_Ordered _ -> acc
+                            | `Wagner_Distances x
+                            | `Wagner_Mst x
+                            | `Build_Random x 
+                            | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans)
+                            | `Constraint _ ->
+                                    failwith 
+                                    "Constraint has already been selected as build method."
+                            | `Branch_and_Bound _ -> 
+                                    failwith
+                                    "Branch and bound tree has already been selected as build method."
+                            | `Nj -> 
+                                    failwith 
+                                    "Neighbor joining has already been selected as build method."
+                            end
+                    | `Labeled ("threshold", `Int x)
+                    | `Labeled ("threshold", `Float x) ->
+                            let x = float_of_string x in
+                            let converter (a, _, c, d, e) = (a, x, c, d, e) in
+                            let nmeth = 
+                                match meth with
+                                | `Branch_and_Bound _
+                                | `Constraint _
+                                | `Build_Random _
+                                | `Nj
+                                | `Prebuilt _ -> meth
+                                | `Wagner_Distances y -> 
+                                        `Wagner_Distances (converter y)
+                                | `Wagner_Mst y -> 
+                                        `Wagner_Mst (converter y)
+                                | `Wagner_Rnd y -> 
+                                        `Wagner_Rnd (converter y)
+                                | `Wagner_Ordered y -> 
+                                        `Wagner_Ordered (converter y)
+                            in
+                            n, nmeth, trans
+                    | `Int x | `Labeled ("trees", `Int x) ->
+                            (int_of_string x, meth, trans)
+                    | `Labeled ("lookahead", `Int x) ->
+                            let x = int_of_string x in
+                            let converter (_, b, c, d, e) = (x, b, c, d, e) in
+                            let nmeth = 
+                                match meth with
+                                | `Branch_and_Bound _
+                                | `Constraint _
+                                | `Build_Random _
+                                | `Nj
+                                | `Prebuilt _ -> meth
+                                | `Wagner_Distances y -> 
+                                        `Wagner_Distances (converter y)
+                                | `Wagner_Mst y -> 
+                                        `Wagner_Mst (converter y)
+                                | `Wagner_Rnd y -> 
+                                        `Wagner_Rnd (converter y)
+                                | `Wagner_Ordered y -> 
+                                        `Wagner_Ordered (converter y)
+                            in
+                            n, nmeth, trans
+                    | `Lident "last" | `Lident "first" | `Lident "random" as x
+                    ->
+                            let x = 
+                                match x with
+                                | `Lident "last" -> `Last
+                                | `Lident "first" -> `First
+                                | `Lident "random" -> `Keep_Random
+                            in
+                            let converter (a, b, _, c, d) = (a, b, x, c, d) in
+                            let nmeth = 
+                                match meth with
+                                | `Constraint _
+                                | `Nj
+                                | `Prebuilt _ -> meth
+                                | `Wagner_Distances y -> 
+                                        `Wagner_Distances (converter y)
+                                | `Wagner_Mst y -> 
+                                        `Wagner_Mst (converter y)
+                                | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
+                                | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
+                                | `Build_Random y -> `Build_Random (converter y)
+                                | `Branch_and_Bound (a, b, _, c, d) ->
+                                        `Branch_and_Bound (a, b, x, c, d)
+                            in
+                            n, nmeth, trans
+                    | `CommandArg x ->
+                            let t = transform_transform_arguments x in
+                            (n, meth, (t @ trans))
+                    | #Methods.tabu_join_strategy as tabu ->
+                            let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
+                            let nmeth = 
+                                match meth with
+                                | `Constraint _
+                                | `Branch_and_Bound _
+                                | `Nj
+                                | `Prebuilt _ -> meth
+                                | `Wagner_Distances y -> 
+                                        `Wagner_Distances (converter y)
+                                | `Wagner_Mst y -> 
+                                        `Wagner_Mst (converter y)
+                                | `Wagner_Rnd y -> 
+                                        `Wagner_Rnd (converter y)
+                                | `Wagner_Ordered y -> 
+                                        `Wagner_Ordered (converter y)
+                                | `Build_Random y -> 
+                                        `Build_Random (converter y)
+                            in
+                            n, nmeth, trans
+
+                let dependencies (_, meth, _) = 
+                    match meth with
+                    | `Branch_and_Bound _
+                    | `Nj
+                    | `Prebuilt _ ->
+                            [([Data], [Data; Trees], init, Linnearizable)]
+                    | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
+                            [([Data; Trees], [Data; Trees], init, Parallelizable)]
+                    | `Build (_, (`Constraint (_, _, Some _, _)), _) ->
+                            [([Data; Trees], [Trees], init, Parallelizable)]
+                    | `Build (_, (`Constraint (_, _, None, _)), _) ->
+                            [([Data; Trees], [Trees], init, NonComposable)]
+                    | `Build _
+                    | `Build_Random _ ->
+                            [([Data], [Trees], init, Parallelizable)]
+            end
+            *)
+
+            let build run arguments = run
+            let change_wdir run arguments = run
+            let clear_memory run arguments = run
+            let clear_recovered run arguments = run
+            let discard run arguments = run
+            let echo run arguments = run
+            let exit run arguments = run 
+            let fuse run arguments = run
+            let help run arguments = run
+            let inspect run arguments = run
+            let load run arguments = run
+            let perturb run arguments = run
+            let print_wdir run arguments = run
+            let read run arguments = run
+            let recover run arguments = run
+            let rediagnose run arguments = run
+            let redraw run arguments = run
+            let rename run arguments = run
+            let report run arguments = run
+            let run run arguments = run
+            let save run arguments = run
+            let search run arguments = run
+            let select run arguments = run
+            let set run arguments = run
+            let stdsearch run arguments = run
+            let store run arguments = run
+            let support run arguments = run
+            let swap run arguments = run
+            let transform run arguments = run
+            let use run arguments = run
+            let version run arguments = run
+            let wipe run arguments = run
+        end
+    end
+
 let rec folder (run : r) meth = 
     check_ft_queue run;
     match meth with

@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.60)
-AC_INIT([POY 4 Beta], [see VERSION], [poy4@googlegroups.com])
+AC_INIT([POY 4], [see VERSION], [poy4@googlegroups.com])
 AC_CONFIG_SRCDIR([add.c])
 AC_CONFIG_HEADERS([config.h])
 
@@ -11,7 +11,34 @@ AC_PROG_CC
 
 
 # What are we going to substitute in the Makefile
-AC_SUBST(USEGRAPHICS)
+AC_SUBST(DUSE_NATIVEDYNLINK)
+AC_SUBST(DUSE_XSLT)
+AC_SUBST(DUSE_LIKELIHOOD)
+AC_SUBST(DUSEREADLINE)
+AC_SUBST(DUSENCURSES)
+AC_SUBST(DUSEPARALLEL)
+AC_SUBST(DUSENOSHAREDHD)
+AC_SUBST(DUSE_LARGE_MESSAGES)
+AC_SUBST(DUSE_LONG_SEQUENCES)
+AC_SUBST(DUSE_LARGE_ALPHABETS)
+AC_SUBST(DUSE_VERIFY_COSTS)
+AC_SUBST(DUSEGRAPHICS)
+AC_SUBST(DUSEWIN32)
+
+AC_SUBST(OUSE_NATIVEDYNLINK)
+AC_SUBST(OUSE_XSLT)
+AC_SUBST(OUSE_LIKELIHOOD)
+AC_SUBST(OUSEREADLINE)
+AC_SUBST(OUSENCURSES)
+AC_SUBST(OUSEPARALLEL)
+AC_SUBST(OUSENOSHAREDHD)
+AC_SUBST(OUSE_LARGE_MESSAGES)
+AC_SUBST(OUSE_LONG_SEQUENCES)
+AC_SUBST(OUSE_LARGE_ALPHABETS)
+AC_SUBST(OUSE_VERIFY_COSTS)
+AC_SUBST(OUSEGRAPHICS)
+AC_SUBST(OUSEWIN32)
+
 AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
 AC_SUBST(USEPARALLEL)
@@ -22,6 +49,9 @@ AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
 AC_SUBST(USE_LIKELIHOOD)
 AC_SUBST(USE_VERIFY_COSTS)
+
+AC_SUBST(POY_VERSION_NUMBER)
+AC_SUBST(CC_VERSION)
 AC_SUBST(OCAML)
 AC_SUBST(OCAMLC)
 AC_SUBST(OCAMLOPT)
@@ -30,14 +60,19 @@ AC_SUBST(CAMLP4ORF)
 AC_SUBST(OCAMLTOP)
 AC_SUBST(OCAMLLEX)
 AC_SUBST(OCAMLYACC)
+AC_SUBST(OCAMLBUILD)
 AC_SUBST(MERCURIAL)
 AC_SUBST(LIBS)
 AC_SUBST(OCAMLFLAGS)
 AC_SUBST(EXTRAS)
 AC_SUBST(NATIVEDYNLINK)
 AC_SUBST(USE_NATIVEDYNLINK)
+AC_SUBST(OCAMLVERSION)
+AC_SUBST(CONFIG_DATE)
 
-USEWIN32=false
+CONFIG_DATE=`date`
+
+USEWIN32="false"
 
 OS_INFORMATION=`../gnu/config.guess`
 
@@ -50,22 +85,21 @@ case ${OS_INFORMATION} in
         CFLAGS="-I /usr/include/malloc $CFLAGS"
         ;;
     *-cygwin*)
-        USEWIN32=true
+        USEWIN32="true"
+        DUSEWIN32="-DUSEWIN32"
+        OUSEWIN32=",use_win32"
         CFLAGS="-mwin32 -mno-cygwin $CFLAGS"
         ;;
     *)
         ;;
 esac
 
-INTERFACE_SELECTED=true
-# Checking the kind of graphics that we intend to support.
-AC_ARG_ENABLE([graphics], [AS_HELP_STRING([--enable-graphics],
-              [Force POY to support graphical trees on screen. Valid options are none, ocaml, and tk. The default is none])], [USEGRAPHICS=$enableval], [USEGRAPHICS=none])
+INTERFACE_SELECTED="true"
 
 AC_ARG_ENABLE([interface], [AS_HELP_STRING([--enable-interface],
               [Force POY's user interface. Valid options are flat, ncurses, readline, and html. The default is ncurses, if ncurses is not found, then the readline interface is used, if readline is not present either, then choose the flat interface.])],
               [USEINTERFACE=$enableval],
-              [USEINTERFACE=ncurses; INTERFACE_SELECTED=false])
+              [USEINTERFACE="ncurses"; INTERFACE_SELECTED="false"; DUSENCURSES="-DUSENCURSES"; OUSENCURSES=",use_ncurses"])
 
 AC_ARG_WITH(extras, [AS_HELP_STRING([--with-extras], 
             [Add the following object files to the final linking rules (needed for windows).])],
@@ -81,41 +115,41 @@ AC_ARG_WITH(ocaml-flags, [AS_HELP_STRING([--with-ocaml-flags],
 
 AC_ARG_ENABLE([mpi], [AS_HELP_STRING([--enable-mpi], 
               [Turns on parallel support using MPI. When using MPI remember to set CC to the appropriate mpicc compiler.])], 
-              [USEPARALLEL=true], 
-              [USEPARALLEL=false])
+              [USEPARALLEL="true"; DUSEPARALLEL="-DUSEPARALLEL"; OUSEPARALLEL=",use_parallel"], 
+              [USEPARALLEL="false"])
 
 AC_ARG_ENABLE([large-messages], [AS_HELP_STRING([--enable-large-messages], 
               [When --enable-mpi is selected, this option turns on large messages for tree exchanges. Large messages reduce considerably computation of trees when different processes exchange them, but increase tremendously the message size. Use this option when message size (and the memory consumed to send and receive it) is not a possible bottleneck.])], 
-              [USE_LARGE_MESSAGES=true], 
-              [USE_LARGE_MESSAGES=false])
+              [USE_LARGE_MESSAGES="true"; DUSE_LARGE_MESSAGES="-DUSE_LARGE_MESSAGES"; OUSE_LARGE_MESSAGES=",use_large_messages"], 
+              [USE_LARGE_MESSAGES="false"])
 
 AC_ARG_ENABLE([shared-hd], [AS_HELP_STRING([--enable-shared-hd],
-              [Force POY to support live broadcast of file contents when running in parallel. The default is false.])], [USESHAREDHD=true], [USESHAREDHD=false])
+              [Force POY to support live broadcast of file contents when running in parallel. The default is false.])], [USESHAREDHD="true"; DUSENOSHAREDHD="-DUSENOSHAREDHD"; OUSENOSHAREDHD=",use_nosharedhd"], [USESHAREDHD="false"])
 
 AC_ARG_ENABLE([long-sequences], [AS_HELP_STRING([--enable-long-sequences], 
               [Enable the analysis of sequences longer than 16383 elements (The limit would be  2^31 or 2^63 for 32 bit and 64 bit architectures respectively). When using this option, more memory will be needed for the default search strategies. If you are analyzing fragments shorted than, say 12.000 bp, you are unlikely to need this option.])], 
-              [USE_LONG_SEQUENCES=true], 
-              [USE_LONG_SEQUENCES=false])
+              [USE_LONG_SEQUENCES="true"; DUSE_LONG_SEQUENCES="-DUSE_LONG_SEQUENCES"; OUSE_LONG_SEQUENCES=",use_long_sequences"], 
+              [USE_LONG_SEQUENCES="false"])
 
 AC_ARG_ENABLE([xslt], [AS_HELP_STRING([--enable-xslt],
               [Enable the postprocessing of XML output using XSLT templates.  This option requires libxml2.])],
-               [USE_XSLT=true],
-               [USE_XSLT=false])
+               [USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"],
+               [USE_XSLT="false"])
 
 AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
               [Enable the use of static and dynamic likelihood functions. This
                option requires an implementation of lapack and blas to be installed.])],
-                [USE_LIKELIHOOD=true], [USE_LIKELIHOOD=false])
+                [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"], [USE_LIKELIHOOD="false"])
 
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
-              [USE_LARGE_ALPHABETS=true],
-              [USE_LARGE_ALPHABETS=false])
+              [USE_LARGE_ALPHABETS="true"; DUSE_LARGE_ALPHABETS="-DUSE_LARGE_ALPHABETS"; OUSE_LARGE_ALPHABETS=",use_large_alphabets"],
+              [USE_LARGE_ALPHABETS="false"])
 
 AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [Check every pairwise sequence alignment cost. This is only intended for development and debugging purposes.])],
-              [USE_VERIFY_COSTS=true],
-              [USE_VERIFY_COSTS=false])
+              [USE_VERIFY_COSTS="true"; DUSE_VERIFY_COSTS="-DUSE_VERIFY_COSTS"; OUSE_VERIFY_COSTS=",use_verify_costs"],
+              [USE_VERIFY_COSTS="false"])
 
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
@@ -137,10 +171,10 @@ esac
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"], 
-      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS"; AC_DEFINE(HAVE_LIBNCURSES)], 
+      [AC_CHECK_LIB([ncurses], [scrollok], [LIBS="-lncurses $LIBS";DUSENCURSES="-DUSENCURSES";OUSENCURSES=",use_ncurses";AC_DEFINE(HAVE_LIBNCURSES)], 
       [AS_IF([test $INTERFACE_SELECTED = "true"], 
              [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or configure with --enable-interface=readline interface. See ./configure --help for more information.])], 
-             [USEINTERFACE="readline"])])],[])
+             [USEINTERFACE="readline"; DUSEREADLINE="-DUSEREADLINE"; OUSEREADLINE=",use_readline"])])],[])
 
 
 # Time to verify if we can compile with xslt
@@ -158,7 +192,7 @@ AS_IF([test $USEWIN32 = "false"], [AS_IF([test $USE_XSLT = "true"],
       [AC_CHECK_LIB([xml2], [xmlCreatePushParserCtxt], [
        CFLAGS="$CFLAGS `$XSLT_CONFIG --cflags`"
        AC_DEFINE(HAVE_XSLT)
-       USE_XSLT=true], [
+       USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"], [
             LIBS="$oLIBS"
             CFLAGS="$oFLAGS"
             AC_WARN([I could not find XSLT. I will remove the its support.])
@@ -183,6 +217,7 @@ AC_CHECK_PROGS([OCAMLYACC], [ocamlyacc.opt ocamlyacc])
 AC_CHECK_PROGS([OCAMLLEX], [ocamllex.opt ocamllex])
 AC_CHECK_PROGS([OCAMLOPT], [ocamlopt.opt ocamlopt])
 AC_CHECK_PROGS([OCAMLDEP], [ocamldep.opt ocamldep])
+AC_CHECK_PROGS([OCAMLBUILD], [ocamlbuild.native ocamlbuild])
 AC_CHECK_PROGS([CAMLP4ORF], [camlp4orf])
 AC_CHECK_PROGS([OCAMLTOP], [ocamlmktop])
 
@@ -229,8 +264,9 @@ AC_FUNC_REALLOC
 AC_FUNC_STAT
 AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
-AC_CONFIG_FILES([Makefile
-                 graphps/Makefile
-                 grappa/Makefile])
-AC_CONFIG_SUBDIRS([gz-0.5.7])
+CC_VERSION="`$CC --version`"
+POY_VERSION_NUMBER="`$MERCURIAL`"
+
+
+AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml])
 AC_OUTPUT

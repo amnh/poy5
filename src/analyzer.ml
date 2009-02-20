@@ -121,6 +121,21 @@ let is_tree_dependent = function
     | `Automatic_Static_Aprox _ -> true
     | _ -> false
 
+type 'a arguments_pv = 
+    [ `Float of string 
+    | `Int of string 
+    | `String of string
+    | `Labeled of (string * 'a arguments_pv)
+    | `Lident of string
+    | `CommandArg of 'a
+    | `List of 'a arguments_pv list ]
+
+type pc_pv = [ `Command of string * (pc_pv arguments_pv list) ]
+
+type dependencies = 
+    (dependency_class list * dependency_class list * pc_pv * exploders)
+
+let dependency_table : (string, (pc_pv arguments_pv list -> dependencies)) Hashtbl.t = Hashtbl.create 1667
 
 (* Takes a command, and returns a quadruple containing
 * the dependency classes it depends on , the dependency classes it affects,  the

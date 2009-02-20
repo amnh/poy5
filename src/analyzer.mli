@@ -58,6 +58,21 @@ type exploders =
     | ExitPoint
     | InteractivePoint
 
+type 'a arguments_pv = 
+    [ `Float of string 
+    | `Int of string 
+    | `String of string
+    | `Labeled of (string * 'a arguments_pv)
+    | `Lident of string
+    | `CommandArg of 'a
+    | `List of 'a arguments_pv list ]
+
+type pc_pv = [ `Command of string * (pc_pv arguments_pv list) ]
+
+type dependencies = 
+    (dependency_class list * dependency_class list * pc_pv * exploders)
+
+val dependency_table : (string, (pc_pv arguments_pv list -> dependencies)) Hashtbl.t 
 
 type 'a concurrent_continue = (dependency_class list * int list * 'a) list
 

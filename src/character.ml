@@ -88,7 +88,6 @@ module type CharacterSet = sig
     val cardinal : t -> int
     val deep_cardinal : t -> int
 
-(*     val color : c *)
     val code : t -> int
     val set_code : t -> int -> t
     val elt_code : e -> int
@@ -96,7 +95,6 @@ module type CharacterSet = sig
     val add : e -> float -> t -> t
     val del : int -> t -> t
 
-(*     val colors : t -> (int * c) list *)
     val codes : t -> int list
     val costs : t -> (int * float) list
     val get_elt_withcode : int -> t -> e option
@@ -114,7 +112,6 @@ module type CharacterSet = sig
 
     val fold : (e -> 'b -> 'b) -> 'b -> t -> 'b
     val f_codes : t -> int list -> t
-(*     val f_colors : t -> c -> t *)
     val iter : (e -> int -> unit) -> t -> unit
     val map : (e -> int -> e) -> t -> t
 

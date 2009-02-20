@@ -90,46 +90,6 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
     module TO = Ptree.Search (Node) (Edge) 
     (TreeOps) 
 
-    (** [count_support iterations resampler tree outgroup root_id hash_params] will
-        count the number of clades with a given fingerprint in [iterations]
-        resamplings (using [resampler]) of [tree].  We make a fingerprint hash using
-        [hash_params] using the !Hash_tbl library.  Returns a map of counts. *)
-    let count_support iterations resampler tree outgroup root_id hash_params =
-        let utree_of_ptree {Ptree.tree=utree} = utree in
-
-        let counts = ref HashCount.empty in
-
-
-        let incr ((i, j) as fp) =
-            let i =
-                try HashCount.find fp !counts
-                with Not_found -> 0 in
-            counts := HashCount.add fp (succ i) !counts in
-
-        let status = Status.create "Support" (Some iterations) ("Calculating supports") in
-
-        let count_new_tree () =
-            let new_tree = utree_of_ptree (resampler tree) in
-            (* TODO: fix the max_int somehow? document limitation? *)
-            let rtree = Rtree.root_at outgroup root_id new_tree in
-            let hash = Hash_tbl.Interface.make_wparams hash_params in
-            let hash = Hash_tbl.Interface.populate hash rtree root_id in
-
-            (* count all of the fingerprints in node_hashes *)
-            (* WARNING: dependent on the representation in Hash_tbl *)
-            let (t, _) = hash in
-            let counted = ref 0 in
-        Hashtbl.iter (fun _ (h1, h2, _) -> counted := succ !counted; incr (h1, h2)) t
-        in
-
-        for i = 1 to iterations do
-            Status.full_report ~msg:("Calculating supports") ~adv:i status;
-            count_new_tree ()
-        done;
-        let () = Status.finished status in
-
-        !counts
-
     (** [combine_counts acc] combines a list of counts (maps) by adding them
         together. *)
     let rec combine_counts ?(acc=HashCount.empty) count_list = match count_list with
@@ -145,80 +105,6 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
                         count
                         acc)
               counts
-
-    (** [combine_parallel hash_params ?root_id hashes tree outgroup] takes a Sexpr
-        of calculated intermediate counts, sums them up, and returns the final
-        support tree *)
-    let combine_parallel hash_params iterations ?(root_id=max_int - 3) hashes tree
-            outgroup =
-        let utree_of_ptree {Ptree.tree=utree} = utree in
-
-        let counts = combine_counts (Sexpr.to_list hashes) in
-        
-        let rtree = Rtree.root_at outgroup root_id (utree_of_ptree tree) in
-        let hash = Hash_tbl.Interface.make_wparams hash_params in
-        let hash = Hash_tbl.Interface.populate hash rtree root_id in
-        let (table, _) = hash in
-
-        let fp_of_nodeid id = let (h1, h2, _) = Hashtbl.find table id in (h1, h2) in
-        let topo = rtree.Rtree.r_topo in
-
-        (* WARNING: assumes that outgroup will be on the left side of the root.
-           This is how [Rtree] currently works. *)
-        let rec descend id = match All_sets.IntegerMap.find id topo with
-        | Rtree.Leaf (id, _) ->
-                let code = 
-                    let node = Ptree.get_node_data id tree in
-                    Node.taxon_code node
-                in
-              Methods.Leaf code
-        | Rtree.Interior (id, _, left, right)
-        | Rtree.Root (id, left, right) ->
-              let fp = fp_of_nodeid id in
-              let count = try HashCount.find fp counts with Not_found -> 0 in
-              let proportion = (float_of_int count) /. (float_of_int iterations) in
-              Methods.Node (proportion, descend left, descend right)
-
-        in descend root_id
-
-    let get_support iterations resampler tree outgroup =
-        let root_id = max_int - 3 in
-        let utree_of_ptree {Ptree.tree=utree} = utree in
-
-        (* currently works for trees, not forests *)
-        (* (+1 because we're actually interested in the rooted tree) *)
-        let nodes_in_tree = (List.length (Ptree.get_nodes tree) + 1) in
-        let hash_params = Hash_tbl.Interface.make_params 1 nodes_in_tree in
-
-        let counts =
-            count_support iterations resampler tree outgroup root_id
-                hash_params in
-
-        let rtree = Rtree.root_at outgroup root_id (utree_of_ptree tree) in
-        let hash = Hash_tbl.Interface.make_wparams hash_params in
-        let hash = Hash_tbl.Interface.populate hash rtree root_id in
-        let (table, _) = hash in
-
-        let fp_of_nodeid id = let (h1, h2, _) = Hashtbl.find table id in (h1, h2) in
-        let topo = rtree.Rtree.r_topo in
-
-        (* WARNING: assumes that outgroup will be on the left side of the root.
-           This is how [Rtree] currently works. *)
-        let rec descend id = match All_sets.IntegerMap.find id topo with
-        | Rtree.Leaf (id, _) ->
-                let code = 
-                    let node = Ptree.get_node_data id tree in
-                    Node.taxon_code node
-                in
-              Methods.Leaf code
-        | Rtree.Interior (id, _, left, right)
-        | Rtree.Root (id, left, right) ->
-              let fp = fp_of_nodeid id in
-              let count = try HashCount.find fp counts with Not_found -> 0 in
-              let proportion = (float_of_int count) /. (float_of_int iterations) in
-              Methods.Node (proportion, descend left, descend right)
-
-        in descend root_id
 
     let resample_support trees data queue iterations otus perturb search build
         outgroup counters =
