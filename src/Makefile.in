@@ -9,7 +9,7 @@
 # Change whatever options (compilers, compiler options, and so on) in this file
 # Cleanup spaces so that we recognize proper options
 
-all: clean poy
+all: poy.native
 
 SHELL = /bin/sh
 VPATH = @srcdir@
@@ -81,7 +81,7 @@ endif
 endif
 
 
-.PHONY: help.txt *.top *.native *.byte
+.PHONY: help.txt *.top *.native *.byte clean distclean
 
 # All the libraries specialized for certain size in the character set.
 # First we define the sed scripts that will replace the names with the
@@ -111,7 +111,7 @@ nonaddCSc32.c: nonaddCSc.c
 poy.1: help.txt
 
 # Help file gets made using OCaml script
-help.txt: latex.ml ../doc/allcommands.tex
+help.txt: nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c latex.ml ../doc/allcommands.tex
 	$(OCAMLBUILD) latex.native
 ifeq ($(USEWIN32), true)
 	./latex.native.exe 
@@ -139,3 +139,11 @@ generics: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml help.txt help.ml status.ml no
 	$(OCAMLBUILD) $@
 
 all: poy.native poy.byte poy.top
+
+clean:
+	rm -f nonaddCS[0-9]*.ml nonaddCSc[0-9]*.c help.ml help.txt
+	$(OCAMLBUILD) -clean
+
+distclean: clean
+	rm -f Makefile buildNumber.ml compileFlags.ml config.h \
+		config.log config.status 
