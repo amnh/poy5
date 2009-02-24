@@ -252,7 +252,7 @@ pdfkeywords={phylogenetic analysis, direct optimization, POY}]{hyperref}
     \end{flushright}
     \vskip 85\p@
     \begin{center}
-    \includegraphics[width=\textwidth]{figures/amnhlogoblue2.pdf}
+    \includegraphics[width=\textwidth]{doc/figures/amnhlogoblue2.pdf}
     \end{center}
     \vfil
     \null
@@ -353,7 +353,7 @@ An essential feature of \poy is that it implements the concept of dynamic homolo
 \section{The structure of \poy documentation}
 This first chapter, \emph{\poy Quick Start}, will get you started using \poy. The first few sections are intended to provide detailed instructions on how to obtain and install \poy, introduce the user to the program's two working environments, the \emph{Graphical User Interface} and the \emph{Interactive Console}. These sections also show how to initiate a \poy session and point to the various resources to obtain further assistance. Subsequent sections build on that knowledge and give step-by-step examples on how to conduct a basic analysis and visualize the results. The second chapter, \emph{\poy Commands}, describes \poy commands and their valid syntax. It also includes examples of simple operations for every command. The third chapter discusses the heuristic procedures used in \poy. Their understanding helps creating building efficient search strategies. More advanced operations are described in the fourth chapter, \emph{\poy Tutorials}. In addition to the general index, this document contains a \emph{\texttt{POY3.0} Command Line Index}, intended to provide a link between the commands used in \texttt{POY3} and the commands used in \poy. 
 
-\input{QuickStart}
+\input{doc/QuickStart}
 
 \chapter{\poy Commands}\label{commands}
 
@@ -453,7 +453,7 @@ separated by a colon.
 
 \begin{figure}[htbp]
    \centering
-   \includegraphics[width=0.34\textwidth]{figures/fig-poycommand1.jpg}
+   \includegraphics[width=0.34\textwidth]{doc/figures/fig-poycommand1.jpg}
    \caption{The structure of a simple \poy command. The entire command (highlighted
    in blue), consists of  a command name followed by a list of arguments (enclosed in red box).
    See text for details.}
@@ -464,7 +464,7 @@ Figure \ref{compositecommand} shows a more complex command structure, using the 
 
 \begin{figure}[htbp]
    \centering
-   \includegraphics[width=0.8\textwidth]{figures/fig-poycommand2.jpg}
+   \includegraphics[width=0.8\textwidth]{doc/figures/fig-poycommand2.jpg}
    \caption{A structure of a compound \poy command. Note that the list of arguments
    (enclosed in red box) includes a command (highlighted in blue). Also, note that
    \poyargument{ratchet} accepts multiple values, a float and an integer, that are inclosed in
@@ -529,22 +529,22 @@ Each command description entry contains the following sections:
 \end{statement}
 
 \section{Command reference}
-\input{allcommands}
+\input{doc/allcommands}
 
 <<<<<<< .working
 \chapter{\poy Heuristics: A Practical Guide}
-\input{poyheuristics}
+\input{doc/poyheuristics}
 
 \chapter{\poy Tutorials}
-\input{poytutorials}
+\input{doc/poytutorials}
 
 \addcontentsline{toc}{section}{Bibliography}%%
-\bibliography{poylibrary}
+\bibliography{doc/poylibrary}
 \bibliographystyle{plain}
 
 %\addtocontents{toc}{General Index}%%
 \printindex{general}{General Index}
 \printindex{poy3}{POY 3.0 Commands Index}
-\input{poy3commands}%%
+\input{doc/poy3commands}%%
 
 \end{document}

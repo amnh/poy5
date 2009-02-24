@@ -55,93 +55,23 @@ EXTRAS := @EXTRAS@
 OFLAGS := @OCAMLFLAGS@ 
 NATIVEDYNLINK := @NATIVEDYNLINK@
 
-status.ml: config.h $(wildcard status_*.ml)
-ifeq ($(USEINTERFACE), ncurses)
-	cp status_ncurses.ml status.ml
-else 
-ifeq ($(USEINTERFACE), readline)
-	cp status_flat.ml status.ml
-else 
-ifeq ($(USEINTERFACE), flat)
-	cp status_flat.ml status.ml
-else 
-ifeq ($(USEINTERFACE), gtk2)
-	cp status_gtk2.ml status.ml
-else 
-ifeq ($(USEINTERFACE), cocoa)
-	cp status_cocoa.ml status.ml
-else 
-ifeq ($(USEINTERFACE), html)
-	cp status_html.ml status.ml
-endif
-endif
-endif
-endif
-endif
-endif
+.PHONY: commands.pdf poy.native poy.byte poy.top clean distclean
 
-
-.PHONY: help.txt *.top *.native *.byte clean distclean
-
-# All the libraries specialized for certain size in the character set.
-# First we define the sed scripts that will replace the names with the
-# approprate needs 
-SED8 = sed "s/nonadd_/nonadd8_/g; s/NONADDSIZE/8/g"
-SED16 = sed "s/nonadd_/nonadd16_/g; s/NONADDSIZE/16/g"
-SED32 = sed "s/nonadd_/nonadd32_/g; s/NONADDSIZE/32/g"
-
-nonaddCS8.ml: nonaddCS.ml
-	$(SED8) nonaddCS.ml > $@
-
-nonaddCS16.ml: nonaddCS.ml
-	$(SED16) nonaddCS.ml > $@
-
-nonaddCS32.ml: nonaddCS.ml
-	$(SED32) nonaddCS.ml > $@
-
-nonaddCSc8.c: nonaddCSc.c
-	$(SED8) $< > $@
-
-nonaddCSc16.c: nonaddCSc.c
-	$(SED16) $< > $@
-
-nonaddCSc32.c: nonaddCSc.c
-	$(SED32) $< > $@
-
-poy.1: help.txt
-
-# Help file gets made using OCaml script
-help.txt: nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c latex.ml ../doc/allcommands.tex
-	$(OCAMLBUILD) latex.native
-ifeq ($(USEWIN32), true)
-	./latex.native.exe 
-else
-	./latex.native 
-endif
-
-help.ml: ../doc/commands.tex
-	$(OCAMLBUILD) helpRead.native
-	./helpRead.native
-
-help.html: ../doc/commands.tex 
-	$(OCAMLBUILD) helpRead.native
-	./helpRead.native -html
-
-generics: nonaddCS8.ml nonaddCS16.ml nonaddCS32.ml help.txt help.ml status.ml nonaddCSc8.c nonaddCSc16.c nonaddCSc32.c
-
-%.top: generics
+poy.top: 
 	$(OCAMLBUILD) $@
 
-%.byte: generics
+poy.byte: 
 	$(OCAMLBUILD) $@
 
-%.native: generics
+poy.native: 
+	$(OCAMLBUILD) $@
+
+commands.pdf:
 	$(OCAMLBUILD) $@
 
 all: poy.native poy.byte poy.top
 
 clean:
-	rm -f nonaddCS[0-9]*.ml nonaddCSc[0-9]*.c help.ml help.txt
 	$(OCAMLBUILD) -clean
 
 distclean: clean
