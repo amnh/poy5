@@ -1,10 +1,8 @@
 (* A program to evaluate the change in the relative cost between a pair of trees
 * before and after DO. *)
 
-type mode = [ `Normal | `Exact | `Iterative ]
-
-let initial_mode : mode ref = ref `Normal
-let final_mode : mode ref = ref `Exact
+let initial_mode : Methods.cost_modes ref = ref `Normal
+let final_mode : Methods.cost_modes ref = ref (`Iterative (`ThreeD None))
 
 let parallel = ref false
 
@@ -27,9 +25,9 @@ let assign_tree_build_method str =
 let assign_cost_calculation_mode item mode =
     item := 
         match mode with
-        | "e" -> `Exact
+        | "e" -> `Iterative (`ThreeD None)
         | "n" -> `Normal
-        | "i" -> `Iterative
+        | "i" -> `Iterative (`ApproxD None)
         | _ -> 
                 failwith
                 "Illegal tree cost modes. Valid modes are i (iterative), \
@@ -92,9 +90,8 @@ let create_scripts () =
     let final_cost_step = (!final_mode :> Methods.script) in
     let build_step : Methods.script = 
         match !build_method with
-        | `Random -> (`Build_Random (1, `First, [], `UnionBased None))
-        | `Wagner -> 
-                `Build (1, (`Wagner_Rnd (1, `First, [], `UnionBased None)), [])
+        | `Random -> List.hd (CPOY build (1, randomized))
+        | `Wagner -> List.hd (CPOY build (1))
     in
     (([initial_cost_step; build_step], [final_cost_step]) :
         (Methods.script list * Methods.script list))
