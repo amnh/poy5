@@ -36,7 +36,7 @@ let is_true str = if Str.string_match truere str 0 then  "on" else "off"
 let rephrase str = Str.global_replace (Str.regexp " +") "@ " str
 
 (* The Version Values *)
-let name = "Black Sabath"
+let name = "Black Sabbath"
 let major_version = 5
 let minor_version = 0
 let release_version = 0
