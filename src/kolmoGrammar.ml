@@ -417,12 +417,6 @@ module SKOcamlLanguageExt (Syntax : Camlp4Syntax) = struct
     include S
 end
 
-let () =
-    let module M = 
-        Camlp4.Register.OCamlSyntaxExtension (IdSKOcaml) (SKOcamlLanguageExt) 
-    in 
-    ()
-
 module Gram = Camlp4.PreCast.Gram 
 module MySKOcaml = SKOcamlLanguage (Gram) (Camlp4.PreCast.Syntax)
 
