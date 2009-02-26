@@ -7,7 +7,6 @@ likelihood.o
 memstack.o
 mlxslt.o
 ncurses.o
-noaddset.o
 nonaddCSc8.o
 nonaddCSc16.o
 nonaddCSc32.o

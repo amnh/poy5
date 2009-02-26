@@ -105,7 +105,6 @@ let headers =
         "likelihood.h";
         "matrices.h";
         "memstack.h";
-        "noaddset.h";
         "nonaddCSc.h";
         "seq.h";
         "ukkCommon.h";
