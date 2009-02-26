@@ -276,8 +276,10 @@ dispatch begin function
 
     dep  ["link"; "ocaml"; "use_poy"] ["libpoycside.a"];
 
-    dep ["ocaml"; "pp"; "use_extensions"] ["poyExtension.cmo"; "kolmoExtension.cmo"];
-    dep ["ocaml"; "ocamldep"; "use_extensions"] ["poyExtension.cmo"; "kolmoExtension.cmo"];
+    dep ["ocaml"; "pp"; "use_extensions"] ["poyExtension.cmo"; 
+        "kolmoGrammar.cmo"];
+    dep ["ocaml"; "ocamldep"; "use_extensions"] ["poyExtension.cmo";
+        "kolmoGrammar.cmo"];
 
     flag ["link"; "ocaml"; "byte"; "use_grappa"]
          (S[A"-cclib"; A"-lgrappa"; A"-cclib"; A"-L."]);
