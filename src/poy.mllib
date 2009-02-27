@@ -75,7 +75,6 @@ PoyCommand
 PoyExtension
 PoyFile
 PoyFormaters
-PoyParser
 Primes
 Ptree
 Queues

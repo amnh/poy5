@@ -337,10 +337,8 @@ type d = {
     static_ml : int list;
     complex_schema : Parser.SetGroups.t list;
     (** Tree for how to arrange taxa into complex terminals *)
-
     files : (string * contents list) list;
-    specification_index : SpecIndex.t;
-    character_index : (string * CharacSpec.t) list;
+    character_index : Kolmo.Compiler.sk_function list;
     search_information : OutputInformation.t list;
 
     (** At what taxon to root output trees *)
@@ -618,3 +616,5 @@ val apply_on_static :
 val repack_codes : d -> d
 
 val verify_trees : d -> parsed_trees -> unit
+
+val guess_class_and_add_file : bool -> bool -> d -> Parser.filename -> d

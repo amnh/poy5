@@ -66,6 +66,7 @@ module Compiler : sig
         | `Integer of string 
         | `Expr of 'a ]
 
+    type sk_function = S_K.primitives kolmo_function
     val compile_decoder : S_K.primitives kolmo_function list ->  
         (string * int) list -> unit
     val compile : S_K.primitives kolmo_function list -> unit

@@ -4,6 +4,7 @@
 
 let debug_sk = ref false 
 
+
 module type E = sig
     (** A bit representation *)
     type bit = Zero | One
@@ -2163,7 +2164,7 @@ module Compiler = struct
                         in
                         internal_counter (add initial code res) prim) env res
 
-    let rec replace_labels replacer env =
+    let rec replace_labels ?(prefix="") replacer env =
         let rec internal_replacer (x : S_K.primitives) : S_K.primitives list = 
             match x with
             | `S | `K | `Debugger _ | `Lazy _ -> [x]
@@ -2177,15 +2178,26 @@ module Compiler = struct
             match x with
             | DArgument _ -> res
             | DSKModule m -> 
+                    let prefix = 
+                        if prefix = "" then name
+                        else prefix ^ "." ^ name 
+                    in
                     All_sets.StringMap.add
-                    name (SKModule (replace_labels replacer m)) res
+                    name (SKModule (replace_labels ~prefix replacer m)) res
             | DS_K (prim, c) ->
                     let f = 
                         match internal_replacer prim with
                         | [x] -> x
                         | x -> (`Node x)
                     in
-                    decoder := (name, c, f) :: !decoder;
+                    let () = 
+                        let name = 
+                            if prefix = "" then name
+                            else prefix ^ "." ^ name 
+                        in
+                        Printf.printf "Adding %s\n%!" name;
+                        decoder := (name, c, f) :: !decoder;
+                    in
                     All_sets.StringMap.add name (S_K f) res
             | NS_K prim -> 
                     All_sets.StringMap.add
@@ -3022,4 +3034,3 @@ module IndPM = struct
     *)
 
 end
-

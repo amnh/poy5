@@ -627,3 +627,4 @@ module SetGroups : sig
     end
 
 
+val explode_filenames : [`Local of string | `Remote of string ] list -> string list

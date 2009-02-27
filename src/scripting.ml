@@ -1301,7 +1301,7 @@ IFDEF USEPARALLEL THEN
         try
             `Normal 
                 (if is_master then
-                    PoyParser.explode_filenames files 
+                    Parser.explode_filenames files 
                 else [])
         with
         | err -> `Error (Printexc.to_string err)
@@ -1312,7 +1312,7 @@ IFDEF USEPARALLEL THEN
             failwith ("Failed reading file with exception " ^ str)
 ELSE
     *)
-   List.map (fun x -> `Local x)  (PoyParser.explode_filenames files)
+   List.map (fun x -> `Local x)  (Parser.explode_filenames files)
    (*
 END
    *)
@@ -1401,14 +1401,17 @@ let load_data (meth : Methods.input) data nodes =
     let rec reader annotated is_prealigned data (meth : Methods.simple_input) = 
         match meth with
         | `Poyfile files ->
-                let files = PoyParser.explode_filenames files in
-                List.fold_left PoyParser.of_file data files
+                failwith "TODO"
+                (*
+                let files = Parser.explode_filenames files in
+                List.fold_left Parser.of_file data files
+                *)
         | `AutoDetect files ->
                 let files = explode_filenames files in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 List.fold_left 
-                    (PoyParser.guess_class_and_add_file annotated is_prealigned) 
+                    (Data.guess_class_and_add_file annotated is_prealigned) 
                 data 
                 files
         | `PartitionedFile files 
@@ -4755,7 +4758,7 @@ end
 
 module FILES = struct
 
-    let explode str = PoyParser.explode_filenames [(`Local str)]
+    let explode str = Parser.explode_filenames [(`Local str)]
 
     let do_ch f str = str, (f str)
 

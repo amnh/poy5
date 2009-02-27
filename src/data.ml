@@ -77,15 +77,15 @@ type dyna_pam_t = {
     * where [a] is opening cost, [b] is extension cost *)
     chrom_indel_cost : (int * int) option;
 
-(** The maximum cost between two chromosomes
-* at which they are considered as homologous chromosomes *)
+    (** The maximum cost between two chromosomes
+    * at which they are considered as homologous chromosomes *)
     chrom_hom : int option;
 
     (** The cost of a breakpoint happing between two chromosome *)
     chrom_breakpoint : int option;
 
-(**  the minimum length of a block which will be considered
-* as a homologous block *)
+    (**  the minimum length of a block which will be considered
+    * as a homologous block *)
     sig_block_len : int option;
 
     (** It's believed that no rearrangments or reversions happened 
@@ -95,11 +95,11 @@ type dyna_pam_t = {
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int option;
 
-(** number iterations are applied in refining alignments with rearrangements *)
+    (** number iterations are applied in refining alignments with rearrangements *)
     swap_med : int option; 
 
-(** approx = true, the median sequence of X and Y is approximated by either X or Y,
-* otherwise, calculate as a set of median between X and Y *)
+    (** approx = true, the median sequence of X and Y is approximated by either X or Y,
+    * otherwise, calculate as a set of median between X and Y *)
     approx : bool option;
 
     (** symmetric = true, calculate the both distances between X to Y
@@ -369,10 +369,8 @@ type d = {
     complex_schema : Parser.SetGroups.t list;
     (** The association list of files and kind of data they could hold *)
     files : (string * contents list) list;
-    (* An index of specifications for the MDL principle *)
-    specification_index : SpecIndex.t;
     (* An index of characters defined using the MDL principle *)
-    character_index : (string * CharacSpec.t) list;
+    character_index : Kolmo.Compiler.sk_function list;
     (* The search information to be presented to the user *)
     search_information : OutputInformation.t list;
     (* At what taxon to root output trees *)
@@ -432,7 +430,6 @@ let empty () =
         kolmogorov = [];
         static_ml = [];
         files = [];
-        specification_index = SpecIndex.empty ();
         character_index = [];
         search_information = [`TreeInformation [`Summary]; `CostMode];
         root_at = None;
@@ -2173,7 +2170,6 @@ let to_formatter attr d : Xml.xml =
         { single characters_to_formatter d }
         { single ignored_characters_to_formatter d }
         { single files_to_formatter d } 
-        { single SpecIndex.to_formatter d.specification_index }
         --)
 
 let likelihood_sets = ref 0 
@@ -2372,9 +2368,11 @@ module Kolmogorov = struct
         let arr = Array.init 32 get_minimum in
         Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout arr
 
-    let calculate data funset alphset wordset pos len =
+    let calculate data funset alphset wordset pos len =  None 
+    (*
         let find_index str set = 
-            try SpecIndex.find data.specification_index set with
+            (* TODO *)
+            try SpecIndex.find [] set with
             | (SpecIndex.Not_Defined str) as err ->
                     error_msg (str ^ set);
                     raise err
@@ -2685,6 +2683,7 @@ module Kolmogorov = struct
             | AffInDelAffSub _ -> failwith "Programming it"
         in
         kolmo_pairwise_align_specs, []
+    *)
 
     let rec calculate_precision v p =
         if v < 1.0 then calculate_precision (v *. 10.0) (p *. 10.0)
@@ -2783,8 +2782,8 @@ let convert_dyna_spec data chcode spec transform_meth =
         in
         (match transform_meth with
         | `Seq_to_Kolmogorov (a, b, c ,d, e) ->
-                (* TODO: Modify the parameters properly according to the specs
-                * *)
+                assert false
+                (*
                 let kolmospec, dyn_spec_options = 
                     Kolmogorov.calculate data a b c d e in
                 let tcm = 
@@ -2823,6 +2822,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                     pam = pam;} 
                 in
                 Kolmogorov { dhs = dspec; ks = ks }
+                *)
         | transform_meth ->
             let (al, c2), pam = 
                 (* Now we can transform *)
@@ -4883,3 +4883,92 @@ let apply_on_static ordered unordered sankoff likelihood char data =
     in
     let codes = get_chars_codes_comp data char in
     List.fold_left ~f:process_code ~init:[] codes
+
+let guess_class_and_add_file annotated is_prealigned data filename =
+    if file_exists data filename then
+        let _ =
+            let filename = FileStream.filename filename in
+            let msg = 
+                "@[A@ file@ with@ name@ " ^ StatusCommon.escape filename ^ 
+                "@ has@ previously@ " 
+                ^ "been@ loaded.@ Sorry,@ I@ will@ cowardly@ refuse@ to@ "
+                ^ "load@ its@ contents@ again.@ However,@ I@ will@ continue@ "
+                ^ "loading@ any@ files@ remaining.@]"
+            in
+            Status.user_message Status.Error msg
+        in
+        data
+    else
+        let file_type_message str = 
+            let msg =
+                let filename = FileStream.filename filename in
+                "@[Reading@ file@ " ^ StatusCommon.escape filename ^ 
+                "@ of@ type@ " ^ str ^ "@]@." 
+            in
+            Status.user_message Status.Information msg
+        in
+        let add_file contents = add_file data contents filename in
+        let res = 
+            match Parser.test_file filename with
+            | Parser.Is_Poy -> 
+                    failwith "TODO Is_poy"
+                    (*
+                    let data = add_file [] in
+                    file_type_message "POY";
+                    (match filename with
+                    | `Local filename
+                    | `Remote filename -> of_file data filename)
+                    *)
+            | Parser.Is_Clustal
+            | Parser.Is_TinySeq
+            | Parser.Is_Fasta | Parser.Is_Genome | Parser.Is_ASN1
+            | Parser.Is_Genbank | Parser.Is_INSDSeq | Parser.Is_GBSeq
+            | Parser.Is_XML | Parser.Is_NewSeq ->
+                    let data = add_file [Characters] in
+                    file_type_message "input@ sequences";
+                    process_molecular_file "tcm:(1,2)" 
+                    Cost_matrix.Two_D.default Cost_matrix.Three_D.default 
+                    annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
+            | Parser.Is_Phylip | Parser.Is_Hennig -> 
+                    let data = add_file [Characters; Trees] in
+                    file_type_message "hennig86/Nona";
+                    add_static_file `Hennig data filename
+            | Parser.Is_Dpread ->
+                    let data = add_file [Characters; Trees] in
+                    file_type_message "dpread file";
+                    let parsed = Parser.OldHennig.of_file filename in
+                    let fn = FileStream.filename filename in
+                    let converted = Parser.SC.of_old_parser fn None parsed in
+                    add_static_parsed_file data fn converted
+            | Parser.Is_Fixed_States_Dictionary ->
+                    let data = add_file [] in
+                    file_type_message "Fixed@ States@ Dictionary";
+                    process_fixed_states data (Some filename)
+            | Parser.Is_Dictionary ->
+                    let data = add_file [Characters] in
+                    file_type_message "Synonyms@ Dictionary";
+                    add_synonyms_file data filename
+            | Parser.Is_Trees ->
+                    let data = add_file [Trees] in
+                    file_type_message "Tree@ List";
+                    process_trees data filename
+            | Parser.Is_Nexus -> 
+                    file_type_message "Nexus@ File";
+                    add_static_file `Nexus data filename 
+            | Parser.Is_Unknown ->
+                    let data = 
+                        add_file [Characters; Trees; CostMatrix] 
+                    in
+                    file_type_message "input@ sequences@ (default)";
+                    process_molecular_file 
+                    "tcm:(1,2)"
+                    Cost_matrix.Two_D.default Cost_matrix.Three_D.default
+                    annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
+            | Parser.Is_ComplexTerminals ->
+                    let data = add_file [Characters] in
+                    file_type_message "Complex@ terminals@ definition@ file";
+                    process_complex_terminals data filename
+        in
+        categorize (remove_taxa_to_ignore res)
+
+
