@@ -266,12 +266,24 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
         | FProbability of (distribution * loc)
 
     type 'a kolmo_specification =
+        | SK of ('a * loc)
         | Alphabet of (string * string list * options option * loc)
         | Character of (string * 'a * options option * loc)
         | WordSet of (string * string * range * options option * loc)
         | IntSet of (string * range * options option * loc)
 
     let pair_to_ocaml (a, b, _) = (a, float_of_string b)
+
+    let pair_to_ast (a, b, _loc) = <:expr<$str:a$, $flo:b$>>
+
+    let options_to_ast _loc = function
+        | Some (EProbability (probs, _loc)) ->
+                <:expr<Some (`EProbability 
+                $exSem_of_list (List.map pair_to_ast probs)$)>>
+        | Some (FProbability ((name, parameters, _), _loc)) ->
+                <:expr<Some (`FProbability ($str:name$, 
+                    $exSem_of_list (List.map pair_to_ast parameters)$))>>
+        | None -> <:expr<None>>
 
     let options_to_ocaml = function
         | Some (EProbability (probs, _)) -> 
@@ -282,7 +294,12 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
 
     let range_to_ocaml (a, b) = (float_of_string a, float_of_string b)
 
+    let range_to_ast _loc (a, b) = 
+        <:expr<$str:a$, $str:b$>>
+
     let rec spec_to_ocaml = function
+        | SK (definition, _) ->
+                `SK (List.map to_ocaml definition)
         | Alphabet (name, elements, options, _) ->
                 `Alphabet (name, elements, options_to_ocaml options)
         | Character (name, definition, options, _) ->
@@ -295,12 +312,36 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
         | IntSet (name, range, options, _) ->
                 `IntSet (name, range_to_ocaml range, options_to_ocaml options)
 
+    let strings_to_ast _loc elements =
+        exSem_of_list (List.map (fun x -> <:expr<$str:x$>>) elements)
+
+    let rec spec_to_ast = function
+        | SK (definition, _loc) ->
+                <:expr<`SK $exSem_of_list (List.map to_ast definition)$>>
+        | Alphabet (name, elements, options, _loc) ->
+                <:expr<`Alphabet ($str:name$, 
+                    $strings_to_ast _loc elements$, 
+                    $options_to_ast _loc options$)>>
+        | Character (name, definition, options, _loc) ->
+                <:expr<`Character 
+                    ($str:name$, 
+                    $exSem_of_list (List.map to_ast definition)$, 
+                    $options_to_ast _loc options$)>>
+        | WordSet (name, alphabet, range, options, _loc) ->
+                let range = range_to_ast _loc range in
+                <:expr<`WordSet ($str:name$, $str:alphabet$, $range$, 
+                $options_to_ast _loc options$)>>
+        | IntSet (name, range, options, _loc) ->
+                <:expr<`IntSet ($str:name$, $range_to_ast _loc range$, 
+                    $options_to_ast _loc options$)>>
 
     let create_specification machine_parser =
         let spec = Gram.Entry.mk "kolmo_spec" in 
         EXTEND Gram
         GLOBAL: spec;
         spec: [
+            [ LIDENT "sk"; ":"; specs = LIST1 [x = machine_parser -> x]; 
+                KEYWORD "end" -> SK (specs, _loc) ] | 
             [ LIDENT "character"; name = UIDENT; ":"; specs = 
                 LIST1 [x = machine_parser -> x]; opt = OPT options; 
                 KEYWORD "end" -> Character (name, specs, opt, _loc) ] |
@@ -397,8 +438,11 @@ module SKOcamlLanguage (Gram : Grammar.Static) (Syntax : Camlp4Syntax) = struct
 
     let second_extend () =
         let ocaml_sk, definition = create_grammar expr in
+        let kolmo_spec = create_specification ocaml_sk in
         EXTEND Gram
         Syntax.expr : LEVEL "top" [ 
+            [ UIDENT "SPEC"; s = LIST1 [ x = kolmo_spec -> x ] ->
+                <:expr<$exSem_of_list (List.map spec_to_ast s)$>> ] |
             [ UIDENT "OCAMLSK"; s = LIST1 [ x = ocaml_sk -> x] -> 
                 <:expr<$exSem_of_list (List.map to_ast s)$>> ] |
             [ UIDENT "OCAMLSKV"; s = definition -> <:expr<$def_to_ast s$>> ] 

@@ -134,8 +134,7 @@ type dynamic_hom_spec = {
 }
 
 type distr =
-    | Items of IntSpec.func
-    | MaxLength of (int * IntSpec.func)
+    | MaxLength of int
                         (* Any of the distributions with a maximum length *)
 
 type affine_f = {
@@ -167,10 +166,9 @@ type basic_kolmo_spec = {
 }
 
 type aux_kolmo_spec = {
-    funset : string;
-    alphset : string;
-    wordset : string;
-    intset : string;
+    funset : ((string * string) option) * (string option);
+    wordset : int;
+    intset : int;
     kolmo_spec : basic_kolmo_spec;
 }
 
@@ -290,6 +288,23 @@ type alph =
         (string * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a)
 
 
+type name = string 
+
+type kolmo_range = (float * float)
+
+type kolmo_parameter_pairs = (string * float)
+
+type kolmo_options = 
+    [ `EProbability of  kolmo_parameter_pairs list
+    | `FProbability of (string * kolmo_parameter_pairs list) ]
+
+type kolmogorov_modules = 
+    [ `SK of Kolmo.Compiler.sk_function list
+    | `Alphabet of (name * (string list) * kolmo_options option)
+    | `Character of (name * Kolmo.Compiler.sk_function list * kolmo_options option)
+    | `WordSet of (name * name * kolmo_range * kolmo_options option)
+    | `IntSet of (name * kolmo_range * kolmo_options option) ]
+
 type d = {
     (* The number of terminals currently loaded *)
     number_of_taxa : int;
@@ -338,7 +353,9 @@ type d = {
     complex_schema : Parser.SetGroups.t list;
     (** Tree for how to arrange taxa into complex terminals *)
     files : (string * contents list) list;
-    character_index : Kolmo.Compiler.sk_function list;
+    machine : 
+        (Kolmo.S_K.primitives * (string * int * Kolmo.S_K.primitives) list * 
+        Kolmo.S_K.primitives list All_sets.IntegerMap.t) option;
     search_information : OutputInformation.t list;
 
     (** At what taxon to root output trees *)

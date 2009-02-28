@@ -141,7 +141,8 @@ type transform_method = [
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
-    | `Seq_to_Kolmogorov of (string * string * string * string * string)
+    | `Seq_to_Kolmogorov of 
+        ((string * string) option * string option * int * int)
     | `OriginCost of float
 ]
 
@@ -1336,20 +1337,16 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
-                [ LIDENT "kolmogorov"; ":"; left_parenthesis; funset = UIDENT; ","; 
-                    alphset = UIDENT; ","; wordset = UIDENT; ","; intset = UIDENT;
-                    lenset = OPT optional_length; right_parenthesis -> 
-                        let lenset = 
-                            match lenset with
-                                | None -> ""
-                                | Some x -> x
-                        in
-                        `Seq_to_Kolmogorov (funset, alphset, wordset, intset,
-                        lenset) 
+                [ LIDENT "kolmogorov"; ":"; left_parenthesis; 
+                    indels = OPT [ left_parenthesis; a = LIDENT; ","; b =
+                        LIDENT; right_parenthesis -> (a, b)] 
+                    ; ","; 
+                    subst = OPT [ x = LIDENT -> x]; ","; maxlen = INT; ","; max_indel_len =
+                        INT; right_parenthesis -> 
+                        `Seq_to_Kolmogorov (indels, subst, int_of_string maxlen,
+                        int_of_string max_indel_len)
                 ] 
             ];
-        optional_length:
-            [ [","; lenset = UIDENT -> lenset ] ];
         informative_characters:
             [
                 [ ":"; LIDENT "keep" -> false ] |

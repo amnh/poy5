@@ -160,8 +160,7 @@ type dynamic_hom_spec = {
 }
 
 type distr =
-    | Items of IntSpec.func
-    | MaxLength of (int * IntSpec.func)
+    | MaxLength of int
                         (* Any of the distributions with a maximum length *)
 
 type affine_f = {
@@ -193,10 +192,9 @@ type basic_kolmo_spec = {
 }
 
 type aux_kolmo_spec = {
-    funset : string;
-    alphset : string;
-    wordset : string;
-    intset : string;
+    funset : ((string * string) option) * (string option);
+    wordset : int;
+    intset : int;
     kolmo_spec : basic_kolmo_spec;
 }
 
@@ -302,6 +300,24 @@ type alph =
     | GeneralAlphabet of 
         (string * Cost_matrix.Two_D.m * Cost_matrix.Three_D.m * Alphabet.a)
 
+type name = string 
+
+type kolmo_range = (float * float)
+
+type kolmo_parameter_pairs = (string * float)
+
+type kolmo_options = 
+    [ `EProbability of  kolmo_parameter_pairs list
+    | `FProbability of (string * kolmo_parameter_pairs list) ]
+
+type kolmogorov_modules = 
+    [ `SK of Kolmo.Compiler.sk_function list
+    | `Alphabet of (name * (string list) * kolmo_options option)
+    | `Character of (name * Kolmo.Compiler.sk_function list * kolmo_options option)
+    | `WordSet of (name * name * kolmo_range * kolmo_options option)
+    | `IntSet of (name * kolmo_range * kolmo_options option) ]
+
+
 type d = {
     (* The number of terminals currently loaded *)
     number_of_taxa : int;
@@ -370,7 +386,9 @@ type d = {
     (** The association list of files and kind of data they could hold *)
     files : (string * contents list) list;
     (* An index of characters defined using the MDL principle *)
-    character_index : Kolmo.Compiler.sk_function list;
+    machine : 
+        (Kolmo.S_K.primitives * (string * int * Kolmo.S_K.primitives) list * 
+        Kolmo.S_K.primitives list All_sets.IntegerMap.t) option;
     (* The search information to be presented to the user *)
     search_information : OutputInformation.t list;
     (* At what taxon to root output trees *)
@@ -430,7 +448,7 @@ let empty () =
         kolmogorov = [];
         static_ml = [];
         files = [];
-        character_index = [];
+        machine = None;
         search_information = [`TreeInformation [`Summary]; `CostMode];
         root_at = None;
         complex_schema = [];
@@ -2118,10 +2136,10 @@ let character_spec_to_formatter enc : Xml.xml =
     | Kolmogorov d ->
             (RXML -[T.kolmogorov]
                 ([T.name] = [`String d.dhs.filename])
-                ([T.chars] = [`String d.ks.funset])
-                ([T.alphabet] = [`String d.ks.alphset])
-                ([T.words] = [`String d.ks.wordset])
-                ([T.ints] = [`String d.ks.intset]) --)
+                (* TODO *)
+                ([T.chars] = [`String ""])
+                ([T.words] = [int d.ks.wordset])
+                ([T.ints] = [int d.ks.intset]) --)
     | Static enc -> Parser.SC.to_formatter enc    
     | Dynamic dspec ->
             let initial =
@@ -2368,117 +2386,68 @@ module Kolmogorov = struct
         let arr = Array.init 32 get_minimum in
         Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout arr
 
-    let calculate data funset alphset wordset pos len =  None 
-    (*
-        let find_index str set = 
-            (* TODO *)
-            try SpecIndex.find [] set with
-            | (SpecIndex.Not_Defined str) as err ->
-                    error_msg (str ^ set);
-                    raise err
+    let calculate data indels substitution max_word_len max_indel_length =
+        (* We first verify that each of the functions selected by the user have
+        * a frequency associated *)
+        let data = 
+            match data.machine with
+            | None -> 
+                    let machine = Kolmo.Compiler.tree_of_decoder () in
+                    { data with machine = Some machine } 
+            | Some _ -> data 
         in
-        (* In mdl0 only insertions and deletions are allowed (no
-        * substitutions!) *)
-        let dna = find_index "alphabet set " alphset
-        and seq = find_index "word set " wordset
-        and pos = find_index "position set " pos 
-        and indellen = 
-            if len = "" then find_index "position set " pos
-            else find_index "indel length " len
-        and model = 
-            let _, b =
-                try List.find ~f:(fun (x, _) -> x = funset) data.character_index
-                with
-                | Not_found as err ->
-                        error_msg ("character function set " ^ funset);
-                        raise err
-            in
-            CharacSpec.estimate_prob b
+        (* We begin by compiling the machine that has been loaded so far *)
+        let find_function str = 
+            match data.machine with
+            | Some (_, codes, repr) ->
+                    let (_, code, _) = 
+                        List.find ~f:(fun (name, _, _) -> name = str) codes 
+                    in
+                    float_of_int (List.length (All_sets.IntegerMap.find code
+                    repr))
+            | None -> assert false
         in
-        let dna, seq, pos, indelmod =
-            match dna, seq, pos, indellen with
-            | SpecIndex.Alph dna, SpecIndex.Word seq, SpecIndex.Int pos,
-                SpecIndex.Int indellen ->
-                    dna, seq, pos, indellen
-            | _ -> 
-                    let print_class = function
-                        | SpecIndex.Alph _ -> "Alphabet"
-                        | SpecIndex.Word _ -> "Wordset"
-                        | SpecIndex.Int _ -> "Intset"
-                    in
-                    let msg = "Illegal@ request:@ my@ alphabet@ set@ " ^ alphset
-                    ^ "@ has@ type@ " ^ print_class dna ^ ",@ my@ word@ set@ " 
-                    ^ wordset ^ "@ has@ type@ " ^ print_class seq 
-                    ^ ",@ and@ my@ integer@ set@ has@ type@ " ^ print_class pos 
-                    in
-                    Status.user_message Status.Error msg;
-                    failwith "Illegal specification"
+        let rec log2 x acc = 
+            if x > 0 then 
+                log2 (x lsr 1) (acc + 1)
+            else float_of_int acc
         in
         (* We can only handle for now homogeneous positions *)
-        let pos = 
-            let pos = IntSpec.codes pos IntSpec.Equal in
-            let min, _ = IntSpec.bounds pos in
-            IntSpec.length pos min 
-        in
-        let model = CharacSpec.estimate_prob model in
-        let prep = CharacSpec.length model "prep" 
-        and tail = CharacSpec.length model "tl" in
-        let find_alph item = 
-            try AlphSpec.length dna item with
-            | err ->
-                    error_msg ("alphabet element " ^ item);
-                    raise err
-        in
-        let a = find_alph "A"
-        and c = find_alph "C"
-        and g = find_alph "G" 
-        and t = find_alph "T" in
-        let m = CharacSpec.non_standard model in 
-        let findme str = List.exists (fun x -> x = str) m in
+        let pos = log2 max_word_len 0 in
         (* We first look for the pairwise sequence alignment parameters *)
         let m_pairwise_algn = 
             (* The model must at least have the insertion and deletion functions
             * *)
-            let hdeletion = findme "deletion"
-            and hinsertion = findme "insertion"
-            and hsubstitution = findme "substitution"
-            and affd = findme "affinedeletion"
-            and affi = findme "affineinsertion"
-            and affs = findme "affinesubstitution" in
-            match hdeletion, hinsertion, hsubstitution, affd, affi, affs with
-            | true, true, true, false, false, false -> 
-                    let del = CharacSpec.length model "deletion"
-                    and ins = CharacSpec.length model "insertion" 
-                    and sub = CharacSpec.length model "substitution" in
-                    InDelSub (del, ins, sub)
-            | true, true, false, false, false, false -> 
-                    let del = CharacSpec.length model "deletion"
-                    and ins = CharacSpec.length model "insertion" in
+            match indels, substitution with
+            | Some (insertion, deletion), None ->
+                    let ins = find_function insertion
+                    and del = find_function deletion in
                     InDels (del, ins)
-            | false, false, true, false, false, false -> 
-                    let sub = CharacSpec.length model "substitution" in
+            | None, Some substitution ->
+                    let sub = find_function substitution in
                     Subs sub
-            | false, false, true, true, true, false ->
-                    let sub = CharacSpec.length model "substitution" 
-                    and del = (CharacSpec.length model "affinedeletion")
-                    and ins = (CharacSpec.length model "affineinsertion")
-                    and llenclass = IntSpec.get_class indelmod in
-                    let del = { selfp = del; distr = Items llenclass } 
-                    and ins = { selfp = ins; distr = Items llenclass } in
-                    AffInDelSub (del, ins, sub)
-            | false, false, false, true, true, true ->
-                    failwith "Still programming it"
-            | _, _, _, _, _, _ -> 
-                let _ = 
-                    Status.user_message Status.Error 
-                    "We require at least insertion and deletion or substitution"
-                in
-                failwith "Illegal model"
+            | Some (insertion, deletion), Some substitution ->
+                    let sub = find_function substitution
+                    and ins = find_function insertion
+                    and del = find_function deletion in
+                    if max_indel_length = 1 then
+                        InDelSub (del, ins, sub)
+                    else if max_indel_length > 1 then
+                        let del = 
+                            { selfp = del; distr = MaxLength max_indel_length } in
+                        let ins = { del with selfp = ins } in
+                        AffInDelSub (del, ins, sub)
+                    else Subs sub
+            | None, None -> assert false
         in
+        let a = 2.
+        and c = 2.
+        and g = 2.
+        and t = 2. in
         (* Now we need to find the chromosomal alignment parameters *)
         let calculate_encodings ins pos del =
-            let enc v = v +. (min (ins +. pos) prep) 
-            and delhead v = v +. (min (del +. pos) tail) in
+            let enc v = v +. ins +. pos
+            and delhead v = v +. del +. pos in
             let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
             let enc = extend_encodings simpleenc 
             and simplebend = 
@@ -2580,7 +2549,6 @@ module Kolmogorov = struct
                     let enc, simpleenc, simplebend = 
                         calculate_encodings indels pos indels 
                     in
-                    let sub = CharacSpec.length model "substitution" in
                     let a_sub = sub +. pos +. a
                     and c_sub = sub +. pos +. c
                     and g_sub = sub +. pos +. g
@@ -2600,8 +2568,8 @@ module Kolmogorov = struct
                     sub_opening = 0.; mo = m_pairwise_algn }
             | AffInDelSub (del, ins, sub) -> 
                     let calculate_encodings ins pos del =
-                        let enc v = v +. (min (ins.selfp +. pos) prep) 
-                        and delhead v = v +. (min (del.selfp +. pos) tail) in
+                        let enc v = v +. ins.selfp +. pos
+                        and delhead v = v +. del.selfp +. pos in
                         let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
                         let enc = extend_encodings simpleenc 
                         and simplebend = 
@@ -2609,15 +2577,10 @@ module Kolmogorov = struct
                         in
                         enc, simpleenc, simplebend
                     in
-                    let calculate_extension x =
-                        match x.distr with
-                        | MaxLength (_, IntSpec.Variable x)
-                        | MaxLength (_, IntSpec.Constant x)
-                        | Items (IntSpec.Variable x) 
-                        | Items (IntSpec.Constant x) -> x.(0)
-                    in
+                    let calculate_extension x = 2. in
                     let calculate_extra x = 
-                        x.selfp +. (calculate_extension x)
+                        match x.distr with
+                        | MaxLength y -> x.selfp +. 2. +. (log2 y 0)
                     in
                     let enc, simpleenc, simplebend = 
                         calculate_encodings ins pos del 
@@ -2682,8 +2645,7 @@ module Kolmogorov = struct
                     mo = m_pairwise_algn }
             | AffInDelAffSub _ -> failwith "Programming it"
         in
-        kolmo_pairwise_align_specs, []
-    *)
+        kolmo_pairwise_align_specs, [], data
 
     let rec calculate_precision v p =
         if v < 1.0 then calculate_precision (v *. 10.0) (p *. 10.0)
@@ -2781,11 +2743,9 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, _ -> failwith "Illegal character transformation requested"
         in
         (match transform_meth with
-        | `Seq_to_Kolmogorov (a, b, c ,d, e) ->
-                assert false
-                (*
-                let kolmospec, dyn_spec_options = 
-                    Kolmogorov.calculate data a b c d e in
+        | `Seq_to_Kolmogorov (a, b, c ,d) ->
+                let kolmospec, dyn_spec_options, data = 
+                    Kolmogorov.calculate data a b c d in
                 let tcm = 
                     (* Round the tcm *)
                     List.map ~f:(List.map 
@@ -2793,8 +2753,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                     kolmospec.tm
                 in
                 let ks = { 
-                    funset = a;
-                    alphset = b;
+                    funset = a, b;
                     wordset = c;
                     intset = d;
                     kolmo_spec = kolmospec;
@@ -2821,8 +2780,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                     tcm2d = tcm;
                     pam = pam;} 
                 in
-                Kolmogorov { dhs = dspec; ks = ks }
-                *)
+                Kolmogorov { dhs = dspec; ks = ks }, data
         | transform_meth ->
             let (al, c2), pam = 
                 (* Now we can transform *)
@@ -2841,7 +2799,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                         (dspec.alph, dspec.tcm2d), pam
             in
             Dynamic { dspec with alph = al; tcm2d = c2; pam = pam; state = 
-                get_state dspec.state transform_meth })
+                get_state dspec.state transform_meth }, data)
     | _ -> failwith "Convert_dyna_spec: Not a dynamic character" 
 
 let check_fraction fraction =
@@ -3358,23 +3316,24 @@ let get_tran_code_meth data meth =
 
 (** transform all sequences whose codes are on the code_ls into chroms *)    
 let transform_dynamic meth data =
-    let data = duplicate data in
-    let tran_code_ls, meth = get_tran_code_meth data meth in 
+    let data = ref (duplicate data) in
+    let tran_code_ls, meth = get_tran_code_meth !data meth in 
     Hashtbl.iter
     (fun code spec ->
-         if List.mem code tran_code_ls then 
-             Hashtbl.replace data.character_specs code 
-             (convert_dyna_spec data code spec meth)
-         else ()) data.character_specs;
+         if List.mem code tran_code_ls then begin
+             let dyn, d = convert_dyna_spec !data code spec meth in
+             Hashtbl.replace !data.character_specs code dyn;
+             data := d;
+        end else ()) !data.character_specs;
     let new_taxon_chs = 
         let new_tbl = create_ht () in
         Hashtbl.iter 
         (fun code ch_ls -> 
-            let new_ls = convert_dyna_taxon_data data ch_ls tran_code_ls meth in
-            Hashtbl.add new_tbl code new_ls) data.taxon_characters;
+            let new_ls = convert_dyna_taxon_data !data ch_ls tran_code_ls meth in
+            Hashtbl.add new_tbl code new_ls) !data.taxon_characters;
         new_tbl
     in 
-    {data with taxon_characters = new_taxon_chs}
+    {!data with taxon_characters = new_taxon_chs}
 
 
 

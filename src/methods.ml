@@ -141,8 +141,9 @@ type dynamic_char_transform = [
     | `Change_Dyn_Pam of (characters * chromosome_pam_t list)
     | `Chrom_to_Seq of (characters * chromosome_pam_t list)
     | `Breakinv_to_Custom of (characters * chromosome_pam_t list)
-    | `Seq_to_Kolmogorov of (characters * (string * string * string * string *
-    string))
+    | `Seq_to_Kolmogorov of 
+        (characters * ((string * string) option * string
+        option * int * int))
 ]
 
 

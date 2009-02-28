@@ -2137,95 +2137,11 @@ let encoding enc x =
 
 module Kolmogorov = struct
 
-    let create_function distr =
-        let init = distr.Data.selfp in
-        match distr.Data.distr with
-        | Data.Items (IntSpec.Constant arr) ->
-                fun len -> init +. ((float_of_int len) *. arr.(0))
-        | Data.Items (IntSpec.Variable arr) ->
-                fun len -> init +. arr.(len)
-        | Data.MaxLength (len, IntSpec.Constant arr) ->
-                fun clen ->
-                    let c = float_of_int (clen / len)
-                    and r = clen mod len in
-                    (init *. (c +. 1.)) +. (arr.(0) *. c) +. ((float_of_int r) *.
-                    arr.(0))
-        | Data.MaxLength (len, IntSpec.Variable arr) ->
-                fun clen ->
-                    let c = float_of_int (clen / len)
-                    and r = clen mod len in
-                    (init *. (c +. 1.)) +. (arr.(len) *. c) +. arr.(r)
-
     let correct_cost t m = 
-        let tcm = m.Data.dhs.Data.tcm2d in
         match m.Data.ks.Data.kolmo_spec.Data.mo with
         | Data.InDels _ 
         | Data.InDelSub _ 
-        | Data.Subs _ -> 
+        | Data.Subs _
+        | Data.AffInDelSub _ ->
                 { t with total_cost = t.total_cost /. Data.kolmo_round_factor }
-        | Data.AffInDelSub (ins, del, sub) ->
-                let ins = create_function ins
-                and del = create_function del 
-                and gap = Cost_matrix.Two_D.gap tcm in
-                let pair_cost acc c =
-                    match c with
-                    | Heuristic_Selection x ->
-                            let (s1, s2, _) = x.DOS.aligned_children in
-                            let s1 = DOS.bitset_to_seq gap s1
-                            and s2 = DOS.bitset_to_seq gap s2 in
-                            let len = Sequence.length s1 
-                            and i = ref 0 in
-                            while !i < len do
-                                let b1 = Sequence.get s1 !i
-                                and b2 = Sequence.get s2 !i in
-                                if b1 <> gap && b2 <> gap then begin
-                                    acc := 
-                                        !acc +. 
-                                        ((float_of_int 
-                                        (Cost_matrix.Two_D.cost
-                                        b1 b2 tcm)) /. Data.kolmo_round_factor);
-                                    incr i;
-                                end else if b1 = gap && b2 <> gap then
-                                    let total = 
-                                        let len = 
-                                            incr i;
-                                            ref 1 
-                                        in
-                                        while (!i < !len) && 
-                                        (gap <> Sequence.get s1 !i) do
-                                            incr i;
-                                            incr len;
-                                        done;
-                                        !len
-                                    in
-                                    acc := !acc +. (ins total)
-                                else if b2 = gap && b1 <> gap then
-                                    let total = 
-                                        let len = 
-                                            incr i;
-                                            ref 0 
-                                        in
-                                        while (!i < !len) && 
-                                        (gap <> Sequence.get s2 !i) do
-                                            let b2 = Sequence.get s2 !i in
-                                            incr i;
-                                            incr len;
-                                            acc :=
-                                                !acc +. ((float_of_int
-                                                (Cost_matrix.Two_D.cost gap 
-                                                b2 tcm)) /.
-                                                Data.kolmo_round_factor);
-                                        done;
-                                        !len
-                                    in
-                                    acc := !acc +. (del total)
-                                else incr i
-                            done;
-                            acc
-                    | Partitioned _
-                    | Relaxed_Lifted _ -> assert false
-                in
-                let cost = Array.fold_left pair_cost (ref 0.0) t.characters in
-                { t with total_cost = !cost }
-        | _ -> failwith "Still programming it"
 end
