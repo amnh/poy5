@@ -2144,4 +2144,5 @@ module Kolmogorov = struct
         | Data.Subs _
         | Data.AffInDelSub _ ->
                 { t with total_cost = t.total_cost /. Data.kolmo_round_factor }
+        | Data.AffInDelAffSub _ -> failwith "Not implemented"
 end
