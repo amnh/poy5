@@ -188,6 +188,11 @@ type basic_kolmo_spec = {
     ins_opening : float;        (** Insertion opening *)
     del_opening : float;        (** Deletion opening *)
     sub_opening : float;        (** Substitution opening *)
+    root_cost : float;          (** Extra cost incurred by each root *)
+    branch_cost : float;        (** Extra cost incurred by each branch *)
+    leaf_cost : float;          (** Extra cost incurred by marking a leaf *)
+    end_cost : float;           (** Extra cost of ending the compuations and
+    producing the output *)
     mo : model;                (** The model *)
 }
 
@@ -2403,8 +2408,12 @@ module Kolmogorov = struct
                     let (_, code, _) = 
                         List.find ~f:(fun (name, _, _) -> name = str) codes 
                     in
-                    float_of_int (List.length (All_sets.IntegerMap.find code
-                    repr))
+                    let res =
+                        float_of_int (List.length (All_sets.IntegerMap.find code
+                        repr))
+                    in
+                    Printf.printf "%s: %f\n%!" str res;
+                    res
             | None -> assert false
         in
         let rec log2 x acc = 
@@ -2414,6 +2423,11 @@ module Kolmogorov = struct
         in
         (* We can only handle for now homogeneous positions *)
         let pos = log2 max_word_len 0 in
+        let root_cost = find_function "Tree.root"
+        and branch_cost = find_function "Branch.interior"
+        and leaf_cost = find_function "Branch.leaf"
+        and end_cost = (find_function "Branch.ended") +. (find_function
+        "Phylogeny.start") in
         (* We first look for the pairwise sequence alignment parameters *)
         let m_pairwise_algn = 
             (* The model must at least have the insertion and deletion functions
@@ -2446,7 +2460,7 @@ module Kolmogorov = struct
         and t = 2. in
         (* Now we need to find the chromosomal alignment parameters *)
         let calculate_encodings ins pos del =
-            let enc v = v +. ins +. pos
+            let enc v = v 
             and delhead v = v +. del +. pos in
             let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
             let enc = extend_encodings simpleenc 
@@ -2487,7 +2501,8 @@ module Kolmogorov = struct
                     { tm = tcm_matrix; be = enc; simplebe = simpleenc; 
                     simplebed = simplebend; ins = ins; del = del; sub = sub; 
                     ins_opening = 0.; del_opening = 0.; sub_opening = 0.; 
-                    mo = m_pairwise_algn }
+                    mo = m_pairwise_algn; root_cost = root_cost; branch_cost =
+                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost; }
             | InDelSub (del, ins, sub) ->
                     (* This is the expected list of functions in the case of 
                     * MDL1 *)
@@ -2541,7 +2556,8 @@ module Kolmogorov = struct
                     { tm = tcm_matrix; be = enc; simplebe = simpleenc; 
                     simplebed = simplebend; ins = ins; del = del; sub = sub; 
                     ins_opening = 0.; del_opening = 0.; sub_opening = 0.;
-                    mo = m_pairwise_algn }
+                    mo = m_pairwise_algn; root_cost = root_cost; branch_cost =
+                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost; }
             | Subs sub ->
                     (* This is the expected list of functions in the case of 
                     * MDL2 *)
@@ -2565,10 +2581,12 @@ module Kolmogorov = struct
                     { tm = tcm_matrix; be = enc; simplebe = simpleenc; 
                     simplebed = simplebend; ins = indels; del = indels; 
                     sub = sub; ins_opening = 0.; del_opening = 0.; 
-                    sub_opening = 0.; mo = m_pairwise_algn }
+                    sub_opening = 0.; mo = m_pairwise_algn; root_cost = root_cost; 
+                    branch_cost = branch_cost; leaf_cost = leaf_cost; 
+                    end_cost = end_cost;}
             | AffInDelSub (del, ins, sub) -> 
                     let calculate_encodings ins pos del =
-                        let enc v = v +. ins.selfp +. pos
+                        let enc v = v 
                         and delhead v = v +. del.selfp +. pos in
                         let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
                         let enc = extend_encodings simpleenc 
@@ -2642,7 +2660,9 @@ module Kolmogorov = struct
                     simplebed = simplebend; ins = ins.selfp;
                     del = del.selfp; sub = sub; ins_opening = insop;
                     del_opening = delop; sub_opening = 0.;
-                    mo = m_pairwise_algn }
+                    mo = m_pairwise_algn; root_cost = root_cost; 
+                    branch_cost = branch_cost; leaf_cost = leaf_cost; 
+                    end_cost = end_cost;}
             | AffInDelAffSub _ -> failwith "Programming it"
         in
         kolmo_pairwise_align_specs, [], data
@@ -4931,3 +4951,19 @@ let guess_class_and_add_file annotated is_prealigned data filename =
         categorize (remove_taxa_to_ignore res)
 
 
+let report_kolmogorov_machine file data =
+    let fo = Status.Output (file, false, []) in
+    let fo = Status.user_message fo in
+    let data = 
+        match data.machine with
+        | None -> 
+                let machine = Kolmo.Compiler.tree_of_decoder () in
+                { data with machine = Some machine } 
+        | Some _ -> data 
+    in
+    match data.machine with
+    | Some (res, _, _) -> 
+            fo (string_of_int (List.length (Kolmo.S_K.s_encode res)));
+            fo "\n%!";
+            data
+    | None -> assert false

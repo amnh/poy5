@@ -24,6 +24,8 @@ let () = SadmanOutput.register "KolmoCS" "$Revision: 1616 $"
 type t = {
     model : Data.kolmo_spec;
     characters : DynamicCS.t;
+    branch_cost : float;
+    leaf_cost : float;
 }
 
 type u = DynamicCS.u
@@ -75,12 +77,16 @@ let f_codes_comp a b =
 let cardinal a = DynamicCS.cardinal a.characters
 
 let root_cost x = 
+    x.model.Data.ks.Data.kolmo_spec.Data.root_cost +.
     (DynamicCS.encoding x.model.Data.ks.Data.kolmo_spec.Data.be x.characters)
     +. (total_cost x)
 
 let of_array spec c code taxon num_taxa =
     let c = DynamicCS.of_array spec.Data.dhs c code taxon num_taxa in
-    { model = spec; characters = c }
+    let other_spec = spec.Data.ks.Data.kolmo_spec in
+    let bc = other_spec.Data.branch_cost 
+    and lc = other_spec.Data.leaf_cost in
+    { model = spec; characters = c; branch_cost = bc; leaf_cost = lc; }
 
 let to_union x = DynamicCS.to_union x.characters
 

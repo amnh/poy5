@@ -429,6 +429,7 @@ let dependency_relations (init : Methods.script) =
                 | `MstR filename
                 | `TimeDelta (_, filename)
                 | `TreeCosts filename
+                | `KolmoMachine filename
                 | `SearchStats filename
                 | `TreesStats filename ->
                         let fn = filename_to_list filename in
@@ -1771,6 +1772,8 @@ let script_to_string (init : Methods.script) =
                         "@[report an implied alignment@]"
                 | `TimeDelta _ ->
                         "@[report the time delta@]"
+                | `KolmoMachine _ ->
+                        "@[report the complexity of the machine loaded@]"
                 | `TreeCosts _ ->
                         "@[report the cost of the trees@]"
                 | `SearchStats _ ->
@@ -2020,6 +2023,7 @@ let is_master_only (init : Methods.script) =
     | `Trees _
     | `Implied_Alignment _
     | `TimeDelta _
+    | `KolmoMachine _
     | `TreeCosts _
     | `TreesStats _
     | `SearchStats _

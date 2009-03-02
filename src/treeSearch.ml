@@ -445,7 +445,7 @@ module MakeNormal
             | None -> try_comp (succ component)
             | Some forest -> Some forest in
 
-        let res = try_comp 0 in
+        let res = None in
         Status.finished status;
 
         match res with

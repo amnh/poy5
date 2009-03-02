@@ -4468,6 +4468,11 @@ END
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
+            | `KolmoMachine filename ->
+                    let data =
+                        Data.report_kolmogorov_machine filename run.data
+                    in
+                    { run with data = data }
             | `TerminalsFiles filename ->
                 Data.report_terminals_files filename
                 run.data.Data.taxon_files run.data.Data.ignore_taxa_set;

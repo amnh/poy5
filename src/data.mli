@@ -162,6 +162,11 @@ type basic_kolmo_spec = {
     ins_opening : float;        (** Insertion opening *)
     del_opening : float;        (** Deletion opening *)
     sub_opening : float;        (** Substitution opening *)
+    root_cost : float;          (** Extra cost incurred by each root *)
+    branch_cost : float;        (** Extra cost incurred by each branch *)
+    leaf_cost : float;          (** Extra cost incurred by marking a leaf *)
+    end_cost : float;           (** Extra cost of ending the compuations and
+    producing the output *)
     mo : model; (* The model *)
 }
 
@@ -635,3 +640,5 @@ val repack_codes : d -> d
 val verify_trees : d -> parsed_trees -> unit
 
 val guess_class_and_add_file : bool -> bool -> d -> Parser.filename -> d
+
+val report_kolmogorov_machine : string option -> d -> d

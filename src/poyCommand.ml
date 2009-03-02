@@ -303,6 +303,7 @@ type reporta = [
     | `Trees of Methods.information_contained list
     | `MstR
     | `TreeCosts
+    | `KolmoMachine
     | `TreesStats
     | `SearchStats 
     | `TimeDelta of string
@@ -878,6 +879,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`Trees (lst, file)) :: acc, file
     | `MstR ->
             (`MstR file) :: acc, file
+    | `KolmoMachine ->
+            (`KolmoMachine (file)) :: acc, file
     | `TreeCosts ->
             (`TreeCosts (file)) :: acc, file
     | `TreesStats ->
@@ -1338,10 +1341,10 @@ let create_expr () =
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; ":"; left_parenthesis; 
-                    indels = OPT [ left_parenthesis; a = LIDENT; ","; b =
-                        LIDENT; right_parenthesis -> (a, b)] 
+                    indels = OPT [ left_parenthesis; a = STRING; ","; b =
+                        STRING; right_parenthesis -> (a, b)] 
                     ; ","; 
-                    subst = OPT [ x = LIDENT -> x]; ","; maxlen = INT; ","; max_indel_len =
+                    subst = OPT [ x = STRING -> x]; ","; maxlen = INT; ","; max_indel_len =
                         INT; right_parenthesis -> 
                         `Seq_to_Kolmogorov (indels, subst, int_of_string maxlen,
                         int_of_string max_indel_len)
@@ -1544,6 +1547,7 @@ let create_expr () =
                 [ LIDENT "treestats" -> `TreesStats ] |
                 [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
+                [ LIDENT "kolmomachine" -> `KolmoMachine ] |
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] | 
                 [ LIDENT "consensus"; x = OPT optional_integer_or_float -> 

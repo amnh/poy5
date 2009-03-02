@@ -450,7 +450,11 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 else cb, ca
             in
             let median = KolmoCS.median code ca.preliminary cb.preliminary in
-            let total_cost = KolmoCS.total_cost median in 
+            let total_cost = 
+                (KolmoCS.total_cost median) +. 
+                ((float_of_int (KolmoCS.cardinal median)) *.
+                (median.KolmoCS.branch_cost))
+            in 
             let res = 
                 { ca with 
                     preliminary = median;
@@ -1450,11 +1454,16 @@ let extract_kolmo data kolmo tcode =
               KolmoCS.of_array kspec [|(chrom_data, chcode)|] chcode tcode 
               num_taxa
           in 
+          let card = KolmoCS.cardinal dyna in
+          let cost = 
+              (float_of_int card) *.
+              kspec.Data.ks.Data.kolmo_spec.Data.leaf_cost
+          in
           { preliminary = dyna; 
             final = dyna; 
-            cost = 0.; 
+            cost = cost; 
             weight = weight;
-            sum_cost = 0.;
+            sum_cost = cost;
             time = None,None;
           } 
     | Data.Stat (code, _), _ ->

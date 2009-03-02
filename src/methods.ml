@@ -224,6 +224,7 @@ type support_output = [
 ]
 
 type report = [
+    | `KolmoMachine of string option
     | `MstR of string option
     | `Trees of (information_contained list * string option)
     | `TreeCosts of string option

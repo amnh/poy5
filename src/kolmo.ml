@@ -2140,7 +2140,8 @@ module Compiler = struct
             ((All_sets.IntegerMap.find code cnt) + n) cnt
         else All_sets.IntegerMap.add code n cnt
 
-    let rec count_occurrences initial_frequencies identity_code env res =
+    let rec count_occurrences ?(prefix="") initial_frequencies identity_code env 
+    res =
         let rec internal_counter cnt x =
             match x with
             | `S | `K | `Debugger _ | `Lazy _ -> cnt
@@ -2155,10 +2156,17 @@ module Compiler = struct
         All_sets.StringMap.fold (fun name x res ->
             match x with
             | DArgument _ -> res
-            | DSKModule m -> count_occurrences initial_frequencies identity_code m res
+            | DSKModule m -> 
+                    let prefix = 
+                        if prefix ^ name = "" then assert false
+                        else prefix ^ name ^ "." 
+                    in
+                    count_occurrences ~prefix initial_frequencies 
+                    identity_code m res
             | NS_K prim -> internal_counter res prim 
             | DS_K (prim, code) ->
                         let initial = 
+                            let name = prefix ^ name in
                             try List.assoc name initial_frequencies with
                             | Not_found -> 1
                         in
@@ -2195,7 +2203,6 @@ module Compiler = struct
                             if prefix = "" then name
                             else prefix ^ "." ^ name 
                         in
-                        Printf.printf "Adding %s\n%!" name;
                         decoder := (name, c, f) :: !decoder;
                     in
                     All_sets.StringMap.add name (S_K f) res
