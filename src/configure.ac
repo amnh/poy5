@@ -235,6 +235,8 @@ case $OCAMLVERSION in
         if ${OCAMLOPT} -shared -o str.cmxs str.cmxa ; then
             AC_MSG_RESULT([yes])
             USE_NATIVEDYNLINK="true"
+            OUSE_NATIVEDYNLINK=",use_nativedynlink"
+            DUSE_NATIVEDYNLINK="-DUSE_NATIVEDYNLINK"
         else 
             AC_MSG_RESULT([no])
             USE_NATIVEDYNLINK="true"
