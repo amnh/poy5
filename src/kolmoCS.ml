@@ -23,12 +23,13 @@ let () = SadmanOutput.register "KolmoCS" "$Revision: 1616 $"
 
 type t = {
     model : Data.kolmo_spec;
-    characters : DynamicCS.t;
+    matrix : Kolmo.Align.matrix;
+    characters : SeqCS.t;
     branch_cost : float;
     leaf_cost : float;
 }
 
-type u = DynamicCS.u
+type u = SeqCS.Union.u
 
 let get_model set = 
     match set.model.Data.ks.Data.kolmo_spec.Data.mo with
@@ -40,78 +41,104 @@ let get_model set =
 
 let to_string set = 
     let model = get_model set in
-    let rest = DynamicCS.to_string set.characters in
+    let rest = SeqCS.to_string set.characters in
     model ^ " - " ^ rest
 
-let median code a b = 
-    let res = DynamicCS.median code a.characters b.characters in
-    let res = DynamicCS.Kolmogorov.correct_cost res b.model in
-    { a with characters = res }
-
-let total_cost a = DynamicCS.total_cost a.characters
-
-let median_3 a b c d = 
-    let m =
-        DynamicCS.median_3 a.characters b.characters c.characters d.characters
+let seqCS_median matrix a b =
+    let total_cost = ref 0. in
+    let gap = Cost_matrix.Two_D.gap matrix.Kolmo.Align.matrix in
+    let characters =
+        Array_ops.map_2 (fun a b ->
+            match a, b with
+            | SeqCS.Heuristic_Selection a, SeqCS.Heuristic_Selection b ->
+                    let c, a_algn, b_algn, res = 
+                        Kolmo.Align.align a.SeqCS.DOS.sequence 
+                        b.SeqCS.DOS.sequence matrix 
+                    in
+                    let to_bitset a b = 
+                        SeqCS.DOS.seq_to_bitset gap a (SeqCS.Raw b.SeqCS.DOS.sequence)
+                    in
+                    total_cost := c +. !total_cost;
+                    let res = 
+                        { SeqCS.DOS.sequence = res;
+                        aligned_children = 
+                            (to_bitset a_algn a), (to_bitset b_algn b), 
+                            (SeqCS.Raw res);
+                        costs = SeqCS.DOS.make_cost (int_of_float (ceil c));
+                        position = 0; }
+                    in
+                    SeqCS.Heuristic_Selection res
+            | SeqCS.Relaxed_Lifted _, SeqCS.Relaxed_Lifted _ 
+            | SeqCS.Partitioned _, SeqCS.Partitioned _
+            | SeqCS.Partitioned _, _
+            | _, SeqCS.Partitioned _
+            | SeqCS.Relaxed_Lifted _, _
+            | _, SeqCS.Relaxed_Lifted _ -> assert false) 
+        a.SeqCS.characters b.SeqCS.characters
     in
-    let m = DynamicCS.Kolmogorov.correct_cost m c.model in
-    { b with characters = m }
+    let total_cost = !total_cost /. Data.kolmo_round_factor in
+    let res = { a with SeqCS.characters = characters; total_cost = total_cost} in
+    res, total_cost
+
+let median code a b = 
+    { a with characters = fst (seqCS_median a.matrix a.characters b.characters) }
+
+let total_cost a = a.characters.SeqCS.total_cost 
+
+let median_3 a b c d =
+    (* We don't do anything here *)
+    b
 
 let distance c d =
-    let res = DynamicCS.median (-1) c.characters d.characters in
-    let res = DynamicCS.Kolmogorov.correct_cost res c.model in
-    (DynamicCS.total_cost res) 
+    snd (seqCS_median c.matrix c.characters d.characters)
     
 let dist_2 a b c d = distance c d
 
 let to_formatter ref_codes attr t d =
     let attr = (Xml.KolSpecs.model, `String (get_model t)) :: attr in
-    DynamicCS.to_formatter ref_codes attr  t.characters None d
+    SeqCS.to_formatter attr t.characters None d
 
 let f_codes a b = 
-    { a with characters = DynamicCS.f_codes a.characters b } 
+    { a with characters = SeqCS.f_codes a.characters b } 
 
 let f_codes_comp a b =
-    { a with characters = DynamicCS.f_codes_comp a.characters b }
+    { a with characters = SeqCS.f_codes_comp a.characters b }
 
-let cardinal a = DynamicCS.cardinal a.characters
+let cardinal a = SeqCS.cardinal a.characters
 
 let root_cost x = 
     x.model.Data.ks.Data.kolmo_spec.Data.root_cost +.
-    (DynamicCS.encoding x.model.Data.ks.Data.kolmo_spec.Data.be x.characters)
+    (SeqCS.encoding x.model.Data.ks.Data.kolmo_spec.Data.be x.characters)
     +. (total_cost x)
 
-let of_array spec c code taxon num_taxa =
-    let c = DynamicCS.of_array spec.Data.dhs c code taxon num_taxa in
+let of_array spec code taxon num_taxa =
+    let c = SeqCS.of_array spec.Data.dhs code taxon num_taxa in
+    let matrix = { Kolmo.Align.event_cost =  0.15 *. Data.kolmo_round_factor;
+    first_event_cost = 3.17 *. Data.kolmo_round_factor;
+        matrix = c.SeqCS.heuristic.SeqCS.c2; } in
     let other_spec = spec.Data.ks.Data.kolmo_spec in
     let bc = other_spec.Data.branch_cost 
     and lc = other_spec.Data.leaf_cost in
-    { model = spec; characters = c; branch_cost = bc; leaf_cost = lc; }
+    { model = spec; characters = c; branch_cost = bc; leaf_cost = lc; matrix =
+        matrix }
 
-let to_union x = DynamicCS.to_union x.characters
+let to_union x = SeqCS.to_union x.characters
 
-let get_sequence_union code x = DynamicCS.get_sequence_union code x
+let get_sequence_union code x = SeqCS.Union.get_sequence_union code x
 
-let union a b c = DynamicCS.union a.characters b c
+let union a b c = SeqCS.Union.union a.characters b c
 
-let compare_data a b = DynamicCS.compare_data a.characters b.characters
+let compare_data a b = SeqCS.compare_data a.characters b.characters
 
-let tabu_distance a b = 
-    let d = DynamicCS.tabu_distance a.characters b.characters in
-    d /. Data.kolmo_round_factor
+let tabu_distance a b = 0.
 
 let distance_union a b =
-    (DynamicCS.distance_union a b) /. Data.kolmo_round_factor
+    (SeqCS.Union.distance_union a b) /. Data.kolmo_round_factor
 
-let get_dynamic_preliminary d = d.characters
+let get_dynamic_preliminary d = DynamicCS.SeqCS d.characters
 
 let to_single a b c d = 
-    let b = 
-        match b with
-        | None -> None
-        | Some x -> Some x.characters
-    in
-    let a, _, r = DynamicCS.to_single a b c.characters d.characters in
+    let a, _, r = SeqCS.to_single c.characters d.characters in
     let r = { d with characters = r } in
     let cost = distance c r in
     a, cost, r

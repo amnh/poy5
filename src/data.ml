@@ -2422,7 +2422,6 @@ module Kolmogorov = struct
             else float_of_int acc
         in
         (* We can only handle for now homogeneous positions *)
-        let pos = log2 max_word_len 0 in
         let root_cost = find_function "Tree.root"
         and branch_cost = find_function "Branch.interior"
         and leaf_cost = find_function "Branch.leaf"
@@ -2459,9 +2458,9 @@ module Kolmogorov = struct
         and g = 2.
         and t = 2. in
         (* Now we need to find the chromosomal alignment parameters *)
-        let calculate_encodings ins pos del =
+        let calculate_encodings ins del =
             let enc v = v 
-            and delhead v = v +. del +. pos in
+            and delhead v = v +. del in
             let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
             let enc = extend_encodings simpleenc 
             and simplebend = 
@@ -2478,16 +2477,16 @@ module Kolmogorov = struct
                     * aligning has cost 0 *)
                     (* and pos = CharacSpec.length model "Pos" *)
                     let enc, simpleenc, simplebend = 
-                        calculate_encodings ins pos del 
+                        calculate_encodings ins del 
                     in
-                    let a_ins = ins +. pos +. a
-                    and c_ins = ins +. pos +. c
-                    and g_ins = ins +. pos +. g
-                    and t_ins = ins +. pos +. t in
-                    let a_del = del +. pos 
-                    and c_del = del +. pos
-                    and g_del = del +. pos
-                    and t_del = del +. pos in
+                    let a_ins = ins +. a
+                    and c_ins = ins +. c
+                    and g_ins = ins +. g
+                    and t_ins = ins +. t in
+                    let a_del = del 
+                    and c_del = del 
+                    and g_del = del 
+                    and t_del = del in 
                     let sub = 1000. in
                     let tcm_matrix = 
                         [
@@ -2508,20 +2507,20 @@ module Kolmogorov = struct
                     * MDL1 *)
                     (* and pos = CharacSpec.length model "Pos" *)
                     let enc, simpleenc, simplebend = 
-                        calculate_encodings ins pos del 
+                        calculate_encodings ins del 
                     in
-                    let a_ins = ins +. pos +. a
-                    and c_ins = ins +. pos +. c
-                    and g_ins = ins +. pos +. g
-                    and t_ins = ins +. pos +. t in
-                    let a_del = del +. pos 
-                    and c_del = del +. pos
-                    and g_del = del +. pos
-                    and t_del = del +. pos in
-                    let a_sub = sub +. pos +. a
-                    and c_sub = sub +. pos +. c
-                    and g_sub = sub +. pos +. g
-                    and t_sub = sub +. pos +. t in
+                    let a_ins = ins +. a
+                    and c_ins = ins +. c
+                    and g_ins = ins +. g
+                    and t_ins = ins +. t in
+                    let a_del = del 
+                    and c_del = del 
+                    and g_del = del 
+                    and t_del = del in
+                    let a_sub = sub +. a
+                    and c_sub = sub +. c
+                    and g_sub = sub +. g
+                    and t_sub = sub +. t in
                     let tcm_matrix = 
                         [
                             [0.0; a_sub; a_sub; a_sub; a_del];
@@ -2563,12 +2562,12 @@ module Kolmogorov = struct
                     * MDL2 *)
                     let indels = 1000. in
                     let enc, simpleenc, simplebend = 
-                        calculate_encodings indels pos indels 
+                        calculate_encodings indels indels 
                     in
-                    let a_sub = sub +. pos +. a
-                    and c_sub = sub +. pos +. c
-                    and g_sub = sub +. pos +. g
-                    and t_sub = sub +. pos +. t in
+                    let a_sub = sub +. a
+                    and c_sub = sub +. c
+                    and g_sub = sub +. g
+                    and t_sub = sub +. t in
                     let tcm_matrix = 
                         [
                             [0.0; a_sub; a_sub; a_sub; indels];
@@ -2585,9 +2584,9 @@ module Kolmogorov = struct
                     branch_cost = branch_cost; leaf_cost = leaf_cost; 
                     end_cost = end_cost;}
             | AffInDelSub (del, ins, sub) -> 
-                    let calculate_encodings ins pos del =
+                    let calculate_encodings ins del =
                         let enc v = v 
-                        and delhead v = v +. del.selfp +. pos in
+                        and delhead v = v +. del.selfp in
                         let simpleenc = [|enc a ; enc c; enc g; enc t; 0.0|] in
                         let enc = extend_encodings simpleenc 
                         and simplebend = 
@@ -2598,10 +2597,10 @@ module Kolmogorov = struct
                     let calculate_extension x = 2. in
                     let calculate_extra x = 
                         match x.distr with
-                        | MaxLength y -> x.selfp +. 2. +. (log2 y 0)
+                        | MaxLength y -> x.selfp +. 2. 
                     in
                     let enc, simpleenc, simplebend = 
-                        calculate_encodings ins pos del 
+                        calculate_encodings ins del 
                     in
                     let insop = calculate_extra ins
                     and delop = calculate_extra del 
@@ -2619,10 +2618,10 @@ module Kolmogorov = struct
                     and c_del = c +. delex
                     and g_del = g +. delex
                     and t_del = t +. delex in
-                    let a_sub = sub +. pos +. a
-                    and c_sub = sub +. pos +. c
-                    and g_sub = sub +. pos +. g
-                    and t_sub = sub +. pos +. t in
+                    let a_sub = sub +. a
+                    and c_sub = sub +. c
+                    and g_sub = sub +. g
+                    and t_sub = sub +. t in
                     if debug_kolmo then begin
                         let print_float v str = 
                             Status.user_message Status.Information (str ^ ": " ^

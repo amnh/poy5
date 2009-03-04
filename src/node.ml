@@ -1451,8 +1451,9 @@ let extract_kolmo data kolmo tcode =
           in 
           let dyna =  
               let num_taxa = Data.number_of_taxa data in
-              KolmoCS.of_array kspec [|(chrom_data, chcode)|] chcode tcode 
-              num_taxa
+              let seq = Array.map (fun x -> x.Data.seq) chrom_data.Data.seq_arr
+              in
+              KolmoCS.of_array kspec [|(seq, chcode)|] chcode num_taxa
           in 
           let card = KolmoCS.cardinal dyna in
           let cost = 
@@ -2891,8 +2892,8 @@ END
                         | Nonadd32U _
                         | AddU _ 
                         | StaticMlU _
+                        | KolmoU _
                         | SankU _ -> None
-                        | KolmoU x 
                         | DynamicU x -> DynamicCS.get_sequence_union code x.ch)
             None
             c.charactersu
@@ -2924,13 +2925,13 @@ END
                     let card = float_of_int (AddCS.cardinal x) in
                     AddCS.poly_saturation x *. card, card +. lenacc
                     *)
-            | SankU x -> 
+            | KolmoU _ 
+            | SankU _ -> 
                     failwith "TODO Node.Union.poly_saturation"
                     (*
                     let card = float_of_int (SankCS.cardinal x) in
                     SankCS.poly_saturation x *. card, card +. lenacc
                     *)
-            | KolmoU x
             | DynamicU x ->
                     let card = float_of_int (DynamicCS.cardinal_union x.ch) in
                     (DynamicCS.poly_saturation x.ch 1) *. card, card +. lenacc
@@ -3173,7 +3174,8 @@ END
                 0.0, at, bt
                 SankCS.distance a b, at, ct
                 *)
-        | (KolmoU a), (KolmoU b)
+        | (KolmoU a), (KolmoU b) ->
+                SeqCS.Union.compare_union a.ch b.ch
         | (DynamicU a), (DynamicU b) ->
                 DynamicCS.compare_union a.ch b.ch
         | _ -> failwith "Node.Union.distance TODO"

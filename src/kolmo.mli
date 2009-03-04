@@ -1,7 +1,5 @@
 
-val debug_sk : bool ref
-
-module type E =
+module Encodings :
   sig
     type bit = Zero | One
     type encoding = bit list
@@ -19,8 +17,6 @@ module type E =
     val huffman_tree : ('a * float) list -> 'a option Parser.Tree.t
     val geometric : int -> int -> float -> (int * float) list
   end
-
-module Encodings : E
 
 module S_K :
   sig
@@ -399,4 +395,15 @@ module IndPM : sig
     PM.Dna.to_list res;;]}
     *)
 
+end
+
+module Align : sig
+    type matrix = {
+        event_cost : float;
+        first_event_cost : float;
+        matrix : Cost_matrix.Two_D.m;
+    }
+
+    val align : Sequence.s -> Sequence.s -> matrix -> float * Sequence.s *
+    Sequence.s * Sequence.s
 end
