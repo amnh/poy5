@@ -4911,6 +4911,10 @@ module DNA = struct
                 in
                 ns
             else failwith "Illegal slice"
+
+        let reverse a = Sequence.safe_reverse a
+
+        let complement a = Sequence.complement Alphabet.nucleotides a
     end
 
     module Fasta = struct

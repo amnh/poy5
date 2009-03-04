@@ -143,7 +143,7 @@ type dynamic_char_transform = [
     | `Breakinv_to_Custom of (characters * chromosome_pam_t list)
     | `Seq_to_Kolmogorov of 
         (characters * ((string * string) option * string
-        option * int * int))
+        option * int * int * float))
 ]
 
 

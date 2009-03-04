@@ -462,6 +462,10 @@ module DNA : sig
         (* [slice s b e] returns a fresh sequence with the subsequence contained
         * between positions [b] and [e] (inclusive). *)
         val slice : s -> int -> int -> s
+
+        val reverse : s -> s
+
+        val complement : s -> s
     end
 
     module Fasta : sig

@@ -113,8 +113,15 @@ let root_cost x =
 
 let of_array spec code taxon num_taxa =
     let c = SeqCS.of_array spec.Data.dhs code taxon num_taxa in
-    let matrix = { Kolmo.Align.event_cost =  0.15 *. Data.kolmo_round_factor;
-    first_event_cost = 3.17 *. Data.kolmo_round_factor;
+    let prob = spec.Data.ks.Data.kolmo_spec.Data.event_prob in
+    let log2 x = (log x) /. (log 2.) in
+    let first = ~-. (log2 prob)
+    and second = ~-. (log2 (prob *. (1. -. prob))) in
+    let diff = second -. first in
+    let initial = first -. diff in
+    Printf.printf "Diff is %f and initial is %f\n%!" diff initial;
+    let matrix = { Kolmo.Align.event_cost =  diff *. Data.kolmo_round_factor;
+    first_event_cost = initial *. Data.kolmo_round_factor;
         matrix = c.SeqCS.heuristic.SeqCS.c2; } in
     let other_spec = spec.Data.ks.Data.kolmo_spec in
     let bc = other_spec.Data.branch_cost 

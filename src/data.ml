@@ -178,6 +178,7 @@ type model =
 type arr = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type basic_kolmo_spec = {
+    event_prob : float;         (** Probability of an event *)
     tm : float list list;       (** The transformation cost matrix *)
     be : arr;                   (** Base encodings, and insertion in tips *)
     simplebe : float array;              (** The original encoding cost *)
@@ -2391,7 +2392,8 @@ module Kolmogorov = struct
         let arr = Array.init 32 get_minimum in
         Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout arr
 
-    let calculate data indels substitution max_word_len max_indel_length =
+    let calculate data indels substitution max_word_len max_indel_length
+    event_prob =
         (* We first verify that each of the functions selected by the user have
         * a frequency associated *)
         let data = 
@@ -2501,7 +2503,8 @@ module Kolmogorov = struct
                     simplebed = simplebend; ins = ins; del = del; sub = sub; 
                     ins_opening = 0.; del_opening = 0.; sub_opening = 0.; 
                     mo = m_pairwise_algn; root_cost = root_cost; branch_cost =
-                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost; }
+                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost; 
+                        event_prob = event_prob; }
             | InDelSub (del, ins, sub) ->
                     (* This is the expected list of functions in the case of 
                     * MDL1 *)
@@ -2556,7 +2559,8 @@ module Kolmogorov = struct
                     simplebed = simplebend; ins = ins; del = del; sub = sub; 
                     ins_opening = 0.; del_opening = 0.; sub_opening = 0.;
                     mo = m_pairwise_algn; root_cost = root_cost; branch_cost =
-                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost; }
+                        branch_cost; leaf_cost = leaf_cost; end_cost = end_cost;
+                    event_prob = event_prob;}
             | Subs sub ->
                     (* This is the expected list of functions in the case of 
                     * MDL2 *)
@@ -2582,7 +2586,7 @@ module Kolmogorov = struct
                     sub = sub; ins_opening = 0.; del_opening = 0.; 
                     sub_opening = 0.; mo = m_pairwise_algn; root_cost = root_cost; 
                     branch_cost = branch_cost; leaf_cost = leaf_cost; 
-                    end_cost = end_cost;}
+                    end_cost = end_cost; event_prob = event_prob; }
             | AffInDelSub (del, ins, sub) -> 
                     let calculate_encodings ins del =
                         let enc v = v 
@@ -2661,7 +2665,7 @@ module Kolmogorov = struct
                     del_opening = delop; sub_opening = 0.;
                     mo = m_pairwise_algn; root_cost = root_cost; 
                     branch_cost = branch_cost; leaf_cost = leaf_cost; 
-                    end_cost = end_cost;}
+                    end_cost = end_cost; event_prob = event_prob;}
             | AffInDelAffSub _ -> failwith "Programming it"
         in
         kolmo_pairwise_align_specs, [], data
@@ -2762,9 +2766,9 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, _ -> failwith "Illegal character transformation requested"
         in
         (match transform_meth with
-        | `Seq_to_Kolmogorov (a, b, c ,d) ->
+        | `Seq_to_Kolmogorov (a, b, c ,d, e) ->
                 let kolmospec, dyn_spec_options, data = 
-                    Kolmogorov.calculate data a b c d in
+                    Kolmogorov.calculate data a b c d e in
                 let tcm = 
                     (* Round the tcm *)
                     List.map ~f:(List.map 

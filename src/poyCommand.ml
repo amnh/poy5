@@ -142,7 +142,7 @@ type transform_method = [
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
     | `Seq_to_Kolmogorov of 
-        ((string * string) option * string option * int * int)
+        ((string * string) option * string option * int * int * float)
     | `OriginCost of float
 ]
 
@@ -1345,9 +1345,9 @@ let create_expr () =
                         STRING; right_parenthesis -> (a, b)] 
                     ; ","; 
                     subst = OPT [ x = STRING -> x]; ","; maxlen = INT; ","; max_indel_len =
-                        INT; right_parenthesis -> 
+                        INT; ","; event_prob = FLOAT; right_parenthesis -> 
                         `Seq_to_Kolmogorov (indels, subst, int_of_string maxlen,
-                        int_of_string max_indel_len)
+                        int_of_string max_indel_len, float_of_string event_prob)
                 ] 
             ];
         informative_characters:

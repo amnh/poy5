@@ -152,6 +152,7 @@ type model =
 type arr = (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
 
 type basic_kolmo_spec = {
+    event_prob : float;         (** Probability of an event *)
     tm : float list list;     (* The transformation cost matrix *)
     be : arr;         (* Base encodings *)
     simplebe : float array;              (** The original encoding cost *)
