@@ -935,6 +935,15 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
               if new_cost < old_cost
               then print_endline ("..cost_fn skips incorrectly!")
         
+      class mymgr ptree : [Tree_Ops.a, Tree_Ops.b] wagner_mgr = object
+          method any_trees = false
+          method clone = ({<>} :> (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
+          method init _ = ()
+          method next_tree = assert false
+          method process _ _ _ _ _ _ _ _ = assert false
+          method evaluate = ()
+          method results = [ptree, get_cost `Adjusted ptree]
+      end
 
     (** [make_wagner_tree ptree join_fn cost_fn]
         @param ptree The initial ptree that is just a bunch of single nodes
@@ -1057,12 +1066,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
               result
               (* need at least two nodes *)
       | _ -> 
-              let msg = "POY requires at least two taxa in order to start a \
-              search. Please load some data." in
-              Status.user_message Status.Error msg;
-              failwith "Wagner building  requires a tree with at least two \
-              vertices."
-
+              new mymgr ptree
     
 let trees_considered = ref 0
 
