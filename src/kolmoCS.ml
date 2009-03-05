@@ -64,7 +64,8 @@ let seqCS_median matrix a b =
                         aligned_children = 
                             (to_bitset a_algn a), (to_bitset b_algn b), 
                             (SeqCS.Raw res);
-                        costs = SeqCS.DOS.make_cost (int_of_float (ceil c));
+                        costs = SeqCS.DOS.make_cost (int_of_float (ceil (c /.
+                        Data.kolmo_round_factor)));
                         position = 0; }
                     in
                     SeqCS.Heuristic_Selection res
@@ -108,8 +109,8 @@ let cardinal a = SeqCS.cardinal a.characters
 
 let root_cost x = 
     x.model.Data.ks.Data.kolmo_spec.Data.root_cost +.
+    ((log (float_of_int x.model.Data.ks.Data.wordset)) /. (log 2.)) +.
     (SeqCS.encoding x.model.Data.ks.Data.kolmo_spec.Data.be x.characters)
-    +. (total_cost x)
 
 let of_array spec code taxon num_taxa =
     let c = SeqCS.of_array spec.Data.dhs code taxon num_taxa in

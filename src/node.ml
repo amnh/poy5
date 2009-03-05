@@ -271,7 +271,8 @@ let calc_total_cost c1 c2 c_cost =
     assert (c1.cost_mode = c2.cost_mode);
     match c1.cost_mode with
     | `Likelihood -> c_cost
-    | `Parsimony -> c_cost +. c1.total_cost +. c2.total_cost
+    | `Parsimony -> 
+            c_cost +. c1.total_cost +. c2.total_cost
 
 let total_cost _ a = a.total_cost
 
@@ -455,12 +456,13 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 ((float_of_int (KolmoCS.cardinal median)) *.
                 (median.KolmoCS.branch_cost))
             in 
+            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
             let res = 
                 { ca with 
                     preliminary = median;
                     final = median;
                     cost = ca.weight *. total_cost;
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost;
+                    sum_cost = sum_cost;
                 } 
             in
             Kolmo res
@@ -1853,8 +1855,14 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             (fun kolm -> extract_kolmo !data kolm tcode)
                             lkolmo_chars
                         in
+                        let total_cost = 
+                            List.fold_left (fun acc c -> acc +.  c.sum_cost)
+                            0. c 
+                        in
                         let c = List.map (fun c -> Kolmo c) c in
-                        { result with characters = c @ result.characters }
+                        { result with characters = c @ result.characters; 
+                        total_cost = total_cost +. result.total_cost;
+                        node_cost = total_cost +. result.node_cost;}
             in
             let result = 
                 let single_lsank_chars_process result (code, lst) =
@@ -2240,7 +2248,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
         let mine_cost = get_characters_cost chars in
         { mine with 
             characters = chars;
-            total_cost = calc_total_cost parent mine mine_cost;
+            total_cost = root.total_cost;
             node_cost = mine_cost;
         }
     | None ->
@@ -2249,7 +2257,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
         let mine_cost = get_characters_cost chars in
         { mine with 
                 characters = chars;
-                total_cost = calc_total_cost parent mine mine_cost;
+                total_cost = mine.total_cost;
                 node_cost = mine_cost;
         }
 
