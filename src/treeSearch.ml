@@ -318,10 +318,6 @@ module MakeNormal
         candidate nodes, we pick the best of its edges to break.
     *)
     let forest_break_search_tree origin_cost tree =
-        (** [median_cost_fn a b] returns the cost of taking the median of [a] and
-            [b]---needed for breaking at a median *)
-        let median_cost_fn x y a b = Node.distance ~para:x ~parb:y 0. a b in
-
         (** [break edge tree] breaks an edge in the tree and updates the tree data
             accordingly *)
         let break edge tree =
@@ -330,52 +326,17 @@ module MakeNormal
             TreeOps.uppass breakage.Ptree.ptree 
         in
         let tree = Ptree.set_origin_cost origin_cost tree in
-        (* Iterate over all the nodes, possibly breaking... *)
-        let tree = All_sets.IntegerMap.fold
-            (fun id _ tree ->
-                 (* This is where we decide whether or not to break at a given
-                    node *)
-(*                 try*)
-(*                    let parent = Ptree.get_parent id tree*)
-(*                    and median = Ptree.get_node_data id tree in*)
-(*                    let cost = Node.node_cost (Some parent) median in*)
-(*                 if cost >= origin_cost && not (Tree.is_leaf id tree.Ptree.tree)*)
-(*                 then begin*)
-(*                         if trace_forest*)
-(*                         then odebug ("Forest search: Breaking at node"*)
-(*                                      ^ " with cost "*)
-(*                                      ^ string_of_float cost)*)
-(*                         else ();*)
-                         (* To add more breaks: this is the place *)
-                         try if (not (Tree.is_leaf id tree.Ptree.tree)) then
-                             let new_tree = 
-                                 break
-                                 (Ptree.break_median_edge
-                                 median_cost_fn
-                                 id tree) tree
-                             in
-                             let new_cost = Ptree.get_cost `Adjusted new_tree
-                             and old_cost = Ptree.get_cost `Adjusted tree in
-                             Status.user_message Status.Information
-                             ("The break new old is " ^ string_of_float new_cost
-                             ^ " - " ^ string_of_float old_cost);
-                             if new_cost < old_cost then new_tree
-                             else tree
-                        else tree 
-                         with Tree.Invalid_Node_Id _ -> tree )
-(*                end else*)
-(*                     (if debug_forest*)
-(*                      then odebug ("Not breaking at node "*)
-(*                                   ^ string_of_int id*)
-(*                                   ^ " with cost "*)
-(*                                   ^ string_of_float cost);*)
-(*                            tree)*)
-(*                     with Tree.Invalid_Node_Id id ->*)
-(*                         (if debug_forest*)
-(*                          then odebug ("Node doesn't exist in tree: "*)
-(*                                       ^ string_of_int id);*)
-(*                          tree))*)
-            tree.Ptree.node_data tree in
+        (* Iterate over all the edges, possibly breaking... *)
+        let tree = 
+            Tree.EdgeMap.fold
+            (fun edge _ tree ->
+                try
+                    let cost = Ptree.get_cost `Adjusted tree in
+                    let new_tree = break edge tree in
+                    let new_cost = Ptree.get_cost `Adjusted new_tree in
+                    if new_cost < cost then new_tree else tree
+                with _ -> tree)
+            tree.Ptree.edge_data tree in
         (* (TODO: also check the roots for breaking!!) *)
 
         tree
