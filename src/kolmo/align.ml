@@ -1,3 +1,4 @@
+let debug = false
 let cost = ref [||]
 let vertical : float array array ref = ref [||]
 let horizontal : float array array ref = ref [||]
@@ -254,7 +255,7 @@ let initialize matrix aseq bseq =
     for i = 1 to blen - 1 do
         let mcost = 
             float_of_int 
-            (Cost_matrix.Two_D.cost gap (Sequence.get bseq i) matrix.matrix) 
+            (Cost_matrix.Two_D.cost (Sequence.get bseq i) gap matrix.matrix) 
         in
         (!cost).(i).(0) <- (!cost).(i - 1).(0) +. mcost +.
             (if mcost <> 0. then (!event).(i - 1).(0) else 0.);
@@ -324,12 +325,16 @@ let backtrace matrix aseq bseq =
     done;
     while !apos > 0 do
         let abase = Sequence.get aseq !apos in
+        Sequence.prepend a_algn abase;
+        Sequence.prepend b_algn gap;
         let base_median = Cost_matrix.Two_D.median gap abase matrix.matrix in
         if base_median <> gap then Sequence.prepend median base_median;
         decr apos;
     done;
     while !bpos > 0 do
         let bbase = Sequence.get bseq !bpos in
+        Sequence.prepend a_algn gap;
+        Sequence.prepend b_algn bbase;
         let base_median = Cost_matrix.Two_D.median gap bbase matrix.matrix in
         if base_median <> gap then Sequence.prepend median base_median;
         decr bpos;
@@ -337,27 +342,35 @@ let backtrace matrix aseq bseq =
     prepend_gap gap median;
     ((!cost).(blen - 1).(alen - 1)), a_algn, b_algn, median
 
+let tos x = Sequence.to_string x Alphabet.nucleotides 
+
+let print_matrix aseq bseq =
+    let alen = Sequence.length aseq
+    and blen = Sequence.length bseq in
+    Printf.printf "Aligning: %s and %s\n" (tos aseq) (tos bseq);
+    for i = 0 to blen - 1 do
+        for j = 0 to alen - 1 do
+            print_float (!cost).(i).(j);
+            print_string " ";
+        done;
+        print_newline ()
+    done;
+    for i = 0 to blen - 1 do
+        for j = 0 to alen - 1 do
+            print_int (!direction).(i).(j);
+            print_string " ";
+        done;
+        print_newline ()
+    done;
+    flush stdout
 
 let align aseq bseq matrix =
-    let () = 
-        try
-            allocate_memory (max (Sequence.length aseq) (Sequence.length bseq)) matrix
-        with
-        | err -> failwith "1"
-    in
-    let () = 
-        try
+    allocate_memory (max (Sequence.length aseq) (Sequence.length bseq)) matrix;
     initialize matrix aseq bseq;
-        with
-        | err -> failwith "2"
-    in
-    let () = 
-        try
     align matrix aseq bseq;
-        with
-        | err -> failwith "3"
-    in
-        try
-    backtrace matrix aseq bseq 
-        with
-        | err -> failwith "4"
+    if debug then print_matrix aseq bseq;
+    let w, x, y, z = backtrace matrix aseq bseq in
+    if debug then
+        Printf.printf "Aligned %s and %s to produce %s and %s\n%!" 
+        (tos aseq) (tos bseq) (tos x) (tos y);
+    w, x, y, z
