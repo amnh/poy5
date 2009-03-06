@@ -145,50 +145,61 @@ with type b = AllDirNode.OneDirF.n = struct
     (* We first define a function to check the total cost of a tree for
     * sequences and likelihood only! *)
     let check_cost new_tree handle new_root =
-        (* Some characters have their cost computed by adding up the length of
-        * all of the branches. single_characters_cost is exactly that. *)
-        let single_characters_cost =  
-            let edge_visitor (Tree.Edge (a, b)) acc =
-                let nda = 
-                    (List.hd ((Ptree.get_node_data a
-                    new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
-                and ndb = (List.hd ((Ptree.get_node_data b
-                    new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
-                in
-                let dist = Node.distance_of_type Node.has_to_single
-                    100000.
-                    (AllDirNode.force_val nda)
-                    (AllDirNode.force_val ndb) 
-                in
-                Tree.Continue, dist +. acc
-            in
-            Tree.pre_order_edge_visit edge_visitor handle new_tree.Ptree.tree 0.0
-        in
-        (* Other characters are computed by the downpass, we extract that
+        (* Some characters are computed by the downpass, we extract that
         * portion of the cost, which is contained in the root.
         * not_single_character_cost holds the total cost of those characters *)
-        let not_single_character_cost, root = 
+        let not_single_character_cost, root, root_edge = 
             (* set initial value to subtract from -- cost of likelihood *)
-            let root = match new_root with
-                | Some a -> a
+            let three_root, root_edge = 
+                match new_root with
+                | Some a -> 
+                        a
                 | None ->  
                         let x = Ptree.get_component_root handle new_tree in
                         match x.Ptree.root_median with
-                        | Some (_, root) -> root
+                        | Some (root_edge, root) -> root, root_edge
                         | None -> failwith "No root 1?"
             in
-            match root.AllDirNode.unadjusted with
+            match three_root.AllDirNode.unadjusted with
             | [root] ->
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
                     (List.fold_left 
                     (fun acc y ->
                         acc +. 
                         (Node.total_cost_of_type y root)) 0. Node.not_to_single),
-                    root
+                    three_root, root_edge
             | _ -> failwith "What?"
         in 
-        single_characters_cost +. not_single_character_cost +. 
-        (Node.Standard.root_cost root)
+        (* Other characters have their cost computed by adding up the length of
+        * all of the branches. single_characters_cost is exactly that. *)
+        let distance a b acc =
+            let nda = 
+                (List.hd ((Ptree.get_node_data a
+                new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
+            and ndb = (List.hd ((Ptree.get_node_data b
+            new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
+            in
+            let dist = 
+                (Node.distance_of_type Node.has_to_single 100000.
+                (AllDirNode.force_val nda) (AllDirNode.force_val ndb)) 
+            in
+            dist +. acc
+        in
+        let single_characters_cost =  
+            match root_edge with
+            | `Single _ -> 0.0
+            | `Edge (a, b) ->
+                    Tree.post_order_node_with_edge_visit_simple 
+                    distance
+                    (Tree.Edge (a, b))
+                    new_tree.Ptree.tree 
+                    (~-. (distance b a 0.0))
+        in
+        let res = 
+            single_characters_cost +. not_single_character_cost +. 
+            (AllDirNode.AllDirF.root_cost root)
+        in
+        res
 
     let check_cost_all_handles ptree = 
         let new_cost = 
@@ -324,14 +335,12 @@ with type b = AllDirNode.OneDirF.n = struct
                     ptree).AllDirNode.unadjusted)
                     --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 in
-
                 let root = 
                     Node.to_single (pre_ref_codes, fi_ref_codes)
                         (Some root) other_node handle_node in
                 let rooti = [{ rooth with AllDirNode.lazy_node =
                     AllDirNode.lazy_from_val (root) }] in
                 let readjusted = { rootg with AllDirNode.adjusted = rooti} in
-
                 let ptree = Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
                         (Node.Standard.tree_cost None root) None ptree
@@ -569,7 +578,7 @@ with type b = AllDirNode.OneDirF.n = struct
             Ptree.assign_root_to_connected_component
                     handle 
                     (Some ((`Edge (a, b)),new_root ))
-                    (check_cost ptree handle (Some new_root))
+                    (check_cost ptree handle (Some (new_root , `Edge (a, b))))
                     None
                     ptree
         in
