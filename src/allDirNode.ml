@@ -336,6 +336,9 @@ module OneDirF :
     let root_cost a = 
         Node.Standard.root_cost (force_val a)
 
+    let tree_cost x n =
+        (total_cost x n) +. (root_cost n)
+
     let to_single root a b c d set =
         let root' = force_opt root
         and b' = (force_val b)
@@ -868,6 +871,9 @@ type nad8 = Node.Standard.nad8 = struct
         match lst with
         | [a] -> OneDirF.root_cost a.lazy_node
         | _ -> failwith "AllDirNode.root_cost"
+
+    let tree_cost a b = (total_cost a b) +. (root_cost b)
+
 end
 
 type 'a node_hybrid = {

@@ -163,8 +163,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 | Some (x, y) -> 
                         let y = filter_codes y in
                         { 
-                            Ptree.component_cost = Node.root_cost y;
-                            Ptree.adjusted_component_cost = Node.root_cost y;
+                            Ptree.component_cost = Node.tree_cost None y;
+                            Ptree.adjusted_component_cost = Node.tree_cost None y;
                             Ptree.root_median = Some (x, y) })
             tree.Ptree.component_root
         in

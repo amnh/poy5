@@ -46,6 +46,9 @@ let to_string set =
     let rest = SeqCS.to_string set.characters in
     model ^ " - " ^ rest
 
+let make_cost tmpcost = 
+    {SeqCS.min = tmpcost; max= tmpcost}
+
 let seqCS_median matrix a b =
     let total_cost = ref 0. in
     let gap = Cost_matrix.Two_D.gap matrix.Kolmo.Align.matrix in
@@ -73,8 +76,7 @@ let seqCS_median matrix a b =
                         aligned_children = 
                             (to_bitset a_algn a), (to_bitset b_algn b), 
                             (SeqCS.Raw res);
-                        costs = SeqCS.DOS.make_cost (int_of_float (ceil (c /.
-                        Data.kolmo_round_factor)));
+                        costs = make_cost (c /.  Data.kolmo_round_factor);
                         position = 0; }
                     in
                     SeqCS.Heuristic_Selection res
@@ -116,10 +118,13 @@ let f_codes_comp a b =
 
 let cardinal a = SeqCS.cardinal a.characters
 
-let root_cost x = 
-    x.model.Data.ks.Data.kolmo_spec.Data.root_cost +.
-    ((log (float_of_int x.model.Data.ks.Data.wordset)) /. (log 2.)) +.
-    (SeqCS.encoding x.model.Data.ks.Data.kolmo_spec.Data.be x.characters)
+let root_cost root otus edges = 
+    let spec = root.model.Data.ks.Data.kolmo_spec in
+    ((float_of_int otus) *. spec.Data.leaf_cost) +.
+    ((float_of_int edges) *. spec.Data.branch_cost) +.
+    spec.Data.root_cost +.
+    ((log (float_of_int root.model.Data.ks.Data.wordset)) /. (log 2.)) +.
+    (SeqCS.encoding spec.Data.be root.characters)
 
 let of_array spec code taxon num_taxa =
     let c = SeqCS.of_array spec.Data.dhs code taxon num_taxa in
@@ -197,7 +202,9 @@ let seqcs_to_single gap matrix parent mine =
                         Printf.printf "Given %s generate %s becomes single %s\n%!"
                         (tos a_algn) (tos b_algn) (tos res);
                     total_cost := c +. !total_cost;
-                    SeqCS.Heuristic_Selection { b with SeqCS.DOS.sequence = res }
+                    SeqCS.Heuristic_Selection 
+                        { b with SeqCS.DOS.sequence = res; 
+                            costs = make_cost (c /. Data.kolmo_round_factor) }
             | SeqCS.Heuristic_Selection _, _
             | _, SeqCS.Heuristic_Selection _
             | SeqCS.Partitioned _, _
@@ -205,7 +212,7 @@ let seqcs_to_single gap matrix parent mine =
             | SeqCS.Relaxed_Lifted _, _ -> assert false) parent.SeqCS.characters
                     mine.SeqCS.characters
     in
-    let total_cost = !total_cost in
+    let total_cost = !total_cost /. Data.kolmo_round_factor in
     mine.SeqCS.total_cost, total_cost, 
     { mine with SeqCS.characters = characters; total_cost = total_cost }
 

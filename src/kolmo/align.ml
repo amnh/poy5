@@ -292,6 +292,14 @@ let prepend_gap gap median =
     if gap = Sequence.get median 0 then ()
     else Sequence.prepend median gap
 
+let intersection a b = a land b
+let intersect a b = 0 <> (intersection a b)
+let union a b = a lor b 
+
+let fmedian abase bbase = 
+    if intersect abase bbase then intersection abase bbase
+    else union abase bbase
+
 let backtrace matrix aseq bseq =
     let alen = Sequence.length aseq
     and blen = Sequence.length bseq in
@@ -305,19 +313,23 @@ let backtrace matrix aseq bseq =
     while (!apos > 0) && (!bpos > 0) do
         let abase = Sequence.get aseq !apos
         and bbase = Sequence.get bseq !bpos in
-        let base_median = Cost_matrix.Two_D.median abase bbase matrix.matrix in
-        if base_median <> gap then Sequence.prepend median base_median;
         match direction.(!bpos).(!apos) with
         | 1 -> 
+                let base_median = fmedian abase bbase in
+                if base_median <> gap then Sequence.prepend median base_median;
                 Sequence.prepend a_algn abase;
                 Sequence.prepend b_algn bbase;
                 decr apos;
                 decr bpos;
         | 2 -> 
+                let base_median = fmedian gap bbase in
+                if base_median <> gap then Sequence.prepend median base_median;
                 Sequence.prepend a_algn gap;
                 Sequence.prepend b_algn bbase;
                 decr bpos;
         | 4 ->
+                let base_median = fmedian gap abase in
+                if base_median <> gap then Sequence.prepend median base_median;
                 Sequence.prepend a_algn abase;
                 Sequence.prepend b_algn gap;
                 decr apos;
@@ -327,7 +339,7 @@ let backtrace matrix aseq bseq =
         let abase = Sequence.get aseq !apos in
         Sequence.prepend a_algn abase;
         Sequence.prepend b_algn gap;
-        let base_median = Cost_matrix.Two_D.median gap abase matrix.matrix in
+        let base_median = fmedian gap abase in
         if base_median <> gap then Sequence.prepend median base_median;
         decr apos;
     done;
@@ -335,7 +347,7 @@ let backtrace matrix aseq bseq =
         let bbase = Sequence.get bseq !bpos in
         Sequence.prepend a_algn gap;
         Sequence.prepend b_algn bbase;
-        let base_median = Cost_matrix.Two_D.median gap bbase matrix.matrix in
+        let base_median = fmedian gap bbase in
         if base_median <> gap then Sequence.prepend median base_median;
         decr bpos;
     done;
@@ -371,6 +383,6 @@ let align aseq bseq matrix =
     if debug then print_matrix aseq bseq;
     let w, x, y, z = backtrace matrix aseq bseq in
     if debug then
-        Printf.printf "Aligned %s and %s to produce %s and %s\n%!" 
-        (tos aseq) (tos bseq) (tos x) (tos y);
+        Printf.printf "Aligned %s and %s to produce %s and %s with median %s\n%!" 
+        (tos aseq) (tos bseq) (tos x) (tos y) (tos z);
     w, x, y, z

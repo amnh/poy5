@@ -788,10 +788,12 @@ let has_excluded list =
 let root_cost root =
     let adder acc character = 
         match character with
-        | Kolmo v -> acc +. KolmoCS.root_cost v.preliminary
+        | Kolmo v -> 
+                acc +. KolmoCS.root_cost v.preliminary root.num_otus
+                root.num_child_edges
         | _ -> acc
     in
-    List.fold_left adder root.total_cost root.characters
+    List.fold_left adder 0. root.characters
 
 let get_characters_of_type map t node =
     List.map map 
@@ -1190,6 +1192,24 @@ let edge_distance clas nodea nodeb =
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
 | `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ; `Kolmo]
+
+type to_single = 
+    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
+    `Sank | `Seq | `StaticMl ]
+
+module ToSingleModule = Set.Make (struct type t = to_single let compare =
+    compare end)
+
+let all_characters_single = 
+    List.fold_left (fun acc x -> ToSingleModule.add x acc) ToSingleModule.empty
+    [ `Add ; `Annchrom ; `Breakinv ; `Chrom ; `Genome ; `Kolmo ; `Nonadd ;
+    `Sank ; `Seq ; `StaticMl ]
+
+let not_to_single =
+    ToSingleModule.elements
+        (List.fold_left (fun acc x -> ToSingleModule.remove x acc)
+        all_characters_single has_to_single)
+
 
 let distance_of_type ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -2260,9 +2280,8 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
 
         (* TODO:: the data should be here already // why wasn't cost here before?? *)
         let mine_cost = get_characters_cost chars in
-        { mine with 
+        { root with 
             characters = chars;
-            total_cost = root.total_cost;
             node_cost = mine_cost;
         }
     | None ->
@@ -3415,6 +3434,7 @@ module Standard :
         module Union = Union
         let for_support = for_support
         let root_cost = root_cost
+        let tree_cost a b = (root_cost b) +. (total_cost a b)
         let to_single root _ a _ b sets = to_single sets root a b
         let get_nonadd_8 _ = get_nonadd_8 
         let get_nonadd_16 _ = get_nonadd_16 
@@ -3534,7 +3554,12 @@ let total_cost_of_type t n =
         | Nonadd32 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
-     (* | StaticMl x, `StaticMl -> acc *)
+        | StaticMl x, `StaticMl -> 
+                IFDEF USE_LIKELIHOOD THEN
+                acc +. (x.total_cost)
+                ELSE
+                acc
+                END
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
         | Dynamic x, t -> 
                 (match x.preliminary, t with

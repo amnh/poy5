@@ -108,6 +108,10 @@ val compare_downpass : node_data -> node_data -> int
 val has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
             | `Nonadd | `Sank | `Seq | `StaticMl ] list
 
+val not_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
+            | `Nonadd | `Sank | `Seq | `StaticMl ] list
+
+
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
 val distance_of_type :   
