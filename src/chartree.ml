@@ -122,45 +122,54 @@ let print_node_data_indent ?(indent = 3) trees =
                                      trees)))
         trees
 
-let downpass_handle handle ({Ptree.tree=tree} as ptree) =
-    Tree.post_order_node_visit
-        (fun parent_id self_id curr_tree ->
-             (* assumption: tree topology has not changed *)
-             let node = Tree.get_node self_id tree in
-             match node with
-             | Tree.Single self
-             | Tree.Leaf (self, _) ->
-                   let selfdata = Ptree.get_node_data self curr_tree in
-                   let selfdata =
-                       Node.Standard.update_leaf selfdata in
-                   (Tree.Continue,
-                    Ptree.add_node_data self selfdata curr_tree)
-             | Tree.Interior (nid, ch1id, ch2id, ch3id) ->
-                   let ch1id, ch2id =
-                       match parent_id with
-                       | None ->
-                             ch2id, ch3id
-                       | Some parent_id ->
-                               assert (check_assertion_two_nbrs parent_id node "9");
-                               Tree.other_two_nbrs parent_id node in
-                   let ch1data = Ptree.get_node_data ch1id curr_tree in
-                   let ch2data = Ptree.get_node_data ch2id curr_tree in
-                   let selfdata =
-                       try Some (Ptree.get_node_data nid curr_tree)
-                       with
-                           Not_found -> None
-                   in
-                   let median =
-                       Node.Standard.median (Some nid) selfdata ch1data ch2data in
-                   (Tree.Continue,
-                    Ptree.add_node_data nid median curr_tree))
-        handle
-        tree
-        ptree
+let hashdoublefind data tree node_ids = None
 
-let downpass ({Ptree.tree=tree} as ptree) =
+let downpass_handle ?data handle ({Ptree.tree=tree} as ptree) =
+    Tree.post_order_node_visit
+    (fun parent_id self_id curr_tree ->
+        (* assumption: tree topology has not changed *)
+        let node = Tree.get_node self_id tree in
+        match node with
+        | Tree.Single self
+        | Tree.Leaf (self, _) ->
+            let selfdata = Ptree.get_node_data self curr_tree in
+            let selfdata = Node.Standard.update_leaf selfdata in
+            (Tree.Continue, Ptree.add_node_data self selfdata curr_tree)
+        | Tree.Interior (nid, ch1id, ch2id, ch3id) ->
+            let ch1id, ch2id =
+                match parent_id with
+                | None ->
+                        ch2id, ch3id
+                | Some parent_id ->
+                        assert (check_assertion_two_nbrs parent_id node "9");
+                        Tree.other_two_nbrs parent_id node
+            in
+
+            let ch1data = Ptree.get_node_data ch1id curr_tree in
+            let ch2data = Ptree.get_node_data ch2id curr_tree in
+            let selfdata =
+                try Some (Ptree.get_node_data nid curr_tree)
+                with Not_found -> None
+            in
+            let median = match data with
+                | Some data -> 
+                    begin match hashdoublefind data tree [ch1id;ch2id] with
+                        | Some x -> 
+                            Node.Standard.median ~branches:x (Some nid)
+                                                    selfdata ch1data ch2data
+                        | None ->
+                            Node.Standard.median (Some nid) selfdata ch1data ch2data
+                    end
+                | None -> Node.Standard.median (Some nid) selfdata ch1data ch2data
+            in
+            (Tree.Continue, Ptree.add_node_data nid median curr_tree))
+    handle
+    tree
+    ptree
+
+let downpass ?data ({Ptree.tree=tree} as ptree) =
     Handles.fold
-        downpass_handle
+        (downpass_handle ?data)
         (Tree.get_handles tree)
         ptree
 
@@ -498,8 +507,8 @@ let incremental_downpass_step continuation ptree node_id =
             (* We should try to continue, as an interior node could change if it
              * has new data in it's children *)
             if debug_joinfn then 
-                Printf.printf "The chidlren of %d are %d and %d and the parent \
-                is %d" node_id c1 c2 par;
+                Printf.printf "The children of %d are %d and %d and the parent \
+                is %d\n%!" node_id c1 c2 par;
             simple_downpass continuation ptree node_id c1 c2
       | _ -> Same
 
@@ -1040,9 +1049,9 @@ let join_topologies_and_data jxn1 jxn2 ptree =
 let join_fn incremental jxn1 jxn2 ptree =
     let ptree = incremental_uppass ptree incremental in
     let ptree, v, tree_delta, updt = join_topologies_and_data jxn1 jxn2 ptree in
-    let ptree = incremental_uppass ptree updt in
-    if debug_joinfn then
-        (Printf.printf "Processing join\n%!";
+    let ptree = incremental_uppass (force_downpass ptree) updt in
+    if debug_joinfn then begin
+        Printf.printf "Processing join\n%!";
         let current_cost = Ptree.get_cost `Adjusted ptree in
         Printf.printf "Forcing a downpass.\n%!";
         let tmp_tree = force_downpass ptree in
@@ -1051,7 +1060,7 @@ let join_fn incremental jxn1 jxn2 ptree =
             (Tree.print_join_1_jxn jxn1;
             Tree.print_join_2_jxn jxn2;
             Printf.printf "The vertex for the downpass is %d and has as \
-            parental the vertex %d. The handle of v is %d. The calculated cost \
+            parental the vertex %d\n. The handle of v is %d\n. The calculated cost \
             is %f but the real cost is %f\n" 
             v (Ptree.get_parent v ptree) (Ptree.handle_of v ptree) current_cost
             new_cost;
@@ -1059,9 +1068,9 @@ let join_fn incremental jxn1 jxn2 ptree =
             All_sets.IntegerMap.iter (fun code _ -> 
                 Printf.printf "%d - " code) ptree.Ptree.component_root;
             print_newline ();
-            failwith "There is the place";);
-        Printf.printf "End of join\n%!";
-        );
+            );
+        Printf.printf "End of join\n\n\n%!";
+        end;
     ptree, tree_delta
 
 let cost_fn jxn1 jxn2 delta clade_data tree =
@@ -1398,6 +1407,9 @@ let root_costs tree =
         Ptree.pre_order_edge_visit get_cost handle tree acc)
     (Tree.get_handles tree.Ptree.tree) []
 
+let dump_tree printer h tree = ()
+
+
 module TreeOps = struct
     type a = Node.node_data
     type b = Node.node_data
@@ -1418,5 +1430,8 @@ module TreeOps = struct
     let get_active_ref_code = get_active_ref_code
     let root_costs = root_costs
     let unadjust ptree = ptree
+    
+    (* TODO: anything to verify? *)
+    let verify_downpass _ _ = true 
+    let dump_tree = dump_tree
 end
-

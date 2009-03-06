@@ -414,7 +414,7 @@ let breakinv_to_formater ((tag, attr, cont) : Xml.xml) =
         let name, cclass, cost = get_name_class_and_cost attr in
         let breakinv_ref = `String "-" in 
         let recost = get_recost attr in 
-        let map = breakinv_ref in 
+        let map = breakinv_ref in
         let cont = match cont with 
         | #Xml.structured as cont -> 
                 let cont = Xml.eagerly_compute cont in
@@ -522,22 +522,17 @@ let likelihood_to_formater ((tag, attr, cont): Xml.xml) =
             | _ -> raise (Illegal_formater ("Data not found: "^y) )
         in 
 
-        (** 
-            Class :: Preliminary
-            Code :: *int*
-            Time :: *float*
-            Likelihood :: *float*
-        **)
-        let name    = _get attr Xml.Data.code and
+        let (* name    = _get attr Xml.Data.code and *)
             cclass  = _get attr Xml.Characters.cclass and
             cost    = _get attr Xml.Characters.mle and
-            recost  = `String "X" and
+            (* recost  = `String "X" and
             chrom   = `String "X" and
             mmap    = `String "X" and
-            states  = `String "X" in
-
-        [| name; cclass; cost; recost; chrom; mmap; states |]
-    end else raise (Illegal_formater "likelihood_to_formater")
+            states  = `String "X" *)
+        in
+        [| cclass; cost; |]
+    end else 
+        raise (Illegal_formater "likelihood_to_formater")
 
 
 let node_character_to_formater ((tag, _, _) as v) =

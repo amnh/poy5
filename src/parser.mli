@@ -105,67 +105,54 @@ module Tree : sig
 
     type 'a t = Leaf of 'a | Node of 'a t list * 'a
 
+    type tree_types =
+        | Flat of string t
+        | Annotated of (string t * string)
+        | Branches of ((string * float option) t)
+        | Characters of ((string * string option) t)
+
+    (** [print_tree t] prints a tree **)
+    val print_tree : tree_types -> unit
+
     (** [of_string x] given a string x of a tree in the form (a (b c)), returns
     * its representation as an internal t type. If an error occurs, an
     * Illegal_tree_format error is raised. *)
-    val of_string : string -> string t list list 
+    val of_string : string -> tree_types list list
 
     (** [of_channel x] creates a list of all the trees contained in the input
     * channel x in ascii format. Each tree should be in a single line. In case
     * of error the function raises Illegal_molecular_format. *)
-    val of_channel : in_channel -> string t list list 
+    val of_channel : in_channel -> tree_types list list
 
     (** [of_file] is a shortcut of [of_channel], when the channel is an opened
     * file. *)
-    val of_file : filename ->  string t list list
-
-    (** [of_string_annotated] is simmilar to [of_string] excepting that the
-    * returned list includes the associated information contained in square
-    * brackets together with each tree, instead of ignoring it as [of_string]
-    * does. *)
-    val of_string_annotated : string -> (string t * string) list list
-
-    (** [of_channel_annotated] is to [of_channel] as [of_string_annotated] is to
-    * [of_string]. *)
-    val of_channel_annotated : in_channel -> (string t * string) list list
-
-    (** [of_file_annotated] is to [of_file] as [of_string_annotated] is to
-    * [of_string]. *)
-    val of_file_annotated : filename -> (string t * string) list list
-
-    (** [of_string_branches] is simmilar to [of_string] excepting that the
-    * returned list includes the associated information contained after the
-    * colon together with each tree, instead of ignoring it as [of_string]
-    * does. *)
-    val of_string_branches : string -> ((string * float option) t) list list
-
-    (** [of_channel_branches] is to [of_channel] as [of_string_branches] is to
-    * [of_string]. *)
-    val of_channel_branches : in_channel -> ((string * float option) t) list list
-
-    (** [of_file_branches] is to [of_file] as [of_string_branches] is to
-    * [of_string]. *)
-    val of_file_branches : filename -> ((string * float option) t) list list
+    val of_file : filename -> tree_types list list
 
     (** [stream_of_file f] produces a function that returns on each call one of
     * the trees in the input file [f]. If no more trees are found, an
     * End_of_file exception is raised. The function _requires_ that the trees be
     * separated with associated information, semicolons, or stars.*)
-    val stream_of_file : bool -> filename -> 
-        ((unit -> ((string * float option) t * string)) * (unit -> unit))
+    val stream_of_file : bool -> filename -> ((unit -> tree_types) * (unit -> unit))
 
-    val cannonic_order : string t -> string t
+    val cannonic_order : tree_types -> tree_types
 
     exception Illegal_argument
 
-    (* [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
+    (** [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
     * infromation [x] such that [f x = true]. If there is the need for a new
     * root, then [newroot] must be provided. If the [newroot] is required and
     * not provided, the function raises an [Illegal_argument] exception. *)
-    val cleanup : ?newroot:'a  -> ('a -> bool) -> 
-        'a t -> 'a t option
+    val cleanup : ?newroot:string  -> (string -> bool) -> tree_types -> tree_types option
+
+    (** [post_process t] takes a basic tree and converts it to Flat,Branches or
+     * Annotated based on it's properties. *)
+    val post_process : (string * (float option * string option)) t * string -> tree_types
 
     val map : ('a -> 'b) -> 'a t -> 'b t
+    val map_tree : (string -> string) -> tree_types -> tree_types
+
+    val strip_tree : tree_types -> string t
+    val maximize_tree : tree_types -> (string * string option) t
 end
 
 
@@ -242,12 +229,12 @@ module OldHennig : sig
     * this list is a tuple (c, d), where [c] is the array of its characters in 
     * the Hennig86 file, and [d] is the name of the taxon on it. *)
     val of_channel : 
-        in_channel -> Encoding.s array * (t array * string) list * string Tree.t
-        list list
+        in_channel -> Encoding.s array * (t array * string) list *
+            (string option * Tree.tree_types list) list
 
     val of_file :
-        filename -> Encoding.s array * (t array * string) list * string Tree.t
-        list list
+        filename -> Encoding.s array * (t array * string) list * 
+            (string option * Tree.tree_types list) list
     val convert_to_Phylip_format_file : filename -> string -> unit
 
     (** Splits the set of characters of a taxa in additive and non additive in a
@@ -510,7 +497,6 @@ module SC : sig
         substitution : subst_model;
         site_variation : site_var option;
         base_priors : priors;
-        set_code : int;
         use_gap : bool;
     }
 
@@ -544,15 +530,25 @@ module SC : sig
 
     type static_state = [ `Bits of BitSet.t | `List of int list ]  option
 
+    type file_output = {
+        char_cntr : int ref;
+        taxa : string option array;
+        characters : static_spec array;
+        matrix : static_state array array;
+        csets : (string, string list) Hashtbl.t;
+        trees : (string option * Tree.tree_types list) list;
+        unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
+        branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+    }
+
+    val empty_parsed : unit -> file_output
+
     val static_state_to_list : 
         [ `Bits of BitSet.t | `List of int list ] -> int list
     (** [spec_of_alph alphabet missing gap] generates a specification that can read
     * the elements in the [alphabet] using when the matrix represents [missing]
     * data and [gaps] as specified. *)
     val spec_of_alph : Alphabet.a -> string -> string -> static_spec
-
-    (** [change_ml_code ncode st_type] changes the [st_type] code with ncode *)
-    val change_ml_code : int -> static_spec -> static_spec
 
     (** [to_string v] outputs a string representation of the static_specification
     * [v] *)
@@ -563,11 +559,12 @@ module SC : sig
     val to_formatter : static_spec -> Xml.xml
 
     (** [file_output] is the standard output generated by a Static Homology file
-    * parser *)
+    * parser
     type file_output = 
-    (string option array * static_spec array * static_state array array * 
-    string Tree.t list list * 
-    ((Alphabet.a * (Sequence.s list list list * taxon) list) list))
+        string option array * static_spec array * static_state array array * 
+        (string option * Tree.tree_types) list list * 
+        ((Alphabet.a * (Sequence.s list list list * taxon) list) list) *
+        (string, (string, (string, float) Hashtbl.t) Hashtbl.t) Hashtbl.t *)
 
     (** [of_channel style ch filename] generates a parsed output from the input
     * file contained in the [ch] channel, using the appropriate [style] to parse
@@ -600,8 +597,8 @@ module SC : sig
         ?separator:string ->
         string ->
         Alphabet.a array option ->
-        OldHennig.Encoding.s array * (t array * string) list * string Tree.t list list ->
-            file_output
+        OldHennig.Encoding.s array * (t array * string) list * 
+        (string option * Tree.tree_types list) list -> file_output
 end
 
 module PAlphabet : sig

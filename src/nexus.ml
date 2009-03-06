@@ -47,7 +47,10 @@ type format_options =
     | Tokens of bool 
 
 type charset = 
-    Range of (string * string option) | Single of string | Name of string
+    | Range of (string * string option)
+    | Single of string
+    | Name of string
+    | CharSet of string
 
 type char_data = {
     char_taxon_dimensions : string option;
@@ -90,26 +93,45 @@ type set_type =  Standard of standard_item list | Vector of string list
 type assumption_set = (bool * string * bool * set_type)
 
 type assumption_items = 
-     Options of (string option * polytcount * gapmode)
+    | Options of (string option * polytcount * gapmode)
     | UserType of (string * user_type)
     | TypeDef of assumption_set
     | WeightDef of assumption_set
     | ExcludeSet of assumption_set
     | AncestralDef of assumption_set
 
+type likelihood_model = 
+    | Model of string
+    | Variation of string
+    | Variation_Sites of string
+    | Variation_Alpha of string
+    | Variation_Invar of string
+    | Priors of (string * float) list
+    | Chars of charset list
+    | Parameters of float list
+    | GapMode of string
+    | Files of string
+
+type poy_data =          (* trees , characters, (nodes , length) *)
+    | CharacterBranch of string list * charset list * (string * float) list
+    | Likelihood of likelihood_model list
+
 type block = 
      Taxa of (string * string list) 
     | Characters of char_data 
-    | Distances of ((bool * string * string) option * format_options list * string
-    list * string)
+    | Distances of ((bool * string * string) option * format_options list * string list * string)
     | Ignore of string
     | Unaligned of unalg_data
-    | Trees of ((string * string) list * string list) 
+    | Trees of (string * string) list * string list 
     | Notes of ((set_pair list * source * string) option * (set_pair list *
     pictureformat option * pictureencoding option * source * string) option) 
     | Assumptions of assumption_items list 
     | Error of string
+    | Sets of (string * charset list) list
+    | POY of poy_data list
 
-type tree = 
-    | Leaf of (string * float option)
-    | Node of (tree list * string option * float option)
+type tree_i = 
+    | Leaf of (string * (float option * string option))
+    | Node of (tree_i list * string option * (float option * string option))
+
+type tree = string * tree_i

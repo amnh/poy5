@@ -90,6 +90,7 @@ type information_contained =
 type taxon_and_characters = [
     | `Random of float
     | `Names of (bool * string list)
+    | `CharSet of (bool * string list)
     | `Missing of bool * int ]
 
 type characters = [
@@ -455,6 +456,7 @@ type samples = [
     | `RootUnionDistr of string option
     | `AttemptsDistr of string option
     | `BreakVsJoin of string option
+    | `Likelihood of string option
 ]
 
 type local_opt = {

@@ -37,7 +37,8 @@ type dynhom_opts =
 (** The valid types of contents of a file *)
 type contents = Characters | CostMatrix | Trees 
 
-type parsed_trees = ((string Parser.Tree.t list) * string * int)
+(* (name * tree ) * file * num *)
+type parsed_trees = ((string option * Parser.Tree.tree_types list) * string * int)
 
 type dyna_state_t = [
     (** A short sequence, no rearrangements are allowed*)
@@ -354,6 +355,10 @@ type d = {
     character_names : (string, int) Hashtbl.t;
     (* A map between the character codes and their corresponding names *)
     character_codes : (int, string) Hashtbl.t;
+    (* A map between the character set name and it's contents *)
+    character_sets : (string, string list) Hashtbl.t;
+    (* A map between the character name and it's set *)
+    character_nsets : (string, string) Hashtbl.t;
     (* A map between the character codes and their specifications *)
     character_specs : (int, specs) Hashtbl.t;
     (* The set of taxa to be ignored in the analysis *)
@@ -362,6 +367,8 @@ type d = {
     ignore_character_set : string list;
     (* The set of loaded trees *)
     trees : parsed_trees list;
+    (* branch lengths read from nexus file: tree -> node -> char *)
+    branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -405,6 +412,7 @@ type bool_characters = [
     | `All
     | `Some of (bool * int list)
     | `Names of (bool * string list)
+    | `CharSet of (bool * string list)
     | `Random of float
     | `AllStatic
     | `AllDynamic
@@ -414,6 +422,7 @@ type bool_characters = [
 type characters = [
     | `All
     | `Some of int list 
+    | `CharSet of string list
     | `Names of string list
     | `Random of float
     | `AllStatic
@@ -440,9 +449,12 @@ let empty () =
         character_names = create_ht ();
         character_codes = create_ht ();
         character_specs = create_ht ();
+        character_sets = create_ht ();
+        character_nsets = create_ht ();
         ignore_taxa_set = All_sets.Strings.empty;
         ignore_character_set = [];
         trees = [];
+        branches = create_ht ();
         non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
@@ -714,13 +726,19 @@ let trim taxon =
         String.sub taxon start (final - start + 1) 
     else taxon
 
-let verify_trees data ((tree, file, position) : parsed_trees) =
+let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let esc_file = StatusCommon.escape file in
-    let rec leafs acc tree = 
+    let leafs acc tree = 
+        let rec leaves f acc subtree = match subtree with
+            | Parser.Tree.Node (c, _) ->
+                List.fold_left ~f:(leaves f) ~init:acc c
+            | Parser.Tree.Leaf x -> (f x) :: acc
+        in
         match tree with
-        | Parser.Tree.Node (c, _) ->
-                List.fold_left ~f:leafs ~init:acc c
-        | Parser.Tree.Leaf x -> x :: acc
+        | Parser.Tree.Annotated (t,_) 
+        | Parser.Tree.Flat t -> leaves (fun x -> x) acc t
+        | Parser.Tree.Characters t -> leaves (fun x -> fst x) acc t
+        | Parser.Tree.Branches t -> leaves (fun x -> fst x) acc t
     in
     let rec stop_if_not_all_terminals_in_tree map taxon =
         let taxon = trim taxon in
@@ -783,7 +801,8 @@ let process_trees data file =
             "@ contains@ " ^ string_of_int len ^ "@ trees.@]"
         in
         let cnt = ref 0 in
-        let trees = List.map ~f:(fun x -> incr cnt; (x, file, !cnt)) trees in
+        let trees =
+            List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
         Status.user_message Status.Information msg;
         { data with trees = data.trees @ trees }
     with
@@ -912,9 +931,9 @@ let add_static_character_spec data (code, spec) =
         Hashtbl.replace data.character_codes code spec.Parser.SC.st_name;
     end else ()
 
-let report_static_input file (taxa, characters, matrix, tree, unaligned) =
-    let characters = Array.length characters 
-    and taxa = Array.length taxa in
+let report_static_input file f_out =
+    let characters = Array.length f_out.Parser.SC.characters 
+    and taxa = Array.length f_out.Parser.SC.taxa in
     let msg =
         "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^ 
         string_of_int characters 
@@ -1317,14 +1336,13 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
     in 
     data
 
-let gen_add_static_parsed_file do_duplicate data file ((taxa, characters,
-matrix, trees, sequences) : Parser.SC.file_output) =
+let gen_add_static_parsed_file do_duplicate data file (file_out : Parser.SC.file_output) =
     let data = 
         if do_duplicate then duplicate data 
         else data
     in
     (* A function to report the taxa loading *)
-    let len_taxa = Array.length taxa in
+    let len_taxa = Array.length file_out.Parser.SC.taxa in
     let st = Status.create "Loading Characters" (Some len_taxa) "taxa" in
     (* [codes] contain the character speecification for the sequences in
     * this file *)
@@ -1333,7 +1351,7 @@ matrix, trees, sequences) : Parser.SC.file_output) =
             incr data.character_code_gen;
             (!(data.character_code_gen)), x
         in
-        Array.map ~f:builder characters
+        Array.map ~f:builder file_out.Parser.SC.characters
     in
     Status.full_report ~msg:"Storing the character specifications" st;
     (* Now we add the codes to the data *)
@@ -1344,11 +1362,11 @@ matrix, trees, sequences) : Parser.SC.file_output) =
         | Some name ->
                 let data, _ = process_taxon_code data name file in
                 data
-        | None -> data) ~init:data taxa 
+        | None -> data) ~init:data file_out.Parser.SC.taxa 
     in
     for row = 0 to len_taxa - 1 do
         (* We ignore the data because we already processed the names *)
-        match taxa.(row) with
+        match file_out.Parser.SC.taxa.(row) with
         | None -> ()
         | Some tname ->
                 let _, tcode = process_taxon_code data tname file in
@@ -1366,7 +1384,9 @@ matrix, trees, sequences) : Parser.SC.file_output) =
                     end;
                     (column + 1)
                 in
-                let _ = Array.fold_left ~f:add_character ~init:0 matrix.(row) in
+                let _ = Array.fold_left ~f:add_character 
+                                        ~init:0
+                                        file_out.Parser.SC.matrix.(row) in
                 Hashtbl.replace data.taxon_characters tcode tl;
                 let did = Status.get_achieved st in
                 Status.full_report ~adv:(did + 1) st;
@@ -1374,9 +1394,51 @@ matrix, trees, sequences) : Parser.SC.file_output) =
     (* We add the trees *)
     let data = 
         let cnt = ref 0 in
-        let trees = List.rev trees in
-        let trees = List.map ~f:(fun x -> x, file, (incr cnt; !cnt)) trees in
+        let trees = List.rev_map ~f:
+                (fun x ->
+                    (x, file, (incr cnt; !cnt))) file_out.Parser.SC.trees in
         { data with trees = data.trees @ trees } in
+    (* combine the branch lengths of the root if it's a rooted tree *)
+    let () =
+        let unroot_branch_lengths table tree node1 node2 =
+            try
+                let t_tbl = Hashtbl.find table (String.uppercase tree) in
+                let n_1 = Hashtbl.find t_tbl (String.uppercase node1)
+                and n_2 = Hashtbl.find t_tbl (String.uppercase node2) in
+                Hashtbl.iter 
+                    (fun c_name length ->
+                        let n_length = length +. (Hashtbl.find n_2 c_name) in
+                        let () = Hashtbl.replace n_2 c_name n_length
+                        and () = Hashtbl.replace n_1 c_name n_length in
+                        () )
+                    n_1
+            with | Not_found -> failwith ("Cannot find tree "^tree^
+                                            " or nodes ("^node1^","^node2^")")
+        in
+        let get_stuff = function | Parser.Tree.Node (_,d) | Parser.Tree.Leaf d -> snd d in
+        let combine_on_one ((name,trees),_,_) = match name with
+            | Some name -> 
+                List.iter (fun t -> match t with
+                    | Parser.Tree.Flat t | Parser.Tree.Annotated (t,_) -> ()
+                    | Parser.Tree.Branches t -> ()
+                    | Parser.Tree.Characters t -> 
+                        let () = match t with
+                            | Parser.Tree.Leaf _ -> ()
+                            | Parser.Tree.Node (lst,_) -> match lst with
+                                | [l1;l2] ->
+                                    (match (get_stuff l1),(get_stuff l2) with
+                                     | Some x,Some y ->
+                                        unroot_branch_lengths 
+                                            file_out.Parser.SC.branches name x y
+                                     | _ -> ()
+                                    )
+                                | _ -> ()
+                        in ()
+                    ) trees
+            | None -> ()
+        in
+        List.iter (combine_on_one) data.trees
+    in
     (* Now time to add the molecular sequences *)
     let data = 
         let single_sequence_adder data (alphabet, sequences) =
@@ -1396,10 +1458,22 @@ matrix, trees, sequences) : Parser.SC.file_output) =
             process_parsed_sequences "tcm:(1,2)" tcm tcm3d `DO false alphabet file
             `Seq data sequences
         in
-        List.fold_left ~f:single_sequence_adder ~init:data sequences
+        List.fold_left ~f:single_sequence_adder ~init:data file_out.Parser.SC.unaligned
+    in
+    let () =
+        Hashtbl.iter 
+            (fun set_name char_names ->
+                List.iter
+                    (fun name ->
+                        Hashtbl.add data.character_nsets name set_name)
+                    char_names)
+            file_out.Parser.SC.csets
     in
     Status.finished st;
-    data
+    {data with 
+        character_sets = file_out.Parser.SC.csets;
+        branches = file_out.Parser.SC.branches;
+    }
 
 let add_static_parsed_file data file triple =
     gen_add_static_parsed_file true data file triple 
@@ -1418,12 +1492,11 @@ let add_multiple_static_parsed_file data list =
 let add_static_file ?(report = true) style data file = 
     try
         let ch, file = FileStream.channel_n_filename file in
-        let ((_, _, _, _, unaligned) as r) = 
-            Parser.SC.of_channel style ch file 
-        in
-        if report then report_static_input file r;
-        close_in ch;
-        add_static_parsed_file data file r 
+        let r = Parser.SC.of_channel style ch file in
+        if report then
+            report_static_input file r;
+            close_in ch;
+            add_static_parsed_file data file r
     with
     | Sys_error err ->
             let file = FileStream.filename file in
@@ -1678,6 +1751,13 @@ let rec process_analyze_only_taxa meth data =
             in
             let res = List.fold_left ~f:process_ignore_taxon ~init:data taxa in
             res
+    | `CharSet (dont_complement, name_lst) ->
+            let names = List.flatten
+                (List.map (fun x -> try Hashtbl.find data.character_sets x
+                                    with | Not_found -> [] ) name_lst)
+            in
+            process_analyze_only_taxa (`Names (dont_complement,names)) data
+
     | `Missing (dont_complement, fraction) ->
             Status.user_message Status.Information "Here";
             let fraction = (float_of_int fraction) /. 100. in
@@ -1923,6 +2003,7 @@ let categorize data =
                      sankoff = [];
                      dynamics = [];
                      kolmogorov = [];
+                     static_ml = [];
                } in                         
     let data = repack_codes data in
     let categorizer code spec data =
@@ -2195,12 +2276,6 @@ let to_formatter attr d : Xml.xml =
         { single ignored_characters_to_formatter d }
         { single files_to_formatter d } 
         --)
-
-let likelihood_sets = ref 0 
-
-let next_likelihood_set () =
-    incr likelihood_sets;
-    !likelihood_sets
 
 (** transform dyna_pam_ls which is a list of dynamic parameters
 * taken from poyCommand into dyna_pam which is structured as a record*)
@@ -2926,8 +3001,7 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
                         data.static_ml @
                         (List.flatten data.sankoff)
     in
-    let items = 
-        match chs with
+    let rec items chs = match chs with
         | `Some code_ls -> code_ls 
         | `Names name_ls -> get_code_from_name data name_ls
         | `Random fraction ->
@@ -2938,10 +3012,21 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
                 get_code_from_characters_restricted m data `All
         | `Missing (dont_complement, fraction) ->
                 get_code_with_missing dont_complement data fraction
+        | `CharSet str_lst ->
+            let names =
+                List.flatten 
+                    (List.map 
+                        ( fun x -> try Hashtbl.find data.character_sets x
+                                   with | Not_found -> [])
+                        str_lst)
+            in
+            items (`Names names)
     in
-    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) items
+    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) (items chs)
+
 and get_all_codes data =
     Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
+
 and get_chars_codes data = function
     | `All -> get_all_codes data 
     | `Random fraction ->
@@ -2978,6 +3063,13 @@ and get_chars_codes data = function
             get_code_from_characters_restricted m data `All
     | `Missing (dont_complement, fraction) ->
             get_code_with_missing dont_complement data fraction
+    | `CharSet sets -> 
+            let names = List.flatten (List.map 
+                (fun x -> try Hashtbl.find data.character_sets x
+                          with | Not_found -> [])
+                sets)
+            in
+            get_chars_codes data (`Names names)
 and complement_characters data characters = 
     let codes = get_chars_codes data characters in
     let res = Hashtbl.fold (fun x _ acc -> 
@@ -2985,55 +3077,14 @@ and complement_characters data characters =
         else x :: acc) data.character_codes [] in
     `Some res
 
-(**Give a list of characters, return their codes*)    
-let rec get_code_from_characters_restricted kind (data : d) (chs : characters) = 
-    let kind_lst = 
-        match kind with
-        | `Dynamic -> data.dynamics
-        | `NonAdditive ->
-                        data.non_additive_1 @
-                        data.non_additive_8 @
-                        data.non_additive_16 @
-                        data.non_additive_32 @
-                        data.non_additive_33
-        | `Additive -> data.additive
-        | `Sankoff -> List.flatten data.sankoff
-        | `Kolmogorov -> data.kolmogorov
-        | `AllDynamic -> data.kolmogorov @ data.dynamics
-        | `Likelihood -> data.static_ml
-        | `AllStatic -> 
-                        data.non_additive_1 @
-                        data.non_additive_8 @
-                        data.non_additive_16 @
-                        data.non_additive_32 @
-                        data.additive @
-                        data.static_ml @
-                        data.non_additive_33 @
-                        (List.flatten data.sankoff)
-    in
-    let items = 
-        match chs with
-        | `Some code_ls -> code_ls 
-        | `Names name_ls -> get_code_from_name data name_ls
-        | `Random fraction ->
-                check_fraction fraction;
-                select_random_sublist fraction kind_lst
-        | `All -> kind_lst
-        | `AllDynamic | `AllStatic as m -> 
-                get_code_from_characters_restricted m data `All
-        | `Missing (dont_complement, fraction) ->
-                get_code_with_missing dont_complement data fraction
-    in
-    List.filter (fun x -> List.exists (fun y -> y = x) kind_lst) items
-
 let get_all_codes data =
     Hashtbl.fold (fun c _ acc -> c :: acc) data.character_codes  []
 
 let get_code_from_characters_restricted_comp kind d ch =
-    let dont_complement, chars = 
-        match ch with
+    let dont_complement, chars = match ch with
         | `Some (dont_complement, x) -> dont_complement, `Some x
         | `Names (dont_complement, x) -> dont_complement, `Names x
+        | `CharSet (dont_complement, x) -> dont_complement, `CharSet x
         | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
     in
     let chars = get_code_from_characters_restricted kind d chars in
@@ -3045,10 +3096,10 @@ let get_code_from_characters_restricted_comp kind d ch =
 
 
 let get_chars_codes_comp data ch =
-    let dont_complement, ch = 
-        match ch with
+    let dont_complement, ch = match ch with
         | `Some (x, y) -> x, `Some y
         | `Names (x, y) -> x, `Names y 
+        | `CharSet (x, y) -> x, `CharSet y
         | `Random _ | `Missing _ | `All | `AllStatic | `AllDynamic as x -> true, x
     in
     let codes = get_chars_codes data ch in
@@ -3093,7 +3144,7 @@ let verify_alphabet data chars =
     | [] -> failwith "No alphabet to verify?"
 
 (* [independent c d] make each character in the characterset independent. Used
- * so each character can have a different model *)
+ * so each character can have a different model
 let independent chars data = 
     let data_loop tbl num =
         (* chain to work through to change the code... *)
@@ -3107,6 +3158,50 @@ let independent chars data =
     List.iter (data_loop data.character_specs) 
               (get_code_from_characters_restricted_comp (`Likelihood) data chars);
     data
+*)
+(*
+let failwithf format = Printf.ksprintf failwith format
+ [make_char_sets sets d] makes a character set with a name based on a list of
+ * ranges or single values
+let make_char_sets sets d =
+    let rec perform_on_each fn x = 
+        let rec on_range l h = 
+            if l = h then [fn h]
+            else (fn l) :: (on_range (l+1) h) in
+        match x with
+        | (`Single x) :: tl -> (fn x) :: (perform_on_each fn tl)
+        | (`Range (x,y)) :: tl -> assert ( x < y );
+            (on_range x y) :: (perform_on_each fn tl)
+        | [] -> []
+    in
+    let make_list_of_set_and_add setname setcode stuffs =
+        perform_on_each
+            (fun x -> 
+                let c_name =  try Hashtbl.find d.character_codes x
+                    with | Not_found -> failwithf "Cannot find character %d" x
+                in
+                let tbl = Hashtbl.find data.character_specs x in
+                Hashtbl.replace tbl x setcode;
+                c_name
+            ) stuffs
+    in
+    List.iter 
+        (fun x -> match x with
+         | (name,stuffs)::tl ->
+                let scode =
+                    try Hashtbl.find d.character_codes name
+                    with | Not_found ->
+                        let c = next_likelihood_set () in
+                        Hashtbl.add d.character_codes name c;
+                        c
+                in
+                Hashtbl.add d.character_sets
+                            name
+                            (make_list_of_set_and_add name scode stuffs)
+         | [] -> ()
+        ) sets;
+    d
+*)
 
 (** [compute_priors data chars] computes the observed frequencies for all the
 * elements in the alphabet shared by the characters *)
@@ -3169,7 +3264,6 @@ let set_likelihood data
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
         (* We get the characters and filter them out to have only static types *)
         let specification =
-            let code = next_likelihood_set () in
             let alph_size, _ = verify_alphabet data chars in
             let alph_size = if u_gap then alph_size else alph_size -1 in
             let base_priors =
@@ -3281,7 +3375,6 @@ let set_likelihood data
                 Parser.SC.substitution = substitution;
                 site_variation = site_variation;
                 base_priors = base_priors;
-                set_code = code;
                 use_gap = use_gap;
             }
         in
@@ -3323,6 +3416,8 @@ let get_tran_code_meth data meth =
                     dont_complement, `Some codes
             | `Names (dont_complement, names) ->
                     dont_complement, `Names names
+            | `CharSet (dont_complement, names) ->
+                    dont_complement, `CharSet names
             | `Random _ | `Missing _ | `All | `AllDynamic | `AllStatic as x -> true, x
         in
         let codes = get_code_from_characters_restricted `AllDynamic data codes in
@@ -3357,15 +3452,6 @@ let transform_dynamic meth data =
         new_tbl
     in 
     {!data with taxon_characters = new_taxon_chs}
-
-
-
-
-
-
-
-
-
 
 let intmap_filter f y =
     All_sets.IntegerMap.fold (fun a b acc ->
@@ -3409,6 +3495,7 @@ let process_ignore_character report data code_set =
         and non_additive_32 = List.filter compare data.non_additive_32
         and non_additive_33 = List.filter compare data.non_additive_33 
         and additive = List.filter compare data.additive 
+        and static_ml = List.filter compare data.static_ml
         and sankoff = List.map (fun x -> List.filter compare x) data.sankoff 
         and dynamics = List.filter compare data.dynamics in
         Hashtbl.iter (fun code lst ->
@@ -3416,15 +3503,16 @@ let process_ignore_character report data code_set =
             (hashtbl_filter compare1 lst)) data.taxon_characters;
         let sankoff = List.filter (function [] -> false | _ -> true) sankoff in
         { data with
-        ignore_character_set = new_cign;
-        non_additive_1 = non_additive_1;
-        non_additive_8 = non_additive_8;
-        non_additive_16 = non_additive_16;
-        non_additive_32 = non_additive_32;
-        non_additive_33 = non_additive_33;
-        additive = additive;
-        sankoff = sankoff;
-        dynamics = dynamics;
+            ignore_character_set = new_cign;
+            non_additive_1 = non_additive_1;
+            non_additive_8 = non_additive_8;
+            non_additive_16 = non_additive_16;
+            non_additive_32 = non_additive_32;
+            non_additive_33 = non_additive_33;
+            additive = additive;
+            sankoff = sankoff;
+            dynamics = dynamics;
+            static_ml = static_ml;
         }
     with
     | Not_found -> 
@@ -3999,7 +4087,7 @@ let to_faswincladfile data filename =
                 if weight = 1. then (acc, pos + 1)
                 else (acc ^ "@[<v 0>ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
                 string_of_int pos ^ ";@]@.", pos + 1)
-        | _ -> failwith "Sequence characters are not supported in fastwinclad"
+        | _ -> failwith "Sequence characters are not supported in phastwinclad"
     in
     let weights, _ = 
         List.fold_left ~f:output_weights ~init:("@[<v 0>", 0) all_of_all 
@@ -4048,8 +4136,9 @@ let to_faswincladfile data filename =
                     for i = min to max do 
                         output_element i matrix
                     done;
-            | Some (_, Parser.SC.STLikelihood _) -> 
-                    failwith "Hennig files do not support likelihood characters"
+            | Some (range, Parser.SC.STLikelihood _) -> 
+                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
+                    (* failwith "Hennig files do not support likelihood characters" *)
         in
         fo "@[<v 0>";
         let last, _ =
@@ -4629,7 +4718,12 @@ let process_prealigned analyze_tcm data code : (string * Parser.SC.file_output) 
                 let _, enc = enc.(y) in
                 Parser.SC.of_old_atom table newenc.(y) enc matrix.(x).(y)))
     in
-    let res = (Array.of_list names, newenc, matrix, [], []) in
+    let res =
+        { (Parser.SC.empty_parsed ()) with
+          Parser.SC.taxa = Array.of_list names;
+          characters = newenc;
+          matrix = matrix;
+        } in
     Parser.SC.fill_observed res;
     character_name, res
 
@@ -4798,8 +4892,13 @@ let to_human_readable data code item =
         | Parser.SC.STLikelihood _ | Parser.SC.STOrdered | Parser.SC.STSankoff _ -> item
     in
     let name =
-        try List.nth spec.Parser.SC.st_labels item with
-        | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
+        try 
+            try List.nth spec.Parser.SC.st_labels item with
+            | _ -> Alphabet.match_code item spec.Parser.SC.st_alph 
+        with
+            | (Alphabet.Illegal_Code n) as err ->
+                Alphabet.print spec.Parser.SC.st_alph;
+                raise err
     in
     name
 

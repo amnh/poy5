@@ -336,7 +336,7 @@ module type S = sig
                 phylogeny * Tree.join_delta
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
-        val downpass : phylogeny -> phylogeny
+        val downpass : ?data:Data.d -> phylogeny -> phylogeny
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
@@ -1356,7 +1356,7 @@ let update_trees_to_data ?(classify=true) force load_data run =
             let ach = Status.get_achieved st in
             if are_leaves_different then
                 let tree = { tree with Ptree.node_data = nodes } in
-                let res = CT.transform_tree replacer tree in
+                let res = CT.transform_tree ~data:run.data replacer tree in
                 let () = Status.full_report ~adv:(ach + 1) st in
                 res
             else 
@@ -1558,7 +1558,7 @@ let process_input run (meth : Methods.input) =
     if [] = d.Data.trees then update_trees_to_data false false run
     else
         let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
-        let trees = List.map (fun (x, _, _) -> x) run.data.Data.trees in
+        let trees = List.map (fun (x, _, id) -> x) run.data.Data.trees in
         let trees = Build.prebuilt trees (run.data, run.nodes) in
         let trees = Sexpr.to_list trees in
         let total_trees = (Sexpr.to_list run.trees) @ trees in
@@ -2201,8 +2201,15 @@ let emit_identifier =
             (fun x acc -> All_sets.Integers.add (update_item x) acc) 
             tree.Tree.handles All_sets.Integers.empty
         in
-        { Tree.u_topo = u_topo; d_edges = d_edges; handles = handles; avail_ids
-        = []; new_ids = run.data.Data.number_of_taxa + 1 }
+        { 
+            Tree.tree_name = None;
+                u_topo = u_topo; 
+                d_edges = d_edges;
+                handles = handles;
+                avail_ids = [];
+                new_ids = run.data.Data.number_of_taxa + 1;
+                names = Hashtbl.create 1;
+        }
 
     let decode_trees print_msg (trees, stored_trees) run =
         (*
@@ -4666,7 +4673,7 @@ let set_console_run r = console_run_val := r
         let uppass = TreeOps.uppass
 
         let of_string str data nodes =
-            let tree = Parser.Tree.of_string str in
+            let tree = List.map (fun x -> None,x) (Parser.Tree.of_string str) in
             Sexpr.to_list (Build.prebuilt tree (data, nodes))
 
         let to_string collapse tree data = 
@@ -4677,7 +4684,7 @@ let set_console_run r = console_run_val := r
             List.map (AsciiTree.for_formatter false true true) res 
 
         let of_file file data nodes =
-            let trees = Parser.Tree.of_file (`Local file) in
+            let trees = List.map (fun x -> None,x) (Parser.Tree.of_file (`Local file)) in
             Sexpr.to_list (Build.prebuilt trees (data, nodes))
 
         let of_nodes data nodes = 

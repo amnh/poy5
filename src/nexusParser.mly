@@ -2,9 +2,9 @@
 %{
 let mesquite_error =
     ("This@ seems@ to@ be@ a@ Mesquite@ \"NEXUS\"@ file.@ Unfortunately@ " ^
-    "Mesquite@ has@ invented@ new@ commands@ (like@ TITLE)@ that@ are@ not@ a@ " ^
-    "valid@ in@ NEXUS@ files.@ You@ will@ have@ to@ clean@ it@ by@ hand,@ " ^
-    "but@ better@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
+     "Mesquite@ has@ invented@ a@ new@ command@ TITLE@ that@ is@ not@ a@ " ^
+     "valid@ NEXUS@ command.@ You@ will@ have@ to@ remove@ it@ by@ hand.@ " ^
+     "You@ can@ read@ their@ information@ about@ it@ here:@ http://mesquiteproject.org/mesquite_folder/docs/mesquite/otherPrograms.html")
 let parse_error s = 
     try
         let b = (Parsing.symbol_start_pos ()) 
@@ -25,6 +25,7 @@ let report_error text b e =
     ^ e ^ " in the " ^ text)
 %}
 %token EOF
+%token <string> ALPHA
 %token <string> ANCSTATES
 %token <string> ASSUMPTIONS
 %token <string> AVERAGE
@@ -34,6 +35,7 @@ let report_error text b e =
 %token <string> CHANGESET
 %token <char> CHAR
 %token <string> CHARACTER
+%token <string> CHARACTERBRANCH
 %token <string> CHARACTERS
 %token <string> CHARLABELS
 %token <string> CHARPARTITION
@@ -47,7 +49,7 @@ let report_error text b e =
 %token <string> COUNT
 %token <string> CSTREE
 %token <string> DATA
-%token <string> DATA_CSTREE
+%token <string> DATACSTREE
 %token <string> QUOTED
 %token <string> SINGLEQUOTED
 %token <string> DATATYPE
@@ -78,8 +80,10 @@ let report_error text b e =
 %token <string> ITEMS
 %token <string> JPEG
 %token <string> LABELS
+%token <string> LIKELIHOOD
 %token <string> LOWER
 %token <string> MAM
+%token <string> MAP
 %token <string> MATCHCHAR
 %token <string> MATRIX
 %token <string> MAX
@@ -88,7 +92,9 @@ let report_error text b e =
 %token <string> MIN
 %token <string> MINSTEPS
 %token <string> MISSING
+%token <string> MODEL
 %token <string> MTDNA
+%token <string> NAMES
 %token <string> NCHAR
 %token <string> NEWSTATE
 %token <string> NEWTAXA
@@ -100,15 +106,20 @@ let report_error text b e =
 %token <string> NUCLEOTIDE
 %token <string> NUCORDER
 %token <string> OPTIONS
+%token <string> PARAMETERS
+%token <string> PERCENT
+%token <string> POY
 %token <string> PICT
 %token <string> PICTURE
 %token <string> POLYTCOUNT
+%token <string> PRIORS
 %token <string> PROTEIN
 %token <string> RESOURCE
 %token <string> RESPECTCASE
 %token <string> RNA
 %token <string> SAMPLESIZE
 %token <string> SETS
+%token <string> SITES
 %token <string> SOURCE
 %token <string> STANDARD
 %token <string> STATE
@@ -131,6 +142,7 @@ let report_error text b e =
 %token <string> TRANSLATE
 %token <string> TRANSPOSE
 %token <string> TREE
+%token <string> UTREE
 %token <string> TREEPARTITION
 %token <string> TREES
 %token <string> TREESET
@@ -142,12 +154,13 @@ let report_error text b e =
 %token <string> USERTYPE
 %token <string> UUENCODE
 %token <string> VARIANCE
+%token <string> VARIATION
 %token <string> VECTOR
 %token <string> WTSET
 %token <string> YEAST
 %token <string> EIDENT
 %token NEXUS SEMICOLON EQUAL COMMA QUOTE BACKSLASH DASH LPARENT RPARENT STAR
-COLON
+COLON LBRACKET RBRACKET
 %token <string> IDENT
 %token <string> FLOAT
 %token <string> INTEGER
@@ -178,16 +191,16 @@ block:
         { Nexus.Characters $4 }
     | BEGIN UNALIGNED SEMICOLON unaligned ENDNEXUS SEMICOLON
         { Nexus.Unaligned $4 }
-    | BEGIN TREES SEMICOLON trees ENDNEXUS SEMICOLON
-        { Nexus.Trees $4 }
+    | BEGIN TREES SEMICOLON optional_translate tree_list ENDNEXUS SEMICOLON
+        { Nexus.Trees ($4,$5) }
     | BEGIN NOTES SEMICOLON notes ENDNEXUS SEMICOLON 
         { Nexus.Notes $4 }
     | BEGIN DISTANCES SEMICOLON distances ENDNEXUS SEMICOLON 
         { Nexus.Distances $4 }
     | BEGIN ASSUMPTIONS SEMICOLON assumptions ENDNEXUS SEMICOLON
         { Nexus.Assumptions $4 }
-    | BEGIN SETS SEMICOLON list_of_anything ENDNEXUS SEMICOLON
-        { Nexus.Ignore $2 }
+    | BEGIN SETS SEMICOLON sets_block ENDNEXUS SEMICOLON
+        { Nexus.Sets $4 }
     | BEGIN IDENT error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
     | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
@@ -200,6 +213,8 @@ block:
         { Nexus.Error $2 }
     | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
+    | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
+        { Nexus.POY $4 }
     ;
 assumptions:
     | assumption_items assumptions { $1 :: $2 }
@@ -215,6 +230,12 @@ assumption_items:
     | error                         
     { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         raise Parsing.Parse_error }
+    ;
+
+sets_block:
+    | CHARSET IDENT EQUAL characterset_list SEMICOLON sets_block { ($2, $4) :: $6 }
+    | CHARSET IDENT EQUAL characterset_list SEMICOLON { ($2,$4) :: [] }
+    | any_thing_minus_end sets_block { $2 }
     ;
 optional_assumption_options:
     | OPTIONS deftype polytcount gapmode SEMICOLON { ($2, $3, $4) }
@@ -240,7 +261,7 @@ user_type_definition:
     | EQUAL INTEGER numbers_and_chars { Nexus.StepMatrix ($2, $3) }
     | STEPMATRIX EQUAL INTEGER numbers_and_chars 
         { Nexus.StepMatrix ($3, $4) }
-    | CSTREE DATA_CSTREE { Nexus.CSTree $2 }
+    | CSTREE DATACSTREE { Nexus.CSTree $2 }
     ;
 numbers_and_chars:
     | number_and_char numbers_and_chars { $1 :: $2 }
@@ -358,20 +379,69 @@ pictureencoding:
     | UUENCODE { Nexus.UUEncode }
     | BINHEX    { Nexus.BinHex }
     ;
-trees:
-    | optional_translate tree_list { ($1, $2) }
-    ;
 optional_translate:
+    | TRANSLATE names SEMICOLON
+        { snd (List.fold_left (fun (i,acc) x -> (i+1),(string_of_int i,x)::acc) (1,[]) $2) }
     | TRANSLATE pairs_list SEMICOLON { $2 }
     | { [] }
     ;
 tree_list:
-    | DATA SEMICOLON tree_list { $1 :: $3 }
-    | DATA SEMICOLON { [ $1 ] }
+    | optional_tree_prequel DATA SEMICOLON tree_list { $2 :: $4 }
+    | optional_tree_prequel DATA SEMICOLON { [$2] }
+    ;
+optional_tree_prequel:
+    | TREE do_star optional_label EQUAL {$3}
+    | UTREE do_star optional_label EQUAL {$3}
+    | { None }
+    ;
+poy_block:
+    | CHARACTERBRANCH TREES EQUAL names NAMES EQUAL characterset_list SEMICOLON
+                  MAP pairs_list_float SEMICOLON poy_block
+        { Nexus.CharacterBranch ($4, $7, $10) :: $12}
+
+    | LIKELIHOOD model_block poy_block { Nexus.Likelihood $2 :: $3 }
+    | { [] }
+    ;
+model_block:
+    | MODEL EQUAL IDENT SEMICOLON model_block
+            { (Nexus.Model $3) :: $5 }
+    | VARIATION EQUAL IDENT SEMICOLON model_block
+            { (Nexus.Variation $3) :: $5 }
+    | SITES EQUAL INTEGER SEMICOLON model_block
+            { (Nexus.Variation_Sites $3) :: $5 }
+    | PERCENT EQUAL FLOAT SEMICOLON model_block
+            { (Nexus.Variation_Invar $3) :: $5 }
+    | ALPHA EQUAL FLOAT SEMICOLON model_block
+            { (Nexus.Variation_Alpha $3) :: $5 }
+    | PRIORS EQUAL pairs_list_float model_block
+            { (Nexus.Priors $3) :: $4 }
+    | CHARSET EQUAL characterset_list SEMICOLON model_block
+            { (Nexus.Chars $3) :: $5 }
+    | PARAMETERS EQUAL float_list model_block
+            { (Nexus.Parameters $3) :: $4 }
+    | FILE EQUAL QUOTED SEMICOLON model_block
+            { (Nexus.Files $3) :: $5 }
+    | SEMICOLON { [] }
+    ;
+
+float_list:
+    | FLOAT float_list      { (float_of_string $1) :: $2 }
+    | INTEGER float_list    { (float_of_string $1) :: $2 }
+    | FLOAT SEMICOLON       { [(float_of_string $1)] }
+    | INTEGER SEMICOLON     { [(float_of_string $1)] }
+    ;
+names:
+    | IDENT COMMA names { $1 :: $3 }
+    | INTEGER COMMA names { $1 :: $3 }
+    | IDENT SEMICOLON { [$1] }
     ;
 pairs_list:
     | IDENT IDENT COMMA pairs_list { ($1, $2) :: $4 }
     | IDENT IDENT { [$1, $2] }
+    ;
+pairs_list_float:
+    | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
+    | IDENT FLOAT SEMICOLON { [($1,(float_of_string $2))] }
     ;
 characters:
     | DIMENSIONS optional_taxa_dimensions NCHAR EQUAL INTEGER SEMICOLON 
@@ -536,13 +606,9 @@ characterset:
     | INTEGER DASH CHAR    { Nexus.Range ($1, None) }
     | INTEGER DASH INTEGER { Nexus.Range ($1, Some $3) }
     | INTEGER              { Nexus.Single ($1) }
-    | IDENT                { Nexus.Name $1 }
+    | IDENT                { Nexus.CharSet $1 }
     | SINGLEQUOTED         { Nexus.Name $1 }
     | CHAR                 { Nexus.Name (String.make 1 $1) }
-    ;
-list_of_anything:
-    | any_thing_minus_end list_of_anything { () }
-    | any_thing_minus_end { () }
     ;
 any_thing_minus_end:
     | TAXA  { () }
@@ -563,7 +629,6 @@ any_thing_minus_end:
     | CHARACTER { () }
     | CHARLABELS { () }
     | CHARPARTITION { () }
-    | CHARSET { () }
     | CHARSTATELABELS { () }
     | CODEORDER { () }
     | CODESET { () }
@@ -572,7 +637,7 @@ any_thing_minus_end:
     | CONTINUOUS { () }
     | COUNT { () }
     | CSTREE { () }
-    | DATA_CSTREE { () }
+    | DATACSTREE { () }
     | QUOTED { () }
     | DATATYPE { () }
     | DEFTYPE { () }
@@ -675,13 +740,15 @@ any_thing_minus_end:
     | LPARENT { () }
     | RPARENT { () }
     ;
+
+/* Entry of the Tree Parser */
 tree:
-    | do_star IDENT EQUAL single_tree EOF { $4 }
+    | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | IDENT optional_length { Nexus.Leaf ($1, $2) }
-    | LPARENT single_tree_list RPARENT optional_label optional_length 
-                            { Nexus.Node ($2, $4, $5) }
+    | IDENT optional_length optional_comment { Nexus.Leaf ($1, ($2, $3)) }
+    | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
+                            { Nexus.Node ($2, $4, ($5, $6)) }
     ;
 single_tree_list:
     | single_tree COMMA single_tree_list { $1 :: $3 }
@@ -690,6 +757,10 @@ single_tree_list:
 optional_length:
     | COLON INTEGER { Some (float_of_string $2) }
     | COLON FLOAT { Some (float_of_string $2) }
+    | { None }
+    ;
+optional_comment:
+    | LBRACKET IDENT RBRACKET { Some $2 }
     | { None }
     ;
 optional_label:

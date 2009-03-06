@@ -89,22 +89,36 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
      *             2) the number of leaves (num_leaves variable)
      *             3) the longest taxon name (longest_name variable)
      *)
-    let rec calc_depth_leaves t depth max_depth num_leaves longest_name =
-        match t with
-        | Parser.Tree.Node (y, _) -> 
+    let calc_depth_leaves t depth max_depth num_leaves longest_name =
+        let rec calc_depth_leaves fn t depth max_depth num_leaves longest_name =
+            match t with
+            | Parser.Tree.Node (y, _) -> 
                 incr depth;
-                List.iter (fun t ->
-                    calc_depth_leaves t depth max_depth num_leaves
-                    longest_name) y;
+                List.iter
+                    (fun t -> 
+                        calc_depth_leaves t depth max_depth num_leaves longest_name)
+                    y;
                 decr depth;
-        | Parser.Tree.Leaf y -> 
+            | Parser.Tree.Leaf y -> 
                 incr depth;
                 if !depth > !max_depth then max_depth := !depth;
                 decr depth;
-                let strLength = String.length y in
+                let strLength = String.length (fn y) in
                 if strLength > !longest_name then
                     longest_name := strLength;
                 incr num_leaves
+        in
+        match t with
+        | Parser.Tree.Annotated (t,_) 
+        | Parser.Tree.Flat t ->
+            calc_depth_leaves (fun x -> x) t depth max_depth num_leaves longest_name
+        | Parser.Tree.Branches t ->
+            calc_depth_leaves 
+                    (fun (x,_) -> x) t depth max_depth num_leaves longest_name
+        | Parser.Tree.Characters t ->
+            calc_depth_leaves 
+                    (fun (x,_) -> x) t depth max_depth num_leaves longest_name
+
 
     (** [draw_tree t] takes a t which is a Parser.Tree.t type and draws a tree 
     *   also have optional arguments title, size and leafColor - The graph
@@ -116,8 +130,9 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
     *   black, red , blue, green, yellow, cyan, magenta
     *   *)    
     let draw ?(size="") ?(leafColor=G.black) display t =
-        let t = AsciiTree.sort_tree t in
-        let display = ref display in
+        (* TODO:: with branch lengths *)
+       let t = AsciiTree.sort_tree t in
+       let display = ref display in
        let d = ref 0 and
        max_depth = ref 0 and
        num_leaves = ref 0 and
@@ -192,7 +207,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                    display := G.plot !display x avg;
                    (x, avg)
        in
-       let _ = coord 1 deltaX deltaY t in 
+       let _ = coord 1 deltaX deltaY (Parser.Tree.strip_tree t) in 
        !display
 
        let rec get_children tree =

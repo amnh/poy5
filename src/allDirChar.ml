@@ -22,10 +22,12 @@ let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
 module IntSet = All_sets.Integers
 
 let debug_profile_memory = false
-let debug_node_fn = false       (* node creation *)
-let debug_adjust_fn = false
+let debug_node_fn = false
+let debug_adjust_fn = true
 let debug_clear_subtree = false
 let debug_join_fn = false
+let debug_branch_fn = false
+let debug_uppass_fn = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -47,38 +49,118 @@ with type b = AllDirNode.OneDirF.n = struct
         Printf.ksprintf (Status.user_message Status.Error) format
     let info_user_message format = 
         Printf.ksprintf (Status.user_message Status.Information) format
+    let failwithf format = 
+        Printf.ksprintf (failwith) format
+
+    (* process tree data to find branch lengthes *)
+    let hashdoublefind data tree node_ids = 
+        let transform_keys ntable keylation table =
+            Hashtbl.iter 
+                (fun name length ->
+                    try Hashtbl.add ntable (Hashtbl.find keylation name) length
+                    with | Not_found ->
+                        if debug_branch_fn then
+                            error_user_message "Couldn't find character name %s" name
+                        else ()
+                ) table;
+            ntable
+        in
+        match tree.Tree.tree_name with
+        | Some tree_n ->
+            let ntable = Hashtbl.create 27 in
+            let tree_n = String.uppercase tree_n in
+           (try let tree_t = Hashtbl.find data.Data.branches (tree_n) in
+                let res = List.fold_left
+                    (fun acc node_id ->
+                        try let node_n = Hashtbl.find (tree.Tree.names) node_id in
+                            let node_n = String.uppercase node_n in
+                            try let char_n = Hashtbl.find tree_t node_n in
+                                let tbl = transform_keys (Hashtbl.create 27)
+                                          data.Data.character_names char_n in
+                                let () = Hashtbl.replace ntable node_id tbl in
+                                true
+                            with | Not_found ->
+                                if debug_branch_fn then
+                                    error_user_message "Couldn't find node name %s" node_n;
+                                    false || acc
+                        with | Not_found ->
+                            if debug_branch_fn then
+                                error_user_message "Couldn't find node id %d" node_id;
+                                false || acc)
+                    false
+                    node_ids
+                in
+                if res then Some ntable else None
+
+            with | Not_found ->
+                if debug_branch_fn then
+                    error_user_message "Couldn't find tree name %s" tree_n; None)
+        | None -> None
 
 
 (*  Creates a lazy edge which is the median between the data of the vertices
-    with codes [a] and [b] in the tree [ptree]. *)
-    let create_lazy_edge adjusted ptree a b = 
+    with codes [a] and [b] in the tree [ptree].
+    
+    times in opposite directions SHOULD be set except when [root] is true. In
+    this case, median_w_times is used and the tree is updated with the new
+    directions calculated.
+    
+    root_node is used when the edge data is precomputed (during a break)
+*)
+    let create_lazy_edge ?branches root root_node adjusted ptree a b = 
         if debug_node_fn then
             info_user_message "Creating lazy edge between %d and %d" a b
         else ();
-        let get_one a b =
-            ptree --> Ptree.get_node_data a 
-            --> fun x -> (if adjusted then 
-                    x.AllDirNode.adjusted 
-                    else x.AllDirNode.unadjusted)
-            --> (fun x -> if adjusted then
-(**)            match x with
-                | [x] -> x
-                | _ -> failwith "What?" 
-                else AllDirNode.not_with b x) --> force_node
-        in
-        let dataa = get_one a b 
-        and datab = get_one b a in
-        AllDirNode.lazy_from_fun 
-            (fun () -> Node.Standard.median None None dataa datab)
+
+        if root then 
+            let aa,ab = match Ptree.get_node a ptree with
+                | Tree.Leaf (_,a_p) -> assert(a_p = b);
+                    None,None
+                | (Tree.Interior (_,a_p,ac1,ac2)) as an -> 
+                    let ch1, ch2 = Ptree.other_two_nbrs b an in
+                    Some (Ptree.get_node_data ch1 ptree),
+                    Some (Ptree.get_node_data ch2 ptree)
+                | Tree.Single _ -> failwith "create_lazy_edge of Singleton"
+            and ba,bb = match Ptree.get_node b ptree with
+                | Tree.Leaf (_,b_p) -> assert (b_p = a);
+                    None,None
+                | (Tree.Interior (_,b_p,bc1,bc2)) as bn ->
+                    let ch1, ch2 = Ptree.other_two_nbrs a bn in
+                    Some (Ptree.get_node_data ch1 ptree),
+                    Some (Ptree.get_node_data ch2 ptree)
+                | Tree.Single _ -> failwith "create_lazy_edge of Singleton"
+            in
+            let a_node,b_node,lazy_node =
+                    AllDirNode.create_root ?branches
+                            (Ptree.get_node_data a ptree) aa ab
+                            (Ptree.get_node_data b ptree) ba bb
+                            root_node
+            in
+            lazy_node,
+                ptree --> Ptree.add_node_data a a_node
+                      --> Ptree.add_node_data b b_node
+        else begin
+            (* creates root of an edge with time data *)
+            assert( match root_node with | None -> true | _ -> false );
+            let dataa = Ptree.get_node_data a ptree
+            and datab = Ptree.get_node_data b ptree in
+            AllDirNode.create_root_w_times adjusted dataa datab,ptree
+        end
 
     (* Creates a valid vertex that only has the downpass information *)
-    let create_lazy_interior_down ptree code a b =
+    let create_lazy_interior_down ?branches ptree code a b =
         if debug_node_fn then
-            info_user_message "Creating lazy interior down between %d and %d" a b
+            match code with
+            | Some x ->
+                info_user_message
+                    "Creating lazy interior down (%d) between %d and %d" x a b
+            | None ->
+                info_user_message
+                    "Creating lazy interior down (?) between %d and %d" a b
         else ();
         let a_nd = Ptree.get_node_data a ptree 
         and b_nd = Ptree.get_node_data b ptree in
-        AllDirNode.AllDirF.median code None a_nd b_nd
+        AllDirNode.AllDirF.median ?branches code None a_nd b_nd
 
     (* Creates a valid vertex that has the downpass and uppass information.
     * [a] and [b] have to be the component of the currently calculated subtree
@@ -88,7 +170,6 @@ with type b = AllDirNode.OneDirF.n = struct
             info_user_message 
                 "Creating lazy interior up of %d with c:%d, c:%d and p:%d" code a b c
         else ();
- 
         (* interior nodes should have all this information *)
         let cur_data = try Ptree.get_node_data code ptree with
             | Not_found -> create_lazy_interior_down ptree (Some code) a b
@@ -99,7 +180,7 @@ with type b = AllDirNode.OneDirF.n = struct
         and c_data = try Ptree.get_node_data c ptree with
             | Not_found -> failwith "AllDirChar.create_lazy_interior_up: need parent"
         in
-        AllDirNode.AllDirF.uppass_heuristic None cur_data a_data b_data c_data
+        AllDirNode.AllDirF.uppass_heuristic c cur_data a_data b_data c_data
 
     let create_root a b (ptree : phylogeny) =
         let make_internal () = 
@@ -142,9 +223,39 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         let _ = Printf.printf "\n%!" in ()
 
+    let check_three_directions ptree = 
+        let verify_one node = match Ptree.get_node node ptree with
+            | Tree.Single _
+            | Tree.Leaf _ ->
+                let dat1 = (Ptree.get_node_data node ptree).AllDirNode.adjusted in
+                let dat2 = (Ptree.get_node_data node ptree).AllDirNode.unadjusted in
+                ((List.length dat1) = 1) && ((List.length dat2) = 1) &&
+                    (match (List.hd dat1).AllDirNode.dir,
+                           (List.hd dat2).AllDirNode.dir with 
+                        | None,None -> true | _,_ -> false)
+            | Tree.Interior _ ->
+                let dat1 = (Ptree.get_node_data node ptree).AllDirNode.adjusted in
+                let dat2 = (Ptree.get_node_data node ptree).AllDirNode.unadjusted in
+                ((List.length dat1) = 3) && ((List.length dat2) = 3)
+        in
+        All_sets.Integers.fold
+            (fun h ac1 ->
+                match Ptree.get_node h ptree with
+                | Tree.Leaf (a,b)
+                | Tree.Interior (a,b,_,_) ->
+                    Tree.pre_order_node_with_edge_visit_simple
+                        (fun prev curr ac2 -> (verify_one curr) && ac2)
+                        (Tree.Edge (a,b)) ptree.Ptree.tree ac1
+                | Tree.Single a -> verify_one a
+            )
+            (Ptree.get_handles ptree)
+            (true)
+
+
     (* We first define a function to check the total cost of a tree for
     * sequences and likelihood only! *)
     let check_cost new_tree handle new_root =
+
         (* Some characters have their cost computed by adding up the length of
         * all of the branches. single_characters_cost is exactly that. *)
         let single_characters_cost =  
@@ -162,7 +273,21 @@ with type b = AllDirNode.OneDirF.n = struct
                 in
                 Tree.Continue, dist +. acc
             in
-            Tree.pre_order_edge_visit edge_visitor handle new_tree.Ptree.tree 0.0
+            let all_but_root = Tree.post_order_node_with_edge_visit_simple
+                                edge_visitor
+                                (Tree.Edge (startinga,startingb))
+                                new_tree.Ptree.tree 
+                                0.0
+            and root_edge =
+                let get_node toward lst = 
+                    AllDirNode.not_with toward lst.AllDirNode.adjusted in
+                let nda = get_node startingb (Ptree.get_node_data startinga new_tree)
+                and ndb = get_node startinga (Ptree.get_node_data startingb new_tree) in
+                Node.distance_of_type Node.has_to_single 100000.0 
+                        (AllDirNode.force_val nda.AllDirNode.lazy_node)
+                        (AllDirNode.force_val ndb.AllDirNode.lazy_node)
+            in
+            all_but_root +. root_edge 
         in
         (* Other characters are computed by the downpass, we extract that
         * portion of the cost, which is contained in the root.
@@ -219,7 +344,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     in
 
                     let _, pre_codes, _, _ = Node.get_active_ref_code 
-                        (AllDirNode.force_val current_d.AllDirNode.lazy_node)                        
+                        (AllDirNode.force_val current_d.AllDirNode.lazy_node)
                     in 
                     let pre_child1 = get_subtree current a IntSet.empty in 
                     let pre_child2 = get_subtree current b IntSet.empty in
@@ -263,7 +388,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
-    let assign_single ptree = 
+    let assign_single keep_three ptree = 
         (* We first define a function that can traverse the tree and assign
         * a single sequence to each vertex on it. *)
         let pre_ref_codes = get_pre_active_ref_code ptree in  
@@ -284,7 +409,18 @@ with type b = AllDirNode.OneDirF.n = struct
             let nnd = 
                 { current_d with AllDirNode.lazy_node = AllDirNode.lazy_from_val nd }
             in
-            let final_d = { initial_d with AllDirNode.adjusted = [nnd] } in
+            let oths =  if keep_three then
+                            nnd::(List.filter (fun x -> 
+                                      not (AllDirNode.has_code parent x))
+                                      initial_d.AllDirNode.unadjusted)
+                        else [nnd]
+            in
+            let final_d = { initial_d with AllDirNode.adjusted = oths } in
+
+            assert ( ( (List.length initial_d.AllDirNode.unadjusted) ==
+                       (List.length final_d.AllDirNode.adjusted) )
+                     || (not keep_three) );
+
             let ptree = Ptree.add_node_data current final_d ptree in
             try 
                 let a, b =
@@ -316,9 +452,9 @@ with type b = AllDirNode.OneDirF.n = struct
                 in
                 let root, rooth = get_root_direction rootg in
                 let handle_node = 
-                    (AllDirNode.not_with b (Ptree.get_node_data a
-                    ptree).AllDirNode.unadjusted)
-                    --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
+                    (Ptree.get_node_data a ptree).AllDirNode.unadjusted 
+                        --> AllDirNode.not_with b
+                        --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 and other_node = 
                     (AllDirNode.not_with a (Ptree.get_node_data b
                     ptree).AllDirNode.unadjusted)
@@ -326,15 +462,23 @@ with type b = AllDirNode.OneDirF.n = struct
                 in
 
                 let root = 
-                    Node.to_single (pre_ref_codes, fi_ref_codes)
-                        (Some root) other_node handle_node in
-                let rooti = [{ rooth with AllDirNode.lazy_node =
-                    AllDirNode.lazy_from_val (root) }] in
+                    Node.to_single (pre_ref_codes, fi_ref_codes) 
+                                   (Some root) other_node handle_node
+                in
+                let rooti = 
+                    [{ rooth with
+                        AllDirNode.lazy_node = AllDirNode.lazy_from_val (root)
+                    }]
+                in
                 let readjusted = { rootg with AllDirNode.adjusted = rooti} in
 
-                let ptree = Ptree.assign_root_to_connected_component 
-                        handle (Some (edge, readjusted)) 
-                        (Node.Standard.tree_cost None root) None ptree
+                let ptree = 
+                    Ptree.assign_root_to_connected_component 
+                                    handle
+                                    (Some (edge, readjusted)) 
+                                    (Node.Standard.tree_cost None root)
+                                    None
+                                    ptree
                 in
                 ptree,root,readjusted
             in
@@ -373,51 +517,146 @@ with type b = AllDirNode.OneDirF.n = struct
         res
 
     let unadjust ptree = ptree
-    (*
-        (* We first define a function that takes a handle and assigns it the
-        * unadjusted total cost *)
-        let unadjust_handle handle ptree =
-            let comp = Ptree.get_component_root handle ptree in
-            match comp.Ptree.root_median with
-            | Some ((`Edge (_, _)), root) -> 
-                    Ptree.assign_root_to_connected_component
-                    handle
-                    comp.Ptree.root_median
-                    (AllDirNode.AllDirF.total_cost None root)
-                    ptree
-            | _ -> ptree
-        in
-        All_sets.Integers.fold unadjust_handle ptree.Ptree.tree.Tree.handles
-        ptree
-    *)
-    let refresh_all_edges adjusted ptree =
-        let new_edges = 
-            Tree.EdgeSet.fold (fun ((Tree.Edge (a, b)) as e) acc ->
-                current_snapshot
-                "AllDirChar.refresh_all_edges internal fold";
-                let data = 
-                    try create_lazy_edge adjusted ptree a b with
-                    | err -> 
-                            let print_node = function
-                                | Tree.Interior (u, v, w, x) ->
-                                        error_user_message 
-                                            "with neighbors %d, %d, %d" v w x;
-                                | Tree.Leaf (_, x) ->
-                                        error_user_message "with neighbor %d" x;
-                                | Tree.Single _ -> ()
-                            in
-                            error_user_message
-                                "Failure attempting lazy_edge of %d and %d"
-                                a b;
-                            print_node (Ptree.get_node a ptree);
-                            print_node (Ptree.get_node b ptree);
-                            raise err
-                in
-                Tree.EdgeMap.add e data acc)
-            ptree.Ptree.tree.Tree.d_edges Tree.EdgeMap.empty
-        in
-        { ptree with Ptree.edge_data = new_edges }
 
+    let refresh_all_edges ?data adjusted root_opt do_roots start_edge_opt ptree =
+
+        (* refresh a single edge with root value *)
+        let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
+            if debug_uppass_fn then
+                Printf.printf "Refreshing %d--%d as %s\n%!" a b 
+                                (if rhandle then "a root edge" else "an edge")
+            else ();
+            let data,ptree = 
+                try match data with
+                    | Some data ->
+                        begin 
+                            match hashdoublefind data ptree.Ptree.tree [a;b] with
+                            | Some x -> create_lazy_edge ~branches:x
+                                            rhandle root_opt adjusted ptree a b 
+                            | None -> create_lazy_edge rhandle root_opt adjusted ptree a b 
+                        end
+                    | None -> create_lazy_edge rhandle root_opt adjusted ptree a b
+                with | err ->
+                    let print_node = function
+                        | Tree.Interior (u,v,w,x) ->
+                            error_user_message "with neighbors %d, %d, %d," v w x;
+                        | Tree.Leaf (x,y) -> 
+                            error_user_message "with neighbor %d" x;
+                        | Tree.Single _ -> ()
+                    in
+                    error_user_message "Failure attempting lazy_edge of %d and %d" a b;
+                    print_node (Ptree.get_node a ptree);
+                    print_node (Ptree.get_node b ptree);
+                    raise err
+            in
+            (Tree.EdgeMap.add e data acc,ptree)
+        (* perform uppass heuristic on a node *)
+        and add_vertex_pre_order prev code (ptree:phylogeny) =
+            match Ptree.get_node code ptree with
+            | Tree.Single _ -> ptree
+            | Tree.Leaf (_, p) ->
+                    let this = Ptree.get_node_data code ptree
+                    and parn = Ptree.get_node_data p ptree in
+                    let leaf = AllDirNode.AllDirF.apply_time false this parn in
+                    Ptree.add_node_data code leaf ptree
+            | (Tree.Interior (_, par,a ,b)) as v -> 
+                    let a,b = Tree.other_two_nbrs prev v in
+                    let interior = create_lazy_interior_up ptree code a b prev in
+                    Ptree.add_node_data code interior ptree
+        in
+
+        (* perform refresh on root node for uppass, to hold invariant that all
+        * nodes have a parent with relevant data --both nodes will have all dirs *)
+        if debug_uppass_fn then
+            info_user_message "Performing Calculation on Root\n%!"
+        else ();
+        let ptree = 
+            All_sets.Integers.fold 
+                (fun h ptree ->
+                    match start_edge_opt with
+                    | Some (a,b) ->
+                        let _,t = refresh_edge true root_opt
+                                    (Tree.Edge (a,b)) 
+                                    (Tree.EdgeMap.empty,ptree) in
+                        t
+                    | None ->
+                        try 
+                            begin match (Ptree.get_component_root h ptree).Ptree.root_median with
+                                | Some ((`Edge (a,b)),c) -> 
+                                    let _,t = refresh_edge true root_opt
+                                                (Tree.Edge (a,b)) 
+                                                (Tree.EdgeMap.empty,ptree) in
+                                    t
+                                | None
+                                | Some _ -> ptree
+                            end
+                        with | Not_found -> 
+                            begin match Ptree.get_node h ptree with
+                                | Tree.Leaf (a,b)
+                                | Tree.Interior (a,b,_,_) -> 
+                                    let _,t = refresh_edge true root_opt
+                                                (Tree.Edge (a,b)) 
+                                                (Tree.EdgeMap.empty,ptree) in
+                                    t
+                                | Tree.Single _ -> ptree
+                            end
+                )
+                ptree.Ptree.tree.Tree.handles
+                ptree
+        in
+        (* perform uppass heuristic --fill all directions *)
+        current_snapshot "AllDirChar.refresh_all_edges uppass heuristic";
+        if debug_uppass_fn then
+            info_user_message "Performing Uppass Heurisitic\n%!"
+        else ();
+        let ptree =
+            All_sets.Integers.fold
+                (fun h ptree ->
+                    match start_edge_opt with
+                    | Some (a,b) ->
+                        Tree.pre_order_node_with_edge_visit_simple
+                                add_vertex_pre_order
+                                (Tree.Edge (a,b))
+                                ptree.Ptree.tree ptree
+                    | None ->
+                        try 
+                            begin match (Ptree.get_component_root h ptree).Ptree.root_median with
+                                | Some ((`Edge (a,b)),c) -> 
+                                    Tree.pre_order_node_with_edge_visit_simple
+                                            add_vertex_pre_order
+                                            (Tree.Edge (a,b))
+                                            ptree.Ptree.tree ptree
+                                | None
+                                | Some _ -> ptree
+                            end
+                        with | Not_found -> 
+                            begin match Ptree.get_node h ptree with
+                                | Tree.Leaf (a,b)
+                                | Tree.Interior (a,b,_,_) -> 
+                                    Tree.pre_order_node_with_edge_visit_simple
+                                            add_vertex_pre_order
+                                            (Tree.Edge (a,b))
+                                            ptree.Ptree.tree ptree
+                                | Tree.Single _ -> ptree
+                            end
+                )
+                ptree.Ptree.tree.Tree.handles
+                ptree in
+        (* fill in roots for all edges *)
+        current_snapshot "AllDirChar.refresh_all_edges internal fold";
+        if do_roots then begin
+            if debug_uppass_fn then
+                info_user_message "Performing Refresh on all edges\n"
+            else ();
+            let new_edges,ptree =
+                Tree.EdgeSet.fold
+                        (refresh_edge false None)
+                        ptree.Ptree.tree.Tree.d_edges
+                        (Tree.EdgeMap.empty,ptree) in
+            { ptree with Ptree.edge_data = new_edges }
+        end else ptree
+
+    (** functions to return the adjusted and unadjusted values **)
     let get_single, get_unadjusted =
         let general_get f parent node =
             let nd = AllDirNode.not_with parent (f node) in
@@ -426,7 +665,7 @@ with type b = AllDirNode.OneDirF.n = struct
         (general_get (fun x -> x.AllDirNode.adjusted)),
         (general_get (fun x -> x.AllDirNode.unadjusted))
 
-
+    (** refresh root of all trees *)
     let refresh_roots ptree =
         let new_roots =
             All_sets.Integers.fold (fun x acc ->
@@ -496,8 +735,28 @@ with type b = AllDirNode.OneDirF.n = struct
         (Ptree.get_handles tree)
         (All_sets.Integers.empty, All_sets.Integers.empty)
 
-    (* ------------------------------------------------------------------------ *)
+    let dump_tree f x ptree =
+        let printf format = Printf.ksprintf (f) format in
+        let traversal prev code _ = match Ptree.get_node code ptree with
+            | Tree.Single x -> Tree.Continue, ()
+            | Tree.Leaf (x,p) ->
+                printf "Leaf %d -- %d:" x p;
+                AllDirNode.AllDirF.dump_node (f) (Ptree.get_node_data x ptree)
+                                                 (Ptree.get_node_data p ptree);
+                printf "\n";
+                Tree.Continue, ()
+            | Tree.Interior (x,p,_,_) ->
+                printf "Node %d -- %d:" x p;
+                AllDirNode.AllDirF.dump_node (f) (Ptree.get_node_data x ptree)
+                                                 (Ptree.get_node_data p ptree);
+                printf "\n";
+                Tree.Continue, ()
+        in
+        Ptree.pre_order_node_visit traversal x ptree ()
 
+
+
+    (* ------------------------------------------------------------------------ *)
     (* Now we define a function that can adjust all the vertices in the tree
     * to improve the overall cost of the tree, using only the
     * [AllDirNode.adjusted] field of each. *)
@@ -554,24 +813,28 @@ with type b = AllDirNode.OneDirF.n = struct
         in
 
         (* adjust the root and return the best cost *)
-        let adjust_root_n_cost handle root a b ptree =
+        let adjust_root handle root a b ptree = ptree (*
+    
             if debug_adjust_fn then
                 info_user_message "Adjusting root with %d,%d then None" a b
             else ();
             let sets = get_active_ref_code ptree (*pre_ref_codes,fi_ref_codes*)
             and a_nd = Ptree.get_node_data a ptree
             and b_nd = Ptree.get_node_data b ptree in
+            
             let new_root = 
                 (AllDirNode.AllDirF.median None (Some root) a_nd b_nd)
                 --> (fun x -> AllDirNode.AllDirF.edge_iterator None x a_nd b_nd)
                 --> (fun x -> AllDirNode.AllDirF.to_single (Some x) None a_nd None b_nd sets)
             in
+
             Ptree.assign_root_to_connected_component
                     handle 
                     (Some ((`Edge (a, b)),new_root ))
                     (check_cost ptree handle (Some new_root))
                     None
                     ptree
+        *)
         in
 
         (* Now we need to be able to adjust the root of the tree, and it's
@@ -610,12 +873,12 @@ with type b = AllDirNode.OneDirF.n = struct
             in
             
             (* Post order traversal of internal nodes *)
-            let adjust_loop affected p_ref a_ref handle changed = 
+            let adjust_loop affected p_ref a_ref handle changed = try
                 let a,b,comp_root = 
                     match (Ptree.get_component_root handle !p_ref).Ptree.root_median with
                     | Some ((`Edge (a,b)),c) -> a,b,c
                     | None
-                    | Some _ -> failwith "no root exists on this tree"
+                    | Some _ -> raise Not_found
                 in
                 let (a_ch),(b_ch) =
                     Ptree.post_order_node_with_edge_visit
@@ -628,50 +891,100 @@ with type b = AllDirNode.OneDirF.n = struct
                              false
                 in
                 (* we need to iterate the Edge(a,b) and then update cost/ptree *)
-                let () = p_ref := adjust_root_n_cost handle comp_root a b !p_ref in
+                let () = p_ref := adjust_root handle comp_root a b !p_ref in
                 changed || a_ch || b_ch
+
+                with | Not_found -> false
             in
 
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                if count = 0 then ptree
-                else
-                    let changed,new_affected,new_ptree = 
-                        let pref = ref ptree in    (* can't merge two ptrees *)
-                        let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
-                        (* perform on each tree *)
-                        let changed = All_sets.Integers.fold
-                            (adjust_loop affected pref aref)
-                            ptree.Ptree.tree.Tree.handles
-                            (false)
-                        in
-                        changed,!aref,!pref
+                Printf.printf "PREV COST: %f\t CHECK: %f\n%!"
+                                (prev_cost) (check_cost_all_handles ptree);
+                let changed,new_affected,new_ptree = 
+                    let pref = ref ptree in    (* can't merge two ptrees *)
+                    let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
+                    (* perform on each tree *)
+                    let changed = All_sets.Integers.fold
+                        (adjust_loop affected pref aref)
+                        ptree.Ptree.tree.Tree.handles
+                        (false)
                     in
-                    (* now ptree can be used normally *)
-                    if changed then
-                        let new_cost = check_cost_all_handles new_ptree in
-                        if debug_adjust_fn then
-                            info_user_message "Cost changed: %f --> %f" prev_cost new_cost
-                        else ();
-                        if new_cost < prev_cost then
-                            iterator (count - 1) new_cost new_affected new_ptree
-                        else
-                            ptree
-                    else
-                        ptree 
+                    changed,!aref,!pref
+                in
+                (* now ptree can be used normally *)
+                let new_cost = check_cost_all_handles new_ptree in
+                if (not changed) || (count = 1) then
+                    ptree
+                else if new_cost < prev_cost then
+                    iterator (count - 1) new_cost new_affected new_ptree
+                else
+                    ptree
             in
             iterator max_count (check_cost_all_handles ptree) first_affected ptree
         in
 
-        (* Finally, we are ready to assign to all the handles in the tree and adjusted cost *)
-        let ptree = adjust_until_nothing_changes max_count ptree in
-        ptree
+        let set_handle_n_root_n_cost handle ptree =
+            match (Ptree.get_component_root handle ptree).Ptree.root_median with
+            | None -> failwith "Huh? AllDirChar.adjust_handle"
+            | Some ((`Edge (a, b)), root) ->
+                let sets = get_active_ref_code ptree
+                and ad = Ptree.get_node_data a ptree
+                and bd = Ptree.get_node_data b ptree in
+
+                let root = 
+                    let x = AllDirNode.AllDirF.median None None ad bd in
+                    AllDirNode.AllDirF.to_single (Some x) None ad None bd sets
+                in
+                Ptree.assign_root_to_connected_component handle
+                    (Some ((`Edge (a,b), root)))
+                    (check_cost ptree handle None)
+                    None
+                    ptree
+            | Some _ -> ptree
+        in
+        All_sets.Integers.fold (set_handle_n_root_n_cost)
+                               (ptree.Ptree.tree.Tree.handles)
+                               (adjust_until_nothing_changes max_count ptree)
 
     (* ------------------------------------------------------------------------ *)
 
-    let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
-        (* Traverse every vertex in the tree and assign the downpass and uppass
-        * information using the lazy all direction nodes *)
+    let verify_downpass x ptree : bool =
+        let traversal prev code acc =
+           match Ptree.get_node code ptree with
+            | Tree.Single x 
+            | Tree.Leaf (x, _) -> (Tree.Continue, acc)
+            | (Tree.Interior (_, par, a, b)) as v ->
+                let a, b, c, m =
+                    match prev with
+                    | Some prev ->
+                        assert (check_assertion_two_nbrs prev v "4");
+                        let a, b = Tree.other_two_nbrs prev v in
+                        (Ptree.get_node_data a ptree,
+                         Ptree.get_node_data b ptree,
+                         Ptree.get_node_data prev ptree,
+                         Ptree.get_node_data code ptree)
+                    | None -> 
+                        (Ptree.get_node_data a ptree,
+                         Ptree.get_node_data b ptree,
+                         Ptree.get_node_data par ptree,
+                         Ptree.get_node_data code ptree)
+                in
+                (Tree.Continue, acc &&
+                        (AllDirNode.verify_branch_lengths a b c m))
+        in
+        info_user_message "Verifying Branch Lengths";
+        Ptree.pre_order_node_visit traversal x ptree true
+
+    (** [internal_downpass] Traverse every vertex in the tree and assign the
+     * downpass and uppass information using the lazy all direction nodes *)
+    let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
+        info_user_message "Internal Downpass%s" 
+            (match data with | None -> "" | Some _ -> " -- Using Given Data");
+
+        (* function to process tree->node->charactername to int->float hashtbl
+        * for all the node ids passed --(multiple node_id capability for uppass) *)
+
         let ptree = 
             (* A function to add  the vertices using a post order traversal 
             * from the Ptree library. *)
@@ -682,65 +995,62 @@ with type b = AllDirNode.OneDirF.n = struct
                 | Tree.Single _
                 | Tree.Leaf (_, _) -> 
                         assert (All_sets.IntegerMap.mem code ptree.Ptree.node_data);
-                        Tree.Continue, ptree
+                        ptree
                 | (Tree.Interior (_, par, a, b)) as v ->
-                        let a, b = 
-                            match prev with
-                            | Some prev -> 
-                                    assert (check_assertion_two_nbrs prev v "3");
-                                    Tree.other_two_nbrs prev v
-                            | None -> a, b
+                        let a,b = Tree.other_two_nbrs prev v in
+                        if debug_branch_fn then
+                            info_user_message 
+                                "Adding Vertex %d post Order: (%d,%d) and %d%!" 
+                                                code a b prev
+                        else ();
+
+                        let interior = match data with
+                            | Some data ->
+                                (match hashdoublefind data ptree.Ptree.tree [a;b] with
+                                 | Some x -> create_lazy_interior_down 
+                                                ~branches:x ptree (Some code) a b
+                                 | None ->
+                                    create_lazy_interior_down ptree (Some code) a b)
+                            | None ->
+                                create_lazy_interior_down ptree (Some code) a b
                         in
-                        let interior = 
-                            create_lazy_interior_down ptree (Some code) a b
-                        in
-                        Tree.Continue, Ptree.add_node_data code interior ptree
-            in
-            (* A function to add the vertices using a pre order traversal from
-            * the Ptree library *)
-            let add_vertex_pre_order prev code (ptree:phylogeny) =
-                current_snapshot "AllDirChar.internal_downpass.add_vertex_pre_order";
-                match Ptree.get_node code ptree with
-                | Tree.Single x 
-                | Tree.Leaf (x, _) -> Tree.Continue, ptree
-                | (Tree.Interior (_, par, a, b)) as v ->
-                        let a, b, prev =
-                            match prev with
-                            | Some prev ->
-                                    assert (check_assertion_two_nbrs prev v "4");
-                                    let a, b = Tree.other_two_nbrs prev v in
-                                    a, b, prev
-                            | None -> 
-                                    a, b, par
-                        in
-                        let interior = 
-                            create_lazy_interior_up ptree code a b prev in
-                        Tree.Continue, 
                         Ptree.add_node_data code interior ptree
             in
+            (* A function to add the vertices using a post order traversal from
+            * the Ptree library *)
             All_sets.Integers.fold 
-                (fun x (ptree:phylogeny) -> 
-                    let ptree = Ptree.post_order_node_visit 
-                                        add_vertex_post_order x ptree ptree
-                    in
-                    let ptree = Ptree.pre_order_node_visit
-                                      add_vertex_pre_order x ptree ptree
-                    in
-                    ptree
+                (fun x (ptree:phylogeny) ->
+                    try begin
+                        match (Ptree.get_component_root x ptree).Ptree.root_median with
+                        | Some ((`Edge (a,b)),c) ->
+                            Tree.post_order_node_with_edge_visit_simple
+                                add_vertex_post_order
+                                (Tree.Edge (a,b)) 
+                                ptree.Ptree.tree ptree
+                        | None | Some _ -> ptree
+                    end with | Not_found -> 
+                        begin match Ptree.get_node x ptree with
+                        | Tree.Leaf (a,b)
+                        | Tree.Interior (a,b,_,_) ->
+                            Tree.post_order_node_with_edge_visit_simple
+                                add_vertex_post_order
+                                (Tree.Edge (a,b)) 
+                                ptree.Ptree.tree ptree
+                        | Tree.Single _ -> ptree
+                    end
                 )
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
         if do_roots then
-            let ptree:phylogeny = refresh_all_edges false ptree in
-            let ptree:phylogeny = refresh_roots ptree in
-            ptree
+            ptree --> refresh_all_edges ?data false None true None --> refresh_roots
         else 
-            ptree -->
-                refresh_all_edges false
+            refresh_all_edges ?data false None true None ptree
 
-    let clear_internals = 
-        internal_downpass false
+    let clear_internals t = 
+        let tree = internal_downpass false t in
+        assert ( check_three_directions tree );
+        tree
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -757,6 +1067,7 @@ with type b = AllDirNode.OneDirF.n = struct
                 Ptree.set_component_cost c None comp handle ptree)
         else (cost, cbt)
 
+(*
     let blindly_trust_single ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
         let data = Ptree.get_edge_data e ptree in
@@ -769,7 +1080,7 @@ with type b = AllDirNode.OneDirF.n = struct
             let comp = Some ((`Edge (a, b)), data) in
             Ptree.set_component_cost c None comp handle ptree
         in
-        let tree = assign_single tree in
+        let tree = assign_single false tree in
         let c = Ptree.get_cost `Adjusted tree in
         if abs_float cost > abs_float c then c, lazy tree
         else (cost, cbt)
@@ -786,10 +1097,12 @@ with type b = AllDirNode.OneDirF.n = struct
             let comp = Some ((`Edge (a, b)), data) in
             Ptree.set_component_cost c None comp handle ptree
         in
-        let tree = tree --> assign_single --> adjust_tree None None in
+        let tree = tree --> assign_single false --> 
+                    adjust_tree None None --> refresh_all_edges false in
         let c = Ptree.get_cost `Adjusted tree in
         if abs_float cost > abs_float c then c, lazy tree
         else (cost, cbt)
+*)
 
     let general_pick_best_root selection_method ptree = 
         let edgesnhandles = 
@@ -822,43 +1135,52 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
 
-    let downpass ptree = 
+    let downpass ?data ptree = 
         current_snapshot "AllDirChar.downpass a";
-
         let res = 
             match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> internal_downpass true ptree
+            | `Normal -> internal_downpass ?data true ptree
             | `Iterative (`ApproxD iterations) ->
-                    ptree --> internal_downpass true -->
+                    ptree --> internal_downpass ?data true -->
                         pick_best_root -->
-                        assign_single --> 
-                        adjust_tree iterations None 
+                        assign_single false --> 
+                        adjust_tree iterations None -->
+                        refresh_all_edges true None true None
             | `Iterative (`ThreeD iterations) ->
                     ptree
-                    --> internal_downpass true
+                    --> internal_downpass ?data true
                     --> pick_best_root
-                    --> assign_single
+                    --> assign_single false
                     --> adjust_tree iterations None
-                    --> refresh_all_edges true
+                    --> refresh_all_edges true None true None
         in
+        let () =
+            Printf.printf "Verified Downpass: %b\n%!"
+               (All_sets.Integers.fold
+                    (fun x acc -> acc && (verify_downpass x res))
+                    (Ptree.get_handles res)
+                    true)
+        in
+        assert( check_three_directions res );
         current_snapshot "AllDirChar.downpass b";
         res
 
     let uppass ptree = 
-        match !Methods.cost with
-        | `Exhaustive_Strong
-        | `Exhaustive_Weak
-        | `Normal_plus_Vitamines
-        | `Normal -> 
-                let ptree = pick_best_root ptree in
-                let ptree = assign_single ptree in
-                ptree
-        | `Iterative (`ApproxD _)
-        | `Iterative (`ThreeD _) -> ptree
-
+        let tree = match !Methods.cost with
+            | `Exhaustive_Strong
+            | `Exhaustive_Weak
+            | `Normal_plus_Vitamines
+            | `Normal -> 
+                    ptree --> pick_best_root 
+                          --> assign_single true
+            | `Iterative (`ApproxD _)
+            | `Iterative (`ThreeD _) -> ptree
+        in
+        assert( check_three_directions tree );
+        tree
 
     let rec clear_subtree v p ptree = 
         if debug_clear_subtree then
@@ -866,43 +1188,37 @@ with type b = AllDirNode.OneDirF.n = struct
         else ();
         match Ptree.get_node v ptree with
         | Tree.Leaf _ | Tree.Single _ -> ptree
-        | Tree.Interior (_, a, b, c) ->
-                let uno, dos = 
-                    if a = p then b, c
-                    else if b = p then a, c
-                    else if c = p then a, b 
-                    else failwith "No parent"
-                in
-                  p --> create_lazy_interior_up ptree v uno dos
-                    --> (fun x -> Ptree.add_node_data v x ptree)
-                    --> clear_subtree uno v
-                    --> clear_subtree dos v
+        | (Tree.Interior (_, a, b, c)) as vn ->
+                let uno,dos = Tree.other_two_nbrs p vn in
+                p --> create_lazy_interior_up ptree v uno dos
+                  --> (fun x -> Ptree.add_node_data v x ptree)
+                  --> clear_subtree uno v
+                  --> clear_subtree dos v
 
-    (* Remove all the "uppass" data from the tree, starting in the edge (a, b),
-    * moving up *)
-    let clear_up_over_edge (a, b) ptree =
-        let fora, forb = 
-            (* A function that will recreate a fresh vertex in a given tree
-            * depending on it's role on it *)
-            let create_interior_down node other =
-                match Ptree.get_node node ptree with
-                | Tree.Interior (a, u, v, w) ->
-                        let unoa, dosa = 
-                            if other = u then v, w
-                            else if other = v then u, w
-                            else if other = w then u, v
-                            else failwith "AllDirChar.clear_up_over_edge"
-                        in
-                        create_lazy_interior_down ptree (Some a) unoa dosa
-                | _ ->
-                    Ptree.get_node_data node ptree
-            in
-            create_interior_down a b, create_interior_down b a
+    (* reset the data in the removed direction, by running essentially an uppass
+     * heuristic to fill in the other data starting at (a,b). edge data is a
+     * previous node data that can be used for edge data, and direction
+     * information, IT MUST HAVE (a,b) IN IT'S DIRECTIONS. *)
+    let clear_up_over_edge (a, b) edge_data_opt ptree =
+        assert( match edge_data_opt with
+                | None -> true
+                | Some x ->
+                    try let _ = AllDirNode.with_both a b x.AllDirNode.adjusted in true
+                    with | Not_found -> false );
+
+        (* lets move the root to this edge, that way a simple refresh all edges
+        * will take care of the missing node and update all the uppass data *)
+    match edge_data_opt with
+    | None -> ptree --> clear_subtree b a --> clear_subtree a b
+    | Some edge ->
+        let edge = (* use this as edge data for likelihood *)
+            let single = [AllDirNode.with_both a b edge.AllDirNode.adjusted] in
+            { AllDirNode.unadjusted = single; adjusted = single }
         in
-        ptree --> Ptree.add_node_data a fora
-            --> Ptree.add_node_data b forb 
-            --> clear_subtree b a
-            --> clear_subtree a b
+        refresh_all_edges true None false (Some (a,b)) ptree
+        (* ONLY LIFT DATA FOR LIKELIHOOD 
+            refresh_all_edges true (Some edge) false (Some (a,b)) ptree
+        *)
 
     let set_clade_root (ptree : phylogeny) ex_sister root handle = 
         match Ptree.get_node handle ptree with
@@ -925,7 +1241,6 @@ with type b = AllDirNode.OneDirF.n = struct
                 Ptree.set_component_cost cost None (Some (`Single handle, root)) 
                 handle ptree
 
-
     let clean_ex_neighbor a b ptree = 
         let data = Ptree.get_node_data a ptree in
         let notwith_un = AllDirNode.not_with b data.AllDirNode.unadjusted in
@@ -944,7 +1259,7 @@ with type b = AllDirNode.OneDirF.n = struct
         Ptree.component_root = All_sets.IntegerMap.add handle root
         ptree.Ptree.component_root }
 
-    (* break_fn has type handle * node -> tree -> tree * delta * aux_data *)
+    (* break_fn has type handle * int (node) -> tree -> tree * delta * aux_data *)
     let break_fn (tree_node, clade_node_id) (ptree : phylogeny) =
         let (Tree.Edge (tree_node, clade_node_id)) as edge = 
             Tree.normalize_edge (Tree.Edge (tree_node, clade_node_id)) 
@@ -956,12 +1271,13 @@ with type b = AllDirNode.OneDirF.n = struct
             let edge_res = get_edge_n_force tree_node clade_node_id ptree in
             Node.Standard.tree_cost None edge_res
         in
+
         (* Figure out the cost of the broken tree *)
-        let new_cost, clade_node = 
+        let new_cost = 
             let clade_node = Ptree.get_node_data clade_node_id ptree
             and tree_node_dir = 
                 ptree --> Ptree.get_node_data tree_node 
-                --> fun x -> x.AllDirNode.unadjusted
+                    --> fun x -> x.AllDirNode.unadjusted
                     --> AllDirNode.not_with clade_node_id 
                     --> force_node
             in
@@ -969,13 +1285,18 @@ with type b = AllDirNode.OneDirF.n = struct
                 clade_node --> fun x -> x.AllDirNode.unadjusted
                     --> AllDirNode.not_with tree_node 
                     --> force_node
-            in (* TODO:: verify with likelihood *)
-            clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost,
-            let res = [AllDirNode.not_with tree_node 
-            clade_node.AllDirNode.unadjusted]
             in
-            { AllDirNode.unadjusted = res; adjusted = res }
+
+            if debug_join_fn then begin
+                info_user_message "Previous Cost: %f" prev_cost;
+                info_user_message "New Costs around with %f and %f = %f"
+                    clade_node_dir.Node.total_cost tree_node_dir.Node.total_cost
+                    (clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost)
+            end else ();
+            
+            clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost
         in
+
         (* Break the topology and update the data *)
         let ptree, tree_delta, clade_handle, tree_handle =
             (* A function that takes one side of a tree delta and updates the
@@ -983,13 +1304,13 @@ with type b = AllDirNode.OneDirF.n = struct
             let update_break_delta delta ptree = 
                 match delta with
                 | `Edge (rem, l1, l2, _) ->
-                        assert ((tree_node = rem) || (clade_node_id = rem));
-                        ptree --> clean_ex_neighbor l1 rem
-                            --> clean_ex_neighbor l2 rem
-                            --> Ptree.remove_node_data rem
-                            --> clear_up_over_edge (l1, l2) 
-                | _ -> 
-                        ptree
+                    assert ((tree_node = rem) || (clade_node_id = rem));
+                    let old_data = Ptree.get_node_data rem ptree in
+                    ptree --> clean_ex_neighbor l1 rem
+                          --> clean_ex_neighbor l2 rem
+                          --> Ptree.remove_node_data rem
+                          --> clear_up_over_edge (l1, l2) (Some old_data)
+                | _ -> ptree
             in
             (* Perform the topology break *)
             let nbt, ((left_delta, right_delta) as tree_delta) = 
@@ -998,15 +1319,19 @@ with type b = AllDirNode.OneDirF.n = struct
             let tree_handle, clade_handle = 
                 Tree.get_break_handles tree_delta nbt 
             in
+
             (* Update the actual contents of the tree *)
-            let ptree = 
+            let ptree =
                 ptree --> Ptree.remove_root_of_component tree_handle
                     --> Ptree.remove_root_of_component clade_handle
                     --> Ptree.remove_edge_data edge
                     --> replace_topology nbt
+                    --> (fun x -> assert( check_three_directions x); x)
                     --> update_break_delta left_delta
+                    --> (fun x -> assert( check_three_directions x); x)
                     --> update_break_delta right_delta
-                    --> refresh_all_edges false
+                    --> (fun x -> assert( check_three_directions x); x)
+                    --> refresh_all_edges true None true None
                     --> refresh_roots
             in
             ptree, tree_delta, clade_handle, tree_handle
@@ -1027,6 +1352,10 @@ with type b = AllDirNode.OneDirF.n = struct
                 in
                 (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -. tc
         in
+
+        if debug_join_fn then
+            info_user_message "Break Delta: %f" b_delta;
+
         let left, right =
             let extract_side x side =
                 let component_root x =
@@ -1079,20 +1408,63 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         Some (beg --> add_one a b --> add_one b a)
 
+    let reroot_fn force edge ptree =
+        let Tree.Edge (h, n) = edge in
+        let my_handle = Ptree.handle_of h ptree in
+        let root = Ptree.get_component_root my_handle ptree in
+        let ptree, _ = 
+            ptree 
+            --> Ptree.remove_root_of_component my_handle 
+            --> Ptree.move_handle h 
+        in
+        let ptree = Ptree.fix_handle_neighbor h n ptree in
+        let tree,inc = match !Methods.cost with
+            | `Exhaustive_Strong
+            | `Exhaustive_Weak
+            | `Normal_plus_Vitamines
+            | `Iterative `ApproxD _
+            | `Normal -> 
+                    let root = 
+                        let new_roots = create_root h n ptree in
+                        if force || 
+                            (abs_float new_roots.Ptree.component_cost) < 
+                            (abs_float root.Ptree.component_cost) then
+                            new_roots
+                        else root
+                    in
+                    add_component_root ptree h root, []
+            | `Iterative `ThreeD _ -> 
+                    add_component_root ptree h root, []
+        in
+        assert (check_three_directions tree);
+        tree,inc
+
     let break_fn ((s1, s2) as a) b =
-        match !Methods.cost with
-        | `Iterative (`ApproxD _) -> break_fn a b
+        assert( check_three_directions b );
+        let res = match !Methods.cost with
+        | `Iterative (`ApproxD _)
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines
-        | `Normal -> break_fn a b
+        | `Normal ->
+                let breakage = break_fn a b in
+                let nt = refresh_all_edges true None true None
+                                           (breakage.Ptree.ptree) in
+                { breakage with 
+                    Ptree.ptree = nt; }
         | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
-                let nt = uppass breakage.Ptree.ptree in
-                { breakage with Ptree.ptree = nt; incremental = []; 
-                break_delta = (Ptree.get_cost `Adjusted b) -. 
-                    (Ptree.get_cost `Adjusted nt) }
-
+                let nt = refresh_all_edges true None true None
+                                           (breakage.Ptree.ptree) in
+                { breakage with 
+                    Ptree.ptree = nt;
+                    incremental = []; 
+                    break_delta = (Ptree.get_cost `Adjusted b) -. 
+                                  (Ptree.get_cost `Adjusted nt);
+                }
+        in
+        assert( check_three_directions res.Ptree.ptree );
+        res
 
     (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree
     * *)
@@ -1108,15 +1480,42 @@ with type b = AllDirNode.OneDirF.n = struct
                     | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y)
                 )
         else ();
-        let ret, tree_delta = Tree.join jxn1 jxn2 ptree.Ptree.tree in
-        let v, h, ptree =
-            match tree_delta with
+
+        let lift_data edge_l edge_r i_code ptree = 
+            
+            let node = AllDirNode.AllDirF.median (Some i_code) None
+                            (Ptree.get_node_data edge_l ptree)
+                            (Ptree.get_node_data edge_r ptree) in
+            Ptree.add_node_data i_code node ptree
+            (* ONLY FOR LIKELIHOOD 
+            try
+                let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
+                let node = 
+                    [{
+                        AllDirNode.dir = Some (edge_l,edge_r);
+                        code = i_code;
+                        lazy_node = lr;
+                    }] in
+                let node = 
+                    {AllDirNode.adjusted = node; AllDirNode.unadjusted = node}
+                in
+                Ptree.add_node_data i_code node ptree
+            with | Not_found -> failwithf "Cannot lift %d -- %d to %d"
+                                                    edge_l edge_r i_code
+            *)
+        in
+
+        let ret, ((td1,td2,rrd) as tree_delta) = Tree.join jxn1 jxn2 ptree.Ptree.tree in
+
+
+        let v, h, ptree = match tree_delta with
             | (`Edge (v, a, b, _)), (`Single (h, true)), _ ->
                     let ptree = 
                         ptree --> Ptree.remove_node_data v 
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
                             --> Ptree.remove_root_of_component h
+                            --> lift_data a b v
                     in
                     v, h, ptree
             | (`Single (v, _)), (`Single (h, true)), _ ->
@@ -1130,6 +1529,8 @@ with type b = AllDirNode.OneDirF.n = struct
                             --> clean_ex_neighbor d c
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
+                            --> lift_data a b r
+                            --> lift_data c d v
                     in
                     r, v, ptree
             | (`Single (v, _)), (`Edge (r, a, b, Some h)), _ ->
@@ -1138,6 +1539,7 @@ with type b = AllDirNode.OneDirF.n = struct
                             --> Ptree.remove_node_data r 
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
+                            --> lift_data a b r
                     in
                     r, h, ptree
             | _ -> failwith "Unexpected Chartree.join_fn"
@@ -1150,8 +1552,8 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         let ptree = 
             ptree --> Ptree.remove_root_of_component handle 
-                --> clear_up_over_edge (v, h) 
-                --> refresh_all_edges false
+                (* taken care of by uppass --> clear_up_over_edge (v, h) None *)
+                --> refresh_all_edges false None true (Some (v,h))
         in
         let ptree = 
             add_component_root ptree handle (create_root handle parent ptree)
@@ -1164,26 +1566,23 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let join_fn a b c d =
         let ptree, tdel = match !Methods.cost with
-        | `Normal -> join_fn a b c d 
-        | `Iterative (`ThreeD iterations)
-        | `Iterative (`ApproxD iterations) ->
-            let tree, ((s1, s2, _) as delta) = join_fn a b c d in
-            let other_neighbors = get_other_neighbors ((get_one s1), (get_one
-            s2)) tree None in
-            let tree = (adjust_tree iterations other_neighbors
-            (assign_single (pick_best_root tree))) in
-            (*
-            Printf.printf "The resulting tree has cost %f\n%!"
-            (Ptree.get_cost `Adjusted tree);
-            *)
-            tree, delta
-        | `Normal_plus_Vitamines ->
-            let tree, delta = join_fn a b c d in
-            assign_single tree, delta
-        | `Exhaustive_Weak | `Exhaustive_Strong ->
-            let tree, delta = join_fn a b c d in
-            uppass tree, delta 
-        in 
+            | `Normal -> join_fn a b c d 
+            | `Iterative (`ThreeD iterations)
+            | `Iterative (`ApproxD iterations) ->
+                let tree, ((s1, s2, _) as delta) = join_fn a b c d in
+                let other_neighbors = get_other_neighbors ((get_one s1),
+                                      (get_one s2)) tree None in
+                let tree = adjust_tree iterations other_neighbors 
+                           (assign_single false (pick_best_root tree)) in
+                refresh_all_edges true None true None tree, delta
+            | `Normal_plus_Vitamines ->
+                let tree, delta = join_fn a b c d in
+                assign_single false tree, delta
+            | `Exhaustive_Weak | `Exhaustive_Strong ->
+                let tree, delta = join_fn a b c d in
+                uppass tree, delta 
+        in
+        assert( check_three_directions ptree );
         ptree,tdel
 
     type tmp = Edge of (int * int) | Clade of a 
@@ -1230,47 +1629,21 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let cost_fn a b c d e =
         match !Methods.cost with
-        | `Iterative (`ApproxD _) -> 
-                (match cost_fn a b c d e with 
-                | Ptree.Cost x -> Ptree.Cost (0.85 *. x)
-                | x -> x)
-        | `Iterative `ThreeD _
-        | `Exhaustive_Weak
-        | `Normal_plus_Vitamines
-        | `Normal -> cost_fn a b c d e 
-        | `Exhaustive_Strong ->
-                let pc = Ptree.get_cost `Adjusted e in
-                let (nt, _) = join_fn [] a b e in
-                Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
+            | `Iterative (`ApproxD _) -> 
+                    (match cost_fn a b c d e with 
+                    | Ptree.Cost x -> Ptree.Cost (0.85 *. x)
+                    | x -> x)
+            | `Iterative `ThreeD _
+            | `Exhaustive_Weak
+            | `Normal_plus_Vitamines
+            | `Normal -> cost_fn a b c d e 
+            | `Exhaustive_Strong ->
+                    let pc = Ptree.get_cost `Adjusted e in
+                    let (nt, _) = join_fn [] a b e in
+                    assert( check_three_directions nt );
+                    Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
 
-    let reroot_fn force edge ptree =
-        let Tree.Edge (h, n) = edge in
-        let my_handle = Ptree.handle_of h ptree in
-        let root = Ptree.get_component_root my_handle ptree in
-        let ptree, _ = 
-            ptree 
-            --> Ptree.remove_root_of_component my_handle 
-            --> Ptree.move_handle h 
-        in
-        let ptree = Ptree.fix_handle_neighbor h n ptree in
-        match !Methods.cost with
-        | `Exhaustive_Strong
-        | `Exhaustive_Weak
-        | `Normal_plus_Vitamines
-        | `Iterative `ApproxD _
-        | `Normal -> 
-                let root = 
-                    let new_roots = create_root h n ptree in
-                    if force || 
-                        (abs_float new_roots.Ptree.component_cost) < 
-                        (abs_float root.Ptree.component_cost) then
-                        new_roots
-                    else root
-                in
-                add_component_root ptree h root, []
-        | `Iterative `ThreeD _ -> 
-                add_component_root ptree h root, []
-
+ 
     let root_costs tree = 
         let collect_edge_data edge node acc =
             let cost = AllDirNode.OneDirF.root_cost node in
@@ -1284,7 +1657,6 @@ with type b = AllDirNode.OneDirF.n = struct
         Chartree.features meth (("all directions", "true") :: lst)
 
     let incremental_uppass tree _ = tree
-
 
     let assign_final_states ptree =
         let assign_final_states_handle handle ptree =

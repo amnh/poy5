@@ -47,8 +47,19 @@ let sort_tree tree =
                 in
                 Parser.Tree.Node (chld, data), max_depth, total_children
     in
-    let tree, _, _ = aux_sort_tree tree in
-    tree
+    match tree with
+    | Parser.Tree.Annotated (tree,str) -> 
+        let tree, _, _ = aux_sort_tree tree in
+        Parser.Tree.Annotated (tree,str)
+    | Parser.Tree.Flat tree ->
+        let tree, _, _ = aux_sort_tree tree in
+        Parser.Tree.Flat tree
+    | Parser.Tree.Branches tree ->
+        let tree, _, _ = aux_sort_tree tree in
+        Parser.Tree.Branches tree
+    | Parser.Tree.Characters tree ->
+        let tree, _ ,_ = aux_sort_tree tree in
+        Parser.Tree.Characters tree
 
 (** [draw b a] outputs a (crappy) ascii tree [a] in the channel [b]. [sep]
 * establishes the number of lines separating each leaf and [bd] the number of
@@ -57,18 +68,21 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
     (* Calculate the depth, number of leafs and the lenght of the longest string
     * of the leaves. *)
     let t = sort_tree t in
-    let rec depth_and_leafs t = 
-        match t with
-        | Parser.Tree.Leaf str -> 
+    let depth_and_leafs t = 
+        let rec depth_and_leafs t = 
+            match t with
+            | Parser.Tree.Leaf str -> 
                 let str = StatusCommon.escape str in
                 1, 1, String.length str
-        | Parser.Tree.Node (c, _) -> 
+            | Parser.Tree.Node (c, _) -> 
                 let res = List.map depth_and_leafs c in
                 let for_fold = fun (u, v, w) (x, y, z) ->
                     max u x, v + y, max w z
                 in
                 let depth, leafs, str = List.fold_left for_fold (0, 0, 0) res in
                 depth + 1, leafs, str
+        in
+        depth_and_leafs (Parser.Tree.strip_tree t)
     in
     (* Creates a matrix of characters with the necessary size to draw the tree
     * *)
@@ -133,10 +147,10 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
         in
         (* Recursively process the tree [t], starting in the [x], [y] coordinate
         * as it's top left corner in [matrix]. *)
-        let rec filler t x y =
+        let rec filler fn t x y =
             match t with
             | Parser.Tree.Leaf str ->
-                    let str = StatusCommon.escape str in
+                    let str = StatusCommon.escape (fn str) in
                     let width = Array.length (matrix.(0)) in
                     fill_string str (width - (strlen + 3)) y;
                     fill_horizontal x (width - (strlen + 3)) y;
@@ -144,7 +158,7 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
             | Parser.Tree.Node (chld, str) ->
                     let process_children = 
                         fun (m, y, _) t -> 
-                            let n, max, median = filler t (x + bd) y in
+                            let n, max, median = filler fn t (x + bd) y in
                             (min m n), max + sep, median
                     in
                     let min, max, last_median = 
@@ -152,6 +166,7 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
                     in
                     let max = max - sep in
                     let median = (min + max) / 2 in
+                    let str = StatusCommon.escape (fn str) in
                     if str <> "forest" then begin
                         if include_interior then fill_string str (x + 1) (median + 1);
                         fill_horizontal x (x + bd) median;
@@ -159,8 +174,27 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
                     end else ();
                     median, max, median
         in
-        let _ = filler t 0 0 in
-        ()
+        match t with
+        | Parser.Tree.Annotated (t,_) | Parser.Tree.Flat t -> 
+                let _ = filler (fun x -> x) t 0 0 in ()
+        | Parser.Tree.Branches t ->
+                let _ = filler 
+                            (fun (x,t) ->
+                                match t with
+                                | Some t ->
+                                    Printf.ksprintf (fun x -> x) "%s:%f" x t
+                                | None -> x
+                            ) t 0 0 in
+                ()
+        | Parser.Tree.Characters t ->
+                let _ = filler 
+                            (fun (x,t) ->
+                                match t with
+                                | Some t ->
+                                    Printf.ksprintf (fun x -> x) "%s:%s" x t
+                                | None -> x
+                            ) t 0 0 in
+                ()
     in
     let depth, leafs, strlen = depth_and_leafs t in
     let matrix, height, width = create_matrix depth leafs strlen in
@@ -207,25 +241,69 @@ let to_string ?(sep = 4) ?(bd = 4) include_interior t =
     Buffer.contents buffer
 
 (** Outputs the tree [t] in channel [ch] using parenthetical notation. *)
-let draw_parenthesis do_sort my_printer t = 
+let draw_parenthesis do_sort my_printer (t:Parser.Tree.tree_types) = 
     let t = if do_sort then sort_tree t else t in
-    let rec printer t = 
+    let d_str format = Printf.ksprintf (fun x-> x) format in
+    let rec printer fl fn t = 
         match t with
         | Parser.Tree.Leaf str ->
-                my_printer str;
+                my_printer (fl str);
                 my_printer " ";
         | Parser.Tree.Node (chld, str) ->
                 my_printer "( ";
-                List.iter (printer) chld;
+                List.iter (printer fl fn) chld;
                 my_printer ") ";
-                if str <> "" then begin
-                    my_printer "[";
-                    my_printer str;
-                    my_printer "] ";
-                end;
-
+                my_printer (fn str);
     in
-    printer t
+    match t with
+    | Parser.Tree.Flat t -> 
+            printer 
+                (fun x -> x)
+                (fun (x) -> 
+                    if x <> "" then d_str "[%s]" x else "")
+            t
+    | Parser.Tree.Annotated (t,str) ->
+            printer 
+                (fun x -> x)
+                (fun (x) -> 
+                    if x <> "" then d_str "[%s]" x else "")
+            t;
+            if str <> "" then begin
+                my_printer "[";
+                my_printer str;
+                my_printer "]";
+            end;
+    | Parser.Tree.Branches t ->
+            printer 
+                (fun (x,y) ->
+                    match y with
+                    | Some y -> d_str "%s:%f" x y
+                    | None -> x
+                )
+                (fun (x,y) ->
+                    match x,y with
+                    | "",Some t -> d_str ":%f" t
+                    | "",None -> ""
+                    | s ,Some t -> d_str "[%s]:%f" s t
+                    | s ,None -> d_str "[%s]" s
+                )
+                t
+    | Parser.Tree.Characters t ->
+            printer 
+                (fun (x,y) ->
+                    match y with
+                    | Some y -> d_str "%s[%s]" x y
+                    | None -> x
+                )
+                (fun (x,y) ->
+                    match x,y with
+                    | "",Some t -> d_str "[%s]" t
+                    | "",None -> ""
+                    | s ,Some t -> d_str "[%s][%s]" s t
+                    | s ,None -> d_str "[%s]" s
+                )
+                t
+
 
 let for_formatter ?(separator = " ") split_lines newick leafsonly t =
     let t = sort_tree t in
@@ -235,23 +313,48 @@ let for_formatter ?(separator = " ") split_lines newick leafsonly t =
         | false -> separator
     in 
     let splitter = if split_lines then "@," else "" in
-    let rec generator () =
+    let rec generator fnl fni =
         let sep = ref "" in
         fun acc t ->
             match t with
             | Parser.Tree.Leaf str ->
-                    let str  = StatusCommon.escape str in
+                    let str  = StatusCommon.escape (fnl str) in
                     let res = acc ^ !sep ^ str in
                     sep := splitter ^ separator;
                     res
             | Parser.Tree.Node (chld, str) ->
-                    let str = StatusCommon.escape str in
                     let acc = acc ^ !sep ^ "(" in
-
-                    let acc = List.fold_left (generator ()) acc chld in
+                    let acc = List.fold_left (generator fnl fni) acc chld in
                     let acc = acc ^ ")" in
                     sep := splitter ^ separator;
-                    if str = "" || leafsonly then acc ^ splitter
-                    else acc ^ "[" ^ str ^ "]" ^ splitter
-    in
-    generator () "" t
+                    acc ^ (fni str) ^ splitter
+    in match t with
+    | Parser.Tree.Annotated (t,str) -> 
+            let stuff = (generator 
+                    (fun x -> x) 
+                    (fun x -> if x = "" || leafsonly then "" else "[" ^ x ^ "]"))
+                     "" t in
+            Printf.ksprintf (fun x -> x) "%s[%s]" stuff str
+    | Parser.Tree.Flat t ->
+            (generator 
+                    (fun x -> x) 
+                    (fun x -> if x = "" || leafsonly then "" else "[" ^ x ^ "]"))
+                    "" t
+    | Parser.Tree.Branches t ->
+            (generator (fun (x,y) -> match y with
+                        | Some y -> Printf.ksprintf (fun x->x) "%s:%f" x y
+                        | None   -> x)
+                      (fun (x,y) -> if x = "" || leafsonly then ""
+                                  else match y with
+                                    | Some y -> Printf.ksprintf (fun x->x) "[%s]:%f" x y
+                                    | None -> "[" ^ x ^ "]" ))
+                      "" t
+    | Parser.Tree.Characters t ->
+            (generator (fun (x,y) -> match y with
+                        | Some y -> Printf.ksprintf (fun x->x) "[%s][%s]" x y
+                        | None   -> x)
+                      (fun (x,y) -> if x = "" || leafsonly then ""
+                                  else match y with
+                                    | Some y -> Printf.ksprintf (fun x->x) "[%s][%s]" x y
+                                    | None -> "[" ^ x ^ "]" ))
+                      "" t

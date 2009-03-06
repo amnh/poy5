@@ -129,7 +129,7 @@ let post_order prioritize to_name mst =
     in
     let item = get_random_vertex mst in
     let _, tree = aux_dfs All_sets.Integers.empty item in 
-    collapser tree
+    Parser.Tree.Flat (collapser tree)
 
 let simplified_order to_name mst = 
     let rec aux_dfs visited vertex = 
@@ -153,7 +153,7 @@ let simplified_order to_name mst =
         | _ -> item
     in
     let _, tree = aux_dfs All_sets.Integers.empty start in
-    tree
+    Parser.Tree.Flat tree
 
 let bfs_traversal prioritize mst =
     let queue = Queue.create () in
@@ -189,6 +189,7 @@ let dfs_traversal prioritize mst =
     List.rev res
 
 let print_mst_tree tost mst filename =
+    (* TODO:: branch lengths??? *)
     let t = simplified_order tost mst 
     and sep = 4
     and bd = 16 in

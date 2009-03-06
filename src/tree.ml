@@ -167,11 +167,13 @@ let print_join_2_jxn jxn =
 
 
 type u_tree = {
+    tree_name : string option;
     u_topo  : node All_sets.IntegerMap.t;
     d_edges : EdgeSet.t;
     handles : All_sets.Integers.t;
     avail_ids : id list;
     new_ids : id;
+    names : (int,string) Hashtbl.t; (* names of subtrees/nodes *)
 }
 
 let replace_codes f tree =
@@ -234,13 +236,16 @@ let get_id node =
 (*****************************************************************************)
 
 (** The empty unrooted tree. *)
+let tree_num = ref 0
 let empty () = 
     {
+        tree_name = None;
         u_topo = All_sets.IntegerMap.empty;
         d_edges = EdgeSet.empty;
         handles = All_sets.Integers.empty;
         avail_ids = [];
         new_ids = 0;
+        names = Hashtbl.create 5;
     }
 
 (** [is_handle id tree]
@@ -721,6 +726,8 @@ let test_tree tree =
 let (-->) a b = b a
 
 let add_tree_to d add_to tree =
+    (* below, fill in tree names for consistent tree *)
+    let tree = Parser.Tree.maximize_tree tree in
     let avail_codes = ref add_to.avail_ids in
     let cg = 
         fun () -> 
@@ -731,7 +738,7 @@ let add_tree_to d add_to tree =
             | [] -> assert false
     in
     let rec assign_codes parent data = function
-        | Parser.Tree.Leaf name ->
+        | Parser.Tree.Leaf (name,nname) ->
                 let tc = 
                     try Data.taxon_code name d with
                     | Not_found as err ->
@@ -740,9 +747,15 @@ let add_tree_to d add_to tree =
                             StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
                             raise err
                 in
+                let () = match nname with
+                    | Some x ->
+                            let x = String.uppercase x in
+                            Hashtbl.replace add_to.names tc x
+                    | None -> ()
+                in
                 Parser.Tree.Leaf (Leaf (tc, parent)), tc
-        | Parser.Tree.Node (child_nodes, txt) ->
-                let rec resolve_more_children = function
+        | Parser.Tree.Node (child_nodes, (txt,nname)) ->
+                let rec resolve_more_children (chil:(string * string option) Parser.Tree.t list) = match chil with
                     | [a; b] as x -> x
                     | [taxon] ->
                             Status.user_message Status.Error
@@ -761,10 +774,15 @@ let add_tree_to d add_to tree =
                             "am@ cancelling@ this@ read@ command");
                             failwith "Illegal Tree file format"
                     | a :: b :: t ->
-                            resolve_more_children ((Parser.Tree.Node ([a; b],
-                            txt)) :: t)
+                            resolve_more_children ((Parser.Tree.Node ([a; b], (txt,nname))) :: t)
                 in
                 let sc = cg () in
+                let () = match nname with
+                    | Some x -> 
+                        let x = String.uppercase x in
+                        Hashtbl.replace add_to.names sc x
+                    | None -> ()
+                in
                 let child_nodes = resolve_more_children child_nodes in
                 match child_nodes with
                 | [a; b] ->
@@ -823,19 +841,27 @@ let add_tree_to d add_to tree =
                     add_edge ca cb
             in
             let handles = All_sets.Integers.add ca add_to.handles in
-            { u_topo = vertices; d_edges = edges; handles = handles;
-            avail_ids = !avail_codes; new_ids = cg () }
+            { add_to with
+                u_topo = vertices;
+                d_edges = edges;
+                handles = handles;
+                avail_ids = !avail_codes;
+                new_ids = cg ();
+            }
     | Parser.Tree.Leaf (Leaf (tc, _)), _ -> 
             let vertices = 
                 All_sets.IntegerMap.add tc (Single tc)
                 add_to.u_topo 
             in
             let handles = All_sets.Integers.add tc add_to.handles in
-            { add_to with avail_ids = !avail_codes; u_topo = vertices; handles = handles }
+            { add_to with 
+                    avail_ids = !avail_codes;
+                    u_topo = vertices;
+                    handles = handles
+            }
     | _ ->failwith "We need trees with more than two taxa"
 
-
-let convert_to trees data = 
+let convert_to ((name,trees): string option * Parser.Tree.tree_types list) (data:Data.d) : u_tree = 
     let add_available total tree =
         let rec aux max av =
             if max = total then av
@@ -843,10 +869,11 @@ let convert_to trees data =
         in
         { tree with avail_ids = aux (2 * total) [] }
     in
-    let rec verify_leaves acc = function
-        | Parser.Tree.Node (cld, _) ->
-                List.fold_left verify_leaves acc cld
-        | Parser.Tree.Leaf name -> 
+    let verify_leaves acc t =
+        let rec verify_leaves f acc = function
+            | Parser.Tree.Node (cld, _) ->
+                List.fold_left (verify_leaves f) acc cld
+            | Parser.Tree.Leaf name -> let name = f name in
                 try 
                     let code = Data.taxon_code name data in
                     (Hashtbl.mem data.Data.taxon_characters code) && acc
@@ -856,11 +883,20 @@ let convert_to trees data =
                         ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
                         ^ "loaded. Please@ verify@ your@ input@ files.");
                         false
+        in match t with
+            | Parser.Tree.Flat t
+            | Parser.Tree.Annotated (t,_) ->
+                    (verify_leaves (fun x -> x) true t) & acc
+            | Parser.Tree.Characters t ->
+                    (verify_leaves (fst) true t) & acc
+            | Parser.Tree.Branches t ->
+                    (verify_leaves (fst) true t) & acc
     in
     if not (List.fold_left verify_leaves true trees) then
         failwith "Illegal input tree"
     else
-        let tree = add_available data.Data.number_of_taxa (empty ()) in
+        let utree = { (empty ()) with tree_name = name } in
+        let tree = add_available data.Data.number_of_taxa utree in
         List.fold_left (add_tree_to data) tree trees
 
 (** [make_disjoint_tree n]
@@ -1535,6 +1571,26 @@ let post_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
         | Single _ -> acc
     in
     acc --> processor b a --> processor a b
+
+(** [pre_order_node_with_edge_visit_simple f e t a] is a simplified visitor
+* function [f], which is applied on every (non single) vertex, starting in 
+* the (hypothetical) root located between the two vertices of edge [e], over
+* tree [t] with accumulator [a]. *)
+let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
+    let rec processor prev curr acc =
+        match get_node curr bt with
+        | Leaf (nd, nbr) ->
+                f prev curr acc
+        | Interior (nd, nbr1, nbr2, nbr3) as node ->
+                let a, b = other_two_nbrs prev node in
+                acc 
+                    --> f prev curr
+                    --> processor curr a 
+                    --> processor curr b 
+        | Single _ -> acc
+    in
+    acc --> processor b a --> processor a b
+
 
 (** [post_order_node_visit f id bt ad acc]
 @param f function to applied to all the nodes in post-order.

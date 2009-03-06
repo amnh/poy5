@@ -45,7 +45,8 @@ module type S = sig
     (** [median par code prev a b] calculates a median between the nodes [a] and [b].
     * [prev] holds the previously calculated value of that median (could be used
     * for heuristic or speedup purposes). *)
-    val median : int option -> n option -> n -> n -> n
+    val median : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t ->
+                        int option -> n option -> n -> n -> n
 
     (** [final_states granpa par cur a b] creates new node with [cur], parent
     * [par], children [a] and [b]. and parent of parent [grandpa]. This only
@@ -59,7 +60,12 @@ module type S = sig
      * data from [cur] to [a] and [b] as it's children, and recieving the data
      * from [par] as it's parent. This data, in likelihood, are the `times` or
      * branch lengths *)
-    val uppass_heuristic : int option -> n -> n -> n -> n -> n
+    val uppass_heuristic : int -> n -> n -> n -> n -> n
+    (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
+    val apply_time : bool -> n -> n -> n
+
+    (** [estimate_time left right] estimates the time between left and right **)
+    val estimate_time : n -> n -> float option list
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)
@@ -142,6 +148,11 @@ module type S = sig
     (** [edge_distance m n] calculates the maximum distance between the vertices
     * [m] and [n]. *)
     val edge_distance : n -> n -> float
+
+    val distance_of_type :   
+              [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
+                | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
+                        float -> int -> n -> n -> n -> float
 
     (** [support_chars starting code n] returns the cost of the support 
     * characters. See the usage of the function in the Support module *)
@@ -294,6 +305,11 @@ module type S = sig
      * modified, and in AllDirF the two children are also updated.
      *)
     val edge_iterator : n option -> n -> n -> n -> n
+
+
+    (** [dump_node printer node parent] prints the node data for the current node to
+     * printer *)
+    val dump_node : (string -> unit) -> n -> n -> unit
 
     (** [readjust dir mode to_adjust ch1 ch2 par mine] -> mine * to_adjust
      *

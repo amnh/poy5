@@ -20,9 +20,11 @@
 let () = SadmanOutput.register "Parser" "$Revision: 2871 $"
 
 (* A in-file position specification for error messages. *)
-let ndebug = true
+let ndebug = false
 let debug_cterm = true
 let odebug = Status.user_message Status.Information
+
+let failwithf format = Printf.ksprintf failwith format
 
 (* This module provides smarter reading functionality *)
 module R = FileStream.Pervasives
@@ -57,15 +59,15 @@ type t =
 (** [is_unknown t] tells observers whether this present character was listed as
     unknown by the user *)
 let is_unknown t = match t with
-| Nucleic_Acids
-| Proteins
-| Prealigned_Alphabet _
-| Genes _
-| AlphSeq _
-| Inactive_Character -> false
-| Unordered_Character (_, bool)
-| Sankoff_Character (_, bool)
-| Ordered_Character (_, _, bool) -> bool
+    | Nucleic_Acids
+    | Proteins
+    | Prealigned_Alphabet _
+    | Genes _
+    | AlphSeq _
+    | Inactive_Character -> false
+    | Unordered_Character (_, bool)
+    | Sankoff_Character (_, bool)
+    | Ordered_Character (_, _, bool) -> bool
 
 type ft = 
     | Is_Hennig 
@@ -765,29 +767,78 @@ module Phylip = struct
     
 end
 
+(* Parser for trees in (a (b c)) format *)
 module Tree = struct
-    (* Parser for trees in (a (b c)) format *)
 
-    type 'a t = Leaf of 'a | Node of 'a t list * 'a
     (* A simple representation of a tree *)
+    type 'a t = Leaf of 'a | Node of 'a t list * 'a
+
+    (* types of trees that can be returned *)
+    type tree_types =
+        | Flat of string t
+        | Annotated of (string t * string)
+        | Branches of ((string * float option) t)
+        | Characters of ((string * string option) t)
+
+    let print_tree t = 
+        let rec n_spaces n = if n = 0 then "" else (n_spaces (n-1))^"\t" in
+        let rec print_nodes printer depth = function
+            | Leaf dat -> Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat)
+            | Node (lst,dat) -> 
+                    Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat);
+                    List.iter (print_nodes printer (depth+1)) lst
+        and ident = fun x -> x
+        and get_some f = function | Some x -> f x | None -> "None" in
+        match t with
+            | Flat t -> print_nodes ident 0 t
+            | Annotated (t,a) -> print_nodes ident 0 (Node ([t],a))
+            | Branches t -> print_nodes (fun (x,l) -> x^"["^(get_some (string_of_float) l)^"]") 0 t
+            | Characters t -> print_nodes (fun (x,y) -> x^"["^(get_some (ident) y)^"]") 0 t
 
     exception Trailing_characters
 
+    (* map on tree w/out annotations *)
     let rec map fn = function
-        | Leaf d -> Leaf (fn d)
-        | Node (list, d) ->
+        | (Leaf d) -> Leaf (fn d)
+        | Node (list,d) ->
               Node (List.map (map fn) list, fn d)
-    
-    let rem_bl t = List.rev_map (List.rev_map (map fst)) t
+    (* map on tree w/ annotations *)
+    let rec map_annot fn t = match t with
+        | (Leaf d),str -> Leaf (fn d),str
+        | Node (list,d),str -> (Node (List.map (map fn) list, fn d)),str
+    (* map on post_processed tree *)
+    let map_tree fn = function
+        | Annotated t -> Annotated (map_annot fn t)
+        | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
+        | Flat t -> Flat (map fn t)
+        | Characters t -> Characters (map (fun (x,d) -> (fn x,d)) t)
+
+    (* fold_left on tree data *)
+    let fold_left_data fn a t =
+        let rec fold_left_data2 fn a t = match t with
+            | Leaf d -> fn a d
+            | Node (list,d) ->
+                fn (List.fold_left (fold_left_data2 fn) a list) d
+        in
+        match t with
+        | (Leaf d),str -> (fn a d)
+        | ((Node (list, d)),str) ->
+            fn (List.fold_left (fold_left_data2 fn) a list) d
+    (* fold_left on tree annotations *)
+    let fold_left_annot fn a t = match t with
+        | (Leaf d),str -> fn a str
+        | (Node (list, d)),str -> fn a str
 
     let gen_aux_of_stream_gen do_stream stream =
         let taxon_name x = not (FileStream.is_taxon_delimiter x) in
         let close_squared_parenthesis = [ ']' ] in
+        (*
         let ignore_cost_bracket () =
             ignore (stream#read_excl close_squared_parenthesis);
             ignore (stream#getch);
             ()
         in
+        *)
         let get_cost_bracket () =
             let res = stream#read_excl close_squared_parenthesis in
             ignore (stream#getch);
@@ -796,7 +847,7 @@ module Tree = struct
         let read_taxon_name () = 
             stream#read_while taxon_name
         in
-    
+   
         let rec read_branch_length acc : float option=
             match stream#getch with
             | v when not (taxon_name v) -> 
@@ -812,29 +863,34 @@ module Tree = struct
             |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
         in
 
-        let rec read_branch acc : (string * float option) t =
+        let rec read_branch acc : (string * (float option * string option)) t =
             stream#skip_ws_nl;
             match stream#getch with
             | '(' -> 
                     let res = read_branch [] in
                     read_branch (res :: acc)
             | ')' -> 
-                    Node (acc, ("",None))
+                    Node (acc, ("",(None,None)))
             | '[' -> 
-                    ignore_cost_bracket ();
+                    let bracket = Some (get_cost_bracket ()) in
+                    let acc = (match acc with
+                     | Leaf (t,(branch,_)) ::tl      -> Leaf ((t,(branch,bracket))) :: tl
+                     | Node (a, (t,(branch,_))) ::tl -> Node ((a, (t,(branch,bracket)))) :: tl
+                     | _ -> raise (Illegal_tree_format "Unexpected Character")
+                    ) in
                     read_branch acc
             | ':' ->
-                    let dist = read_branch_length [] in
+                    let branch = read_branch_length [] in
                     let acc = (match acc with
-                     | Leaf (t,_) ::tl      -> Leaf ((t,dist)) :: tl
-                     | Node (a, (t,_)) ::tl -> Node ((a, (t,dist))) :: tl
+                     | Leaf (t,(_,bracket)) ::tl      -> Leaf ((t,(branch,bracket))) :: tl
+                     | Node (a,(t,(_,bracket))) ::tl -> Node ((a, (t,(branch,bracket)))) :: tl
                      | _ -> raise (Illegal_tree_format "Unexpected Character")
                     ) in
                     read_branch acc
             | v when taxon_name v ->
                     stream#putback v;
                     let taxon = read_taxon_name () in
-                    read_branch ((Leaf (taxon,None)) :: acc)
+                    read_branch ((Leaf (taxon,(None,None))) :: acc)
             | v ->
                     let character = stream#get_position in
                     let ch = Char.escaped v in
@@ -879,10 +935,10 @@ module Tree = struct
                 | ':' ->
                         let dist = read_branch_length [] in
                         let acc2 = (match acc2 with
-                         | ((Node (lst,(name,None))),q) :: tl ->
-                                 ((Node (lst,(name,dist))),q) :: tl
-                         | ((Leaf (name,None)),q) :: tl ->
-                                 ((Leaf (name,dist)),q) :: tl
+                         | ((Node (lst,(name,(None,bracket)))),q) :: tl ->
+                                 ((Node (lst,(name,(dist,bracket)))),q) :: tl
+                         | ((Leaf (name,(None,bracket))),q) :: tl ->
+                                 ((Leaf (name,(dist,bracket))),q) :: tl
                          | _ -> raise 
                             (Illegal_tree_format "Unexpected Character")
                         ) in
@@ -936,12 +992,12 @@ module Tree = struct
                                 tree)
                 | ':' -> let dist = read_branch_length [] in
                          (match !acc2 with
-                          | Some ((Node (lst,(name,_))),q) ->
+                          | Some ((Node (lst,(name,(_,bracket)))),q) ->
                                   acc2 := None;
-                                 ((Node (lst,(name,dist))),q)
-                          | Some ((Leaf (name,_)),q) ->
+                                 ((Node (lst,(name,(dist,bracket)))),q)
+                          | Some ((Leaf (name,(_,bracket))),q) ->
                                   acc2 := None;
-                                 ((Leaf (name,dist)),q)
+                                 ((Leaf (name,(dist,bracket))),q)
                           | _ -> raise 
                             (Illegal_tree_format "Unexpected Character")
                          )
@@ -971,73 +1027,40 @@ module Tree = struct
         if not do_stream then `Trees (read_tree [] [])
         else `Stream (read_tree_str)
 
-    let gen_aux_of_stream str = 
-        match gen_aux_of_stream_gen false str with
-        | `Trees t ->  t
+    (* post_processing function for trees. Will figure out what type of tree we
+    * are parsing and apply the correct varient type *)
+    let post_process (t:(string * (float option * string option)) t * string):tree_types = 
+        let branches_exist t = 
+                fold_left_data
+                   (fun a (s,(n,c)) -> match n with | None -> a | _ -> true)
+                    false t
+        and characters_exist t = 
+                fold_left_data
+                    (fun a (s,(n,c)) -> match c with | None -> a | _ -> true)
+                    false t
+        and annotations_exist (t,str) = match str with
+            | "" -> false
+            | _ -> true
+        in
+        
+        let remove_branches (t,s) = map (fun (d,(n,c)) -> d) t,s
+        and remove_annot_1branches (t,s) = map (fun (d,(n,c)) -> d,c) t
+        and remove_annot_2branches (t,s) = map (fun (d,(n,c)) -> d,n) t
+        and remove_all (t,s)  = map (fst) t in
+
+        match annotations_exist t,branches_exist t,characters_exist t with
+        | false,false,false  -> Flat (remove_all t)
+        |  true,false,false  -> Annotated (remove_branches t)
+        | false, true,false  -> Branches (remove_annot_2branches t)
+        |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
+        |   _  ,  _  ,  _   -> failwith "Not implemented yet"
+
+    (** general function for trees *)
+    let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with
+        | `Trees t -> List.rev_map (List.rev_map (post_process)) t
         | `Stream _ -> assert false
-    let aux_of_stream stream =
-        let trees = gen_aux_of_stream stream in
-        List.rev_map (List.rev_map fst) trees
-
-(* 
-    let aux_of_string_bl str = 
-        let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
-        let res = Str.full_split (Str.regexp "[(), ]") str in
-        let process = function
-            | Str.Delim a -> Str.Delim (trim a)
-            | a -> a
-        in
-        let res = List.map (process) res in
-        let builder ((state, readed) as next) item =
-            match item, state with 
-            | Str.Delim "(", _ -> (readed :: state), []
-            | Str.Delim ")", hd :: tl -> tl, (Node (readed, ("",None))) :: hd
-            | Str.Delim ";", _ | Str.Delim "", _ | Str.Delim " ", _  -> next
-            | Str.Delim str, _ when str.[0] = '[' -> next
-            | Str.Text x, _ when x.[0] = ':' ->
-                let xf = float_of_string (String.sub x 1 ((String.length x)-1)) in
-                (match readed with (* pop out last element and apply the time to it *)
-                 | Leaf (str,_)::tl -> state, (Leaf (str, Some xf)) :: tl
-                 | Node (lst,(str,_))::tl -> state, Node (lst,(str,Some xf)) :: tl
-                 | _ -> raise (Illegal_tree_format ("Unexpected "^x))
-                )
-            | Str.Text x, _ ->
-                (match Str.split (Str.regexp ":") x with
-                 | [x]   -> state, (Leaf (x,None)) :: readed
-                 | [x;y] -> let y = float_of_string y in
-                            state, (Leaf (x,Some y)) :: readed
-                 | _ -> raise (Illegal_tree_format ("Unexpected char "^x))
-                )
-            | Str.Delim ")", [] -> raise (Illegal_tree_format "Unexpected )")
-            | Str.Delim x, _ -> 
-                raise (Illegal_tree_format ("Unexpected character." ^ x))
-        in
-        let _, res = List.fold_left (builder) ([], []) res in
-        res
-
-    let aux_of_string str =
-        let str = Str.global_replace (Str.regexp "\\[[^]]*\\]") "" str in
-        let res = Str.full_split (Str.regexp "[(), ]") str in
-        let process = function
-            | Str.Delim a -> Str.Delim (trim a)
-            | a -> a
-        in
-        let res = List.map (process) res in
-        let builder ((state, readed) as next) item =
-            match item, state with 
-            | Str.Delim "(", _ -> (readed :: state), []
-            | Str.Delim ")", hd :: tl -> tl, (Node (readed, "")) :: hd
-            | Str.Delim ";", _ | Str.Delim "", _ | Str.Delim " ", _  -> next
-            | Str.Delim str, _ when str.[0] = '[' -> next
-            | Str.Text x, _ -> (state, (Leaf x) :: readed)
-            | Str.Delim ")", [] -> raise (Illegal_tree_format "Unexpected )")
-            | Str.Delim x, _ -> 
-                    raise (Illegal_tree_format ("Unexpected character." ^ x))
-        in
-        let _, res = List.fold_left (builder) ([], []) res in
-        res
-*)
-
+    
+    (** [(gen_)of_string ...] **)
     let gen_of_string f str = 
         try
             let stream = new FileStream.string_reader str in
@@ -1045,18 +1068,18 @@ module Tree = struct
         with
         | Trailing_characters -> 
                 raise (Illegal_tree_format "Trailing characters in tree.")
+    let of_string str = gen_of_string gen_aux_of_stream str
 
-    let of_string str = rem_bl (gen_of_string aux_of_stream str)
-
+    (** [(gen_)of_channel ...] **)
     let gen_of_channel f ch =
         try
             let stream = FileStream.stream_reader ch in
             f stream
         with
         | End_of_file -> failwith "Unexpected end of file"
+    let of_channel ch = gen_of_channel gen_aux_of_stream ch
 
-    let of_channel ch = rem_bl (gen_of_channel aux_of_stream ch)
-
+    (** [(gen_)of_file ...] **)
     let gen_of_file f file =
         try
             let ch = FileStream.open_in file in
@@ -1075,7 +1098,9 @@ module Tree = struct
                 ".@ The@ error@ message@ is@ @[" ^ err ^ "@]"in
                 Status.user_message Status.Error msg;
                 raise e
+    let of_file file = gen_of_file of_channel file
 
+    (** [stream of_file .. ] *)
     let stream_of_file is_compressed file =
         let ch, to_close = 
             if is_compressed then
@@ -1112,44 +1137,47 @@ module Tree = struct
                 | `Regular real_ch -> (fun () -> close_in real_ch)
                 | `Zlib real_ch -> (fun () -> Gz.close_in real_ch)
 
-    let of_file file = gen_of_file of_channel file
-
-    let of_file_annotated file =
-        List.rev_map
-            (List.rev_map
-                (fun (t,s) -> map (fst) t,s))
-        (gen_of_file (gen_of_channel gen_aux_of_stream) file)
-
-    let of_channel_annotated cha = 
-        List.rev_map
-            (List.rev_map 
-                (fun (t,s) -> map (fst) t,s))
-            (gen_of_channel gen_aux_of_stream cha)
-
-    let of_string_annotated str = 
-        List.rev_map
-            (List.rev_map 
-                (fun (t,s) -> map (fst) t,s))
-            (gen_of_string gen_aux_of_stream str)
-
-    let of_string_branches str = gen_of_string (aux_of_stream) str
-    let of_channel_branches ch = gen_of_channel (aux_of_stream) ch
-    let of_file_branches file  = gen_of_file (of_channel_branches) file
-
     let cannonic_order tree =
-        let rec build_cannonic_order = function
+        let rec build_cannonic_order fn = function
             | Leaf d -> (Leaf d, d)
             | Node (chld , cnt) ->
-                    let res = List.map build_cannonic_order chld in
-                    let nch = List.sort (fun (_, a) (_, b) -> compare a b) res in
+                    let nch = List.sort fn (List.map (build_cannonic_order fn) chld) in
                     let _, b = List.hd nch in
                     let nch = List.map (fun (x, _) -> x) nch in
                     Node (nch, cnt), b
         in
-        let tree, _ = build_cannonic_order tree in
-        tree
+        match tree with
+            | Annotated (t,str) ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Annotated (tree,str)
+            | Flat t ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Flat tree
+            | Branches t ->
+                let tree,_ = build_cannonic_order 
+                                (fun (_,(d1,_)) (_,(d2,_)) -> compare d1 d2)
+                                t
+                in Branches tree
+            | Characters t ->
+                let tree,_ = build_cannonic_order 
+                                (fun (_,(d1,_)) (_,(d2,_)) -> compare d1 d2)
+                                t
+                in Characters tree
 
     exception Illegal_argument
+
+    let strip_tree = function
+        | Annotated (t,_) | Flat t -> t
+        | Characters t -> map (fst) t
+        | Branches t -> map (fst) t
+
+    let maximize_tree = function
+        | Characters t -> t
+        | Branches t -> map (fun (x,_) -> x,None) t
+        | Annotated (t,_)
+        | Flat t -> map (fun x -> x,None) t
 
     let cleanup ?newroot f tree =
         let rec aux_cleanup f tree = 
@@ -1163,13 +1191,74 @@ module Tree = struct
                     | [] | [_] -> res
                     | y -> [Node (y, x)]
         in
-        match aux_cleanup f tree with
-        | [] -> None
-        | [x] -> Some x
-        | x -> 
-                match newroot with
-                | None -> raise Illegal_argument
-                | Some y -> Some (Node (x, y))
+        match tree with
+        | Annotated (t,str) -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Annotated (x,str))
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Annotated (Node (x, y),str)))
+        | Branches t -> (match aux_cleanup (fun (s,d) -> f s) t with
+             | [] -> None
+             | [x] -> Some (Branches x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Branches (Node (x,(y,None)))))
+        | Characters t -> (match aux_cleanup (fun (s,d) -> f s) t with
+             | [] -> None
+             | [x] -> Some (Characters x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Characters (Node (x,(y,None)))))
+        | Flat t -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Flat x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Flat (Node (x, y))))
+end
+
+module TransformationCostMatrix = struct
+
+    let of_channel = Cost_matrix.Two_D.of_channel
+
+    let of_file ?(use_comb = true) file all_elements =
+        let ch = FileStream.Pervasives.open_in file in
+        let res = of_channel ~use_comb all_elements ch in
+        ch#close_in;
+        res
+
+    let of_channel_nocomb = Cost_matrix.Two_D.of_channel_nocomb
+
+    let fm_of_file file =
+        (* explode a string around a character;filtering empty results *)
+        let explode str ch =
+            let rec expl s i l =
+                if String.contains_from s i ch then
+                    let spac = String.index_from s i ch in
+	                let word = String.sub s i (spac-i) in
+                    expl s (spac+1) (word::l)
+                else
+                    let final = String.sub s i ((String.length s)-i) in
+                    final::l in
+
+            List.filter(fun x-> if x = "" then false else true) 
+                        (List.rev (expl str 0 [])) in
+
+        (* read a channel line by line and applying f into a list *)
+        let rec read_loop f chan =
+            try 
+                let line = FileStream.Pervasives.input_line chan in
+                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
+            with e -> [] in
+
+        let f = FileStream.Pervasives.open_in file in
+        let mat = read_loop (explode) f in
+        let _ = FileStream.Pervasives.close_in f in 
+        mat
+
+    let of_list = Cost_matrix.Two_D.of_list
+
 end
 
 (** [lor_list_withhash l hash] returns the logical or of the hash values of all
@@ -1196,7 +1285,7 @@ module OldHennig = struct
         | Ordered of int 
         | Unordered of int
         | Sankoff of (int array array * int)
-        | Tree of (string Tree.t) list
+        | Tree of Tree.tree_types list
         | Unkown_option of string
 
     (* Set of regexes to match all the supported commands in a Hennig86 file *)
@@ -1381,18 +1470,16 @@ module OldHennig = struct
                 let trees = Tree.of_string tree in
                 (* convert them to taxa *)
                 try
-                    let m t = Tree.map
-                        (fun str ->
-                             let name =
-                                 try
-                                     let i = int_of_string str in
-                                     let (name, _) = List.nth taxa_data i in
-                                     name
-                                 with _ -> str in
-                             name)
-                        t in
-                    let trees = List.map (List.map m) trees in
-                    List.map (fun t -> Tree t) trees
+                    let m (t:Tree.tree_types):Tree.tree_types = Tree.map_tree
+                                (fun str ->
+                                    let name = try
+                                        fst (List.nth taxa_data (int_of_string str))
+                                        with _ -> str in
+                                    name)
+                                t
+                    in
+                    let trees = List.rev_map (List.rev_map m) trees in
+                    List.rev_map (fun t -> Tree t) trees
                 with _ -> []
             end else [Unkown_option x]
         with
@@ -1952,6 +2039,7 @@ module OldHennig = struct
         Status.full_report ~adv:1 parser_status;
         let names, data, options, trees =
             parse_file characters taxa text is_dpread in
+        let trees = List.map (fun x -> None,x) trees in
         Status.full_report ~adv:2 parser_status;
         let encoding_specs = calc_encoding_specs data options
         and data_matrix = list_list_to_matrix data in
@@ -1969,7 +2057,7 @@ module OldHennig = struct
             (Array.length encoding_specs) ^ " characters.")
         end;
         Status.finished parser_status;
-        encoding_specs, make_list names res, trees
+        encoding_specs, make_list names res,trees
 
     let of_file f =
         let ch = FileStream.open_in f in
@@ -2435,7 +2523,6 @@ module SC = struct
         substitution : subst_model;
         site_variation : site_var option;
         base_priors : priors;
-        set_code : int;
         use_gap : bool;
     }
 
@@ -2466,13 +2553,6 @@ module SC = struct
         st_used_observed : (int, int) Hashtbl.t option;
         st_observed_used : (int, int) Hashtbl.t option;
     }
-
-    let change_ml_code ncode stat_spec = 
-        match stat_spec.st_type with
-            | STLikelihood x -> 
-                {stat_spec with 
-                    st_type = STLikelihood { x with set_code = ncode }};
-            | _ -> failwith "I don't know what to do here."
 
     let static_state_to_list x =
         match x with
@@ -2511,11 +2591,6 @@ module SC = struct
 
     type static_state = [ `Bits of BitSet.t | `List of int list ] option
 
-    type file_output =
-        (string option array * static_spec array * static_state array array * 
-        string Tree.t list list * 
-        ((Alphabet.a * (Sequence.s list list list * taxon) list) list))
-
     let st_type_to_string = function
         | STOrdered -> "Additive"
         | STUnordered -> "Non Additive"
@@ -2537,6 +2612,7 @@ module SC = struct
         s.st_missing ^ (function None -> " " | Some x -> x) s.st_matchstate ^ 
         separator ^ s.st_gap ^ separator ^ bool_to_string s.st_eliminate ^ separator
         ^ bool_to_string s.st_case
+
 
     let to_formatter s =
         let module T = Xml.Characters in
@@ -2584,6 +2660,27 @@ module SC = struct
             { states }
             { observed_states }
             { equivalencies } --)
+
+    type file_output = {
+        char_cntr : int ref;
+        taxa : string option array;
+        characters : static_spec array;
+        matrix : static_state array array;
+        csets : (string , string list) Hashtbl.t;
+        trees : (string option * Tree.tree_types list) list;
+        unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
+        branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+    }
+    let empty_parsed () = {
+        char_cntr = ref 0;
+        taxa = [||];
+        characters = [||];
+        matrix = [||];
+        csets = Hashtbl.create 27;
+        trees = [];
+        unaligned = [];
+        branches = Hashtbl.create 27;
+    }
 
     module N = Nexus
     module Nexus = struct
@@ -2720,13 +2817,13 @@ module SC = struct
                             ("W", 18, None); 
                             ("Y", 19, None); 
                             ("*", 20, None);
-                            (gap, 21, None);] @ prepro_symbols)
+                            (gap, 21, None);])
                             gap None Alphabet.Sequential,
                             [("B", ["D"; "N"]); ("Z", ["E"; "Q"])] @ more_equates
                     | Nexus.Rna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("U", 3,
-                            None); (gap, 4, None)] @ prepro_symbols)
+                            None); (gap, 4, None)] )
                             gap None Alphabet.Sequential,
                             [("R", ["A"; "G"]);
                             ("Y", ["C"; "U"]);
@@ -2743,7 +2840,7 @@ module SC = struct
                     | Nexus.Nucleotide | Nexus.Dna ->
                             Alphabet.list_to_a 
                             ([("A", 0, None); ("C", 1, None); ("G", 2, None); ("T", 3,
-                            None); (gap, 4, None)] @ prepro_symbols)
+                            None); (gap, 4, None)] )
                             gap None Alphabet.Sequential,
                             [("R", ["A"; "G"]);
                             ("Y", ["C"; "T"]);
@@ -2808,7 +2905,69 @@ module SC = struct
             | Exit -> !pos
 
         let find_character chars name =
-            find_position "Character not found" (fun x -> name = x.st_name) chars
+            let error = Printf.ksprintf (fun x -> x) "Character (%s) not found" name in
+            find_position error (fun x -> name = x.st_name) chars
+
+        let rec apply_on_character_set characters setnames f x =
+            let last = (Array.length characters) - 1 in
+            match x with
+            | Nexus.Range (a, b) ->
+                    let a = int_of_string a
+                    and b = 
+                        match b with
+                        | None -> last
+                        | Some b ->  int_of_string b 
+                    in
+                    for i = a to b do
+                        f i;
+                    done
+            | Nexus.Single v ->
+                    f (int_of_string v);
+            | Nexus.Name name ->
+                    let up_name = String.uppercase name in
+                    if "ALL" = up_name then
+                        apply_on_character_set characters setnames f
+                            (Nexus.Range ("0", None))
+                    else if "." = up_name then
+                        f last
+                    else
+                        f (find_character characters name)
+            | Nexus.CharSet name ->
+                    let up_name = String.uppercase name in
+                    let names =
+                        try Hashtbl.find setnames up_name
+                        with | Not_found -> 
+                            let all_keys = String.concat ", " 
+                                            (Hashtbl.fold (fun k v a -> k::a)
+                                                          setnames
+                                                          []
+                                            )
+                            in
+                            failwithf "Character set (%s) undefined in %s" name all_keys
+                    in
+                    List.iter
+                        (fun x -> 
+                            apply_on_character_set
+                                characters setnames f (Nexus.Name x)) names
+
+        (* get the character names for different set types *)
+        let get_character_names chars sets = function
+            | Nexus.Range (lo,hi) ->
+                let a = int_of_string lo
+                and b = match hi with
+                    | None -> (Array.length chars) - 1
+                    | Some b -> int_of_string b
+                in
+                List.map
+                    (fun x -> x.st_name)
+                    (Array.to_list (Array.sub chars a b))
+            | Nexus.Name name ->
+                chars.(find_character chars name).st_name :: []
+            | Nexus.Single num ->
+                chars.(int_of_string num).st_name :: []
+            | Nexus.CharSet name ->
+                try Hashtbl.find sets (String.uppercase name)
+                with | Not_found -> []
 
         let find_taxon taxa name =
             try 
@@ -2950,7 +3109,13 @@ module SC = struct
             let start = ref 0 in
             while !start < len do
                 begin match string.[!start] with
-                | '[' -> start := in_comment (!start + 1) 
+                | '[' -> 
+                    (match string.[1+(!start)],string.[2+(!start)] with
+                     | '&','p' | '&','P' ->
+                        start := !start + 2;
+                        Buffer.add_char b '['
+                     | _ -> start := in_comment (!start + 1)
+                    ) 
                 | x -> Buffer.add_char b x
                 end;
                 incr start;
@@ -3136,7 +3301,7 @@ module SC = struct
             * corresponding specification, and fill the missing data *)
             fill_observed characters matrix
 
-        let add_all_taxa cntr taxa new_taxa =
+        let add_all_taxa taxa new_taxa =
             let old_taxa = Array.to_list taxa in
             let new_taxa = 
                 List.filter (fun x -> 
@@ -3148,31 +3313,32 @@ module SC = struct
             let new_taxa = List.map (fun x -> Some x) new_taxa in
             Array.append taxa (Array.of_list new_taxa)
 
-        let add_prealigned_characters file chars 
-        (txn_cntr, char_cntr, taxa, characters, matrix, trees, unaligned) =
+        let add_prealigned_characters file chars (acc:file_output) = 
             let form = chars.Nexus.char_format in
-            let start_position = !char_cntr in
+            let start_position = !(acc.char_cntr) in
             let taxa = 
                 match chars.Nexus.char_taxon_dimensions with
-                | None -> taxa
+                | None -> acc.taxa
                 | Some v -> 
-                        Array.append taxa (Array.make (int_of_string v) None) 
+                        Array.append acc.taxa (Array.make (int_of_string v) None) 
             in
+            let acc = { acc with taxa = taxa } in
+
             let nchars = int_of_string chars.Nexus.char_char_dimensions in
             let characters = 
-                Array.append characters 
-                (Array.init nchars (default_static char_cntr file form))
+                Array.append acc.characters 
+                (Array.init nchars (default_static acc.char_cntr file form))
             and matrix = 
                 let matrix = 
-                    if 0 < Array.length matrix then
+                    if 0 < Array.length acc.matrix then
                         let tlen = Array.length taxa in
-                        if tlen <= Array.length matrix then
-                            matrix
+                        if tlen <= Array.length acc.matrix then
+                            acc.matrix
                         else 
-                            let len = Array.length (matrix.(0)) in
-                            Array.append matrix
+                            let len = Array.length (acc.matrix.(0)) in
+                            Array.append acc.matrix
                             (Array.init tlen (fun _ -> Array.make len None))
-                    else Array.map (fun _ -> [||]) taxa
+                    else Array.map (fun _ -> [||]) acc.taxa
                 in
                 Array.map 
                 (fun x -> Array.append x (Array.init nchars (fun _ -> None))) 
@@ -3237,77 +3403,13 @@ module SC = struct
                 * want *)
                 match chars.Nexus.char_eliminate with
                 | None -> ()
-                | Some x ->
-                        let rec process_range x =
-                            match x with
-                            | Nexus.Range (a, b) ->
-                                    let a = int_of_string a
-                                    and b = 
-                                        match b with
-                                        | None -> (Array.length characters) - 1
-                                        | Some b -> int_of_string b in
-                                    for i = 
-                                        a + start_position to 
-                                        b + start_position 
-                                    do
-                                        characters.(i) <- 
-                                            { characters.(i) with 
-                                            st_eliminate = true }
-                                    done
-                            | Nexus.Single v ->
-                                    let v = int_of_string v in
-                                    characters.(v) <- 
-                                        { characters.(v) with 
-                                        st_eliminate = true }
-                            | Nexus.Name name ->
-                                    let upp_name = 
-                                        String.uppercase name 
-                                    and lst = 
-                                        (Array.length characters) - 1 
-                                    in
-                                    if "ALL" = upp_name then
-                                        process_range 
-                                        (Nexus.Range ("0", 
-                                        Some (string_of_int lst)))
-                                    else 
-                                        let v = 
-                                            if upp_name = "." then
-                                                (Array.length characters) - 1 
-                                            else find_character characters name 
-                                        in
-                                        characters.(v) <-
-                                            { characters.(v) with st_eliminate = true }
-                        in
-                        process_range x
+                | Some x -> apply_on_character_set characters acc.csets 
+                                (fun i -> 
+                                    characters.(i) <- { characters.(i) with st_eliminate = true }
+                                ) x
             in
-            (* Move on, we are done with this block *)
-            (txn_cntr, char_cntr, taxa, characters, matrix, trees, unaligned)
-
-        let rec apply_on_character_set characters f x =
-            let last = (Array.length characters) - 1 in
-            match x with
-            | Nexus.Range (a, b) ->
-                    let a = int_of_string a
-                    and b = 
-                        match b with
-                        | None -> last
-                        | Some b ->  int_of_string b 
-                    in
-                    for i = a to b do
-                        f i;
-                    done
-            | Nexus.Single v ->
-                    f (int_of_string v);
-            | Nexus.Name name ->
-                    let up_name = String.uppercase name in
-                    if "ALL" = up_name then
-                        apply_on_character_set characters f
-                        (Nexus.Range ("0", 
-                        (Some (string_of_int last))))
-                    else if "." = up_name then
-                        f last
-                    else
-                        f (find_character characters name)
+            { acc with 
+                characters = characters; matrix = matrix }
 
         let make_ordered_matrix obsv = 
             let rec tail lst = 
@@ -3369,17 +3471,14 @@ module SC = struct
             in 
             { character with st_type = STSankoff cost_matrix }
 
-        let update_assumptions cost_table (txn_cntr, char_cntr, taxa, characters, 
-        matrix, trees, unaligned) item =
+        let update_assumptions cost_table (acc:file_output) item = 
             match item with
             | Nexus.Options (default, polytcount, gapmode) ->
-                    let _ =
-                        match default with
+                    let _ = match default with
                         | None -> ()
                         | Some x ->
-                                let def = create_cost_type x in
-                                for i = 0 to (Array.length characters) - 1 do
-                                    characters.(i) <- def characters.(i);
+                                for i = 0 to (Array.length acc.characters) - 1 do
+                                    acc.characters.(i) <- create_cost_type x acc.characters.(i)
                                 done
                     in
                     let _ =
@@ -3393,18 +3492,18 @@ module SC = struct
                     let _ =
                         match gapmode with
                         | Nexus.Missing -> 
-                                let ntax = (Array.length matrix) - 1 
-                                and nchar = (Array.length characters) - 1 in
+                                let ntax = (Array.length acc.matrix) - 1 
+                                and nchar = (Array.length acc.characters) - 1 in
                                 let gaps = 
                                     Array.map (fun spec ->
                                         let gap = spec.st_gap in 
-                                        Some (`List [(Alphabet.match_base gap
-                                        spec.st_alph)])) characters 
+                                        Some (`List [(Alphabet.match_base gap spec.st_alph)])
+                                            ) acc.characters 
                                 in
                                 for i = 0 to ntax do
                                     for j = 0 to nchar do
-                                        if matrix.(i).(j) = gaps.(j) then
-                                            matrix.(i).(j) <- None
+                                        if acc.matrix.(i).(j) = gaps.(j) then
+                                            acc.matrix.(i).(j) <- None
                                     done;
                                 done;
                         | Nexus.NewState -> ()
@@ -3455,8 +3554,8 @@ module SC = struct
                     ()
             | Nexus.WeightDef (has_star, name, has_token, set) ->
                     let set_item weight x =
-                        characters.(x) <- 
-                            { characters.(x) with st_weight = weight }
+                        acc.characters.(x) <- 
+                            { acc.characters.(x) with st_weight = weight }
                     in
                     let _ =
                         match set with
@@ -3465,9 +3564,9 @@ module SC = struct
                                     | Nexus.Code (v, who) ->
                                             let weight = float_of_string v in
                                             List.iter (apply_on_character_set
-                                            characters (set_item
-                                            weight)) who
-                                    | Nexus.IName _ ->
+                                            acc.characters acc.csets (set_item weight))
+                                                      who 
+                                | Nexus.IName _ ->
                                             failwith "Unexpected name"
                                 in
                                 List.iter process_item items
@@ -3496,7 +3595,7 @@ module SC = struct
                                     produce_cost_type_function 
                                     (Hashtbl.find cost_table name)
                         in
-                        characters.(x) <- new_def characters.(x)
+                        acc.characters.(x) <- new_def acc.characters.(x)
                     in
                     let _ =
                         match set with
@@ -3505,7 +3604,7 @@ module SC = struct
                                     | Nexus.Code (v, who)
                                     | Nexus.IName (v, who) ->
                                             List.iter (apply_on_character_set 
-                                            characters (set_typedef v)) who
+                                            acc.characters acc.csets (set_typedef v)) who
                                 in
                                 List.iter process_item items
                         | Nexus.Vector items ->
@@ -3522,12 +3621,14 @@ module SC = struct
             | _ -> ()
 
 
-        let process_tree tree = 
+        let process_tree (tree:string):Nexus.tree = 
             let tree = remove_comments tree in
             let lex = Lexing.from_string tree in
             NexusParser.tree NexusLexer.tree_tokens lex
 
-        let generate_parser_friendly translations taxa tree =
+        let generate_parser_friendly (translations:(string*string) list)
+                                     (taxa: string option array)
+                                     ((name,tree):Nexus.tree) : string option * Tree.tree_types list =
             let rec process_name name =
                 try 
                     process_name (List.assoc name translations)
@@ -3538,23 +3639,21 @@ module SC = struct
                             | None -> name
                             | Some x -> x
                         with
-                        | _ -> 
-                                try match taxa.(int_of_string name) with
+                        | _ -> try match taxa.(int_of_string name) with
                                 | None -> name
                                 | Some x -> x
                                 with
                                 | _ -> name
             in
             let rec translate_branch = function
-                | Nexus.Leaf (name, _) -> Tree.Leaf (process_name name)
-                | Nexus.Node (a, _, _) ->
-                        Tree.Node (List.map translate_branch a, "")
+                | Nexus.Leaf (name, d) -> 
+                        Tree.Leaf (process_name name,d)
+                | Nexus.Node (a, n, d) ->
+                        Tree.Node (List.map translate_branch a, ("",d))
             in
-            [translate_branch tree]
+            (Some name, [Tree.post_process (translate_branch tree,"")])
 
-        let process_parsed file 
-        ((txn_cntr, char_cntr, taxa, characters, matrix, trees, unaligned) as acc) 
-        parsed =
+        let process_parsed file (acc:file_output) parsed : file_output =
             match parsed with
             | Nexus.Taxa (number, taxa_list) ->
                     let cnt = int_of_string number in
@@ -3562,14 +3661,11 @@ module SC = struct
                         if cnt <> List.length taxa_list then
                             failwith ("Illegal NEXUS file: the number of taxa does " ^
                             "not match the DIMENSIONS value of the TAXA block")
-                        else add_all_taxa txn_cntr taxa taxa_list
+                        else add_all_taxa acc.taxa taxa_list
                     in
-                    (txn_cntr, char_cntr, taxa, characters, matrix, trees,
-                    unaligned)
+                    { acc with taxa = taxa }
             | Nexus.Characters chars -> 
-                    add_prealigned_characters file chars 
-                    (txn_cntr, char_cntr, taxa, characters, matrix, trees,
-                    unaligned)
+                    add_prealigned_characters file chars acc
             | Nexus.Ignore _ -> acc
             | Nexus.Error block ->
                     Status.user_message Status.Error
@@ -3583,14 +3679,13 @@ module SC = struct
                     acc
             | Nexus.Trees (translations, newtrees) ->
                     let handle_tree tree = 
-                        generate_parser_friendly translations taxa (process_tree tree)
+                        generate_parser_friendly translations acc.taxa (process_tree tree)
                     in
                     let newtrees = List.map handle_tree newtrees in
-                    (txn_cntr, char_cntr, taxa, characters, matrix, trees @
-                    newtrees, unaligned)
+                    {acc with trees = acc.trees @ newtrees }
             | Nexus.Unaligned data ->
                     let char_spec = 
-                        default_static char_cntr file data.Nexus.unal_format 0
+                        default_static acc.char_cntr file data.Nexus.unal_format 0
                     in
                     let unal = uninterleave true data.Nexus.unal in
                     let alph = 
@@ -3606,8 +3701,169 @@ module SC = struct
                                 failwith "POY can't handle continuous types"
                     in
                     let res = Fasta.of_string (AlphSeq alph) unal in
-                    (txn_cntr, char_cntr, taxa, characters, matrix, trees, 
-                    ((alph, res) :: unaligned))
+                    { acc with unaligned = (alph,res) :: acc.unaligned }
+            | Nexus.Sets data ->
+                    List.iter (* for each CharSet tag *)
+                        (fun (name,cs_lst) ->
+                            let name = String.uppercase name in
+                            List.iter (fun x -> (* and charset inside *)
+                                apply_on_character_set 
+                                    acc.characters
+                                    acc.csets 
+                                    (fun x -> (* add/append to hash *)
+                                        let n_name = acc.characters.(x).st_name in
+                                        if Hashtbl.mem acc.csets name then
+                                            Hashtbl.replace acc.csets name
+                                                (n_name :: (Hashtbl.find acc.csets name))
+                                        else
+                                            Hashtbl.add acc.csets name
+                                                (n_name::[])
+                                    )
+                                    x
+                                )
+                                cs_lst
+                        ) data;
+                    acc
+            | Nexus.POY block ->
+                Status.user_message Status.Information "Processing POY Block";
+                (* CHARACTERBRANCH tag:: adds data to the table of 
+                 *                       trees -> chars -> branch lengths *)
+                let add_data (trees,chars,bls) current =
+                    (* small function to create/return a table in a table *)
+                    let const = 27 in
+                    let get_create_tbl main_tbl name =
+                        try Hashtbl.find main_tbl name 
+                        with | Not_found ->
+                            let t = Hashtbl.create const in
+                            Hashtbl.add main_tbl name t; t
+                    in
+                    (* get all the names *)
+                    let chars = List.flatten
+                                    (List.map
+                                        (get_character_names acc.characters acc.csets)
+                                        chars
+                                    ) in
+                    (* add each name to the table *)
+                    List.iter
+                        (fun tree_name ->
+                            let tree_name = String.uppercase tree_name in
+                            let tree_tbl = get_create_tbl current tree_name in
+                            List.iter
+                                (fun char_name -> (* do not uppercase, since
+                                    * it's generated from the actual names *)
+                                    List.iter 
+                                        (fun (node_name,length) ->
+                                            let node_name = String.uppercase node_name in
+                                            let node_tbl = get_create_tbl tree_tbl node_name in
+                                            Hashtbl.replace node_tbl char_name length
+                                        ) bls
+                                ) chars
+                        ) trees
+                in
+
+                (* LIKELIHOOD tag:: process model and characters *)
+                let proc_model (((name,((kind,site,alpha,invar) as var),
+                                    param,lst,gap,file) as model), chars) = function
+                    | Nexus.Model name -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.Parameters param -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.Chars chars -> (model,chars)
+                    | Nexus.Priors lst -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.GapMode gap -> ((name,var,param,lst,gap,file),chars)
+                    | Nexus.Variation kind -> 
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                    | Nexus.Variation_Sites site ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                    | Nexus.Variation_Alpha alpha ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                    | Nexus.Variation_Invar invar ->
+                            ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                    | Nexus.Files name -> let file = Some name in
+                            ((name,var,param,lst,gap,file),chars)
+                in
+                (* verify enough data in a model *)
+                let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
+                    let submatrix = match String.uppercase name with
+                        | "JC69" -> (match param with
+                                | [single] -> JC69 single
+                                | _ -> failwith "Parameters don't match model")
+                        | "F81" -> (match param with
+                                | [single] -> F81 single
+                                | _ -> failwith "Parameters don't match model")
+                        | "K2P" -> (match param with
+                                | h1::h2::[] -> K2P (h1,h2)
+                                | _ -> failwith "Parameters don't match model")
+                        | "F84" -> (match param with
+                                | h1::h2::[] -> F84 (h1,h2)
+                                | _ -> failwith "Parameters don't match model")
+                        | "HKY85" -> (match param with
+                                | h1::h2::[] -> HKY85 (h1,h2)
+                                | _ -> failwith "Parameters don't match model")
+                        | "TN93" -> (match param with
+                                | h1::h2::h3::[] -> TN93 (h1,h2,h3)
+                                | _ -> failwith "Parameters don't match model")
+                        | "GTR" -> GTR (Array.of_list param)
+                        | "GIVEN"-> (match file with
+                                | Some name ->
+                                    let mat = Array.of_list (List.map (Array.of_list)
+                                         (TransformationCostMatrix.fm_of_file
+                                         (`Local name))) in
+                                    File mat
+                                | _ -> failwith "File not specified")
+                        | _ -> failwith "No Model Specified"
+                    and variation = match String.uppercase var with
+                        | "GAMMA" -> Gamma (int_of_string site,
+                                             float_of_string alpha,
+                                             float_of_string alpha)
+                        | "THETA" -> Theta (int_of_string site,
+                                             float_of_string alpha,
+                                             float_of_string alpha,
+                                             float_of_string invar)
+                        | "NONE" | "CONSTANT" | "" | _ -> Invariant
+                    and gap = match String.uppercase gap with
+                        | "TRUE" -> true
+                        | "FALSE" | _ -> false
+                    and priors = 
+                        let sum = List.fold_left (fun x (_,y) -> x +. y) 0.0 priors in
+                        if sum <> 1.0 then failwith "Priors do not sum to 1.0";
+                        (* each charset must have a consistent alphabet, so
+                         * check one character and continue, assert rest *)
+                        List.fold_right (fun (_,y) x -> y::x) priors []
+                    in
+                    (STLikelihood ({
+                        substitution = submatrix;
+                        site_variation = Some variation;
+                        base_priors = Given (Array.of_list priors);
+                        use_gap = gap;
+                    }),chars)
+                in
+                (* POY block :: process all commands*)
+                List.iter
+                    (fun x -> match x with
+                     | Nexus.CharacterBranch (trees,chars,bls) ->
+                        add_data (trees,chars,bls) acc.branches
+                     | Nexus.Likelihood params ->
+                        let m,characters_to_modify =
+                            verify_model 
+                                (List.fold_left proc_model 
+                                                (("",("","","",""),[],[],"",None),[]) 
+                                                params
+                                )
+                        in
+                        (* apply spec to each character *)
+                        List.iter (apply_on_character_set 
+                                        acc.characters
+                                        acc.csets
+                                        (fun i -> 
+                                            acc.characters.(i) <-
+                                                { acc.characters.(i) with
+                                                    st_type = m;
+                                                }
+                                        )
+                                  )
+                                  characters_to_modify
+                    ) block;
+                Status.user_message Status.Information "Done";
+                acc
             | _ -> acc
 
         let of_channel ch file =
@@ -3625,27 +3881,20 @@ module SC = struct
                 with
                 | NexusLexer.Eof -> List.rev !res
             in
-            let txn_cntr = ref 0
-            and char_cntr = ref 0 
-            and taxa = [||]
-            and characters = [||] 
-            and matrix = [||] in
-            let _, _, taxa, characters, matrix, trees, unaligned =
-                List.fold_left (process_parsed file) 
-                (txn_cntr, char_cntr, taxa, characters, matrix, [], []) parsed
-            in
-            let taxa, matrix =
+            let ret = 
+                let a = List.fold_left (process_parsed file) (empty_parsed ()) parsed in
                 (* Now it is time to correct the order of the terminals to 
                 * guarantee the default rooting of the tree. *)
-                let tlen = Array.length taxa 
-                and mlen = Array.length matrix in
+                let tlen = Array.length a.taxa 
+                and mlen = Array.length a.matrix in
                 assert (tlen >= mlen);
-                let taxa = Array.init tlen (fun x -> taxa.(tlen - x - 1)) 
-                and matrix = Array.init mlen (fun x -> matrix.(mlen - x - 1)) in
-                taxa, matrix
+                let taxa = Array.init tlen (fun x -> a.taxa.(tlen - x - 1)) 
+                and matrix = Array.init mlen (fun x -> a.matrix.(mlen - x - 1)) in
+                {a with 
+                    taxa = taxa;
+                    matrix = matrix}
             in
-            taxa, characters, matrix, trees, unaligned
-
+            ret
     end
 
     module Hennig = struct
@@ -3757,8 +4006,8 @@ module SC = struct
                     if x = y then 0
                     else 1))
 
-        let process_command file (mode, taxa, characters, matrix, trees) = function
-            | Hennig.Nstates x -> (x, taxa, characters, matrix, trees)
+        let process_command file (mode, (acc:file_output)) = function
+            | Hennig.Nstates x -> (x, acc)
             | Hennig.Xread data ->
                     let lex = Lexing.from_string data in
                     let (nch, ntaxa, to_parse) = 
@@ -3767,7 +4016,7 @@ module SC = struct
                     let taxa, characters, matrix =
                         (* In hennig files we only allow one xread per file, that's
                         * common for this kind of files *)
-                        match taxa, characters, matrix with
+                        match acc.taxa, acc.characters, acc.matrix with
                         | [||], [||], [||] ->
                                 (* We are OK to continue *)
                                 Array.make ntaxa None, Array.init nch
@@ -3781,16 +4030,19 @@ module SC = struct
                     Nexus.process_matrix true `Hennig matrix taxa characters 
                     (fun name -> Nexus.find_taxon taxa name)
                     (fun x y v -> matrix.(x).(y) <- v) to_parse;
-                    mode, taxa, characters, matrix, trees
+                    mode, {acc with
+                                taxa = taxa;
+                                characters = characters;
+                                matrix = matrix}
             | Hennig.Charname name_list ->
                     (* We need to parse each of the charname entries *)
                     let name_list = 
                         List.map (Str.split (Str.regexp "[ \t\n]+"))
                         name_list
                     in
-                    List.iter (assign_names characters) name_list;
-                    mode, taxa, characters, matrix, trees
-            | Hennig.Ignore -> mode, taxa, characters, matrix, trees
+                    List.iter (assign_names acc.characters) name_list;
+                    mode, acc
+            | Hennig.Ignore -> mode, acc
             | Hennig.Ccode char_changes ->
                     List.iter (fun char_change ->
                         let modifier, chars = 
@@ -3812,27 +4064,28 @@ module SC = struct
                                     chars
                         in
                         List.iter (fun x -> 
-                            characters.(x) <- modifier characters.(x))
-                        (get_chars (Array.length characters) chars)) char_changes;
-                    mode, taxa, characters, matrix, trees
+                            acc.characters.(x) <- modifier acc.characters.(x))
+                        (get_chars (Array.length acc.characters) chars)) char_changes;
+                    mode, acc
             | Hennig.Tread new_trees ->
                     let new_trees = 
                         let trees = Tree.of_string new_trees in
                         (* convert them to taxa *)
                         try
-                            let m t = Tree.map
+                            let m t = Tree.map_tree
                                 (fun str ->
                                     try 
-                                        match taxa.(int_of_string str) with
+                                        match acc.taxa.(int_of_string str) with
                                         | Some x -> x
                                         | None -> str 
                                     with _ -> str)
-                                t in
-                            List.rev_map (List.rev_map m) trees
+                                t
+                            in
+                            List.rev_map (fun x -> None,List.rev_map m x) trees
                         with _ -> []
                     in
-                    mode, taxa, characters, matrix, trees @ new_trees
-            | _ -> mode, taxa, characters, matrix, trees
+                    mode, {acc with trees= acc.trees @ new_trees}
+            | _ -> mode, acc
 
         let of_channel ch (file : string) =
             let parsed = 
@@ -3847,20 +4100,21 @@ module SC = struct
                 with
                 | HennigLexer.Eof -> List.rev !res
             in
-            let _, a, b, c, d = List.fold_left (process_command file) (None,
-            [||], [||], [||], []) parsed in
-            let taxa, matrix =
+            let res =
+                let _, data = List.fold_left (process_command file)
+                                             (None,(empty_parsed ()))
+                                             parsed
+                in
                 (* Now it is time to correct the order of the terminals to 
                 * guarantee the default rooting of the tree. *)
-                let tlen = Array.length a
-                and mlen = Array.length c in
+                let tlen = Array.length data.taxa
+                and mlen = Array.length data.matrix in
                 assert (tlen >= mlen);
-                let taxa = Array.init tlen (fun x -> a.(tlen - x - 1)) 
-                and matrix = Array.init mlen (fun x -> c.(mlen - x - 1)) in
-                taxa, matrix
+                let taxa = Array.init tlen (fun x -> data.taxa.(tlen - x - 1)) 
+                and matrix = Array.init mlen (fun x -> data.matrix.(mlen - x - 1)) in
+                {data with taxa=taxa; matrix=matrix}
             in
-            taxa, b, matrix, d, []
-
+            res
     end
 
     let of_channel style =
@@ -3977,56 +4231,18 @@ module SC = struct
                     new_specs.(y) specs.(y) data.(x).(y)))
         in
         Nexus.fill_observed new_specs new_data;
-        taxa, new_specs, new_data, trees, []
+        { (empty_parsed ()) with
+            taxa = taxa;
+            characters = new_specs;
+            matrix = new_data;
+            trees = trees;
+        }
 
-    let fill_observed (taxa, specs, data, trees, unaligned) =
-        Nexus.fill_observed specs data
-
-
-end
-
-module TransformationCostMatrix = struct
-
-    let of_channel = Cost_matrix.Two_D.of_channel
-
-    let of_file ?(use_comb = true) file all_elements =
-        let ch = FileStream.Pervasives.open_in file in
-        let res = of_channel ~use_comb all_elements ch in
-        ch#close_in;
-        res
-
-    let of_channel_nocomb = Cost_matrix.Two_D.of_channel_nocomb
-
-    let fm_of_file file =
-        (* explode a string around a character;filtering empty results *)
-        let explode str ch =
-            let rec expl s i l =
-                if String.contains_from s i ch then
-                    let spac = String.index_from s i ch in
-	                let word = String.sub s i (spac-i) in
-                    expl s (spac+1) (word::l)
-                else
-                    let final = String.sub s i ((String.length s)-i) in
-                    final::l in
-
-            List.filter(fun x-> if x = "" then false else true) 
-                        (List.rev (expl str 0 [])) in
-
-        (* read a channel line by line and applying f into a list *)
-        let rec read_loop f chan =
-            try 
-                let line = FileStream.Pervasives.input_line chan in
-                (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
-            with e -> [] in
-
-        let f = FileStream.Pervasives.open_in file in
-        let mat = read_loop (explode) f in
-        let _ = FileStream.Pervasives.close_in f in 
-        mat
-
-    let of_list = Cost_matrix.Two_D.of_list
+    let fill_observed data =
+        Nexus.fill_observed data.characters data.matrix
 
 end
+
 
 module PAlphabet = struct
     let of_file fn orientation init3D = 
