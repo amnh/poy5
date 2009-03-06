@@ -1189,7 +1189,7 @@ let edge_distance clas nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ; `Kolmo]
 
 let distance_of_type ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
@@ -2232,7 +2232,21 @@ END
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
                    weight = mine.weight; time = None,None}
-              
+    | Kolmo parent, Kolmo mine ->
+            (* Do we need this only for dynamic characters? I will first get it
+            * going here only *)
+          let root_pre = match root with
+          | Some (Kolmo root) -> Some root.preliminary
+          | _ -> None
+          in 
+          let prev_cost, cost, res = 
+              KolmoCS.to_single pre_ref_code 
+                    root_pre parent.preliminary mine.preliminary 
+            in
+          Kolmo {preliminary = res; final = res; 
+                   cost = (mine.weight *.  cost);
+                   sum_cost = (mine.weight *. cost);
+                   weight = mine.weight; time = None,None}
     | _ -> match root with
             | Some mine -> mine
             | None -> mine
@@ -2431,9 +2445,10 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
                 cs_single.preliminary (Some parent_cs_single.preliminary) d)
           | _ -> failwith "Fucking up with Dynamic at cs_to_formatter in node.ml"
       end 
-    | Kolmo x, _, _ -> 
+    | Kolmo x, _, Kolmo x_single -> 
           KolmoCS.to_formatter pre_ref_codes pre x.preliminary d @
-              KolmoCS.to_formatter fi_ref_codes  fin x.final d
+              KolmoCS.to_formatter fi_ref_codes  fin x.final d @
+              KolmoCS.to_formatter pre_ref_codes sing x_single.preliminary d
     | Set x, _, Set x_single ->
           let attributes =
               [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
