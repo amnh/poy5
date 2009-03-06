@@ -268,11 +268,6 @@ with type b = AllDirNode.OneDirF.n = struct
         let pre_ref_codes = get_pre_active_ref_code ptree in  
         let fi_ref_codes = pre_ref_codes in 
         let rec assign_single_subtree parentd parent current ptree = 
-            (*
-            Printf.printf "Assigning parent %d and child %d with side %s\n%!" 
-            parent current (match side with `Left -> "left" | `Right ->
-                "right");
-            *)
             let current_d, initial_d =
                 let tmp = Ptree.get_node_data current ptree in
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
@@ -332,11 +327,6 @@ with type b = AllDirNode.OneDirF.n = struct
                 let root = 
                     Node.to_single (pre_ref_codes, fi_ref_codes)
                         (Some root) other_node handle_node in
-
-                (*
-                Status.user_message Status.Information
-                ("My assignment for the root is " ^ Node.to_string root);
-                *)
                 let rooti = [{ rooth with AllDirNode.lazy_node =
                     AllDirNode.lazy_from_val (root) }] in
                 let readjusted = { rootg with AllDirNode.adjusted = rooti} in
