@@ -29,6 +29,8 @@ type t = {
     leaf_cost : float;
 }
 
+
+let debug = false
 type u = SeqCS.Union.u
 
 let get_model set = 
@@ -55,6 +57,13 @@ let seqCS_median matrix a b =
                         Kolmo.Align.align a.SeqCS.DOS.sequence 
                         b.SeqCS.DOS.sequence matrix 
                     in
+                    if debug then
+                        let da = Sequence.to_string a_algn Alphabet.nucleotides
+                        and db = Sequence.to_string b_algn Alphabet.nucleotides
+                        in
+                        Printf.printf "Distance from %s to %s is %f \n%!" da db
+                        c
+                    else ();
                     let to_bitset a b = 
                         SeqCS.DOS.seq_to_bitset gap a (SeqCS.Raw b.SeqCS.DOS.sequence)
                     in
@@ -120,7 +129,8 @@ let of_array spec code taxon num_taxa =
     and second = ~-. (log2 (prob *. (1. -. prob))) in
     let diff = second -. first in
     let initial = first -. diff in
-    Printf.printf "Diff is %f and initial is %f\n%!" diff initial;
+    if debug then 
+        Printf.printf "Diff is %f and initial is %f\n%!" diff initial;
     let matrix = { Kolmo.Align.event_cost =  diff *. Data.kolmo_round_factor;
     first_event_cost = initial *. Data.kolmo_round_factor;
         matrix = c.SeqCS.heuristic.SeqCS.c2; } in
@@ -145,8 +155,75 @@ let distance_union a b =
 
 let get_dynamic_preliminary d = DynamicCS.SeqCS d.characters
 
+let intersect a b = 0 <> (a land b)
+
+let intersection a b = a land b
+
+let select_one a = 
+    assert (a > 0);
+    let rec aux acc =
+        if intersect a acc then acc
+        else aux (acc * 2)
+    in
+    aux 1
+
+let tos s = Sequence.to_string s Alphabet.nucleotides 
+
+let seqcs_to_single gap matrix parent mine =
+    let total_cost = ref 0. in
+    let characters =
+        Array_ops.map_2 (fun a b ->
+            match a, b with
+            | SeqCS.Heuristic_Selection a, SeqCS.Heuristic_Selection b ->
+                    let c, a_algn, b_algn, _ = 
+                        Kolmo.Align.align a.SeqCS.DOS.sequence 
+                        b.SeqCS.DOS.sequence matrix 
+                    in
+                    let len = Sequence.length a_algn in
+                    let res = Sequence.create (len + 1) in
+                    for i = len - 1 downto 0 do
+                        let abase = Sequence.get a_algn i 
+                        and bbase = Sequence.get b_algn i in
+                        let selection =
+                            if intersect abase bbase then
+                                let intersection = intersection abase bbase in
+                                select_one intersection 
+                            else select_one bbase 
+                        in
+                        if selection <> gap then Sequence.prepend res selection;
+                    done;
+                    Sequence.prepend res gap;
+                    if debug then
+                        Printf.printf "Given %s generate %s becomes single %s\n%!"
+                        (tos a_algn) (tos b_algn) (tos res);
+                    total_cost := c +. !total_cost;
+                    SeqCS.Heuristic_Selection { b with SeqCS.DOS.sequence = res }
+            | SeqCS.Heuristic_Selection _, _
+            | _, SeqCS.Heuristic_Selection _
+            | SeqCS.Partitioned _, _
+            | _, SeqCS.Partitioned _
+            | SeqCS.Relaxed_Lifted _, _ -> assert false) parent.SeqCS.characters
+                    mine.SeqCS.characters
+    in
+    let total_cost = !total_cost in
+    mine.SeqCS.total_cost, total_cost, 
+    { mine with SeqCS.characters = characters; total_cost = total_cost }
+
 let to_single a b c d = 
-    let a, _, r = SeqCS.to_single c.characters d.characters in
+    if debug then Printf.printf "Calling to_single\n%!";
+    let c = 
+        match b with
+        | None -> c
+        | Some root -> 
+                if debug then Printf.printf "This has a root\n%!";
+                root
+    in
+    if debug then 
+        Printf.printf "Calculating to single with parent %s and child %s\n%!" 
+        (to_string c) (to_string d);
+    let _ = distance c d in
+    let gap = Cost_matrix.Two_D.gap c.matrix.Kolmo.Align.matrix in
+    let a, _, r = seqcs_to_single gap c.matrix c.characters d.characters in
     let r = { d with characters = r } in
     let cost = distance c r in
     a, cost, r
