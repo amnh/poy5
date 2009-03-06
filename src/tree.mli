@@ -191,6 +191,9 @@ val post_order_node_with_edge_visit :
 val post_order_node_with_edge_visit_simple :
     (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
 
+val pre_order_node_with_edge_visit_simple :
+    (int -> int -> 'a -> 'a) -> edge -> u_tree -> 'a -> 'a
+
 val post_order_node_visit :
   (int option -> int -> 'a -> t_status * 'a) ->
   int -> u_tree -> 'a -> 'a

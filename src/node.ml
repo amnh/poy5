@@ -305,7 +305,7 @@ let print nd =
     
 let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
     ("[[NODE tax_code=" ^ string_of_int tax_code
-     ^ " cost=" ^ string_of_float cost
+     ^ " total cost=" ^ string_of_float cost
      ^ " elts: "
      ^ (String.concat "; " (List.map to_string_ch chs))
      ^ "]]")
@@ -660,22 +660,22 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     c0
     END
 
-let apply_time child parent =
-    let f = if child.min_child_code = parent.min_child_code then fst else snd in
+let apply_time root child parent =
+    let p,q = if child.min_child_code = parent.min_child_code then fst,snd else snd,fst in
     let p_opt to_string = function | None -> "None" | Some x -> to_string x in
-    let rec apply_times c p = match c,p with
+    let rec apply_times ch par = match ch,par with
         | StaticMl cnd,StaticMl pnd ->
             IFDEF USE_LIKELIHOOD THEN (* only modify first part of tuple *)
-                let time = f pnd.time in
                 if debug then
                     info_user_message "Applying %s to %d -- %d"
-                        (p_opt string_of_float time) (child.taxon_code) (parent.taxon_code)
+                        (p_opt string_of_float (p pnd.time)) (child.taxon_code)
+                                                             (parent.taxon_code)
                 else ();
-                StaticMl { cnd with time = time,time (* f pnd.time,snd cnd.time *)}
+                StaticMl { cnd with time = p pnd.time,q cnd.time }
             ELSE
-                c
+                ch
             END
-        | _ -> c
+        | _ -> ch
     in
     {
       child with characters =
@@ -999,19 +999,16 @@ let median ?branches code old a b =
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
-let get_times_between (nd:node_data) (child:node_data) =
-    let child_code = child.min_child_code in
-    let get_some = function | None -> "none" | Some x -> string_of_float x in
-    let f = if nd.min_child_code >= child_code then fst else snd in
+let get_times_between (nd:node_data) (child:node_data option) =
+    let func = match child with
+        | Some child ->
+            if nd.min_child_code >= child.min_child_code then fst else snd
+        | None -> (fun (t1,t2) -> match t1,t2 with | Some x,Some y -> Some (x+.y)
+                                                   | None,_ | _,None -> None) in
     List.map (fun x -> match x with
                 | StaticMl z ->
                     IFDEF USE_LIKELIHOOD THEN
-                    let ret = f z.time in
-                    if debug then
-                        info_user_message "Using %s between %d and %d (%s)"
-                            (get_some ret) nd.taxon_code child.taxon_code
-                            (f ("fst","snd")) else ();
-                    ret
+                        func z.time
                     ELSE
                         None
                     END
@@ -1328,17 +1325,6 @@ let distance_of_type ?(para=None) ?(parb=None) t missing_distance
               a.weight *. DynamicCS.distance_of_type dy_t missing_distance a.final b.final
         | Kolmo a, Kolmo b when has_kolmo ->
               a.weight *. KolmoCS.distance a.final b.final
-        | StaticMl a, StaticMl b when has_staticml ->
-            (* Used in root minus cost, must be 0! *)
-            IFDEF USE_LIKELIHOOD THEN
-                0.0
-                (*
-                    let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                    a.weight *. ml_root_cost x
-                *)
-            ELSE
-                failwith likelihood_error
-            END
         | Set a, Set b ->
               (match a.final.smethod with
                | `Strictly_Same ->
@@ -2156,7 +2142,9 @@ let structure_into_sets data (nodes : node_data list) =
     in
     let cost_mode = 
         match nodes with
-        | h :: _ -> h.cost_mode
+        | h :: tl ->
+            List.iter (fun x -> assert(h.cost_mode = x.cost_mode)) tl;
+            h.cost_mode
         | [] -> `Parsimony
     in
     let eg_node =
@@ -2242,7 +2230,7 @@ let load_data ?(silent=true) ?(classify=true) data =
         let cost_mode = 
             match static_ml with
             | [] -> `Parsimony
-            | _ -> `Likelihood
+            | _  -> `Likelihood
         in
         current_snapshot "end nonadd set2";
         let r = 
@@ -2361,7 +2349,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
 IFDEF USE_LIKELIHOOD THEN
         (match root with
         | None -> mine
-        | Some root -> (* this is the root handle *)
+        | Some root -> 
                 let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                 let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
                 let cost = MlStaticCS.root_cost res in
@@ -2390,33 +2378,39 @@ END
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
                    weight = mine.weight; time = None,None}
-              
+
     | _ -> match root with
             | Some mine -> mine
             | None -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
+
+    (* changes cost of node in likelihood since dynamic chooses a root from
+     * either side, and continues that cost *)
+    let set_cost oldc newc = match mine.cost_mode with
+        | `Parsimony -> oldc
+        | `Likelihood -> newc
+    in
+
     match root with
     | Some root ->
         let root_char_opt = List.map (fun c -> Some c) root.characters in 
         let chars = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) )
                         root_char_opt parent.characters mine.characters in
-
-        (* TODO:: the data should be here already // why wasn't cost here before?? *)
-        let mine_cost = get_characters_cost chars in
-        { mine with 
+        let root_cost = get_characters_cost chars in
+        {mine with 
             characters = chars;
-            total_cost = calc_total_cost parent mine mine_cost;
-            node_cost = mine_cost;
+            node_cost  = set_cost root.node_cost root_cost;
+            total_cost = set_cost root.total_cost root_cost;
         }
     | None ->
         let chars = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
                         parent.characters mine.characters in
-        let mine_cost = get_characters_cost chars in
-        { mine with 
-                characters = chars;
-                total_cost = calc_total_cost parent mine mine_cost;
-                node_cost = mine_cost;
+        let node_cost = get_characters_cost chars in
+        { mine with
+            characters = chars;
+            node_cost  = set_cost mine.node_cost node_cost;
+            total_cost = set_cost mine.total_cost node_cost;
         }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
@@ -3515,6 +3509,8 @@ module Standard :
         let recode f n = recode f n
         let fix_preliminary = all_prelim_to_final
         let distance = distance
+        let distance_of_type t missing _ m a b =
+                (distance_of_type t missing a m) +. (distance_of_type t missing b m)
         let set_exclude_info a b = { b with exclude_info = a }
         let excludes_median _ = excludes_median
         let character_costs _ = character_costs
@@ -3523,7 +3519,7 @@ module Standard :
         let apply_time = apply_time
         let estimate_time = estimate_time
         let final_states _ = final_states
-        let uppass_heuristic ?branches = final_states
+        let uppass_heuristic pcode mine a b p = mine
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost

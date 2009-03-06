@@ -209,7 +209,7 @@ val get_min_taxon_code : node_data -> int
 (**[get_times_between(_tbl tbl) nd child_code]
  * helper functions to unify the distribution of times in three directions
  * --either from input tree or from the post_order downpass *)
-val get_times_between : node_data -> node_data -> float option list
+val get_times_between : node_data -> node_data option -> float option list
 val get_times_between_tbl : (int,float) Hashtbl.t -> node_data
                                 -> float option list
 val verify_time : node_data -> node_data -> node_data -> node_data option -> bool

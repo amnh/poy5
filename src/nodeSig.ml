@@ -60,10 +60,9 @@ module type S = sig
      * data from [cur] to [a] and [b] as it's children, and recieving the data
      * from [par] as it's parent. This data, in likelihood, are the `times` or
      * branch lengths *)
-    val uppass_heuristic : ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t -> 
-                                int option -> n -> n -> n -> n -> n
+    val uppass_heuristic : int -> n -> n -> n -> n -> n
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
-    val apply_time : n -> n -> n
+    val apply_time : bool -> n -> n -> n
 
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
@@ -147,6 +146,11 @@ module type S = sig
     (** [edge_distance m n] calculates the maximum distance between the vertices
     * [m] and [n]. *)
     val edge_distance : n -> n -> float
+
+    val distance_of_type :   
+              [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
+                | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
+                        float -> int -> n -> n -> n -> float
 
     (** [support_chars starting code n] returns the cost of the support 
     * characters. See the usage of the function in the Support module *)
