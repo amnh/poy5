@@ -2290,18 +2290,18 @@ let add_tree_to_counters is_collapsable counters (tree : Tree.u_tree) =
     in
     All_sets.Integers.fold (add_handle tree) (Tree.get_handles tree) counters
 
-let rec make_tree_counters code_generator counters tree = 
+let make_tree_counters code_generator counters gen_tree = 
     let add_singleton node =
         let single = All_sets.Integers.singleton node in
         add_or_not false single counters
     in
-    match tree with
-    | Parser.Tree.Leaf d -> add_singleton (code_generator d)
-    | Parser.Tree.Node (lst, _) ->
+    let rec make_tree_counters counters tree = match tree with
+        | Parser.Tree.Leaf d -> add_singleton (code_generator d)
+        | Parser.Tree.Node (lst, _) ->
             let all_sets, counters =
                 List.fold_left (fun (all_sets, counters) child ->
                     let its_sets, counters = 
-                        make_tree_counters code_generator counters child
+                        make_tree_counters counters child
                     in
                     (its_sets :: all_sets, counters)) ([], counters) lst
             in
@@ -2310,6 +2310,8 @@ let rec make_tree_counters code_generator counters tree =
                 All_sets.Integers.empty all_sets
             in
             add_or_not false all_sets counters
+    in
+    make_tree_counters counters (Parser.Tree.strip_tree gen_tree)
 
 let add_consensus_to_counters counters trees = 
     let new_counter = 
@@ -2427,12 +2429,12 @@ let generic_supports generate_tree_sets to_string maj number_of_samples tree set
         build_a_tree to_string number_of_samples true coder
     in
     tree --> generate_tree_sets
-    --> extract_counters sets
-    --> make_tree maj coder tree_builder
+         --> extract_counters sets
+         --> make_tree maj coder tree_builder
 
 let supports to_string maj number_of_samples tree sets =
-    generic_supports (add_tree_to_counters (fun _ _ -> false)
-    Tree.CladeFPMap.empty) to_string maj number_of_samples tree sets
+    generic_supports (add_tree_to_counters (fun _ _ -> false) Tree.CladeFPMap.empty)
+                     to_string maj number_of_samples tree sets
 
 let support_of_input to_string maj number_of_samples tree data sets = 
     let creating_counters lst = 
@@ -2473,10 +2475,6 @@ let bremer to_string cost tree generator files =
                                 try 
                                     Status.full_report ~adv:!cntr status;
                                     let input_tree = tree_generator () in
-                                    let input_tree = 
-                                        (Parser.Tree.map fst (fst input_tree)),
-                                        snd input_tree 
-                                    in
                                     let new_cost, sets = generator input_tree in
                                     map :=
                                         Tree.CladeFPMap.fold (fun my_clade best_cost acc ->

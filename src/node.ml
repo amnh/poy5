@@ -2052,10 +2052,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             in
             let result = 
                 IFDEF USE_LIKELIHOOD THEN
-                let single_ml_group result lst =
-                    match lst with
-                    | [] -> result
-                    | h :: t -> (* We do have some characters to add *)
+                    let single_ml_group result lst =
+                        match lst with
+                        | [] -> result
+                        | h :: t -> (* We do have some characters to add *)
                             let spec = 
                                 match Hashtbl.find
                                     (!data).Data.character_specs h with
@@ -2071,33 +2071,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                                           sum_cost = 0.;
                             weight = 1.; time = None,None } in
                             { result with characters = c :: result.characters }
-                in
-                let group_ml_by_codes lst = 
-                    let hstbl = Hashtbl.create 97 in
-                    let set_codes = 
-                        List.fold_left (fun acc code ->
-                            match Hashtbl.find (!data).Data.character_specs code with
-                            | Data.Static spec -> 
-                                    let model = 
-                                        match spec.Parser.SC.st_type with
-                                        | Parser.SC.STLikelihood x -> x
-                                        | _ -> assert false
-                                    in
-                                    Hashtbl.add hstbl model.Parser.SC.set_code code;
-                                    let group = model.Parser.SC.set_code in
-                                    if All_sets.Integers.mem group acc then
-                                        acc
-                                    else All_sets.Integers.add group acc
-                            | _ -> assert false)
-                        All_sets.Integers.empty lst
                     in
-                    List.map (Hashtbl.find_all hstbl) 
-                    (All_sets.Integers.elements set_codes)
-                in
-                let lstaticmlcode = group_ml_by_codes static_ml in
-                List.fold_left single_ml_group result lstaticmlcode
+                    List.fold_left single_ml_group result lstaticmlcode
                 ELSE
-                result
+                    result
                 END
             in
             let () = current_snapshot "Finished taxon" in
@@ -2665,15 +2642,7 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           [`Single (Xml.Characters.set, attributes, cont)]
     | StaticMl cs,_, _ -> 
         IFDEF USE_LIKELIHOOD THEN
-            let formatted = 
-                match parent_cs with 
-                | None ->
-                        MlStaticCS.to_formatter pre cs.preliminary cs.time None d
-                | Some ((StaticMl parent_cs), _) ->
-                        MlStaticCS.to_formatter pre cs.preliminary cs.time (Some parent_cs.preliminary) d
-                | _ -> failwith "Fucking up with StaticMl at cs_to_formatter in node.ml" 
-            in
-            List.map (fun x -> `Single x) formatted
+            MlStaticCS.to_formatter pre cs.preliminary cs.time d
         ELSE
             failwith likelihood_error
         END
@@ -3743,11 +3712,12 @@ let total_cost_of_type t n =
         | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
         | StaticMl x, `StaticMl -> 
-                IFDEF USE_LIKELIHOOD THEN
-                acc +. (x.total_cost)
-                ELSE
+            IFDEF USE_LIKELIHOOD THEN
+                acc +. x.sum_cost (* in likelihood this is character set cost,
+                                   * and not a sum of the children *)
+            ELSE
                 acc
-                END
+            END
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
         | Dynamic x, t -> 
                 (match x.preliminary, t with

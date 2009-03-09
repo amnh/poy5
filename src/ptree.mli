@@ -546,8 +546,8 @@ val supports :
      Parser.Tree.tree_types
 
 val support_of_input :
-    (int -> string) -> int -> float -> string Parser.Tree.t list -> Data.d -> int Tree.CladeFPMap.t ->
-    string Parser.Tree.t
+    (int -> string) -> int -> float -> Parser.Tree.tree_types list -> Data.d -> int Tree.CladeFPMap.t ->
+        Parser.Tree.tree_types
 
 val extract_bremer :  (All_sets.Integers.elt -> string) ->
   int Tree.CladeFPMap.t -> Parser.Tree.tree_types  

@@ -214,7 +214,7 @@ block:
     | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
         { Nexus.Error $2 }
     | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
-        { Nexus.POY $4 }
+        { Nexus.Poy $4 }
     ;
 assumptions:
     | assumption_items assumptions { $1 :: $2 }

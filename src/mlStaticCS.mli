@@ -219,6 +219,9 @@ val root_cost : t -> float
 val distance : t -> t -> float -> float -> float
 
 (* to be able to see the results on each vertex of the tree. *)
-val to_formatter : Xml.attributes ->t -> float option * float option -> 
-                        t option -> Data.d -> Xml.xml list
+val to_formatter : Xml.attributes -> t -> float option * float option -> 
+                        Data.d -> Xml.xml Sexpr.t list
+
+val get_codes : t -> int array
+
 END

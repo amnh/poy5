@@ -522,13 +522,8 @@ let likelihood_to_formater ((tag, attr, cont): Xml.xml) =
             | _ -> raise (Illegal_formater ("Data not found: "^y) )
         in 
 
-        let (* name    = _get attr Xml.Data.code and *)
-            cclass  = _get attr Xml.Characters.cclass and
-            cost    = _get attr Xml.Characters.mle and
-            (* recost  = `String "X" and
-            chrom   = `String "X" and
-            mmap    = `String "X" and
-            states  = `String "X" *)
+        let cclass  = _get attr Xml.Characters.cclass and
+            cost    = _get attr Xml.Characters.mle
         in
         [| cclass; cost; |]
     end else 

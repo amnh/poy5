@@ -120,11 +120,22 @@ let cardinal a = SeqCS.cardinal a.characters
 
 let root_cost root otus edges = 
     let spec = root.model.Data.ks.Data.kolmo_spec in
-    ((float_of_int otus) *. spec.Data.leaf_cost) +.
-    ((float_of_int edges) *. spec.Data.branch_cost) +.
-    spec.Data.root_cost +.
-    ((log (float_of_int root.model.Data.ks.Data.wordset)) /. (log 2.)) +.
-    (SeqCS.encoding spec.Data.be root.characters)
+    let leaves_function_cost = (float_of_int otus) *. spec.Data.leaf_cost
+    and internal_nodes_function_cost = 
+        (float_of_int (edges / 2)) *. spec.Data.branch_cost
+    and root_function_cost = spec.Data.root_cost
+    and root_sequence_encoding_cost =
+        let seq_len =
+            (log (float_of_int root.model.Data.ks.Data.wordset)) /. (log 2.)
+        and seq = (SeqCS.encoding spec.Data.be root.characters) in
+        seq_len +. seq 
+    in
+    if debug then
+        Printf.printf "Otus: %f, Edges: %f, root_cost: %f, encoding: %f for root: %s\n%!" 
+        leaves_function_cost internal_nodes_function_cost root_function_cost
+        root_sequence_encoding_cost (to_string root);
+    leaves_function_cost +. internal_nodes_function_cost +. root_function_cost 
+        +. root_sequence_encoding_cost
 
 let of_array spec code taxon num_taxa =
     let c = SeqCS.of_array spec.Data.dhs code taxon num_taxa in

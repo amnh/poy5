@@ -128,7 +128,7 @@ type block =
     | Assumptions of assumption_items list 
     | Error of string
     | Sets of (string * charset list) list
-    | POY of poy_data list
+    | Poy of poy_data list
 
 type tree_i = 
     | Leaf of (string * (float option * string option))

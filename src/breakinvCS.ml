@@ -310,7 +310,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                       | `String "Preliminary" ->
                             BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code  
                       | `String "Final" ->
-                            BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code                               
+                            BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code
                       | _ ->
                             let cost = IntMap.find code t.costs in 
                             let recost = IntMap.find code t.recosts in 

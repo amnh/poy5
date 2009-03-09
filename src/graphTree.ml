@@ -96,7 +96,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                 incr depth;
                 List.iter
                     (fun t -> 
-                        calc_depth_leaves t depth max_depth num_leaves longest_name)
+                        calc_depth_leaves fn t depth max_depth num_leaves longest_name)
                     y;
                 decr depth;
             | Parser.Tree.Leaf y -> 

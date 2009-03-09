@@ -550,9 +550,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 complete_merge code trees heap
         in
         let tree = complete_merge (-1) trees heap in
-        Parser.Tree.map (fun x -> 
-            if x >= 0 then Data.code_taxon x data 
-            else "") tree
+        Parser.Tree.map 
+                (fun x -> 
+                    if x >= 0 then Data.code_taxon x data
+                        else "") tree
 
 
     let distances_ordered nodes = 
@@ -784,8 +785,8 @@ let rec build_initial_trees trees data nodes (meth : Methods.build) =
                 let trees = List.map (fun (a, _, id) -> a) trees in
                 prebuilt trees d
         | `Nj ->
-                let tree = nj data nodes in
-                prebuilt [[tree]] d
+                let tree = None, [Parser.Tree.Flat (nj data nodes)] in
+                prebuilt [tree] d
         | `Build (n, build_meth, lst) ->
                 let new_nodes = nodes in
                 (** TODO: Add different cost calculation heuristic methods *)

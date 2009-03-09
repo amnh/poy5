@@ -439,49 +439,24 @@ let of_parser spec characters =
        chars = bigarray_s ba_chars;
     }
 
-let f_abs x = if x < 0.0 then -.x else x
-let pack lst = (`Set (List.map (fun x -> `Single x) lst))
+let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
+    let str_time = function
+        | Some x -> `Float x | None -> `String "None" in
 
-let to_formatter attr mine minet _ data :Xml.xml list =
-    (** map functions over a set, into a single, then pack: with index, and with 2 lists **)
-    let _ray f v = pack (Array.to_list (Array.map f v)) in
-    let _ray2 f v c = pack (List.map2 f v c) in
-    let _rayi f v = pack (Array.to_list (Array.mapi f v)) in
-    (** pack individual elements into an ID **)
-    let f_element code c p :Xml.xml =
-        let alph_char = Data.to_human_readable data code c in
-        (alph_char, [], `Float p) in
-    (** pack a single character into an ID **)
-    let f_char c cc:Xml.xml = 
-        let a_char = (Xml.Data.code, `Int cc) in
-        (Xml.Characters.character, [a_char], (_rayi f_element c)) in
-    (** pack the priors of the model **)
-    let f_prior priors :Xml.xml = let pi = ba2array priors in
-        (Xml.Characters.prior, [], (_rayi f_element pi)) in
-    (** function to pack a whole character set **)
-    let f_chars ch_s co_s =
-        let r = Array.to_list (barray_matrix ch_s) in
-        _ray2 f_char r (Array.to_list co_s) in
+    let _, state = List.hd attr in
+    (* let r = Array.to_list (barray_matrix ch_s) in *)
 
-    let str_t1 = match fst minet with
-        | Some x -> `Float x
-        | None -> `String "None"
-    and str_t2 = match snd minet with
-        | Some y -> `Float y
-        | None -> `String "None" in
+    (PXML
+        -[Xml.Characters.likelihood]
+            ([Xml.Data.modeltype] = [`String mine.model.name])
+            ([Xml.Characters.mle] = [`Float mine.mle])
+            ([Xml.Nodes.min_time] = [str_time t1])
+            ([Xml.Nodes.oth_time] = [str_time t2])
+            ([attr])
 
-    let attrib :Xml.attribute list = 
-        (Xml.Data.code, `Int mine.code) :: 
-        (Xml.Nodes.min_time, str_t1) :: (Xml.Nodes.oth_time, str_t2) ::
-        (Xml.Characters.mle, `Float mine.mle) :: attr in
-    let con = pack (
-                (Xml.Characters.model, (Xml.Data.modeltype, `String mine.model.name) :: [], 
-                    pack ((f_prior mine.model.pi_0) :: [])
-                ) :: 
-                (Xml.Data.characters,[],
-                    (f_chars (s_bigarray mine.chars) mine.codes)) :: []) in
-    [(Xml.Characters.likelihood, attrib, con)]
-(* -> Xml.xml list *)
+            { `String "todO" }
+        --) :: []
+(* -> Xml.xml Sexpr.t list *)
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =

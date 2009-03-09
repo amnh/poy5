@@ -777,8 +777,8 @@ module Tree = struct
     type tree_types =
         | Flat of string t
         | Annotated of (string t * string)
-        | Branches of ((string * float option) t)
-        | Characters of ((string * string option) t)
+        | Branches of (string * float option) t
+        | Characters of (string * string option) t
 
     let print_tree t = 
         let rec n_spaces n = if n = 0 then "" else (n_spaces (n-1))^"\t" in
@@ -802,13 +802,9 @@ module Tree = struct
         | (Leaf d) -> Leaf (fn d)
         | Node (list,d) ->
               Node (List.map (map fn) list, fn d)
-    (* map on tree w/ annotations *)
-    let rec map_annot fn t = match t with
-        | (Leaf d),str -> Leaf (fn d),str
-        | Node (list,d),str -> (Node (List.map (map fn) list, fn d)),str
     (* map on post_processed tree *)
     let map_tree fn = function
-        | Annotated t -> Annotated (map_annot fn t)
+        | Annotated (t,a) -> Annotated ((map fn t),a)
         | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
         | Flat t -> Flat (map fn t)
         | Characters t -> Characters (map (fun (x,d) -> (fn x,d)) t)
@@ -1050,7 +1046,8 @@ module Tree = struct
 
         match annotations_exist t,branches_exist t,characters_exist t with
         | false,false,false  -> Flat (remove_all t)
-        |  true,false,false  -> Annotated (remove_branches t)
+        |  true,false,false  ->
+                let t,s = remove_branches t in Annotated (t,s)
         | false, true,false  -> Branches (remove_annot_2branches t)
         |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
         |   _  ,  _  ,  _   -> failwith "Not implemented yet"
@@ -1132,7 +1129,7 @@ module Tree = struct
         match gen_aux_of_stream_gen true ch with
         | `Trees _ -> assert false
         | `Stream s -> 
-                s, 
+                (fun () -> post_process (s ())), 
                 match to_close with
                 | `Regular real_ch -> (fun () -> close_in real_ch)
                 | `Zlib real_ch -> (fun () -> Gz.close_in real_ch)
@@ -3724,7 +3721,7 @@ module SC = struct
                                 cs_lst
                         ) data;
                     acc
-            | Nexus.POY block ->
+            | Nexus.Poy block ->
                 Status.user_message Status.Information "Processing POY Block";
                 (* CHARACTERBRANCH tag:: adds data to the table of 
                  *                       trees -> chars -> branch lengths *)

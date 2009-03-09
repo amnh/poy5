@@ -764,7 +764,10 @@ type nad8 = Node.Standard.nad8 = struct
     let to_string nodes =
         let res =
             List.map (fun x -> OneDirF.to_string x.lazy_node)
-            nodes.unadjusted
+            nodes.unadjusted  
+            @
+            List.map (fun x -> OneDirF.to_string x.lazy_node)
+            nodes.adjusted  
         in
         String.concat "\n" res
 
@@ -996,11 +999,7 @@ type nad8 = Node.Standard.nad8 = struct
         List.map (fun x -> { unadjusted = x; adjusted = x }) res
 
     let root_cost a = 
-        let lst =
-            match !Methods.cost with
-            | `Iterative _ -> a.adjusted
-            | _ -> a.unadjusted
-        in
+        let lst = a.adjusted in
         match lst with
         | [a] -> OneDirF.root_cost a.lazy_node
         | _ -> failwith "AllDirNode.root_cost"

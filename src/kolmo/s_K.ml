@@ -18,11 +18,14 @@ let of_string string =
                     | Parser.Tree.Leaf "K" -> `K
                     | Parser.Tree.Leaf x -> `Label x
                     | x -> raise (Illegal_Expression [x])
-                in
-                reverse x
-        | x -> raise (Illegal_Expression x)
+                in 
+                reverse (Parser.Tree.strip_tree x)
+        | x -> raise (Illegal_Expression (List.map Parser.Tree.strip_tree x))
     in
-    string --> Parser.Tree.of_string --> List.map no_forest --> List.hd
+    string 
+        --> Parser.Tree.of_string
+        --> List.map no_forest
+        --> List.hd
 
 
 let rec expand ?(except=[]) tree =
