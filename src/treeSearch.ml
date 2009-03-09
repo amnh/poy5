@@ -127,6 +127,10 @@ let sets_of_parser data tree =
                 All_sets.IntSet.add union acc, union
     in
     let sets, _ = process (Parser.Tree.strip_tree tree) All_sets.IntSet.empty in
+    All_sets.IntSet.iter (fun x ->
+        All_sets.Integers.iter (fun x ->
+            Printf.printf "%d;" x) x;
+        print_newline ()) sets;
     sets
 
 let sets meth data trees = 
