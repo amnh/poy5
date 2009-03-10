@@ -1560,10 +1560,8 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Normal -> join_fn a b c d 
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
-                let tree, ((s1, s2, _) as delta) = join_fn a b c d in
-                let other_neighbors = get_other_neighbors ((get_one s1),
-                                      (get_one s2)) tree None in
-                let tree = adjust_tree iterations other_neighbors 
+                let tree, delta = join_fn a b c d in
+                let tree = adjust_tree iterations None
                            (assign_single false (pick_best_root tree)) in
                 refresh_all_edges true None true None tree, delta
             | `Normal_plus_Vitamines ->
