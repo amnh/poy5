@@ -579,4 +579,6 @@ let mle_ocaml (a:t) (b:t) (t1:float) (t2:float) : (float array array * float) =
     let root = median_fmat ach bch a_m b_m in
     root, (mle root pi_)
 
+ELSE
+type t = unit
 END
