@@ -74,6 +74,15 @@ module type S = sig
         (a, b) Sampler.search_manager_sampler -> 
             search_mgr
 
+    class standard_tabu_searcher : 
+        (a, b) Sampler.search_manager_sampler -> 
+            All_sets.Integers.t list -> int -> int -> 
+                ((a, b) Ptree.p_tree -> (a, b) Ptree.p_tree) ->
+                    ((a, b) Ptree.p_tree -> All_sets.Integers.t -> (a, b)
+                    Ptree.p_tree) -> ((a, b) Ptree.p_tree -> (a, b)
+                    Ptree.p_tree) ->
+                         search_mgr
+
     (** A search manager that keeps up to n trees that have the same cost as the
     * current best tree. The preference order is given by the keep_method
     * argument. *)
@@ -554,6 +563,84 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             
     end
 
+    class standard_tabu_searcher sampler (tabu_sets : All_sets.Integers.t list) active_tabu_size rounds
+    rediagnose add_exclude remove_exclude = object (self) 
+        inherit first_best_srch_mgr sampler as super
+
+        val all_tabu_queue = 
+            let queue = Queue.create () in
+            List.iter (fun x -> Queue.add x queue) tabu_sets;
+            queue
+
+        val active_tabu_queue =  Queue.create ()
+
+        val mutable round_counter = 0
+
+        val mutable tree_being_searched = []
+
+
+        method init tree_cost_delta_lst =
+            let active_tabu_size = 
+                min active_tabu_size (Queue.length all_tabu_queue)
+            in
+            for i = 1 to active_tabu_size do
+                let item = Queue.take all_tabu_queue in
+                Queue.add item active_tabu_queue;
+            done;
+            let tree_cost_delta_lst = self#add_tabus tree_cost_delta_lst in
+            super#init tree_cost_delta_lst
+
+        method private add_tabus lst =
+            let add_tabus (tree, cost, delta, tabu) =
+                let tree = Queue.fold add_exclude tree active_tabu_queue in
+                let tree = rediagnose tree in
+                (tree, cost, delta, tabu)
+            in
+            List.map add_tabus lst
+
+        method private update_tabu_queues =
+            let removed = Queue.take active_tabu_queue in
+            let to_add = Queue.take all_tabu_queue in
+            Queue.add removed all_tabu_queue;
+            Queue.add to_add active_tabu_queue;
+            let add_tabus (tree, cost, tabu) =
+                let tree = Queue.fold add_exclude tree active_tabu_queue in
+                let tree = rediagnose tree in
+                (tree, cost, tabu)
+            in
+            srch_trees <- List.map add_tabus tree_being_searched;
+            tree_being_searched <- srch_trees
+
+        method next_tree =
+            let res = super#next_tree in
+            tree_being_searched <- [res];
+            res
+
+        method process
+            (cost_fn : (Node.n, Edge.e) Ptree.cost_fn)
+            (b_delta : float)
+            (cd_nd : 'a)
+            (join_fn : (Node.n, Edge.e) Ptree.join_fn)
+            incremental
+            (j1 : Tree.join_jxn)
+            (j2 : Tree.join_jxn)
+            (tabu_mgr : (Node.n, Edge.e) Ptree.tabu_mgr)
+            pt = 
+                round_counter <- round_counter + 1;
+                self#update_tabu_queues;
+                if round_counter = rounds then begin
+                    self#update_tabu_queues;
+                    Tree.Break
+                end else 
+                    super#process cost_fn b_delta cd_nd join_fn 
+                    incremental j1 j2 tabu_mgr pt
+
+        method results =
+            let results = super#results in
+            List.map (fun (a, b, c) -> rediagnose (remove_exclude a), b, c) 
+            results
+
+    end
 
 
 
