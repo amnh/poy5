@@ -17,9 +17,11 @@ AC_SUBST(OCAMLFLAGS)
 AC_SUBST(MERCURIAL)
 AC_SUBST(OCAMLC)
 AC_SUBST(OCAML)
+AC_SUBST(OCAMLBUILD)
 
 AC_CHECK_PROGS([MERCURIAL], [hg])
 AC_CHECK_PROGS([OCAMLC], [ocamlc.opt ocamlc])
+AC_CHECK_PROGS([OCAMLBUILD], [ocamlbuild.native ocamlbuild])
 AC_CHECK_PROGS([OCAML], [ocaml])
 
 AC_ARG_ENABLE([graphics], [AS_HELP_STRING([--enable-graphics],
@@ -114,8 +116,6 @@ esac
 
 # Checks for library functions.
 
-AC_CONFIG_FILES([Makefile
-                 doc/Makefile
-                 test/Makefile])
+AC_CONFIG_FILES([Makefile])
 AC_CONFIG_SUBDIRS([src])
 AC_OUTPUT
