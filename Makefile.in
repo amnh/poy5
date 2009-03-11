@@ -36,16 +36,18 @@ poy_test.native:
 portal.native: poy.native xml/swami.xml 
 	cd src; $(OCAMLBUILD) portal.native
 
+portal: portal.native
+
 src/makeVersion.native:
 	cd src; $(OCAMLBUILD) makeVersion.native
 
 xml/swami.xml: src/makeVersion.native
-	export RESULT=`src/makeVersion.native`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
+	export RESULT=`src/makeVersion.native -text`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
 
 VERSION: src/makeVersion.native 
 	export RESULT=`src/makeVersion.native -text`; echo "POY $${RESULT}" > VERSION
 
-.PHONY:	$(SUBDIRS) clean install distclean VERSION
+.PHONY:	portal.native poy $(SUBDIRS) clean install distclean VERSION
 
 subdirs: $(SUBDIRS)
 
@@ -57,7 +59,7 @@ install: poy.native
 	$(MKDIR_P) $(DESTDIR)$(mandir)
 	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
 
-install_server: install
+install_server: install portal.native
 	$(INSTALL) ./src/_build/portal.native $(DESTDIR)$(bindir)/`echo portal | sed -e '$(transform)'` 
 
 uninstall:
