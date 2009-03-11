@@ -40,13 +40,14 @@ let process_flags ocaml_option cflags =
         in
         addcopt cflags
     in
+    cflags
 
-    A"-cc" ::  A cc :: cflags
+let ccompileflags = A"-cc" ::  A cc :: process_flags "-ccopt" cflags 
 
-let allcflags = 
-    A"-cc" ::  A cc :: 
-        ((process_flags "-ccopt" cflags) @ 
-        (process_flags "-cclib" clibs))
+let clinkflags = 
+    let flags = process_flags "-cclib" clibs in
+    if Sys.os_type = "Win32" then flags
+    else A"-cc" ::  A cc :: flags
 
 (* List of headers *)
 let headers =
@@ -350,10 +351,10 @@ dispatch begin function
     flag ["c"; "compile"; "use_win32"]
         (S[A"-ccopt"; A"-DUSEWIN32"]);
 
-    flag ["c"; "compile"] (S allcflags);
-    flag ["c"; "link"] (S allcflags);
-    flag ["ocaml"; "compile"] (S allcflags);
-    flag ["ocaml"; "link"] (S allcflags);
+    flag ["c"; "compile"] (S ccompileflags);
+    flag ["c"; "link"] (S clinkflags);
+    flag ["ocaml"; "compile"] (S ccompileflags);
+    flag ["ocaml"; "link"] (S clinkflags);
 
     dep  ["link"; "ocaml"; "use_gzcaml"] ["libgzcaml.a"; "libzlibstubs.a"];
     dep  ["link"; "ocaml"; "use_parallel"] ["libmpicaml.a"];

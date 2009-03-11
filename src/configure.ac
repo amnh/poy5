@@ -178,11 +178,13 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 
 # Time to verify if we can compile with xslt
-XSLT_CONFIG=xslt-config
+XSLT_CONFIG="xslt-config"
+echo "I will check for the xslt crap"
 AC_ARG_WITH(xslt-config, [Select a different xslt-config program to detect the configuration options of libxslt.],
             [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],
-                                                    [xslt-config])])
+                                                    [xslt-config],[xslt-config])])
 
+echo "Finished xslt crap"
 oLIBS="$LIBS"
 NEWLIBS="`$XSLT_CONFIG --libs`"
 LIBS="$LIBS $NEWLIBS"
@@ -228,7 +230,16 @@ AC_MSG_RESULT([$OCAMLVERSION])
 
 case $OCAMLVERSION in 
     3.10.2*)
-    ;;
+        case ${OS_INFORMATION} in
+            *-cygwin*)
+            AC_MSG_RESULT([no])
+            AC_MSG_FAILURE([Compiling POY in windows requires OCaml version 3.11.0 or later. Please update OCaml and configure again.])
+            ;;
+            *)
+            AC_MSG_RESULT([yes])
+            ;;
+        esac
+        ;;
     3.11.*)
         NATIVEDYNLINK="dynlink.cmxa"
         AC_MSG_CHECKING([if OCaml supports dynamic linking in this architecture])
@@ -245,6 +256,15 @@ case $OCAMLVERSION in
     AC_MSG_RESULT([no])
     AC_MSG_FAILURE([POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])
     ;;
+esac
+
+# Final fix to compile in windows
+case ${OS_INFORMATION} in
+    *-cygwin*)
+        LIBS="-link -mwin32 $LIBS"
+        ;;
+    *)
+        ;;
 esac
 
 # Checks for header files.
