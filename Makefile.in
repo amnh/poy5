@@ -47,7 +47,7 @@ xml/swami.xml: src/makeVersion.native
 VERSION: src/makeVersion.native 
 	export RESULT=`src/makeVersion.native -text`; echo "POY $${RESULT}" > VERSION
 
-.PHONY:	portal.native poy $(SUBDIRS) clean install distclean VERSION
+.PHONY:	portal.native poy $(SUBDIRS) clean install distclean VERSION doc
 
 subdirs: $(SUBDIRS)
 
@@ -68,6 +68,11 @@ uninstall:
 poy.native: 
 	cd src; \
 	$(MAKE) $@
+
+doc: 
+	cd src; \
+	$(OCAMLBUILD) commands.pdf
+	cp src/_build/commands.pdf ./manual.pdf
 
 poy.byte:
 	cd src; \
