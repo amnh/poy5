@@ -76,4 +76,4 @@ clean:
 
 distclean: clean
 	rm -f Makefile buildNumber.ml compileFlags.ml config.h \
-		config.log config.status 
+		config.log config.status _tags myocamlbuild.ml
