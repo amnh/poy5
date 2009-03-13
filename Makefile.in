@@ -42,10 +42,10 @@ src/makeVersion.native:
 	cd src; $(OCAMLBUILD) makeVersion.native
 
 xml/swami.xml: src/makeVersion.native
-	export RESULT=`src/makeVersion.native -text`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
+	export RESULT="`src/makeVersion.native -text`"; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
 
 VERSION: src/makeVersion.native 
-	export RESULT=`src/makeVersion.native -text`; echo "POY $${RESULT}" > VERSION
+	export RESULT="`src/makeVersion.native -text`"; echo "POY $${RESULT}" > VERSION
 
 .PHONY:	portal.native poy $(SUBDIRS) clean install distclean VERSION doc
 
