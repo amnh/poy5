@@ -987,6 +987,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     end
 
+    let order_edge (a, b) = min a b, max a b
+
     class union_dfs side max_distance edges ptree : [Node.n, Edge.e] edges_manager =
         object (self)
         inherit dfs_distance_based side max_distance ptree as super
@@ -995,8 +997,11 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         val mutable do_not_cross = 
             List.fold_left 
-            (fun acc (Tree.Edge (a, _)) -> All_sets.Integers.add a acc) 
-            All_sets.Integers.empty
+            (fun acc (Tree.Edge ((a, b) as edge)) -> 
+                acc 
+                --> All_sets.FullTuples.add edge 
+                --> All_sets.FullTuples.add (b, a))
+            All_sets.FullTuples.empty
             edges
 
         val mutable extra_constraints = []
@@ -1013,9 +1018,20 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             self#clearup_remove_first;
             match get_side side breakage with
             | `Edge (o, s1, s2, _) ->
-                    let hass1 = All_sets.Integers.mem o do_not_cross in
+                    ()
+                    (*
+                    let hass1 = All_sets.FullTuples.mem o do_not_cross in
                     if hass1 then extra_constraints <- [s1; s2];
+                    *)
             | `Single (_, _) -> ()
+
+        method next_edge = 
+            match super#next_edge with
+            | None -> None
+            | (Some (Tree.Edge ((u, v) as edge))) as res ->
+                    if (All_sets.FullTuples.mem edge do_not_cross) then 
+                        self#next_edge
+                    else res
 
         method private clearup_remove_first =
             extra_constraints <- []
@@ -1024,27 +1040,16 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             x &&
                 (match edge with
                 | None -> false
-                | Some (Tree.Edge (a, b)) ->
-                        let tree = current_broken_ptree.Ptree.tree in
-                    let base = 
-                        if a = Tree.get_parent b tree then a
-                        else b
-                    in
-                    if not (All_sets.Integers.mem base do_not_cross) &&
-                        not (List.exists (fun x -> x = base) extra_constraints) then
-                        if a = Tree.get_parent b tree then
-                            if Tree.is_leaf b tree then false
-                            else 
-                                let clade =
-                                    match current_clade with
-                                    | Some clade -> clade
-                                    | None -> failwith "No root?"
-                                in
-                                let ca = 
-                                    Ptree.get_node_data a current_broken_ptree
-                                in
-                                current_delta >= (Node.union_distance clade ca)
-                        else true
+                | Some (Tree.Edge ((a, _) as edge)) ->
+                        let edge = order_edge edge in
+                    if not (All_sets.FullTuples.mem edge do_not_cross) then
+                        let clade =
+                            match current_clade with
+                            | Some clade -> clade
+                            | None -> failwith "No root?"
+                        in
+                        let ca = Ptree.get_node_data a current_broken_ptree in
+                        current_delta >= (Node.union_distance clade ca)
                     else false)
     end 
 
@@ -2059,71 +2064,76 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let distance_join max_distance side ptree = 
         new DFS.generic_distance side max_distance ptree
 
-    let generate_partition_edges sets ptree =
-        let tree = ptree.Ptree.tree 
-        and empty = All_sets.IntegerMap.empty in
-        let add_item _ node ((acc, sisters, all_leafs) as acc1) =
-            match Tree.get_node node tree with
-            | Tree.Interior (_, par, c, d) ->
-                    let s1 = All_sets.IntegerMap.find c acc
-                    and s2 = All_sets.IntegerMap.find d acc in
-                    let mine = All_sets.Integers.union s1 s2 in
-                    Tree.Continue, 
-                    (All_sets.IntegerMap.add node mine acc,
-                    (All_sets.IntegerMap.add c d (All_sets.IntegerMap.add d c 
-                    sisters)),
-                    all_leafs)
-            | Tree.Leaf (_, par) ->
-                    let mine = (All_sets.Integers.singleton node) in
-                    Tree.Continue, 
-                    ((All_sets.IntegerMap.add node mine acc),
-                    sisters,
-                    All_sets.Integers.add node all_leafs)
-            | Tree.Single _ -> Tree.Continue, acc1
+    let interior_vertex_sets_partition sets leaves ptree =
+        (* Produce a list holding all the edges such that:
+            *
+            * If internal, the four partitions that the incident vertices
+            * generate exist in sets
+            *
+            * If one is a leaf, then the three partitions implied by the other
+            * incident vertex 
+            *
+            * The resultsing edges should not be violated during the search.
+            * *)
+        let is_mem x = 
+            (All_sets.IntSet.mem x sets) || (All_sets.IntSet.mem
+            (All_sets.Integers.diff leaves x) sets) 
         in
-        let handle = All_sets.Integers.choose (Tree.get_handles tree) in
-        let acc =
-            Tree.post_order_node_visit add_item handle tree 
-            (empty, All_sets.IntegerMap.empty, All_sets.Integers.empty)
+        let add_to_list do_add item lst = 
+            if do_add then (Tree.Edge item) :: lst else lst
         in
-        let res, sisters, leafs, par = 
-            let par = Tree.get_parent handle tree in
-            let res, sisters, leafs = 
-                Tree.post_order_node_visit add_item par tree acc
-            in
-            let s1 = All_sets.IntegerMap.find handle res 
-            and s2 = All_sets.IntegerMap.find par res in
-            All_sets.IntegerMap.add (-2) s2 
-            (All_sets.IntegerMap.add (-1) s1 res),
-            All_sets.IntegerMap.add par handle (All_sets.IntegerMap.add handle
-            par sisters), leafs, par
+        let rec tree_traverser parent vertex acc =
+            match Ptree.get_node vertex ptree with
+            | Tree.Leaf _ -> 
+                    true, acc, All_sets.Integers.singleton vertex
+            | Tree.Interior (_, _, a, b) ->
+                    let a_chld_belong_to_set, acc, a_group = 
+                        tree_traverser vertex a acc in
+                    let b_chld_belong_to_set, acc, b_group =
+                        tree_traverser vertex b acc in
+                    let ab_group = All_sets.Integers.union a_group b_group in
+                    let par_group = All_sets.Integers.diff leaves ab_group in
+                    let res =
+                        let par_group = is_mem par_group in
+                        acc 
+                        --> add_to_list 
+                            (a_chld_belong_to_set && is_mem b_group && par_group) 
+                            (vertex, a)
+                        --> add_to_list 
+                            (b_chld_belong_to_set && is_mem a_group && par_group)
+                            (vertex, b)
+                    in
+                    is_mem b_group && is_mem a_group, res, ab_group
+            | Tree.Single _ -> assert false
         in
-        let nodes item item_set (acc, no_break) =
-            if All_sets.IntSet.mem item_set sets then 
-                let e, sis =
-                    if item <> (-1) && item <> (-2) then
-                        let par = Tree.get_parent item tree in
-                        let sis = All_sets.IntegerMap.find item sisters in
-                        (Tree.Edge (par, item)), sis
-                    else if item = (-1) then
-                        (Tree.normalize_edge
-                        (Tree.Edge (handle, par)) tree), par
-                    else 
-                        let () = assert (item = (-2)) in
-                        (Tree.normalize_edge 
-                        (Tree.Edge (par, handle)) tree), handle
-                in
-                e :: acc,
-                    try
-                        let sis = All_sets.IntegerMap.find sis res in
-                        if All_sets.IntSet.mem sis sets then
-                            e :: no_break
-                        else 
-                            no_break
-                    with Not_found -> no_break
-            else acc, no_break
+        let of_handle ptree handle acc =
+            match Ptree.get_node handle ptree with
+            | Tree.Leaf (mine, other) -> 
+                    let _, res, _ = tree_traverser mine other acc in
+                    res
+            | Tree.Single _ -> acc
+            | Tree.Interior (mine, a, b, c) -> 
+                    let a_add, acc, a_group = tree_traverser mine a acc in
+                    let b_add, acc, b_group = tree_traverser mine b acc in
+                    let c_add, acc, c_group = tree_traverser mine c acc in
+                    let b_mem = is_mem b_group 
+                    and a_mem = is_mem a_group
+                    and c_mem = is_mem c_group in
+                    acc 
+                    --> add_to_list (a_add && b_mem && c_mem) (mine, a)
+                    --> add_to_list (b_add && a_mem && c_mem) (mine, b)
+                    --> add_to_list (c_add && b_mem && a_mem) (mine, c)
         in
-        All_sets.IntegerMap.fold nodes res ([] , [])
+        All_sets.Integers.fold (of_handle ptree) (Ptree.get_handles ptree) []
+
+    let generate_partition_edges sets ptree = 
+        let tree_leaves = 
+            let leaves = Tree.get_all_leaves ptree.Ptree.tree in
+            List.fold_left (fun acc x -> All_sets.Integers.add x acc)
+            All_sets.Integers.empty leaves 
+        in
+        let res = interior_vertex_sets_partition sets tree_leaves ptree in
+        res, res
 
     let max_height ptree =
         let best = ref max_int in

@@ -316,6 +316,11 @@ module OneDirF :
             fun x ->
                 lazy_from_val (Node.Standard.T.add_exclude set 
                 (force_val x))
+
+        let remove_exclude = 
+            fun x ->
+                lazy_from_val (Node.Standard.T.remove_exclude 
+                (force_val x))
     end
 
     module Union = struct
@@ -947,6 +952,14 @@ type nad8 = Node.Standard.nad8 = struct
         let add_exclude set n =
             let processor x = 
                 { x with lazy_node = OneDirF.T.add_exclude set x.lazy_node}
+            in
+            let uadj = List.map processor n.unadjusted
+            and adj = List.map processor n.adjusted in
+            { unadjusted = uadj; adjusted = adj }
+
+        let remove_exclude n = 
+            let processor x = 
+                { x with lazy_node = OneDirF.T.remove_exclude x.lazy_node}
             in
             let uadj = List.map processor n.unadjusted
             and adj = List.map processor n.adjusted in

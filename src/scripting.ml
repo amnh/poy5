@@ -2576,7 +2576,9 @@ END
     let add_constraint acc =
         match user_constraint with
         | None -> acc
-        | Some file -> (APOY constraint_p:(file:[file])) :: acc
+        | Some file -> 
+                Printf.printf "Adding constraint\n%!";
+                (APOY constraint_p:(file:[file])) :: acc
     in
     let get_top_n n =
         let trees = sort_trees !trees in
@@ -2623,8 +2625,13 @@ END
             !iterations_counter);
             Status.full_report search_iteration_status;
             let nrun = 
-                let initial = [APOY trees:1] in
-                exec !run (CPOY build {initial --> add_constraint})
+                let initial = 
+                    match user_constraint with
+                    | None -> [APOY trees:1]
+                    | Some file ->
+                        (`Constraint (Some file)) :: [APOY trees:1]
+                in
+                exec !run (CPOY build {initial})
             in
             let build_cost = get_cost nrun in
             let prev_time = Timer.wall timer in

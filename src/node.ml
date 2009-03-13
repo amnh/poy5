@@ -2961,6 +2961,8 @@ let add_exclude set n =
              else (`NotExcluded, 0, card, 0)) :: n.exclude_info;
     }
 
+let remove_exclude n = { n with exclude_sets = []; exclude_info = [] }
+
 
 let print_node_data (data : node_data) = 
     Printf.fprintf stdout "Taxon code: %i, number characters: %i\n" data.taxon_code (List.length data.characters);
@@ -3031,6 +3033,7 @@ let rec n_chars ?(acc=0) n =
 
 module T = struct
     let add_exclude = add_exclude
+    let remove_exclude = remove_exclude
 end
 
 module Union = struct

@@ -23,183 +23,57 @@ MKDIR_P = @MKDIR_P@
 USEPARALLEL := @USEPARALLEL@
 USE_LARGE_MESSAGES := @USE_LARGE_MESSAGES@
 OCAML = @OCAML@
+OCAMLBUILD := @OCAMLBUILD@
 
-SUBDIRS = ocamlmpi src doc
+SUBDIRS = src 
 
-all: 
-ifeq ($(USEPARALLEL), true)
-	cd ocamlmpi; $(MAKE) 
-	cd ./src/; $(MAKE) poy
-else
-	cd ./src/; $(MAKE) poy
-endif
+all: poy.native VERSION
 
-poy_test:
-	cd ./src/; $(MAKE) poy_test.native
-	cp ./src/poy_test.native ./test/poy_test
+poy_test.native:
+	cd ./src/; $(OCAMLBUILD) poy_test.native
+	cp ./src/poy_test.native ./test/poy_test.native
 
-./src/version.cmo: ./src/version.ml
-	$(MAKE) -C ./src version.cmo
+portal.native: poy.native xml/swami.xml 
+	cd src; $(OCAMLBUILD) portal.native
 
-./src/buildNumber.ml:
-	$(MAKE) -C ./src buildNumber.ml 
+src/makeVersion.native:
+	cd src; $(OCAMLBUILD) makeVersion.native
 
-./src/buildNumber.cmo: ./src/buildNumber.ml
-	$(MAKE) -C ./src buildNumber.cmo
+xml/swami.xml: src/makeVersion.native
+	export RESULT=`src/makeVersion.native`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
 
-./src/compileFlags.ml:
-	$(MAKE) -C ./src compileFlags.ml 
+VERSION: src/makeVersion.native 
+	export RESULT=`src/makeVersion.native -text`; echo "POY $${RESULT}" > VERSION
 
-./src/compileFlags.cmo: ./src/compileFlags.ml
-	$(MAKE) -C ./src compileFlags.cmo
+.PHONY:	$(SUBDIRS) clean install distclean VERSION
 
-version: ./src/compileFlags.cmo ./src/buildNumber.cmo ./src/version.cmo ./doc/makeVersion.ml
-	$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text
-
-portal.native: poy xml/swami.xml version
-	cd src; $(MAKE) portal.native
-
-xml/swami.xml: version xml/swami.xml.in
-	export RESULT=`$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text`; sed "s/VERSION/$${RESULT}/g" xml/swami.xml.in > xml/swami.xml
-
-VERSION: version 
-	export RESULT=`$(OCAML) -noprompt str.cma ./src/compileFlags.cmo ./src/buildNumber.cmo  ./src/version.cmo -I ./src/ ./doc/makeVersion.ml -text`; echo "POY $${RESULT}" > VERSION
-
-.PHONY:	subdirs $(SUBDIRS) clean driver install distclean version
-subdirs:	$(SUBDIRS)
+subdirs: $(SUBDIRS)
 
 transform = @program_transform_name@
 
-install:
+install: poy.native
 	$(MKDIR_P) $(DESTDIR)$(bindir)
-	$(INSTALL) ./src/poy $(DESTDIR)$(bindir)/`echo poy | sed -e '$(transform)'`
+	$(INSTALL) ./src/_build/poy.native $(DESTDIR)$(bindir)/`echo poy | sed -e '$(transform)'`
 	$(MKDIR_P) $(DESTDIR)$(mandir)
 	$(INSTALL) ./src/poy.1 $(DESTDIR)$(mandir)/poy.1
 
 install_server: install
-	$(INSTALL) ./src/portal.native $(DESTDIR)$(bindir)/`echo portal.native | sed -e '$(transform)'` 
+	$(INSTALL) ./src/_build/portal.native $(DESTDIR)$(bindir)/`echo portal | sed -e '$(transform)'` 
 
 uninstall:
 	rm -f $(bindir)/`echo poy | sed '$(transform)'`
 
-MAKEOCAMLMPI :=
-ifeq ($(USEPARALLEL), true)
-	MAKEOCAMLMPI := ocamlmpi
-endif
-
-binaries: mpoy-single mpoy-dual
-
-mac_panther:
-	cp -f config myconfig
-	cp -f config.panther config
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-	cp src/mpoy.opt ./panther/poy
-
-mac_ppc:
-	cp -f config myconfig
-	cp -f config.ppc_seq config
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_ppc_parallel_flat:
-	cp -f config myconfig
-	cp -f config.ppc_par_ncurses config
-	$(MAKE) ocamlmpi
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_ppc_parallel_ncurses:
-	cp -f config myconfig
-	cp -f config.ppc_par config
-	$(MAKE) ocamlmpi
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_ppc_parallel:
-	$(MAKE) mac_ppc_parallel_ncurses
-	cp src/mpoy.opt ./universal_parallel/mppoy_ppc
-	$(MAKE) mac_ppc_parallel_flat
-	cp src/mpoy.opt ./universal_parallel/ppoy_ppc
-
-mac_intel:
-	cp -f config myconfig
-	cp -f config.intel_seq config
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_intel_parallel_flat:
-	cp -f config myconfig
-	cp -f config.intel_par config
-	$(MAKE) ocamlmpi
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_intel_parallel_ncurses:
-	cp -f config myconfig
-	cp -f config.intel_par_ncurses config
-	$(MAKE) ocamlmpi
-	$(MAKE) clean; $(MAKE) depend; $(MAKE) mpoy.opt
-	cp -f myconfig config
-
-mac_intel_parallel:
-	$(MAKE) mac_intel_parallel_ncurses
-	cp src/mpoy.opt ./universal_parallel/mppoy_intel
-	$(MAKE) mac_intel_parallel_flat
-	cp src/mpoy.opt ./universal_parallel/ppoy_intel
-
-mac_universal:
-	$(MAKE) mac_intel
-	cp -f ./src/mpoy.opt ./universal_sequential//poy_intel
-	$(MAKE) mac_ppc
-	cp -f ./src/mpoy.opt ./universal_sequential/poy_ppc
-	lipo -create ./universal_sequential/poy_ppc ./universal_sequential/poy_intel -output ./universal_sequential/poy
-
-mac_universal_parallel:
-	$(MAKE) mac_intel_parallel
-	$(MAKE) mac_ppc_parallel
-	lipo -create ./universal_parallel/ppoy_ppc ./universal_parallel/ppoy_intel -output ./universal_parallel/ppoy
-	lipo -create ./universal_parallel/mppoy_ppc ./universal_parallel/mppoy_intel -output ./universal_parallel/mppoy
-
-mac_all:
-	$(MAKE) mac_panther
-	$(MAKE) mac_universal_parallel
-	$(MAKE) mac_universal
-
-
-mpoy-single: $(MAKEOCAMLMPI)
-	./set-config.pl --ncurses --no-parallel
-	cd src; $(MAKE) clean; $(MAKE) .depend; $(MAKE) mpoy.opt
-	mv src/mpoy.opt $@
-
-mpoy-dual: $(MAKEOCAMLMPI)
-	./set-config.pl --no-ncurses --parallel
-	cd src; $(MAKE) clean; $(MAKE) .depend; $(MAKE) mpoy.opt
-	mv src/mpoy.opt $@
-
-poy: 
+poy.native: 
 	cd src; \
 	$(MAKE) $@
 
-mpoy: $(MAKEOCAMLMPI)
+poy.byte:
 	cd src; \
 	$(MAKE) $@
 
-mpoy_console: $(MAKEOCAMLMPI)
+poy.top:
 	cd src; \
 	$(MAKE) $@
-
-depend:
-	cd src; \
-	$(MAKE) $@
-
-$(SUBDIRS):
-	$(MAKE) -C $@
-
-clean_distros:
-	rm -f universal_parallel/*
-	rm -f universal_sequential/*
-	rm -f panther/*
 
 clean:
 	rm -f plugins/*.cm* plugins/*.o
@@ -212,7 +86,7 @@ clean:
 distclean: clean
 	rm -f config.log
 	rm -f config.status
-	rm -f test/poy_test
+	rm -f test/poy_test*
 	@for subs in $(SUBDIRS); do \
 	  cd $$subs; \
 	  $(MAKE) distclean; \

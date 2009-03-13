@@ -14,6 +14,9 @@ The following script implements a strategy for a thorough search. This is accomp
 \begin{verbatim}
 (* search using all data *)
 read("9.fas","31.ss", aminoacids:("41.aa"))
+(* We select as root the taxon with name t1. If we wanted
+the taxon Locusta_migratoria, we would write:
+root:"Locusta_migratoria" *)
 set(seed:1,log:"all_data_search.log",root:"t1")
 report(timer:"search start")
 transform(tcm:(1,2),gap_opening:1)

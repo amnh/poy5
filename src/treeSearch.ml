@@ -126,8 +126,7 @@ let sets_of_parser data tree =
                 in
                 All_sets.IntSet.add union acc, union
     in
-    let sets, _ = process (Parser.Tree.strip_tree tree) All_sets.IntSet.empty in
-    sets
+    fst (process (Parser.Tree.strip_tree tree) All_sets.IntSet.empty)
 
 let sets meth data trees = 
     match meth with

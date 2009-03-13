@@ -2,7 +2,7 @@
 # The environment MACHOST holds the URL of the macintosh host running the
 # virtual machine. The only argument contains the desired extra flags for the
 # configuration script (for example long sequence support). 
-export PATH=/home/andres/minglibs/bin:/cygdrive/c/ocamlmgw/3_10_2/bin:$PATH
+export PATH=/home/andres/minglibs/bin:/cygdrive/c/ocamlmgw/3_11_0/bin:$PATH
 source $HOME/.keychain/${HOSTNAME}-sh
 
 sequential=0
@@ -59,7 +59,7 @@ if ! make clean; then
     exit 1
 fi
 
-if ! make poy; then
+if ! make poy.native; then
     echo "I could not make poy!!! ..."
     exit 1
 fi
@@ -69,9 +69,12 @@ cd ../
 
 if [ $ncurses -eq 1 ]; then
     # We first compile the regular ncurses interface
-    ./configure $configuration --enable-xslt --enable-interface=ncurses CFLAGS="-O3 -msse3 -L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/ -I /home/andres/zlib/include -I /home/andres/PDCurses-3.3/"
+    if ! ./configure $configuration --enable-xslt --enable-interface=ncurses CFLAGS="-O3 -msse3 -L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/ -I /home/andres/zlib/include -I /home/andres/PDCurses-3.3/" LIBS="-L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/" ; then
+        echo "Configuration failed!"
+        exit 1
+    fi
     compile_executable
-    if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/ncurses_poy.exe; then
+    if ! cp -f ./src/poy.native /cygdrive/c/poy_distribution/bin/ncurses_poy.exe; then
         echo "I could not replace the poy executable in the distribution"
         exit 1
     fi
@@ -79,9 +82,12 @@ fi
 
 if [ $sequential -eq 1 ]; then
     # Now we compile the html interface
-    ./configure $configuration --enable-xslt --enable-interface=html CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib  -I /home/andres/zlib/include"
+    if ! ./configure $configuration --enable-xslt --enable-interface=html CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib  -I /home/andres/zlib/include" LIBS="-L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/ "; then
+        echo "Configuration failed!"
+        exit 1
+    fi
     compile_executable
-    if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/seq_poy.exe; then
+    if ! cp -f ./src/poy.native /cygdrive/c/poy_distribution/bin/seq_poy.exe; then
         echo "I could not replace the executable in the distribution"
         exit 1
     fi
@@ -89,10 +95,13 @@ fi
 
 if [ $parallel -eq 1 ]; then
     # Now we compile the parallel interface
-    ./configure $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib -L/cygdrive/c/mpich2/lib -I /home/andres/zlib/include -I /cygdrive/c/mpich2/include" LIBS="-lmpi"
+    if ! ./configure $configuration --enable-xslt --enable-interface=html --enable-mpi CFLAGS="-msse3 -O3 -L/home/andres/zlib/lib -L/cygdrive/c/mpich2/lib -I /home/andres/zlib/include -I /cygdrive/c/mpich2/include"  LIBS="-L/home/andres/zlib/lib -L/home/andres/PDCurses-3.3/win32/ -L/cygdrive/c/mpich2/lib -lmpi"; then
+        echo "Configuration failed!"
+        exit 1
+    fi
     make clean
     make
-    if ! cp -f ./src/poy.exe /cygdrive/c/poy_distribution/bin/par_poy.exe; then
+    if ! cp -f ./src/poy.native /cygdrive/c/poy_distribution/bin/par_poy.exe; then
         echo "I could not replace the executable in the distribution"
         exit 1
     fi
