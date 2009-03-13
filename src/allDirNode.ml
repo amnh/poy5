@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
-let eager = false
+let eager = true
 let uppass_debug = false
 
 type exclude = Node.exclude
@@ -31,6 +31,23 @@ type 'a my_lazy =
     | Eager of 'a
 
 type a_node = Node.node_data my_lazy
+
+(* to print lists through Printf *)
+let pp_list depth to_string chan lst = 
+	Format.set_formatter_out_channel chan;
+	Format.open_box depth;
+	output_string chan "[ ";
+	List.iter
+		(fun x -> 
+			output_string chan (to_string x);
+			output_char chan ' ';)
+		lst;
+	output_char chan ']';
+	Format.close_box ()
+
+let pp_opt_lst depth to_string = 
+    pp_list depth (fun x -> match x with | Some x -> to_string x | None -> "None")
+(* ------ *)
 
 let force_val = function
     | Lazy x -> Lazy.force_val x
@@ -154,10 +171,6 @@ module OneDirF :
     let distance ?(para=None) ?(parb=None) missing_distance a b =
         apply_f_on_lazy (Node.Standard.distance missing_distance) a b
 
-    let distance_of_type t missing_dist p_code m a b = 
-        Node.Standard.distance_of_type t missing_dist p_code
-                (force_val m) (force_val a) (force_val b)
-
     let character_costs x n = 
         Node.Standard.character_costs x (force_val n)
 
@@ -233,6 +246,9 @@ module OneDirF :
 
     let taxon_code n = 
         apply_single_f_on_lazy Node.Standard.taxon_code n
+
+    let min_taxon_code code n = 
+        apply_single_f_on_lazy (Node.Standard.min_taxon_code code) n
 
     let union_distance _ _ = 0.0
 
@@ -522,18 +538,13 @@ type nad8 = Node.Standard.nad8 = struct
                 h.code
         | [] -> failwith "AllDirNode.taxon_code"
 
+    let min_taxon_code code node = 
+        OneDirF.min_taxon_code code (not_with code node.adjusted).lazy_node
+
     let dump_node f child par = 
         OneDirF.dump_node f
         (not_with (taxon_code par) child.unadjusted).lazy_node
         (either_with (taxon_code child) par.unadjusted).lazy_node
-
-    let distance_of_type t missing_dist p_code mine ch1 ch2 =
-        let get_dir p n = (not_with p n.adjusted).lazy_node in
-        OneDirF.distance_of_type
-                t missing_dist p_code 
-                (get_dir p_code mine)
-                (get_dir (taxon_code mine) ch1)
-                (get_dir (taxon_code mine) ch2)
 
     let edge_iterator par mine ch1 ch2 = 
         let get_dir p n = (not_with (taxon_code p) n.adjusted).lazy_node in
@@ -643,7 +654,7 @@ type nad8 = Node.Standard.nad8 = struct
      * first argument is for when time is from root median *)
     let apply_time root child parent =
         if uppass_debug then
-            Printf.printf "Applying time from %d to %d"
+            Printf.printf "Applying time from %d to %d\n%!"
                     (taxon_code parent) (taxon_code child);
         let has_one code x = match x.dir with
             | None -> true (* cannot be a leaf as well, no time! use median *)
@@ -680,7 +691,7 @@ type nad8 = Node.Standard.nad8 = struct
      *
      * time_M2A [B]
      *      __  //
-     *    [A]==[M] < node_A
+     *    [A]==[M] < data_m2a 
      *          \\
      *          [P]
     **)
@@ -710,7 +721,7 @@ type nad8 = Node.Standard.nad8 = struct
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
                 assert ( match x.dir with
-                         | None -> false
+                         | None -> false (* thus, a/b are both children *)
                          | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac)
                        );
                 force_val x.lazy_node
@@ -730,7 +741,7 @@ type nad8 = Node.Standard.nad8 = struct
                         print_newline ();
                         assert (false)
                      end
-            (* ...was resolved, as above *)
+            (* ...was resolved, so get one of the directions that has m as child *)
             |  _  -> get_dir mc p
 
         (* both of these should exist *)
@@ -738,11 +749,16 @@ type nad8 = Node.Standard.nad8 = struct
         and data_a2m = get_dir mc a in
 
         (* get the times in all directions --AB have them in M and M has it in P *)
-        let time_M2A = Node.get_times_between data_m2p (Some (get_dir mc a))
-        and time_M2B = Node.get_times_between data_m2p (Some (get_dir mc b))
-        and time_M2P = match m.adjusted with
-            | [x] -> Node.get_times_between data_p2m (Some data_m2p)
-            |  _  -> Node.get_times_between data_p2m None
+        let time_M2A = 
+            Node.get_times_between data_m2p (Some (min_taxon_code mc a))
+        and time_M2B = 
+            Node.get_times_between data_m2p (Some (min_taxon_code mc b))
+        and time_M2P =
+            let timedat = force_val (either_with mc p.adjusted).lazy_node in
+            if (taxon_code p) = p_code then
+                 Node.get_times_between timedat (Some (min_taxon_code p_code m))
+            else 
+                 Node.get_times_between timedat None
         in
 
         (* call medians with times supplied *)
@@ -1052,30 +1068,31 @@ let create_root ?branches a aa ab b ba bb opt =
 
 let create_root_w_times (adjusted:bool) left right =
     let get_dir parc x =
-        try
-            let refresh_from = if adjusted then x.adjusted else x.unadjusted in
-            force_val (not_with parc refresh_from).lazy_node
-        with | Not_found -> failwithf "rootw/times: Cannot find %d in %d"
-                                            parc (AllDirF.taxon_code x)
+        let refresh_from = if adjusted then x.adjusted else x.unadjusted in
+        force_val (not_with parc refresh_from).lazy_node
 
     and get_a_dir child x = 
         let refresh_from = if adjusted then x.adjusted else x.unadjusted in
-        match refresh_from with (* one direction now means it's a leaf *)
+        match refresh_from with
         | [x] -> assert( match x.dir with | None -> true | _ -> false); 
                  force_val x.lazy_node
-        |  _  -> let x,y = yes_with child refresh_from in 
+        |  _  -> let x,_ = yes_with child refresh_from in 
                  force_val x.lazy_node
     in
+
+    let l_code = AllDirF.taxon_code left
+    and r_code = AllDirF.taxon_code right in
         
-    let left2right = get_dir (AllDirF.taxon_code right) left
-    and right2left = get_dir (AllDirF.taxon_code left) right in
+    let left2right = get_dir r_code left
+    and right2left = get_dir l_code right in
 
     let in_l_time = Node.get_times_between 
-                    (get_a_dir (AllDirF.taxon_code right) left)
-                    (Some right2left)
+                    (get_a_dir r_code left)
+                    (Some (AllDirF.min_taxon_code l_code right))
     and in_r_time = Node.get_times_between 
-                    (get_a_dir (AllDirF.taxon_code left) right)
-                    (Some left2right) in
+                    (get_a_dir l_code right)
+                    (Some (AllDirF.min_taxon_code r_code left))
+    in
     lazy_from_fun
         (fun () -> 
             Node.median_w_times 

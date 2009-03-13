@@ -27,6 +27,7 @@ let debug_adjust_fn = true
 let debug_clear_subtree = false
 let debug_join_fn = false
 let debug_branch_fn = false
+let debug_cost_fn = true
 let debug_uppass_fn = false
 
 let current_snapshot x = 
@@ -283,7 +284,7 @@ with type b = AllDirNode.OneDirF.n = struct
         (* Other characters have their cost computed by adding up the length of
         * all of the branches. single_characters_cost is exactly that. *)
         let distance a b acc =
-            let nda = 
+            let nda =
                 (List.hd ((Ptree.get_node_data a
                 new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
             and ndb = (List.hd ((Ptree.get_node_data b
@@ -305,6 +306,13 @@ with type b = AllDirNode.OneDirF.n = struct
                     new_tree.Ptree.tree 
                     (~-. (distance b a 0.0))
         in
+
+        if debug_cost_fn then begin
+            info_user_message "Single Character Cost: %f" single_characters_cost;
+            info_user_message "Other Character Cost: %f" not_single_character_cost;
+            info_user_message "Root Cost: %f" (AllDirNode.AllDirF.root_cost root)
+        end;
+
         let res = 
             single_characters_cost +. not_single_character_cost +. 
             (AllDirNode.AllDirF.root_cost root)
@@ -890,8 +898,6 @@ with type b = AllDirNode.OneDirF.n = struct
 
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
-                Printf.printf "PREV COST: %f\t CHECK: %f\n%!"
-                                (prev_cost) (check_cost_all_handles ptree);
                 let changed,new_affected,new_ptree = 
                     let pref = ref ptree in    (* can't merge two ptrees *)
                     let aref = ref All_sets.IntegerMap.empty in (* map - no union operator *)
@@ -1147,13 +1153,6 @@ with type b = AllDirNode.OneDirF.n = struct
                     --> assign_single false
                     --> adjust_tree iterations None
                     --> refresh_all_edges true None true None
-        in
-        let () =
-            Printf.printf "Verified Downpass: %b\n%!"
-               (All_sets.Integers.fold
-                    (fun x acc -> acc && (verify_downpass x res))
-                    (Ptree.get_handles res)
-                    true)
         in
         assert( check_three_directions res );
         current_snapshot "AllDirChar.downpass b";
@@ -1564,10 +1563,9 @@ with type b = AllDirNode.OneDirF.n = struct
                 let tree = adjust_tree iterations None
                            (assign_single false (pick_best_root tree)) in
                 refresh_all_edges true None true None tree, delta
-            | `Normal_plus_Vitamines ->
-                let tree, delta = join_fn a b c d in
-                assign_single false tree, delta
-            | `Exhaustive_Weak | `Exhaustive_Strong ->
+            | `Normal_plus_Vitamines
+            | `Exhaustive_Weak
+            | `Exhaustive_Strong ->
                 let tree, delta = join_fn a b c d in
                 uppass tree, delta 
         in

@@ -658,7 +658,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         List.rev (ei_map c0.characters c1.characters c2.characters [])
     in
     let mine_cost = get_characters_cost mine in
-    {c0 with characters = mine;
+    {
+        c0 with characters = mine;
              total_cost = calc_total_cost c1 c2 mine_cost;
              node_cost  = mine_cost;
     }
@@ -667,26 +668,28 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     END
 
 let apply_time root child parent =
-    let p,q = if child.min_child_code = parent.min_child_code then fst,snd else snd,fst in
-    let p_opt to_string = function | None -> "None" | Some x -> to_string x in
-    let rec apply_times ch par = match ch,par with
-        | StaticMl cnd,StaticMl pnd ->
-            IFDEF USE_LIKELIHOOD THEN (* only modify first part of tuple *)
+    IFDEF USE_LIKELIHOOD THEN
+        let p,q = if child.min_child_code = parent.min_child_code then fst,snd else snd,fst in
+        let p_opt to_string = function | None -> "None" | Some x -> to_string x in
+        let rec apply_times ch par = match ch,par with
+            | StaticMl cnd,StaticMl pnd ->
                 if debug then
                     info_user_message "Applying %s to %d -- %d"
                         (p_opt string_of_float (p pnd.time)) (child.taxon_code)
                                                              (parent.taxon_code)
                 else ();
-                StaticMl { cnd with time = p pnd.time,q cnd.time }
-            ELSE
-                ch
-            END
-        | _ -> ch
-    in
-    {
-      child with characters =
-             List.map2 apply_times child.characters parent.characters
-    }
+                let the_time = p pnd.time in
+                StaticMl { cnd with time = the_time,the_time }
+            | _ -> ch
+        in
+        {
+          child with characters =
+                 List.map2 apply_times child.characters parent.characters
+        }
+    ELSE
+        child
+    END
+
 
 (** [verify_time] has A and B which share an edge, and oA and oB which share an
  * edge with A and B respectively but not with B and A respectively *)
@@ -1007,12 +1010,13 @@ let median ?branches code old a b =
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
-let get_times_between (nd:node_data) (child:node_data option) =
-    let func = match child with
-        | Some child ->
-            if nd.min_child_code >= child.min_child_code then fst else snd
+let get_times_between (nd:node_data) (child_code : int option) =
+    let func = match child_code with
+        | Some child_code ->
+            if nd.min_child_code = child_code then fst else snd
         | None -> (fun (t1,t2) -> match t1,t2 with | Some x,Some y -> Some (x+.y)
-                                                   | None,_ | _,None -> None) in
+                                                   | None,_ | _,None -> None)
+    in
     List.map (fun x -> match x with
                 | StaticMl z ->
                     IFDEF USE_LIKELIHOOD THEN
@@ -1222,16 +1226,6 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
     in
     compare_lists chs1 chs2
 
-let ml_root_cost = function
-    | StaticMl a ->
-        IFDEF USE_LIKELIHOOD THEN
-            MlStaticCS.root_cost a.preliminary
-        ELSE
-            0.0
-        END
-    | _ -> 0.0
-
-
 (* This function assumes that nodea and nodeb come from a valid tree and
  * nodea is the parent of nodeb.  *)
 let edge_distance clas nodea nodeb =
@@ -1277,7 +1271,7 @@ let edge_distance clas nodea nodeb =
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                a.weight *. ml_root_cost x
+                match x with | StaticMl x -> 0.0 *. x.cost | _ -> assert false
             ELSE
                 failwith likelihood_error
             END
@@ -1301,7 +1295,7 @@ let edge_distance clas nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `StaticMl ; `Kolmo]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `Kolmo]
 
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
@@ -1318,7 +1312,7 @@ let all_characters_single =
 let not_to_single =
     ToSingleModule.elements
         (List.fold_left (fun acc x -> ToSingleModule.remove x acc)
-        all_characters_single has_to_single)
+                        all_characters_single has_to_single)
 
 
 let distance_of_type ?(para=None) ?(parb=None) t missing_distance
@@ -1392,7 +1386,7 @@ let distance ?(para=None) ?(parb=None)  missing_distance
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                a.weight *. ((ml_root_cost x) -. (ml_root_cost ch1) -. (ml_root_cost ch2))
+                match x with | StaticMl x -> a.weight *. x.cost | _ -> assert false
             ELSE
                 failwith likelihood_error
             END
@@ -1433,7 +1427,7 @@ let dist_2 minimum_delta n a b =
                 (* the min_code is the only thing used so this is sufficient *)
                 let x = if n.min_child_code < b.min_child_code then n else b in
                 let c = cs_median (-1) x a None None None a' x' in
-                nn.weight *. ml_root_cost c
+                match c with | StaticMl c -> nn.weight *. c.cost | _ -> assert false
             ELSE
                 failwith likelihood_error
             END
@@ -3545,8 +3539,6 @@ module Standard :
         let recode f n = recode f n
         let fix_preliminary = all_prelim_to_final
         let distance = distance
-        let distance_of_type t missing _ m a b =
-                (distance_of_type t missing a m) +. (distance_of_type t missing b m)
         let set_exclude_info a b = { b with exclude_info = a }
         let excludes_median _ = excludes_median
         let character_costs _ = character_costs
@@ -3563,6 +3555,7 @@ module Standard :
         let exclude_info _ x = x.exclude_info
         let has_excluded = has_excluded
         let taxon_code x = x.taxon_code
+        let min_taxon_code _ = get_min_taxon_code
         (* TODO This function must be removed *)
         let union_distance _ _ = 0.
         let is_collapsable = is_collapsable
@@ -3704,7 +3697,24 @@ let merge a b =
     }
 
 let total_cost_of_type t n =
+    let print_t t = match t with
+        | `Nonadd -> "nonadd"
+        | `StaticMl -> "staticml"
+        | `Add -> "add"
+        | `Sank -> "sank"
+        | _ -> "???"
+    and print_n n = match n with
+        | Nonadd8 _ | Nonadd16 _ | Nonadd32 _ -> "nonadd"
+        | Add _ -> "add"
+        | Sank _ -> "sank"
+        | StaticMl _ -> "staticml"
+        | Dynamic _ -> "dynamic"
+        | Set _ -> "set"
+        | _ -> "???"
+    in
+
     let rec total_cost_cs acc item = 
+        Printf.printf "TCoT: %s == %s\n%!" (print_t t) (print_n item);
         match item, t with
         | Nonadd8 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
         | Nonadd16 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
@@ -3713,7 +3723,7 @@ let total_cost_of_type t n =
         | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
         | StaticMl x, `StaticMl -> 
             IFDEF USE_LIKELIHOOD THEN
-                acc +. x.sum_cost (* in likelihood this is character set cost,
+                acc +. x.cost (* in likelihood this is character set cost,
                                    * and not a sum of the children *)
             ELSE
                 acc

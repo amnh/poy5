@@ -100,6 +100,9 @@ module type S = sig
     * [Data.d] code assigned to the corresponding taxon. *)
     val taxon_code : n -> int
 
+    (** [min_taxon_code n] used, to get the branch length correctly *)
+    val min_taxon_code : int -> n -> int
+
     (** [union_distance m n] calculates the distance between the unions
     * contained in [m] and [n]. 
     *
@@ -148,11 +151,6 @@ module type S = sig
     (** [edge_distance m n] calculates the maximum distance between the vertices
     * [m] and [n]. *)
     val edge_distance : n -> n -> float
-
-    val distance_of_type :   
-              [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-                | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
-                        float -> int -> n -> n -> n -> float
 
     (** [support_chars starting code n] returns the cost of the support 
     * characters. See the usage of the function in the Support module *)
