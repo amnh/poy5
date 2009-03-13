@@ -270,6 +270,8 @@ dispatch begin function
     flag ["ocamlmklib"; "c"; "use_zlib"]
          (S[A zlib_lib]);
 
+    flag ["ocamlmklib"; "c"] (S (process_flags "-cclib" clibs));
+
     (* When one compile C code using the zlib *)
     flag ["link"; "ocaml"; "use_zlib"] (S[A"-cclib"; A zlib_lib]);
 
