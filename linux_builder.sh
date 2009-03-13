@@ -15,11 +15,11 @@ if ! make clean; then
     echo "Could not clean!"
     exit 1
 fi
-if ! make; then
+if ! make poy.native; then
     echo "Failure in make step"
     exit 1
 fi
-cp ./src/poy ./$LINUX_DIRECTORY/seq_poy.command
+cp ./src/_build/poy.native ./$LINUX_DIRECTORY/seq_poy.command
 
 # Now we make the ncurses interface
 if ! ./configure --with-version-number=$1 --enable-interface=ncurses CFLAGS="-static -static-libgcc -msse3 -O3"; then
@@ -30,11 +30,11 @@ if ! make clean; then
     echo "Could not clean!"
     exit 1
 fi
-if ! make; then
+if ! make poy.native; then
     echo "Failure in make step"
     exit 1
 fi
-cp ./src/poy ./$LINUX_DIRECTORY/ncurses_poy
+cp ./src/poy.native ./$LINUX_DIRECTORY/ncurses_poy
 cat > ./${LINUX_DIRECTORY}/ncurses_poy.command <<EOF
 #!/bin/bash
 xterm -e ../Resources/ncurses_poy
