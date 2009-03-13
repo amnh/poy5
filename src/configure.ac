@@ -251,7 +251,8 @@ case $OCAMLVERSION in
         else 
             AC_MSG_RESULT([no])
             USE_NATIVEDYNLINK="true"
-        fi;;
+        fi
+	    rm -f str.cmxs*;;
     *)
     AC_MSG_RESULT([no])
     AC_MSG_FAILURE([POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)])
