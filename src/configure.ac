@@ -179,7 +179,6 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 # Time to verify if we can compile with xslt
 XSLT_CONFIG="xslt-config"
-echo "I will check for the xslt crap"
 AC_ARG_WITH(xslt-config, [Select a different xslt-config program to detect the configuration options of libxslt.],
             [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],
                                                     [xslt-config],[xslt-config])])

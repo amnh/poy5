@@ -3369,7 +3369,6 @@ fi
 
 # Time to verify if we can compile with xslt
 XSLT_CONFIG="xslt-config"
-echo "I will check for the xslt crap"
 
 # Check whether --with-xslt-config was given.
 if test "${with_xslt_config+set}" = set; then
