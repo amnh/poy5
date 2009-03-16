@@ -3427,8 +3427,7 @@ NEWLIBS="`$XSLT_CONFIG --libs`"
 LIBS="$LIBS $NEWLIBS"
 oFLAGS="$CFLAGS"
 CFLAGS="`$XSLT_CONFIG --cflags` $CFLAGS"
-if test $USEWIN32 = "false"; then
-  if test $USE_XSLT = "true"; then
+if test $USE_XSLT = "true"; then
   { $as_echo "$as_me:$LINENO: checking for xmlCreatePushParserCtxt in -lxml2" >&5
 $as_echo_n "checking for xmlCreatePushParserCtxt in -lxml2... " >&6; }
 if test "${ac_cv_lib_xml2_xmlCreatePushParserCtxt+set}" = set; then
@@ -3514,13 +3513,6 @@ fi
 else
    LIBS="$oLIBS"
              CFLAGS="$oFLAGS"
-
-fi
-
-else
-  cat >>confdefs.h <<\_ACEOF
-#define HAVE_XSLT 1
-_ACEOF
 
 fi
 
