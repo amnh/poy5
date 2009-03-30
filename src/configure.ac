@@ -80,6 +80,7 @@ OS_INFORMATION=`../gnu/config.guess`
 case ${OS_INFORMATION} in
     x86_64*)
         OCAMLFLAGS="-fno-PIC $OCAMLFLAGS" 
+        CFLAGS="-fPIC $CFLAGS"
         ;;
     *-apple-*)
         CFLAGS="-I /usr/include/malloc $CFLAGS"

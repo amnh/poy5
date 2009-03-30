@@ -319,8 +319,8 @@ module type S = sig
      * Dynamic uses [mode] to determine if approximations or three dimension
      * medians are calculated.
     **)
-    val readjust : int option -> [`ThreeD of int option | `ApproxD of int option ]
-        -> All_sets.Integers.t option -> n -> n-> n-> n -> n * All_sets.Integers.t
+    val readjust : [`ThreeD of int option | `ApproxD of int option ] ->
+        All_sets.Integers.t option -> n -> n-> n-> n -> n * All_sets.Integers.t
 
     val force : n -> n
 

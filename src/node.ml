@@ -606,7 +606,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     let root_e = match gp with 
         | Some x -> false
         | None -> true
-    in
+    and c1,c2 = if c1.min_child_code < c2.min_child_code then c1,c2 else c2,c1 in
 
     (* accumulators [pa],[aa],[ba] to iterate the branch length for each element in
      * the character set [p] as parent, and [a], [b] as children. *)
@@ -614,8 +614,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
         | (StaticMl pm)::ptl, (StaticMl am)::atl,(StaticMl bm)::btl ->
             let modf = ref All_sets.Integers.empty in
 
-            let am,bm = if c1.min_child_code < c2.min_child_code
-                        then am,bm else bm,am in
             (**
              * Since iteration is only done on the internal nodes, we can't have
              * an iterator on a leaf -- so both times must be 'None' and
@@ -623,9 +621,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
             let t1,t2 = match pm.time with 
                     | Some x,Some y -> x,y
                     | _ -> MlStaticCS.estimate_time am.preliminary bm.preliminary
-            in
+            in (*
             let t1,t2 = if root_e then let () = assert(t1 = t2) in 
-                        (t1 /. 2.0, t2 /. 2.0) else t1,t2 in
+                        (t1 /. 2.0, t2 /. 2.0) else t1,t2 in *)
 
             let mine,pcost,cost,(t1,t2),res = 
                 MlStaticCS.readjust None !modf am.preliminary
@@ -633,13 +631,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                                pm.preliminary
                                     t1 t2 in
             (* pull edges back together *)
-            let t1,t2 =
-                if root_e then t1 +. t2,t1 +. t2
-                else if c0.min_child_code < c1.min_child_code then
-                    t1,t2
-                else
-                    t2,t1
-            in
+            let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t2,t1 in
 
             let mine = StaticMl 
                 { pm with  preliminary = res; final = res;
@@ -664,7 +656,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
              node_cost  = mine_cost;
     }
     ELSE
-    c0
+        c0
     END
 
 let apply_time root child parent =
@@ -1386,7 +1378,8 @@ let distance ?(para=None) ?(parb=None)  missing_distance
         | StaticMl a, StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
-                match x with | StaticMl x -> a.weight *. x.cost | _ -> assert false
+                match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                             | _ -> assert false
             ELSE
                 failwith likelihood_error
             END
@@ -1394,9 +1387,8 @@ let distance ?(para=None) ?(parb=None)  missing_distance
               (match a.final.smethod with
                | `Strictly_Same ->
                      distance_lists a.final.set b.final.set 0.
-               | `Any_Of _ ->
-                     (* unf. we just take the full median and check the distance
-                     *)
+               | `Any_Of _ -> (* TODO:: check this is correct *)
+                     (* unf. we just take the full median and check the distance *)
                      decr median_counter;
                      let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
                      extract_cost m)
@@ -1406,8 +1398,9 @@ let distance ?(para=None) ?(parb=None)  missing_distance
         | ch1 :: chs1, ch2 :: chs2 ->
               distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
         | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)" in
-    distance_lists chs1 chs2 0.
+        | _ -> failwith "Incompatible characters (6)"
+    in
+    distance_lists chs1 chs2 0. 
 
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
 (* [a] must be the parent (ancestor) of [b] *)
@@ -2366,7 +2359,7 @@ let estimate_time a b =
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
     match parent_cs, mine with
-    | StaticMl cb, StaticMl ca -> 
+    (* | StaticMl cb, StaticMl ca -> 
         IFDEF USE_LIKELIHOOD THEN
             (match root with
             | None -> mine
@@ -2383,7 +2376,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
             )
         ELSE
             failwith likelihood_error
-        END
+        END *)
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
             * going here only *)
@@ -2458,12 +2451,10 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         match c1, c2, parent, mine with 
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
-                let am,bm = if ch1.min_child_code < ch2.min_child_code
-                            then c1,c2 else c2,c1 in
 
                 let t1,t2 = match parent.time with 
                     | Some x,Some y -> x,y
-                    | _ -> MlStaticCS.estimate_time am.preliminary bm.preliminary
+                    | _ -> MlStaticCS.estimate_time c1.preliminary c2.preliminary
                 in
 
                 let m, prev_cost, cost, (t1,t2), res = 
@@ -3559,6 +3550,7 @@ module Standard :
         let has_excluded = has_excluded
         let taxon_code x = x.taxon_code
         let min_taxon_code _ = get_min_taxon_code
+        let dump_node = dump_node
         (* TODO This function must be removed *)
         let union_distance _ _ = 0.
         let is_collapsable = is_collapsable
@@ -3581,8 +3573,7 @@ module Standard :
         let prioritize = prioritize
         let reprioritize = reprioritize
         let edge_iterator = edge_iterator
-        let dump_node = dump_node
-        let readjust _ = readjust
+        let readjust = readjust
         module T = T
         module Union = Union
         let for_support = for_support
@@ -3700,24 +3691,7 @@ let merge a b =
     }
 
 let total_cost_of_type t n =
-    let print_t t = match t with
-        | `Nonadd -> "nonadd"
-        | `StaticMl -> "staticml"
-        | `Add -> "add"
-        | `Sank -> "sank"
-        | _ -> "???"
-    and print_n n = match n with
-        | Nonadd8 _ | Nonadd16 _ | Nonadd32 _ -> "nonadd"
-        | Add _ -> "add"
-        | Sank _ -> "sank"
-        | StaticMl _ -> "staticml"
-        | Dynamic _ -> "dynamic"
-        | Set _ -> "set"
-        | _ -> "???"
-    in
-
     let rec total_cost_cs acc item = 
-        Printf.printf "TCoT: %s == %s\n%!" (print_t t) (print_n item);
         match item, t with
         | Nonadd8 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
         | Nonadd16 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
