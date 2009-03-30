@@ -125,7 +125,6 @@ let not_with code n =
 
 (* grabs a node in the direction with children c1 and c2 --Internal Nodes only *)
 let with_both c1 c2 n = 
-    assert( 3 = List.length n );
     match List.filter (fun x -> match x.dir with
                         | Some (xa,xb) -> (xa=c1 && xb=c2) || (xa=c2 && xb=c1)
                         | None -> false ) n with
@@ -209,8 +208,8 @@ module OneDirF :
             (force_val mine) (force_val ch1) (force_val ch2)
         in (to_n n_mine)
 
-    let readjust gp mode set_2adjust a b c mine =
-        let node,set = Node.Standard.readjust gp mode set_2adjust
+    let readjust mode set_2adjust a b c mine =
+        let node,set = Node.Standard.readjust mode set_2adjust
                             (force_val a) (force_val b) (force_val c) (force_val mine)
         in
         (to_n node,set)
@@ -318,6 +317,11 @@ module OneDirF :
         let add_exclude set = 
             fun x ->
                 lazy_from_val (Node.Standard.T.add_exclude set 
+                (force_val x))
+
+        let remove_exclude = 
+            fun x ->
+                lazy_from_val (Node.Standard.T.remove_exclude 
                 (force_val x))
     end
 
@@ -462,6 +466,12 @@ type nad8 = Node.Standard.nad8 = struct
                 | Some (a, b) -> Some (f a, f b);
         }
 
+    let taxon_code n = 
+        match n.unadjusted with
+        | h :: _ -> (** All the elements in the list have the same code *)
+                h.code
+        | [] -> failwith "AllDirNode.taxon_code"
+
     let recode f n = { 
         unadjusted = List.map (recode_anode f) n.unadjusted;
         adjusted = List.map (recode_anode f) n.adjusted;
@@ -475,19 +485,24 @@ type nad8 = Node.Standard.nad8 = struct
 
     let to_single root a b c d set =
         let b',d' = match a,c with
-            | None,None -> (match b.adjusted,d.adjusted with
-                    | [x],[y] -> x,y
-                    | x,y -> failwithf "AllDirNode.to_single: no GC but %d %d direction(s)"
-                                        (List.length x) (List.length y)
-                    )
-            | Some x,Some y -> not_with x b.unadjusted,not_with y d.unadjusted
+            | None,None ->
+                begin
+                    let one = match b.adjusted with
+                        | [x] -> x
+                        |  x  -> not_with (taxon_code d) x
+                    and two = match d.adjusted with
+                        | [y] -> y
+                        |  y  -> not_with (taxon_code b) y
+                    in one,two
+                end
+            | Some x,Some y -> not_with x b.unadjusted, not_with y d.unadjusted
             | _,_ -> failwithf "AllDirNode.to_single: Ambiguous directions"
         in
 
         let root = match root with 
             | Some r -> Some ((List.hd r.unadjusted).lazy_node)
             | None -> None
-        in  
+        in
         let lazy_node = OneDirF.to_single root a (b'.lazy_node) c (d'.lazy_node) set in
         let node = [{ d' with lazy_node = lazy_node }] in
         { unadjusted = node; adjusted = node }
@@ -535,19 +550,18 @@ type nad8 = Node.Standard.nad8 = struct
     let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
     let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
 
-    let taxon_code n = 
-        match n.unadjusted with
-        | h :: _ -> (** All the elements in the list have the same code *)
-                h.code
-        | [] -> failwith "AllDirNode.taxon_code"
-
     let min_taxon_code code node = 
         OneDirF.min_taxon_code code (not_with code node.adjusted).lazy_node
 
-    let dump_node f child par = 
-        OneDirF.dump_node f
-        (not_with (taxon_code par) child.unadjusted).lazy_node
-        (either_with (taxon_code child) par.unadjusted).lazy_node
+    let dump_node f child par =
+        let par_dat = match par.adjusted with
+            | [x] -> x
+            |  x  -> either_with (taxon_code child) x
+        and chi_dat = match child.adjusted with
+            | [x] -> x
+            |  x  -> not_with (taxon_code par) x
+        in
+        OneDirF.dump_node f chi_dat.lazy_node par_dat.lazy_node
 
     let edge_iterator par mine ch1 ch2 = 
         let get_dir p n = (not_with (taxon_code p) n.adjusted).lazy_node in
@@ -562,30 +576,31 @@ type nad8 = Node.Standard.nad8 = struct
             { ab_to_m with
                 lazy_node = OneDirF.edge_iterator parofm ab_to_m.lazy_node atom btom
             } in
-        { unadjusted = [node_dir]; adjusted = [node_dir]; }
+        { mine with adjusted = [node_dir]; }
 
-    (* adjust the branches in the tree, including branch lengths *)
-    let readjust gp_opt mode to_adjust ch1 ch2 par mine =
+    (* adjust the branches in the tree, including branch lengths, uses
+     * adjusted with three directions *)
+    let readjust mode to_adjust ch1 ch2 par mine =
+        
         (* in [n], we want the direction toward [p], the parent *)
-        let get_dir p_code n = (not_with (taxon_code p_code) n.adjusted).lazy_node in
-        let mine2par = match gp_opt with
-            | Some gpc -> (not_with gpc par.adjusted).lazy_node
-            | None -> 
-                (match par.adjusted with
-                    | [x] -> x.lazy_node
-                    |  _  -> failwithf "AllDirNode.readjust got no GP but with %d directions."
-                                                (List.length par.adjusted)
-                )
+        let get_dir p_code n = (not_with (taxon_code p_code) n.adjusted).lazy_node
+        and mine_in_par = match par.adjusted with
+            | [x] -> x.lazy_node 
+            |  x  -> (either_with (taxon_code mine) x).lazy_node
+        (* use this to be precise about children, since we know this is internal *)
+        and mine_dat = with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted in
+
+        let a1,modified = 
+            OneDirF.readjust mode to_adjust (get_dir mine ch1) 
+                             (get_dir mine ch2) mine_in_par mine_dat.lazy_node
         in
 
-        let a1,modified = OneDirF.readjust gp_opt mode to_adjust (get_dir mine ch1) 
-                                (get_dir mine ch2) mine2par (get_dir par mine)
-        in
-
-        let node_dir = {
+        let node_dir =
+            {
                 lazy_node = a1;
                 dir = Some( (taxon_code ch1),(taxon_code ch2));
-                code = taxon_code mine; } 
+                code = taxon_code mine;
+            } 
         in
         let node = { mine with adjusted=[node_dir]; } in
         (node,modified)
@@ -672,7 +687,7 @@ type nad8 = Node.Standard.nad8 = struct
             Printf.printf "Applying time from %d to %d\n%!"
                     (taxon_code parent) (taxon_code child);
         let has_one code x = match x.dir with
-            | None -> true (* cannot be a leaf as well, no time! use median *)
+            | None -> true (* cannot be a leaf as well. should use median *)
             | Some (a,b) -> a = code || b = code
         in
 
@@ -966,6 +981,14 @@ type nad8 = Node.Standard.nad8 = struct
             let uadj = List.map processor n.unadjusted
             and adj = List.map processor n.adjusted in
             { unadjusted = uadj; adjusted = adj }
+
+        let remove_exclude n = 
+            let processor x = 
+                { x with lazy_node = OneDirF.T.remove_exclude x.lazy_node}
+            in
+            let uadj = List.map processor n.unadjusted
+            and adj = List.map processor n.adjusted in
+            { unadjusted = uadj; adjusted = adj }
     end
 
     module Union = struct
@@ -1058,16 +1081,14 @@ let create_root ?branches a aa ab b ba bb opt =
                 let a = AllDirF.uppass_heuristic (AllDirF.taxon_code b) a aa ab middle in
                 assert( (List.length a.adjusted) = 3);
                 a
-        | None,None ->
-                AllDirF.apply_time true a middle
+        | None,None -> AllDirF.apply_time true a middle
         | _,_ -> failwith "Failed with children of A @ Create Roots"
     and b_final = match ba,bb with
         | Some ba,Some bb -> 
                 let b = AllDirF.uppass_heuristic (AllDirF.taxon_code a) b ba bb middle in
                 assert( (List.length b.adjusted) = 3);
                 b
-        | None,None -> 
-                AllDirF.apply_time true b middle
+        | None,None -> AllDirF.apply_time true b middle
         | _,_ -> failwith "Failed with children of B @ Create Roots"
     and l_middle = match middle.adjusted with
         | [x] -> 

@@ -26,12 +26,9 @@
 #include <caml/alloc.h>
 #include <caml/callback.h>
 
-#ifdef _WIN32
-#include <time.h>
-#else
+#ifndef _WIN32
 #include <sys/time.h>
 #include <sys/resource.h>
-#endif
 
 #ifndef USEWIN32
 value
@@ -64,4 +61,5 @@ CAML_getrusage (value v) {
     Store_field(res, 15, Val_long(holder.ru_nivcsw));
     CAMLreturn(res);
 }
+#endif /* _WIN32 */
 #endif /* USEWIN32 */

@@ -215,6 +215,7 @@ module type S = sig
 
     module T : sig
         val add_exclude : All_sets.Integers.t -> n -> n
+        val remove_exclude : n -> n
     end
 
     (* This module handles the union operations of different characters *)
@@ -321,8 +322,8 @@ module type S = sig
      * Dynamic uses [mode] to determine if approximations or three dimension
      * medians are calculated.
     **)
-    val readjust : int option -> [`ThreeD of int option | `ApproxD of int option ]
-        -> All_sets.Integers.t option -> n -> n-> n-> n -> n * All_sets.Integers.t
+    val readjust : [`ThreeD of int option | `ApproxD of int option ] ->
+        All_sets.Integers.t option -> n -> n-> n-> n -> n * All_sets.Integers.t
 
     val force : n -> n
 
