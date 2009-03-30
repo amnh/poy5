@@ -152,6 +152,9 @@ module type Tree_Operations =
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  
         Xml.attributes -> Data.d -> (a, b) p_tree -> Xml.xml 
+
+    val branch_table : (a,b) p_tree -> 
+            (int,(int,[ `Single of float | `Name]) Hashtbl.t) Hashtbl.t
     (** [root_costs t] returns all possible roots in a tree (eg. every edge)
     * and the respective tree cost associated with it. *)
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
@@ -354,11 +357,14 @@ module type SEARCH = sig
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
-                    string -> Parser.Tree.tree_types list
+                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                        string -> Parser.Tree.tree_types list
+
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
-                (int -> int -> bool) -> string -> 
-                    Parser.Tree.tree_types
+                (int -> int -> bool) ->
+                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                        string -> Parser.Tree.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -380,8 +386,8 @@ module type SEARCH = sig
         val build_forest_with_names :
             bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types list
-
+            bool -> (a, b) p_tree -> Data.d -> string -> bool ->
+            Parser.Tree.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> Data.d -> unit

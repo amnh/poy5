@@ -67,6 +67,9 @@ module type S = sig
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
 
+    (** [get_times_between left right] time between two nodes -- **)
+    val get_times_between : n -> n -> (int * (float option)) list
+
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)
     val to_string : n -> string

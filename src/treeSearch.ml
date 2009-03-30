@@ -193,6 +193,7 @@ module MakeNormal
                 tree
                 (fun x -> Data.code_taxon x data) 
                 (fun _ _ -> false)
+                None
                 ""
             in
             let output tree =
@@ -207,6 +208,24 @@ module MakeNormal
         output tree;
         Status.user_message fo "@]";
         Status.user_message fo "%!"
+
+    let report_trees_and_branches compress filename data branches ptree =
+        let fo = 
+            let lst = if compress then [StatusCommon.Compress] else [] in
+            Status.Output (filename, false, lst)
+
+        and tree = PtreeSearch.build_trees
+                        ptree.Ptree.tree
+                        (fun x -> Data.code_taxon x data)
+                        (fun _ _ -> false) (* don't collapse *)
+                        (Some branches)
+                        ""
+        in
+        List.iter 
+            (fun x -> 
+                Status.user_message fo
+                    (AsciiTree.for_formatter false true true x)
+            ) tree
 
     let report_trees ic filename data trees =
         let leafsonly = 
@@ -223,6 +242,7 @@ module MakeNormal
             if use_hennig_style then (`Margin (1000000010 - 1)) :: ic
             else ic
         in
+        let branches = List.exists (function `Branches -> true | _ -> false) ic in
         (*
         let newick = 
             (List.exists (function `Newick -> true | _ -> false) ic)
@@ -248,7 +268,7 @@ module MakeNormal
             let cost = string_of_float cost in
             let tree = 
                 PtreeSearch.build_forest_with_names_n_costs 
-                collapse tree data cost 
+                collapse tree data cost branches
             in
             let output tree =
                 if use_hennig_style && not !is_first then 

@@ -178,10 +178,12 @@ module type Tree_Operations =
         val incremental_uppass : 
             (a, b) p_tree -> incremental list -> (a, b) p_tree
 
-
         val to_formatter :  
             Xml.attributes -> Data.d -> (a, b) p_tree ->
             Xml.xml
+
+        val branch_table : (a,b) p_tree -> 
+                (int,(int,[ `Single of float | `Name]) Hashtbl.t) Hashtbl.t
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
         val unadjust : (a, b) p_tree -> (a, b) p_tree
@@ -401,12 +403,14 @@ module type SEARCH = sig
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
-                    string -> Parser.Tree.tree_types list
+                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                        string -> Parser.Tree.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
-                (int -> int -> bool) -> string -> 
-                    Parser.Tree.tree_types
+                (int -> int -> bool) ->
+                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                        string -> Parser.Tree.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -428,8 +432,8 @@ module type SEARCH = sig
         val build_forest_with_names :
             bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types list
-
+            bool -> (a, b) p_tree -> Data.d -> string -> bool ->
+            Parser.Tree.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> Data.d -> unit
@@ -627,11 +631,6 @@ let get_edge_data edge ptree =
             let Tree.Edge (a, b) = edge in
             Tree.EdgeMap.find (Tree.Edge (b, a)) ptree.edge_data
    
-(** [set_branch_lengths a b id ptree] sets the branch lengths of the minimium
-* child of [id] to [a] and the other to [b]. Set either to 'None' to not change
-* the value *)
-
-
 let move_cost_n_root hid id ptree =
     let comp_cost = ptree.component_root in
     try 
@@ -1758,8 +1757,7 @@ let convert_to tree (d, nd_data_lst) =
     @param collapse is a function that check weather or not a branch can be
     collapsed.
     @return the ptree in the form of a Parser.Tree.t *)
-(* TODO:: BRANCH LENGTHS *)
-let build_trees (tree : Tree.u_tree) str_gen collapse root =
+let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
     let sortthem a b ao bo data ad bd =
         match String.compare ao bo with
         | 0 | 1 -> Parser.Tree.Node (b @ a, data), bd + 1, bo
@@ -1769,11 +1767,23 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
         | Parser.Tree.Leaf _ as x -> [x]
         | Parser.Tree.Node (lst, _) -> lst
     in
+
+    (* create an empty table if none is passed *)
+    let branches = match branches with Some x -> x | None -> Hashtbl.create 1 in
+    let str_gen id = 
+        let oth = try begin match Hashtbl.find branches id with
+                        | `Single length -> Some length,None
+                        | `Name -> None,Some (string_of_int id)
+                  end with | Not_found -> None,None 
+        and dat = try str_gen id with | Not_found -> "" in
+        dat,oth
+    in
+
     let rec rec_down node prev_node =
         match node with
         | Tree.Leaf (self, parent) -> 
               let data = str_gen self in
-              Parser.Tree.Leaf data, 0, data
+              Parser.Tree.Leaf data, 0, (fst data)
         | Tree.Interior (our_id, _, _, _) ->
               let (ch1, ch2) = 
                   assert (prev_node <> Tree.get_id node);
@@ -1783,7 +1793,6 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
                     | Not_found as err -> 
                             Status.user_message Status.Error "5";
                             raise err
-
               in
               let b, bd, bo = 
                   try rec_down (Tree.get_node ch2 tree) our_id with
@@ -1800,16 +1809,16 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
                       get_children b
                   else [b]
               in
-              let data = 
-                  try str_gen our_id 
-                  with Not_found -> ""
-              in
+              let data = str_gen our_id in
+
               if bd > ad then
                   Parser.Tree.Node (a @ b, data), bd + 1, bo
-              else if bd = ad then sortthem a b ao bo data ad bd
+                (* if equal then sort children alphabetically *)
+              else if bd = ad then sortthem a b ao bo data ad bd 
               else Parser.Tree.Node (b @ a, data), ad + 1, ao
         | Tree.Single _ -> failwith "Unexpected single"
     in
+    
     let map : Parser.Tree.tree_types list =
         List.map
         (fun handle ->
@@ -1819,10 +1828,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
                    let acc, _, _ = rec_down (Tree.get_node parent
                                            tree) handle in
                    let str = str_gen self in 
-                   let nd_data = 
-                       [(Parser.Tree.Leaf str); acc]
-                   in
-                   Parser.Tree.Node (nd_data, root)
+                   [(Parser.Tree.Leaf str); acc]
              | Tree.Interior (self, par, ch1, ch2) ->
                    let par = Tree.get_node par tree in
                    let ch1 = Tree.get_node ch1 tree in
@@ -1830,36 +1836,27 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
                    let acc, accd, acco = rec_down par handle in
                    let acc1, acc1d, acc1o = rec_down ch1 handle in
                    let acc2, acc2d, acc2o = rec_down ch2 handle in
-                   let data = 
-                       try str_gen self with
-                       | Not_found -> ""
-                   in
+                   let data = str_gen self in
+
                    if acc2d > acc1d then
                        if acc1d > accd then
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc; acc1], 
-                           data); acc2], root)
+                           [Parser.Tree.Node ([acc; acc1], data); acc2]
                        else 
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc1; acc], 
-                           data); acc2], root)
+                           [Parser.Tree.Node ([acc1; acc], data); acc2]
                    else if acc1d > accd then
                        if acc2d > accd then 
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc; acc2], 
-                           (try str_gen self with Not_found -> "")); acc1], root)
+                           [Parser.Tree.Node ([acc; acc2], data); acc1]
                        else 
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc2; acc], 
-                           (try str_gen self with Not_found -> "")); acc1], root)
+                           [Parser.Tree.Node ([acc2; acc], data); acc1]
                    else 
                        if acc2d > acc1d then
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc1; acc2], 
-                           (try str_gen self with Not_found -> "")); acc], root)
+                           [Parser.Tree.Node ([acc1;acc2], data); acc]
                        else 
-                           Parser.Tree.Node ([Parser.Tree.Node ([acc2; acc1], 
-                           (try str_gen self with Not_found -> "")); acc], root)
-             | Tree.Single self -> 
-                     Parser.Tree.Node
-                   ([(Parser.Tree.Leaf (str_gen self))], root)
-             in Parser.Tree.Flat tree
-            )
+                           [Parser.Tree.Node ([acc2;acc1], data); acc]
+             | Tree.Single self -> [(Parser.Tree.Leaf (str_gen self))]
+             in Parser.Tree.post_process 
+                    ( Parser.Tree.Node (tree,("",(None,None))),root )
+            ) (* ^ there is going to have to be something in that "" *)
             (All_sets.Integers.elements (Tree.get_handles tree))
     in
     map
@@ -1868,8 +1865,8 @@ let build_trees (tree : Tree.u_tree) str_gen collapse root =
     (** [build_tree tree]
         @param tree the ptree being converted into a Parser.Tree.t
         @return the tree with the smallest handle_id in ptree *)
-    let build_tree tree strgen collapse root =
-        let map = build_trees tree strgen collapse root in
+    let build_tree tree strgen collapse branches (root:string) =
+        let map = build_trees tree strgen collapse branches root in
         List.hd map
 
     let never_collapse a b c = false
@@ -1893,12 +1890,9 @@ let extract_codes pd ptree code = string_of_int code
 
 let build_tree_with_codes tree pd = 
     try
-    build_tree tree.tree (extract_codes pd tree) (collapse_as_needed tree) ""
-    with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "4";
-                            raise err
-
+        build_tree tree.tree (extract_codes pd tree) (collapse_as_needed tree) None ""
+    with | Not_found as err -> 
+        Status.user_message Status.Error "4"; raise err
 
 let rec fold_2 f acc a b =
     match a, b with
@@ -1969,11 +1963,11 @@ let handle_collapse bool =
     @return What does this function do? *)
 let build_tree_with_names collapse tree pd =
     let collapse_f = handle_collapse collapse tree in
-    build_tree tree.tree (extract_names pd tree) collapse_f ""
+    build_tree tree.tree (extract_names pd tree) collapse_f None ""
 
 let build_forest_with_names collapse tree pd =
     let collapse_f = handle_collapse collapse tree in
-    build_trees tree.tree (extract_names pd tree) collapse_f ""
+    build_trees tree.tree (extract_names pd tree) collapse_f None ""
 
 let build_tree_with_names_n_costs collapse tree pd cost = 
     let collapse_f = handle_collapse collapse tree in
@@ -1982,11 +1976,10 @@ let build_tree_with_names_n_costs collapse tree pd cost =
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
                 string_of_float (Node.total_cost (Some par) data)
-        | _ ->
-                try Data.code_taxon (Node.taxon_code data) pd
+        | _ ->  try Data.code_taxon (Node.taxon_code data) pd
                 with _ -> ""
     in
-    build_tree tree.tree extract_names collapse_f cost
+    build_tree tree.tree extract_names collapse_f None cost
 
 let build_forest collapse tree pd cost =
     let collapse_f = handle_collapse collapse tree in
@@ -2000,7 +1993,7 @@ let build_forest collapse tree pd cost =
                 try Data.code_taxon (Node.taxon_code data) pd
                 with _ -> ""
     in
-    let trees = build_trees tree.tree extract_names collapse_f cost in
+    let trees = build_trees tree.tree extract_names collapse_f None cost in
     trees
 
 let build_forest_as_tree collapse tree pd cost =
@@ -2038,7 +2031,7 @@ let build_forest_as_tree collapse tree pd cost =
                 ) trees in
             Parser.Tree.Branches (Parser.Tree.Node (chillens, ("forest",None)))
 
-let build_forest_with_names_n_costs collapse tree pd cost = 
+let build_forest_with_names_n_costs collapse tree pd cost branches = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -2049,14 +2042,26 @@ let build_forest_with_names_n_costs collapse tree pd cost =
                 try Data.code_taxon (Node.taxon_code data) pd
                 with _ -> ""
     in
-    build_trees tree.tree extract_names collapse_f cost
-
+    if branches then
+        let lst = 
+            Hashtbl.fold
+                    (fun _ nodes acc ->
+                        (build_trees tree.tree extract_names 
+                                     collapse_f (Some nodes) cost
+                        ) :: acc)
+                    (Tree_Ops.branch_table tree)
+                    []
+        in
+        List.flatten lst
+    else
+        build_trees tree.tree extract_names collapse_f None cost
 (** [disp_trees tree]
     @param str the title of the image.
     @param tree the ptree being displayed. 
     @return the tree is drawn either in graphical format or ascii format. *)
 let disp_trees str tree strgen root =
-    let trees = ref (build_trees tree.tree (strgen tree) (collapse_as_needed tree) root) in
+    let trees = 
+        ref (build_trees tree.tree (strgen tree) (collapse_as_needed tree) None root) in
     let ntrees = List.length !trees in
     let get_tree () = List.hd !trees in
     for i = 1 to ntrees do

@@ -4679,7 +4679,7 @@ let set_console_run r = console_run_val := r
         let to_string collapse tree data = 
             let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
             let res = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree data cost
+                PtreeSearch.build_forest_with_names_n_costs collapse tree data cost false
             in
             List.map (AsciiTree.for_formatter false true true) res 
 

@@ -277,6 +277,7 @@ let median an bn t1 t2 =
             median_sym am.u am.d t1 t2 an.chars bn.chars am.rate am.prob
         | Some ui -> 
             median_gtr am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob in
+
     { an with
         chars = n_chars;
         mle = loglikelihood n_chars an.model.pi_0; 
@@ -441,27 +442,43 @@ let of_parser spec characters =
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
     let str_time = function
-        | Some x -> `Float x | None -> `String "None" in
+        | Some x -> `Float x | None -> `String "None"
+    in
 
-    let _, state = List.hd attr in
-    (* let r = Array.to_list (barray_matrix ch_s) in *)
+    let make_single cc single_ray = 
+        `Set 
+            (Array.to_list 
+                (Array.mapi 
+                    (fun code value ->
+                        let alph = Data.to_human_readable data cc code in
+                        (PXML -[alph] {`Float value} --)
+                    )
+                    single_ray))
+    in
+
+    let sequence = 
+        let r = Array.to_list (barray_matrix (s_bigarray mine.chars)) in
+        List.map2 (make_single) (Array.to_list mine.codes) r
+    in
 
     (PXML
+        (* tag *)
         -[Xml.Characters.likelihood]
+            (* attributes *)
             ([Xml.Data.modeltype] = [`String mine.model.name])
             ([Xml.Characters.mle] = [`Float mine.mle])
             ([Xml.Nodes.min_time] = [str_time t1])
             ([Xml.Nodes.oth_time] = [str_time t2])
             ([attr])
-
-            { `String "todO" }
+            (* data *)
+            { `Set sequence }
         --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
     let model = c1.model and mcpy = mine in
-    let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in
+    (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
     let (nta,ntb,nl) = match model.ui with
         | None ->
             readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
@@ -469,7 +486,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         | Some ui ->
             readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
                     c_t2 model.rate model.prob model.pi_0 mine.mle in
-    let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in
+    (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
     if (nta = c_t1 && ntb = c_t2) then
         (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
     else

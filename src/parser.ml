@@ -1050,7 +1050,7 @@ module Tree = struct
                 let t,s = remove_branches t in Annotated (t,s)
         | false, true,false  -> Branches (remove_annot_2branches t)
         |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
-        |   _  ,  _  ,  _   -> failwith "Not implemented yet"
+        |   _  ,  _  ,  _   -> Branches (remove_annot_2branches t)
 
     (** general function for trees *)
     let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with

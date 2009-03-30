@@ -227,7 +227,10 @@ module OneDirF :
         lazy_from_fun (fun () -> apply_f_on_lazy (Node.Standard.apply_time root) x y)
 
     let estimate_time x y =
-        Node.Standard.estimate_time (force_val x) (force_val y)
+        apply_f_on_lazy (Node.Standard.estimate_time) x y
+
+    let get_times_between a b = 
+        apply_f_on_lazy (Node.Standard.get_times_between) a b
 
     let uppass_heuristic pcode mine a b par = mine
 
@@ -647,6 +650,18 @@ type nad8 = Node.Standard.nad8 = struct
     let estimate_time left right = 
         let get_dir p c = (not_with (taxon_code p) c.unadjusted).lazy_node in
         OneDirF.estimate_time (get_dir left right) (get_dir right left)
+
+    (** [get_times_between child par] 
+     *
+     * returns the branch length between the child and parent, contained in
+     * parent, although, it shouldn't matter as long as the directions are
+     * available, and should be. The directions paseed to OneDirF are those
+     * going down the tree from child to parent. The data is retrieved from the
+     * parent in the Node.Standard, along with the character set code *)
+    let get_times_between child par =
+        OneDirF.get_times_between
+                (not_with (taxon_code par) child.adjusted).lazy_node
+                (either_with (taxon_code child) par.adjusted).lazy_node
 
     (** [apply_time child parent] applies time from parent into child --used on
      * leaves when the uppass_heuristic doesn't normally run over internal nodes

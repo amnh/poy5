@@ -84,7 +84,7 @@ type input = [
 
 
 type information_contained = 
-    [ `Nothing | `Cost | `HennigStyle | `Total  | `Newick | `Margin of int |
+    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int |
     `Collapse of bool ]
 
 type taxon_and_characters = [

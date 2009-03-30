@@ -181,8 +181,7 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
                 let _ = filler 
                             (fun (x,t) ->
                                 match t with
-                                | Some t ->
-                                    Printf.ksprintf (fun x -> x) "%s:%f" x t
+                                | Some t -> Printf.sprintf "%s:%f" x t
                                 | None -> x
                             ) t 0 0 in
                 ()
@@ -190,8 +189,7 @@ let to_matrix ?(sep=4) ?(bd=4) include_interior t =
                 let _ = filler 
                             (fun (x,t) ->
                                 match t with
-                                | Some t ->
-                                    Printf.ksprintf (fun x -> x) "%s:%s" x t
+                                | Some t -> Printf.sprintf "%s:%s" x t
                                 | None -> x
                             ) t 0 0 in
                 ()
@@ -243,7 +241,7 @@ let to_string ?(sep = 4) ?(bd = 4) include_interior t =
 (** Outputs the tree [t] in channel [ch] using parenthetical notation. *)
 let draw_parenthesis do_sort my_printer (t:Parser.Tree.tree_types) = 
     let t = if do_sort then sort_tree t else t in
-    let d_str format = Printf.ksprintf (fun x-> x) format in
+    let d_str format = Printf.sprintf format in
     let rec printer fl fn t = 
         match t with
         | Parser.Tree.Leaf str ->
@@ -278,7 +276,7 @@ let draw_parenthesis do_sort my_printer (t:Parser.Tree.tree_types) =
                 (fun (x,y) ->
                     match y with
                     | Some y -> d_str "%s:%f" x y
-                    | None -> x
+                    | None -> d_str "%s" x
                 )
                 (fun (x,y) ->
                     match x,y with
@@ -344,10 +342,14 @@ let for_formatter ?(separator = " ") split_lines newick leafsonly t =
             (generator (fun (x,y) -> match y with
                         | Some y -> Printf.ksprintf (fun x->x) "%s:%f" x y
                         | None   -> x)
-                      (fun (x,y) -> if x = "" || leafsonly then ""
-                                  else match y with
-                                    | Some y -> Printf.ksprintf (fun x->x) "[%s]:%f" x y
-                                    | None -> "[" ^ x ^ "]" ))
+                      (fun (x,y) -> 
+                        if x = "" || leafsonly then match y with
+                            | Some y -> Printf.sprintf ":%f" y
+                            | None -> ""
+                        else match y with
+                            | Some y -> Printf.sprintf "[%s]:%f" x y
+                            | None -> "[" ^ x ^ "]" )
+            )
                       "" t
     | Parser.Tree.Characters t ->
             (generator (fun (x,y) -> match y with

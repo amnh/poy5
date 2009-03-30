@@ -1428,10 +1428,10 @@ module TreeOps = struct
     let incremental_uppass = incremental_uppass   
     let to_formatter = to_formatter
     let get_active_ref_code = get_active_ref_code
+    let branch_table _ = Hashtbl.create 1
     let root_costs = root_costs
     let unadjust ptree = ptree
     
-    (* TODO: anything to verify? *)
     let verify_downpass _ _ = true 
     let dump_tree = dump_tree
 end

@@ -23,11 +23,11 @@ module IntSet = All_sets.Integers
 
 let debug_profile_memory = false
 let debug_node_fn = false
-let debug_adjust_fn = true
+let debug_adjust_fn = false
 let debug_clear_subtree = false
 let debug_join_fn = false
 let debug_branch_fn = false
-let debug_cost_fn = true
+let debug_cost_fn = false
 let debug_uppass_fn = false
 
 let current_snapshot x = 
@@ -97,7 +97,6 @@ with type b = AllDirNode.OneDirF.n = struct
                 if debug_branch_fn then
                     error_user_message "Couldn't find tree name %s" tree_n; None)
         | None -> None
-
 
 (*  Creates a lazy edge which is the median between the data of the vertices
     with codes [a] and [b] in the tree [ptree].
@@ -976,8 +975,7 @@ with type b = AllDirNode.OneDirF.n = struct
     (** [internal_downpass] Traverse every vertex in the tree and assign the
      * downpass and uppass information using the lazy all direction nodes *)
     let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
-        info_user_message "Internal Downpass%s" 
-            (match data with | None -> "" | Some _ -> " -- Using Given Data");
+        info_user_message "Internal Downpass"; 
 
         (* function to process tree->node->charactername to int->float hashtbl
         * for all the node ids passed --(multiple node_id capability for uppass) *)
@@ -1497,7 +1495,6 @@ with type b = AllDirNode.OneDirF.n = struct
 
         let ret, ((td1,td2,rrd) as tree_delta) = Tree.join jxn1 jxn2 ptree.Ptree.tree in
 
-
         let v, h, ptree = match tree_delta with
             | (`Edge (v, a, b, _)), (`Single (h, true)), _ ->
                     let ptree = 
@@ -1698,6 +1695,73 @@ with type b = AllDirNode.OneDirF.n = struct
         in
         All_sets.Integers.fold assign_final_states_handle (Ptree.get_handles ptree) 
         ptree
+    
+    (** [create_branch_table table ptree] 
+     *
+     * Creates a hashtable with all the branch data like in Data.branches
+     * Branch names are not used at this point, since they are probably
+     * unreliable, and the nodes code is used in preference. The 
+    *)
+    let branch_table ptree =
+        let tree_table = Hashtbl.create 13 in
+        let create_branch_table handle _ = 
+            (* let tree_code = (*  = handle *)
+                match ptree.Ptree.tree.Tree.tree_name with
+                | Some name -> name
+                | None ->   incr tree_num;
+                            "tree_"^(string_of_int !tree_num)
+            in *)
+            let single_node prev curr =
+                let ntable =
+                    if Hashtbl.mem tree_table 0 then
+                        Hashtbl.find tree_table 0
+                    else
+                        let tbl = Hashtbl.create 13 in
+                        Hashtbl.add tree_table 0 tbl;
+                        tbl
+                in 
+
+                (* get the branch length of parent/prev for current *)
+                let dat = AllDirNode.AllDirF.get_times_between 
+                            (Ptree.get_node_data curr ptree)
+                            (Ptree.get_node_data prev ptree) in
+                let name_it x = match dat with | [_] -> `Single x | _ -> `Name in
+                let () = List.iter
+                    (fun (code,length) -> match length with
+                        | Some length -> 
+                           (* let name = (* name of char set *)
+                                try Hashtbl.find (data.Data.character_nsets)
+                                           (Hashtbl.find (data.Data.character_codes) code)
+                                with | Not_found -> "node_"^(string_of_int code)
+                              in
+                           *)
+                            Hashtbl.add ntable curr (name_it length)
+                        | None -> () (* no data, forgetaboutit *)
+                    ) dat in
+                ()
+            in
+            let a,b =
+                match (Ptree.get_component_root handle ptree).Ptree.root_median with
+                | Some ((`Edge (a,b)),_) -> a,b
+                | None | Some _ -> raise Not_found
+            in
+            let (),() = Ptree.post_order_node_with_edge_visit
+                                (fun prev curr _ -> single_node prev curr)
+                                (fun prev curr _ _ -> single_node prev curr)
+                                (Tree.Edge (a,b))
+                                ptree
+                                ()
+            in
+            (* added everything already -- root? *) 
+            ()
+        in
+        let () = All_sets.Integers.fold
+                    (create_branch_table)
+                    (Ptree.get_handles ptree)
+                    ()
+        in
+
+        tree_table
 
     let to_formatter (atr : Xml.attributes) (data : Data.d) 
             (tree : (a, b) Ptree.p_tree) : Xml.xml =

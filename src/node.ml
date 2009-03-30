@@ -204,6 +204,7 @@ type node_data =
 
 let get_min_taxon_code nd = nd.min_child_code
 
+
 let map2 f a b =
     let rec mapper a b acc =
         match a, b with
@@ -1026,6 +1027,19 @@ let get_times_between (nd:node_data) (child_code : int option) =
                     END
                 | _ -> None)
              nd.characters
+
+let get_times_between_plus_codes (child:node_data) (parent:node_data) =
+    let func = if parent.min_child_code = child.min_child_code then fst else snd in
+    let null = (0,None) in
+    List.map (fun x -> match x with
+                | StaticMl z ->
+                    IFDEF USE_LIKELIHOOD THEN
+                        (MlStaticCS.get_codes z.preliminary).(0),func z.time
+                    ELSE
+                        null
+                    END
+                | _ -> null
+             ) parent.characters
 
 let get_times_between_tbl tbl (nd:node_data) =
     let values_match code_ray tbl =
@@ -3546,6 +3560,7 @@ module Standard :
         let median = median
         let apply_time = apply_time
         let estimate_time = estimate_time
+        let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
         let uppass_heuristic pcode mine a b p = mine
         let to_string = to_string
@@ -3697,24 +3712,7 @@ let merge a b =
     }
 
 let total_cost_of_type t n =
-    let print_t t = match t with
-        | `Nonadd -> "nonadd"
-        | `StaticMl -> "staticml"
-        | `Add -> "add"
-        | `Sank -> "sank"
-        | _ -> "???"
-    and print_n n = match n with
-        | Nonadd8 _ | Nonadd16 _ | Nonadd32 _ -> "nonadd"
-        | Add _ -> "add"
-        | Sank _ -> "sank"
-        | StaticMl _ -> "staticml"
-        | Dynamic _ -> "dynamic"
-        | Set _ -> "set"
-        | _ -> "???"
-    in
-
     let rec total_cost_cs acc item = 
-        Printf.printf "TCoT: %s == %s\n%!" (print_t t) (print_n item);
         match item, t with
         | Nonadd8 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
         | Nonadd16 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
