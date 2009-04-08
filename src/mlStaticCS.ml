@@ -20,10 +20,22 @@ let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
 let debug = false 
+let pure_ocaml = true (* ONLY use pure ocaml version *)
+let graph_output = true 
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
 let () = register ()
+
+let (-->) a b = b a 
+
+let epsilon = 0.000001
+let (=.) a b = abs_float (a-.b) < epsilon (*
+        match classify_float ( a -. b ) with
+        | FP_subnormal | FP_zero -> true
+        | FP_infinite | FP_nan | FP_normal -> false
+    *)
+
 
 type s
 type cm = { (* character model *)
@@ -102,6 +114,8 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *
     float -> float*float*float = 
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
+external proportion: s -> s -> float = "likelihood_CAML_proportion"
+
 external loglikelihood:
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     float = "likelihood_CAML_loglikelihood"
@@ -155,6 +169,203 @@ external s_bigarray:
 external bigarray_s: 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
     "likelihood_CAML_BigarraytoS"
+
+(* ------------------------------------------------------
+ *  A pure ocaml implementation of the median functions
+*)
+(* MAP -- 2 *)
+let array_map2 f a1 a2 =
+    let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
+        for i = 1 to ((Array.length a1)-1) do
+            x.(i) <- f a1.(i) a2.(i)
+        done; x
+
+(* sum of product of two vectors *)
+let dot_product v1 v2 = 
+    let r = array_map2 ( *. ) v1 v2 in
+    let res = Array.fold_right (+.) r 0.0 in
+    res
+
+(* negative log liklihood *)
+let mle a priors =
+    let res x = -. log (dot_product x priors) in
+    Array.fold_right (+.) (Array.map res a) 0.0
+
+(* calculate a new nodes mle and prob_vectors *)
+let median_char p_1 p_2 a b = 
+    (* calculates one element of the probability vector *)
+    let median_element a b p1 p2 x = 
+        let x1 = Array.get p1 x and x2 = Array.get p2 x in
+        let right_sum = dot_product a x1 and lefts_sum = dot_product b x2 in
+        lefts_sum *. right_sum
+    in
+    let curried_c = median_element a b p_1 p_2 in
+    let npv = Array.init (Array.length a) curried_c in
+    npv
+
+(* empty argument is 'previous' *)
+let median_fmat a_vec b_vec a_mat b_mat =
+    array_map2 (median_char a_mat b_mat) a_vec b_vec
+
+(** --- SEARCH METHODS --- **)
+
+(* search by brent's method *)
+exception Colinear
+let decr x = decr x; !x (* get and decrement, because it makes more sense *)
+let golden_middle a b = 
+    let a,b = if a < b then a,b else b,a in
+    a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0))
+let golden_exterior a b = (* when fb < fa *)
+    a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0))
+let abscissa (a,fa) (b,fb) (c,fc) =
+    let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
+    and denom = ((b-.a)*.(fb-.fc)) -. ((b-.c)*.(fb-.fa)) in
+    if denom = 0.0 then raise Colinear
+    else b -. (0.5 *. (numer /. denom))
+
+(* function and braketed area and error *)
+let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon = 
+    let iter = ref 1000 in
+    let order_triples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
+        if a1 <= b1 && a1 <= c1 then begin
+            if b1 <= c1 then a,b,c else a,c,b
+        end else if b1 <= a1 && b1 >= c1 then begin
+            if a1 <= c1 then b,a,c else b,c,a
+        end else begin
+            if a1 <= b1 then c,a,b else c,b,a
+        end
+    and best_of ((_,x) as x') ((_,y) as y') = if x <= y then x' else y' in
+
+    (* parabolic interpolation *)
+    let rec parabolic_interp ((best_t,best_l) as best) a fa b fb c fc : float * float = 
+        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" a fa b fb c fc; *)
+        if ((abs_float (fb -. fa)) <= epsilon) or 
+           ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
+        else
+            try
+                let x = abscissa (a,fa) (b,fb) (c,fc) in let fx = f x in
+                if fx =. fb || x =. b || x <= epsilon then best
+                else begin
+                    let best = best_of best (x,fx) in
+                    if a < x && x < b then parabolic_interp best a fa x fx b fb
+                    else if x < a then parabolic_interp best x fx a fa b fb
+                    else if b < x && x < c then parabolic_interp best b fb x fx c fc
+                    else if c < x then parabolic_interp best b fb c fc x fx
+                    else failwith "shouldn't happen"
+                end
+            with | Colinear -> brent_decision best a fa b fb c fc
+
+    (* golden section search, when function is crappy *)
+    and golden_ratio ((best_t,best_l) as best) a af b bf c cf  =
+        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" a af b bf c cf; *)
+        assert( a > 0.0 && b > 0.0 && c > 0.0 );
+        let best,(a,fa),(nb,nfb),(c,fc) = 
+            if (abs_float (c-.b)) > (abs_float (b-.a)) then
+                let other = golden_middle b c in let other = (other,f other) in
+                let best = best_of best other in
+                best,(b,bf),other,(c,cf)
+            else 
+                let other = golden_middle a b in let other = (other,f other) in
+                let best = best_of best other in
+                best,(a,af),other,(b,bf)
+        in
+        if bf =. nfb or (decr iter) = 0 then best
+        else golden_ratio best a fa nb nfb c fc
+
+    (* brent exponential search, when points are colinear or monotonic
+     *  does not return a result since we are widening the search area. *)
+    and brent_exp ((best_t,best_l) as best) a fa b fb c fc : float * float =
+        assert (fc < fa ); (* since we estimate "past" c *)
+        let n = match golden_exterior a c with
+            | x when x <= 0.0 -> epsilon
+            | x -> x 
+        in
+        let other = n,f n in
+        brent_decision (best_of best other) b fb c fc n (snd other)
+    (**
+     * What to do, what to do? Well, if the three points are monotonic, then
+     * call brent_exp until something better comes up, if there is a minimum
+     * between we can do a parabolic interpolation, else we use a shitty golden
+     * bisect search method each iteration to find a better spot.
+    *) 
+    and brent_decision best lower fl middle fm upper fu : float * float =
+        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" lower fl
+        * middle fm upper fu; *)
+        let (lower,fl),(middle,fm),(upper,fu) = 
+            order_triples (lower,fl) (middle,fm) (upper,fu)
+        in
+        if fl <= fm && fm <= fu then (* monotonically increasing *)
+            brent_exp best upper fu middle fm lower fl
+        else if fl >= fm && fm >= fu then (* monotonically decreasing *)
+            brent_exp best lower fl middle fm upper fu
+        else if fm <= fl && fm <= fu then (* minimum between *)
+            parabolic_interp best lower fl middle fm upper fu
+        else golden_ratio best lower fl middle fm upper fu
+    in
+
+    (* set up variables.. order arguments,find golden middle and evaluate *)
+    let middle = golden_middle lower upper in
+    let fl = f lower and fm = f middle and fu = f upper in
+    let best = best_of orig (best_of (lower,fl) (best_of (middle,fm) (upper,fu))) in
+    let ((t,ll) as x) = brent_decision best lower fl middle fm upper fu in
+    Printf.printf "Iterated: %d\tImprovement: %f\tBranch: %f -> %f\n%!"
+                  (1000 - !iter) (orig_ll -. ll) orig_bl t;
+    x
+
+(**
+ * converts the stored variables into float array/matrices and computes mle
+ *)
+let ocaml_median (a:t) (b:t) (t1:float) (t2:float) : (float array array * float) = 
+    let make_matrix model t = 
+        barray_matrix
+            (match model.ui with
+            | Some ui -> compose_gtr model.u model.d ui t
+            | None -> compose_sym model.u model.d t)
+    in
+    let a_m = make_matrix a.model t1 
+    and b_m = make_matrix b.model t2
+    and ach = barray_matrix (s_bigarray a.chars)
+    and bch = barray_matrix (s_bigarray b.chars)
+    and pi_ = ba2array (a.model.pi_0) in
+    let root = median_fmat ach bch a_m b_m in
+    root, (mle root pi_)
+
+(**
+ * converts the stored variables into float array/matrices and adjusts branches
+*)
+let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
+    let dist = t1 +. t2 in
+    let median_2 t1 t2 = let _,ll = ocaml_median a b t1 t2 in ll in
+    let t,ll = brents_method (dist,b_ll)
+                             (fun x -> let half = x /. 2.0 in median_2 half half)
+                             (dist /. 10.0) (dist *. 1.5) epsilon in
+    let new_halves = t /. 2.0 in
+    new_halves,new_halves,ll
+
+(** caml data for graph *)
+let ocaml_graph (a:t) (b:t) (c:t) (min:float) (max:float) (step:float) (f:string) = 
+    let modify xref = xref := !xref +. step;!xref in
+    let start = min -. step in
+    let at = ref start and bt = ref start and ct = ref start in
+
+    let make_t a (vec,ll) = 
+        {a with 
+            chars =
+                vec --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+                    --> bigarray_s;
+            mle = ll;
+        }
+    and out_chan = open_out f in
+
+    while (modify at) < max do
+        while (modify bt) < max do
+            while (modify ct) < max do
+                let ab = make_t a (ocaml_median a b !at !bt) in
+                let _,ll = ocaml_median ab c 0.0 !ct in
+                Printf.fprintf out_chan "%f\t%f\t%f\t%f\n" !at !bt !ct ll;
+            done;
+        done;
+    done; ()
 
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
@@ -263,7 +474,12 @@ let m_file f_rr a_size =
 
 (* ------------------------------------------------------------------------- *)
 (* estimation functions *)
-let estimate_time a b = 0.2 , 0.2
+let estimate_time a b = 
+    let p = 1.0 -. (proportion a.chars b.chars) in
+    assert (p  < 0.75 ); (* too much difference *)
+    let nt = (~-. 0.75 *. (log (1.0 -. (1.25 *. p)))) /. 2.0 in
+    Printf.printf "Setting Distance: %f\n%!" (nt *. 2.0);
+    (nt,nt)
 
 (* ------------------------------------------------------------------------- *)
 (* required functions *)
@@ -271,17 +487,26 @@ let estimate_time a b = 0.2 , 0.2
 (* [median] calculate the new new node between [an] and [bn] with
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
 let median an bn t1 t2 =
-    let am = an.model in
-    let n_chars = match am.ui with
-        | None -> 
-            median_sym am.u am.d t1 t2 an.chars bn.chars am.rate am.prob
-        | Some ui -> 
-            median_gtr am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob in
+    if pure_ocaml then begin
+        let faa,loglike = ocaml_median an bn t1 t2 in
+        { an with
+            chars = 
+                faa --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+                    --> bigarray_s;
+            mle = loglike;
+        }
+    end else
+        let am = an.model in
+        let n_chars = match am.ui with
+            | None -> 
+                median_sym am.u am.d t1 t2 an.chars bn.chars am.rate am.prob
+            | Some ui -> 
+                median_gtr am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob in
 
-    { an with
-        chars = n_chars;
-        mle = loglikelihood n_chars an.model.pi_0; 
-    }
+        { an with
+            chars = n_chars;
+            mle = loglikelihood n_chars an.model.pi_0; 
+        }
 
 (* of_parser stuff *)
 let rec list_of n x =
@@ -477,22 +702,29 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
-    let model = c1.model and mcpy = mine in
-    (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
-    let (nta,ntb,nl) = match model.ui with
-        | None ->
-            readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
-                    c_t2 model.rate model.prob model.pi_0 mine.mle
-        | Some ui ->
-            readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
-                    c_t2 model.rate model.prob model.pi_0 mine.mle in
-    (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
-    if (nta = c_t1 && ntb = c_t2) then
-        (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
-    else
+    if pure_ocaml then begin
+        let t1,t2,ll = ocaml_readjust c1 c2 c_t1 c_t2 mine.mle in
         let x = Array.fold_right (* bottle neck? *)
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
-        (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mcpy.chars} )
+        (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
+    end else begin
+        let model = c1.model and mcpy = mine in
+        (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
+        let (nta,ntb,nl) = match model.ui with
+            | None ->
+                readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
+                        c_t2 model.rate model.prob model.pi_0 mine.mle
+            | Some ui ->
+                readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
+                        c_t2 model.rate model.prob model.pi_0 mine.mle in
+        (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
+        if (nta = c_t1 && ntb = c_t2) then
+            (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
+        else
+            let x = Array.fold_right (* bottle neck? *)
+                    (fun c s -> All_sets.Integers.add c s) mine.codes x in
+            (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mcpy.chars} )
+    end
 
 let distance a_node b_node t1 t2 =
     let t = median a_node b_node t1 t2 in t.mle
@@ -540,61 +772,6 @@ let f_codes_comp t codes =
     { t with chars = filter t.chars opt_idx }
 
 let compare_data a b = compare_chars a.chars b.chars
-
-(*
- *  A pure ocaml implementation of the median functions
-*)
-(* MAP -- 2 *)
-let array_map2 f a1 a2 =
-    let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
-        for i = 1 to ((Array.length a1)-1) do
-            x.(i) <- f a1.(i) a2.(i)
-        done; x
-
-(* sum of product of two vectors *)
-let dot_product v1 v2 = 
-    let r = array_map2 ( *. ) v1 v2 in
-    let res = Array.fold_right (+.) r 0.0 in
-    res
-
-(* negative log liklihood *)
-let mle a priors =
-    let res x = -. log (dot_product x priors) in
-    Array.fold_right (+.) (Array.map res a) 0.0
-
-(* calculate a new nodes mle and prob_vectors *)
-let median_char p_1 p_2 a b = 
-    (* calculates one element of the probability vector *)
-    let median_element a b p1 p2 x = 
-        let x1 = Array.get p1 x and x2 = Array.get p2 x in
-        let right_sum = dot_product a x1 and lefts_sum = dot_product b x2 in
-        lefts_sum *. right_sum
-    in
-    let curried_c = median_element a b p_1 p_2 in
-    let npv = Array.init (Array.length a) curried_c in
-    npv
-
-(* empty argument is 'previous' *)
-let median_fmat a_vec b_vec a_mat b_mat =
-    array_map2 (median_char a_mat b_mat) a_vec b_vec
-
-(**
- * converts the stored variables into float array/matrices and computes mle
- *)
-let mle_ocaml (a:t) (b:t) (t1:float) (t2:float) : (float array array * float) = 
-    let make_matrix model t = 
-        barray_matrix
-            (match model.ui with
-            | Some ui -> compose_gtr model.u model.d ui t
-            | None -> compose_sym model.u model.d t)
-    in
-    let a_m = make_matrix a.model t1 
-    and b_m = make_matrix b.model t2
-    and ach = barray_matrix (s_bigarray a.chars)
-    and bch = barray_matrix (s_bigarray b.chars)
-    and pi_ = ba2array (a.model.pi_0) in
-    let root = median_fmat ach bch a_m b_m in
-    root, (mle root pi_)
 
 ELSE
 type t = unit

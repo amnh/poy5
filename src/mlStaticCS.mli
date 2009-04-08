@@ -121,6 +121,7 @@ external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
 
+external proportion: s -> s -> float = "likelihood_CAML_proportion"
 (** [estimate_time a b ] -> time
 * estimates the time between two nodes *)
 val estimate_time : t -> t -> float * float

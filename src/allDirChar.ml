@@ -1002,8 +1002,6 @@ with type b = AllDirNode.OneDirF.n = struct
     (** [internal_downpass] Traverse every vertex in the tree and assign the
      * downpass and uppass information using the lazy all direction nodes *)
     let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
-        info_user_message "Internal Downpass"; 
-
         (* function to process tree->node->charactername to int->float hashtbl
         * for all the node ids passed --(multiple node_id capability for uppass) *)
 

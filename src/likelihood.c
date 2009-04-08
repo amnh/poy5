@@ -469,6 +469,58 @@ int likelihood_CAML_compare( value c1, value c2 )
     return compare_chars( ccs1, ccs2 );
 }
 
+
+/** [proportion a b] - number of SIMILAR sites **/
+double proportion( const mll* a, const mll* b)
+{ 
+    double prop, maxa, maxb;
+    int i /*current char*/  ,j /*current state*/,
+        k /*array location*/,t /*total set state in char*/,
+        s /* characters that are equal in a set */;
+
+    //length of characters is equal
+    assert(a->stride == b->stride);
+    assert(a->c_len == b->c_len);
+
+    prop = k = 0;
+    //i holds current char, j holds current array location, k holds curr char
+    for(i=0;i<a->c_len;i++){
+        maxa = maxb = 0;
+        s = t = 0;
+        for(j=0;j<a->stride;j++){
+            if (a->lv_s[k+j] > maxa){ maxa = a-> lv_s[k+j]; }
+            if (b->lv_s[k+j] > maxb){ maxb = b-> lv_s[k+j]; }
+        }
+        for(j=0;j<a->stride;j++){
+            if(a->lv_s[k] == maxa && b->lv_s[k] == maxb){ s++; t+=2; }
+            else if (a->lv_s[k] == maxa || b->lv_s[k] == maxb){ t++; }
+            k++;
+        }   
+        prop += (2*s)/t;
+    }
+
+    prop = prop / a->c_len;
+    return prop;
+}
+
+value likelihood_CAML_proportion( value a, value b )
+{
+    CAMLparam2(a,b);
+    CAMLlocal1( prop );
+
+    double p;
+    mll *a_ml, *b_ml;
+
+    a_ml = ML_val( a );
+    b_ml = ML_val( b) ;
+
+    p = proportion( a_ml , b_ml );
+
+    prop = caml_copy_double( p );
+    CAMLreturn( prop );
+}
+
+
 /**  [diagonalize_sym A D N]
  * Diagonalizes [A] that is [N]x[N] and upper symmetric and places
  * the resultant eigenvalues in the matrix [D] along the diagonal.
