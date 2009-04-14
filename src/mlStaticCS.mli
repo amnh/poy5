@@ -135,7 +135,7 @@ val to_string : t -> string
 
 (** [median a b at bt]
 * computes the median between [a] and [b] with branch lengths [at] and [bt] *)
-val median : t -> t -> float -> float -> t
+val median : t -> t -> float -> float -> int -> int -> t
 
 (** The cost, likelihood, of the median [t]. wrapper around internally
 * saved value *)

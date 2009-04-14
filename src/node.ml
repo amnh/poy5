@@ -359,28 +359,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             assert (ca.weight = cb.weight);
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
-                    | Some (time1), Some (time2) ->
-                        time1,time2
+                    | Some (time1), Some (time2) -> time1,time2
                     | Some (time1), None ->
                         let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                        if (a +. b) -. time1 > 0.0 then
-                            time1,(a +. b) -. time1
-                        else
-                            failwith "Node.median: Cannot estimate Time with given"
+                        if (a +. b) -. time1 > 0.0 then time1,(a +. b) -. time1
+                        else failwith "Node.median: Cannot estimate Time with given"
                     | None, Some (time2) ->
                         let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                        if (a +. b) -. time2 > 0.0 then
-                            (a +. b) -. time2,time2
-                        else
-                            failwith "Node.median: Cannot estimate time with given"
+                        if (a +. b) -. time2 > 0.0 then (a +. b) -. time2,time2
+                        else failwith "Node.median: Cannot estimate time with given"
                     | None, None ->
                         MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
                 if code <= 0 then
-                    if t1 = t2 then
-                        (t1 /. 2.0, t2 /. 2.0)
-                    else
-                        failwithf "Node.median: time inconsistent, %f(%d) %f(%d)"
+                    if t1 = t2 then (t1 /. 2.0, t2 /. 2.0)
+                    else failwithf "Node.median: time inconsistent, %f(%d) %f(%d)"
                                 t1 (anode.taxon_code) t2 (bnode.taxon_code)
                 else (t1,t2)
             in 
@@ -391,7 +384,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     code t1 anode.taxon_code t2 bnode.taxon_code
             else ();
 
-            let median = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
+            let median = 
+                MlStaticCS.median ca.preliminary cb.preliminary
+                                  t1 t2 anode.taxon_code bnode.taxon_code in
             let n_cost = MlStaticCS.root_cost median in
             let t1,t2 =
                 if anode.min_child_code < bnode.min_child_code then t1, t2

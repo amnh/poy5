@@ -75,12 +75,14 @@ module Characters = struct
     let ints = "Integers"
     let chars = "Character Functions"
 
-    let prior = "Prior"
-    let p_mat = "Probability_Matrix"
+    let priors = "Priors"
+    let llike = "LnLikelihood"
     let model = "Model"
-    let mle = "Likelihood"
-    let p_vec = "Likelihood_Vector"
+    let sites = "Sites"
     let characters = "Characters"
+    let alpha = "Alpha"
+    let invar = "Invarient"
+    let vector = "Vector"
 
     (* Their values *)
     let min = "Min"
@@ -185,7 +187,6 @@ module Data = struct
     let ignored_taxa = "Ignored Taxa"
     let ignored_characters = "Ignored Characters"
     let characters = "Characters"
-    let modeltype = "Model_Type"
     let param x = "Parameter_"^(string_of_int x)
 end
 

@@ -19,9 +19,9 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let debug = false 
+let debug = true
 let pure_ocaml = true (* ONLY use pure ocaml version *)
-let graph_output = true 
+let graph_output = false (* graph all medians in %d--%d format *)
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -36,13 +36,12 @@ let (=.) a b = abs_float (a-.b) < epsilon (*
         | FP_infinite | FP_nan | FP_normal -> false
     *)
 
-
 type s
 type cm = { (* character model *)
     name: string; (* JC69, F81 etcetera : for to_formatter output *)
-    param: float array;     (* for to_formatter *)
     pi_0: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     (* for discrete distributions; gamma, invarient, custom... *)
+    alpha : float option; invar : float; sites: int;
     rate: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     prob: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
 
@@ -227,18 +226,21 @@ let abscissa (a,fa) (b,fb) (c,fc) =
 let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon = 
     let iter = ref 1000 in
     let order_triples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
-        if a1 <= b1 && a1 <= c1 then begin
-            if b1 <= c1 then a,b,c else a,c,b
-        end else if b1 <= a1 && b1 >= c1 then begin
-            if a1 <= c1 then b,a,c else b,c,a
-        end else begin
-            if a1 <= b1 then c,a,b else c,b,a
+        if a1 < b1 then
+           if b1 < c1 then (a,b,c)
+           else if a1 < c1 then (a,c,b)
+           else (c,a,b)
+        else begin
+           if a1 < c1 then (b,a,c)
+           else if c1 < b1 then (c,b,a)
+           else (b,a,c)
         end
+
     and best_of ((_,x) as x') ((_,y) as y') = if x <= y then x' else y' in
 
     (* parabolic interpolation *)
     let rec parabolic_interp ((best_t,best_l) as best) a fa b fb c fc : float * float = 
-        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" a fa b fb c fc; *)
+        assert( a > 0.0 && b > 0.0 && c > 0.0 );
         if ((abs_float (fb -. fa)) <= epsilon) or 
            ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
         else
@@ -255,9 +257,9 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
                 end
             with | Colinear -> brent_decision best a fa b fb c fc
 
-    (* golden section search, when function is crappy *)
+    (* golden section search, when function is crappy --this isn't needed when
+     * there is only one minima, as in branch lengths *)
     and golden_ratio ((best_t,best_l) as best) a af b bf c cf  =
-        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" a af b bf c cf; *)
         assert( a > 0.0 && b > 0.0 && c > 0.0 );
         let best,(a,fa),(nb,nfb),(c,fc) = 
             if (abs_float (c-.b)) > (abs_float (b-.a)) then
@@ -270,7 +272,7 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
                 best,(a,af),other,(b,bf)
         in
         if bf =. nfb or (decr iter) = 0 then best
-        else golden_ratio best a fa nb nfb c fc
+        else brent_decision best a fa nb nfb c fc
 
     (* brent exponential search, when points are colinear or monotonic
      *  does not return a result since we are widening the search area. *)
@@ -289,11 +291,8 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
      * bisect search method each iteration to find a better spot.
     *) 
     and brent_decision best lower fl middle fm upper fu : float * float =
-        (* Printf.printf "a:%f -- %f\tb:%f -- %f\tc:%f -- %f\n%!" lower fl
-        * middle fm upper fu; *)
         let (lower,fl),(middle,fm),(upper,fu) = 
-            order_triples (lower,fl) (middle,fm) (upper,fu)
-        in
+            order_triples (lower,fl) (middle,fm) (upper,fu) in
         if fl <= fm && fm <= fu then (* monotonically increasing *)
             brent_exp best upper fu middle fm lower fl
         else if fl >= fm && fm >= fu then (* monotonically decreasing *)
@@ -302,7 +301,6 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
             parabolic_interp best lower fl middle fm upper fu
         else golden_ratio best lower fl middle fm upper fu
     in
-
     (* set up variables.. order arguments,find golden middle and evaluate *)
     let middle = golden_middle lower upper in
     let fl = f lower and fm = f middle and fu = f upper in
@@ -342,8 +340,19 @@ let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * floa
     let new_halves = t /. 2.0 in
     new_halves,new_halves,ll
 
+let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
+    let stepval xref = xref := !xref +. step;!xref
+    and time = ref (min -. step) and out_chan = open_out f in
+    while (stepval time) < max do
+        let c_time = !time /. 2.0 in
+        let _,ll = ocaml_median a b c_time c_time in
+        Printf.fprintf out_chan "%f\t%f\n" !time ll;
+    done;
+    close_out out_chan;
+    ()
+
 (** caml data for graph *)
-let ocaml_graph (a:t) (b:t) (c:t) (min:float) (max:float) (step:float) (f:string) = 
+let ocaml_graph3 (a:t) (b:t) (c:t) (min:float) (max:float) (step:float) (f:string) = 
     let modify xref = xref := !xref +. step;!xref in
     let start = min -. step in
     let at = ref start and bt = ref start and ct = ref start in
@@ -478,7 +487,6 @@ let estimate_time a b =
     let p = 1.0 -. (proportion a.chars b.chars) in
     assert (p  < 0.75 ); (* too much difference *)
     let nt = (~-. 0.75 *. (log (1.0 -. (1.25 *. p)))) /. 2.0 in
-    Printf.printf "Setting Distance: %f\n%!" (nt *. 2.0);
     (nt,nt)
 
 (* ------------------------------------------------------------------------- *)
@@ -486,8 +494,16 @@ let estimate_time a b =
 
 (* [median] calculate the new new node between [an] and [bn] with
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
-let median an bn t1 t2 =
+let median an bn t1 t2 acode bcode =
     if pure_ocaml then begin
+        let () =
+            if graph_output then begin
+                ocaml_graph an bn 0.001 0.4 0.001
+                            (Printf.sprintf "%d--%d.tsv" 
+                                (abs acode) (abs bcode))
+            end else ()
+        in
+
         let faa,loglike = ocaml_median an bn t1 t2 in
         { an with
             chars = 
@@ -545,20 +561,22 @@ let of_parser spec characters =
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
     in
 
-    let variation,probabilities =
+    let variation,probabilities,alpha,invar,sites =
         (* set up all the probability and rates *)
         match model.Parser.SC.site_variation with
         | None ->
-           (Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
-            Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]))
+            Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
+            Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
+            None,1.0,1
         | Some a -> ( match a with
             | Parser.SC.Invariant ->  (* same as NONE *)
-                (Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
-                 Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]))
+                 Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
+                 Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout ([| 1.0 |]),
+                 None,1.0,1
             | Parser.SC.Gamma (x,y,z) -> (* SITES,ALPHA,BETA *)
                 let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x in
                 Bigarray.Array1.fill p (1.0 /. (float_of_int x));
-                (gamma_rates y z x, p )
+                gamma_rates y z x,p,Some y,0.0,x
             | Parser.SC.Theta (w,x,y,z) -> (* SITES,ALPHA,BETA,PERCENT_INVAR *)
                 let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
                 let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
@@ -569,7 +587,7 @@ let of_parser spec characters =
                     Bigarray.Array1.blit rs r;
                     p.{w} <- z;
                     r.{w} <- 1.0;
-                (r, p)
+                r,p,Some x,z,w
             )
     in
     (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
@@ -579,7 +597,7 @@ let of_parser spec characters =
         rsps := !rsps +. ((Bigarray.Array1.get probabilities i) *. (Bigarray.Array1.get variation i));
         ps := !ps +. Bigarray.Array1.get probabilities i;
     done;
-    assert( !rsps = 1.0 && !ps = 1.0 );
+    assert( !rsps =. 1.0 && !ps =. 1.0 );
 
     (* extract the prior probability *)
     let priors =
@@ -589,39 +607,32 @@ let of_parser spec characters =
     in
 
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
-    let sym = ref false in
-    let mname = ref "none" in
-    let (sub_mat,m_params) =
+    let sym,mname,sub_mat = 
         match model.Parser.SC.substitution with
         | Parser.SC.JC69 lambda -> 
-                sym := true; mname := "JC69";
-                (m_jc69 lambda a_size, [| lambda |])
+                true,"JC69", m_jc69 lambda a_size
         | Parser.SC.K2P (alpha,beta) ->
-                sym := true; mname := "K2P";
-                (m_k2p alpha beta a_size, [|alpha;beta|])
+                true, "K2P", m_k2p alpha beta a_size
         | Parser.SC.F81 lambda ->
-                mname := "F81";
-                (m_f81 priors lambda a_size, [| lambda |])
+                false, "F81", m_f81 priors lambda a_size
         | Parser.SC.F84 (kappa,beta) ->
-                mname := "F84";
-                (m_f84 priors kappa beta a_size, [| kappa;beta |])
+                false, "F84", m_f84 priors kappa beta a_size
         | Parser.SC.HKY85 (alpha,beta) ->
-                mname := "HKY85";
-                (m_hky85 priors alpha beta a_size, [| alpha;beta |])
+                false, "HKY85", m_hky85 priors alpha beta a_size
         | Parser.SC.TN93 (alpha1,alpha2,beta) ->
-                mname := "TN93";
-                (m_tn93 priors alpha1 alpha2 beta a_size,[|alpha1;alpha2;beta|])
+                false, "TN93", m_tn93 priors alpha1 alpha2 beta a_size
         | Parser.SC.GTR coeff -> 
-                mname := "GTR"; (m_gtr priors coeff a_size, coeff)
+                false, "GTR", m_gtr priors coeff a_size
         | Parser.SC.File matrix ->
-                mname := "File"; (m_file matrix a_size, [| |])
+                false, "File", m_file matrix a_size
     in
+
     (* diagonalize to get factored probability matrix --submat is destroyed
      * but can be reconstructed through the model parameters *)
     let (u_,d_,ui_) = 
         let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
         Bigarray.Array2.fill n_d 0.0;
-        if !sym then (
+        if sym then (
             diagonalize_sym sub_mat n_d; (sub_mat, n_d, None) )
         else (
             let n_ui = Bigarray.Array2.create
@@ -640,7 +651,6 @@ let of_parser spec characters =
                 | `List s -> s
                 | `Bits s -> BitSet.to_list s
             in
-
             if List.mem a_gap lst then
                 Array.make a_size 1.0 
             else
@@ -657,8 +667,10 @@ let of_parser spec characters =
        model = {
             rate = variation;
             prob = probabilities;
-            name = !mname;
-           param = m_params;
+            name = mname;
+           alpha = alpha;
+           invar = invar;
+           sites = sites;
             pi_0 = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout priors;
            u = u_; d = d_;ui = ui_ };
        codes = Array.map (fun (x,y) -> y) characters; 
@@ -666,37 +678,60 @@ let of_parser spec characters =
     }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
-    let str_time = function
-        | Some x -> `Float x | None -> `String "None"
-    in
+    let rec str_time = function | Some x -> `Float x | None -> `String "None"
 
-    let make_single cc single_ray = 
-        `Set 
-            (Array.to_list 
-                (Array.mapi 
-                    (fun code value ->
-                        let alph = Data.to_human_readable data cc code in
-                        (PXML -[alph] {`Float value} --)
-                    )
-                    single_ray))
+    and make_single_vec char_code single_ray = 
+        (Array.to_list 
+            (Array.mapi 
+                (fun state_code value ->
+                    let alph = Data.to_human_readable data char_code state_code in
+                    (PXML -[Xml.Characters.vector]
+                        ([Xml.Alphabet.value] = [`Float value])
+                        {`String alph} --))
+                single_ray))
+    and make_single char_code single_ray = 
+        (PXML
+            -[Xml.Characters.likelihood]
+                ([Xml.Data.code] = [`Int char_code])
+                { `Set (make_single_vec char_code single_ray) }
+        --)
     in
-
-    let sequence = 
-        let r = Array.to_list (barray_matrix (s_bigarray mine.chars)) in
-        List.map2 (make_single) (Array.to_list mine.codes) r
+    let priors = 
+        [(PXML
+            -[Xml.Characters.priors]
+                { `Set (make_single_vec (Array.get mine.codes 0) 
+                                        (ba2array mine.model.pi_0)) }
+        --)]
+    in
+    let model =
+        (PXML
+            -[Xml.Characters.model]
+                ([Xml.Characters.name] = [`String mine.model.name])
+                ([Xml.Characters.sites] = [`Int mine.model.sites])
+                ([Xml.Characters.alpha] = [str_time mine.model.alpha])
+                ([Xml.Characters.invar] = [`Float mine.model.invar])
+                { `Set priors }
+        --)
+    and sequence =
+        (PXML
+            -[Xml.Characters.characters]
+            {
+                let r = Array.to_list (barray_matrix (s_bigarray mine.chars)) in
+                `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
+            }
+        --)
     in
 
     (PXML
         (* tag *)
         -[Xml.Characters.likelihood]
             (* attributes *)
-            ([Xml.Data.modeltype] = [`String mine.model.name])
-            ([Xml.Characters.mle] = [`Float mine.mle])
+            ([Xml.Characters.llike] = [`Float mine.mle])
             ([Xml.Nodes.min_time] = [str_time t1])
             ([Xml.Nodes.oth_time] = [str_time t2])
             ([attr])
             (* data *)
-            { `Set sequence }
+            { `Set [model;sequence] }
         --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
@@ -726,19 +761,19 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
             (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mcpy.chars} )
     end
 
-let distance a_node b_node t1 t2 =
-    let t = median a_node b_node t1 t2 in t.mle
+let distance a_node b_node t1 t2 = (* codes don't matter here *)
+    let t = median a_node b_node t1 t2 0 0 in t.mle
 
 (* insert a node between two *)
 (* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
-    let x = median a b at bt in
+    let x = median a b at bt 0 0 in
     let tt = 0.5 in 
-    let y = median x n tt nt in
+    let y = median x n tt nt 0 0 in
     y.mle
 
 let median_3 p x c1 c2  =  x
-let reroot_median a b at bt = median a b at bt 
+let reroot_median a b at bt = median a b at bt 0 0
 let median_cost ta = loglikelihood ta.chars ta.model.pi_0
 let root_cost t = t.mle
 let to_string a = "MLStaticCS"

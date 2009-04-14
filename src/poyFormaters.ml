@@ -523,9 +523,11 @@ let likelihood_to_formater ((tag, attr, cont): Xml.xml) =
         in 
 
         let cclass  = _get attr Xml.Characters.cclass and
-            cost    = _get attr Xml.Characters.mle
+            cost    = _get attr Xml.Characters.llike and
+            length1 = _get attr Xml.Nodes.min_time and
+            length2 = _get attr Xml.Nodes.oth_time
         in
-        [| cclass; cost; |]
+        [| cclass; cost; length1;length2 |]
     end else 
         raise (Illegal_formater "likelihood_to_formater")
 
