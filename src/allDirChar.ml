@@ -294,7 +294,7 @@ with type b = AllDirNode.OneDirF.n = struct
             new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
             in
             let dist = 
-                (Node.distance_of_type Node.has_to_single 100000.
+                (Node.distance_of_type Node.has_to_single 0.
                 (AllDirNode.force_val nda) (AllDirNode.force_val ndb)) 
             in
             dist +. acc
