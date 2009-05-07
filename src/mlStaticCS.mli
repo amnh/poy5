@@ -36,25 +36,25 @@ external bigarray_s:
  * the substution rate matrix, but that can be copied or the primative
  * arguments saved and this matrix can be reconstructed later --it should
  * be fairly cheap to recreate *)
-external diagonalize_gtr: (* U D Ui *)
+external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     unit = "likelihood_CAML_diagonalize_gtr"
-external diagonalize_sym: (* U D *)
+external diagonalize_sym: (* U D *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     unit = "likelihood_CAML_diagonalize_sym"
 (** [compose_*** U D [Ui] t]
  * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
  * Function is used for testing and to_formatter function usage (output) *)     
-external compose_gtr: (* U D Ui t -> P *)
+external compose_gtr: (* U D Ui t -> P *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
     -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
         "likelihood_CAML_compose_gtr"
-external compose_sym: (* U D t -> P *)
+external compose_sym: (* U D t -> P *) FMatrix.m ->     
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
     -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
@@ -63,7 +63,7 @@ external compose_sym: (* U D t -> P *)
  * calculate the median of two nodes with character sets [achars] and [bchars]
  * and branch lenghts [at] and [bt], respectively. The probability matrix for
  * the transition is constructed via [U] [D] and, possibly, [Ui] (GTR only). *)
-external median_gtr:
+external median_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -71,33 +71,33 @@ external median_gtr:
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
-external median_sym:
+external median_sym: FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s-> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
-(** [readjust_*** U D [Ui] a b c at bt rates probs priors ll] -> at*bt*ll
+(** [readjust_*** U D [Ui] a b c at bt ct rates probs priors ll] -> at*bt*ll
  * readjusts the branch lengths for the children of [c], [a] and [b], with
  * branch lengths [at] and [bt], respectively, using priors given by [priors],
  * and the gamma/theta rates given by [rates]. The old likelihood is given in
  * [ll], and the new one is returned. [c] is updated to the new vector based on
  * the new branch lengths, returned with the new [ll]. *)
-external readjust_sym:
+external readjust_sym: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> 
+    s -> s -> s -> float -> float -> float ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float =
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
-external readjust_gtr:
+external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> 
+    s -> s -> s -> float -> float -> float ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->

@@ -24,20 +24,20 @@
 #include <assert.h>
 
 #include <math.h>   //log,exp,sin
-#ifdef __APPLE__
-#include <vecLib/cblas.h>  //dgemm
-#else
-#include <cblas.h>  //dgemm
-#endif
+
+//#ifdef __APPLE__
+//#include <vecLib/cblas.h>  //dgemm
+//#include <vecLib/clapack.h>
+//#else
+//#include <cblas.h>  //dgemm
+//#include <clapack.h>
+//#endif
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/bigarray.h>
 #include <caml/custom.h>
 #include <caml/intext.h>
-
-#include "array_pool.h"
-#include "gamma.h" //contains special functions
 
 /**
  * C struct for a character set and likelihood vectors
@@ -50,12 +50,32 @@ struct ml {
 typedef struct ml mll;
 
 struct pt {
-    double ta;      //branch length of a
-    double tb;      //branch length of b
+    double time;    //branch length of b
     double ll;      //likelihood
     mll *vs;        //resultant vector
 };
 typedef struct pt ptr;
+
+#define DECLARE_LAPACK_ROUTINES 1
+
+#ifdef DECLARE_LAPACK_ROUTINES
+/** double-precision-real lapack/blas routines **/
+// double symmetric eigenvalue/vector routine
+int dsyev_( char *jobz, char *uplo, int *n, double *a, int *lda, double *w,
+            double *work, int *lwork, int *info);
+// double general eigenvalue/vector routine
+int dgeev_( char *jobvl, char *jobvr, int *n, double * a, int *lda, double *wr,
+            double *wi, double *vl, int *ldvl, double *vr, int *ldvr,
+            double *work, int *lwork, int *info);
+//double general real LU-factorization 
+int dgetrf_(int *m, int *n, double *a, int * lda, int *ipiv, int *info);
+//double general real matrix inverse using LU
+int dgetri_(int *n, double *a, int *lda, int *ipiv, double *work,
+            int *lwork, int *info);
+int dgemm_( char *transa, char *transb, const int *m, const int *n, const int *k,
+            double *alpha, const double *a, const int *lda, const double *b,
+            const int *ldb, double *beta, double *c, const int *ldc);
+#endif
 
 /**
  * testing functions...
@@ -88,7 +108,7 @@ __inline void
 #else
 inline void
 #endif
-mk_diag(const double* diag, double* M, const int n, const int m);
+mk_diag(double* M, const int n);
 // applies exp() to a diagonal [n]x[m] matrix, [D], with constant scalor [t]
 #ifdef _WIN32
 __inline void
@@ -110,8 +130,8 @@ void compose_gtr( double* P, const double* U, const double* D,
 //diagonalize a symmetric [n]x[n] matrix [A] into A*D*At 
 //  A is overwritten as eigenvectors
 //  D is a diagonal matrix of eigenvalues --assumed clean
-int diagonalize_sym( double* A, double* D, const int n );
-int diagonalize_gtr( double* A, double* D, double* Ui, const int n );
+int diagonalize_sym( mat *space, double* A, double* D, int n );
+int diagonalize_gtr( mat *space, double* A, double* D, double* Ui, int n );
 
 /**
  * median functions
@@ -120,7 +140,8 @@ int diagonalize_gtr( double* A, double* D, double* Ui, const int n );
 void median_h( const double* P, const double* l,const int c, double* nl, const int a);
 //calculates median of two character sets, [a] and [b] into [c]
 void median_charset( const double* Pa, const double* Pb, const struct ml* a,
-                    const struct ml* b, struct ml* c, const double p );
+                     const struct ml* b, struct ml* c, const double p,
+                     double* tmp1, double* tmp2);
 //loglikelihood of a median with priors [p] and character set [l]
 double loglikelihood( const struct ml *l, const double* p );
 
@@ -130,17 +151,4 @@ double loglikelihood( const struct ml *l, const double* p );
 void filter_s( const struct ml* c1, struct ml* c2, const int* idxs, const int n );
 int compare_chars( const struct ml* c1, const struct ml* c2 );
 
-/**
- * readjust functions
- */
-void //0 for no change, 1 for change
-readjust_walk_gtr(const double* U,const double* D,const double* Ui,
-                   const struct ml* a,const struct ml* b,struct ml* b_c,
-                    double* ta,double* tb,double* b_mle,const double* rates,
-                     const double *p, const int g_n, const double* pi);
-void //0 for no change, 1 for change
-readjust_walk_sym(const double* U,const double* D,
-                   const struct ml* a,const struct ml* b,struct ml* b_c,
-                    double* ta,double* tb,double* b_mle,const double* rates,
-                     const double *p, const int g_n,const double pi);
 #endif /* USE_LIKELIHOOD */

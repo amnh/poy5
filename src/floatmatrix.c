@@ -15,6 +15,7 @@
 #define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
 #define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
 #define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory")
+#define DEBUG 0
 
 /* compare two float matrices, TODO: look inside array. I doubt this is really
  * necessary since it's just scratch space. */
@@ -84,15 +85,16 @@ value floatmatrix_CAML_register (value u)
 void expand_matrix (mat* m, int s)
 {
     if (m->size < s){
-        printf ("Expanding Data: %d --> %d\n",m->size,s);
-        m->size = s;
-        m->mat = (double*) realloc(m->mat,sizeof(double)*s);
+        if( DEBUG )
+            printf ("Expanding Data: %d --> %d\n",m->size,s);
+        m->size = s * 2;
+        m->mat = (double*) realloc(m->mat,sizeof(double)*s*2);
         CHECK_MEM( m->mat );
     }
 }
 
 /* clear a section of an array */
-void clear_subsection( mat* m, int l, int h )
+void clear_section( mat* m, int l, int h )
 {
     assert ( (h-l) > 0 );
     memset( &(m->mat[l]), 0, sizeof(double)* (h-l) );
@@ -105,9 +107,10 @@ double* register_section( mat* m, int s, int c )
     if ( (m->loc + s) > m->size )
         expand_matrix (m, s + m->loc);
     if ( c ) /* clear the section too */
-        clear_subsection(m, m->loc, m->loc+s);
+        clear_section(m, m->loc, m->loc+s);
+    if (DEBUG)
+        printf ("Registering: %d -- %d\n",m->loc,m->loc+s-1);
     ptr = &(m->mat[m->loc]);
-    assert( 1 == 0 );
     m->loc = m->loc + s;
     return ptr;
 }
@@ -159,7 +162,7 @@ value floatmatrix_CAML_print (value m_val)
 value floatmatrix_CAML_clear (value m, value i,value j)
 {
     CAMLparam3(m,i,j);
-    clear_subsection( FM_val (m), Int_val (i), Int_val (j) );
+    clear_section( FM_val (m), Int_val (i), Int_val (j) );
     CAMLreturn( Val_unit );
 }
 value get_size (value m){ CAMLparam1(m); CAMLreturn( Int_val((FM_val(m))->size) );}

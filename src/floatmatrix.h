@@ -20,7 +20,9 @@ void floatmatrix_CAML_serialize(value v, unsigned long* wsize_32, unsigned long*
 unsigned long floatmatrix_CAML_deserialize( void* dst );
 value floatmatrix_CAML_register (value u);
 
-/* void expand_matrix( mat* m, int s ); */
-void  clear_subsection( mat* m, int l, int h );
-double* register_section (mat* m, int s, int c ); /* registers section and returns ptr */
-void  free_all (mat* m);
+/* registers section and returns ptr */
+double* register_section (mat* m,int s,int c);
+//void* register_asanysection (mat* m,int s,int c); //regiser size [s] as anything
+void free_all (mat* m);
+/* void expand_matrix( mat* m, int s ); -- register should do this        */
+/* void clear_section( mat* m, int l, int h ); -- register should do this */
