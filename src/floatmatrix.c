@@ -87,8 +87,8 @@ void expand_matrix (mat* m, int s)
     if (m->size < s){
         if( DEBUG )
             printf ("Expanding Data: %d --> %d\n",m->size,s);
-        m->size = s * 2;
-        m->mat = (double*) realloc(m->mat,sizeof(double)*s*2);
+        m->size = s;
+        m->mat = (double*) realloc(m->mat,sizeof(double)*s);
         CHECK_MEM( m->mat );
     }
 }
@@ -109,7 +109,7 @@ double* register_section( mat* m, int s, int c )
     if ( c ) /* clear the section too */
         clear_section(m, m->loc, m->loc+s);
     if (DEBUG)
-        printf ("Registering: %d -- %d\n",m->loc,m->loc+s-1);
+        printf ("Registering: %d -- %d of %d\n",m->loc,m->loc+s-1,m->size);
     ptr = &(m->mat[m->loc]);
     m->loc = m->loc + s;
     return ptr;

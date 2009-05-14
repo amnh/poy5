@@ -19,7 +19,7 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let pure_ocaml = true   (* ONLY use pure ocaml version *)
+let pure_ocaml = false (* ONLY use pure ocaml version *)
 let graph_output = false    (* graph all medians in %d--%d format *)
 
 (** caml links to garbage collection for deserialization **)
@@ -121,6 +121,7 @@ external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
 external loglikelihood:
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     float = "likelihood_CAML_loglikelihood"
 external filter: s -> int array -> s = "likelihood_CAML_filter"
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
@@ -133,6 +134,7 @@ external gamma_rates: float -> float -> int ->
 let print_float x = Printf.printf "%2.10f\t" x
 let print_array xs = Array.iter print_float xs; print_newline ()
 let print_array2 xxs = Array.iter print_array xxs; print_newline ()
+let print_array3 xxxs = Array.iter print_array2 xxxs; print_newline ()
 let print_list x = List.map (fun y -> Printf.printf "%d\t" y) x
 let print_barray a = 
     for i = 0 to (Bigarray.Array1.dim a)-1 do 
@@ -143,6 +145,14 @@ let print_barray2 a =
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n"; 
+    done; Printf.printf "\n"; ()
+let print_barray3 a = 
+    for i = 0 to (Bigarray.Array3.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array3.dim2 a)-1 do
+            for k = 0 to (Bigarray.Array3.dim3 a)-1 do
+                Printf.printf "%2.10f\t" a.{i,j,k};
+            done; Printf.printf "\n"; 
+        done; Printf.printf "\n";
     done; Printf.printf "\n"; ()
 
 let pp_floatopt chan v = 
@@ -156,13 +166,24 @@ let get_codes a = a.codes
 (* ------------------------------------------------------------------------- *)
 (* conversion/utility functions *)
 
-(* bigarray --> float array array *)
+(* bigarray2 --> float array array *)
 let barray_matrix bray =  
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
     let r = Array.make_matrix a b 0.0 in
     for i = 0 to a-1 do for j = 0 to b-1 do
         r.(i).(j) <- bray.{i,j};
     done; done; r
+
+(* bigarray3 --> float array array array *)
+let barray_3matrix bray =  
+    let b = Bigarray.Array3.dim2 bray and c = Bigarray.Array3.dim3 bray in
+    Array.init
+        (Bigarray.Array3.dim1 bray)
+        (fun r -> 
+            let x = Array.make_matrix b c 0.0 in
+            for i = 0 to b-1 do for j = 0 to c-1 do
+                x.(i).(j) <- bray.{r,i,j};
+            done; done; x)
 
 (* bigarray1 to float array *)
 let ba2array a = 
@@ -173,21 +194,15 @@ let ba2array a =
     done; afray
 
 external s_bigarray: 
-    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t =
     "likelihood_CAML_StoBigarray"
 external bigarray_s: 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t -> s =
     "likelihood_CAML_BigarraytoS"
 
 (* ------------------------------------------------------
  *  A pure ocaml implementation of the median functions
 *)
-(* MAP -- 2 *)
-let array_map3 f a1 a2 a3 = (* modify third array *)
-    for i = 0 to ((Array.length a1)-1) do
-        a3.(i) <- f a1.(i) a2.(i) a3.(i)
-    done; a3
-
 let array_map2 f a1 a2 =
     let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
         for i = 1 to ((Array.length a1)-1) do
@@ -195,28 +210,38 @@ let array_map2 f a1 a2 =
         done; x
 
 (* sum of product of two vectors *)
-let dot_product v1 v2 = Array.fold_right (+.) (array_map2 ( *. ) v1 v2) 0.0
+let dot_product v1 v2 = 
+    let r = array_map2 ( *. ) v1 v2 in
+    let res = Array.fold_right (+.) r 0.0 in
+    res
 
 (* negative log liklihood *)
-let mle a priors =
-    let res x = -. log (dot_product x priors) in
-    Array.fold_right (+.) (Array.map res a) 0.0
+let mle a priors probs =
+    let total = ref 0.0 in
+    Array.iteri
+        (fun i _ ->
+            let res x = -. log (dot_product x priors) in
+            let curr = Array.fold_right (+.) (Array.map res a.(i)) 0.0 in
+            total := !total +. (probs.(i) *. curr)
+        )
+        a;
+    !total
 
 (* calculate a new nodes mle and prob_vectors *)
-let median_char prob p_1 p_2 a b prev = 
+let median_char p_1 p_2 a b = 
     (* calculates one element of the probability vector *)
     let median_element a b p1 p2 x = 
         let x1 = Array.get p1 x and x2 = Array.get p2 x in
         let right_sum = dot_product a x1 and lefts_sum = dot_product b x2 in
-        prev.(x) +. (lefts_sum *. right_sum *. prob)
+        lefts_sum *. right_sum
     in
     let curried_c = median_element a b p_1 p_2 in
     let npv = Array.init (Array.length a) curried_c in
     npv
 
 (* empty argument is 'previous' *)
-let median_fmat prob a_vec b_vec a_mat b_mat prev =
-    array_map3 (median_char prob a_mat b_mat) a_vec b_vec prev
+let median_fmat a_vec b_vec a_mat b_mat =
+    array_map2 (median_char a_mat b_mat) a_vec b_vec
 
 (** --- SEARCH METHODS --- **)
 
@@ -337,51 +362,27 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
 
 (**
  * converts the stored variables into float array/matrices and computes mle
- *)
-let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) = 
-    let rec (--) a b = assert (a <= b);
-        if a = b then [] else (a) :: ((a+1) -- b)
-    in
+*)
+let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
     let make_matrix model t = 
         barray_matrix
             (match model.ui with
             | Some ui -> compose_gtr scratch_space model.u model.d ui t
             | None -> compose_sym scratch_space model.u model.d t)
     in
-    let ach = barray_matrix (s_bigarray a.chars)
-    and bch = barray_matrix (s_bigarray b.chars)
-    and pi_ = ba2array (a.model.pi_0) in
-
-    let one_gamma t1 t2 _id prev = 
-        let rate = Bigarray.Array1.get a.model.rate _id
-        and prob = Bigarray.Array1.get a.model.prob _id in
-        median_fmat prob ach bch 
-                (make_matrix a.model (t1*.rate))
-                (make_matrix b.model (t2*.rate))
-                prev
+    let ach = barray_3matrix (s_bigarray a.chars)
+    and bch = barray_3matrix (s_bigarray b.chars)
+    and pi_ = ba2array (a.model.pi_0)
+    and prob= ba2array (a.model.prob) in
+    let root =
+        Array.mapi
+            (fun i _ -> 
+                median_fmat ach.(i) bch.(i) 
+                            (make_matrix a.model (t1 *. a.model.rate.{i}) )
+                            (make_matrix b.model (t2 *. b.model.rate.{i}) ) )
+            ach (* arbitrary, as long as it's the same length *)
     in
-    let root0 =
-        List.fold_right (one_gamma t1 t2)
-                        (0 -- (Bigarray.Array1.dim a.model.rate))
-                        (Array.make_matrix (Array.length ach) (Array.length ach.(0)) 0.0)
-    and root1 =
-        List.fold_right (one_gamma (t1+.t2) 0.0)
-                        (0 -- (Bigarray.Array1.dim a.model.rate))
-                        (Array.make_matrix (Array.length ach) (Array.length ach.(0)) 0.0)
-    and root2 =
-        List.fold_right (one_gamma 0.0 (t1+.t2))
-                        (0 -- (Bigarray.Array1.dim a.model.rate))
-                        (Array.make_matrix (Array.length ach) (Array.length ach.(0)) 0.0)
-
-    in
-    Printf.printf "Shifted Time Scores: %f\t%f\t%f\n%!" 
-            (mle root0 pi_) (mle root1 pi_) (mle root2 pi_);
-    Printf.printf "Median Between %d -- %d = %f\n" acode bcode (mle root0 pi_);
-    print_array2 ach;
-    print_array2 bch;
-    print_array2 root0;
-    print_newline ();
-    root0, (mle root0 pi_)
+    root, (mle root pi_ prob)
 
 let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
     let stepval xref = xref := !xref +. step;!xref
@@ -405,31 +406,6 @@ let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * floa
     in
     let new_halves = t /. 2.0 in
     new_halves,new_halves,ll
-
-(** caml data for graph *)
-let ocaml_graph3 (a:t) (b:t) (c:t) (min:float) (max:float) (step:float) (f:string) = 
-    let modify xref = xref := !xref +. step;!xref in
-    let start = min -. step in
-    let at = ref start and bt = ref start and ct = ref start in
-
-    let make_t a (vec,ll) = 
-        {a with 
-            chars =
-                vec --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
-                    --> bigarray_s;
-            mle = ll;
-        }
-    and out_chan = open_out f in
-
-    while (modify at) < max do
-        while (modify bt) < max do
-            while (modify ct) < max do
-                let ab = make_t a (ocaml_median a b 0 0 !at !bt) in
-                let _,ll = ocaml_median ab c 0 0 0.0 !ct in
-                Printf.fprintf out_chan "%f\t%f\t%f\t%f\n" !at !bt !ct ll;
-            done;
-        done;
-    done; ()
 
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
@@ -537,7 +513,7 @@ let m_file f_rr a_size =
     done; srm
 
 (* ------------------------------------------------------------------------- *)
-(* estimation functions *)
+(* estimation functions --jc69 *)
 let estimate_time a b = 
     let p = match (1.0 -. (proportion a.chars b.chars)) with
         | x when x < 0.75 -> x
@@ -553,16 +529,22 @@ let estimate_time a b =
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
 let median an bn t1 t2 acode bcode =
     if pure_ocaml then begin
-        let () =
-            if graph_output then begin
-                ocaml_graph an bn 0.00001 0.4 0.0001
-                            (Printf.sprintf "%d--%d.tsv" (abs acode) (abs bcode))
-            end else ()
-        in
+        if graph_output then
+            ocaml_graph an bn 0.00001 0.4 0.0001
+                        (Printf.sprintf "%d--%d.tsv" (abs acode) (abs bcode));
         let faa,loglike = ocaml_median an bn acode bcode t1 t2 in
+        (*
+        Printf.printf "%d -(%f)- %d == %f\n" acode (t1 +. t2) bcode loglike;
+        print_barray3 (s_bigarray an.chars);
+        print_barray3 (s_bigarray bn.chars);
+        print_array3 faa;
+        Printf.printf "%f\n" t1;
+        print_barray2 (compose_sym scratch_space an.model.u an.model.d t1);
+        Printf.printf "%f\n" t2;
+        print_barray2 (compose_sym scratch_space bn.model.u bn.model.d t2); *)
         { an with
-            chars = 
-                faa --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+            chars = faa -->
+                    Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
                     --> bigarray_s;
             mle = loglike;
         }
@@ -574,9 +556,18 @@ let median an bn t1 t2 acode bcode =
             | Some ui -> 
                 median_gtr scratch_space am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob
         in
+        let loglike = loglikelihood n_chars an.model.pi_0 an.model.prob in
+        (* Printf.printf "%d -(%f)- %d == %f\n" acode (t1 +. t2) bcode loglike;
+        print_barray3 (s_bigarray an.chars);
+        print_barray3 (s_bigarray bn.chars);
+        print_barray3 (s_bigarray n_chars);
+        Printf.printf "%f\n" t1;
+        print_barray2 (compose_sym scratch_space an.model.u an.model.d t1);
+        Printf.printf "%f\n" t2;
+        print_barray2 (compose_sym scratch_space bn.model.u bn.model.d t2); *)
         { an with
             chars = n_chars;
-            mle = loglikelihood n_chars an.model.pi_0; 
+            mle = loglike; 
         }
 
 (* of_parser stuff *)
@@ -654,24 +645,6 @@ let of_parser spec characters =
     done;
     assert( !rsps =. 1.0 && !ps =. 1.0 );
 
-    (*
-        Printf.printf "Probabilities:   \t";
-        print_barray probabilities;
-        Printf.printf "Rates (alpha=%a):\t" pp_floatopt alpha;
-        print_barray variation;
-        print_newline ();
-    *)
-
-    (* this is equivlent to a single rate = 1 -- testing!
-    let () =
-        let prob = 1.0 /. (float_of_int (Bigarray.Array1.dim probabilities)) in
-        for i = 0 to (Bigarray.Array1.dim probabilities) - 1 do
-            variation.{i} <- 1.0;
-            probabilities.{i} <- prob;
-        done;
-    in
-    *)
-
     (* extract the prior probability *)
     let priors =
         match model.Parser.SC.base_priors with
@@ -733,8 +706,11 @@ let of_parser spec characters =
     in
 
     (* convert character array to abstract type --redo *)
-    let ba_chars = (Array.map loop_ characters) in (* create initial arrays *)
-    let ba_chars = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout ba_chars in
+    let aa_chars = (Array.map loop_ characters) in (* create initial arrays *)
+    let ba_chars = (* construct Array3 dim1=rates,dim2=chars,dim3=states *)
+        Array.init (Bigarray.Array1.dim variation) (fun _ -> Array.copy aa_chars) -->
+        Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
+    in
     {
          mle = 0.0;
        model = {
@@ -789,7 +765,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         (PXML
             -[Xml.Characters.characters]
             {
-                let r = Array.to_list (barray_matrix (s_bigarray mine.chars)) in
+                let r = Array.to_list (barray_3matrix (s_bigarray mine.chars)).(0) in
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
@@ -810,12 +786,12 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
-    if pure_ocaml then begin
+    (* if pure_ocaml then begin
         let t1,t2,ll = ocaml_readjust c1 c2 c_t1 c_t2 mine.mle in
         let x = Array.fold_right (* bottle neck? *)
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
         (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
-    end else begin
+    end else begin *)
         let model = c1.model in
         (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
         let c_t3 = 0.0 in (* TODO *)
@@ -836,7 +812,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
             let x = Array.fold_right (* bottle neck? *)
                     (fun c s -> All_sets.Integers.add c s) mine.codes x in
             (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mine.chars} )
-    end
+    (* end *)
 
 let distance a_node b_node t1 t2 = (* codes don't matter here *)
     let t = median a_node b_node t1 t2 0 0 in t.mle
@@ -845,13 +821,13 @@ let distance a_node b_node t1 t2 = (* codes don't matter here *)
 (* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
     let x = median a b at bt 0 0 in
-    let tt = 0.5 in 
+    let tt = 0.5 in (* estimate time here *)
     let y = median x n tt nt 0 0 in
     y.mle
 
 let median_3 p x c1 c2  =  x
 let reroot_median a b at bt = median a b at bt 0 0
-let median_cost ta = loglikelihood ta.chars ta.model.pi_0
+let median_cost ta = loglikelihood ta.chars ta.model.pi_0 ta.model.prob
 let root_cost t = t.mle
 let to_string a = "MLStaticCS"
 let cardinal ta = Array.length ta.codes

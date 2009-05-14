@@ -88,7 +88,7 @@ void printmatrix( const double* Z, const int n, const int m)
         putchar('\n'); 
     }
 }
-/* prints an array horizontally -- located in gamma.c now
+/* prints an array horizontally */
 void printarray( const double* a, const int n )
 {
     int i;
@@ -96,7 +96,6 @@ void printarray( const double* a, const int n )
         printf("[%6.5f] ", a[i]);
     putchar('\n');
 }
-*/
 
 /* print out a caml value */
 void CAML_debug( value s )
@@ -257,16 +256,17 @@ value likelihood_CAML_StoBigarray( value s )
     CAMLparam1( s );
     CAMLlocal1( res );
     mll* work;
-    long dims[2];
+    long dims[3];
     double *newone;
 
     work = ML_val( s );
-    dims[0] = work->c_len;
-    dims[1] = work->stride;
-    newone = (double*) malloc( dims[0] * dims[1] * sizeof(double));
-    memcpy(newone,work->lv_s, dims[0] * dims[1] * sizeof(double));
+    dims[0] = work->rates;
+    dims[1] = work->c_len;
+    dims[2] = work->stride;
+    newone = (double*) malloc( dims[0] * dims[1] * dims[2] * sizeof(double));
+    memcpy(newone,work->lv_s, dims[0] * dims[1] * dims[2] * sizeof(double));
 
-    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,2,newone,dims);
+    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,3,newone,dims);
     CAMLreturn( res );
 }
 
@@ -281,19 +281,18 @@ value likelihood_CAML_BigarraytoS( value A )
     mll* ret;
 
     o_stuff = (double*) Data_bigarray_val( A );
-
     ret = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(ret);
-    ret->c_len = Bigarray_val(A)->dim[0];
-    ret->stride = Bigarray_val(A)->dim[1];
+    ret->rates = Bigarray_val(A)->dim[0];
+    ret->c_len = Bigarray_val(A)->dim[1];
+    ret->stride = Bigarray_val(A)->dim[2];
 
     s = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
-            ret->c_len*ret->stride, CAML_ALLOC_2); 
+                            ret->rates*ret->c_len*ret->stride, CAML_ALLOC_2); 
     ML_val(s) = ret;
-
-    stuff = (double*) malloc( ret->c_len * ret->stride * sizeof(double));
+    stuff = (double*) malloc( ret->rates * ret->c_len * ret->stride * sizeof(double));
     CHECK_MEM(stuff);
-    memcpy( stuff, o_stuff, ret->c_len * ret->stride * sizeof(double));
+    memcpy( stuff, o_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = stuff;
 
     assert( ML_val(s) == ret);
@@ -309,29 +308,32 @@ value likelihood_CAML_filter(value as, value ibs)
     CAMLlocal1( package );
     mll *norm, *ret;
     double* area;
-    int m,i,j,n,k;
+    int m,i,j,n,k,r,size;
 
     m = Wosize_val( ibs );
     norm = ML_val( as );
     n = norm->c_len;
-    area = (double*) malloc( sizeof(double)* (norm->c_len-m)*norm->stride );
+    size = norm->c_len * norm->stride;
+    area = (double*) malloc(sizeof(double)*(norm->c_len-m)*norm->stride*norm->rates);
     CHECK_MEM(area);
 
-    for(i=0,j=0;i<n;++i){     
-        if( i != Int_val(Field(ibs, j)) ){
-            for(k=0;k<norm->stride;k++)
-                area[i*norm->stride + k] = norm->lv_s[ i*norm->stride + k]; 
-        } else if(j++ == m)
-            break;
+    for(r=0;r<norm->rates;r++){
+        for(i=0,j=0;i<n;++i){     
+            if( i != Int_val(Field(ibs, j)) ){
+                for(k=0;k<norm->stride;k++)
+                    area[r*size + i*norm->stride + k] = norm->lv_s[ r*size + i*norm->stride + k];
+            } else if(j++ == m)
+                break;
+        }
+        for(;i<m;++i)
+            area[i] = norm->lv_s[i];
     }
-    for(;i<m;++i)
-        area[i] = norm->lv_s[i];
-
     package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
-                                                    (n-m)*norm->stride, CAML_ALLOC_2);
+                                            (n-m)*norm->stride*norm->rates, CAML_ALLOC_2);
     ret = ML_val( package );
     ret->stride = norm->stride;
     ret->c_len = norm->c_len - m;
+    ret->rates = norm->rates;
 
     assert( ret == ML_val(package));
     CAMLreturn( package );
@@ -450,24 +452,24 @@ double proportion( const mll* a, const mll* b)
     //length of characters is equal
     assert(a->stride == b->stride);
     assert(a->c_len == b->c_len);
+    assert(a->rates == b->rates);
 
     prop = k = 0;
     //i holds current char, j holds current array location, k holds curr char
-    for(i=0;i<a->c_len;i++){
+    for(i=0;i<a->c_len*a->rates;i++){
         maxa = maxb = 0;
         s = t = 0;
         for(j=0;j<a->stride;j++){
             if (a->lv_s[k+j] > maxa){ maxa = a-> lv_s[k+j]; }
             if (b->lv_s[k+j] > maxb){ maxb = b-> lv_s[k+j]; }
         }
-        for(j=0;j<a->stride;j++){
+        for(j=0;j<a->stride;j++,k++){
             if(a->lv_s[k] == maxa && b->lv_s[k] == maxb){ s++; t+=2; }
             else if (a->lv_s[k] == maxa || b->lv_s[k] == maxb){ t++; }
-            k++;
         }
         prop += (2*s)/t;
     }
-    prop = prop / a->c_len;
+    prop = prop / (a->c_len*a->rates);
     return prop;
 }
 
@@ -724,35 +726,38 @@ void median_h( const double* P, const double* l, const int c, double* nl, const 
 /** [loglikelihood ml p]
  * returns loglikelihood of a character set. |p| = l->stride
  */
-double loglikelihood( const mll* l, const double* p )
+double loglikelihood( const mll* l, const double* pi, const double* prob )
 {
-    int i, j, nchars, size; 
-    double ret,tmp;
+    int h, i, j, nchars, size; 
+    double tmp,tmp2,ret;
     nchars = l->c_len * l->stride;  //number of characters
-    size = l->stride;   //length of vectors
-    ret=0;tmp=0;
+    size = l->stride;
+    ret=0;
 
-    for(i=0,j=0; i<nchars; ++i,++j){
-        if( j == size ){
-            ret -= log( tmp );
-            j = 0; tmp = 0;
+    for(h=0;h<l->rates;++h){
+        tmp = 0; tmp2 = 0;
+        for(i=0,j=0; i<nchars; ++i,++j){
+            if( j == size ){
+                tmp2 -= log( tmp );
+                j = 0; tmp = 0;
+            }
+            tmp += l->lv_s[h*nchars + i] * pi[j];
         }
-        tmp += l->lv_s[i] * p[j];
+        tmp2 -= log( tmp );
+        ret += prob[h] * tmp2;
     }
-    ret -= log (tmp);
-    return ret;
+    return (ret);
 }
-/* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
-value likelihood_CAML_loglikelihood(value s, value p)
-{
-    CAMLparam2( s, p );
-    CAMLlocal1( mle );
-    double *c_p,ll;
-    mll* chars;
-    c_p = (double*) Data_bigarray_val( p );
-    chars = ML_val( s );
 
-    ll = loglikelihood( chars, c_p );
+/* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
+value likelihood_CAML_loglikelihood(value s, value pi, value prob)
+{
+    CAMLparam3( s, pi, prob );
+    CAMLlocal1( mle );
+    double ll;
+    ll = loglikelihood( ML_val(s),
+                        (double*) Data_bigarray_val(pi),
+                        (double*) Data_bigarray_val(prob) );
     mle = caml_copy_double( ll );
     CAMLreturn( mle );
 }
@@ -760,31 +765,28 @@ value likelihood_CAML_loglikelihood(value s, value p)
 
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and
- * [b] with the probability matrices [Pa] and [Pb], respectively, and
- * probability [p].
+ * [b] with the probability matrices [Pa] and [Pb], respectively, for a single
+ * rate class [rate_idx]. [Pa]/[Pb] already contain rate/time information, and
+ * the [rate_idx] serves to indicate the location in the array.
  *
  * tmp are size of alphabet.
  */
 void
-median_charset(const double* Pa,const double* Pb,
-        const mll* a,const mll* b, mll* c,const double p,
-        double* tmp1, double* tmp2)
+median_charset(const double* Pa,const double* Pb, const mll* a,const mll* b,
+                mll* c, double* tmp1, double* tmp2,const int rate_idx )
 {
-    int i,j,len;
-    assert( a->stride == b->stride );
-    assert( b->c_len == a->c_len );
+    int i,j,len,oth;
 
+    oth = rate_idx*(a->stride*a->c_len);
     for(i=0; i < a->c_len; ++i){
-        len = i*a->stride; 
+        len = oth + (i*a->stride);
         /* find half medians for each character */
         median_h( Pa, a->lv_s, len, tmp1, a->stride );
         median_h( Pb, b->lv_s, len, tmp2, a->stride );
         /* pairwise multiplication */
         for(j=0;j < a->stride;++j)
-            c->lv_s[len+j] += (tmp2[j]*tmp1[j])*p;
+            c->lv_s[len+j] = (tmp2[j]*tmp1[j]);
     }
-    c->c_len = a->c_len;
-    c->stride = a->stride;
 }
 
 value likelihood_CAML_median_wrapped_sym
@@ -817,46 +819,38 @@ value likelihood_CAML_median_wrapped_sym
     b = ML_val( ml_b );
     assert( a->stride == b->stride );
     assert( a->c_len == b->c_len );
+    assert( a->rates == b->rates );
     /* create new character set, c */
-    ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),a->stride*a->c_len,CAML_ALLOC_2);
+    ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),
+                                a->rates*a->stride*a->c_len,CAML_ALLOC_2);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
     c->stride = a->stride;
     c->c_len = a->c_len;
-    c->lv_s = (double*) calloc( c->c_len * c->stride, sizeof(double));
+    c->rates = a->rates;
+    c->lv_s = (double*) malloc( c->rates * c->c_len * c->stride * sizeof(double));
     CHECK_MEM(c->lv_s);
     /* register temp variables */
     PA = (double*) register_section(space, a->stride*a->stride, 1);
     PB = (double*) register_section(space, a->stride*a->stride, 1);
     tmp1 = (double*) register_section(space, a->stride*a->stride, 1);
     /** 
-     *  main loop --
+     *  F(x|r_i,P) = f_right(x*r_i|P) * f_left(x*r_i|P)
      *
-     *   ___ num_rates
-     *   \
-     *    >   pr_i * F(x | r_i,P )
-     *   /__ 
-     *    i
-     *        where:  F(x|r,P) = f_right(x*r|P) * f_left(x*r|P)
-     *              f_j(x*r|P) = SUM(P_jk,k:{ACTG})
-     *
-     *              P    = probability matrix
-     *              pr_i = the rate probability
-     *              r_i  = the rate of i
-     *              x    = the branch length
-     *              P_j  = is the jth row of P
+     *      P    = probability matrix
+     *      r_i  = the rate of i
+     *      x    = the branch length
      */
+    //printf ("rates:%d\nchars:%d\nalpha:%d\n",a->rates,a->c_len,a->stride);
     for(i=0;i<num_rates;i++){
         compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride,tmp1 );
         compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride,tmp1 );
-        median_charset( PA, PB, a,b,c,p_rs[i],tmp1,&(tmp1[a->stride]));
+        median_charset( PA, PB, a, b, c, tmp1, &(tmp1[a->stride]), i );
     }
     /* free up space, return */
     free_all( space );
     assert( c == ML_val(ml_c));
-    assert( c->c_len == b->c_len );
-    assert( c->stride == a->stride );
     CAMLreturn(ml_c);
 }
 
@@ -893,13 +887,17 @@ value likelihood_CAML_median_wrapped_gtr
     b = ML_val( ml_b );
     assert(a->stride == b->stride);
     assert(b->c_len == a->c_len);
+    assert(a->rates == b->rates);
     /* create new character set */
     ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
-                                                    a->stride*a->c_len, CAML_ALLOC_2);
+                                            a->rates*a->stride*a->c_len, CAML_ALLOC_2);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
-    c->lv_s = calloc(a->c_len * a->stride, sizeof(double)); 
+    c->lv_s = malloc(a->c_len * a->stride * a->rates * sizeof(double)); 
+    c->stride = a->stride;
+    c->c_len  = a->c_len;
+    c->rates  = a->rates;
     /* register temp variables */
     PA = register_section( space, b->stride * b->stride, 1 );
     PB = register_section( space, b->stride * b->stride, 1 );
@@ -908,7 +906,7 @@ value likelihood_CAML_median_wrapped_gtr
     for(i=0;i<num_rates;i++){
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
-        median_charset( PA, PB, a,b,c, p_rs[i],tmp1,&(tmp1[b->stride]));
+        median_charset( PA, PB, a,b,c, tmp1,&(tmp1[b->stride]), i);
     }
     /* free all variables */
     free_all( space );
@@ -938,35 +936,32 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     const double *pi,const int g_n,double *tmp)
 {
     int i; double half;
-    assert( a->stride == b->stride );
-    assert( a->c_len == b->c_len );
     half = time / 2;
-    mll *c; c = simp->vs;
     simp->time = time;
-    memset(c->lv_s,0,a->c_len*a->stride*sizeof(double));
+    (simp->vs)->c_len  = a->c_len;
+    (simp->vs)->rates  = a->rates;
+    (simp->vs)->stride = a->stride;
     for(i=0;i<g_n;i++){
         compose_sym( PA, U, D, half*gam[i], a->stride,tmp );
         compose_sym( PB, U, D, half*gam[i], b->stride,tmp );
-        median_charset( PA, PB, a,b,c,prob[i],tmp,&(tmp[a->stride]));
+        median_charset( PA, PB, a,b,simp->vs,tmp,&(tmp[a->stride]),i );
     }
-    simp->ll = loglikelihood( c,pi );
+    simp->ll = loglikelihood( simp->vs,pi,prob );
 }
 void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,const double *Ui,
     const mll *a,const mll *b,const double time,const double *gam,const double *prob,
     const double *pi,const int g_n,double *tmp)
 {
-    int i;
-    double half;
+    int i; double half;
     mll *c; c = simp->vs;
     simp->time = time;
     half = time / 2;
-    memset(c->lv_s,0,a->c_len*a->stride*sizeof(double));
     for(i=0;i<g_n;i++){
         compose_gtr( PA, U, D, Ui, half*gam[i], a->stride, tmp );
         compose_gtr( PB, U, D, Ui, half*gam[i], b->stride, tmp );
-        median_charset( PA, PB, a,b,c,prob[i],tmp,&(tmp[a->stride]));
+        median_charset( PA, PB, a,b,c,tmp,&(tmp[a->stride]), i );
     }
-    simp->ll = loglikelihood( c,pi );
+    simp->ll = loglikelihood( c,pi,prob );
 }
 
 #define golden_exterior(a,b) a->time + ((b->time - a->time)*2.0/(sqrt(5.0)-1))
@@ -977,17 +972,16 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         const double* rates, const double *prob, const int g_n,const double* pi)
 {
     /* variables */
-    ptr *left,*right,*middle,*best,*temp;
+    ptr *left,*right,*middle,*best,*temp,*temp_ptr;
     double *PA,*PB,*TMP,ttime1,ttime2,deno,numr;
-    int max_iter,size,bracked;
-    void *temp_ptr;
+    int max_iter,size,bracketed;
     max_iter = MAX_ITER;
-    size = a->c_len*a->stride;
+    size = a->c_len*a->stride*a->rates;
     /* register temp space and matrices */
     PA = register_section(space, a->stride*a->stride , 0);
     PB = register_section(space, a->stride*a->stride , 0);
-    TMP = register_section(space, a->stride*a->stride , 0);
-    /* set up the points */
+    TMP = register_section(space, a->stride*a->stride, 0);
+    /* set up the 'points' */
     best = (ptr*) malloc( sizeof(ptr) );    middle = (ptr*) malloc(sizeof (ptr));
     best->vs = (mll*) malloc(sizeof(mll));  middle->vs = (mll*) malloc(sizeof(mll));
     left = (ptr*) malloc( sizeof (ptr) );   right = (ptr*) malloc(sizeof (ptr));
@@ -1013,8 +1007,8 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
     single_sym(left,PA,PB,U,D,a,b,left->time,rates,prob,pi,g_n,TMP);
     single_sym(right,PA,PB,U,D,a,b,right->time,rates,prob,pi,g_n,TMP);
     /* bracket minimum */
-    bracked = 1; // true, since we are going to expect the best
-    while( (max_iter-- != 0) || !(left->ll > middle->ll && middle->ll < right->ll)){
+    bracketed = 1; // true, since we are going to expect the best
+    while( (max_iter-- != 0) && !(left->ll > middle->ll && middle->ll < right->ll)){
         if (left->ll <= middle->ll && middle->ll <= right->ll){
             // increasing,  move all points down
             temp_ptr = right;
@@ -1035,7 +1029,7 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         } else {
             printf("Curvature?:%f/%f -- %f/%f -- %f/%f\n",left->time,
                     left->ll,middle->time,middle->ll,right->time,right->ll);
-            bracked = 0;
+            bracketed = 0;
             if (left->ll < right->ll){ //new left middle
                 temp_ptr = right;
                 right = middle;
@@ -1055,12 +1049,13 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             break;
         }
     }
-    
+    //printf("Bracketed in %d iterations\n",MAX_ITER - max_iter);
+    //printf("Some New Likelihood: %f(%f)\t%f(%f)\t%f(%f)\n",
+    //        left->ll,left->time, middle->ll,middle->time, right->ll,right->time);
     /* parabolic interpolation */
-    while( bracked && ( ((max_iter--) != 0 ) ||
-                      (fabs (middle->time - left->time) <= EPSILON) ||
-                      (fabs (right->time - middle->time) <= EPSILON) ) ){
-        printf ("Iteration: %d\n",max_iter);
+    while( bracketed && ((max_iter--) != 0 ) &&
+                      (fabs (middle->time - left->time) > EPSILON) &&
+                      (fabs (right->time - middle->time) > EPSILON) ){
         // calculate absissca
         ttime1 = (middle->time - left->time) * (middle->ll - right->ll);
         ttime2 = (middle->time - right->time) * (middle->ll - left->ll);
@@ -1192,7 +1187,7 @@ likelihood_CAML_readjust_sym_wrapped
     assert( ML_val(A)->stride == Bigarray_val( pis )->dim[0]);
     assert( Bigarray_val( g )->dim[0] == Bigarray_val( p )->dim[0] );
     /* readjust loop */
-    printf("s: %f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("s: %f\t%f\t%f\n", cta,ctb,likelihood);
     readjust_brents_sym(
             FM_val(tmp),
             Data_bigarray_val( U ), Data_bigarray_val( D ),
@@ -1202,7 +1197,7 @@ likelihood_CAML_readjust_sym_wrapped
             Data_bigarray_val( p ),
             Bigarray_val( g )->dim[0],
             Data_bigarray_val( pis ) );
-    printf("e: %f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("e: %f\t%f\t%f\n", cta,ctb,likelihood);
     /* construct tuple / free space */
     res = caml_alloc_tuple( 3 );
     Store_field(res, 0, caml_copy_double (cta));

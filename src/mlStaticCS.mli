@@ -24,10 +24,10 @@ type cm
 
 (** two functions to convert from double** to Bigarray.Array2 *)
 external s_bigarray: 
-    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t =
     "likelihood_CAML_StoBigarray"
 external bigarray_s: 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t -> s =
     "likelihood_CAML_BigarraytoS"
 (** [diagonalize_*** Q D [Ui] ] 
  * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
@@ -104,9 +104,10 @@ external readjust_gtr: FMatrix.m ->
     float -> float*float*float =
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
-(** [loglikelihood s pi] -> float   calculates the mle of a character set *) 
+(** [loglikelihood s pi prob] -> float   calculates the mle of a character set *) 
 external loglikelihood: 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     float = "likelihood_CAML_loglikelihood"
 (** [filter s as] -> s
  * filters s with indexes of as and returns new character set, *)

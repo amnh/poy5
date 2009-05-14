@@ -45,6 +45,7 @@
 struct ml {
     int stride;     //stride of matrix (ie: size of alphabet)
     int c_len;      //length of character set
+    int rates;      //number of rates being processed
     double* lv_s;   //likelihood vectors x character set (length is n*k)
 };
 typedef struct ml mll;
@@ -140,10 +141,10 @@ int diagonalize_gtr( mat *space, double* A, double* D, double* Ui, int n );
 void median_h( const double* P, const double* l,const int c, double* nl, const int a);
 //calculates median of two character sets, [a] and [b] into [c]
 void median_charset( const double* Pa, const double* Pb, const struct ml* a,
-                     const struct ml* b, struct ml* c, const double p,
-                     double* tmp1, double* tmp2);
+                        const struct ml* b, struct ml* c, double* tmp1,
+                            double* tmp2,const int rate_idx );
 //loglikelihood of a median with priors [p] and character set [l]
-double loglikelihood( const struct ml *l, const double* p );
+double loglikelihood( const struct ml *l, const double* pi, const double* prob );
 
 /**
  * functions on character sets
