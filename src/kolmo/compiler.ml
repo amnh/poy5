@@ -532,7 +532,9 @@ let compile_decoder specs initial_frequencies =
     | [env] -> 
             decoder := [];
             let final_code = 
-                assign_code_based_on_frequencies initial_frequencies functions env in
+                assign_code_based_on_frequencies initial_frequencies 
+                functions env 
+            in
             let env = replace_labels final_code env in
             environment := add_identity functions [env]
     | _ -> assert false
@@ -585,7 +587,8 @@ let tree_of_decoder () =
 
             module Stream = struct
                 (* We don't use the continuation in this version *)
-                let to_bool continuation x = x [SK S] [SK K] [SK K] m_not m_true
+                let to_bool continuation x = 
+                    x [SK S] [SK K] [SK K] m_not m_true
             end
             module Decoder = struct
 
@@ -619,4 +622,24 @@ let tree_of_decoder () =
                 get "tmp"
     in
     make_tree decoder, initial_decoder, final_code
+
+
+let uniform_integer decoder integer =
+    let r = get decoder in
+    let rec prepend items acc = 
+        if items = 0 then acc
+        else prepend (items - 1) (`S :: acc)
+    in
+    let rec generate_list cnt acc to_encode = 
+        if to_encode = 0 then 
+            prepend cnt acc
+        else 
+            generate_list (cnt + 1)
+            ((if 1 = (1 land integer) then `K else `S) :: acc)
+            (integer lsr 1)
+    in
+    `Node (r ::
+        (if integer = 0 then [`S; `S] 
+            else generate_list 0 [] integer))
+
 
