@@ -185,6 +185,28 @@ val union: t -> t -> t -> t
 * iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
+(** models to be used outside likelihood if necessary **)
+val m_gtr   : float array -> float array -> int ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_f84   : float array -> float -> float -> int ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_hky85 : float array -> float -> float -> int ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_f81   : float array -> float -> int -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_tn93  : float array -> float -> float -> float -> int -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_k2p   : float -> float -> int -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_jc69  : float -> int -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+val m_file  : float array array -> int -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+
+val test_model : 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float -> unit
+
+
 (** [readjust check has_changed c1 c2 mine t1 t2 tmine] readjusts the edge time for 
  * some characters in the vertex [mine] with parent [par] and children [c1] and
  * [c2], for an edge with overall [time]. If [check] is 

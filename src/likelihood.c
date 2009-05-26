@@ -84,7 +84,7 @@ void printmatrix( const double* Z, const int n, const int m)
     for (i=0; i<m; ++i) {
         putchar('\t');
         for (j=0; j<n; ++j)
-            printf("[%6.8f] ", Z[i*n+j]);
+            printf("[%11.10f] ", Z[i*n+j]);
         putchar('\n'); 
     }
 }
@@ -414,7 +414,6 @@ mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, doub
             lwork = (int)work_size;
             work = register_section( space, lwork, 1 );
             dgetri_(&n, VL, &n, pivot, work, &lwork, &i);
-            free( work );
         } else if (i < 0) { 
             failwith ( "dgetri_ argument failed." );
         } else {
@@ -549,8 +548,10 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
     char jobv_ = 'V'; //we went to find left and right eigenvectors
     double *wi,*U,*work,work_size;
     int lwork,info;
-    wi = register_section( space, n, 0 );
-    U  = register_section( space, n*n, 0 );
+    //wi = register_section( space, n, 0 );
+    //U  = register_section( space, n*n, 0 );
+    wi = (double*) malloc( sizeof(double) * n);
+    U = (double*) malloc( sizeof(double) * n * n);
 
     //find the optimal work (call func with -1 in lwork)
     lwork = -1;
@@ -558,7 +559,8 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
     dgeev_(&jobv_,&jobv_,&n,A,&n,D,wi,U,&n,Ui,&n,&work_size,&lwork,&info);
     if( info == 0 ) {
         lwork = (int)work_size;
-        work = register_section( space, lwork, 1);
+        //work = register_section( space, lwork, 1);
+        work = (double*) malloc( lwork * sizeof(double));
         /** dgeev   - A * v(j) = lambda(j) * v(j)
          *            u(j)**H * A = lambda(j) * u(j)**H
          *            where:
@@ -676,6 +678,9 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
     dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
     //P becomes U*expD*Ui... done --note: VL = inv(VR)
     dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
+
+    printf("\nBL:%11.10f\n",t);
+    printmatrix (P,n,n);
 }
 value 
 likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
@@ -721,7 +726,7 @@ void median_h( const double* P, const double* l, const int c, double* nl, const 
             elm += (P[(i*a)+j] * l[c+j]);
         nl[i] = elm;
     }
-}
+} 
 
 /** [loglikelihood ml p]
  * returns loglikelihood of a character set. |p| = l->stride

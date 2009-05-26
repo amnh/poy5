@@ -21,6 +21,7 @@ let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 IFDEF USE_LIKELIHOOD THEN
 let pure_ocaml = false (* ONLY use pure ocaml version *)
 let graph_output = false    (* graph all medians in %d--%d format *)
+let phyml_mode = true
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -467,6 +468,15 @@ let m_f81 pi_ lambda a_size =
         done;
     done; srm 
 
+
+(* val hky85_ratio :: only 4 or 5 characters *)
+let m_hky85_ratio pi_ kappa a_size =
+    let beta = (pi_.(0) *. pi_.(2) *. kappa) +. (pi_.(1) *. pi_.(3) *. kappa) +.
+                ((pi_.(0) +. pi_.(2)) *. (pi_.(1)+.pi_.(3)) ) in
+    let beta = 1.0 /. (2.0 *. beta) in
+    let alpha = kappa *. beta in
+    m_tn93 pi_ alpha alpha beta a_size
+
 (* val hky85 :: only 4 or 5 characters *)
 let m_hky85 pi_ alpha beta a_size = m_tn93 pi_ alpha alpha beta a_size
 
@@ -478,27 +488,39 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
-(* val gtr :: ANY ALPHABET size *)
-(* pi_ == n; co_ == (1+n)*(n/2) *)
+(* val gtr :: ANY ALPHABET size
+   pi_ == n; co_ == ((1+n)*n)/2
+   form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
+    let n = ref 0       (* array index *)
+    and mr= ref 0.0 in  (* mean rate -- as in phyml *)
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     for i = 0 to (a_size-1) do
         for j = (i+1) to (a_size-1) do
-            srm.{i,j} <- pi_.(j) *. co_.(i+j-1);
-            srm.{j,i} <- pi_.(i) *. co_.(i+j-1);
+            srm.{i,j} <- co_.(!n) *. pi_.(j);
+            srm.{j,i} <- co_.(!n) *. pi_.(i);
+            incr n;
         done;
     done;
     (* normalize diagonal so row sums to 0 *)
-    for i = 0 to (a_size-1) do
+    for i = 0 to (a_size-1) do begin
         let diag = ref 0.0 in
         for j = 0 to (a_size-1) do
             if (i <> j) then diag := !diag +. srm.{i,j};
         done;
         srm.{i,i} <- -. !diag;
-    done; srm
+        mr := !mr +. (!diag *. pi_.(i));
+    end; done;
+    (* divide through by mean-rate *)
+    if phyml_mode then
+        for i = 0 to (a_size-1) do
+            for j = 0 to (a_size-1) do
+                srm.{i,j} <- srm.{i,j} /. !mr;
+            done;
+        done;
+    srm
 
-(* val m_file :: any alphabet size *)
-(* re-computes diagonal --no verification against alphabet size*)
+(* val m_file :: any alphabet size -- recomputes diagonal *)
 let m_file f_rr a_size =
     assert(a_size = Array.length f_rr);
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
@@ -511,6 +533,18 @@ let m_file f_rr a_size =
         done;
         srm.{r,r} <- ~-. !diag;
     done; srm
+
+let test_model sub_mat t = 
+    let a_size = Bigarray.Array2.dim1 sub_mat in
+    let (u_,d_,ui_) = 
+        let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size
+        and n_ui = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+        Bigarray.Array2.fill n_d 0.0;
+        Bigarray.Array2.fill n_ui 0.0;
+        diagonalize_gtr scratch_space sub_mat n_d n_ui;
+        (sub_mat, n_d, n_ui)
+    in
+    print_barray2 (compose_gtr scratch_space u_ d_ ui_ t)
 
 (* ------------------------------------------------------------------------- *)
 (* estimation functions --jc69 *)
@@ -533,15 +567,6 @@ let median an bn t1 t2 acode bcode =
             ocaml_graph an bn 0.00001 0.4 0.0001
                         (Printf.sprintf "%d--%d.tsv" (abs acode) (abs bcode));
         let faa,loglike = ocaml_median an bn acode bcode t1 t2 in
-        (*
-        Printf.printf "%d -(%f)- %d == %f\n" acode (t1 +. t2) bcode loglike;
-        print_barray3 (s_bigarray an.chars);
-        print_barray3 (s_bigarray bn.chars);
-        print_array3 faa;
-        Printf.printf "%f\n" t1;
-        print_barray2 (compose_sym scratch_space an.model.u an.model.d t1);
-        Printf.printf "%f\n" t2;
-        print_barray2 (compose_sym scratch_space bn.model.u bn.model.d t2); *)
         { an with
             chars = faa -->
                     Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
@@ -557,14 +582,6 @@ let median an bn t1 t2 acode bcode =
                 median_gtr scratch_space am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob
         in
         let loglike = loglikelihood n_chars an.model.pi_0 an.model.prob in
-        (* Printf.printf "%d -(%f)- %d == %f\n" acode (t1 +. t2) bcode loglike;
-        print_barray3 (s_bigarray an.chars);
-        print_barray3 (s_bigarray bn.chars);
-        print_barray3 (s_bigarray n_chars);
-        Printf.printf "%f\n" t1;
-        print_barray2 (compose_sym scratch_space an.model.u an.model.d t1);
-        Printf.printf "%f\n" t2;
-        print_barray2 (compose_sym scratch_space bn.model.u bn.model.d t2); *)
         { an with
             chars = n_chars;
             mle = loglike; 
@@ -624,18 +641,22 @@ let of_parser spec characters =
                 Bigarray.Array1.fill p (1.0 /. (float_of_int x));
                 gamma_rates y z x,p,Some y,0.0,x
             | Parser.SC.Theta (w,x,y,z) -> (* SITES,ALPHA,BETA,PERCENT_INVAR *)
+                Printf.printf "sites:%d\talpha:%f\tinvar:%f\n%!" w x z;
                 let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
                 let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
                 let rs = gamma_rates x y w in
                     (* [GAMMA@(1-z)]+[INVAR@z] *)
                     Bigarray.Array1.fill p ((1.0 -. z) /. (float_of_int w)); 
                     (* copy array to master array since one extra site @ 1.0 & z *)
-                    Bigarray.Array1.blit rs r;
+                    for i = 0 to (Bigarray.Array1.dim rs)-1 do
+                        r.{i} <- rs.{i};
+                    done;
                     p.{w} <- z;
                     r.{w} <- 1.0;
                 r,p,Some x,z,w
             )
     in
+
     (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
     assert( (Bigarray.Array1.dim probabilities) = (Bigarray.Array1.dim variation) );
     let rsps = ref 0.0 and ps = ref 0.0 in
@@ -664,7 +685,12 @@ let of_parser spec characters =
         | Parser.SC.F84 (kappa,beta) ->
                 false, "F84", m_f84 priors kappa beta a_size
         | Parser.SC.HKY85 (alpha,beta) ->
-                false, "HKY85", m_hky85 priors alpha beta a_size
+                let model = if phyml_mode then 
+                    m_hky85_ratio priors (alpha /. beta) a_size
+                else
+                    m_hky85 priors alpha beta a_size
+                in
+                false, "HKY85", model
         | Parser.SC.TN93 (alpha1,alpha2,beta) ->
                 false, "TN93", m_tn93 priors alpha1 alpha2 beta a_size
         | Parser.SC.GTR coeff -> 
@@ -684,7 +710,8 @@ let of_parser spec characters =
             let n_ui = Bigarray.Array2.create
                             Bigarray.float64 Bigarray.c_layout a_size a_size in
             Bigarray.Array2.fill n_ui 0.0;
-            diagonalize_gtr scratch_space sub_mat n_d n_ui; (sub_mat, n_d, Some n_ui)
+            diagonalize_gtr scratch_space sub_mat n_d n_ui;
+            (sub_mat, n_d, Some n_ui)
         )
     in
 
