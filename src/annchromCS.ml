@@ -372,10 +372,12 @@ let get_active_ref_code t =
 (** [to_single ref_codes root single_parent mine] returns
 * the single states of annotated chromosome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
+     (*Printf.printf "annchromCS.ml to_single -> ";
+     let printmedlist alpha x = Printf.printf "%s" (Annchrom.to_string x alpha) in
+     let printseqarr x = Printf.printf "%s \n " (Sequence.to_string x Alphabet.nucleotides) 
+     in*)
     let previous_total_cost = mine.total_cost in 
     let c2 = mine.c2 in 
-
-
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
         let amed = 
             try
@@ -385,7 +387,10 @@ let to_single ref_codes (root : t option) single_parent mine =
             with Not_found -> List.hd med.Annchrom.med_ls
                 (*failwith "Not found med -> to_formatter -> AnnchromCS"*)
         in  
-
+         (*Printf.printf "pick a med from mine.meds.med_ls as amed = \n";
+         printmedlist mine.alph amed;
+         print_newline();*)
+        (* when median =1, there is only one member in parent_med.med_ls*)
         let parent_med = IntMap.find code single_parent.meds in  
         let aparent_med = 
             try
@@ -393,20 +398,28 @@ let to_single ref_codes (root : t option) single_parent mine =
                                IntSet.mem med.AnnchromAli.ref_code ref_codes 
                           ) parent_med.Annchrom.med_ls
             with Not_found -> List.hd parent_med.Annchrom.med_ls
-        in            
-        
-
+        in
+        (*Printf.printf "pick a med from single_parent.meds.md_ls as aparent_med =";
+            printmedlist mine.alph aparent_med;
+            print_newline();*)
         let cost,  recost, single_seq_arr =             
             match root with
             | Some root ->
                   let single_root = AnnchromAli.to_single_root amed
                       aparent_med.AnnchromAli.ref_code c2 
                   in 
+                  (*Printf.printf "single_seq_arr for root =\n";
+                  * Array.iter printseqarr single_root; *)
                   0, 0, single_root
             | None ->
-                  let single_seq_arr = 
-                      AnnchromAli.to_single aparent_med amed.AnnchromAli.ref_code c2  
-                  in 
+                   (* let single_seq_arr = 
+                      AnnchromAli.to_single aparent_med amed.AnnchromAli.ref_code c2                                   in
+                   *)
+                    let single_seq_arr = 
+                      AnnchromAli.assign_single_nonroot aparent_med amed amed.AnnchromAli.ref_code c2 med.Annchrom.annchrom_pam 
+                  in           
+                  (*Printf.printf " call AnnchromAli.to_single, make single_seq_arr out of aparent_med and amed  = \n";
+                  Array.iter printseqarr single_seq_arr;*)
                   let single_med = 
                       {amed with 
                            AnnchromAli.seq_arr = Array.mapi 
@@ -416,11 +429,16 @@ let to_single ref_codes (root : t option) single_parent mine =
                               ) amed.AnnchromAli.seq_arr
                       }
                   in 
-                  
                   let cost, recost = AnnchromAli.cmp_cost 
                       single_med aparent_med c2 mine.alph
                       med.Annchrom.annchrom_pam 
                   in 
+                  (*Printf.printf "let single_med become amed with seq_arr replaced by single_seq_arr \n compute the cost between single_med = \n";
+                  printmedlist mine.alph single_med;
+                  Printf.printf " \n AND aparent_med = \n ";
+                  printmedlist mine.alph aparent_med;
+                  print_newline();
+                  Printf.printf "cost = %d \n" cost ;*)
                   cost, recost, single_seq_arr
         in 
 
@@ -429,10 +447,9 @@ let to_single ref_codes (root : t option) single_parent mine =
 
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 
-        let new_recosts = IntMap.add code (float_of_int recost) acc_recosts in 
+        let new_recosts = IntMap.add code (float_of_int recost) acc_recosts in
         new_single, new_costs, new_recosts, (acc_total_cost + cost)
     in
-
     let meds, costs,  recosts, total_cost = 
         match root with
         | Some root ->
@@ -440,14 +457,12 @@ let to_single ref_codes (root : t option) single_parent mine =
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
     in 
-
+(*Printf.printf "<-- end of annchromCS.ml to_single\n\n\n %!";*)
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;
          recosts = recosts;
          total_cost = float_of_int total_cost}
-
-
 
 
 (** [copy_chrom_map s_ch d_ch] copies the chromosome
