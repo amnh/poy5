@@ -151,8 +151,25 @@ val create_single_map : annchrom_t -> Xml.xml
 
 (** [to_single single_parent child_ref c2] returns
 * thesingle state sequence for annotated chromosome [child_ref] *)
-val to_single : annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
+(*val to_single : annchrom_t -> int -> Cost_matrix.Two_D.m -> Sequence.s array
+*)
+(*
+* [assign_single_nonroot parent child child_ref c2 annchrom_pam] deals with
+* non-root node, assign a single sequence to this node based on the aligned
+* sequence of its parent, and its own sequence
+*)
+val assign_single_nonroot : annchrom_t -> annchrom_t -> int -> Cost_matrix.Two_D.m ->
+    Data.dyna_pam_t -> Sequence.s array
 
+val get_alied_seq_code: annchrom_t -> annchrom_t -> Cost_matrix.Two_D.m ->
+    Data.dyna_pam_t -> int array * int array * int array * int array
+
+val seqcode_to_seq: annchrom_t -> annchrom_t -> int array -> int array ->int
+array -> int array -> annchrom_t * annchrom_t
+
+val compare_int: int -> int -> int
+
+val printSeq: Sequence.s -> unit
 (** [to_single_root root other_code c2] returns the single
 * state sequence for the [root] *)
 val to_single_root :
