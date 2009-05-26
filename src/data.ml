@@ -2676,7 +2676,7 @@ module Kolmogorov = struct
                     let calculate_extension x = 2. in
                     let calculate_extra x = 
                         match x.distr with
-                        | MaxLength y -> x.selfp +. 2. 
+                        | MaxLength y -> (log2 y 1) +. x.selfp +. 2. 
                     in
                     let enc, simpleenc, simplebend = 
                         calculate_encodings ins del 
