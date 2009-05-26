@@ -294,7 +294,7 @@ with type b = AllDirNode.OneDirF.n = struct
             new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
             in
             let dist = 
-                (Node.distance_of_type Node.has_to_single 100000.
+                (Node.distance_of_type Node.has_to_single 0.
                 (AllDirNode.force_val nda) (AllDirNode.force_val ndb)) 
             in
             dist +. acc
@@ -1854,8 +1854,8 @@ with type b = AllDirNode.OneDirF.n = struct
                         * assignment of the handle *)
                         let sroot, sa = 
                             let a = Ptree.get_node_data a tree in
-                            let s = get_single (-1) a in
-                            let root = get_unadjusted (-1) root in 
+                            let s = get_single b a in
+                            let root = get_unadjusted (-1) root in
                             let s_root = Node.copy_chrom_map root s in 
                             (root, s_root), s
                         in
