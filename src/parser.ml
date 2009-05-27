@@ -3782,18 +3782,25 @@ module SC = struct
                     let submatrix = match String.uppercase name with
                         | "JC69" -> (match param with
                                 | [single] -> JC69 single
+                                | [] -> JC69 1.0
                                 | _ -> failwith "Parameters don't match model")
                         | "F81" -> (match param with
                                 | [single] -> F81 single
+                                | [] -> F81 1.0
                                 | _ -> failwith "Parameters don't match model")
-                        | "K2P" -> (match param with
+                        | "K80" | "K2P" -> (match param with
                                 | h1::h2::[] -> K2P (h1,h2)
+                                | ratio::[] ->
+                                        let beta = 1. /. (ratio +. 2.0)
+                                        and alpha = ratio /. (2.0 +. ratio) in
+                                        K2P (alpha, beta)
                                 | _ -> failwith "Parameters don't match model")
                         | "F84" -> (match param with
                                 | h1::h2::[] -> F84 (h1,h2)
                                 | _ -> failwith "Parameters don't match model")
-                        | "HKY85" -> (match param with
+                        | "HKY" | "HKY85" -> (match param with
                                 | h1::h2::[] -> HKY85 (h1,h2)
+                                | ratio::[] -> HKY85 (ratio,1.0)
                                 | _ -> failwith "Parameters don't match model")
                         | "TN93" -> (match param with
                                 | h1::h2::h3::[] -> TN93 (h1,h2,h3)
@@ -3821,7 +3828,7 @@ module SC = struct
                         | "FALSE" | _ -> false
                     and priors = 
                         let sum = List.fold_left (fun x (_,y) -> x +. y) 0.0 priors in
-                        if sum <> 1.0 then failwith "Priors do not sum to 1.0";
+                        (* if sum =. 1.0 then failwith "Priors do not sum to 1.0"; *)
                         (* each charset must have a consistent alphabet, so
                          * check one character and continue, assert rest *)
                         List.fold_right (fun (_,y) x -> y::x) priors []

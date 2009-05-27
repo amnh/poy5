@@ -378,12 +378,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 else (t1,t2)
             in 
 
-            if debug then 
-                info_user_message
-                    "Calculating %d with %f(%d) and %f(%d)"
-                    code t1 anode.taxon_code t2 bnode.taxon_code
-            else ();
-
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
                                   t1 t2 anode.taxon_code bnode.taxon_code in
@@ -391,6 +385,13 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let t1,t2 =
                 if anode.min_child_code < bnode.min_child_code then t1, t2
                 else t2, t1 in
+
+            if debug then 
+                info_user_message
+                    "Calculating %d with %f(%d) and %f(%d) = %f%!"
+                    code t1 anode.taxon_code t2 bnode.taxon_code n_cost
+            else ();
+
             let res =
                 {
                     preliminary = median;
@@ -616,7 +617,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
              * probably needs to be estimated. *)
             let t1,t2 = match pm.time with 
                     | Some x,Some y -> x,y
-                    | _ -> MlStaticCS.estimate_time am.preliminary bm.preliminary
+                    | None, None -> MlStaticCS.estimate_time am.preliminary bm.preliminary
+                    | _ -> failwith "something happened"
             in (*
             let t1,t2 = if root_e then let () = assert(t1 = t2) in 
                         (t1 /. 2.0, t2 /. 2.0) else t1,t2 in *)
@@ -661,12 +663,14 @@ let apply_time root child parent =
         let p_opt to_string = function | None -> "None" | Some x -> to_string x in
         let rec apply_times ch par = match ch,par with
             | StaticMl cnd,StaticMl pnd ->
+                let the_time = match p pnd.time with
+                    | None as x -> x
+                    | (Some x) as y -> if root then Some (x*. 2.0) else y
+                in
                 if debug then
                     info_user_message "Applying %s to %d -- %d"
-                        (p_opt string_of_float (p pnd.time)) (child.taxon_code)
-                                                             (parent.taxon_code)
-                else ();
-                let the_time = p pnd.time in
+                        (p_opt string_of_float the_time) (child.taxon_code)
+                                                         (parent.taxon_code);
                 StaticMl { cnd with time = the_time,the_time }
             | _ -> ch
         in
@@ -954,25 +958,22 @@ let median ?branches code old a b =
 
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
-    (*
-    Printf.printf "Code of median is %d with children %d and %d\n%!" code 
-    a.taxon_code b.taxon_code;
-    *)
+
     let new_characters =
         match old with
         | None -> 
-                map4 (cs_median code a b None)
+            map4 (cs_median code a b None)
                 brancha
                 branchb
                 a.characters
                 b.characters
         | Some c ->
-                    map5 (fun x -> cs_median code a b (Some x))
-                    c.characters
-                    brancha
-                    branchb
-                    a.characters
-                    b.characters
+            map5 (fun x -> cs_median code a b (Some x))
+                c.characters
+                brancha
+                branchb
+                a.characters
+                b.characters
     in
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost a b node_cost in
@@ -1079,7 +1080,6 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
                     nd_1.characters
                     nd_2.characters
     in
-
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost nd_1 nd_2 node_cost
     and num_child_edges, num_height = new_node_stats nd_1 nd_2
@@ -1351,8 +1351,7 @@ let distance_of_type ?(para=None) ?(parb=None) t missing_distance
                | `Strictly_Same ->
                      distance_lists a.final.set b.final.set 0.
                | `Any_Of _ ->
-                     (* unf. we just take the full median and check the distance
-                     *)
+                     (* unf. we just take the full median and check the distance *)
                      decr median_counter;
                      let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in 
                      extract_cost m)

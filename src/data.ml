@@ -2718,7 +2718,7 @@ module Kolmogorov = struct
                     let calculate_extension x = 2. in
                     let calculate_extra x = 
                         match x.distr with
-                        | MaxLength y -> x.selfp +. 2. 
+                        | MaxLength y -> (log2 y 1) +. x.selfp +. 2. 
                     in
                     let enc, simpleenc, simplebend = 
                         calculate_encodings ins del 
@@ -3331,13 +3331,9 @@ let set_likelihood data
                     | `Theta (w,y,z,p) -> Some (Parser.SC.Theta (w,y,z,p)))
             and substitution = 
                 match substitution with
-                | `JC69 None ->
-                    let const = (1. /. (float_of_int alph_size)) in
-                    Parser.SC.JC69 const
+                | `JC69 None -> Parser.SC.JC69 1.0
                 | `JC69 (Some x) -> Parser.SC.JC69 x
-                | `F81 None ->
-                    let const = (1. /. (float_of_int alph_size)) in
-                    Parser.SC.F81 const
+                | `F81 None -> Parser.SC.F81 1.0
                 | `F81 (Some x) -> Parser.SC.F81 x
                 | `K2P None ->
                     let const = (1. /. (float_of_int alph_size)) in
@@ -3357,12 +3353,14 @@ let set_likelihood data
                             failwith("Incorrect Parameters");    
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray <> 2 then 
-                        let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ HKY85@ requires@ 2@ parameters" in
+                    begin match Array.length aray with 
+                        | 2 -> Parser.SC.HKY85 (Array.get aray 0,Array.get aray 1)    
+                        | 1 -> Parser.SC.HKY85 (Array.get aray 0,1.0)
+                        | _ ->
+                            let () = Status.user_message Status.Error
+                                "Likelihood@ model@ HKY85@ requires@ 2@ parameters" in
                             failwith("Incorrect Parameters");
-                    else
-                        Parser.SC.HKY85 (Array.get aray 0,Array.get aray 1)    
+                    end
                 | `F84 (Some x) ->
                     let aray = Array.of_list x in
                     if Array.length aray <> 2 then 

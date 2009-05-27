@@ -19,9 +19,9 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let debug = true
-let pure_ocaml = true (* ONLY use pure ocaml version *)
-let graph_output = false (* graph all medians in %d--%d format *)
+let pure_ocaml = false (* ONLY use pure ocaml version *)
+let graph_output = false    (* graph all medians in %d--%d format *)
+let phyml_mode = true
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -33,8 +33,9 @@ let epsilon = 0.000001
 let (=.) a b = abs_float (a-.b) < epsilon (*
         match classify_float ( a -. b ) with
         | FP_subnormal | FP_zero -> true
-        | FP_infinite | FP_nan | FP_normal -> false
-    *)
+        | FP_infinite | FP_nan | FP_normal -> false *)
+
+let scratch_space = FMatrix.create 20
 
 type s
 type cm = { (* character model *)
@@ -58,27 +59,28 @@ type t = {
     chars: s;
 }
 
-external diagonalize_gtr: (* U D Ui *)
+external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     unit = "likelihood_CAML_diagonalize_gtr"
-external diagonalize_sym: (* U D *)
+external diagonalize_sym: (* U D *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     unit = "likelihood_CAML_diagonalize_sym"
-external compose_gtr: (* U D Ui t *)
+external compose_gtr: (* U D Ui t *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
     -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t =
         "likelihood_CAML_compose_gtr"
-external compose_sym: (* U D *)
+external compose_sym: (* U D *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
     -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t =
         "likelihood_CAML_compose_sym"
 external median_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+    FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -87,6 +89,7 @@ external median_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s =
          "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
 external median_sym: (* median sym U D ta tb a b r p -> output_c *)
+    FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s-> s ->
@@ -94,19 +97,21 @@ external median_sym: (* median sym U D ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
           "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym"
 external readjust_sym: (* readjust_sym U D a b c ta tb r p pi ll -> ll*ta*tb *)
+    FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> 
+    s -> s -> s -> float -> float -> float ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float*float = 
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *)
+    FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> 
+    s -> s -> s -> float -> float -> float ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
@@ -117,6 +122,7 @@ external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
 external loglikelihood:
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     float = "likelihood_CAML_loglikelihood"
 external filter: s -> int array -> s = "likelihood_CAML_filter"
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
@@ -129,6 +135,7 @@ external gamma_rates: float -> float -> int ->
 let print_float x = Printf.printf "%2.10f\t" x
 let print_array xs = Array.iter print_float xs; print_newline ()
 let print_array2 xxs = Array.iter print_array xxs; print_newline ()
+let print_array3 xxxs = Array.iter print_array2 xxxs; print_newline ()
 let print_list x = List.map (fun y -> Printf.printf "%d\t" y) x
 let print_barray a = 
     for i = 0 to (Bigarray.Array1.dim a)-1 do 
@@ -140,19 +147,44 @@ let print_barray2 a =
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
+let print_barray3 a = 
+    for i = 0 to (Bigarray.Array3.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array3.dim2 a)-1 do
+            for k = 0 to (Bigarray.Array3.dim3 a)-1 do
+                Printf.printf "%2.10f\t" a.{i,j,k};
+            done; Printf.printf "\n"; 
+        done; Printf.printf "\n";
+    done; Printf.printf "\n"; ()
+
+let pp_floatopt chan v = 
+    output_string chan 
+                  (match v with
+                    | Some v -> string_of_float v
+                    | None -> "none")
 
 let get_codes a = a.codes
 
 (* ------------------------------------------------------------------------- *)
 (* conversion/utility functions *)
 
-(* bigarray --> float array array *)
+(* bigarray2 --> float array array *)
 let barray_matrix bray =  
     let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
     let r = Array.make_matrix a b 0.0 in
     for i = 0 to a-1 do for j = 0 to b-1 do
         r.(i).(j) <- bray.{i,j};
     done; done; r
+
+(* bigarray3 --> float array array array *)
+let barray_3matrix bray =  
+    let b = Bigarray.Array3.dim2 bray and c = Bigarray.Array3.dim3 bray in
+    Array.init
+        (Bigarray.Array3.dim1 bray)
+        (fun r -> 
+            let x = Array.make_matrix b c 0.0 in
+            for i = 0 to b-1 do for j = 0 to c-1 do
+                x.(i).(j) <- bray.{r,i,j};
+            done; done; x)
 
 (* bigarray1 to float array *)
 let ba2array a = 
@@ -163,16 +195,15 @@ let ba2array a =
     done; afray
 
 external s_bigarray: 
-    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t =
     "likelihood_CAML_StoBigarray"
 external bigarray_s: 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> s =
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t -> s =
     "likelihood_CAML_BigarraytoS"
 
 (* ------------------------------------------------------
  *  A pure ocaml implementation of the median functions
 *)
-(* MAP -- 2 *)
 let array_map2 f a1 a2 =
     let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
         for i = 1 to ((Array.length a1)-1) do
@@ -186,9 +217,16 @@ let dot_product v1 v2 =
     res
 
 (* negative log liklihood *)
-let mle a priors =
-    let res x = -. log (dot_product x priors) in
-    Array.fold_right (+.) (Array.map res a) 0.0
+let mle a priors probs =
+    let total = ref 0.0 in
+    Array.iteri
+        (fun i _ ->
+            let res x = -. log (dot_product x priors) in
+            let curr = Array.fold_right (+.) (Array.map res a.(i)) 0.0 in
+            total := !total +. (probs.(i) *. curr)
+        )
+        a;
+    !total
 
 (* calculate a new nodes mle and prob_vectors *)
 let median_char p_1 p_2 a b = 
@@ -293,15 +331,28 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
     and brent_decision best lower fl middle fm upper fu : float * float =
         let (lower,fl),(middle,fm),(upper,fu) = 
             order_triples (lower,fl) (middle,fm) (upper,fu) in
-        if fl <= fm && fm <= fu then (* monotonically increasing *)
+        if lower =. upper then best
+        else if fl <= fm && fm <= fu then (* monotonically increasing *)
             brent_exp best upper fu middle fm lower fl
         else if fl >= fm && fm >= fu then (* monotonically decreasing *)
             brent_exp best lower fl middle fm upper fu
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp best lower fl middle fm upper fu
-        else golden_ratio best lower fl middle fm upper fu
+        else begin
+            let step = 0.0001 in
+            let stepval xref = xref := !xref +. step;!xref
+            and time = ref (lower -. step) and out_chan = open_out "curve.tsv" in
+            Printf.printf "Making file 'curve.tsv': %f -- %f\n" lower upper;
+            while (stepval time) < upper do
+                Printf.fprintf out_chan "%f\t%f\n" !time (f !time);
+            done;
+            close_out out_chan;
+            failwith "Curvature unexpected."
+            (* golden_ratio best lower fl middle fm upper fu *)
+        end
     in
     (* set up variables.. order arguments,find golden middle and evaluate *)
+    assert( lower != upper );
     let middle = golden_middle lower upper in
     let fl = f lower and fm = f middle and fu = f upper in
     let best = best_of orig (best_of (lower,fl) (best_of (middle,fm) (upper,fu))) in
@@ -312,69 +363,50 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
 
 (**
  * converts the stored variables into float array/matrices and computes mle
- *)
-let ocaml_median (a:t) (b:t) (t1:float) (t2:float) : (float array array * float) = 
+*)
+let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
     let make_matrix model t = 
         barray_matrix
             (match model.ui with
-            | Some ui -> compose_gtr model.u model.d ui t
-            | None -> compose_sym model.u model.d t)
+            | Some ui -> compose_gtr scratch_space model.u model.d ui t
+            | None -> compose_sym scratch_space model.u model.d t)
     in
-    let a_m = make_matrix a.model t1 
-    and b_m = make_matrix b.model t2
-    and ach = barray_matrix (s_bigarray a.chars)
-    and bch = barray_matrix (s_bigarray b.chars)
-    and pi_ = ba2array (a.model.pi_0) in
-    let root = median_fmat ach bch a_m b_m in
-    root, (mle root pi_)
-
-(**
- * converts the stored variables into float array/matrices and adjusts branches
-*)
-let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
-    let dist = t1 +. t2 in
-    let median_2 t1 t2 = let _,ll = ocaml_median a b t1 t2 in ll in
-    let t,ll = brents_method (dist,b_ll)
-                             (fun x -> let half = x /. 2.0 in median_2 half half)
-                             (dist /. 10.0) (dist *. 1.5) epsilon in
-    let new_halves = t /. 2.0 in
-    new_halves,new_halves,ll
+    let ach = barray_3matrix (s_bigarray a.chars)
+    and bch = barray_3matrix (s_bigarray b.chars)
+    and pi_ = ba2array (a.model.pi_0)
+    and prob= ba2array (a.model.prob) in
+    let root =
+        Array.mapi
+            (fun i _ -> 
+                median_fmat ach.(i) bch.(i) 
+                            (make_matrix a.model (t1 *. a.model.rate.{i}) )
+                            (make_matrix b.model (t2 *. b.model.rate.{i}) ) )
+            ach (* arbitrary, as long as it's the same length *)
+    in
+    root, (mle root pi_ prob)
 
 let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
     let stepval xref = xref := !xref +. step;!xref
     and time = ref (min -. step) and out_chan = open_out f in
     while (stepval time) < max do
         let c_time = !time /. 2.0 in
-        let _,ll = ocaml_median a b c_time c_time in
+        let _,ll = ocaml_median a b 0 0 c_time c_time in
         Printf.fprintf out_chan "%f\t%f\n" !time ll;
     done;
     close_out out_chan;
     ()
 
-(** caml data for graph *)
-let ocaml_graph3 (a:t) (b:t) (c:t) (min:float) (max:float) (step:float) (f:string) = 
-    let modify xref = xref := !xref +. step;!xref in
-    let start = min -. step in
-    let at = ref start and bt = ref start and ct = ref start in
-
-    let make_t a (vec,ll) = 
-        {a with 
-            chars =
-                vec --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
-                    --> bigarray_s;
-            mle = ll;
-        }
-    and out_chan = open_out f in
-
-    while (modify at) < max do
-        while (modify bt) < max do
-            while (modify ct) < max do
-                let ab = make_t a (ocaml_median a b !at !bt) in
-                let _,ll = ocaml_median ab c 0.0 !ct in
-                Printf.fprintf out_chan "%f\t%f\t%f\t%f\n" !at !bt !ct ll;
-            done;
-        done;
-    done; ()
+(**
+ * converts the stored variables into float array/matrices and adjusts branches *)
+let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
+    let dist = t1 +. t2 in
+    let median_2 t1 t2 = let _,ll = ocaml_median a b 0 0 t1 t2 in ll in
+    let t,ll = brents_method (dist,b_ll)
+                             (fun x -> let half = x /. 2.0 in median_2 half half)
+                             (dist /. 10.0) (dist *. 1.5) epsilon
+    in
+    let new_halves = t /. 2.0 in
+    new_halves,new_halves,ll
 
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
@@ -436,6 +468,15 @@ let m_f81 pi_ lambda a_size =
         done;
     done; srm 
 
+
+(* val hky85_ratio :: only 4 or 5 characters *)
+let m_hky85_ratio pi_ kappa a_size =
+    let beta = (pi_.(0) *. pi_.(2) *. kappa) +. (pi_.(1) *. pi_.(3) *. kappa) +.
+                ((pi_.(0) +. pi_.(2)) *. (pi_.(1)+.pi_.(3)) ) in
+    let beta = 1.0 /. (2.0 *. beta) in
+    let alpha = kappa *. beta in
+    m_tn93 pi_ alpha alpha beta a_size
+
 (* val hky85 :: only 4 or 5 characters *)
 let m_hky85 pi_ alpha beta a_size = m_tn93 pi_ alpha alpha beta a_size
 
@@ -447,27 +488,39 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
-(* val gtr :: ANY ALPHABET size *)
-(* pi_ == n; co_ == (1+n)*(n/2) *)
+(* val gtr :: ANY ALPHABET size
+   pi_ == n; co_ == ((1+n)*n)/2
+   form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
+    let n = ref 0       (* array index *)
+    and mr= ref 0.0 in  (* mean rate -- as in phyml *)
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     for i = 0 to (a_size-1) do
         for j = (i+1) to (a_size-1) do
-            srm.{i,j} <- pi_.(j) *. co_.(i+j-1);
-            srm.{j,i} <- pi_.(i) *. co_.(i+j-1);
+            srm.{i,j} <- co_.(!n) *. pi_.(j);
+            srm.{j,i} <- co_.(!n) *. pi_.(i);
+            incr n;
         done;
     done;
     (* normalize diagonal so row sums to 0 *)
-    for i = 0 to (a_size-1) do
+    for i = 0 to (a_size-1) do begin
         let diag = ref 0.0 in
         for j = 0 to (a_size-1) do
             if (i <> j) then diag := !diag +. srm.{i,j};
         done;
         srm.{i,i} <- -. !diag;
-    done; srm
+        mr := !mr +. (!diag *. pi_.(i));
+    end; done;
+    (* divide through by mean-rate *)
+    if phyml_mode then
+        for i = 0 to (a_size-1) do
+            for j = 0 to (a_size-1) do
+                srm.{i,j} <- srm.{i,j} /. !mr;
+            done;
+        done;
+    srm
 
-(* val m_file :: any alphabet size *)
-(* re-computes diagonal --no verification against alphabet size*)
+(* val m_file :: any alphabet size -- recomputes diagonal *)
 let m_file f_rr a_size =
     assert(a_size = Array.length f_rr);
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
@@ -478,14 +531,28 @@ let m_file f_rr a_size =
             if (c <> r) then 
                 (diag := !diag +. f_rr.(r).(c); srm.{r,c} <- f_rr.(r).(c);)
         done;
-        srm.{r,r} <- -. !diag;
+        srm.{r,r} <- ~-. !diag;
     done; srm
 
+let test_model sub_mat t = 
+    let a_size = Bigarray.Array2.dim1 sub_mat in
+    let (u_,d_,ui_) = 
+        let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size
+        and n_ui = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
+        Bigarray.Array2.fill n_d 0.0;
+        Bigarray.Array2.fill n_ui 0.0;
+        diagonalize_gtr scratch_space sub_mat n_d n_ui;
+        (sub_mat, n_d, n_ui)
+    in
+    print_barray2 (compose_gtr scratch_space u_ d_ ui_ t)
+
 (* ------------------------------------------------------------------------- *)
-(* estimation functions *)
+(* estimation functions --jc69 *)
 let estimate_time a b = 
-    let p = 1.0 -. (proportion a.chars b.chars) in
-    assert (p  < 0.75 ); (* too much difference *)
+    let p = match (1.0 -. (proportion a.chars b.chars)) with
+        | x when x < 0.75 -> x
+        | x -> failwith "Too much difference in sequences."
+    in
     let nt = (~-. 0.75 *. (log (1.0 -. (1.25 *. p)))) /. 2.0 in
     (nt,nt)
 
@@ -496,18 +563,13 @@ let estimate_time a b =
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
 let median an bn t1 t2 acode bcode =
     if pure_ocaml then begin
-        let () =
-            if graph_output then begin
-                ocaml_graph an bn 0.001 0.4 0.001
-                            (Printf.sprintf "%d--%d.tsv" 
-                                (abs acode) (abs bcode))
-            end else ()
-        in
-
-        let faa,loglike = ocaml_median an bn t1 t2 in
+        if graph_output then
+            ocaml_graph an bn 0.00001 0.4 0.0001
+                        (Printf.sprintf "%d--%d.tsv" (abs acode) (abs bcode));
+        let faa,loglike = ocaml_median an bn acode bcode t1 t2 in
         { an with
-            chars = 
-                faa --> Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
+            chars = faa -->
+                    Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
                     --> bigarray_s;
             mle = loglike;
         }
@@ -515,13 +577,14 @@ let median an bn t1 t2 acode bcode =
         let am = an.model in
         let n_chars = match am.ui with
             | None -> 
-                median_sym am.u am.d t1 t2 an.chars bn.chars am.rate am.prob
+                median_sym scratch_space am.u am.d t1 t2 an.chars bn.chars am.rate am.prob
             | Some ui -> 
-                median_gtr am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob in
-
+                median_gtr scratch_space am.u am.d ui t1 t2 an.chars bn.chars am.rate am.prob
+        in
+        let loglike = loglikelihood n_chars an.model.pi_0 an.model.prob in
         { an with
             chars = n_chars;
-            mle = loglikelihood n_chars an.model.pi_0; 
+            mle = loglike; 
         }
 
 (* of_parser stuff *)
@@ -578,18 +641,22 @@ let of_parser spec characters =
                 Bigarray.Array1.fill p (1.0 /. (float_of_int x));
                 gamma_rates y z x,p,Some y,0.0,x
             | Parser.SC.Theta (w,x,y,z) -> (* SITES,ALPHA,BETA,PERCENT_INVAR *)
+                Printf.printf "sites:%d\talpha:%f\tinvar:%f\n%!" w x z;
                 let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
                 let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
                 let rs = gamma_rates x y w in
                     (* [GAMMA@(1-z)]+[INVAR@z] *)
                     Bigarray.Array1.fill p ((1.0 -. z) /. (float_of_int w)); 
                     (* copy array to master array since one extra site @ 1.0 & z *)
-                    Bigarray.Array1.blit rs r;
+                    for i = 0 to (Bigarray.Array1.dim rs)-1 do
+                        r.{i} <- rs.{i};
+                    done;
                     p.{w} <- z;
                     r.{w} <- 1.0;
                 r,p,Some x,z,w
             )
     in
+
     (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
     assert( (Bigarray.Array1.dim probabilities) = (Bigarray.Array1.dim variation) );
     let rsps = ref 0.0 and ps = ref 0.0 in
@@ -618,7 +685,12 @@ let of_parser spec characters =
         | Parser.SC.F84 (kappa,beta) ->
                 false, "F84", m_f84 priors kappa beta a_size
         | Parser.SC.HKY85 (alpha,beta) ->
-                false, "HKY85", m_hky85 priors alpha beta a_size
+                let model = if phyml_mode then 
+                    m_hky85_ratio priors (alpha /. beta) a_size
+                else
+                    m_hky85 priors alpha beta a_size
+                in
+                false, "HKY85", model
         | Parser.SC.TN93 (alpha1,alpha2,beta) ->
                 false, "TN93", m_tn93 priors alpha1 alpha2 beta a_size
         | Parser.SC.GTR coeff -> 
@@ -633,12 +705,13 @@ let of_parser spec characters =
         let n_d = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
         Bigarray.Array2.fill n_d 0.0;
         if sym then (
-            diagonalize_sym sub_mat n_d; (sub_mat, n_d, None) )
+            diagonalize_sym scratch_space sub_mat n_d; (sub_mat, n_d, None) )
         else (
             let n_ui = Bigarray.Array2.create
                             Bigarray.float64 Bigarray.c_layout a_size a_size in
             Bigarray.Array2.fill n_ui 0.0;
-            diagonalize_gtr sub_mat n_d n_ui; (sub_mat, n_d, Some n_ui)
+            diagonalize_gtr scratch_space sub_mat n_d n_ui;
+            (sub_mat, n_d, Some n_ui)
         )
     in
 
@@ -660,8 +733,11 @@ let of_parser spec characters =
     in
 
     (* convert character array to abstract type --redo *)
-    let ba_chars = (Array.map loop_ characters) in (* create initial arrays *)
-    let ba_chars = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout ba_chars in
+    let aa_chars = (Array.map loop_ characters) in (* create initial arrays *)
+    let ba_chars = (* construct Array3 dim1=rates,dim2=chars,dim3=states *)
+        Array.init (Bigarray.Array1.dim variation) (fun _ -> Array.copy aa_chars) -->
+        Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
+    in
     {
          mle = 0.0;
        model = {
@@ -716,7 +792,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         (PXML
             -[Xml.Characters.characters]
             {
-                let r = Array.to_list (barray_matrix (s_bigarray mine.chars)) in
+                let r = Array.to_list (barray_3matrix (s_bigarray mine.chars)).(0) in
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
@@ -737,29 +813,33 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
-    if pure_ocaml then begin
+    (* if pure_ocaml then begin
         let t1,t2,ll = ocaml_readjust c1 c2 c_t1 c_t2 mine.mle in
         let x = Array.fold_right (* bottle neck? *)
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
         (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
-    end else begin
-        let model = c1.model and mcpy = mine in
+    end else begin *)
+        let model = c1.model in
         (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
+        let c_t3 = 0.0 in (* TODO *)
         let (nta,ntb,nl) = match model.ui with
             | None ->
-                readjust_sym model.u model.d c1.chars c2.chars mcpy.chars c_t1
-                        c_t2 model.rate model.prob model.pi_0 mine.mle
+                readjust_sym scratch_space model.u model.d 
+                             c1.chars c2.chars mine.chars c_t1 c_t2 c_t3
+                             model.rate model.prob model.pi_0 mine.mle
             | Some ui ->
-                readjust_gtr model.u model.d ui c1.chars c2.chars mcpy.chars c_t1
-                        c_t2 model.rate model.prob model.pi_0 mine.mle in
+                readjust_gtr scratch_space model.u model.d ui
+                             c1.chars c2.chars mine.chars c_t1 c_t2 c_t3
+                             model.rate model.prob model.pi_0 mine.mle
+        in
         (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
         if (nta = c_t1 && ntb = c_t2) then
             (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
         else
             let x = Array.fold_right (* bottle neck? *)
                     (fun c s -> All_sets.Integers.add c s) mine.codes x in
-            (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mcpy.chars} )
-    end
+            (x,mine.mle,nl,(nta,ntb), {mine with mle = nl; chars = mine.chars} )
+    (* end *)
 
 let distance a_node b_node t1 t2 = (* codes don't matter here *)
     let t = median a_node b_node t1 t2 0 0 in t.mle
@@ -768,13 +848,13 @@ let distance a_node b_node t1 t2 = (* codes don't matter here *)
 (* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
     let x = median a b at bt 0 0 in
-    let tt = 0.5 in 
+    let tt = 0.5 in (* estimate time here *)
     let y = median x n tt nt 0 0 in
     y.mle
 
 let median_3 p x c1 c2  =  x
 let reroot_median a b at bt = median a b at bt 0 0
-let median_cost ta = loglikelihood ta.chars ta.model.pi_0
+let median_cost ta = loglikelihood ta.chars ta.model.pi_0 ta.model.prob
 let root_cost t = t.mle
 let to_string a = "MLStaticCS"
 let cardinal ta = Array.length ta.codes
