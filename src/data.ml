@@ -560,8 +560,50 @@ let get_empty_seq alph =
     let seq = Sequence.prepend_char seq (Alphabet.get_gap alph) in
     { seq = seq; code = -1; }
 
+
+let myprint (data : d) = 
+ Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
+    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
+    let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
+        let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
+        let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
+        Printf.fprintf stdout "data.taxon_codes: Key: %d, Taxon name: %s, number chars: %i\n" key taxa_name len;
+        Hashtbl.iter
+            (fun _ ch ->
+                 match ch with 
+                 | Dyna (code, dyna_data), _ ->         
+                       let  char_name = Hashtbl.find data.character_codes code in
+                       Printf.fprintf stdout
+                       "data.character_specs=(code,dyna_data), code=%d, dyna_data = %s -> \n " code char_name; 
+                       Array.iter (fun seq -> 
+                                       Printf.fprintf stdout "seq.code=%i,seq.seq=" seq.code;
+                                       Sequence.print stdout seq.seq Alphabet.nucleotides;
+                                       Printf.fprintf stdout " | \n"
+                                 ) dyna_data.seq_arr;
+                       print_newline ();
+                 | _ -> ()
+            ) ch_ls;
+    in
+    let print_specs (code : int) (spec : specs) = 
+        let name = Hashtbl.find data.character_codes code in 
+        Printf.fprintf stdout "Key: %i, name: %s " code name; 
+        (match spec with 
+        | Dynamic dspec ->
+              (match dspec.state with 
+               | `Seq -> Printf.fprintf stdout "Seq"
+               | `Breakinv -> Printf.fprintf stdout "Breakinv"
+               | `Chromosome -> Printf.fprintf stdout "Chromosome"
+               | `Genome -> Printf.fprintf stdout "Genome"
+               | `Annotated -> Printf.fprintf stdout "Annotated")
+        | _ -> Printf.fprintf stdout "Not Dynamic");
+
+        print_newline ()
+    in 
+    Hashtbl.iter print_taxon data.taxon_characters;
+    Hashtbl.iter print_specs data.character_specs
+
+
 let print (data : d) = 
-    print_endline "Start printing data";
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
     List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
 
