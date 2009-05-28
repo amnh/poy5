@@ -63,7 +63,6 @@ let simple_indelsubstitution compiler =
         end
 
         module IntegerDecoder = struct
-            (* A function to compute log2 x *)
             let church_stream continuation = 
                 let rec _aux_church_stream continuation acc next = 
                     if (Stream.to_bool next) then
@@ -86,20 +85,6 @@ let simple_indelsubstitution compiler =
 
         end
 
-        module ChurchC = struct
-            let successor continuation x =
-                continuation (Church.successor x)
-            let predecessor continuation x =
-                continuation (Church.predecessor x)
-            let add continuation x y =
-                continuation (Church.add x y)
-            let substract continuation x y =
-                continuation (Church.substract x y)
-            let multiply continuation x y =
-                continuation (Church.multiply x y)
-            let log2 continuation x =
-                continuation (Church.log2 x)
-        end
 
         module IntegerDecoderC = struct
 
