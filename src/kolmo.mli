@@ -45,6 +45,7 @@ module S_K :
 module Compiler : sig
 
     type compiler 
+    val compiler : compiler
     type 'a kolmo_function =
         [ `Module of (name * ('a kolmo_function list))
         | `LetVal of (name * arguments * 'a definition)
