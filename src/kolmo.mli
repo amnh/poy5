@@ -427,3 +427,7 @@ module Kpervasives : sig
         val load : Compiler.compiler -> Compiler.compiler
     end
 end
+
+module SimpleIndels : sig
+    val apply_model : int -> Compiler.compiler -> Compiler.compiler
+end

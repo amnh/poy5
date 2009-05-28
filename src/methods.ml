@@ -135,6 +135,8 @@ type chromosome_pam_t = [
     | `Max_kept_wag of int
 ]
 
+type kolmo_model = [ `AtomicIndel | `AffineIndel ]
+
 type dynamic_char_transform = [
     | `Seq_to_Chrom of (characters * chromosome_pam_t list)
     | `Custom_to_Breakinv of (characters * chromosome_pam_t list)
@@ -142,9 +144,9 @@ type dynamic_char_transform = [
     | `Change_Dyn_Pam of (characters * chromosome_pam_t list)
     | `Chrom_to_Seq of (characters * chromosome_pam_t list)
     | `Breakinv_to_Custom of (characters * chromosome_pam_t list)
-    | `Seq_to_Kolmogorov of 
-        (characters * ((string * string) option * string
-        option * int * int * float))
+    | `Seq_to_Kolmogorov of (characters * kolmo_model) 
+    (*((string * string) option * string
+        option * int * int * float))*)
 ]
 
 

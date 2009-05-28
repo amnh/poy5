@@ -2806,6 +2806,11 @@ let get_state default = function
 
 let kolmo_round_factor = 100.
 
+let kolmo_sequence_length = 2000
+let kolmo_event_length = 5
+let kolmo_event_probability = 0.25
+
+
 let convert_dyna_spec data chcode spec transform_meth =  
     match spec with   
     | Kolmogorov _ 
@@ -2829,7 +2834,18 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, _ -> failwith "Illegal character transformation requested"
         in
         (match transform_meth with
-        | `Seq_to_Kolmogorov (a, b, c ,d, e) ->
+        | `Seq_to_Kolmogorov model ->
+                let a, b = 
+                    Some ("Dna.insert", "Dna.delete"), 
+                    Some "Dna.substitute" 
+                in
+                let c, d, e =
+                    match model with
+                    | `AtomicIndel 
+                    | `AffineIndel -> 
+                            kolmo_sequence_length,
+                            kolmo_event_length, kolmo_event_probability
+                in
                 let kolmospec, dyn_spec_options, data = 
                     Kolmogorov.calculate data a b c d e in
                 let tcm = 
@@ -3420,8 +3436,17 @@ let get_tran_code_meth data meth =
 
 (** transform all sequences whose codes are on the code_ls into chroms *)    
 let transform_dynamic meth data =
+    let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
-    let tran_code_ls, meth = get_tran_code_meth !data meth in 
+    let () = 
+        match meth with
+        | `Seq_to_Kolmogorov `AtomicIndel -> 
+                data := { !data with 
+                    machine = Kolmo.SimpleIndels.apply_model
+                    kolmo_sequence_length Kolmo.Compiler.compiler }
+        | `Seq_to_Kolmogorov `AffineIndel -> assert false
+        | _ -> ()
+    in
     Hashtbl.iter
     (fun code spec ->
          if List.mem code tran_code_ls then begin

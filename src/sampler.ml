@@ -477,7 +477,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     cost_list ""
                 in
                 failwithf "Inconsistent Root Costs: %s in %s" (string_of_float offending) str;
-            end
+            end;
             (*
             let () = All_sets.Integers.iter
                 (fun x ->
