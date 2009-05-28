@@ -399,9 +399,7 @@ type d = {
     (** The association list of files and kind of data they could hold *)
     files : (string * contents list) list;
     (* An index of characters defined using the MDL principle *)
-    machine : 
-        (Kolmo.S_K.primitives * (string * int * Kolmo.S_K.primitives) list * 
-        Kolmo.S_K.primitives list All_sets.IntegerMap.t) option;
+    machine : Kolmo.Compiler.compiler;
     (* The search information to be presented to the user *)
     search_information : OutputInformation.t list;
     (* At what taxon to root output trees *)
@@ -466,7 +464,7 @@ let empty () =
         kolmogorov = [];
         static_ml = [];
         files = [];
-        machine = None;
+        machine = Kolmo.Compiler.compiler;
         search_information = [`TreeInformation [`Summary]; `CostMode];
         root_at = None;
         complex_schema = [];
@@ -2469,19 +2467,10 @@ module Kolmogorov = struct
 
     let calculate data indels substitution max_word_len max_indel_length
     event_prob =
-        (* We first verify that each of the functions selected by the user have
-        * a frequency associated *)
-        let data = 
-            match data.machine with
-            | None -> 
-                    let machine = Kolmo.Compiler.tree_of_decoder () in
-                    { data with machine = Some machine } 
-            | Some _ -> data 
-        in
         (* We begin by compiling the machine that has been loaded so far *)
-        let find_function str = 
-            match data.machine with
-            | Some (_, codes, repr) ->
+        let find_function = 
+            let (_, codes, repr) = Kolmo.Compiler.tree_of_decoder data.machine in
+            fun str ->
                     let (_, code, _) = 
                         List.find ~f:(fun (name, _, _) -> name = str) codes 
                     in
@@ -2491,7 +2480,6 @@ module Kolmogorov = struct
                     in
                     Printf.printf "%s: %f\n%!" str res;
                     res
-            | None -> assert false
         in
         let rec log2 x acc = 
             if x > 0 then 
@@ -5054,16 +5042,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
 let report_kolmogorov_machine file data =
     let fo = Status.Output (file, false, []) in
     let fo = Status.user_message fo in
-    let data = 
-        match data.machine with
-        | None -> 
-                let machine = Kolmo.Compiler.tree_of_decoder () in
-                { data with machine = Some machine } 
-        | Some _ -> data 
-    in
-    match data.machine with
-    | Some (res, _, _) -> 
-            fo (string_of_int (List.length (Kolmo.S_K.s_encode res)));
-            fo "\n%!";
-            data
-    | None -> assert false
+    let (res, _, _) = Kolmo.Compiler.tree_of_decoder data.machine in
+    fo (string_of_int (List.length (Kolmo.S_K.s_encode res)));
+    fo "\n%!";
+    data

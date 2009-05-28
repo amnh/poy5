@@ -366,9 +366,7 @@ type d = {
     complex_schema : Parser.SetGroups.t list;
     (** Tree for how to arrange taxa into complex terminals *)
     files : (string * contents list) list;
-    machine : 
-        (Kolmo.S_K.primitives * (string * int * Kolmo.S_K.primitives) list * 
-        Kolmo.S_K.primitives list All_sets.IntegerMap.t) option;
+    machine : Kolmo.Compiler.compiler;
     search_information : OutputInformation.t list;
 
     (** At what taxon to root output trees *)

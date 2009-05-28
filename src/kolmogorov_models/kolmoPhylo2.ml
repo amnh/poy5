@@ -1,4 +1,4 @@
-let simple_indelsubstitution max =
+let simple_indelsubstitution max compiler =
     Kolmo.Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
@@ -296,17 +296,19 @@ let simple_indelsubstitution max =
         module Phylogeny = struct
             val start continuation =
                 Tree.root continuation Stack.empty
-        end) ["insert", 300; "delete", 300; "substitute", 300; "leaf", 50;
-        "interior", 49; "end", 50; "root", 2]
+        end) ["Dna.insert", 300; "Dna.delete", 300; "Dna.substitute", 300;
+        "Branch.leaf", 50;
+        "Branch.interior", 49; "Branch.ended", 50; "Tree.root", 2] 
+        compiler
 
-let () = 
+let apply_model compiler = 
+    let compiler = 
+        Kolmo.Compiler.compile KolmoPervasives.pervasives compiler 
+    in
     let max = 
-        Kolmo.Compiler.compile KolmoPervasives.pervasives;
-        let r = Kolmo.Compiler.get "IntegerDecoder.uniform" in
+        let r = Kolmo.Compiler.get compiler "IntegerDecoder.uniform" in
         (* This test will fix the maximum to some number n *)
         (SK ([r] K K K K K K K K K K K S K S K K K S K K K S S))
     in
-    simple_indelsubstitution max;
-    let res, _, _ = Kolmo.Compiler.tree_of_decoder () in
-    Printf.printf "The COMPLEXITY is %d\n%!" 
-        (List.length (Kolmo.S_K.s_encode res))
+    let compiler = simple_indelsubstitution max compiler in
+    compiler

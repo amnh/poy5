@@ -1,4 +1,4 @@
-let simple_indelsubstitution () =
+let simple_indelsubstitution compiler =
     Kolmo.Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
@@ -208,13 +208,8 @@ let simple_indelsubstitution () =
                 Tree.root continuation Stack.empty
         end) ["Dna.insert", 300; "Dna.delete", 300; "Dna.substitute", 300;
         "Branch.leaf", 50; "Branch.interior", 49; "Branch.ended", 50; 
-        "Tree.root", 2]
+        "Tree.root", 2] compiler
 
 
 
-let () = simple_indelsubstitution ()
-        (*
-    let res, _, _ = Kolmo.Compiler.tree_of_decoder () in
-    Printf.printf "The COMPLEXITY is %d\n%!" 
-        (List.length (Kolmo.S_K.s_encode res))
-        *)
+let apply_model compiler = simple_indelsubstitution compiler

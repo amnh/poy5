@@ -63,6 +63,7 @@ let headers =
         "avl.h";
         "cm.h";
         "config.h";
+        "floatmatrix.h";
         "gamma.h";
         "grappa/all_inversion_medians.h";
         "grappa/all_sorting_reversals.h";
