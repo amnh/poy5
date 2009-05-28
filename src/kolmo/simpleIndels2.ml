@@ -1,5 +1,5 @@
 let simple_indelsubstitution max compiler =
-    Kolmo.Compiler.compile_decoder (OCAMLSK
+    Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
         let m_and y x = if x then y else x
@@ -332,7 +332,7 @@ let simple_indelsubstitution max compiler =
 
 let apply_model max_len compiler = 
     let max = 
-        let compiler = Kolmo.Kpervasives.Basic.load Kolmo.Compiler.compiler in
-        Kolmo.Compiler.uniform_integer compiler "IntegerDecoder.uniform" max_len
+        let compiler = Kpervasives.Basic.load Compiler.compiler in
+        Compiler.uniform_integer compiler "IntegerDecoder.uniform" max_len
     in
     simple_indelsubstitution max compiler

@@ -6,3 +6,4 @@ kolmo/Primitives
 kolmo/Align
 kolmo/Compiler
 kolmo/Kpervasives
+kolmo/AtomicIndels

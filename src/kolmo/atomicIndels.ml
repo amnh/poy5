@@ -1,5 +1,5 @@
 let simple_indelsubstitution compiler =
-    Kolmo.Compiler.compile_decoder (OCAMLSK
+    Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
         let m_and y x = if x then y else x
