@@ -301,14 +301,10 @@ let simple_indelsubstitution max compiler =
         "Branch.interior", 49; "Branch.ended", 50; "Tree.root", 2] 
         compiler
 
-let apply_model compiler = 
-    let compiler = 
-        Kolmo.Compiler.compile KolmoPervasives.pervasives compiler 
-    in
+let apply_model max_len compiler =
     let max = 
-        let r = Kolmo.Compiler.get compiler "IntegerDecoder.uniform" in
-        (* This test will fix the maximum to some number n *)
-        (SK ([r] K K K K K K K K K K K S K S K K K S K K K S S))
+        let compiler = Kolmo.Kpervasives.Basic.load Kolmo.Compiler.compiler in
+        Kolmo.Compiler.uniform_integer compiler "IntegerDecoder.uniform" max_len
     in
-    let compiler = simple_indelsubstitution max compiler in
-    compiler
+    simple_indelsubstitution max compiler
+

@@ -1,3 +1,5 @@
+type definition = S_K.primitives Compiler.kolmo_function list
+
 module Basic = struct
     let booleans = (OCAMLSK 
         let m_true = [SK K] 
@@ -73,6 +75,124 @@ module Basic = struct
                     (decode_church_integer (Church.successor acc))
                 else acc
         end)
+    let decoder = (OCAMLSK
+        module Decoder = struct
+
+            let rec generic_decoder decoder tree next =
+                let side =
+                    if (Stream.to_bool next) then first tree
+                    else second tree
+                in
+                let tip = second side in
+                if (Stream.to_bool (first side)) then 
+                    (generic_decoder decoder tip)
+                else (tip (generic_decoder decoder decoder))
+
+            let rec integer_decoder tree continuation next =
+                let side =
+                    if (Stream.to_bool next) then first tree
+                    else second tree
+                in
+                let tip = second side in
+                if (Stream.to_bool (first side)) then 
+                    (integer_decoder continuation tip)
+                else (continuation tip)
+                        
+            let leaf x = pair [SK K] x
+
+            let node x y = pair (pair [SK S] x) (pair [SK S] y)
+        end)
+
+
+
+    let integer_decoder = (OCAMLSK
+        module IntegerDecoder = struct
+            (* A function to compute log2 x *)
+            let church_stream continuation = 
+                let rec _aux_church_stream continuation acc next = 
+                    if (Stream.to_bool next) then
+                        (_aux_church_stream continuation (Church.successor acc))
+                    else continuation acc
+                in
+                _aux_church_stream continuation 0
+
+
+            let uniform next =
+                let rec _aux_uniform acc bits next =
+                    let nacc = 
+                        Church.add (Church.add acc acc) 
+                        (if (Stream.to_bool next) then 1 else 0)
+                    in
+                    if (Church.equal bits 1) then nacc
+                    else (_aux_uniform nacc (Church.predecessor bits))
+                in
+                church_stream (_aux_uniform 0) next
+
+            let uniform_max = 
+                let rec _aux_uniform_max acc max next =
+                    let nacc = 
+                        Church.add (Church.add acc acc) 
+                        (if (Stream.to_bool next) then 1 else 0) 
+                    in
+                    if (Church.equal max 1) then nacc
+                    else (_aux_uniform_max nacc (Church.predecessor max))
+                in
+                _aux_uniform_max 0
+
+            let rec uniform_min_max min max next =
+                Church.add (uniform_max (Church.substract max min)) min
+
+            let normal mean max threshold =
+                let rec pectinated acc mean high low threshold =
+                    if Church.lt high threshold then acc
+                    else 
+                        (Decoder.node (Decoder.leaf low) (Decoder.node
+                        (Decoder.leaf high) threshold))
+                in
+                let low = Church.substract mean (Church.substract max mean) in
+                let acc = Decoder.node (Decoder.leaf low) (Decoder.leaf mean) in
+                let res = 
+                    pectinated acc (Church.predecessor max) 
+                    (Church.successor low) threshold
+                in
+                let rec merger left right a b =
+                    if Stack.is_empty left then
+                        if Stack.is_empty right then
+                            if Stack.is_empty a then
+                                (Decoder.integer_decoder (Stack.pop b))
+                            else 
+                                if Stack.is_empty b then
+                                    (Decoder.integer_decoder (Stack.pop a))
+                                else (merger a b Stack.empty Stack.empty)
+                        else 
+                            (merger (Stack.push (Stack.pop right) b) a
+                            Stack.empty Stack.empty)
+                    else 
+                        if Stack.is_empty right then
+                            (merger (Stack.push (Stack.pop left) b) a
+                            Stack.empty Stack.empty)
+                        else 
+                            (merger (Stack.rest left) (Stack.rest right) 
+                            (Stack.push (Decoder.node (Stack.pop left)
+                            (Stack.pop right)) b) a)
+                in
+                let rec startup left right leftcnt rightcnt leftf rightf =
+                    if Church.equal leftcnt mean then 
+                        (merger left right Stack.empty Stack.empty)
+                    else 
+                        (startup right 
+                        (Stack.push (Decoder.leaf leftcnt) left)
+                        rightcnt (leftf leftcnt) rightf leftf)
+                in
+                let left = Stack.push (Decoder.leaf mean) Stack.empty in
+                let right = Stack.push acc Stack.empty in
+                let leftcnt = 
+                    Church.substract mean (Church.substract threshold mean) 
+                in
+                startup left right leftcnt threshold Church.successor
+                Church.predecessor
+
+        end)
 
     let stack = (OCAMLSK
         module Stack = struct
@@ -93,9 +213,9 @@ module Basic = struct
             let first stack = first (second stack)
             let rec insert sequence base position =
                 if Church.not_zero position then 
-                    (Dna.prepend (Dna.first sequence) (insert (Dna.rest sequence) base
+                    (prepend (first sequence) (insert (rest sequence) base
                     (Church.predecessor position)))
-                else (Dna.prepend base sequence)
+                else (prepend base sequence)
         end)
 
 
@@ -121,6 +241,12 @@ module Basic = struct
             else 
                 let a = Stream.to_bool next in
                 basic_decoder_cb (a (second tree)) acc)
+
+    let load compiler = 
+        let compile a b = Compiler.compile b a in
+        List.fold_left compile compiler
+        [booleans; logic; tuples; lists; church_integers; stream;
+        stack; decoder; integer_decoder; dna; huffman_decoder]
 end 
 
 module Continuation = struct

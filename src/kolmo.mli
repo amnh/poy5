@@ -76,6 +76,7 @@ module Compiler : sig
     val tree_of_decoder : compiler -> 
         S_K.primitives * (string * int * S_K.primitives) list * 
         S_K.primitives list All_sets.IntegerMap.t
+    val uniform_integer : compiler -> string -> int -> S_K.primitives 
 end
 
 (** Primitive operations in an SK machine *)
@@ -408,4 +409,21 @@ module Align : sig
 
     val align : Sequence.s -> Sequence.s -> matrix -> float * Sequence.s *
     Sequence.s * Sequence.s
+end
+
+module Kpervasives : sig
+    type definition = S_K.primitives Compiler.kolmo_function list
+    module Basic : sig
+        val booleans : definition
+        val logic : definition
+        val tuples : definition
+        val lists : definition
+        val church_integers : definition
+        val stream : definition
+        val integer_decoder : definition
+        val stack : definition
+        val dna : definition
+        val huffman_decoder : definition
+        val load : Compiler.compiler -> Compiler.compiler
+    end
 end

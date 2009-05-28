@@ -648,8 +648,8 @@ let uniform_integer compiler decoder integer =
         if items = 0 then acc
         else prepend (items - 1) (`S :: acc)
     in
-    let rec generate_list cnt acc to_encode = 
-        if to_encode = 0 then 
+    let rec generate_list cnt acc integer = 
+        if integer = 0 then 
             prepend cnt acc
         else 
             generate_list (cnt + 1)
