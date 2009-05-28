@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
-let eager = true
+let eager = false
 let uppass_debug = false
 
 type exclude = Node.exclude
