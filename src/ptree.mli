@@ -55,11 +55,12 @@ type 'a root = {
 }
 
 type ('a, 'b) p_tree = {
-  node_data : 'a All_sets.IntegerMap.t;
-  edge_data : 'b Tree.EdgeMap.t;
-  tree : Tree.u_tree;
-  component_root : 'a root All_sets.IntegerMap.t;
-  origin_cost : float;
+    data : Data.d;
+    node_data : 'a All_sets.IntegerMap.t;
+    edge_data : 'b Tree.EdgeMap.t;
+    tree : Tree.u_tree;
+    component_root : 'a root All_sets.IntegerMap.t;
+    origin_cost : float;
 }
 
 type cost_type = [ `Adjusted | `Unadjusted ]
@@ -71,7 +72,7 @@ val set_origin_cost : float -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 type phylogeny = (Node.node_data, unit) p_tree
 (** The phylogentic tree (p_tree). 'a and 'b are node and edge data types. *)
 
-val empty : ('a, 'b) p_tree
+val empty : Data.d -> ('a, 'b) p_tree
 (** The empty phylogenetic tree. *)
 
 type 'a clade_info = {
@@ -469,7 +470,7 @@ val pre_order_edge_visit :
   int -> ('b, 'c) p_tree -> 'a -> 'a
 val print_tree : int -> ('a, 'b) p_tree -> unit
 val print_forest : ('a, 'b) p_tree -> unit
-val make_disjoint_tree : 'a All_sets.IntegerMap.t -> ('a, 'b) p_tree
+val make_disjoint_tree : Data.d -> 'a All_sets.IntegerMap.t -> ('a, 'b) p_tree
 
 module Search (Node : NodeSig.S) 
     (Edge : Edge.EdgeSig with type n = Node.n) (Tree_Ops : Tree_Operations with type a = Node.n with

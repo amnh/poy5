@@ -51,6 +51,7 @@ type 'a root = {
 }
 
 type ('a, 'b) p_tree = { 
+    data : Data.d;
     node_data : 'a All_sets.IntegerMap.t ;
     edge_data : 'b Tree.EdgeMap.t ;
     tree : Tree.u_tree;
@@ -108,7 +109,8 @@ let remove_root_of_component node ptree =
     { ptree with component_root = 
         All_sets.IntegerMap.remove node ptree.component_root }
 
-let empty = { 
+let empty data = { 
+    data = data;
     node_data = All_sets.IntegerMap.empty ;
     edge_data = Tree.EdgeMap.empty ;
     tree = Tree.empty ();
@@ -732,11 +734,11 @@ let print_forest ptree =
     @param leaf_data_map a map from {1, 2, ... n} to the leaf data.
     @return the disjointed tree with n nodes. 0 edges and data
             associated with the nodes. *)
-let make_disjoint_tree leaf_data_map = 
+let make_disjoint_tree data leaf_data_map = 
     let f k d acc = k :: acc in
     let nodes = (All_sets.IntegerMap.fold f leaf_data_map []) in
     let bt = Tree.make_disjoint_tree nodes in
-        { empty with tree = bt ; node_data = leaf_data_map }
+        { (empty data) with tree = bt ; node_data = leaf_data_map }
 
 let get_component_root handle ptree = 
     All_sets.IntegerMap.find handle ptree.component_root
@@ -1740,10 +1742,10 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
     @param tree the Parser.Tree.t that is being used to build trees.
     @param d Data.d the data associated with the parser tree.
     @return p_tree that corresponds to the Parser.Tree.t *)
-let convert_to tree (d, nd_data_lst) = 
+let convert_to tree (data, nd_data_lst) = 
     (* convert the Parser.Tree.t to Tree.u_tree *)
-    let ut = Tree.convert_to tree d in
-    let pt = { empty with tree = ut } in
+    let ut = Tree.convert_to tree data in
+    let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
     let data_adder ptree nd = 
         (* included is the original parser.tree with branch lengths, if avail *)

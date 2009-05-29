@@ -282,7 +282,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig) :
                         process_handle saturation_parameter ptree v acc
             in
             { 
-                Ptree.empty with 
+                (Ptree.empty ptree.Ptree.data) with 
                 tree = ptree.Ptree.tree;
                 Ptree.node_data = new_tree_data 
             },
@@ -507,7 +507,7 @@ module Make2 (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) :
             in
             let unions = build_all_clusters clst ptree in
             { 
-                Ptree.empty with 
+                (Ptree.empty ptree.Ptree.data) with 
                 Ptree.node_data = unions;
                 tree = ptree.Ptree.tree;
             }, unions

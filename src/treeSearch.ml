@@ -846,7 +846,7 @@ module Make
         nodes, List.map NodeH.to_other nodes
 
     let replace_contents downpass uppass get_code nodes ptree =
-        let nt = { Ptree.empty with Ptree.tree = ptree.Ptree.tree } in
+        let nt = { (Ptree.empty ptree.Ptree.data) with Ptree.tree = ptree.Ptree.tree } in
         uppass (downpass 
         (List.fold_left (fun nt node ->
             Ptree.add_node_data (get_code node) node nt) 

@@ -364,11 +364,11 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             All_sets.Integers.fold (post_order_fold_handle ptree f) handles acc
         in
         let initial_tree = { 
-            Ptree.node_data = All_sets.IntegerMap.empty;
-            edge_data = Tree.EdgeMap.empty;
-            tree = ptree.Ptree.tree;
-            component_root = All_sets.IntegerMap.empty;
-            origin_cost = 0.0;
+            ptree with
+                Ptree.node_data = All_sets.IntegerMap.empty;
+                edge_data = Tree.EdgeMap.empty;
+                component_root = All_sets.IntegerMap.empty;
+                origin_cost = 0.0;
         }
         in
         post_order_fold_tree ptree create initial_tree
@@ -426,13 +426,6 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process incremental jux1 jux2 vertex tree new_tree delta cost real_cost =
             let failwithf format = Printf.ksprintf (failwith) format in
 
-            let check cost = match cost with
-                | None -> true
-                | Some cost -> match classify_float cost with
-                    | FP_normal -> true
-                    | FP_zero | FP_nan | FP_subnormal | FP_infinite -> false
-            in
-
             let tree,_ = TreeOps.join_fn incremental jux1 jux2 tree in
             let cost = Ptree.get_cost `Adjusted tree in
 
@@ -443,6 +436,13 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                                         | Some x -> string_of_float x
                                         | None -> "none");
             (* in next rev
+            let check cost = match cost with
+                | None -> true
+                | Some cost -> match classify_float cost with
+                    | FP_normal -> true
+                    | FP_zero | FP_nan | FP_subnormal | FP_infinite -> false
+            in
+
             if (check (Some cost)) && (check real_cost) then begin
                 All_sets.Integers.iter
                     (fun x -> TreeOps.dump_tree (print) x tree)

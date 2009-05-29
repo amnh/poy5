@@ -1387,10 +1387,11 @@ let process_transform (run : r) (meth : Methods.transform) =
             let trees = 
                 Sexpr.map 
                 (fun x ->
-                    { Ptree.empty with Ptree.tree = 
-                        Tree.replace_codes 
+                    { (Ptree.empty data) with 
+                        Ptree.tree = Tree.replace_codes 
                         (fun x -> try Hashtbl.find htbl x with _ -> x)
-                        x.Ptree.tree })
+                        x.Ptree.tree;
+                })
                 run.trees 
             in
             update_trees_to_data true false
@@ -1804,7 +1805,7 @@ let do_recovery run =
     let rec adder res = 
         if Queue.is_empty run.queue.Sampler.queue then Sexpr.of_list res
         else adder (let trees = List.map (fun (a, _, _) -> 
-            let nt = { Ptree.empty with Ptree.tree = a } in
+            let nt = { (Ptree.empty run.data) with Ptree.tree = a } in
             let nt = List.fold_left (fun acc x ->
                 Ptree.add_node_data (Node.taxon_code x) x acc) nt run.nodes
             in
@@ -2152,8 +2153,8 @@ let emit_identifier =
         print_msg "The test passed";
         (Sexpr.map extract_tree run.trees), (Sexpr.map extract_tree run.stored_trees)
 
-    let toptree tree = 
-        { Ptree.empty with Ptree.tree = tree } 
+    let toptree data tree = 
+        { (Ptree.empty data) with Ptree.tree = tree } 
 
     let update_codes run tc tree = 
         let code_ref = ref run.data.Data.number_of_taxa in
@@ -2222,8 +2223,8 @@ let emit_identifier =
             let my_trees = run.trees 
             and my_stored = run.stored_trees in
             let nrun = 
-                let nt = Sexpr.map toptree trees 
-                and nst = Sexpr.map toptree stored_trees in
+                let nt = Sexpr.map (toptree run.data) trees 
+                and nst = Sexpr.map (toptree run.data) stored_trees in
                 update_trees_to_data true false { run with trees = nt; stored_trees = nst }
             in
             let () =

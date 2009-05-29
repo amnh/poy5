@@ -532,7 +532,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             in
             { final_tree with Ptree.component_root = roots }
         in
-        { Ptree.empty with 
+        { (Ptree.empty ptree.Ptree.data) with 
         Ptree.edge_data = ptree.Ptree.edge_data; 
         Ptree.tree = ptree.Ptree.tree}
         --> 
