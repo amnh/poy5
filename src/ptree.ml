@@ -175,13 +175,13 @@ module type Tree_Operations =
             Methods.local_optimum -> (string * string) list -> 
                 (string * string) list
         val clear_internals : (a, b) p_tree -> (a, b) p_tree
-        val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+        val downpass : (a, b) p_tree -> (a, b) p_tree
         val uppass : (a, b) p_tree -> (a, b) p_tree
         val incremental_uppass : 
             (a, b) p_tree -> incremental list -> (a, b) p_tree
 
         val to_formatter :  
-            Xml.attributes -> Data.d -> (a, b) p_tree ->
+            Xml.attributes -> (a, b) p_tree ->
             Xml.xml
 
         val branch_table : (a,b) p_tree -> 
@@ -374,7 +374,7 @@ module type SEARCH = sig
       val get_trees_considered : unit -> int
       val reset_trees_considered : unit -> unit
       val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+      val downpass : (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
       (** [fuse_generations trees terminals max_trees tree_weight tree_keep iterations
@@ -421,24 +421,24 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Parser.Tree.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
         val build_forest :
             bool -> (a, b) p_tree ->
-          Data.d -> string -> Parser.Tree.tree_types list
+          string -> Parser.Tree.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> bool ->
+            bool -> (a, b) p_tree -> string -> bool ->
             Parser.Tree.tree_types list
 
         val to_xml : 
-            Pervasives.out_channel -> (a, b) p_tree -> Data.d -> unit
+            Pervasives.out_channel -> (a, b) p_tree -> unit
         val disp_trees : 
             string -> 
                 (a, b) p_tree -> 
@@ -1883,9 +1883,9 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
         | err -> 
         raise err
 
-let extract_names pd ptree code = 
+let extract_names ptree code = 
     let data = get_node_data code ptree in
-    try Data.code_taxon (Node.taxon_code data) pd
+    try Data.code_taxon (Node.taxon_code data) ptree.data
     with _ -> ""
 
 let extract_codes pd ptree code = string_of_int code
@@ -1963,27 +1963,27 @@ let handle_collapse bool =
 
 (** [build_tree_with_names tree pd]
     @return What does this function do? *)
-let build_tree_with_names collapse tree pd =
+let build_tree_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_tree tree.tree (extract_names pd tree) collapse_f None ""
+    build_tree tree.tree (extract_names tree) collapse_f None ""
 
-let build_forest_with_names collapse tree pd =
+let build_forest_with_names collapse tree =
     let collapse_f = handle_collapse collapse tree in
-    build_trees tree.tree (extract_names pd tree) collapse_f None ""
+    build_trees tree.tree (extract_names tree) collapse_f None ""
 
-let build_tree_with_names_n_costs collapse tree pd cost = 
+let build_tree_with_names_n_costs collapse tree cost = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
         match get_node code tree with
         | Tree.Interior (_, par, _, _) ->
                 string_of_float (Node.total_cost (Some par) data)
-        | _ ->  try Data.code_taxon (Node.taxon_code data) pd
+        | _ ->  try Data.code_taxon (Node.taxon_code data) tree.data
                 with _ -> ""
     in
     build_tree tree.tree extract_names collapse_f None cost
 
-let build_forest collapse tree pd cost =
+let build_forest collapse tree cost =
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -1992,14 +1992,14 @@ let build_forest collapse tree pd cost =
 (*                string_of_float (Node.total_cost (Some par) data)*)
                     ""
         | _ ->
-                try Data.code_taxon (Node.taxon_code data) pd
+                try Data.code_taxon (Node.taxon_code data) tree.data
                 with _ -> ""
     in
     let trees = build_trees tree.tree extract_names collapse_f None cost in
     trees
 
-let build_forest_as_tree collapse tree pd cost =
-    match build_forest collapse tree pd cost with
+let build_forest_as_tree collapse tree cost =
+    match build_forest collapse tree cost with
     | [tree] -> tree
     | [] -> failwith "no trees?"
     | trees -> 
@@ -2033,7 +2033,7 @@ let build_forest_as_tree collapse tree pd cost =
                 ) trees in
             Parser.Tree.Branches (Parser.Tree.Node (chillens, ("forest",None)))
 
-let build_forest_with_names_n_costs collapse tree pd cost branches = 
+let build_forest_with_names_n_costs collapse tree cost branches = 
     let collapse_f = handle_collapse collapse tree in
     let extract_names code =
         let data = get_node_data code tree in
@@ -2041,7 +2041,7 @@ let build_forest_with_names_n_costs collapse tree pd cost branches =
         | Tree.Interior (_, par, _, _) ->
                 string_of_float (Node.total_cost (Some par) data)
         | _ ->
-                try Data.code_taxon (Node.taxon_code data) pd
+                try Data.code_taxon (Node.taxon_code data) tree.data
                 with _ -> ""
     in
     if branches then
@@ -2075,14 +2075,14 @@ let disp_trees str tree strgen root =
 (** [to_xml tree data f]
 @param tree the ptree which is being converted into a Parser.Tree.t
 @return the ptree in the form of a Parser.Tree.t *)
-let to_xml ch tree d =
+let to_xml ch tree =
     let rec rec_down node prev_node =
         match node with
         | Tree.Leaf (self, parent) -> 
                 output_string ch "<otu>\n";
                 flush ch;
                 let data = get_node_data self tree in
-                Node.to_xml d ch data;
+                Node.to_xml tree.data ch data;
                 output_string ch "</otu>\n";
                 flush ch;
         | Tree.Interior (our_id, _, _, _) ->
@@ -2092,7 +2092,7 @@ let to_xml ch tree d =
                     Tree.other_two_nbrs prev_node node in
                 output_string ch "<htu>\n";
                 flush ch;
-                Node.to_xml d ch data;
+                Node.to_xml tree.data ch data;
                 flush ch;
                 rec_down (get_node ch1 tree) our_id;
                 rec_down (get_node ch2 tree) our_id;
@@ -2109,7 +2109,7 @@ let to_xml ch tree d =
                 (* rec_down (get_node par tree) self; *)
                 rec_down (get_node ch1 tree) self;
                 rec_down (get_node ch2 tree) self;
-                Node.to_xml d ch (get_node_data self tree);
+                Node.to_xml tree.data ch (get_node_data self tree);
         | Tree.Single self -> ()
         end;
         output_string ch "</tree>\n"

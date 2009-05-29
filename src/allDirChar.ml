@@ -58,7 +58,9 @@ with type b = AllDirNode.OneDirF.n = struct
         Printf.ksprintf (failwith) format
 
     (* process tree data to find branch lengths *)
-    let hashdoublefind data tree node_ids = 
+    let hashdoublefind tree node_ids = 
+        let data = tree.Ptree.data in
+        let tree = tree.Ptree.tree in
         let transform_keys ntable keylation table =
             Hashtbl.iter 
                 (fun name length ->
@@ -528,7 +530,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let unadjust ptree = ptree
 
-    let refresh_all_edges ?data adjusted root_opt do_roots start_edge_opt ptree =
+    let refresh_all_edges adjusted root_opt do_roots start_edge_opt ptree =
 
         (* refresh a single edge with root value *)
         let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
@@ -537,15 +539,11 @@ with type b = AllDirNode.OneDirF.n = struct
                                 (if rhandle then "a root edge" else "an edge")
             else ();
             let data,ptree = 
-                try match data with
-                    | Some data ->
-                        begin 
-                            match hashdoublefind data ptree.Ptree.tree [a;b] with
-                            | Some x -> create_lazy_edge ~branches:x
-                                            rhandle root_opt adjusted ptree a b 
-                            | None -> create_lazy_edge rhandle root_opt adjusted ptree a b 
-                        end
-                    | None -> create_lazy_edge rhandle root_opt adjusted ptree a b
+                try match hashdoublefind ptree [a;b] with
+                    | Some x -> 
+                            create_lazy_edge ~branches:x
+                            rhandle root_opt adjusted ptree a b 
+                    | None -> create_lazy_edge rhandle root_opt adjusted ptree a b 
                 with | err ->
                     let print_node = function
                         | Tree.Interior (u,v,w,x) ->
@@ -824,8 +822,10 @@ with type b = AllDirNode.OneDirF.n = struct
             if debug_adjust_fn then
                 info_user_message "Adjusting root with %d,%d then None" a b
             else ();
+            (* Why is this not being used anymore?
             let sets = get_active_ref_code ptree (*pre_ref_codes,fi_ref_codes*)
-            and a_nd = Ptree.get_node_data a ptree
+            *)
+            let a_nd = Ptree.get_node_data a ptree
             and b_nd = Ptree.get_node_data b ptree in
             
             let new_root = 
@@ -1001,7 +1001,7 @@ with type b = AllDirNode.OneDirF.n = struct
 
     (** [internal_downpass] Traverse every vertex in the tree and assign the
      * downpass and uppass information using the lazy all direction nodes *)
-    let internal_downpass ?data do_roots (ptree : phylogeny) : phylogeny =
+    let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
         (* function to process tree->node->charactername to int->float hashtbl
         * for all the node ids passed --(multiple node_id capability for uppass) *)
 
@@ -1024,15 +1024,11 @@ with type b = AllDirNode.OneDirF.n = struct
                                                 code a b prev
                         else ();
 
-                        let interior = match data with
-                            | Some data ->
-                                (match hashdoublefind data ptree.Ptree.tree [a;b] with
-                                 | Some x -> create_lazy_interior_down 
-                                                ~branches:x ptree (Some code) a b
-                                 | None ->
-                                    create_lazy_interior_down ptree (Some code) a b)
+                        let interior = 
+                            match hashdoublefind ptree [a;b] with
+                            | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
                             | None ->
-                                create_lazy_interior_down ptree (Some code) a b
+                                    create_lazy_interior_down ptree (Some code) a b
                         in
                         Ptree.add_node_data code interior ptree
             in
@@ -1063,9 +1059,9 @@ with type b = AllDirNode.OneDirF.n = struct
                 ptree
         in
         if do_roots then
-            ptree --> refresh_all_edges ?data false None true None --> refresh_roots
+            ptree --> refresh_all_edges false None true None --> refresh_roots
         else 
-            refresh_all_edges ?data false None true None ptree
+            refresh_all_edges false None true None ptree
 
     let clear_internals t = internal_downpass false t
 
@@ -1152,23 +1148,23 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
 
-    let downpass ?data ptree = 
+    let downpass ptree = 
         current_snapshot "AllDirChar.downpass a";
         let res = 
             match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> internal_downpass ?data true ptree
+            | `Normal -> internal_downpass true ptree
             | `Iterative (`ApproxD iterations) ->
-                    ptree --> internal_downpass ?data true -->
+                    ptree --> internal_downpass true -->
                         pick_best_root -->
                         assign_single false --> 
                         adjust_tree iterations None -->
                         refresh_all_edges true None true None
             | `Iterative (`ThreeD iterations) ->
                     ptree
-                    --> internal_downpass ?data true
+                    --> internal_downpass true
                     --> pick_best_root
                     --> assign_single false
                     --> adjust_tree iterations None
@@ -1223,13 +1219,13 @@ with type b = AllDirNode.OneDirF.n = struct
         refresh_all_edges true None false (Some (a,b)) ptree
         (* ptree --> clear_subtree b a --> clear_subtree a b *)
     | Some edge ->
+        refresh_all_edges true None false (Some (a,b)) ptree
+        (* ONLY LIFT DATA FOR LIKELIHOOD 
         let edge = (* use this as edge data for likelihood *)
             let single = [AllDirNode.with_both a b edge.AllDirNode.adjusted] in
             { AllDirNode.unadjusted = single; adjusted = single }
         in
-        refresh_all_edges true None false (Some (a,b)) ptree
-        (* ONLY LIFT DATA FOR LIKELIHOOD 
-            refresh_all_edges true (Some edge) false (Some (a,b)) ptree
+        refresh_all_edges true (Some edge) false (Some (a,b)) ptree
         *)
 
     let set_clade_root (ptree : phylogeny) ex_sister root handle = 
@@ -1786,9 +1782,9 @@ with type b = AllDirNode.OneDirF.n = struct
 
         tree_table
 
-    let to_formatter (atr : Xml.attributes) (data : Data.d) 
+    let to_formatter (atr : Xml.attributes)  
             (tree : (a, b) Ptree.p_tree) : Xml.xml =
-
+        let data = tree.Ptree.data in
         let tree = assign_final_states tree in
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in 
 (*

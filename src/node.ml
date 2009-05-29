@@ -682,6 +682,20 @@ let apply_time root child parent =
         child
     END
 
+let compare_opt a b f1 f2 one two = match one,two with
+    | Some x,Some y ->
+            info_user_message "Checking times: %f(%d)(%s) == %f(%d)(%s)??"
+                    x a.taxon_code (f1 ("fst","snd")) y b.taxon_code 
+                    (f2 ("fst","snd")) ; x = y
+    | None, None ->
+            info_user_message "Checking times: None(%d)(fst) == None(%d)(fst)??"
+                    a.taxon_code b.taxon_code; true
+    | Some x,None ->
+            info_user_message "Checking times: %f(%d)(%s) == None(%d)(fst)??"
+                    x a.taxon_code (f1 ("fst","snd")) b.taxon_code; false
+    | None,Some y ->
+            info_user_message "Checking times: None(%d)(fst) == %f(%d)(%s)??"
+                    a.taxon_code y b.taxon_code (f2 ("fst","snd")); false
 
 (** [verify_time] has A and B which share an edge, and oA and oB which share an
  * edge with A and B respectively but not with B and A respectively *)
@@ -692,25 +706,11 @@ let verify_time a oa b ob =
             | None -> fst x
             | Some ob ->
                     if b.min_child_code < ob.min_child_code then fst x else snd x
-    in let compare_opt one two = match one,two with
-        | Some x,Some y ->
-                info_user_message "Checking times: %f(%d)(%s) == %f(%d)(%s)??"
-                        x a.taxon_code (f1 ("fst","snd")) y b.taxon_code 
-                        (f2 ("fst","snd")) ; x = y
-        | None, None ->
-                info_user_message "Checking times: None(%d)(fst) == None(%d)(fst)??"
-                        a.taxon_code b.taxon_code; true
-        | Some x,None ->
-                info_user_message "Checking times: %f(%d)(%s) == None(%d)(fst)??"
-                        x a.taxon_code (f1 ("fst","snd")) b.taxon_code; false
-        | None,Some y ->
-                info_user_message "Checking times: None(%d)(fst) == %f(%d)(%s)??"
-                        a.taxon_code y b.taxon_code (f2 ("fst","snd")); false
-    in
+    in 
     let verify_ f1 f2 acc a b = match a,b with
         | StaticMl a,StaticMl b ->
             IFDEF USE_LIKELIHOOD THEN
-                (compare_opt (f1 a.time) (f2 b.time)) && acc
+                (compare_opt a b f1 f2 (f1 a.time) (f2 b.time)) && acc
             ELSE
                 acc
             END
@@ -922,17 +922,17 @@ let median_counter = ref (-1)
 
 let median ?branches code old a b =
 
-    let values_match code_ray tbl = (* array is guarentreed to be > ) *)
-        let value = Hashtbl.find tbl (code_ray.(0)) in
-        Array.fold_left 
-            (fun acc x -> 
-                acc && (value = (Hashtbl.find tbl x)))
-            true
-            code_ray
-    in
     let convert_2_lst chars tbl =
         List.map (fun x -> match x with
                     | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
+                        let values_match code_ray tbl = (* array is guarentreed to be > ) *)
+                            let value = Hashtbl.find tbl (code_ray.(0)) in
+                            Array.fold_left 
+                                (fun acc x -> 
+                                    acc && (value = (Hashtbl.find tbl x)))
+                                true
+                                code_ray
+                        in
                         (match tbl with
                         | Some x ->
                             let x = Hashtbl.find x chars.taxon_code in
@@ -1000,58 +1000,67 @@ let median ?branches code old a b =
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
 let get_times_between (nd:node_data) (child_code : int option) =
-    let func = match child_code with
-        | Some child_code ->
-            if nd.min_child_code = child_code then fst else snd
-        | None -> (fun (t1,t2) -> match t1,t2 with | Some x,Some y -> Some (x+.y)
-                                                   | None,_ | _,None -> None)
+    let func = 
+IFDEF USE_LIKELIHOOD THEN
+        let f = 
+            match child_code with
+            | Some child_code ->
+                if nd.min_child_code = child_code then fst else snd
+            | None -> 
+                    (function 
+                        | Some x,Some y -> Some (x+.y)
+                        | _ -> None)
+        in
+        function StaticML z -> f z.time | _ -> None
+ELSE
+        fun _ -> None
+END
     in
-    List.map (fun x -> match x with
-                | StaticMl z ->
-                    IFDEF USE_LIKELIHOOD THEN
-                        func z.time
-                    ELSE
-                        None
-                    END
-                | _ -> None)
-             nd.characters
+    List.map func nd.characters
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data) =
-    let func = if parent.min_child_code = child.min_child_code then fst else snd in
     let null = (0,None) in
-    List.map (fun x -> match x with
-                | StaticMl z ->
-                    IFDEF USE_LIKELIHOOD THEN
-                        (MlStaticCS.get_codes z.preliminary).(0),func z.time
-                    ELSE
-                        null
-                    END
-                | _ -> null
-             ) parent.characters
+    let func = 
+IFDEF USE_LIKELIHOOD THEN
+        let f = 
+            if parent.min_child_code = child.min_child_code then fst 
+            else snd 
+        in
+        function
+            | StaticML z ->
+                    (MlStaticCS.get_codes z.preliminary).(0), f z.time
+            | _ -> null
+ELSE
+        fun _ -> null
+END
+    in
+    List.map func parent.characters
 
 let get_times_between_tbl tbl (nd:node_data) =
-    let values_match code_ray tbl =
-        if Array.length code_ray = 0 then true else
-        let value = Hashtbl.find tbl (code_ray.(0)) in
-        Array.fold_left 
-            (fun acc x -> 
-                acc && (value = (Hashtbl.find tbl x)))
-            true
-            code_ray
-    in
-    List.map (fun x -> match x with
-                | StaticMl z -> 
-                    IFDEF USE_LIKELIHOOD THEN
+    let func =
+IFDEF USE_LIKELIHOOD THEN
+        let values_match code_ray tbl =
+            if Array.length code_ray = 0 then true else
+            let value = Hashtbl.find tbl (code_ray.(0)) in
+            Array.fold_left 
+                (fun acc x -> 
+                    acc && (value = (Hashtbl.find tbl x)))
+                true
+                code_ray
+        in
+        function
+            | StaticML z ->
                     (try
                         let codes = MlStaticCS.get_codes z.preliminary in
                         assert(((Array.length codes) > 0) && (values_match codes tbl));
                         Some (Hashtbl.find tbl codes.(0))
                     with Not_found -> None)
-                    ELSE
-                        None
-                    END
-                | _ -> None)
-             nd.characters
+            | _ -> None
+ELSE
+        fun _ -> None
+END
+    in
+    List.map func nd.characters
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the
@@ -1327,7 +1336,6 @@ let distance_of_type ?(para=None) ?(parb=None) t missing_distance
     let has_nonadd = has_t `Nonadd
     and has_add = has_t `Add
     and has_sank = has_t `Sank
-    and has_staticml = has_t `StaticMl
     and dy_t = List.fold_left filter_dynamic [] t 
     and has_kolmo = has_t `Kolmo in
     let rec distance_two ch1 ch2 =
@@ -2046,8 +2054,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
             let result = 
-                IFDEF USE_LIKELIHOOD THEN
                     let single_ml_group result lst =
+                IFDEF USE_LIKELIHOOD THEN
                         match lst with
                         | [] -> result
                         | h :: t -> (* We do have some characters to add *)
@@ -2066,11 +2074,11 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                                           sum_cost = 0.;
                             weight = 1.; time = None,None } in
                             { result with characters = c :: result.characters }
+                ELSE
+                        result
+                END
                     in
                     List.fold_left single_ml_group result lstaticmlcode
-                ELSE
-                    result
-                END
             in
             let () = current_snapshot "Finished taxon" in
             result :: acc
@@ -2338,12 +2346,16 @@ let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
 
 let dump_node printer node par = 
-    let f = if node.min_child_code = par.min_child_code then fst else snd in
-    let strs x = match f x with | None -> "none"
-                                | Some x -> string_of_float x in
     let rec dump_map a p = match a,p with
         | StaticMl a, StaticMl p ->
             IFDEF USE_LIKELIHOOD THEN
+                let f = 
+                    if node.min_child_code = par.min_child_code then fst 
+                    else snd 
+                in
+                let strs x = match f x with | None -> "none"
+                        | Some x -> string_of_float x 
+                in
                 printer (strs p.time)
             ELSE
                 ()

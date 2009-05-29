@@ -148,11 +148,11 @@ module type Tree_Operations =
     val string_of_node : a -> string
     val features : Methods.local_optimum -> (string * string) list -> (string * string) list
     val clear_internals : (a, b) p_tree -> (a, b) p_tree
-    val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+    val downpass : (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  
-        Xml.attributes -> Data.d -> (a, b) p_tree -> Xml.xml 
+        Xml.attributes -> (a, b) p_tree -> Xml.xml 
 
     val branch_table : (a,b) p_tree -> 
             (int,(int,[ `Single of float | `Name]) Hashtbl.t) Hashtbl.t
@@ -329,7 +329,7 @@ module type SEARCH = sig
       val get_trees_considered : unit -> int
       val reset_trees_considered : unit -> unit
       val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+      val downpass : (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
     (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
@@ -374,24 +374,23 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Parser.Tree.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
         val build_forest :
-            bool -> (a, b) p_tree ->
-          Data.d -> string -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> bool ->
+            bool -> (a, b) p_tree -> string -> bool ->
             Parser.Tree.tree_types list
 
         val to_xml : 
-            Pervasives.out_channel -> (a, b) p_tree -> Data.d -> unit
+            Pervasives.out_channel -> (a, b) p_tree -> unit
         val disp_trees : 
             string -> 
                 (a, b) p_tree -> 

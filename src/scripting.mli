@@ -305,7 +305,7 @@ val set_console_run : r -> unit
         val reroot : Tree.edge -> phylogeny -> phylogeny
 
         (* Recomputing the contents of a tree *)
-        val downpass : ?data:Data.d -> phylogeny -> phylogeny
+        val downpass : phylogeny -> phylogeny
         val uppass : phylogeny -> phylogeny
 
         (* Tree conversion for IO *)

@@ -267,7 +267,7 @@ module MakeNormal
             let cost = string_of_float cost in
             let tree = 
                 PtreeSearch.build_forest_with_names_n_costs 
-                collapse tree data cost branches
+                collapse tree cost branches
             in
             let output tree =
                 if use_hennig_style && not !is_first then 

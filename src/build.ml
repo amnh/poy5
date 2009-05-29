@@ -715,7 +715,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 current_snapshot "Build.prebuilt.constructor begin";
                 let tree = PtreeSearch.convert_to x sumdata in
                 current_snapshot "Build.prebuilt.constructor converted";
-                let tree = PtreeSearch.downpass ~data:data tree in
+                let tree = PtreeSearch.downpass tree in
                 current_snapshot "Build.prebuilt.constructor downpass";
                 let tree = PtreeSearch.uppass tree in
                 current_snapshot "Build.prebuilt.constructor uppass";
