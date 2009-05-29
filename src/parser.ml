@@ -2786,10 +2786,6 @@ module SC = struct
                 Hashtbl.find table_of_alphabets index
             else
                 let r =
-                    let cnt = ref (1) in
-                    let prepro_symbols = 
-                        List.map (fun x -> incr cnt; x, !cnt, None) symbols
-                    in
                     match get_datatype form with
                     | Nexus.Protein ->
                             Alphabet.list_to_a
