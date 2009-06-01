@@ -123,12 +123,12 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
                   for pos = 0 to len2 do
                       let partial_seq2 = Utl.insert best_wagner_seq2_arr.(w) pos code2 in 
                       update partial_seq2;
-(*                      if code2 mod 2 = 1 then begin
+                       if (state = `Annotated) && (code2 mod 2 = 1) then begin
                             let partial_seq2 = 
                                 Utl.insert best_wagner_seq2_arr.(w) pos (code2 + 1) 
                             in 
                             update partial_seq2;
-                      end *)
+                      end 
                   done;     
               done; 
               let subseq2 = Array.sub seq2 0 (len2 + 1) in
