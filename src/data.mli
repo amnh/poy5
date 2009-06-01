@@ -492,6 +492,7 @@ val transform_chrom_to_rearranged_seq :
   Methods.dynamic_char_transform -> 'c -> Methods.implied_alignment list -> d
 
 val print : d -> unit
+val myprint : d -> unit
 
 val get_chars_codes : d -> characters -> int list
 val get_chars_codes_comp : d -> bool_characters -> int list
