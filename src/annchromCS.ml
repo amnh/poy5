@@ -408,12 +408,6 @@ let to_single ref_codes (root : t option) single_parent mine =
                   let single_root = AnnchromAli.to_single_root amed
                       aparent_med.AnnchromAli.ref_code c2 
                   in 
-                  (*Printf.printf "single_seq_arr for root =\n";
-<<<<<<< local
-                  Array.iter printseqarr single_root;*) 
-=======
-                  * Array.iter printseqarr single_root; *)
->>>>>>> other
                   0, 0, single_root
             | None ->
                    (* let single_seq_arr = 
