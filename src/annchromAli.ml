@@ -448,16 +448,11 @@ let cmp_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
 (** [find_simple_med2_ls chrom1 chrom2 cost_mat alpha ali_pam]
 * finds medians between [chrom1] and [chrom2] allowing rearrangements *)
 let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t) 
-<<<<<<< local
         (cost_mat : Cost_matrix.Two_D.m) alpha ali_pam =
 
 (*Printf.printf "annchromAli.ml, find_simple_med2_ls between chrom1=%d and chrom2=%d.\n" chrom1.ref_code chrom2.ref_code;
 *)
     let chrom_len1 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom1.seq_arr in 
-=======
-        (cost_mat : Cost_matrix.Two_D.m) alpha ali_pam = 
-    let chrom_len1 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom1.seq_arr in  
->>>>>>> other
     let chrom_len2 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom2.seq_arr in 
     if (chrom_len1 < 2) then 0,0, [chrom2]
     else if chrom_len2 < 2 then 0,0, [chrom1]
@@ -467,21 +462,16 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         let seq2_arr, _ = split chrom2 in      
         let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
             create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam  
-<<<<<<< local
         in 
         (*Printf.printf "seq1_arr = \n";
         Array.iter printSeq seq1_arr;
         Printf.printf "seq2_arr = \n"; Array.iter printSeq seq2_arr;i*)
-=======
-        in    
->>>>>>> other
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
             GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular  true
         in 
-<<<<<<< local
   (*       Printf.printf "code1_arr and code2_arr =\n";
          Array.iter (Printf.printf "%d ") code1_arr;
          print_newline();
@@ -493,8 +483,6 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         Array.iter (Printf.printf "%d ") alied_code2_arr;
         print_newline();
   *)
-=======
->>>>>>> other
         let ali_len = Array.length alied_code1_arr in   
         let ali_chrom = Array.init ali_len
             (fun idx ->   
@@ -517,19 +505,13 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                            if pos_code2 = alied_code2_arr.(idx) then 
                                begin
                                 Some chrom2.seq_arr.(idx2).seq, `Positive
-<<<<<<< local
                                end
                            else
                                begin
                                Some (Sequence.complement_chrom
                            Alphabet.nucleotides chrom2.seq_arr.(idx2).seq),`Negative
                                end
-                     in
-=======
-                           else Some (Sequence.complement_chrom Alphabet.nucleotides chrom2.seq_arr.(idx2).seq),
-                                `Negative
                  in                            
->>>>>>> other
                  let alied_med_seq, alied_seq1, alied_seq2 =
                      match seq1, seq2 with   
                      | Some seq1, Some seq2 -> 
@@ -980,12 +962,7 @@ let to_single_root root other_code c2 =
           let map = 
               Array.map 
                   (fun m ->
-<<<<<<< local
                        let child_alied_seq, other_alied_seq =  m.alied_seq1, m.alied_seq2 in 
-=======
-                       let child_alied_seq, other_alied_seq =  m.alied_seq1,
-                       m.alied_seq2 in 
->>>>>>> other
                        (*Printf.printf "At root, alied_seq1/alied_seq2 =\n";
                        printSeq child_alied_seq; printSeq other_alied_seq;*)
                        let single_seq, _ = Sequence.closest_alied_seq
