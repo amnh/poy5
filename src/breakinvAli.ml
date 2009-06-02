@@ -190,6 +190,7 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 (** find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam]
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
+
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in 
@@ -205,8 +206,11 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
         let re_seq2 =
             Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
         in    
-    
-        
+   
+        (*Printf.printf "re_seq2 = { ";
+        Array.iter (Printf.printf " %d, ") re_seq2; 
+        Printf.printf " } \n %!";
+        *) 
         let all_order_ls =  [(re_seq2, recost1, recost2)]  in 
     
         
@@ -214,12 +218,17 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
             (fun med_ls (re_seq2, recost1, recost2) ->
                  let med_seq = Sequence.init 
                      (fun index ->
-                          if re_seq2.(index) > 0 then re_seq2.(index)
+                          if re_seq2.(index) > 0 then 
+                              begin
+                                  Printf.printf "";
+                                  re_seq2.(index)
+                              end
                           else 
                               if re_seq2.(index) mod 2  = 0 then -re_seq2.(index) - 1
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
-                 in 
+                 in
+
                  let med = 
                      {seq = med_seq; 
                       alied_med = alied_gen_seq2;
@@ -245,7 +254,23 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
 (** [find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
 * finds all median sequences between [med1] and [med2] and vice versa.
 * Rearrangements are allowed *) 
-let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =  
+let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
+    if med1 == med2 then
+        begin
+        0, (0,0), [
+        { med1 with 
+        alied_seq1 = med1.seq;
+        alied_seq2 = med2.seq; 
+        ref_code = Utl.get_new_chrom_ref_code ();
+        ref_code1 = med1.ref_code;
+        ref_code2 = med2.ref_code;
+        cost1 = 0;
+        cost2 = 0;
+        recost1 = 0;
+        recost2 = 0;
+        }]
+        end
+    else
     let ali_pam = get_breakinv_pam breakinv_pam in          
     match ali_pam.symmetric with 
     | true ->
@@ -253,12 +278,14 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               gen_cost_mat pure_gen_cost_mat alpha ali_pam in
           let cost21, recost21, med21_ls = find_simple_med2_ls med2 med1
               gen_cost_mat pure_gen_cost_mat alpha ali_pam in
-          if cost12 <= cost21 then cost12, recost12, med12_ls
+          if cost12 <= cost21 then 
+              begin
+                  cost12, recost12, med12_ls
+              end
           else begin 
               let med12_ls = List.map swap_med med21_ls in 
               cost21, recost21, med12_ls
           end 
-
     | false ->
           let med1, med2, swaped = 
               match Sequence.compare med1.seq med2.seq < 0 with 
@@ -273,8 +300,8 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               match swaped with
               | false -> med_ls
               | true -> List.map swap_med med_ls
-          in 
-          cost, recost, med_ls
+          in
+         cost, recost, med_ls
 
 
 (** [get_costs med child_ref] returns the cost

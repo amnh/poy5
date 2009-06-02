@@ -112,7 +112,7 @@ let create_ias (state : dyna_state_t) s code cg =
             Hashtbl.add code_acc pos code;
             let single = `Single code in 
             Hashtbl.add hom_acc code single;
-            order_lst := code :: !order_lst
+            order_lst := code :: !order_lst           
         end
     in
     let () =
@@ -125,6 +125,12 @@ let create_ias (state : dyna_state_t) s code cg =
                     add_codes i;
                 done;
     in
+    (*Printf.printf "\n In Create_ias, s = ";
+    Array.iter (Printf.printf "%d, ") (Sequence.Clip.to_array s);
+    print_newline ();
+    Hashtbl.iter (Printf.printf "Hashtbl code_acc= key: %d, pos:%d\n%!") code_acc;
+    List.iter (Printf.printf " %d , ") !order_lst;
+    Printf.printf " is the order_lst \n %!";*)
     { seq = s; codes = code_acc; homologous = hom_acc; 
         indels = `Empty; dum_chars = `Empty; 
         order = !order_lst; dir = 1 }
@@ -812,6 +818,65 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
 
     new_ias_arr
 
+(*
+* ancestor_breakinv_clade deals with one clade for ancestor_breakinv. (
+    * ancestor_breakinv deals with two clades a and b)
+    * clade is the name of clade (a or b), re_seq_clade is the alied sequence
+    * of that clade
+*)
+let ancestor_breakinv_clade clade re_seq_clade =
+    let seq_arr = Sequence.Clip.to_array clade.seq in 
+    let re_seq = re_seq_clade in
+    let new_codes = Hashtbl.create 1667 in 
+    Array.iteri 
+    (fun re_pos re_base ->       
+        let ori_pos = Utl.find_index seq_arr re_base compare in
+        (* Printf.printf " Try to find bind = %d in codes harshtbl, size=%d -> %!" ori_pos
+        (Hashtbl.length clade.codes);
+        Printf.printf "re_seq = ";
+        let _=
+        let myarray = Sequence.Clip.to_array re_seq in
+        Array.iter (Printf.printf "%d, ") myarray
+        in
+        let _ =
+        try
+        Hashtbl.find clade.codes ori_pos 
+        with
+        | Not_found ->  Printf.printf " Not_found from codes harshtbl, bind = %d....
+        \n %! " ori_pos; 0
+        in*)
+        let code = Hashtbl.find clade.codes ori_pos in   
+         (*Printf.printf " Find: %d \n %!" code;*)
+        Hashtbl.add new_codes re_pos code) (Sequence.Clip.to_array re_seq);
+    let order_arr = Array.of_list (List.rev clade.order) in
+    (*Printf.printf "order_arr = { ";
+    Array.iter (Printf.printf "%d,") order_arr;
+    Printf.printf " } \n %!";*)
+    let num_codes = Array.length order_arr in 
+    let exist_code = Hashtbl.fold 
+        (fun p code code_set -> IntSet.add code code_set) new_codes IntSet.empty
+    in 
+    let new_orders = ref [] in 
+    let rec add_deled_code pos = 
+        if pos < num_codes then begin
+            let code = order_arr.(pos) in 
+            if IntSet.mem code exist_code = false then begin
+                new_orders := List.append !new_orders [code];
+                add_deled_code (pos + 1)
+            end 
+        end            
+    in 
+    Array.iteri 
+    (fun pos _ -> 
+        let code = Hashtbl.find new_codes pos in 
+        let ori_pos = Utl.find_index order_arr code compare in 
+        new_orders := List.append !new_orders [code];                     
+        add_deled_code (ori_pos + 1)) 
+    seq_arr;
+    add_deled_code 0;
+    new_codes,new_orders 
+
+
 
 
 (* [ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode 
@@ -820,7 +885,7 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
 * function, but for breakinv characters  *)
 let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         achld bchld a b cm alpha breakinv_pam = 
-
+(*Printf.printf "\n in ancestor_breakinv acode=%d,bcode=%d \n %!" acode bcode;*)
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -828,90 +893,27 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         else a, b, acode
     in 
     let gap_code = Cost_matrix.Two_D.gap cm in 
-
     let a, b = a.(0), b.(0) in 
     let meda = BreakinvAli.init (Sequence.Clip.extract_s a.seq) in 
     let medb = BreakinvAli.init (Sequence.Clip.extract_s b.seq) in 
+(*    Printf.printf "The sequence a is %s, and b is %s\n%!" (Sequence.to_string
+    meda.BreakinvAli.seq alpha) (Sequence.to_string medb.BreakinvAli.seq
+    alpha);*)
     let pure_cm = Cost_matrix.Two_D.get_pure_cost_mat cm in 
-    let _, _, med_ls = BreakinvAli.find_med2_ls meda medb cm pure_cm alpha breakinv_pam in
-    let med = List.hd med_ls in
-
-
-    let seqa_arr = Sequence.Clip.to_array a.seq in 
+    let _, _, med_ls = BreakinvAli.find_med2_ls meda medb cm pure_cm alpha breakinv_pam in 
+    let med = List.hd med_ls in 
+(*    Printf.printf "  check the med.alied_seq1 = %s, alied_seq2 = %s \n %!" (Sequence.to_string
+    med.BreakinvAli.alied_seq1 alpha) (Sequence.to_string
+    med.BreakinvAli.alied_seq2 alpha);*)
     let re_seqa = 
         Sequence.Clip.delete_gap ~gap_code:gap_code (`DO med.BreakinvAli.alied_seq1) in
-    let new_codes_a = Hashtbl.create 1667 in 
-    Array.iteri 
-    (fun re_pos re_base -> 
-        let ori_pos = Utl.find_index seqa_arr re_base compare in 
-        let code = Hashtbl.find a.codes ori_pos in         
-        Hashtbl.add new_codes_a re_pos code) (Sequence.Clip.to_array re_seqa);
-
-    let order_a_arr = Array.of_list (List.rev a.order) in 
-    let num_codes = Array.length order_a_arr in 
-    let exist_code_a = Hashtbl.fold 
-        (fun p code code_set -> IntSet.add code code_set) new_codes_a IntSet.empty
-    in 
-    let new_orders_a = ref [] in 
-    let rec add_deled_code pos = 
-        if pos < num_codes then begin
-            let code = order_a_arr.(pos) in 
-            if IntSet.mem code exist_code_a = false then begin
-                new_orders_a := List.append !new_orders_a [code];
-                add_deled_code (pos + 1)
-            end 
-        end            
-    in 
-    Array.iteri 
-    (fun pos _ -> 
-        let code = Hashtbl.find new_codes_a pos in 
-        let ori_pos = Utl.find_index order_a_arr code compare in 
-        new_orders_a := List.append !new_orders_a [code];                     
-        add_deled_code (ori_pos + 1)) 
-    seqa_arr;
-    add_deled_code 0;
-
-
-
-    let seqb_arr = Sequence.Clip.to_array b.seq in 
-    let re_seqb = Sequence.Clip.delete_gap ~gap_code:gap_code 
-        (`DO med.BreakinvAli.alied_seq2) in
-    let new_codes_b = Hashtbl.create 1667 in 
-    Array.iteri 
-    (fun re_pos re_base -> 
-        let ori_pos = Utl.find_index seqb_arr re_base compare in 
-        let code = Hashtbl.find b.codes ori_pos in         
-        Hashtbl.add new_codes_b re_pos code) (Sequence.Clip.to_array re_seqb);
-
-    let order_b_arr = Array.of_list (List.rev b.order) in 
-    let num_codes = Array.length order_b_arr in 
-    let exist_code_b = Hashtbl.fold 
-        (fun p code code_set -> IntSet.add code code_set) new_codes_b IntSet.empty
-    in 
-    let new_orders_b = ref [] in 
-    let rec add_deled_code pos = 
-        if pos < num_codes then begin
-            let code = order_b_arr.(pos) in 
-            if IntSet.mem code exist_code_b = false then begin
-                new_orders_b := List.append !new_orders_b [code];
-                add_deled_code (pos + 1)
-            end 
-        end            
-    in 
-    Array.iteri 
-    (fun pos _ -> 
-        let code = Hashtbl.find new_codes_b pos in 
-        let ori_pos = Utl.find_index order_b_arr code compare in 
-        new_orders_b := List.append !new_orders_b [code];                     
-        add_deled_code (ori_pos + 1)) 
-    seqb_arr;
-    add_deled_code 0;
-
-
+    let new_codes_a, new_orders_a  = ancestor_breakinv_clade a re_seqa in
+    let re_seqb = 
+        Sequence.Clip.delete_gap ~gap_code:gap_code (`DO med.BreakinvAli.alied_seq2) in
+    let new_codes_b, new_orders_b  = ancestor_breakinv_clade b re_seqb in
     let isa = {a with seq = `DO med.BreakinvAli.alied_seq1;
                    codes = new_codes_a;
                    order = List.rev  !new_orders_a} in 
-
     let isb = {b with seq = `DO med.BreakinvAli.alied_seq2;
                    codes = new_codes_b;
                    order = List.rev  !new_orders_b} in 
@@ -919,23 +921,19 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
         ancestor calculate_median `Breakinv prealigned all_minus_gap isa isb
         acode bcode cm alpha achld bchld
     in
-
-
     let recost1 = med.BreakinvAli.recost1 in
     let recost2 = med.BreakinvAli.recost2 in
-
     let rea = `Single (recost1, achld) in 
-    let reb = `Single (recost2, bchld) in
-    
+    let reb = `Single (recost2, bchld) in 
     let dum_chars = ref [a.dum_chars; b.dum_chars] in 
     (if recost1 > 0 then dum_chars:= rea::!dum_chars);
     (if recost2 > 0 then dum_chars:= reb::!dum_chars);
-
     let ans = {ans with dum_chars = `Set !dum_chars} in
-
     let new_codes = Hashtbl.create 1667 in 
     Hashtbl.iter (fun p code -> Hashtbl.add new_codes (p-1) code) ans.codes;
-    [|{ans with seq = `DO med.BreakinvAli.seq; codes = new_codes}|]
+    if calculate_median then
+        [|{ans with seq = `DO med.BreakinvAli.seq; codes = new_codes}|]
+    else [|{ans with seq = a.seq; codes = new_codes}|]
 
 
 (* [ancestor_genome prealigned calculate_median all_minus_gap acode bcode 
@@ -1532,15 +1530,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             try
                 let root = Ptree.get_component_root handle ptree in
                 match root.Ptree.root_median with
-                | Some (_, v) -> Some (((Node.num_otus None v) * 2) - 1)
+                | Some (_, v) ->Some (((Node.num_otus None v) * 2) - 1);
                 | None -> None
             with
-            | Not_found -> None
+            | Not_found -> Printf.printf"Get vertices: Not_found \n %!"; None
         in
         let st = 
-            Status.create "Implied Alignments" vertices "vertices calculated"
+            Status.create "test: Implied Alignments" vertices "vertices calculated"
         in
         let convert_data taxon_id data =
+            (*Printf.printf "in convert_data, the taxon id is %d, " taxon_id;*)
             let data = 
                 List.map 
                 (fun dyn ->
@@ -1565,8 +1564,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                      code = DynamicCS.code dyn; 
                      cannonic_code = taxon_id;
                      children = `Single taxon_id}
-                ) 
-                    data  
+                 ) 
+                 data  
             in
             AssList.singleton (taxon_id, data), data
         in
@@ -1594,24 +1593,24 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             in
             let data = convert_data taxon_id data in
             let did = Status.get_achieved st in
+          
             Status.full_report ~adv:(did + 1) st;
             data
         in
         let join_2_nodes _ _ (ac, a) (bc, b) =
-            let t_ancestor x y =
+            let t_ancestor x y =    
                 let ancestor_f =
                     assert (x.state = y.state);
                     match x.state with
-                    | `Seq -> ancestor_sequence false
+                    | `Seq ->  ancestor_sequence false
                     | `Chromosome -> ancestor_chrom true
                     | `Annotated -> ancestor_annchrom true
-                    | `Breakinv -> ancestor_breakinv true
-                    | `Genome -> ancestor_genome true
+                    | `Breakinv ->ancestor_breakinv true
+                    | `Genome ->  ancestor_genome true 
                 in
                 Codes.fold 
                 (fun u v acc ->
                     let homs = Codes.find u y.sequences in
-
                     let ancestor = 
                         ancestor_f calculate_median all_minus_gap
                         x.cannonic_code y.cannonic_code x.children y.children 
@@ -1623,16 +1622,30 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 { hx with 
                 cannonic_code = min hx.cannonic_code hy.cannonic_code;
                 children = `Set [hx.children; hy.children];
-                sequences = t_ancestor hx hy } 
+                sequences = t_ancestor hx hy} 
             in
+
+
+            
+            let unionresult = AssList.union ac bc in
+
+            let map2result = List.map2 ancestor_builder a b in
+            
+            unionresult, map2result
+                (*
             AssList.union ac bc, List.map2 ancestor_builder a b
-        in 
+                *)
+            
+            in 
+        
         match Tree.get_node handle ptree.Ptree.tree with
         | Tree.Single self -> 
+                Printf.printf "tree is single\n %!";
                 let a, b = convert_node None ptree () self ([], []) in
                 Status.finished st;
                 AssList.elements a, b
         | _ ->
+                Printf.printf "not a single tree \n %!";
               let self, other, root  =      
                   let root = Ptree.get_component_root handle ptree in  
                   match root.Ptree.root_median with
@@ -1676,11 +1689,23 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         interior vertex as we move down the tree starting with the
                         actual root *)
                         let rec tree_traverser parent_ia parent_code my_code =
+                        (*Printf.printf "\n in tree_traverser. mycode= %d, %!"
+                        * my_code;*)
                             let my_ia =
                                 let my_ia = 
                                     convert_node parent_code ptree () my_code
                                     ([], [])
                                 in
+                                (*let _ = 
+                                match Ptree.get_node my_code ptree with
+                                | Tree.Interior (aa,bb,cc,dd) ->
+                                        Printf.printf " is interior node =
+                                             (%d, %d, %d, %d) %!" aa bb cc dd
+                                | Tree.Leaf (aa,bb) ->
+                                        Printf.printf " is leaf node = (%d,%d) %!"
+                                        aa bb
+                                | Tree.Single _-> Printf.printf " is single node %!"
+                                in*)
                                 match Ptree.get_node my_code ptree with
                                 | (Tree.Interior _) as n -> 
                                         let parent_code = 
@@ -1699,22 +1724,33 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         in
                         match Ptree.get_node self ptree with
                         | Tree.Interior (_, a, b, c) ->
+                               (* Printf.printf "tree.interior: (%d, %d, %d, %d) \n %!" self a
+                                b c;*)
                                 let myd = Ptree.get_node_data  self ptree in
                                 let my_ia = 
                                     convert_data self
                                     (get_dynamic_data (Some other) myd)
                                 in
                                 let self = Some self in
+                                (*Printf.printf "\n traverser directionA NO.%d
+                                * %! \n" a;*)
                                 let my_ia = tree_traverser my_ia self a in
+                                (*Printf.printf "\n traverser directionB NO.%d
+                                * %! \n" b;*)
                                 let my_ia = tree_traverser my_ia self b in
+                                (*Printf.printf "\n traverser directionC NO.%d
+                                * %! \n" c;*)
                                 tree_traverser my_ia self c
                         | Tree.Leaf (_, b) ->
+                                (*Printf.printf "tree.leaf: %d, %!" self;*)
                                 let myd = Ptree.get_node_data self ptree in
                                 let my_ia = 
                                     convert_data self (get_dynamic_data (Some b) myd)
                                 in
+                                (*Printf.printf "traverser NO.b %! \n";*)
                                 tree_traverser my_ia (Some self) b
                         | Tree.Single _ ->
+                                (*Printf.printf "single tree\n %!";*)
                                 let data = Ptree.get_node_data self ptree in
                                 convert_data (Node.taxon_code data) 
                                 (get_dynamic_data None data)
@@ -1867,6 +1903,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 (of_tree_handle all_but_gap cg x tree) :: acc) 
             (Tree.get_handles tree.Ptree.tree) []
         in
+
+        
         let indel_blocks = 
             List.map (fun (_, x) -> 
                 (List.map (fun x -> 
