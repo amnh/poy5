@@ -1136,7 +1136,9 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     end
 
     class lazy_union_calculations (ptree : (Node.n, Edge.e) Ptree.p_tree) = 
-            let empty = { Ptree.empty with Ptree.tree = ptree.Ptree.tree } in
+            let empty = 
+                { (Ptree.empty ptree.Ptree.data) with 
+                    Ptree.tree = ptree.Ptree.tree } in
         object (self)
 
         val mutable tree : 

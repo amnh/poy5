@@ -55,11 +55,12 @@ type 'a root = {
 }
 
 type ('a, 'b) p_tree = {
-  node_data : 'a All_sets.IntegerMap.t;
-  edge_data : 'b Tree.EdgeMap.t;
-  tree : Tree.u_tree;
-  component_root : 'a root All_sets.IntegerMap.t;
-  origin_cost : float;
+    data : Data.d;
+    node_data : 'a All_sets.IntegerMap.t;
+    edge_data : 'b Tree.EdgeMap.t;
+    tree : Tree.u_tree;
+    component_root : 'a root All_sets.IntegerMap.t;
+    origin_cost : float;
 }
 
 type cost_type = [ `Adjusted | `Unadjusted ]
@@ -71,7 +72,7 @@ val set_origin_cost : float -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 type phylogeny = (Node.node_data, unit) p_tree
 (** The phylogentic tree (p_tree). 'a and 'b are node and edge data types. *)
 
-val empty : ('a, 'b) p_tree
+val empty : Data.d -> ('a, 'b) p_tree
 (** The empty phylogenetic tree. *)
 
 type 'a clade_info = {
@@ -147,11 +148,11 @@ module type Tree_Operations =
     val string_of_node : a -> string
     val features : Methods.local_optimum -> (string * string) list -> (string * string) list
     val clear_internals : (a, b) p_tree -> (a, b) p_tree
-    val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+    val downpass : (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
     val to_formatter :  
-        Xml.attributes -> Data.d -> (a, b) p_tree -> Xml.xml 
+        Xml.attributes -> (a, b) p_tree -> Xml.xml 
 
     val branch_table : (a,b) p_tree -> 
             (int,(int,[ `Single of float | `Name]) Hashtbl.t) Hashtbl.t
@@ -328,7 +329,7 @@ module type SEARCH = sig
       val get_trees_considered : unit -> int
       val reset_trees_considered : unit -> unit
       val uppass : (a, b) p_tree -> (a, b) p_tree
-      val downpass : ?data:Data.d -> (a, b) p_tree -> (a, b) p_tree
+      val downpass : (a, b) p_tree -> (a, b) p_tree
       val diagnosis : (a, b) p_tree -> (a, b) p_tree
 
     (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
@@ -373,24 +374,23 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Parser.Tree.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
         val build_forest :
-            bool -> (a, b) p_tree ->
-          Data.d -> string -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> Data.d -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Data.d -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
         val build_forest_with_names_n_costs :
-            bool -> (a, b) p_tree -> Data.d -> string -> bool ->
+            bool -> (a, b) p_tree -> string -> bool ->
             Parser.Tree.tree_types list
 
         val to_xml : 
-            Pervasives.out_channel -> (a, b) p_tree -> Data.d -> unit
+            Pervasives.out_channel -> (a, b) p_tree -> unit
         val disp_trees : 
             string -> 
                 (a, b) p_tree -> 
@@ -469,7 +469,7 @@ val pre_order_edge_visit :
   int -> ('b, 'c) p_tree -> 'a -> 'a
 val print_tree : int -> ('a, 'b) p_tree -> unit
 val print_forest : ('a, 'b) p_tree -> unit
-val make_disjoint_tree : 'a All_sets.IntegerMap.t -> ('a, 'b) p_tree
+val make_disjoint_tree : Data.d -> 'a All_sets.IntegerMap.t -> ('a, 'b) p_tree
 
 module Search (Node : NodeSig.S) 
     (Edge : Edge.EdgeSig with type n = Node.n) (Tree_Ops : Tree_Operations with type a = Node.n with

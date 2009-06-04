@@ -181,7 +181,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         let tree = { tree with Ptree.node_data = node_data } in
         let st = Status.create "Diagnosis"  None "Recalculating original tree" in
         Status.report st;
-        let res = TreeOps.uppass (TreeOps.downpass ?data tree) in
+        let res = TreeOps.uppass (TreeOps.downpass tree) in
         Status.finished st;
         res
 
@@ -532,7 +532,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             in
             { final_tree with Ptree.component_root = roots }
         in
-        { Ptree.empty with 
+        { (Ptree.empty ptree.Ptree.data) with 
         Ptree.edge_data = ptree.Ptree.edge_data; 
         Ptree.tree = ptree.Ptree.tree}
         --> 

@@ -1,5 +1,5 @@
-let simple_indelsubstitution max =
-    Kolmo.Compiler.compile_decoder (OCAMLSK
+let simple_indelsubstitution max compiler =
+    Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
         let m_and y x = if x then y else x
@@ -22,7 +22,6 @@ let simple_indelsubstitution max =
             val rest stack = second stack
             val is_empty stack = Stream.to_bool (first stack)
         end
-
         module Church = struct
             let zero = pair m_false [SK K]
             val successor x = pair m_true x                                   
@@ -213,93 +212,63 @@ let simple_indelsubstitution max =
             val decode_base continuation a b =
                 continuation (pair (Stream.to_bool a) (Stream.to_bool b))
 
-
-            val decode_sequence_of_known_length continuation len =
-                let rec _aux_decode_sequence continuation len seq =
-                    let prepend_base continuation seq = 
-                        let prepend_rev continuation seq base =
-                            continuation (Stack.push base seq)
-                        in
-                        decode_base (prepend_rev continuation seq)
-                    in
-                    if (Church.not_zero len) then
-                        (prepend_base (_aux_decode_sequence continuation len) seq)
-                    else (continuation seq)
-                in
-                _aux_decode_sequence continuation len Stack.empty
-
             let decode_sequence continuation =
-                IntegerDecoderC.uniform_max 
-                (decode_sequence_of_known_length continuation Stack.empty)
+                let _add_sequence continuation len =
+                    let rec _aux_decode_sequence continuation len seq =
+                        let prepend_base continuation seq = 
+                            let prepend_rev continuation seq base =
+                                continuation (Stack.push base seq)
+                            in
+                            decode_base (prepend_rev continuation seq)
+                        in
+                        if (Church.not_zero len) then
+                            (prepend_base (_aux_decode_sequence continuation len) seq)
+                        else (continuation seq)
+                    in
+                    _aux_decode_sequence continuation len Stack.empty
+                in
+                IntegerDecoderC.uniform_max (_add_sequence continuation Stack.empty)
 
             (* Now we write the functions for insertions *)
 
-            val rec prepend continuation length to_prepend sequence =
-                if (Church.not_zero length) then 
-                    (prepend continuation (Church.predecessor length) 
-                        (Stack.rest to_prepend) 
-                        (Stack.push (Stack.pop to_prepend) sequence))
-                else (continuation sequence)
 
             val insert continuation seq =
-                let do_insertion continuation sequence position length to_insert =
-                    let rec do_insertion sequence position length to_insert =
+                let do_insertion continuation sequence position base =
+                    let rec do_insertion sequence position base =
                         if (Church.not_zero position) then
                             (Stack.push (Stack.pop sequence) (do_insertion (Stack.rest
-                            sequence) (Church.predecessor position) length
-                            to_insert))
-                        else (prepend continuation length to_insert sequence)
+                            sequence) (Church.predecessor position) base))
+                        else (Stack.push base sequence)
                     in
-                    continuation (do_insertion sequence position to_insert )
+                    continuation (do_insertion sequence position base)
                 in
-                let split_length continuation len =
-                    decode_sequence_of_known_length (continuation len) len
-                in
-                IntegerDecoderC.uniform_max (IntegerDecoderC.uniform_max
-                    (split_length (do_insertion continuation seq)))
+                IntegerDecoderC.uniform_max (decode_base (do_insertion continuation seq))
 
             val delete continuation seq =
-                let do_deletion continuation sequence position length =
-                    let rec do_deletion sequence position length =
+                let do_deletion continuation sequence position =
+                    let rec do_deletion sequence position =
                         if (Church.not_zero position) then
                             (Stack.push (Stack.pop sequence) (Stack.rest sequence))
-                        else 
-                            if (Church.not_zero length) then
-                                (do_deletion (Stack.rest sequence) position
-                                (Church.predecessor length))
-                            else sequence
+                        else (Stack.rest sequence)
                     in
-                    continuation (do_deletion sequence position length)
+                    continuation (do_deletion sequence position)
                 in
-                IntegerDecoderC.uniform_max (IntegerDecoderC.uniform_max
-                (do_deletion continuation seq))
+                IntegerDecoderC.uniform_max (do_deletion continuation seq)
 
 
             val substitute continuation seq = 
-                let do_substitution continuation sequence position length
-                to_substitute =
-                    let rec do_substitution sequence position length
-                    total_length to_substitute =
+                let do_substitution continuation sequence position base =
+                    let rec do_substitution sequence position base =
                         if (Church.not_zero position) then
                             (Stack.push (Stack.pop sequence) 
                             (do_substitution (Stack.rest sequence) 
-                                (Church.predecessor position) length
-                                total_length to_substitute))
-                        else 
-                            if (Church.not_zero length) then
-                                (do_substitution (Stack.rest sequence) position
-                                (Church.predecessor length) total_length to_substitute)
-                            else
-                                (prepend continuation total_length to_substitute sequence)
+                                (Church.predecessor position) base))
+                        else (Stack.push base (Stack.rest sequence))
                     in
-                    continuation (do_substitution sequence position length
-                    length to_substitute)
+                    continuation (do_substitution sequence position base)
                 in
-                let split_length continuation len =
-                    decode_sequence_of_known_length (continuation len) len
-                in
-                IntegerDecoderC.uniform_max (IntegerDecoderC.uniform_max 
-                (split_length (do_substitution continuation seq)))
+                IntegerDecoderC.uniform_max (decode_base (do_substitution continuation
+                seq))
         end
 
         module Branch = struct
@@ -327,17 +296,15 @@ let simple_indelsubstitution max =
         module Phylogeny = struct
             val start continuation =
                 Tree.root continuation Stack.empty
-        end) ["insert", 300; "delete", 300; "substitute", 300; "leaf", 50;
-        "interior", 49; "end", 50; "root", 2]
+        end) ["Dna.insert", 300; "Dna.delete", 300; "Dna.substitute", 300;
+        "Branch.leaf", 50;
+        "Branch.interior", 49; "Branch.ended", 50; "Tree.root", 2] 
+        compiler
 
-let () = 
+let apply_model max_len compiler =
     let max = 
-        Kolmo.Compiler.compile KolmoPervasives.pervasives;
-        let r = Kolmo.Compiler.get "IntegerDecoder.uniform" in
-        (* This test will fix the maximum to some number n *)
-        (SK ([r] K K K K K K K K K K K S K S K K K S K K K S S))
+        let compiler = Kpervasives.Basic.load Compiler.compiler in
+        Compiler.uniform_integer compiler "IntegerDecoder.uniform" max_len
     in
-    simple_indelsubstitution max;
-    let res, _, _ = Kolmo.Compiler.tree_of_decoder () in
-    Printf.printf "The COMPLEXITY is %d\n%!" 
-        (List.length (Kolmo.S_K.s_encode res))
+    simple_indelsubstitution max compiler
+

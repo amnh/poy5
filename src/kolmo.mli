@@ -44,6 +44,8 @@ module S_K :
 
 module Compiler : sig
 
+    type compiler 
+    val compiler : compiler
     type 'a kolmo_function =
         [ `Module of (name * ('a kolmo_function list))
         | `LetVal of (name * arguments * 'a definition)
@@ -64,16 +66,17 @@ module Compiler : sig
 
     type sk_function = S_K.primitives kolmo_function
     val compile_decoder : S_K.primitives kolmo_function list ->  
-        (string * int) list -> unit
-    val compile : S_K.primitives kolmo_function list -> unit
-    val clear : unit -> unit
-    val evaluate : S_K.primitives definition -> S_K.primitives
-    val get : string -> S_K.primitives
-    val decoder : unit -> (string * int * S_K.primitives) list
-    val final_code : unit -> S_K.primitives list All_sets.IntegerMap.t
-    val tree_of_decoder : unit -> 
+        (string * int) list -> compiler -> compiler
+    val compile : S_K.primitives kolmo_function list -> compiler -> compiler
+    val clear : compiler -> compiler
+    val evaluate : S_K.primitives definition -> compiler -> S_K.primitives
+    val get : compiler -> string -> S_K.primitives
+    val decoder : compiler -> (string * int * S_K.primitives) list
+    val final_code : compiler -> S_K.primitives list All_sets.IntegerMap.t
+    val tree_of_decoder : compiler -> 
         S_K.primitives * (string * int * S_K.primitives) list * 
         S_K.primitives list All_sets.IntegerMap.t
+    val uniform_integer : compiler -> string -> int -> S_K.primitives 
 end
 
 (** Primitive operations in an SK machine *)
@@ -406,4 +409,25 @@ module Align : sig
 
     val align : Sequence.s -> Sequence.s -> matrix -> float * Sequence.s *
     Sequence.s * Sequence.s
+end
+
+module Kpervasives : sig
+    type definition = S_K.primitives Compiler.kolmo_function list
+    module Basic : sig
+        val booleans : definition
+        val logic : definition
+        val tuples : definition
+        val lists : definition
+        val church_integers : definition
+        val stream : definition
+        val integer_decoder : definition
+        val stack : definition
+        val dna : definition
+        val huffman_decoder : definition
+        val load : Compiler.compiler -> Compiler.compiler
+    end
+end
+
+module SimpleIndels : sig
+    val apply_model : int -> Compiler.compiler -> Compiler.compiler
 end

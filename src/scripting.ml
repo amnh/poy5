@@ -336,7 +336,7 @@ module type S = sig
                 phylogeny * Tree.join_delta
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
-        val downpass : ?data:Data.d -> phylogeny -> phylogeny
+        val downpass : phylogeny -> phylogeny
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
@@ -589,8 +589,8 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
         module KTree = struct
 
             type node_name = Xml.unstructured 
-            let index_formatter data tree =
-                let tree = TreeOps.to_formatter [] data tree in
+            let index_formatter tree =
+                let tree = TreeOps.to_formatter [] tree in
                 let nodes =
                     let rec get_nodes acc ((x, _, sub) as n) =
                         match x with
@@ -735,7 +735,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             let process data csv tree =
                 let csv = TemporalGIS.csv csv in
-                let nodes = index_formatter data tree in
+                let nodes = index_formatter tree in
                 let topo = create_simplified_topology csv nodes data tree in
                 let ancestors = parent_table topo in
                 { ancestors = ancestors; nodes = nodes; topo = topo }
@@ -1387,10 +1387,11 @@ let process_transform (run : r) (meth : Methods.transform) =
             let trees = 
                 Sexpr.map 
                 (fun x ->
-                    { Ptree.empty with Ptree.tree = 
-                        Tree.replace_codes 
+                    { (Ptree.empty data) with 
+                        Ptree.tree = Tree.replace_codes 
                         (fun x -> try Hashtbl.find htbl x with _ -> x)
-                        x.Ptree.tree })
+                        x.Ptree.tree;
+                })
                 run.trees 
             in
             update_trees_to_data true false
@@ -1804,7 +1805,7 @@ let do_recovery run =
     let rec adder res = 
         if Queue.is_empty run.queue.Sampler.queue then Sexpr.of_list res
         else adder (let trees = List.map (fun (a, _, _) -> 
-            let nt = { Ptree.empty with Ptree.tree = a } in
+            let nt = { (Ptree.empty run.data) with Ptree.tree = a } in
             let nt = List.fold_left (fun acc x ->
                 Ptree.add_node_data (Node.taxon_code x) x acc) nt run.nodes
             in
@@ -2152,8 +2153,8 @@ let emit_identifier =
         print_msg "The test passed";
         (Sexpr.map extract_tree run.trees), (Sexpr.map extract_tree run.stored_trees)
 
-    let toptree tree = 
-        { Ptree.empty with Ptree.tree = tree } 
+    let toptree data tree = 
+        { (Ptree.empty data) with Ptree.tree = tree } 
 
     let update_codes run tc tree = 
         let code_ref = ref run.data.Data.number_of_taxa in
@@ -2222,8 +2223,8 @@ let emit_identifier =
             let my_trees = run.trees 
             and my_stored = run.stored_trees in
             let nrun = 
-                let nt = Sexpr.map toptree trees 
-                and nst = Sexpr.map toptree stored_trees in
+                let nt = Sexpr.map (toptree run.data) trees 
+                and nst = Sexpr.map (toptree run.data) stored_trees in
                 update_trees_to_data true false { run with trees = nt; stored_trees = nst }
             in
             let () =
@@ -2927,8 +2928,8 @@ let rec process_application run item =
              else begin
                  let trees = Array.map (fun x ->
                      let cost = (Ptree.get_cost `Adjusted x) in
-                     cost, (TS.build_forest_as_tree collapse x
-                     run.data "")) trees
+                     cost, 
+                     (TS.build_forest_as_tree collapse x "")) trees
                  in
                  match filename with 
                  | Some filename ->
@@ -2958,7 +2959,7 @@ end
              let trees = Sexpr.map (fun x ->
                      let cost = int_of_float (Ptree.get_cost `Adjusted x) in
                      let str = string_of_int cost in
-                     cost, TS.build_forest_as_tree collapse x run.data str) 
+                     cost, TS.build_forest_as_tree collapse x str) 
                     run.trees
              in
              Sexpr.leaf_iter (fun (cost, x) -> 
@@ -4369,7 +4370,7 @@ END
                     let trees =                          
                         let classify = false in
                         let run = update_trees_to_data ~classify false true run in
-                        Sexpr.map (TreeOps.to_formatter [] run.data) run.trees  
+                        Sexpr.map (TreeOps.to_formatter []) run.trees  
                     in 
                     Status.user_message (Status.Output (filename, false, [])) 
                     "@[";
@@ -4384,7 +4385,7 @@ END
                     let trees =                          
                         let classify = false in
                         let run = update_trees_to_data ~classify false true run in
-                        Sexpr.map (TreeOps.to_formatter [] run.data) run.trees  
+                        Sexpr.map (TreeOps.to_formatter []) run.trees  
                     in 
                     GraphicsPs.display_diagnosis "Diagnosis" filename trees;
                     (* Flush the formatter *)
@@ -4686,7 +4687,7 @@ let set_console_run r = console_run_val := r
         let to_string collapse tree data = 
             let cost = string_of_float (Ptree.get_cost `Adjusted tree) in
             let res = 
-                PtreeSearch.build_forest_with_names_n_costs collapse tree data cost false
+                PtreeSearch.build_forest_with_names_n_costs collapse tree cost false
             in
             List.map (AsciiTree.for_formatter false true true) res 
 

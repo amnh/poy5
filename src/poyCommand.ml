@@ -142,8 +142,7 @@ type transform_method = [
     | `AnnchromToBreakinv of chromosome_args list
     | `ChromToSeq of chromosome_args list
     | `BreakinvToSeq of chromosome_args list
-    | `Seq_to_Kolmogorov of 
-        ((string * string) option * string option * int * int * float)
+    | `Seq_to_Kolmogorov of Methods.kolmo_model
     | `OriginCost of float
 ]
 
@@ -1341,15 +1340,7 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
-                [ LIDENT "kolmogorov"; ":"; left_parenthesis; 
-                    indels = OPT [ left_parenthesis; a = STRING; ","; b =
-                        STRING; right_parenthesis -> (a, b)] 
-                    ; ","; 
-                    subst = OPT [ x = STRING -> x]; ","; maxlen = INT; ","; max_indel_len =
-                        INT; ","; event_prob = FLOAT; right_parenthesis -> 
-                        `Seq_to_Kolmogorov (indels, subst, int_of_string maxlen,
-                        int_of_string max_indel_len, float_of_string event_prob)
-                ] 
+                [ LIDENT "kolmogorov" -> `Seq_to_Kolmogorov `AtomicIndel ] 
             ];
         informative_characters:
             [
@@ -1548,7 +1539,7 @@ let create_expr () =
                 [ LIDENT "treestats" -> `TreesStats ] |
                 [ LIDENT "searchstats" -> `SearchStats ] |
                 [ LIDENT "treecosts" -> `TreeCosts ] |
-                [ LIDENT "kolmomachine" -> `KolmoMachine ] |
+                [ LIDENT "kolmo_machine" -> `KolmoMachine ] |
                 [ LIDENT "timer"; ":"; x = STRING -> `TimeDelta x ] |
                 [ LIDENT "_mst" -> `MstR ] | 
                 [ LIDENT "consensus"; x = OPT optional_integer_or_float -> 

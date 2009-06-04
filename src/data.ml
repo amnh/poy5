@@ -399,9 +399,7 @@ type d = {
     (** The association list of files and kind of data they could hold *)
     files : (string * contents list) list;
     (* An index of characters defined using the MDL principle *)
-    machine : 
-        (Kolmo.S_K.primitives * (string * int * Kolmo.S_K.primitives) list * 
-        Kolmo.S_K.primitives list All_sets.IntegerMap.t) option;
+    machine : Kolmo.Compiler.compiler;
     (* The search information to be presented to the user *)
     search_information : OutputInformation.t list;
     (* At what taxon to root output trees *)
@@ -466,7 +464,7 @@ let empty () =
         kolmogorov = [];
         static_ml = [];
         files = [];
-        machine = None;
+        machine = Kolmo.Compiler.compiler;
         search_information = [`TreeInformation [`Summary]; `CostMode];
         root_at = None;
         complex_schema = [];
@@ -560,8 +558,50 @@ let get_empty_seq alph =
     let seq = Sequence.prepend_char seq (Alphabet.get_gap alph) in
     { seq = seq; code = -1; }
 
+
+let myprint (data : d) = 
+ Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
+    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
+    let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
+        let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
+        let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
+        Printf.fprintf stdout "data.taxon_codes: Key: %d, Taxon name: %s, number chars: %i\n" key taxa_name len;
+        Hashtbl.iter
+            (fun _ ch ->
+                 match ch with 
+                 | Dyna (code, dyna_data), _ ->         
+                       let  char_name = Hashtbl.find data.character_codes code in
+                       Printf.fprintf stdout
+                       "data.character_specs=(code,dyna_data), code=%d, dyna_data = %s -> \n " code char_name; 
+                       Array.iter (fun seq -> 
+                                       Printf.fprintf stdout "seq.code=%i,seq.seq=" seq.code;
+                                       Sequence.print stdout seq.seq Alphabet.nucleotides;
+                                       Printf.fprintf stdout " | \n"
+                                 ) dyna_data.seq_arr;
+                       print_newline ();
+                 | _ -> ()
+            ) ch_ls;
+    in
+    let print_specs (code : int) (spec : specs) = 
+        let name = Hashtbl.find data.character_codes code in 
+        Printf.fprintf stdout "Key: %i, name: %s " code name; 
+        (match spec with 
+        | Dynamic dspec ->
+              (match dspec.state with 
+               | `Seq -> Printf.fprintf stdout "Seq"
+               | `Breakinv -> Printf.fprintf stdout "Breakinv"
+               | `Chromosome -> Printf.fprintf stdout "Chromosome"
+               | `Genome -> Printf.fprintf stdout "Genome"
+               | `Annotated -> Printf.fprintf stdout "Annotated")
+        | _ -> Printf.fprintf stdout "Not Dynamic");
+
+        print_newline ()
+    in 
+    Hashtbl.iter print_taxon data.taxon_characters;
+    Hashtbl.iter print_specs data.character_specs
+
+
 let print (data : d) = 
-    print_endline "Start printing data";
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
     List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
 
@@ -2469,19 +2509,10 @@ module Kolmogorov = struct
 
     let calculate data indels substitution max_word_len max_indel_length
     event_prob =
-        (* We first verify that each of the functions selected by the user have
-        * a frequency associated *)
-        let data = 
-            match data.machine with
-            | None -> 
-                    let machine = Kolmo.Compiler.tree_of_decoder () in
-                    { data with machine = Some machine } 
-            | Some _ -> data 
-        in
         (* We begin by compiling the machine that has been loaded so far *)
-        let find_function str = 
-            match data.machine with
-            | Some (_, codes, repr) ->
+        let find_function = 
+            let (_, codes, repr) = Kolmo.Compiler.tree_of_decoder data.machine in
+            fun str ->
                     let (_, code, _) = 
                         List.find ~f:(fun (name, _, _) -> name = str) codes 
                     in
@@ -2491,7 +2522,6 @@ module Kolmogorov = struct
                     in
                     Printf.printf "%s: %f\n%!" str res;
                     res
-            | None -> assert false
         in
         let rec log2 x acc = 
             if x > 0 then 
@@ -2818,6 +2848,11 @@ let get_state default = function
 
 let kolmo_round_factor = 100.
 
+let kolmo_sequence_length = 2000
+let kolmo_event_length = 5
+let kolmo_event_probability = 0.25
+
+
 let convert_dyna_spec data chcode spec transform_meth =  
     match spec with   
     | Kolmogorov _ 
@@ -2841,7 +2876,18 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, _ -> failwith "Illegal character transformation requested"
         in
         (match transform_meth with
-        | `Seq_to_Kolmogorov (a, b, c ,d, e) ->
+        | `Seq_to_Kolmogorov model ->
+                let a, b = 
+                    Some ("Dna.insert", "Dna.delete"), 
+                    Some "Dna.substitute" 
+                in
+                let c, d, e =
+                    match model with
+                    | `AtomicIndel 
+                    | `AffineIndel -> 
+                            kolmo_sequence_length,
+                            kolmo_event_length, kolmo_event_probability
+                in
                 let kolmospec, dyn_spec_options, data = 
                     Kolmogorov.calculate data a b c d e in
                 let tcm = 
@@ -3432,8 +3478,17 @@ let get_tran_code_meth data meth =
 
 (** transform all sequences whose codes are on the code_ls into chroms *)    
 let transform_dynamic meth data =
+    let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
-    let tran_code_ls, meth = get_tran_code_meth !data meth in 
+    let () = 
+        match meth with
+        | `Seq_to_Kolmogorov `AtomicIndel -> 
+                data := { !data with 
+                    machine = Kolmo.SimpleIndels.apply_model
+                    kolmo_sequence_length Kolmo.Compiler.compiler }
+        | `Seq_to_Kolmogorov `AffineIndel -> assert false
+        | _ -> ()
+    in
     Hashtbl.iter
     (fun code spec ->
          if List.mem code tran_code_ls then begin
@@ -5054,16 +5109,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
 let report_kolmogorov_machine file data =
     let fo = Status.Output (file, false, []) in
     let fo = Status.user_message fo in
-    let data = 
-        match data.machine with
-        | None -> 
-                let machine = Kolmo.Compiler.tree_of_decoder () in
-                { data with machine = Some machine } 
-        | Some _ -> data 
-    in
-    match data.machine with
-    | Some (res, _, _) -> 
-            fo (string_of_int (List.length (Kolmo.S_K.s_encode res)));
-            fo "\n%!";
-            data
-    | None -> assert false
+    let (res, _, _) = Kolmo.Compiler.tree_of_decoder data.machine in
+    fo (string_of_int (List.length (Kolmo.S_K.s_encode res)));
+    fo "\n%!";
+    data

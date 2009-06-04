@@ -2786,10 +2786,6 @@ module SC = struct
                 Hashtbl.find table_of_alphabets index
             else
                 let r =
-                    let cnt = ref (1) in
-                    let prepro_symbols = 
-                        List.map (fun x -> incr cnt; x, !cnt, None) symbols
-                    in
                     match get_datatype form with
                     | Nexus.Protein ->
                             Alphabet.list_to_a
@@ -3825,11 +3821,11 @@ module SC = struct
                         | "TRUE" -> true
                         | "FALSE" | _ -> false
                     and priors = 
-                        let sum = List.fold_left (fun x (_,y) -> x +. y) 0.0 priors in
-                        (* if sum =. 1.0 then failwith "Priors do not sum to 1.0"; *)
-                        (* each charset must have a consistent alphabet, so
-                         * check one character and continue, assert rest *)
-                        List.fold_right (fun (_,y) x -> y::x) priors []
+                        let priors = List.map snd priors in
+                        let sum = List.fold_left (+.) 0.0 priors in
+                        match classify_float (sum -. 1.0) with
+                        | FP_subnormal | FP_zero -> priors
+                        | _ -> failwith "Priors sum greater than 1.0" 
                     in
                     (STLikelihood ({
                         substitution = submatrix;

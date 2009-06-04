@@ -1,32 +1,34 @@
-let simple_indelsubstitution max =
-    Kolmo.Compiler.compile_decoder (OCAMLSK
-        let m_true = [SK K]
-        let m_false = [SK (S K)]
-        let m_and y x = if x then y else x
-        let m_or x y = if x then x else y
-        let m_not x = if x then m_false else m_true
+type definition = S_K.primitives Compiler.kolmo_function list
 
-        let first = m_true
+module Basic = struct
+    let booleans = (OCAMLSK 
+        let m_true = [SK K] 
+        let m_false = [SK (S K)])
+
+    let logic = (OCAMLSK
+        let m_and y x = if x then y else x                                  
+        let m_or x y = if x then x else y                          
+        let m_not x = if x then m_false else m_true)
+
+    let tuples = (OCAMLSK
+        let first = m_true                                                    
         let second = m_false
-        val pair a b c = c a b
+        let m_pair a b c =   c a b
+        let pair = m_pair)
 
-        module Stream = struct
-            (* We don't use the continuation in this version *)
-            let to_bool continuation x = x [SK S] [SK K] [SK K] m_not m_true
-        end
+    let lists = (OCAMLSK
+        module List = struct
+            let head = first
+            let tail = second
+            let prepend = pair
+        end)
 
-        module Stack = struct
-            val push x stack = pair [SK S] (pair x stack)
-            val empty = pair [SK K] [SK K]
-            val pop stack = first (second stack)
-            val rest stack = second stack
-            val is_empty stack = Stream.to_bool (first stack)
-        end
+    let church_integers = (OCAMLSK
         module Church = struct
             let zero = pair m_false [SK K]
-            val successor x = pair m_true x                                   
-            val predecessor x = x second                                
-            val not_zero x = x first
+            let successor x = pair m_true x                                   
+            let predecessor x = x second                                
+            let not_zero x = x first
             let rec equal a b =
                 if (m_and (not_zero a) (not_zero b)) then
                     (equal (predecessor a) (predecessor b))
@@ -54,15 +56,26 @@ let simple_indelsubstitution max =
                     (add x (multiply x (predecessor y)))
                 else 0
 
-            let log2 x = 
-                let rec log2 acc cur x =
-                    if (m_or (gt cur x) (equal cur x)) then acc
-                    else (log2 (successor acc) (add cur cur) x)
-                in
-                log2 0 1 x
+            let rec log2 acc cur x =
+                if (m_or (gt cur x) (equal cur x)) then acc
+                else (log2 (successor acc) (add cur cur) x)
 
-        end
+            let log2 x = log2 0 1 x
 
+        end)
+
+    let stream = (OCAMLSK
+        module Stream = struct
+            let to_bool x = x [SK S] [SK K] [SK K] m_not m_true
+
+            (* We define a vanilla function that decodes the church integer in
+            * the following stream *)
+            let rec decode_church_integer acc next = 
+                if (to_bool next) then 
+                    (decode_church_integer (Church.successor acc))
+                else acc
+        end)
+    let decoder = (OCAMLSK
         module Decoder = struct
 
             let rec generic_decoder decoder tree next =
@@ -88,9 +101,11 @@ let simple_indelsubstitution max =
             let leaf x = pair [SK K] x
 
             let node x y = pair (pair [SK S] x) (pair [SK S] y)
-        end
+        end)
 
 
+
+    let integer_decoder = (OCAMLSK
         module IntegerDecoder = struct
             (* A function to compute log2 x *)
             let church_stream continuation = 
@@ -177,8 +192,66 @@ let simple_indelsubstitution max =
                 startup left right leftcnt threshold Church.successor
                 Church.predecessor
 
-        end
+        end)
 
+    let stack = (OCAMLSK
+        module Stack = struct
+            let empty = pair [SK K] [SK K]
+            let push x stack  = pair [SK S] (pair x stack)
+            let pop stack = first (second stack)
+            let rest stack = second stack
+            let is_empty stack = Stream.to_bool (first stack)
+        end)
+
+
+    let dna = (OCAMLSK
+        module Dna = struct
+            let empty = pair [SK K] [SK K]
+            let prepend x stack  = pair [SK S] (pair x stack)
+            let rest stack = second stack
+            let is_empty stack = Stream.to_bool (first stack)
+            let first stack = first (second stack)
+            let rec insert sequence base position =
+                if Church.not_zero position then 
+                    (prepend (first sequence) (insert (rest sequence) base
+                    (Church.predecessor position)))
+                else (prepend base sequence)
+        end)
+
+
+    let huffman_decoder = (OCAMLSK
+        (* We will define the structure of a generic Huffman like decoder
+        * for streams of S and K *)
+        let leaf x = pair [SK K] x
+        let is_leaf x = first x
+        let is_internal x = m_not (List.is_leaf x)
+
+        let rec basic_decoder tree next =
+            if (List.is_leaf tree) then
+                (let a = second tree in
+                (a next))
+            else
+                let b = Stream.to_bool next in
+                (basic_decoder (b (second tree)))
+
+        let rec basic_decoder_cb tree acc next = 
+            if (is_leaf tree) then
+                let a = second tree in
+                a acc next
+            else 
+                let a = Stream.to_bool next in
+                basic_decoder_cb (a (second tree)) acc)
+
+    let load compiler = 
+        let compile a b = Compiler.compile b a in
+        List.fold_left compile compiler
+        [booleans; logic; tuples; lists; church_integers; stream;
+        stack; decoder; integer_decoder; dna; huffman_decoder]
+end 
+
+module Continuation = struct
+
+    let church_integers = (OCAMLSK
         module ChurchC = struct
             let successor continuation x =
                 continuation (Church.successor x)
@@ -190,123 +263,72 @@ let simple_indelsubstitution max =
                 continuation (Church.substract x y)
             let multiply continuation x y =
                 continuation (Church.multiply x y)
-        end
+            let log2 continuation x =
+                continuation (Church.log2 x)
+        end)
 
+    let integer_decoder = (OCAMLSK
         module IntegerDecoderC = struct
-
-            val uniform_max continuation = 
-                let rec _aux_uniform_max continuation acc max next =
-                    let nacc = 
-                        Church.add (Church.add acc acc) 
-                        (if (Stream.to_bool next) then 1 else 0) 
-                    in
-                    if (Church.equal max 1) then (continuation nacc)
-                    else (_aux_uniform_max continuation nacc (Church.predecessor max))
+            let rec _aux_uniform continuation acc bits next =
+                let nacc = 
+                    Church.add (Church.add acc acc) 
+                    (if (Stream.to_bool next) then 1 else 0) 
                 in
-                _aux_uniform_max continuation 0 [max]
+                if (Church.gt bits 1) then
+                    (_aux_uniform continuation nacc (Church.predecessor bits))
+                else (continuation nacc)
 
-        end
+            let uniform continuation =
+                IntegerDecoder.church_stream (_aux_uniform continuation 0)
 
-        module Dna = struct
-            (* First the functions to decode a base and a sequence *)
-            val decode_base continuation a b =
-                continuation (pair (Stream.to_bool a) (Stream.to_bool b))
-
-            let decode_sequence continuation =
-                let _add_sequence continuation len =
-                    let rec _aux_decode_sequence continuation len seq =
-                        let prepend_base continuation seq = 
-                            let prepend_rev continuation seq base =
-                                continuation (Stack.push base seq)
-                            in
-                            decode_base (prepend_rev continuation seq)
-                        in
-                        if (Church.not_zero len) then
-                            (prepend_base (_aux_decode_sequence continuation len) seq)
-                        else (continuation seq)
-                    in
-                    _aux_decode_sequence continuation len Stack.empty
+            let rec _aux_uniform_max continuation acc max next =
+                let nacc = 
+                    Church.add (Church.add acc acc) 
+                    (if (Stream.to_bool next) then 1 else 0) 
                 in
-                IntegerDecoderC.uniform_max (_add_sequence continuation Stack.empty)
+                if (Church.equal max 1) then (continuation nacc)
+                else (_aux_uniform_max continuation nacc (Church.predecessor max))
 
-            (* Now we write the functions for insertions *)
+            let uniform_max continuation = _aux_uniform_max continuation 0
 
-
-            val insert continuation seq =
-                let do_insertion continuation sequence position base =
-                    let rec do_insertion sequence position base =
-                        if (Church.not_zero position) then
-                            (Stack.push (Stack.pop sequence) (do_insertion (Stack.rest
-                            sequence) (Church.predecessor position) base))
-                        else (Stack.push base sequence)
-                    in
-                    continuation (do_insertion sequence position base)
-                in
-                IntegerDecoderC.uniform_max (decode_base (do_insertion continuation seq))
-
-            val delete continuation seq =
-                let do_deletion continuation sequence position =
-                    let rec do_deletion sequence position =
-                        if (Church.not_zero position) then
-                            (Stack.push (Stack.pop sequence) (Stack.rest sequence))
-                        else (Stack.rest sequence)
-                    in
-                    continuation (do_deletion sequence position)
-                in
-                IntegerDecoderC.uniform_max (do_deletion continuation seq)
+            let rec uniform_min_max continuation min max next =
+                uniform_max (ChurchC.add continuation min) 
+                (Church.substract max min)
+        end)
 
 
-            val substitute continuation seq = 
-                let do_substitution continuation sequence position base =
-                    let rec do_substitution sequence position base =
-                        if (Church.not_zero position) then
-                            (Stack.push (Stack.pop sequence) 
-                            (do_substitution (Stack.rest sequence) 
-                                (Church.predecessor position) base))
-                        else (Stack.push base (Stack.rest sequence))
-                    in
-                    continuation (do_substitution sequence position base)
-                in
-                IntegerDecoderC.uniform_max (decode_base (do_substitution continuation
-                seq))
-        end
+    let stream = (OCAMLSK
+        module StreamC = struct
+            let rec _aux_decode_church_integer continuation acc next =
+                if (Stream.to_bool next) then
+                    _aux_decode_church_integer continuation
+                    (Church.successor acc)
+                else (continuation acc)
+            let decode_church_integer continuation = 
+                _aux_decode_church_integer continuation 0
+        end)
 
-        module Branch = struct
-            val leaf continuation results stack =
-                continuation 
-                (Stack.push (Stack.pop stack) results) 
-                (Stack.rest stack)
+    let dna = (OCAMLSK
+        module DnaC = struct
+            (* All of the functions that we now apply must take a callback
+            * function that will be applied over the accumulator. *)
+            let decode_base callback a b =
+                callback (pair (Stream.to_bool a) (Stream.to_bool b))
+        end)
 
-            val interior continuation results stack =
-                continuation results (Stack.push (Stack.pop stack) stack)
 
-            val ended continuation results stack = results
-        end
 
+
+    let tree = (OCAMLSK
         module Tree = struct
 
-            val root continuation results = 
-                let _aux_root continuation results stack seq =
-                    continuation results (Stack.push seq stack)
-                in
-                Dna.decode_sequence (_aux_root continuation results Stack.empty)
+            let what_to_do_in_node process_branch stack results seq next =
+                if (Stream.to_bool next) then
+                    let next_call = Stack.pop stack in
+                    (next_call (Stack.rest stack) (Stack.push seq results))
+                else (process_branch stack results seq)
 
-        end
+        end)
 
-        module Phylogeny = struct
-            val start continuation =
-                Tree.root continuation Stack.empty
-        end) ["insert", 300; "delete", 300; "substitute", 300; "leaf", 50;
-        "interior", 49; "end", 50; "root", 2]
 
-let () = 
-    let max = 
-        Kolmo.Compiler.compile KolmoPervasives.pervasives;
-        let r = Kolmo.Compiler.get "IntegerDecoder.uniform" in
-        (* This test will fix the maximum to some number n *)
-        (SK ([r] K K K K K K K K K K K S K S K K K S K K K S S))
-    in
-    simple_indelsubstitution max;
-    let res, _, _ = Kolmo.Compiler.tree_of_decoder () in
-    Printf.printf "The COMPLEXITY is %d\n%!" 
-        (List.length (Kolmo.S_K.s_encode res))
+    end

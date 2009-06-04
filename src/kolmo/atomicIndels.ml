@@ -1,5 +1,5 @@
-let simple_indelsubstitution () =
-    Kolmo.Compiler.compile_decoder (OCAMLSK
+let simple_indelsubstitution compiler =
+    Compiler.compile_decoder (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
         let m_and y x = if x then y else x
@@ -63,7 +63,6 @@ let simple_indelsubstitution () =
         end
 
         module IntegerDecoder = struct
-            (* A function to compute log2 x *)
             let church_stream continuation = 
                 let rec _aux_church_stream continuation acc next = 
                     if (Stream.to_bool next) then
@@ -86,20 +85,6 @@ let simple_indelsubstitution () =
 
         end
 
-        module ChurchC = struct
-            let successor continuation x =
-                continuation (Church.successor x)
-            let predecessor continuation x =
-                continuation (Church.predecessor x)
-            let add continuation x y =
-                continuation (Church.add x y)
-            let substract continuation x y =
-                continuation (Church.substract x y)
-            let multiply continuation x y =
-                continuation (Church.multiply x y)
-            let log2 continuation x =
-                continuation (Church.log2 x)
-        end
 
         module IntegerDecoderC = struct
 
@@ -208,13 +193,8 @@ let simple_indelsubstitution () =
                 Tree.root continuation Stack.empty
         end) ["Dna.insert", 300; "Dna.delete", 300; "Dna.substitute", 300;
         "Branch.leaf", 50; "Branch.interior", 49; "Branch.ended", 50; 
-        "Tree.root", 2]
+        "Tree.root", 2] compiler
 
 
 
-let () = simple_indelsubstitution ()
-        (*
-    let res, _, _ = Kolmo.Compiler.tree_of_decoder () in
-    Printf.printf "The COMPLEXITY is %d\n%!" 
-        (List.length (Kolmo.S_K.s_encode res))
-        *)
+let apply_model compiler = simple_indelsubstitution compiler

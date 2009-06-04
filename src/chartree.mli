@@ -53,16 +53,16 @@ val print_node_data_indent :
 
 (** {2 Downpass and Uppass} *)
 
-val downpass_handle : ?data:Data.d -> int -> 'a p_tree -> 'a p_tree 
+val downpass_handle : int -> 'a p_tree -> 'a p_tree 
 
 (** [downpass_handle handle tree] performs a downpass operation on the tree in
     [tree] with handle [handle].  This downpass uses existing nodes as previous
     alignments.  This operation is {i not} sufficient for having a correct cost
     associated with the tree. *)
-val downpass : ?data:Data.d -> 'a p_tree -> 'a p_tree
+val downpass : 'a p_tree -> 'a p_tree
 
 (** [downpass tree] performs a downpass on each handle of [tree] *)
-val force_downpass_handle : (* ?data:Data.d -> *) int -> 'a p_tree -> 'a p_tree
+val force_downpass_handle :  int -> 'a p_tree -> 'a p_tree
 
 (** As above, but this downpass discards existing HTU nodes.  Useful for
     replacing the nodes in the OTU leaves. *)
@@ -151,16 +151,16 @@ val incremental_downpass :
 * and single assignment to the parent contents the tuple [g]. *)
 val subtree_to_formatter : 
     ChromCS.IntSet.t * ChromCS.IntSet.t ->
-    Xml.attributes -> Data.d -> Ptree.phylogeny -> int ->
+    Xml.attributes -> Ptree.phylogeny -> int ->
     (Node.node_data * Node.node_data) option -> Xml.xml
 
 val handle_to_formatter : 
     All_sets.Integers.t * All_sets.Integers.t -> 
-        Xml.attributes -> Data.d -> Ptree.phylogeny -> 
+        Xml.attributes -> Ptree.phylogeny -> 
             int -> Xml.xml
 
 val to_formatter :
         Xml.attributes ->
-        Data.d -> (Node.node_data, 'a) Ptree.p_tree -> Xml.xml
+        (Node.node_data, 'a) Ptree.p_tree -> Xml.xml
 
 val get_active_ref_code :(Node.node_data, 'a) Ptree.p_tree -> All_sets.Integers.t * All_sets.Integers.t

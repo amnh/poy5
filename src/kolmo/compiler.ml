@@ -182,7 +182,16 @@ and compile must_be_defined environment (spec : S_K.primitives kolmo_function)  
             in
             add_function environment isrecursive name arguments definition
 
-let environment = ref [All_sets.StringMap.empty]
+type compiler = {
+    environment : environment_item All_sets.StringMap.t list;
+    decoder :   (All_sets.StringMap.key * All_sets.IntegerMap.key *
+    S_K.primitives) list;
+    final_code : S_K.primitives list All_sets.IntegerMap.t;
+}
+
+let compiler = { environment = [All_sets.StringMap.empty]; 
+    decoder = []; final_code = All_sets.IntegerMap.empty }
+
 
 type encoded = 
     | Encoded of int
@@ -372,9 +381,6 @@ and compile_decoder counter must_be_defined environment (spec : sk_function)  =
             add_function_decoder counter isval environment isrecursive 
             name arguments definition
 
-let decoder = ref []
-let final_code : S_K.primitives list All_sets.IntegerMap.t ref  = ref All_sets.IntegerMap.empty
-
 let add n code cnt =
     if All_sets.IntegerMap.mem code cnt then 
         All_sets.IntegerMap.add code 
@@ -413,7 +419,7 @@ res =
                     in
                     internal_counter (add initial code res) prim) env res
 
-let rec replace_labels ?(prefix="") replacer env =
+let rec replace_labels ?(prefix="") replacer env compiler =
     let rec internal_replacer (x : S_K.primitives) : S_K.primitives list = 
         match x with
         | `S | `K | `Debugger _ | `Lazy _ -> [x]
@@ -423,37 +429,37 @@ let rec replace_labels ?(prefix="") replacer env =
                 let lst = List.flatten lst in
                 [`Node lst]
     in
-    All_sets.StringMap.fold (fun name x res ->
+    All_sets.StringMap.fold (fun name x ((res, compiler) as acc) ->
         match x with
-        | DArgument _ -> res
+        | DArgument _ -> acc
         | DSKModule m -> 
                 let prefix = 
                     if prefix = "" then name
                     else prefix ^ "." ^ name 
                 in
-                All_sets.StringMap.add
-                name (SKModule (replace_labels ~prefix replacer m)) res
+                let labels, compiler = replace_labels ~prefix replacer m compiler in
+                All_sets.StringMap.add name (SKModule labels) res, compiler
         | DS_K (prim, c) ->
                 let f = 
                     match internal_replacer prim with
                     | [x] -> x
                     | x -> (`Node x)
                 in
-                let () = 
+                let compiler = 
                     let name = 
                         if prefix = "" then name
                         else prefix ^ "." ^ name 
                     in
-                    decoder := (name, c, f) :: !decoder;
+                    { compiler with decoder = (name, c, f) :: compiler.decoder }
                 in
-                All_sets.StringMap.add name (S_K f) res
+                All_sets.StringMap.add name (S_K f) res, compiler
         | NS_K prim -> 
                 All_sets.StringMap.add
                 name
                 (match internal_replacer prim with
                 | [x] -> S_K x
-                | x -> S_K (`Node x)) res)
-    env All_sets.StringMap.empty
+                | x -> S_K (`Node x)) res, compiler)
+    env (All_sets.StringMap.empty, compiler)
 
 let get_count a =
     match a with
@@ -491,7 +497,7 @@ let rec create_codes acc trail tree =
     | _ -> assert false
 
 
-let assign_code_based_on_frequencies initial_frequencies functions env = 
+let assign_code_based_on_frequencies initial_frequencies functions env compiler = 
     let count = 
         count_occurrences initial_frequencies functions env 
         All_sets.IntegerMap.empty
@@ -503,7 +509,7 @@ let assign_code_based_on_frequencies initial_frequencies functions env =
     in
     let tree = make_tree heap in
     let trails = create_codes All_sets.IntegerMap.empty [] tree in
-    final_code := trails;
+    { compiler with final_code = trails },
     fun x -> 
         let code =
             if x = identity then functions
@@ -511,18 +517,21 @@ let assign_code_based_on_frequencies initial_frequencies functions env =
         in
         All_sets.IntegerMap.find code trails
 
-let add_identity identity_code env =
-    let env = List.fold_left (compile Always) env (OCAMLSK let __identity a b = b) in
-    match env with
+let add_identity identity_code compiler =
+    let environment = 
+        List.fold_left (compile Always) compiler.environment 
+        (OCAMLSK let __identity a b = b) in
+    match environment with
     | [] -> assert false
     | e :: _ ->
             match All_sets.StringMap.find "__identity" e with
             | S_K x ->
-                    decoder := ("__identity", identity_code, x) :: !decoder;
-                    env
+                    { compiler with 
+                        decoder = ("__identity", identity_code, x) :: 
+                            compiler.decoder } 
             | _ -> assert false
 
-let compile_decoder specs initial_frequencies =
+let compile_decoder specs initial_frequencies compiler =
     let env, functions = 
         List.fold_left (fun (env, counter) ->
             compile_decoder counter Always env) 
@@ -530,25 +539,28 @@ let compile_decoder specs initial_frequencies =
     in
     match env with
     | [env] -> 
-            decoder := [];
-            let final_code = 
+            let compiler = { compiler with decoder = [] } in
+            let compiler, final_code = 
                 assign_code_based_on_frequencies initial_frequencies 
-                functions env 
+                functions env compiler
             in
-            let env = replace_labels final_code env in
-            environment := add_identity functions [env]
+            let env, compiler = replace_labels final_code env compiler in
+            let compiler = { compiler with environment = [env] } in
+            add_identity functions compiler
     | _ -> assert false
 
-let decoder () = !decoder
-let final_code () = !final_code
+let decoder compiler = compiler.decoder
+let final_code compiler = compiler.final_code
 
-let compile spec =
-    environment := List.fold_left (compile Always) !environment spec
+let compile spec compiler =
+    { compiler with environment = 
+        List.fold_left (compile Always) compiler.environment spec }
+ 
+let clear compiler = 
+    { compiler with environment = [All_sets.StringMap.empty] }
 
-let clear () = environment := [All_sets.StringMap.empty]
-
-let evaluate def =
-    create_sk AtTimes [] !environment def
+let evaluate def compiler =
+    create_sk AtTimes [] compiler.environment def
 
 let get acc name =
     match acc with
@@ -557,81 +569,87 @@ let get acc name =
     | SKModule environment -> 
             All_sets.StringMap.find name environment 
 
-let get name = 
+let get compiler name = 
     let path = Str.split (Str.regexp "\\.") name in
-    match !environment with
+    match compiler.environment with
     | [environment] ->
             (match List.fold_left get (SKModule environment) path with
             | S_K x -> x
             | _ -> failwith ("Illegal expression " ^ name))
     | _ -> assert false
 
-let tree_of_decoder () =
-    let initial_decoder = decoder () 
-    and final_code = final_code () in
+let tree_of_decoder compiler =
+    let initial_decoder = decoder compiler
+    and final_code = final_code compiler in
     let decoder = List.map (fun (_, code, def) -> 
         All_sets.IntegerMap.find code final_code, def) initial_decoder
     in
-    clear ();
-    compile 
-        (OCAMLSK 
-            let m_true = [SK K] 
-            let m_false = [SK (S K)]
-            let m_and y x = if x then y else x                                  
-            let m_or x y = if x then x else y                          
-            let m_not x = if x then m_false else m_true
-            let first = m_true                                                    
-            let second = m_false
-            let m_pair a b c =   c a b
-            let pair = m_pair
+    let compiler = 
+        compile 
+            (OCAMLSK 
+                let m_true = [SK K] 
+                let m_false = [SK (S K)]
+                let m_and y x = if x then y else x                                  
+                let m_or x y = if x then x else y                          
+                let m_not x = if x then m_false else m_true
+                let first = m_true                                                    
+                let second = m_false
+                let m_pair a b c =   c a b
+                let pair = m_pair
 
-            module Stream = struct
-                (* We don't use the continuation in this version *)
-                let to_bool continuation x = 
-                    x [SK S] [SK K] [SK K] m_not m_true
-            end
-            module Decoder = struct
+                module Stream = struct
+                    (* We don't use the continuation in this version *)
+                    let to_bool continuation x = 
+                        x [SK S] [SK K] [SK K] m_not m_true
+                end
+                module Decoder = struct
 
-                let rec generic_decoder decoder tree next =
-                    let side =
-                        if (Stream.to_bool next) then first tree
-                        else second tree
-                    in
-                    let tip = second side in
-                    if (Stream.to_bool (first side)) then 
-                        (generic_decoder decoder tip)
-                    else (tip (generic_decoder decoder decoder))
-                            
-                let leaf x = pair [SK K] x
+                    let rec generic_decoder decoder tree next =
+                        let side =
+                            if (Stream.to_bool next) then first tree
+                            else second tree
+                        in
+                        let tip = second side in
+                        if (Stream.to_bool (first side)) then 
+                            (generic_decoder decoder tip)
+                        else (tip (generic_decoder decoder decoder))
+                                
+                    let leaf x = pair [SK K] x
 
-                let node x y = pair (pair [SK S] x) (pair [SK S] y)
-            end);
-    let rec make_tree lst =
+                    let node x y = pair (pair [SK S] x) (pair [SK S] y)
+                end) (clear compiler)
+    in
+    let rec make_tree compiler lst =
         match lst with
         | [(_, def)] -> 
-                compile (OCAMLSK let tmp = Decoder.leaf [def]);
-                get "tmp"
+                let compiler = 
+                    compile (OCAMLSK let tmp = Decoder.leaf [def]) compiler
+                in
+                get compiler "tmp", compiler
         | [] -> assert false
         | lst ->
                 let l, r = List.partition (function (`S :: t, _) -> true
                     | `K :: t, _ -> false | _ -> assert false) lst in
                 let reduce (x, y) = (List.tl x), y in
-                let l = make_tree (List.map reduce l)
-                and r = make_tree (List.map reduce r) in
-                compile (OCAMLSK let tmp = Decoder.node [r] [l]);
-                get "tmp"
+                let l, compiler = make_tree compiler (List.map reduce l) in
+                let r, compiler = make_tree compiler (List.map reduce r) in
+                let compiler = 
+                    compile (OCAMLSK let tmp = Decoder.node [r] [l]) 
+                    compiler 
+                in
+                get compiler "tmp", compiler
     in
-    make_tree decoder, initial_decoder, final_code
+    fst (make_tree compiler decoder), initial_decoder, final_code
 
 
-let uniform_integer decoder integer =
-    let r = get decoder in
+let uniform_integer compiler decoder integer =
+    let r = get compiler decoder in
     let rec prepend items acc = 
         if items = 0 then acc
         else prepend (items - 1) (`S :: acc)
     in
-    let rec generate_list cnt acc to_encode = 
-        if to_encode = 0 then 
+    let rec generate_list cnt acc integer = 
+        if integer = 0 then 
             prepend cnt acc
         else 
             generate_list (cnt + 1)
