@@ -147,10 +147,9 @@ val median_cost : t -> float
 * a vertex, for the vertex [nn] with parent [pn] and children [c1] and [c2]. *)
 val median_3 : t -> t -> t -> t -> t
 
-(** [explode nd] makes each character in a set independent from the other by
-* placing each into it's own character class 
-val explode : t -> t list
-*)
+val print_barray1 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t -> unit
+val print_barray2 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> unit
+val print_barray3 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t -> unit
 
 (** [reroot_median a b] 
 * computes the median that should be assigned to the root of a tree as the
@@ -196,9 +195,9 @@ val m_f81   : float array -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 val m_tn93  : float array -> float -> float -> float -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_k2p   : float -> float -> int -> 
+val m_k2p   : float array -> float -> float -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_jc69  : float -> int -> 
+val m_jc69  : float array -> float -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 val m_file  : float array array -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t

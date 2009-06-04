@@ -1133,6 +1133,17 @@ let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
 
+let tree_size n = 
+    let tree_size acc = function
+        | StaticMl a -> 
+            begin match a.time with
+            | Some x,Some y -> acc +. x +. y
+            | _ -> failwith "Seriously?"
+            end
+        | _ -> acc
+    in
+    List.fold_left (tree_size) 0.0 n.characters
+
 let get_cost_mode a = a.cost_mode
 
 let compare_data_final {characters=chs1} {characters=chs2} =
@@ -3547,6 +3558,7 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median = median
         let apply_time = apply_time
+        let tree_size _ = tree_size
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
