@@ -2127,19 +2127,22 @@ module Fingerprint = struct
 end
 
 let get_leaves ?(init=[]) root t =
-    pre_order_node_visit
-        (fun parent node_id acc ->
-            try
-             match get_node node_id t with
-             | Tree.Leaf _ -> (Tree.Continue,
-                          (get_node_data node_id t) :: acc)
-             | _ -> (Tree.Continue, acc)
-            with 
-            | Not_found as err -> 
-                    Status.user_message Status.Information 
-                    ("Failed with code " ^ string_of_int node_id);
-                    raise err)
-        root t init
+    match get_node root t with
+    | Tree.Single _ -> (get_node_data root t) :: init
+    | _ ->
+            pre_order_node_visit
+                (fun parent node_id acc ->
+                    try
+                     match get_node node_id t with
+                     | Tree.Leaf _ -> (Tree.Continue,
+                                  (get_node_data node_id t) :: acc)
+                     | _ -> (Tree.Continue, acc)
+                    with 
+                    | Not_found as err -> 
+                            Status.user_message Status.Information 
+                            ("Failed with code " ^ string_of_int node_id);
+                            raise err)
+                root t init
 
 let get_all_leaves t =
     All_sets.Integers.fold
