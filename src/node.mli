@@ -21,6 +21,9 @@ exception Illegal_argument of string
 
 
 
+type to_single = 
+    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
+    `Sank | `Seq | `StaticMl ]
 (** A character set with all the information it needs for fast calculations *)
 type 'a r = { 
     preliminary : 'a;    (** Characters of the downpass *)
@@ -230,10 +233,7 @@ val empty : [`Parsimony | `Likelihood] -> node_data
 
 (** [total_cost_of_type t n] extracts the sum of the total cost of the node [n]
  * for all the characters of the type [t], as listed below *)
-val total_cost_of_type :
-  [> `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Nonadd | `Sank | `Seq |
-  `StaticMl] ->
-  node_data -> float
+val total_cost_of_type : to_single -> node_data -> float
 
 val get_cost_mode : node_data -> [ `Likelihood | `Parsimony ]
 

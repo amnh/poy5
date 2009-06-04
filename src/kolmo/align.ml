@@ -1,31 +1,31 @@
 let debug = false
 let cost = ref [||]
-let vertical : float array array ref = ref [||]
-let horizontal : float array array ref = ref [||]
-let diagonal : float array array ref = ref [||]
+let vertical : int array array ref = ref [||]
+let horizontal : int array array ref = ref [||]
+let diagonal : int array array ref = ref [||]
 let direction = ref [||]
 let event = ref [||]
 let size = ref 0
 
 type matrix = {
-    event_cost : float;
-    first_event_cost : float;
+    event_cost : int;
+    first_event_cost : int;
     matrix : Cost_matrix.Two_D.m;
 }
 
 let minimum_event matrix apos bpos =
     (!event).(bpos).(apos) <- 
-        matrix.event_cost +. (min 
+        matrix.event_cost + (min 
             (min (!event).(bpos - 1).(apos - 1) (!event).(bpos -
             1).(apos))
                 (!event).(bpos).(apos - 1))
 
 let eventf event_cost y x matrix = 
-    if event_cost <> 0. then matrix.first_event_cost
+    if event_cost <> 0 then matrix.first_event_cost
     else (!event).(x).(y) 
 
 let eventf_ac event_cost y x matrix =
-    if event_cost = 0. then 0.
+    if event_cost = 0 then 0
     else (!event).(x).(y)
 
 let costf matrix y x = (!cost).(x).(y)
@@ -33,28 +33,28 @@ let verticalf matrix y x = (!vertical).(x).(y)
 let horizontalf matrix y x = (!horizontal).(x).(y)
 let diagonalf matrix y x = (!diagonal).(x).(y)
 
-let large_float = 100000.
+let large_int = 1000000
 
 let is_in a b = 0 <> (a land b)
 
 let diag gap a b =
-    if (is_in gap (a land b)) then 0.
-    else large_float
+    if (is_in gap (a land b)) then 0
+    else large_int
 
 let go gap a i opening =
-    if i = 1 && (is_in gap (Sequence.get a i)) then 0.
+    if i = 1 && (is_in gap (Sequence.get a i)) then 0
     else if i > 1 && (is_in gap (Sequence.get a i)) && (not (is_in gap
-    (Sequence.get a (i - 1)))) then 0.
+    (Sequence.get a (i - 1)))) then 0
     else opening
 
 let subst matrix a b =
-    float_of_int (Cost_matrix.Two_D.cost a b matrix.matrix)
+    Cost_matrix.Two_D.cost a b matrix.matrix
 
 let go' matrix opening gap a b = 
-    (subst matrix a b) +.  (if not (is_in gap a) then 0. else opening)
+    (subst matrix a b) +  (if not (is_in gap a) then 0 else opening)
 
 let ge a gap extension = 
-    if is_in gap a then 0. else float_of_int extension
+    if is_in gap a then 0 else extension
 
 let min4 a b c d =
     min (min a b) (min c d)
@@ -120,28 +120,28 @@ let affine_align gap opening matrix aseq apos bseq bpos =
     and aextension = Cost_matrix.Two_D.cost abase gap matrix.matrix in
     (!cost).(bpos).(apos) <-
         min4
-            ((!cost).(bpos - 1).(apos - 1) +. (subst matrix abase bbase))
-            ((!diagonal).(bpos - 1).(apos - 1) +. (subst matrix abase bbase) +.
-                (go gap aseq apos opening) +. (go gap bseq bpos opening))
-            ((!vertical).(bpos - 1).(apos - 1) +. 
+            ((!cost).(bpos - 1).(apos - 1) + (subst matrix abase bbase))
+            ((!diagonal).(bpos - 1).(apos - 1) + (subst matrix abase bbase) +
+                (go gap aseq apos opening) + (go gap bseq bpos opening))
+            ((!vertical).(bpos - 1).(apos - 1) + 
                 (go' matrix opening gap bbase abase))
-            ((!horizontal).(bpos - 1).(apos - 1) +.
+            ((!horizontal).(bpos - 1).(apos - 1) +
                 (go' matrix opening gap abase bbase));
     (!horizontal).(bpos).(apos) <-
         min 
-            ((!horizontal).(bpos).(apos - 1) +. (ge bbase gap bextension))
-            ((!diagonal).(bpos).(apos - 1) +. (ge bbase gap bextension) +.
+            ((!horizontal).(bpos).(apos - 1) + (ge bbase gap bextension))
+            ((!diagonal).(bpos).(apos - 1) + (ge bbase gap bextension) +
                 (go gap bseq bpos opening));
     (!vertical).(bpos).(apos) <-
         min 
-            ((!vertical).(bpos - 1).(apos) +. (ge abase gap aextension))
-            ((!diagonal).(bpos - 1).(apos) +. (ge abase gap aextension) +.
+            ((!vertical).(bpos - 1).(apos) + (ge abase gap aextension))
+            ((!diagonal).(bpos - 1).(apos) + (ge abase gap aextension) +
                 (go gap aseq apos opening));
     (!diagonal).(bpos).(apos) <-
-        (diag gap abase bbase) +. 
+        (diag gap abase bbase) + 
             (min 
                 (!diagonal).(bpos - 1).(apos - 1)
-                ((!cost).(bpos - 1).(apos - 1) +. (go gap aseq apos opening) +.
+                ((!cost).(bpos - 1).(apos - 1) + (go gap aseq apos opening) +
                     (go gap bseq bpos opening)));
     select_best_direction apos bpos
 
@@ -149,8 +149,8 @@ let initialize_aff gap opening matrix aseq bseq =
     let a = 1
     and h = 2
     and v = 4 in
-    (!cost).(0).(0) <- 0.;
-    (!diagonal).(0).(0) <- large_float;
+    (!cost).(0).(0) <- 0;
+    (!diagonal).(0).(0) <- large_int;
     (!vertical).(0).(0) <- go gap aseq 1 opening;
     (!horizontal).(0).(0) <- go gap bseq 1 opening;
     (!direction).(0).(0) <- a;
@@ -158,22 +158,22 @@ let initialize_aff gap opening matrix aseq bseq =
     for i = 1 to alen - 1 do
         let bbase = Sequence.get bseq i in
         let extension = Cost_matrix.Two_D.cost bbase gap matrix.matrix in
-        (!cost).(0).(i) <- large_float;
-        (!diagonal).(0).(i) <- large_float;
-        (!vertical).(0).(i) <- large_float;
+        (!cost).(0).(i) <- large_int;
+        (!diagonal).(0).(i) <- large_int;
+        (!vertical).(0).(i) <- large_int;
         (!horizontal).(0).(i) <- 
-            (!horizontal).(0).(i - 1) +. (ge bbase gap extension);
+            (!horizontal).(0).(i - 1) + (ge bbase gap extension);
         (!direction).(0).(i) <- h;
     done;
     let blen = Sequence.length bseq in
     for i = 1 to blen - 1 do
         let abase = Sequence.get aseq i in
         let extension = Cost_matrix.Two_D.cost abase gap matrix.matrix in
-        (!cost).(i).(0) <- large_float;
-        (!diagonal).(i).(0) <- large_float;
-        (!horizontal).(i).(0) <- large_float;
+        (!cost).(i).(0) <- large_int;
+        (!diagonal).(i).(0) <- large_int;
+        (!horizontal).(i).(0) <- large_int;
         (!vertical).(i).(0) <- 
-            (!vertical).(i - 1).(0) +. (ge abase gap extension);
+            (!vertical).(i - 1).(0) + (ge abase gap extension);
         (!direction).(i).(0) <- v;
     done;
     ()
@@ -182,42 +182,42 @@ let align matrix aseq apos bseq bpos =
     let abase = Sequence.get aseq apos
     and bbase = Sequence.get bseq bpos 
     and gap = Cost_matrix.Two_D.gap matrix.matrix in
-    let subs = float_of_int (Cost_matrix.Two_D.cost abase bbase matrix.matrix)
-    and adel = float_of_int (Cost_matrix.Two_D.cost abase gap matrix.matrix)
-    and bins = float_of_int (Cost_matrix.Two_D.cost gap bbase matrix.matrix) in
+    let subs = (Cost_matrix.Two_D.cost abase bbase matrix.matrix)
+    and adel = (Cost_matrix.Two_D.cost abase gap matrix.matrix)
+    and bins = (Cost_matrix.Two_D.cost gap bbase matrix.matrix) in
     let tot_subs = 
-        subs +. (eventf_ac subs (apos - 1) (bpos - 1) matrix) +. 
+        subs + (eventf_ac subs (apos - 1) (bpos - 1) matrix) + 
         (costf matrix (apos - 1) (bpos - 1))
     and tot_adel = 
-        adel +. (eventf_ac adel (apos - 1) bpos matrix) +. 
+        adel + (eventf_ac adel (apos - 1) bpos matrix) + 
         (costf matrix (apos - 1) bpos)
     and tot_bins =
-        bins +. (eventf_ac bins apos (bpos - 1) matrix) +. 
+        bins + (eventf_ac bins apos (bpos - 1) matrix) + 
         (costf matrix apos (bpos - 1))
     in
     if tot_subs < tot_adel then begin
         if tot_subs < tot_bins then begin
             (!event).(bpos).(apos) <- 
-                matrix.event_cost +.
+                matrix.event_cost +
                 (eventf subs (apos - 1) (bpos - 1) matrix);
             (!cost).(bpos).(apos) <- tot_subs;
             (!direction).(bpos).(apos) <- 1;
         end else begin
             (!event).(bpos).(apos) <- 
-                matrix.event_cost +.
+                matrix.event_cost +
                 (eventf bins apos (bpos - 1) matrix);
             (!cost).(bpos).(apos) <- tot_bins;
             (!direction).(bpos).(apos) <- 2;
         end
     end else if tot_adel < tot_bins then begin
         (!event).(bpos).(apos) <- 
-            matrix.event_cost +.
+            matrix.event_cost +
             eventf adel (apos - 1) bpos matrix;
         (!cost).(bpos).(apos) <- tot_adel;
         (!direction).(bpos).(apos) <- 4;
     end else begin 
         (!event).(bpos).(apos) <- 
-            matrix.event_cost +.
+            matrix.event_cost +
             eventf bins apos (bpos - 1) matrix;
         (!cost).(bpos).(apos) <- tot_bins;
         (!direction).(bpos).(apos) <- 2;
@@ -236,7 +236,7 @@ let affine_align matrix aseq bseq =
     let alen = Sequence.length aseq 
     and blen = Sequence.length bseq in
     let opening = 
-        float_of_int (Cost_matrix.Two_D.gap_opening matrix.matrix)
+        (Cost_matrix.Two_D.gap_opening matrix.matrix)
     and gap = Cost_matrix.Two_D.gap matrix.matrix in
     for i = 1 to alen - 1 do
         for j = 1 to blen - 1 do
@@ -249,42 +249,40 @@ let initialize matrix aseq bseq =
     let alen = Sequence.length aseq
     and blen = Sequence.length bseq 
     and gap = Cost_matrix.Two_D.gap matrix.matrix in
-    (!cost).(0).(0) <- 0.;
-    (!event).(0).(0) <- matrix.event_cost +. matrix.first_event_cost;
+    (!cost).(0).(0) <- 0;
+    (!event).(0).(0) <- matrix.event_cost + matrix.first_event_cost;
     (!direction).(0).(0) <- 1;
     for i = 1 to blen - 1 do
         let mcost = 
-            float_of_int 
             (Cost_matrix.Two_D.cost (Sequence.get bseq i) gap matrix.matrix) 
         in
-        (!cost).(i).(0) <- (!cost).(i - 1).(0) +. mcost +.
-            (if mcost <> 0. then (!event).(i - 1).(0) else 0.);
+        (!cost).(i).(0) <- (!cost).(i - 1).(0) + mcost +
+            (if mcost <> 0 then (!event).(i - 1).(0) else 0);
         (!direction).(i).(0) <- 2;
-        (!event).(i).(0) <- matrix.event_cost +. matrix.first_event_cost;
+        (!event).(i).(0) <- matrix.event_cost + matrix.first_event_cost;
     done;
     let cost_row = (!cost).(0) 
     and direction_row = (!direction).(0)
     and event_row = (!event).(0) in
     for j = 1 to alen - 1 do
         let cost = 
-            float_of_int 
             (Cost_matrix.Two_D.cost gap (Sequence.get aseq j) matrix.matrix) 
         in
-        cost_row.(j) <- cost_row.(j - 1) +. cost +. 
-            (if cost <> 0. then event_row.(j - 1) else 0.);
+        cost_row.(j) <- cost_row.(j - 1) + cost + 
+            (if cost <> 0 then event_row.(j - 1) else 0);
         direction_row.(j) <- 4;
-        event_row.(j) <- matrix.event_cost +. matrix.first_event_cost;
+        event_row.(j) <- matrix.event_cost + matrix.first_event_cost;
     done
 
 let allocate_memory msize matrix =
     if msize < !size then ()
     else begin
-        cost := Array.make_matrix msize msize 0.;
-        vertical := Array.make_matrix msize msize 0.;
-        horizontal := Array.make_matrix msize msize 0.;
-        diagonal := Array.make_matrix msize msize 0.;
+        cost := Array.make_matrix msize msize 0;
+        vertical := Array.make_matrix msize msize 0;
+        horizontal := Array.make_matrix msize msize 0;
+        diagonal := Array.make_matrix msize msize 0;
         direction := Array.make_matrix msize msize 0;
-        event := Array.make_matrix msize msize 0.; 
+        event := Array.make_matrix msize msize 0; 
         size := msize;
     end
 
@@ -362,7 +360,7 @@ let print_matrix aseq bseq =
     Printf.printf "Aligning: %s and %s\n" (tos aseq) (tos bseq);
     for i = 0 to blen - 1 do
         for j = 0 to alen - 1 do
-            print_float (!cost).(i).(j);
+            print_int (!cost).(i).(j);
             print_string " ";
         done;
         print_newline ()
@@ -385,4 +383,4 @@ let align aseq bseq matrix =
     if debug then
         Printf.printf "Aligned %s and %s to produce %s and %s with median %s\n%!" 
         (tos aseq) (tos bseq) (tos x) (tos y) (tos z);
-    w, x, y, z
+    float_of_int w, x, y, z

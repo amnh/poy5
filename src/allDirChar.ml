@@ -311,13 +311,11 @@ with type b = AllDirNode.OneDirF.n = struct
                     new_tree.Ptree.tree 
                     (~-. (distance b a 0.0))
         in
-
         if debug_cost_fn then begin
             info_user_message "Single Character Cost: %f" single_characters_cost;
             info_user_message "Other Character Cost: %f" not_single_character_cost;
             info_user_message "Root Cost: %f" (AllDirNode.AllDirF.root_cost root)
         end;
-
         let res = 
             single_characters_cost +. not_single_character_cost +. 
             (AllDirNode.AllDirF.root_cost root)
@@ -523,9 +521,6 @@ with type b = AllDirNode.OneDirF.n = struct
             All_sets.Integers.fold assign_single_handle
             ptree.Ptree.tree.Tree.handles ptree 
         in
-        (*
-        assert ((Ptree.get_cost `Adjusted res) = check_cost res handle);
-        *)
         res
 
     let unadjust ptree = ptree
@@ -1060,10 +1055,8 @@ with type b = AllDirNode.OneDirF.n = struct
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
-        if do_roots then
-            ptree --> refresh_all_edges false None true None --> refresh_roots
-        else 
-            refresh_all_edges false None true None ptree
+        let ptree = refresh_all_edges false None true None ptree in
+        if do_roots then refresh_roots ptree else ptree
 
     let clear_internals t = internal_downpass false t
 
@@ -1475,6 +1468,14 @@ with type b = AllDirNode.OneDirF.n = struct
         assert( check_three_directions res.Ptree.ptree );
         res
 
+    let equal_float = (* Up to three significant positions *)
+        let positions = 3. in
+        let factor = 10. ** positions in
+        fun a b ->
+            let truncate x = truncate (x *. factor) in
+            (truncate a) = (truncate b)
+
+
     (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree
     * *)
     let join_fn _ jxn1 jxn2 ptree =
@@ -1570,7 +1571,11 @@ with type b = AllDirNode.OneDirF.n = struct
             let ptree, _ = 
                 reroot_fn true (Tree.Edge (v, h)) (uppass (downpass ptree)) 
             in
-            cost = Ptree.get_cost `Unadjusted ptree);
+            let res = equal_float cost (Ptree.get_cost `Unadjusted ptree) in
+            if not res then 
+                Printf.printf "The old cost was %f and the new cost is %f\n%!" 
+                cost (Ptree.get_cost `Unadjusted ptree);
+            res);
         ptree, tree_delta
 
     let get_one side = 
@@ -1657,7 +1662,7 @@ with type b = AllDirNode.OneDirF.n = struct
  
     let root_costs tree = 
         let collect_edge_data edge node acc =
-            let cost = AllDirNode.OneDirF.total_cost None node in
+            let cost = AllDirNode.OneDirF.tree_cost None node in
             (edge, cost) :: acc
         in
         Tree.EdgeMap.fold collect_edge_data tree.Ptree.edge_data []

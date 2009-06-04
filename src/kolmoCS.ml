@@ -31,7 +31,8 @@ type t = {
 
 
 let debug = false
-type u = SeqCS.Union.u
+
+type u = ()
 
 let get_model set = 
     match set.model.Data.ks.Data.kolmo_spec.Data.mo with
@@ -60,13 +61,13 @@ let seqCS_median matrix a b =
                         Kolmo.Align.align a.SeqCS.DOS.sequence 
                         b.SeqCS.DOS.sequence matrix 
                     in
-                    if debug then
+                    if debug then begin
                         let da = Sequence.to_string a_algn Alphabet.nucleotides
                         and db = Sequence.to_string b_algn Alphabet.nucleotides
                         in
                         Printf.printf "Distance from %s to %s is %f \n%!" da db
                         c
-                    else ();
+                    end;
                     let to_bitset a b = 
                         SeqCS.DOS.seq_to_bitset gap a (SeqCS.Raw b.SeqCS.DOS.sequence)
                     in
@@ -147,8 +148,9 @@ let of_array spec code taxon num_taxa =
     let initial = first -. diff in
     if debug then 
         Printf.printf "Diff is %f and initial is %f\n%!" diff initial;
-    let matrix = { Kolmo.Align.event_cost =  diff *. Data.kolmo_round_factor;
-    first_event_cost = initial *. Data.kolmo_round_factor;
+    let matrix = { 
+        Kolmo.Align.event_cost =  int_of_float (diff *. Data.kolmo_round_factor);
+    first_event_cost = int_of_float (initial *. Data.kolmo_round_factor);
         matrix = c.SeqCS.heuristic.SeqCS.c2; } in
     let other_spec = spec.Data.ks.Data.kolmo_spec in
     let bc = other_spec.Data.branch_cost 
@@ -156,18 +158,17 @@ let of_array spec code taxon num_taxa =
     { model = spec; characters = c; branch_cost = bc; leaf_cost = lc; matrix =
         matrix }
 
-let to_union x = SeqCS.to_union x.characters
+let to_union x = ()
 
-let get_sequence_union code x = SeqCS.Union.get_sequence_union code x
+let get_sequence_union code x = failwith "TODO"
 
-let union a b c = SeqCS.Union.union a.characters b c
+let union a b c = ()
 
 let compare_data a b = SeqCS.compare_data a.characters b.characters
 
 let tabu_distance a b = 0.
 
-let distance_union a b =
-    (SeqCS.Union.distance_union a b) /. Data.kolmo_round_factor
+let distance_union a b = 0.
 
 let get_dynamic_preliminary d = DynamicCS.SeqCS d.characters
 

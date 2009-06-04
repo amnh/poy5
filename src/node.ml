@@ -35,6 +35,11 @@ let info_user_message format =
 module IntSet = All_sets.Integers
 
 exception Illegal_argument of string
+
+type to_single = 
+    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
+    `Sank | `Seq | `StaticMl ]
+
 type 'a r = {
     preliminary : 'a;
     final : 'a;
@@ -316,11 +321,16 @@ let cs_prelim_to_final a =
     {a with final = a.preliminary}
 
 let calc_total_cost c1 c2 c_cost =
-    assert (c1.cost_mode = c2.cost_mode);
-    match c1.cost_mode with
-    | `Likelihood -> c_cost
-    | `Parsimony -> 
-            c_cost +. c1.total_cost +. c2.total_cost
+    let res = 
+        assert (c1.cost_mode = c2.cost_mode);
+        match c1.cost_mode with
+        | `Likelihood -> c_cost
+        | `Parsimony -> 
+                c_cost +. c1.total_cost +. c2.total_cost
+    in
+    if res = 10. then
+        Printf.printf "We are screwed\n%!";
+    res
 
 let total_cost _ a = a.total_cost
 
@@ -509,11 +519,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 else cb, ca
             in
             let median = KolmoCS.median code ca.preliminary cb.preliminary in
-            let total_cost = 
-                (KolmoCS.total_cost median) +. 
-                ((float_of_int (KolmoCS.cardinal median)) *.
-                (median.KolmoCS.branch_cost))
-            in 
+            let total_cost = KolmoCS.total_cost median in 
             let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
             let res = 
                 { ca with 
@@ -1305,11 +1311,7 @@ let edge_distance clas nodea nodeb =
     distance_lists nodea.characters nodeb.characters 0.
 
 let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `Kolmo]
-
-type to_single = 
-    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
-    `Sank | `Seq | `StaticMl ]
+| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv ]
 
 module ToSingleModule = Set.Make (struct type t = to_single let compare =
     compare end)
@@ -1579,16 +1581,11 @@ let extract_kolmo data kolmo tcode =
               in
               KolmoCS.of_array kspec [|(seq, chcode)|] chcode num_taxa
           in 
-          let card = KolmoCS.cardinal dyna in
-          let cost = 
-              (float_of_int card) *.
-              kspec.Data.ks.Data.kolmo_spec.Data.leaf_cost
-          in
           { preliminary = dyna; 
             final = dyna; 
-            cost = cost; 
+            cost = 0.; 
             weight = weight;
-            sum_cost = cost;
+            sum_cost = 0.;
             time = None,None;
           } 
     | Data.Stat (code, _), _ ->
@@ -2412,9 +2409,10 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
                    weight = mine.weight; time = None,None}
+          (*
     | Kolmo parent, Kolmo mine ->
-            (* Do we need this only for dynamic characters? I will first get it
-            * going here only *)
+             Do we need this only for dynamic characters? I will first get it
+            * going here only 
           let root_pre = match root with
           | Some (Kolmo root) -> Some root.preliminary
           | _ -> None
@@ -2426,7 +2424,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           Kolmo {preliminary = res; final = res; 
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = None,None}
+                   weight = mine.weight; time = None,None} *)
     | _ -> match root with
             | Some mine -> mine
             | None -> mine
@@ -3376,8 +3374,7 @@ END
                 0.0, at, bt
                 SankCS.distance a b, at, ct
                 *)
-        | (KolmoU a), (KolmoU b) ->
-                SeqCS.Union.compare_union a.ch b.ch
+        | (KolmoU a), (KolmoU b) -> 0
         | (DynamicU a), (DynamicU b) ->
                 DynamicCS.compare_union a.ch b.ch
         | _ -> failwith "Node.Union.distance TODO"
@@ -3739,6 +3736,7 @@ let total_cost_of_type t n =
                 | DynamicCS.GenomeCS _, `Genome -> 
                         acc +. (x.sum_cost *. x.weight)
                 | _ -> acc)
+        | Kolmo x, `Kolmo -> acc +. (x.sum_cost *. x.weight)
         | _ -> acc
     in
     List.fold_left total_cost_cs 0.0 n.characters

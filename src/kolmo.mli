@@ -402,8 +402,8 @@ end
 
 module Align : sig
     type matrix = {
-        event_cost : float;
-        first_event_cost : float;
+        event_cost : int;
+        first_event_cost : int;
         matrix : Cost_matrix.Two_D.m;
     }
 
