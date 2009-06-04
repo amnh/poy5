@@ -769,7 +769,7 @@ type nad8 = Node.Standard.nad8 = struct
                        );
                 x.lazy_node
             (* ...was resolved, so get the direction *)
-            |  _  -> get_dir p_code m in
+            |  _  -> get_dir p_code m 
 
         and data_p2m = match p.adjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely

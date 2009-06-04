@@ -339,16 +339,15 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp best lower fl middle fm upper fu
         else begin
-            let step = 0.0001 in
+            (* let step = 0.0001 in
             let stepval xref = xref := !xref +. step;!xref
             and time = ref (lower -. step) and out_chan = open_out "curve.tsv" in
             Printf.printf "Making file 'curve.tsv': %f -- %f\n" lower upper;
             while (stepval time) < upper do
                 Printf.fprintf out_chan "%f\t%f\n" !time (f !time);
             done;
-            close_out out_chan;
-            failwith "Curvature unexpected."
-            (* golden_ratio best lower fl middle fm upper fu *)
+            close_out out_chan; *)
+            golden_ratio best lower fl middle fm upper fu
         end
     in
     (* set up variables.. order arguments,find golden middle and evaluate *)
