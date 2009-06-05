@@ -4843,33 +4843,48 @@ let alignments_of_code code data =
     let pairs = all_pairs_alignments seqs cm in
     pairs
 
+type sequence_statistics = {
+    max_length : int;
+    min_length : int;
+    sum_lengths : int;
+    sequences : int;
+    max_distance : float;
+    min_distance : float;
+    sum_distances : float; }
+
+let sequence_code_statistics data code =
+    let seqs = get_sequences code data 
+    and pairs = alignments_of_code code data in
+    let cnt = Stack.length seqs
+    and d_min = ref max_int
+    and d_max = ref 0
+    and d_sum = ref 0 
+    and s_max = ref 0
+    and s_min = ref max_int 
+    and s_sum = ref 0 in
+    (* Gathed the distance data *)
+    Stack.iter (fun (_, _, cost) ->
+            d_min := min !d_min cost;
+            d_max := max !d_max cost;
+            d_sum := !d_sum + cost;) pairs;
+    (* Gather the sequence data *)
+    Stack.iter (fun seq ->
+        let len = Sequence.length seq in
+        s_max := max !s_max len;
+        s_min := min !s_min len;
+        s_sum := !s_sum + len) seqs;
+    code_character code data,  {
+        max_length = !s_max;
+        min_length = !s_min;
+        sum_lengths = !s_sum;
+        sequences = cnt;
+        max_distance = float_of_int !d_max;
+        min_distance = float_of_int !d_min;
+        sum_distances = float_of_int !d_sum }
+
 let sequence_statistics ch data =
     let codes = get_chars_codes_comp data ch in
-    let process_code code =
-        let seqs = get_sequences code data 
-        and pairs = alignments_of_code code data in
-        let cnt = Stack.length seqs
-        and d_min = ref max_int
-        and d_max = ref 0
-        and d_sum = ref 0 
-        and s_max = ref 0
-        and s_min = ref max_int 
-        and s_sum = ref 0 in
-        (* Gathed the distance data *)
-        Stack.iter (fun (_, _, cost) ->
-                d_min := min !d_min cost;
-                d_max := max !d_max cost;
-                d_sum := !d_sum + cost;) pairs;
-        (* Gather the sequence data *)
-        Stack.iter (fun seq ->
-            let len = Sequence.length seq in
-            s_max := max !s_max len;
-            s_min := min !s_min len;
-            s_sum := !s_sum + len) seqs;
-        code_character code data, 
-            (!s_max, !s_min, !s_sum, cnt, !d_max, !d_min, !d_sum)
-    in
-    List.map process_code codes
+    List.map (sequence_code_statistics data) codes
 
 let compare_all_pairs char1 char2 complement data = 
     let alpha1 = get_sequence_alphabet char1 data

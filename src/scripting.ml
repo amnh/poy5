@@ -4128,14 +4128,21 @@ END
                         let all_of_them = Data.sequence_statistics ch run.data in
                         let arr =
                             Array.of_list 
-                            (List.map (fun (name, (max, min, sum, cnt, maxd,
-                            mind, sumd)) ->
-                                let cnt = float_of_int cnt in
-                            [|name; string_of_int max; string_of_int min;
-                            string_of_float ((float_of_int sum) /. cnt); 
-                            string_of_int maxd; string_of_int mind; 
-                            string_of_float ((float_of_int sumd) /. 
-                            (((cnt *. cnt) /. 2.) -. (cnt /. 2.)))|]) all_of_them)
+                            (List.map (fun (name, stats) ->
+                                let cnt = float_of_int stats.Data.sequences in
+                                let len_avg =
+                                    (float_of_int stats.Data.sum_lengths) /. cnt 
+                                in
+                                let dis_avg = 
+                                    stats.Data.sum_distances /. 
+                                        (((cnt *. cnt) /. 2.) -. (cnt /. 2.))
+                                in
+                                [|name; string_of_int stats.Data.max_length; 
+                                string_of_int stats.Data.min_length;
+                                string_of_float len_avg; 
+                                string_of_float stats.Data.max_distance; 
+                                string_of_float stats.Data.min_distance; 
+                                string_of_float dis_avg|]) all_of_them)
                         in
                         Array.init (1 + Array.length arr) (function 0 ->
                             [|"Character"; "Max Length"; "Min Length"; 
