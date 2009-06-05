@@ -884,12 +884,12 @@ type nad8 = Node.Standard.nad8 = struct
         | `Dynamic ->
                 let da = 
                     match a.adjusted with
-                    | [x] -> x
-                    | _ -> failwith "AllDirNode.is_collapsable 1"
+                    | x :: _ -> x
+                    | [] -> failwith "AllDirNode.is_collapsable 1"
                 and db = 
                     match b.adjusted with
-                    | [x] -> x
-                    | _ -> failwith "AllDirNode.is_collapsable 1"
+                    | x :: _ -> x
+                    | [] -> failwith "AllDirNode.is_collapsable 1"
                 in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
