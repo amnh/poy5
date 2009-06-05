@@ -707,15 +707,19 @@ let compare_opt a b f1 f2 one two = match one,two with
  * edge with A and B respectively but not with B and A respectively *)
 let verify_time a oa b ob = 
     (* define the function to extract from tuple locations of the time *)
-    let f1 x = if a.min_child_code < oa.min_child_code then fst x else snd x
-    and f2 x = match ob with
-            | None -> fst x
-            | Some ob ->
-                    if b.min_child_code < ob.min_child_code then fst x else snd x
-    in 
     let verify_ acc aa bb = match aa,bb with
         | StaticMl aa,StaticMl bb ->
             IFDEF USE_LIKELIHOOD THEN
+                let f1 x = 
+                    if a.min_child_code < oa.min_child_code then fst x 
+                    else snd x
+                and f2 x = 
+                    match ob with
+                    | None -> fst x
+                    | Some ob ->
+                            if b.min_child_code < ob.min_child_code then fst x 
+                            else snd x
+                in 
                 (compare_opt a b f1 f2 (f1 aa.time) (f2 bb.time)) && acc
             ELSE
                 acc
@@ -1149,6 +1153,7 @@ let node_child_edges {num_child_edges = c} = c
 let get_code {taxon_code=taxcode} = taxcode
 
 let tree_size n = 
+IFDEF USE_LIKELIHOOD THEN
     let tree_size acc = function
         | StaticMl a -> 
             begin match a.time with
@@ -1158,6 +1163,9 @@ let tree_size n =
         | _ -> acc
     in
     List.fold_left (tree_size) 0.0 n.characters
+ELSE
+    0.0
+END
 
 let get_cost_mode a = a.cost_mode
 
