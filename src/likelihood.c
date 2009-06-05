@@ -296,7 +296,7 @@ value likelihood_CAML_BigarraytoS( value A )
     ret->lv_s = stuff;
 
     assert( ML_val(s) == ret);
-    CAMLreturn( s ); 
+    CAMLreturn( s );
 }
 
 /**
@@ -619,8 +619,9 @@ void likelihood_CAML_diagonalize_gtr( value tmp, value Q, value D, value Qi)
  * Finds the probability matrix based on the diagonalized substitution
  * matrix, [U] and [D], with branch length [t]. returns result in [P].
  *
- * UNCHECKED EXCEPTION ::
+ * UNCHECKED EXCEPTIONS ::
  * [n]x[n] == dim([D]) == dim([P]) == dim([U]) == dim([Ui]) == dim([TMP])
+ * t > 0
  */  
 void
 compose_sym(double* P,const double* U,const double* D,const float t,int n,double *TMP)
@@ -678,9 +679,6 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
     dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
     //P becomes U*expD*Ui... done --note: VL = inv(VR)
     dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,tmp,&n,U,&n,&beta,P,&n);
-
-    printf("\nBL:%11.10f\n",t);
-    printmatrix (P,n,n);
 }
 value 
 likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
@@ -738,7 +736,6 @@ double loglikelihood( const mll* l, const double* pi, const double* prob )
     nchars = l->c_len * l->stride;  //number of characters
     size = l->stride;
     ret=0;
-
     for(h=0;h<l->rates;++h){
         tmp = 0; tmp2 = 0;
         for(i=0,j=0; i<nchars; ++i,++j){
@@ -751,6 +748,7 @@ double loglikelihood( const mll* l, const double* pi, const double* prob )
         tmp2 -= log( tmp );
         ret += prob[h] * tmp2;
     }
+
     return (ret);
 }
 

@@ -19,9 +19,9 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let pure_ocaml = false (* ONLY use pure ocaml version *)
+let pure_ocaml = false      (* ONLY use pure ocaml version *)
 let graph_output = false    (* graph all medians in %d--%d format *)
-let phyml_mode = true
+let phyml_mode = true       (* divide by the mean rate *)
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -137,7 +137,7 @@ let print_array xs = Array.iter print_float xs; print_newline ()
 let print_array2 xxs = Array.iter print_array xxs; print_newline ()
 let print_array3 xxxs = Array.iter print_array2 xxxs; print_newline ()
 let print_list x = List.map (fun y -> Printf.printf "%d\t" y) x
-let print_barray a = 
+let print_barray1 a = 
     for i = 0 to (Bigarray.Array1.dim a)-1 do 
         Printf.printf "%2.10f\t" a.{i};
     done; Printf.printf "\n"; ()
@@ -156,7 +156,7 @@ let print_barray3 a =
         done; Printf.printf "\n";
     done; Printf.printf "\n"; ()
 
-let pp_floatopt chan v = 
+let pp_fopt chan v = 
     output_string chan 
                   (match v with
                     | Some v -> string_of_float v
@@ -339,16 +339,15 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp best lower fl middle fm upper fu
         else begin
-            let step = 0.0001 in
+            (* let step = 0.0001 in
             let stepval xref = xref := !xref +. step;!xref
             and time = ref (lower -. step) and out_chan = open_out "curve.tsv" in
             Printf.printf "Making file 'curve.tsv': %f -- %f\n" lower upper;
             while (stepval time) < upper do
                 Printf.fprintf out_chan "%f\t%f\n" !time (f !time);
             done;
-            close_out out_chan;
-            failwith "Curvature unexpected."
-            (* golden_ratio best lower fl middle fm upper fu *)
+            close_out out_chan; *)
+            golden_ratio best lower fl middle fm upper fu
         end
     in
     (* set up variables.. order arguments,find golden middle and evaluate *)
@@ -411,17 +410,30 @@ let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * floa
 (* ------------------------------------------------------------------------- *)
 (* model creation functions *)
 
+let m_meanrate srm pi_ =
+    let mr = ref 0.0 and a_size = Bigarray.Array2.dim1 srm in
+    for i = 0 to (a_size-1) do
+        mr := !mr +. (~-.(srm.{i,i}) *. pi_.(i));
+    done;
+    for i = 0 to (a_size-1) do
+        for j = 0 to (a_size-1) do
+            srm.{i,j} <- srm.{i,j} /. !mr;
+        done;
+    done
+
 (* val jc69 :: ANY ALPHABET size *)
-let m_jc69 mu a_size =
+let m_jc69 pi_ mu a_size =
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     Bigarray.Array2.fill srm mu;
     let diag = -. mu *. float (a_size-1) in
     for i = 0 to (a_size-1) do
         srm.{i,i} <- diag
-    done; srm
+    done;
+    if phyml_mode then m_meanrate srm pi_;
+    srm
 
 (* val k2p :: only 4 or 5 characters *)
-let m_k2p alpha beta a_size =
+let m_k2p pi_ alpha beta a_size =
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     Bigarray.Array2.fill srm beta;
     (* modify transition elements to alpha *)
@@ -433,10 +445,12 @@ let m_k2p alpha beta a_size =
                else -. alpha -. beta *. 3.0  in
     for i = 0 to (a_size-1) do
         srm.{i,i} <- diag
-    done; srm
+    done;
+    if phyml_mode then m_meanrate srm pi_;
+    srm
 
 (* val tn93 :: only 4 or 5 characters *)
-let m_tn93 pi_ alpha beta gamma a_size=
+let m_tn93 pi_ alpha beta gamma a_size =
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     Bigarray.Array2.fill srm gamma;
     srm.{0,2} <- alpha; srm.{1,3} <- beta; (* ACGT -- R=AG -- Y=CT *)
@@ -453,7 +467,17 @@ let m_tn93 pi_ alpha beta gamma a_size=
             if (i <> j) then diag := !diag +. srm.{i,j};
         done;
         srm.{i,i} <- -. !diag;
-    done; srm
+    done;
+    if phyml_mode then m_meanrate srm pi_;
+    srm
+
+
+let m_tn93_ratio pi_ kappa1 kappa2 a_size = 
+    let beta = (pi_.(0) *. pi_.(2) *. kappa1) +. (pi_.(1) *. pi_.(3) *. kappa2) +.
+                ((pi_.(0) +. pi_.(2)) *. (pi_.(1)+.pi_.(3)) ) in
+    let beta = 1.0 /. (2.0 *. beta) in
+    let alpha1 = kappa1 *. beta and alpha2 = kappa2 *. beta in
+    m_tn93 pi_ alpha1 alpha2 beta a_size
 
 (* val f81 :: ANY ALPHABET size *)
 let m_f81 pi_ lambda a_size =
@@ -466,7 +490,9 @@ let m_f81 pi_ lambda a_size =
                 else 
                     pi_.(j)*.lambda;
         done;
-    done; srm 
+    done;
+    if phyml_mode then m_meanrate srm pi_;
+    srm
 
 
 (* val hky85_ratio :: only 4 or 5 characters *)
@@ -492,8 +518,7 @@ let m_f84 pi_ gamma kappa a_size =
    pi_ == n; co_ == ((1+n)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
-    let n = ref 0       (* array index *)
-    and mr= ref 0.0 in  (* mean rate -- as in phyml *)
+    let n = ref 0 in (* array index *)
     let srm = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout a_size a_size in
     for i = 0 to (a_size-1) do
         for j = (i+1) to (a_size-1) do
@@ -509,15 +534,9 @@ let m_gtr pi_ co_ a_size =
             if (i <> j) then diag := !diag +. srm.{i,j};
         done;
         srm.{i,i} <- -. !diag;
-        mr := !mr +. (!diag *. pi_.(i));
     end; done;
     (* divide through by mean-rate *)
-    if phyml_mode then
-        for i = 0 to (a_size-1) do
-            for j = 0 to (a_size-1) do
-                srm.{i,j} <- srm.{i,j} /. !mr;
-            done;
-        done;
+    if phyml_mode then m_meanrate srm pi_;
     srm
 
 (* val m_file :: any alphabet size -- recomputes diagonal *)
@@ -677,9 +696,9 @@ let of_parser spec characters =
     let sym,mname,sub_mat = 
         match model.Parser.SC.substitution with
         | Parser.SC.JC69 lambda -> 
-                true,"JC69", m_jc69 lambda a_size
+                true,"JC69", m_jc69 priors lambda a_size
         | Parser.SC.K2P (alpha,beta) ->
-                true, "K2P", m_k2p alpha beta a_size
+                true, "K2P", m_k2p priors alpha beta a_size
         | Parser.SC.F81 lambda ->
                 false, "F81", m_f81 priors lambda a_size
         | Parser.SC.F84 (kappa,beta) ->

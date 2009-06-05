@@ -84,6 +84,8 @@ module type S = sig
 
     val tree_cost : int option -> n -> float
 
+    val tree_size : int option -> n -> float
+
     (** [node_cost n] calculates the cost of generating [n]. If [n] was created
     * using [load_data], then [node_cost n = 0], otherwise if it was created
     * using [median a b] (or subsequently the [final_states] of such a median), then

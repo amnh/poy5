@@ -3644,7 +3644,8 @@ module SC = struct
                 | Nexus.Node (a, n, d) ->
                         Tree.Node (List.map translate_branch a, ("",d))
             in
-            (Some name, [Tree.post_process (translate_branch tree,"")])
+            let tree = Tree.post_process (translate_branch tree,"") in
+            (Some name, [tree])
 
         let process_parsed file (acc:file_output) parsed : file_output =
             match parsed with
@@ -3786,10 +3787,7 @@ module SC = struct
                                 | _ -> failwith "Parameters don't match model")
                         | "K80" | "K2P" -> (match param with
                                 | h1::h2::[] -> K2P (h1,h2)
-                                | ratio::[] ->
-                                        let beta = 1. /. (ratio +. 2.0)
-                                        and alpha = ratio /. (2.0 +. ratio) in
-                                        K2P (alpha, beta)
+                                | ratio::[] -> K2P (ratio,1.0)
                                 | _ -> failwith "Parameters don't match model")
                         | "F84" -> (match param with
                                 | h1::h2::[] -> F84 (h1,h2)

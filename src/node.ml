@@ -713,16 +713,16 @@ let verify_time a oa b ob =
             | Some ob ->
                     if b.min_child_code < ob.min_child_code then fst x else snd x
     in 
-    let verify_ f1 f2 acc a b = match a,b with
-        | StaticMl a,StaticMl b ->
+    let verify_ acc aa bb = match aa,bb with
+        | StaticMl aa,StaticMl bb ->
             IFDEF USE_LIKELIHOOD THEN
-                (compare_opt a b f1 f2 (f1 a.time) (f2 b.time)) && acc
+                (compare_opt a b f1 f2 (f1 aa.time) (f2 bb.time)) && acc
             ELSE
                 acc
             END
         | _ -> acc
     in
-    List.fold_left2 (verify_ f1 f2) true a.characters b.characters
+    List.fold_left2 verify_ true a.characters b.characters
 
 
 let rec cs_final_states pn nn c1n c2n p n c1 c2 =
@@ -1017,7 +1017,7 @@ IFDEF USE_LIKELIHOOD THEN
                         | Some x,Some y -> Some (x+.y)
                         | _ -> None)
         in
-        function StaticML z -> f z.time | _ -> None
+        function StaticMl z -> f z.time | _ -> None
 ELSE
         fun _ -> None
 END
@@ -1033,7 +1033,7 @@ IFDEF USE_LIKELIHOOD THEN
             else snd 
         in
         function
-            | StaticML z ->
+            | StaticMl z ->
                     (MlStaticCS.get_codes z.preliminary).(0), f z.time
             | _ -> null
 ELSE
@@ -1055,7 +1055,7 @@ IFDEF USE_LIKELIHOOD THEN
                 code_ray
         in
         function
-            | StaticML z ->
+            | StaticMl z ->
                     (try
                         let codes = MlStaticCS.get_codes z.preliminary in
                         assert(((Array.length codes) > 0) && (values_match codes tbl));
@@ -1147,6 +1147,17 @@ let node_height {num_height = h} = h
 let node_child_edges {num_child_edges = c} = c
 
 let get_code {taxon_code=taxcode} = taxcode
+
+let tree_size n = 
+    let tree_size acc = function
+        | StaticMl a -> 
+            begin match a.time with
+            | Some x,Some y -> acc +. x +. y
+            | _ -> failwith "Seriously?"
+            end
+        | _ -> acc
+    in
+    List.fold_left (tree_size) 0.0 n.characters
 
 let get_cost_mode a = a.cost_mode
 
@@ -3556,6 +3567,7 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median = median
         let apply_time = apply_time
+        let tree_size _ = tree_size
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states

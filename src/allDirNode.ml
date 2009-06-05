@@ -32,6 +32,9 @@ type 'a my_lazy =
 
 type a_node = Node.node_data my_lazy
 
+let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
+let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
+
 (* to print lists through Printf *)
 let pp_list depth to_string chan lst = 
 	Format.set_formatter_out_channel chan;
@@ -243,6 +246,9 @@ module OneDirF :
 
     let total_cost x n =
         apply_single_f_on_lazy (Node.Standard.total_cost x) n
+
+    let tree_size x n =
+        apply_single_f_on_lazy (Node.Standard.tree_size x) n
 
     let node_cost par n = 
         apply_single_f_on_lazy (Node.Standard.node_cost par) n
@@ -689,7 +695,7 @@ type nad8 = Node.Standard.nad8 = struct
      * first argument is for when time is from root median *)
     let apply_time root child parent =
         if uppass_debug then
-            Printf.printf "Applying time from %d to %d\n%!"
+            info_user_message "Applying time from %d to %d"
                     (taxon_code parent) (taxon_code child);
         let has_one code x = match x.dir with
             | None -> true (* cannot be a leaf as well. should use median *)
@@ -733,7 +739,7 @@ type nad8 = Node.Standard.nad8 = struct
     **)
     let uppass_heuristic p_code m a b p =
         if uppass_debug then
-            Printf.printf "Performing uppass Heuristic on %d with (%d,%d) and %d/%d\n%!"
+            info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d/%d%!"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p) p_code;
         let has_one code x = match x.dir with
             | None -> true
@@ -758,12 +764,12 @@ type nad8 = Node.Standard.nad8 = struct
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
                 assert ( match x.dir with
-                         | None -> false (* thus, a/b are both children *)
+                         | None -> false
                          | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac)
                        );
                 x.lazy_node
             (* ...was resolved, so get the direction *)
-            |  _  -> get_dir p_code m
+            |  _  -> get_dir p_code m 
 
         and data_p2m = match p.adjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
@@ -858,6 +864,15 @@ type nad8 = Node.Standard.nad8 = struct
                 | [x] -> OneDirF.total_cost par x.lazy_node
                 | [] -> failwith "The emtpy median? AllDirNode.total_cost"
                 | _ -> failwith "AllDirNode.total_cost"
+
+    let tree_size par n = 
+        try begin match par with
+        | Some code ->
+            OneDirF.tree_size par (not_with code n.unadjusted).lazy_node
+        | None -> match n.unadjusted with
+            | [x] -> OneDirF.tree_size par x.lazy_node
+            |  _  -> failwith "AllDirNode.tree_size"
+        end with | Not_found -> q_print n; raise Not_found
 
     let node_cost par n =
         match par with
@@ -1123,7 +1138,7 @@ let create_root ?branches a aa ab b ba bb opt =
                 AllDirF.apply_time true a middle
         | _,_ -> failwith "Failed with children of A @ Create Roots"
     and b_final = match ba,bb with
-        | Some ba,Some bb -> 
+        | Some ba,Some bb ->
                 let b = AllDirF.uppass_heuristic (AllDirF.taxon_code a) b ba bb middle in
                 assert( (List.length b.adjusted) = 3);
                 b
