@@ -4793,49 +4793,81 @@ let prealigned_characters analyze_tcm data chars =
     let d = add_multiple_static_parsed_file data res in
     process_ignore_characters false d (`Names names) 
 
+
+(** [get_sequences code data] outputs a stack containing all the sequences of the
+* character [code] stored in [data]. The empty sequences (according to
+* [Sequence.is_empy]) are not included in the stack. If the input code does not
+* correspond to a sequence character, or the sequence contains more than one
+* fragment, then it outputs an empty stack. *)
+let get_sequences code data = 
+    let alpha = get_sequence_alphabet code data in
+    let gap = Alphabet.get_gap alpha in
+    let seqs = Stack.create () in
+    let process_taxon a b = 
+        match Hashtbl.find b code with
+        | (Stat _), _ -> ()
+        | (Dyna (_, d)), _ ->
+                match d.seq_arr with
+                | [|dv|] ->
+                        if not (Sequence.is_empty dv.seq gap) then 
+                            Stack.push dv.seq seqs
+                | _ -> ()
+    in
+    Hashtbl.iter process_taxon data.taxon_characters;
+    seqs
+
+
+(** [all_pairs_alignments seqs cm] outputs a stack containing all the pairwise
+* comparisons between the sequences in the stack [seqs] employing the distance 
+* function specified by [cm]. The output consists of the aligned versions of
+* every sequence in [seqs].  *)
+let all_pairs_alignments seqs cm =
+    let seqs = Stack.copy seqs in
+    let res = Stack.create () in
+    while not (Stack.is_empty seqs) do
+        let a = Stack.pop seqs in
+        Stack.iter (fun b ->
+            let alignment = Sequence.Align.align_2 a b cm Matrix.default in
+            Stack.push alignment res) seqs;
+    done;
+    res
+
+
+(** [alignments_of_code code data] is the same as [all_pairs_alignments]
+ * excepting that the input requests the result for a particular character
+ * [code] stored in [data]. The function generates an empty stack if
+ * [get_sequences code data] would output an empty stack. *)
+let alignments_of_code code data = 
+    let seqs = get_sequences code data in
+    let cm = get_sequence_tcm code data in
+    let pairs = all_pairs_alignments seqs cm in
+    pairs
+
 let sequence_statistics ch data =
     let codes = get_chars_codes_comp data ch in
     let process_code code =
-        let alpha = get_sequence_alphabet code data 
-        and cm = get_sequence_tcm code data in
-        let gap = Alphabet.get_gap alpha in
-        let process_taxon a b seqs = 
-            match Hashtbl.find b code with
-            | (Stat _), _ -> seqs
-            | (Dyna (_, d)), _ ->
-                    match d.seq_arr with
-                    | [|dv|] ->
-                            if Sequence.is_empty dv.seq gap then seqs
-                            else dv.seq :: seqs
-                    | _ -> seqs
-        in
-        let seqs = Hashtbl.fold process_taxon data.taxon_characters [] in
-        let d_max, d_min, d_sum = 
-            let seqs = Array.of_list seqs in
-            let cnt = Array.length seqs in
-            let d_min = ref max_int
-            and d_max = ref 0
-            and d_sum = ref 0 in
-            for x = 0 to cnt - 2 do
-                for y = x + 1 to cnt - 1 do
-                    let cost = 
-                        Sequence.Align.cost_2 seqs.(x) seqs.(y) cm 
-                        Matrix.default 
-                    in
-                    d_min := min !d_min cost;
-                    d_max := max !d_max cost;
-                    d_sum := !d_sum + cost;
-                done;
-            done;
-            !d_max, !d_min, !d_sum
-        in
-        let max, min, sum, cnt = 
-            List.fold_left ~f:(fun (s_max, s_min, s_sum, cnt) x ->
-                let len = Sequence.length x in 
-                (max len s_max, min s_min len, s_sum + len, cnt + 1)) 
-            ~init:(0, max_int, 0, 0) seqs 
-        in
-        code_character code data, (max, min, sum, cnt, d_max, d_min, d_sum)
+        let seqs = get_sequences code data 
+        and pairs = alignments_of_code code data in
+        let cnt = Stack.length seqs
+        and d_min = ref max_int
+        and d_max = ref 0
+        and d_sum = ref 0 
+        and s_max = ref 0
+        and s_min = ref max_int 
+        and s_sum = ref 0 in
+        (* Gathed the distance data *)
+        Stack.iter (fun (_, _, cost) ->
+                d_min := min !d_min cost;
+                d_max := max !d_max cost;
+                d_sum := !d_sum + cost;) pairs;
+        (* Gather the sequence data *)
+        Stack.iter (fun seq ->
+            let len = Sequence.length seq in
+            s_max := max !s_max len;
+            s_min := min !s_min len;
+            s_sum := !s_sum + len) seqs;
+        code_character code data, 
+            (!s_max, !s_min, !s_sum, cnt, !d_max, !d_min, !d_sum)
     in
     List.map process_code codes
 
