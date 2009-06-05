@@ -1874,14 +1874,9 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
     let never_collapse a b c = false
 
     let collapse_as_needed tree code chld = 
-        flush stdout;
-        try
         let data = get_node_data code tree in
         let datac = get_node_data chld tree in
         Node.is_collapsable `Any data datac
-        with
-        | err -> 
-        raise err
 
 let extract_names ptree code = 
     let data = get_node_data code ptree in
