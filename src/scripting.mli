@@ -30,17 +30,15 @@ type search_results = {
     total_ratchet : int;
 }
 
-type ('a, 'b, 'c) run = {
+type ('a, 'b) run = {
     description : string option;
     trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     data : Data.d;
     nodes : 'a list;
-    characters : ('c Sexpr.t, float Sexpr.t) 
-        Methods.character_input_output;
     bremer_support : Methods.support_tree Sexpr.t;
     jackknife_support : support_class;
     bootstrap_support : support_class;
-    runtime_store : (('a, 'b, 'c) run) str_htbl;
+    runtime_store : (('a, 'b) run) str_htbl;
     data_store : (Data.d * 'a list) str_htbl;
     bremer_store : Methods.support_tree Sexpr.t str_htbl;
     bootstrap_store : support_class str_htbl;
@@ -57,7 +55,6 @@ val build_has : Methods.cost_calculation -> Methods.build -> bool
 module type S = sig
         type a 
         type b
-        type c
 
 type tree = (a, b) Ptree.p_tree 
 
@@ -240,7 +237,7 @@ type tree = (a, b) Ptree.p_tree
         end
     end
 
-type r = (a, b, c) run
+type r = (a, b) run
 
     val register_function : 
         string -> (Methods.script Methods.plugin_arguments -> r -> r) -> unit
@@ -344,9 +341,8 @@ module Make
     (Node : NodeSig.S with type other_n = Node.Standard.n) 
     (Edge : Edge.EdgeSig with type n = Node.n)
     (TreeOps : 
-        Ptree.Tree_Operations with type a = Node.n with type b = Edge.e)
-    (CScrp : CharacterScripting.S with type n = Node.n) : 
-        S with type a = Node.n with type b = Edge.e with type c = CScrp.cs
+        Ptree.Tree_Operations with type a = Node.n with type b = Edge.e) :
+        S with type a = Node.n with type b = Edge.e 
 
 (** {2 Scripting in Ocaml} 
  *

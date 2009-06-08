@@ -343,13 +343,6 @@ let dependency_relations (init : Methods.script) =
             in
             res
     | `Fusing (_, _, _, _, x, _) -> [(trees, trees, init, NonComposable)]
-    | #Methods.char_operations as meth -> 
-            let res = 
-                match meth with
-                | `Distance _ 
-                | `Median _ -> [([Data], [Data], init, Invariant)]
-            in
-            res
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
             [([Data], [JackBoot], init, NonComposable)]
@@ -1684,15 +1677,6 @@ let script_to_string (init : Methods.script) =
             res
     | `Fusing (_, _, _, _, x, _) -> 
             "@[fuse the trees I have in memory@]"
-    | #Methods.char_operations as meth -> 
-            let res = 
-                match meth with
-                | `Distance _  ->
-                        "@[calculate some distances for you@]"
-                | `Median _ -> 
-                        "@[calculate some medians for you @]"
-            in
-            res
     | `Bootstrap (it, _, _, _) ->
             "@[calculate the bootstrap clades@]"
     | `Jackknife (_, it, _, _, _) ->
@@ -1979,7 +1963,6 @@ let is_master_only (init : Methods.script) =
     | #Methods.local_optimum 
     | `StandardSearch _
     | #Methods.perturb_method 
-    | #Methods.char_operations
     | #Methods.escape_local
     | `Fusing _
     | `Bootstrap _
