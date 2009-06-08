@@ -2846,11 +2846,135 @@ let get_state default = function
     | `Change_Dyn_Pam _ -> default
     | `Seq_to_Kolmogorov _ -> failwith "Illegal Data.get_state argument"
 
+
+(** [get_sequences code data] outputs a stack containing all the sequences of the
+* character [code] stored in [data]. The empty sequences (according to
+* [Sequence.is_empy]) are not included in the stack. If the input code does not
+* correspond to a sequence character, or the sequence contains more than one
+* fragment, then it outputs an empty stack. *)
+let get_sequences code data = 
+    let alpha = get_sequence_alphabet code data in
+    let gap = Alphabet.get_gap alpha in
+    let seqs = Stack.create () in
+    let process_taxon a b = 
+        match Hashtbl.find b code with
+        | (Stat _), _ -> ()
+        | (Dyna (_, d)), _ ->
+                match d.seq_arr with
+                | [|dv|] ->
+                        if not (Sequence.is_empty dv.seq gap) then 
+                            Stack.push dv.seq seqs
+                | _ -> ()
+    in
+    Hashtbl.iter process_taxon data.taxon_characters;
+    seqs
+
+
+(** [all_pairs_alignments seqs cm] outputs a stack containing all the pairwise
+* comparisons between the sequences in the stack [seqs] employing the distance 
+* function specified by [cm]. The output consists of the aligned versions of
+* every sequence in [seqs].  *)
+let all_pairs_alignments seqs cm =
+    let seqs = Stack.copy seqs in
+    let res = Stack.create () in
+    while not (Stack.is_empty seqs) do
+        let a = Stack.pop seqs in
+        Stack.iter (fun b ->
+            let alignment = Sequence.Align.align_2 a b cm Matrix.default in
+            Stack.push alignment res) seqs;
+    done;
+    res
+
+
+(** [alignments_of_code code data] is the same as [all_pairs_alignments]
+ * excepting that the input requests the result for a particular character
+ * [code] stored in [data]. The function generates an empty stack if
+ * [get_sequences code data] would output an empty stack. *)
+let alignments_of_code code data = 
+    let seqs = get_sequences code data in
+    let cm = get_sequence_tcm code data in
+    let pairs = all_pairs_alignments seqs cm in
+    pairs
+
+type sequence_statistics = {
+    max_length : int;
+    min_length : int;
+    sum_lengths : int;
+    sequences : int;
+    max_distance : float;
+    min_distance : float;
+    sum_distances : float; }
+
+let statistics_of_alignments seqs pairs =
+    let cnt = Stack.length seqs
+    and d_min = ref max_int
+    and d_max = ref 0
+    and d_sum = ref 0 
+    and s_max = ref 0
+    and s_min = ref max_int 
+    and s_sum = ref 0 in
+    (* Gathed the distance data *)
+    Stack.iter (fun (_, _, cost) ->
+            d_min := min !d_min cost;
+            d_max := max !d_max cost;
+            d_sum := !d_sum + cost;) pairs;
+    (* Gather the sequence data *)
+    Stack.iter (fun seq ->
+        let len = Sequence.length seq in
+        s_max := max !s_max len;
+        s_min := min !s_min len;
+        s_sum := !s_sum + len) seqs;
+    { max_length = !s_max;
+        min_length = !s_min;
+        sum_lengths = !s_sum;
+        sequences = cnt;
+        max_distance = float_of_int !d_max;
+        min_distance = float_of_int !d_min;
+        sum_distances = float_of_int !d_sum }
+
+let sequence_code_statistics data code =
+    let seqs = get_sequences code data 
+    and pairs = alignments_of_code code data
+    and name = code_character code data in
+    name, statistics_of_alignments seqs pairs
+
 let kolmo_round_factor = 100.
 
-let kolmo_sequence_length = 2000
-let kolmo_event_length = 5
-let kolmo_event_probability = 0.25
+let event_frequency algnments = 
+    let samples = ref 0
+    and best_cost = ref (float_of_int max_int)
+    and adder = ref 0. in
+    let add x = 
+        incr samples;
+        adder := x +. !adder 
+    in
+    let update_item (a, b, cost) =
+        let cost = float_of_int cost in
+        if cost < !best_cost  then begin
+            samples := 0;
+            adder := 0.;
+            best_cost := cost;
+            Printf.printf "Pair of sequences --\n%s\n%s\n--\n%!"
+            (Sequence.to_string a Alphabet.nucleotides)
+            (Sequence.to_string b Alphabet.nucleotides);
+            let len = Sequence.length a in
+            assert (len = Sequence.length b);
+            let distance = ref 1 in
+            for i = 0 to len - 1 do
+                let a = Sequence.get a i
+                and b = Sequence.get b i in
+                if 0 <> (a land b) then incr distance
+                else begin
+                    add (1. /. (float_of_int !distance));
+                    distance := 1
+                end
+            done;
+        end else ()
+    in
+    Stack.iter update_item algnments;
+    let probs = !adder /. (float_of_int !samples) in
+    Printf.printf "The probabilities are %f\n%!" probs;
+    probs
 
 
 let convert_dyna_spec data chcode spec transform_meth =  
@@ -2881,12 +3005,24 @@ let convert_dyna_spec data chcode spec transform_meth =
                     Some ("Dna.insert", "Dna.delete"), 
                     Some "Dna.substitute" 
                 in
+                let seqs = get_sequences chcode data 
+                and algnments = alignments_of_code chcode data in
+                let stats = statistics_of_alignments seqs algnments in
+                let kolmo_event_probability = event_frequency algnments in
+                let kolmo_max_length = 
+                    stats.max_length + (stats.max_length / 2)
+                in
                 let c, d, e =
                     match model with
                     | `AtomicIndel 
                     | `AffineIndel -> 
-                            kolmo_sequence_length,
-                            kolmo_event_length, kolmo_event_probability
+                            kolmo_max_length, 1, 
+                            kolmo_event_probability
+                in
+                let data = 
+                    { data with 
+                        machine = Kolmo.SimpleIndels.apply_model
+                        kolmo_max_length Kolmo.Compiler.compiler }
                 in
                 let kolmospec, dyn_spec_options, data = 
                     Kolmogorov.calculate data a b c d e in
@@ -3480,15 +3616,6 @@ let get_tran_code_meth data meth =
 let transform_dynamic meth data =
     let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
-    let () = 
-        match meth with
-        | `Seq_to_Kolmogorov `AtomicIndel -> 
-                data := { !data with 
-                    machine = Kolmo.SimpleIndels.apply_model
-                    kolmo_sequence_length Kolmo.Compiler.compiler }
-        | `Seq_to_Kolmogorov `AffineIndel -> assert false
-        | _ -> ()
-    in
     Hashtbl.iter
     (fun code spec ->
          if List.mem code tran_code_ls then begin
@@ -4792,95 +4919,6 @@ let prealigned_characters analyze_tcm data chars =
     let res = List.rev_map (process_prealigned analyze_tcm data) codes in
     let d = add_multiple_static_parsed_file data res in
     process_ignore_characters false d (`Names names) 
-
-
-(** [get_sequences code data] outputs a stack containing all the sequences of the
-* character [code] stored in [data]. The empty sequences (according to
-* [Sequence.is_empy]) are not included in the stack. If the input code does not
-* correspond to a sequence character, or the sequence contains more than one
-* fragment, then it outputs an empty stack. *)
-let get_sequences code data = 
-    let alpha = get_sequence_alphabet code data in
-    let gap = Alphabet.get_gap alpha in
-    let seqs = Stack.create () in
-    let process_taxon a b = 
-        match Hashtbl.find b code with
-        | (Stat _), _ -> ()
-        | (Dyna (_, d)), _ ->
-                match d.seq_arr with
-                | [|dv|] ->
-                        if not (Sequence.is_empty dv.seq gap) then 
-                            Stack.push dv.seq seqs
-                | _ -> ()
-    in
-    Hashtbl.iter process_taxon data.taxon_characters;
-    seqs
-
-
-(** [all_pairs_alignments seqs cm] outputs a stack containing all the pairwise
-* comparisons between the sequences in the stack [seqs] employing the distance 
-* function specified by [cm]. The output consists of the aligned versions of
-* every sequence in [seqs].  *)
-let all_pairs_alignments seqs cm =
-    let seqs = Stack.copy seqs in
-    let res = Stack.create () in
-    while not (Stack.is_empty seqs) do
-        let a = Stack.pop seqs in
-        Stack.iter (fun b ->
-            let alignment = Sequence.Align.align_2 a b cm Matrix.default in
-            Stack.push alignment res) seqs;
-    done;
-    res
-
-
-(** [alignments_of_code code data] is the same as [all_pairs_alignments]
- * excepting that the input requests the result for a particular character
- * [code] stored in [data]. The function generates an empty stack if
- * [get_sequences code data] would output an empty stack. *)
-let alignments_of_code code data = 
-    let seqs = get_sequences code data in
-    let cm = get_sequence_tcm code data in
-    let pairs = all_pairs_alignments seqs cm in
-    pairs
-
-type sequence_statistics = {
-    max_length : int;
-    min_length : int;
-    sum_lengths : int;
-    sequences : int;
-    max_distance : float;
-    min_distance : float;
-    sum_distances : float; }
-
-let sequence_code_statistics data code =
-    let seqs = get_sequences code data 
-    and pairs = alignments_of_code code data in
-    let cnt = Stack.length seqs
-    and d_min = ref max_int
-    and d_max = ref 0
-    and d_sum = ref 0 
-    and s_max = ref 0
-    and s_min = ref max_int 
-    and s_sum = ref 0 in
-    (* Gathed the distance data *)
-    Stack.iter (fun (_, _, cost) ->
-            d_min := min !d_min cost;
-            d_max := max !d_max cost;
-            d_sum := !d_sum + cost;) pairs;
-    (* Gather the sequence data *)
-    Stack.iter (fun seq ->
-        let len = Sequence.length seq in
-        s_max := max !s_max len;
-        s_min := min !s_min len;
-        s_sum := !s_sum + len) seqs;
-    code_character code data,  {
-        max_length = !s_max;
-        min_length = !s_min;
-        sum_lengths = !s_sum;
-        sequences = cnt;
-        max_distance = float_of_int !d_max;
-        min_distance = float_of_int !d_min;
-        sum_distances = float_of_int !d_sum }
 
 let sequence_statistics ch data =
     let codes = get_chars_codes_comp data ch in
