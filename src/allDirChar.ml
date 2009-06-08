@@ -26,9 +26,9 @@ let debug_node_fn = false
 let debug_adjust_fn = false
 let debug_clear_subtree = false
 let debug_join_fn = false
-let debug_branch_fn = true (* downpass and given branch lengths *)
+let debug_branch_fn = false (* downpass and given branch lengths *)
 let debug_cost_fn = false
-let debug_uppass_fn = true
+let debug_uppass_fn = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
