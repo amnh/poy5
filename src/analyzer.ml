@@ -2105,21 +2105,18 @@ let rec make_remote_files (init : Methods.script) =
     | `Assign_Prep_Cost ((`File a), b) ->
             `Assign_Prep_Cost ((`File (mr a)), b)
     | `LocalOptimum (l_opt) ->
-        (*   (a, b, c, d, e, f, g, h, (`Partition files), i, j) -> *)
-        let files = (match l_opt.Methods.tabu_join with
-                     | `Partition x -> x
-                     | _ -> failwith ("not sure what to do here...") ) 
-        in
-        let tm = 
-            let files = 
-                List.map 
-                    (function 
-                        `ConstraintFile file -> `ConstraintFile (mr file)
-                        | x -> x
-                    ) files in
-            `Partition files in
-        `LocalOptimum { l_opt with Methods.tabu_join = tm }
-
+        (match l_opt.Methods.tabu_join with
+        | `Partition files ->
+                let files = 
+                    List.map 
+                        (function 
+                            `ConstraintFile file -> 
+                                `ConstraintFile (mr file)
+                            | x -> x) files 
+                in
+                let tabu = `Partition files in
+                 `LocalOptimum { l_opt with Methods.tabu_join = tabu }
+        | _ ->  init) 
     | `PerturbateNSearch (tl, pm, lo, v, timer) ->
             let tl = 
                 handle_subtypes 
