@@ -2954,9 +2954,6 @@ let event_frequency algnments =
             samples := 0;
             adder := 0.;
             best_cost := cost;
-            Printf.printf "Pair of sequences --\n%s\n%s\n--\n%!"
-            (Sequence.to_string a Alphabet.nucleotides)
-            (Sequence.to_string b Alphabet.nucleotides);
             let len = Sequence.length a in
             assert (len = Sequence.length b);
             let distance = ref 1 in
