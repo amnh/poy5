@@ -731,25 +731,25 @@ void median_h( const double* P, const double* l, const int c, double* nl, const 
  */
 double loglikelihood( const mll* l, const double* pi, const double* prob )
 {
-    int h, i, j, nchars, size; 
+    int h, i, j, length, size; 
     double tmp,tmp2,ret;
-    nchars = l->c_len * l->stride;  //number of characters
+    length = l->c_len * l->stride;  //length of likelihood vector
     size = l->stride;
-    ret=0;
-    for(h=0;h<l->rates;++h){
-        tmp = 0; tmp2 = 0;
-        for(i=0,j=0; i<nchars; ++i,++j){
-            if( j == size ){
-                tmp2 -= log( tmp );
-                j = 0; tmp = 0;
-            }
-            tmp += l->lv_s[h*nchars + i] * pi[j];
+
+    ret = 0;
+    for(h=0;h < l->rates; ++h)
+    {
+        tmp2 = 1.0;
+        for(i=0; i< l->c_len; ++i)
+         {
+            tmp = 0;
+            for(j=0;j < l->stride; ++j)
+                tmp += l->lv_s[(length*h) + (l->stride*i) + j] * pi[j];
+            tmp2 *= tmp;
         }
-        tmp2 -= log( tmp );
         ret += prob[h] * tmp2;
     }
-
-    return (ret);
+    return ( -log(ret) );
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
@@ -769,10 +769,11 @@ value likelihood_CAML_loglikelihood(value s, value pi, value prob)
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and
  * [b] with the probability matrices [Pa] and [Pb], respectively, for a single
- * rate class [rate_idx]. [Pa]/[Pb] already contain rate/time information, and
- * the [rate_idx] serves to indicate the location in the array.
+ * rate class [rate_idx]. [Pa] and [Pb] already contain rate/time information, and
+ * the [rate_idx] serves to indicate the location in the likelihood vector.
  *
- * tmp are size of alphabet.
+ * [tmp1] is size of alphabet.
+ * [tmp2] is size of alphabet.
  */
 void
 median_charset(const double* Pa,const double* Pb, const mll* a,const mll* b,
@@ -845,12 +846,13 @@ value likelihood_CAML_median_wrapped_sym
      *      r_i  = the rate of i
      *      x    = the branch length
      */
-    //printf ("rates:%d\nchars:%d\nalpha:%d\n",a->rates,a->c_len,a->stride);
+    //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
     for(i=0;i<num_rates;i++){
         compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride,tmp1 );
         compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride,tmp1 );
         median_charset( PA, PB, a, b, c, tmp1, &(tmp1[a->stride]), i );
     }
+    //printarray(c->lv_s, a->stride * a->c_len * a->rates);
     /* free up space, return */
     free_all( space );
     assert( c == ML_val(ml_c));
@@ -906,11 +908,13 @@ value likelihood_CAML_median_wrapped_gtr
     PB = register_section( space, b->stride * b->stride, 1 );
     tmp1 = register_section( space, b->stride * b->stride, 1 );
     /* main loop, see symmetric for description */
+    //printf("R C S:%d\t%d\t%d\n[",a->rates,a->c_len,a->stride);
     for(i=0;i<num_rates;i++){
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
         median_charset( PA, PB, a,b,c, tmp1,&(tmp1[b->stride]), i);
     }
+    //printf("]\n");
     /* free all variables */
     free_all( space );
     assert( c == ML_val(ml_c) );

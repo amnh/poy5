@@ -53,14 +53,16 @@ module type S = sig
     * updates the final_assignment for the specified direction. *)
     val final_states : int option -> n -> n -> n -> n -> n
 
-    (** [uppass_heuristic granpa par cur a b] updates a node in three
+    (** [uppass_heuristic pardata partime cur a b] updates a node in three
      * directions in AllDirF. In One Direction and Standard we call the
      * final_states functions --which used to be `median_3`. This function will
      * fill in the data from the downpass in the other directions --passing the
      * data from [cur] to [a] and [b] as it's children, and recieving the data
      * from [par] as it's parent. This data, in likelihood, are the `times` or
-     * branch lengths *)
-    val uppass_heuristic : int -> n -> n -> n -> n -> n
+     * branch lengths. The [pardata] and [partime] is split when we have no data
+     * in the case of two disjoint nodes over a root. Time is taken from [partime]
+     * and data from [pardata] *)
+    val uppass_heuristic : n -> n option -> n -> n -> n -> n
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
     val apply_time : bool -> n -> n -> n
 

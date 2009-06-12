@@ -387,20 +387,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                 t1 (anode.taxon_code) t2 (bnode.taxon_code)
                 else (t1,t2)
             in 
-
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
                                   t1 t2 anode.taxon_code bnode.taxon_code in
             let n_cost = MlStaticCS.root_cost median in
-            let t1,t2 =
-                if anode.min_child_code < bnode.min_child_code then t1, t2
-                else t2, t1 in
 
             if debug then 
                 info_user_message
-                    "Calculating %d with %f(%d) and %f(%d) = %f%!"
+                    "Calculating %d with %f(%d) and %f(%d) = %f"
                     code t1 anode.taxon_code t2 bnode.taxon_code n_cost
             else ();
+
+            let t1,t2 =
+                if anode.min_child_code < bnode.min_child_code then t1, t2
+                else t2, t1
+            in
 
             let res =
                 {
@@ -3579,7 +3580,7 @@ module Standard :
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
-        let uppass_heuristic pcode mine a b p = mine
+        let uppass_heuristic pcode ptime mine a b = mine
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost

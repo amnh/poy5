@@ -19,7 +19,7 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let pure_ocaml = false      (* ONLY use pure ocaml version *)
+let pure_ocaml = false    (* ONLY use pure ocaml version *)
 let graph_output = false    (* graph all medians in %d--%d format *)
 let phyml_mode = true       (* divide by the mean rate *)
 
@@ -382,7 +382,7 @@ let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
                             (make_matrix b.model (t2 *. b.model.rate.{i}) ) )
             ach (* arbitrary, as long as it's the same length *)
     in
-    root, (mle root pi_ prob)
+    root, mle root pi_ prob
 
 let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
     let stepval xref = xref := !xref +. step;!xref
@@ -660,19 +660,24 @@ let of_parser spec characters =
                 Bigarray.Array1.fill p (1.0 /. (float_of_int x));
                 gamma_rates y z x,p,Some y,0.0,x
             | Parser.SC.Theta (w,x,y,z) -> (* SITES,ALPHA,BETA,PERCENT_INVAR *)
-                Printf.printf "sites:%d\talpha:%f\tinvar:%f\n%!" w x z;
-                let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
-                let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
-                let rs = gamma_rates x y w in
-                    (* [GAMMA@(1-z)]+[INVAR@z] *)
+                if w = 0 then begin
+                    let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout 2 in
+                    let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout 2 in
+                    p.{0} <- 1.0 -. z; r.{0} <- 1.0;
+                    p.{1} <- 1.0 -. z; r.{1} <- 0.0;
+                    r,p,Some x,z,w
+                end else begin
+                    let p = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
+                    let r = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout (w+1) in
+                    let rs = gamma_rates x y w in
                     Bigarray.Array1.fill p ((1.0 -. z) /. (float_of_int w)); 
-                    (* copy array to master array since one extra site @ 1.0 & z *)
                     for i = 0 to (Bigarray.Array1.dim rs)-1 do
                         r.{i} <- rs.{i};
                     done;
                     p.{w} <- z;
-                    r.{w} <- 1.0;
-                r,p,Some x,z,w
+                    r.{w} <- 0.0;
+                    r,p,Some x,z,w
+                end
             )
     in
 

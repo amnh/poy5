@@ -26,9 +26,9 @@ let debug_node_fn = false
 let debug_adjust_fn = false
 let debug_clear_subtree = false
 let debug_join_fn = false
-let debug_branch_fn = true (* downpass and given branch lengths *)
+let debug_branch_fn = false (* downpass and given branch lengths *)
 let debug_cost_fn = false
-let debug_uppass_fn = true
+let debug_uppass_fn = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -115,8 +115,9 @@ with type b = AllDirNode.OneDirF.n = struct
 *)
     let create_lazy_edge ?branches root root_node adjusted ptree a b = 
         if debug_node_fn then
-            info_user_message "Creating lazy edge between %d and %d with root
-            %s" a b (if root then "true" else "false")
+            info_user_message 
+                "Creating lazy edge between %d and %d with root %s"
+                a b (if root then "true" else "false")
         else ();
 
         if root then 
@@ -186,7 +187,7 @@ with type b = AllDirNode.OneDirF.n = struct
         and c_data = try Ptree.get_node_data c ptree with
             | Not_found -> failwith "AllDirChar.create_lazy_interior_up: need parent"
         in
-        AllDirNode.AllDirF.uppass_heuristic c cur_data a_data b_data c_data
+        AllDirNode.AllDirF.uppass_heuristic c_data None cur_data a_data b_data
 
     let create_root a b (ptree : phylogeny) =
         let make_internal () = 
@@ -541,25 +542,12 @@ with type b = AllDirNode.OneDirF.n = struct
                                 (if rhandle then "a root edge" else "an edge")
             else ();
             let data,ptree = 
-                (* try *) match hashdoublefind ptree [a;b] with
-                    | Some x -> 
-                            create_lazy_edge ~branches:x
-                            rhandle root_opt adjusted ptree a b 
+                if rhandle then
+                    match hashdoublefind ptree [a;b] with
+                    | Some x -> create_lazy_edge ~branches:x rhandle root_opt adjusted ptree a b 
                     | None -> create_lazy_edge rhandle root_opt adjusted ptree a b 
-                    (*
-                with | err ->
-                    let print_node = function
-                        | Tree.Interior (u,v,w,x) ->
-                            error_user_message "with neighbors %d, %d, %d," v w x;
-                        | Tree.Leaf (x,y) -> 
-                            error_user_message "with neighbor %d" x;
-                        | Tree.Single _ -> ()
-                    in
-                    error_user_message "Failure attempting lazy_edge of %d and %d" a b;
-                    print_node (Ptree.get_node a ptree);
-                    print_node (Ptree.get_node b ptree);
-                    raise err
-                    *)
+                else 
+                    create_lazy_edge rhandle root_opt adjusted ptree a b 
             in
             (Tree.EdgeMap.add e data acc,ptree)
         (* perform uppass heuristic on a node *)
@@ -623,7 +611,7 @@ with type b = AllDirNode.OneDirF.n = struct
         let ptree =
             match start_edge_opt with
             | Some (a,b) ->
-                    Tree.pre_order_node_with_edge_visit_simple
+                    Tree.pre_order_node_with_edge_visit_simple_root
                             add_vertex_pre_order
                             (Tree.Edge (a,b))
                             ptree.Ptree.tree ptree
@@ -633,7 +621,7 @@ with type b = AllDirNode.OneDirF.n = struct
                                 try 
                                     begin match (Ptree.get_component_root h ptree).Ptree.root_median with
                                         | Some ((`Edge (a,b)),c) -> 
-                                            Tree.pre_order_node_with_edge_visit_simple
+                                            Tree.pre_order_node_with_edge_visit_simple_root
                                                     add_vertex_pre_order
                                                     (Tree.Edge (a,b))
                                                     ptree.Ptree.tree ptree
@@ -644,7 +632,7 @@ with type b = AllDirNode.OneDirF.n = struct
                                     begin match Ptree.get_node h ptree with
                                         | Tree.Leaf (a,b)
                                         | Tree.Interior (a,b,_,_) -> 
-                                            Tree.pre_order_node_with_edge_visit_simple
+                                            Tree.pre_order_node_with_edge_visit_simple_root
                                                     add_vertex_pre_order
                                                     (Tree.Edge (a,b))
                                                     ptree.Ptree.tree ptree

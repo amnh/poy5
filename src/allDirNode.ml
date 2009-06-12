@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
-let eager = true
+let eager = false
 let uppass_debug = false
 
 type exclude = Node.exclude
@@ -34,6 +34,11 @@ type a_node = Node.node_data my_lazy
 
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
+
+let pp_list to_str chan v = List.iter (fun x -> output_string chan (to_str x)) v
+let pp_opt_list chan v =
+        pp_list (function | Some x -> string_of_float x | None -> "none")
+                chan v
 
 (* to print lists through Printf *)
 let pp_list depth to_string chan lst = 
@@ -237,7 +242,7 @@ module OneDirF :
     let get_times_between a b = 
         apply_f_on_lazy (Node.Standard.get_times_between) a b
 
-    let uppass_heuristic pcode mine a b par = mine
+    let uppass_heuristic pcode ptime mine a b = mine
 
     let to_string v = Node.Standard.to_string (force_val v)
 
@@ -737,10 +742,10 @@ type nad8 = Node.Standard.nad8 = struct
      *          \\
      *          [P]
     **)
-    let uppass_heuristic p_code m a b p =
+    let uppass_heuristic p_data p_time m a b =
         if uppass_debug then
-            info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d/%d%!"
-                (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p) p_code;
+            info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
+                (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
         let has_one code x = match x.dir with
             | None -> true
             | Some (a,b) -> a = code || b = code
@@ -749,6 +754,7 @@ type nad8 = Node.Standard.nad8 = struct
         let mc = taxon_code m 
         and ac = taxon_code a
         and bc = taxon_code b 
+        and pc = taxon_code p_data
         and get_dir parc x =
             try
                 (not_with parc x.adjusted).lazy_node
@@ -769,23 +775,15 @@ type nad8 = Node.Standard.nad8 = struct
                        );
                 x.lazy_node
             (* ...was resolved, so get the direction *)
-            |  _  -> get_dir p_code m 
+            |  _  -> get_dir pc m 
 
-        and data_p2m = match p.adjusted with
+        and data_p2m = match p_data.adjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
              * the parent with a calculated/lazy median *)
-            | [x] -> if has_one mc x then
-                        x.lazy_node
-                     else begin
-                        Printf.printf "Cannot find %d in %d(%d)\n%!"
-                            mc (taxon_code p) p_code;
-                        q_print p;
-                        q_print m;
-                        print_newline ();
-                        assert (false)
-                     end
+            | [x] -> (* assert( has_one mc x ); *)
+                     x.lazy_node
             (* ...was resolved, so get one of the directions that has m as child *)
-            |  _  -> get_dir mc p
+            |  _  -> get_dir mc p_data
 
         (* both of these should exist *)
         and data_b2m = get_dir mc b
@@ -795,19 +793,30 @@ type nad8 = Node.Standard.nad8 = struct
         let time_M2A = 
             lazy_from_fun (fun () ->
             Node.get_times_between 
-                (force_val data_m2p) (Some (min_taxon_code mc a)))
+                (force_val data_m2p) (Some (min_taxon_code mc a)) )
         and time_M2B = 
             lazy_from_fun (fun () ->
             Node.get_times_between 
-                (force_val data_m2p) (Some (min_taxon_code mc b)))
+                (force_val data_m2p) (Some (min_taxon_code mc b)) )
         and time_M2P =
             lazy_from_fun (fun () ->
-            let timedat = force_val (either_with mc p.adjusted).lazy_node in
-            if (taxon_code p) = p_code then
-                 Node.get_times_between timedat (Some (min_taxon_code p_code m))
-            else 
-                 Node.get_times_between timedat None)
+                match p_time with
+                | Some timedat ->
+                    let timedat = force_val (either_with mc timedat.adjusted).lazy_node in
+                    Node.get_times_between timedat None
+                | None -> 
+                    let timedat = force_val (either_with mc p_data.adjusted).lazy_node in
+                    Node.get_times_between timedat (Some (min_taxon_code pc m))
+                    )
         in
+    
+        (* PRINT OUT THE TIMES BETWEEN
+        Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"
+                mc ac pp_opt_list time_M2A
+                mc bc pp_opt_list time_M2B
+                mc pc pp_opt_list time_M2P;
+        *)
+
         (* call medians with times supplied *)
         let node_A = lazy_from_fun
                 (fun () -> 
@@ -821,7 +830,7 @@ type nad8 = Node.Standard.nad8 = struct
                                     (data_p2m)
                                     (data_b2m) 
                                     (time_M2P) 
-                                    (time_M2B))
+                                    (time_M2B) )
         and node_B = lazy_from_fun
                 (fun () -> 
                     let data_m2p = force_val data_m2p in
@@ -829,18 +838,16 @@ type nad8 = Node.Standard.nad8 = struct
                     let time_M2P = force_val time_M2P in
                     let time_M2A = force_val time_M2A in
                     let data_a2m = force_val data_a2m in
-                    let med  =
-                        Node.median_w_times 
+                    Node.median_w_times 
                                 (Some mc) (Some (data_m2p)) 
-                                (data_p2m)
+                                    (data_p2m)
                                     (data_a2m) 
                                     (time_M2P)
-                                    (time_M2A)
-                    in
-                    med) in
+                                    (time_M2A) )
+        in
 
-        let dir_A= { code= mc; lazy_node= node_A; dir= Some(bc,p_code); }
-        and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,p_code); }
+        let dir_A= { code= mc; lazy_node= node_A; dir= Some(bc,pc); }
+        and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,pc); }
         and dir_C= { code= mc; lazy_node= data_m2p; dir= Some(ac,bc); } in
         let allDir = [ dir_A ; dir_B ; dir_C ] in
         { unadjusted = allDir; adjusted = allDir }
@@ -899,12 +906,12 @@ type nad8 = Node.Standard.nad8 = struct
         | `Dynamic ->
                 let da = 
                     match a.adjusted with
-                    | x :: _ -> x
-                    | [] -> failwith "AllDirNode.is_collapsable 1"
+                    | [x] -> x
+                    | _ -> failwith "AllDirNode.is_collapsable 1"
                 and db = 
                     match b.adjusted with
-                    | x :: _ -> x
-                    | [] -> failwith "AllDirNode.is_collapsable 1"
+                    | [x] -> x
+                    | _ -> failwith "AllDirNode.is_collapsable 1"
                 in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
@@ -1131,7 +1138,7 @@ let create_root ?branches a aa ab b ba bb opt =
     in
     let a_final = match aa,ab with
         | Some aa,Some ab ->
-                let a = AllDirF.uppass_heuristic (AllDirF.taxon_code b) a aa ab middle in
+                let a = AllDirF.uppass_heuristic b (Some middle) a aa ab in
                 assert( (List.length a.adjusted) = 3);
                 a
         | None,None -> 
@@ -1139,11 +1146,10 @@ let create_root ?branches a aa ab b ba bb opt =
         | _,_ -> failwith "Failed with children of A @ Create Roots"
     and b_final = match ba,bb with
         | Some ba,Some bb ->
-                let b = AllDirF.uppass_heuristic (AllDirF.taxon_code a) b ba bb middle in
+                let b = AllDirF.uppass_heuristic a (Some middle) b ba bb in
                 assert( (List.length b.adjusted) = 3);
                 b
-        | None,None -> 
-                AllDirF.apply_time true b middle
+        | None,None -> AllDirF.apply_time true b middle
         | _,_ -> failwith "Failed with children of B @ Create Roots"
     and l_middle = match middle.adjusted with
         | [x] -> 
@@ -1167,8 +1173,7 @@ let create_root_w_times (adjusted:bool) left right =
         match refresh_from with
         | [x] -> assert( match x.dir with | None -> true | _ -> false); 
                  force_val x.lazy_node
-        |  _  -> let x,_ = yes_with child refresh_from in 
-                 force_val x.lazy_node
+        |  x  -> force_val (either_with child x).lazy_node
     in
     lazy_from_fun
         (fun () -> 
@@ -1185,8 +1190,12 @@ let create_root_w_times (adjusted:bool) left right =
                             (get_a_dir l_code right)
                             (Some (AllDirF.min_taxon_code r_code left))
             in
+            (*
+            Printf.printf "(%d--%d):%a\t%a\n%!"
+                    r_code l_code pp_opt_list in_l_time pp_opt_list in_l_time;
+            *)
             Node.median_w_times 
-                None None left2right right2left in_l_time in_r_time)
+                None None left2right right2left in_l_time in_l_time)
 
 (** [verify_branch_lengths a b c m] verify an internal node [m] *)
 let verify_branch_lengths a b c m : bool =

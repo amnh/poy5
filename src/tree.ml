@@ -1591,6 +1591,32 @@ let pre_order_node_with_edge_visit_simple f (Edge (a, b)) bt acc =
     in
     acc --> processor b a --> processor a b
 
+(** [pre_order_node_with_edge_visit_simple_root rf f e t a] is a simplified
+* visitor function [f], which is applied on every (non single) vertex, with a
+* special function [rf] applied to the (hypothetical) root location between two
+* vertices of edge [e], over tree [t] with accumulator [a]. *)
+let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
+    let rec processor prev curr acc =
+        match get_node curr bt with
+        | Leaf (nd, nbr) ->
+                f prev curr acc
+        | Interior (nd, nbr1, nbr2, nbr3) as node ->
+                let a, b = other_two_nbrs prev node in
+                acc 
+                    --> f prev curr
+                    --> processor curr a 
+                    --> processor curr b 
+        | Single _ -> acc
+    and processor_skip prev curr acc =
+        match get_node curr bt with
+        | Leaf (nd, nbr) -> acc
+        | Interior (nd, nbr1, nbr2, nbr3) as node ->
+                let a, b = other_two_nbrs prev node in
+                acc --> processor curr a 
+                    --> processor curr b 
+        | Single _ -> acc
+    in
+    acc --> processor_skip b a --> processor_skip a b
 
 (** [post_order_node_visit f id bt ad acc]
 @param f function to applied to all the nodes in post-order.
