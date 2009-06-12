@@ -276,6 +276,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         Sexpr.of_list (List.map PtreeSearch.uppass trees)
 
+    let sort_list_of_trees ptrees = 
+        let cost = Ptree.get_cost `Adjusted in
+        List.sort (fun a b -> compare (cost a) (cost b)) ptrees
+
     let constrained_build cg data n constraint_tree nodes = 
         let rec randomize_tree tree = 
             match tree with
@@ -312,16 +316,14 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         | _ -> acc) All_sets.Integers.empty handles 
                     in
                     let ptrees = 
-                        (PtreeSearch.make_wagner_tree ~sequence:handles
-                        ptree single_wagner_search_manager (BuildTabus.wagner_constraint
-                        constraints))#results
+                        PtreeSearch.make_wagner_tree ~sequence:handles
+                        ptree single_wagner_search_manager 
+                        (BuildTabus.wagner_constraint
+                        constraints)
                     in
-                    let ptrees = List.sort (fun (a, _) (b, _) ->
-                        compare (Ptree.get_cost `Adjusted a) (Ptree.get_cost
-                        `Adjusted b)) ptrees 
-                    in
+                    let ptrees = sort_list_of_trees ptrees in
                     match ptrees, handles with
-                    | ((ptree, _) :: _), (h :: _) -> 
+                    | (ptree :: _), (h :: _) -> 
                              ptree, h
                     | _ -> assert false
         in
@@ -355,16 +357,12 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let disjoin_tree = disjoin_tree data nodes in
         let nodes = List.map (fun x -> Node.taxon_code x) nodes in
         let ptrees = 
-            (PtreeSearch.make_wagner_tree ~sequence:nodes 
-            disjoin_tree wmgr tabu_mgr)#results
+            PtreeSearch.make_wagner_tree ~sequence:nodes 
+            disjoin_tree wmgr tabu_mgr
         in
-        let ptrees = List.sort (fun (a, _) (b, _) ->
-            compare (Ptree.get_cost `Adjusted a) (Ptree.get_cost `Adjusted b))
-            ptrees
-        in
+        let ptrees = sort_list_of_trees ptrees in
         match ptrees with
-        | (hd, _) :: _ -> 
-                `Single (PtreeSearch.uppass hd)
+        | hd :: _ -> `Single (PtreeSearch.uppass hd)
         | _ -> failwith "No wagner trees built!"
 
     let wagner data tabu_mgr cg nodes =
@@ -418,10 +416,10 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let nodes = data_generator () in
         let nodesl = List.map (fun x -> Node.taxon_code x) nodes in
         let res = 
-            (PtreeSearch.make_wagner_tree ~sequence:nodesl 
-                (disjoin_tree data nodes) wmgr tabu_mgr)#results in
-        `Set (List.map (fun (x, _) -> 
-            `Single (TreeOps.uppass x)) res)
+            PtreeSearch.make_wagner_tree ~sequence:nodesl 
+                (disjoin_tree data nodes) wmgr tabu_mgr 
+        in
+        `Set (List.map (fun x -> `Single (TreeOps.uppass x)) res)
 
     let make_distances_table ?(both=true) nodes = 
         let tmp = Hashtbl.create 99991 in

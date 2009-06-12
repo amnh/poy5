@@ -271,7 +271,7 @@ module type SEARCH = sig
     (a, b) p_tree ->
     (a, b) wagner_mgr ->
     ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
-    (a, b) wagner_mgr
+    (a, b) p_tree list
 
   val trees_considered : int ref
 
