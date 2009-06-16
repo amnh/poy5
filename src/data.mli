@@ -605,6 +605,15 @@ val compare_all_pairs : int -> int -> bool -> d -> (int * float) option
 val compare_pairs : bool_characters -> bool_characters -> bool -> d -> 
     (string * string * float) list
 
+type sequence_statistics = {
+    max_length : int;
+    min_length : int;
+    sum_lengths : int;
+    sequences : int;
+    max_distance : float;
+    min_distance : float;
+    sum_distances : float; }
+
 (** [sequence_statistics ch d] returns a list containing pairs consisting 
 * of [(n, (w, x, y, z, d, e, f))], where [n] is the name of each character included in
 * [ch], [w] is the maximum sequence length, [x] is the minimum sequence length,
@@ -613,7 +622,7 @@ val compare_pairs : bool_characters -> bool_characters -> bool -> d ->
 * ammong the all pairs distances, [e] is the minimum ammong the all pairs
 * distances, and [f] is the sum of all the distances. In total (z ^ 2 / 2 - z)
 * distances are computed. *)
-val sequence_statistics : bool_characters -> d -> (string * (int * int * int * int * int * int * int)) list
+val sequence_statistics : bool_characters -> d -> (string * sequence_statistics) list
 
 val to_human_readable : d -> int -> int -> string
 

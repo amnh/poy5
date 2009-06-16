@@ -660,12 +660,6 @@ type 'a character_operations = [
     | `Median of ('a Sexpr.t * 'a Sexpr.t)
 ]
 
-type char_operations = [
-    | `Distance of ((taxa * taxa) * characters)
-    | `Median of ((taxa * taxa) * characters)
-]
-
-
 type clear_item = [
     | `Matrices
     | `SequencePool
@@ -757,7 +751,6 @@ type script = [
     | build
     | perturb_method 
     | local_optimum
-    | char_operations
     | support_method
     | bremer_support
     | report
