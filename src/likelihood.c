@@ -736,6 +736,35 @@ double loglikelihood( const mll* l, const double* pi, const double* prob )
     length = l->c_len * l->stride;  //length of likelihood vector
     size = l->stride;
 
+    if (1 == l->rates) {
+        ret = 0.0; 
+        for(i=0;i<l->c_len; ++i){
+            tmp = 0;
+            for(j=0;j < l->stride;++j)
+                tmp += l->lv_s[ (l->stride*i) + j ] * pi[j];
+            ret -= log( tmp );
+        }
+    } else {
+        printf ("WARNING: Likelihood of large datasets with gamma is error-prone\n");
+        ret = 0;
+        for(h=0;h < l->rates; ++h)
+        {
+            tmp2 = 0.0;
+            for(i=0; i< l->c_len; ++i)
+             {
+                tmp = 0;
+                for(j=0;j < l->stride; ++j)
+                    tmp += l->lv_s[(length*h) + (l->stride*i) + j] * pi[j];
+                tmp = (tmp < 1e-300) ? 1e-300 : tmp;
+                tmp2 += log(tmp);
+            }
+            ret += prob[h] * exp(tmp2);
+        }
+        ret = -log(ret);
+    }
+
+    /**
+     * Delay log operation --possible loss of precision
     ret = 0;
     for(h=0;h < l->rates; ++h)
     {
@@ -749,7 +778,10 @@ double loglikelihood( const mll* l, const double* pi, const double* prob )
         }
         ret += prob[h] * tmp2;
     }
-    return ( -log(ret) );
+    ret = -log(ret);
+    */
+
+    return ( ret );
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
