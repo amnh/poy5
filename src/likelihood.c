@@ -44,7 +44,10 @@
 #define EPSILON 1e-4    //error for numerical calculations
 #define MAX_ITER 10000  //number of iterations for numerical calculations
 #define CAML_ALLOC_2 1000000
-     
+ 
+#define max(a,b) (a >= b)?a:b
+#define min(a,b) (a <= b)?a:b
+
 /* for unboxing abstract types */
 #define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
 #define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
@@ -726,62 +729,44 @@ void median_h( const double* P, const double* l, const int c, double* nl, const 
     }
 } 
 
+/* [loglikelihood_site ml p prob]
+ * calculate the likelihood for a single site */
+double 
+loglikelihood_site(const mll* l,const double* pi,const double* prob,const int i)
+{
+    int j,h;
+    double tmp1,tmp2;
+    tmp2 = 0.0;
+    for(h = 0; h < l->rates; ++h) {
+        tmp1 = 0.0;
+        for(j=0;j < l->stride; ++j)
+            tmp1 += l->lv_s[(l->c_len * l->stride * h) + (l->stride*i) + j] * pi[j];
+        tmp2 += tmp1 * prob[h];
+    }
+    return ( log( max( tmp2, 1e-300 ) ) /* times weight */ );
+}
+
 /** [loglikelihood ml p]
  * returns loglikelihood of a character set. |p| = l->stride
+ *
+ * uses Kahan Summation to reduce floating point addition error. reduces error
+ * of a summation to 2e
  */
 double loglikelihood( const mll* l, const double* pi, const double* prob )
 {
-    int h, i, j, length, size; 
-    double tmp,tmp2,ret;
-    length = l->c_len * l->stride;  //length of likelihood vector
-    size = l->stride;
+    int i; 
+    double ret_s,ret_c,ret_y,ret_t; /* for kahan summation */
 
-    if (1 == l->rates) {
-        ret = 0.0; 
-        for(i=0;i<l->c_len; ++i){
-            tmp = 0;
-            for(j=0;j < l->stride;++j)
-                tmp += l->lv_s[ (l->stride*i) + j ] * pi[j];
-            ret -= log( tmp );
-        }
-    } else {
-        printf ("WARNING: Likelihood of large datasets with gamma is error-prone\n");
-        ret = 0;
-        for(h=0;h < l->rates; ++h)
-        {
-            tmp2 = 0.0;
-            for(i=0; i< l->c_len; ++i)
-             {
-                tmp = 0;
-                for(j=0;j < l->stride; ++j)
-                    tmp += l->lv_s[(length*h) + (l->stride*i) + j] * pi[j];
-                tmp = (tmp < 1e-300) ? 1e-300 : tmp;
-                tmp2 += log(tmp);
-            }
-            ret += prob[h] * exp(tmp2);
-        }
-        ret = -log(ret);
-    }
-
-    /**
-     * Delay log operation --possible loss of precision
-    ret = 0;
-    for(h=0;h < l->rates; ++h)
+    ret_s = loglikelihood_site(l,pi,prob,0);
+    ret_c = 0.0;
+    for(i = 1;i<l->c_len; i++)
     {
-        tmp2 = 1.0;
-        for(i=0; i< l->c_len; ++i)
-         {
-            tmp = 0;
-            for(j=0;j < l->stride; ++j)
-                tmp += l->lv_s[(length*h) + (l->stride*i) + j] * pi[j];
-            tmp2 *= tmp;
-        }
-        ret += prob[h] * tmp2;
+        ret_y = (loglikelihood_site(l,pi,prob,i)) - ret_c;
+        ret_t = ret_s + ret_y;
+        ret_c = (ret_t - ret_s) - ret_y;
+        ret_s = ret_t;
     }
-    ret = -log(ret);
-    */
-
-    return ( ret );
+    return ( -ret_s );
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
