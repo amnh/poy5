@@ -172,7 +172,7 @@ type basic_kolmo_spec = {
 }
 
 type aux_kolmo_spec = {
-    funset : ((string * string) option) * (string option);
+    funset : (Methods.indel_prob option) * (Methods.substitution_prob option);
     wordset : int;
     intset : int;
     kolmo_spec : basic_kolmo_spec;

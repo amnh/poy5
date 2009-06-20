@@ -199,7 +199,7 @@ type basic_kolmo_spec = {
 }
 
 type aux_kolmo_spec = {
-    funset : ((string * string) option) * (string option);
+    funset : (Methods.indel_prob option) * (Methods.substitution_prob option);
     wordset : int;
     intset : int;
     kolmo_spec : basic_kolmo_spec;
@@ -2520,13 +2520,15 @@ module Kolmogorov = struct
                         float_of_int (List.length (All_sets.IntegerMap.find code
                         repr))
                     in
-                    Printf.printf "%s: %f\n%!" str res;
                     res
         in
         let rec log2 x acc = 
             if x > 0 then 
                 log2 (x lsr 1) (acc + 1)
             else float_of_int acc
+        in
+        let bits_of_prob prob =
+            ~-. ((log prob) /. (log 2.))
         in
         (* We can only handle for now homogeneous positions *)
         let root_cost = find_function "Tree.root"
@@ -2539,17 +2541,38 @@ module Kolmogorov = struct
             (* The model must at least have the insertion and deletion functions
             * *)
             match indels, substitution with
-            | Some (insertion, deletion), None ->
-                    let ins = find_function insertion
-                    and del = find_function deletion in
+            | Some (insertion_deletion), None ->
+                    let ins, del =
+                        match insertion_deletion with
+                        | `Encoding (insertion, deletion) ->
+                                find_function insertion, find_function deletion
+                        | `Probs (insertion, deletion) ->
+                                bits_of_prob insertion, bits_of_prob deletion
+                    in
                     InDels (del, ins)
             | None, Some substitution ->
-                    let sub = find_function substitution in
+                    let sub = 
+                        match substitution with
+                        | `Encoding substitution ->
+                                find_function substitution
+                        | `Probs substitution ->
+                                bits_of_prob substitution
+                    in
                     Subs sub
-            | Some (insertion, deletion), Some substitution ->
-                    let sub = find_function substitution
-                    and ins = find_function insertion
-                    and del = find_function deletion in
+            | Some (insertion_deletion), Some substitution ->
+                    let sub, ins, del =
+                        match insertion_deletion, substitution with
+                        | `Encoding (insertion, deletion), `Encoding substitution ->
+                                let sub = find_function substitution
+                                and ins = find_function insertion
+                                and del = find_function deletion in
+                                sub, ins, del
+                        | `Probs (insertion, deletion), `Probs substitution ->
+                                bits_of_prob insertion,
+                                bits_of_prob deletion,
+                                bits_of_prob substitution
+                        | _ -> assert false
+                    in
                     if max_indel_length = 1 then
                         InDelSub (del, ins, sub)
                     else if max_indel_length > 1 then
@@ -2970,7 +2993,6 @@ let event_frequency algnments =
     in
     Stack.iter update_item algnments;
     let probs = !adder /. (float_of_int !samples) in
-    Printf.printf "The probabilities are %f\n%!" probs;
     probs
 
 
@@ -2999,8 +3021,15 @@ let convert_dyna_spec data chcode spec transform_meth =
         (match transform_meth with
         | `Seq_to_Kolmogorov model ->
                 let a, b = 
-                    Some ("Dna.insert", "Dna.delete"), 
-                    Some "Dna.substitute" 
+                    match model with
+                    | `AtomicIndel (_, Some (insert, delete, substitute)) 
+                    | `AffineIndel (_, Some (insert, delete, substitute)) ->
+                            (Some (`Probs (insert, delete))),
+                                Some (`Probs substitute)
+                    | `AtomicIndel (_, None) 
+                    | `AffineIndel (_, None) ->
+                            (Some (`Encoding ("Dna.insert", "Dna.delete"))), 
+                            Some (`Encoding "Dna.substitute") 
                 in
                 let seqs = get_sequences chcode data 
                 and algnments = alignments_of_code chcode data in
@@ -3011,10 +3040,12 @@ let convert_dyna_spec data chcode spec transform_meth =
                 in
                 let c, d, e =
                     match model with
-                    | `AtomicIndel 
-                    | `AffineIndel -> 
+                    | `AtomicIndel (user_kolmo_event_probability, _)
+                    | `AffineIndel (user_kolmo_event_probability, _) -> 
                             kolmo_max_length, 1, 
-                            kolmo_event_probability
+                                match user_kolmo_event_probability with
+                                | Some x -> x
+                                | None -> kolmo_event_probability
                 in
                 let data = 
                     { data with 

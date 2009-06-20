@@ -1340,7 +1340,38 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
-                [ LIDENT "kolmogorov" -> `Seq_to_Kolmogorov `AtomicIndel ] 
+                [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
+                    match y with
+                    | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))
+                    | Some x -> x ]
+
+            ];
+        optional_kolmogorov_parameters: 
+            [ 
+                [ ":"; left_parenthesis; 
+                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; 
+                    right_parenthesis  -> 
+                        let default = (None, None) in
+                        let x = 
+                            List.fold_left (fun acc x ->
+                                match x with 
+                                | `Event n -> (Some n, snd acc)
+                                | `IndelSub n -> (fst acc, Some n) ) default 
+                                x
+                        in
+                        `Seq_to_Kolmogorov (`AtomicIndel x) ] 
+            ];
+        kolmogorov_parameters:
+            [
+                [ LIDENT "event"; ":"; x = FLOAT -> 
+                    `Event (float_of_string x) ] | 
+                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion = FLOAT;
+                    ","; deletion = FLOAT; ","; substitution = FLOAT;
+                    right_parenthesis -> 
+                        `IndelSub
+                        (float_of_string insertion,
+                        float_of_string deletion, 
+                        float_of_string substitution) ]
             ];
         informative_characters:
             [
