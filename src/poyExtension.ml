@@ -741,15 +741,14 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         kolmogorov_parameters:
             [
                 [ LIDENT "event"; ":"; x = flex_float -> 
-                    `Event <:expr<(float_of_string $x$)>> ] | 
+                    `Event <:expr<($x$)>> ] | 
                 [ LIDENT "indelsub"; ":"; left_parenthesis; insertion =
                     flex_float;
                     ","; deletion = flex_float; ","; 
                     substitution = flex_float; right_parenthesis -> 
                         `IndelSub
-                        <:expr<(float_of_string $insertion$,
-                        float_of_string $deletion$, 
-                        float_of_string $substitution$)>> ]
+                        <:expr<($insertion$,
+                         $deletion$, $substitution$)>> ]
             ];
         time:
             [
