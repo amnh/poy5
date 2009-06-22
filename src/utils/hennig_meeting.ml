@@ -5,7 +5,15 @@ let make_parameter_list min max step =
     in
     aux [] max
 
+
 let parameters = make_parameter_list 0.01 0.3 0.02
+
+let indel_subst = 
+    [0.1, 0.1, 0.8;
+    0.2, 0.2, 0.6;
+    0.3, 0.3, 0.4;
+    0.33, 0.33, 0.33;
+    0.4, 0.4, 0.2]
 
 let branches = [ "branch_0.05"; "branch_0.1"; "branch_0.2"; "branch_0.3"]
 let max_lengths = 
@@ -15,10 +23,13 @@ let taxa = ["50_taxa"]
 let bases = ["300_bases"]
 
 let process_parameter parameter = 
-    POY transform (kolmogorov:[parameter]);
-    match Phylo.Runtime.min_cost () with
-    | None -> assert false
-    | Some cost -> Printf.printf "%f\t%!" cost
+    List.iter (fun (insertion, deletion, substitution) ->
+        POY transform (kolmogorov:(event:[parameter], indelsub:([insertion],
+            [deletion], [substitution])));
+        match Phylo.Runtime.min_cost () with
+        | None -> assert false
+        | Some cost -> Printf.printf "%f\t%!" cost) 
+indel_subst
 
 
 let process_tree dir file_number =
