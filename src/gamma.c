@@ -27,20 +27,27 @@
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/bigarray.h>
+#include <caml/fail.h>
 
 #define STEP 1e-4     //for numerical integration
-#define EPSILON 1e-4  //error for numerical calculations
+#define EPSILON 3e-7  //error for numerical calculations
+#define ITER 100      //MAX iterations
+#define FABMIN 1e-30  //floating point absolute value min  
+
+#define max(a,b) (a >= b)?a:b
+#define min(a,b) (a <= b)?a:b
 
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
+
 
 /* -- check that the sum of the mean == 1.0 +/- EPSILON */
 //#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; }\
                             if( SUM/(double)n > 1.0+EPSILON ){ \
                                 failwith("Incorrect Mean of Gamma Rates"); }
-//#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; }\
-                            if( SUM/(double)n > 1.0+EPSILON ){ \
-                                printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
-#define CHECK_MEAN(a,b);
+
+#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
+
+//#define CHECK_MEAN(a,b);
 
 //------------------------------------------------------------
 //  SPECIAL FUNCTIONS -- 
@@ -48,6 +55,7 @@
 
 /** [gamma z]
  * Computes the gamma function of z using Lanczos Approximation. (e~1e-15)
+ *      caveate -- max z = 142.0
  */
 double gamma( double z )
 {
@@ -65,7 +73,30 @@ double gamma( double z )
         Lg = Lg + (C[k] / (z+k));
 
     x = z + g + 0.5;
-    return sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
+    x = sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
+    return (x);
+}
+
+/** [lngamma z]
+ * Computes the ln gamma function of z using Lanczos Approximation.
+ *
+ * "Numerical Recipes in C", Section 6.1
+ */ 
+double lngamma( const double xx )
+{
+    double x,y,tmp,ser;
+    int j;
+    static double cof[6] =
+    {
+      76.18009172947146, -86.50532032941677, 24.01409824083091,
+      -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5 };
+
+    y = x = xx;
+    tmp = x+5.5;
+    tmp -= (x+0.5) * log(tmp);
+    ser=1.000000000190015;
+    for(j=0;j<=5;j++) ser += cof[j]/++y;
+    return -tmp+log(2.5066282746310005*ser/x);
 }
 
 /** [gamma_pdf r alpha beta]
@@ -74,6 +105,15 @@ double gamma( double z )
 double gamma_pdf(const double r, const double alpha, const double beta)
 {
     return (pow(beta,alpha)*pow(r, alpha-1))/(exp(beta*r)*gamma(alpha));
+}
+
+/** [lngamma_pdf r alpha beta]
+ * Return the probability density function of the gamma distribution using ln
+ * gamma. Since, exp(b*r)*gamma(a) = exp(b*r)*e(lngam(a)) = exp(b*r+lngam(a))
+ */
+double lngamma_pdf(const double r, const double alpha, const double beta)
+{
+    return (pow(beta,alpha)*pow(r, alpha-1)) / (exp(beta*r + lngamma(alpha)) );
 }
 
 /** [gamma_pp out k alpha beta step]
@@ -86,10 +126,11 @@ void gamma_pp(double* out,const int k,const double alpha,const double beta)
 
     for(i=0;i<(k-1);i++){
         z = ((double)i+1) / ((double)k);
-        y1 = gamma_pdf(x,alpha,beta);
+        y1 = lngamma_pdf(x,alpha,beta);
         while( y <= z ){
             x += STEP;
-            y2 = gamma_pdf(x,alpha,beta);
+            y2 = lngamma_pdf(x,alpha,beta);
+            //printf("lngpdf: %f\t gampdf: %f\n", y2, gamma_pdf(x,alpha,beta));
             y += f*(y1+y2);
             y1 = y2;
         }
@@ -120,16 +161,99 @@ double gamma_M(const double z, const double a)
     return sum;
 }
 
+
 /** [gamma_i x a ]
  * calculates the incomplete gamma ratio, based on methods described in
  *      ~Bhattacharjee (1970), Algorithm AS32
  *
  *      a - alpha parameter
- *      x - bound of integral
- */
+ *      x - bound of integral */
 double gamma_i(const double x, const double a)
 {
-    return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
+    //if ( x < p || (a <= x && x <= 1.0) ) {
+        return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
+    //else
+    //    return 1 - exp(-x)*pow(x,a) / gamma(a) * gamma_C(x,a);
+}
+
+
+/**
+ * Retuns the incomplete gamma function evaluated by its series representation
+ * also, ln gamma in gln.
+ *
+ * "Numerical Recipes in C", Section 6.2
+ */
+void gser(double *gam,double a,double x,double *gln)
+{
+    int n;
+    double sum,del,ap;
+
+    *gln = lngamma ( a );
+    if (x <= 0.0 ) { *gam = 0.0; return; }
+
+    ap = a;
+    del = sum = 1.0 / a;
+    for(n = 1;n<=ITER;++n) {
+        ++ap;
+        del *= x/ap;
+        sum += del;
+        if (fabs(del) < fabs(sum)*EPSILON){
+            *gam = sum * exp(-x+a*log(x)-(*gln));
+            return;
+        }
+    }
+    failwith ("To many Iterations in gser (incomplete gamma series)");
+}
+
+/**
+ * Returns the incomplete gamma function evaluated by its continued fraction
+ * also, ln gamma in gln.
+ *
+ * "Numerical Recipes in C", Section 6.2
+ */
+void gcf( double *gam,double a,double x,double *gln )
+{
+    int i;
+    double an,b,c,d,del,h;
+
+    *gln = lngamma( a );
+    b = x + 1.0 - a;
+    c = 1.0 / FABMIN;
+    d = 1.0 / b;
+    h=d;
+    for(i=1;i<=ITER;i++){
+        an = -i*(i-a);
+        b += 2.0;
+        d = an*d+b;
+        if ( fabs(d) < FABMIN ){ d=FABMIN; }
+        c = b+an/c;
+        if ( fabs(c) < FABMIN ){ c=FABMIN; }
+        d = 1.0 / d;
+        del = d*c;
+        h *= del;
+        if (fabs(del-1.0) < EPSILON){ break; }
+    }
+    if (i > ITER) failwith ("To many Iterations in gcf (incomplete gamma continued fraction)");
+    *gam = exp(-x+a*log(x)-(*gln))*h;
+}
+
+/** 
+ * Returns the incomplete gamma function P(a,x)
+ *
+ * "Numerical Recipes in C", Section 6.2
+*/
+double gammap( const double x, const double a )
+{
+    double gam,gln;
+    if (x < 0.0 || a <= 0.0)
+        failwith("Invalid argument for incomplete gamma");
+    if ( x < (a+1.0)) {
+        gser(&gam,a,x,&gln);
+    } else {
+        gcf (&gam,a,x,&gln); //inverse of continued fraction representation
+        gam = 1.0 - gam;
+    }
+    return gam;
 }
 
 /** [gamma_rates rates alpha beta cuts k]
@@ -146,8 +270,10 @@ gamma_rates(double* rates,const double a,const double b,const double* cuts,const
     int j;
 
     //calculate: rj = (A*k/B)*(I(bB,A+1)-I(aB,A+1))
-    for(j=0;j<(k-1);j++)
-        ingam[j] = gamma_i( cuts[j]*b, a+1 );
+    for(j=0;j<(k-1);j++){
+        ingam[j] = gammap( cuts[j]*b, a+1 );
+        //printf("LG: %f\tNL: %f\n", ingam[j], gamma_i( cuts[j]*b, a+1 ) );
+    }
     rates[0]   = ingam[0] * fac;            //lower rate
     rates[k-1] = (1 - ingam[k-2]) * fac;    //upper rate
     for(j=1;j<k-1;j++)
@@ -164,7 +290,7 @@ value gamma_CAML_rates( value a, value b, value c )
     int cats,j;
 
     alpha = Double_val( a );
-    beta = Double_val( b );
+    beta =  Double_val( b );
     cats = Int_val( c );
     rate_ray = (double*) malloc( sizeof(double)*c ); 
     CHECK_MEM(rate_ray);
@@ -172,7 +298,14 @@ value gamma_CAML_rates( value a, value b, value c )
     CHECK_MEM(pcut_ray);
 
     gamma_pp( pcut_ray, cats, alpha, beta );
+    //for(j=0;j<cats-1;++j) //last category isn't used
+    //    printf (" [%f] ", pcut_ray[j]);
+    //printf("\n");
+
     gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
+    //for(j=0;j<cats;++j)
+    //    printf (" [%f] ", rate_ray[j]);
+    //printf("\n");
 
     free( pcut_ray );
     long dims[1]; dims[0] = cats;
