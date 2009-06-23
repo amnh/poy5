@@ -55,17 +55,15 @@ let add_results cost sr =
     let set = All_sets.FloatMap.add cost cnt sr.tree_costs_found in
     { sr with tree_costs_found = set }
 
-type ('a, 'b, 'c) run = {
+type ('a, 'b) run = {
     description : string option;
     trees : ('a, 'b) Ptree.p_tree Sexpr.t;
     data : Data.d;
     nodes : 'a list;
-    characters : ('c Sexpr.t, float Sexpr.t) 
-        Methods.character_input_output;
     bremer_support : Methods.support_tree Sexpr.t;
     jackknife_support : support_class;
     bootstrap_support : support_class;
-    runtime_store : (('a, 'b, 'c) run) str_htbl;
+    runtime_store : (('a, 'b) run) str_htbl;
     data_store : (Data.d * ('a list)) str_htbl;
     bremer_store : Methods.support_tree Sexpr.t str_htbl;
     bootstrap_store : support_class str_htbl;
@@ -96,7 +94,6 @@ let build_has item = function
 module type S = sig
     type a 
     type b
-    type c
     type tree = (a, b) Ptree.p_tree 
 
     module Kml : sig
@@ -277,7 +274,7 @@ module type S = sig
                 Xml.xml Xml.contents
         end
     end
-    type r = (a, b, c) run
+    type r = (a, b) run
 
     val register_function : string -> (Methods.script Methods.plugin_arguments -> r -> r) -> unit
 
@@ -371,11 +368,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
     (TreeOps : 
         Ptree.Tree_Operations with type a =
             Node.n with type b = Edge.e)
-    (CScrp : CharacterScripting.S with type n = Node.n)
     = struct
     type a = Node.n
     type b = Edge.e
-    type c = CScrp.cs
     type tree = (a, b) Ptree.p_tree 
 
     module Kml = struct
@@ -1229,7 +1224,7 @@ module D = Diagnosis.Make (Node) (Edge) (TreeOps)
 module S = Supports.Make (Node) (Edge) (TreeOps)
 
 
-type r = (a, b, c) run
+type r = (a, b) run
 
     type plugin_function = Methods.script Methods.plugin_arguments -> r -> r
 
@@ -1766,7 +1761,6 @@ let empty () = {
     trees = `Empty; 
     data = Data.empty ();
     nodes = [];
-    characters = `Characters `Empty;
     bremer_support  = `Empty;
     jackknife_support = None;
     bootstrap_support = None;
@@ -3996,9 +3990,6 @@ END
             (try { run with trees = PTS.fusing run.data run.queue run.trees
             params } with
             | Failure "Tree fusing: must have at least two trees" -> run)
-    | #Methods.char_operations as meth -> 
-            { run with characters = 
-            CScrp.scriptchar_operations run.nodes run.data meth }
     | `Bootstrap (it, a, b, c) -> 
             let meth = `Bootstrap (it, a, b, (run.data.Data.root_at)) in
             let run = reroot_at_outgroup run in
@@ -4128,14 +4119,21 @@ END
                         let all_of_them = Data.sequence_statistics ch run.data in
                         let arr =
                             Array.of_list 
-                            (List.map (fun (name, (max, min, sum, cnt, maxd,
-                            mind, sumd)) ->
-                                let cnt = float_of_int cnt in
-                            [|name; string_of_int max; string_of_int min;
-                            string_of_float ((float_of_int sum) /. cnt); 
-                            string_of_int maxd; string_of_int mind; 
-                            string_of_float ((float_of_int sumd) /. 
-                            (((cnt *. cnt) /. 2.) -. (cnt /. 2.)))|]) all_of_them)
+                            (List.map (fun (name, stats) ->
+                                let cnt = float_of_int stats.Data.sequences in
+                                let len_avg =
+                                    (float_of_int stats.Data.sum_lengths) /. cnt 
+                                in
+                                let dis_avg = 
+                                    stats.Data.sum_distances /. 
+                                        (((cnt *. cnt) /. 2.) -. (cnt /. 2.))
+                                in
+                                [|name; string_of_int stats.Data.max_length; 
+                                string_of_int stats.Data.min_length;
+                                string_of_float len_avg; 
+                                string_of_float stats.Data.max_distance; 
+                                string_of_float stats.Data.min_distance; 
+                                string_of_float dis_avg|]) all_of_them)
                         in
                         Array.init (1 + Array.length arr) (function 0 ->
                             [|"Character"; "Max Length"; "Min Length"; 

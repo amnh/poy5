@@ -904,7 +904,7 @@ type nad8 = Node.Standard.nad8 = struct
                 and db = not_with acode b.unadjusted in
                 OneDirF.is_collapsable `Static da.lazy_node db.lazy_node
         | `Dynamic ->
-                let da = 
+                let da =
                     match a.adjusted with
                     | [x] -> x
                     | _ -> failwith "AllDirNode.is_collapsable 1"

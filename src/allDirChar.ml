@@ -1900,33 +1900,3 @@ with type b = AllDirNode.OneDirF.n = struct
             { set trees } --)
 
 end
-
-module CharScripting : CharacterScripting.S with type cs =
-    CharacterScripting.Standard.cs with type n = AllDirNode.AllDirF.n = struct
-        type cs = CharacterScripting.Standard.cs
-        type n = AllDirNode.AllDirF.n
-
-        type character_input_output = [ 
-            | `Characters of cs Sexpr.t
-            | `Floats of float Sexpr.t
-        ]
-
-        let distance = CharacterScripting.Standard.distance
-        let median = CharacterScripting.Standard.median
-        let convert =
-            List.map 
-            (fun x -> AllDirNode.force_val (List.hd x.AllDirNode.unadjusted).AllDirNode.lazy_node)
-
-        let scriptchar_operations nodes = 
-            CharacterScripting.Standard.scriptchar_operations (convert nodes)
-
-        let filter_char_operations nodes =
-            CharacterScripting.Standard.filter_char_operations (convert nodes)
-
-        let extract_character x y =
-            CharacterScripting.Standard.extract_character x 
-            (List.hd (convert [y]))
-
-        let character_operations = 
-            CharacterScripting.Standard.character_operations
-end

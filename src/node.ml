@@ -328,8 +328,6 @@ let calc_total_cost c1 c2 c_cost =
         | `Parsimony -> 
                 c_cost +. c1.total_cost +. c2.total_cost
     in
-    if res = 10. then
-        Printf.printf "We are screwed\n%!";
     res
 
 let total_cost _ a = a.total_cost

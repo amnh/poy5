@@ -343,13 +343,6 @@ let dependency_relations (init : Methods.script) =
             in
             res
     | `Fusing (_, _, _, _, x, _) -> [(trees, trees, init, NonComposable)]
-    | #Methods.char_operations as meth -> 
-            let res = 
-                match meth with
-                | `Distance _ 
-                | `Median _ -> [([Data], [Data], init, Invariant)]
-            in
-            res
     | `Bootstrap (it, _, _, _) 
     | `Jackknife (_, it, _, _, _) ->
             [([Data], [JackBoot], init, NonComposable)]
@@ -1684,15 +1677,6 @@ let script_to_string (init : Methods.script) =
             res
     | `Fusing (_, _, _, _, x, _) -> 
             "@[fuse the trees I have in memory@]"
-    | #Methods.char_operations as meth -> 
-            let res = 
-                match meth with
-                | `Distance _  ->
-                        "@[calculate some distances for you@]"
-                | `Median _ -> 
-                        "@[calculate some medians for you @]"
-            in
-            res
     | `Bootstrap (it, _, _, _) ->
             "@[calculate the bootstrap clades@]"
     | `Jackknife (_, it, _, _, _) ->
@@ -1979,7 +1963,6 @@ let is_master_only (init : Methods.script) =
     | #Methods.local_optimum 
     | `StandardSearch _
     | #Methods.perturb_method 
-    | #Methods.char_operations
     | #Methods.escape_local
     | `Fusing _
     | `Bootstrap _
@@ -2122,21 +2105,18 @@ let rec make_remote_files (init : Methods.script) =
     | `Assign_Prep_Cost ((`File a), b) ->
             `Assign_Prep_Cost ((`File (mr a)), b)
     | `LocalOptimum (l_opt) ->
-        (*   (a, b, c, d, e, f, g, h, (`Partition files), i, j) -> *)
-        let files = (match l_opt.Methods.tabu_join with
-                     | `Partition x -> x
-                     | _ -> failwith ("not sure what to do here...") ) 
-        in
-        let tm = 
-            let files = 
-                List.map 
-                    (function 
-                        `ConstraintFile file -> `ConstraintFile (mr file)
-                        | x -> x
-                    ) files in
-            `Partition files in
-        `LocalOptimum { l_opt with Methods.tabu_join = tm }
-
+        (match l_opt.Methods.tabu_join with
+        | `Partition files ->
+                let files = 
+                    List.map 
+                        (function 
+                            `ConstraintFile file -> 
+                                `ConstraintFile (mr file)
+                            | x -> x) files 
+                in
+                let tabu = `Partition files in
+                 `LocalOptimum { l_opt with Methods.tabu_join = tabu }
+        | _ ->  init) 
     | `PerturbateNSearch (tl, pm, lo, v, timer) ->
             let tl = 
                 handle_subtypes 
