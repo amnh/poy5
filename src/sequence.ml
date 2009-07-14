@@ -26,6 +26,9 @@ exception Invalid_Sequence of (string * string * int);;
 
 let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
 
+let uselevel = true (* Don't forget to set "uselevel" inside cost_matrix.ml and
+alphabet.ml*) 
+
 external register : unit -> unit = "seq_CAML_register"
 
 let _ = 
@@ -253,6 +256,14 @@ let to_formater seq alph =
     let len = length seq in
     let b = Buffer.create len in
     for i = 0 to len - 1 do
+        let tmp = get seq i in
+        if(tmp=0) then
+                for j = i to len-1 do
+                    let tmpj = get seq j in
+                    Printf.printf "   %d[%d], %!" j tmpj;
+                done;
+        (*Printf.printf "\n to_formater,i=%d,seq = %s\n%!" i (to_string seq
+        * alph);*)
         Buffer.add_string b (
             let v = Alphabet.match_code (get seq i) alph in
             if v = "@" then "@@"
@@ -965,6 +976,14 @@ module Align = struct
         res
 
     let closest s1 s2 cm m =
+        (*let printseqcode seq =
+            let len = length seq in
+            Printf.printf "[";
+            for i = len-1 downto 0 do  Printf.printf "%d," (get seq i) done;
+            Printf.printf "] ";
+        in
+            Printf.printf "\n sequence.ml, s1 = %!"; printseqcode s1;
+            Printf.printf " s2 = %!"; printseqcode s2;  *)
         let remove_gaps s2' =
             (* We first define a function to eliminate gaps from the 
             * final selection *)
@@ -996,20 +1015,33 @@ module Align = struct
                     else v'
                 else v
             in
+            (*Printf.printf "; s1' and s2' = %!"; printseqcode s1'; printseqcode s2';
+            Printf.printf "end of sequence.ml \n%!";*)
             remove_gaps (mapi get_closest s2'), cst
         else
             let s1', s2', comp =
-                if 0 = compare s1 s2 then 
+                if 0 = compare s1 s2 then
                     (* We remove all the gaps if we are using combinations *)
                     if 0 = Cost_matrix.Two_D.combine cm then 
                         s1, s2, true
-                    else 
-                        let mask = lnot (Cost_matrix.Two_D.gap cm) in
-                        mapi (fun x pos -> 
-                            if pos > 0 then x land mask else x) s1, 
-                        mapi (fun x pos -> 
-                            if pos > 0 then x land mask else x) s2, 
-                        true
+                    else
+                        if uselevel then 
+                            let level = 2 in
+                            let ori_a_sz = Cost_matrix.Two_D.get_ori_a_sz cm in
+                            let gap_filter x =
+                                Cost_matrix.Two_D.gap_filter_for_combcode x
+                                level ori_a_sz
+                            in
+                            let news1 = map gap_filter s1 and
+                            news2 = map gap_filter s2 in
+                            news1, news2, true
+                        else
+                            let mask = lnot (Cost_matrix.Two_D.gap cm) in
+                            mapi (fun x pos -> 
+                                if pos > 0 then x land mask else x) s1, 
+                            mapi (fun x pos -> 
+                                if pos > 0 then x land mask else x) s2, 
+                            true
                 else
                     let s1', s2', _ = align_2 s1 s2 cm m in
                     s1', s2', false
@@ -1022,8 +1054,13 @@ module Align = struct
                     in
                     mapi get_closest s2' 
                 in
+                (*let _ =
+                Printf.printf ", s2' = %!"; printseqcode s2'
+                in*)
                 remove_gaps s2' 
             in
+            (*Printf.printf ", s2' = %!"; printseqcode s2';
+            Printf.printf "end of sequence.ml \n%!";*)
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost
             * model *)
@@ -2161,7 +2198,7 @@ let align3 (seq1 : s) (seq2 : s) (seq3 : s)
 * returns the single sequence of sequence [alied_child]
 * which is closest to the aligned parent sequence [alied_parent] *)
 let closest_alied_seq alied_parent alied_child c2 = 
-    let len = length alied_parent in 
+    let len = length alied_parent in
     let single_seq = init 
         (fun p -> 
              let p_code = get alied_parent p in 
