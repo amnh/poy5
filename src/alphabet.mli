@@ -89,6 +89,8 @@ val match_code : int -> a -> string
 (** Same as match_code *)
 val find_code : int -> a -> string
 
+val find_codelist : int -> a -> int list
+val find_comb : int list -> a -> int
 
 (** Find  the specified complement of the element in the alphabet. If no
 * complement is specified, return None. *)
