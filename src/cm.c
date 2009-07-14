@@ -19,7 +19,7 @@
 
 #include <stdio.h>
 #include <string.h>
-
+#include <caml/bigarray.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
 #include <caml/bigarray.h>
@@ -54,6 +54,8 @@ cm_combinations_of_alphabet (const int a_sz) {
 
 void
 cm_free (cmt c) {
+    free (c->combmap);
+    free (c->comb2list);
     free (c->cost);
     free (c->median);
     free (c->worst);
@@ -103,6 +105,43 @@ cm_set_gap (cmt c, int v) {
     c->gap = v;
     return;
 }
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_ori_a_sz (cmt c, int v) {
+    assert(c != NULL);
+    c->ori_a_sz = v;
+    return;
+}
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_map_sz (cmt c, int v) {
+    assert(c != NULL);
+    c->map_sz = v;
+    return;
+}
+
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_level (cmt c, int v) {
+    assert(c != NULL);
+    c->level = v;
+    return;
+}
+
+
+
 
 #ifdef _WIN32
 static __inline void
@@ -274,7 +313,7 @@ cm_CAML_set_all_elements (value cm, value v) {
     CAMLparam2(cm, v);
     cmt c;
     int i;
-    c = Cost_matrix_struct(cm);
+    c =Cost_matrix_struct(cm);
     i = Int_val(v);
     cm_set_all_elements (c, i);
     CAMLreturn(Val_unit);
@@ -317,8 +356,10 @@ cm_CAML_get_all_elements (value cm) {
  */
 cmt 
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
-        int is_metric, int all_elements, cmt res) {
-    size_t size;
+        int is_metric, int all_elements, cmt res, int level, int comb_num) {
+    size_t size; 
+    size_t combmatrix_size; 
+    size_t comb2list_size; 
 #ifndef USE_LARGE_ALPHABETS
     if (a_sz > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version \
@@ -328,11 +369,20 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
                 for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
     if (combinations != 0) {
-        cm_set_gap (res, 1 << (a_sz - 1));
+        cm_set_ori_a_sz(res, a_sz);
+        cm_set_level(res,level);
+        cm_set_map_sz(res, comb_num);
         cm_set_a_sz (res, cm_combinations_of_alphabet (a_sz));
         cm_set_lcm (res, a_sz);
+        if( (level >1)&&(level<a_sz) )
+            cm_set_gap(res, a_sz);
+        else
+            cm_set_gap (res, 1 << (a_sz - 1));
         cm_set_combinations (res);
     } else {
+        cm_set_ori_a_sz(res, a_sz);
+        cm_set_level(res,1);
+        cm_set_map_sz(res, a_sz);
         cm_set_gap (res, a_sz);
         cm_set_a_sz (res, a_sz);
         cm_set_lcm (res, ceil_log_2 (a_sz + 1));
@@ -344,6 +394,10 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
     if (0 == size)
         failwith ("Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
+    combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1) ;
+    comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
+    res->combmap = (int *) calloc(combmatrix_size,0);
+    res->comb2list = (int *) calloc( comb2list_size,0);
     res->cost = (int *) calloc (size, 1);
     res->worst = (int *) calloc (size, 1);
     res->prepend_cost = (int *) calloc (size, 1);
@@ -352,13 +406,51 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if (0 == size)
         failwith ("Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
     res->median = (SEQT *) calloc (size, 1);
-    if ((res->cost == NULL) || (res->median == NULL)) {
+    if ((res->combmap == NULL)||(res->comb2list == NULL)||(res->cost == NULL) || (res->median == NULL)) {
+        free (res->combmap);
+        free (res->comb2list);
         free (res->cost);
         free (res->median);
         failwith ("Memory error during cost matrix allocation.");
     }
     return res;
 }
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_ini_combmap (cmt res, int map_sz)
+{
+    int size; 
+    size =  sizeof(int) * (map_sz+1)  * (map_sz+1); // why the other matrix add 2* ?
+    res->combmap = (int*) calloc (size,0);
+    if( res->combmap == NULL) 
+    {
+        free(res->combmap); 
+        failwith ("Memonry error during combination map matrix allocation");
+    }
+    return ;
+}
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_ini_comb2list (cmt res, int map_sz)
+{
+    int size; 
+    size = sizeof(int) * (map_sz+1) * (2+1);
+    res->comb2list = (int*)calloc(size,0);
+    if(res->comb2list == NULL)
+    {
+        free(res->comb2list);
+        failwith ("Memonry error during comb2list matrix allocation");
+    }
+}
+
 
 /* 
  * Creates a cost matrix with memory allocated for an alphabet of size a_sz
@@ -421,6 +513,36 @@ inline int
 cm_get_alphabet_size_3d (cm_3dt c) {
     assert(c != NULL);
     return c->a_sz;
+}
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_ori_a_sz (cmt c) {
+    assert(c != NULL);
+    return c->ori_a_sz;
+}
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_map_sz (cmt c) {
+    assert(c != NULL);
+    return c->map_sz;
+}
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_level (const cmt c) {
+    assert(c != NULL);
+    return c->level;
 }
 
 #ifdef _WIN32
@@ -536,6 +658,53 @@ cm_calc_median (SEQT *tcm, SEQT a, SEQT b, int a_sz) {
     res = tcm + cm_calc_cost_position_seqt (a, b, a_sz);
     return (*res);
 }
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_combmap (int *tcm, int a, int b, int mapsize) {
+
+    fprintf (stdout, "get combmap: %d,%d;", a ,b);
+    fflush (stdout);
+    int *res;
+    res = tcm + ((a)*mapsize+(b));
+    return (*res);
+}
+
+
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_comblist ( int * tcm, int combcode, int pos, int mapwide )
+{
+    int * res;
+    res = tcm + ((combcode-1)*mapwide+pos);
+    //fprintf (stdout, "%d,", (*res));
+    //fflush (stdout);
+    return (*res);
+}
+
+/*
+void
+cm_print_matrix (int* m, int w, int h) {
+    int i, j;
+    for (i = 0; i < h; i++) {
+        fprintf(stdout,"%d: ", i);
+        for (j = 0; j < w; j++)
+            fprintf (stdout, "%d\t", *(m + (w * i) + j));
+        fprintf (stdout, "\n");
+    }
+    fprintf (stdout, "\n");
+    return;
+}
+*/
+
 
 #ifdef _WIN32
 __inline int
@@ -688,6 +857,17 @@ cm_set_value (int a, int b, int v, int *p, int a_sz) {
     return;
 }
 
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+cm_set_value_nonbit (int a, int b, int v, int *p, int sz) {
+    *(p + (a*sz+b)) = v;
+    return;
+}
+
+
 void
 cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     int i, j, l, m, *tmp_cost, *tcm, *tmp_to, *prepend, *tail, *to;
@@ -793,6 +973,28 @@ cm_set_cost (int a, int b, int v, cmt c) {
     return;
 }
 
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+cm_set_combmap (int a, int b, int v, cmt c) {
+     cm_set_value_nonbit ((a), (b), v, c->combmap, c->map_sz);
+    return;
+}
+
+/*
+#ifdef _WIN32
+__inline void
+#else
+inline void
+#endif
+cm_set_comb2list (int a, int b, int v, cmt c) {
+    cm_set_value_nonbit ((v-1), 0, a, c->comb2list, 2);
+    cm_set_value_nonbit ((v-1), 1, b, c->comb2list, 2);
+    return;
+}
+*/
 
 #ifdef _WIN32
 __inline void
@@ -860,8 +1062,17 @@ cm_set_median_3d (SEQT a, SEQT b, SEQT cp, SEQT v, cm_3dt c) {
 unsigned long
 cm_CAML_deserialize (void *v) {
     cmt n;
-    int len;
+    int len; 
     n = (cmt) v;
+    // add following for level
+    int mapsize; 
+    int comb_map_sz; 
+    int comb2list_sz;
+    mapsize = n->map_sz;
+    n->ori_a_sz = deserialize_sint_4();
+    n->level = deserialize_sint_4();
+    n->map_sz = deserialize_sint_4();
+    // add above for level
     n->a_sz = deserialize_sint_4();
     n->lcm = deserialize_sint_4();
     n->gap = deserialize_sint_4();
@@ -870,6 +1081,13 @@ cm_CAML_deserialize (void *v) {
     n->gap_open = deserialize_sint_4();
     n->is_metric = deserialize_sint_4();
     n->all_elements = deserialize_sint_4();
+    comb_map_sz = (mapsize+1) * (mapsize+1);
+    comb2list_sz = (mapsize+1) * (2+1);
+    n->combmap = (int *) calloc (comb_map_sz*sizeof(int),1);
+    n->comb2list = (int *) calloc (comb2list_sz *sizeof(int),1);
+    if ((n->combmap == NULL) || (n->comb2list == NULL)) failwith ("Memory error.");
+    deserialize_block_4(n->combmap, comb_map_sz);
+    deserialize_block_4(n->comb2list,comb2list_sz);
     len = 2 * (1 << (n->lcm)) * (1 << n->lcm) ;
     n->cost = (int *) calloc (len * sizeof(int), 1);
     n->median = (SEQT *) calloc (len * sizeof(SEQT), 1);
@@ -910,12 +1128,20 @@ void
 cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
         unsigned long *wsize_64) {
     cmt c;
-    int len;
-    if (!NDEBUG) {
+    int len; 
+       if (!NDEBUG) {
         printf ("I will serialize cm!\n");
         fflush (stdout);
     }
     c = Cost_matrix_struct(vcm);
+     //add following for level
+     int mapsize; 
+    int comb_map_sz; int comb2list_sz;
+    mapsize = c->map_sz; 
+    serialize_int_4(c->ori_a_sz);
+    serialize_int_4(c->level);
+    serialize_int_4(c->map_sz);
+        // add above for level
     serialize_int_4(c->a_sz);
     serialize_int_4(c->lcm);
     serialize_int_4(c->gap);
@@ -925,6 +1151,10 @@ cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
     serialize_int_4(c->is_metric);
     serialize_int_4(c->all_elements);
     *wsize_64 = *wsize_32 = sizeof(struct cm);
+    comb_map_sz = (mapsize+1) * (mapsize+1) ;
+    comb2list_sz = (mapsize+1) * (2+1);
+    serialize_block_4(c->combmap,comb_map_sz);
+    serialize_block_4(c->comb2list,comb2list_sz);
     len = 2 * (1 << (c->lcm)) * (1 << (c->lcm));
     serialize_block_4(c->cost, len);
     SERIALIZE_SEQT(c->median, len);
@@ -958,6 +1188,8 @@ void
 cm_CAML_free (value v) {
     cmt c;
     c = Cost_matrix_struct(v);
+    free (c->combmap);
+    free (c->comb2list);
     free (c->cost);
     free (c->median);
     free (c->worst);
@@ -1061,16 +1293,22 @@ cm_CAML_clone (value v) {
     cmt clone2;
     cmt c;
     int len;
+    int combmatrix_size;
+    int comb2list_size;
     clone = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     clone2 = Cost_matrix_struct(clone);
     c = Cost_matrix_struct(v);
     if (c->combinations)
         cm_set_val (c->lcm, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2);
+                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz);
     else
         cm_set_val (c->a_sz, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2);
+                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz);
     len = 2 *(1 << (c->lcm)) * (1 << (c->lcm));
+    combmatrix_size = (c->map_sz+1)  * (c->map_sz+1);
+    comb2list_size = (c->map_sz+1) * (2+1);
+    cm_copy_contents (c->combmap, clone2->combmap, combmatrix_size);
+    cm_copy_contents (c->comb2list, clone2->comb2list, comb2list_size);
     cm_copy_contents (c->cost, clone2->cost, len);
     cm_copy_contents_seqt (c->median, clone2->median, len);
     cm_copy_contents (c->worst, clone2->worst, len);
@@ -1111,6 +1349,56 @@ cm_CAML_set_gap (value c, value v) {
     CAMLreturn (Val_unit);
 }
 
+value 
+cm_CAML_set_ori_a_sz (value c, value v) {
+    CAMLparam2 (c, v);
+    cm_set_ori_a_sz (Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value 
+cm_CAML_set_map_sz (value c, value v) {
+    CAMLparam2 (c, v);
+    cm_set_map_sz (Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value 
+cm_CAML_set_level (value c, value v) {
+    CAMLparam2 (c, v);
+    cm_set_level (Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value
+cm_CAML_ini_combmap (value c, value v) {
+    CAMLparam2(c, v);
+    cm_ini_combmap ( Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value
+cm_CAML_ini_comb2list (value c, value v) {
+    CAMLparam2(c, v);
+    cm_ini_comb2list ( Cost_matrix_struct(c), Int_val(v));
+    CAMLreturn (Val_unit);
+}
+
+value
+cm_CAML_set_combmap (value va, value vb, value vc, value c) {
+    CAMLparam4(va,vb,vc,c);
+    cm_set_combmap ( Int_val(va),Int_val(vb), Int_val(vc),Cost_matrix_struct(c));
+    CAMLreturn (Val_unit);
+}
+
+/*
+value
+cm_CAML_set_comb2list (value va, value vb, value vc, value c) {
+    CAMLparam4(va,vb,vc,c);
+    cm_set_comb2list ( Int_val(va),Int_val(vb), Int_val(vc),Cost_matrix_struct(c));
+    CAMLreturn (Val_unit);
+}
+*/
 value 
 cm_CAML_set_affine_3d (value c, value do_aff, value go) {
     CAMLparam3(c, do_aff, go);
@@ -1164,6 +1452,25 @@ cm_CAML_get_gap (value c) {
     CAMLparam1 (c);
     CAMLreturn (Val_int((cm_get_gap (Cost_matrix_struct(c)))));
 }
+
+value 
+cm_CAML_get_ori_a_sz (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_ori_a_sz (Cost_matrix_struct(c)))));
+}
+
+value 
+cm_CAML_get_map_sz (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_map_sz (Cost_matrix_struct(c)))));
+}
+
+value 
+cm_CAML_get_level (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_level (Cost_matrix_struct(c)))));
+}
+
 
 value 
 cm_CAML_get_affine_3d (value c) {
@@ -1229,6 +1536,48 @@ cm_CAML_get_cost (value a, value b, value c) {
     tcm = tmp->cost;
     CAMLreturn(Val_int(cm_calc_cost(tcm, Int_val(a), Int_val(b), tmp->lcm)));
 }
+
+value
+cm_CAML_get_combmap (value a, value b, value c) {
+     CAMLparam3(a, b, c);
+    int *tcm;
+    cmt tmp;
+    tmp = Cost_matrix_struct(c);
+    tcm = tmp->combmap;
+    CAMLreturn(Val_int(cm_get_combmap(tcm, Int_val(a), Int_val(b), tmp->map_sz)));
+}
+
+/*
+value
+cm_CAML_get_comblist (value combcode, value position, value c)
+{
+    CAMLparam2(combcode,c);
+    int * tcm;
+    cmt tmp;
+    tmp = Cost_matrix_struct(c);
+    tcm = tmp->comb2list;
+    CAMLreturn(Val_int(cm_get_comblist(tcm, Int_val(combcode), Int_val(position), 2)));
+    
+   // CAMLreturn ( alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
+    //    cm_get_comblist(tcm, Int_val(combcode), 2), dims) ) ;
+    
+}
+*/
+
+/*
+value
+cm_CAML_print_matrix (value mw, value mh, value c) {
+    CAMLparam3(mw, mh, c);
+    int w = Int_val(mw);
+    int h = Int_val(mh);
+    int *tcm;
+    cmt tmp;
+    tmp = Cost_matrix_struct(c);
+    tcm = tmp->combmap;
+    cm_print_matrix (tcm, w, h);
+    CAMLreturn (Val_unit);
+}
+*/
 
 value
 cm_CAML_get_worst (value a, value b, value c) {
@@ -1383,16 +1732,24 @@ cm_CAML_create_3d_bc (value *argv, int argn) {
     return (cm_CAML_create_3d (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]));
 }
 
+
 value
-cm_CAML_create (value a_sz, value combine, value aff, value go, value all) {
+cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value level, value combine_number) {
     CAMLparam5(a_sz, combine, aff, go, all);
+    CAMLxparam2(level, combine_number);
     value tmp;
     cmt tmp2;
     tmp = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     tmp2 = Cost_matrix_struct(tmp);
     cm_set_val (Int_val(a_sz), Bool_val(combine), Int_val(aff), Int_val(go), \
-            0, Int_val(all), tmp2);
+            0, Int_val(all), tmp2, Int_val(level), Int_val(combine_number));
     CAMLreturn(tmp);
+}
+
+value 
+cm_CAML_create_bytecode (value * argv, int argn){
+    return (cm_CAML_create 
+        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5],argv[6]));
 }
 
 value 
