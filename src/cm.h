@@ -29,7 +29,13 @@
  * Check cm_3d for further information. This is the corresponding data
  * structure for two dimensional sequence alignment. 
  */
+
 struct cm {
+    // add following for level
+    int ori_a_sz; //original alphabet size
+    int level; //level = 1,2,3....n. n = ori_a_sz
+    int map_sz; // size of combmap matrix
+    // add above for level
     int a_sz;
     int lcm;
     int gap;
@@ -38,12 +44,15 @@ struct cm {
     int gap_open;
     int is_metric;
     int all_elements;
+    int *combmap; // the combination codelist to combination code map [a,b] --> c
+    int *comb2list; // the combination code to combination code list map c-->[a,b]
     int *cost;
     SEQT *median;
     int *worst;         /* Missing in 3d */
     int *prepend_cost;  /* Missing in 3d */
     int *tail_cost;     /* Missing in 3d */
 };
+
 
 /*
  * A pointer to the cm structure.
@@ -56,6 +65,22 @@ typedef struct cm * cmt;
 inline int 
 cm_get_alphabet_size (cmt c);
 
+// Retrieves the original alphabet size
+inline int
+cm_get_ori_a_size (cmt c);
+
+// Retrieves the level value
+inline int
+cm_get_level (cmt c);
+
+// Retrieves the value at position (a,b) of combination map matrix
+inline int
+cm_get_combmap(int *tcm, int a, int b, int mapsize);
+
+/*
+inline int
+cm_get_comblist( int * tcm, int combcode, int position, int mapwide);
+*/
 /*
  * Retrieves the gap code as defined in the transformation cost matrix. 
  */
