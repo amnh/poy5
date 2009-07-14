@@ -4243,7 +4243,7 @@ end
 
 
 module PAlphabet = struct
-    let of_file fn orientation init3D = 
+    let of_file fn orientation init3D =
         let file = FileStream.Pervasives.open_in fn in
         let alph = FileStream.Pervasives.input_line file in
         let default_gap = Alphabet.gap_repr in
@@ -4254,7 +4254,7 @@ module PAlphabet = struct
             if orientation then alph, false
             else 
                 let size = Alphabet.size alph in
-                if size < 6 then 
+                if size < 7 then 
                     Alphabet.explote alph, true
                 else alph, false
         in
@@ -4263,10 +4263,10 @@ module PAlphabet = struct
                 let all_elements = -1 (* we don't allow ambiguities here *) in
                 if do_comb then
                     TransformationCostMatrix.of_channel 
-                    ~orientation:orientation all_elements  file
+                    ~orientation:orientation all_elements file 
                 else
                     TransformationCostMatrix.of_channel_nocomb
-                    ~orientation:orientation all_elements file
+                    ~orientation all_elements file
             with
             | Failure "No Alphabet" -> 
                     assert false 
