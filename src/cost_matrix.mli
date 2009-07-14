@@ -56,9 +56,11 @@ module Two_D : sig
     * claculating all the possible combinations (effective size 2^a) iff com is
     * true, using the affine cost model aff and gap opening go and gap 
     * extension ge.  *)
-    external create : int -> bool -> int -> int -> int -> m = "cm_CAML_create"
-
+    external create : int -> bool -> int -> int -> int -> int -> int -> m = 
+        "cm_CAML_create_bytecode" "cm_CAML_create"
+    
     (** [clone x] creates a fresh copy of the cost matrix x *)
+    
     external clone : m -> m = "cm_CAML_clone"
 
     (** [perturbe x y z] perturbates the cost matrix x with severity y and
@@ -88,7 +90,7 @@ module Two_D : sig
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
     val of_channel: ?orientation:bool -> ?use_comb:bool -> int ->
-        FileStream.greader -> m
+        FileStream.greader -> m 
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
         returns the processed data, but without calculating combinations. Raise an
@@ -138,6 +140,17 @@ module Two_D : sig
     (** [gap cm] retrieves the gap representation value in cm *)
     external gap : m -> int = "cm_CAML_get_gap"
 
+    (* [get_ori_a_sz cm] returns the original alphabet size*)
+    external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
+
+    (* [get_level cm] returns the level value of current alphabet *)
+    external get_level : m -> int = "cm_CAML_get_level"
+(*
+    (* [get_combmap a b m] returns the value on position (a,b) in combination map m*)
+    external get_combmap: int -> int -> m -> int = "cm_CAML_get_combmap"
+
+    
+*)
     (** [lcm cm] retrieves the celing of the log2 of the alphabet size of the cost
     * matrix cm. *)
     external lcm : m -> int = "cm_CAML_get_lcm"
@@ -176,6 +189,8 @@ module Two_D : sig
     * element [x] according to the two dimensional cost matrix [m]. [x] can be a
     * bitset, and [y] need not to be a bitset. *)
     val get_closest : m -> int -> int -> int
+
+    val gap_filter_for_combcode : int -> int -> int -> int
 end
 
 module Three_D : sig
