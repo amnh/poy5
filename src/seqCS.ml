@@ -607,6 +607,7 @@ module ProtAff = struct
                 prepend res (Cost_matrix.Two_D.gap c2);
                 res
             in
+            Printf.printf "\n 3 \n %!";
             let get_closest v i =
                 let v' = get s1' i in
                 Cost_matrix.Two_D.get_closest c2 v' v 
@@ -801,7 +802,7 @@ module DOS = struct
         let a = bitset_to_seq gap a
         and b = bitset_to_seq gap b in
         assert (Sequence.length a = Sequence.length b);
-        let res = Sequence.Align.union a b in
+        let res = Sequence.Align.union a b h.c2 in
         let a, b, cost = 
             Sequence.Align.align_2 p.sequence res h.c2 Matrix.default 
         in
