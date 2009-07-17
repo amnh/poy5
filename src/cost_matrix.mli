@@ -190,7 +190,35 @@ module Two_D : sig
     * bitset, and [y] need not to be a bitset. *)
     val get_closest : m -> int -> int -> int
 
-    val gap_filter_for_combcode : int -> int -> int -> int
+    (*
+    * [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
+    * combination code if the code contains gap code. for example, if gap is
+    * "-", then input [a-] will get [a]  
+    * *)
+    val gap_filter_for_combcode : int -> m -> int
+
+    (*
+    * [comblist_to_combcode lst m], returns the combination code given a
+    * combiantion codelist.
+    * This function should be more efficent if we use Bigarray -- add Bigarray
+    * later.
+    * *)
+    val comblist_to_combcode: int list  -> m -> int
+
+    (*
+    * [combcode_to_comblist code m], returns combination codelist given a
+    * combination code
+    * *)
+    val combcode_to_comblist: int -> m -> int list
+
+    (*
+    * [clear_duplication_in_list lst] clears up the duplicate element in the
+    * given list
+    * *)
+    val clear_duplication_in_list: int list -> int list
+
+    (* [print_intlist list] prints out the int list, for debug....*)
+    val print_intlist: int list -> unit
 end
 
 module Three_D : sig
