@@ -346,6 +346,36 @@ cm_CAML_get_all_elements (value cm) {
     CAMLreturn(Val_int(cm_get_all_elements(c)));
 }
 
+value 
+cm_CAML_comb2list_to_bigarr (value cm){
+    CAMLparam1(cm);
+    CAMLlocal1(res);
+    int * c2l;
+    long dims[2];
+    cmt c;
+    c = Cost_matrix_struct(cm);
+    dims[0] = (c->map_sz+1);
+    dims[1] = (2+1);
+    c2l = (int*) malloc ( dims[0] * dims[1] * sizeof(int));
+    memcpy( c2l, c->comb2list, dims[0] * dims[1] * sizeof(int) );
+    res = alloc_bigarray( BIGARRAY_NATIVE_INT | BIGARRAY_C_LAYOUT,2,c2l,dims);
+    CAMLreturn(res);
+}
+
+value
+cm_CAML_bigarr_to_comb2list (value bigarr, value cm) {
+    CAMLparam2(cm, bigarr);
+    cmt c;
+    int w;
+    int h;
+    c = Cost_matrix_struct(cm);
+    h = Bigarray_val(bigarr)->dim[0];
+    w = Bigarray_val(bigarr)->dim[1];
+    assert( h == (c->map_sz + 1) );
+    assert( w == (2+1) );
+    memcpy(c->comb2list,Data_bigarray_val(bigarr),w*h*sizeof(int));
+    CAMLreturn(Val_unit);
+}
 /* 
  * Creates a cost matrix with memory allocated for an alphabet of size a_sz
  * (not including the gap representation which is internally chosen), and whose
@@ -396,8 +426,10 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         failwith ("Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
     combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1) ;
     comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
-    res->combmap = (int *) calloc(combmatrix_size,0);
-    res->comb2list = (int *) calloc( comb2list_size,0);
+//fprintf(stdout, "check size:%d,%d,%d;%d,%d,%d", sizeof(int),res->lcm, size, comb_num, combmatrix_size, comb2list_size);    
+//fflush(stdout);
+    res->combmap = (int *) calloc(combmatrix_size,1);
+    res->comb2list = (int *) calloc( comb2list_size,1);
     res->cost = (int *) calloc (size, 1);
     res->worst = (int *) calloc (size, 1);
     res->prepend_cost = (int *) calloc (size, 1);
@@ -666,14 +698,16 @@ __inline int
 inline int
 #endif
 cm_get_combmap (int *tcm, int a, int b, int mapsize) {
-
-    fprintf (stdout, "get combmap: %d,%d;", a ,b);
-    fflush (stdout);
-    int *res;
-    res = tcm + ((a)*mapsize+(b));
-    return (*res);
+   // fprintf (stdout, "get combmap: %d,%d;", a ,b);
+   // fflush (stdout);
+    if (a==b) return a;
+    else
+    {
+        int *res;
+        res = tcm + ((a)*mapsize+(b));
+        return (*res);
+    }
 }
-
 
 
 #ifdef _WIN32
@@ -684,7 +718,7 @@ inline int
 cm_get_comblist ( int * tcm, int combcode, int pos, int mapwide )
 {
     int * res;
-    res = tcm + ((combcode-1)*mapwide+pos);
+    res = tcm + (combcode*mapwide+pos);
     //fprintf (stdout, "%d,", (*res));
     //fflush (stdout);
     return (*res);
@@ -979,22 +1013,20 @@ __inline void
 inline void
 #endif
 cm_set_combmap (int a, int b, int v, cmt c) {
-     cm_set_value_nonbit ((a), (b), v, c->combmap, c->map_sz);
+     cm_set_value_nonbit ((a), (b), v, c->combmap, (c->map_sz+1));
     return;
 }
 
-/*
 #ifdef _WIN32
 __inline void
 #else
 inline void
 #endif
 cm_set_comb2list (int a, int b, int v, cmt c) {
-    cm_set_value_nonbit ((v-1), 0, a, c->comb2list, 2);
-    cm_set_value_nonbit ((v-1), 1, b, c->comb2list, 2);
+    cm_set_value_nonbit ((v), 1, a, c->comb2list, 3);
+    cm_set_value_nonbit ((v), 2, b, c->comb2list, 3);
     return;
 }
-*/
 
 #ifdef _WIN32
 __inline void
@@ -1391,14 +1423,13 @@ cm_CAML_set_combmap (value va, value vb, value vc, value c) {
     CAMLreturn (Val_unit);
 }
 
-/*
 value
 cm_CAML_set_comb2list (value va, value vb, value vc, value c) {
     CAMLparam4(va,vb,vc,c);
     cm_set_comb2list ( Int_val(va),Int_val(vb), Int_val(vc),Cost_matrix_struct(c));
     CAMLreturn (Val_unit);
 }
-*/
+
 value 
 cm_CAML_set_affine_3d (value c, value do_aff, value go) {
     CAMLparam3(c, do_aff, go);
@@ -1544,10 +1575,9 @@ cm_CAML_get_combmap (value a, value b, value c) {
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->combmap;
-    CAMLreturn(Val_int(cm_get_combmap(tcm, Int_val(a), Int_val(b), tmp->map_sz)));
+    CAMLreturn(Val_int(cm_get_combmap(tcm, Int_val(a), Int_val(b), (tmp->map_sz+1))));
 }
 
-/*
 value
 cm_CAML_get_comblist (value combcode, value position, value c)
 {
@@ -1556,13 +1586,12 @@ cm_CAML_get_comblist (value combcode, value position, value c)
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->comb2list;
-    CAMLreturn(Val_int(cm_get_comblist(tcm, Int_val(combcode), Int_val(position), 2)));
+    CAMLreturn(Val_int(cm_get_comblist(tcm, Int_val(combcode), Int_val(position), 3)));
     
    // CAMLreturn ( alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
     //    cm_get_comblist(tcm, Int_val(combcode), 2), dims) ) ;
     
 }
-*/
 
 /*
 value
