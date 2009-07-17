@@ -40,6 +40,7 @@ type a = {
     string_to_code : int All_sets.StringMap.t;
     code_to_string : string All_sets.IntegerMap.t;
     complement : int option All_sets.IntegerMap.t;
+    level : int;
     gap : int;
     all : int option;
     size : int;
@@ -138,6 +139,7 @@ let list_to_a ?(orientation=false) lst gap all kind =
        print_newline();
     { comb_to_list = All_sets.IntegerMap.empty; 
       list_to_comb = All_sets.IntegerListMap.empty;
+      level = cnt;
       string_to_code = s2c; 
       code_to_string = c2s; 
       gap = gap_code; all = all_code;
@@ -304,6 +306,8 @@ let get_all a = a.all
 
 let get_gap a = 
     a.gap
+
+let get_level a = a.level
 
 let to_list a =
     let res =
@@ -551,6 +555,7 @@ let rec to_sequential alph =
                 { 
                     comb_to_list = alph.comb_to_list; 
                     list_to_comb = alph.list_to_comb;
+                    level = alph.level;
                     string_to_code = new_string_to_code;
                     code_to_string = new_code_to_string;
                     complement = new_complement;
@@ -564,15 +569,15 @@ let rec to_sequential alph =
             in
             res
 
-let rec explote alph  =
+let rec explote alph =
     match alph.kind with
     | Extended_Bit_Flags -> (* We already have what we want *) alph 
     | Simple_Bit_Flags -> 
             (* We have each element as one bit, we have now to extend it into
             * all possible combinations *)
-            let level = 2 in
             (*  we do the List.rev here because we want the gap to be
             the first element in following combination calculation *)
+let level = 3 in
             let list = 
                 if uselevel then
                     List.rev(to_list alph)
@@ -672,7 +677,9 @@ let rec explote alph  =
             let return_alpha =
             if uselevel then
                 { return_alpha with 
-                  comb_to_list = (!new_comb_to_list);  list_to_comb = (!new_list_to_comb);}
+                  comb_to_list = (!new_comb_to_list);  list_to_comb = (!new_list_to_comb);
+                  level = level;
+                }
             else return_alpha
             in
             return_alpha
@@ -690,7 +697,7 @@ let rec explote alph  =
                 in
                 let res = list_to_a ~orientation:alph.orientation new_alph_list gap_repr None Simple_Bit_Flags in
                 Printf.printf "gap_repr,gap = %s,%d \n %!" gap_repr alph.gap;
-                explote res
+                explote res 
                 end
             else begin
                 let new_alphabet =
