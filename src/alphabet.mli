@@ -116,6 +116,11 @@ val get_all : a -> int option
 * alphabet [a]. *)
 val get_gap : a -> int
 
+(*
+* [get_level a] returns the level value of alphabet a
+* *)
+val get_level: a -> int
+
 (** [kind a] returns the kind of the alphabet [a]. *)
 val kind : a -> kind
 
