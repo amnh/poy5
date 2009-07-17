@@ -58,15 +58,19 @@ module Two_D = struct
 (*
     external print_matrix: int -> int -> m -> unit = "cm_CAML_print_matrix"
 *)
-(*
     external set_comb2list: int -> int -> int -> m -> unit = "cm_CAML_set_comb2list"
     external get_comblist : int -> int -> m -> int = "cm_CAML_get_comblist"
-*)  
     (*external get_comblist: int -> m -> 
     (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t =
         "cm_CAML_get_comblist"*)
     external set_level : m -> int -> unit = "cm_CAML_set_level"
     external get_level : m -> int = "cm_CAML_get_level"
+    external comb2list_bigarray : m ->
+     (int,Bigarray.int_elt,Bigarray.c_layout) Bigarray.Array2.t =
+    "cm_CAML_comb2list_to_bigarr"
+    external bigarray_comb2list: 
+    (int,Bigarray.int_elt,Bigarray.c_layout) Bigarray.Array2.t -> m -> unit=
+    "cm_CAML_bigarr_to_comb2list"
     (* add above for level *)
     external set_all_elements : m -> int -> unit = "cm_CAML_set_all_elements"
     external get_all_elements : m -> int = "cm_CAML_get_all_elements"
@@ -304,7 +308,8 @@ module Two_D = struct
         if ( (totalnum - combcode) < num_comb_with_gap ) then true
         else false
     
-    let gap_filter_for_combcode combcode level ori_a_sz=
+    let gap_filter_for_combcode combcode cm =
+        let level = get_level cm and ori_a_sz = get_ori_a_sz cm in
         let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
         let total_num = calc_number_of_combinations_by_level ori_a_sz level in
         let num_comb_without_gap = total_num - num_comb_with_gap in
@@ -350,6 +355,7 @@ module Two_D = struct
         | [] -> ();;
  
     let clear_duplication_in_list oldlist =
+        let oldlist = List.sort compare oldlist in
         let oldarray = Array.of_list oldlist in
         let len = Array.length oldarray in
         let newlist = ref [oldarray.(0)] in
@@ -361,19 +367,6 @@ module Two_D = struct
         List.rev (!newlist)
     ;;
 
-    
-    let rec comblist_to_combcode lst m =
-        let func a b = 
-            if(a==b) then a
-            else get_combmap a b m
-        in
-        match lst with
-        | h::t -> List.fold_right func lst (List.hd (List.rev lst))
-        | _ -> raise(Illegal_List_length)
-    ;;
-    
-
-(*
     let combcode_to_comblist code m =
         (*Printf.printf "code to list:%!";*)
         let ori_a_sz = get_ori_a_sz m in
@@ -381,21 +374,10 @@ module Two_D = struct
         let rec fillinlist code m acclist =
             if (code<=ori_a_sz) then [code] @ acclist
             else begin
-                let code1 = get_comblist code 0 m 
-                and code2 = get_comblist code 1 m in
+                let code1 = get_comblist code 1 m 
+                and code2 = get_comblist code 2 m in
                 (*Printf.printf "get code=%d,code1=%d,code2=%d;\n%!"code code1
                 code2;*)
-               (*if(code==20) then
-                    begin
-                        Printf.printf "20=[%d,%d]" code1 code2;
-                        print_newline();
-                        for i = 8 to 15 do
-                            let i1 = get_comblist i 0 m and
-                            i2 = get_comblist i 1 m in 
-                            Printf.printf "%d:%d.%d; %!" i i1 i2;
-                        done;
-                    end
-                else ();*)
                 assert(code1<=map_sz); assert(code2<=map_sz);
                 let addlist1 = fillinlist code1 m acclist in
                 let addlist2 = fillinlist code2 m acclist in
@@ -403,15 +385,59 @@ module Two_D = struct
             end
         in
         let comblist = fillinlist code m [] in
-        let newcomblist = List.sort compare comblist in
         (*Printf.printf "end of code to list\n%!";*)
-        clear_duplication_in_list newcomblist
+        clear_duplication_in_list comblist
     ;;
-*)
   
+(*
+* given a combination codelist, [a,b,c,...] return the combination code for this
+* list, thus, code = a/b/c/...
+* During the calculation of combination map, we don't reach every combination.
+* for example, [1,2,3] is the comblist, we have [1,2]=6 and [6,3] = 9 in the
+* matrix, so we know [1,2,3] is 9. Though we do know [2,3] is 8, we don't have
+* [8,1] stored in the matrix. Thus, we need to work on the combination list by
+* reverse order of the list, which is [3,2,1] instead of [1,2,3]. That's why we
+* have newlist = List.rev(....) below.
+* *)
+    let rec comblist_to_combcode lst m =
+        let break_union newlist listitem =
+            (combcode_to_comblist listitem m) @ newlist
+        in
+        let tmplst = List.fold_left break_union [] lst in
+        let newlist = List.rev (clear_duplication_in_list tmplst) in
+        let func a b = get_combmap a b m in
+        let res =
+            match newlist with
+            | h::t -> List.fold_right func newlist (List.hd (List.rev newlist))
+            | _ -> raise(Illegal_List_length)
+        in
+        if (res=0) then begin
+            Printf.printf "could not find combination code by combination list:%!";
+            print_intlist newlist;
+            assert(false);
+        end 
+            else ();
+        res
+    ;;
+ 
+    let bigarray_matrix bigarr =
+        let h = Bigarray.Array2.dim1 bigarr and w = Bigarray.Array2.dim2 bigarr in
+        let r = Array.make_matrix h w 0 in
+        for i = 0 to h-1 do
+            for j = 0 to w-1 do
+                r.(i).(j) <- bigarr.{i,j};
+            done;
+        done;
+        r
+
+    ;;
+
     let build_maps_comb_and_codelist m ori_a_sz level =
-        let comb_to_list = ref All_sets.IntegerMap.empty in
-        let list_to_comb = ref All_sets.IntegerListMap.empty in
+        Printf.printf "build_maps...\n%!";
+        (*let comb_to_list = ref All_sets.IntegerMap.empty in
+        let list_to_comb = ref All_sets.IntegerListMap.empty in*)
+        Printf.printf "map_sz = %d\n%!" (get_map_sz m);
+        let c2lmatrix = Array.make_matrix ((get_map_sz m)+1) 3 0 in
         let init_arr = Array.init ori_a_sz (fun i -> i+1 ) in
         let init_list = Array.to_list init_arr in      
         let rec all_combinations lst=
@@ -434,16 +460,15 @@ module Two_D = struct
             match lst with
             | [code] -> 
                     let realcode = ori_a_sz+1-code in
-                    (*Printf.printf "set_combmap:%d,%d\n%!" realcode realcode;*)
-                    
                     set_combmap realcode realcode realcode m;
-              (*
                     set_comb2list realcode realcode realcode m;
-              *)    
-                    comb_to_list := 
+                    c2lmatrix.(realcode).(1) <- realcode;
+                    c2lmatrix.(realcode).(2) <- realcode;
+                   (* comb_to_list := 
                         All_sets.IntegerMap.add (realcode) [realcode] (!comb_to_list);
                     list_to_comb := 
-                        All_sets.IntegerListMap.add [realcode] realcode (!list_to_comb);
+                        All_sets.IntegerListMap.add [realcode] realcode
+                        (!list_to_comb);*)
             | lst ->
                     let codelist =
                         List.fold_left 
@@ -456,38 +481,44 @@ module Two_D = struct
                     in
                     let codelist = List.sort compare codelist in
                     let revcodelist =  List.rev(codelist) in
-                    (*Printf.printf "[ "; List.iter (Printf.printf "%d,") revcodelist; 
-                    Printf.printf " ];";*)
-                   
-                     let combcode_tl =
+                    let combcode_tl =
                         match revcodelist with
                         | h::t ->
-                                (*Printf.printf "get combcode:[ "; List.iter (Printf.printf "%d,") t; 
-                                Printf.printf " ];";*)
-                                comblist_to_combcode t m
+                                let tmpcode = comblist_to_combcode t m in
+                                 tmpcode
                         | _ -> raise(Illegal_List_length)
                     in
-                  
                     set_combmap (List.hd revcodelist) combcode_tl (!count) m;
                     set_combmap combcode_tl (List.hd revcodelist) (!count) m;
-                   (*
                     set_comb2list (List.hd revcodelist) combcode_tl (!count) m;
-                   *)
-                    (*let testres = get_combcode revcodelist m in
-                    Printf.printf "get %d,%d=%d\n" (List.hd revcodelist)
-                    combcode_tl testres;*)
-                    comb_to_list :=
+                    c2lmatrix.(!count).(1) <- (List.hd revcodelist);
+                    c2lmatrix.(!count).(2) <- (combcode_tl);
+                   (* comb_to_list :=
                     All_sets.IntegerMap.add (!count) codelist (!comb_to_list);
                     list_to_comb :=
-                    All_sets.IntegerListMap.add codelist (!count) (!list_to_comb);
+                    All_sets.IntegerListMap.add codelist (!count)
+                    (!list_to_comb);*)
                     incr count;
         in
         let _ = List.map create_maps all_comb_list in
-        !comb_to_list, !list_to_comb
+        let bigarr = 
+            Bigarray.Array2.of_array Bigarray.int Bigarray.c_layout c2lmatrix in
+        bigarray_comb2list bigarr m;
+        let checkm = bigarray_matrix (  comb2list_bigarray m ) in
+        for i = 1 to (get_map_sz m) do
+            Printf.printf "%d:" i; 
+            for j = 1 to 2 do
+                Printf.printf "%d," checkm.(i).(j);
+            done;
+            print_newline();
+        done;
+        Printf.printf "end of check\n%!";
+       (* !comb_to_list, !list_to_comb*)
     ;;
 
     
-    let rec browse_combinations a l a_sz m best c w comb_to_list list_to_comb level =
+    let rec browse_combinations a l a_sz m best c w (*comb_to_list
+    list_to_comb*) level =
         let gap = 
             if uselevel then a_sz
             else gap m in
@@ -519,40 +550,42 @@ module Two_D = struct
                         (*Printf.printf "  v is better, best=%d; " v;*)
                     end else if (tc == !c) then 
                         begin
+                            (*
                             let oldcomblist = 
                                 try  All_sets.IntegerMap.find (!best) comb_to_list 
                                 with
                                 | Not_found ->  raise Map_Not_Found
-                            in  
-                            let oldlistlen = List.length oldcomblist in
+                            in *) 
+(*
+                 Printf.printf "check oldcomblist:%d" (!best); print_intlist(oldcomblist);
+*)			    
+                  let oldcomblist = combcode_to_comblist (!best) m in
+(* print_intlist(oldcomblist); *) 
+                           let oldlistlen = List.length oldcomblist in
                             if (oldlistlen < level) then
                                 begin
-                                    let newcomblist = 
+                                    (*let newcomblist = 
                                         try All_sets.IntegerMap.find v comb_to_list
                                         with
                                         | Not_found -> raise Map_Not_Found
-                                    in
-                                    (*let newcomblist = combcode_to_comblist v m
-                                    * in*)
+                                    in*)
+                                    let newcomblist = combcode_to_comblist v m in
                                     let newlistlen = List.length newcomblist in
                                     if ((newlistlen+oldlistlen)<=level) then
                                         begin
-                                            let newcomblist = List.sort compare
-                                                      (newcomblist@oldcomblist) in
+                                            let newcomblist = (newcomblist@oldcomblist) in
                                             let newlist =
                                                 clear_duplication_in_list
                                                 newcomblist in
-                                            let newcomb =
+                                           (* let newcomb =
                                                 try
                                                 All_sets.IntegerListMap.find newlist list_to_comb 
                                                 with
                                                 |Not_found ->  raise Map_Not_Found
-                                            in
+                                            in*)
                                             (*Printf.printf "newcomb=%d,%!"
                                             * newcomb; *)
-                                           (*
                                            let newcomb = comblist_to_combcode newlist m in
-                                            *)
                                             (*Printf.printf "%d; %!" newcomb;*)
                                             (*print_intlist newlist;*)
                                             best := newcomb;
@@ -567,17 +600,18 @@ module Two_D = struct
                 done;
                 let cab = cost a b m in
                 if (cab > !w) then w := cab;
-                 browse_combinations a t a_sz m best c w comb_to_list list_to_comb level;
+                 browse_combinations a t a_sz m best c w (*comb_to_list
+                 list_to_comb*) level;
         | [] -> ();;
 
-    let rec test_combinations_by_level li lj a_sz m best c w comb_to_list
-    list_to_comb level = 
+    let rec test_combinations_by_level li lj a_sz m best c w (*comb_to_list
+    list_to_comb*) level = 
         match li with
         | h :: t ->
-                browse_combinations h lj a_sz m best c w comb_to_list
-                list_to_comb level;
-                test_combinations_by_level t lj a_sz m best c w comb_to_list
-                list_to_comb level
+                browse_combinations h lj a_sz m best c w (*comb_to_list
+                list_to_comb*) level;
+                test_combinations_by_level t lj a_sz m best c w (*comb_to_list
+                list_to_comb*) level
         | [] -> ();;
 
     let rec test_all_combinations li lj a_sz m best c w = 
@@ -664,37 +698,36 @@ module Two_D = struct
         (*let number_of_combinations = calc_number_of_combinations a_sz in*)
         let num_of_comb = calc_number_of_combinations_by_level a_sz level in
         Printf.printf "fill for some combinations: num_of_comb =%d\n%!" num_of_comb;
-        let (comb_to_list,list_to_comb) =  build_maps_comb_and_codelist m a_sz level in
+        build_maps_comb_and_codelist m a_sz level;
         for i = 1 to num_of_comb do
             let keylist = [i] in
-            let li = 
+            (*let lii = 
                 try All_sets.IntegerMap.find i comb_to_list with
                 | Not_found -> raise Map_Not_Found
-            in
-            (*let li = combcode_to_comblist i m in*)
+            in*)
+            let li = combcode_to_comblist i m in
             for j = 1 to num_of_comb do 
                 let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
-                let lj = 
+                (*let ljj = 
                     try All_sets.IntegerMap.find j comb_to_list with
                     |Not_found -> raise Map_Not_Found
-                in
-                (*let lj = combcode_to_comblist j m in*)
+                in*)
+                let lj = combcode_to_comblist j m in
                 let best = ref 0
                 and cost = ref max_int 
                 and worst = ref 0 in
-                (*Printf.printf "\n lj = "; List.iter (Printf.printf "%d.") lj;*)
-                test_combinations_by_level li lj a_sz m best cost worst comb_to_list
-                list_to_comb level;
+                test_combinations_by_level li lj a_sz m best cost worst (*comb_to_list
+                list_to_comb*) level;
                 let _ = 
                     match li, lj with
                     | [_], [_] ->
-                            let comb_i_j =
+                            (*let comb_i_j_t =
                                 try  All_sets.IntegerListMap.find keylist list_to_comb
                                 with
                                 |Not_found ->  raise Map_Not_Found  
-                            in
+                            in*)
                             (*Printf.printf "comb_i_j =%d; " comb_i_j;*)
-                            (*let comb_i_j = comblist_to_combcode keylist m in*)
+                            let comb_i_j = comblist_to_combcode keylist m in
                             set_median i j m ( comb_i_j );
                             if debug then
                                 Status.user_message Status.Error
@@ -914,25 +947,12 @@ module Two_D = struct
         is_identity arr
 
     let fill_cost_matrix ?(use_comb=true) l a_sz all_elements =   
-        let level = 2 in
+        let level = 3 in
         let num_comb = calc_number_of_combinations_by_level a_sz level in
         let m = 
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
             use_gap_opening all_elements level num_comb
         in
-        if uselevel then
-            begin
-            (*  set_ori_a_sz m a_sz; 
-                set_level m level;
-                set_gap m a_sz;
-               set_map_sz m num_comb;
-               ini_combmap m num_comb;
-                ini_comb2list m num_comb;
-            *)
-                (*Printf.printf "check combmap ini:\n%!";
-                print_combmap num_comb num_comb m;*)
-            end
-        else ();
         let all_elements =
            if uselevel then num_comb 
            else all_elements
@@ -1094,7 +1114,6 @@ module Two_D = struct
         done;;
     let get_closest cm a b =
         assert(a>0); assert(b>0);
-
            (*     Printf.printf "check maps:\n%!";
                 for i = 8 to 36 do
                     let reslist = combcode_to_comblist i cm in
@@ -1116,7 +1135,7 @@ module Two_D = struct
                     else if ( combcode_includes_gap a ori_a_sz level) && (
                         combcode_includes_gap b ori_a_sz level) then gap
                     else 
-                        gap_filter_for_combcode b level ori_a_sz
+                        gap_filter_for_combcode b cm
                 else
                     if a = gap || b = gap then b
                     else if (0 <> a land gap) && (0 <> b land gap) then gap
@@ -1124,6 +1143,7 @@ module Two_D = struct
             in
             let listofcode =
                 if uselevel then 
+                     (*
                         let level = get_level cm in
                         let ori_a_sz = get_ori_a_sz cm in 
                         let (comb_to_list,_) =  
@@ -1132,7 +1152,8 @@ module Two_D = struct
                         All_sets.IntegerMap.find b comb_to_list with
                         | Not_found -> raise (Map_Not_Found)
                     (*Printf.printf "check list= %!"; print_intlist checklist;*)
-                    (*combcode_to_comblist b cm*) 
+                    *)
+                    combcode_to_comblist b cm 
                 else
                     list_of_bits b (alphabet_size cm) 
             in
