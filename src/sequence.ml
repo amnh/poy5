@@ -969,11 +969,24 @@ module Align = struct
 
     external c_union : s -> s -> s -> unit = "algn_CAML_union"
 
-    let union a b =
-        let len = length a in
+    let list2code = Cost_matrix.Two_D.comblist_to_combcode
+    let print_intlist = Cost_matrix.Two_D.print_intlist
+    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode 
+
+    let union a b cm =
+        let lena = length a and lenb = length b in
+        assert(lena == lenb);
+        let len = lena in
         let res = create (len + 1) in
-        c_union a b res;
+        for i = len-1 downto 0 do
+            let ai = get a i and bi = get b i in
+            let union_ai_bi = list2code ([ai]@[bi]) cm in
+            prepend res union_ai_bi; 
+        done;
         res
+        (*c_union a b res;
+        res*)
+        
 
     let closest s1 s2 cm m =
         (*let printseqcode seq =
@@ -1026,11 +1039,8 @@ module Align = struct
                         s1, s2, true
                     else
                         if uselevel then 
-                            let level = 2 in
-                            let ori_a_sz = Cost_matrix.Two_D.get_ori_a_sz cm in
                             let gap_filter x =
-                                Cost_matrix.Two_D.gap_filter_for_combcode x
-                                level ori_a_sz
+                                gap_filter_for_combcode x cm
                             in
                             let news1 = map gap_filter s1 and
                             news2 = map gap_filter s2 in
