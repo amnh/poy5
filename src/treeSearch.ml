@@ -243,6 +243,9 @@ module MakeNormal
         let use_hennig_style =
             List.exists (function `HennigStyle -> true | _ -> false) ic
         in
+        let use_nexus_style = 
+            List.exists (function `NexusStyle -> true | _ -> false) ic 
+        in
         let report_tree_len = 
             List.exists (function `Total -> true | _ -> false) ic
         in
@@ -270,7 +273,7 @@ module MakeNormal
                   StatusCommon.Files.set_margin filename m 
             | _ -> failwith "This never happens"
         end; 
-        let fo = Status.Output (filename, false, !fo_ls) in
+        let fo = Status.user_message (Status.Output (filename, false, !fo_ls)) in
         let is_first = ref true in
         let output tree = 
             let cost = Ptree.get_cost `Adjusted tree in
@@ -279,29 +282,35 @@ module MakeNormal
                 PtreeSearch.build_forest_with_names_n_costs 
                 collapse tree cost branches
             in
-            let output tree =
-                if use_hennig_style && not !is_first then 
-                    Status.user_message fo " * "
-                else is_first := false;
-                Status.user_message fo "@[";
-                Status.user_message fo 
+            let output cnt tree =
+                if use_hennig_style then 
+                    if not !is_first then fo " * "
+                    else is_first := false
+                else if use_nexus_style then 
+                    fo ("TREE POYTREE" ^ string_of_int cnt ^ " = ");
+                fo "@[";
+                fo 
                 (AsciiTree.for_formatter (not use_hennig_style ) 
                 (not use_hennig_style) leafsonly tree);
                 if leafsonly && report_tree_len then
-                    Status.user_message fo ("[" ^ cost ^ "]");
-                if not use_hennig_style then Status.user_message fo ";"
-                else Status.user_message fo "@?";
-                Status.user_message fo "@]";
-                Status.user_message fo newline;
+                    fo ("[" ^ cost ^ "]");
+                if not use_hennig_style then fo ";"
+                else fo "@?";
+                fo "@]";
+                fo newline;
+                cnt + 1
             in
-            List.iter output tree
+            let _ = List.fold_left output 0 tree in
+            ()
         in
-        Status.user_message fo (if use_hennig_style then "@[<h>" else "@[<v>");
-        if use_hennig_style then Status.user_message fo "tread ";
+        fo (if use_hennig_style then "@[<h>" else "@[<v>");
+        if use_hennig_style then fo "tread "
+        else if use_nexus_style then fo "@[BEGIN TREES;@]@.";
         Sexpr.leaf_iter (output) trees;
-        if use_hennig_style then Status.user_message fo ";";
-        Status.user_message fo (if use_hennig_style then  "@]" else "@]@\n" );
-        Status.user_message (Status.Output (filename, false, !fo_ls)) "@\n%!";
+        if use_hennig_style then fo ";"
+        else if use_nexus_style then fo "@[END;@]@.";
+        fo (if use_hennig_style then  "@]" else "@]@\n" );
+        fo "@\n%!";
         StatusCommon.Files.set_margin filename ori_margin 
               
 

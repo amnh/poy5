@@ -84,8 +84,8 @@ type input = [
 
 
 type information_contained = 
-    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int |
-    `Collapse of bool ]
+    [ `Nothing | `Cost | `HennigStyle | `Total | `Branches  | `Newick | `Margin of int
+    | `NexusStyle | `Collapse of bool ]
 
 type taxon_and_characters = [
     | `Random of float
@@ -270,6 +270,7 @@ type report = [
     | `Consensus of (string option * float option)
     | `GraphicConsensus of (string option * float option)
     | `FasWinClad of string option
+    | `Nexus of string option
     | `Model of string option
     | `Script of string option * string list
     | `SequenceStats of (string option * characters)
