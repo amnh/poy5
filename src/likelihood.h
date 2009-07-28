@@ -17,7 +17,7 @@
 /* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   */
 /* USA                                                                        */
 #include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
-#ifdef USE_LIKELIHOOD   
+#ifdef USE_LIKELIHOOD
 #include <stdio.h>
 #include <stdlib.h> //malloc, srand, RAND_MAX
 #include <string.h> //memcpy, memset
@@ -46,7 +46,9 @@ struct ml {
     int stride;     //stride of matrix (ie: size of alphabet)
     int c_len;      //length of character set
     int rates;      //number of rates being processed
-    double* lv_s;   //likelihood vectors x character set (length is n*k)
+    double* lv_s;   //likelihood vector for characters/rates, length = stride*c_len*rates
+    int invar;      //1 if invar, else <= 0, needed for serlization
+    int* lv_invar;  //likelihood vector for invariants, length = c_len
 };
 typedef struct ml mll;
 
@@ -82,9 +84,9 @@ int dgemm_( char *transa, char *transb, const int *m, const int *n, const int *k
  * testing functions...
  */ 
 //print formated array
-void printarray( const double* a, const int n );
+//void printarray( const double* a, const int n );
 //print formated matrix
-void printmatrix( const double* Z, const int n, const int m );
+//void printmatrix( const double* Z, const int n, const int m );
 //testing... create random substituation rate matrix
 void rand_sub_mat_gtr( double* A, const int n);
 //testing... create symmetric sub-rate matrix
@@ -100,6 +102,7 @@ int likelihood_CAML_compare( value a,value b );
 void likelihood_CAML_serialize(value v, unsigned long* wsize_32, unsigned long* wsize_64);
 unsigned long likelihood_CAML_deserialize( void* dst );
 value likelihood_CAML_register (value u0);
+
 /**
  * help functions...
  */
@@ -110,6 +113,7 @@ __inline void
 inline void
 #endif
 mk_diag(double* M, const int n);
+
 // applies exp() to a diagonal [n]x[m] matrix, [D], with constant scalor [t]
 #ifdef _WIN32
 __inline void
@@ -138,13 +142,14 @@ int diagonalize_gtr( mat *space, double* A, double* D, double* Ui, int n );
  * median functions
  */
 //calculates the half median 
-void median_h( const double* P, const double* l,const int c, double* nl, const int a);
+//void median_h( const double* P, const double* l,const int c, double* nl, const int a);
 //calculates median of two character sets, [a] and [b] into [c]
 void median_charset( const double* Pa, const double* Pb, const struct ml* a,
                         const struct ml* b, struct ml* c, double* tmp1,
                             double* tmp2,const int rate_idx );
-//loglikelihood of a median with priors [p] and character set [l]
-double loglikelihood( const struct ml *l, const double* pi, const double* prob );
+//loglikelihood of a median with priors [p], probabilities [prob] and percent
+//invariant sites, [pinvar] and character set [l]
+double loglikelihood( const struct ml *l, const double* pi, const double* prob, const double pinvar );
 
 /**
  * functions on character sets

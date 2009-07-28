@@ -190,7 +190,11 @@ let split size arr =
             Array.sub arr ((pos * fraction) + remainder)
             fraction)
 
-
-
+let fold_righti f init ray =
+    let acc = ref init in
+    for i = (Array.length ray) - 1 downto 0 do
+        acc := f i ray.(i) !acc
+    done;
+    !acc
 
 (* vim: set sw=4 ts=4 et tw=80 : *)

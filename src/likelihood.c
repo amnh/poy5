@@ -45,20 +45,39 @@
 #define MAX_ITER 10000  //number of iterations for numerical calculations
 #define CAML_ALLOC_2 1000000
  
-#define max(a,b) (a >= b)?a:b
-#define min(a,b) (a <= b)?a:b
+#define MAX(a,b) (a >= b)?a:b
+#define MIN(a,b) (a <= b)?a:b
 
-/* for unboxing abstract types */
+/* ~CHECK_MEM       -- verify memory was returned properly */
+#define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory.")
+/* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
+/*                     used to ensure no imaginary roots when diagonalizing */
+#define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON)\
+                            failwith("Imaginary eigenvalues"); }
+
+/* for unboxing abstract types - get pointer or actual value */
 #define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
 #define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
 #define ML_ptr(v)   ((struct ml**)Data_custom_val(v))
 #define ML_val(v) (*((struct ml**)Data_custom_val(v)))
+/* extra boxing/unboxing for option types */
+#define Val_none Val_int(0)
+#define Some_val(v) Field(v,0)
 
-/* ~CHECK_MEM       -- verify enough memory */
-#define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory.")
-/* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
-#define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON)\
-                            failwith("Imaginary eigenvalues"); }
+#ifdef _WIN32
+__inline
+#else
+inline
+#endif
+value Val_some( value v )
+{   
+    CAMLparam1( v );
+    CAMLlocal1( some );
+    some = caml_alloc(1, 0);
+    Store_field( some, 0, v );
+    CAMLreturn( some );
+}
+
 //------------------------------------------------------------------------------
 /** 
  * CONVENTIONS:
@@ -81,7 +100,7 @@
 
 //------------------------------------------------------------------------------
 /* prints a matrix (block format) */
-void printmatrix( const double* Z, const int n, const int m)
+void printmatrixf( const double* Z, const int n, const int m)
 {
     int i,j;
     for (i=0; i<m; ++i) {
@@ -91,12 +110,30 @@ void printmatrix( const double* Z, const int n, const int m)
         putchar('\n'); 
     }
 }
+void printmatrixi( const int* Z, const int n, const int m)
+{
+    int i,j;
+    for (i=0; i<m; ++i) {
+        putchar('\t');
+        for (j=0; j<n; ++j)
+            printf("[%d] ", Z[i*n+j]);
+        putchar('\n'); 
+    }
+}
 /* prints an array horizontally */
-void printarray( const double* a, const int n )
+void printarrayf( const double* a, const int n )
 {
     int i;
     for(i=0;i<n;++i)
         printf("[%6.5f] ", a[i]);
+    putchar('\n');
+}
+/* prints an array horizontally */
+void printarrayi( const int* a, const int n )
+{
+    int i;
+    for(i=0;i<n;++i)
+        printf("[%d] ", a[i]);
     putchar('\n');
 }
 
@@ -105,8 +142,10 @@ void CAML_debug( value s )
 {
     mll* a;
     a = ML_val( s );
-    printf("DEBUG:\n\tN: %d\n\tL: %d", a->stride, a->c_len );
-    printmatrix(a->lv_s,a->stride,a->c_len);
+    printf("DEBUG:\n\tR: %d\tN: %d\n\tL: %d\n",
+                a->rates,a->stride,a->c_len);
+    printmatrixf(a->lv_s,a->stride,a->c_len*a->rates);
+    printarrayi(a->lv_invar,a->c_len);
     putchar('\n');
 }
 /** creates a random substituation rate matrix
@@ -127,8 +166,7 @@ void rand_sub_mat_gtr( double* A, const int n)
     }
 }
 /** transpose of matrix [A] of [n]x[n], must be square since no reallocation
- * happens 
- */
+ * happens */
 void transpose( double *A, const int n )
 {
     double tmp;
@@ -172,6 +210,8 @@ void likelihood_CAML_free( value v )
     mll* val;
     val = ML_val(v);
     free (val->lv_s);
+    if ( 1 == val->invar)
+        free (val->lv_invar);
     free (val);
 }
 
@@ -180,30 +220,48 @@ void
 likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_64)
 {
     mll* s;
+    int i,j;
     s = ML_val(v);
     caml_serialize_int_4( s->stride );
     caml_serialize_int_4( s->c_len );
-    int i,j;
-    j = s->stride * s->c_len;
-    for(i=0;i<j;++i)
+    caml_serialize_int_4( s->rates );
+    caml_serialize_int_4( s->invar );
+
+    j = s->stride * s->c_len * s->rates;
+    for(i = 0; i < j; ++i)
         caml_serialize_float_8( s->lv_s[i] );
+    if( s->invar > 0 ){
+        for(i = 0; i < s->c_len; ++i)
+            caml_serialize_int_4( s->lv_invar[i] );
+    }
 }
 
 /* deserialization of struct ml */  
 unsigned long likelihood_CAML_deserialize( void* v )
 {
     mll* s;
+    double* lk_vec;
+    int *pinvar,i,j;
+    j = s->stride*s->c_len*s->rates;
+    lk_vec = (double*) malloc( sizeof(double)*j );
+    CHECK_MEM(lk_vec);
     s = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(s);
     s->stride = caml_deserialize_sint_4();
     s->c_len  = caml_deserialize_sint_4();
-    int i,j=s->stride*s->c_len;
-    double* stuff;
-    stuff = (double*) malloc( sizeof(double)*j );
-    CHECK_MEM(stuff);
-    for(i=0;i<j;++i)
-        stuff[i] = caml_deserialize_float_8();
-
+    s->rates  = caml_deserialize_sint_4();
+    s->invar  = caml_deserialize_sint_4();
+    for(i = 0; i < j; ++i)
+        lk_vec[i] = caml_deserialize_float_8();
+    s->lv_s = lk_vec;
+    if( s->invar > 0 ){
+        pinvar = (int*) malloc( sizeof(int)*s->c_len );
+        CHECK_MEM(pinvar);
+        for(i = 0; i < s->c_len; ++i)
+            pinvar[i] = caml_deserialize_sint_4();
+    }
+    s->lv_invar = pinvar;
+    v = s; //TODO really?
     return (sizeof(struct ml **));
 }
 
@@ -217,7 +275,12 @@ int compare_chars( const mll* c1, const mll* c2)
     ret = c1->c_len - c2->c_len;
     if (ret != 0)
         return ret;
-    n = c1->c_len * c1->stride;
+    ret = c1->rates - c2->rates;
+    if (ret != 0)
+        return ret;
+    if (c2->invar == c1->invar)
+        return ret;
+    n = c1->c_len * c1->stride * c1->rates;
     for( i = 0; i < n; ++i ){
         ret = c1->lv_s[i] - c2->lv_s[i];
         if (ret != 0)
@@ -233,14 +296,13 @@ static struct custom_operations likelihood_custom_operations  = {
     "http://www.amnh.org/poy/likelihood/likelihood.0.1", //identifier
     (&likelihood_CAML_free),        //finalize
     (&likelihood_CAML_compare),     //compare
-    custom_hash_default,          //hash
+    custom_hash_default,            //hash
     (&likelihood_CAML_serialize),   //serialize
     (&likelihood_CAML_deserialize)  //deserialize
 };
 
 /* registration with ocaml GC */
-value 
-likelihood_CAML_register (value u) {
+value likelihood_CAML_register (value u) {
     CAMLparam1(u);
     register_custom_operations (&likelihood_custom_operations);
     CAMLreturn (Val_unit);
@@ -254,56 +316,87 @@ void likelihood_CAML_gc()
     assert( a == 0 );
 }
 
-value likelihood_CAML_StoBigarray( value s )
+value likelihood_CAML_StoBigarray( value s, value p )
 {
     CAMLparam1( s );
-    CAMLlocal1( res );
+    CAMLlocal3( res1,res2,tuple );
     mll* work;
-    long dims[3];
+    long dims3[3],dims1[1];
     double *newone;
+    int *newtwo;
 
     work = ML_val( s );
-    dims[0] = work->rates;
-    dims[1] = work->c_len;
-    dims[2] = work->stride;
-    newone = (double*) malloc( dims[0] * dims[1] * dims[2] * sizeof(double));
-    memcpy(newone,work->lv_s, dims[0] * dims[1] * dims[2] * sizeof(double));
-
-    res = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,3,newone,dims);
-    CAMLreturn( res );
+    dims3[0] = work->rates;
+    dims3[1] = dims1[0] = work->c_len;
+    dims3[2] = work->stride;
+    newone = (double*) malloc( dims3[0] * dims3[1] * dims3[2] * sizeof(double));
+    memcpy(newone,work->lv_s, dims3[0] * dims3[1] * dims3[2] * sizeof(double));
+    res1 = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,3,newone,dims3);
+    if (work->invar > 0){
+        newtwo = (int*) malloc( dims3[0] * sizeof(int));
+        memcpy(newtwo,work->lv_invar, dims3[0] * sizeof(int));
+        res2 = Val_some (alloc_bigarray(BIGARRAY_CAML_INT | BIGARRAY_C_LAYOUT,1,newtwo,dims1));
+    } else {
+        res2 = Val_none;
+    }
+    tuple = caml_alloc_tuple(2);
+    Store_field(tuple,0,res1);
+    Store_field(tuple,1,res2);
+    CAMLreturn( tuple );
 }
 
 /**
- *  convert bigarray.array2 to struct ml
+ *  convert bigarray.array2 * bigarray.array1 to struct ml
  */
-value likelihood_CAML_BigarraytoS( value A )
+value likelihood_CAML_BigarraytoS( value A, value B )
 {
-    CAMLparam1( A );
-    CAMLlocal1( s );
-    double *stuff,*o_stuff;
+    CAMLparam2( A,B );
+    CAMLlocal1( lk ); //the abstract type
+    double *lkvec,*l_stuff;
+    int *i_stuff,*invar,len;
     mll* ret;
 
-    o_stuff = (double*) Data_bigarray_val( A );
+    //basic data
+    l_stuff = (double*) Data_bigarray_val( A );
     ret = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(ret);
     ret->rates = Bigarray_val(A)->dim[0];
     ret->c_len = Bigarray_val(A)->dim[1];
     ret->stride = Bigarray_val(A)->dim[2];
 
-    s = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
-                            ret->rates*ret->c_len*ret->stride, CAML_ALLOC_2); 
-    ML_val(s) = ret;
-    stuff = (double*) malloc( ret->rates * ret->c_len * ret->stride * sizeof(double));
-    CHECK_MEM(stuff);
-    memcpy( stuff, o_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
-    ret->lv_s = stuff;
+    //allocate new and copy
+    lkvec = (double*) malloc( ret->rates * ret->c_len * ret->stride * sizeof(double));
+    CHECK_MEM(lkvec);
+    memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
+    ret->lv_s = lkvec;
 
-    assert( ML_val(s) == ret);
-    CAMLreturn( s );
+    //check if we have invar, then allocate new and copy
+    if( Val_none == B ){
+        ret->invar = 0;
+    } else {
+        i_stuff = (int*) Data_bigarray_val( Some_val(B) );
+        len = Bigarray_val( Some_val(B))->dim[0];
+        assert( len == ret->c_len );
+        invar = (int*) malloc( ret->c_len * sizeof(int));
+        CHECK_MEM(lkvec);
+        memcpy( invar, i_stuff, ret->c_len * sizeof(int));
+        ret->lv_invar = invar;
+        ret->invar = 1;
+    }
+
+    //set up abstract type
+    lk = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
+                            ret->rates*ret->c_len*ret->stride, CAML_ALLOC_2); 
+    ML_val( lk ) = ret;
+
+    assert( ML_val(lk) == ret );
+    CAMLreturn( lk );
 }
 
 /**
  * filters an ml struct with all the indexes in the passed array --ordered
+ *
+ * TODO with invar
  */
 value likelihood_CAML_filter(value as, value ibs)
 {  
@@ -342,8 +435,6 @@ value likelihood_CAML_filter(value as, value ibs)
     CAMLreturn( package );
 }
 
-
-
 /**  [mk_diag diag mat n m] ~ makes a diagonal square matrix from a first [n]
  * elements of the matrix. Put first [n] elements of [M] along diagonal of [M]
  */
@@ -366,9 +457,8 @@ mk_diag(double* M, const int n)
  * Since LAPACK doesn't guarentee that VL^t * VR = I, where VL are the left
  * eigen vectors and VR are the right eigenvectors, but that VLt * VR = D mod 1,
  * where D is a diagonal matrix. Thus we perform a multiplication, and grab the
- * diagonal elements as scale factors for VL (thus dividing through each row).
- * Conversly this can be done by scaling VR, by scaling though each column 
- * --more of a fortran method though. 
+ * diagonal elements as scale factors for VL Conversly this can be done by
+ * scaling VR, by scaling though each column --more of a fortran style though. 
  *
  *  **output** is in VL
 void scale_VL( const double *VR, double *VL, const int n)
@@ -729,10 +819,32 @@ void median_h( const double* P, const double* l, const int c, double* nl, const 
     }
 } 
 
+
+/* calculates the likelihood for the invariant site class */
+double
+loglikelihood_site_invar(const mll* l,const double* pi,const int i)
+{
+    int j,num,set;
+    double ret;
+    assert( 1 == l->invar );
+    j = set = 0;
+    num = 1;
+    ret = 0.0;
+    if( 0 == l->lv_invar[i]){ return ret; }
+    while( j < 32 ){ //TODO:: abstract max alphabet size
+        if ( num & l->lv_invar[i] ){
+            ret += pi[j]; //similar to line 846, but lv_s[..] = 1
+            set++;
+        }
+        j++;
+        num *= 2;
+    }
+    return ret / set;
+}
 /* [loglikelihood_site ml p prob]
  * calculate the likelihood for a single site */
 double 
-loglikelihood_site(const mll* l,const double* pi,const double* prob,const int i)
+loglikelihood_site(const mll* l,const double* pi,const double* prob,const double pinvar,const int i)
 {
     int j,h;
     double tmp1,tmp2;
@@ -743,7 +855,41 @@ loglikelihood_site(const mll* l,const double* pi,const double* prob,const int i)
             tmp1 += l->lv_s[(l->c_len * l->stride * h) + (l->stride*i) + j] * pi[j];
         tmp2 += tmp1 * prob[h];
     }
-    return ( log( max( tmp2, 1e-300 ) ) /* times weight */ );
+    if( 1 == l->invar ){
+        assert( pinvar >= 0.0 );
+        tmp1 = loglikelihood_site_invar ( l , pi, i );
+        tmp2 = MAX( tmp2 * (1 - pinvar), 1e-300 ) + (pinvar * tmp1);
+    } else {
+        tmp2 = MAX( tmp2 , 1e-300 );
+    }
+    return ( log( tmp2 ) ) /* times weight */ ;
+}
+/* calculates the likelihood for a rate class */
+double
+loglikelihood_rate(const mll* l,const double* pi,const int h)
+{
+    int i,j;
+    double tmp1, ret;
+    ret = 0.0;
+    for( i = 0; i < l->c_len;++i){
+        tmp1 = 0.0;
+         for(j=0;j < l->stride; ++j)
+            tmp1 += l->lv_s[(l->c_len * l->stride * h) + (l->stride*i) + j] * pi[j];
+         ret -= log ( MAX(ret, 1e-300) );
+    }
+    return ret;
+}
+double
+loglikelihood_invar( const mll* l, const double *pi )
+{
+    int i;
+    double ret,tmp;
+    if (l->invar == 0){ return 0.0; }
+    for( i = 0; i < l->c_len;++i){
+        tmp = loglikelihood_site_invar( l , pi, i );
+        ret += (tmp == 0) ? 0 : log(tmp);
+    }
+    return ret;
 }
 
 /** [loglikelihood ml p]
@@ -752,32 +898,35 @@ loglikelihood_site(const mll* l,const double* pi,const double* prob,const int i)
  * uses Kahan Summation to reduce floating point addition error. reduces error
  * of a summation to 2e
  */
-double loglikelihood( const mll* l, const double* pi, const double* prob )
+double loglikelihood( const mll* l, const double* pi, const double* prob,const double pinvar )
 {
     int i; 
     double ret_s,ret_c,ret_y,ret_t; /* for kahan summation */
 
-    ret_s = loglikelihood_site(l,pi,prob,0);
+    ret_s = loglikelihood_site(l,pi,prob,pinvar,0);
     ret_c = 0.0;
     for(i = 1;i<l->c_len; i++)
     {
-        ret_y = (loglikelihood_site(l,pi,prob,i)) - ret_c;
+        ret_y = (loglikelihood_site(l,pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;
     }
+
     return ( -ret_s );
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
-value likelihood_CAML_loglikelihood(value s, value pi, value prob)
+value likelihood_CAML_loglikelihood(value s, value pi, value prob, value pinvar)
 {
     CAMLparam3( s, pi, prob );
     CAMLlocal1( mle );
     double ll;
     ll = loglikelihood( ML_val(s),
                         (double*) Data_bigarray_val(pi),
-                        (double*) Data_bigarray_val(prob) );
+                        (double*) Data_bigarray_val(prob),
+                        Double_val( pinvar )
+                      );
     mle = caml_copy_double( ll );
     CAMLreturn( mle );
 }
@@ -806,8 +955,15 @@ median_charset(const double* Pa,const double* Pb, const mll* a,const mll* b,
         median_h( Pb, b->lv_s, len, tmp2, a->stride );
         /* pairwise multiplication */
         for(j=0;j < a->stride;++j)
-            c->lv_s[len+j] = (tmp2[j]*tmp1[j]);
+            c->lv_s[len+j] = MAX((tmp2[j]*tmp1[j]),0);
     }
+}
+void 
+median_invar(const mll* a, const mll* b, mll* c){
+    int i;
+    //assert( (a->invar == b->invar) && (a->invar == 1) );
+    for(i=0;i < c->c_len;++i)
+        c->lv_invar[i] = (a->lv_invar[i]) & (b->lv_invar[i]);
 }
 
 value likelihood_CAML_median_wrapped_sym
@@ -834,13 +990,14 @@ value likelihood_CAML_median_wrapped_sym
     c_D = (double*) Data_bigarray_val( D );
     cta = Double_val( ta );
     ctb = Double_val( tb );
-    assert( cta > 0 && ctb > 0 );
+    assert( cta >= 0 && ctb >= 0 );
     /* character sets */
     a = ML_val( ml_a );
     b = ML_val( ml_b );
     assert( a->stride == b->stride );
     assert( a->c_len == b->c_len );
     assert( a->rates == b->rates );
+    assert( a->invar == b->invar );
     /* create new character set, c */
     ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),
                                 a->rates*a->stride*a->c_len,CAML_ALLOC_2);
@@ -850,6 +1007,7 @@ value likelihood_CAML_median_wrapped_sym
     c->stride = a->stride;
     c->c_len = a->c_len;
     c->rates = a->rates;
+    c->invar = a->invar;
     c->lv_s = (double*) malloc( c->rates * c->c_len * c->stride * sizeof(double));
     CHECK_MEM(c->lv_s);
     /* register temp variables */
@@ -868,6 +1026,10 @@ value likelihood_CAML_median_wrapped_sym
         compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride,tmp1 );
         compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride,tmp1 );
         median_charset( PA, PB, a, b, c, tmp1, &(tmp1[a->stride]), i );
+    }
+    if(a->invar == 1){
+        c->lv_invar = (int*) malloc ( c->c_len * sizeof(double));
+        median_invar( a,b,c );
     }
     //printarray(c->lv_s, a->stride * a->c_len * a->rates);
     /* free up space, return */
@@ -910,6 +1072,7 @@ value likelihood_CAML_median_wrapped_gtr
     assert(a->stride == b->stride);
     assert(b->c_len == a->c_len);
     assert(a->rates == b->rates);
+    assert(a->invar == b->invar);
     /* create new character set */
     ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
                                             a->rates*a->stride*a->c_len, CAML_ALLOC_2);
@@ -920,6 +1083,7 @@ value likelihood_CAML_median_wrapped_gtr
     c->stride = a->stride;
     c->c_len  = a->c_len;
     c->rates  = a->rates;
+    c->invar = a->invar;
     /* register temp variables */
     PA = register_section( space, b->stride * b->stride, 1 );
     PB = register_section( space, b->stride * b->stride, 1 );
@@ -930,6 +1094,10 @@ value likelihood_CAML_median_wrapped_gtr
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
         median_charset( PA, PB, a,b,c, tmp1,&(tmp1[b->stride]), i);
+    }
+    if(a->invar == 1){
+        c->lv_invar = (int*) malloc ( c->c_len * sizeof(double));
+        median_invar( a,b,c );
     }
     //printf("]\n");
     /* free all variables */
@@ -970,7 +1138,8 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
         compose_sym( PB, U, D, half*gam[i], b->stride,tmp );
         median_charset( PA, PB, a,b,simp->vs,tmp,&(tmp[a->stride]),i );
     }
-    simp->ll = loglikelihood( simp->vs,pi,prob );
+    if(a->invar == 1) median_invar( a,b,simp->vs );
+    simp->ll = loglikelihood( simp->vs,pi,prob, 0.0 ); //TODO
 }
 void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,const double *Ui,
     const mll *a,const mll *b,const double time,const double *gam,const double *prob,
@@ -985,7 +1154,8 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
         compose_gtr( PB, U, D, Ui, half*gam[i], b->stride, tmp );
         median_charset( PA, PB, a,b,c,tmp,&(tmp[a->stride]), i );
     }
-    simp->ll = loglikelihood( c,pi,prob );
+    if(a->invar == 1) median_invar( a,b,simp->vs );
+    simp->ll = loglikelihood( c, pi, prob, 0.0 ); //TODO
 }
 
 #define golden_exterior(a,b) a->time + ((b->time - a->time)*2.0/(sqrt(5.0)-1))
@@ -1051,8 +1221,8 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             ttime1 = golden_exterior( left, middle );
             single_sym(right,PA,PB,U,D,a,b,ttime1,rates,prob,pi,g_n,TMP);
         } else {
-            printf("Curvature?:%f/%f -- %f/%f -- %f/%f\n",left->time,
-                    left->ll,middle->time,middle->ll,right->time,right->ll);
+            //printf("Curvature?:%f/%f -- %f/%f -- %f/%f\n",left->time,
+            //        left->ll,middle->time,middle->ll,right->time,right->ll);
             bracketed = 0;
             if (left->ll < right->ll){ //new left middle
                 temp_ptr = right;
