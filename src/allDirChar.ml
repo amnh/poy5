@@ -231,19 +231,7 @@ with type b = AllDirNode.OneDirF.n = struct
         let _ = Printf.printf "\n%!" in ()
 
     let tree_size ptree = 
-        let single_tree handle =
-
-            let a,b = 
-                try match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                    | Some ((`Edge (a,b)),_) -> a,b
-                    | None | Some _ -> raise Not_found
-                with | Not_found ->
-                    begin match Ptree.get_node handle ptree with
-                        | Tree.Leaf (a,b)
-                        | Tree.Interior (a,b,_,_) -> a,b
-                        | Tree.Single _ -> failwith "none"
-                    end
-            in
+        let traversal a b =
             let l,r = Ptree.post_order_node_with_edge_visit
                         (fun p x a -> a) (* leafs *)
                         (fun par node accleft accright ->
@@ -255,6 +243,17 @@ with type b = AllDirNode.OneDirF.n = struct
                         0.0
             and final_edge = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
             l +. r +. (AllDirNode.OneDirF.tree_size None final_edge)
+        in
+        let single_tree handle =
+            try match (Ptree.get_component_root handle ptree).Ptree.root_median with
+                | Some ((`Edge (a,b)),_) -> traversal a b
+                | None | Some _ -> raise Not_found
+            with | Not_found ->
+                begin match Ptree.get_node handle ptree with
+                    | Tree.Leaf (a,b)
+                    | Tree.Interior (a,b,_,_) -> traversal a b
+                    | Tree.Single _ -> 0.0
+                end
         in
         let sum =
             try All_sets.Integers.fold
@@ -328,6 +327,7 @@ with type b = AllDirNode.OneDirF.n = struct
             single_characters_cost +. not_single_character_cost +. 
             (AllDirNode.AllDirF.root_cost root)
         in
+        (* info_user_message "Size of Tree: %f" (tree_size new_tree); *)
         res
 
     let check_cost_all_handles ptree root = 
@@ -1557,17 +1557,22 @@ with type b = AllDirNode.OneDirF.n = struct
         let ptree = 
             add_component_root ptree handle (create_root v h ptree)
         in
+(*
         assert (
-            let ptree = fst (reroot_fn true (Tree.Edge (v, h)) ptree) in
+            let ptree, _ = reroot_fn true (Tree.Edge (v, h)) ptree in
             let cost = Ptree.get_cost `Unadjusted ptree in
-            let ptree, _ = 
-                reroot_fn true (Tree.Edge (v, h)) (uppass (downpass ptree)) 
-            in
+            let size = tree_size ptree in
+            Printf.printf "REDIAGNOSING THE TREE:\n\n%!";
+            let ptree, _ = ptree --> downpass --> uppass -->
+                           reroot_fn true (Tree.Edge (v, h)) in
             let res = equal_float cost (Ptree.get_cost `Unadjusted ptree) in
             if not res then 
-                Printf.printf "The old cost was %f and the new cost is %f\n%!" 
-                cost (Ptree.get_cost `Unadjusted ptree);
+                Printf.printf ("The old cost: %f\t new cost: %f\n%!"^^ 
+                               "The old size: %f\t new size: %f\n%!")
+                    cost (Ptree.get_cost `Unadjusted ptree)
+                    size (tree_size ptree);
             res);
+*)
         ptree, tree_delta
 
     let get_one side = 
@@ -1726,40 +1731,18 @@ with type b = AllDirNode.OneDirF.n = struct
      * unreliable, and the nodes code is used in preference. The 
     *)
     let branch_table ptree =
-        let tree_table = Hashtbl.create 13 in
+        let trees_table = Hashtbl.create 13 in
         let create_branch_table handle _ = 
-            (* let tree_code = (*  = handle *)
-                match ptree.Ptree.tree.Tree.tree_name with
-                | Some name -> name
-                | None ->   incr tree_num;
-                            "tree_"^(string_of_int !tree_num)
-            in *)
             let single_node prev curr =
-                let ntable =
-                    if Hashtbl.mem tree_table 0 then
-                        Hashtbl.find tree_table 0
-                    else
-                        let tbl = Hashtbl.create 13 in
-                        Hashtbl.add tree_table 0 tbl;
-                        tbl
-                in 
-
-                (* get the branch length of parent/prev for current *)
+                let pair = (min curr prev,max curr prev) in
                 let dat = AllDirNode.AllDirF.get_times_between 
                             (Ptree.get_node_data curr ptree)
                             (Ptree.get_node_data prev ptree) in
                 let name_it x = match dat with | [_] -> `Single x | _ -> `Name in
                 let () = List.iter
                     (fun (code,length) -> match length with
-                        | Some length -> 
-                           (* let name = (* name of char set *)
-                                try Hashtbl.find (data.Data.character_nsets)
-                                           (Hashtbl.find (data.Data.character_codes) code)
-                                with | Not_found -> "node_"^(string_of_int code)
-                              in
-                           *)
-                            Hashtbl.add ntable curr (name_it length)
-                        | None -> () (* no data, forgetaboutit *)
+                        | Some length -> Hashtbl.add trees_table pair (name_it length)
+                        | None -> ()
                     ) dat in
                 ()
             in
@@ -1768,12 +1751,13 @@ with type b = AllDirNode.OneDirF.n = struct
                 | Some ((`Edge (a,b)),_) -> a,b
                 | None | Some _ -> raise Not_found
             in
-            let (),() = Ptree.post_order_node_with_edge_visit
-                                (fun prev curr _ -> single_node prev curr)
-                                (fun prev curr _ _ -> single_node prev curr)
-                                (Tree.Edge (a,b))
-                                ptree
-                                ()
+            let (),() =
+                Ptree.post_order_node_with_edge_visit
+                    (fun prev curr _ -> single_node prev curr)
+                    (fun prev curr _ _ -> single_node prev curr)
+                    (Tree.Edge (a,b))
+                    ptree
+                    ()
             in
             (* added everything already -- root? *) 
             ()
@@ -1783,8 +1767,7 @@ with type b = AllDirNode.OneDirF.n = struct
                     (Ptree.get_handles ptree)
                     ()
         in
-
-        tree_table
+        trees_table
 
     let to_formatter (atr : Xml.attributes)  
             (tree : (a, b) Ptree.p_tree) : Xml.xml =

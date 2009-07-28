@@ -155,7 +155,7 @@ module type Tree_Operations =
         Xml.attributes -> (a, b) p_tree -> Xml.xml 
 
     val branch_table : (a,b) p_tree -> 
-            (int,(int,[ `Single of float | `Name]) Hashtbl.t) Hashtbl.t
+            ((int * int),[ `Single of float | `Name]) Hashtbl.t
     (** [root_costs t] returns all possible roots in a tree (eg. every edge)
     * and the respective tree cost associated with it. *)
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
@@ -358,13 +358,13 @@ module type SEARCH = sig
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
-                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                    ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
                         string -> Parser.Tree.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) ->
-                    (int,[ `Name | `Single of float ]) Hashtbl.t option ->
+                    ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
                         string -> Parser.Tree.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
