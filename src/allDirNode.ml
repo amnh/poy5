@@ -746,10 +746,12 @@ type nad8 = Node.Standard.nad8 = struct
         if uppass_debug then
             info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
+        (*
         let has_one code x = match x.dir with
             | None -> true
             | Some (a,b) -> a = code || b = code
         in
+        *)
 
         let mc = taxon_code m 
         and ac = taxon_code a
@@ -780,8 +782,7 @@ type nad8 = Node.Standard.nad8 = struct
         and data_p2m = match p_data.adjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
              * the parent with a calculated/lazy median *)
-            | [x] -> (* assert( has_one mc x ); *)
-                     x.lazy_node
+            | [x] -> x.lazy_node
             (* ...was resolved, so get one of the directions that has m as child *)
             |  _  -> get_dir mc p_data
 
@@ -1190,12 +1191,8 @@ let create_root_w_times (adjusted:bool) left right =
                             (get_a_dir l_code right)
                             (Some (AllDirF.min_taxon_code r_code left))
             in
-            (*
-            Printf.printf "(%d--%d):%a\t%a\n%!"
-                    r_code l_code pp_opt_list in_l_time pp_opt_list in_l_time;
-            *)
             Node.median_w_times 
-                None None left2right right2left in_l_time in_l_time)
+                None None left2right right2left in_l_time in_r_time)
 
 (** [verify_branch_lengths a b c m] verify an internal node [m] *)
 let verify_branch_lengths a b c m : bool =
