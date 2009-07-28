@@ -22,8 +22,10 @@ let () = SadmanOutput.register "Parser" "$Revision: 2871 $"
 (* A in-file position specification for error messages. *)
 let ndebug = false
 let debug_cterm = true
+let test_priors = false
 let odebug = Status.user_message Status.Information
 
+let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
 (* This module provides smarter reading functionality *)
@@ -95,6 +97,10 @@ type ft =
 type taxon = string
 
 type filename = [ `Local of string | `Remote of string ]
+
+(* numbers to generate id's for trees and nodes *)
+let tree_node_num = ref 0
+and tree_tree_num = ref 0
 
 let stringify_channel ch = 
     let res = ref "" in
@@ -808,6 +814,13 @@ module Tree = struct
         | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
         | Flat t -> Flat (map fn t)
         | Characters t -> Characters (map (fun (x,d) -> (fn x,d)) t)
+
+    (* get_tree_type *)
+    let tree_type = function
+        | Annotated _  -> "Annotated"
+        | Branches _   -> "Branches"
+        | Flat _       -> "Flat"
+        | Characters _ -> "Characters"
 
     (* fold_left on tree data *)
     let fold_left_data fn a t =
@@ -3672,8 +3685,49 @@ module SC = struct
                     List.iter (update_assumptions table acc) lst;
                     acc
             | Nexus.Trees (translations, newtrees) ->
+                    (* --- convert to characters tree and tbl --- *)
+                    let gen_nd () = 
+                        incr tree_node_num; "]GND"^(string_of_int !tree_node_num)
+                    and gen_tr () = 
+                        incr tree_tree_num; "]NTR"^(string_of_int !tree_tree_num)
+                    and add_to_all table name length = (* add to all charactersets *)
+                    let inner_table = Hashtbl.create 1667 in
+                        Array.iter
+                            (fun x -> Hashtbl.add inner_table x.st_name length)
+                            acc.characters;
+                        Hashtbl.add table name inner_table
+                    in
+                    let convert_one_type (name,treet) =
+                        let tname = match name with 
+                            | Some x -> String.uppercase x 
+                            | None -> gen_tr () in
+                        let single_t = function
+                            | Tree.Branches btree ->
+                                let table = Hashtbl.create 1667 in
+                                let ch_tree =
+                                    Tree.map 
+                                        (fun (s,fopt) ->
+                                            match fopt with
+                                            | Some length ->
+                                                let nname = gen_nd () in
+                                                add_to_all table nname length;
+                                                (s,Some nname)
+                                            | None -> (s,None))
+                                        btree
+                                in
+                                Hashtbl.add acc.branches tname table;
+                                Tree.Characters ch_tree
+                            | x -> x
+                        in
+                        let res = List.map single_t treet in
+                        if Hashtbl.mem acc.branches tname
+                            then (Some tname,res)
+                            else name,res
+                    in
                     let handle_tree tree = 
-                        generate_parser_friendly translations acc.taxa (process_tree tree)
+                        tree --> process_tree
+                             --> generate_parser_friendly translations acc.taxa
+                             --> convert_one_type
                     in
                     let newtrees = List.map handle_tree newtrees in
                     {acc with trees = acc.trees @ newtrees }
@@ -3710,13 +3764,10 @@ module SC = struct
                                             Hashtbl.replace acc.csets name
                                                 (n_name :: (Hashtbl.find acc.csets name))
                                         else
-                                            Hashtbl.add acc.csets name
-                                                (n_name::[])
-                                    )
-                                    x
-                                )
-                                cs_lst
-                        ) data;
+                                            Hashtbl.add acc.csets name (n_name::[]))
+                                    x)
+                                cs_lst)
+                        data;
                     acc
             | Nexus.Poy block ->
                 Status.user_message Status.Information "Processing POY Block";
@@ -3821,11 +3872,14 @@ module SC = struct
                         | "TRUE" -> true
                         | "FALSE" | _ -> false
                     and priors = 
-                        let priors = List.map snd priors in
+                        let priors = List.map snd priors in 
                         let sum = List.fold_left (+.) 0.0 priors in
-                        match classify_float (sum -. 1.0) with
-                        | FP_subnormal | FP_zero -> priors
-                        | _ -> failwith "Priors sum greater than 1.0" 
+                        if test_priors then begin
+                            match classify_float (sum -. 1.0) with
+                            | FP_subnormal | FP_zero -> ()
+                            | _ -> failwith "Priors sum greater than 1.0"
+                        end;
+                        priors
                     in
                     (STLikelihood ({
                         substitution = submatrix;
