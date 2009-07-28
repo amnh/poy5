@@ -418,8 +418,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     (* samper to verify a trees likelihood properties
      *      -- Tree cost > 0
-     *      -- All root medians have the same score
-     *      -- Verify branch lengths in all directions *) 
+     *      -- All root medians have the same score *)
     class ['a] likelihood_verification print tree_print = object (self)
         inherit [Node.n, 'a] do_nothing
 
@@ -428,39 +427,17 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
             let tree,_ = TreeOps.join_fn incremental jux1 jux2 tree in
             let cost = Ptree.get_cost `Adjusted tree in
-
-            (* check for 0 costs *)
-            Printf.ksprintf
-                    (print) "Verifying costs %f and %s...\n%!" 
-                            cost (match real_cost with
-                                        | Some x -> string_of_float x
-                                        | None -> "none");
-            (* in next rev
-            let check cost = match cost with
-                | None -> true
-                | Some cost -> match classify_float cost with
-                    | FP_normal -> true
-                    | FP_zero | FP_nan | FP_subnormal | FP_infinite -> false
+            (* check 0 cost *)
+            let () = match classify_float cost with
+                | FP_normal -> ()
+                | FP_subnormal | FP_zero | FP_infinite | FP_nan -> 
+                        failwithf "Asymptotic Score %f" cost
             in
 
-            if (check (Some cost)) && (check real_cost) then begin
-                All_sets.Integers.iter
-                    (fun x -> TreeOps.dump_tree (print) x tree)
-                    tree.Ptree.tree.Tree.handles;
-                print "\n";
-                tree_print (tree.Ptree.tree, cost, ());
-                print "\npassed\n"
-            end else begin
-                All_sets.Integers.iter
-                    (fun x -> TreeOps.dump_tree (print) x tree)
-                    tree.Ptree.tree.Tree.handles;
-                print "\n";
-                tree_print (tree.Ptree.tree, cost, ());
-                failwith "0 cost, failed!"
-            end;
-            *)
+            (* print tree with branch lengths *)
+            let () = tree_print (TreeOps.branch_table tree) tree in
 
-            (* all medians equal *)
+            (* check all medians equal *)
             let cost_list = TreeOps.root_costs tree in
             let cost_passed,offending = match cost_list with
                 | (_,v)::tl ->
@@ -476,7 +453,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     ((fun s (_,x) a -> (string_of_float x)^s^a) ", ")
                     cost_list ""
                 in
-                failwithf "Inconsistent Root Costs: %s in %s" (string_of_float offending) str;
+                failwithf "Inconsistent Root Costs: %s in %s" (string_of_float offending) str
             end;
             (*
             let () = All_sets.Integers.iter

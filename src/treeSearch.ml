@@ -208,23 +208,30 @@ module MakeNormal
         Status.user_message fo "@]";
         Status.user_message fo "%!"
 
-    let report_trees_and_branches compress filename data branches ptree =
+    let report_trees_and_branches compress filename data branches ptree : unit =
         let fo = 
             let lst = if compress then [StatusCommon.Compress] else [] in
             Status.Output (filename, false, lst)
 
-        and tree = PtreeSearch.build_trees
-                        ptree.Ptree.tree
-                        (fun x -> Data.code_taxon x data)
-                        (fun _ _ -> false) (* don't collapse *)
-                        (Some branches)
-                        ""
+        and trees = 
+            PtreeSearch.build_trees
+                ptree.Ptree.tree
+                (fun x -> Data.code_taxon x data)
+                (fun _ _ -> false) (* don't collapse *)
+                (Some branches)
+                ""
         in
+        let adj_cost = string_of_float (Ptree.get_cost `Adjusted ptree)
+        and unadj_cost = string_of_float (Ptree.get_cost `Unadjusted ptree) in
+        Status.user_message fo "@[<v>";
         List.iter 
             (fun x -> 
-                Status.user_message fo
-                    (AsciiTree.for_formatter false true true x)
-            ) tree
+                Status.user_message fo "@[";
+                Status.user_message fo (AsciiTree.for_formatter false true true x);
+                Status.user_message fo ("[" ^ adj_cost ^ "|" ^ unadj_cost ^ "]");
+                Status.user_message fo "@]@,"
+            ) trees;
+        Status.user_message fo "@]%!"
 
     let report_trees ic filename data trees =
         let leafsonly = 
@@ -477,7 +484,7 @@ module MakeNormal
                     let do_compress = None <> filename in
                     new SamplerRes.likelihood_verification
                         (Status.user_message (Status.Output (filename, false, [])))
-                        (simplified_report_trees do_compress filename data)
+                        (report_trees_and_branches do_compress filename data)
             | `AllVisited filename ->
                     let join_fn incr a b c = 
                         let a, _ = TreeOps.join_fn incr a b c in
