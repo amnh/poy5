@@ -1664,6 +1664,11 @@ The \poycommand{calculate\_support} command does not output support values by de
                         terminals separated with commas, and trees separated
                         with semicolons.}
                         {}
+                        
+                    \argumentdefinition{nexus}{}
+                        {Outputs the trees in the NEXUS format, inside a TREE
+                        block.}
+                        {nexusreport}
 	    \begin{statement}
 	     The \poyargument{hennig} and \poyargument{newick} arguments are 
 	     mutually exclusive.
@@ -1723,6 +1728,18 @@ The \poycommand{calculate\_support} command does not output support values by de
         \begin{argumentgroup}{Exporting static homology data}
             {The following commands export the static homology characters
             currently in memory.}
+
+            \argumentdefinition{nexus}{}
+                {Produces a file in the NEXUS format that contains all the
+                characters currently in memory.  In
+                order to export an implied alignment as a NEXUS file, the
+                characters must first be transformed into static characters
+                using the \poycommand{transform} command (see the Hennig86 example in tutorial \texttt{4.2}): 
+                \begin{flushleft}
+                    \poycommand{transform ((all, static\_approx))} \\
+                    \poycommand{report ("report.nexus", nexus, trees:(nexus))}
+                \end{flushleft}}
+                {}
 
             \argumentdefinition{phastwinclad}{}
                 {Produces a file in the Hennig86 format that contains the
