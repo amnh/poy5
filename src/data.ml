@@ -4779,130 +4779,151 @@ let output_character_types fo output_format data all_of_static =
             Array.iter (fun x ->
                 Buffer.add_string buffer "@[<h>";
                 Array.iter (fun y -> 
-                    Buffer.add_string buffer (string_of_int y);
+                    let to_add = 
+                        if y > max_int / 8 && output_format = `Nexus then "i" 
+                        else (string_of_int y) 
+                    in
+                    Buffer.add_string buffer to_add;
                     Buffer.add_string buffer " ") x; 
                 Buffer.add_string buffer "@]@.") m;
             Buffer.add_string buffer ";@.@]";
-            fo (Buffer.contents buffer);
+            (Buffer.contents buffer);
         in
         let output_codes m =
             let buffer = Buffer.create 100 in
             Buffer.add_string buffer "@[<h>";
-            Array.iteri (fun pos _ -> 
-                Buffer.add_string buffer (string_of_int pos);
-                Buffer.add_string buffer " ") m.(0);
+            Array.iteri 
+                (fun pos _ -> 
+                    Buffer.add_string buffer (string_of_int pos);
+                    Buffer.add_string buffer " ")
+                m.(0);
             Buffer.add_string buffer "@]@.";
-            fo (Buffer.contents buffer);
+            Buffer.contents buffer;
         in
+        let codes = output_codes tcm in
+        let matrix = output_matrix tcm in
         if output_format = `Hennig then
-            fo ("@[<v 0>costs [ " ^ string_of_int position ^ " $" ^
-            string_of_int (Array.length tcm) ^ "@.")
-        else 
-            fo ("@[USERTYPE " ^ name ^ " (STEPMATRIX) =" ^ string_of_int (Array.length tcm) ^
-            "@.");
-        output_codes tcm;
-        output_matrix tcm;
+            "@[<v 0>costs [ " ^ string_of_int position ^ " $" ^
+            string_of_int (Array.length tcm) ^ "@." ^ codes ^ matrix
+        else begin
+            fo ("@[USERTYPE " ^ name ^ " STEPMATRIX =" ^ 
+                string_of_int (Array.length tcm) ^ "@." ^ codes ^ matrix);
+            ""
+        end
     in
     let fixit int = if output_format = `Hennig then int else int + 1 in
     let output_range x = 
         match x with
         | `Single min -> 
-                fo (string_of_int (fixit min))
+            string_of_int (fixit min)
         | `Pair (min, max) ->
-                fo (string_of_int (fixit min));
-                fo (if output_format = `Hennig then "." else "-");
-                fo (string_of_int (fixit max))
+            (string_of_int (fixit min)) ^
+            (if output_format = `Hennig then "." else "-") ^
+            (string_of_int (fixit max))
     in
-    let print_type (x : (([`Pair of (int * int) | `Single of int])
-                        * Nexus.File.st_type) option) = 
+    let print_type is_last cnt 
+        (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
         match x with
-        | None -> ()
+        | None -> ""
         | Some (range, Nexus.File.STUnordered) ->
                 if output_format = `Hennig then begin
-                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
+                    "@[<v 0>cc - " ^ output_range range ^ ";@]@."
                 end else begin
-                    fo "@[<h>TYPESET * UNTITLED = UNORD: ";
-                    output_range range;
-                    fo ";@]@."
-                end;
+                    "UNORD: " ^ output_range range ^
+                    (if not is_last then ", " else "")
+                end
         | Some (range, Nexus.File.STOrdered) ->
                 if output_format = `Hennig then begin
-                    fo "@[<v 0>cc + "; output_range range; fo ";@]@."
+                    "@[<v 0>cc + " ^ output_range range ^ ";@]@."
                 end else begin
-                    fo "@[<h>TYPESET * UNTITLED = ORD: "; 
-                    output_range range;
-                    fo ";@]@."
+                    "ORD: " ^ output_range range ^
+                    (if not is_last then ", " else "")
                 end
         | Some ((`Single min) as range, Nexus.File.STSankoff matrix) ->
                 let name = "MATRIX" ^ string_of_int min in
-                output_element name min matrix;
-                if output_format = `Nexus then begin
-                    fo ("@[TYPESET * UNTITLED = " ^ name ^ ":");
-                    output_range range;
-                    fo ";@]@.";
-                end;
+                let element = output_element name min matrix in
+                if output_format = `Hennig then element 
+                else 
+                    "@[" ^ name ^ ":" ^ output_range range ^
+                    (if not is_last then ", " else "") ^ "@]@."
         | Some (((`Pair (min, max)) as range), Nexus.File.STSankoff matrix) ->
                 if output_format = `Hennig then
-                    for i = min to max do 
-                        output_element ("MATRIX" ^ string_of_int i) i matrix
-                    done
-                else begin
+                    let rec output acc i = 
+                        if i > max then acc
+                        else 
+                            let next = 
+                                output_element ("MATRIX" ^ string_of_int i) i matrix
+                            in
+                            output (acc ^ next) (i + 1)
+                    in
+                    output "" min
+                else
                     let name = "MATRIX" ^ string_of_int min in
-                    output_element name min matrix;
-                    fo ("@[TYPESET * UNTITLED = " ^ name ^ ":");
-                    output_range range;
-                    fo ";@]@."
-                end
+                    let res = output_element name min matrix in
+                    res ^ "@[" ^ name ^ ":" ^ output_range range ^
+                    (if not is_last then ", " else "") ^ "@]@."
     in
     fo "@[<v 0>";
-    let last, _ =
-        List.fold_left ~f:(fun (previous, cnt) code ->
-            let spec = 
-                match Hashtbl.find data.character_specs code with
-                | Static x -> x.Nexus.File.st_type
-                | _ -> assert false
-            in
-            match previous with
-            | None -> (Some ((`Single cnt), spec)), cnt + 1
-            | Some ((`Single min), spec') ->
+    let acc, last, cnt =
+        List.fold_left 
+            ~f:(fun (acc, previous, cnt) code ->
+                let spec = 
+                    match Hashtbl.find data.character_specs code with
+                    | Static x -> x.Nexus.File.st_type
+                    | _ -> assert false
+                in
+                match previous with
+                | None -> (acc, Some ((`Single cnt), spec), cnt + 1)
+                | Some ((`Single min), spec') ->
                     if spec' = spec then begin
-                        (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
                     end else begin
-                        print_type previous;
-                        (Some ((`Single cnt), spec)), cnt + 1
-                    end;
-            | Some ((`Pair (min, max)), spec') ->
+                        let acc = acc ^ (print_type false cnt previous) in
+                        (acc, Some ((`Single cnt), spec), cnt + 1)
+                    end
+                | Some ((`Pair (min, max)), spec') ->
                     if spec' = spec then begin
-                        (Some ((`Pair (min, cnt)), spec)), cnt + 1
+                        (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
                     end else begin
-                        print_type previous;
-                        (Some ((`Single cnt), spec)), cnt + 1
-                    end;) ~init:(None, 0) all_of_static
+                        let acc = acc ^ print_type false cnt previous in
+                        (acc, Some ((`Single cnt), spec), cnt + 1)
+                    end)
+            ~init:("",None, 0)
+            all_of_static
     in
-    print_type last;
+    let acc = acc ^ print_type true cnt last in
+    if output_format = `Nexus then fo ("@[<h>TYPESET * POY = ");
+    fo acc;
+    if output_format = `Nexus then fo ";@]@.";
     fo "@]";
     let reweight_command, weight_separator = 
-        if output_format = `Hennig then (fun _ -> "ccode /"), " "
-        else (fun code -> "WTSET * WEIGHT" ^ string_of_int code ^ " = "), ": "
+        if output_format = `Hennig then "ccode /", " "
+        else "", ": "
     in
-    let output_weights (acc, pos) code = 
+    let pos = ref ~-1 in
+    let output_weights code = 
+        incr pos;
         match Hashtbl.find data.character_specs code with
         | Static enc ->
                 let weight = enc.Nexus.File.st_weight in 
-                if weight = 1. then (acc, pos + 1)
+                if weight = 1. then ""
                 else 
-                    (acc ^ "@[<v 0>" ^ reweight_command code ^ string_of_int
-                    (truncate weight) ^ weight_separator ^ 
-                string_of_int (fixit pos) ^ ";@]@.", pos + 1)
+                    ("@[<v 0>" ^ reweight_command ^
+                    string_of_int (truncate weight) ^
+                    weight_separator ^ 
+                    string_of_int (fixit !pos) ^ "@]")
         | _ -> failwith "Sequence characters are not supported in fastwinclad"
     in
-    let weights, _ = 
-        List.fold_left ~f:output_weights ~init:("@[<v 0>", 0) all_of_static 
+    let weights = List.map ~f:output_weights all_of_static in
+    let weights = List.filter ~f:((<>) "") weights in
+    let weights = 
+        String.concat (if output_format = `Nexus then ", " else ";@.")
+                      weights
     in
-    let weights = weights ^ "@]@." in
+    let weights = if output_format = `Hennig then weights ^ ";@." else weights in
+    if output_format = `Nexus then fo "@[<h>WTSET * WEIGHT = " else ();
     fo weights;
-    if output_format = `Nexus then fo "@[END;@]@."
-    else ()
+    if output_format = `Nexus then fo ";@]@[END;@]@." else ()
 
 let output_character_names fo output_format data all_of_static =
     let character_begining, state_names_beginning, character_separator,
@@ -4917,16 +4938,22 @@ let output_character_names fo output_format data all_of_static =
         fo ("@[<h>" ^ character_begining ^ string_of_int (position + to_add)^ " " ^
         name_enclosing ^ name ^ name_enclosing ^ state_names_beginning);
         let labels = 
-            match Hashtbl.find data.character_specs code with
-            | Dynamic _
-            | Set -> assert false
-            | Static spec ->
+            let string_labels, number_labels = 
+                match Hashtbl.find data.character_specs code with
+                | Dynamic _ | Set -> assert false
+                | Static spec ->
                     match spec.Nexus.File.st_labels with
-                    | [] ->
-                            (Alphabet.to_list (get_alphabet data code))
-                            --> List.sort ~cmp:(fun (_, a) (_, b) -> a - b)
+                    | [] -> 
+                        (get_alphabet data code)
+                            --> Alphabet.to_list
+                            --> List.sort ~cmp:(fun (_,a) (_,b) -> a -b)
                             --> List.map ~f:fst
-                    | lst -> lst
+                            --> List.partition 
+                                    ~f:(fun x -> try ignore (int_of_string x); false
+                                                 with _ -> true)
+                    | lst -> lst, []
+            in
+            string_labels @ number_labels
         in
         List.iter ~f:(fun x -> fo "@[<h>"; fo name_enclosing; fo x; fo
         name_enclosing; fo "@]"; fo " ") labels;
@@ -5031,7 +5058,7 @@ let to_nexus data filename =
                 fo name;
                 fo " ";
                 List.iter (fun character_code ->
-                    static_character_to_string " " "{" "}" fo specs character_code)
+                    static_character_to_string " " "(" ")" fo specs character_code)
                 all_of_static;
                 fo "@]@.") data.taxon_codes;
             fo ";@]@.@[END;@]@.";
