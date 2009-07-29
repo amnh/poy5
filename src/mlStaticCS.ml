@@ -95,7 +95,7 @@ external median_sym: (* median sym U D ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
           "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym"
-external readjust_sym: (* readjust_sym U D a b c ta tb r p pi ll -> ll*ta*tb *)
+external readjust_sym: (* readjust_sym U D a b c ta tb %i r p pi ll -> ll*branch *)
     FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -103,9 +103,9 @@ external readjust_sym: (* readjust_sym U D a b c ta tb r p pi ll -> ll*ta*tb *)
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float*float = 
+    float -> float*float = 
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
-external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *)
+external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*branch *)
     FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -114,7 +114,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb r p pi ll -> ll*ta*tb *
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float*float = 
+    float -> float*float = 
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
@@ -875,20 +875,20 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
         (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
     end else begin *)
-        let model = c1.model in
-        (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *) 
-        let c_t3 = 0.0 in (* TODO *)
-        let (nta,ntb,nl) = match model.ui with
+        let model = c1.model
+        and pinv  = match c1.model.invar with | Some x -> x | None -> ~-.1.0 in
+        let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in
+        let (nta,nl) = match model.ui with
             | None ->
                 readjust_sym scratch_space model.u model.d 
-                             c1.chars c2.chars mine.chars c_t1 c_t2 c_t3
+                             c1.chars c2.chars mine.chars c_t1 c_t2 pinv
                              model.rate model.prob model.pi_0 mine.mle
             | Some ui ->
                 readjust_gtr scratch_space model.u model.d ui
-                             c1.chars c2.chars mine.chars c_t1 c_t2 c_t3
+                             c1.chars c2.chars mine.chars c_t1 c_t2 pinv
                              model.rate model.prob model.pi_0 mine.mle
-        in
-        (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
+        and ntb = c_t2 in
+        let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in
         if (nta = c_t1 && ntb = c_t2) then
             (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
         else
@@ -914,7 +914,7 @@ let median_cost ta =
     let pinvar = match ta.model.invar with | Some x -> x | None -> ~-.1.0 in
     loglikelihood ta.chars ta.model.pi_0 ta.model.prob pinvar
 let root_cost t = t.mle
-let to_string a = "MLStaticCS"
+let to_string _ = "MLStaticCS"
 let cardinal ta = Array.length ta.codes
 let union prev ch1 ch2 = prev
 

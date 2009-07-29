@@ -81,12 +81,12 @@ external median_sym: FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
      "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
-(** [readjust_*** U D [Ui] a b c at bt ct rates probs priors ll] -> at*bt*ll
+(** [readjust_*** U D [Ui] a b c at bt %inv rates probs priors ll] -> at*bt*ll
  * readjusts the branch lengths for the children of [c], [a] and [b], with
  * branch lengths [at] and [bt], respectively, using priors given by [priors],
- * and the gamma/theta rates given by [rates]. The old likelihood is given in
+ * and the gamma rates given by [rates]. The old likelihood is given in
  * [ll], and the new one is returned. [c] is updated to the new vector based on
- * the new branch lengths, returned with the new [ll]. *)
+ * the new branch length, returned with the new [ll]. *)
 external readjust_sym: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -94,7 +94,7 @@ external readjust_sym: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float*float =
+    float -> float*float =
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -104,7 +104,7 @@ external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float*float =
+    float -> float*float =
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 (** [loglikelihood s pi prob %invar] -> float   calculates the mle of a character set *) 
@@ -209,23 +209,26 @@ val test_model :
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float -> unit
 
 
-(** [readjust check has_changed c1 c2 mine t1 t2 tmine] readjusts the edge time for 
- * some characters in the vertex [mine] with parent [par] and children [c1] and
- * [c2], for an edge with overall [time]. If [check] is 
- * [None] then the function attempts to readjust the values in all the
- * characters of [mine] otherwise, only the codes included in [check] are
- * attempted to readjust. [has_changed] is the accumulator of characters that
- * have been adjusted in other character sets, and any character that is
- * effectively readjusted in [mine] should be added to this accumulator in the
- * output quintuple. The function outputs [(acc, prev_cost, cost, length, adjusted)]
- * where [acc] is the new accumulator from the [has_changed] set of codes,
- * [prev_cost] is the previous cost of the edge connecting [mine] and [par],
- * [cost] is the new cost of the edge connecting [mine] and [par] after the
- * readjustement, [length] is the new edge length of children (time), and [adjusted] is 
- * the newly adjusted vertex [mine]. *)
+(** [readjust check has_changed c1 c2 mine t1 t2 ]
+ *       -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
+ *
+ * TODO: side is set to true at all times, effectively. 
+ *
+ *   Start with a random bool, called side, and iterates on the left (min) if
+ * side is true, on the right (max) if side is false. The new branch length out
+ * of the C-side readjust is handled here, set to, when side is true, c1 equals
+ * new_length - t2; c2 equals t2 and when side is false, c2 equals new_length -
+ * t1; c1 equals t1.So, the branch length is only changed on one side of the
+ * tree determined by the variable side.
+ *   Check/xopt and has_changed/x are not used, as they determine iteration on a
+ * subset of characters, which doesn't make sense when branch lengths affect all
+ * the characters in the set. Seperation of the characters should be done in
+ * different complete character sets at the node level. 
+ *   The function returns the set of modified characters (all of them), the old
+ * likelihood, the new likelihood, the new branch lengths and an updated t
+ * with new likelihood_vector and same model. *)
 val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->  
     t -> t -> t -> float -> float ->
-    (* modified set * old_mle * new_mle * (new_branch_lengths) * new node *)
     All_sets.Integers.t * float * float * (float*float) * t
 
 (** [of_parser spec characters] creates a character set with specification

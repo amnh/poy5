@@ -88,11 +88,11 @@ int dgemm_( char *transa, char *transb, const int *m, const int *n, const int *k
 //print formated matrix
 //void printmatrix( const double* Z, const int n, const int m );
 //testing... create random substituation rate matrix
-void rand_sub_mat_gtr( double* A, const int n);
+//void rand_sub_mat_gtr( double* A, const int n);
 //testing... create symmetric sub-rate matrix
-void rand_sub_mat_sym( double* A, const int n);
+//void rand_sub_mat_sym( double* A, const int n);
 //converts value -> struct ml and prints it's contents
-void CAML_debug( value s );
+//void CAML_debug( value s );
 
 /**
  *  custom functions for garbage collection
