@@ -413,7 +413,7 @@ model_block:
             { (P.Variation_Invar $3) :: $5 }
     | ALPHA EQUAL FLOAT SEMICOLON model_block
             { (P.Variation_Alpha $3) :: $5 }
-    | PRIORS EQUAL prior_options model_block
+    | PRIORS EQUAL priors_options model_block
             { $3 :: $4 }
     | CHARSET EQUAL characterset_list SEMICOLON model_block
             { (P.Chars $3) :: $5 }
