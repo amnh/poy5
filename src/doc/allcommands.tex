@@ -1473,7 +1473,11 @@ The \poycommand{calculate\_support} command does not output support values by de
                 number of included characters in each character-type category
                 (\emph{i.e.} additive, non-additive, Sankoff, and molecular) with the corresponding
                 cost regimes, a list of excluded
-                characters, and a list of input files.} 
+                characters, and a list of input files. If the report is directed
+                to a file with extension ``nex'' or ``nexus'' then
+                the output is suitable for a nexus file (including the #NEXUS
+                beginning). Hennig format is produced if the report is directed
+                to a file with extension ``ss'' or ``hen'' or ``hennig''.}
                 {data}
 
             \argumentdefinition{searchstats}{}
@@ -1690,7 +1694,13 @@ The \poycommand{calculate\_support} command does not output support values by de
                         default), but if \poycommand{false}--no branches are
                         collapsed.}
                         {}
-                    \end{description}}
+                    \end{description}
+                 If the report is directed
+                to a file with extension ``nex'' or ``nexus'' then
+                the output is suitable for a nexus file (trees inside a TREES
+                block). Hennig format is produced if the report is directed
+                to a file with extension ``ss'' or ``hen'' or ``hennig''. In
+                these two cases, all other formatting options are ignored.}
                 {treesreport}
 
 		\end{argumentgroup}

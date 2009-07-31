@@ -3124,6 +3124,15 @@ let get_character_costs trees =
     let lst = Sexpr.to_list trees in 
     List.map get_character_cost lst
 
+let hennig_extensions = ["ss"; "hennig"; "hen"]
+let nexus_extensions = ["nexus"; "nex"]
+
+let check_suffix filename lst = 
+    match filename with
+    | None -> false
+    | Some filename ->
+            List.exists (Filename.check_suffix filename) lst
+
 IFDEF USEPARALLEL THEN
 (* A function to create a complete mask *)
 let complete_mask com_size =
@@ -4046,7 +4055,6 @@ END
                         let a = 
                             Sexpr.fold_left add_elements a run.stored_trees in
                         Sexpr.fold_left add_elements a run.original_trees
-
                     in
                     List.partition (fun x ->
                         let x = Ptree.Fingerprint.fingerprint x in
@@ -4246,7 +4254,6 @@ END
                                             [|"Character of tree with cost " ^
                                             string_of_float tree_cost; "ci"|] ::
                                                 lst) trees))), "ci")
-
                         | `Ri (filename, ch) ->
                                 (let max_list = 
                                     Data.apply_on_static (fun _ -> 0.)
@@ -4365,11 +4372,17 @@ END
                 Status.resize_history size;
                 run
             | `Dataset filename ->
-                let fmt = (Data.to_formatter [] run.data) in
-                PoyFormaters.data_to_status filename fmt;
-                (* Flush the formatter *)
-                Status.user_message (Status.Output (filename, false, [])) "%!"; 
-                run
+                    if check_suffix filename nexus_extensions then
+                        folder run (`Nexus filename)
+                    else if check_suffix filename hennig_extensions then
+                        folder run (`FasWinClad filename)
+                    else begin
+                       let fmt = (Data.to_formatter [] run.data) in
+                        PoyFormaters.data_to_status filename fmt;
+                        (* Flush the formatter *)
+                        Status.user_message (Status.Output (filename, false, [])) "%!"; 
+                        run
+                    end
             | `Xslt (file, style) ->
                     let () =
 IFDEF USE_XSLT THEN
@@ -4522,8 +4535,15 @@ END
                     Status.user_message fo "@]\n%!";
                     run
             | `Trees (ic, filename) ->
-                PTS.report_trees ic filename run.data run.trees;
-                run
+                    let ic = 
+                        if check_suffix filename nexus_extensions then
+                            [`NexusStyle]
+                        else if check_suffix filename hennig_extensions then
+                            [`HennigStyle]
+                        else ic
+                    in
+                    PTS.report_trees ic filename run.data run.trees;
+                    run
             | `CrossReferences (chars, filename) ->
                 Data.report_taxon_file_cross_reference chars run.data filename;
                 run
