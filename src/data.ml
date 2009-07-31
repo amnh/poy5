@@ -4851,12 +4851,10 @@ let output_character_types fo output_format data all_of_static =
         | Some ((`Single min) as range, Nexus.File.STSankoff matrix) ->
                 let name, element = 
                     let name = "MATRIX" ^ string_of_int min in
-                    match get_name_of_matrix name matrix with
-                    | None -> name, output_element name min matrix
-                    | Some name when output_format = `Hennig ->
-                            name, output_element name min matrix
-                    | Some name when output_format = `Nexus ->
-                            name, ""
+                    match get_name_of_matrix name matrix, output_format with
+                    | None, _            ->  name, output_element name min matrix
+                    | Some nname,`Hennig -> nname, output_element name min matrix
+                    | Some nname,`Nexus  -> nname, ""
                 in
                 if output_format = `Hennig then element
                 else "@[" ^ name ^ ":" ^ output_range range ^
