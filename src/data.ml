@@ -5081,7 +5081,7 @@ let to_nexus data filename =
             | Dynamic spec -> (* We are OK *)
                     fo "@[BEGIN UNALIGNED;@]@.";
                     fo "[CHARACTER NAME: ";
-                    fo (code_taxon character_code data);
+                    fo (code_character character_code data);
                     fo "]@.";
                     let alphabet, symbols = 
                         if spec.alph == Alphabet.nucleotides then 
