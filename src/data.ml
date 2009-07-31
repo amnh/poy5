@@ -1204,7 +1204,9 @@ let report_static_input file f_out =
     let msg =
         "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^ 
         string_of_int characters 
-        ^ "@ static@ homology@ characters@ in@ " ^ 
+        ^ "@ static@ homology@ characters,@ " ^ string_of_int 
+        (List.length unaligned) ^ " unaligned@ sequences,@ and@ " ^
+        string_of_int (List.length tree) ^ "@ trees,@ containing@ " ^ 
         string_of_int taxa ^ "@ taxa.@]"
     in
     Status.user_message Status.Information msg
