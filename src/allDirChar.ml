@@ -57,9 +57,6 @@ with type b = AllDirNode.OneDirF.n = struct
     let failwithf format = 
         Printf.ksprintf (failwith) format
 
-    let pp_intset chan set =
-        All_sets.Integers.iter (fun x -> output_string chan ((string_of_int x)^" ")) set
-
     let create_partition ptree left_node right_node =
         let left,right =
             Ptree.post_order_node_with_edge_visit
@@ -94,7 +91,6 @@ with type b = AllDirNode.OneDirF.n = struct
             let tree_tbl = Hashtbl.find (tree.Ptree.data).Data.branches t_name in
             let res = List.fold_left
                 (fun acc (partition,node_id) ->
-                    Printf.printf "Finding: %a ..." pp_intset partition;
                     try 
                         let node_n = All_sets.IntSetMap.find partition tree_tbl in
                         let tbl = transform_keys (Hashtbl.create 27)
@@ -102,11 +98,8 @@ with type b = AllDirNode.OneDirF.n = struct
                                                  (tree.Ptree.data).Data.character_names
                         in
                         let () = Hashtbl.replace ret_table node_id tbl in
-                        Printf.printf "found\n%!";
                         true
-                    with | Not_found ->
-                        Printf.printf "not found\n%!";
-                        (false or acc) )
+                    with | Not_found -> (false or acc) )
                 false
                 partitions
             in
