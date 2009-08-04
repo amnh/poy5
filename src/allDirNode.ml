@@ -244,6 +244,9 @@ module OneDirF :
 
     let uppass_heuristic pcode ptime mine a b = mine
 
+    let using_likelihood a : bool = 
+        Node.Standard.using_likelihood (force_val a)
+
     let to_string v = Node.Standard.to_string (force_val v)
 
     let apply_single_f_on_lazy f a = 
@@ -681,6 +684,9 @@ type nad8 = Node.Standard.nad8 = struct
     let estimate_time left right = 
         let get_dir p c = (not_with (taxon_code p) c.unadjusted).lazy_node in
         OneDirF.estimate_time (get_dir left right) (get_dir right left)
+
+    let using_likelihood node : bool =
+        OneDirF.using_likelihood (List.hd (node.unadjusted)).lazy_node
 
     (** [get_times_between child par] 
      *

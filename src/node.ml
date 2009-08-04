@@ -355,6 +355,12 @@ let all_prelim_to_final ({characters = chars} as node) =
     {node with
          characters = List.map prelim_to_final chars}
 
+let using_likelihood x =
+    List.fold_left
+        (fun a x -> match x with 
+            | StaticMl _ -> a
+            | _ -> false) true x.characters
+
 let float_close ?(epsilon=0.001) a b =
     let diff = a -. b in
     (abs_float diff) < epsilon
@@ -624,9 +630,13 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     | Some x,Some y -> x,y
                     | None, None -> MlStaticCS.estimate_time am.preliminary bm.preliminary
                     | _ -> failwith "something happened"
-            in (*
-            let t1,t2 = if root_e then let () = assert(t1 = t2) in 
-                        (t1 /. 2.0, t2 /. 2.0) else t1,t2 in *)
+            in
+            let t1,t2 =
+                if root_e
+                    then let () = assert(t1 = t2) in 
+                         (t1 /. 2.0, t2 /. 2.0)
+                    else t1,t2
+            in
 
             let mine,pcost,cost,(t1,t2),res = 
                 MlStaticCS.readjust None !modf am.preliminary
@@ -635,7 +645,6 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                     t1 t2 in
             (* pull edges back together *)
             let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t2,t1 in
-
             let mine = StaticMl 
                 { pm with  preliminary = res; final = res;
                            cost = cost; sum_cost = cost;
@@ -931,29 +940,40 @@ let median_counter = ref (-1)
 
 let median ?branches code old a b =
 
+    let pp_hashtbl chan tab = 
+        Hashtbl.iter (fun k v -> output_string chan (Printf.sprintf "(%d) " k))
+                     tab
+    in
+
     let convert_2_lst chars tbl =
-        List.map (fun x -> match x with
-                    | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
-                        let values_match code_ray tbl = (* array is guarentreed to be > ) *)
-                            let value = Hashtbl.find tbl (code_ray.(0)) in
-                            Array.fold_left 
-                                (fun acc x -> 
-                                    acc && (value = (Hashtbl.find tbl x)))
-                                true
-                                code_ray
+        List.map
+            (fun x -> match x with
+                | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
+                    let values_match code_ray tbl = (* array is guarentreed to be > 0 *)
+                        let value = Hashtbl.find tbl (code_ray.(0)) in
+                        Array.fold_left 
+                            (fun acc x -> 
+                                acc && (value = (Hashtbl.find tbl x)))
+                            true
+                            code_ray
+                    in
+                    (match tbl with
+                    | Some x ->
+                        let x =
+                            try Hashtbl.find x chars.taxon_code
+                            with | Not_found ->
+                                Printf.printf "%a\n" pp_hashtbl x;
+                                failwithf "Cannot find taxon_code %d" chars.taxon_code;
                         in
-                        (match tbl with
-                        | Some x ->
-                            let x = Hashtbl.find x chars.taxon_code in
-                            let codes = MlStaticCS.get_codes z.preliminary in
-                            assert(((Array.length codes) > 0) && (values_match codes x));
-                            Some (Hashtbl.find x codes.(0))
-                        | None -> None)
-                        ELSE
-                            None
-                        END
-                    | _ -> None
-                 ) chars.characters
+                        let codes = MlStaticCS.get_codes z.preliminary in
+                        assert(((Array.length codes) > 0) && (values_match codes x));
+                        Some (Hashtbl.find x codes.(0))
+                    | None -> None)
+                    ELSE
+                        None
+                    END
+                | _ -> None)
+            chars.characters
     in
 
     (* the code is negative if we are calculating on an edge *)
@@ -3579,6 +3599,7 @@ module Standard :
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
+        let using_likelihood x = using_likelihood x
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost

@@ -63,8 +63,12 @@ module type S = sig
      * in the case of two disjoint nodes over a root. Time is taken from [partime]
      * and data from [pardata] *)
     val uppass_heuristic : n -> n option -> n -> n -> n -> n
+
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
     val apply_time : bool -> n -> n -> n
+
+    (** [using_likelihood x] -> bool, if all chracters are likelihood **)
+    val using_likelihood : n -> bool
 
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
