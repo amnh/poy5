@@ -2202,8 +2202,7 @@ let emit_identifier =
                 d_edges = d_edges;
                 handles = handles;
                 avail_ids = [];
-                new_ids = run.data.Data.number_of_taxa + 1;
-                names = Hashtbl.create 1;
+                new_ids = run.data.Data.number_of_taxa + 1; 
         }
 
     let decode_trees print_msg (trees, stored_trees) run =

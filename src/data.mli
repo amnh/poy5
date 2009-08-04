@@ -352,7 +352,7 @@ type d = {
     (* The set of taxa to be ignored in the analysis *)
     ignore_character_set : string list;
     trees : parsed_trees list;
-    branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+    branches : (string,((string,float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t;
     non_additive_1 : int list;
     non_additive_8 : int list;
     non_additive_16 : int list;

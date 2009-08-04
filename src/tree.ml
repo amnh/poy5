@@ -173,7 +173,7 @@ type u_tree = {
     handles : All_sets.Integers.t;
     avail_ids : id list;
     new_ids : id;
-    names : (int,string) Hashtbl.t; (* names of subtrees/nodes *)
+    (* names : (int,string) Hashtbl.t; (* names of subtrees/nodes *) *)
 }
 
 let replace_codes f tree =
@@ -245,7 +245,7 @@ let empty () =
         handles = All_sets.Integers.empty;
         avail_ids = [];
         new_ids = 0;
-        names = Hashtbl.create 5;
+        (* names = Hashtbl.create 5; *)
     }
 
 (** [is_handle id tree]
@@ -747,12 +747,12 @@ let add_tree_to d add_to tree =
                             StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
                             raise err
                 in
-                let () = match nname with
+                (* let () = match nname with
                     | Some x ->
                             let x = String.uppercase x in
                             Hashtbl.replace add_to.names tc x
                     | None -> ()
-                in
+                in *)
                 Parser.Tree.Leaf (Leaf (tc, parent)), tc
         | Parser.Tree.Node (child_nodes, (txt,nname)) ->
                 let rec resolve_more_children (chil:(string * string option) Parser.Tree.t list) = match chil with
@@ -776,13 +776,13 @@ let add_tree_to d add_to tree =
                     | a :: b :: t ->
                             resolve_more_children ((Parser.Tree.Node ([a; b], (txt,nname))) :: t)
                 in
-                let sc = cg () in
-                let () = match nname with
+                let sc = cg () in 
+                (* let () = match nname with
                     | Some x -> 
                         let x = String.uppercase x in
                         Hashtbl.replace add_to.names sc x
                     | None -> ()
-                in
+                in *)
                 let child_nodes = resolve_more_children child_nodes in
                 match child_nodes with
                 | [a; b] ->

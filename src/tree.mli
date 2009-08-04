@@ -133,7 +133,6 @@ type u_tree = {
     handles : All_sets.Integers.t;      (** Set of handle ids *)
     avail_ids : id list;                (** Unused ids available for reuse *)
     new_ids : id;                       (** Where to start numbering new ids *)
-    names : (int,string) Hashtbl.t;     (** numbers to name of nodes/subtrees *)
 }
 
 val get_break_handles : break_delta -> u_tree -> id * id

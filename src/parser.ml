@@ -3685,49 +3685,9 @@ module SC = struct
                     List.iter (update_assumptions table acc) lst;
                     acc
             | Nexus.Trees (translations, newtrees) ->
-                    (* --- convert to characters tree and tbl --- *)
-                    let gen_nd () = 
-                        incr tree_node_num; "]GND"^(string_of_int !tree_node_num)
-                    and gen_tr () = 
-                        incr tree_tree_num; "]NTR"^(string_of_int !tree_tree_num)
-                    and add_to_all table name length = (* add to all charactersets *)
-                    let inner_table = Hashtbl.create 1667 in
-                        Array.iter
-                            (fun x -> Hashtbl.add inner_table x.st_name length)
-                            acc.characters;
-                        Hashtbl.add table name inner_table
-                    in
-                    let convert_one_type (name,treet) =
-                        let tname = match name with 
-                            | Some x -> String.uppercase x 
-                            | None -> gen_tr () in
-                        let single_t = function
-                            | Tree.Branches btree ->
-                                let table = Hashtbl.create 1667 in
-                                let ch_tree =
-                                    Tree.map 
-                                        (fun (s,fopt) ->
-                                            match fopt with
-                                            | Some length ->
-                                                let nname = gen_nd () in
-                                                add_to_all table nname length;
-                                                (s,Some nname)
-                                            | None -> (s,None))
-                                        btree
-                                in
-                                Hashtbl.add acc.branches tname table;
-                                Tree.Characters ch_tree
-                            | x -> x
-                        in
-                        let res = List.map single_t treet in
-                        if Hashtbl.mem acc.branches tname
-                            then (Some tname,res)
-                            else name,res
-                    in
                     let handle_tree tree = 
                         tree --> process_tree
                              --> generate_parser_friendly translations acc.taxa
-                             --> convert_one_type
                     in
                     let newtrees = List.map handle_tree newtrees in
                     {acc with trees = acc.trees @ newtrees }
