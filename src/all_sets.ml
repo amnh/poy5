@@ -85,4 +85,4 @@ module OrderedIntSet = struct
 end
 
 module IntSet = Set.Make (OrderedIntSet)
-
+module IntSetMap = Map.Make (OrderedIntSet)
