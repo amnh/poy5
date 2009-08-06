@@ -5042,38 +5042,48 @@ let output_character_names fo output_format data all_of_static =
 
 let to_nexus data filename = 
     let all_of_static =  all_of_static data in
+    let terminals_not_ignored = 
+        All_sets.IntegerMap.fold (fun code name acc ->
+            if All_sets.Strings.mem name data.ignore_taxa_set then acc
+            else All_sets.IntegerMap.add code name acc)
+        data.taxon_codes All_sets.IntegerMap.empty 
+    in
+    let terminals_sorted = 
+        List.sort (fun a b -> compare (fst a) (fst b)) 
+        (All_sets.IntegerMap.fold (fun a b acc -> (a, b) :: acc)
+        terminals_not_ignored []) 
+    in
     let fo = Status.user_message (Status.Output (filename, false, [])) in
     let output_nexus_header () = fo "#NEXUS@."
     and output_taxa_block () =
         fo "@[BEGIN TAXA;@]@.";
         fo "@[DIMENSIONS NTAX=";
-        fo (string_of_int data.number_of_taxa);
+        fo (string_of_int (List.length terminals_sorted));
         fo ";@]@.@[TAXLABELS ";
-        for i = 1 to data.number_of_taxa do 
-            let name = All_sets.IntegerMap.find i data.taxon_codes in
-            fo name;
-            fo " ";
-        done;
+        List.iter (fun (i, name) -> fo name; fo " ";) terminals_sorted;
         fo ";@]@.END;@."
     in
     let output_characters_blocks () =
         let output_taxa_sequences alph character_code =
             Hashtbl.iter (fun code characters ->
-                let name = All_sets.IntegerMap.find code data.taxon_codes in
-                if Hashtbl.mem characters character_code then
-                    match Hashtbl.find characters character_code with
-                    | _, `Unknown -> ()
-                    | Dyna (code, data), `Specified ->
-                            assert (code = character_code);
-                            fo "@[";
-                            fo name; 
-                            fo " ";
-                            Array.iter (fun x -> 
-                                let seq = Sequence.to_string x.seq alph in
-                                fo seq) data.seq_arr;
-                            fo "@]@."
-                    | _ -> assert false
-                else ()) data.taxon_characters 
+                if not (All_sets.IntegerMap.mem code terminals_not_ignored) then
+                    ()
+                else
+                    let name = All_sets.IntegerMap.find code data.taxon_codes in
+                    if Hashtbl.mem characters character_code then
+                        match Hashtbl.find characters character_code with
+                        | _, `Unknown -> ()
+                        | Dyna (code, data), `Specified ->
+                                assert (code = character_code);
+                                fo "@[";
+                                fo name; 
+                                fo " ";
+                                Array.iter (fun x -> 
+                                    let seq = Sequence.to_string x.seq alph in
+                                    fo seq) data.seq_arr;
+                                fo "@]@."
+                        | _ -> assert false
+                    else ()) data.taxon_characters
         in
         let output_dynamic_homology character_code = 
             match Hashtbl.find data.character_specs character_code with
@@ -5120,7 +5130,7 @@ let to_nexus data filename =
             fo ";@]";
             output_character_names fo `Nexus data all_of_static;
             fo "@[MATRIX@.";
-            All_sets.IntegerMap.iter (fun code name ->
+            List.iter (fun (code, name) ->
                 let specs = Hashtbl.find data.taxon_characters code in
                 fo "@[";
                 fo name;
@@ -5128,7 +5138,7 @@ let to_nexus data filename =
                 List.iter (fun character_code ->
                     static_character_to_string " " "(" ")" fo specs character_code)
                 all_of_static;
-                fo "@]@.") data.taxon_codes;
+                fo "@]@.") terminals_sorted;
             fo ";@]@.@[END;@]@.";
             output_character_types fo `Nexus data all_of_static;
         end;
