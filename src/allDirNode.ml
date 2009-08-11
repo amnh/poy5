@@ -597,33 +597,6 @@ type nad8 = Node.Standard.nad8 = struct
             } in
         { mine with adjusted = [node_dir]; }
 
-    (* adjust the branches in the tree, including branch lengths, uses
-     * adjusted with three directions *)
-    let readjust mode to_adjust ch1 ch2 par mine =
-        
-        (* in [n], we want the direction toward [p], the parent *)
-        let get_dir p_code n = (not_with (taxon_code p_code) n.adjusted).lazy_node
-        and mine_in_par = match par.adjusted with
-            | [x] -> x.lazy_node 
-            |  x  -> (either_with (taxon_code mine) x).lazy_node
-        (* use this to be precise about children, since we know this is internal *)
-        and mine_dat = with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted in
-
-        let a1,modified = 
-            OneDirF.readjust mode to_adjust (get_dir mine ch1) 
-                             (get_dir mine ch2) mine_in_par mine_dat.lazy_node
-        in
-
-        let node_dir =
-            {
-                lazy_node = a1;
-                dir = Some( (taxon_code ch1),(taxon_code ch2));
-                code = taxon_code mine;
-            } 
-        in
-        let node = { mine with adjusted=[node_dir]; } in
-        (node,modified)
-
     (* calculate the median between a and b. old can be used as a heuristic,
      * branches are the supplied branch lengths of the children a and b, *)
     let median ?branches my_code old a b =
@@ -640,9 +613,7 @@ type nad8 = Node.Standard.nad8 = struct
                 (try
                     let n = with_both na.code nb.code oldness.unadjusted in
                     Some (n.lazy_node)
-                 with
-                  | Not_found -> None 
-                )
+                 with | Not_found -> None)
             | None -> None
         in
 
@@ -752,12 +723,6 @@ type nad8 = Node.Standard.nad8 = struct
         if uppass_debug then
             info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
-        (*
-        let has_one code x = match x.dir with
-            | None -> true
-            | Some (a,b) -> a = code || b = code
-        in
-        *)
 
         let mc = taxon_code m 
         and ac = taxon_code a
@@ -777,10 +742,12 @@ type nad8 = Node.Standard.nad8 = struct
         let data_m2p = match m.adjusted with
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
-                assert ( match x.dir with
+                assert ( 
+                    if (match x.dir with
                          | None -> false
-                         | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac)
-                       );
+                         | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac))
+                    then true
+                    else begin q_print m; false end);
                 x.lazy_node
             (* ...was resolved, so get the direction *)
             |  _  -> get_dir pc m 
@@ -819,9 +786,9 @@ type nad8 = Node.Standard.nad8 = struct
     
         (* PRINT OUT THE TIMES BETWEEN
         Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"
-                mc ac pp_opt_list time_M2A
-                mc bc pp_opt_list time_M2B
-                mc pc pp_opt_list time_M2P;
+                mc ac pp_opt_list (force_val time_M2A)
+                mc bc pp_opt_list (force_val time_M2B)
+                mc pc pp_opt_list (force_val time_M2P);
         *)
 
         (* call medians with times supplied *)
@@ -858,6 +825,46 @@ type nad8 = Node.Standard.nad8 = struct
         and dir_C= { code= mc; lazy_node= data_m2p; dir= Some(ac,bc); } in
         let allDir = [ dir_A ; dir_B ; dir_C ] in
         { unadjusted = allDir; adjusted = allDir }
+
+    (* adjust the branches in the tree, including branch lengths, uses
+     * adjusted with three directions *)
+    let readjust mode to_adjust ch1 ch2 par mine =
+        
+        (* in [n], we want the direction toward [p], the parent *)
+        let get_dir p_code n = (not_with (taxon_code p_code) n.adjusted).lazy_node
+        and mine_in_par = match par.adjusted with
+            | [x] -> x.lazy_node 
+            |  x  ->
+                try
+                    (either_with (taxon_code mine) x).lazy_node
+                with | Not_found -> 
+                    q_print par; raise Not_found
+        (* use this to be precise about children, since we know this is internal *)
+        and mine_dat =
+            try with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted
+            with | Not_found -> (*
+                let mine = uppass_heuristic par None mine ch1 ch2 in
+                try with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted
+                with | Not_found ->*) q_print mine; raise Not_found
+        in
+
+        let a1,modified = 
+            OneDirF.readjust mode to_adjust (get_dir mine ch1) 
+                             (get_dir mine ch2) mine_in_par mine_dat.lazy_node
+        in
+
+        let node_dir =
+            {
+                lazy_node = a1;
+                dir = Some( (taxon_code ch1),(taxon_code ch2));
+                code = taxon_code mine;
+            } 
+        in
+        let node = { mine with adjusted=[node_dir]; } in
+        (node,modified)
+
+
+
 
     let to_string nodes =
         let res =

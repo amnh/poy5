@@ -47,6 +47,18 @@ module FullOrderedTuple = struct
         | x -> x
 end
 
+module FullOrderedTriples = struct
+    type t = (int * int * int) 
+    let compare (a, b, c) (d, e, f) =
+        match a - d with
+        | 0 ->  
+            begin match b - e with
+            | 0 -> c - f
+            | x -> x
+            end
+        | x -> x
+end
+
 module OrderedIntList = struct
     type t = int list 
     let rec compare a b =
@@ -76,6 +88,8 @@ module StringMap = Map.Make (OrderedString)
 module TupleMap = Map.Make (OrderedTuple)
 
 module FullTuples = Set.Make (FullOrderedTuple)
+
+module FullTriples = Set.Make (FullOrderedTriples)
 
 module FullTupleMap = Map.Make (FullOrderedTuple)
 

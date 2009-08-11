@@ -52,6 +52,8 @@ module TupleMap : Map.S with type key = (int * int)
 
 module FullTuples : Set.S with type elt = (int * int)
 
+module FullTriples : Set.S with type elt = (int * int * int)
+
 module OrderedIntSet : Set.OrderedType with type t = Integers.t
 
 module IntSet : Set.S with type elt = Integers.t

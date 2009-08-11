@@ -877,7 +877,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
     end else begin *)
         let model = c1.model
         and pinv  = match c1.model.invar with | Some x -> x | None -> ~-.1.0 in
-        let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in
+        (* let () = Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 mine.mle in *)
         let (nta,nl) = match model.ui with
             | None ->
                 readjust_sym scratch_space model.u model.d 
@@ -888,7 +888,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                              c1.chars c2.chars mine.chars c_t1 c_t2 pinv
                              model.rate model.prob model.pi_0 mine.mle
         and ntb = c_t2 in
-        let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in
+        (* let () = Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl in *)
         if (nta = c_t1 && ntb = c_t2) then
             (x,mine.mle,mine.mle,(c_t1,c_t2),mine)
         else
