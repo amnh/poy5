@@ -242,6 +242,7 @@ unsigned long likelihood_CAML_deserialize( void* v )
     mll* s;
     double* lk_vec;
     int *pinvar,i,j;
+    s = (mll*) malloc( sizeof(mll) );
     j = s->stride*s->c_len*s->rates;
     lk_vec = (double*) malloc( sizeof(double)*j );
     CHECK_MEM(lk_vec);
@@ -259,9 +260,9 @@ unsigned long likelihood_CAML_deserialize( void* v )
         CHECK_MEM(pinvar);
         for(i = 0; i < s->c_len; ++i)
             pinvar[i] = caml_deserialize_sint_4();
+        s->lv_invar = pinvar;
     }
-    s->lv_invar = pinvar;
-    v = s; //TODO really?
+    v = s;
     return (sizeof(struct ml **));
 }
 
@@ -501,10 +502,10 @@ mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, doub
     pivot = (int*) malloc(n * sizeof(double));
     memcpy(VL, VR, n*n*sizeof(double) ); //TODO: is this a problem?
     dgetrf_(&n, &n, VL, &n, pivot, &i);
-    if( 0 == i ){ //hello workd
+    if( 0 == i ){
         dgetri_(&n, VL, &n, pivot, &work_size, &lwork, &i); //optimal work
         if( 0 == i ){
-            lwork = (int)work_size;
+            lwork = MIN(free_space(space),(int)work_size);
             work = register_section( space, lwork, 1 );
             dgetri_(&n, VL, &n, pivot, work, &lwork, &i);
         } else if (i < 0) { 
@@ -600,6 +601,7 @@ int diagonalize_sym( mat *space,double* A, double* D, int n)
     dsyev_(&jobz, &uplo, &n, A, &n, D, &work_size, &lwork, &info);
     if( info == 0 ){
         lwork = (int)work_size;
+        expand_matrix( space, lwork ); 
         work = (double*) register_section (space,lwork,1);
         /** dsyev - calculate eigenvalues and vectors
          *          possibly use PDSYGVX or PDSYEVX --less precision)
@@ -627,6 +629,7 @@ int diagonalize_sym( mat *space,double* A, double* D, int n)
 /* Diagonlize matrix interfaces: symmetric */
 void likelihood_CAML_diagonalize_sym( value tmp, value Q, value D)
 {
+
     CAMLparam3( tmp, Q, D );
     int n;
     n = Bigarray_val ( Q )->dim[0];
@@ -641,19 +644,21 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
     char jobv_ = 'V'; //we went to find left and right eigenvectors
     double *wi,*U,*work,work_size;
     int lwork,info;
-    //wi = register_section( space, n, 0 );
-    //U  = register_section( space, n*n, 0 );
-    wi = (double*) malloc( sizeof(double) * n);
-    U = (double*) malloc( sizeof(double) * n * n);
 
     //find the optimal work (call func with -1 in lwork)
     lwork = -1;
     //D holds the real values eigen values through the computation
+    expand_matrix( space, n + (n * n) );
+    wi = register_section( space, n, 0 );
+    U  = register_section( space, n*n, 0 );
     dgeev_(&jobv_,&jobv_,&n,A,&n,D,wi,U,&n,Ui,&n,&work_size,&lwork,&info);
     if( info == 0 ) {
         lwork = (int)work_size;
-        //work = register_section( space, lwork, 1);
-        work = (double*) malloc( lwork * sizeof(double));
+        free_all( space ); //reallocate wi and U
+        expand_matrix( space, n + n*n + lwork );
+        wi = register_section( space, n, 0 );
+        U  = register_section( space, n*n, 0 );
+        work = register_section( space, lwork, 1);
         /** dgeev   - A * v(j) = lambda(j) * v(j)
          *            u(j)**H * A = lambda(j) * u(j)**H
          *            where:
@@ -682,6 +687,7 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
         //imaginary eigenvals should all = 0 --since the Matrix is similar to 
         //some symmetric matrix, thus have same eigenvalues (Keilson 1979)
         CHECK_ZEROES(wi,n);
+        free_all( space );
         if( 0 == info ) {
             mk_diag(D,n);
             mk_inverse(space, U, D, Ui, n, wi); /* wi is extra */
@@ -743,8 +749,10 @@ value likelihood_CAML_compose_sym(value tmp,value U, value D, value t)
     int n;
     long dims[2];
 
-    space = FM_val (tmp);
     n = Bigarray_val( U )->dim[0];
+    space = FM_val (tmp);
+    expand_matrix (space, n*n);//ensure space is available
+
     c_t = Double_val( t );
     c_U = (double *) Data_bigarray_val( U );
     c_D = (double *) Data_bigarray_val( D );
@@ -783,8 +791,10 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
     mat *space;
     long dims[2];
 
-    space = FM_val( tmp );
     n = Bigarray_val( U )->dim[0];
+    space = FM_val( tmp );
+    expand_matrix( space, n*n );
+
     c_t = Double_val( t );
     c_U = (double*) Data_bigarray_val( U );
     c_D = (double*) Data_bigarray_val( D );
@@ -884,7 +894,8 @@ loglikelihood_invar( const mll* l, const double *pi )
 {
     int i;
     double ret,tmp;
-    if (l->invar == 0){ return 0.0; }
+    ret = 0.0;
+    if (l->invar == 0){ return ret; }
     for( i = 0; i < l->c_len;++i){
         tmp = loglikelihood_site_invar( l , pi, i );
         ret += (tmp == 0) ? 0 : log(tmp);
@@ -981,7 +992,6 @@ value likelihood_CAML_median_wrapped_sym
     mat *space;
     int num_rates,num_probs,i;
     /* probabilities/rates */
-    space = FM_val( tmp );
     num_rates = Bigarray_val(rates)->dim[0];
     num_probs = Bigarray_val(probs)->dim[0];
     assert( num_rates == num_probs );
@@ -1000,6 +1010,9 @@ value likelihood_CAML_median_wrapped_sym
     assert( a->c_len == b->c_len );
     assert( a->rates == b->rates );
     assert( a->invar == b->invar );
+    /* expand scratch space for all function operations */
+    space = FM_val( tmp );
+    expand_matrix( space, 3 * (a->stride * a->stride) );
     /* create new character set, c */
     ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),
                                 a->rates*a->stride*a->c_len,CAML_ALLOC_2);
@@ -1010,6 +1023,7 @@ value likelihood_CAML_median_wrapped_sym
     c->c_len = a->c_len;
     c->rates = a->rates;
     c->invar = a->invar;
+    //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
     c->lv_s = (double*) malloc( c->rates * c->c_len * c->stride * sizeof(double));
     CHECK_MEM(c->lv_s);
     /* register temp variables */
@@ -1053,7 +1067,6 @@ value likelihood_CAML_median_wrapped_gtr
     mll *a,*b,*c;
     mat *space;
     int num_rates,num_probs,i;
-    space = FM_val (tmp);
     /* rates and probability vectors */
     num_rates = Bigarray_val(rates)->dim[0];
     num_probs = Bigarray_val(probs)->dim[0];
@@ -1075,6 +1088,9 @@ value likelihood_CAML_median_wrapped_gtr
     assert(b->c_len == a->c_len);
     assert(a->rates == b->rates);
     assert(a->invar == b->invar);
+    /* expand scratch space for all function purposes */
+    space = FM_val (tmp);
+    expand_matrix(space, 3 * (a->stride * a->stride) );
     /* create new character set */
     ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
                                             a->rates*a->stride*a->c_len, CAML_ALLOC_2);
@@ -1098,7 +1114,7 @@ value likelihood_CAML_median_wrapped_gtr
         median_charset( PA, PB, a,b,c, tmp1,&(tmp1[b->stride]), i);
     }
     if(a->invar == 1){
-        c->lv_invar = (int*) malloc ( c->c_len * sizeof(double));
+        c->lv_invar = (int*) malloc( c->c_len * sizeof(double));
         median_invar( a,b,c );
     }
     //printf("]\n");
@@ -1136,8 +1152,9 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
         compose_sym( PB, U, D, time_b*gam[i], b->stride,tmp );
         median_charset( PA, PB, a,b,simp->vs,tmp,&(tmp[a->stride]),i );
     }
-    if(a->invar == 1) median_invar( a,b,simp->vs );
-    simp->ll = loglikelihood( simp->vs,pi,prob, percent );
+    /* invar isn't iterated
+     * if(a->invar == 1) median_invar( a,b,simp->vs ); */
+    simp->ll = loglikelihood( simp->vs, pi, prob, percent );
 }
 void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,const double *Ui,
     const mll *a,const mll *b,const double time_a,const double time_b,const double *gam,
@@ -1150,11 +1167,12 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
         compose_gtr( PB, U, D, Ui, time_b*gam[i], b->stride, tmp );
         median_charset( PA, PB, a,b,simp->vs,tmp,&(tmp[a->stride]), i );
     }
-    if(a->invar == 1) median_invar( a,b,simp->vs );
+    /* invar isn't iterated
+     * if(a->invar == 1) median_invar( a,b,simp->vs ); */
     simp->ll = loglikelihood( simp->vs, pi, prob, percent );
 }
 
-#define golden_exterior(a,b) a->time + ((b->time - a->time)*2.0/(sqrt(5.0)-1))
+#define golden_exterior(a,b) a.time + ((b.time - a.time)*2.0/(sqrt(5.0)-1))
 
 void
 readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
@@ -1163,53 +1181,57 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         const double pinvar)
 {
     /* variables */
-    ptr *left,*right,*middle,*best,*temp,*temp_ptr;
+    ptr left, right, middle, best, temp, temp_ptr;
+    mll left_,right_,middle_,best_,temp_;
     double *PA,*PB,*TMP,ttime1,ttime2,deno,numr;
     int max_iter,size,bracketed;
     max_iter = MAX_ITER;
-    size = a->c_len*a->stride*a->rates; //size of the entire array
+
+    size = a->c_len * a->stride * a->rates; //size of the entire array
     /* register temp space and matrices */
+    expand_matrix( space, (5 * size) + (3 * a->stride * a->stride ) );
+
     PA = register_section(space, a->stride*a->stride , 0);
     PB = register_section(space, a->stride*a->stride , 0);
     TMP = register_section(space, a->stride*a->stride, 0);
-    /* set up the 'points' */ //TODO --convert to stack space
-    best = (ptr*) malloc( sizeof(ptr) );    middle = (ptr*) malloc(sizeof (ptr));
-    best->vs = (mll*) malloc(sizeof(mll));  middle->vs = (mll*) malloc(sizeof(mll));
-    left = (ptr*) malloc( sizeof (ptr) );   right = (ptr*) malloc(sizeof (ptr));
-    temp = (ptr*) malloc( sizeof (ptr) );   temp->vs = (mll*) malloc (sizeof(mll));
-    left->vs = (mll*) malloc(sizeof(mll));  right->vs = (mll*) malloc(sizeof(mll));
+    /* set up the 'points' --TODO: use C as best */
+    best.vs = &best_; middle.vs = &middle_; left.vs = &left_;
+    right.vs = &right_; temp.vs = &temp_;
     /* register space */
-    (best->vs)->lv_s = register_section(space,size,0);
-    (middle->vs)->lv_s = register_section(space,size,0);
-    (left->vs)->lv_s = register_section(space,size,0);
-    (right->vs)->lv_s = register_section(space,size,0);
-    (temp->vs)->lv_s = register_section(space,size,0);
+    (best.vs)->lv_s = register_section(space,size,0);
+    (middle.vs)->lv_s = register_section(space,size,0);
+    (left.vs)->lv_s = register_section(space,size,0);
+    (right.vs)->lv_s = register_section(space,size,0);
+    (temp.vs)->lv_s = register_section(space,size,0);
     /* set lengths of vectors in new likelihood structures */
-    (best->vs)->rates = (middle->vs)->rates = a->rates;
-    (left->vs)->rates = (right->vs)->rates = (temp->vs)->rates = a->rates;
-    (best->vs)->c_len = (middle->vs)->c_len = a->c_len;
-    (left->vs)->c_len = (right->vs)->c_len = (temp->vs)->c_len = a->c_len;
-    (best->vs)->stride = (middle->vs)->stride = a->stride;
-    (left->vs)->stride = (right->vs)->stride = (temp->vs)->stride = a->stride;
-    (best->vs)->invar = (middle->vs)->invar = a->invar;
-    (left->vs)->invar = (right->vs)->invar = (temp->vs)->invar = a->invar;
+    (best.vs)->rates = (middle.vs)->rates = a->rates;
+    (left.vs)->rates = (right.vs)->rates = (temp.vs)->rates = a->rates;
+    (best.vs)->c_len = (middle.vs)->c_len = a->c_len;
+    (left.vs)->c_len = (right.vs)->c_len = (temp.vs)->c_len = a->c_len;
+    (best.vs)->stride = (middle.vs)->stride = a->stride;
+    (left.vs)->stride = (right.vs)->stride = (temp.vs)->stride = a->stride;
+    /* invar doesn't change, set all pointers to the same space TEST */
+    (best.vs)->invar = (middle.vs)->invar = a->invar;
+    (left.vs)->invar = (right.vs)->invar = (temp.vs)->invar = a->invar;
+    (best.vs)->lv_invar = (middle.vs)->lv_invar = a->lv_invar;
+    (left.vs)->lv_invar = (right.vs)->lv_invar = (temp.vs)->lv_invar = a->lv_invar;
     /* set initial times and constants */
-    best->time = *b_ta;
-    middle->time = *b_ta;
-    left->time = middle->time / 10;
-    right->time = middle->time * 2;
-    best->ll = *b_mle;
-    middle->ll = *b_mle;
+    best.time = *b_ta;
+    middle.time = *b_ta;
+    left.time = middle.time / 10;
+    right.time = middle.time * 2;
+    best.ll = *b_mle;
+    middle.ll = *b_mle;
     // set up best vectors
-    memcpy( (best->vs)->lv_s, c->lv_s, size * sizeof(double) );
-    memcpy( (middle->vs)->lv_s, c->lv_s, size * sizeof(double) );
+    memcpy( (best.vs)->lv_s, c->lv_s, size * sizeof(double) );
+    memcpy( (middle.vs)->lv_s, c->lv_s, size * sizeof(double) );
     // fill in initial data of new points
-    single_sym(left,PA,PB,U,D,a,b,left->time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-    single_sym(right,PA,PB,U,D,a,b,right->time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&left,PA,PB,U,D,a,b,left.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&right,PA,PB,U,D,a,b,right.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
     /* bracket minimum */
     bracketed = 1; // true, since we are going to expect the best
-    while( (max_iter-- != 0) && !(left->ll > middle->ll && middle->ll < right->ll)){
-        if (left->ll <= middle->ll && middle->ll <= right->ll){
+    while( (max_iter-- != 0) && !(left.ll > middle.ll && middle.ll < right.ll)){
+        if (left.ll <= middle.ll && middle.ll <= right.ll){
             // increasing,  move all points down
             temp_ptr = right;
             right = middle;
@@ -1217,34 +1239,34 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             left = temp_ptr;
             ttime1 = golden_exterior( middle, right );
             if (ttime1 < EPSILON) { ttime1 = EPSILON; break; }
-            single_sym(left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-        } else if ( left->ll >= middle->ll && middle->ll >= right->ll) {
+            single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        } else if ( left.ll >= middle.ll && middle.ll >= right.ll) {
             // decreasing,  move all points up (middle,right,new)
             temp_ptr = left;
             left = middle;
             middle = right;
             right = temp_ptr;
             ttime1 = golden_exterior( left, middle );
-            single_sym(right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+            single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
         } else {
             //printf("Curvature?:%f/%f -- %f/%f -- %f/%f\n",left->time,
             //        left->ll,middle->time,middle->ll,right->time,right->ll);
             bracketed = 0;
-            if (left->ll < right->ll){ //new left middle
+            if (left.ll < right.ll){ //new left middle
                 temp_ptr = right;
                 right = middle;
                 middle = left;
                 left = temp_ptr;
                 ttime1 = golden_exterior (middle, right);
                 if (ttime1 < EPSILON) { ttime1 = EPSILON; break; }
-                single_sym(left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+                single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
             } else { //middle right new
                 temp_ptr = left;
                 left = middle;
                 middle = right;
                 right = temp_ptr;
                 ttime1 = golden_exterior( left, middle );
-                single_sym(right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+                single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
             }
             break;
         }
@@ -1254,12 +1276,12 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
     //        left->ll,left->time, middle->ll,middle->time, right->ll,right->time);
     /* parabolic interpolation */
     while( bracketed && ((max_iter--) > 0 ) &&
-                      (fabs (middle->time - left->time) > EPSILON) &&
-                      (fabs (right->time - middle->time) > EPSILON) ){
+                      (fabs (middle.time - left.time) > EPSILON) &&
+                      (fabs (right.time - middle.time) > EPSILON) ){
         // calculate absissca
-        ttime1 = (middle->time - left->time) * (middle->ll - right->ll);
-        ttime2 = (middle->time - right->time) * (middle->ll - left->ll);
-        numr = (ttime1 * (middle->time - left->time)) - (ttime2 * (middle->time - right->time));
+        ttime1 = (middle.time - left.time) * (middle.ll - right.ll);
+        ttime2 = (middle.time - right.time) * (middle.ll - left.ll);
+        numr = (ttime1 * (middle.time - left.time)) - (ttime2 * (middle.time - right.time));
         deno = (ttime1 - ttime2) * 2.0;
         if (deno < 0.0){ //points are colinear
             numr = -numr;
@@ -1268,36 +1290,36 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         if (deno <= EPSILON){ //points are colinear
             break; //TODO : something better then break
         } else {
-            ttime1 = middle->time - (numr/deno);
+            ttime1 = middle.time - (numr/deno);
             if (ttime1 <= 0.0)
                 ttime1 = EPSILON;
         }
         // ttime1 is the next time to try 
-        single_sym(temp,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        single_sym(&temp,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
         // choose best
-        if (best->ll > temp->ll){
-            best->ll = temp->ll;
-            best->time = temp->time;
-            memcpy( (best->vs)->lv_s, (temp->vs)->lv_s, size * sizeof(double) );
+        if (best.ll > temp.ll){
+            best.ll = temp.ll;
+            best.time = temp.time;
+            memcpy( (best.vs)->lv_s, (temp.vs)->lv_s, size * sizeof(double) );
         }
         // reorder points
-        if(left->time < temp->time && temp->time < middle->time){ //left new middle
+        if(left.time < temp.time && temp.time < middle.time){ //left new middle
             temp_ptr = right;
             right = middle;
             middle = temp;
             temp = temp_ptr;
-        } else if (temp->time < left->time){ //new left middle
+        } else if (temp.time < left.time){ //new left middle
             temp_ptr = right;
             right = middle;
             middle = left;
             left = temp;
             temp = temp_ptr;
-        } else if (middle->time < temp->time && temp->time < right->time){ //middle new right
+        } else if (middle.time < temp.time && temp.time < right.time){ //middle new right
             temp_ptr = left;
             left = middle;
             middle = temp;
             temp = temp_ptr;
-        } else if (right->time < temp->time){ //middle right new
+        } else if (right.time < temp.time){ //middle right new
             temp_ptr = left;
             left = middle;
             middle = right;
@@ -1305,12 +1327,9 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             temp = temp_ptr;
         }
     }
-    memcpy( c->lv_s, (best->vs)->lv_s, size * sizeof(double));
-    *b_ta = best->time;
-    *b_mle= best->ll;
-
-    free(best->vs); free(middle->vs); free(left->vs); free(right->vs); free(temp->vs);
-    free(best); free(middle); free(left); free(right); free(temp);
+    memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
+    *b_ta = best.time;
+    *b_mle= best.ll;
 }
 
 void

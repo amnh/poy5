@@ -22,7 +22,7 @@ value floatmatrix_CAML_register (value u);
 
 /* registers section and returns ptr */
 double* register_section (mat* m,int s,int c);
-//void* register_asanysection (mat* m,int s,int c); //regiser size [s] as anything
+void expand_matrix( mat* m, int s );
+int free_space (mat *m);
 void free_all (mat* m);
-/* void expand_matrix( mat* m, int s ); -- register should do this        */
 /* void clear_section( mat* m, int l, int h ); -- register should do this */

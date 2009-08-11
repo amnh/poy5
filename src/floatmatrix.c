@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 #include <caml/alloc.h>
 #include <caml/mlvalues.h>
@@ -17,8 +18,7 @@
 #define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory")
 #define DEBUG 0
 
-/* compare two float matrices, TODO: look inside array. I doubt this is really
- * necessary since it's just scratch space. */
+/* compare two float matrices */
 int floatmatrix_CAML_compare( value one, value two )
 {
     mat *a, *b;
@@ -31,6 +31,8 @@ int floatmatrix_CAML_compare( value one, value two )
 void floatmatrix_CAML_free( value v )
 {
     mat* s;
+    if( DEBUG )
+        printf ("Freeing Data: %d --> 0\n",s->size);
     s = FM_val(v);
     free( s->mat );
     free( s );
@@ -82,11 +84,13 @@ value floatmatrix_CAML_register (value u)
  ** --------------------------------- **/
  
 /* expand array to size [s] */
-void expand_matrix (mat* m, int s)
+void expand_matrix (mat* m, const int s)
 {
     if (m->size < s){
         if( DEBUG )
             printf ("Expanding Data: %d --> %d\n",m->size,s);
+        if( m->loc > 0 )
+            printf ("Error: Reallocation of memory while some is used");
         m->size = s;
         m->mat = (double*) realloc(m->mat,sizeof(double)*s);
         CHECK_MEM( m->mat );
@@ -100,12 +104,18 @@ void clear_section( mat* m, int l, int h )
     memset( &(m->mat[l]), 0, sizeof(double)* (h-l) );
 }
 
+/* return how much free space we have */
+int free_space( mat* m ) { return (m->size - m->loc); }
+
 /* register a section of the matrix --clear section if asked */
 double* register_section( mat* m, int s, int c )
 {
     double *ptr;
-    if ( (m->loc + s) > m->size )
-        expand_matrix (m, s + m->loc);
+    //all memory must be expanded explicitly
+    if ( (m->loc + s) > m->size ){
+        printf ("ERROR: not enough memory in current allocation.\n");
+        assert( 1 == 0 );
+    }
     if ( c ) /* clear the section too */
         clear_section(m, m->loc, m->loc+s);
     if (DEBUG)
@@ -138,12 +148,12 @@ value floatmatrix_CAML_create (value s)
 
 /**
  *  Some functions used in testing the functionality.
-
-value floatmatrix_CAML_random (value m_val) *
+*/
+value floatmatrix_CAML_random (value m_val)
 {
     CAMLparam1(m_val);
     mat *m; int i;
-    srand(time(NULL) + getpid() );
+    srand( time(NULL) );
     m = FM_val (m_val);
     for(i=0;i<m->size;++i)
         m->mat[i] = ((double)rand()/(double)RAND_MAX);
@@ -165,6 +175,34 @@ value floatmatrix_CAML_clear (value m, value i,value j)
     clear_section( FM_val (m), Int_val (i), Int_val (j) );
     CAMLreturn( Val_unit );
 }
-value get_size (value m){ CAMLparam1(m); CAMLreturn( Int_val((FM_val(m))->size) );}
-value get_used (value m){ CAMLparam1(m); CAMLreturn( Int_val((FM_val(m))->loc ) );}
-*/
+value floatmatrix_CAML_expand(value m,value i)
+{
+    CAMLparam2(m,i);
+    expand_matrix( FM_val(m), Int_val(i));
+    CAMLreturn( Val_unit );
+}
+value floatmatrix_CAML_freeall(value m)
+{
+    CAMLparam1( m );
+    free_all( FM_val(m) );
+    CAMLreturn( Val_unit );
+}
+
+value floatmatrix_CAML_register_test(value m,value i,value v)
+{
+    CAMLparam3(m,i,v);
+    mat *a;
+    double *sec;
+    int j;
+
+    a = FM_val( m );
+    sec = register_section (a, Int_val(i), 0);
+    for(j = 0; j < Int_val(i); ++j)
+        sec[j] = Double_val( v );
+    CAMLreturn( Val_unit );
+}
+
+value floatmatrix_CAML_getsize (value m)
+    { CAMLparam1(m); CAMLreturn( Int_val((FM_val(m))->size) );}
+value floatmatrix_CAML_getused (value m)
+    { CAMLparam1(m); CAMLreturn( Int_val((FM_val(m))->loc ) );}
