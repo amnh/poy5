@@ -273,6 +273,7 @@ let dependency_relations (init : Methods.script) =
                 | `Partitioned _
                 | `Direct_Optimization _
                 | `Prioritize
+                | `Assign_Level _
                 | `ReWeight _
                 | `WeightFactor _
                 | `Assign_Transformation_Cost_Matrix _
@@ -1626,6 +1627,7 @@ let script_to_string (init : Methods.script) =
                 | `Partitioned _
                 | `Direct_Optimization _
                 | `Prioritize
+                | `Assign_Level _
                 | `ReWeight _
                 | `WeightFactor _
                 | `Assign_Transformation_Cost_Matrix _
