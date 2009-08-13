@@ -105,6 +105,10 @@ val rnd : a -> (unit -> int)
 (** [size a] gets the size of the alphabet [a]. *)
 val size : a -> int
 
+(** [get_ori_size a] returns the value of original alphabet size of alphabet
+* a here *)
+val get_ori_size : a -> int
+
 (** [get_orientation a] gets the orientation of the alphabet [a]. *)
 val get_orientation : a -> bool
 
@@ -145,13 +149,20 @@ val list_to_a : ?orientation:bool ->
 val simplify : a -> a 
 
 (** [to_sequential a] returns an alphabet of any kind, with its elements
-* represented in the simplified Sequential kind representation. *)
+* represented in the simpli:e alfied Sequential kind representation. *)
 val to_sequential : a -> a
 
-(** [explote a] takes an alphabet of any [kind] and generates an
+(*
+* [create_alph_by_level alph level] creates a new alphabet based on the new level
+* value
+*)
+val create_alph_by_level : a -> int -> int -> a
+
+
+(** [explote a level ori_sz] takes an alphabet of any [kind] and generates an
 * [Extended_Bit_Flags] alphabet, where every combination is represented within
 * square brackets. *)
-val explote : a -> a
+val explote : a -> int -> int -> a
 
 val to_list : a -> (string * int) list
 
