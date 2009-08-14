@@ -437,13 +437,13 @@ end
 module TransformationCostMatrix : sig
 
     val of_channel : 
-        ?orientation:bool -> ?use_comb:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
+        ?orientation:bool -> ?use_comb:bool -> ?level:int -> int -> FileStream.greader -> Cost_matrix.Two_D.m
 
     val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
 
     val fm_of_file: filename -> float list list
 
-    val of_list : ?use_comb:bool -> int list list -> int -> Cost_matrix.Two_D.m 
+    val of_list : ?use_comb:bool -> ?level:int -> int list list -> int -> Cost_matrix.Two_D.m 
 
     val of_file : ?use_comb:bool -> filename -> int -> Cost_matrix.Two_D.m
 
