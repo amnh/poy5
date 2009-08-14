@@ -1541,8 +1541,8 @@ let load_data (meth : Methods.input) data nodes =
                 Data.prealigned_characters ImpliedAlignment.analyze_tcm data
                 chars
     in
-    let data = annotated_reader data meth in
-    let data = Data.categorize (Data.remove_taxa_to_ignore data) in
+    let data = annotated_reader data meth in    
+    let data = Data.categorize (Data.remove_taxa_to_ignore data) in 
     Node.load_data data
 
 type script = Methods.script
