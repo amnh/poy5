@@ -3144,6 +3144,18 @@ The \poycommand{calculate\_support} command does not output support values by de
             float or an integer value. This method is applicable to any characters.} 
             {weightfactor}
 
+            \argumentdefinition{level}{\obligatory{\poyint}}
+            {Defines level value of transformation matrix. the default value of
+            level during initializtion is 3. While building tree, we need to
+            do assignment to each node of that tree. The elements of assignment
+            are chosen from custom-alphabet. It could be a single character or
+            combination of n characters.  Level is the maximum number of n.
+            When we choose a combination instead of a single character, we
+            postpone our decision to later steps of building, which could
+            result in better tree cost }
+            {level}
+
+
       \end{argumentgroup}
            
        \begin{argumentgroup}{Chromosomal transformation methods}
