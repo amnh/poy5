@@ -4250,12 +4250,16 @@ module PAlphabet = struct
         let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
         let alph = Alphabet.of_string ~orientation:orientation
         elts default_gap None in
+        let size = Alphabet.size alph in
+        let level = 
+            if size < 15 then 2
+            else 0
+        in
         let alph, do_comb = 
             if orientation then alph, false
             else 
-                let size = Alphabet.size alph in
-                if size < 7 then 
-                    Alphabet.explote alph, true
+                if size < 15 then 
+                    Alphabet.explote alph level size, true
                 else alph, false
         in
         let tcm = 
@@ -4263,7 +4267,7 @@ module PAlphabet = struct
                 let all_elements = -1 (* we don't allow ambiguities here *) in
                 if do_comb then
                     TransformationCostMatrix.of_channel 
-                    ~orientation:orientation all_elements file 
+                    ~orientation:orientation ~level:level all_elements file 
                 else
                     TransformationCostMatrix.of_channel_nocomb
                     ~orientation all_elements file
