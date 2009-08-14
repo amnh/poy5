@@ -492,7 +492,6 @@ val transform_chrom_to_rearranged_seq :
   Methods.dynamic_char_transform -> 'c -> Methods.implied_alignment list -> d
 
 val print : d -> unit
-val myprint : d -> unit
 
 val get_chars_codes : d -> characters -> int list
 val get_chars_codes_comp : d -> bool_characters -> int list
@@ -512,6 +511,8 @@ val process_rename_characters : d -> (string * string) -> d
 val assign_transformation_gaps :
     d -> bool_characters -> int -> int -> d
 
+val assign_level : d -> bool_characters -> int -> d 
+    
 val assign_affine_gap_cost : 
     d -> bool_characters -> Cost_matrix.cost_model -> d
 
