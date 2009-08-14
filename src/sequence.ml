@@ -25,10 +25,6 @@ exception Invalid_Argument of string;;
 exception Invalid_Sequence of (string * string * int);; 
 
 let () = SadmanOutput.register "Sequence" "$Revision: 2871 $"
-
-let uselevel = true (* Don't forget to set "uselevel" inside cost_matrix.ml and
-alphabet.ml*) 
-
 external register : unit -> unit = "seq_CAML_register"
 
 let _ = 
@@ -73,6 +69,15 @@ let set a b c =
 
 external prepend : s -> int -> unit = "seq_CAML_prepend";;
 
+let check_level cm =
+        let level = Cost_matrix.Two_D.get_level cm in
+        let size = Cost_matrix.Two_D.get_ori_a_sz cm in
+        let uselevel = 
+            if (level>1) && (level<=size) then true
+            else false
+        in
+        uselevel
+    
 let make_empty a =
     let s = create 1 in
     prepend s (Alphabet.get_gap a);
@@ -969,26 +974,53 @@ module Align = struct
 
     external c_union : s -> s -> s -> unit = "algn_CAML_union"
 
+    let code2list = Cost_matrix.Two_D.combcode_to_comblist
     let list2code = Cost_matrix.Two_D.comblist_to_combcode
     let print_intlist = Cost_matrix.Two_D.print_intlist
-    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode 
+    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode
+    let get_level = Cost_matrix.Two_D.get_level
+    let get_ori_a_sz = Cost_matrix.Two_D.get_ori_a_sz
+    let clear_duplication_in_list = Cost_matrix.Two_D.clear_duplication_in_list
 
     let union a b cm =
         let lena = length a and lenb = length b in
         assert(lena == lenb);
         let len = lena in
         let res = create (len + 1) in
-        for i = len-1 downto 0 do
-            let ai = get a i and bi = get b i in
-            let union_ai_bi = list2code ([ai]@[bi]) cm in
-            prepend res union_ai_bi; 
-        done;
+        let level = get_level cm in
+        if (check_level cm) then begin
+            let break_union newlist listitem =
+            (code2list listitem cm) @ newlist
+            in
+            for i = len-1 downto 0 do
+                let ai = get a i and bi = get b i in
+                let alst = code2list ai cm and blst = code2list bi cm in
+                let alstlen = (List.length alst) and
+                blstlen = (List.length blst) in
+                assert (alstlen<=level); assert(blstlen<=level);
+                let union_ai_bi =
+                    let tmplst = List.fold_left break_union [] ([ai]@[bi]) in
+                    let newlist = List.rev (clear_duplication_in_list tmplst) in
+                    if (List.length newlist)<= level then
+                        list2code ([ai]@[bi]) cm
+                    else
+                        ai
+                    (*if(alstlen+blstlen)<=level then
+                        list2code ([ai]@[bi]) cm 
+                    else
+                        ai*)
+                in
+                prepend res union_ai_bi
+            done;
+        end
+        else 
+            c_union a b res
+        ;
         res
-        (*c_union a b res;
-        res*)
         
 
     let closest s1 s2 cm m =
+        let uselevel = check_level cm in
         (*let printseqcode seq =
             let len = length seq in
             Printf.printf "[";
