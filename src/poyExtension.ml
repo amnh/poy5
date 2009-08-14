@@ -671,6 +671,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "randomize_terminals" -> <:expr<`RandomizedTerminals >>] |
                 [ LIDENT "alphabetic_terminals" -> <:expr<`AlphabeticTerminals
                 >>] |
+                [ LIDENT "level"; ":"; x = flex_integer -> <:expr<`Level $x$>>] |
                 [ LIDENT "tcm"; ":"; "("; x = flex_integer; ","; y
                 = flex_integer; ")" -> <:expr<`Gap ($x$, $y$)>> ] |
                 [ LIDENT "tcm"; ":";  x = flex_string -> <:expr<`Tcm $x$>> ] |
