@@ -106,6 +106,10 @@ type prep_tail_spec = [
     | `Array of int array
 ]
 
+type level = [
+    | `Assign_Level of (int * characters)
+]
+
 type transform_cost_matrix = [
     | `Assign_Transformation_Cost_Matrix of (filename option * characters)
     | `Create_Transformation_Cost_Matrix of (int * int * characters)
@@ -192,6 +196,7 @@ type char_transform = [
     | `UseLikelihood of ml_spec
     | transform_cost_matrix
     | `Independent of characters
+    | level 
 ]
 
 
