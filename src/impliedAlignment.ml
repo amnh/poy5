@@ -254,7 +254,7 @@ let calculate_indels a b alph b_children =
 (* TODO CHILDREN *)
 let ancestor calculate_median state prealigned all_minus_gap a b 
             codea codeb cm alph achld bchld = 
-    if print_anc_debug then
+   (* if print_anc_debug then*)
         Status.user_message Status.Information
         ("The ancestors of " ^ string_of_int codea ^ " and " ^ string_of_int codeb);
     let a, b, mincode = 
@@ -384,8 +384,15 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         codea, hom, a_pos - 1, b_pos - 1, a_hom, 
                         b_hom, new_a_or, new_b_or, (codea :: new_res_or)
                 | true, false, false ->
-                        let codeb = Hashtbl.find b.codes b_pos 
-                        and codea = Hashtbl.find a.codes a_pos in
+                        let codeb = 
+                            try 
+                                Hashtbl.find b.codes b_pos 
+                            with
+                            | Not_found ->
+                                    failwith(
+                                Printf.sprintf "cannot find %d  %!" b_pos)
+                        in
+                        let codea = Hashtbl.find a.codes a_pos in
                         let hom_b = Hashtbl.find b_hom codeb 
                         and hom_a = Hashtbl.find a_hom codea in
                         Hashtbl.remove b_hom codeb;
@@ -402,7 +409,14 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         codea, hom, a_pos - 1, b_pos - 1, a_hom, b_hom,
                         new_a_or, new_b_or, new_res_or
                 | _, true, false ->
-                        let codeb = Hashtbl.find b.codes b_pos in
+                        let codeb = 
+                            try 
+                                Hashtbl.find b.codes b_pos 
+                            with
+                            | Not_found ->
+                                    failwith(
+                                Printf.sprintf "cannot find %d  %!" b_pos)
+                        in
                         let hom_b = Hashtbl.find b_hom codeb in
                         Hashtbl.remove b_hom codeb;
                         Hashtbl.replace hom codeb hom_b;
@@ -1640,12 +1654,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         
         match Tree.get_node handle ptree.Ptree.tree with
         | Tree.Single self -> 
-                Printf.printf "tree is single\n %!";
                 let a, b = convert_node None ptree () self ([], []) in
                 Status.finished st;
                 AssList.elements a, b
         | _ ->
-                Printf.printf "not a single tree \n %!";
               let self, other, root  =      
                   let root = Ptree.get_component_root handle ptree in  
                   match root.Ptree.root_median with
