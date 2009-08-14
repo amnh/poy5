@@ -4134,6 +4134,8 @@ algn_ancestor_2 (seqt s1, seqt s2, cmt m, seqt sm ) {
     cost_model = m->cost_model_type;
     for (i = seq_get_len (s1) - 1; i >= 0; i--) {
         interm = cm_get_median (m, begin1[i], begin2[i]);
+        if(interm==0)
+            failwith("median should not be 0\n");
         if ((!is_combinations) || (1 != cost_model)) {
             if (interm != gap) seq_prepend (sm, interm);
         }
@@ -4289,7 +4291,6 @@ algn_CAML_ancestor_2 (value sa, value sb, value cm, value sab) {
     CAMLparam4(sa, sb, cm, sab);
     seqt a, b, ab;
     cmt tm;
-
     Seq_custom_val(a,sa);
     Seq_custom_val(b,sb);
     Seq_custom_val(ab,sab);

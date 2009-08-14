@@ -1002,6 +1002,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 --> Data.assign_affine_gap_cost data chars
                 --> Data.categorize
                 --> Node.load_data 
+        | `Assign_Level (level, chars) ->
+                level
+                --> Data.assign_level data chars
+                --> Data.categorize
+                --> Node.load_data
         | `Create_Transformation_Cost_Matrix (trans, gaps, chars) ->
                 gaps 
                 --> Data.assign_transformation_gaps data chars trans 

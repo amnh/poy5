@@ -56,9 +56,11 @@ module Two_D : sig
     * claculating all the possible combinations (effective size 2^a) iff com is
     * true, using the affine cost model aff and gap opening go and gap 
     * extension ge.  *)
-    external create : int -> bool -> int -> int -> int -> m = "cm_CAML_create"
-
+    external create : int -> bool -> int -> int -> int -> int -> int -> m = 
+        "cm_CAML_create_bytecode" "cm_CAML_create"
+    
     (** [clone x] creates a fresh copy of the cost matrix x *)
+    
     external clone : m -> m = "cm_CAML_clone"
 
     (** [perturbe x y z] perturbates the cost matrix x with severity y and
@@ -67,7 +69,7 @@ module Two_D : sig
 
     (** [of_list a] creates a fresh transformation cost matrix with the values
     * contained in the squared matrix [a]. *)
-    val of_list : ?use_comb:bool -> int list list -> int -> m
+    val of_list : ?use_comb:bool -> ?level:int -> int list list -> int -> m
 
     (** [of_transformations_and_gaps uc as t g] creates a fresh two dimensional
     * transformation cost matrix for an alphabet of size [as], with
@@ -87,8 +89,8 @@ module Two_D : sig
     (** [of_channel file] parse the file containing a cost matrix and returns
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
-    val of_channel: ?orientation:bool -> ?use_comb:bool -> int ->
-        FileStream.greader -> m
+    val of_channel: ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
+        FileStream.greader -> m 
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
         returns the processed data, but without calculating combinations. Raise an
@@ -104,6 +106,11 @@ module Two_D : sig
     * cm. *)
     external set_gap : m -> int -> unit = "cm_CAML_set_gap"
 
+    (*
+    * [set_level m v] sets the level value of cost matrix
+    * *)
+    external set_level : m -> int -> unit = "cm_CAML_set_level"
+
     (** [set_alphabet_size cm v] sets the alphabet size of the cost matrix cm to
     * v.  *)
     external set_alphabet_size : int -> m -> unit = "cm_CAML_set_a_sz"
@@ -114,6 +121,10 @@ module Two_D : sig
 
     (** [set_affine cm v] sets the cost model to the appropriate value. *)
     val set_affine : m -> cost_model -> unit
+
+    (* [create_cm_by_level m level oldlevel] creates a new cost matrix based on the
+    * original matrix and new level value, returns the new matrix *)
+    val create_cm_by_level : m -> int -> int -> m
 
     (** [set_cost x y cm v] sets the cost of transforming element x into y in cost
     * matrix cm to v*)
@@ -138,6 +149,15 @@ module Two_D : sig
     (** [gap cm] retrieves the gap representation value in cm *)
     external gap : m -> int = "cm_CAML_get_gap"
 
+    (* [get_ori_a_sz cm] returns the original alphabet size*)
+    external get_ori_a_sz : m -> int = "cm_CAML_get_ori_a_sz"
+
+    (* [get_level cm] returns the level value of current alphabet *)
+    external get_level : m -> int = "cm_CAML_get_level"
+(*
+    (* [get_combmap a b m] returns the value on position (a,b) in combination map m*)
+    external get_combmap: int -> int -> m -> int = "cm_CAML_get_combmap"
+*)
     (** [lcm cm] retrieves the celing of the log2 of the alphabet size of the cost
     * matrix cm. *)
     external lcm : m -> int = "cm_CAML_get_lcm"
@@ -176,6 +196,36 @@ module Two_D : sig
     * element [x] according to the two dimensional cost matrix [m]. [x] can be a
     * bitset, and [y] need not to be a bitset. *)
     val get_closest : m -> int -> int -> int
+
+    (*
+    * [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
+    * combination code if the code contains gap code. for example, if gap is
+    * "-", then input [a-] will get [a]  
+    * *)
+    val gap_filter_for_combcode : int -> m -> int
+
+    (*
+    * [comblist_to_combcode lst m], returns the combination code given a
+    * combiantion codelist.
+    * This function should be more efficent if we use Bigarray -- add Bigarray
+    * later.
+    * *)
+    val comblist_to_combcode: int list  -> m -> int
+
+    (*
+    * [combcode_to_comblist code m], returns combination codelist given a
+    * combination code
+    * *)
+    val combcode_to_comblist: int -> m -> int list
+
+    (*
+    * [clear_duplication_in_list lst] clears up the duplicate element in the
+    * given list
+    * *)
+    val clear_duplication_in_list: int list -> int list
+
+    (* [print_intlist list] prints out the int list, for debug....*)
+    val print_intlist: int list -> unit
 end
 
 module Three_D : sig
@@ -197,7 +247,7 @@ module Three_D : sig
     * the a_sz. IF dim is true the matrix will be three dimensional,
     * otherwise it will be two dimensional. *)
     external create : 
-        int -> bool -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
+        int -> bool -> int -> int -> int -> int -> int -> int ->  m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
     external clone : m -> m = "cm_CAML_clone_3d"
