@@ -744,6 +744,7 @@ module Two_D = struct
                 set_worst (i) (j) m !worst;
             done;
         done;
+        if debug then
         for i=1 to num_of_comb do
             for j= 1 to num_of_comb do
                 (*if (get_median i j m)==0 then
