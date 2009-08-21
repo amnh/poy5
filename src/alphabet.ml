@@ -144,6 +144,7 @@ let list_to_a ?(orientation=false) lst gap all kind =
         | Some all -> Some (All_sets.StringMap.find all s2c)
         | None -> None
     in
+
     { comb_to_list = All_sets.IntegerMap.empty; 
       list_to_comb = All_sets.IntegerListMap.empty;
       level = 0; ori_size = 0;
@@ -272,12 +273,12 @@ let match_code x alph =
         alph.code_to_string );*)
     try All_sets.IntegerMap.find x alph.code_to_string with
     | Not_found -> 
-            Printf.printf " \n check the code to string map: " ;
+            (*Printf.printf " \n check the code to string map: " ;
             let printmap key bind = 
                 Printf.printf "{%d,%s} " key bind
             in
             All_sets.IntegerMap.iter printmap alph.code_to_string;
-            print_newline();
+            print_newline();*)
             raise (Illegal_Code x)
 
 let find_code = match_code
@@ -590,7 +591,7 @@ let rec to_sequential alph =
             res
 
 let rec explote alph level ori_sz=
-    (* "check_level" is not ready to use here, for the alphbet is not set up yet*)
+    (* function "check_level" is not ready to use here, for the alphbet is not set up yet*)
     let uselevel =
         if (level>1)&&(level<=ori_sz) then true
         else false
@@ -622,19 +623,21 @@ let rec explote alph level ori_sz=
                     match lst with
                     | h :: t -> 
                             let res = all_combinations t in
-                            res @ (List.map (fun x -> h :: x) res)
+                            let newres = List.filter 
+                            (fun x -> ( (List.length x)<level )) res in
+                            res @ (List.map (fun x -> h :: x) newres)
                     | [] -> [[]]
                 in
                 match all_combinations list with
                 | [] :: ((_ :: _) as r) -> r
                 | _ -> assert false
             in
-            let comb_by_level = ref all_combinations in
+           (* let comb_by_level = ref all_combinations in
             if uselevel then begin
                     comb_by_level := List.filter 
                     (fun x -> ( (List.length x)<(level+1) )) all_combinations;
             end else (); 
-            let all_combinations = (!comb_by_level) in
+            let all_combinations = (!comb_by_level) in*)
             let new_comb_to_list = ref All_sets.IntegerMap.empty in
             let new_list_to_comb = ref All_sets.IntegerListMap.empty in
             let a_size = List.length list in
