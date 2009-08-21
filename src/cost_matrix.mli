@@ -198,6 +198,12 @@ module Two_D : sig
     val get_closest : m -> int -> int -> int
 
     (*
+    * [calc_number_of_combinations_by_level a_sz level] returns the number of
+    * combinations based on alphabet size:a_sz and level value:level
+    *)
+    val calc_number_of_combinations_by_level: int -> int -> int 
+
+    (*
     * [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
     * combination code if the code contains gap code. for example, if gap is
     * "-", then input [a-] will get [a]  
