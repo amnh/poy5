@@ -47,7 +47,7 @@ __inline int
 #else
 inline int
 #endif
-check_level (cmt c)
+cm_check_level (cmt c)
 {
     int level = c-> level;
     int ori_sz = c -> ori_a_sz;
@@ -62,7 +62,7 @@ __inline int
 #else
 inline int
 #endif
-check_level_3d (cm_3dt c)
+cm_check_level_3d (cm_3dt c)
 {
     int level = c-> level;
     int ori_sz = c -> ori_a_sz;
@@ -909,6 +909,8 @@ cm_get_median_level (SEQT *tcm, SEQT a, SEQT b, int mapsize) {
     assert(b<=mapsize);
     SEQT *res;
     res = tcm +  ( ( ((int)a) * mapsize ) + ( (int)b ) ) ;
+    if (res == 0 ) 
+        failwith ("failed in cm_get_median_level in cm.c, median value cannot be 0\n");
     return (*res);
 }
 
@@ -1125,10 +1127,10 @@ inline int *
 #endif
 cm_get_row_level (int *tcm, SEQT a, int a_sz)
 {
-    if (a_sz <= 0) failwith ("Alphabet size <= 0");
-    if (a_sz < a) 
+    if (a_sz <= 0) failwith ("cm_get_row_level:Alphabet size <= 0");
+    if (a_sz <= a) 
     { 
-        failwith ("3a is bigger than alphabet size");
+        failwith ("cm_get_row_level: index a is bigger than alphabet size");
     }
     return (tcm + a * a_sz);
 }
@@ -1152,8 +1154,8 @@ inline int *
 #endif
 cm_get_row_3d_level (int *tcm, SEQT a, SEQT b, int a_sz) {
     if (a_sz <= 0) failwith ("Alphabet size must bigger than 0");
-    if (a_sz < a) failwith ("index a is bigger than alphabet size");
-    if (a_sz < b) failwith ("index b is bigger than alphabet size");
+    if (a_sz <= a) failwith ("index a is bigger than alphabet size");
+    if (a_sz <= b) failwith ("index b is bigger than alphabet size");
     return (tcm + (((a * a_sz) + b) * a_sz));
 }
 
@@ -1211,32 +1213,49 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     tail = cm_get_tail_cost (c);
     tmp_to = to + l;
     begin = seq_get_begin (s);         /* Inlined seq_get for speed purposes */
-    if (!NDEBUG) 
-        printf ("Precalculated transformation cost matrix.\n");
     /* We will use the 0'th row to store the cost of the prepend */
-    for (m = 0; m < l; m++) 
+    for (m = 0; m < l; m++)
+    {
         to[m] = prepend[begin[m]];
-    uselevel =  check_level(c);
+    }
+    uselevel =  cm_check_level(c);
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
+ /*   if(uselevel==1)
+    {
+        int tmpi,tmpj; int outputcost;
+        for (tmpi=1;tmpi<=alphabet_size;tmpi++)
+        {
+            tmp_cost = cm_get_row_level (tcm, tmpi, c->map_sz+1);
+            fprintf(stdout,"%d:[ ",tmpi);
+            for(tmpj=1;tmpj<=alphabet_size;tmpj++)
+            {
+                     outputcost = cm_get_cost(tcm,tmpi,tmpj,c->map_sz+1);
+                     fprintf(stdout,"%d/%d,",tmp_cost[tmpi],outputcost);
+                     
+            }
+            fprintf(stdout,"]\n");
+            fflush(stdout);
+        }
+    }
+    */
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
         if(uselevel == 1) 
-            tmp_cost = cm_get_row_level (tcm, j, c->map_sz+1);
+        {
+             //tmp_cost = cm_get_row_level (tcm, j, c->map_sz+1);
+        }
         else
             tmp_cost = cm_get_row (tcm, j, c->lcm);
         /* We fill almost the complete row, only the first (aligning with the
          * gap), is filled using the tail cost */
         tmp_to[0] = tail[j];
         for (i = 1; i < l; i++) {
-            tmp_to[i] = tmp_cost[begin[i]];
-            if (!NDEBUG) 
-                printf ("%d\t", tmp_to[i]);
+            if (uselevel==1) 
+            tmp_to[i] = cm_get_cost(tcm,j,begin[i],c->map_sz+1);
+            else 
+                 tmp_to[i] = tmp_cost[begin[i]];
         }
-        if (!NDEBUG) 
-            printf ("\n");
     }
-    if (!NDEBUG)
-        printf ("Finished printing transforamtion cost matrix\n");
     return;
 }
 
@@ -1269,7 +1288,7 @@ cm_precalc_4algn_3d (const cm_3dt c, int *to, const seqt s) {
     int sequen, *precalc_pos;
     l = seq_get_len (s);
     tcm = cm_get_transformation_cost_matrix_3d (c);
-    uselevel =  check_level_3d(c);
+    uselevel =  cm_check_level_3d(c);
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
     for (j = 1; j <=alphabet_size; j++) 
@@ -2024,7 +2043,7 @@ cm_CAML_get_cost_3d (value a, value b, value c, value cm) {
     cm_3dt tmp;
     tmp = Cost_matrix_struct_3d(cm);
     tcm = tmp->cost;
-    if (check_level_3d(tmp)==1) 
+    if (cm_check_level_3d(tmp)==1) 
          CAMLreturn(Val_int(cm_calc_cost_3d_level(tcm, Int_val(a), Int_val(b), \
                     Int_val(c), tmp->map_sz+1)));
     else
@@ -2039,7 +2058,7 @@ cm_CAML_get_cost (value a, value b, value c) {
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->cost;
-    if (check_level(tmp) == 1 ) 
+    if (cm_check_level(tmp) == 1 ) 
          CAMLreturn(Val_int(cm_get_cost(tcm, Int_val(a), Int_val(b), (tmp->map_sz+1))));
     else
         CAMLreturn(Val_int(cm_calc_cost(tcm, Int_val(a), Int_val(b), tmp->lcm)));
@@ -2092,7 +2111,7 @@ cm_CAML_get_worst (value a, value b, value c) {
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->worst;
-    if(check_level(tmp) == 1 ) 
+    if(cm_check_level(tmp) == 1 ) 
          CAMLreturn(Val_int(cm_get_cost(tcm, Int_val(a), Int_val(b), (tmp->map_sz+1))));
     else
         CAMLreturn(Val_int(cm_calc_cost(tcm, Int_val(a), Int_val(b), tmp->lcm)));
@@ -2106,7 +2125,7 @@ cm_CAML_get_median_3d (value a, value b, value c, value cm) {
     cm_3dt tmp;
     tmp = Cost_matrix_struct_3d(cm);
     tcm = tmp->median;
-    if(check_level_3d(tmp) == 1)
+    if(cm_check_level_3d(tmp) == 1)
         CAMLreturn(Val_int(cm_calc_cost_3d_seqt_level(tcm, Int_val(a), Int_val(b), \
                     Int_val(c), tmp->map_sz+1)));
     else
@@ -2120,7 +2139,7 @@ __inline SEQT
 inline SEQT
 #endif
 cm_get_median (const cmt tmp, SEQT a, SEQT b) {
-    if ( check_level(tmp) == 1 )
+    if ( cm_check_level(tmp) == 1 )
         return (cm_calc_median_nonbit((tmp->median), a, b, tmp->map_sz+1));
     else
         return (cm_calc_median((tmp->median), a, b, tmp->lcm));
@@ -2142,7 +2161,7 @@ cm_CAML_get_median (value a, value b, value c) {
     cmt tmp;
     tmp = Cost_matrix_struct(c);
     tcm = tmp->median;
-    if (check_level(tmp) == 1 )
+    if (cm_check_level(tmp) == 1 )
          CAMLreturn(Val_int(cm_get_median_level(tcm, Int_val(a), Int_val(b), tmp->map_sz+1)));
     else
         CAMLreturn(Val_int(cm_calc_median(tcm, Int_val(a), Int_val(b), tmp->lcm)));
@@ -2153,7 +2172,7 @@ cm_CAML_set_cost_3d (value a, value b, value c, value cc, value v) {
     CAMLparam5(a, b, c, cc, v);
     cm_3dt tmp;
     tmp = Cost_matrix_struct_3d(cc);
-    if (check_level_3d(tmp)==1)
+    if (cm_check_level_3d(tmp)==1)
         cm_set_cost_3d_level (Int_val(a), Int_val(b), Int_val(c), Int_val(v), tmp);
     else
         cm_set_cost_3d (Int_val(a), Int_val(b), Int_val(c), Int_val(v), tmp);
@@ -2165,7 +2184,7 @@ cm_CAML_set_cost (value a, value b, value c, value v) {
     CAMLparam4(a, b, c, v);
     cmt tmp;
     tmp = Cost_matrix_struct(c);
-    if ( check_level(tmp) == 1 )
+    if ( cm_check_level(tmp) == 1 )
         cm_set_cost_level (Int_val(a), Int_val(b), Int_val(v), tmp);
     else
         cm_set_cost (Int_val(a), Int_val(b), Int_val(v), tmp);
@@ -2177,7 +2196,7 @@ cm_CAML_set_worst (value a, value b, value c, value v) {
     CAMLparam4(a, b, c, v);
     cmt tmp;
     tmp = Cost_matrix_struct(c);
-    if ( check_level(tmp) == 1 )
+    if ( cm_check_level(tmp) == 1 )
         cm_set_worst_level (Int_val(a), Int_val(b), Int_val(v), tmp);
     else
         cm_set_worst (Int_val(a), Int_val(b), Int_val(v), tmp);
@@ -2189,7 +2208,7 @@ cm_CAML_set_median_3d (value a, value b, value c, value cp, value v) {
     CAMLparam4(a, b, c, v);
     cm_3dt tmp;
     tmp = Cost_matrix_struct_3d(cp);
-    if(check_level_3d(tmp)==1)
+    if(cm_check_level_3d(tmp)==1)
         cm_set_median_3d_level (Int_val(a), Int_val(b), Int_val(c), Int_val(v), tmp);
     else
         cm_set_median_3d (Int_val(a), Int_val(b), Int_val(c), Int_val(v), tmp);
@@ -2201,7 +2220,7 @@ cm_CAML_set_median (value a, value b, value c, value v) {
     CAMLparam4(a, b, c, v);
     cmt tmp;
     tmp = Cost_matrix_struct(c);
-    if (check_level(tmp)==1)
+    if (cm_check_level(tmp)==1)
         cm_set_median_level (Int_val(a), Int_val(b), Int_val(v), tmp);
     else
          cm_set_median (Int_val(a), Int_val(b), Int_val(v), tmp);
