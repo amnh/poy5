@@ -4265,16 +4265,23 @@ module PAlphabet = struct
         let alph = Alphabet.of_string ~orientation:orientation
         elts default_gap None in
         let size = Alphabet.size alph in
+        Printf.printf "parser.ml of_file, set level to 2\n%!";
         let level = 
-            if size < 15 then 2
-            else 0
+       (*     if size < 15 then 
+                let _ = Printf.printf "set level=2 when alphabet size < 15\n%!" in
+                2
+            else 
+                let _ = Printf.printf "set level=1 when alphabet size >= 15\n%!" in
+                0
+       *)
+       2
         in
         let alph, do_comb = 
             if orientation then alph, false
             else 
-                if size < 15 then 
+           (*     if size < 15 then *)
                     Alphabet.explote alph level size, true
-                else alph, false
+            (*    else alph, false*)
         in
         let tcm = 
             try
