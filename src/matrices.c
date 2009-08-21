@@ -74,16 +74,22 @@ __inline int
 #else
 inline int
 #endif
-mat_setup_size (matricest m, int w, int d, int h, int k, int lcm) {
+mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
     int len, len_2d, len_precalc, len_dir;
     if (h == 0) {           /* If the size setup is only for 2d */
         len = mat_size_of_2d_matrix (w, d);
-        len_precalc = (1 << lcm) * w;
+        if(uselevel==1)
+            len_precalc = (sz+1) * w; // I'm not sure whether we should "+1" here.
+        else
+            len_precalc = (1 << sz) * w;
         len_dir = (w + 1) * (d + 1);
         len_2d = 0;
     } else {                /* If the size setup is for 3d */
         len = mat_size_of_3d_matrix (w, d, h, k);
-        len_precalc = (1 << lcm) * (1 << lcm) * d;
+        if(uselevel==1)
+            len_precalc = sz * sz * d;
+        else
+            len_precalc = (1 << sz) * (1 << sz) * d;
         len_2d = w * d;
         len_dir = len_2d * h;
     }
@@ -198,7 +204,7 @@ mat_CAML_create_general (value a) {
     CAMLlocal1(res);
     matricest m;
     res = 
-        alloc_custom (&alignment_matrix, sizeof(struct matrices), 1, 1000);
+        alloc_custom (&alignment_matrix, sizeof(struct matrices), 1, 1000000);
     m = Matrices_struct(res);
     m->len_pre = m->len_eff = m->len = 0;
     m->matrix = m->cube = m->precalc = NULL;
