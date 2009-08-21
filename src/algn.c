@@ -2567,6 +2567,7 @@ algn_CAML_align_affine_3 (value si, value sj, value cm, value am, value resi,
     int *gap_open_prec;
     int *s_horizontal_gap_extension;
     int res, largest;
+    int uselevel;
     DIRECTION_MATRIX *direction_matrix;
     Seq_custom_val(csi,si);
     Seq_custom_val(csj,sj);
@@ -2581,7 +2582,11 @@ algn_CAML_align_affine_3 (value si, value sj, value cm, value am, value resi,
     if (leni > lenj)
         largest = leni;
     else largest = lenj;
-    mat_setup_size (cam, largest, largest, 0, 0, cm_get_lcm(ccm));
+    uselevel = cm_check_level(ccm);
+    if(uselevel==1) 
+        mat_setup_size (cam, largest, largest, 0, 0, cm_get_map_sz(ccm),uselevel);
+    else
+        mat_setup_size (cam, largest, largest, 0, 0, cm_get_lcm(ccm),0);
     matrix = mat_get_2d_matrix(cam);
     prec = mat_get_2d_prec(cam);
     close_block_diagonal = (int *) matrix;
@@ -2640,6 +2645,7 @@ algn_CAML_cost_affine_3 (value si, value sj, value cm, value am) {
     int *gap_open_prec;
     int *s_horizontal_gap_extension;
     int res, largest;
+    int uselevel;
     Seq_custom_val(csi,si);
     Seq_custom_val(csj,sj);
     ccm = Cost_matrix_struct(cm);
@@ -2649,7 +2655,11 @@ algn_CAML_cost_affine_3 (value si, value sj, value cm, value am) {
     if (leni > lenj)
         largest = leni;
     else largest = lenj;
-    mat_setup_size (cam, largest, largest, 0, 0, cm_get_lcm(ccm));
+    uselevel = cm_check_level(ccm);
+    if(uselevel==1) 
+         mat_setup_size (cam, largest, largest, 0, 0, cm_get_map_sz(ccm),uselevel);
+    else
+        mat_setup_size (cam, largest, largest, 0, 0, cm_get_lcm(ccm),0);
     matrix = mat_get_2d_matrix(cam);
     close_block_diagonal = (int *) matrix;
     extend_block_diagonal = (int *) (matrix + (2 * largest));
@@ -3291,12 +3301,18 @@ algn_nw_3d (const seqt s1, const seqt s2, const seqt s3,
         const cm_3dt c, matricest m, int w) {
     const SEQT *ss1, *ss2, *ss3;
     int *mm, *prec, s1_len, s2_len, s3_len, gap, res;
+    int uselevel;
     DIRECTION_MATRIX *dm;
     ss1 = seq_get_begin (s1);
     ss2 = seq_get_begin (s2);
     ss3 = seq_get_begin (s3);
-    mat_setup_size (m, seq_get_len (s2), seq_get_len (s3), seq_get_len (s1), \
-            w, c->lcm);
+     uselevel = cm_check_level_3d(c);
+    if(uselevel==1) 
+         mat_setup_size (m, seq_get_len (s2), seq_get_len (s3), seq_get_len (s1), \
+            w, cm_get_map_sz_3d(c),uselevel);
+    else
+        mat_setup_size (m, seq_get_len (s2), seq_get_len (s3), seq_get_len (s1), \
+            w, c->lcm,0);
     mm = mat_get_3d_matrix (m);
     dm = mat_get_3d_direct (m);
     prec = mat_get_3d_prec (m);
@@ -3411,13 +3427,19 @@ algn_CAML_simple_2 (value s1, value s2, value c, value a, value deltawh) {
     seqt s1p, s2p;
     int res;
     cmt tc;
+    int uselevel;
     matricest ta;
     tc = Cost_matrix_struct(c);
     ta = Matrices_struct(a);
     Seq_custom_val(s1p,s1);
     Seq_custom_val(s2p,s2);
-    mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
-            cm_get_lcm(tc));
+    uselevel = cm_check_level(tc);
+    if(uselevel==1) 
+         mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
+            cm_get_map_sz(tc),uselevel);
+    else
+        mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
+            cm_get_lcm(tc),0);
 #ifdef DEBUG_ALL_ASSERTIONS
     _algn_max_matrix = ta->matrix + ta->len_eff;
     _algn_max_direction = ta->matrix_d + ta->len;
@@ -3432,7 +3454,7 @@ algn_CAML_limit_2 (value s1, value s2, value c, value a, value w, value h, \
     CAMLparam5(s1, s2, c, a, w);
     CAMLxparam5(h, s1_st, s2_st, s1_len, s2_len);
     seqt s1p, s2p;
-    int res, cw;
+    int res, cw; int uselevel;
     cmt tc;
     matricest ta;
     cw = Int_val(w);
@@ -3440,8 +3462,13 @@ algn_CAML_limit_2 (value s1, value s2, value c, value a, value w, value h, \
     ta = Matrices_struct(a);
     Seq_custom_val(s1p,s1);
     Seq_custom_val(s2p,s2);
-    mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
-            cm_get_lcm(tc));
+    uselevel = cm_check_level(tc);
+    if(uselevel==1)
+        mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
+            cm_get_map_sz(tc),uselevel);
+    else
+        mat_setup_size (ta, seq_get_len(s1p), seq_get_len(s2p), 0, 0, \
+            cm_get_lcm(tc),0);
     /* TODO: Fix this deltaw binding */
     res = algn_nw_limit (s1p, s2p, tc, ta, Int_val(w), 
             Int_val(s1_st), Int_val(s1_len), Int_val(s2_st), Int_val(s2_len));
