@@ -59,6 +59,8 @@ struct cm {
  */
 typedef struct cm * cmt;
 
+
+
 /* 
  * Retrieves the alphabet size flag from the transformation cost matrix.
  */
@@ -222,6 +224,14 @@ __inline int *
 inline int *
 #endif
 cm_get_row (int *tcm, SEQT a, int a_sz);
+
+#ifdef _WIN32
+__inline int *
+#else
+inline int *
+#endif
+cm_get_row_level (int *tcm, SEQT a, int a_sz);
+
 
 /* 
  * Fills a precalculated matrix with the cost of comparing each elment in the
