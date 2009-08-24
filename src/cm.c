@@ -1217,24 +1217,6 @@ cm_precalc_4algn (const cmt c, matricest matrix, const seqt s) {
     uselevel =  cm_check_level(c);
     if (uselevel==1) alphabet_size = c->map_sz;
     else alphabet_size = c->a_sz;
- /*   if(uselevel==1)
-    {
-        int tmpi,tmpj; int outputcost;
-        for (tmpi=1;tmpi<=alphabet_size;tmpi++)
-        {
-            tmp_cost = cm_get_row_level (tcm, tmpi, c->map_sz+1);
-            fprintf(stdout,"%d:[ ",tmpi);
-            for(tmpj=1;tmpj<=alphabet_size;tmpj++)
-            {
-                     outputcost = cm_get_cost(tcm,tmpi,tmpj,c->map_sz+1);
-                     fprintf(stdout,"%d/%d,",tmp_cost[tmpi],outputcost);
-                     
-            }
-            fprintf(stdout,"]\n");
-            fflush(stdout);
-        }
-    }
-    */
     for (j = 1; j <= alphabet_size; j++, tmp_to += l) {
         if(uselevel == 1) 
         {
