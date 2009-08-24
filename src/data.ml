@@ -4204,25 +4204,25 @@ let assign_level data chars level =
                 let oldlevel = Cost_matrix.Two_D.get_level b in
                 let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
                 let combnum =
+                    if level > 1 then
                     Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                    ori_sz level 
+                    ori_sz level
+                    else
+                        ori_sz
                 in
-                if combnum<=0 then
-                    let _ = Printf.printf " Assign Level, ori_sz = %d, level=%d, Alphabet size toooooo big \n%!" ori_sz level
-                    in
+                if combnum<=0 then begin
+                    Printf.printf "alphabet size based on new level is too big, no change will be applied.\n%!" ;
                     b,alph
+                end
                 else
-                    let _ = Printf.printf " Assign Level, comb number = %d\n%!" combnum in
-                (*if ori_sz > 15 then 
-                     Printf.printf "Transform:level doesn't do anything here, for
-                    we set level to 1 when alphabet size if bigger than 15\n%!";
-                    b,alph
-                else*)
+                    begin
+                    Printf.printf " Assign new level, combination number = %d\n%!" combnum;
                     let b = Cost_matrix.Two_D.clone b in
                     let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
                     let newalph =  Alphabet.create_alph_by_level alph level
                     oldlevel in 
                     b,newalph
+                    end
         in
         (true, a), (fun _ -> b), (Some alph)) codes
     in
