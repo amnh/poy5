@@ -154,6 +154,9 @@ module Two_D : sig
 
     (* [get_level cm] returns the level value of current alphabet *)
     external get_level : m -> int = "cm_CAML_get_level"
+
+     (* [get_map_sz cm] returns the map size, thus the number of combiantions of current alphabet *)
+    external get_map_sz : m -> int = "cm_CAML_get_map_sz"
 (*
     (* [get_combmap a b m] returns the value on position (a,b) in combination map m*)
     external get_combmap: int -> int -> m -> int = "cm_CAML_get_combmap"
