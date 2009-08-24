@@ -487,12 +487,8 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size_t combmatrix_size; 
     size_t comb2list_size; 
 #ifndef USE_LARGE_ALPHABETS
-    if (a_sz > 255) 
-        failwith ("Apparently you are analyzing large alphabets. This version \
-                of POY was compiled without the --enable-large-alphabets option. \
-                To run this analysis you need to enable that option at compile time. \
-                Either compile yourself the program, or request a version suited \
-                for your needs in the POY mailing list (poy4@googlegroups.com).");
+    if (comb_num > 255) 
+        failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
 #endif
     if (combinations != 0) {
         cm_set_ori_a_sz(res, a_sz);
