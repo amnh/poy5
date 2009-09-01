@@ -15,7 +15,7 @@
 
 #define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
 #define FM_ptr(v)   ((struct matrix**)Data_custom_val(v))
-#define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory")
+#define CHECK_MEM(a); if(a==NULL || a==0){ printf("FM:failed on %d, ",__LINE__); failwith("I cannot allocate more memory");}
 #define DEBUG 0
 
 /* compare two float matrices */
@@ -86,14 +86,16 @@ value floatmatrix_CAML_register (value u)
 /* expand array to size [s] */
 void expand_matrix (mat* m, const int s)
 {
+    double *tmp;
     if (m->size < s){
         if( DEBUG )
             printf ("Expanding Data: %d --> %d\n",m->size,s);
         if( m->loc > 0 )
             printf ("Error: Reallocation of memory while some is used");
         m->size = s;
-        m->mat = (double*) realloc(m->mat,sizeof(double)*s);
-        CHECK_MEM( m->mat );
+        tmp = (double*) realloc(m->mat,sizeof(double)*s);
+        CHECK_MEM( tmp );
+        m->mat = tmp;
     }
 }
 
@@ -138,6 +140,7 @@ value floatmatrix_CAML_create (value s)
     size = Int_val ( s );
     ml_m = caml_alloc_custom( &floatmatrix_custom_operations, sizeof(mat*), 1, 10000 );
     m = (mat*) malloc( sizeof(mat) );
+    CHECK_MEM(m);
     FM_val ( ml_m ) = m;
     m->size = size;
     m->loc = 0;
