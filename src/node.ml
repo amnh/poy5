@@ -374,22 +374,10 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
                     | Some (time1), Some (time2) -> time1,time2
-                    | Some (time1), None ->
-                        let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                        if (a +. b) -. time1 > 0.0 then time1,(a +. b) -. time1
-                        else failwith "Node.median: Cannot estimate Time with given"
-                    | None, Some (time2) ->
-                        let a,b = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                        if (a +. b) -. time2 > 0.0 then (a +. b) -. time2,time2
-                        else failwith "Node.median: Cannot estimate time with given"
-                    | None, None ->
+                    | _ ->
                         MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
-                if code <= 0 then
-                    if t1 = t2 then (t1 /. 2.0, t2 /. 2.0)
-                    else failwithf "Node.median: time inconsistent, %f(%d) %f(%d)"
-                                t1 (anode.taxon_code) t2 (bnode.taxon_code)
-                else (t1,t2)
+                if code <= 0 then (t1 , 0.0) else (t1,t2)
             in 
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
@@ -406,7 +394,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then t1, t2
                 else t2, t1
             in
-
             let res =
                 {
                     preliminary = median;
@@ -609,8 +596,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
  * iterates the branch lengths in the character set that are ML characters. *) 
 let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_data) = 
     IFDEF USE_LIKELIHOOD THEN
-    (* preliminary: check if we are adjusting a handle --since this is run on
-    * internal nodes only, if there is no  parent, then it must be a handle/root *)
+    (* preliminary: check if we are adjusting a handle/root *)
     let root_e = match gp with 
         | Some x -> false
         | None -> true
@@ -628,23 +614,21 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
              * probably needs to be estimated. *)
             let t1,t2 = match pm.time with 
                     | Some x,Some y -> x,y
-                    | None, None -> MlStaticCS.estimate_time am.preliminary bm.preliminary
+                    | None, None ->
+                        MlStaticCS.estimate_time am.preliminary bm.preliminary
                     | _ -> failwith "something happened"
             in
+            (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
             let t1,t2 =
                 if root_e
-                    then let () = assert(t1 = t2) in 
-                         (t1 /. 2.0, t2 /. 2.0)
+                    then (t2 +. t1),0.0
                     else t1,t2
             in
-
             let mine,pcost,cost,(t1,t2),res = 
                 MlStaticCS.readjust None !modf am.preliminary
                                                bm.preliminary
                                                pm.preliminary
                                     t1 t2 in
-            (* pull edges back together *)
-            let t1,t2 = if root_e then t1 +. t2,t1 +. t2 else t2,t1 in
             let mine = StaticMl 
                 { pm with  preliminary = res; final = res;
                            cost = cost; sum_cost = cost;
@@ -677,9 +661,12 @@ let apply_time root child parent =
         let p_opt to_string = function | None -> "None" | Some x -> to_string x in
         let rec apply_times ch par = match ch,par with
             | StaticMl cnd,StaticMl pnd ->
-                let the_time = match p pnd.time with
-                    | None as x -> x
-                    | (Some x) as y -> if root then Some (x*. 2.0) else y
+                let the_time =
+                    if root then begin
+                        match fst pnd.time,snd pnd.time with
+                        | Some x, Some y -> Some (x +. y)
+                        | _,_ -> failwith "Incorrect BL in a root node"
+                    end else p pnd.time
                 in
                 if debug then
                     info_user_message "Applying %s to %d -- %d"
@@ -939,12 +926,6 @@ let get_set =
 let median_counter = ref (-1)
 
 let median ?branches code old a b =
-
-    let pp_hashtbl chan tab = 
-        Hashtbl.iter (fun k v -> output_string chan (Printf.sprintf "(%d) " k))
-                     tab
-    in
-
     let convert_2_lst chars tbl =
         List.map
             (fun x -> match x with
@@ -962,7 +943,6 @@ let median ?branches code old a b =
                         let x =
                             try Hashtbl.find x chars.taxon_code
                             with | Not_found ->
-                                Printf.printf "%a\n" pp_hashtbl x;
                                 failwithf "Cannot find taxon_code %d" chars.taxon_code;
                         in
                         let codes = MlStaticCS.get_codes z.preliminary in
@@ -1031,14 +1011,12 @@ let median ?branches code old a b =
 let get_times_between (nd:node_data) (child_code : int option) =
     let func = 
 IFDEF USE_LIKELIHOOD THEN
-        let f = 
-            match child_code with
+        let f = match child_code with
             | Some child_code ->
                 if nd.min_child_code = child_code then fst else snd
             | None -> 
-                    (function 
-                        | Some x,Some y -> Some (x+.y)
-                        | _ -> None)
+                (function | Some x,Some y -> Some (x+.y)
+                          | _ -> None)
         in
         function StaticMl z -> f z.time | _ -> None
 ELSE
@@ -2102,13 +2080,18 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             in
                             let lst = List.map (Hashtbl.find tcharacters) lst in
                             let v = List.map extract_stat lst in
+                            let c = MlStaticCS.of_parser spec (Array.of_list v) in
+                            let cost = MlStaticCS.root_cost c in
                             let c = 
-                                MlStaticCS.of_parser spec (Array.of_list v)
+                                StaticMl { preliminary = c;
+                                           final = c;
+                                           cost = cost;
+                                           sum_cost = cost;
+                                           weight = 1.;
+                                           time = None,None }
                             in
-                            let c = StaticMl { preliminary = c; final = c; cost = 0.;
-                                          sum_cost = 0.;
-                            weight = 1.; time = None,None } in
-                            { result with characters = c :: result.characters }
+                            { result with characters = c :: result.characters;
+                                          total_cost = result.total_cost +.  cost; }
                 ELSE
                         result
                 END
@@ -2508,7 +2491,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
 
-                let t1,t2 = match parent.time with 
+                let t1,t2 = match mine.time with 
                     | Some x,Some y -> x,y
                     | _ -> MlStaticCS.estimate_time c1.preliminary c2.preliminary
                 in

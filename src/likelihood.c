@@ -36,20 +36,20 @@
 #include <caml/intext.h>    //serialization
 #include <caml/fail.h>      //failwith('')
 #include <caml/callback.h>
-// hello worlk
 #include "floatmatrix.h"
 #include "likelihood.h"     //includes floatmatrix
 
 //decent values (time/accuracy)
-#define EPSILON 1e-4    //error for numerical calculations
-#define MAX_ITER 10000  //number of iterations for numerical calculations
+#define EPSILON 1e-10    //error for numerical calculations
+#define MAX_ITER 10000   //number of iterations for numerical calculations
+#define BL_MIN 1e-8      //minimum branch length 
 #define CAML_ALLOC_2 1000000
  
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
 
 /* ~CHECK_MEM       -- verify memory was returned properly */
-#define CHECK_MEM(a) if(a==NULL) failwith("I cannot allocate more memory.")
+#define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
 #define CHECK_ZEROES(a,n); int Z;for(Z=0;Z<n;Z++){ if(a[Z] > EPSILON || a[Z] < -EPSILON)\
@@ -221,12 +221,12 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
 {
     mll* s;
     int i,j;
+    printf("serializing...");
     s = ML_val(v);
     caml_serialize_int_4( s->stride );
     caml_serialize_int_4( s->c_len );
     caml_serialize_int_4( s->rates );
     caml_serialize_int_4( s->invar );
-
     j = s->stride * s->c_len * s->rates;
     for(i = 0; i < j; ++i)
         caml_serialize_float_8( s->lv_s[i] );
@@ -234,6 +234,8 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
         for(i = 0; i < s->c_len; ++i)
             caml_serialize_int_4( s->lv_invar[i] );
     }
+    printf(" done!\n");
+    return;
 }
 
 /* deserialization of struct ml */  
@@ -242,16 +244,15 @@ unsigned long likelihood_CAML_deserialize( void* v )
     mll* s;
     double* lk_vec;
     int *pinvar,i,j;
-    s = (mll*) malloc( sizeof(mll) );
-    j = s->stride*s->c_len*s->rates;
-    lk_vec = (double*) malloc( sizeof(double)*j );
-    CHECK_MEM(lk_vec);
-    s = (mll*) malloc( sizeof(mll) );
-    CHECK_MEM(s);
+    printf("deserializing...");
+    s = (mll *) v;
     s->stride = caml_deserialize_sint_4();
     s->c_len  = caml_deserialize_sint_4();
     s->rates  = caml_deserialize_sint_4();
     s->invar  = caml_deserialize_sint_4();
+    j = s->stride * s->c_len * s->rates;
+    lk_vec = (double*) malloc( sizeof(double)*j );
+    CHECK_MEM(lk_vec);
     for(i = 0; i < j; ++i)
         lk_vec[i] = caml_deserialize_float_8();
     s->lv_s = lk_vec;
@@ -262,8 +263,8 @@ unsigned long likelihood_CAML_deserialize( void* v )
             pinvar[i] = caml_deserialize_sint_4();
         s->lv_invar = pinvar;
     }
-    v = s;
-    return (sizeof(struct ml **));
+    printf(" done!\n");
+    return (sizeof( mll ));
 }
 
 /* compares two character sets */
@@ -516,6 +517,7 @@ mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, doub
     } else {
         failwith ( "degetri_ unknown error" );
     }
+    free (pivot);
     return i;
 }
 
@@ -577,6 +579,14 @@ value likelihood_CAML_proportion( value a, value b )
     p = proportion( a_ml , b_ml );
     prop = caml_copy_double( p );
     CAMLreturn( prop );
+}
+
+value likelihood_CAML_minimum_bl( value unit )
+{
+    CAMLparam1(unit);
+    CAMLlocal1(minimum);
+    minimum = caml_copy_double( BL_MIN );
+    CAMLreturn( minimum );
 }
 
 
@@ -1023,6 +1033,7 @@ value likelihood_CAML_median_wrapped_sym
     c->c_len = a->c_len;
     c->rates = a->rates;
     c->invar = a->invar;
+
     //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
     c->lv_s = (double*) malloc( c->rates * c->c_len * c->stride * sizeof(double));
     CHECK_MEM(c->lv_s);
@@ -1171,8 +1182,9 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
     simp->ll = loglikelihood( simp->vs, pi, prob, percent );
 }
-
-#define golden_exterior(a,b) a.time + ((b.time - a.time)*2.0/(sqrt(5.0)-1))
+#define golden (2.0/(sqrt(5.0)+1))
+#define golden_exterior_l(b,c) ((b.time - (c.time * golden)) / (1 - golden))
+#define golden_exterior_r(a,b) (a.time + ((b.time - a.time) / golden))
 
 void
 readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
@@ -1188,11 +1200,10 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
     max_iter = MAX_ITER;
 
     size = a->c_len * a->stride * a->rates; //size of the entire array
-    /* register temp space and matrices */
+    /* register temp space and matrices --5 vectors, 3 matrices */
     expand_matrix( space, (5 * size) + (3 * a->stride * a->stride ) );
-
-    PA = register_section(space, a->stride*a->stride , 0);
-    PB = register_section(space, a->stride*a->stride , 0);
+    PA = register_section(space, a->stride*a->stride, 0);
+    PB = register_section(space, a->stride*a->stride, 0);
     TMP = register_section(space, a->stride*a->stride, 0);
     /* set up the 'points' --TODO: use C as best */
     best.vs = &best_; middle.vs = &middle_; left.vs = &left_;
@@ -1215,11 +1226,12 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
     (left.vs)->invar = (right.vs)->invar = (temp.vs)->invar = a->invar;
     (best.vs)->lv_invar = (middle.vs)->lv_invar = a->lv_invar;
     (left.vs)->lv_invar = (right.vs)->lv_invar = (temp.vs)->lv_invar = a->lv_invar;
-    /* set initial times and constants */
+
+    /* set initial times and constants for bracketing */
     best.time = *b_ta;
     middle.time = *b_ta;
-    left.time = middle.time / 10;
-    right.time = middle.time * 2;
+    left.time = MAX( BL_MIN, middle.time / 10.0 );
+    right.time = middle.time * 10.0;
     best.ll = *b_mle;
     middle.ll = *b_mle;
     // set up best vectors
@@ -1230,55 +1242,41 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
     single_sym(&right,PA,PB,U,D,a,b,right.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
     /* bracket minimum */
     bracketed = 1; // true, since we are going to expect the best
-    while( (max_iter-- != 0) && !(left.ll > middle.ll && middle.ll < right.ll)){
-        if (left.ll <= middle.ll && middle.ll <= right.ll){
-            // increasing,  move all points down
+    while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
+        if (left.ll < middle.ll && middle.ll < right.ll){
+            // minimum is to the LEFT, new point < left
             temp_ptr = right;
             right = middle;
             middle = left;
             left = temp_ptr;
-            ttime1 = golden_exterior( middle, right );
-            if (ttime1 < EPSILON) { ttime1 = EPSILON; break; }
+            ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
+            assert ( ttime1 <= middle.time );
             single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-        } else if ( left.ll >= middle.ll && middle.ll >= right.ll) {
+        } else if ( left.ll > middle.ll && middle.ll > right.ll) {
             // decreasing,  move all points up (middle,right,new)
             temp_ptr = left;
             left = middle;
             middle = right;
             right = temp_ptr;
-            ttime1 = golden_exterior( left, middle );
+            ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
+            assert( ttime1 >= middle.time );
             single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
         } else {
-            //printf("Curvature?:%f/%f -- %f/%f -- %f/%f\n",left->time,
-            //        left->ll,middle->time,middle->ll,right->time,right->ll);
+            printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
+                    left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
             bracketed = 0;
-            if (left.ll < right.ll){ //new left middle
-                temp_ptr = right;
-                right = middle;
-                middle = left;
-                left = temp_ptr;
-                ttime1 = golden_exterior (middle, right);
-                if (ttime1 < EPSILON) { ttime1 = EPSILON; break; }
-                single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-            } else { //middle right new
-                temp_ptr = left;
-                left = middle;
-                middle = right;
-                right = temp_ptr;
-                ttime1 = golden_exterior( left, middle );
-                single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-            }
             break;
         }
     }
-    //printf("Bracketed in %d iterations\n",MAX_ITER - max_iter);
-    //printf("Some New Likelihood: %f(%f)\t%f(%f)\t%f(%f)\n",
-    //        left->ll,left->time, middle->ll,middle->time, right->ll,right->time);
+    assert( left.time <= middle.time && middle.time <= right.time );
+    //printf ("BRACKETED region: %f(%f),\t%f(%f),\t%f(%f)\n",
+    //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
+
     /* parabolic interpolation */
     while( bracketed && ((max_iter--) > 0 ) &&
                       (fabs (middle.time - left.time) > EPSILON) &&
                       (fabs (right.time - middle.time) > EPSILON) ){
-        // calculate absissca
+        /* calculate absissca */
         ttime1 = (middle.time - left.time) * (middle.ll - right.ll);
         ttime2 = (middle.time - right.time) * (middle.ll - left.ll);
         numr = (ttime1 * (middle.time - left.time)) - (ttime2 * (middle.time - right.time));
@@ -1287,14 +1285,11 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             numr = -numr;
             deno = -deno;
         }
-        if (deno <= EPSILON){ //points are colinear
-            break; //TODO : something better then break
-        } else {
-            ttime1 = middle.time - (numr/deno);
-            if (ttime1 <= 0.0)
-                ttime1 = EPSILON;
+        if (deno <= EPSILON){
+            break;
         }
         // ttime1 is the next time to try 
+        ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
         single_sym(&temp,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
         // choose best
         if (best.ll > temp.ll){
@@ -1325,6 +1320,13 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             middle = right;
             right = temp;
             temp = temp_ptr;
+        } else if (EPSILON >= fabs(left.time - temp.time)){
+            //printf ("converging to branch length minimum(%f): %f",temp.time,temp.ll);
+            break;
+        } else {
+            printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
+            //reorder(&left,&middle,&right);
+            //break;
         }
     }
     memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
@@ -1359,7 +1361,7 @@ likelihood_CAML_readjust_gtr_wrapped
     assert( (ML_val(A)->stride) == Bigarray_val(pis)->dim[0] );
     assert( Bigarray_val(g)->dim[0] == Bigarray_val(p)->dim[0] );
     /* readjust */
-    //printf("%f\t%f\n",cta,,likelihood);
+    //printf("S:%f\t%f\t",cta,,likelihood);
     readjust_brents_gtr(
             FM_val(tmp),
             Data_bigarray_val( U ),
@@ -1373,7 +1375,7 @@ likelihood_CAML_readjust_gtr_wrapped
             Data_bigarray_val(pis),
             Double_val( pinv )
     );
-    //printf("%f\t\t%f\n",cta,likelihood);
+    //printf("E:%f\t\t%f\n",cta,likelihood);
     /* construct tuple / freespace */
     res = caml_alloc_tuple( 2 );
     Store_field(res, 0, caml_copy_double(cta));
@@ -1398,7 +1400,7 @@ likelihood_CAML_readjust_sym_wrapped
     assert( ML_val(A)->stride == Bigarray_val( pis )->dim[0]);
     assert( Bigarray_val( g )->dim[0] == Bigarray_val( p )->dim[0] );
     /* readjust loop */
-    //printf("s: %f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("\tS:%f\t%f\t%f\n",cta,Double_val(tb),likelihood);
     readjust_brents_sym(
             FM_val(tmp),
             Data_bigarray_val( U ), Data_bigarray_val( D ),
@@ -1410,7 +1412,7 @@ likelihood_CAML_readjust_sym_wrapped
             Data_bigarray_val( pis ),
             Double_val( pinv )
     );
-    //printf("e: %f\t%f\t%f\n", cta,ctb,likelihood);
+    //printf("\tE:%f\t%f\t%f\n",cta,Double_val(tb),likelihood);
     /* construct tuple / free space */
     res = caml_alloc_tuple( 2 );
     Store_field(res, 0, caml_copy_double (cta));

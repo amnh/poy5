@@ -123,7 +123,7 @@ let yes_with code n =
     assert (0 <> List.length n);
     match List.filter (fun x -> not (has_code code x)) n with
     | [x; y] -> x, y
-    | x -> raise Not_found
+    | x ->  raise Not_found
 
 let not_with code n =
     assert (0 <> List.length n);
@@ -585,10 +585,9 @@ type nad8 = Node.Standard.nad8 = struct
     let edge_iterator par mine ch1 ch2 = 
         let get_dir p n = (not_with (taxon_code p) n.adjusted).lazy_node in
         let atom, btom, parofm = match par with
-                    | Some x -> 
-                        get_dir mine ch1, get_dir mine ch2, Some (get_dir mine x)
-                    | None -> 
-                        get_dir ch2 ch1, get_dir ch1 ch2, None
+            | Some x -> get_dir mine ch1, get_dir mine ch2, Some (get_dir mine x)
+            | None   -> get_dir ch2 ch1, get_dir ch1 ch2, None
+
         and ab_to_m = (with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted) in
         
         let node_dir  = 
@@ -724,10 +723,9 @@ type nad8 = Node.Standard.nad8 = struct
             info_user_message "Performing uppass Heuristic on %d with (%d,%d) and %d"
                 (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
 
-        let mc = taxon_code m 
-        and ac = taxon_code a
-        and bc = taxon_code b 
-        and pc = taxon_code p_data
+        let mc = taxon_code m and ac = taxon_code a
+        and bc = taxon_code b and pc = taxon_code p_data
+
         and get_dir parc x =
             try
                 (not_with parc x.adjusted).lazy_node
@@ -739,18 +737,19 @@ type nad8 = Node.Standard.nad8 = struct
                 assert(false)
         in
 
-        let data_m2p = match m.adjusted with
+        let data_m2p = try match m.adjusted with
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
-                assert ( 
-                    if (match x.dir with
+                if (match x.dir with
                          | None -> false
                          | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac))
-                    then true
-                    else begin q_print m; false end);
-                x.lazy_node
+                    then x.lazy_node
+                    else raise Not_found
             (* ...was resolved, so get the direction *)
             |  _  -> get_dir pc m 
+        with | Not_found -> 
+            q_print m;
+            failwithf "Data from %d toward parent %d is missing.\n" mc pc
 
         and data_p2m = match p_data.adjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
@@ -838,14 +837,16 @@ type nad8 = Node.Standard.nad8 = struct
                 try
                     (either_with (taxon_code mine) x).lazy_node
                 with | Not_found -> 
-                    q_print par; raise Not_found
+                    q_print par;
+                    failwithf "Cannot find node %d in parent %d"
+                        (taxon_code mine) (taxon_code par)
         (* use this to be precise about children, since we know this is internal *)
         and mine_dat =
             try with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted
-            with | Not_found -> (*
-                let mine = uppass_heuristic par None mine ch1 ch2 in
-                try with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted
-                with | Not_found ->*) q_print mine; raise Not_found
+            with | Not_found -> 
+                q_print mine;
+                failwithf "Cannot find direction of %d with children %d %d"
+                    (taxon_code mine) (taxon_code ch1) (taxon_code ch2)
         in
 
         let a1,modified = 
@@ -893,7 +894,7 @@ type nad8 = Node.Standard.nad8 = struct
         | None -> match n.unadjusted with
             | [x] -> OneDirF.tree_size par x.lazy_node
             |  _  -> failwith "AllDirNode.tree_size"
-        end with | Not_found -> q_print n; raise Not_found
+        end with | Not_found -> failwith "no parent in tree size"
 
     let node_cost par n =
         match par with
@@ -918,15 +919,8 @@ type nad8 = Node.Standard.nad8 = struct
                 and db = not_with acode b.unadjusted in
                 OneDirF.is_collapsable `Static da.lazy_node db.lazy_node
         | `Dynamic ->
-                let da =
-                    match a.adjusted with
-                    | [x] -> x
-                    | _ -> failwith "AllDirNode.is_collapsable 1"
-                and db = 
-                    match b.adjusted with
-                    | [x] -> x
-                    | _ -> failwith "AllDirNode.is_collapsable 1"
-                in
+                let da = not_with bcode a.adjusted
+                and db = not_with acode b.adjusted in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
                 (is_collapsable `Static a b) && (is_collapsable `Dynamic a b)
@@ -1145,10 +1139,7 @@ end
 let create_root ?branches a aa ab b ba bb opt =
     let middle = match opt with
         | Some x -> x 
-        | None -> 
-                let r = AllDirF.median ?branches None None a b in
-                let _ = AllDirF.tree_cost None r in
-                r
+        | None -> AllDirF.median ?branches None None a b
     in
     let a_final = match aa,ab with
         | Some aa,Some ab ->

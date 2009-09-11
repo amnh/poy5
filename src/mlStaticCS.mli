@@ -212,14 +212,6 @@ val test_model :
 (** [readjust check has_changed c1 c2 mine t1 t2 ]
  *       -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
  *
- * TODO: side is set to true at all times, effectively. 
- *
- *   Start with a random bool, called side, and iterates on the left (min) if
- * side is true, on the right (max) if side is false. The new branch length out
- * of the C-side readjust is handled here, set to, when side is true, c1 equals
- * new_length - t2; c2 equals t2 and when side is false, c2 equals new_length -
- * t1; c1 equals t1.So, the branch length is only changed on one side of the
- * tree determined by the variable side.
  *   Check/xopt and has_changed/x are not used, as they determine iteration on a
  * subset of characters, which doesn't make sense when branch lengths affect all
  * the characters in the set. Seperation of the characters should be done in
@@ -230,6 +222,9 @@ val test_model :
 val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->  
     t -> t -> t -> float -> float ->
     All_sets.Integers.t * float * float * (float*float) * t
+
+(** [create_lk_model] the model for likelihood from parser *)
+val create_lk_model : Parser.SC.static_spec -> cm
 
 (** [of_parser spec characters] creates a character set with specification
 * [spec] and characters defined in the array [characters], where each element is
