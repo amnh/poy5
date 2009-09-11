@@ -962,7 +962,7 @@ let to_single_root root other_code c2 =
           let map = 
               Array.map 
                   (fun m ->
-                       let child_alied_seq, other_alied_seq =  m.alied_seq1, m.alied_seq2 in 
+                    let child_alied_seq, other_alied_seq =  m.alied_seq1, m.alied_seq2 in 
                        (*Printf.printf "At root, alied_seq1/alied_seq2 =\n";
                        printSeq child_alied_seq; printSeq other_alied_seq;*)
                        let single_seq, _ = Sequence.closest_alied_seq

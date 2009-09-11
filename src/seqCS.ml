@@ -607,6 +607,7 @@ module ProtAff = struct
                 prepend res (Cost_matrix.Two_D.gap c2);
                 res
             in
+            Printf.printf "\n 3 \n %!";
             let get_closest v i =
                 let v' = get s1' i in
                 Cost_matrix.Two_D.get_closest c2 v' v 
@@ -745,7 +746,32 @@ module DOS = struct
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b =
-        let gap = Cost_matrix.Two_D.gap h.c2 in 
+        let gap = Cost_matrix.Two_D.gap h.c2 in
+        let level = Cost_matrix.Two_D.get_level h.c2 in
+        let size = Cost_matrix.Two_D.get_ori_a_sz h.c2 in
+        (* check sequence functions: *)
+        let print_intlist lst =
+            Printf.printf "len=%d, [%!" (List.length lst);
+            List.iter (Printf.printf "%d,%!") lst;
+            Printf.printf "]\n %!";
+        in
+        let print_seqlist seq =
+            Printf.printf "len = %d, seq=[%!" (Sequence.length seq);
+            for i=0 to (Sequence.length seq) - 1 do
+                Printf.printf "%d," (Sequence.get seq i);
+            done;
+            Printf.printf "]\n%!";
+        in
+        let check_seq seq seqpack =
+            Printf.printf "check seq/bit array,%d,%d,%d:\n%!" gap size level;
+                match seqpack with
+                | Packed (len, set, seqo) ->
+                        let tmplist = BitSet.to_list set in
+                         print_seqlist seq; print_intlist tmplist; 
+                         print_seqlist (bitset_to_seq gap seqpack);
+                | _ -> ()
+        in
+        (* above are functions for checking sequence*)
         if Sequence.is_empty a.sequence gap then
             create b.sequence, 0 
         else if Sequence.is_empty b.sequence gap then
@@ -769,6 +795,16 @@ module DOS = struct
             let ba = seq_to_bitset gap tmpa (Raw a.sequence)
             and bb = seq_to_bitset gap tmpb (Raw b.sequence) 
             and bm = seq_to_bitset gap seqmwg (Raw seqm) in
+            if(tmpa = bitset_to_seq gap ba) then ()
+            else  
+            check_seq tmpa ba;
+            if(tmpb = bitset_to_seq gap bb) then ()
+            else 
+            check_seq tmpb bb;
+            if (seqmwg = bitset_to_seq gap bm) then ()
+            else 
+            check_seq seqmwg bm;
+            
             assert (tmpa = bitset_to_seq gap ba);
             assert (tmpb = bitset_to_seq gap bb);
             assert (seqmwg = bitset_to_seq gap bm);
@@ -801,7 +837,7 @@ module DOS = struct
         let a = bitset_to_seq gap a
         and b = bitset_to_seq gap b in
         assert (Sequence.length a = Sequence.length b);
-        let res = Sequence.Align.union a b in
+        let res = Sequence.Align.union a b h.c2 in
         let a, b, cost = 
             Sequence.Align.align_2 p.sequence res h.c2 Matrix.default 
         in

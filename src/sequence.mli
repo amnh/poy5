@@ -314,7 +314,7 @@ module Align : sig
 
     val full_median_3 : s -> s -> s -> Cost_matrix.Three_D.m -> Matrix.m -> s
 
-    val union : s -> s -> s 
+    val union : s -> s -> Cost_matrix.Two_D.m -> s 
 
     val closest : s -> s -> Cost_matrix.Two_D.m -> Matrix.m -> s * int
 

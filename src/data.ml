@@ -560,53 +560,9 @@ let get_empty_seq alph =
     { seq = seq; code = -1; }
 
 
-let myprint (data : d) = 
- Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
-    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
-    let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
-        let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
-        let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
-        Printf.fprintf stdout "data.taxon_codes: Key: %d, Taxon name: %s, number chars: %i\n" key taxa_name len;
-        Hashtbl.iter
-            (fun _ ch ->
-                 match ch with 
-                 | Dyna (code, dyna_data), _ ->         
-                       let  char_name = Hashtbl.find data.character_codes code in
-                       Printf.fprintf stdout
-                       "data.character_specs=(code,dyna_data), code=%d, dyna_data = %s -> \n " code char_name; 
-                       Array.iter (fun seq -> 
-                                       Printf.fprintf stdout "seq.code=%i,seq.seq=" seq.code;
-                                       Sequence.print stdout seq.seq Alphabet.nucleotides;
-                                       Printf.fprintf stdout " | \n"
-                                 ) dyna_data.seq_arr;
-                       print_newline ();
-                 | _ -> ()
-            ) ch_ls;
-    in
-    let print_specs (code : int) (spec : specs) = 
-        let name = Hashtbl.find data.character_codes code in 
-        Printf.fprintf stdout "Key: %i, name: %s " code name; 
-        (match spec with 
-        | Dynamic dspec ->
-              (match dspec.state with 
-               | `Seq -> Printf.fprintf stdout "Seq"
-               | `Breakinv -> Printf.fprintf stdout "Breakinv"
-               | `Chromosome -> Printf.fprintf stdout "Chromosome"
-               | `Genome -> Printf.fprintf stdout "Genome"
-               | `Annotated -> Printf.fprintf stdout "Annotated")
-        | _ -> Printf.fprintf stdout "Not Dynamic");
-
-        print_newline ()
-    in 
-    Hashtbl.iter print_taxon data.taxon_characters;
-    Hashtbl.iter print_specs data.character_specs
-
-
 let print (data : d) = 
     Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
     List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
-
-
     let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
         let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
         let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
@@ -626,7 +582,6 @@ let print (data : d) =
                  | _ -> ()
             ) ch_ls;
     in
-
     let print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
         Printf.fprintf stdout "Key: %i, name: %s " code name; 
@@ -642,7 +597,14 @@ let print (data : d) =
 
         print_newline ()
     in 
+    let print_character_codes key bind =
+        Printf.printf "[%d,%s],%!" key bind;
+    in
+    Printf.printf "\n check character_codes: \n%!";
+    Hashtbl.iter print_character_codes data.character_codes;
+    Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
+    Printf.printf "\n check character_specs:\n%!";
     Hashtbl.iter print_specs data.character_specs 
 
 
@@ -1802,7 +1764,7 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
     end
 
 let process_molecular_file tcmfile tcm tcm3 annotated alphabet 
-mode is_prealigned dyna_state data file = 
+mode is_prealigned dyna_state data file =
     let data =
         aux_process_molecular_file 
         tcmfile tcm tcm3 alphabet
@@ -2151,7 +2113,7 @@ let classify code data =
     in
     { data with sankoff = builder data.sankoff }
 
-let categorize data = 
+let categorize data =
     (* We must return 7 lists of integers containing the codes for each class of
      * character *)
 
@@ -2203,7 +2165,8 @@ let categorize data =
         | Set -> data
         | Kolmogorov _ -> { data with kolmogorov = code :: data.kolmogorov }
     in
-    Hashtbl.fold categorizer data.character_specs data
+    let res = Hashtbl.fold categorizer data.character_specs data in
+    res
 
 
 let character_code name data = 
@@ -4084,7 +4047,8 @@ let compute_fixed_states data code =
     taxon_codes) })
 
 
-let assign_tcm_to_characters data chars tcmfile foname tcm =
+
+let assign_tcm_to_characters data chars tcmfile foname tcm newalph =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
     * morphological characters are loaded, an (all, create_tcm:(1,1)) will
@@ -4117,6 +4081,10 @@ let assign_tcm_to_characters data chars tcmfile foname tcm =
                 | Some x, None -> "0"
                 | Some _, Some x 
                 | None, Some x -> x
+            and newalph =
+                match newalph with
+                | None -> dspec.alph
+                | Some a -> a
             in
             let tcm, tcm3 =
                 if Hashtbl.mem per_size dspec.alph then 
@@ -4130,7 +4098,8 @@ let assign_tcm_to_characters data chars tcmfile foname tcm =
                     let tcm = tcm all_elements in
                     tcm, (Cost_matrix.Three_D.of_two_dim tcm)
             in
-            (Dynamic { dspec with tcm = tcmfile; fo = fo; tcm2d = tcm; tcm3d = tcm3 }), 
+            (Dynamic { dspec with tcm = tcmfile; fo = fo; tcm2d = tcm; tcm3d =
+                tcm3; alph = newalph }), 
             code
             | _, code -> raise (Invalid_Character code)) chars_specs
     in
@@ -4148,6 +4117,7 @@ let assign_tcm_to_characters data chars tcmfile foname tcm =
         if is_fs data code then compute_fixed_states data code) new_charspecs;
     { data with files = files }
 
+
 let assign_tcm_to_characters_from_file data chars file =
     let tcm, file =
         match file with
@@ -4156,7 +4126,7 @@ let assign_tcm_to_characters_from_file data chars file =
                 Parser.TransformationCostMatrix.of_file f, 
                 Some (FileStream.filename f)
     in
-    assign_tcm_to_characters data chars file None tcm
+    assign_tcm_to_characters data chars file None tcm None
 
 let classify_characters_by_alphabet_size data chars =
     let is_dynamic_character x = 
@@ -4202,7 +4172,7 @@ let assign_transformation_gaps data chars transformation gaps =
             Cost_matrix.Two_D.of_transformations_and_gaps (size < 7) size
             transformation gaps 
         in
-        assign_tcm_to_characters data chars (Some name) None tcm) ~init:data alphabet_sizes
+        assign_tcm_to_characters data chars (Some name) None tcm None) ~init:data alphabet_sizes
 
 let codes_with_same_tcm codes data =
     (* This function assumes that the codes have already been filtered by class
@@ -4219,6 +4189,47 @@ let codes_with_same_tcm codes data =
         List.map 
         ~f:(fun x -> x, get_tcm2d data x, get_alphabet data x) codes in
     List.fold_left ~f:assign_matching ~init:[] codes
+
+
+let assign_level data chars level =
+    let name = ("level:("^ string_of_int level ^ ")") in
+    let codes = get_chars_codes_comp data chars in
+    let codes = codes_with_same_tcm codes data in
+    let codes = List.map (fun (a, b, alph) ->
+        let b,alph =
+            if ( Alphabet.nucleotides = alph ) || ( Alphabet.dna = alph ) || (
+                Alphabet.aminoacids = alph ) 
+                then b,alph
+            else
+                let oldlevel = Cost_matrix.Two_D.get_level b in
+                let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
+                let combnum =
+                    Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                    ori_sz level 
+                in
+                if combnum<=0 then
+                    let _ = Printf.printf " Assign Level, ori_sz = %d, level=%d, Alphabet size toooooo big \n%!" ori_sz level
+                    in
+                    b,alph
+                else
+                    let _ = Printf.printf " Assign Level, comb number = %d\n%!" combnum in
+                (*if ori_sz > 15 then 
+                     Printf.printf "Transform:level doesn't do anything here, for
+                    we set level to 1 when alphabet size if bigger than 15\n%!";
+                    b,alph
+                else*)
+                    let b = Cost_matrix.Two_D.clone b in
+                    let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
+                    let newalph =  Alphabet.create_alph_by_level alph level
+                    oldlevel in 
+                    b,newalph
+        in
+        (true, a), (fun _ -> b), (Some alph)) codes
+    in
+    List.fold_left ~f:(fun acc (a, b, alph) ->
+        assign_tcm_to_characters acc (`Some a) (Some name) 
+        (Some (string_of_int level)) b alph) ~init:data codes
+    
 
 let rec assign_affine_gap_cost data chars cost =
     let codes = get_chars_codes_comp data chars in
@@ -4242,7 +4253,7 @@ let rec assign_affine_gap_cost data chars cost =
     in
     List.fold_left ~f:(fun acc (a, b) ->
         assign_tcm_to_characters acc (`Some a) None 
-        (Some cost) b) ~init:data codes
+        (Some cost) b None) ~init:data codes
 
 let rec assign_prep_tail filler data chars filit =
     match filit with
@@ -4263,7 +4274,7 @@ let rec assign_prep_tail filler data chars filit =
                 (true, a), (fun _ -> b)) codes
             in
             List.fold_left ~f:(fun acc (a, b) ->
-                assign_tcm_to_characters acc (`Some a) None None b) ~init:data codes
+                assign_tcm_to_characters acc (`Some a) None None b None) ~init:data codes
 
 let assign_prepend data chars filit =
     assign_prep_tail Cost_matrix.Two_D.fill_prepend data chars filit

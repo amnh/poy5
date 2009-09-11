@@ -75,10 +75,10 @@ mat_size_of_2d_matrix (int w, int h);
 /*
  * Rearrange or reallocate memory if necessary to perform an alignment between
  * sequences of length w, d and h. Note that for 2d alignments is necessary to
- * set h=0, and uk=0. 
+ * set h=0, and uk=0. if we are using "level", set uselevel to 1
  */
 int
-mat_setup_size (matricest m, int w, int d, int h, int k, int a_sz);
+mat_setup_size (matricest m, int w, int d, int h, int k, int a_sz,int uselevel);
 
 /* 
  * Gets the pointer to the first memory position of the 2d alignment matrix. 

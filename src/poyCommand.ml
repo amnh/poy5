@@ -118,6 +118,7 @@ type transform_method = [
     | `UseLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
           Methods.ml_priors * Methods.ml_gap )
+    | `Level of int
     | `Tcm of string
     | `Gap of (int * int)
     | `AffGap of int
@@ -409,6 +410,7 @@ let transform_transform acc (id, x) =
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
             | `UseLikelihood (a, b, c, d) ->
                     (`UseLikelihood (id, a, b, c, d)) :: acc
+            | `Level (l) -> (`Assign_Level (l,id))::acc
             | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
@@ -1282,6 +1284,7 @@ let create_expr () =
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
+                [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
                 [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 

@@ -29,7 +29,13 @@
  * Check cm_3d for further information. This is the corresponding data
  * structure for two dimensional sequence alignment. 
  */
+
 struct cm {
+    // add following for level
+    int ori_a_sz; //original alphabet size
+    int level; //level = 1,2,3....n. n = ori_a_sz
+    int map_sz; // size of combmap matrix
+    // add above for level
     int a_sz;
     int lcm;
     int gap;
@@ -38,6 +44,8 @@ struct cm {
     int gap_open;
     int is_metric;
     int all_elements;
+    int *combmap; // the combination codelist to combination code map [a,b] --> c
+    int *comb2list; // the combination code to combination code list map c-->[a,b]
     int *cost;
     SEQT *median;
     int *worst;         /* Missing in 3d */
@@ -45,10 +53,13 @@ struct cm {
     int *tail_cost;     /* Missing in 3d */
 };
 
+
 /*
  * A pointer to the cm structure.
  */
 typedef struct cm * cmt;
+
+
 
 /* 
  * Retrieves the alphabet size flag from the transformation cost matrix.
@@ -56,6 +67,22 @@ typedef struct cm * cmt;
 inline int 
 cm_get_alphabet_size (cmt c);
 
+// Retrieves the original alphabet size
+inline int
+cm_get_ori_a_size (cmt c);
+
+// Retrieves the level value
+inline int
+cm_get_level (cmt c);
+
+// Retrieves the value at position (a,b) of combination map matrix
+inline int
+cm_get_combmap(int *tcm, int a, int b, int mapsize);
+
+/*
+inline int
+cm_get_comblist( int * tcm, int combcode, int position, int mapwide);
+*/
 /*
  * Retrieves the gap code as defined in the transformation cost matrix. 
  */
@@ -139,6 +166,15 @@ inline SEQT
 #endif
 cm_get_median (const cmt t, SEQT a, SEQT b);
 
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_cost (int *tcm, int a, int b, int mapsize) ;
+
+
 /*
  * Retrieves the transformation cost of the elements a and b as stored in the
  * transformation cost matrix tcm, containing information for an alphabet of
@@ -189,6 +225,14 @@ inline int *
 #endif
 cm_get_row (int *tcm, SEQT a, int a_sz);
 
+#ifdef _WIN32
+__inline int *
+#else
+inline int *
+#endif
+cm_get_row_level (int *tcm, SEQT a, int a_sz);
+
+
 /* 
  * Fills a precalculated matrix with the cost of comparing each elment in the
  * sequence s with each element in the alphabet specified in the transformation
@@ -234,6 +278,11 @@ struct cm_3d {
                               certain cost_model_type's. */
     int all_elements;       /** The integer that represents all the combinations, used 
                               for ambiguities */
+    int ori_a_sz;          //original alphabet size, add for level
+    int map_sz;            // size of the map for combination code list to combination code, add for level
+    int level;              // level value, add for level
+    int *comblist_2_combcode;   // the combination codelist to combination code map [a,b] --> c
+    int *combcode_2_comblist; // the combination code to combination code list map c-->[a,b]
     int *cost;              /** The transformation cost matrix. */
     SEQT *median;            /** The matrix of possible medians between elements in the 
                               alphabet. The best possible medians according to the cost 
@@ -273,11 +322,32 @@ cm_get_alphabet_size_3d (cm_3dt c);
  * Retrieves the gap code as defined in the transformation cost matrix. 
  */
 #ifdef _WIN32
-__inline SEQT
+__inline int
 #else
-inline SEQT
+inline int
 #endif
 cm_get_gap_3d (const cm_3dt c);
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_level_3d (const cm_3dt c);
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_ori_a_sz_3d (const cm_3dt c);
+
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_map_sz_3d (const cm_3dt c);
 
 /*
  * Retrieves the affine flag from the transformation cost matrix. Remember this
