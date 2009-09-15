@@ -650,7 +650,10 @@ algn_fill_extending_right (const seqt s1, int *prec, int s1_len, int s2_len,  \
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+             const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+        else
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
         /* This is conceptually what we do in the next line 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
@@ -690,7 +693,10 @@ algn_fill_extending_left_right (const seqt s1, int *prec, int s1_len, \
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+              const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+        else
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
         /* Conceptually 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
@@ -731,7 +737,10 @@ algn_fill_extending_left (const seqt s1, int *prec, int s1_len, \
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+              const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+        else
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
         const_val_tail = (cm_get_tail_cost (c))[cur_s1];
         /* Conceptually 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
@@ -783,7 +792,10 @@ algn_fill_no_extending (const seqt s1, int *prec, int s1_len, \
     while (i < end_row) {
         /** Invariants block */
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+              const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+        else
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
         const_val_tail = (cm_get_tail_cost (c))[cur_s1];
         /* Conceptually 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
@@ -842,7 +854,10 @@ algn_fill_plane (const seqt s1, int *prec, int s1_len, \
     /* Now we fill the rest of the matrix */
     for (i = 1, dm += s2_len; i < s1_len; i++, dm += s2_len) {
         const_val_tail = (cm_get_tail_cost (c))[seq_get(s1, i)];
-        const_val = cm_calc_cost (c->cost, seq_get(s1, i), c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+            const_val = cm_get_cost(c->cost, seq_get(s1, i), c->gap , c->map_sz+1);
+        else
+            const_val = cm_calc_cost (c->cost, seq_get(s1, i), c->gap, c->lcm);
         alg_row = cm_get_precal_row (prec, seq_get (s1, i), s2_len);
         algn_fill_full_row (mm, nm, gap_row, alg_row, dm, const_val, \
                 const_val_tail, s2_len);
@@ -1410,8 +1425,16 @@ algn_fill_extending_right_aff (const seqt s1, int *prec, int s1_len, \
         assert (i > 0);
         prev_s1 = s1->begin[i - 1];
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
-        prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+        {
+            const_val = cm_get_cost(c->cost, cur_s1, c->gap, c->map_sz+1);
+            prev_const_val = cm_get_cost (c->cost, prev_s1, c->gap, c->map_sz+1);
+        }
+        else
+        {
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+            prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        }
         /* This is conceptually what we do in the next line 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
@@ -1459,8 +1482,16 @@ algn_fill_extending_left_right_aff (const seqt s1, int *prec, int s1_len, \
         assert (i > 0);
         prev_s1 = s1->begin[i - 1];
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
-        prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        if(cm_check_level(c)==1)  
+        {
+            const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+            prev_const_val = cm_get_cost (c->cost, prev_s1, c->gap, c->map_sz+1);
+        }
+        else
+        {
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+            prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        }
         /* Conceptually 
         alg_row = cm_get_precal_row (prec, cur_s1, s2_len);
         */
@@ -1509,8 +1540,16 @@ algn_fill_extending_left_aff (const seqt s1, int *prec, int s1_len, \
         assert (i > 0);
         prev_s1 = s1->begin[i - 1];
         cur_s1 = s1->begin[i];
-        prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+        {
+            prev_const_val = cm_get_cost (c->cost, prev_s1, c->gap, c->map_sz+1);
+            const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+        }
+        else
+        {
+            prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+            const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+        }
         const_val_tail = (cm_get_tail_cost (c))[cur_s1];
         prev_const_val_tail = (cm_get_tail_cost (c))[prev_s1];
         /* Conceptually 
@@ -1569,8 +1608,16 @@ algn_fill_no_extending_aff (const seqt s1, int *prec, int s1_len, \
         assert (i > 0);
         prev_s1 = s1->begin[i - 1];
         cur_s1 = s1->begin[i];
-        const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
-        prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+        {
+            const_val = cm_get_cost (c->cost, cur_s1, c->gap, c->map_sz+1);
+            prev_const_val = cm_get_cost (c->cost, prev_s1, c->gap, c->map_sz+1);
+        }
+        else
+        {
+             const_val = cm_calc_cost (c->cost, cur_s1, c->gap, c->lcm);
+             prev_const_val = cm_calc_cost (c->cost, prev_s1, c->gap, c->lcm);
+        }
         const_val_tail = (cm_get_tail_cost (c))[cur_s1];
         prev_const_val_tail = (cm_get_tail_cost (c))[prev_s1];
         /* Conceptually 
@@ -1649,9 +1696,17 @@ algn_fill_plane_aff (const seqt s1, int *prec, int s1_len, \
     /* Now we fill the rest of the matrix */
     for (i = 1, dm += s2_len; i < s1_len; i++, dm += s2_len) {
         prev_const_val_tail = (cm_get_tail_cost (c))[seq_get(s1, i - 1)];
-        prev_const_val = cm_calc_cost (c->cost, seq_get(s1, i - 1), c->gap, c->lcm);
+        if(cm_check_level(c) == 1)
+        {
+            prev_const_val = cm_get_cost (c->cost, seq_get(s1, i - 1), c->gap, c->map_sz+1);
+            const_val = cm_get_cost (c->cost, seq_get(s1, i), c->gap, c->map_sz+1);
+        }
+        else
+        {
+            prev_const_val = cm_calc_cost (c->cost, seq_get(s1, i - 1), c->gap, c->lcm);
+            const_val = cm_calc_cost (c->cost, seq_get(s1, i), c->gap, c->lcm);
+        }
         const_val_tail = (cm_get_tail_cost (c))[seq_get(s1, i)];
-        const_val = cm_calc_cost (c->cost, seq_get(s1, i), c->gap, c->lcm);
         alg_row = cm_get_precal_row (prec, seq_get (s1, i), s2_len);
         algn_fill_full_row_aff (mm, nm, gap_row, alg_row, dm, const_val, \
                 prev_const_val, const_val_tail, prev_const_val_tail, s2_len, \
@@ -1719,7 +1774,10 @@ __inline int
 inline int
 #endif
 HAS_GAP_EXTENSION (SEQT base, const cmt c) {
-    return (cm_calc_cost(c->cost,base,c->gap,c->lcm));
+    if(cm_check_level(c) == 1)
+        return (cm_get_cost(c->cost,base,c->gap,c->map_sz+1));
+    else
+        return (cm_calc_cost(c->cost,base,c->gap,c->lcm));
 }
 
 #ifdef _WIN32
@@ -1727,9 +1785,17 @@ __inline int
 #else
 inline int
 #endif
-HAS_GAP_OPENING (SEQT prev, SEQT curr, int gap, int gap_open) {
-    if ((!(gap & prev)) && (gap & curr)) return 0;
-    else return gap_open;
+HAS_GAP_OPENING (SEQT prev, SEQT curr, int gap, int gap_open, int gapstart) {
+    if(gapstart>1) 
+    {
+       if ((prev<gapstart)&&(curr>=gapstart)) return gap_open;
+       else return 0;
+    }
+    else
+    {
+        if ((!(gap & prev)) && (gap & curr)) return 0;  // what is the logic here?
+        else return gap_open;
+    }
 }
 
 #ifdef _WIN32
@@ -2295,11 +2361,12 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
         *init_extend_block_diagonal;
     const int *si_no_gap_vector;
     int si_gap_opening, si_gap_extension, sj_gap_opening, sj_gap_extension;
-    int gap, gap_open;
+    int gap, gap_open; int gap_startNO;
     const int *gap_row;
     int si_vertical_extension;
     gap = c->gap;
     gap_open = c->gap_open;
+    gap_startNO = c->gap_startNO;
     assert (lenj >= leni);
     init_extend_horizontal = extend_horizontal;
     init_extend_vertical = extend_vertical;
@@ -2321,7 +2388,7 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
     beginj = sj->begin;
     ic = begini[0];
     for (j = 1; j <= lenj; j++) {
-        gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open);
+        gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open,gap_startNO);
         if ((beginj[j - 1] & gap) && (!(beginj[j] & gap)))
             sj_horizontal_extension[j] = gap_open_prec[j] + gap_row[j];
         else sj_horizontal_extension[j] = gap_row[j];
@@ -2347,7 +2414,7 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
         ip = ic;
         ic = begini[i];
         si_gap_extension = HAS_GAP_EXTENSION(ic,c);
-        si_gap_opening = HAS_GAP_OPENING (ip,ic,gap,gap_open);
+        si_gap_opening = HAS_GAP_OPENING (ip,ic,gap,gap_open,gap_startNO);
         si_no_gap = (NTMPGAP) & ic;
         if ((i > 1) && ((ip & gap) && (!(ic & gap))))
             si_vertical_extension = si_gap_opening + si_gap_extension;
@@ -2359,7 +2426,7 @@ algn_fill_plane_3_aff_nobt (const seqt si, const seqt sj, int leni, int lenj, \
         extend_vertical[start_pos - 1] = r;
         jc = beginj[start_pos - 1];
         close_block_diagonal[start_pos - 1] = HIGH_NUM;
-        si_no_gap_vector = c->cost + (si_no_gap << c->lcm);
+        si_no_gap_vector = c->cost + (si_no_gap << c->lcm); // we should not use '<<' for level,fix this for 3D later
         for (j=start_pos; j <= end_pos; j++) {
             jp = jc;
             jc = beginj[j];
@@ -2420,12 +2487,13 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         *init_extend_block_diagonal;
     const int *si_no_gap_vector;
     int si_gap_opening, si_gap_extension, sj_gap_opening, sj_gap_extension;
-    int gap, gap_open;
+    int gap, gap_open; int gap_startNO;
     const int *gap_row;
     int si_vertical_extension;
     DIRECTION_MATRIX tmp_direction_matrix;
     gap = c->gap;
     gap_open = c->gap_open;
+    gap_startNO = c->gap_startNO;
     assert (lenj >= leni);
     init_extend_horizontal = extend_horizontal;
     init_extend_vertical = extend_vertical;
@@ -2450,7 +2518,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
     beginj = sj->begin;
     ic = begini[0];
     for (j = 1; j <= lenj; j++) {
-        gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open);
+        gap_open_prec[j] = HAS_GAP_OPENING(beginj[j - 1],beginj[j],gap,gap_open,0);
         if ((beginj[j - 1] & gap) && (!(beginj[j] & gap)))
             sj_horizontal_extension[j] = gap_open_prec[j] + gap_row[j];
         else sj_horizontal_extension[j] = gap_row[j];
@@ -2478,7 +2546,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         ip = ic;
         ic = begini[i];
         si_gap_extension = HAS_GAP_EXTENSION(ic,c);
-        si_gap_opening = HAS_GAP_OPENING (ip,ic,gap,gap_open);
+        si_gap_opening = HAS_GAP_OPENING (ip,ic,gap,gap_open,0);
         si_no_gap = (NTMPGAP) & ic;
         if ((i > 1) && ((ip & gap) && (!(ic & gap))))
             si_vertical_extension = si_gap_opening + si_gap_extension;
@@ -2492,7 +2560,7 @@ algn_fill_plane_3_aff (const seqt si, const seqt sj, int leni, int lenj, \
         direction_matrix[start_pos - 1] = DO_VERTICAL | END_VERTICAL;
         jc = beginj[start_pos - 1];
         close_block_diagonal[start_pos - 1] = HIGH_NUM;
-        si_no_gap_vector = c->cost + (si_no_gap << c->lcm);
+        si_no_gap_vector = c->cost + (si_no_gap << c->lcm); // we should not use '<<' for level, fix this later
         for (j=start_pos; j <= end_pos; j++) {
             jp = jc;
             jc = beginj[j];
@@ -3329,15 +3397,19 @@ algn_nw_3d (const seqt s1, const seqt s2, const seqt s3,
 }
 
 int
-algn_calculate_from_2_aligned (seqt s1, seqt s2, cmt c, int *matrix) {
-    int i, res = 0, gap_opening, gap_row = 0;
+algn_calculate_from_2_aligned (seqt s1, seqt s2, cmt c, int *matrix, int uselevel) {
+    int i, res = 0, gap_opening, gap_row = 0; int gap_startNO=0;
     SEQT gap, s1b, s2b;
     gap = cm_get_gap (c);
+    gap_startNO = cm_get_gap_startNO(c);
     /* We initialize i to the proper location */
     s1b = seq_get (s1, 0);
     s2b = seq_get (s2, 0);
-    if ((c->combinations && (gap & s1b) && (gap & s2b)) ||
-            (!c->combinations && (gap == s1b) && (gap == s2b)))
+    if (
+        ((uselevel==0) && c->combinations && (gap & s1b) && (gap & s2b)) ||
+        ((uselevel==0) && !c->combinations && (gap == s1b) && (gap == s2b)) ||
+        ((uselevel==1) && (s1b>=gap_startNO) && (s2b>=gap_startNO))
+        )
         i = 1;
     else i = 0;
     gap_opening = cm_get_gap_opening_parameter (c);
@@ -3346,22 +3418,37 @@ algn_calculate_from_2_aligned (seqt s1, seqt s2, cmt c, int *matrix) {
         s1b = seq_get (s1, i);
         s2b = seq_get (s2, i);
         if (0 == gap_row) { /* We have no gaps */
-            if ((c->combinations && (s1b & gap) && !(s2b & gap)) || 
-                        ((!c->combinations) && (s1b == gap)))
+            if (
+                    ((uselevel==0) && c->combinations && (s1b & gap) && !(s2b & gap)) || 
+                    ((uselevel==0) && (!c->combinations) && (s1b == gap)) ||
+                    ((uselevel==1) && (s1b>=gap_startNO) && (s2b<gap_startNO))
+                )
             {
                 res += gap_opening;
                 gap_row = 1;
-            } else if ((c->combinations && (s2b & gap) && !(s1b & gap)) || 
-                        ((!c->combinations) && (s2b == gap))) {
+            } else if 
+                (
+                 ((uselevel==0) && c->combinations && (s2b & gap) && !(s1b & gap)) || 
+                 ((uselevel==0) && (!c->combinations) && (s2b == gap)) ||
+                 ( (uselevel==1) && (s2b>=gap_startNO) )
+                ) {
                 res += gap_opening;
                 gap_row = 2;
             }
         }
         else if (1 == gap_row) { /* We are in s1's block of gaps */
-            if ((c->combinations && !(s1b & gap)) || 
-                        ((!c->combinations) && (s1b != gap))) {
-                if ((c->combinations && (s2b & gap) && !(s1b & gap)) || 
-                        ((!c->combinations) && (s2b == gap))) {
+            if (
+                    ((uselevel==0) && c->combinations && !(s1b & gap)) || 
+                    ((uselevel==0) && (!c->combinations) && (s1b != gap)) ||
+                    ((uselevel==1) && (s1b<gap_startNO))
+                ) 
+            {
+                if (
+                    ((uselevel==0) && c->combinations && (s2b & gap) && !(s1b & gap)) || 
+                    ((uselevel==0) && (!c->combinations) && (s2b == gap)) ||
+                    ((uselevel==1) && (s1b<gap_startNO) && (s2b>=gap_startNO))
+                    ) 
+                {
                     res += gap_opening;
                     gap_row = 2;
                 }
@@ -3370,29 +3457,46 @@ algn_calculate_from_2_aligned (seqt s1, seqt s2, cmt c, int *matrix) {
         } 
         else { /* We are in s2's block of gaps */
             assert (2 == gap_row);
-            if ((c->combinations && !(s2b & gap)) || 
-                        ((!c->combinations) && (s2b != gap))) {
-                if ((c->combinations && (s1b & gap)) || 
-                        ((!c->combinations) && (s1b == gap))) {
+            if (
+                ((uselevel==0) && c->combinations && !(s2b & gap)) || 
+                ((uselevel==0) && (!c->combinations) && (s2b != gap)) ||
+                ( (uselevel==1) && (s2b<gap_startNO) )
+                )
+            {
+                if (
+                        (uselevel==0) &&(c->combinations && (s1b & gap)) || 
+                        ((uselevel==0) && (!c->combinations) && (s1b == gap)) ||
+                        ((uselevel==1) && (s1b>=gap_startNO))
+                    ) 
+                {
                     res += gap_opening;
                     gap_row = 1;
                 }
                 else gap_row = 0;
             }
         }
-        res += (cm_calc_cost (matrix, seq_get (s1, i), seq_get (s2, i), c->lcm));
+        if(uselevel == 1)
+            res += (cm_get_cost(matrix, seq_get (s1, i), seq_get (s2, i), c->map_sz+1));
+        else
+            res += (cm_calc_cost (matrix, seq_get (s1, i), seq_get (s2, i), c->lcm));
     }
     return (res);
 }
 
 int
 algn_worst_2 (seqt s1, seqt s2, cmt c) {
-    return (algn_calculate_from_2_aligned (s1, s2, c, c->worst));
+    if(cm_check_level(c)==1)     
+        return (algn_calculate_from_2_aligned (s1, s2, c, c->worst, 1));
+    else
+        return (algn_calculate_from_2_aligned (s1, s2, c, c->worst, 0));
 }
 
 int
 algn_verify_2 (seqt s1, seqt s2, cmt c) {
-    return (algn_calculate_from_2_aligned (s1, s2, c, c->cost));
+    if(cm_check_level(c)==1)     
+        return (algn_calculate_from_2_aligned (s1, s2, c, c->cost, 1));
+    else
+        return (algn_calculate_from_2_aligned (s1, s2, c, c->cost, 0));
 }
 
 value
