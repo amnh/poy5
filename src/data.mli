@@ -119,6 +119,10 @@ type dyna_initial_assgn = [
             (Sequence.s array) * 
             ((int, int) Hashtbl.t))  ]
 
+type costmatrix_3d = [
+    | `Normal3d of Cost_matrix.Three_D.m
+    | `Empty3d  ]
+
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
@@ -126,7 +130,7 @@ type dynamic_hom_spec = {
     fo : string;
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
-    tcm3d : Cost_matrix.Three_D.m;
+    tcm3d : costmatrix_3d;
     alph : Alphabet.a;
     state : dyna_state_t;
     pam : dyna_pam_t;
@@ -404,13 +408,13 @@ val get_weight : int -> d -> float
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences : 
-    string -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m 
+    string -> Cost_matrix.Two_D.m -> costmatrix_3d 
     -> dyna_initial_assgn -> bool ->
     Alphabet.a -> string -> dyna_state_t -> d -> 
     (Sequence.s list list list * Parser.taxon) list -> d
 
 val process_molecular_file : string -> Cost_matrix.Two_D.m ->
-    Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
+    costmatrix_3d -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
         dyna_state_t -> d -> Parser.filename -> d
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> Parser.filename -> d
@@ -442,7 +446,7 @@ val remove_taxa_to_ignore : d -> d
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
 
 val get_tcm2d : d -> int -> Cost_matrix.Two_D.m 
-val get_tcm3d : d -> int -> Cost_matrix.Three_D.m 
+val get_tcm3d : d -> int -> costmatrix_3d 
 val get_tcmfile : d -> int -> string
 
 val get_sequence_alphabet : int -> d -> Alphabet.a
