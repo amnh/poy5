@@ -277,10 +277,6 @@ let to_formater seq alph =
         if(tmp=0) then
             Printf.printf "Warning: try to get code 0 in alphabet map, check the
             rest of sequence code: \n%!";
-            for j = i to len-1 do
-                let tmpj = get seq j in
-                Printf.printf "  %d[%d], %!" j tmpj;
-            done;
         (*Printf.printf "\n to_formater,i=%d,seq = %s\n%!" i (to_string seq
         * alph);*)
         Buffer.add_string b (
