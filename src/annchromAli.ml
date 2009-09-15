@@ -19,6 +19,8 @@
 
 let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 
+let debug = false
+
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between annotated chromosomes 
 * where both point mutations and rearrangement operations 
@@ -435,7 +437,9 @@ let cmp_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
 * finds medians between [chrom1] and [chrom2] allowing rearrangements *)
 let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t) 
         (cost_mat : Cost_matrix.Two_D.m) alpha ali_pam =
-Printf.printf "\n find_simple_med2_ls between chrom1=%d and chrom2=%d.\n" chrom1.ref_code chrom2.ref_code;
+ if debug then 
+    Printf.printf "\n find_simple_med2_ls between chrom1=%d and chrom2=%d.\n" 
+    chrom1.ref_code chrom2.ref_code;
     let chrom_len1 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom1.seq_arr in 
     let chrom_len2 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom2.seq_arr in 
     if (chrom_len1 < 2) then 0,0, [chrom2]
@@ -569,9 +573,6 @@ Printf.printf "\n find_simple_med2_ls between chrom1=%d and chrom2=%d.\n" chrom1
                          alied_seq2, dir2 =  ali_chrom.((abs index)) in
                          let tmpseq = Sequence.delete_gap alied_med in
                          let refcode =  Utl.get_new_seq_ref_code() in
-                         Printf.printf "check alied_med, index=%d, ref=%d, seq_len=%d \n%!" 
-                         refcode index (Sequence.length tmpseq);
-                         printSeq alied_med;
                          {seq= Sequence.delete_gap alied_med; 
                          (* check top...type seq_t, 
                          segment sequence, why put alied_med seq here? *)  
@@ -586,7 +587,6 @@ Printf.printf "\n find_simple_med2_ls between chrom1=%d and chrom2=%d.\n" chrom1
                     ) index_ls []
             in
             let lstrefcode = Utl.get_new_chrom_ref_code () in
-            Printf.printf "filling in med finished, list refcode=%d \n%!" lstrefcode;
             {seq_arr = Array.of_list med; 
              ref_code = lstrefcode;
              ref_code1 = chrom1.ref_code;
@@ -642,17 +642,19 @@ let find_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
     let ali_pam = get_annchrom_pam annchrom_pam in          
     match ali_pam.symmetric with
     | true ->
-              Printf.printf "~~~ annchromAli.ml find_med2_ls, call find_simple_med2_ls to get cost12: " ;
+         if debug then 
+                Printf.printf "~~~ annchromAli.ml find_med2_ls, call find_simple_med2_ls to get cost12: " ;
           let cost12, recost12, med12_ls = find_simple_med2_ls chrom1 chrom2
               cost_mat alpha ali_pam in 
           let ali_pam = 
               if ali_pam.approx = `First then {ali_pam with approx = `Second}
               else ali_pam
           in 
-         Printf.printf "cost12 = %d, call ... to get cost21 => " cost12;
+           if debug then 
+          Printf.printf "cost12 = %d, call ... to get cost21 => " cost12;
            let cost21, recost21, med21_ls = find_simple_med2_ls chrom2 chrom1
               cost_mat alpha ali_pam in 
-          Printf.printf "cost21 = %d \n" cost21;
+           if debug then  Printf.printf "cost21 = %d \n" cost21;
           if cost12 <= cost21 then cost12, recost12, med12_ls
           else begin 
               let med12_ls = List.map swap_med med21_ls in 
@@ -1044,7 +1046,8 @@ let assign_single_nonroot parent child child_ref c2 annchrom_pam =
                   | false ->
                           parent_seq_t.alied_seq2,parent_seq_t.seq_ord2
                 in
-                Printf.printf "len of ungap_alied_med is %d, " (Sequence.length
+                if debug then  
+                     Printf.printf "len of ungap_alied_med is %d, " (Sequence.length
                 alied_single_seq);
                 let ungap_alied_med = Sequence.fold_righti 
                   (fun ungap_alied_med p code ->
