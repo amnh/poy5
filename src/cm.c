@@ -139,6 +139,8 @@ cm_set_gap (cmt c, int v) {
     return;
 }
 
+
+
 #ifdef _WIN32
 static __inline void
 #else
@@ -170,6 +172,30 @@ static inline void
 cm_set_level (cmt c, int v) {
     assert(c != NULL);
     c->level = v;
+    return;
+}
+
+// gap_start is the first code in alphabet has gap.
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_gap_startNO (cmt c, int v) {
+    assert(c != NULL);
+    c->gap_startNO = v;
+    return;
+}
+
+
+#ifdef _WIN32
+static __inline void
+#else
+static inline void
+#endif
+cm_set_gap_startNO_3d (cm_3dt c, int v) {
+    assert(c != NULL);
+    c->gap_startNO = v;
     return;
 }
 
@@ -482,7 +508,7 @@ cm_CAML_bigarr_to_comb2list (value bigarr, value cm) {
  */
 cmt 
 cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
-        int is_metric, int all_elements, cmt res, int level, int comb_num) {
+        int is_metric, int all_elements, cmt res, int level, int comb_num, int gap_startNO) {
     size_t size; 
     size_t combmatrix_size; 
     size_t comb2list_size; 
@@ -498,11 +524,13 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         if( (level >1)&&(level<=a_sz) )
         {
             cm_set_gap(res, a_sz);
+            cm_set_gap_startNO(res,gap_startNO);
             cm_set_a_sz (res, comb_num);
         }
         else
         {
             cm_set_gap (res, 1 << (a_sz - 1));
+            cm_set_gap_startNO(res,0);
             cm_set_a_sz (res, cm_combinations_of_alphabet (a_sz));
         }
         cm_set_combinations (res);
@@ -594,7 +622,7 @@ cm_ini_comb2list (cmt res, int map_sz)
  */
 cm_3dt 
 cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
-        int all_elements, int level, int comb_num, cm_3dt res) {
+        int all_elements, int level, int comb_num, int gap_startNO, cm_3dt res) {
     int size;
     int combmatrix_size; 
     int comb2list_size;
@@ -614,11 +642,13 @@ cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
         {
             cm_set_gap_3d(res, a_sz);
             cm_set_a_sz_3d (res, comb_num);
+            cm_set_gap_startNO_3d(res, gap_startNO);
         }
         else
         {
             cm_set_gap_3d (res, 1 << (a_sz - 1));
             cm_set_a_sz_3d (res, cm_combinations_of_alphabet (a_sz));
+             cm_set_gap_startNO_3d(res,0);
         }
         cm_set_lcm_3d (res, a_sz);
         cm_set_combinations_3d (res);
@@ -640,15 +670,23 @@ cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
     else
         size = (1 << (res->lcm + 1)) * (1 << (res->lcm + 1)) * (1 << (res->lcm + 1));
     res->comblist_2_combcode = (int *) calloc(combmatrix_size,1);
+    if(res->comblist_2_combcode == NULL)
+        fprintf(stderr,"Cannot allocate the map of combination codelist to combination code, with size=%d\n",combmatrix_size);
     res->combcode_2_comblist =  (int *) calloc( comb2list_size,1);
-    res->cost = (int *) calloc (size * sizeof(int), 1);
+    if(res->combcode_2_comblist==NULL) 
+         fprintf(stderr,"Cannot allocate the map of combination code to combination codelist, with size=%d\n",comb2list_size);
     res->median = (SEQT *) calloc (size * sizeof(SEQT), 1);
+    if (res->median == NULL)
+        fprintf(stderr,"Cannot allocate cost matrix with size=%d\n",size*sizeof(SEQT));
+    res->cost = (int *) calloc (size * sizeof(int), 1);
+    if (res->cost == NULL)
+        fprintf(stderr,"Cannot allocate median matrix with size=%d\n",size*sizeof(int));
     if ((res->cost == NULL) || (res->median == NULL) || (res->comblist_2_combcode==NULL) || (res->comblist_2_combcode == NULL)) {
         free (res->comblist_2_combcode);
         free (res->combcode_2_comblist);
         free (res->cost);
         free (res->median);
-        failwith ("Memory error during cost 3D matrix allocation.");
+        failwith ("Memory error during cost 3D matrix allocation. If the total size of memory in need is bigger than 4G, you might need to compile POY with 64bit ocaml compiler\n");
     }
     return res;
 }
@@ -734,6 +772,15 @@ cm_get_level_3d (const cm_3dt c) {
     return c->level;
 }
 
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_get_gap_startNO (const cmt c) {
+    assert(c != NULL);
+    return c->gap_startNO;
+}
 
 #ifdef _WIN32
 __inline SEQT
@@ -1486,6 +1533,7 @@ cm_CAML_deserialize (void *v) {
     n->ori_a_sz = deserialize_sint_4();
     n->level = deserialize_sint_4();
     n->map_sz = deserialize_sint_4();
+    n->gap_startNO = deserialize_sint_4();
     // add above for level
     n->a_sz = deserialize_sint_4();
     n->lcm = deserialize_sint_4();
@@ -1538,6 +1586,7 @@ cm_CAML_deserialize_3d (void *v) {
     n->ori_a_sz = deserialize_sint_4();
     n->level = deserialize_sint_4();
     n->map_sz = deserialize_sint_4();
+    n->gap_startNO = deserialize_sint_4();
     //add above for level
     n->a_sz = deserialize_sint_4();
     n->lcm = deserialize_sint_4();
@@ -1586,6 +1635,7 @@ cm_CAML_serialize (value vcm, unsigned long *wsize_32, \
     serialize_int_4(c->ori_a_sz);
     serialize_int_4(c->level);
     serialize_int_4(c->map_sz);
+    serialize_int_4(c->gap_startNO);
     // add above for level
     serialize_int_4(c->a_sz);
     serialize_int_4(c->lcm);
@@ -1629,6 +1679,7 @@ cm_CAML_serialize_3d (value vcm, unsigned long *wsize_32, \
     serialize_int_4(c->ori_a_sz);
     serialize_int_4(c->level);
     serialize_int_4(c->map_sz);
+    serialize_int_4(c->gap_startNO);
     // add above for level
     serialize_int_4(c->a_sz);
     serialize_int_4(c->lcm);
@@ -1776,10 +1827,10 @@ cm_CAML_clone (value v) {
     c = Cost_matrix_struct(v);
     if (c->combinations)
         cm_set_val (c->lcm, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz);
+                c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO);
     else
         cm_set_val (c->a_sz, c->combinations, c->cost_model_type, \
-                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz);
+                c->gap_open, c->is_metric, c->all_elements, clone2, 1, c->a_sz, 0);
     level = c->level;
     a_sz = c->map_sz;
     combmatrix_size = (c->map_sz+1)  * (c->map_sz+1);
@@ -1809,7 +1860,7 @@ cm_CAML_clone_3d (value v) {
     clone2 = Cost_matrix_struct_3d(clone);
     c = Cost_matrix_struct_3d(v);
     cm_set_val_3d (c->lcm, c->combinations, c->cost_model_type, \
-            c->gap_open, c->all_elements, c->level, c->map_sz, clone2);
+            c->gap_open, c->all_elements, c->level, c->map_sz, c->gap_startNO, clone2);
     len = (c->a_sz + 1) * (c->a_sz + 1) * (c->a_sz + 1);
     cm_copy_contents (c->cost, clone2->cost, len);
     cm_copy_contents_seqt (c->median, clone2->median, len);
@@ -1957,6 +2008,12 @@ cm_CAML_get_map_sz_3d (value c) {
     CAMLreturn (Val_int((cm_get_map_sz_3d (Cost_matrix_struct_3d(c)))));
 }
 
+
+value 
+cm_CAML_get_gap_startNO (value c) {
+    CAMLparam1 (c);
+    CAMLreturn (Val_int((cm_get_gap_startNO (Cost_matrix_struct(c)))));
+}
 
 value 
 cm_CAML_get_level (value c) {
@@ -2246,7 +2303,7 @@ cm_CAML_get_tail (value a, value v) {
 }
 
 value
-cm_CAML_create_3d (value a_sz, value combine, value aff, value go, value d, value all, value level, value map_sz) {
+cm_CAML_create_3d (value a_sz, value combine, value aff, value go, value d, value all, value level, value map_sz, value gap_startNO) {
     CAMLparam5(a_sz, combine, aff, go, d);
     CAMLxparam1(all);
     value tmp;
@@ -2254,33 +2311,33 @@ cm_CAML_create_3d (value a_sz, value combine, value aff, value go, value d, valu
     tmp = alloc_custom (&cost_matrix_3d, sizeof(struct cm_3d), 1, 1000000);
     tmp2 = Cost_matrix_struct_3d(tmp);
     cm_set_val_3d (Int_val(a_sz), Bool_val(combine), Int_val(aff), \
-            Int_val(go), Int_val(all), Int_val(level), Int_val(map_sz), tmp2);
+            Int_val(go), Int_val(all), Int_val(level), Int_val(map_sz), Int_val(gap_startNO), tmp2);
     CAMLreturn(tmp);
 }
 
 value 
 cm_CAML_create_3d_bc (value *argv, int argn) {
-    return (cm_CAML_create_3d (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],argv[6], argv[7]));
+    return (cm_CAML_create_3d (argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],argv[6], argv[7],argv[8]));
 }
 
 
 value
-cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value level, value combine_number) {
+cm_CAML_create (value a_sz, value combine, value aff, value go, value all, value level, value combine_number, value gap_start) {
     CAMLparam5(a_sz, combine, aff, go, all);
-    CAMLxparam2(level, combine_number);
+    CAMLxparam3(level, combine_number, gap_start);
     value tmp;
     cmt tmp2;
     tmp = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     tmp2 = Cost_matrix_struct(tmp);
     cm_set_val (Int_val(a_sz), Bool_val(combine), Int_val(aff), Int_val(go), \
-            0, Int_val(all), tmp2, Int_val(level), Int_val(combine_number));
+            0, Int_val(all), tmp2, Int_val(level), Int_val(combine_number), Int_val(gap_start));
     CAMLreturn(tmp);
 }
 
 value 
 cm_CAML_create_bytecode (value * argv, int argn){
     return (cm_CAML_create 
-        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5],argv[6]));
+        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5],argv[6],argv[7]));
 }
 
 value 
@@ -2328,7 +2385,7 @@ cm_CAML_clone_to_3d (value c) {
     res = alloc_custom (&cost_matrix_3d, sizeof(struct cm_3d), 1, 1000000);
     final = Cost_matrix_struct_3d(res);
     cm_set_val_3d (init->lcm, init->combinations, init->cost_model_type, \
-            init->gap_open, init->all_elements, init->level, init->map_sz,final);
+            init->gap_open, init->all_elements, init->level, init->map_sz, init->gap_startNO, final);
     len = init->map_sz;
     cm_copy_contents (init->combmap, final->comblist_2_combcode,(len+1)*(len+1));
     cm_copy_contents (init->comb2list, final->combcode_2_comblist, (len+1)*(2+1));
