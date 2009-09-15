@@ -29,6 +29,7 @@ let debug_join_fn = false
 let debug_branch_fn = false (* downpass and given branch lengths *)
 let debug_cost_fn = false
 let debug_uppass_fn = false
+let debug_downpass_fn = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -472,7 +473,7 @@ with type b = AllDirNode.OneDirF.n = struct
             let generate_root_and_assign_it rootg edge ptree =
                 let a, b =
                     match edge with
-                    | `Edge x -> x
+                    | `Edge x ->  x
                     | `Single a -> a, a
                 in
                 let root, rooth = get_root_direction rootg in
@@ -505,6 +506,8 @@ with type b = AllDirNode.OneDirF.n = struct
             let comp = Ptree.get_component_root handle ptree in
             match comp.Ptree.root_median with
             | Some ((`Edge (a, b)) as edge, rootg) ->
+                    if debug_uppass_fn then 
+                          Printf.printf "root_median is (%d,%d)\n%!" a b;
                     let ptree, root, readjusted = 
                         generate_root_and_assign_it rootg edge ptree 
                     in
@@ -1254,7 +1257,8 @@ with type b = AllDirNode.OneDirF.n = struct
 
     let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
 
-    let downpass ptree = 
+    let downpass ptree =
+        if debug_downpass_fn then Printf.printf "downpass begins....\n%!";
         current_snapshot "AllDirChar.downpass a";
         let res = 
             match !Methods.cost with
@@ -1275,9 +1279,11 @@ with type b = AllDirNode.OneDirF.n = struct
                     --> refresh_all_edges true None true None
         in
         current_snapshot "AllDirChar.downpass b";
+        if debug_downpass_fn then Printf.printf "downpass ends....\n%!";
         res
 
     let uppass ptree = 
+        if debug_uppass_fn then Printf.printf "UPPASS begin: \n%!";
         let tree = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
@@ -1288,6 +1294,7 @@ with type b = AllDirNode.OneDirF.n = struct
             | `Iterative (`ApproxD _)
             | `Iterative (`ThreeD _) -> ptree
         in
+        if debug_uppass_fn then Printf.printf "UPPASS ends. \n%!";
         tree
 
     let rec clear_subtree v p ptree = 
@@ -1726,22 +1733,24 @@ with type b = AllDirNode.OneDirF.n = struct
                 let d = Node.Standard.distance 0. clade_data ndata in
                 Ptree.Cost d
 
-    let cost_fn a b c d e = 
+    let cost_fn a b c d e =
         match !Methods.cost with
-            | `Iterative (`ApproxD _) -> 
+            | `Iterative (`ApproxD _) ->
                     (match cost_fn a b c d e with 
                     | Ptree.Cost x -> Ptree.Cost (abs_float (0.85 *. x))
                     | x -> x)
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal -> (match cost_fn a b c d e with 
+            | `Normal ->
+                    (match cost_fn a b c d e with 
                           | Ptree.Cost x -> Ptree.Cost (abs_float x)
                           | x -> x)
             | `Exhaustive_Strong ->
                     let pc = Ptree.get_cost `Adjusted e in
                     let (nt, _) = join_fn [] a b e in
                     Ptree.Cost (abs_float (((Ptree.get_cost `Adjusted nt) -.  pc)))
+
  
     let root_costs tree = 
         let collect_edge_data edge node acc =
