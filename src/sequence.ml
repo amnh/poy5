@@ -47,10 +47,12 @@ external get : (s -> int -> int) = "seq_CAML_get";;
 
 let get s x =
     assert (x >= 0);
+    if (x>= (length s)) then
+        Printf.printf "error in sequence.get: x=%d while seqlen=%d \n%!" x (length s);
     assert (x < length s);
     get s x
 
-external count : (int -> s -> int) = "seq_CAML_count";;
+external count : (int -> int -> s -> int ) = "seq_CAML_count";;
 
 (*
 let get a b = 
@@ -77,7 +79,11 @@ let check_level cm =
             else false
         in
         uselevel
-    
+
+let prepend_gap s m =
+    prepend s (Cost_matrix.Two_D.gap m);
+    s
+
 let make_empty a =
     let s = create 1 in
     prepend s (Alphabet.get_gap a);
@@ -251,6 +257,12 @@ let of_string_ls str_ls alph =
 
 let to_string seq alph =
     let len = length seq in
+    let seq,len = 
+        if len=0 then
+            (make_empty alph),1    
+        else
+            seq,len
+    in
     let b = Buffer.create len in
     for i = 0 to len - 1 do
         Buffer.add_string b (Alphabet.match_code (get seq i) alph);
@@ -263,10 +275,12 @@ let to_formater seq alph =
     for i = 0 to len - 1 do
         let tmp = get seq i in
         if(tmp=0) then
-                for j = i to len-1 do
-                    let tmpj = get seq j in
-                    Printf.printf "   %d[%d], %!" j tmpj;
-                done;
+            Printf.printf "Warning: try to get code 0 in alphabet map, check the
+            rest of sequence code: \n%!";
+            for j = i to len-1 do
+                let tmpj = get seq j in
+                Printf.printf "  %d[%d], %!" j tmpj;
+            done;
         (*Printf.printf "\n to_formater,i=%d,seq = %s\n%!" i (to_string seq
         * alph);*)
         Buffer.add_string b (
@@ -467,6 +481,16 @@ let is_empty seq gap =
 
 
 module Align = struct
+
+    let code2list = Cost_matrix.Two_D.combcode_to_comblist
+    let list2code = Cost_matrix.Two_D.comblist_to_combcode
+    let print_intlist = Cost_matrix.Two_D.print_intlist
+    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode
+    let get_level = Cost_matrix.Two_D.get_level
+    let get_ori_a_sz = Cost_matrix.Two_D.get_ori_a_sz
+    let get_full_a_sz = Cost_matrix.Two_D.get_map_sz
+    let clear_duplication_in_list = Cost_matrix.Two_D.clear_duplication_in_list
+    let calc_comb_with_gap = Cost_matrix.Two_D.calc_num_of_comb_with_gap
 
     external c_max_cost_2 : s -> s -> Cost_matrix.Two_D.m -> int = "algn_CAML_worst_2"
 
@@ -702,7 +726,16 @@ module Align = struct
 
     let count_gaps s m = 
         let gap = Cost_matrix.Two_D.gap m in
-        count gap s
+        let uselevel = check_level m in
+        if uselevel then
+            let level = Cost_matrix.Two_D.get_level m in
+            let orisize = Cost_matrix.Two_D.get_ori_a_sz m in
+            let totalnum = Cost_matrix.Two_D.get_map_sz m in
+            let numwithgap = 
+                Cost_matrix.Two_D.calc_num_of_comb_with_gap orisize level in
+            count gap (totalnum-numwithgap+1) s 
+        else
+           count gap 0 s 
 
     let cost_2 ?deltaw s1 s2 m1 m2 =
         let deltaw_calc s1len s2len = 
@@ -716,11 +749,19 @@ module Align = struct
                     if dif < lower_limit then lower_limit
                     else v
         in
-        let ls1 = length s1
-        and ls2 = length s2 in
-        assert (ls1 <> 0);
-        assert (ls2 <> 0);
-        let gaps = max (count_gaps s1 m1) (count_gaps s2 m1) in
+        let ls1 = length s1 and ls2 = length s2 in
+        let s1,ls1 = 
+          if ls1=0 then (prepend_gap s1 m1),1
+          else s1,ls1
+        in
+        let s2,ls2 =
+            if ls2=0 then (prepend_gap s2 m1),1 
+            else s2,ls2
+        in
+        (*assert (ls1 <> 0);  assert (ls2 <> 0);*)
+        let g1 = count_gaps s1 m1
+        and g2 = count_gaps s2 m1 in
+        let gaps = max g1 g2 in
         if ls1 >= ls2 then
             let deltaw = gaps + deltaw_calc ls1 ls2 in
             c_cost_2 s1 s2 m1 m2 deltaw
@@ -863,7 +904,7 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
-        let cmp s1 s2 = 
+        let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
                     let _, s1p, s2p, tc, _ = align_affine_3 s1 s2 c in
@@ -973,15 +1014,7 @@ module Align = struct
         median_3 a b c cm
 
     external c_union : s -> s -> s -> unit = "algn_CAML_union"
-
-    let code2list = Cost_matrix.Two_D.combcode_to_comblist
-    let list2code = Cost_matrix.Two_D.comblist_to_combcode
-    let print_intlist = Cost_matrix.Two_D.print_intlist
-    let gap_filter_for_combcode = Cost_matrix.Two_D.gap_filter_for_combcode
-    let get_level = Cost_matrix.Two_D.get_level
-    let get_ori_a_sz = Cost_matrix.Two_D.get_ori_a_sz
-    let clear_duplication_in_list = Cost_matrix.Two_D.clear_duplication_in_list
-
+ 
     let union a b cm =
         let lena = length a and lenb = length b in
         assert(lena == lenb);
@@ -1106,8 +1139,10 @@ module Align = struct
             (* We must recalculate the distance between sequences because the
             * set ditance calculation is an upper bound in the affine gap cost
             * model *)
-            if comp then s2', 0
-            else s2', cost_2 s1 s2' cm m
+            if comp then 
+                s2', 0
+            else
+                s2', cost_2 s1 s2' cm m
         in
         res
 
@@ -2626,7 +2661,7 @@ module Clip = struct
                 (f1 s1), (f2 s2), cost, dif + tip, s1, s1
             in
             match s1, s2 with
-            | `DO s1, `DO s2 -> 
+            | `DO s1, `DO s2 ->
                     let s1, s2, cost = Align.align_2 ~first_gap s1 s2 c m in
                     `DO s1, `DO s2, cost, 0, `DO s1, `DO s2
             | `Last s1, `DO s2
