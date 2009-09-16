@@ -146,6 +146,10 @@ type dyna_initial_assgn = [
             (Sequence.s array) * 
             ((int, int) Hashtbl.t))  ]
 
+type costmatrix_3d = [
+    | `Normal3d of Cost_matrix.Three_D.m
+    | `Empty3d  ]
+
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
@@ -153,7 +157,7 @@ type dynamic_hom_spec = {
     fo : string;
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
-    tcm3d : Cost_matrix.Three_D.m;
+    tcm3d : costmatrix_3d; (*Cost_matrix.Three_D.m;*)
     alph : Alphabet.a;
     state : dyna_state_t;
     pam : dyna_pam_t;
@@ -1576,7 +1580,7 @@ let gen_add_static_parsed_file do_duplicate data file (file_out : Parser.SC.file
                 size 1 1 all_elements
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences "tcm:(1,2)" tcm tcm3d `DO false alphabet file
+            process_parsed_sequences "tcm:(1,2)" tcm (`Normal3d tcm3d) `DO false alphabet file
             `Seq data sequences
         in
         List.fold_left ~f:single_sequence_adder ~init:data file_out.Parser.SC.unaligned
@@ -4048,7 +4052,7 @@ let compute_fixed_states data code =
 
 
 
-let assign_tcm_to_characters data chars tcmfile foname tcm newalph =
+let assign_tcm_to_characters data chars tcmfile foname tcm newalph do_3d =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
     * morphological characters are loaded, an (all, create_tcm:(1,1)) will
@@ -4096,7 +4100,13 @@ let assign_tcm_to_characters data chars tcmfile foname tcm newalph =
                         else (-1)
                     in
                     let tcm = tcm all_elements in
-                    tcm, (Cost_matrix.Three_D.of_two_dim tcm)
+                    let newtcm3d =
+                        match do_3d with
+                        |true -> 
+                                (`Normal3d (Cost_matrix.Three_D.of_two_dim tcm))
+                        |false -> `Empty3d
+                    in
+                    tcm, newtcm3d
             in
             (Dynamic { dspec with tcm = tcmfile; fo = fo; tcm2d = tcm; tcm3d =
                 tcm3; alph = newalph }), 
@@ -4126,7 +4136,7 @@ let assign_tcm_to_characters_from_file data chars file =
                 Parser.TransformationCostMatrix.of_file f, 
                 Some (FileStream.filename f)
     in
-    assign_tcm_to_characters data chars file None tcm None
+    assign_tcm_to_characters data chars file None tcm None true
 
 let classify_characters_by_alphabet_size data chars =
     let is_dynamic_character x = 
@@ -4172,7 +4182,7 @@ let assign_transformation_gaps data chars transformation gaps =
             Cost_matrix.Two_D.of_transformations_and_gaps (size < 7) size
             transformation gaps 
         in
-        assign_tcm_to_characters data chars (Some name) None tcm None) ~init:data alphabet_sizes
+        assign_tcm_to_characters data chars (Some name) None tcm None true) ~init:data alphabet_sizes
 
 let codes_with_same_tcm codes data =
     (* This function assumes that the codes have already been filtered by class
@@ -4204,31 +4214,42 @@ let assign_level data chars level =
                 let oldlevel = Cost_matrix.Two_D.get_level b in
                 let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
                 let combnum =
-                    Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                    ori_sz level 
+                    if level > 1 then
+                        Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                        ori_sz level
+                    else
+                        ori_sz
                 in
-                if combnum<=0 then
-                    let _ = Printf.printf " Assign Level, ori_sz = %d, level=%d, Alphabet size toooooo big \n%!" ori_sz level
-                    in
+                if combnum<=0 then begin
+                    Printf.printf "Alphabet size based on new level is too big.
+                    NO change will be applied.\n%!" ;
                     b,alph
+                end
                 else
-                    let _ = Printf.printf " Assign Level, comb number = %d\n%!" combnum in
-                (*if ori_sz > 15 then 
-                     Printf.printf "Transform:level doesn't do anything here, for
-                    we set level to 1 when alphabet size if bigger than 15\n%!";
-                    b,alph
-                else*)
+                    begin
+                    Printf.printf "Assign new level=%d, combination number = %d\n%!" level combnum;
                     let b = Cost_matrix.Two_D.clone b in
                     let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
                     let newalph =  Alphabet.create_alph_by_level alph level
                     oldlevel in 
                     b,newalph
+                    end
         in
-        (true, a), (fun _ -> b), (Some alph)) codes
+        (true, a), (fun _ -> b), (Some alph)
+        ) codes
     in
-    List.fold_left ~f:(fun acc (a, b, alph) ->
-        assign_tcm_to_characters acc (`Some a) (Some name) 
-        (Some (string_of_int level)) b alph) ~init:data codes
+    List.fold_left ~f:(
+        fun acc (a, b, alph) ->
+            let do_3d = 
+                match alph with
+                | Some x ->
+                    if ( Alphabet.dna = x ) then true
+                    else false
+                | _ -> false
+            in
+            assign_tcm_to_characters acc (`Some a) (Some name) 
+            (Some (string_of_int level)) b alph do_3d
+        ) ~init:data codes
     
 
 let rec assign_affine_gap_cost data chars cost =
@@ -4243,7 +4264,7 @@ let rec assign_affine_gap_cost data chars cost =
             else 
                 b
         in
-        (true, a), (fun _ -> b)) codes
+        (true, a), (fun _ -> b),alph) codes
     in
     let cost = 
         match cost with
@@ -4251,9 +4272,15 @@ let rec assign_affine_gap_cost data chars cost =
         | Cost_matrix.No_Alignment -> "0"
         | Cost_matrix.Affine x -> string_of_int x
     in
-    List.fold_left ~f:(fun acc (a, b) ->
-        assign_tcm_to_characters acc (`Some a) None 
-        (Some cost) b None) ~init:data codes
+    List.fold_left ~f:(
+        fun acc (a, b,alph) ->
+            let do_3d = 
+                if Alphabet.dna = alph then true
+                else false
+            in
+            assign_tcm_to_characters acc (`Some a) None 
+            (Some cost) b None do_3d
+        ) ~init:data codes
 
 let rec assign_prep_tail filler data chars filit =
     match filit with
@@ -4274,7 +4301,7 @@ let rec assign_prep_tail filler data chars filit =
                 (true, a), (fun _ -> b)) codes
             in
             List.fold_left ~f:(fun acc (a, b) ->
-                assign_tcm_to_characters acc (`Some a) None None b None) ~init:data codes
+                assign_tcm_to_characters acc (`Some a) None None b None true) ~init:data codes
 
 let assign_prepend data chars filit =
     assign_prep_tail Cost_matrix.Two_D.fill_prepend data chars filit
@@ -5278,7 +5305,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     let data = add_file [Characters] in
                     file_type_message "input@ sequences";
                     process_molecular_file "tcm:(1,2)" 
-                    Cost_matrix.Two_D.default Cost_matrix.Three_D.default 
+                    Cost_matrix.Two_D.default 
+                    (`Normal3d (Cost_matrix.Three_D.default)) 
                     annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
             | Parser.Is_Phylip | Parser.Is_Hennig -> 
                     let data = add_file [Characters; Trees] in
@@ -5313,7 +5341,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     file_type_message "input@ sequences@ (default)";
                     process_molecular_file 
                     "tcm:(1,2)"
-                    Cost_matrix.Two_D.default Cost_matrix.Three_D.default
+                    Cost_matrix.Two_D.default 
+                    (`Normal3d Cost_matrix.Three_D.default)
                     annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
             | Parser.Is_ComplexTerminals ->
                     let data = add_file [Characters] in

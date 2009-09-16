@@ -35,6 +35,7 @@ struct cm {
     int ori_a_sz; //original alphabet size
     int level; //level = 1,2,3....n. n = ori_a_sz
     int map_sz; // size of combmap matrix
+    int gap_startNO; // first combination code with gap 
     // add above for level
     int a_sz;
     int lcm;
@@ -59,7 +60,15 @@ struct cm {
  */
 typedef struct cm * cmt;
 
-
+/*
+ * check if we are using "level", return 1 when true, 0 for false
+ */
+#ifdef _WIN32
+__inline int
+#else
+inline int
+#endif
+cm_check_level (cmt c);
 
 /* 
  * Retrieves the alphabet size flag from the transformation cost matrix.
@@ -74,6 +83,10 @@ cm_get_ori_a_size (cmt c);
 // Retrieves the level value
 inline int
 cm_get_level (cmt c);
+
+// Retrieves the postion of first code in alpahbet that has "gap" 
+inline int
+cm_get_gap_startNO (const cmt c);
 
 // Retrieves the value at position (a,b) of combination map matrix
 inline int
@@ -166,7 +179,11 @@ inline SEQT
 #endif
 cm_get_median (const cmt t, SEQT a, SEQT b);
 
-
+/* Add for "level"
+ * Retrieves the transformation cost of the elements a and b as stored in the
+ * transformation cost matrix tcm, containing information for an alphabet of
+ * size mapsize. 
+ */
 #ifdef _WIN32
 __inline int
 #else
@@ -281,6 +298,7 @@ struct cm_3d {
     int ori_a_sz;          //original alphabet size, add for level
     int map_sz;            // size of the map for combination code list to combination code, add for level
     int level;              // level value, add for level
+    int gap_startNO;        // the position of fisrt code in alphabet [x1,x2,x3....,x1/x2,x1/x3,.....] that has "gap". 
     int *comblist_2_combcode;   // the combination codelist to combination code map [a,b] --> c
     int *combcode_2_comblist; // the combination code to combination code list map c-->[a,b]
     int *cost;              /** The transformation cost matrix. */

@@ -25,6 +25,7 @@ let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
 exception Illegal_Arguments
 let () = SadmanOutput.register "DynamicCS" "$Revision: 1006 $"
 
+let debug = false
 
 module IntMap = All_sets.IntegerMap
 module IntSet = All_sets.Integers
@@ -296,6 +297,7 @@ let of_list spec genome_ls =
 (** [median a b] creates the median set between dynamic 
 * character sets [a] and [b] *)
 let median code a b =
+    if debug then Printf.printf "dynamicCs.median\n%!";
     match a, b with 
     | SeqCS a, SeqCS b -> SeqCS (SeqCS.median code a b)
     | ChromCS a, ChromCS b -> ChromCS (ChromCS.median2 a b)

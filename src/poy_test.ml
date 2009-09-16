@@ -22,14 +22,12 @@
 module Nodes = AllDirNode.AllDirF
 module Edges = Edge.LazyEdge
 module TreeOps = AllDirChar.F
-module CharOps = AllDirChar.CharScripting
 
 module Parsimony = 
     Scripting.Make 
     (Nodes)
     (Edges) 
     (TreeOps)
-    (CharOps)
 
 let succeed () =
     prerr_string "PASSED";

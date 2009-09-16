@@ -66,6 +66,7 @@ module Two_D = struct
         "cm_CAML_get_comblist"*)
     external set_level : m -> int -> unit = "cm_CAML_set_level"
     external get_level : m -> int = "cm_CAML_get_level"
+    external get_gap_startNO: m -> int = "cm_CAML_get_gap_startNO"
     external comb2list_bigarray : m ->
     (int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array2.t =
 (*
@@ -104,7 +105,7 @@ module Two_D = struct
     external set_tail : int -> int -> m -> unit = "cm_CAML_set_tail"
     external get_tail : int -> m -> int = "cm_CAML_get_tail"
     external get_prepend : int -> m -> int = "cm_CAML_get_prepend"
-    external create : int -> bool -> int -> int -> int -> int -> int -> m = 
+    external create : int -> bool -> int -> int -> int -> int -> int -> int -> m = 
         "cm_CAML_create_bytecode" "cm_CAML_create"
     external clone : m -> m = "cm_CAML_clone"
 
@@ -330,6 +331,11 @@ module Two_D = struct
    let calc_number_of_combinations_by_level a_sz level =
         (*Printf.printf "calculating number of combinations : %!";*)
         let sum = ref 0 in
+        let level = 
+            if level>a_sz then a_sz
+            else if level<1 then 1 
+            else level
+        in
         for i = 1 to level do
             let numerator = p_m_n a_sz i in
             let denominator = factorial i in
@@ -341,9 +347,13 @@ module Two_D = struct
         num_of_combinations
 
    let calc_num_of_comb_with_gap ori_a_sz level =
-        let numerator = p_m_n (ori_a_sz-1) (level-1) in
-        let denominator = factorial (level-1) in
-        (numerator / denominator) 
+       let sum = ref 0 in
+       for i = 1 to (level-1) do
+            let numerator = p_m_n (ori_a_sz-1) i in
+            let denominator = factorial i in
+            sum := (!sum) + (numerator / denominator) 
+       done;
+       (!sum)
 
     let combcode_includes_gap combcode ori_a_sz level totalnum =
         let num_comb_with_gap = calc_num_of_comb_with_gap ori_a_sz level in
@@ -479,7 +489,6 @@ module Two_D = struct
             | _ -> raise(Illegal_List_length)
         in
         if (res==0) then begin
-            Printf.printf "level=%d,%!" (get_level m);
             Printf.printf "could not find combination code by combination list:%!";
             print_intlist lst;
             print_intlist newlist;
@@ -491,9 +500,6 @@ module Two_D = struct
  
    
     let build_maps_comb_and_codelist m ori_a_sz level =
-        Printf.printf "build_maps, map_sz = %d\n%!" (get_map_sz m);
-        (*let comb_to_list = ref All_sets.IntegerMap.empty in
-        let list_to_comb = ref All_sets.IntegerListMap.empty in*)
         (*let c2lmatrix = Array.make_matrix ((get_map_sz m)+1) 3 0 in*)
         let init_arr = Array.init ori_a_sz (fun i -> i+1 ) in
         let init_list = Array.to_list init_arr in 
@@ -522,11 +528,6 @@ module Two_D = struct
                     set_comb2list realcode realcode realcode m;
                   (*  c2lmatrix.(realcode).(1) <- realcode;
                     c2lmatrix.(realcode).(2) <- realcode;*)
-                   (* comb_to_list := 
-                        All_sets.IntegerMap.add (realcode) [realcode] (!comb_to_list);
-                    list_to_comb := 
-                        All_sets.IntegerListMap.add [realcode] realcode
-                        (!list_to_comb);*)
             | lst ->
                     let codelist =
                         List.fold_left 
@@ -551,15 +552,9 @@ module Two_D = struct
                     set_comb2list (List.hd revcodelist) combcode_tl (!count) m;
                   (*  c2lmatrix.(!count).(1) <- (List.hd revcodelist);
                     c2lmatrix.(!count).(2) <- (combcode_tl);*)
-                   (* comb_to_list :=
-                    All_sets.IntegerMap.add (!count) codelist (!comb_to_list);
-                    list_to_comb :=
-                    All_sets.IntegerListMap.add codelist (!count)
-                    (!list_to_comb);*)
                     incr count;
         in
         List.map create_maps comb_list_by_level;
-       (* !comb_to_list, !list_to_comb*)
     ;;
 
     
@@ -588,7 +583,6 @@ module Two_D = struct
                     if (tc < !c) then begin
                         c := tc;
                         best := v;
-                        (*Printf.printf "  v is better, best=%d; " v;*)
                     end else if (tc == !c) then 
                         begin
                             let oldcomblist = combcode_to_comblist (!best) m in
@@ -609,8 +603,6 @@ module Two_D = struct
                                             (*Printf.printf "%d; %!" newcomb;*)
                                             (*print_intlist newlist;*)
                                             best := newcomb;
-                                            (*Printf.printf " combine, best=%d;
-                                            * " (!best);*)
                                          end  
                                     else ()
                                 end
@@ -620,16 +612,14 @@ module Two_D = struct
                 done;
                 let cab = cost a b m in
                 if (cab > !w) then w := cab;
-                 browse_combinations a t a_sz m best c w  comb_withgap comb_num (*comb_to_list
-                 list_to_comb*) level;
+                browse_combinations a t a_sz m best c w  comb_withgap comb_num  level;
         | [] -> ();;
 
-    let rec test_combinations_by_level li lj a_sz m best c w comb_withgap comb_num(*comb_to_list list_to_comb*) level = 
+    let rec test_combinations_by_level li lj a_sz m best c w comb_withgap comb_num level = 
         match li with
         | h :: t ->
-                browse_combinations h lj a_sz m best c w comb_withgap comb_num (*comb_to_list
-                list_to_comb*) level;
-                test_combinations_by_level t lj a_sz m best c w comb_withgap comb_num(*comb_to_list  list_to_comb*) level
+                browse_combinations h lj a_sz m best c w comb_withgap comb_num  level;
+                test_combinations_by_level t lj a_sz m best c w comb_withgap comb_num level
         | [] -> ();;
 
     let rec test_all_combinations li lj a_sz m best c w = 
@@ -649,6 +639,12 @@ module Two_D = struct
         | _, Linnear
         | _, No_Alignment -> fun item -> item
         | _ ->
+                if (check_level m) then
+                (fun item ->
+                    if gap <> item && ( item >= (get_gap_startNO m)  ) then
+                        gap
+                    else item)
+                else
                 (fun item ->
                     if gap <> item && (0 <> (gap land item)) then
                         gap
@@ -719,7 +715,7 @@ module Two_D = struct
         let cleanup = cleanup m in
         if debug then
             Printf.printf "fill cm for some combinations: num_of_comb =%d,
-        combwithgap = %d\n%!" num_of_comb comb_withgap;
+        combwithgap = %d \n%!" num_of_comb comb_withgap;
         let _  = build_maps_comb_and_codelist m a_sz level in
         for i = 1 to num_of_comb do
             let keylist = [i] in
@@ -744,11 +740,10 @@ module Two_D = struct
                 set_worst (i) (j) m !worst;
             done;
         done;
+        if debug then
         for i=1 to num_of_comb do
             for j= 1 to num_of_comb do
-                (*if (get_median i j m)==0 then
-                    Printf.printf "median %d and %d =0!\n" i j;*)
-                  Printf.printf "cost[%d][%d]=%d, median=%d; \n " i j (get_cost i j
+                  Printf.printf "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
                 m) (get_median i j m)
             done;
             print_newline();
@@ -993,9 +988,10 @@ module Two_D = struct
 
     let fill_cost_matrix ?(use_comb=true) ?(level = 0) l a_sz all_elements =
         let num_comb = calc_number_of_combinations_by_level a_sz level in
+        let num_withgap = calc_num_of_comb_with_gap a_sz level in
         let m = 
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
-            use_gap_opening all_elements level num_comb
+            use_gap_opening all_elements level num_comb (num_comb-num_withgap+1)
         in
         let (uselevel:bool) = check_level m in
         let all_elements =
@@ -1268,7 +1264,7 @@ module Three_D = struct
     the a_sz. IF dim is true the matrix will be three dimensional,
     otherwise it will be two dimensional. *)
     external create : 
-        int -> bool -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
+        int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
     external make_three_dim : Two_D.m -> m = "cm_CAML_clone_to_3d"
 
     let use_combinations = true
@@ -1399,8 +1395,11 @@ module Three_D = struct
         let map_sz = Two_D.get_map_sz m
         and ori_a_sz = Two_D.get_ori_a_sz m
         in
-        let is_metric = Two_D.is_metric m in (* we should check is_metric, but
-        where? *)
+        let is_metric = Two_D.is_metric m in
+        if is_metric then ()
+        else 
+              Status.user_message Status.Warning 
+                    "You@ are@ loading@ a@ non-metric@ TCM";
         for i = 1 to map_sz do
             for j = 1 to map_sz do
                 for k = 1 to map_sz do
@@ -1413,13 +1412,10 @@ module Three_D = struct
                         let old_cost = cost i j k nm in
                         (* We pick only one median ammong all options *)
                         if (new_cost<old_cost) then begin
-                            (*assert( (List.length shared_codelst) > 0);*)
                             set_cost i j k nm new_cost;
                             set_median i j k nm inter;
                         end
                         else ();
-                        (*else if (new_cost == old_cost) then 
-                            set_median i j k nm i*)
                     done;
                  done;
             done;
@@ -1429,16 +1425,15 @@ module Three_D = struct
     let of_two_dim m = 
         let nm = make_three_dim m in
         match combine nm with
-        | 0 -> 
+        | 0 ->
                 of_two_dim_no_comb nm m;
                 nm;
         | _ -> 
                 let uselevel = Two_D.check_level m in
-                if (uselevel) then
+                if uselevel then
                     of_two_dim_by_level nm m
                 else 
                     of_two_dim_comb nm m;
-                (*output stdout nm;*)
                 nm;;
 
     let perturbe cm sev prob =

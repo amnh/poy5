@@ -24,6 +24,7 @@ let debug = false
 let debug_exclude = false
 let debug_sets = false
 let debug_set_cost = false
+let debug_treebuild = false
 let odebug = Status.user_message Status.Information
 
 let likelihood_error = 
@@ -367,6 +368,8 @@ let float_close ?(epsilon=0.001) a b =
 
 let failwithf format = Printf.ksprintf (failwith) format
 let rec cs_median code anode bnode prev t1 t2 a b =
+    if  debug_treebuild then
+        Printf.printf "node.ml cs_median => %!";
     match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -493,8 +496,12 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then ca, cb
                 else cb, ca
             in
+            if  debug_treebuild  then
+                Printf.printf "call DynamicCS.median... -> %!";
             let median = DynamicCS.median code ca.preliminary cb.preliminary in
-            let total_cost = DynamicCS.total_cost median in 
+            let total_cost = DynamicCS.total_cost median in
+            if  debug_treebuild  then
+                Printf.printf "back to node.ml cs_median ,total_cost=%f\n" total_cost;
             let res = 
                 { ca with 
                     preliminary = median;
@@ -971,12 +978,16 @@ let median ?branches code old a b =
     let new_characters =
         match old with
         | None -> 
+            if debug_treebuild then
+                Printf.printf "\n node.ml median begin of map4....\n%!";
             map4 (cs_median code a b None)
                 brancha
                 branchb
                 a.characters
                 b.characters
         | Some c ->
+            if debug_treebuild then
+                Printf.printf "\n node.ml median begin of map5....\n%!";
             map5 (fun x -> cs_median code a b (Some x))
                 c.characters
                 brancha
@@ -986,6 +997,8 @@ let median ?branches code old a b =
     in
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost a b node_cost in
+    if debug_treebuild then
+         Printf.printf "end of mapx in node.ml ...tottal_cost=%f\n\n%!" total_cost;
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -1073,6 +1086,8 @@ END
  * uses time data from two correct nodes, [time_1] and [time_2] for the
  * calculation of the median between [nd1] and [nd2]. **)
 let median_w_times code prev nd_1 nd_2 times_1 times_2 = 
+     if debug_treebuild then
+         Printf.printf "node.ml median_w_times...%!";
     let code   = 
         match code with
         | Some code -> code
@@ -1083,6 +1098,8 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
 
     let new_characters = match prev with
         | Some prev ->
+            if debug_treebuild then
+                 Printf.printf "begin of map5 on cs_median....\n%!";
             map5 (fun x -> cs_median code nd_1 nd_2 (Some x) )
                     prev.characters
                     times_1
@@ -1090,6 +1107,8 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
                     nd_1.characters
                     nd_2.characters
         | None ->
+            if debug_treebuild then
+                 Printf.printf " begin of map4 on cs_median....\n%!";
             map4 ( cs_median code nd_1 nd_2 None )
                     times_1
                     times_2
@@ -1101,6 +1120,8 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
     and num_child_edges, num_height = new_node_stats nd_1 nd_2
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
+     if debug_treebuild then
+         Printf.printf "end of mapX in node.ml ...tottal_cost=%f\n\n%!" total_cost;
     { 
         characters = new_characters;
         total_cost =
@@ -2396,6 +2417,8 @@ let estimate_time a b =
     map2 (estimate_) a.characters b.characters
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
+     if debug_treebuild then
+         Printf.printf "node.ml cs_to_single => %!";
     match parent_cs, mine with
     (* | StaticMl cb, StaticMl ca -> 
         IFDEF USE_LIKELIHOOD THEN
@@ -2422,6 +2445,8 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           | Some (Dynamic root) -> Some root.preliminary
           | _ -> None
           in 
+           if debug_treebuild then
+               Printf.printf "call DynamicCS.to_single => annchromCS.to_single \n%!";
           let prev_cost, cost, res = 
               DynamicCS.to_single pre_ref_code 
                     root_pre parent.preliminary mine.preliminary 
@@ -2461,9 +2486,13 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
 
     match root with
     | Some root ->
-        let root_char_opt = List.map (fun c -> Some c) root.characters in 
+        let root_char_opt = List.map (fun c -> Some c) root.characters in
+         if debug_treebuild then
+             Printf.printf "node.ml to_single, begin map3 with cs_to_single --> \n%!";
         let chars = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) )
                         root_char_opt parent.characters mine.characters in
+         if debug_treebuild then
+             Printf.printf "end of map3 in node.ml to_single \n%!";
         let root_cost = get_characters_cost chars in
         { root with 
             characters = chars;
