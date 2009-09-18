@@ -571,7 +571,6 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                     (fun index med ->                     
                          let alied_med, seq_ord1, alied_seq1, seq_ord2,
                          alied_seq2, dir2 =  ali_chrom.((abs index)) in
-                         let tmpseq = Sequence.delete_gap alied_med in
                          let refcode =  Utl.get_new_seq_ref_code() in
                          {seq= Sequence.delete_gap alied_med; 
                          (* check top...type seq_t, 
