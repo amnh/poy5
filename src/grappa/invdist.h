@@ -8,7 +8,7 @@
 #endif
 #include "structs.h"
 
-distmem_t * INVDIST_MEM;
+distmem_t  INVDIST_MEM;
 
 extern double time_linear, time_BH;
 
