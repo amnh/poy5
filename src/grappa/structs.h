@@ -1,6 +1,7 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "uf.h"
@@ -170,6 +171,8 @@ typedef struct
 
 typedef struct
 {
+    int max_gene_num;
+ 
     int *hammingArr;            /* DIST_BP:  (NUMGENES+1)*2 */
 
     int *perm1;                 /* DIST_INV: 2*num_genes + 2 */
@@ -182,6 +185,7 @@ typedef struct
     int *oriented;
     int *cc;
     int *labeled;
+
     component_t *components;
     UFelem *uf;
 
