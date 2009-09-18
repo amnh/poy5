@@ -1359,9 +1359,7 @@ invdist_circular_BH ( struct genome_struct *g1, struct genome_struct *g2,
 void 
 ini_mem_4_invdist ( int num_genes )
 {
-
-    distmem_t newdistmem;
-    distmem_t * distmem = &newdistmem; 
+    distmem_t * distmem = &INVDIST_MEM; 
     distmem->max_gene_num = num_genes;
     distmem->perm1 =
         ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
@@ -1407,8 +1405,6 @@ ini_mem_4_invdist ( int num_genes )
     if ( distmem->components == ( component_t * ) NULL )
     { fprintf ( stderr, "ERROR: components NULL\n" );  fflush(stderr); }
 
-    INVDIST_MEM = distmem;
-
     return;
 }
 
@@ -1439,19 +1435,19 @@ invdist_noncircular_nomem ( struct genome_struct *g1,
                             int offset, int num_genes)
 {
     int dist;
-    int old_num_genes = INVDIST_MEM->max_gene_num;
-    fprintf (stdout, "old num genes = %d \n", old_num_genes); fflush(stdout);
+    distmem_t * distmempointer;
+    distmempointer = &INVDIST_MEM;
+    int old_num_genes = distmempointer->max_gene_num;
     if (old_num_genes >= num_genes) 
     {
-        fprintf (stdout, "use the old mem for invdist\n"); fflush(stdout);
-        dist = invdist_noncircular ( g1, g2, offset, num_genes, INVDIST_MEM );
+        dist = invdist_noncircular ( g1, g2, offset, num_genes, distmempointer );
         return dist;
     }
     else 
     {
-       free_mem_4_invdist(INVDIST_MEM);
+       free_mem_4_invdist(distmempointer);
        ini_mem_4_invdist (num_genes); 
-       dist = invdist_noncircular ( g1, g2, offset, num_genes, INVDIST_MEM);
+       dist = invdist_noncircular ( g1, g2, offset, num_genes, distmempointer);
        return dist;
     }
 
