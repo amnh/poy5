@@ -8,6 +8,8 @@
 #endif
 #include "structs.h"
 
+distmem_t * INVDIST_MEM;
+
 extern double time_linear, time_BH;
 
 void calc_invmatrix ( struct genome_struct *genomes, int num_genes,
@@ -18,6 +20,10 @@ void calc_invmatrix_BH ( struct genome_struct *genomes, int num_genes,
 void setinvmatrix ( int **distmatrix, struct genome_struct *genomes,
                     int num_genes, int num_genomes, distmem_t * distmem,
                     int CIRCULAR );
+
+void free_mem_4_invdist (distmem_t* distmem);
+
+void ini_mem_4_invdist ( int num_genes );
 
 int invdist_noncircular ( struct genome_struct *g1, struct genome_struct *g2,
                           int offset, int num_genes, distmem_t * distmem );
@@ -32,9 +38,9 @@ int invdist_circular_BH ( struct genome_struct *g1, struct genome_struct *g2,
 
 int invdist_noncircular_nomem ( struct genome_struct *g1,
                                 struct genome_struct *g2,
-                                int offset, int num_genes );
+                                int offset, int num_genes);
 int invdist_circular_nomem ( struct genome_struct *g1,
-                             struct genome_struct *g2, int num_genes );
+                             struct genome_struct *g2, int num_genes);
 
 int calculate_offset ( struct genome_struct *g1, struct genome_struct *g2,
                        int num_genes );
