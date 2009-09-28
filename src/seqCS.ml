@@ -21,6 +21,7 @@
 exception Illegal_Arguments
 let () = SadmanOutput.register "SeqCS" "$Revision: 2871 $"
 
+let debug = false
 
 module Codes = All_sets.IntegerMap
 
@@ -607,7 +608,6 @@ module ProtAff = struct
                 prepend res (Cost_matrix.Two_D.gap c2);
                 res
             in
-            Printf.printf "\n 3 \n %!";
             let get_closest v i =
                 let v' = get s1' i in
                 Cost_matrix.Two_D.get_closest c2 v' v 
@@ -746,6 +746,7 @@ module DOS = struct
             { mine with sequence = seqm; costs = rescost }, tmpcost
 
     let median alph code h a b =
+        if debug then Printf.printf "seqCS.DOS.median\n%!"; 
         let gap = Cost_matrix.Two_D.gap h.c2 in
         let level = Cost_matrix.Two_D.get_level h.c2 in
         let size = Cost_matrix.Two_D.get_ori_a_sz h.c2 in
@@ -791,6 +792,11 @@ module DOS = struct
                         in
                         seqm, tmpa, tmpb, tmpcost, seqmwg
             in
+            if debug then begin 
+                Printf.printf "a/b= %!"; 
+                print_seqlist a.sequence; print_seqlist b.sequence;
+                Printf.printf "seqm: %!"; print_seqlist seqm;
+            end;
             let rescost = make_cost tmpcost in
             let ba = seq_to_bitset gap tmpa (Raw a.sequence)
             and bb = seq_to_bitset gap tmpb (Raw b.sequence) 
@@ -1725,7 +1731,11 @@ let to_string a =
     Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
-    let c3 = spec.Data.tcm3d in
+    let c3 = 
+        match spec.Data.tcm3d with
+        | `Normal3d x -> x
+        | `Empty3d -> Cost_matrix.Three_D.default
+    in
     let heur = make_default_heuristic ~c3 spec.Data.tcm2d in
     let create_item (x, _) =
         match spec.Data.initial_assignment, x with
@@ -1856,6 +1866,7 @@ let to_single parent mine =
 
 
 let median code a b =
+    if debug then Printf.printf "seqCS.median\n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in

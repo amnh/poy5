@@ -22,6 +22,7 @@
 
 let () = SadmanOutput.register "AnnchromCS" "$Revision: 1616 $"
 
+let debug = false
 
 let fprintf = Printf.fprintf
 
@@ -64,6 +65,11 @@ let of_array spec arr chcode tcode num_taxa =
         let empty = IntMap.empty in
         Array.fold_left adder (empty, empty, empty) arr
     in
+    let newc3 = 
+        match spec.Data.tcm3d with
+        | `Normal3d x -> x
+        | _ -> Cost_matrix.Three_D.default
+    in
     {
         meds = meds;
         costs = costs;
@@ -72,7 +78,7 @@ let of_array spec arr chcode tcode num_taxa =
         total_recost = 0.0;
         subtree_recost = 0.0;
         c2 = spec.Data.tcm2d;
-        c3 = spec.Data.tcm3d;
+        c3 = newc3;
         alph = spec.Data.alph;
         annchrom_pam = spec.Data.pam;
         code = chcode;
@@ -372,10 +378,13 @@ let get_active_ref_code t =
 (** [to_single ref_codes root single_parent mine] returns
 * the single states of annotated chromosome character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
-     (*Printf.printf "annchromCS.ml to_single -> ";
-     let printmedlist alpha x = Printf.printf "%s" (Annchrom.to_string x alpha) in
-     let printseqarr x = Printf.printf "%s \n " (Sequence.to_string x Alphabet.nucleotides) 
-     in*)
+    if debug then 
+        Printf.printf "annchromCS.ml to_single -> \n%!";
+     let printmedlist alpha x = Printf.printf "%s \n%!" (Annchrom.to_string x alpha) in
+     let printseqarr x = 
+         Printf.printf "len = %d, { %!" (Sequence.length x);
+         Printf.printf "%s } \n%!" (Sequence.to_string x Alphabet.nucleotides) 
+     in
     let previous_total_cost = mine.total_cost in 
     let c2 = mine.c2 in 
     let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
@@ -387,9 +396,11 @@ let to_single ref_codes (root : t option) single_parent mine =
             with Not_found -> List.hd med.Annchrom.med_ls
                 (*failwith "Not found med -> to_formatter -> AnnchromCS"*)
         in  
-         (*Printf.printf "pick a med from mine.meds.med_ls as amed = \n";
-         printmedlist mine.alph amed;
-         print_newline();*)
+         if debug then begin
+             Printf.printf "pick a med from mine.meds.med_ls as amed = \n%!" ;
+             printmedlist mine.alph amed;
+             print_newline();
+         end;
         (* when median =1, there is only one member in parent_med.med_ls*)
         let parent_med = IntMap.find code single_parent.meds in  
         let aparent_med = 
@@ -399,9 +410,11 @@ let to_single ref_codes (root : t option) single_parent mine =
                           ) parent_med.Annchrom.med_ls
             with Not_found -> List.hd parent_med.Annchrom.med_ls
         in
-        (*Printf.printf "pick a med from single_parent.meds.md_ls as aparent_med =";
+        if debug then begin
+            Printf.printf "pick a med from single_parent.meds.md_ls as aparent_med =\n%!" ;
             printmedlist mine.alph aparent_med;
-            print_newline();*)
+            print_newline();
+        end;
         let cost,  recost, single_seq_arr =             
             match root with
             | Some root ->
@@ -413,11 +426,13 @@ let to_single ref_codes (root : t option) single_parent mine =
                    (* let single_seq_arr = 
                       AnnchromAli.to_single aparent_med amed.AnnchromAli.ref_code c2                                   in
                    *)
-                    let single_seq_arr = 
-                      AnnchromAli.assign_single_nonroot aparent_med amed amed.AnnchromAli.ref_code c2 med.Annchrom.annchrom_pam 
-                  in           
-                  (*Printf.printf " call AnnchromAli.to_single, make single_seq_arr out of aparent_med and amed  = \n";
-                  Array.iter printseqarr single_seq_arr;*)
+                   let single_seq_arr = 
+                      AnnchromAli.assign_single_nonroot aparent_med amed amed.AnnchromAli.ref_code c2 med.Annchrom.annchrom_pam in           
+                   if debug then begin
+                        Printf.printf " call AnnchromAli.assign_single_nonroot, 
+                        make single_seq_arr out of aparent_med and amed  = \n%!";
+                        Array.iter printseqarr single_seq_arr;
+                   end;
                   let single_med = 
                       {amed with 
                            AnnchromAli.seq_arr = Array.mapi 
@@ -426,17 +441,21 @@ let to_single ref_codes (root : t option) single_parent mine =
                                            (Sequence.delete_gap single_seq_arr.(idx))}
                               ) amed.AnnchromAli.seq_arr
                       }
-                  in 
+                  in
+                  
                   let cost, recost = AnnchromAli.cmp_cost 
                       single_med aparent_med c2 mine.alph
                       med.Annchrom.annchrom_pam 
                   in 
-                  (*Printf.printf "let single_med become amed with seq_arr replaced by single_seq_arr \n compute the cost between single_med = \n";
-                  printmedlist mine.alph single_med;
-                  Printf.printf " \n AND aparent_med = \n ";
-                  printmedlist mine.alph aparent_med;
-                  print_newline();
-                  Printf.printf "cost = %d \n" cost ;*)
+                  if debug then begin
+                      Printf.printf "let single_med become amed with seq_arr replaced by single_seq_arr \n 
+                      compute the cost between single_med = \n";
+                    printmedlist mine.alph single_med;
+                    Printf.printf " \n AND aparent_med = \n ";
+                    printmedlist mine.alph aparent_med;
+                    print_newline();
+                    Printf.printf "cost = %d \n" cost ;
+                  end;
                   cost, recost, single_seq_arr
         in 
 
@@ -455,7 +474,7 @@ let to_single ref_codes (root : t option) single_parent mine =
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
     in 
-(*Printf.printf "<-- end of annchromCS.ml to_single\n\n\n %!";*)
+    if debug then Printf.printf "<-- end of annchromCS.ml to_single\n\n\n %!";
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;

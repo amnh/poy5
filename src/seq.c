@@ -566,16 +566,34 @@ seq_CAML_assign_pool (value s, value p) {
     CAMLreturn(Val_unit);
 }
 
+// if we are using level, startNO is the first combination code in alphabet that has "gap"
+// if we are not using level (level = 0 or 1 ), set
+// startNO to 0. 
 value
-seq_CAML_count (value gap, value seq) {
-    CAMLparam2(gap, seq);
+seq_CAML_count (value gap, value startNO, value seq) {
+    CAMLparam3(gap, seq, startNO);
     seqt sc;
     int i, cnt = 0;
     SEQT cgap;
+    int start;
     Seq_custom_val (sc,seq);
     cgap = Int_val(gap);
+    start = Int_val(startNO);
+    int tmp;
     for (i = 0; i < sc->len; i++) 
-        if (0 != (cgap & (seq_get (sc, i)))) cnt++;
+    {
+        tmp = seq_get (sc, i); 
+        if(start>0)
+        {
+            if ( (tmp>=start) || (tmp==cgap) )
+            {  cnt++;}
+        }
+        else
+        {
+            if (0 != (cgap & (seq_get (sc, i)))) // when level==1, this is wrong...
+            { cnt++;}
+        }
+    }
     CAMLreturn(Val_int(cnt));
 }
 

@@ -63,6 +63,11 @@ let of_array spec arr chcode tcode num_taxa =
         let empty = IntMap.empty in
         Array.fold_left adder (empty, empty, empty) arr 
     in
+    let newc3 = 
+        match spec.Data.tcm3d with
+        | `Normal3d x -> x
+        | _ -> Cost_matrix.Three_D.default
+    in
     {
         meds = meds;
         costs = costs;
@@ -71,7 +76,7 @@ let of_array spec arr chcode tcode num_taxa =
         total_recost = 0.0;
         subtree_recost = 0.0;
         c2 = spec.Data.tcm2d;
-        c3 = spec.Data.tcm3d;
+        c3 = newc3;
         alph = spec.Data.alph;
         code = chcode;
         chrom_pam = spec.Data.pam;

@@ -27,7 +27,8 @@
 #define Genome_matrix_struct(a) ((struct genome_struct *) Data_custom_val(a))
 
 VertexFactory *newvf = NULL; 
-int DOBRANCH; 
+int DOBRANCH;
+
 
 struct genome_arr_t
 {
@@ -160,7 +161,6 @@ value grappa_CAML_get_one_genome(value c_genome_arr, value c_index) {
     genome->encoding = (genome_arr->genome_ptr + index)->encoding;   
     //strcpy(genome->parent, (genome_arr->genome_ptr + index)->parent);
     
-
 
     CAMLreturn(c_genome); 
 }
@@ -318,3 +318,16 @@ grappa_CAML_inversions (value genes1, value genes2,
     CAMLreturn(result);
 }
 
+void 
+grappa_ini_invdis_mem ( int num_genes)
+{
+    ini_mem_4_invdist(num_genes);
+    return;
+}
+
+value 
+grappa_CAML_initialize (value max_num_genes) {
+    CAMLparam1(max_num_genes);
+    grappa_ini_invdis_mem (Int_val(max_num_genes));
+    CAMLreturn(Val_unit);
+}

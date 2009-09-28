@@ -56,7 +56,7 @@ module Two_D : sig
     * claculating all the possible combinations (effective size 2^a) iff com is
     * true, using the affine cost model aff and gap opening go and gap 
     * extension ge.  *)
-    external create : int -> bool -> int -> int -> int -> int -> int -> m = 
+    external create : int -> bool -> int -> int -> int -> int -> int -> int -> m = 
         "cm_CAML_create_bytecode" "cm_CAML_create"
     
     (** [clone x] creates a fresh copy of the cost matrix x *)
@@ -154,6 +154,9 @@ module Two_D : sig
 
     (* [get_level cm] returns the level value of current alphabet *)
     external get_level : m -> int = "cm_CAML_get_level"
+
+     (* [get_map_sz cm] returns the map size, thus the number of combiantions of current alphabet *)
+    external get_map_sz : m -> int = "cm_CAML_get_map_sz"
 (*
     (* [get_combmap a b m] returns the value on position (a,b) in combination map m*)
     external get_combmap: int -> int -> m -> int = "cm_CAML_get_combmap"
@@ -203,6 +206,13 @@ module Two_D : sig
     *)
     val calc_number_of_combinations_by_level: int -> int -> int 
 
+
+    (*
+    * [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
+    * combination code that contains gap
+    *)
+    val calc_num_of_comb_with_gap : int -> int -> int
+    
     (*
     * [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
     * combination code if the code contains gap code. for example, if gap is
@@ -253,7 +263,7 @@ module Three_D : sig
     * the a_sz. IF dim is true the matrix will be three dimensional,
     * otherwise it will be two dimensional. *)
     external create : 
-        int -> bool -> int -> int -> int -> int -> int -> int ->  m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
+        int -> bool -> int -> int -> int -> int -> int -> int -> int -> m = "cm_CAML_create_3d_bc" "cm_CAML_create_3d"
 
     (** [clone x] creates a fresh copy of the cost matrix x *)
     external clone : m -> m = "cm_CAML_clone_3d"

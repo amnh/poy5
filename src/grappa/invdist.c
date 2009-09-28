@@ -7,6 +7,8 @@
 double time_linear, time_BH;
 #endif
 
+
+
 void
 calc_invmatrix ( struct genome_struct *genomes, int num_genes,
                  int num_genomes, distmem_t * distmem, int CIRCULAR )
@@ -1352,15 +1354,105 @@ invdist_circular_BH ( struct genome_struct *g1, struct genome_struct *g2,
     return ( invdist_noncircular_BH ( g1, g2, offset, num_genes, distmem ) );
 }
 
+
+
+void 
+ini_mem_4_invdist ( int num_genes )
+{
+    distmem_t * distmem = &INVDIST_MEM; 
+    distmem->max_gene_num = num_genes;
+    distmem->perm1 =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->perm1 == ( int * ) NULL )
+    {
+        fprintf ( stderr, "ERROR: perm1 NULL\n" );
+        fflush(stderr);
+    }
+    distmem->perm2 =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->perm2 == ( int * ) NULL )
+    { fprintf ( stderr, "ERROR: perm2 NULL\n" );  fflush(stderr); }
+
+    distmem->perm =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->perm == ( int * ) NULL )
+    { fprintf ( stderr, "ERROR: perm NULL\n" );  fflush(stderr); }
+    distmem->done =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->done == ( int * ) NULL )
+    {  fprintf ( stderr, "ERROR: done NULL\n" );  fflush(stderr); }
+    distmem->greyEdges =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->greyEdges == ( int * ) NULL )
+    { fprintf ( stderr, "ERROR: greyEdges NULL\n" );  fflush(stderr); }
+    distmem->stack =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->stack == ( int * ) NULL )
+    { fprintf ( stderr, "ERROR: stack NULL\n" );  fflush(stderr); }
+    distmem->oriented =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->oriented == ( int * ) NULL )
+    {  fprintf ( stderr, "ERROR: oriented NULL\n" );  fflush(stderr); }
+    distmem->cc = ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->cc == ( int * ) NULL )
+    {  fprintf ( stderr, "ERROR: cc NULL\n" );  fflush(stderr); }
+    distmem->labeled =
+        ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
+    if ( distmem->labeled == ( int * ) NULL )
+    { fprintf ( stderr, "ERROR: labeled NULL\n" );  fflush(stderr); }
+    distmem->components = ( component_t * )
+        malloc ( ( 2 * num_genes + 2 ) * sizeof ( component_t ) );
+    if ( distmem->components == ( component_t * ) NULL )
+    { fprintf ( stderr, "ERROR: components NULL\n" );  fflush(stderr); }
+
+    return;
+}
+
+void
+free_mem_4_invdist (distmem_t* distmem)
+{
+    free ( distmem->components );
+    free ( distmem->labeled );
+    free ( distmem->cc );
+    free ( distmem->oriented );
+    free ( distmem->stack );
+
+    free ( distmem->greyEdges );
+    free ( distmem->done );
+    free ( distmem->perm1 );
+    free ( distmem->perm2 );
+    free ( distmem->perm );
+
+    return;
+}
+
+
+
+
 int
 invdist_noncircular_nomem ( struct genome_struct *g1,
                             struct genome_struct *g2,
-                            int offset, int num_genes )
+                            int offset, int num_genes)
 {
-    distmem_t distmem;
     int dist;
+    distmem_t * distmempointer;
+    distmempointer = &INVDIST_MEM;
+    int old_num_genes = distmempointer->max_gene_num;
+    if (old_num_genes >= num_genes) 
+    {
+        dist = invdist_noncircular ( g1, g2, offset, num_genes, distmempointer );
+        return dist;
+    }
+    else 
+    {
+       free_mem_4_invdist(distmempointer);
+       ini_mem_4_invdist (num_genes); 
+       dist = invdist_noncircular ( g1, g2, offset, num_genes, distmempointer);
+       return dist;
+    }
 
-    distmem.perm1 =
+  
+ /*   distmem.perm1 =
         ( int * ) malloc ( ( 2 * num_genes + 2 ) * sizeof ( int ) );
     if ( distmem.perm1 == ( int * ) NULL )
         fprintf ( stderr, "ERROR: perm1 NULL\n" );
@@ -1400,11 +1492,11 @@ invdist_noncircular_nomem ( struct genome_struct *g1,
         malloc ( ( 2 * num_genes + 2 ) * sizeof ( component_t ) );
     if ( distmem.components == ( component_t * ) NULL )
         fprintf ( stderr, "ERROR: components NULL\n" );
+*/
 
+ //   dist = invdist_noncircular ( g1, g2, offset, num_genes, &distmem );
 
-    dist = invdist_noncircular ( g1, g2, offset, num_genes, &distmem );
-
-
+/*
     free ( distmem.components );
     free ( distmem.labeled );
     free ( distmem.cc );
@@ -1418,15 +1510,16 @@ invdist_noncircular_nomem ( struct genome_struct *g1,
     free ( distmem.perm );
 
     return ( dist );
+    */
 }
 
 int
 invdist_circular_nomem ( struct genome_struct *g1, struct genome_struct *g2,
-                         int num_genes )
+                         int num_genes)
 {
     int offset;
 
     offset = calculate_offset ( g1, g2, num_genes );
 
-    return ( invdist_noncircular_nomem ( g1, g2, offset, num_genes ) );
+    return ( invdist_noncircular_nomem ( g1, g2, offset, num_genes) );
 }

@@ -12,7 +12,6 @@ type genome
 type genome_arr
 
 
-
 external c_get_num_genome : genome_arr -> int = "grappa_CAML_get_num_genome"
 external c_get_num_gene : genome_arr -> int = "grappa_CAML_get_num_gene"
 
@@ -28,7 +27,14 @@ external c_print_genome_arr : genome_arr -> int -> int -> unit = "grappa_CAML_pr
 external c_get_one_genome : genome_arr -> int -> genome = "grappa_CAML_get_one_genome"
 
 (*  for the distance returned *)
-external c_cmp_inv_dis : genome -> genome -> int -> int -> int =  "grappa_CAML_cmp_inv_dis"
+external c_cmp_inv_dis : genome -> genome -> int -> int ->  int 
+=  "grappa_CAML_cmp_inv_dis"
+
+external c_init : int -> unit = "grappa_CAML_initialize" 
+
+let _ =
+    c_init(512)
+
 
 let inversion_distance a b c d = 
     c_cmp_inv_dis a b c (if d then 1 else 0)
