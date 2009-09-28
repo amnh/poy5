@@ -43,9 +43,8 @@
 #define EPSILON      1e-10    //error for numerical calculations
 #define MAX_ITER     10000    //number of iterations for numerical calculations
 #define BL_MIN       1e-8     //minimum branch length 
-#define CAML_ALLOC_2 1000000  //garbage collection trigger --one meg
 
-#define KAHANSUMMATION /* reduce error in sum over likelihood vector? */
+#define KAHANSUMMATION /* should we reduce error in sum of likelihood? */
  
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
@@ -54,7 +53,7 @@
 #define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
-#define CHECK_ZEROES(a,t,n); ;for(t=0;t<n;t++){if(a[t] > EPSILON || a[t] < -EPSILON){failwith("Imaginary eigenvalues");}}
+#define CHECK_ZEROES(a,t,n); for(t=0;t<n;t++){if(a[t] > EPSILON || a[t] < -EPSILON){failwith("Imaginary eigenvalues");}}
 
 /* for unboxing abstract types - get pointer or actual value */
 #define FM_val(v) (*((struct matrix**)Data_custom_val(v)))
@@ -311,12 +310,14 @@ value likelihood_CAML_register (value u) {
     CAMLreturn (Val_unit);
 }
 
-/* calls a full garbage collection, a is used to ensure success. */
-void likelihood_CAML_gc()
+int CAML_ALLOC = 10000; /* # of nodes to alloc before GC kicks in */
+/* n - #taxa, r - #rates, c - #characters, a - alphabet, i - invar?, 
+ * x - holds the number of nodes to keep before GC occurs */
+value likelihood_GC_custom_max( value n )
 {
-    int a; a = 0;
-    a = Int_val( caml_callback(*caml_named_value("likelihood_gc_compact"), Val_int(a)) );
-    assert( a == 0 );
+    CAMLparam1( n );
+    CAML_ALLOC = Int_val( n );
+    CAMLreturn( Val_unit );
 }
 
 value likelihood_CAML_StoBigarray( value s, value p )
@@ -388,8 +389,7 @@ value likelihood_CAML_BigarraytoS( value A, value B )
     }
 
     //set up abstract type
-    lk = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
-                            ret->rates*ret->c_len*ret->stride, CAML_ALLOC_2); 
+    lk = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),1,CAML_ALLOC); 
     ML_val( lk ) = ret;
 
     assert( ML_val(lk) == ret );
@@ -427,8 +427,7 @@ value likelihood_CAML_filter(value as, value ibs)
         for(;i<m;++i)
             area[i] = norm->lv_s[i];
     }
-    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),
-                                            (n-m)*norm->stride*norm->rates, CAML_ALLOC_2);
+    package = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),1,CAML_ALLOC);
     ret = ML_val( package );
     ret->stride = norm->stride;
     ret->c_len = norm->c_len - m;
@@ -1059,8 +1058,7 @@ value likelihood_CAML_median_wrapped_sym
     space = FM_val( tmp );
     expand_matrix( space, 3 * (a->stride * a->stride) );
     /* create new character set, c */
-    ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),
-                                a->rates*a->stride*a->c_len,CAML_ALLOC_2);
+    ml_c = caml_alloc_custom(&likelihood_custom_operations,(sizeof(mll*)),1,CAML_ALLOC);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
@@ -1139,8 +1137,7 @@ value likelihood_CAML_median_wrapped_gtr
     space = FM_val (tmp);
     expand_matrix(space, 3 * (a->stride * a->stride) );
     /* create new character set */
-    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)), 
-                                            a->rates*a->stride*a->c_len, CAML_ALLOC_2);
+    ml_c = caml_alloc_custom(&likelihood_custom_operations, (sizeof(mll*)),1,CAML_ALLOC);
     c = (mll*) malloc( sizeof(mll) );
     CHECK_MEM(c);
     ML_val( ml_c ) = c;
@@ -1369,9 +1366,9 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             //printf ("converging to branch length minimum(%f): %f",temp.time,temp.ll);
             break;
         } else {
-            printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
+            //printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
             //reorder(&left,&middle,&right);
-            //break;
+            break;
         }
     }
     memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
@@ -1384,6 +1381,155 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
         const mll* a, const mll* b, mll* c,double* b_ta,const double b_tb,double* b_mle,
         const double *rates,const double *prob,const int g_n,const double* pi,const double pinvar)
 {
+    /* variables */
+    ptr left, right, middle, best, temp, temp_ptr;
+    mll left_,right_,middle_,best_,temp_;
+    double *PA,*PB,*TMP,ttime1,ttime2,deno,numr;
+    int max_iter,size,bracketed;
+    max_iter = MAX_ITER;
+
+    size = a->c_len * a->stride * a->rates; //size of the entire array
+    /* register temp space and matrices --5 vectors, 3 matrices */
+    expand_matrix( space, (5 * size) + (3 * a->stride * a->stride ) );
+    PA = register_section(space, a->stride*a->stride, 0);
+    PB = register_section(space, a->stride*a->stride, 0);
+    TMP = register_section(space, a->stride*a->stride, 0);
+    /* set up the 'points' --TODO: use C as best */
+    best.vs = &best_; middle.vs = &middle_; left.vs = &left_;
+    right.vs = &right_; temp.vs = &temp_;
+    /* register space */
+    (best.vs)->lv_s = register_section(space,size,0);
+    (middle.vs)->lv_s = register_section(space,size,0);
+    (left.vs)->lv_s = register_section(space,size,0);
+    (right.vs)->lv_s = register_section(space,size,0);
+    (temp.vs)->lv_s = register_section(space,size,0);
+    /* set lengths of vectors in new likelihood structures */
+    (best.vs)->rates = (middle.vs)->rates = a->rates;
+    (left.vs)->rates = (right.vs)->rates = (temp.vs)->rates = a->rates;
+    (best.vs)->c_len = (middle.vs)->c_len = a->c_len;
+    (left.vs)->c_len = (right.vs)->c_len = (temp.vs)->c_len = a->c_len;
+    (best.vs)->stride = (middle.vs)->stride = a->stride;
+    (left.vs)->stride = (right.vs)->stride = (temp.vs)->stride = a->stride;
+    /* invar doesn't change, set all pointers to the same space TEST */
+    (best.vs)->invar = (middle.vs)->invar = a->invar;
+    (left.vs)->invar = (right.vs)->invar = (temp.vs)->invar = a->invar;
+    (best.vs)->lv_invar = (middle.vs)->lv_invar = a->lv_invar;
+    (left.vs)->lv_invar = (right.vs)->lv_invar = (temp.vs)->lv_invar = a->lv_invar;
+    // set up best vectors
+    memcpy( (best.vs)->lv_s, c->lv_s, size * sizeof(double) );
+    memcpy( (middle.vs)->lv_s, c->lv_s, size * sizeof(double) );
+
+    /* set initial times and constants for bracketing */
+    best.time = *b_ta;
+    middle.time = *b_ta;
+    left.time = MAX( BL_MIN, middle.time / 10.0 );
+    right.time = middle.time * 10.0;
+    best.ll = *b_mle;
+    middle.ll = *b_mle;
+    /* if middle = left, then perturbate */
+    if (EPSILON >= fabs (left.time - middle.time)){
+        left.time   = 0.005;
+        middle.time = 0.050;
+        right.time  = 0.500;
+        single_gtr(&middle,PA,PB,U,D,Ui,a,b,middle.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    }
+    // fill in initial data of new points
+    single_gtr(&left,PA,PB,U,D,Ui,a,b,left.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    single_gtr(&right,PA,PB,U,D,Ui,a,b,right.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    /* bracket minimum */
+    bracketed = 1; // true, since we are going to expect the best
+    while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
+        if (left.ll < middle.ll && middle.ll < right.ll){
+            // minimum is to the LEFT, new point < left
+            temp_ptr = right;
+            right = middle;
+            middle = left;
+            left = temp_ptr;
+            ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
+            assert ( ttime1 <= middle.time );
+            single_gtr(&left,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        } else if ( left.ll > middle.ll && middle.ll > right.ll) {
+            // decreasing,  move all points up (middle,right,new)
+            temp_ptr = left;
+            left = middle;
+            middle = right;
+            right = temp_ptr;
+            ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
+            assert( ttime1 >= middle.time );
+            single_gtr(&right,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        } else {
+            printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
+                    left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
+            bracketed = 0;
+            break;
+        }
+    }
+    //assert( left.time <= middle.time && middle.time <= right.time );
+    //printf ("BRACKETED region: %f(%f),\t%f(%f),\t%f(%f)\n",
+    //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
+
+    /* parabolic interpolation */
+    while( bracketed && ((max_iter--) > 0 ) &&
+                      (fabs (middle.time - left.time) > EPSILON) &&
+                      (fabs (right.time - middle.time) > EPSILON) ){
+        /* calculate absissca */
+        ttime1 = (middle.time - left.time) * (middle.ll - right.ll);
+        ttime2 = (middle.time - right.time) * (middle.ll - left.ll);
+        numr = (ttime1 * (middle.time - left.time)) - (ttime2 * (middle.time - right.time));
+        deno = (ttime1 - ttime2) * 2.0;
+        if (deno < 0.0){ //points are colinear
+            numr = -numr;
+            deno = -deno;
+        }
+        if (deno <= EPSILON){
+            break;
+        }
+        // ttime1 is the next time to try 
+        ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
+        single_gtr(&temp,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        // choose best
+        if (best.ll > temp.ll){
+            best.ll = temp.ll;
+            best.time = temp.time;
+            memcpy( (best.vs)->lv_s, (temp.vs)->lv_s, size * sizeof(double) );
+        }
+        // reorder points
+        if(left.time < temp.time && temp.time < middle.time){ //left new middle
+            temp_ptr = right;
+            right = middle;
+            middle = temp;
+            temp = temp_ptr;
+        } else if (temp.time < left.time){ //new left middle
+            temp_ptr = right;
+            right = middle;
+            middle = left;
+            left = temp;
+            temp = temp_ptr;
+        } else if (middle.time < temp.time && temp.time < right.time){ //middle new right
+            temp_ptr = left;
+            left = middle;
+            middle = temp;
+            temp = temp_ptr;
+        } else if (right.time < temp.time){ //middle right new
+            temp_ptr = left;
+            left = middle;
+            middle = right;
+            right = temp;
+            temp = temp_ptr;
+        } else if (EPSILON >= fabs(left.time - temp.time)){
+            //printf ("converging to branch length minimum(%f): %f",temp.time,temp.ll);
+            break;
+        } else {
+            //printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
+            //reorder(&left,&middle,&right);
+            break;
+        }
+    }
+    memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
+    *b_ta = best.time;
+    *b_mle= best.ll;
+
+
 }
 
 //-----------------------------------------------------------------------------

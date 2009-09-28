@@ -1893,8 +1893,14 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = 
-            List.flatten (List.map (group_ml_by_model) (group_by_sets
-            static_ml))
+            (* set garbage collector frequency; multiplier = 4 *)
+            let () = 
+                MlStaticCS.gc_alloc_max 
+                        ((fun m t -> m * ((8 * t) - 5))
+                            4
+                            (!data).Data.number_of_taxa)
+            in
+            List.flatten (List.map (group_ml_by_model) (group_by_sets static_ml))
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
 
         let add_codes ((_, x) as y) = 

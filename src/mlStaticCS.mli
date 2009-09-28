@@ -125,10 +125,15 @@ external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
 
+(** calculates the proporation of similarity between two sequences *)
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
+
 (** [estimate_time a b ] -> time
-* estimates the time between two nodes *)
+* estimates the time between two nodes using proporation (above) *)
 val estimate_time : t -> t -> float * float
+
+(** [gc_alloc_max] -> how many nodes to alloc before a GC is triggered *)
+external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 
 (** [register] -> ()
  * register the likelihood operations for the garbage collection deserialization *)

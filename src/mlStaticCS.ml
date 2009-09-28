@@ -119,6 +119,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
 
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
+external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 
 external loglikelihood: (* vector, priors, probabilities, and %invar -> loglk *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
