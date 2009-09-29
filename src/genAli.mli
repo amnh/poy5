@@ -89,6 +89,19 @@ val multi_swap_locus :
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> bool -> int -> int * int array
 
+
+val create_gen_ali_albert :
+  int ->
+  [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
+  Sequence.s ->
+  Sequence.s ->
+  Sequence.s ->
+  Cost_matrix.Two_D.m ->
+  Alphabet.a ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+  int -> int -> bool -> int * int * int * int * Sequence.s * Sequence.s * Sequence.s
+
+
 (** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
 * where total cost = editing cost + rearrangement cost *)
