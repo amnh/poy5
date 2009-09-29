@@ -56,7 +56,6 @@ let standardize genomeX genomeY =
     sta_genomeX, sta_genomeY
 
 
-
 (** [cmp_inversion_dis genomeX genomeY circular] computes
  * the inversion distance between two given gene orders 
  * [genomeX=(x1, x2, ... xk)] and [genomeY=(y1, y2,..yk)]. 
@@ -65,7 +64,6 @@ let standardize genomeX genomeY =
  * For example: [genomeX] = (-6, 1, 5), [genomeY] = (-5, 1, 6) *)
 let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
     let sta_genomeX, sta_genomeY = standardize genomeX genomeY in
-                        
     let num_gen = Array.length genomeX in  
     let genome_arr = Grappa.c_create_empty_genome_arr 2 num_gen in  
     for index = 0 to num_gen - 1 do
@@ -73,14 +71,38 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
         Grappa.c_set genome_arr 1 index sta_genomeY.(index);   
         
     done;
-
     let g0 = Grappa.c_get_one_genome genome_arr 0 in
     let g1 = Grappa.c_get_one_genome genome_arr 1 in  
-
     let inv_dis = Grappa.c_cmp_inv_dis g0 g1 num_gen circular in   
     inv_dis 
- 
 
+let inv_med_albert (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "],%!";
+    in
+    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
+    let num_gen = Array.length genomeX in  
+    let genome_arr = Grappa.c_create_empty_genome_arr 3 num_gen in  
+    for index = 0 to num_gen - 1 do
+        Grappa.c_set genome_arr 0 index genomeX.(index);   
+        Grappa.c_set genome_arr 1 index genomeY.(index);   
+        Grappa.c_set genome_arr 2 index genomeZ.(index);
+    done;
+    Printf.printf "c_set done~~ %!";
+    let g0 = Grappa.c_get_one_genome genome_arr 0 in
+    let g1 = Grappa.c_get_one_genome genome_arr 1 in 
+    let g2 = Grappa.c_get_one_genome genome_arr 2 in
+    Printf.printf "call inv_med_albert..\n %!";
+    let g_med3 = Grappa.c_inv_med_albert g0 g1 g2 num_gen circular in
+    Printf.printf "end of inv_med_albert...\n%!";
+    let len = Bigarray.Array1.dim g_med3 in
+    let intarr = Array.init len ( 
+        fun index ->
+            g_med3.{index}
+    ) in
+    intarr
 
 
 (** [cmp_breakpoint_dis genomeX genomeY circular] computes
