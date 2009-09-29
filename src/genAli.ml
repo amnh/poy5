@@ -37,15 +37,13 @@ let equal_orientation code1 code2 = compare (abs code1) (abs code2)
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
 * the rearrangement distance between two sequence [seq1] and [seq2] *)
 let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =     
-(*    Utl.printIntArr seq1;
-    Utl.printIntArr seq2; *)
+(*    Utl.printIntArr seq1;  Utl.printIntArr seq2; *)
     let seq1, seq2, reseq2 = match orientation with
     | true -> (Array.map get_orientated_code seq1),
                     (Array.map get_orientated_code seq2),
                     (Array.map get_orientated_code reseq2)
     | false -> seq1, seq2, reseq2
     in
-
     if Array.length seq2 = 0 then 0, 0
     else begin
         let recost1 = 
@@ -59,7 +57,6 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =
                         (UtlGrappa.cmp_oriented_breakpoint_dis com_seq1_arr com_reseq2_arr circular) * cost)                     
             | _ -> 0
         in 
-
         let recost2  = 
             match re_meth with 
             | `Locus_Inversion cost -> 
@@ -68,7 +65,6 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =
                   (UtlGrappa.cmp_oriented_breakpoint_dis seq2 reseq2 circular) * cost   
             end;
         in  
-
         recost1, recost2
     end 
 
@@ -105,19 +101,15 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
         | [] -> best_wagner_seq2_arr
         | code2 :: tl ->
               let added_seq2_ls = added_seq2_ls @ [code2] in 
-
               let wagner_seq2_ls = ref [] in 
-                
               let update partial_seq2 =
                   let cost, (_, _), _, _  = 
                       cmp_cost state seq1 (Array.of_list added_seq2_ls) partial_seq2 
                           gen_cost_mat gap re_meth circular orientation
                   in
                   wagner_seq2_ls := (partial_seq2, cost)::!wagner_seq2_ls;
-
               in 
               let num_w = Array.length best_wagner_seq2_arr in  
-
               let len2 = Array.length best_wagner_seq2_arr.(0) in
               for w = 0 to num_w - 1 do                     
                   for pos = 0 to len2 do
@@ -133,7 +125,6 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
               done; 
               let subseq2 = Array.sub seq2 0 (len2 + 1) in
               update subseq2; 
-
               let wagner_seq2_ls = Sort.list (fun (_, c1) (_, c2) -> c1 < c2) !wagner_seq2_ls in
               let best_w_arr : int array array = Array.init (min kept_wag (List.length wagner_seq2_ls)) 
                         (fun p -> 
@@ -141,8 +132,6 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
                             w2
                         )  
               in
-
-
               add best_w_arr added_seq2_ls tl
     in
     let wagner_seq2_arr = add [|[||]|] [] (Array.to_list seq2) in  
@@ -160,7 +149,6 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
         circular orientation num_done_swap =             
     let len2 = Array.length best_seq2 in  
     let swap_ls = ref [] in 
-
     for donor_pos = 0 to len2 - 2 do
         for rev_pos = donor_pos + 1 to len2 - 1 do 
             let new_seq2 = Utl.swap_item donor_pos rev_pos best_seq2 in 
@@ -172,7 +160,6 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
                 swap_ls := (donor_pos, rev_pos, new_cost)::!swap_ls
        done 
     done;
-
     let swap_ls = 
         List.sort (fun (_, _, s1) (_, _, s2) -> compare s1 s2) !swap_ls
     in 
@@ -188,9 +175,7 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
              then ind_swap_ls 
              else swap::ind_swap_ls) [] swap_ls 
     in 
-                     
     let ind_swap_arr = Array.of_list (List. rev ind_swap_ls) in 
-
     let rec swap num_swap = 
         let new_seq2 = Array.copy best_seq2 in
         for pos = 0 to num_swap - 1 do 
@@ -208,7 +193,6 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
         end 
         else swap (num_swap  / 2)
     in 
-    
     let num_swap = Array.length ind_swap_arr in 
     if (num_swap = 0) then  best_cost, best_seq2
     else begin
@@ -219,13 +203,19 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
                 re_meth max_swap_med circular orientation (num_done_swap + 1)
     end 
 
-        
+
+
+
 (** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
 * where total cost = editing cost + rearrangement cost *)
 let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
         max_swap_med circular orientation =
+(*debug msg
+    Printf.printf "create_gen_ali: seq1/seq2=\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+debug msg*)
     let gap = Alphabet.get_gap alpha in 
     let seq1 = Sequence.to_array seq1 in 
     let seq2 = Sequence.to_array seq2 in 
@@ -247,7 +237,89 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
     in   
     let alied_seq1 = Sequence.of_array alied_seq1 in
     let alied_seq2 = Sequence.of_array alied_seq2 in
+(*debug msg
+   let (recost1,recost2) = recost in
+       Printf.printf "cost=%d, recost1/recost2=%d/%d, alied_seq1/alied_seq2=\n%!"
+       final_cost recost1 recost2;
+    Sequence.printseqcode alied_seq1; Sequence.printseqcode alied_seq2;
+debug msg*)
     final_cost, recost, alied_seq1, alied_seq2  
+
+(* Note: seqXX here is result sequence of alignment before. 
+*  when seq21 and seq22 are different, we need to rearrange seq11 and seq12, so
+* that each item in seq11 match that in seq12. 
+* For example, seq11 = [1,2,3,-,-], seq12 = [1,-,-,4,5], 
+* seq21 = [1,-,6,7], seq22=[1,4,5,-] // I know this is a bad alignment, but still an
+* alignment//. Now, we need to match [1,-,-,4,5] with [1,4,5,-], along with
+* seq11 and seq21.
+* *)
+let re_align seq11 seq12 seq21 seq22 gapcode = 
+    if (Sequence.compare seq12 seq22) = 0 then
+        seq11,seq12,seq21
+    else
+        let len1 = Sequence.length seq12 and len2 = Sequence.length seq22 in
+        let arr11,arr12,arr21,arr22 =
+            if len1>=len2 then 
+                Sequence.to_array seq11, Sequence.to_array seq12,
+                Sequence.to_array seq21, Sequence.to_array seq22
+            else Sequence.to_array seq21,Sequence.to_array seq22,
+                 Sequence.to_array seq11,Sequence.to_array seq12
+        in
+        let finditem_in_array arr item num =
+            let arrlen = Array.length arr in
+            let res = ref arrlen and count = ref num in
+            for i=0 to (arrlen-1) do
+                if (arr.(i) = item) then 
+                    if (!count)=1 then res := i
+                    else count := (!count)-1
+            done;
+            (!res)
+        in
+        let arrlen = Array.length arr12 and arrlen_short = Array.length arr22 in
+        let new_arr = Array.init arrlen 
+        (fun x ->
+            let gapcount = ref 0 in
+            let item1 = Array.get arr12 x in
+            let index2 = 
+                if item1=gapcode then begin 
+                    gapcount := (!gapcount)+1;
+                    finditem_in_array arr22 item1 (!gapcount);
+                end
+                else finditem_in_array arr22 item1 1;
+            in
+            if (index2>=0)&&(index2<arrlen_short) then
+                arr21.(index2)
+            else
+                gapcode
+                ;
+        ) in
+        let new_seq = Sequence.of_array new_arr in
+        if len1>=len2 then seq11,new_seq,seq12
+        else new_seq,seq21,seq22
+    
+
+let create_gen_ali_albert kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3: Sequence.s) (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth max_swap_med circular orientation =
+    let arr1 = Sequence.to_array seq1 
+    and arr2 = Sequence.to_array seq2 
+    and arr3 = Sequence.to_array seq3 in
+    let arr_med3 = ( UtlGrappa.inv_med_albert arr1 arr2 arr3 circular) in 
+    let seq_med = Sequence.of_array arr_med3 in
+    let final_cost1, (recost11,recost12), alied_seq11, alied_seq12 = 
+    create_gen_ali kept_wag state seq1 seq_med gen_cost_mat alpha re_meth max_swap_med circular orientation in
+    let final_cost2, (recost21,recost22), alied_seq21, alied_seq22 = 
+    create_gen_ali kept_wag state seq2 seq_med gen_cost_mat alpha re_meth max_swap_med circular orientation in
+(*debug msg*)
+    Printf.printf "create_gen_ali_albert: seq1/seq2=\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+    Printf.printf "cost1=%d, recost11=%d,recost12=%d, seq11/seq12=\n%!" final_cost1 recost11 recost12;
+    Sequence.printseqcode alied_seq11; Sequence.printseqcode alied_seq12;
+    Printf.printf "cost2 =%d, recost21=%d,recost22=%d, seq21/seq22 = \n%!" final_cost2 recost21 recost22;
+    Sequence.printseqcode alied_seq21; Sequence.printseqcode alied_seq22;
+(*debug msg*)
+    let gapcode = Alphabet.get_gap alpha in
+    let alied_seq1,alied_seq2,alied_seq_med3 = 
+        re_align alied_seq11 alied_seq12 alied_seq21 alied_seq22 gapcode in
+    final_cost1,final_cost2,(recost11+recost12), (recost21+recost22), alied_seq_med3, alied_seq1, alied_seq2  
 
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
@@ -302,8 +374,6 @@ let cmp_cost3 kept_wag seq1 seq2 seq3 med cost_mat gap re_meth cir orientation s
               let cost1, _, _, _ = create_gen_ali_code kept_wag `Breakinv code1_arr code2_arr
                   cost_mat gap re_meth max_swap_med cir orientation
               in 
-
-
               let cost2, _, _, _ = create_gen_ali_code kept_wag `Breakinv code2_arr code1_arr
                   cost_mat gap re_meth max_swap_med cir orientation
               in 
@@ -311,7 +381,6 @@ let cmp_cost3 kept_wag seq1 seq2 seq3 med cost_mat gap re_meth cir orientation s
         | false ->
               let seq1 = Sequence.init (fun id -> code1_arr.(id)) (Array.length code1_arr) in 
               let seq2 = Sequence.init (fun id -> code2_arr.(id)) (Array.length code2_arr) in 
-              
               let cost, _, _, _ = 
                   if Sequence.compare seq1 seq2 < 0 then 
                       create_gen_ali_code kept_wag `Breakinv code1_arr code2_arr 
@@ -322,7 +391,6 @@ let cmp_cost3 kept_wag seq1 seq2 seq3 med cost_mat gap re_meth cir orientation s
               in 
               cost
     in 
-
     let cost1 = cmp_cost2 seq1 med in 
     let cost2 = cmp_cost2 seq2 med in 
     let cost3 = cmp_cost2 seq3 med in 
