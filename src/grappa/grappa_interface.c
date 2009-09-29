@@ -20,6 +20,7 @@
 #include "inversion_median_alberto.h"
 #include "growTree.h"
 #include "condense.h"
+#include "condense3.h"
 #include "inittree.h"
 #include "labeltree.h"
 #include "specialinit.h"
@@ -192,6 +193,99 @@ value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2,
     } 
    
     CAMLreturn(Val_int(distance));
+}
+
+
+value 
+grappa_CAML_inv_med_albert 
+(value c_gene1, value c_gene2, value c_gene3, value num_genes,value circular)
+{
+    CAMLparam5(c_gene1,c_gene2,c_gene3,num_genes,circular);
+    CAMLlocal1(c_genome);
+    struct genome_struct *g1, *g2, *g3;
+    struct genome_struct *con_g1, *con_g2, *con_g3, *con_med;
+    struct genome_struct *output_genome;
+    struct genome_struct *labels = ( struct genome_struct * ) NULL;
+    struct genome_struct *gen[3];
+    int *pred1, *pred2, *stack, *decode, *picked;
+    int CIRCULAR;   
+    int NUM_GENES;
+    int num_cond;
+    int i;
+    g1 = (struct genome_struct *) Data_custom_val (c_gene1);
+    g2 = (struct genome_struct *) Data_custom_val (c_gene2);
+    g3 = (struct genome_struct *) Data_custom_val (c_gene3);
+    CIRCULAR = Int_val(circular);
+    NUM_GENES = Int_val(num_genes);
+    //  not sure I should use &genomeOps here
+    c_genome = alloc_custom(&genomeOps, sizeof (struct genome_struct ), 1, 1000000);
+    output_genome = (struct genome_struct *) Data_custom_val(c_genome);
+//move the allocation outside later...
+    labels = ( struct genome_struct * )
+    malloc ( ( 6 ) * sizeof ( struct genome_struct ) );
+    if ( labels == ( struct genome_struct * ) NULL )
+            fprintf ( stderr, "ERROR: labels NULL\n" );
+    for ( i = 0; i < ( 6 ); i++ )
+    {
+        labels[i].genes = ( int * ) malloc ( NUM_GENES * sizeof ( int ) );
+        if ( labels[i].genes == NULL )
+        {
+            fprintf ( stderr, "ERROR: labels genes  NULL\n" );
+        }
+    }
+    stack = ( int * ) malloc ( ( 2 * NUM_GENES + 1 ) * sizeof ( int ) );
+        if ( stack == ( int * ) NULL )
+            fprintf ( stderr, "ERROR: stack NULL\n" );
+    pred1 = ( int * ) malloc ( ( 2 * NUM_GENES + 1 ) * sizeof ( int ) );
+        if ( pred1 == ( int * ) NULL )
+            fprintf ( stderr, "ERROR: pred1 NULL\n" );
+    pred2 = ( int * ) malloc ( ( 2 * NUM_GENES + 1 ) * sizeof ( int ) );
+        if ( pred2 == ( int * ) NULL )
+            fprintf ( stderr, "ERROR: pred2 NULL\n" );
+    picked = ( int * ) malloc ( ( 2 * NUM_GENES + 1 ) * sizeof ( int ) );
+        if ( picked == ( int * ) NULL )
+            fprintf ( stderr, "ERROR: picked NULL\n" );
+    decode = ( int * ) malloc ( ( 2 * NUM_GENES + 1 ) * sizeof ( int ) );
+        if ( decode == ( int * ) NULL )
+                fprintf ( stderr, "ERROR: decode NULL\n" );
+    decode += NUM_GENES;
+//move malloc above outside later...
+    con_g1 = &labels[2];
+    con_g2 = &labels[3];
+    con_g3 = &labels[4];
+    con_med= &labels[5];
+    condense3 ( g1->genes,
+                g2->genes,
+                g3->genes,
+                con_g1->genes,
+                con_g2->genes,
+                con_g3->genes, NUM_GENES, &num_cond,
+#if 0
+                    pred1, pred2, picked,
+#else
+                    pred1 + num_genes, pred2 + num_genes, picked + num_genes,
+#endif
+                    decode );
+
+      gen[0] = con_g1;
+      gen[1] = con_g2;
+      gen[2] = con_g3;
+      if ( CIRCULAR )
+      albert_inversion_median_circular ( gen,num_cond,con_med->genes );
+      else
+      albert_inversion_median_noncircular ( gen, num_cond, con_med->genes );
+
+      decode3 ( output_genome->genes, 
+              
+              con_med->genes,
+#if 0
+       pred1  ,
+#else
+       pred1 + num_genes ,
+#endif
+       decode, num_cond );
+      long dims[1]; dims[0] = NUM_GENES ;
+      CAMLreturn(alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims));
 }
 
 
