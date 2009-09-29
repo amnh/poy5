@@ -83,6 +83,9 @@ val cmp_max_pair_cost : meds_t -> meds_t -> int * int
 val find_meds3 : meds_t -> meds_t -> meds_t -> meds_t
 
 
+val find_meds3_albert : meds_t -> meds_t -> meds_t -> meds_t
+
+
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the breakinv median [mine] of three breakinv medians 
 * [ch1], [ch2] and [parent] *) 
