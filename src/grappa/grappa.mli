@@ -12,3 +12,5 @@ val c_set : genome_arr -> int -> int -> int -> unit
 val inversions : genome -> genome -> int -> int -> (int * int) list 
 val genomes : int array array -> genome_arr
 val genes : int array array -> genome array
+val c_inv_med_albert: genome -> genome -> genome -> int -> int -> 
+    (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
