@@ -135,16 +135,18 @@ let median2 (a : t) (b : t) =
 (** [median3 p n c1 c2] returns the median set of
 * breakinv character sets [p], [c1] and [c2] *)
 let median3 p n c1 c2 =
-(*    print_endline "median3 in BreakinvCS module"; *)
+    Printf.printf "breakinvCS.ml median3 => \n%!"; 
     let median code  medp res_medians = 
         let med1= IntMap.find code c1.meds in 
         let med2 = IntMap.find code c2.meds in
-        
+  (*      
         let medp12 = Breakinv.find_meds3 medp med1 med2 in
+    * *)
+          let medp12 = Breakinv.find_meds3_albert medp med1 med2 in
           IntMap.add code medp12 res_medians 
 (*        let med12 = Med.find_meds2 med1 med2 p.c2 in 
         IntMap.add code med12 res_medians *)
-    in
+    in 
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
