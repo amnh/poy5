@@ -1,6 +1,8 @@
 #ifndef CONDENSE3_H
 #define CONDENSE3_H
 
+condense3_mem_t CONDENSE3_MEM;
+
 void condense3 ( int *ingene1, int *ingene2, int *ingene3,
                  int *outgene1, int *outgene2, int *outgene3,
                  int num_genes, int *num_cond,
