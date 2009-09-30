@@ -1,6 +1,47 @@
 #include "structs.h"
 #include "condense3.h"
 
+
+void ini_mem_4_cond3 (int num_genes)
+{
+    condense3_mem_t * cond3mem = &CONDENSE3_MEM;
+    cond3mem->max_num_genes = num_genes;
+    cond3mem->stack =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred1 =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred1 += num_genes;
+    cond3mem->pred2 =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred2 += num_genes;
+    cond3mem->picked =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->picked += num_genes;
+    cond3mem->decode =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->decode += num_genes;
+    cond3mem->con_g1 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g1->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_g2 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g2->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_g3 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g3->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_med= (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_med->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+
+    return;
+}
+
+void
+free_mem_4_cond3 (condense3_mem_t * cond3mem)
+{
+    free (cond3mem->con_g1);
+    free (cond3mem->con_g2);
+    free (cond3mem->con_g3);
+    free (cond3mem->con_med);
+    free (cond3mem->stack);
+    free (cond3mem->pred1);
+    free (cond3mem->pred2);
+    free (cond3mem->picked);
+    free (cond3mem->decode);
+    return;
+}
+
 void
 condense3 ( int *ingene1, int *ingene2, int *ingene3,
             int *outgene1, int *outgene2, int *outgene3,
