@@ -96,6 +96,15 @@ let init seq =  {
     recost2 = 0;    
 }
 
+let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
+
+let get_common_seq (med1:breakinv_t) (med2:breakinv_t) (med3:breakinv_t) = 
+    let arr1 = Sequence.to_array med1.seq
+    and arr2 = Sequence.to_array med2.seq
+    and arr3 = Sequence.to_array med3.seq in
+    let res = Utl.get_common3 arr1 arr2 arr3 equal_orientation in
+    res
+
 (** [get_breakinv_pam user_breakinv_pam] returns 
 * user defined parameters used to align two breakinv sequences *)
 let get_breakinv_pam user_breakinv_pam = 
