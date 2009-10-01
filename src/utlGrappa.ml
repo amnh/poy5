@@ -55,6 +55,34 @@ let standardize genomeX genomeY =
     in  
     sta_genomeX, sta_genomeY
 
+let standardize3 genomeX genomeY genomeZ = 
+    let max_index = Array.fold_left 
+        (fun max_gene gene -> max max_gene (abs gene) ) (-1) genomeX 
+    in 
+    let num_gene = Array.length genomeX in  
+    let sta_genomeX = Array.init num_gene (fun index -> index + 1) in
+    let index_arr = Array.make (max_index + 1) 0 in     
+    for idx = 0 to num_gene - 1 do
+        match genomeX.(idx) > 0 with
+        | true -> index_arr.( genomeX.(idx) ) <- (idx + 1)
+        | false -> index_arr.( -genomeX.(idx) ) <- -(idx + 1)
+    done; 
+    let sta_genomeY = Array.init num_gene 
+        (fun idx -> 
+             match genomeY.(idx) > 0 with 
+             | true -> index_arr.(genomeY.(idx)) 
+             | false -> -index_arr.(-genomeY.(idx)) 
+        )
+    in  
+    let sta_genomeZ = Array.init num_gene 
+        (fun idx -> 
+             match genomeZ.(idx) > 0 with 
+             | true -> index_arr.(genomeZ.(idx)) 
+             | false -> -index_arr.(-genomeZ.(idx)) 
+        )
+    in  
+    sta_genomeX, sta_genomeY, sta_genomeZ
+
 
 (** [cmp_inversion_dis genomeX genomeY circular] computes
  * the inversion distance between two given gene orders 
@@ -83,7 +111,15 @@ let inv_med_albert (genomeX : int array) (genomeY : int array) (genomeZ : int ar
         Printf.printf "],%!";
     in
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-    let num_gen = Array.length genomeX in  
+    let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
+    Printf.printf "\n after standardize: %!";
+    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
+    let num_gen = Array.length genomeX in 
+    (* for alert-median3 solver to work , sequence cannot be empty, also there
+    * is a MAX_STR_LEN=2048 macro in grappa, if we need to work on longer sequence, 
+    * modify the macro in structs.h to accomodate your requirement*)
+    assert (num_gen>0); assert(num_gen<=2048);
+    Printf.printf "create empty genome array, num_gen=%d\n%!" num_gen;
     let genome_arr = Grappa.c_create_empty_genome_arr 3 num_gen in  
     for index = 0 to num_gen - 1 do
         Grappa.c_set genome_arr 0 index genomeX.(index);   
