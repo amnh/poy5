@@ -171,6 +171,27 @@ let get_common arr1 arr2 equal =
     let ls2 = List.filter  (fun code2 -> (find_index arr1 code2 equal) != -1) ls2 in
     Array.of_list ls1, Array.of_list ls2
 
+let get_common3 arr1 arr2 arr3 equal =
+    let ls1 = Array.to_list arr1 in
+    let ls2 = Array.to_list arr2 in 
+    let ls3 = Array.to_list arr3 in 
+    let ls1 = List.filter 
+    (fun code1 -> 
+        ( (find_index arr2 code1 equal) != -1 ) && ( (find_index arr3 code1 equal) != -1)
+     ) ls1 
+    in
+    let ls2 = List.filter 
+    (fun code2 -> 
+        ( (find_index arr1 code2 equal) != -1 ) && ( (find_index arr3 code2 equal) != -1)
+     ) ls2 
+    in
+    let ls3 = List.filter 
+    (fun code3 -> 
+        ( (find_index arr1 code3 equal) != -1 ) && ( (find_index arr2 code3 equal) != -1)
+     ) ls3 
+    in
+    Array.of_list ls1, Array.of_list ls2, Array.of_list ls3
+    
 
 (** Given an array [arr], an array index [pos] and a new element 
 * [new_item], this function returns [arr'] where [new_item] 
