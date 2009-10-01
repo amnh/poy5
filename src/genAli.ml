@@ -302,6 +302,7 @@ let create_gen_ali_albert kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
     let arr1 = Sequence.to_array seq1 
     and arr2 = Sequence.to_array seq2 
     and arr3 = Sequence.to_array seq3 in
+    let arr1,arr2,arr3 = Utl.get_common3 arr1 arr2 arr3 equal_orientation in
     let arr_med3 = ( UtlGrappa.inv_med_albert arr1 arr2 arr3 circular) in 
     let seq_med = Sequence.of_array arr_med3 in
     let final_cost1, (recost11,recost12), alied_seq11, alied_seq12 = 
