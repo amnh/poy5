@@ -95,3 +95,5 @@ val find_med3_ls :
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)
 val get_costs : breakinv_t -> int -> int * int
+
+val get_common_seq :  breakinv_t -> breakinv_t -> breakinv_t -> int array * int array * int array
