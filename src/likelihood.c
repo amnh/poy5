@@ -23,6 +23,8 @@
 #include <assert.h>         
 #include <time.h>
     
+#include <pmmintrin.h>      //SSE instrinsics
+
 #include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
 #ifdef USE_LIKELIHOOD   
 #include <math.h>           //log10,exp
@@ -977,6 +979,19 @@ value likelihood_CAML_loglikelihood(value s, value pi, value prob, value pinvar)
 }
 
 
+/** SSE functions for medians */
+#define _mm_hmul_pd(x) _mm_mul_pd(x,_mm_shuffle_pd(x,x,0x11))
+#define load_next2(x) _mm_loadu_pd( x )
+#define load_next1(x) _mm_load_sd( x )
+inline __m128d dotproduct2x2(__m128d a, __m128d b, __m128d pa, __m128d pb){
+    a = _mm_mul_pd( a, pa );        b = _mm_mul_pd( b, pb );
+    return _mm_hadd_pd( a, b );
+}
+inline __m128d dotproduct2x1(__m128d a, __m128d b, __m128d pa, __m128d pb){
+     a = _mm_mul_sd( a, pa );        b = _mm_mul_sd( b, pb );
+    return _mm_shuffle_pd( a, b, 0x00 );
+}
+
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and
  * [b] with the probability matrices [Pa] and [Pb], respectively, for a single
@@ -986,9 +1001,58 @@ value likelihood_CAML_loglikelihood(value s, value pi, value prob, value pinvar)
  * [tmp1] is size of alphabet.
  */
 void
-median_charset(const double* Pa,const double* Pb, const mll* a,const mll* b,
-                mll* c, double* tmp1,const int rate_idx )
+median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
+                mll* cmll, const int rate_idx )
 {
+    double *a,*b,*d;
+    int i,j,p_start,k,nchars,alpha;
+    __m128d a_, b_, pa_, pb_, acc;
+
+    a = amll->lv_s; b = bmll->lv_s;   d = cmll->lv_s;
+    nchars = amll->c_len;
+    alpha = amll->stride;
+
+    d+=rate_idx*nchars*alpha;
+    for(k = 0;k < nchars;++k){
+        for( j = 0,p_start=0; j < alpha; ++j ){
+            acc = _mm_setzero_pd();
+            for( i = alpha; i > 3; i-=4 ){
+                a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                pa_ = load_next2(&Pa[p_start]);
+                pb_ = load_next2(&Pb[p_start]);
+                acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
+                p_start+=2;
+                a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                pa_ = load_next2(&Pa[p_start]);
+                pb_ = load_next2(&Pb[p_start]);
+                acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
+                p_start+=2;
+            }
+            switch( i ){
+                case 3: a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                        pa_ = load_next2(&Pa[p_start]);
+                        pb_ = load_next2(&Pa[p_start]);
+                        acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
+                        p_start+=2; i-=2;
+                case 1: a_ = load_next1(a); ++a; pa_ = load_next1(&Pa[p_start]);
+                        b_ = load_next1(b); ++b; pb_ = load_next1(&Pb[p_start]);
+                        acc = _mm_add_pd( acc, dotproduct2x1(a_,b_,pa_,pb_) );
+                        ++p_start; --i; 
+                        break;
+                case 2: a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                        pa_ = load_next2(&Pa[p_start]);
+                        pb_ = load_next2(&Pa[p_start]);
+                        acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
+                        p_start+=2; i-=2;
+            }
+            _mm_store_sd( d, _mm_hmul_pd( acc ) );
+            a-=alpha; b-=alpha;++d;
+        }
+        a+=alpha; b+=alpha;
+    }
+    return;
+
+    /* GENERATION II
     int i,j,k,a_start,r_start,c_start,p_start;
     r_start = rate_idx * a->stride * a->c_len;
     for(i=0,c_start=0; i < a->c_len; ++i, c_start+=a->stride ){
@@ -1001,9 +1065,9 @@ median_charset(const double* Pa,const double* Pb, const mll* a,const mll* b,
             }
             c->lv_s[a_start] *= tmp1[j];
         }
-    }
+    } */
 
-    /*
+    /* GENERATION I
     int i,j,len,oth;
     oth = rate_idx*(a->stride*a->c_len);
     for(i=0; i < a->c_len; ++i){
@@ -1075,7 +1139,7 @@ value likelihood_CAML_median_wrapped_sym
     /* register temp variables */
     PA = (double*) register_section(space, a->stride*a->stride, 1);
     PB = (double*) register_section(space, a->stride*a->stride, 1);
-    tmp1 = (double*) register_section(space, a->stride*a->stride, 1);
+    tmp1 = register_section( space, b->stride * b->stride, 1 );
     /** 
      *  F(x|r_i,P) = f_right(x*r_i|P) * f_left(x*r_i|P)
      *
@@ -1087,7 +1151,7 @@ value likelihood_CAML_median_wrapped_sym
     for(i=0;i<num_rates;i++){
         compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride,tmp1 );
         compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride,tmp1 );
-        median_charset( PA, PB, a, b, c, tmp1, i );
+        median_charset( PA, PB, a, b, c, i );
     }
     if(a->invar == 1){
         c->lv_invar = (int*) malloc ( c->c_len * sizeof(double));
@@ -1159,7 +1223,7 @@ value likelihood_CAML_median_wrapped_gtr
     for(i=0;i<num_rates;i++){
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
-        median_charset( PA, PB, a,b,c, tmp1, i);
+        median_charset( PA, PB, a,b,c, i);
     }
     if(a->invar == 1){
         c->lv_invar = (int*) malloc( c->c_len * sizeof(double));
@@ -1199,7 +1263,7 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     for(i=0;i<g_n;i++){
         compose_sym( PA, U, D, time_a*gam[i], a->stride,tmp );
         compose_sym( PB, U, D, time_b*gam[i], b->stride,tmp );
-        median_charset( PA, PB, a,b,simp->vs,tmp, i );
+        median_charset( PA, PB, a,b,simp->vs, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
@@ -1214,7 +1278,7 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     for(i=0;i<g_n;i++){
         compose_gtr( PA, U, D, Ui, time_a*gam[i], a->stride, tmp );
         compose_gtr( PB, U, D, Ui, time_b*gam[i], b->stride, tmp );
-        median_charset( PA, PB, a,b,simp->vs,tmp, i );
+        median_charset( PA, PB, a,b,simp->vs, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
