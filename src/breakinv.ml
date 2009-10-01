@@ -163,24 +163,27 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
 
+
 (* [find_meds3_albert medsp meds1 meds2] will use albert-median solver to
 * create a median from 3 input sequences
 * *)
 let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
-     let update3 med1 med2 med3 (best_meds : meds_t) :
-            meds_t = 
-        let cost, (recost1, recost2), med_ls =   
-            BreakinvAli.find_med3_ls med1 med2 med3 meds1.gen_cost_mat  
-                meds1.pure_gen_cost_mat  
-                meds1.alpha meds1.breakinv_pam   
-        in   
-        if cost < best_meds.total_cost then   
-            {best_meds with  
-                 total_cost = cost;  
-                 total_recost = recost1 + recost2;
-                 med_ls = med_ls;   
-                 num_med = List.length med_ls} 
-        else best_meds
+    let update3 med1 med2 med3 (best_meds : meds_t) : meds_t =
+        let arr1,arr2,arr3 = BreakinvAli.get_common_seq med1 med2 med3 in
+        if (Array.length arr1)=0 then best_meds
+        else 
+            let cost, (recost1, recost2), med_ls =   
+                BreakinvAli.find_med3_ls med1 med2 med3 meds1.gen_cost_mat  
+                    meds1.pure_gen_cost_mat  
+                    meds1.alpha meds1.breakinv_pam   
+            in   
+            if cost < best_meds.total_cost then   
+                {best_meds with  
+                     total_cost = cost;  
+                     total_recost = recost1 + recost2;
+                     med_ls = med_ls;   
+                     num_med = List.length med_ls} 
+            else best_meds
     in        
     let init_meds : meds_t = {
         med_ls = []; num_med = 0; 
@@ -203,11 +206,15 @@ let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
                                  ) best_meds2 meds3.med_ls
                             ) best_meds1 meds2.med_ls 
                    ) init_meds meds1.med_ls
-    in 
-    let kept_med_ls = keep meds1.breakinv_pam best_meds.med_ls in
-    {best_meds with  
-         med_ls = kept_med_ls;         
-         num_med = List.length kept_med_ls} 
+    in
+    if best_meds = init_meds then 
+        let _ = Printf.printf "there is no common sequence between the three, call old median3 function instead, \n%!" in
+        find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t)
+    else
+        let kept_med_ls = keep meds1.breakinv_pam best_meds.med_ls in
+        {best_meds with  
+             med_ls = kept_med_ls;         
+             num_med = List.length kept_med_ls} 
  
 
 
