@@ -18,12 +18,14 @@
 \* USA                                                                        */
        
 #include <stdio.h>
-#include <stdlib.h>         //malloc, calloc, srand, RAND_MAX
+#include <stdlib.h>         //malloc, calloc, srand, RAND_MAX, posix_memalign
 #include <string.h>         //memcpy, memset
 #include <assert.h>         
 #include <time.h>
-    
+
+#ifdef __SSE3__
 #include <pmmintrin.h>      //SSE instrinsics
+#endif
 
 #include "config.h"         //defines, if likelihood, USE_LIKELIHOOD
 #ifdef USE_LIKELIHOOD   
@@ -41,18 +43,16 @@
 #include "floatmatrix.h"
 #include "likelihood.h"     //includes floatmatrix
 
-//decent values (time/accuracy)
-#define EPSILON      1e-10    //error for numerical calculations
-#define MAX_ITER     10000    //number of iterations for numerical calculations
-#define BL_MIN       1e-8     //minimum branch length 
+//CONSTANTS
+#define EPSILON      1e-10   // error for numerical calculations
+#define MAX_ITER     10000   // number of iterations for numerical calculations
+#define BL_MIN       1e-8    // minimum branch length 
 
-#define KAHANSUMMATION /* should we reduce error in sum of likelihood? */
+#define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
 
-/* ~CHECK_MEM       -- verify memory was returned properly */
-#define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
 #define CHECK_ZEROES(a,t,n); for(t=0;t<n;t++){if(a[t] > EPSILON || a[t] < -EPSILON){failwith("Imaginary eigenvalues");}}
@@ -79,7 +79,13 @@ value Val_some( value v )
     Store_field( some, 0, v );
     CAMLreturn( some );
 }
-
+/** memory allocation and verification; posix memalign returns 0 on success */
+#define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
+#ifdef __SSE3__
+#define lk_malloc(x,y); if(0!=posix_memalign(&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+#else
+#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+#endif
 //------------------------------------------------------------------------------
 /** 
  * CONVENTIONS:
@@ -138,7 +144,6 @@ void printarrayi( const int* a, const int n )
         printf("[%d] ", a[i]);
     putchar('\n');
 }
-
 /* print out a caml value */
 void CAML_debug( value s )
 {
@@ -151,8 +156,7 @@ void CAML_debug( value s )
     putchar('\n');
 }
 /** creates a random substituation rate matrix
- * each row sums to 0 on diagonal elements
- */
+ * each row sums to 0 on diagonal elements */
 void rand_sub_mat_gtr( double* A, const int n)
 {
     srand( time(NULL) );
@@ -161,14 +165,13 @@ void rand_sub_mat_gtr( double* A, const int n)
         double diag = 0;
         for(j=0;j<n;++j){
             if( i == j ){ continue; }
-            A[i*n+j] = ((double)rand()/(double)RAND_MAX);
+            A[i*n+j] = (double)rand() / (double)RAND_MAX;
             diag = diag + A[i*n+j];
         }
         A[i*n+i] = -diag;
     }
 }
-/** transpose of matrix [A] of [n]x[n], must be square since no reallocation
- * happens */
+/** transpose of matrix [A] of [n]x[n], must be square */
 void transpose( double *A, const int n )
 {
     double tmp;
@@ -182,8 +185,7 @@ void transpose( double *A, const int n )
     }
 }
 /** creates a random symmetric sub-rate matrix
- * each row sums to 0 on diagonal elements
- */
+ * each row sums to 0 on diagonal elements */
 void rand_sub_mat_sym( double* A, const int n)
 {
     srand( time(NULL) );
@@ -223,7 +225,6 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
 {
     mll* s;
     int i,j;
-    printf("serializing...");
     s = ML_val(v);
     caml_serialize_int_4( s->stride );
     caml_serialize_int_4( s->c_len );
@@ -236,7 +237,6 @@ likelihood_CAML_serialize(value v,unsigned long* wsize_32,unsigned long* wsize_6
         for(i = 0; i < s->c_len; ++i)
             caml_serialize_int_4( s->lv_invar[i] );
     }
-    printf(" done!\n");
     return;
 }
 
@@ -246,15 +246,13 @@ unsigned long likelihood_CAML_deserialize( void* v )
     mll* s;
     double* lk_vec;
     int *pinvar,i,j;
-    printf("deserializing...");
     s = (mll *) v;
     s->stride = caml_deserialize_sint_4();
     s->c_len  = caml_deserialize_sint_4();
     s->rates  = caml_deserialize_sint_4();
     s->invar  = caml_deserialize_sint_4();
     j = s->stride * s->c_len * s->rates;
-    lk_vec = (double*) malloc( sizeof(double)*j );
-    CHECK_MEM(lk_vec);
+    lk_malloc( lk_vec, sizeof(double)*j);
     for(i = 0; i < j; ++i)
         lk_vec[i] = caml_deserialize_float_8();
     s->lv_s = lk_vec;
@@ -265,7 +263,6 @@ unsigned long likelihood_CAML_deserialize( void* v )
             pinvar[i] = caml_deserialize_sint_4();
         s->lv_invar = pinvar;
     }
-    printf(" done!\n");
     return (sizeof( mll ));
 }
 
@@ -306,7 +303,8 @@ static struct custom_operations likelihood_custom_operations  = {
 };
 
 /* registration with ocaml GC */
-value likelihood_CAML_register (value u) {
+value likelihood_CAML_register (value u)
+{
     CAMLparam1(u);
     register_custom_operations (&likelihood_custom_operations);
     CAMLreturn (Val_unit);
@@ -371,8 +369,7 @@ value likelihood_CAML_BigarraytoS( value A, value B )
     ret->stride = Bigarray_val(A)->dim[2];
 
     //allocate new and copy
-    lkvec = (double*) malloc( ret->rates * ret->c_len * ret->stride * sizeof(double));
-    CHECK_MEM(lkvec);
+    lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
     memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = lkvec;
 
@@ -401,7 +398,7 @@ value likelihood_CAML_BigarraytoS( value A, value B )
 /**
  * filters an ml struct with all the indexes in the passed array --ordered
  *
- * TODO with invar
+ * TODO with invar/aligned SSE data
  */
 value likelihood_CAML_filter(value as, value ibs)
 {  
@@ -502,7 +499,7 @@ mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, doub
     double work_size, *work;
 
     lwork = -1;
-    pivot = (int*) malloc(n * sizeof(double));
+    pivot = (int*) malloc(n * sizeof(int));
     memcpy(VL, VR, n*n*sizeof(double) ); //TODO: is this a problem?
     dgetrf_(&n, &n, VL, &n, pivot, &i);
     if( 0 == i ){
@@ -979,9 +976,12 @@ value likelihood_CAML_loglikelihood(value s, value pi, value prob, value pinvar)
 
 
 /** SSE functions for medians */
-#define _mm_hmul_pd(x) _mm_mul_pd(x,_mm_shuffle_pd(x,x,0x11))
-#define load_next2(x) _mm_loadu_pd( x )
-#define load_next1(x) _mm_load_sd( x )
+#ifdef __SSE3__
+//some definitions to make reasoning easier.
+#define _mm_hmul_pd(x)  _mm_mul_pd(x,_mm_shuffle_pd(x,x,_MM_SHUFFLE2(0,1))) 
+#define load_next2(x)   _mm_load_pd( x )
+#define load_next1(x)   _mm_load_sd( x )
+
 inline __m128d dotproduct2x2(__m128d a, __m128d b, __m128d pa, __m128d pb){
     a = _mm_mul_pd( a, pa );        b = _mm_mul_pd( b, pb );
     return _mm_hadd_pd( a, b );
@@ -990,6 +990,7 @@ inline __m128d dotproduct2x1(__m128d a, __m128d b, __m128d pa, __m128d pb){
      a = _mm_mul_sd( a, pa );        b = _mm_mul_sd( b, pb );
     return _mm_shuffle_pd( a, b, 0x00 );
 }
+#endif
 
 /** [median_c Pa Pb a b c]
  * Finds the likelihood vector [c] based on vectors of its children [a] and
@@ -1003,9 +1004,11 @@ void
 median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
                 mll* cmll, const int rate_idx )
 {
+#ifdef __SSE3__
+    /* GENERATION III */
     double *a,*b,*d;
     int i,j,p_start,k,nchars,alpha;
-    __m128d a_, b_, pa_, pb_, acc;
+    __m128d a_, b_, pa_, pb_, acc, acc1, acc2;
 
     a = amll->lv_s; b = bmll->lv_s;   d = cmll->lv_s;
     nchars = amll->c_len;
@@ -1016,55 +1019,60 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
         for( j = 0,p_start=0; j < alpha; ++j ){
             acc = _mm_setzero_pd();
             for( i = alpha; i > 3; i-=4 ){
-                a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                a_ = load_next2(a); b_ = load_next2(b);
                 pa_ = load_next2(&Pa[p_start]);
                 pb_ = load_next2(&Pb[p_start]);
-                acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
-                p_start+=2;
-                a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
-                pa_ = load_next2(&Pa[p_start]);
-                pb_ = load_next2(&Pb[p_start]);
-                acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
-                p_start+=2;
+                acc1 = dotproduct2x2(a_,b_,pa_,pb_);
+                /** -- */
+                a_ = load_next2(a+2); b_ = load_next2(b+2);
+                pa_ = load_next2(&Pa[p_start+2]);
+                pb_ = load_next2(&Pb[p_start+2]);
+                acc2 = dotproduct2x2(a_,b_,pa_,pb_);
+                /* -- */
+                acc = _mm_add_pd( acc1, acc2 );
+                p_start+=4;a+=4;b+=4;
             }
             switch( i ){
-                case 3: a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                case 3: a_ = load_next2(a);
+                        b_ = load_next2(b);
                         pa_ = load_next2(&Pa[p_start]);
                         pb_ = load_next2(&Pa[p_start]);
                         acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
-                        p_start+=2; i-=2;
-                case 1: a_ = load_next1(a); ++a; pa_ = load_next1(&Pa[p_start]);
-                        b_ = load_next1(b); ++b; pb_ = load_next1(&Pb[p_start]);
+                        p_start+=2; i-=2; a+=2; b+=2;
+                case 1: a_ = load_next1(a); pa_ = load_next1(&Pa[p_start]);
+                        b_ = load_next1(b); pb_ = load_next1(&Pb[p_start]);
                         acc = _mm_add_pd( acc, dotproduct2x1(a_,b_,pa_,pb_) );
-                        ++p_start; --i; 
                         break;
-                case 2: a_ = load_next2(a); a+=2; b_ = load_next2(b); b+=2;
+                case 2: a_ = load_next2(a);
+                        b_ = load_next2(b);
                         pa_ = load_next2(&Pa[p_start]);
                         pb_ = load_next2(&Pa[p_start]);
                         acc = _mm_add_pd( acc, dotproduct2x2(a_,b_,pa_,pb_) );
-                        p_start+=2; i-=2;
             }
             _mm_store_sd( d, _mm_hmul_pd( acc ) );
-            a-=alpha; b-=alpha;++d;
+            a-=(alpha-i); b-=(alpha-i);++d;
         }
         a+=alpha; b+=alpha;
     }
-    return;
 
-    /* GENERATION II
+#else
+
+    /* GENERATION II */
     int i,j,k,a_start,r_start,c_start,p_start;
-    r_start = rate_idx * a->stride * a->c_len;
-    for(i=0,c_start=0; i < a->c_len; ++i, c_start+=a->stride ){
-        for(j=0,p_start=0;j < a->stride; ++j,p_start+=a->stride){
+    r_start = rate_idx * amll->stride * amll->c_len;
+    for(i=0,c_start=0; i < amll->c_len; ++i,c_start+=a->stride ){
+        for(j=0,p_start=0; j < amll->stride; ++j,p_start+=a->stride){
             a_start = r_start + c_start + j;
-            c->lv_s[a_start] = tmp1[j] =0;
-            for(k=0; k < a->stride; ++k){
-                c->lv_s[a_start] += Pa[p_start+k] * a->lv_s[c_start+k];
-                tmp1[j]          += Pb[p_start+k] * b->lv_s[c_start+k];
+            cmll->lv_s[a_start] = tmp1[j] =0;
+            for(k=0; k < amll->stride; ++k){
+                cmll->lv_s[a_start] += Pa[p_start+k] * amll->lv_s[c_start+k];
+                tmp1[j]          += Pb[p_start+k] * bmll->lv_s[c_start+k];
             }
-            c->lv_s[a_start] *= tmp1[j];
+            cmll->lv_s[a_start] *= tmp1[j];
         }
-    } */
+    }
+#endif
+    return;
 
     /* GENERATION I
     int i,j,len,oth;
@@ -1130,10 +1138,8 @@ value likelihood_CAML_median_wrapped_sym
     c->c_len = a->c_len;
     c->rates = a->rates;
     c->invar = a->invar;
-
     //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
-    c->lv_s = (double*) malloc( c->rates * c->c_len * c->stride * sizeof(double));
-    CHECK_MEM(c->lv_s);
+    lk_malloc(c->lv_s, c->rates * c->c_len * c->stride * sizeof(double));
     /* register temp variables */
     PA = (double*) register_section(space, a->stride*a->stride, 1);
     PB = (double*) register_section(space, a->stride*a->stride, 1);
@@ -1209,8 +1215,7 @@ value likelihood_CAML_median_wrapped_gtr
     c->c_len  = a->c_len;
     c->rates  = a->rates;
     c->invar = a->invar;
-    c->lv_s = malloc(c->c_len * c->stride * c->rates * sizeof(double)); 
-    CHECK_MEM(c->lv_s);
+    lk_malloc( c->lv_s, c->c_len * c->stride * c->rates * sizeof(double));
     /* register temp variables */
     PA = register_section( space, b->stride * b->stride, 1 );
     PB = register_section( space, b->stride * b->stride, 1 );
