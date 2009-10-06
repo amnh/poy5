@@ -161,7 +161,7 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
-        LIBS="-framework veclib"
+        LIBS="-framework veclib $LIBS"
         AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")
         ;;
     *)
@@ -175,13 +175,24 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
-AS_IF([test $USE_SSE3 = "true"],
-      [AC_CHECK_HEADER(pmmintrin.h,
-            [AC_CHECK_FUNC(posix_memalign,
-                [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes])],
-                [AC_MSG_FAILURE([posix_memalign not found])])],
-            [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-      AC_MSG_RESULT([not using SSE3]))
+case ${OS_INFORMATION} in
+	*-apple-*)
+		AS_IF([test $USE_SSE3 = "true"],
+			[AC_CHECK_HEADER(pmmintrin.h,
+				[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+			[AC_MSG_RESULT([not using SSE3])])
+		;;
+	*)
+		AS_IF([test $USE_SSE3 = "true"],
+			[AC_CHECK_HEADER(pmmintrin.h,
+       			[AC_CHECK_FUNC(posix_memalign,
+   					[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes])],
+	     			[AC_MSG_FAILURE([posix_memalign not found])])],
+ 				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+			AC_MSG_RESULT([not using SSE3]))
+		;;
+esac
 
 # Check if the user wants SSE3 instructions, copy cflags to temporary variable
 # to compile test SSE3

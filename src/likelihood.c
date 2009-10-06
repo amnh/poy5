@@ -81,10 +81,15 @@ value Val_some( value v )
 }
 /** memory allocation and verification; posix memalign returns 0 on success */
 #define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
-#ifdef __SSE3__
-#define lk_malloc(x,y); if(0!=posix_memalign(&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+
+
+/** MAC alloc functions automatically align data for SSE and MMX type functions **/
+#if defined( __APPLE__ )
+	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+#elif defined( __SSE3__ )
+	#define lk_malloc(x,y); if(0!=posix_memalign(&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #else
-#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #endif
 //------------------------------------------------------------------------------
 /** 
