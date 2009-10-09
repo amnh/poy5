@@ -213,6 +213,16 @@ void rand_sub_mat_sym( double* A, const int n)
 //------------------------------------------------------------------------------
 // O'CAML interface functions for Garbage Collection + callback for a GC
 
+int CAML_ALLOC = 10000; /* # of nodes to alloc before GC kicks in */
+/* n - #taxa, r - #rates, c - #characters, a - alphabet, i - invar?, 
+ * x - holds the number of nodes to keep before GC occurs */
+value likelihood_GC_custom_max( value n )
+{
+    CAMLparam1( n );
+    CAML_ALLOC = Int_val( n );
+    CAMLreturn( Val_unit );
+}
+
 /* release struct ml->lv_s array to pool */
 void likelihood_CAML_free( value v )
 {
@@ -307,6 +317,32 @@ static struct custom_operations likelihood_custom_operations  = {
     (&likelihood_CAML_deserialize)  //deserialize
 };
 
+/* copy a likelihood vector */
+value likelihood_CAML_copy( value x )
+{
+    CAMLparam1( x );
+    CAMLlocal1( r );
+    mll *cur, *ret;
+
+    cur = ML_val( x );
+    ret = (mll*) malloc( sizeof(mll) );
+    CHECK_MEM(ret);
+    ret->rates  = cur->rates;
+    ret->c_len  = cur->c_len;
+    ret->stride = cur->stride;
+    ret->invar  = cur->invar;
+    lk_malloc( ret->lv_s, cur->rates * cur->c_len * cur->stride * sizeof(double) );
+    memcpy( ret->lv_s, cur->lv_s, ret->c_len * cur->rates * cur->stride * sizeof(double));
+    if (1 == ret->invar){
+        ret->lv_invar = (int*) malloc( ret->c_len * sizeof(int));
+        CHECK_MEM(ret->lv_s);
+        memcpy( ret->lv_invar, cur->lv_invar, ret->c_len * sizeof(int) );
+    }
+    r = caml_alloc_custom(&likelihood_custom_operations, sizeof(mll*),1,CAML_ALLOC);
+    ML_val( r ) = ret;
+    CAMLreturn( r );
+}
+
 /* registration with ocaml GC */
 value likelihood_CAML_register (value u)
 {
@@ -315,16 +351,7 @@ value likelihood_CAML_register (value u)
     CAMLreturn (Val_unit);
 }
 
-int CAML_ALLOC = 10000; /* # of nodes to alloc before GC kicks in */
-/* n - #taxa, r - #rates, c - #characters, a - alphabet, i - invar?, 
- * x - holds the number of nodes to keep before GC occurs */
-value likelihood_GC_custom_max( value n )
-{
-    CAMLparam1( n );
-    CAML_ALLOC = Int_val( n );
-    CAMLreturn( Val_unit );
-}
-
+/* convert S to ocaml types (bigarray) for printing */
 value likelihood_CAML_StoBigarray( value s, value p )
 {
     CAMLparam1( s );
@@ -354,9 +381,7 @@ value likelihood_CAML_StoBigarray( value s, value p )
     CAMLreturn( tuple );
 }
 
-/**
- *  convert bigarray.array2 * bigarray.array1 to struct ml
- */
+/*  convert bigarray.array2 * bigarray.array1 to struct ml */
 value likelihood_CAML_BigarraytoS( value A, value B )
 {
     CAMLparam2( A,B );
@@ -835,7 +860,6 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
  *
  *  [a] - length of each vector (in practice, the alphabet size) [P] is [a]x[a]
  *  [c] - the start of the character to do work on
- */
 #ifdef _WIN32
 __inline void 
 #else
@@ -851,7 +875,7 @@ median_h( const double* P, const double* l, const int c_start, double* tmp, cons
             elm += P[(i*a)+j] * l[c_start+j];
         tmp[i] = elm;
     }
-} 
+} */
 
 
 /* calculates the likelihood for the invariant site class */
@@ -865,7 +889,7 @@ loglikelihood_site_invar(const mll* l,const double* pi,const int i)
     num = 1;
     ret = 0.0;
     if( 0 == l->lv_invar[i]){ return ret; }
-    while( j < 32 ){ //TODO:: abstract max alphabet size
+    while( j < 32 ){ //TODO:: max alphabet size
         if ( num & l->lv_invar[i] ){
             ret += pi[j]; //similar to line 846, but lv_s[..] = 1
             set++;
@@ -884,13 +908,15 @@ inline double
 #endif
 loglikelihood_site(const mll* l,const double* pi,const double* prob,const double pinvar,const int i)
 {
-    int j,h;
+    int j,h,r_start,c_start;
     double tmp1,tmp2;
     tmp2 = 0.0;
-    for(h = 0; h < l->rates; ++h) {
+    r_start = 0;
+    for(h = 0; h < l->rates; ++h,r_start += l->c_len ) {
         tmp1 = 0.0;
-        for(j=0;j < l->stride; ++j)
-            tmp1 += l->lv_s[(l->c_len * l->stride * h) + (l->stride*i) + j] * pi[j];
+        c_start = (r_start + i) * l->stride;
+        for(j=0;j < l->stride; ++j,++c_start)
+            tmp1 += l->lv_s[c_start] * pi[j];
         tmp2 += tmp1 * prob[h];
     }
     if( 1 == l->invar ){
@@ -1015,6 +1041,7 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
     int i,j,p_start,k,nchars,alpha;
     __m128d a_, b_, pa_, pb_, acc, acc1, acc2;
 
+    //below, to make things more readable
     a = amll->lv_s; b = bmll->lv_s;   d = cmll->lv_s;
     nchars = amll->c_len;
     alpha = amll->stride;
@@ -1064,9 +1091,11 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
 
     /* GENERATION II */
     int i,j,k,a_start,r_start,c_start,p_start;
+    double *tmp1;
+    tmp1 = (double*) malloc( sizeof(double) * amll->stride );
     r_start = rate_idx * amll->stride * amll->c_len;
-    for(i=0,c_start=0; i < amll->c_len; ++i,c_start+=a->stride ){
-        for(j=0,p_start=0; j < amll->stride; ++j,p_start+=a->stride){
+    for(i=0,c_start=0; i < amll->c_len; ++i,c_start+=amll->stride ){
+        for(j=0,p_start=0; j < amll->stride; ++j,p_start+=amll->stride){
             a_start = r_start + c_start + j;
             cmll->lv_s[a_start] = tmp1[j] =0;
             for(k=0; k < amll->stride; ++k){
@@ -1377,9 +1406,12 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
             assert( ttime1 >= middle.time );
             single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        } else if ( left.ll == middle.ll && middle.ll == right.ll ){
+            bracketed = 0;
+            break;
         } else {
-            printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
-                    left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
+            //printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
+            //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
             bracketed = 0;
             break;
         }

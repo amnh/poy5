@@ -120,7 +120,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
-
+external copy : s -> s = "likelihood_CAML_copy"
 external loglikelihood: (* vector, priors, probabilities, and %invar -> loglk *)
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
@@ -245,9 +245,12 @@ let median_char p_1 p_2 a b =
     let npv = Array.init (Array.length a) curried_c in
     npv
 
-(* empty argument is 'previous' *)
 let median_fmat a_vec b_vec a_mat b_mat =
     array_map2 (median_char a_mat b_mat) a_vec b_vec
+
+let median_invar ain bin = 
+    Array.init (Array.length ain)
+               (fun x -> if ain.(x) = bin.(x) then ain.(x) else Int32.zero)
 
 (** --- SEARCH METHODS --- **)
 
@@ -379,7 +382,8 @@ let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
     let ach,ain = s_bigarray a.chars and bch,bin = s_bigarray b.chars in
     (* convert to ocaml primatives *)
     let ach = barray_3matrix ach and bch = barray_3matrix bch 
-    (** TODO :: invar **)
+    and ain = match ain with | Some x -> Some (ba2array x) | None -> None 
+    and bin = match bin with | Some x -> Some (ba2array x) | None -> None 
     and pi_ = ba2array (a.model.pi_0)
     and prob= ba2array (a.model.prob) in
     let root =
@@ -389,6 +393,10 @@ let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
                             (make_matrix a.model (t1 *. a.model.rate.{i}) )
                             (make_matrix b.model (t2 *. b.model.rate.{i}) ) )
             ach (* arbitrary, as long as it's the same length *)
+    and cin = match ain,bin with
+        | Some x, Some y -> Some (median_invar x y)
+        | None, None -> None
+        | _ -> failwith "I cannot calculate invariant sites with one side"
     in
     root, mle root pi_ prob
 
@@ -873,17 +881,17 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 (* -> Xml.xml Sexpr.t list *)
 
 (* readjust the branch lengths to create better mle score *)
-let readjust xopt x c1 c2 _ c_t1 c_t2 =
+let readjust xopt x c1 c2 mine c_t1 c_t2 =
     if pure_ocaml then begin
-        let mine = median c1 c2 c_t1 c_t2 0 0 in
         let t1,t2,ll = ocaml_readjust c1 c2 c_t1 c_t2 mine.mle in
         let x = Array.fold_right 
                 (fun c s -> All_sets.Integers.add c s) mine.codes x in
         (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
     end else begin
+        (* copy characters to a new set *)
+        let new_mine = {mine with chars = copy mine.chars} in
         let model = c1.model
         and pinv  = match c1.model.invar with | Some x -> x | None -> ~-.1.0 in
-        let new_mine = median c1 c2 c_t1 c_t2 0 0 in
         (*Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle;*)
         let (nta,nl) = match model.ui with
             | None ->
