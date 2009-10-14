@@ -20,7 +20,6 @@
 type t  
 IFDEF USE_LIKELIHOOD THEN
 type s  (* abstract type: contains matrix of character codes *)
-type cm
 
 (** two functions to convert from double*,int* to Array3,Array2 *)
 external s_bigarray: 
@@ -32,36 +31,6 @@ external bigarray_s:
     ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option -> s =
     "likelihood_CAML_BigarraytoS"
 
-(** [diagonalize_*** Q D [Ui] ] 
- * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
- * thus [D] and [Q] must be nxn --where n is the size of the alphabet. The
- * eigenvectors are entered along the rows of [Q], this function destroyes
- * the substution rate matrix, but that can be copied or the primative
- * arguments saved and this matrix can be reconstructed later --it should
- * be fairly cheap to recreate *)
-external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    unit = "likelihood_CAML_diagonalize_gtr"
-external diagonalize_sym: (* U D *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    unit = "likelihood_CAML_diagonalize_sym"
-(** [compose_*** U D [Ui] t]
- * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
- * Function is used for testing and to_formatter function usage (output) *)     
-external compose_gtr: (* U D Ui t -> P *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_gtr"
-external compose_sym: (* U D t -> P *) FMatrix.m ->     
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_sym" 
 (** [median_*** pi U D [Ui] at bt achars bchars rates probs] -> cchars
  * calculate the median of two nodes with character sets [achars] and [bchars]
  * and branch lenghts [at] and [bt], respectively. The probability matrix for
@@ -118,12 +87,6 @@ external filter: s -> int array -> s = "likelihood_CAML_filter"
 (** [compare_chars s s] -> int
  * compares two sets, returns -1,0,1 depending on which set is larger *)
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
-(** [gamma_rates alpha beta cats] -> rates
- * takes alpha, beta gamma parameters and number of categories to cut the gamma
- * function into, and returns the mean rates in those cuts of 1/cats parts. *)
-external gamma_rates: float -> float -> int -> 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
-        "gamma_CAML_rates"
 
 (** calculates the proporation of similarity between two sequences *)
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
@@ -192,28 +155,6 @@ val union: t -> t -> t -> t
 * iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
-(** models to be used outside likelihood if necessary **)
-val m_gtr   : float array -> float array -> int ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f84   : float array -> float -> float -> int ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_hky85 : float array -> float -> float -> int ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f81   : float array -> float -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_tn93  : float array -> float -> float -> float -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_k2p   : float array -> float -> float -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_jc69  : float array -> float -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_file  : float array -> float array array -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-
-val test_model : 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float -> unit
-
-
 (** [readjust check has_changed c1 c2 mine t1 t2 ]
  *       -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
  *
@@ -228,8 +169,6 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->
     t -> t -> t -> float -> float ->
     All_sets.Integers.t * float * float * (float*float) * t
 
-(** [create_lk_model] the model for likelihood from parser *)
-val create_lk_model : Parser.SC.static_spec -> cm
 
 (** [of_parser spec characters] creates a character set with specification
 * [spec] and characters defined in the array [characters], where each element is

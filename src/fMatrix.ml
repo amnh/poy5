@@ -32,3 +32,7 @@ external create : int -> m = "floatmatrix_CAML_create"
 
 external register : unit -> unit = "floatmatrix_CAML_register"
 let () = register ()
+
+(* some default space *)
+let scratch_space = create 20
+

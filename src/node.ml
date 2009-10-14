@@ -1793,7 +1793,7 @@ let classify size doit chars data =
     else None
 
 module OrderedML = struct
-    type t = Parser.SC.ml_model
+    type t = MlModel.spec (* we could choose model or spec, but spec can use compare below *)
     let compare a b = Pervasives.compare a b
 end
 module MLModelMap = Map.Make (OrderedML)
@@ -1853,15 +1853,15 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left (fun acc code ->
                     match Hashtbl.find (!data).Data.character_specs code with
                     | Data.Static spec ->
-                            let model = match spec.Parser.SC.st_type with
-                                | Parser.SC.STLikelihood x -> x
+                            let lkspec,model = match spec.Parser.SC.st_type with
+                                | Parser.SC.STLikelihood (x,y) -> x,y
                                 | _ -> assert false
                             in
                            (try
-                                let old = MLModelMap.find model acc in
-                                MLModelMap.add model (code::old) acc
+                                let old = MLModelMap.find lkspec acc in
+                                MLModelMap.add lkspec (code::old) acc
                             with | Not_found ->
-                                MLModelMap.add model ([code]) acc
+                                MLModelMap.add lkspec ([code]) acc
                            )
                     | _ -> assert false)
                 MLModelMap.empty lst

@@ -3533,48 +3533,48 @@ let set_likelihood data
         let data = duplicate data in
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
         (* We get the characters and filter them out to have only static types *)
-        let specification =
+        let specification,model =
             let alph_size, _ = verify_alphabet data chars in
             let alph_size = if u_gap then alph_size else alph_size -1 in
             let base_priors =
                 match base_priors with
                 | `Estimate -> 
                         let base_p = compute_priors data chars u_gap in
-                        Parser.SC.Estimated (base_p)
+                        MlModel.Estimated (base_p)
                 | `Constant ->
                         let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
-                        Parser.SC.Given (base_p)
+                        MlModel.Given (base_p)
                 | `Given arr -> 
                         let arr = Array.of_list arr in
                         if alph_size = Array.length arr then
-                            (Parser.SC.Given arr)
+                            MlModel.Given arr
                         else 
                             failwith 
                             "Inconsistent alphabet size and prior vector size"
             and site_variation = 
                 match site_variation with
-                | None -> Some Parser.SC.Invariant 
+                | None -> Some MlModel.Constant 
                 | Some x -> (match x with 
-                    | `Gamma (w,y,z) -> Some (Parser.SC.Gamma (w,y,z))
-                    | `Theta (w,y,z,p) -> Some (Parser.SC.Theta (w,y,z,p)))
+                    | `Gamma (w,y,z) -> Some (MlModel.Gamma (w,y,z))
+                    | `Theta (w,y,z,p) -> Some (MlModel.Theta (w,y,z,p)))
             and substitution = 
                 match substitution with
-                | `JC69 None -> Parser.SC.JC69 1.0
-                | `JC69 (Some x) -> Parser.SC.JC69 x
-                | `F81 None -> Parser.SC.F81 1.0
-                | `F81 (Some x) -> Parser.SC.F81 x
+                | `JC69 None -> MlModel.JC69 1.0
+                | `JC69 (Some x) -> MlModel.JC69 x
+                | `F81 None -> MlModel.F81 1.0
+                | `F81 (Some x) -> MlModel.F81 x
                 | `K2P None ->
                     let const = (1. /. (float_of_int alph_size)) in
-                    Parser.SC.K2P (const,((1.0-.const)/.2.0))
+                    MlModel.K2P (const,((1.0-.const)/.2.0))
                 | `K2P (Some x) ->
                     let aray = Array.of_list x in
                     if Array.length aray = 2 then 
-                        Parser.SC.K2P (Array.get aray 0,Array.get aray 1)
+                        MlModel.K2P (Array.get aray 0,Array.get aray 1)
                     else if Array.length aray = 1 then
                         (* solution for: R = a/b and a+2b = 1 *)
                         let beta = 1. /. (aray.(0) +. 2.0) in
                         let alpha = aray.(0) /. (2.0 +. aray.(0)) in
-                        Parser.SC.K2P ( alpha, beta )
+                        MlModel.K2P ( alpha, beta )
                     else
                         let _ = Status.user_message Status.Error
                             "Likelihood@ model@ K2P@ requires@ 1@ or@ 2@ parameters" in
@@ -3582,8 +3582,8 @@ let set_likelihood data
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
                     begin match Array.length aray with 
-                        | 2 -> Parser.SC.HKY85 (Array.get aray 0,Array.get aray 1)    
-                        | 1 -> Parser.SC.HKY85 (Array.get aray 0,1.0)
+                        | 2 -> MlModel.HKY85 (Array.get aray 0,Array.get aray 1)    
+                        | 1 -> MlModel.HKY85 (Array.get aray 0,1.0)
                         | _ ->
                             let () = Status.user_message Status.Error
                                 "Likelihood@ model@ HKY85@ requires@ 2@ parameters" in
@@ -3596,7 +3596,7 @@ let set_likelihood data
                             "Likelihood@ model@ F84@ requires@ 2@ parameters" in
                             failwith("Incorrect Parameters");
                     else
-                        Parser.SC.F84 (Array.get aray 0,Array.get aray 1)
+                        MlModel.F84 (Array.get aray 0,Array.get aray 1)
                 | `TN93 (Some x) -> 
                     let aray = Array.of_list x in
                     if Array.length aray <> 3 then
@@ -3604,7 +3604,7 @@ let set_likelihood data
                             "Likelihood@ model@ TN93@ requires@ 3@ parameters" in
                             failwith("Incorrect Parameters");
                     else
-                        Parser.SC.TN93 (Array.get aray 0,Array.get aray 1,Array.get aray 2)
+                        MlModel.TN93 (Array.get aray 0,Array.get aray 1,Array.get aray 2)
                 | `GTR (Some x) ->
                     let aray = Array.of_list x in 
                     let n_a = (alph_size * (alph_size-1)) / 2 in (* -1 to exclude diagonal from sum *)
@@ -3615,7 +3615,7 @@ let set_likelihood data
                          (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
                         failwith "Incorrect Parameters";
                     else
-                        Parser.SC.GTR aray
+                        MlModel.GTR aray
                 | `File str -> 
                         (* this needs to be changed to allow remote files as well *)
                     let matrix = Parser.TransformationCostMatrix.fm_of_file (`Local str) in
@@ -3628,7 +3628,7 @@ let set_likelihood data
                                     else failwith "I@ don't@ like@ your@ input@ file:"
                                 ) matrix;
                     if Array.length matrix = alph_size then 
-                        Parser.SC.File matrix
+                        MlModel.File matrix
                     else
                         failwith "I@ don't@ like@ your@ input@ file."
 
@@ -3639,12 +3639,13 @@ let set_likelihood data
                 match use_gap with
                 | `GapAsCharacter x -> x
             in
-            {
-                Parser.SC.substitution = substitution;
-                site_variation = site_variation;
-                base_priors = base_priors;
-                use_gap = use_gap;
-            }
+            let model = { MlModel.substitution = substitution;
+                        site_variation = site_variation;
+                        base_priors = base_priors;
+                        use_gap = use_gap; }
+            in
+            (* we can use hd since it MUST be > 1 element *)
+            (model, MlModel.create (get_alphabet data (List.hd chars)) model)
         in
         (* We replace the specification of all the characters, and categorize 
         * them *)
@@ -3655,7 +3656,7 @@ let set_likelihood data
                     (Static 
                     { x with 
                     Parser.SC.st_type = 
-                        Parser.SC.STLikelihood specification })
+                        Parser.SC.STLikelihood (specification,model) })
             | _ -> failwith "Illegal conversion") chars;
         categorize data
 
@@ -3795,23 +3796,25 @@ let process_ignore_character report data code_set =
 let process_ignore_characters report data characters = 
     let codes = get_chars_codes data characters in
     let codes = 
-        List.fold_left ~f:(fun acc x -> All_sets.Integers.add x acc)
-        ~init:All_sets.Integers.empty codes
+        List.fold_left  ~f:(fun acc x -> All_sets.Integers.add x acc)
+                        ~init:All_sets.Integers.empty codes
     in
     (process_ignore_character report data codes)
 
 let process_analyze_only_characters_file report dont_complement data files =
     let codes = 
-        List.fold_left ~f:(fun acc x ->
-            let ch, x = FileStream.channel_n_filename x in
-            let items = Parser.IgnoreList.of_channel ch in
-            close_in ch;
-            let items = 
-                warn_if_repeated_and_choose_uniquely items "characters@ file@ "
-                x
-            in
-            let codes = get_chars_codes data (`Names items) in
-            acc @ codes) ~init:[] files
+        List.fold_left 
+            ~f:(fun acc x ->
+                let ch, x = FileStream.channel_n_filename x in
+                let items = Parser.IgnoreList.of_channel ch in
+                close_in ch;
+                let items = 
+                    warn_if_repeated_and_choose_uniquely items "characters@ file@ " x
+                in
+                let codes = get_chars_codes data (`Names items) in
+                acc @ codes)
+            ~init:[]
+            files
     in
     let items = 
         if dont_complement then  (`Some codes)
@@ -5228,8 +5231,8 @@ let apply_boolean nonadd_f add_f data char =
 let get_model code data =
     match Hashtbl.find data.character_specs code with
     | Static x -> 
-            (match x.Parser.SC.st_type with
-            | Parser.SC.STLikelihood x -> x
+        (match x.Parser.SC.st_type with
+            | Parser.SC.STLikelihood (x,y) -> y
             | _ -> failwith "Data.get_model")
     | _ -> failwith "Data.get_model 2"
 
@@ -5253,7 +5256,7 @@ let apply_on_static ordered unordered sankoff likelihood char data =
                             unordered specified_static_chars
                     | Parser.SC.STSankoff mtx -> 
                             sankoff mtx specified_static_chars 
-                    | Parser.SC.STLikelihood model -> 
+                    | Parser.SC.STLikelihood (spec,model) -> 
                             likelihood model specified_static_chars 
                 in
                 (code, res) :: acc

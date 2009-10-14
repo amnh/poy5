@@ -474,38 +474,11 @@ val molecular_to_fasta : filename -> in_channel
 
 module SC : sig
 
-    type site_var =
-        | Gamma of int * float * float 
-        | Theta of int * float * float * float
-        | Invariant
-
-    type subst_model =
-          | JC69 of float
-          | F81 of float
-          | K2P of float * float
-          | F84 of float * float
-          | HKY85 of float * float
-          | TN93 of float * float * float 
-          | GTR of float array
-          | File of float array array
-
-    type priors = 
-        | Estimated of float array
-        | Given of float array
-
-    type ml_model = {
-        substitution : subst_model;
-        site_variation : site_var option;
-        base_priors : priors;
-        use_gap : bool;
-    }
-
     type st_type = 
         | STOrdered
         | STUnordered  
-        | STSankoff of int array array (* If Sankoff, the cost matrix to use *)
-        | STLikelihood of ml_model     (* The ML model to use *)
-
+        | STSankoff of int array array          (* If Sankoff, the cost matrix to use *)
+        | STLikelihood of (MlModel.spec * MlModel.model)  (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string; (* The file that contained the character
