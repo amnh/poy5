@@ -94,6 +94,7 @@ external readjust_sym: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float =
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr: FMatrix.m ->
@@ -104,14 +105,16 @@ external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float =
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
-(** [loglikelihood s pi prob %invar] -> float   calculates the mle of a character set *) 
+(** [loglikelihood s w pi prob %invar] -> float : calculates the mle of a character set *) 
 external loglikelihood: 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float = "likelihood_CAML_loglikelihood"
+         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
+        float -> float = "likelihood_CAML_loglikelihood"
 (** [filter s as] -> s
  * filters s with indexes of as and returns new character set, *)
 external filter: s -> int array -> s = "likelihood_CAML_filter"
@@ -237,8 +240,8 @@ val create_lk_model : Parser.SC.static_spec -> cm
 * characters with code [code]. If [states = None] then the character is missing
 * (should be treated as if [states] held all the possible states for the
 * character).*)
-(*  [spec] -> [characters: ([states]*[code]) array] -> t *)
-val of_parser : Parser.SC.static_spec -> ((Parser.SC.static_state * int) array) -> t
+(*  [spec] -> [weights] -> [characters: ([states]*[code]) array] -> t *)
+val of_parser : Parser.SC.static_spec -> float array -> ((Parser.SC.static_state * int) array) -> t
 
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float

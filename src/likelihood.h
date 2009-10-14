@@ -148,7 +148,7 @@ void median_charset( const double* Pa, const double* Pb, const struct ml* a,
                         const struct ml* b, struct ml* c, const int rate_idx );
 //loglikelihood of a median with priors [p], probabilities [prob] and percent
 //invariant sites, [pinvar] and character set [l]
-double loglikelihood( const struct ml *l, const double* pi, const double* prob, const double pinvar );
+double loglikelihood( const struct ml *l, const double* ws, const double* pi, const double* prob, const double pinvar );
 
 /**
  * functions on character sets

@@ -906,7 +906,8 @@ __inline double
 #else
 inline double
 #endif
-loglikelihood_site(const mll* l,const double* pi,const double* prob,const double pinvar,const int i)
+loglikelihood_site(const mll* l, const double weight, const double* pi,
+                    const double* prob, const double pinvar,const int i )
 {
     int j,h,r_start,c_start;
     double tmp1,tmp2;
@@ -926,7 +927,7 @@ loglikelihood_site(const mll* l,const double* pi,const double* prob,const double
     } else {
         tmp2 = MAX( tmp2 , 1e-300 );
     }
-    return ( log( tmp2 ) ) /* times weight */ ;
+    return ( log( tmp2 ) * weight );
 }
 /* calculates the likelihood for a rate class */
 double
@@ -965,17 +966,18 @@ loglikelihood_invar( const mll* l, const double *pi )
  * uses Kahan Summation to reduce floating point addition error. reduces error
  * of a summation to 2e
  */
-double loglikelihood( const mll* l, const double* pi, const double* prob,const double pinvar )
+double loglikelihood( const mll* l, const double* ws, const double* pi, 
+                                const double* prob, const double pinvar )
 {
 #ifdef KAHANSUMMATION
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
 
-    ret_s = loglikelihood_site(l,pi,prob,pinvar,0);
+    ret_s = loglikelihood_site(l,ws[0],pi,prob,pinvar,0);
     ret_c = 0.0;
     for(i = 1;i<l->c_len; i++)
     {
-        ret_y = (loglikelihood_site(l,pi,prob,pinvar,i)) - ret_c;
+        ret_y = (loglikelihood_site(l,ws[i],pi,prob,pinvar,i)) - ret_c;
         ret_t = ret_s + ret_y;
         ret_c = (ret_t - ret_s) - ret_y;
         ret_s = ret_t;
@@ -991,12 +993,13 @@ double loglikelihood( const mll* l, const double* pi, const double* prob,const d
 }
 
 /* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
-value likelihood_CAML_loglikelihood(value s, value pi, value prob, value pinvar)
+value likelihood_CAML_loglikelihood(value s, value w, value pi, value prob, value pinvar)
 {
     CAMLparam3( s, pi, prob );
     CAMLlocal1( mle );
     double ll;
     ll = loglikelihood( ML_val(s),
+                        (double*) Data_bigarray_val(w),
                         (double*) Data_bigarray_val(pi),
                         (double*) Data_bigarray_val(prob),
                         Double_val( pinvar )
@@ -1291,8 +1294,8 @@ value likelihood_CAML_median_gtr(value * argv, int argn)
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,const mll *a,
-    const mll *b,const double time_a,const double time_b,const double *gam,const double *prob,
-    const double *pi,const int g_n,double percent,double *tmp)
+    const mll *b,const double time_a,const double time_b,const double *ws,const double *gam,
+    const double* prob, const double *pi,const int g_n,double percent,double *tmp)
 {
     int i;
     simp->time = time_a;
@@ -1303,11 +1306,11 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
-    simp->ll = loglikelihood( simp->vs, pi, prob, percent );
+    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent );
 }
 void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,const double *Ui,
-    const mll *a,const mll *b,const double time_a,const double time_b,const double *gam,
-    const double *prob,const double *pi,const int g_n,double percent,double *tmp)
+    const mll *a,const mll *b,const double time_a,const double time_b,const double* ws,
+    const double* gam, const double *prob,const double *pi,const int g_n,double percent,double *tmp)
 {
     int i;
     simp->time = time_a;
@@ -1318,7 +1321,7 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
-    simp->ll = loglikelihood( simp->vs, pi, prob, percent );
+    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent );
 }
 #define golden (2.0/(sqrt(5.0)+1))
 #define golden_exterior_l(b,c) ((b.time - (c.time * golden)) / (1 - golden))
@@ -1326,7 +1329,7 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
 
 void
 readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
-        const mll* b,mll* c,double* b_ta,const double b_tb,double* b_mle,
+        const mll* b,mll* c,double* b_ta,const double b_tb,double* b_mle, const double* ws,
         const double* rates, const double *prob, const int g_n,const double* pi,
         const double pinvar)
 {
@@ -1380,11 +1383,11 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         left.time   = 0.005;
         middle.time = 0.050;
         right.time  = 0.500;
-        single_sym(&middle,PA,PB,U,D,a,b,middle.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        single_sym(&middle,PA,PB,U,D,a,b,middle.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
     }
     // fill in initial data of new points
-    single_sym(&left,PA,PB,U,D,a,b,left.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-    single_sym(&right,PA,PB,U,D,a,b,right.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&left,PA,PB,U,D,a,b,left.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&right,PA,PB,U,D,a,b,right.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
     /* bracket minimum */
     bracketed = 1; // true, since we are going to expect the best
     while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
@@ -1396,7 +1399,7 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             left = temp_ptr;
             ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
             assert ( ttime1 <= middle.time );
-            single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+            single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         } else if ( left.ll > middle.ll && middle.ll > right.ll) {
             // decreasing,  move all points up (middle,right,new)
             temp_ptr = left;
@@ -1405,7 +1408,7 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
             right = temp_ptr;
             ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
             assert( ttime1 >= middle.time );
-            single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+            single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         } else if ( left.ll == middle.ll && middle.ll == right.ll ){
             bracketed = 0;
             break;
@@ -1438,7 +1441,7 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
         }
         // ttime1 is the next time to try 
         ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
-        single_sym(&temp,PA,PB,U,D,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        single_sym(&temp,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         // choose best
         if (best.ll > temp.ll){
             best.ll = temp.ll;
@@ -1485,7 +1488,8 @@ readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
 void
 readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui,
         const mll* a, const mll* b, mll* c,double* b_ta,const double b_tb,double* b_mle,
-        const double *rates,const double *prob,const int g_n,const double* pi,const double pinvar)
+        const double* ws, const double *rates,const double *prob,const int g_n,
+        const double* pi,const double pinvar)
 {
     /* variables */
     ptr left, right, middle, best, temp, temp_ptr;
@@ -1537,11 +1541,11 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
         left.time   = 0.005;
         middle.time = 0.050;
         right.time  = 0.500;
-        single_gtr(&middle,PA,PB,U,D,Ui,a,b,middle.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        single_gtr(&middle,PA,PB,U,D,Ui,a,b,middle.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
     }
     // fill in initial data of new points
-    single_gtr(&left,PA,PB,U,D,Ui,a,b,left.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
-    single_gtr(&right,PA,PB,U,D,Ui,a,b,right.time,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+    single_gtr(&left,PA,PB,U,D,Ui,a,b,left.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_gtr(&right,PA,PB,U,D,Ui,a,b,right.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
     /* bracket minimum */
     bracketed = 1; // true, since we are going to expect the best
     while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
@@ -1553,7 +1557,7 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
             left = temp_ptr;
             ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
             assert ( ttime1 <= middle.time );
-            single_gtr(&left,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+            single_gtr(&left,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         } else if ( left.ll > middle.ll && middle.ll > right.ll) {
             // decreasing,  move all points up (middle,right,new)
             temp_ptr = left;
@@ -1562,10 +1566,10 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
             right = temp_ptr;
             ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
             assert( ttime1 >= middle.time );
-            single_gtr(&right,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+            single_gtr(&right,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         } else {
-            printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
-                    left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
+            //printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
+            //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
             bracketed = 0;
             break;
         }
@@ -1592,7 +1596,7 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
         }
         // ttime1 is the next time to try 
         ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
-        single_gtr(&temp,PA,PB,U,D,Ui,a,b,ttime1,b_tb,rates,prob,pi,g_n,pinvar,TMP);
+        single_gtr(&temp,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
         // choose best
         if (best.ll > temp.ll){
             best.ll = temp.ll;
@@ -1643,7 +1647,7 @@ readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui
 value
 likelihood_CAML_readjust_gtr_wrapped
     (value tmp,value U,value D,value Ui,value A,value B,value C,value ta,value tb,
-        value pinv, value g,value p,value pis,value ll)
+        value pinv, value ws, value g,value p,value pis,value ll)
 {   
     /* ocaml macros */
     CAMLparam5(U,D,Ui,A,B);
@@ -1666,6 +1670,7 @@ likelihood_CAML_readjust_gtr_wrapped
             Data_bigarray_val( Ui ),
             ML_val( A ), ML_val( B ), ML_val( C ),
             &cta, Double_val( tb ), &likelihood,
+            Data_bigarray_val(ws),
             Data_bigarray_val(g),
             Data_bigarray_val(p),
             Bigarray_val( g )->dim[0],
@@ -1682,12 +1687,13 @@ likelihood_CAML_readjust_gtr_wrapped
 }
 value
 likelihood_CAML_readjust_sym_wrapped
-    (value tmp,value U,value D,value A,value B,value C,value ta,value tb,value pinv,value g,value p,value pis,value ll)
+    (value tmp,value U,value D,value A,value B,value C,value ta,value tb,
+        value pinv,value ws,value g,value p,value pis,value ll)
 {
     /* ocaml macros for GC */
     CAMLparam5(U,D,ll,A,B);
     CAMLxparam5(C,ta,tb,g,p);
-    CAMLxparam2( pis,tmp );
+    CAMLxparam3( pis,tmp,ws );
     CAMLlocal1( res );
     /* declare/unbox variables to return */
     double cta,likelihood;
@@ -1703,6 +1709,7 @@ likelihood_CAML_readjust_sym_wrapped
             Data_bigarray_val( U ), Data_bigarray_val( D ),
             ML_val(A), ML_val(B), ML_val(C),
             &cta, Double_val( tb ), &likelihood,
+            Data_bigarray_val( ws),
             Data_bigarray_val( g ),
             Data_bigarray_val( p ),
             Bigarray_val( g )->dim[0],
@@ -1724,14 +1731,14 @@ likelihood_CAML_readjust_gtr(value * argv, int argn)
 {
     return likelihood_CAML_readjust_gtr_wrapped
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
-         argv[8],argv[9],argv[10],argv[11],argv[12],argv[13]);
+         argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14]);
 }
 value
 likelihood_CAML_readjust_sym(value * argv, int argn)
 {
     return likelihood_CAML_readjust_sym_wrapped
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],
-         argv[7],argv[8],argv[9],argv[10],argv[11],argv[12]);
+         argv[7],argv[8],argv[9],argv[10],argv[11],argv[12],argv[13]);
 }
 
 #endif /* USE_LIKELIHOOD */

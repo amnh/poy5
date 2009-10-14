@@ -30,6 +30,8 @@ let odebug = Status.user_message Status.Information
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
 
+let (-->) b a = a b
+
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
 
@@ -1629,8 +1631,6 @@ let extract_kolmo data kolmo tcode =
           raise (Illegal_argument ("Stat" ^ (string_of_int code))) 
               
 
-type ms = All_sets.Integers.t
-
 module OrderedLists = struct
     type t = float * (BitSet.t list)
     let rec single_compare a b =
@@ -1680,34 +1680,15 @@ let to_bitset size lst =
 let bitset_table  = Hashtbl.create 1667 
 
 let collapse size characters all_static =
-    (*
-    let simplify item = 
-        let hash = Hashtbl.create 255 
-        and cur_counter = ref 1 in
-        let simplify item = 
-            let rec simplify item =
-                if Hashtbl.mem hash item then Hashtbl.find hash item 
-                else if Hashtbl.mem hash !cur_counter then begin
-                    incr cur_counter;
-                    simplify item
-                end else begin
-                    Hashtbl.add hash !cur_counter item;
-                    Hashtbl.add hash item !cur_counter;
-                    incr cur_counter;
-                    (!cur_counter) - 1
-                end
-            in
-            List.map simplify item
-        in
-        List.map simplify item
-    in
-    *)
-    let process_all_lists lists = 
+    let process_all_lists lists = (* list of each column *)
         current_snapshot "This is before lists";
         let lists = 
+            (* fold over each column into SetList, increasing weight if it is
+             * allready a member *)
             List.fold_left (fun acc x ->
                 let (code, weight, lst) = characters x in
                 let lst = 
+                    (* transform each column to bitset *)
                     List.map (function
                     | `List x -> 
                             if Hashtbl.mem bitset_table x then 
@@ -1719,10 +1700,6 @@ let collapse size characters all_static =
                                 set
                     | `Bits x -> x) lst 
                 in
-                (*
-                let lst = simplify lst in
-                let lst = to_bitset size lst in
-                *)
                 if SetLists.mem (weight, lst) acc then
                     let code, nweight = SetLists.find (weight, lst) acc in
                     SetLists.add (weight, lst) (code, (weight +. nweight)) acc
@@ -1737,21 +1714,31 @@ let collapse size characters all_static =
     current_snapshot "This is after lists";
     res
 
+(* Classify into discreet sections returning a map of the last character with
+ * the identifying property (exact column in this case), and a float representing
+ * the weight imposed on that character.
+     * size  --of alphabet
+     * chars --list of column codes to compress
+     * data  --Data.d *)
 let classify size chars data =
     let all_static = 
         Hashtbl.fold (fun code spec acc ->
             match spec with
             | Data.Static spec ->
-                    (match spec.Parser.SC.st_type with
-                    | Parser.SC.STUnordered ->
-                        (code, spec) :: acc
+                (* categorize likelihood and unordered characters *)
+                (match spec.Parser.SC.st_type with
+                    | Parser.SC.STUnordered    -> (code, spec) :: acc
+                    | Parser.SC.STLikelihood m -> (code, spec) :: acc
                     | _ -> acc)
             | _ -> acc) data.Data.character_specs []
     in
-    let taxa (code, spec) = 
-        let weight, observed = 
+    (* transform each static column into a list with current weight. ~NL *)
+    let taxa (code,spec) = 
+        let weight,observed = 
             match spec.Parser.SC.st_type with
             | Parser.SC.STUnordered ->
+                    spec.Parser.SC.st_weight, spec.Parser.SC.st_observed
+            | Parser.SC.STLikelihood m ->
                     spec.Parser.SC.st_weight, spec.Parser.SC.st_observed
             | _ -> assert false
         in
@@ -1776,7 +1763,7 @@ let classify size chars data =
             | ((_, _, x) as h) :: t -> 
                     let chars = List.fold_left add_taxon_to_accumulator [x] t in
                     reshape chars h
-            | [] -> failwith "Nothing?"
+            | [] -> failwith "Nothing?" (* must be of least length one, else it *)
         in
         collapse size chars all_static
     in
@@ -1798,6 +1785,9 @@ module OrderedML = struct
 end
 module MLModelMap = Map.Make (OrderedML)
 
+
+type ms = All_sets.Integers.t
+
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
     (lnadd16code : ms) (lnadd32code : ms) (lnadd33code : ms) lsankcode dynamics 
     kolmogorov static_ml data cost_mode =
@@ -1814,12 +1804,10 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             code
         in
         let group_in_weights weights codes = 
-            let get_weight c = 
-                match weights with
-                | None -> Data.get_weight c !data
-                | Some v ->
-                        let a = All_sets.IntegerMap.find c v in
-                        a
+            (* get weight of character; map has Data.weight included *)
+            let get_weight c = match weights with
+                | None   -> Data.get_weight c !data
+                | Some v ->All_sets.IntegerMap.find c v
             in
             let table = Hashtbl.create 1667 in
             let weights = 
@@ -1900,7 +1888,49 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             4
                             (!data).Data.number_of_taxa)
             in
-            List.flatten (List.map (group_ml_by_model) (group_by_sets static_ml))
+            (* apply classify on a list of integers to classify *)
+            let set_of_list x =
+                List.fold_left (fun a v -> All_sets.Integers.add v a)
+                                All_sets.Integers.empty x
+            and gap_as_character x = match x.Parser.SC.st_type with
+                | Parser.SC.STLikelihood m -> m.Parser.SC.use_gap
+                | _ -> assert false
+            in
+            (* create map of weight classes *)
+            let lk_classify_weights = function
+                | (x::xs) as all ->
+                    (* already characterized by group and model, so = alph *)
+                    let alph_len =
+                        let p_x = 
+                            match Hashtbl.find (!data).Data.character_specs x with
+                            | Data.Static x -> x 
+                            | _ -> assert false
+                        in
+                        if gap_as_character p_x
+                            then Alphabet.size p_x.Parser.SC.st_alph
+                            else (Alphabet.size p_x.Parser.SC.st_alph) - 1
+                    in
+                    classify alph_len true all !data
+                | [] -> assert false
+            (* convert characters and group them by weight *)
+            and lk_group_weights weights chars = 
+                let x = chars --> set_of_list
+                              --> group_in_weights weights
+                in
+                x
+                (* List.iter (fun (maj,pairs_lst) -> List.iter (fun (flt,code) ->
+                Printf.printf "%d -- %f -- %d\n%!" maj flt code) pairs_lst) x; *)
+            in
+            (* group sets, model then compress columns *)
+            let grps = 
+                static_ml
+                    --> group_by_sets
+                    --> List.map group_ml_by_model
+                    --> List.flatten
+                    --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
+            in
+            grps
+
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
 
         let add_codes ((_, x) as y) = 
@@ -2094,36 +2124,48 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
             let result = 
-                    let single_ml_group result lst =
-                IFDEF USE_LIKELIHOOD THEN
-                        match lst with
-                        | [] -> result
-                        | h :: t -> (* We do have some characters to add *)
-                            let spec = 
-                                match Hashtbl.find
-                                    (!data).Data.character_specs h with
-                                | Data.Static x -> x 
-                                | _ -> assert false
-                            in
-                            let lst = List.map (Hashtbl.find tcharacters) lst in
-                            let v = List.map extract_stat lst in
-                            let c = MlStaticCS.of_parser spec (Array.of_list v) in
-                            let cost = MlStaticCS.root_cost c in
-                            let c = 
-                                StaticMl { preliminary = c;
-                                           final = c;
-                                           cost = cost;
-                                           sum_cost = cost;
-                                           weight = 1.;
-                                           time = None,None }
-                            in
-                            { result with characters = c :: result.characters;
-                                          total_cost = result.total_cost +.  cost; }
-                ELSE
-                        result
-                END
-                    in
-                    List.fold_left single_ml_group result lstaticmlcode
+                (* remove new code in structure *)
+                let seperate_data dat =
+                    let pairs = dat --> List.map snd --> List.flatten in
+                    let fsts = List.map fst pairs and snds = List.map snd pairs in
+                    fsts,snds
+                in
+                (* add character set to result *)
+                let single_ml_group result lst =
+                  IFDEF USE_LIKELIHOOD THEN
+                    match lst with
+                    | [] -> result
+                    | all_data ->
+                        let ws,cs = seperate_data all_data in
+                        let spec = 
+                            match Hashtbl.find (!data).Data.character_specs 
+                                               (List.hd cs)
+                            with
+                            | Data.Static x -> x 
+                            | _ -> assert false
+                        in
+                        let c = 
+                            cs --> List.map (Hashtbl.find tcharacters)
+                               --> List.map extract_stat (* bitset * code *)
+                               --> Array.of_list
+                               --> MlStaticCS.of_parser spec (Array.of_list ws)
+                        in
+                        let cost = MlStaticCS.root_cost c in
+                        let c = 
+                            StaticMl { preliminary = c;
+                                       final = c;
+                                       cost = cost;
+                                       sum_cost = cost;
+                                       weight = 1.;
+                                       time = None,None }
+                        in
+                        { result with characters = c :: result.characters;
+                                      total_cost = result.total_cost +.  cost; }
+                  ELSE
+                    result
+                  END
+                in
+                List.fold_left single_ml_group result lstaticmlcode
             in
             let () = current_snapshot "Finished taxon" in
             result :: acc
