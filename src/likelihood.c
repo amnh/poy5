@@ -87,7 +87,7 @@ value Val_some( value v )
 #if defined( __APPLE__ )
 	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #elif defined( __SSE3__ )
-	#define lk_malloc(x,y); if(0!=posix_memalign(&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y); if(0!=posix_memalign((void**)x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #else
 	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #endif
@@ -1092,7 +1092,8 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
     /* GENERATION II */
     int i,j,k,a_start,r_start,c_start,p_start;
     double *tmp1;
-    tmp1 = (double*) malloc( sizeof(double) * amll->stride );
+
+    tmp1 = (double*) malloc( sizeof(double) * amll->stride);
     r_start = rate_idx * amll->stride * amll->c_len;
     for(i=0,c_start=0; i < amll->c_len; ++i,c_start+=amll->stride ){
         for(j=0,p_start=0; j < amll->stride; ++j,p_start+=amll->stride){
@@ -1100,7 +1101,7 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
             cmll->lv_s[a_start] = tmp1[j] =0;
             for(k=0; k < amll->stride; ++k){
                 cmll->lv_s[a_start] += Pa[p_start+k] * amll->lv_s[c_start+k];
-                tmp1[j]          += Pb[p_start+k] * bmll->lv_s[c_start+k];
+                tmp1[j]             += Pb[p_start+k] * bmll->lv_s[c_start+k];
             }
             cmll->lv_s[a_start] *= tmp1[j];
         }
