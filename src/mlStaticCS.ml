@@ -39,8 +39,9 @@ type s
 type t = {
     mle: float;
     model: MlModel.model;
-    codes: int array;
-    chars: s;
+    weights : (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
+    codes   : int array;
+    chars   : s;
 }
 
 external median_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
@@ -68,6 +69,7 @@ external readjust_sym: (* readjust_sym U D a b c ta tb %i r p pi ll -> ll*branch
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float = 
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*branch *)
@@ -79,6 +81,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     float -> float*float = 
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
@@ -86,10 +89,11 @@ external proportion: s -> s -> float = "likelihood_CAML_proportion"
 external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
 external copy : s -> s = "likelihood_CAML_copy"
-external loglikelihood: (* vector, priors, probabilities, and %invar -> loglk *)
-    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float = "likelihood_CAML_loglikelihood"
+external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> loglk *)
+    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
+      -> float -> float = "likelihood_CAML_loglikelihood"
 external filter: s -> int array -> s = "likelihood_CAML_filter"
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
@@ -406,7 +410,7 @@ let median an bn t1 t2 acode bcode =
                     (Bigarray.Array3.of_array Bigarray.float64
                                               Bigarray.c_layout
                                               faa)
-                    None; (* TODO for pure ocaml *)
+                    None; (* TODO : invar and weights *)
             mle = loglike;
         }
     end else
@@ -423,7 +427,7 @@ let median an bn t1 t2 acode bcode =
         in
         let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
         let loglike = 
-            loglikelihood n_chars an.model.MlModel.pi_0 an.model.MlModel.prob pinvar
+            loglikelihood n_chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob pinvar
         in
         { an with
             chars = n_chars;
@@ -469,7 +473,7 @@ let farray_to_int32 x =
             x)
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
-let of_parser spec characters =
+let of_parser spec weights characters =
     let lkspec,computed_model = match spec.Parser.SC.st_type with
         | Parser.SC.STLikelihood (x,y) -> x,y
         | _ -> failwith "Not a likelihood model" in
@@ -509,16 +513,19 @@ let of_parser spec characters =
                 | Some _ -> bigarray_s ba_chars (Some aa_chars)
                 | None   -> bigarray_s ba_chars None
     in
-    let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
+    and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
     let loglike = loglikelihood lk_chars
+                                weights
                                 computed_model.MlModel.pi_0
                                 computed_model.MlModel.prob
                                 pinvar
     in
-    {    mle = loglike;
-       model = computed_model;
-       codes = Array.map (fun (x,y) -> y) characters; 
-       chars = lk_chars; }
+    {    mle  = loglike;
+       model  = computed_model;
+       codes  = Array.map (fun (x,y) -> y) characters; 
+       weights= weights;
+       chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
     let str_time = function | Some x -> `Float x | None -> `String "None"
@@ -599,12 +606,12 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
             | None ->
                 readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
                              c1.chars c2.chars new_mine.chars c_t1 c_t2 pinv
-                             model.MlModel.rate model.MlModel.prob
+                             c1.weights model.MlModel.rate model.MlModel.prob
                              model.MlModel.pi_0 new_mine.mle
             | Some ui ->
                 readjust_gtr FMatrix.scratch_space model.MlModel.u
                              model.MlModel.d ui c1.chars c2.chars new_mine.chars
-                             c_t1 c_t2 pinv model.MlModel.rate
+                             c_t1 c_t2 pinv c1.weights model.MlModel.rate
                              model.MlModel.prob model.MlModel.pi_0 new_mine.mle
         and ntb = c_t2
         in

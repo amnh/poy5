@@ -847,7 +847,6 @@ module F : Ptree.Tree_Operations
             (* below we apply the new branch length data to the left and right
              * and add the result to the ptree. n_root is striped of direction. *)
             let n_root,ptree = 
-                (* TODO: following call is same as in refresh_all_edges @ end *)
                 create_lazy_edge true (Some new_root) false ptree a b
             in
             let n_root =
@@ -997,7 +996,7 @@ module F : Ptree.Tree_Operations
                                 (Some (edge, root))
                                 (check_cost ptree handle None)
                                 None
-                        --> refresh_all_edges true (Some root) true (Some (a,b))
+                        --> refresh_all_edges true None true None
                 | Some _ -> ptree
             end
         in
