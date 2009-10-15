@@ -515,6 +515,7 @@ let of_parser spec weights characters =
     in
     let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
+    assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
     let loglike = loglikelihood lk_chars
                                 weights
                                 computed_model.MlModel.pi_0

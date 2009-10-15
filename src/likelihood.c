@@ -87,7 +87,7 @@ value Val_some( value v )
 #if defined( __APPLE__ )
 	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #elif defined( __SSE3__ )
-	#define lk_malloc(x,y); if(0!=posix_memalign((void**)x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y); if(0!=posix_memalign((void*)&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #else
 	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #endif
