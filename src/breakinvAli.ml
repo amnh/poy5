@@ -174,10 +174,7 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     else begin
         match ali_pam.symmetric with
         | true ->
-        (*    (
-            match ali_pam.median_solver with
-            | `Default ->*)
-              let cost12, (recost12a,recost12b), _, _ =
+                let cost12, (recost12a,recost12b), _, _ =
                   GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
