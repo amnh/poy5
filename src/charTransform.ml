@@ -974,7 +974,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
                         "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
                         "with@ build (1)");
-                        failwith "Illegal transform command")
+                        failwith "Illegal transform command") 
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
                 data
@@ -1039,7 +1039,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 data 
                 --> Data.make_direct_optimization chars
                 --> Data.categorize
-                --> Node.load_data 
+                --> Node.load_data
         | #Methods.dynamic_char_transform as meth -> begin
               let status = 
                   Status.create "Tranform" None 
