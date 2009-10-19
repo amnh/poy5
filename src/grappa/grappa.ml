@@ -34,8 +34,8 @@ external c_cmp_inv_dis : genome -> genome -> int -> int ->  int
 (* genomeX, genomeY, genomeZ, number of genes in each genome, circular/or not,
 * output the median of X, Y and Z *)
 external c_inv_med_albert : genome -> genome -> genome -> int -> int -> 
-    (int, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
-= "grappa_CAML_inv_med_albert"
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+   = "grappa_CAML_inv_med_albert"
 
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
