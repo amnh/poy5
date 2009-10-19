@@ -828,7 +828,6 @@ type nad8 = Node.Standard.nad8 = struct
     (* adjust the branches in the tree, including branch lengths, uses
      * adjusted with three directions *)
     let readjust mode to_adjust ch1 ch2 par mine =
-        
         (* in [n], we want the direction toward [p], the parent *)
         let get_dir p_code n = (not_with (taxon_code p_code) n.adjusted).lazy_node
         and mine_in_par = match par.adjusted with
