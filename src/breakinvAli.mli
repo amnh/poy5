@@ -43,6 +43,7 @@ type breakinv_t = {
 (** Data structure to contain parameters 
 * used to align two breakinv sequences *)
 type breakinvPam_t = {
+  median_solver: Data.median_solver_t;
   re_meth : Data.re_meth_t;
   keep_median : int;
   circular : int;
