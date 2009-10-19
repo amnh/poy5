@@ -39,6 +39,7 @@ module CommandCompletion = struct
         "_random";
         "_rootuniondistr";
         "_unionstats";
+        "albert";
         "all";
         "all_roots";
         "alphabetic_terminals";
@@ -127,6 +128,7 @@ module CommandCompletion = struct
         "jackknife";
         "keep";
         "last";
+        "level";
         "load";
         "locus_breakpoint";
         "locus_indel";
@@ -139,6 +141,7 @@ module CommandCompletion = struct
         "mb";
         "med_approx";
         "median";
+        "median_solver";
         "memory";
         "min_loci_len";
         "min_rearrangement_len";
