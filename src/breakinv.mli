@@ -38,6 +38,7 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
+val get_median_solver : meds_t -> int 
 
 (** init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
