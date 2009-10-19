@@ -83,6 +83,15 @@ let standardize3 genomeX genomeY genomeZ =
     in  
     sta_genomeX, sta_genomeY, sta_genomeZ
 
+let de_standardize3 ori_arr standar_arr arrsize =
+    let res_arr = Array.init arrsize 
+    ( fun idx ->  
+        let tmp = standar_arr.(idx) in
+        if (tmp>0) then ori_arr.(tmp-1) 
+        else - ori_arr.((abs tmp)-1)
+    ) in
+    res_arr
+
 
 (** [cmp_inversion_dis genomeX genomeY circular] computes
  * the inversion distance between two given gene orders 
@@ -110,35 +119,42 @@ let inv_med_albert (genomeX : int array) (genomeY : int array) (genomeZ : int ar
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
+    (* debug message 
+    Printf.printf "inv_med_albert,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
+     debug message *)
+    let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
-    Printf.printf "\n after standardize: %!";
+    (* debug msg 
+     Printf.printf "after standardize: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
+    debug msg *)
     let num_gen = Array.length genomeX in 
     (* for alert-median3 solver to work , sequence cannot be empty, also there
     * is a MAX_STR_LEN=2048 macro in grappa, if we need to work on longer sequence, 
     * modify the macro in structs.h to accomodate your requirement*)
     assert (num_gen>0); assert(num_gen<=2048);
-    Printf.printf "create empty genome array, num_gen=%d\n%!" num_gen;
     let genome_arr = Grappa.c_create_empty_genome_arr 3 num_gen in  
     for index = 0 to num_gen - 1 do
         Grappa.c_set genome_arr 0 index genomeX.(index);   
         Grappa.c_set genome_arr 1 index genomeY.(index);   
         Grappa.c_set genome_arr 2 index genomeZ.(index);
     done;
-    Printf.printf "c_set done~~ %!";
     let g0 = Grappa.c_get_one_genome genome_arr 0 in
     let g1 = Grappa.c_get_one_genome genome_arr 1 in 
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
-    Printf.printf "call inv_med_albert..\n %!";
     let g_med3 = Grappa.c_inv_med_albert g0 g1 g2 num_gen circular in
-    Printf.printf "end of inv_med_albert...\n%!";
     let len = Bigarray.Array1.dim g_med3 in
     let intarr = Array.init len ( 
         fun index ->
-            g_med3.{index}
+           Int32.to_int (g_med3.{index})
     ) in
-    intarr
+    let resarr = de_standardize3 ori_genomeX intarr num_gen in
+    (* debug msg 
+     Printf.printf "output seqcode = %!"; print_intarr resarr;
+     print_newline();
+     debug msg*)
+    resarr
 
 
 (** [cmp_breakpoint_dis genomeX genomeY circular] computes
