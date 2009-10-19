@@ -60,7 +60,13 @@ type dyna_state_t = [
 type re_meth_t = [ `Locus_Breakpoint of int | 
                    `Locus_Inversion of int ]
 
+type median_solver_t = [ `Default | `Albert ]
+
+
 type dyna_pam_t = {
+
+    median_solver: median_solver_t option; 
+
     seed_len : int option; (** the minimum length of a segment which is considered as a basic seed *)
 
     (** Cost parameters of rearrangement function which is either
@@ -117,7 +123,8 @@ type dyna_pam_t = {
 
 (** [dyna_pam_default] assigns default values for parameters 
 * used to create the median between two chromosomes or genomes *)
-let dyna_pam_default ={ 
+let dyna_pam_default ={
+    median_solver = Some `Default;
     seed_len = Some 9;
     re_meth = Some (`Locus_Breakpoint 10);
     circular = Some 0;
@@ -476,6 +483,13 @@ let empty () =
 }
 
 
+let get_median_solver user_dyna_pam =
+    match user_dyna_pam.median_solver with
+    | Some ms -> 
+            match ms with
+            | `Default -> 0
+            | `Albert -> 1
+            | _ -> 0
 
 
 let copy_taxon_characters tc = 
@@ -2410,10 +2424,11 @@ let to_formatter attr d : Xml.xml =
 
 (** transform dyna_pam_ls which is a list of dynamic parameters
 * taken from poyCommand into dyna_pam which is structured as a record*)
-let set_dyna_pam dyna_pam_ls = 
+let set_dyna_pam dyna_pam_ls old_dynpam =
     List.fold_left 
     ~f:(fun dyna_pam pam ->
         match pam with
+        | `Median_Solver c -> {dyna_pam with median_solver = Some c}
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
         | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
@@ -2433,7 +2448,8 @@ let set_dyna_pam dyna_pam_ls =
         | `Symmetric c  -> {dyna_pam with symmetric = Some c}
         | `Max_3D_Len c -> {dyna_pam with max_3d_len = Some c} 
         | `Max_kept_wag c -> {dyna_pam with max_kept_wag = Some c}) 
-    ~init:dyna_pam_default dyna_pam_ls
+    ~init:old_dynpam dyna_pam_ls
+
 
 let get_dynas data dyna_code = 
     Hashtbl.fold
@@ -3077,7 +3093,7 @@ let convert_dyna_spec data chcode spec transform_meth =
             in
         let _ =
             (* First check if the transformation is legal  *)
-            match dspec.state, transform_meth with  
+            match dspec.state, transform_meth with 
             | `Seq, `Seq_to_Chrom _
             | `Seq, `Custom_to_Breakinv _
             | `Annotated, `Annchrom_to_Breakinv _
@@ -3142,7 +3158,8 @@ let convert_dyna_spec data chcode spec transform_meth =
                         (truncate (kolmospec.ins_opening *.
                         kolmo_round_factor)))
                     else ();
-                    let pam = set_dyna_pam dyn_spec_options in
+                    let old_dynpam = dspec.pam in
+                    let pam = set_dyna_pam dyn_spec_options old_dynpam in
                     { dspec with 
                     tcm = "Kolmogorov"; 
                     tcm2d = tcm;
@@ -3150,20 +3167,21 @@ let convert_dyna_spec data chcode spec transform_meth =
                 in
                 Kolmogorov { dhs = dspec; ks = ks }, data
         | transform_meth ->
+            let (old_dynpam:dyna_pam_t) = dspec.pam in
             let (al, c2), pam = 
                 (* Now we can transform *)
                 match transform_meth with 
                 | `Seq_to_Kolmogorov _ -> failwith "Impossible"
                 | `Annchrom_to_Breakinv pam_ls -> 
                         create_alpha_c2_breakinvs data chcode,
-                        set_dyna_pam pam_ls
+                        set_dyna_pam pam_ls old_dynpam
 
                 | `Seq_to_Chrom pam_ls
                 | `Custom_to_Breakinv pam_ls
                 | `Change_Dyn_Pam pam_ls
                 | `Chrom_to_Seq pam_ls 
                 | `Breakinv_to_Custom pam_ls ->
-                        let pam = set_dyna_pam pam_ls in
+                        let pam = set_dyna_pam pam_ls old_dynpam in
                         (dspec.alph, dspec.tcm2d), pam
             in
             Dynamic { dspec with alph = al; tcm2d = c2; pam = pam; state = 
@@ -3701,7 +3719,7 @@ let get_tran_code_meth data meth =
     tran_code_ls, meth
 
 (** transform all sequences whose codes are on the code_ls into chroms *)    
-let transform_dynamic meth data =
+let transform_dynamic (meth: Methods.dynamic_char_transform) data =
     let tran_code_ls, meth = get_tran_code_meth data meth in 
     let data = ref (duplicate data) in
     Hashtbl.iter
@@ -4221,8 +4239,7 @@ let assign_level data chars level =
                         ori_sz
                 in
                 if combnum<=0 then begin
-                    Printf.printf "Alphabet size based on new level is too big.
-                    NO change will be applied.\n%!" ;
+                    Printf.printf "Alphabet size based on new level is too big. NO change will be applied.\n%!" ;
                     b,alph
                 end
                 else
