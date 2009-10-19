@@ -343,7 +343,7 @@ let distance_of_type t missing_distance a b =
 
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
-let distance missing_distance a b = 
+let distance missing_distance a b =
     match a, b with   
     | SeqCS a, SeqCS b -> (SeqCS.distance missing_distance a b)
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
