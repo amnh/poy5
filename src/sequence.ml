@@ -295,7 +295,7 @@ let print chn seq alph =
 let printseqcode seq =
     let len = length seq in
     Printf.printf "[%!";
-    for i = len-1 downto 0 do  
+    for i = 0 to (len-1) do  
         Printf.printf "%d,%!" (get seq i) 
     done;
     Printf.printf "]\n%!"
