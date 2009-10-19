@@ -38,6 +38,8 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
+let get_median_solver med = Data.get_median_solver med.breakinv_pam
+
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
@@ -140,8 +142,7 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                     (fun (max_cost2, max_recost2)  med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
                              meds1.gen_cost_mat  meds1.pure_gen_cost_mat  
-                             meds1.alpha meds1.breakinv_pam                                
-                         in  
+                             meds1.alpha meds1.breakinv_pam  in  
                          if max_cost2 < cost then cost, (recost1 + recost2)
                          else max_cost2, max_recost2
 
@@ -194,7 +195,7 @@ let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
          pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat;
          alpha = meds1.alpha} 
     in
-    let meds1,meds2,meds3 = meds1, meds2, medsp in
+    let meds1,meds2,meds3 = medsp, meds1, meds2 in
     let best_meds = 
         List.fold_left (
             fun best_meds1 med1 ->                                
@@ -208,7 +209,6 @@ let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
                    ) init_meds meds1.med_ls
     in
     if best_meds = init_meds then 
-        let _ = Printf.printf "there is no common sequence between the three, call old median3 function instead, \n%!" in
         find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t)
     else
         let kept_med_ls = keep meds1.breakinv_pam best_meds.med_ls in
@@ -222,33 +222,71 @@ let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the breakinv median [mine] of three breakinv medians 
 * [ch1], [ch2] and [parent] *) 
-let readjust_3d ch1 ch2 mine c2 c3 parent = 
-    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
-    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
-    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
-    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
-
-    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
-
-    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
-        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
-        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
-        (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
-    in 
-    let amed = List.hd mine.med_ls in
-    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
-    let adjust_mine = {mine with med_ls = [adjust_med]} in 
-
-
+let readjust_3d ch1 ch2 mine c2 c3 parent =
+    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in
     let cost1, _ = cmp_min_pair_cost ch1 mine in 
     let cost2, _ = cmp_min_pair_cost ch2 mine in 
     let cost3, _ = cmp_min_pair_cost parent mine in 
     let old_cost : int = cost1 + cost2 + cost3 in 
-        
+    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
+    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
+    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
+    (* debug msg
+    Printf.printf "### Breakinv.readjust_3d compute the old cost first,check seq1/seq2/seq3/mine_seq ###\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+    Sequence.printseqcode seq3; Sequence.printseqcode mine_seq;
+    Printf.printf "old~cost1,cost2,cost3=%d,%d,%d;\n%!" cost1 cost2 cost3;
+    debug msg*)
+    let  adjust_seq, new_cost1, new_cost2, new_cost3 =
+        match ali_pam.BreakinvAli.median_solver with
+        | `Albert ->
+            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
+                GenAli.create_gen_ali3_albert 
+                ali_pam.BreakinvAli.kept_wag
+                `Breakinv
+                seq1 seq2 seq3 
+                ch1.pure_gen_cost_mat 
+                ch1.alpha 
+                ali_pam.BreakinvAli.re_meth
+                ali_pam.BreakinvAli.swap_med 
+                ali_pam.BreakinvAli.circular
+                (Alphabet.get_orientation ch1.alpha) 
+                ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
+        | `Default ->
+            let adjust_seq, cost1,cost2,cost3 = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
+            ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+            (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
+    in
+    let new_cost = new_cost1+new_cost2+new_cost3 in
+    if old_cost <= new_cost then 
+        cost3, mine, false
+    else 
+        let amed = List.hd mine.med_ls in
+        let adjust_med_ls = {amed with BreakinvAli.seq = adjust_seq} in 
+        new_cost3, {mine with med_ls = [adjust_med_ls]}, true
 
-    if old_cost <= cost then old_cost, mine, false
+(*    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
+    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
+    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
+    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
+    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
+        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
+        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+        (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
+    in
+    let amed = List.hd mine.med_ls in
+    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
+    let adjust_mine = {mine with med_ls = [adjust_med]} in 
+
+        if old_cost <= cost then old_cost, mine, false
     else cost, adjust_mine, true
-
+*)
        
     
 
