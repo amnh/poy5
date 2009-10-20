@@ -1883,10 +1883,14 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lstaticmlcode = 
             (* set garbage collector frequency; multiplier = 4 *)
             let () = 
+                IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.gc_alloc_max 
                         ((fun m t -> m * ((8 * t) - 5))
                             4
                             (!data).Data.number_of_taxa)
+                ELSE
+                    ()
+                END
             in
             (* apply classify on a list of integers to classify *)
             let set_of_list =

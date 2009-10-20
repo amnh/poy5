@@ -3760,6 +3760,7 @@ module SC = struct
                 in
                 (* verify enough data in a model *)
                 let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
+                    IFDEF USE_LIKELIHOOD THEN
                     let submatrix = match String.uppercase name with
                         | "JC69" -> (match param with
                                 | [single] -> MlModel.JC69 single
@@ -3822,6 +3823,9 @@ module SC = struct
                         }
                     in
                     (model_spec,chars)
+                    ELSE
+                        failwith "Likelihood not enabled: download different binary or contact mailing list" 
+                    END
                 in
                 (* POY block :: process all commands*)
                 List.iter
@@ -3829,17 +3833,20 @@ module SC = struct
                      | Nexus.CharacterBranch (trees,chars,bls) ->
                         add_data (trees,chars,bls) acc.branches
                      | Nexus.Likelihood params ->
-                        let m,characters_to_modify =
-                            verify_model 
-                                (List.fold_left proc_model 
+                        IFDEF USE_LIKELIHOOD THEN
+                            let m,characters_to_modify =
+                                verify_model 
+                                    (List.fold_left proc_model 
                                                 (("",("","","",""),[],[],"",None),[]) 
                                                 params
-                                )
-                        in
-                        (* how should the alphabet be obtained? *)
-                        let m = STLikelihood (m,MlModel.create acc.characters.(0).st_alph m) in
-                        (* apply spec to each character *)
-                        List.iter (apply_on_character_set 
+                                    )
+                            in
+                            (* how should the alphabet be obtained? *)
+                            let m = 
+                                STLikelihood (m,MlModel.create acc.characters.(0).st_alph m)
+                            in
+                            (* apply spec to each character *)
+                            List.iter (apply_on_character_set 
                                         acc.characters
                                         acc.csets
                                         (fun i -> 
@@ -3850,6 +3857,9 @@ module SC = struct
                                         )
                                   )
                                   characters_to_modify
+                        ELSE
+                            failwith "Likelihood not enabled: download different binary or contact mailing list" 
+                        END
                     ) block;
                 Status.user_message Status.Information "Done";
                 acc

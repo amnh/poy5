@@ -20,7 +20,7 @@
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
 let epsilon = 0.000001
-let (=.) a b = abs_float (a-.b) < epsilon
+let (=.) a b = (abs_float (a-.b)) < epsilon
 
 type site_var = 
     (* #categories, alpha, beta, %invar *)
@@ -60,6 +60,8 @@ type model = {
     d: (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui:(float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+
+IFDEF USE_LIKELIHOOD THEN
 
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
 
@@ -352,3 +354,4 @@ let compose model t = match model.ui with
     | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
     | None    -> compose_sym FMatrix.scratch_space model.u model.d t
 
+END

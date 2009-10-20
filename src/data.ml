@@ -3523,6 +3523,7 @@ let compute_priors data chars u_gap =
 * the likelihood model specified in [lk] *)
 let set_likelihood data
     ((chars,substitution,site_variation,base_priors,use_gap):Methods.ml_spec) =
+IFDEF USE_LIKELIHOOD THEN
     let chars = 
         let chars = `Some (get_chars_codes_comp data chars) in
         get_code_from_characters_restricted `AllStatic data chars
@@ -3659,6 +3660,9 @@ let set_likelihood data
                         Parser.SC.STLikelihood (specification,model) })
             | _ -> failwith "Illegal conversion") chars;
         categorize data
+ELSE
+    failwith "Likelihood not enabled: download different binary or contact mailing list" 
+END
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =

@@ -17,44 +17,6 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(** [diagonalize_*** Q D [Ui] ] 
- * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
- * thus [D] and [Q] must be nxn --where n is the size of the alphabet. The
- * eigenvectors are entered along the rows of [Q], this function destroyes
- * the substution rate matrix, but that can be copied or the primative
- * arguments saved and this matrix can be reconstructed later --it should
- * be fairly cheap to recreate *)
-external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    unit = "likelihood_CAML_diagonalize_gtr"
-external diagonalize_sym: (* U D *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    unit = "likelihood_CAML_diagonalize_sym"
-(** [compose_*** U D [Ui] t]
- * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
- * Function is used for testing and to_formatter function usage (output) *)     
-external compose_gtr: (* U D Ui t -> P *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_gtr"
-external compose_sym: (* U D t -> P *) FMatrix.m ->     
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_sym" 
-
-(** [gamma_rates alpha beta cats] -> rates
- * takes alpha, beta gamma parameters and number of categories to cut the gamma
- * function into, and returns the mean rates in those cuts of 1/cats parts. *)
-external gamma_rates: float -> float -> int -> 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
-        "gamma_CAML_rates"
-
 type site_var = 
     (* #categories, alpha, beta, %invar *)
     | Gamma of int * float * float
@@ -95,6 +57,46 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+IFDEF USE_LIKELIHOOD THEN
+
+(** [diagonalize_*** Q D [Ui] ] 
+ * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
+ * thus [D] and [Q] must be nxn --where n is the size of the alphabet. The
+ * eigenvectors are entered along the rows of [Q], this function destroyes
+ * the substution rate matrix, but that can be copied or the primative
+ * arguments saved and this matrix can be reconstructed later --it should
+ * be fairly cheap to recreate *)
+external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    unit = "likelihood_CAML_diagonalize_gtr"
+external diagonalize_sym: (* U D *) FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    unit = "likelihood_CAML_diagonalize_sym"
+(** [compose_*** U D [Ui] t]
+ * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
+ * Function is used for testing and to_formatter function usage (output) *)     
+external compose_gtr: (* U D Ui t -> P *) FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
+        "likelihood_CAML_compose_gtr"
+external compose_sym: (* U D t -> P *) FMatrix.m ->     
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
+    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
+        "likelihood_CAML_compose_sym" 
+
+(** [gamma_rates alpha beta cats] -> rates
+ * takes alpha, beta gamma parameters and number of categories to cut the gamma
+ * function into, and returns the mean rates in those cuts of 1/cats parts. *)
+external gamma_rates: float -> float -> int -> 
+    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
+        "gamma_CAML_rates"
+
 (** models to be used outside likelihood if necessary **)
 val m_gtr   : float array -> float array -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
@@ -124,3 +126,5 @@ val compose : model -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout)
 (** [compose_model s t] compose a matrix from substitution rate matrix *)
 val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
+
+END
