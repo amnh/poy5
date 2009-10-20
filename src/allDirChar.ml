@@ -452,8 +452,8 @@ module F : Ptree.Tree_Operations
                     Tree.other_two_nbrs parent currentn 
                 in
                 ptree
-                --> assign_single_subtree nd current a
-                --> assign_single_subtree nd current b 
+                    --> assign_single_subtree nd current a
+                    --> assign_single_subtree nd current b 
             with
             | Invalid_argument _ -> ptree
         in
@@ -463,8 +463,7 @@ module F : Ptree.Tree_Operations
             let get_root_direction root = 
                 match root.AllDirNode.unadjusted with
                 | [x] -> AllDirNode.force_val (x.AllDirNode.lazy_node), x
-                | _ -> 
-                        failwith "more than one root? AllDirChar.assign_single_handle 2"
+                | _   -> failwith "more than one root? AllDirChar.assign_single_handle 2"
             in
             let generate_root_and_assign_it rootg edge ptree =
                 let a, b =
@@ -478,8 +477,7 @@ module F : Ptree.Tree_Operations
                         --> AllDirNode.not_with b
                         --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 and other_node = 
-                    (AllDirNode.not_with a (Ptree.get_node_data b
-                    ptree).AllDirNode.unadjusted)
+                    (AllDirNode.not_with a (Ptree.get_node_data b ptree).AllDirNode.unadjusted)
                     --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 in
                 let root = 
@@ -804,43 +802,12 @@ module F : Ptree.Tree_Operations
             | Some x -> x
             | None -> max_int
         in
-        (* likelihood only function, for iteration *)
-        let iterate_inodes = true in (* iterates path of nodes *)
-        let get_all_leaves handle ptree =
-            match Ptree.get_node handle ptree with
-                | Tree.Leaf (a,b) | Tree.Interior (a,b,_,_) -> 
-                     let aa,bb =
-                        Ptree.post_order_node_with_edge_visit
-                            (fun p x a ->
-                                All_sets.FullTriples.add (min x p,max x p,handle) a)
-                            (fun p x a1 a2 ->
-                                All_sets.FullTriples.union a1 a2)
-                            (Tree.Edge (a,b))
-                            (ptree)
-                            (All_sets.FullTriples.empty)
-                    in
-                    All_sets.FullTriples.union aa bb
-                | Tree.Single x -> All_sets.FullTriples.empty
-        in
         let all_edges =
-            if not iterate_inodes then begin
-                let sets = All_sets.Integers.fold
-                    (fun x acc -> 
-                        All_sets.FullTriples.union acc (get_all_leaves x ptree))
-                    ptree.Ptree.tree.Tree.handles
-                    All_sets.FullTriples.empty
-                in
-                All_sets.FullTriples.elements sets
-            end else begin
-                let e_list = 
-                    Tree.EdgeMap.fold
-                        (* change the above to tuples and this as well *)
-                        (fun (Tree.Edge (a,b)) _ acc -> (a,b,0)::acc)
-                        ptree.Ptree.edge_data
-                        []
-                in
-                e_list
-            end
+            Tree.EdgeMap.fold
+                (* change the above to tuples and this as well *)
+                (fun (Tree.Edge (a,b)) _ acc -> (a,b)::acc)
+                ptree.Ptree.edge_data
+                []
         in
 
     (* We start by defining a function to adjust one node *)
@@ -885,7 +852,6 @@ module F : Ptree.Tree_Operations
             (* below we apply the new branch length data to the left and right
              * and add the result to the ptree. n_root is striped of direction. *)
             let n_root,ptree = 
-                (* TODO: following call is same as in refresh_all_edges @ end *)
                 create_lazy_edge true (Some new_root) false ptree a b
             in
             let n_root =
@@ -923,7 +889,7 @@ module F : Ptree.Tree_Operations
             List.fold_right (fun x acc -> add_one x acc) node_list affected
         in
     (* compose the above functions to adjust and modify the affected nodes *)
-        let adjust_vertices_affected ((modified,affected_nodes,ptree) as acc) c2c prev curr : adjust_acc = 
+        let adjust_vertices_affected ((modified,affected_nodes,ptree) as acc) c2c prev curr = 
             if not (All_sets.IntegerMap.mem curr c2c) then acc
             else match Ptree.get_node curr ptree with 
                 | (Tree.Interior _) as nd ->
@@ -963,24 +929,7 @@ module F : Ptree.Tree_Operations
                     ptree
                     adjust_acc
             (* loop for rerooting and applying iterative on the resultant path *)
-            and adjust_reroot_loop affected ((modified,aff_n,ptree) as reroot_acc) (a,b,_) =
-                (* the first element in the list from the incremental is the
-                 * child of the second, which is the branch to iterate, so, the
-                 * first element needs to be skipped to follow the direction of
-                 * the iteration being performed *)
-                let iterate_pairs_left prev_affected handle initial node_lst =
-                    let rec fold_left_minus prev lst ((r,accu) as acc) = match lst with
-                        | []    -> acc
-                        | s::[] -> (prev,s),accu
-                        | mine::mines -> 
-                            prev --> adjust_vertices_affected accu prev_affected mine
-                                 --> (fun x -> fold_left_minus mine mines (r,x))
-                    in
-                    match node_lst with
-                    | [] | _::[] -> initial
-                    | leaf::mine::rest -> (* below, possible non-tail call *)
-                        let (a,b),acc = fold_left_minus mine rest ((leaf,mine),initial) in
-                        adjust_root acc prev_affected handle a b in
+            and adjust_reroot_loop affected (modified,aff_n,ptree) (a,b) =
                 (* a simple reroot, since the reroot_fn requires incremental as
                  * a return type, but nodes are integers, this can be changed by
                  * maping over set to convert, but this is here to quickly get
@@ -1000,10 +949,7 @@ module F : Ptree.Tree_Operations
                 in
                 (* main portion of reroot -- iterate steps *)
                 let ptree,incs,handle = simple_reroot (Tree.Edge (a,b)) ptree in
-                if not iterate_inodes then
-                    iterate_pairs_left affected handle reroot_acc incs
-                else
-                    adjust_root (modified,aff_n,ptree) affected handle a b
+                adjust_root (modified,aff_n,ptree) affected handle a b
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
@@ -1050,11 +996,12 @@ module F : Ptree.Tree_Operations
                         let n = AllDirNode.AllDirF.median None None ad bd in
                         AllDirNode.AllDirF.to_single (Some n) None ad None bd sets
                     in
-                    Ptree.assign_root_to_connected_component handle
-                        (Some (edge, root))
-                        (check_cost ptree handle None)
-                        None
-                        ptree
+                    ptree
+                        --> Ptree.assign_root_to_connected_component handle
+                                (Some (edge, root))
+                                (check_cost ptree handle None)
+                                None
+                        --> refresh_all_edges true None true None
                 | Some _ -> ptree
             end
         in
@@ -1114,12 +1061,11 @@ module F : Ptree.Tree_Operations
                                 "Adding Vertex %d post Order: (%d,%d) and %d%!" 
                                                 code a b prev;
                         let interior = 
-                            let p1 = (create_partition ptree b code,b)
-                            and p2 = (create_partition ptree a code,a) in
+                            let p1 = create_partition ptree b code,b
+                            and p2 = create_partition ptree a code,a in
                             match hashdoublefind ptree [p1;p2] with
                             | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
-                            | None ->
-                                    create_lazy_interior_down ptree (Some code) a b
+                            | None   -> create_lazy_interior_down ptree (Some code) a b
                         in
                         Ptree.add_node_data code interior ptree
             in
@@ -1241,7 +1187,9 @@ module F : Ptree.Tree_Operations
         in 
         List.fold_left process ptree edgesnhandles 
 
-    let pick_best_root ptree = general_pick_best_root blindly_trust_downpass ptree
+    let pick_best_root ptree =
+        if using_likelihood ptree then ptree
+        else general_pick_best_root blindly_trust_downpass ptree
 
     let downpass ptree =
         if debug_downpass_fn then Printf.printf "downpass begins....\n%!";
@@ -1252,14 +1200,9 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> internal_downpass true ptree
-            | `Iterative (`ApproxD iterations) ->
-                ptree
-                    --> internal_downpass true
-                    --> pick_best_root
-                    --> adjust_tree iterations None
-                    --> refresh_all_edges true None true None
-            | `Iterative (`ThreeD iterations) ->
-                let remove_bl tree = (* remove branch lengths *)
+            | `Iterative (`ApproxD iterations)
+            | `Iterative (`ThreeD  iterations) ->
+                let remove_bl tree = (* remove branch length table *)
                     if Hashtbl.length (tree.Ptree.data.Data.branches) > 0 
                         then begin
                             Hashtbl.clear (tree.Ptree.data.Data.branches);
@@ -1269,12 +1212,10 @@ module F : Ptree.Tree_Operations
                 in
                 ptree
                     --> internal_downpass true
+                    --> remove_bl
                     --> pick_best_root
-                    --> remove_bl 
                     --> assign_single true
                     --> adjust_tree iterations None
-                    --> refresh_all_edges true None true None
-                    (* TODO: above unnecessary, check with parsimony after iteration *)
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then Printf.printf "downpass ends....\n%!";
@@ -1287,8 +1228,7 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> 
-                    ptree --> pick_best_root 
-                          --> assign_single true
+                ptree --> pick_best_root --> assign_single true
             | `Iterative (`ApproxD _)
             | `Iterative (`ThreeD _) -> ptree
         in
@@ -1324,7 +1264,6 @@ module F : Ptree.Tree_Operations
     match edge_data_opt with
     | None ->
         refresh_all_edges true None false (Some (a,b)) ptree
-        (* ptree --> clear_subtree b a --> clear_subtree a b *)
     | Some edge ->
         if not (using_likelihood ptree) then
             refresh_all_edges true None false (Some (a,b)) ptree
@@ -1413,7 +1352,6 @@ module F : Ptree.Tree_Operations
                     clade_node_dir.Node.total_cost tree_node_dir.Node.total_cost
                     (clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost)
             end else ();
-            
             clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost
         in
 
@@ -1442,7 +1380,7 @@ module F : Ptree.Tree_Operations
 
             (* Update the actual contents of the tree *)
             let ptree =
-                ptree --> Ptree.remove_root_of_component tree_handle
+              ptree --> Ptree.remove_root_of_component tree_handle
                     --> Ptree.remove_root_of_component clade_handle
                     --> Ptree.remove_edge_data edge
                     --> replace_topology nbt
@@ -1450,12 +1388,13 @@ module F : Ptree.Tree_Operations
                     --> update_break_delta right_delta
                     --> refresh_all_edges false None true None
                     --> refresh_roots
+                    --> uppass
             in
-            let ptree = uppass (downpass ptree) in
             ptree, tree_delta, clade_handle, tree_handle
         in
+
         (* Compare costs, and calculate the break delta *)
-        let b_delta =
+        let b_delta = 
             if prev_cost = infinity && new_cost = infinity then 0.
             else 
                 let rc, tc = 
@@ -1534,14 +1473,21 @@ module F : Ptree.Tree_Operations
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines ->
-                let breakage = break_fn a b in
-                let nt = refresh_all_edges true None true None
-                                           (breakage.Ptree.ptree) in
+                let breakage =
+                    try break_fn a b
+                    with | Not_found -> failwith "break broken"
+                in
+                let nt =
+                    try refresh_all_edges true None true None
+                                           (breakage.Ptree.ptree)
+                    with | Not_found -> failwith "RAE broken"
+                in
                 { breakage with 
                     Ptree.ptree = nt; }
         | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
-                let nt = refresh_all_edges true None true None
+                let nt = 
+                    refresh_all_edges true None true None
                                            (breakage.Ptree.ptree) in
                 { breakage with 
                     Ptree.ptree = nt;
@@ -1644,7 +1590,7 @@ module F : Ptree.Tree_Operations
         let ptree = 
             ptree --> Ptree.remove_root_of_component handle 
                 (* taken care of by uppass --> clear_up_over_edge (v, h) None *)
-                --> refresh_all_edges false None true (Some (v,h))
+                  --> refresh_all_edges false None true (Some (v,h))
         in
         let ptree = 
             add_component_root ptree handle (create_root v h ptree)
@@ -1677,9 +1623,12 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
                 let tree, delta = join_fn a b c d in
-                let tree = adjust_tree iterations None
-                           (assign_single true (pick_best_root tree)) in
-                refresh_all_edges true None true None tree, delta
+                let tree = 
+                   tree --> pick_best_root
+                        --> assign_single true 
+                        --> adjust_tree iterations None
+                in
+                tree, delta
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->

@@ -38,6 +38,7 @@ AC_SUBST(OUSE_LARGE_ALPHABETS)
 AC_SUBST(OUSE_VERIFY_COSTS)
 AC_SUBST(OUSEGRAPHICS)
 AC_SUBST(OUSEWIN32)
+AC_SUBST(OUSE_SSE3)
 
 AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
@@ -48,6 +49,7 @@ AC_SUBST(USE_LONG_SEQUENCES)
 AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
 AC_SUBST(USE_LIKELIHOOD)
+AC_SUBST(USE_SSE3)
 AC_SUBST(USE_VERIFY_COSTS)
 
 AC_SUBST(POY_VERSION_NUMBER)
@@ -142,6 +144,10 @@ AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
                option requires an implementation of lapack and blas to be installed.])],
                 [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"], [USE_LIKELIHOOD="false"])
 
+AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
+              [Enable the Streaming SIMD Extensions for likelihood characters.])],
+               [USE_SSE3="true"],[USE_SSE3="false"])
+
 AC_ARG_ENABLE([large-alphabets], [AS_HELP_STRING([--enable-large-alphabets],
               [Enable the analysis of alphabets larger than 255 elements. When using this option, more memory will be needed to store each tree (4 or 8 times more for 32 and 64 bit computers respectively). This option is only needed for large alphabets if you use custom alphabets. Normal nucleotide, aminoacid, or morphological analyses are nor affected by this option.])],
               [USE_LARGE_ALPHABETS="true"; DUSE_LARGE_ALPHABETS="-DUSE_LARGE_ALPHABETS"; OUSE_LARGE_ALPHABETS=",use_large_alphabets"],
@@ -155,7 +161,7 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
     *-apple-*)
-        LIBS="-framework veclib"
+        LIBS="-framework veclib $LIBS"
         AC_DEFINE(HAVE_LIBLAPACK, 1, "lapack confirmation")
         ;;
     *)
@@ -169,6 +175,39 @@ case ${OS_INFORMATION} in
         ;;
 esac
 
+case ${OS_INFORMATION} in
+	*-apple-*)
+		AS_IF([test $USE_SSE3 = "true"],
+			[AC_CHECK_HEADER(pmmintrin.h,
+				[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+			[AC_MSG_RESULT([not using SSE3])])
+		;;
+	*)
+		AS_IF([test $USE_SSE3 = "true"],
+			[AC_CHECK_HEADER(pmmintrin.h,
+       			[AC_CHECK_FUNC(posix_memalign,
+   					[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes])],
+	     			[AC_MSG_FAILURE([posix_memalign not found])])],
+ 				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+			AC_MSG_RESULT([not using SSE3]))
+		;;
+esac
+
+# Check if the user wants SSE3 instructions, copy cflags to temporary variable
+# to compile test SSE3
+#CFLAGS_TMP=$CFLAGS
+#CFLAGS="-msse3"
+#AS_IF([test $USE_SSE3 = "true"],
+#    [AC_MSG_CHECKING([SSE3 support...]);
+#     AC_COMPILE_IFELSE([
+#        #include <pmmintrin.h>
+#        __m128d _add(__m128d v) { return _mm_hadd_pd( v, v ); }], 
+#        [AC_CHECK_FUNC(posix_memalign, [CFLAGS="-msse3 $CFLAGS_TMP";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes]) ], 
+#                                       [AC_MSG_FAILURE([posix_memalign memory alloctaion not found])])],
+#        [AC_MSG_FAILURE([Cannot compile SSE3 instructions])]
+#        )]
+#    )
 
 # Checking for libraries according to the user's options.
 AS_IF([test $USEINTERFACE = "ncurses"], 
@@ -184,7 +223,6 @@ AC_ARG_WITH(xslt-config, [Select a different xslt-config program to detect the c
             [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],
                                                     [xslt-config],[xslt-config])])
 
-echo "Finished xslt crap"
 oLIBS="$LIBS"
 NEWLIBS="`$XSLT_CONFIG --libs`"
 LIBS="$LIBS $NEWLIBS"

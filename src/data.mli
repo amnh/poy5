@@ -553,7 +553,7 @@ val get_locus_indel_cost : dyna_pam_t -> int * int
 * *)
 val get_median_solver : dyna_pam_t -> int
 
-val set_likelihood : d -> Methods.ml_spec -> d
+val set_likelihood : d -> Methods.ml_spec -> d 
 
 val to_faswincladfile : d -> string option -> unit
 
@@ -651,7 +651,7 @@ val apply_boolean :
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
-val get_model : int -> d -> Parser.SC.ml_model
+val get_model : int -> d -> MlModel.model
 
 (** [min_max_possible_cost a b c d e] applies the functions [a], [b] and [c] in
  * the ordered, unordered, and sankoff characters respectively listed in [d], 
@@ -661,7 +661,7 @@ val apply_on_static :
     (Parser.SC.static_state list -> float) -> (Parser.SC.static_state list -> 
         float) -> 
         (int array array -> Parser.SC.static_state list -> float) -> 
-            (Parser.SC.ml_model -> Parser.SC.static_state list -> float) -> bool_characters ->
+            (MlModel.model -> Parser.SC.static_state list -> float) -> bool_characters ->
             d -> (int * float) list
 
 val repack_codes : d -> d

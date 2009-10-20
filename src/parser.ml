@@ -2510,39 +2510,13 @@ end
 
 module SC = struct
 
-    type site_var = (* #categories, alpha, beta *)
-        | Gamma of int * float * float
-        | Theta of int * float * float * float
-        | Invariant 
-
-    type subst_model =
-        | JC69 of float
-        | F81 of float
-        | K2P of float * float
-        | F84 of float * float
-        | HKY85 of float * float
-        | TN93 of float * float * float
-        | GTR of float array
-        | File of float array array 
-
-    type priors = 
-        | Estimated of float array
-        | Given of float array
-
-    type ml_model = {
-        substitution : subst_model;
-        site_variation : site_var option;
-        base_priors : priors;
-        use_gap : bool;
-    }
-
     (* A module to handle specifications of static homology characters and their
     * occurrences in a terminal *)
     type st_type = 
         | STOrdered
         | STUnordered
-        | STSankoff of int array array (* the cost matrix to use *)
-        | STLikelihood of ml_model     (* The ML model to use *)
+        | STSankoff of int array array         (* the cost matrix to use *)
+        | STLikelihood of (MlModel.spec * MlModel.model) (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string;    (* The file it came from *)
@@ -2622,7 +2596,6 @@ module SC = struct
         s.st_missing ^ (function None -> " " | Some x -> x) s.st_matchstate ^ 
         separator ^ s.st_gap ^ separator ^ bool_to_string s.st_eliminate ^ separator
         ^ bool_to_string s.st_case
-
 
     let to_formatter s =
         let module T = Xml.Characters in
@@ -3789,45 +3762,45 @@ module SC = struct
                 let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
                     let submatrix = match String.uppercase name with
                         | "JC69" -> (match param with
-                                | [single] -> JC69 single
-                                | [] -> JC69 1.0
+                                | [single] -> MlModel.JC69 single
+                                | [] -> MlModel.JC69 1.0
                                 | _ -> failwith "Parameters don't match model")
                         | "F81" -> (match param with
-                                | [single] -> F81 single
-                                | [] -> F81 1.0
+                                | [single] -> MlModel.F81 single
+                                | [] -> MlModel.F81 1.0
                                 | _ -> failwith "Parameters don't match model")
                         | "K80" | "K2P" -> (match param with
-                                | h1::h2::[] -> K2P (h1,h2)
-                                | ratio::[] -> K2P (ratio,1.0)
+                                | h1::h2::[] -> MlModel.K2P (h1,h2)
+                                | ratio::[] -> MlModel.K2P (ratio,1.0)
                                 | _ -> failwith "Parameters don't match model")
                         | "F84" -> (match param with
-                                | h1::h2::[] -> F84 (h1,h2)
+                                | h1::h2::[] -> MlModel.F84 (h1,h2)
                                 | _ -> failwith "Parameters don't match model")
                         | "HKY" | "HKY85" -> (match param with
-                                | h1::h2::[] -> HKY85 (h1,h2)
-                                | ratio::[] -> HKY85 (ratio,1.0)
+                                | h1::h2::[] -> MlModel.HKY85 (h1,h2)
+                                | ratio::[] -> MlModel.HKY85 (ratio,1.0)
                                 | _ -> failwith "Parameters don't match model")
                         | "TN93" -> (match param with
-                                | h1::h2::h3::[] -> TN93 (h1,h2,h3)
+                                | h1::h2::h3::[] -> MlModel.TN93 (h1,h2,h3)
                                 | _ -> failwith "Parameters don't match model")
-                        | "GTR" -> GTR (Array.of_list param)
+                        | "GTR" -> MlModel.GTR (Array.of_list param)
                         | "GIVEN"-> (match file with
                                 | Some name ->
                                     let mat = Array.of_list (List.map (Array.of_list)
                                          (TransformationCostMatrix.fm_of_file
                                          (`Local name))) in
-                                    File mat
+                                    MlModel.File mat
                                 | _ -> failwith "File not specified")
                         | _ -> failwith "No Model Specified"
                     and variation = match String.uppercase var with
-                        | "GAMMA" -> Gamma (int_of_string site,
+                        | "GAMMA" -> MlModel.Gamma (int_of_string site,
                                              float_of_string alpha,
                                              float_of_string alpha)
-                        | "THETA" -> Theta (int_of_string site,
+                        | "THETA" -> MlModel.Theta (int_of_string site,
                                              float_of_string alpha,
                                              float_of_string alpha,
                                              float_of_string invar)
-                        | "NONE" | "CONSTANT" | "" | _ -> Invariant
+                        | "NONE" | "CONSTANT" | "" | _ -> MlModel.Constant
                     and gap = match String.uppercase gap with
                         | "TRUE" -> true
                         | "FALSE" | _ -> false
@@ -3841,12 +3814,14 @@ module SC = struct
                         end;
                         priors
                     in
-                    (STLikelihood ({
-                        substitution = submatrix;
-                        site_variation = Some variation;
-                        base_priors = Given (Array.of_list priors);
-                        use_gap = gap;
-                    }),chars)
+                    let model_spec = 
+                        {   MlModel.substitution = submatrix;
+                            site_variation = Some variation;
+                            base_priors = MlModel.Given (Array.of_list priors);
+                            use_gap = gap;
+                        }
+                    in
+                    (model_spec,chars)
                 in
                 (* POY block :: process all commands*)
                 List.iter
@@ -3861,6 +3836,8 @@ module SC = struct
                                                 params
                                 )
                         in
+                        (* how should the alphabet be obtained? *)
+                        let m = STLikelihood (m,MlModel.create acc.characters.(0).st_alph m) in
                         (* apply spec to each character *)
                         List.iter (apply_on_character_set 
                                         acc.characters
@@ -4252,7 +4229,6 @@ module SC = struct
 
     let fill_observed data =
         Nexus.fill_observed data.characters data.matrix
-
 end
 
 
