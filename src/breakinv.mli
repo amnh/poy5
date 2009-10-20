@@ -38,6 +38,7 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
+val get_median_solver : meds_t -> int 
 
 (** init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
@@ -81,6 +82,9 @@ val cmp_max_pair_cost : meds_t -> meds_t -> int * int
  * a list of medians w_ijp with the same cost c_ijp. 
  * Find w*ijp = minargv_(w_ijp) (c_ijp) *)
 val find_meds3 : meds_t -> meds_t -> meds_t -> meds_t
+
+
+val find_meds3_albert : meds_t -> meds_t -> meds_t -> meds_t
 
 
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts

@@ -30,6 +30,13 @@ external c_get_one_genome : genome_arr -> int -> genome = "grappa_CAML_get_one_g
 external c_cmp_inv_dis : genome -> genome -> int -> int ->  int 
 =  "grappa_CAML_cmp_inv_dis"
 
+(* for the median3, call albert-median resolver*)
+(* genomeX, genomeY, genomeZ, number of genes in each genome, circular/or not,
+* output the median of X, Y and Z *)
+external c_inv_med_albert : genome -> genome -> genome -> int -> int -> 
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+   = "grappa_CAML_inv_med_albert"
+
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
 let _ =

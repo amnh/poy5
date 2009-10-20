@@ -38,6 +38,8 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
+let get_median_solver med = Data.get_median_solver med.breakinv_pam
+
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
 * created from a sequence of general character [seq]*)
@@ -61,7 +63,6 @@ let rec keep chrom_pam med_ls =
           if  keep_median >= List.length med_ls then med_ls
           else Utl.get_k_random_elem med_ls keep_median
 
-
 (** [find_meds2 meds1 meds2] returns a list of 
 * breakinv character medians created for two lists of medians 
 * [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
@@ -76,7 +77,6 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                 meds1.pure_gen_cost_mat  
                 meds1.alpha meds1.breakinv_pam   
         in   
-
         if cost < best_meds.total_cost then   
             {best_meds with  
                  total_cost = cost;  
@@ -84,9 +84,7 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                  med_ls = med_ls;   
                  num_med = List.length med_ls} 
         else best_meds
-    in 
-                            
-        
+    in        
     let init_meds : meds_t = {
         med_ls = []; num_med = 0; 
          total_cost = Utl.large_int; 
@@ -96,7 +94,6 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
          pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat;
          alpha = meds1.alpha} 
     in 
-
     let best_meds = 
         List.fold_left (fun best_meds1 med1 ->                                
                             List.fold_left (fun best_meds2 med2 ->
@@ -104,7 +101,6 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                             ) best_meds1 meds2.med_ls 
                    ) init_meds meds1.med_ls
     in 
-             
     let kept_med_ls = keep meds1.breakinv_pam best_meds.med_ls in
     {best_meds with  
          med_ls = kept_med_ls;         
@@ -146,8 +142,7 @@ let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
                     (fun (max_cost2, max_recost2)  med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
                              meds1.gen_cost_mat  meds1.pure_gen_cost_mat  
-                             meds1.alpha meds1.breakinv_pam                                
-                         in  
+                             meds1.alpha meds1.breakinv_pam  in  
                          if max_cost2 < cost then cost, (recost1 + recost2)
                          else max_cost2, max_recost2
 
@@ -168,37 +163,130 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     let meds2p = find_meds2 meds2 medsp in 
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
+
+
+(* [find_meds3_albert medsp meds1 meds2] will use albert-median solver to
+* create a median from 3 input sequences
+* *)
+let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
+    let update3 med1 med2 med3 (best_meds : meds_t) : meds_t =
+        let arr1,arr2,arr3 = BreakinvAli.get_common_seq med1 med2 med3 in
+        if (Array.length arr1)=0 then best_meds
+        else 
+            let cost, (recost1, recost2), med_ls =   
+                BreakinvAli.find_med3_ls med1 med2 med3 meds1.gen_cost_mat  
+                    meds1.pure_gen_cost_mat  
+                    meds1.alpha meds1.breakinv_pam   
+            in   
+            if cost < best_meds.total_cost then   
+                {best_meds with  
+                     total_cost = cost;  
+                     total_recost = recost1 + recost2;
+                     med_ls = med_ls;   
+                     num_med = List.length med_ls} 
+            else best_meds
+    in        
+    let init_meds : meds_t = {
+        med_ls = []; num_med = 0; 
+         total_cost = Utl.large_int; 
+         total_recost = 0;
+         breakinv_pam = meds1.breakinv_pam;
+         gen_cost_mat = meds1.gen_cost_mat;
+         pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat meds1.gen_cost_mat;
+         alpha = meds1.alpha} 
+    in
+    let meds1,meds2,meds3 = medsp, meds1, meds2 in
+    let best_meds = 
+        List.fold_left (
+            fun best_meds1 med1 ->                                
+                List.fold_left ( 
+                        fun best_meds2 med2 ->
+                            List.fold_left ( 
+                                fun best_meds3 med3 -> 
+                                    update3 med1 med2 med3 best_meds3
+                                 ) best_meds2 meds3.med_ls
+                            ) best_meds1 meds2.med_ls 
+                   ) init_meds meds1.med_ls
+    in
+    if best_meds = init_meds then 
+        find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t)
+    else
+        let kept_med_ls = keep meds1.breakinv_pam best_meds.med_ls in
+        {best_meds with  
+             med_ls = kept_med_ls;         
+             num_med = List.length kept_med_ls} 
+ 
+
+
             
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
 * the breakinv median [mine] of three breakinv medians 
 * [ch1], [ch2] and [parent] *) 
-let readjust_3d ch1 ch2 mine c2 c3 parent = 
-    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
-    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
-    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
-    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
-
-    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
-
-    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
-        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
-        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
-        (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
-    in 
-    let amed = List.hd mine.med_ls in
-    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
-    let adjust_mine = {mine with med_ls = [adjust_med]} in 
-
-
+let readjust_3d ch1 ch2 mine c2 c3 parent =
+    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in
     let cost1, _ = cmp_min_pair_cost ch1 mine in 
     let cost2, _ = cmp_min_pair_cost ch2 mine in 
     let cost3, _ = cmp_min_pair_cost parent mine in 
     let old_cost : int = cost1 + cost2 + cost3 in 
-        
+    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
+    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
+    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
+    (* debug msg
+    Printf.printf "### Breakinv.readjust_3d compute the old cost first,check seq1/seq2/seq3/mine_seq ###\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+    Sequence.printseqcode seq3; Sequence.printseqcode mine_seq;
+    Printf.printf "old~cost1,cost2,cost3=%d,%d,%d;\n%!" cost1 cost2 cost3;
+    debug msg*)
+    let  adjust_seq, new_cost1, new_cost2, new_cost3 =
+        match ali_pam.BreakinvAli.median_solver with
+        | `Albert ->
+            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
+                GenAli.create_gen_ali3_albert 
+                ali_pam.BreakinvAli.kept_wag
+                `Breakinv
+                seq1 seq2 seq3 
+                ch1.pure_gen_cost_mat 
+                ch1.alpha 
+                ali_pam.BreakinvAli.re_meth
+                ali_pam.BreakinvAli.swap_med 
+                ali_pam.BreakinvAli.circular
+                (Alphabet.get_orientation ch1.alpha) 
+                ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
+        | `Default ->
+            let adjust_seq, cost1,cost2,cost3 = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
+            ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+            (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
+    in
+    let new_cost = new_cost1+new_cost2+new_cost3 in
+    if old_cost <= new_cost then 
+        cost3, mine, false
+    else 
+        let amed = List.hd mine.med_ls in
+        let adjust_med_ls = {amed with BreakinvAli.seq = adjust_seq} in 
+        new_cost3, {mine with med_ls = [adjust_med_ls]}, true
 
-    if old_cost <= cost then old_cost, mine, false
+(*    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
+    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
+    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
+    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
+    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
+    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
+        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
+        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
+        (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
+    in
+    let amed = List.hd mine.med_ls in
+    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
+    let adjust_mine = {mine with med_ls = [adjust_med]} in 
+
+        if old_cost <= cost then old_cost, mine, false
     else cost, adjust_mine, true
-
+*)
        
     
 

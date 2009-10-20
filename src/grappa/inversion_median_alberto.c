@@ -39,7 +39,9 @@ genome_init ( int N )
         /*     gen[k] = (struct genome_struct*)malloc(sizeof(struct genome_struct));
            gen[k]->genes = (int *)calloc(Num_Genes, sizeof(int)); */
         for ( i = 0; i < Num_Genes; i++ )
+        {
             gen[k]->genes[i] = pi[k][i];
+        }
 /*      gen[k]->encoding = NULL;
       gen[k]->gnamePtr = NULL;*/
     }
@@ -47,9 +49,11 @@ genome_init ( int N )
     {
         rdist[k][k] = 0;
         for ( l = k + 1; l <= 3; l++ )
+        {
             rdist[k][l] = rdist[l][k] =
                 invdist_noncircular ( gen[k], gen[l], 0, Num_Genes,
                                       localDistmem );
+        }
     }
 }
 
@@ -556,6 +560,58 @@ init_global_variables ( int N, distmem_t * distmem )
 
 }
 
+void ini_mem_4_albert(int NUM_GENES)
+{
+   distmem_t * distmem = &ALBERT_DIST_MEM;
+   distmem->hammingArr =
+        ( int * ) malloc ( ( NUM_GENES + 1 ) * 2 * sizeof ( int ) );
+    if ( distmem->hammingArr == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: hammingArr NULL\n" );
+    distmem->perm1 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm1 == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm1 NULL\n" );
+    distmem->perm2 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm2 == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm2 NULL\n" );
+    distmem->perm =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm NULL\n" );
+    distmem->done =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->done == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: done NULL\n" );
+    distmem->greyEdges =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->greyEdges == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: greyEdges NULL\n" );
+    distmem->stack =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->stack == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: stack NULL\n" );
+    distmem->oriented =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->oriented == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: oriented NULL\n" );
+    distmem->cc = ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->cc == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: cc NULL\n" );
+    distmem->labeled =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->labeled == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: labeled NULL\n" );
+    distmem->components = ( component_t * )
+        malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( component_t ) );
+    if ( distmem->components == ( component_t * ) NULL )
+        fprintf ( stderr, "ERROR: components NULL\n" );
+    distmem->uf = UFalloc ( 2 * NUM_GENES + 2 );
+    
+    init_global_variables ( NUM_GENES, &ALBERT_DIST_MEM );
+}
+
+
 void
 free_variables (  )
 {
@@ -613,6 +669,27 @@ free_variables (  )
     free ( fid );
 }
 
+
+void free_mem_4_albert ()
+{
+    free_variables ();
+    localDistmem = &ALBERT_DIST_MEM;
+    free ( localDistmem->uf);
+    free ( localDistmem->components );
+    free ( localDistmem->labeled );
+    free ( localDistmem->cc );
+    free ( localDistmem->oriented );
+    free ( localDistmem->stack );
+    free ( localDistmem->greyEdges );
+    free ( localDistmem->done );
+    free ( localDistmem->perm );
+    free ( localDistmem->perm1 );
+    free ( localDistmem->perm2 );
+    free ( localDistmem->hammingArr);
+    return;
+}
+
+
 int *
 albert_inversion_median_circular ( struct genome_struct **passgenome,
                                    int ngenes, int *genes )
@@ -636,7 +713,7 @@ int *
 albert_inversion_median_noncircular ( struct genome_struct **passgenome,
                                       int ngenes, int *genes )
 {
-    int h, i, j, k, l, e, prev, curr;
+  int h, i, j, k, l, e, prev, curr;
     int ncyc, ncyclesk, maxcyclesk, totcycles, inibest, oldbest;
     int mindistk, totdist, kbest;
 
@@ -817,5 +894,196 @@ albert_inversion_median_noncircular ( struct genome_struct **passgenome,
     i = median_distance ( pibest );
 /*  fprintf(fout, "   LB=%d,   UB=%d,   MS=%d,       non-ms=%d\n", 3*mc-UB, mindistk, 3*(Num_Genes+1) - realbest, i);  */
 
+
     return pibest;
+
+    /*
+    int h, i, j, k, l, e, prev, curr;
+    int ncyc, ncyclesk, maxcyclesk, totcycles, inibest, oldbest;
+    int mindistk, totdist, kbest;
+
+    pibest = genes;
+    Num_Genes = ngenes;
+
+    for ( j = 1; j < MAXQ + 1; j++ )
+        for ( i = 0; i < Num_Genes; i++ )
+            pi[j][i] = passgenome[j - 1]->genes[i];
+
+    fprintf(stdout,"median noncircular~, genome_init\n"); fflush(stdout);
+     compute distances between all pairs and find best "local" median 
+    genome_init ( Num_Genes );
+ //   median_init (  );
+    mindistk = 3 * mc;
+fprintf(stdout,"median noncircular~, totdist,pibest\n"); fflush(stdout);
+
+    for ( k = 1; k <= 3; k++ )
+    {
+        totdist = 0;
+        for ( l = 1; l <= 3; l++ )
+            totdist += rdist[k][l];
+        if ( totdist < mindistk )
+        {
+            mindistk = totdist;
+            kbest = k;
+             initialize best solution 
+            for ( i = 0; i < Num_Genes; i++ )
+                pibest[i] = pi[k][i];
+        }
+    }
+fprintf(stdout,"median noncircular~, e_ind\n"); fflush(stdout);
+
+     definition of the edge variables 
+
+    e = 0;
+    for ( i = 0; i < vc; i++ )
+        for ( j = i + 1; j < vc; j++ )
+        {
+            if ( ( i % 2 == 1 && j == i + 1 ) || ( i == 0 && j == vc - 1 ) )
+            {
+                 exclude edges in H 
+                e_ind[i][j] = e_ind[j][i] = NONE;
+                continue;
+            }
+            i_ind[e] = i;
+            j_ind[e] = j;
+            e_ind[i][j] = e_ind[j][i] = e;
+            e++;
+        }
+
+     compute permutation matchings 
+
+     definition of the matching edges 
+fprintf(stdout,"median noncircular~,  definition of the matching edges \n"); fflush(stdout);
+
+    for ( k = 1; k <= 3; k++ )
+    {
+     prev is the predecessor of current element curr 
+        prev = 0;
+        l = 0;
+        for ( h = 0; h <= Num_Genes; h++ )
+        {
+            if ( h < Num_Genes )
+                curr = pi[k][h];
+            else
+                curr = Num_Genes + 1;
+            if ( curr >= 0 && prev >= 0 )
+            {
+                 edge from (2 * prev) to (2 * curr - 1) 
+                i = 2 * prev;
+                j = ( 2 * curr - 1 );
+            }
+            else if ( curr < 0 && prev >= 0 )
+            {
+                 edge from (2 * prev) to (2 * -curr) 
+                i = 2 * prev;
+                j = ( 2 * -curr );
+            }
+            else if ( curr >= 0 && prev < 0 )
+            {
+                 edge from (2 * -prev - 1) to (2 * curr - 1) 
+                i = 2 * -prev - 1;
+                j = ( 2 * curr - 1 );
+            }
+            else if ( curr < 0 && prev < 0 )
+            {
+                 edge from (2 * -prev - 1) to (2 * -curr) 
+                i = 2 * -prev - 1;
+                j = ( 2 * -curr );
+            }
+            pm[k][l] = e_ind[i][j];
+            permate[k][i] = j;
+            permate[k][j] = i;
+            l++;
+            prev = curr;
+        }
+    }
+    fprintf(stdout,"median noncircular~, Hamiltonian matching edges\n"); fflush(stdout);
+     Hamiltonian matching edges (dynamically updated in branch-and-bound) 
+    for ( i = 1; i <= Num_Genes; i++ )
+    {
+        hamate[2 * i - 1] = 2 * i;
+        hamate[2 * i] = 2 * i - 1;
+    }
+    hamate[0] = 2 * Num_Genes + 1;
+    hamate[2 * Num_Genes + 1] = 0;
+     Hamiltonian matching edges (permanent copy) 
+    for ( i = 0; i < vc; i++ )
+        hamilmate[i] = hamate[i];
+     solution edges 
+    for ( i = 0; i < vc; i++ )
+        solmate[i] = NONE;
+ fprintf(stdout,"median noncircular~, initial number of cycles \n"); fflush(stdout);
+     compute initial number of cycles between every pair of 
+       permutation matchings 
+    maxcyclesk = 0;
+    for ( k = 1; k <= 3; k++ )
+    {
+        ncyclesk = 0;
+        consider the cycles formed by the matchings of other permutations
+           and the matching of permutation k 
+        for ( l = 1; l <= 3; l++ )
+        {
+            find_half_cycles ( pm[k], l, mc, &ncyc );
+            ncycles[k][l] = ncyc;
+            ncyclesk += ncyc;
+        }
+        if ( ncyclesk > maxcyclesk )
+        {
+            maxcyclesk = ncyclesk;
+             optimal solution is not yet stored 
+        }
+    }
+fprintf(stdout,"median noncircular~, compute metric upper bound \n"); fflush(stdout);
+     compute metric upper bound 
+    totcycles = 0;
+    for ( k = 1; k <= 3; k++ )
+        for ( l = k + 1; l <= 3; l++ )
+            totcycles += ncycles[k][l];
+
+    UB = ( int ) ( totcycles / ( double ) ( 3 - 1 ) +
+                   ( double ) ( 3 * mc ) / 2.0 );
+
+     best feasible solution is initially the trivial one 
+    realbest = 3 * mc - mindistk;
+
+      printf("... initial solution value = %d, initial LB = %d\n", 
+       mindistk, 3 * mc - UB);   
+fprintf(stdout,"median noncircular~, local_search \n"); fflush(stdout);
+#ifdef LOCAL_SEARCH
+     apply local search to current best solution to improve it 
+    local_search ( n, vc, solmate );
+#endif
+
+     call main branch-and-bound recursion 
+     this version has one call for each possible value of best 
+    inibest = realbest;
+
+    realub = metricub = UB;
+    millnodes = treenodes = 0;
+    if ( realbest == UB )
+    {
+        termin ( tf - ti, TRUE );
+    }
+    for ( best_now = UB - 1; best_now >= inibest; best_now-- )
+    {
+        nunreach = vc - 1;       initial (reached) node is 0 
+        for ( i = 0; i < nunreach; i++ )
+        {
+            unreach[i] = i + 1;
+            inv_unreach[i + 1] = i;
+        }
+        oldbest = best_now;
+        msbrbb ( 0, Num_Genes, UB, 0 );
+        if ( oldbest < best_now )
+            break;
+        else
+            realub = oldbest;
+    }
+fprintf(stdout,"median noncircular~, call median_distance \n"); fflush(stdout);
+     enumeration complete 
+    i = median_distance ( pibest );
+  fprintf(fout, "   LB=%d,   UB=%d,   MS=%d,       non-ms=%d\n", 3*mc-UB, mindistk, 3*(Num_Genes+1) - realbest, i);  
+
+    return pibest;
+    */
 }

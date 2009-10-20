@@ -69,6 +69,7 @@ int *pibest;
 int **fid;
 FILE *fout;
 distmem_t *localDistmem;
+distmem_t ALBERT_DIST_MEM;
 
 /* global branch-and-bound variables */
 
@@ -118,6 +119,7 @@ struct genome_struct **id;
 /* ********** functions   ************ */
 
 void init_global_variables ( int, distmem_t * distmem );
+void ini_mem_4_albert (int num_genes);
 void genome_init ( int i );
 void median_init (  );
 
@@ -152,8 +154,8 @@ int *Find_circular_identity ( int *perm, int k );
 
 void alloc_error ( char *s );
 void stop_error ( char *s );
-void free_variables (  );
-
-
+void free_variables ();
+void free_mem_4_albert ();
+ 
 
 #endif

@@ -165,6 +165,22 @@ typedef struct
     int right;                  /* Index of component to the right of my rightmost block */
 } component_t;
 
+// type for albert-median3 initialization
+typedef struct
+{
+    int max_num_genes;
+    int * stack;
+    int * pred1;
+    int * pred2;
+    int * picked;
+    int * decode;
+    struct genome_struct * con_g1;
+    struct genome_struct * con_g2;
+    struct genome_struct * con_g3;
+    struct genome_struct * con_med; 
+} condense3_mem_t;
+
+
 #define HURDLE          1
 #define GREATHURDLE (1<<1)
 #define SUPERHURDLE (1<<2)

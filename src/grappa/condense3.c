@@ -1,6 +1,48 @@
 #include "structs.h"
 #include "condense3.h"
 
+
+void ini_mem_4_cond3 (int num_genes)
+{
+    condense3_mem_t * cond3mem = &CONDENSE3_MEM;
+    cond3mem->max_num_genes = num_genes;
+    cond3mem->stack =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred1 =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred1 += num_genes;
+    cond3mem->pred2 =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->pred2 += num_genes;
+    cond3mem->picked =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->picked += num_genes;
+    cond3mem->decode =  ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    cond3mem->decode += num_genes;
+    cond3mem->con_g1 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g1->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_g2 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g2->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_g3 = (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_g3->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+    cond3mem->con_med= (struct genome_struct*) malloc ( sizeof(struct genome_struct));
+    cond3mem->con_med->genes = ( int * ) malloc ( num_genes * sizeof ( int ) );
+
+    return;
+}
+
+void
+free_mem_4_cond3 ()
+{
+    condense3_mem_t * cond3mem = &CONDENSE3_MEM;
+    free (cond3mem->con_g1);
+    free (cond3mem->con_g2);
+    free (cond3mem->con_g3);
+    free (cond3mem->con_med);
+    free (cond3mem->stack);
+    free (cond3mem->pred1);
+    free (cond3mem->pred2);
+    free (cond3mem->picked);
+    free (cond3mem->decode);
+    return;
+}
+
 void
 condense3 ( int *ingene1, int *ingene2, int *ingene3,
             int *outgene1, int *outgene2, int *outgene3,
@@ -41,6 +83,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "\n" );
     fflush ( outfile );
 #endif
+
     /* first adjacency */
     gen1 = ingene1[0];
     gen2 = ingene1[1];
@@ -90,6 +133,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "\n" );
     fflush ( outfile );
 #endif
+
     lastgen = ingene2[num_genes - 1];
     gen1 = ingene2[0];
     gen1first = gen1;
@@ -234,6 +278,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fflush ( outfile );
 #endif
 
+
     /* third genome */
     /* given the situation
        lastgen -> gen1 -> gen2
@@ -248,6 +293,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "\n" );
     fflush ( outfile );
 #endif
+
     lastgen = ingene3[num_genes - 1];
     gen1 = ingene3[0];
     gen1first = gen1;
@@ -448,6 +494,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     }
 #endif
 
+
     /* write the new genomes */
     /* genome 1 */
 #ifdef VERYVERBOSE
@@ -463,6 +510,8 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
 #ifdef VERYVERBOSE
             fprintf ( outfile, "%3d, ", code[ind] );
 #endif
+
+
             outgene1[index] = code[ind];
             index++;
         }
@@ -472,7 +521,8 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "writing outgene2\n" );
     fflush ( outfile );
 #endif
-    /* genome 2 */
+
+     /* genome 2 */
     index = 0;
     for ( i = 0; i < num_genes; i++ )
     {
@@ -482,6 +532,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
 #ifdef VERYVERBOSE
             fprintf ( outfile, "%3d, ", code[ind] );
 #endif
+ 
             outgene2[index] = code[ind];
             index++;
         }
@@ -491,6 +542,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "writing outgene3\n" );
     fflush ( outfile );
 #endif
+
     /* genome 3 */
     index = 0;
     for ( i = 0; i < num_genes; i++ )
@@ -501,6 +553,7 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
 #ifdef VERYVERBOSE
             fprintf ( outfile, "%3d, ", code[ind] );
 #endif
+ 
             outgene3[index] = code[ind];
             index++;
         }
@@ -509,6 +562,8 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "\n" );
     fflush ( outfile );
 #endif
+
+    
 
     /* We'll keep the arrays code, succ, and pred for decoding
        after a successful relabeling */
@@ -526,6 +581,7 @@ decode3 ( int *outgenes, int *ingenes, int *succ, int *decode, int num_cond )
     index = 0;                  /* index into decoded genome */
 #ifdef DEBUG
     fprintf ( outfile, "decoding results: \n" );
+
     for ( i = -num_cond; i <= num_cond; i++ )
     {
         fprintf ( outfile, "decode[%3d]=%3d\n", i, decode[i] );

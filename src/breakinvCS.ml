@@ -106,12 +106,20 @@ let same_codes a b =
 let median2 (a : t) (b : t) =
     (* We will use imperative style for this function *)
     let empty = IntMap.empty in
-
-
     let median code (meda : meds_t) (medians, costs, recosts, total_cost, total_recost) = 
         let medb : meds_t = IntMap.find code b.meds in
         let medab = Breakinv.find_meds2 meda medb in
-        
+        (*debug msg
+        Printf.printf "meda is : %!";
+        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
+        meda.Breakinv.med_ls;
+        Printf.printf "medb is : %!";
+        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
+        medb.Breakinv.med_ls;
+        Printf.printf "medab is : %!";
+        List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
+        medab.Breakinv.med_ls;
+        debug msg*)
         let new_median = IntMap.add code medab medians 
         and new_costs = 
             IntMap.add code (float_of_int medab.Breakinv.total_cost) costs  
@@ -135,16 +143,25 @@ let median2 (a : t) (b : t) =
 (** [median3 p n c1 c2] returns the median set of
 * breakinv character sets [p], [c1] and [c2] *)
 let median3 p n c1 c2 =
-(*    print_endline "median3 in BreakinvCS module"; *)
     let median code  medp res_medians = 
         let med1= IntMap.find code c1.meds in 
         let med2 = IntMap.find code c2.meds in
-        
-        let medp12 = Breakinv.find_meds3 medp med1 med2 in
-          IntMap.add code medp12 res_medians 
-(*        let med12 = Med.find_meds2 med1 med2 p.c2 in 
-        IntMap.add code med12 res_medians *)
-    in
+        let medp12 = 
+        (*    if median_choice_code=0 then *)
+               Breakinv.find_meds3 medp med1 med2 
+         (*   else 
+               Breakinv.find_meds3_albert medp med1 med2   *)
+        in
+        (*debug msg
+        let tmp_breakinv_t = (List.hd medp12.Breakinv.med_ls) in
+        let tmpseq = tmp_breakinv_t.BreakinvAli.seq in
+        let tmprecost1 = tmp_breakinv_t.BreakinvAli.recost1 in
+        let tmprecost2 = tmp_breakinv_t.BreakinvAli.recost2 in
+        Printf.printf "recost1/recost2 = %d/%d, seq = \n%!" tmprecost1 tmprecost2;
+        Sequence.printseqcode tmpseq;
+        debug msg*)
+        IntMap.add code medp12 res_medians
+    in 
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
@@ -157,7 +174,6 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             c2 = parent.c2 and
             c3 = parent.c3 
     in
-
     let adjusted code parent_chrom acc =
         let to_adjust =
             match to_adjust with
@@ -181,7 +197,8 @@ let readjust to_adjust modified ch1 ch2 parent mine =
             and new_costs = IntMap.add code (float_of_int rescost) res_costs 
             and new_total = total + rescost in
             let modified = 
-                if changed then All_sets.Integers.add code modified
+                if changed then 
+                    All_sets.Integers.add code modified
                 else modified
             in
             modified, new_single, new_costs, new_total        
@@ -191,9 +208,13 @@ let readjust to_adjust modified ch1 ch2 parent mine =
         IntMap.fold adjusted parent.meds (modified, empty, empty, 0)
     in
     let tc = float_of_int total_cost in
+    let subtree_recost = tc +. ch1.subtree_recost +. ch2.subtree_recost in
+    (*Printf.printf "ADJUST.... subtree_recost = %f+%f+%f = %f \n%!" 
+    ch1.subtree_recost ch2.subtree_recost tc subtree_recost; *)
     modified,
     tc,
-    { mine with meds = meds; costs = costs; total_cost = tc }
+    { mine with meds = meds; costs = costs; total_cost = tc; subtree_recost =
+        subtree_recost; }
 
 (** [distance a b] returns total distance between 
 * two breakinv character sets [a] and [b] *)
@@ -290,7 +311,7 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between breakinv character set [t] and its parents
 * [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list = 
+let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list =
     let _, state = List.hd attr in 
     let output_breakinv code med acc =
         let med = 
@@ -302,20 +323,43 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
         in         
         let cost, recost =
             match parent_t with  
-            | None -> 0, 0
+            | None ->
+                    0, 0
             | Some parent -> begin
-                  let parent_med_ls = IntMap.find code parent.meds in   
+                  let parent_med_ls = IntMap.find code parent.meds in
+                  let gen_cost_mat = parent_med_ls.Breakinv.gen_cost_mat in
+                  let pure_gen_cost_mat =
+                      parent_med_ls.Breakinv.pure_gen_cost_mat in
+                  let alpha = parent_med_ls.Breakinv.alpha in
+                  let breakinv_pam = parent_med_ls.Breakinv.breakinv_pam in
                   let parent_med = List.find 
                       (fun med -> 
                            IntSet.mem med.BreakinvAli.ref_code ref_codes 
                       ) parent_med_ls.Breakinv.med_ls
-                  in                                                                  
+                  in            
                   let cost, recost =
                       match state with
                       | `String "Preliminary" ->
-                            BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code  
+                      let cost,(recost1,recost2) = 
+                      BreakinvAli.cmp_cost parent_med med 
+                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      cost, recost1+recost2
+                      (*  BreakinvAli.get_costs parent_med med.BreakinvAli.ref_code*)  
                       | `String "Final" ->
-                            BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code
+                      let cost,(recost1,recost2) = 
+                      BreakinvAli.cmp_cost med parent_med 
+                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      cost,recost1+recost2
+                      (*BreakinvAli.get_costs med parent_med.BreakinvAli.ref_code*)
+                      | `String "Single" ->
+                      let cost,(recost1,recost2) = 
+                      BreakinvAli.cmp_cost med parent_med 
+                      gen_cost_mat pure_gen_cost_mat alpha breakinv_pam in
+                      cost,recost1+recost2
+(*
+                        let cost = IntMap.find code t.costs in 
+                            let recost = IntMap.find code t.recosts in 
+                            (int_of_float cost), (int_of_float recost)    *)             
                       | _ ->
                             let cost = IntMap.find code t.costs in 
                             let recost = IntMap.find code t.recosts in 
@@ -323,7 +367,7 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                   in 
                   cost, recost
               end 
-        in  
+        in 
         let seq = Sequence.to_formater med.BreakinvAli.seq t.alph in
         let module T = Xml.Characters in
         (PXML 
@@ -346,14 +390,10 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
 * the single states of breakinv character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
-
-    let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =        
+    let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =
         let amed = List.hd med.Breakinv.med_ls in
-
-        let parent_med = IntMap.find code single_parent.meds in  
-      
+        let parent_med = IntMap.find code single_parent.meds in 
         let aparent_med = List.hd parent_med.Breakinv.med_ls in
-                
         let cost, (recost1, recost2) = 
             match root with 
             | Some root -> 0,(0, 0) 
@@ -362,15 +402,12 @@ let to_single ref_codes (root : t option) single_parent mine =
                       med.Breakinv.gen_cost_mat med.Breakinv.pure_gen_cost_mat med.Breakinv.alpha
                       med.Breakinv.breakinv_pam
         in 
-        
         let single_med = {med with Breakinv.med_ls = [amed]} in 
-        
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 
         let new_recosts = IntMap.add code (float_of_int (recost1 + recost2) ) acc_recosts in 
         new_single, new_costs, new_recosts, (acc_total_cost + cost)
     in  
-    
     let meds, costs,  recosts, total_cost = 
         match root with
         | Some root ->
@@ -378,7 +415,6 @@ let to_single ref_codes (root : t option) single_parent mine =
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
     in 
-        
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;

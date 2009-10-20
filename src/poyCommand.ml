@@ -53,12 +53,15 @@ type old_identifiers = [
     | `Missing of bool * int
     | `Random of float
 ]
+
 type identifiers = [
     | old_identifiers
     | `Files of (bool * string list)
 ]
 
+
 type chromosome_args = [
+    | `Median_Solver of Methods.median_solver_chosen
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
     | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
     | `Circular of bool (** indicate if the chromosome is circular or not *)
@@ -1350,8 +1353,18 @@ let create_expr () =
                 [ ":"; LIDENT "keep" -> false ] |
                 [ ":"; LIDENT "remove" -> true ]
             ];
+        median_solvers:
+            [
+                [ LIDENT "albert" -> `Albert  ] |
+                [ LIDENT "default" -> `Default ]
+            ];
         chromosome_argument:
             [
+                [ LIDENT "median_solver"; ":"; c = median_solvers ->
+                    match c with
+                    | `Albert -> `Median_Solver `Albert 
+                    | `Default -> `Median_Solver `Default
+                ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 

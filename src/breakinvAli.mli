@@ -43,6 +43,7 @@ type breakinv_t = {
 (** Data structure to contain parameters 
 * used to align two breakinv sequences *)
 type breakinvPam_t = {
+  median_solver: Data.median_solver_t;
   re_meth : Data.re_meth_t;
   keep_median : int;
   circular : int;
@@ -83,6 +84,17 @@ val find_med2_ls :
   int array array ->
   Alphabet.a -> Data.dyna_pam_t -> int * (int * int) * breakinv_t list
 
+val find_med3_ls :
+  breakinv_t ->
+  breakinv_t ->
+  breakinv_t ->
+  Cost_matrix.Two_D.m ->
+  int array array ->
+  Alphabet.a -> Data.dyna_pam_t -> int * (int * int) * breakinv_t list
+
+
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)
 val get_costs : breakinv_t -> int -> int * int
+
+val get_common_seq :  breakinv_t -> breakinv_t -> breakinv_t -> int array * int array * int array

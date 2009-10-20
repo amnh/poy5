@@ -292,6 +292,14 @@ let print chn seq alph =
     let str = to_string seq alph in
     Pervasives.output_string chn str;;
 
+let printseqcode seq =
+    let len = length seq in
+    Printf.printf "[%!";
+    for i = 0 to (len-1) do  
+        Printf.printf "%d,%!" (get seq i) 
+    done;
+    Printf.printf "]\n%!"
+
 let copy_from_in x y z u =
     let to_copy = get x z in
     set y u to_copy
@@ -310,8 +318,6 @@ let concat x =
     in
     List.iter (copier) x;
     ns
-
-
 
 
 let to_array s =

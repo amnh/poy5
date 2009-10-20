@@ -765,6 +765,11 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ ":"; LIDENT "keep" -> <:expr<$str:"False"$>> ] |
                 [ ":"; LIDENT "remove" -> <:expr<$str:"True"$>> ]
             ];
+        median_solvers:
+            [
+                [ LIDENT "albert" -> <:expr<$str:"`Albert"$>>  ] |
+                [ LIDENT "default" -> <:expr<$str:"`Default"$>> ]
+            ];
         chromosome_argument:
             [
                 [ LIDENT "locus_inversion"; ":"; c = flex_integer -> 
@@ -800,7 +805,10 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "max_3d_len"; ":"; l = flex_integer ->
                     <:expr<`Max_3D_Len $l$>> ]  |
                 [ LIDENT "max_kept_wag"; ":"; l = flex_integer ->
-                    <:expr<`Max_kept_wag $l$>> ]  
+                    <:expr<`Max_kept_wag $l$>> ] |
+                [  LIDENT "median_solver"; ":"; c = median_solvers ->
+                     <:expr<`Median_Solver $c$>> 
+                                   ]
             ];
         calculate_support:
             [

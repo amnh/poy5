@@ -1,6 +1,7 @@
 uf.o
 invdist.o
 correction.o
+condense3.o
 binencode.o
 lists.o
 med_util.o

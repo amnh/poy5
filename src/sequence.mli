@@ -162,6 +162,10 @@ val print : Pervasives.out_channel -> s -> Alphabet.a -> unit
  * one of the values in x is not present in the alphabet definition, an
  * Illegal_Code exception is raised. *)
 
+val printseqcode:  s-> unit
+(*[printseqcode s] prints out the sequence code (sequence code is int array). 
+* *)
+
 val concat : s list -> s
 (** [concat x] concatenates the contents of the sequences in x in a new fresh
  * sequence *)

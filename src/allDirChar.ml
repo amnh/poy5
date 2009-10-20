@@ -299,6 +299,9 @@ module F : Ptree.Tree_Operations
         (* Other characters have their cost computed by adding up the length of
         * all of the branches. single_characters_cost is exactly that. *)
         let distance a b acc =
+            (* debug msg 
+            Printf.printf " distance of (%d,%d) is %!" a b;
+             debug msg*)
             let nda =
                 (List.hd ((Ptree.get_node_data a
                 new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
@@ -309,7 +312,11 @@ module F : Ptree.Tree_Operations
                 Node.distance_of_type Node.has_to_single 0.
                 (AllDirNode.force_val nda) (AllDirNode.force_val ndb)
             in
-            dist +. acc
+            (* debug msg
+            * Printf.printf " [%f/%f]\n %!" dist acc;
+            * debug msg*)
+            let tmp = dist +. acc in
+            tmp
         in
         let single_characters_cost =  
             match root_edge with
@@ -333,7 +340,7 @@ module F : Ptree.Tree_Operations
         in
         res
 
-    let check_cost_all_handles ptree = 
+    let check_cost_all_handles ptree =
         All_sets.Integers.fold 
             (fun handle cost -> (check_cost ptree handle None) +. cost)
             (Ptree.get_handles ptree)
@@ -526,8 +533,6 @@ module F : Ptree.Tree_Operations
     let unadjust ptree = ptree
 
     let refresh_all_edges adjusted root_opt do_roots start_edge_opt ptree =
-
-        (* refresh a single edge with root value *)
         let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
             if debug_uppass_fn then
                 info_user_message "Refreshing %d--%d as %s" a b 
@@ -810,7 +815,7 @@ module F : Ptree.Tree_Operations
             current_snapshot 
                 (Printf.sprintf "AllDirChar.adjust_node %d" mine_k);
             if debug_adjust_fn then
-                info_user_message "Adjusting %d with %d,%d then %d" 
+                info_user_message "AllDirCahr.adjust_node, on mine=%d with c1=%d,c2=%d then p=%d" 
                                         mine_k ch1_k ch2_k parent_k;
             let gnd x = Ptree.get_node_data x ptree in
             let mine,modified =
@@ -1039,7 +1044,6 @@ module F : Ptree.Tree_Operations
     let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
         (* function to process tree->node->charactername to int->float hashtbl
         * for all the node ids passed --(multiple node_id capability for uppass) *)
-
         let ptree = 
             (* A function to add  the vertices using a post order traversal 
             * from the Ptree library. *)
@@ -1065,6 +1069,7 @@ module F : Ptree.Tree_Operations
                         in
                         Ptree.add_node_data code interior ptree
             in
+           
             (* A function to add the vertices using a post order traversal from
             * the Ptree library *)
             All_sets.Integers.fold 
@@ -1076,7 +1081,8 @@ module F : Ptree.Tree_Operations
                                 add_vertex_post_order
                                 (Tree.Edge (a,b))
                                 ptree.Ptree.tree ptree
-                        | None | Some _ -> ptree
+                        | None 
+                        | Some _ -> ptree
                     end with | Not_found -> 
                         begin match Ptree.get_node x ptree with
                         | Tree.Leaf (a,b)
@@ -1148,7 +1154,11 @@ module F : Ptree.Tree_Operations
         else (cost, cbt)
 *)
 
-    let general_pick_best_root selection_method ptree = 
+    let general_pick_best_root selection_method ptree =
+        (* debug msg 
+        Printf.printf "\n #2. general_pick_best_root\n%!";
+        let newcost = check_cost_all_handles ptree in
+         debug msg*)
         let edgesnhandles = 
             All_sets.Integers.fold 
             (fun handle acc ->
@@ -1204,6 +1214,7 @@ module F : Ptree.Tree_Operations
                     --> internal_downpass true
                     --> remove_bl
                     --> pick_best_root
+                    --> assign_single true
                     --> adjust_tree iterations None
         in
         current_snapshot "AllDirChar.downpass b";
@@ -1861,10 +1872,12 @@ module F : Ptree.Tree_Operations
             let recost, contents, attr =
                 match r.Ptree.root_median with
                 | Some ((`Edge (a, b)), root) -> 
+                     (*   Printf.printf "root median at (%d,%d) : %!" a b;*)
                         let recost = 
                             let root = get_unadjusted (-1) root in
                             (Node.cmp_subtree_recost root) +. recost 
                         in
+                       (* Printf.printf "recost = %f \n%!" recost;*)
                         (* We override the root now to continue using the single
                         * assignment of the handle *)
                         let sroot, sa = 
@@ -1908,6 +1921,8 @@ module F : Ptree.Tree_Operations
             (0., [])
         in
         let cost = Ptree.get_cost `Adjusted tree in
+        (*Printf.printf "ALLDIRCHAR.TO_FORMATTER: recost = %f, cost = %f \n%!"
+        recost cost; *)
         (RXML -[Xml.Trees.forest] 
             ([Xml.Trees.recost] = [`Float recost])
             ([Xml.Trees.cost] = [`Float cost])
