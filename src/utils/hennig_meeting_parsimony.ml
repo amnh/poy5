@@ -5,7 +5,6 @@ let make_parameter_list min max step =
     in
     aux [] max
 
-
 let parameters = make_parameter_list 0.01 0.3 0.02
 
 let indel_subst = 
@@ -15,6 +14,10 @@ let indel_subst =
     0.33, 0.33, 0.33;
     0.4, 0.4, 0.2]
 
+
+let indel = [1;2;3;4;5;6;7]
+let subst = [1;2;3;4;5;6;7]
+
 let branches = [ "branch_0.05"; "branch_0.1"; "branch_0.2"; "branch_0.3"]
 let max_lengths = 
     [ "max_len_1"; "max_len_2";"max_len_4"; "max_len_5"; 
@@ -22,16 +25,14 @@ let max_lengths =
 let taxa = ["50_taxa"]
 let bases = ["300_bases"]
 
-let process_parameter str parameter = 
-    List.iter (fun (insertion, deletion, substitution) ->
-        POY transform (kolmogorov:(event:[parameter], indelsub:([insertion],
-            [deletion], [substitution])));
+let process_parameter str substitution = 
+    List.iter (fun indel ->
+        POY transform (tcm:([substitution], [indel]));
         match Phylo.Runtime.min_cost () with
         | None -> assert false
-        | Some cost -> Printf.printf "%s%f\t%f\t%f\t%f\t%f\n%!" str parameter
-        insertion deletion substitution cost) 
-indel_subst
-
+        | Some cost -> Printf.printf "%s%d\t%d\t%f\n%!" str substitution
+                indel cost) 
+indel
 
 let process_tree dir file_number =
     let str = Printf.sprintf "%s%d\t" dir file_number in
@@ -40,7 +41,7 @@ let process_tree dir file_number =
     let tree_file = "simmulation_" ^ file_number ^ ".tree.poy" in
     POY wipe ()
         read ([fasta_file], [tree_file]);
-    List.iter (process_parameter str) parameters;
+    List.iter (process_parameter str) subst;
     Printf.printf "\n%!"
 
 let execute_in_directory prev_string function_to_continue directories =
@@ -62,3 +63,4 @@ let () =
                 ) max_lengths
             ) branches;
     done;
+

@@ -431,3 +431,7 @@ end
 module SimpleIndels : sig
     val apply_model : int -> Compiler.compiler -> Compiler.compiler
 end
+
+module SkBasics : sig
+    val res : Compiler.compiler -> Compiler.compiler
+end
