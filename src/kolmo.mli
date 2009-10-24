@@ -435,3 +435,7 @@ end
 module SkBasics : sig
     val res : Compiler.compiler -> Compiler.compiler
 end
+
+module Tdrl : sig
+    val compiler : Compiler.compiler
+end

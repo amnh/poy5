@@ -664,7 +664,7 @@ module DCJ = struct
 
     let invert a =
         let rec _invert x acc =
-            if Stack.empty x then acc
+            if Stack.is_empty x then acc
             else 
                 _invert (Stack.rest x)
                     (Stack.push (SignedInversions.negate (Stack.pop x)) acc)
@@ -852,7 +852,7 @@ module TDRL = struct
     let identity x = x
 
     let rec process fh sh seq =
-        if Stack.empty seq then sh (fh (Stack.empty))
+        if Stack.is_empty seq then sh (fh (Stack.empty))
         else
             let process_next item =
                 (if (Stream.to_bool item) then 
