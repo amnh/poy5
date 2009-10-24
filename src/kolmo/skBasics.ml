@@ -256,8 +256,8 @@ module GTR = struct
     let thymine = pair m_false m_false
     
     let decode_dna continuation base next = 
-        (* We will simply assume some matching in the order, just to compute the
-        * complexity of each model *)
+        (* We will simply assume some matching in the order, just to compute 
+        * the complexity of each model *)
         if (base first) then (* Adenine or Guanine *)
             if (base second) then (* Adenine *)
                 if Stream.to_bool next then  (* To Guanine *)
@@ -375,10 +375,11 @@ module IndelsSubs_JC = struct
                     else
                         let insertion_or_deletion is_insertion =
                             if Stream.to_bool is_insertion then 
-                                Dna.decode_base (insert (process_options
-                                continuation) acc seq)
+                                Dna.decode_base 
+                                (insert (process_options continuation) acc seq)
                             else 
-                                process_options continuation acc (Stack.rest seq)
+                                process_options continuation acc 
+                                (Stack.rest seq)
                         in
                         insertion_or_deletion 
             in
@@ -406,13 +407,15 @@ module IndelsSubs_K2P = struct
                 else (* We are doing an indel, now to decide what is it *)
                     if Stack.is_empty seq then 
                         (* We are surely doing an insertion *)
-                        Dna.decode_base (IndelsSubs_JC.insert (process_options continuation)
-                        acc seq) 
+                        Dna.decode_base 
+                        (IndelsSubs_JC.insert 
+                            (process_options continuation) acc seq) 
                     else
                         let insertion_or_deletion is_insertion =
                             if Stream.to_bool is_insertion then 
-                                Dna.decode_base (IndelsSubs_JC.insert (process_options
-                                continuation) acc seq)
+                                Dna.decode_base 
+                                (IndelsSubs_JC.insert 
+                                    (process_options continuation) acc seq)
                             else 
                                 process_options continuation acc (Stack.rest seq)
                         in
@@ -448,7 +451,8 @@ module IndelsSubs_GTR = struct
                                 Dna.decode_base (insert (process_options
                                 continuation) acc seq)
                             else 
-                                process_options continuation acc (Stack.rest seq)
+                                process_options continuation acc 
+                                (Stack.rest seq)
                         in
                         insertion_or_deletion 
             in
@@ -456,8 +460,8 @@ module IndelsSubs_GTR = struct
         else 
             if Stack.is_empty seq then continuation acc
             else 
-                process_options continuation (Stack.push (Stack.pop seq) acc)
-                (Stack.rest seq)
+                process_options continuation 
+                (Stack.push (Stack.pop seq) acc) (Stack.rest seq)
 end
 
     let apply2 a b c = a b c
@@ -571,7 +575,8 @@ module AffineIndel_AffineSubs_GTR = struct
                     else
                         let insertion_or_deletion is_insertion =
                             apply3
-                            (if Stream.to_bool is_insertion then insertion else deletion)
+                            (if Stream.to_bool is_insertion then insertion 
+                             else deletion)
                             (process_options continuation) acc seq
                         in
                         insertion_or_deletion 
@@ -666,13 +671,15 @@ module DCJ = struct
         in
         _invert a Stack.empty
 
-    let join_two_separate_linnear continuation chromosmes upper1 lower1 upper2 lower2 kind_of_join =
+    let join_two_separate_linnear continuation chromosmes upper1 lower1 
+    upper2 lower2 kind_of_join =
         let process_pair result =
             continuation (Stack.push (pair (m_false (result first))) 
                 (Stack.push (pair (m_false (result second))) chromosmes))
         in
         process_pair
-        (if Stream.to_bool kind_of_join then (* We are joininng upper1 with upper2 *)
+        (if Stream.to_bool kind_of_join then 
+            (* We are joininng upper1 with upper2 *)
             (pair (prepend upper1 (invert upper2)) 
                 (prepend (invert lower1) lower2))
         else (* we re joining upper1 with lower2 *)
@@ -680,14 +687,16 @@ module DCJ = struct
                 (prepend upper1 lower2) 
                 (prepend upper2 lower1)))
 
-    let join_two_separate_circular continuation chromosomes chrom1 chrom2 kind_of_join =
+    let join_two_separate_circular continuation chromosomes chrom1 chrom2 
+    kind_of_join =
         continuation
             (Stack.push (pair m_true 
                 (if Stream.to_bool kind_of_join then prepend chrom1 chrom2 
                 else prepend chrom1 (invert chrom2)))
              chromosmes)
 
-    let join_one_circular_in_two continuation chromosmes half1 half2 kind_of_join =
+    let join_one_circular_in_two continuation chromosmes half1 half2 
+    kind_of_join =
         continuation
             (if Stream.to_bool kind_of_join then
                 Stack.push 
@@ -698,7 +707,8 @@ module DCJ = struct
                 (pair m_true half1)
                 (Stack.push (pair m_true half2) chromosmes))
 
-    let join_circular_and_linnear chromosomes upper1 lower1 circular kind_of_join =
+    let join_circular_and_linnear chromosomes upper1 lower1 circular 
+    kind_of_join =
         continuation
             (Stack.push (pair m_false 
                 (if Stream.to_bool kind_of_join then 
@@ -706,7 +716,8 @@ module DCJ = struct
                 else prepend upper1 (prepend (invert circular) lower1)))
             chromosomes)
 
-    let join_three_linnear continuation chromosomes upper1 center lower1 kind_of_join =
+    let join_three_linnear continuation chromosomes upper1 center lower1 
+    kind_of_join =
         continuation
             (if Stream.to_bool kind_of_join then 
                 Stack.push (pair m_false 
@@ -717,6 +728,7 @@ module DCJ = struct
 
     let join_of_circular_tips a b = 
         prepend (prepend a Stack.empty) (prepend b Stack.empty)
+
     let apply1 a b = a b 
 
     let do_second_cut continuation is_first_call head prev pos 
@@ -786,8 +798,8 @@ module DCJ = struct
                     let new_head = Stack.empty in
                     do_second_cut continuation m_false 
                     new_head new_prev new_pos 
-                    is_circular_of_first head_of_first prev_of_first tail_of_first
-                    new_is_circular new_tail new_rest
+                    is_circular_of_first head_of_first prev_of_first 
+                    tail_of_first new_is_circular new_tail new_rest
                 else
                     let new_head = Stack.push (Stack.pop tail) in
                     let new_tail = Stack.rest tail in
@@ -797,12 +809,14 @@ module DCJ = struct
                     is_circular new_tail rest
 
     let do_initial_cut continuation pos kind head tail prev rest = 
-        if Church.is_zero pos then continuation kind head prev tail kind tail rest 
+        if Church.is_zero pos then 
+            continuation kind head prev tail kind tail rest 
         else
             if Stack.is_empty tail then
                 do_initial_cut continuation (Church.predecessor pos) 
                     apply1 (apply1 (Stack.pop rest) first) Stack.empty 
-                    apply1 (apply1 (Stack.pop rest) second) (Stack.push this_chrom prev)
+                    apply1 (apply1 (Stack.pop rest) second) 
+                    (Stack.push this_chrom prev)
                     (Stack.rest rest)
             else 
                 do_initial_cut continuation (Church.predecessor pos) kind 
@@ -813,8 +827,7 @@ module DCJ = struct
         if Stream.to_bool stop then continuation genome
         else
             let second_cut pos =
-                do_second_cut continuation m_true Stack.empty Stack.empty 
-                    pos
+                do_second_cut continuation m_true Stack.empty Stack.empty pos
             in
             let first_cut first_cut_pos second_cut_pos = 
                 do_initial_cut 
@@ -826,15 +839,18 @@ module DCJ = struct
                 Stack.empty
                 (Stack.rest genome)
             in
-            IntegerDecoder.uniform_max (IntegerDecoder.uniform_max first_cut_pos
-            log_number_of_genes) log_number_of_genes
+            IntegerDecoder.uniform_max 
+            (IntegerDecoder.uniform_max first_cut_pos log_number_of_genes) 
+            log_number_of_genes
 
 end
 
 (** Tandem duplication random loss *)
 module TDRL = struct
+
     let prepend c x y = c (Stack.push x y)
     let identity x = x
+
     let rec process fh sh seq =
         if Stack.empty seq then sh (fh (Stack.empty))
         else
@@ -854,5 +870,4 @@ module TDRL = struct
             process identity (my_process continuation) seq
         else continuation seq
 
-end
-    )
+end)
