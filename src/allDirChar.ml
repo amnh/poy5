@@ -937,7 +937,7 @@ module F : Ptree.Tree_Operations
                         ptree.Ptree.tree
                         adjust_acc
                 | Some ((`Single a), rootg) ->  false,prev_affected,ptree
-                | None _ -> false,prev_affected,ptree
+                | None -> false,prev_affected,ptree
             (* loop for rerooting and applying iterative on the resultant path *)
             and adjust_reroot_loop affected (modified,aff_n,ptree) (a,b) =
                 (* a simple reroot, since the reroot_fn requires incremental as
