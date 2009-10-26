@@ -416,7 +416,7 @@ let q_print n =
         | h :: _ -> h.code
         | [] -> failwith "AllDirNode.taxon_code"
     in
-    Printf.printf "Node %d has:\t" (taxon_code n);
+    Printf.printf "Node %d has adjusted|unadjusted:\t" (taxon_code n);
     List.iter (fun x -> match x.dir with 
                     | Some (a,b) -> Printf.printf "(%d,%d) " a b
                     | None -> Printf.printf "none ") n.adjusted;
@@ -648,7 +648,7 @@ type nad8 = Node.Standard.nad8 = struct
         } in
         match cur.unadjusted with
         | [_] -> { cur with unadjusted = [node] }
-        | _ ->  let x, y = yes_with (taxon_code par) cur.unadjusted in
+        | _ -> let x, y = yes_with (taxon_code par) cur.unadjusted in
                 { cur with unadjusted = [x; y; node] }
 
     let estimate_time left right = 
@@ -725,7 +725,6 @@ type nad8 = Node.Standard.nad8 = struct
 
         let mc = taxon_code m and ac = taxon_code a
         and bc = taxon_code b and pc = taxon_code p_data
-
         and get_dir parc x =
             try
                 (not_with parc x.adjusted).lazy_node
@@ -736,17 +735,20 @@ type nad8 = Node.Standard.nad8 = struct
                 Printf.printf "-----\n\n%!";
                 assert(false)
         in
-
-        let data_m2p = try match m.adjusted with
+        let data_m2p = 
+            try match m.adjusted with
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
                 if (match x.dir with
-                         | None -> false
-                         | Some (xa,xb) -> (xa=ac && xb=bc) || (xa=bc && xb=ac))
+                         | None ->
+                                 false
+                         | Some (xa,xb) ->
+                                 (xa=ac && xb=bc) || (xa=bc && xb=ac))
                     then x.lazy_node
                     else raise Not_found
             (* ...was resolved, so get the direction *)
-            |  _  -> get_dir pc m 
+            |  _  ->
+                    get_dir pc m 
         with | Not_found -> 
             q_print m;
             failwithf "Data from %d toward parent %d is missing.\n" mc pc
@@ -823,7 +825,11 @@ type nad8 = Node.Standard.nad8 = struct
         and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,pc); }
         and dir_C= { code= mc; lazy_node= data_m2p; dir= Some(ac,bc); } in
         let allDir = [ dir_A ; dir_B ; dir_C ] in
-        { unadjusted = allDir; adjusted = allDir }
+        let res = { unadjusted = allDir; adjusted = allDir } in
+        if uppass_debug then
+        info_user_message "End of Performing uppass Heuristic on %d with (%d,%d) and %d"
+                (taxon_code m) (taxon_code a) (taxon_code b) (taxon_code p_data);
+        res
 
     (* adjust the branches in the tree, including branch lengths, uses
      * adjusted with three directions *)
@@ -847,12 +853,10 @@ type nad8 = Node.Standard.nad8 = struct
                 failwithf "Cannot find direction of %d with children %d %d"
                     (taxon_code mine) (taxon_code ch1) (taxon_code ch2)
         in
-
         let a1,modified = 
             OneDirF.readjust mode to_adjust (get_dir mine ch1) 
                              (get_dir mine ch2) mine_in_par mine_dat.lazy_node
         in
-
         let node_dir =
             {
                 lazy_node = a1;
@@ -1140,7 +1144,8 @@ let create_root ?branches a aa ab b ba bb opt =
         | Some x -> x 
         | None -> AllDirF.median ?branches None None a b
     in
-    let a_final = match aa,ab with
+    let a_final =
+        match aa,ab with
         | Some aa,Some ab ->
                 let a = AllDirF.uppass_heuristic b (Some middle) a aa ab in
                 assert( (List.length a.adjusted) = 3);
@@ -1148,7 +1153,8 @@ let create_root ?branches a aa ab b ba bb opt =
         | None,None -> 
                 AllDirF.apply_time true a middle
         | _,_ -> failwith "Failed with children of A @ Create Roots"
-    and b_final = match ba,bb with
+    and b_final =
+        match ba,bb with
         | Some ba,Some bb ->
                 let b = AllDirF.uppass_heuristic a (Some middle) b ba bb in
                 assert( (List.length b.adjusted) = 3);
