@@ -37,6 +37,10 @@ external c_inv_med_albert : genome -> genome -> genome -> int -> int ->
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
    = "grappa_CAML_inv_med_albert"
 
+external c_inv_med_siepel : genome -> genome -> genome -> int ->  
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+   = "grappa_CAML_inv_med_siepel"   
+
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
 let _ =
