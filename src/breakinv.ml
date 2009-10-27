@@ -255,6 +255,21 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 ali_pam.BreakinvAli.symmetric 
             in
             adjust_seq,cost1,cost2,cost3
+        | `Siepel ->
+            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
+                GenAli.create_gen_ali3_siepel 
+                ali_pam.BreakinvAli.kept_wag
+                `Breakinv
+                seq1 seq2 seq3 
+                ch1.pure_gen_cost_mat 
+                ch1.alpha 
+                ali_pam.BreakinvAli.re_meth
+                ali_pam.BreakinvAli.swap_med 
+                ali_pam.BreakinvAli.circular
+                (Alphabet.get_orientation ch1.alpha) 
+                ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
         | `Default ->
             let adjust_seq, cost1,cost2,cost3 = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
             ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
