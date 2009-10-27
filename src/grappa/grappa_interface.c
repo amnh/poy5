@@ -264,6 +264,68 @@ grappa_CAML_inv_med_albert
 }
 
 
+value 
+grappa_CAML_inv_med_siepel 
+(value c_gene1, value c_gene2, value c_gene3, value num_genes)
+{
+    CAMLparam4(c_gene1,c_gene2,c_gene3,num_genes);
+    CAMLlocal1(res);
+    struct genome_struct *g1, *g2, *g3;
+    struct genome_struct *output_genome;
+    struct genome_struct *gen[3];
+    int CIRCULAR;   
+    int NUM_GENES;
+    int num_cond;
+    g1 = (struct genome_struct *) Data_custom_val (c_gene1);
+    g2 = (struct genome_struct *) Data_custom_val (c_gene2);
+    g3 = (struct genome_struct *) Data_custom_val (c_gene3);
+    NUM_GENES = Int_val(num_genes);
+    condense3_mem_t * cond3mem_p;
+    cond3mem_p =  &CONDENSE3_MEM;
+    int old_max_num_genes = cond3mem_p->max_num_genes;
+    long dims[1]; dims[0] = NUM_GENES;
+    if (old_max_num_genes >= NUM_GENES) {}
+    else
+    {
+        free_mem_4_albert ();
+        ini_mem_4_albert (NUM_GENES);
+        free_mem_4_cond3 ();
+        ini_mem_4_cond3 (NUM_GENES);
+    }
+    condense3 ( g1->genes,
+                g2->genes,
+                g3->genes,
+                cond3mem_p->con_g1->genes,
+                cond3mem_p->con_g2->genes,
+                cond3mem_p->con_g3->genes, 
+                NUM_GENES, &num_cond,
+                cond3mem_p->pred1, cond3mem_p->pred2, 
+                cond3mem_p->picked, cond3mem_p->decode );
+    if (num_cond>0)
+    {
+      gen[0] = cond3mem_p->con_g1;
+      gen[1] = cond3mem_p->con_g2;
+      gen[2] = cond3mem_p->con_g3;
+      find_reversal_median ( cond3mem_p->con_med, gen, num_cond, NULL );
+      output_genome =(struct genome_struct*) malloc (sizeof(struct genome_struct));
+      output_genome->genes = 
+           ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
+      decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
+              cond3mem_p->pred1, cond3mem_p->decode, num_cond );
+    res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
+      free(output_genome->genes);
+      CAMLreturn(res);
+    }
+    else
+    {
+      res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
+      CAMLreturn(res);
+    }
+}
+
+
+
+
 /*****************************************************************/
 value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
 {
