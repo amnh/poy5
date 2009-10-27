@@ -1355,6 +1355,7 @@ let create_expr () =
             ];
         median_solvers:
             [
+                 [ LIDENT "siepel" -> `Siepel ] |
                 [ LIDENT "albert" -> `Albert  ] |
                 [ LIDENT "default" -> `Default ]
             ];
@@ -1362,6 +1363,7 @@ let create_expr () =
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
+                    | `Siepel -> `Median_Solver `Siepel                     
                     | `Albert -> `Median_Solver `Albert 
                     | `Default -> `Median_Solver `Default
                 ]|
