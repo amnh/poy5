@@ -768,6 +768,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
         median_solvers:
             [
                 [ LIDENT "albert" -> <:expr<$str:"`Albert"$>>  ] |
+                [ LIDENT "siepel" -> <:expr<$str:"`Siepel"$>>  ] |                
                 [ LIDENT "default" -> <:expr<$str:"`Default"$>> ]
             ];
         chromosome_argument:
