@@ -14,3 +14,6 @@ val genomes : int array array -> genome_arr
 val genes : int array array -> genome array
 val c_inv_med_albert: genome -> genome -> genome -> int -> int -> 
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
+val c_inv_med_siepel: genome -> genome -> genome -> int ->  
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t
+    
