@@ -85,3 +85,6 @@ val cmp_self_oriented_breakpoint_dis : int array -> int -> int
 * albert-median-solver. the int here is a sign of circular/or not
 * *)
 val inv_med_albert : int array -> int array -> int array -> int -> int array
+
+
+val inv_med_siepel : int array -> int array -> int array  -> int array
