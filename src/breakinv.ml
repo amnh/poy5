@@ -164,7 +164,7 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
     if meds1p.total_cost < meds2p.total_cost then meds1p
     else meds2p
 
-
+(*
 (* [find_meds3_albert medsp meds1 meds2] will use albert-median solver to
 * create a median from 3 input sequences
 * *)
@@ -216,7 +216,7 @@ let find_meds3_albert (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
              med_ls = kept_med_ls;         
              num_med = List.length kept_med_ls} 
  
-
+*)
 
             
 (** [readjust_3d ch1 ch2 mine c2 c3 parent] readjusts
@@ -240,40 +240,32 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     debug msg*)
     let  adjust_seq, new_cost1, new_cost2, new_cost3 =
         match ali_pam.BreakinvAli.median_solver with
-        | `Albert ->
-            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
-                GenAli.create_gen_ali3_albert 
-                ali_pam.BreakinvAli.kept_wag
-                `Breakinv
-                seq1 seq2 seq3 
-                ch1.pure_gen_cost_mat 
-                ch1.alpha 
-                ali_pam.BreakinvAli.re_meth
-                ali_pam.BreakinvAli.swap_med 
-                ali_pam.BreakinvAli.circular
-                (Alphabet.get_orientation ch1.alpha) 
-                ali_pam.BreakinvAli.symmetric 
-            in
-            adjust_seq,cost1,cost2,cost3
-        | `Siepel ->
-            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
-                GenAli.create_gen_ali3_siepel 
-                ali_pam.BreakinvAli.kept_wag
-                `Breakinv
-                seq1 seq2 seq3 
-                ch1.pure_gen_cost_mat 
-                ch1.alpha 
-                ali_pam.BreakinvAli.re_meth
-                ali_pam.BreakinvAli.swap_med 
-                ali_pam.BreakinvAli.circular
-                (Alphabet.get_orientation ch1.alpha) 
-                ali_pam.BreakinvAli.symmetric 
-            in
-            adjust_seq,cost1,cost2,cost3
         | `Default ->
-            let adjust_seq, cost1,cost2,cost3 = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
-            ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
-            (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
+            let adjust_seq, cost1,cost2,cost3 = 
+                GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag 
+                seq1 seq2 seq3 mine_seq 
+                ch1.pure_gen_cost_mat 
+                ch1.alpha 
+                ali_pam.BreakinvAli.re_meth
+                ali_pam.BreakinvAli.swap_med 
+                ali_pam.BreakinvAli.circular
+                (Alphabet.get_orientation ch1.alpha) 
+                ali_pam.BreakinvAli.symmetric 
+            in
+            adjust_seq,cost1,cost2,cost3
+        | _ ->
+            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
+                GenAli.create_gen_ali3_by_medsov 
+                ali_pam.BreakinvAli.median_solver
+                ali_pam.BreakinvAli.kept_wag
+                seq1 seq2 seq3 
+                ch1.pure_gen_cost_mat 
+                ch1.alpha 
+                ali_pam.BreakinvAli.re_meth
+                ali_pam.BreakinvAli.swap_med 
+                ali_pam.BreakinvAli.circular
+                (Alphabet.get_orientation ch1.alpha) 
+                ali_pam.BreakinvAli.symmetric 
             in
             adjust_seq,cost1,cost2,cost3
     in
