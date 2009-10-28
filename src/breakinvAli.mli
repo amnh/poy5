@@ -84,6 +84,7 @@ val find_med2_ls :
   int array array ->
   Alphabet.a -> Data.dyna_pam_t -> int * (int * int) * breakinv_t list
 
+  (*
 val find_med3_ls :
   breakinv_t ->
   breakinv_t ->
@@ -91,7 +92,7 @@ val find_med3_ls :
   Cost_matrix.Two_D.m ->
   int array array ->
   Alphabet.a -> Data.dyna_pam_t -> int * (int * int) * breakinv_t list
-
+  *)
 
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)
