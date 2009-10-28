@@ -133,7 +133,7 @@ val create_gen_ali3 :
     Alphabet.a ->
     [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
     'a -> int -> bool -> bool -> Sequence.s * int * int * int
-
+(*
 val create_gen_ali3_siepel :
     int ->
     [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
@@ -146,11 +146,11 @@ val create_gen_ali3_siepel :
     'a -> int -> bool -> bool -> 
         Sequence.s * int * int * int * int * int * int 
         * int array * int array * int array * int array * int array * int array
+*)
 
-
-val create_gen_ali3_albert :
+val create_gen_ali3_by_medsov :
+    Data.median_solver_t ->
     int ->
-    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
     Sequence.s ->
     Sequence.s ->
     Sequence.s ->
