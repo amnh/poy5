@@ -30,6 +30,7 @@ let debug_branch_fn = false (* downpass and given branch lengths *)
 let debug_cost_fn = false
 let debug_uppass_fn = false
 let debug_downpass_fn = false
+let debug_single_assignment = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -415,7 +416,10 @@ module F : Ptree.Tree_Operations
         * a single sequence to each vertex on it. *)
         let pre_ref_codes = get_pre_active_ref_code ptree in  
         let fi_ref_codes = pre_ref_codes in 
-        let rec assign_single_subtree parentd parent current ptree = 
+        let rec assign_single_subtree parentd parent current ptree =
+            if debug_single_assignment then
+            info_user_message "assign signle subtree on node %d,parent=%d" 
+            current parent;
             let current_d, initial_d =
                 let tmp = Ptree.get_node_data current ptree in
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
@@ -833,7 +837,6 @@ module F : Ptree.Tree_Operations
                 then modified,[],ptree
                 else begin
                     let ptree = Ptree.add_node_data mine_k mine ptree in
-
    (*                 Printf.printf "\n 4 Try to test refresh all edges..\n%!";
                     refresh_all_edges true None true None ptree;
                     Printf.printf "\n End of refresh all edges... \n\n%!";
