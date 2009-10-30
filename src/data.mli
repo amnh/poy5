@@ -553,6 +553,8 @@ val get_locus_indel_cost : dyna_pam_t -> int * int
 * *)
 val get_median_solver : dyna_pam_t -> int
 
+val set_parsimony : d -> Methods.characters -> d 
+
 val set_likelihood : d -> Methods.ml_spec -> d 
 
 val to_faswincladfile : d -> string option -> unit
