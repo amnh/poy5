@@ -914,6 +914,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         Status.user_message Status.Information ("@[" ^ name ^ "@]@,")) chars;
                     transform_node_characters trees (data, nodes) (`Static_Aprox (`Some
                     (true, chars), true)))
+        | `UseParsimony chars ->
+            IFDEF USE_LIKELIHOOD THEN
+                Node.load_data (Data.set_parsimony data chars)
+            ELSE
+                Status.user_message Status.Information "Characters are already Parsimony";
+                data,nodes
+            END
         | `UseLikelihood x ->
             IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_likelihood data x)

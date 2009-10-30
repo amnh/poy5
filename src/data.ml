@@ -505,7 +505,13 @@ let duplicate data =
         taxon_characters = copy_taxon_characters data.taxon_characters;
         character_names = Hashtbl.copy data.character_names;
         character_codes = Hashtbl.copy data.character_codes;
-        character_specs = Hashtbl.copy data.character_specs; }
+        character_specs = Hashtbl.copy data.character_specs;
+        character_sets = Hashtbl.copy data.character_sets;
+        character_nsets = Hashtbl.copy data.character_nsets;
+        branches = Hashtbl.copy data.branches;
+    }
+
+let remove_bl data = { data with branches = create_ht (); }
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -3353,12 +3359,14 @@ and get_chars_codes data = function
     | `Missing (dont_complement, fraction) ->
             get_code_with_missing dont_complement data fraction
     | `CharSet sets -> 
-            let names = List.flatten (List.map 
-                (fun x -> try Hashtbl.find data.character_sets x
-                          with | Not_found -> [])
-                sets)
+            let names =
+                List.flatten
+                    (List.map 
+                        (fun x -> Hashtbl.find data.character_sets (String.uppercase x) )
+                        sets)
             in
             get_chars_codes data (`Names names)
+
 and complement_characters data characters = 
     let codes = get_chars_codes data characters in
     let res = Hashtbl.fold (fun x _ acc -> 
@@ -3537,6 +3545,31 @@ let compute_priors data chars u_gap =
     Hashtbl.iter taxon_adder data.taxon_characters;
     let counter = float_of_int !counter in
     Array.map (fun x -> x /. counter) priors
+
+(** [set_likelihood lk chars] transforms the characters specified in [chars] to
+* the likelihood model specified in [lk] *)
+let set_parsimony data chars = 
+IFDEF USE_LIKELIHOOD THEN
+    let chars = 
+        let chars = `Some (get_chars_codes_comp data chars) in
+        get_code_from_characters_restricted `AllStatic data chars
+    in
+    match chars with
+    | [] -> data
+    | chars ->
+        let data = duplicate data in
+        List.iter 
+            (fun code -> match Hashtbl.find data.character_specs code with
+                | Static x -> 
+                    let new_v = { x with Parser.SC.st_type = Parser.SC.STUnordered} in
+                    Hashtbl.replace data.character_specs code (Static new_v)
+                | _ -> failwith "Illegal conversion")
+            chars;
+        categorize data
+ELSE
+    data
+END
+
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)

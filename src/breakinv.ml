@@ -21,6 +21,8 @@ let () = SadmanOutput.register "Breakinv" "$Revision: 911 $"
 (** Breakinv module contains functions to create medians
 *    between two lists of breakinv chracters *)
 
+let debug = false 
+
 let fprintf = Printf.fprintf
 
 type breakinv_t = BreakinvAli.breakinv_t
@@ -232,15 +234,21 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
     let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
     let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
-    (* debug msg
+    (* debug msg *)
+    if debug then begin
     Printf.printf "### Breakinv.readjust_3d compute the old cost first,check seq1/seq2/seq3/mine_seq ###\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3; Sequence.printseqcode mine_seq;
     Printf.printf "old~cost1,cost2,cost3=%d,%d,%d;\n%!" cost1 cost2 cost3;
-    debug msg*)
+    end;
+    (*debug msg*)
     let  adjust_seq, new_cost1, new_cost2, new_cost3 =
+    if (cost1=0)&&(cost2=0)&&(cost3=0) then
+        mine_seq,cost1,cost2,cost3
+    else
         match ali_pam.BreakinvAli.median_solver with
         | `Default ->
+            if debug then Printf.printf "Default median solver\n%!";
             let adjust_seq, cost1,cost2,cost3 = 
                 GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag 
                 seq1 seq2 seq3 mine_seq 
@@ -252,8 +260,14 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 (Alphabet.get_orientation ch1.alpha) 
                 ali_pam.BreakinvAli.symmetric 
             in
+            if debug then begin
+                Printf.printf "median solver: new cost=%d/%d/%d\n%!" cost1 cost2 cost3;
+                Printf.printf "adjustseq = %!";
+                Sequence.printseqcode adjust_seq;
+            end;
             adjust_seq,cost1,cost2,cost3
         | _ ->
+            if debug then Printf.printf "Grappa median solver\n%!";
             let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
                 GenAli.create_gen_ali3_by_medsov 
                 ali_pam.BreakinvAli.median_solver
@@ -276,24 +290,6 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         let amed = List.hd mine.med_ls in
         let adjust_med_ls = {amed with BreakinvAli.seq = adjust_seq} in 
         new_cost3, {mine with med_ls = [adjust_med_ls]}, true
-
-(*    let seq1 = (List.hd ch1.med_ls).BreakinvAli.seq in
-    let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
-    let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
-    let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
-    let ali_pam = BreakinvAli.get_breakinv_pam ch1.breakinv_pam in          
-    let adjust_seq, cost = GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag seq1 seq2 seq3 mine_seq
-        ch1.pure_gen_cost_mat ch1.alpha ali_pam.BreakinvAli.re_meth
-        ali_pam.BreakinvAli.swap_med ali_pam.BreakinvAli.circular
-        (Alphabet.get_orientation ch1.alpha) ali_pam.BreakinvAli.symmetric 
-    in
-    let amed = List.hd mine.med_ls in
-    let adjust_med = {amed with BreakinvAli.seq = adjust_seq} in 
-    let adjust_mine = {mine with med_ls = [adjust_med]} in 
-
-        if old_cost <= cost then old_cost, mine, false
-    else cost, adjust_mine, true
-*)
        
     
 

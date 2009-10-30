@@ -198,6 +198,7 @@ type char_transform = [
     | `WeightFactor of (characters * float)
     | `Prealigned_Transform of characters
     | `UseLikelihood of ml_spec
+    | `UseParsimony of characters
     | transform_cost_matrix
     | `Independent of characters
     | level 

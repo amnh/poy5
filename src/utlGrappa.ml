@@ -121,6 +121,8 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
+    debug message *)
+    (*debug message 
     Printf.printf "inv_med_albert,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
      debug message *)
@@ -144,7 +146,6 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
     let g0 = Grappa.c_get_one_genome genome_arr 0 in
     let g1 = Grappa.c_get_one_genome genome_arr 1 in 
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
-
     let g_med3 =
         match medsov with
         |`Default ->
@@ -154,13 +155,16 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
         |`Siepel ->
               Grappa.c_inv_med 2 g0 g1 g2 num_gen circular 
     in
-    
     let len = Bigarray.Array1.dim g_med3 in
-    let intarr = Array.init len ( 
+    let oriarr = Array.init len ( 
         fun index ->
            Int32.to_int (g_med3.{index})
     ) in
-    let resarr = de_standardize3 ori_genomeX intarr num_gen in
+    (* debug msg 
+     Printf.printf "output ori seqcode = %!"; print_intarr oriarr;
+     print_newline();
+     debug msg*)
+    let resarr = de_standardize3 ori_genomeX oriarr num_gen in
     (* debug msg 
      Printf.printf "output seqcode = %!"; print_intarr resarr;
      print_newline();

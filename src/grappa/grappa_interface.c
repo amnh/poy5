@@ -259,8 +259,15 @@ grappa_CAML_inv_med
            ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
       decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
               cond3mem_p->pred1, cond3mem_p->decode, num_cond );
-    res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
-      free(output_genome->genes);
+      /*debug msg
+      fprintf(stdout,"before median solver:[");
+      int x;
+      for (x=0;x<NUM_GENES;x++)
+          fprintf(stdout,"%d,",output_genome->genes[x]);
+      fprintf(stdout,"]\n"); fflush(stdout);
+      debug msg */
+      res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
+      free(output_genome);
       CAMLreturn(res);
     }
     else
