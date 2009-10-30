@@ -339,19 +339,12 @@ let re_align seq11 seq12 seq21 seq22 gapcode =
         if len1>=len2 then seq11,new_seq,seq12
         else new_seq,seq21,seq22
 
-
-let create_gen_ali3_albert kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s) gen_cost_mat alpha re_meth  max_swap_med circular orientation sym =
+let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s) gen_cost_mat alpha re_meth  max_swap_med circular orientation sym =
     (* debug msg
-    * Printf.printf "create_gen_ali3_albert, seq1,seq2,seq3=\n%!";
+    * Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3;
     debug msg *)
-let _ = 
-    (match state with 
-    |`Breakinv -> ()
-    | _ -> failwith "Albero median solver only work for Breakinversion now.\n" 
-    )
-in
     let gapcode = Alphabet.get_gap alpha in
     let size = Array.length gen_cost_mat in
     let gen_cost_mat = Array.init (size - 1) 
@@ -367,13 +360,21 @@ in
     and oriarr2 = to_ori_arr (arr2) 
     and oriarr3 = to_ori_arr (arr3) in
     let comoriarr1,comoriarr2,comoriarr3 = Utl.get_common3 oriarr1 oriarr2 oriarr3 equal_orientation in
-    let ori_arr_med3 = ( UtlGrappa.inv_med_albert comoriarr1 comoriarr2 comoriarr3 circular) in
+    let ori_arr_med3 =
+        match medsov with
+        |`Default ->
+                failwith "default median solver is not in grappa"
+        |`Albert
+        |`Siepel ->
+            ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3 circular)
+
+    in
     let arr_med3 = from_ori_arr ori_arr_med3 in
     let comarr1 = from_ori_arr comoriarr1 in
     let comarr2 = from_ori_arr comoriarr2 in
     let comarr3 = from_ori_arr comoriarr3 in
     let totalcost1, (recost11,recost12), alied_arr11,alied_arr12  =
-        cmp_cost state arr1 arr_med3 comarr1 gen_cost_mat gapcode re_meth circular orientation
+        cmp_cost `Breakinv arr1 arr_med3 comarr1 gen_cost_mat gapcode re_meth circular orientation
     in
     (* debug msg
     Printf.printf "~~ cost1 between [%!"; 
@@ -385,7 +386,7 @@ in
     Printf.printf " ] is %d\n%!" totalcost1;
     debug msg *)
     let totalcost2, (recost21,recost22), alied_arr21, alied_arr22 =
-        cmp_cost state arr2 arr_med3 comarr2 gen_cost_mat gapcode re_meth circular orientation
+        cmp_cost `Breakinv arr2 arr_med3 comarr2 gen_cost_mat gapcode re_meth circular orientation
     in
     (* debug msg
     Printf.printf "~~ cost2 between [%!"; 
@@ -397,7 +398,7 @@ in
     Printf.printf " ] is %d\n%!" totalcost2;
      debug msg *)
     let totalcost3, (recost31,recost32), alied_arr31, alied_arr32 =
-        cmp_cost state arr3 arr_med3 comarr3 gen_cost_mat gapcode re_meth circular orientation
+        cmp_cost `Breakinv arr3 arr_med3 comarr3 gen_cost_mat gapcode re_meth circular orientation
     in
     (* debug msg
     Printf.printf "~~ cost3 between [%!"; 
@@ -570,7 +571,7 @@ let create_gen_ali3  kept_wag  (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : S
     let seq2 : int array = Sequence.to_array seq2 in 
     let seq3 : int array = Sequence.to_array seq3 in 
     let med : int array = Sequence.to_array med in 
-    let med, cost1,cost2,cost3 = swap3  kept_wag seq1 seq2 seq3 med gen_cost_mat gap re_meth
+    let med, cost1,cost2,cost3 = swap3 kept_wag seq1 seq2 seq3 med gen_cost_mat gap re_meth
         circular orientation sym in 
     let med_len = Array.length med in 
     let med_seq = Sequence.init (fun idx -> med.(idx)) med_len in

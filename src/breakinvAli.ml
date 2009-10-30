@@ -306,7 +306,7 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     debug msg*)
     cost, recost, med_ls
 
-
+(*
 let find_simple_med3_ls med1 med2 med3 (gen_cost_mat:Cost_matrix.Two_D.m)
 (pure_gen_cost_mat:int array array) alpha ali_pam =
     let len1 = Sequence.length med1.seq in 
@@ -316,7 +316,7 @@ let find_simple_med3_ls med1 med2 med3 (gen_cost_mat:Cost_matrix.Two_D.m)
     else if len2 < 1 then 0, (0, 0), [med1]
     else begin  
         let med3_arr,c1,c2,_,r1,r2,_,ali_arr11,ali_arr21,_,ali_arr12,_,_ = 
-            GenAli.create_gen_ali3_albert  ali_pam.kept_wag `Breakinv
+            GenAli.create_gen_ali3_by_medsov `Albert  ali_pam.kept_wag `Breakinv
             med1.seq med2.seq med3.seq 
             pure_gen_cost_mat alpha ali_pam.re_meth ali_pam.swap_med 
             ali_pam.circular orientation ali_pam.symmetric 
@@ -361,8 +361,9 @@ let find_simple_med3_ls med1 med2 med3 (gen_cost_mat:Cost_matrix.Two_D.m)
         in
         total_cost, (r1, r2), med_ls
     end
+*)
 
-
+(*
 let find_med3_ls med1 med2 med3 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
     if (med1 == med2) && (med2 == med3) then
         begin
@@ -410,7 +411,7 @@ let find_med3_ls med1 med2 med3 gen_cost_mat pure_gen_cost_mat alpha breakinv_pa
               | true -> List.map swap_med med_ls
           in
          cost, recost, med_ls
-
+*)
 
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)

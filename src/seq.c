@@ -590,8 +590,8 @@ seq_CAML_count (value gap, value startNO, value seq) {
         }
         else
         {
-            if (0 != (cgap & (seq_get (sc, i)))) // when level==1, this is wrong...
-            { cnt++;}
+            if ( (tmp>=cgap) &&  (0 != (cgap & (seq_get (sc, i))))  )
+           { cnt++;}
         }
     }
     CAMLreturn(Val_int(cnt));

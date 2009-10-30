@@ -179,19 +179,15 @@ value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2,
     CAMLparam4(c_gene1, c_gene2, c_num_gen, c_circular); 
     int num_gene, distance, circ;
     struct genome_struct *g1, *g2;
-    
-
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
     num_gene = Int_val (c_num_gen);
     circ = Int_val (c_circular);
- 
     if (circ == 1) {
          distance = invdist_circular_nomem(g1, g2, num_gene); 
     } else {
          distance = invdist_noncircular_nomem(g1, g2, 0, num_gene);
     } 
-   
     CAMLreturn(Val_int(distance));
 }
 
@@ -199,17 +195,20 @@ value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2,
 
 
 value 
-grappa_CAML_inv_med_albert 
-(value c_gene1, value c_gene2, value c_gene3, value num_genes,value circular)
+grappa_CAML_inv_med 
+(value medsov, value c_gene1, value c_gene2, value c_gene3, value num_genes,value circular)
 {
-    CAMLparam5(c_gene1,c_gene2,c_gene3,num_genes,circular);
+    CAMLparam5(medsov,c_gene1,c_gene2,c_gene3,num_genes);
+    CAMLxparam1(circular);
     CAMLlocal1(res);
+    int MEDIAN_SOLVER;
     struct genome_struct *g1, *g2, *g3;
     struct genome_struct *output_genome;
     struct genome_struct *gen[3];
     int CIRCULAR;   
     int NUM_GENES;
     int num_cond;
+    MEDIAN_SOLVER = Int_val(medsov);
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
     g3 = (struct genome_struct *) Data_custom_val (c_gene3);
@@ -241,12 +240,94 @@ grappa_CAML_inv_med_albert
       gen[0] = cond3mem_p->con_g1;
       gen[1] = cond3mem_p->con_g2;
       gen[2] = cond3mem_p->con_g3;
-      int i,j;
-      if ( CIRCULAR )
-      albert_inversion_median_circular ( gen,num_cond,cond3mem_p->con_med->genes );
-      else
-      albert_inversion_median_noncircular ( gen, num_cond, cond3mem_p->con_med->genes );
+      switch (MEDIAN_SOLVER)
+      {
+          case 1:
+          if ( CIRCULAR )
+              albert_inversion_median_circular 
+                  ( gen,num_cond,cond3mem_p->con_med->genes );
+          else
+              albert_inversion_median_noncircular
+                  (gen,num_cond,cond3mem_p->con_med->genes );
+          break;
+          case 2:
+               find_reversal_median ( cond3mem_p->con_med, gen, num_cond, NULL );
+          break;
+      }
+      output_genome =(struct genome_struct*) malloc (sizeof(struct genome_struct));
+      output_genome->genes = 
+           ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
+      decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
+              cond3mem_p->pred1, cond3mem_p->decode, num_cond );
+      /*debug msg
+      fprintf(stdout,"before median solver:[");
+      int x;
+      for (x=0;x<NUM_GENES;x++)
+          fprintf(stdout,"%d,",output_genome->genes[x]);
+      fprintf(stdout,"]\n"); fflush(stdout);
+      debug msg */
+      res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
+      free(output_genome);
+      CAMLreturn(res);
+    }
+    else
+    {
+      res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
+      CAMLreturn(res);
+    }
+}
 
+value 
+grappa_CAML_inv_med_bytecode (value * argv, int argn){
+    return  (grappa_CAML_inv_med 
+        (argv[0],argv[1], argv[2], argv[3], argv[4], argv[5]));
+}
+
+
+/*
+value 
+grappa_CAML_inv_med_siepel 
+(value c_gene1, value c_gene2, value c_gene3, value num_genes)
+{
+    CAMLparam4(c_gene1,c_gene2,c_gene3,num_genes);
+    CAMLlocal1(res);
+    struct genome_struct *g1, *g2, *g3;
+    struct genome_struct *output_genome;
+    struct genome_struct *gen[3];
+    int CIRCULAR;   
+    int NUM_GENES;
+    int num_cond;
+    g1 = (struct genome_struct *) Data_custom_val (c_gene1);
+    g2 = (struct genome_struct *) Data_custom_val (c_gene2);
+    g3 = (struct genome_struct *) Data_custom_val (c_gene3);
+    NUM_GENES = Int_val(num_genes);
+    condense3_mem_t * cond3mem_p;
+    cond3mem_p =  &CONDENSE3_MEM;
+    int old_max_num_genes = cond3mem_p->max_num_genes;
+    long dims[1]; dims[0] = NUM_GENES;
+    if (old_max_num_genes >= NUM_GENES) {}
+    else
+    {
+        free_mem_4_albert ();
+        ini_mem_4_albert (NUM_GENES);
+        free_mem_4_cond3 ();
+        ini_mem_4_cond3 (NUM_GENES);
+    }
+    condense3 ( g1->genes,
+                g2->genes,
+                g3->genes,
+                cond3mem_p->con_g1->genes,
+                cond3mem_p->con_g2->genes,
+                cond3mem_p->con_g3->genes, 
+                NUM_GENES, &num_cond,
+                cond3mem_p->pred1, cond3mem_p->pred2, 
+                cond3mem_p->picked, cond3mem_p->decode );
+    if (num_cond>0)
+    {
+      gen[0] = cond3mem_p->con_g1;
+      gen[1] = cond3mem_p->con_g2;
+      gen[2] = cond3mem_p->con_g3;
+      find_reversal_median ( cond3mem_p->con_med, gen, num_cond, NULL );
       output_genome =(struct genome_struct*) malloc (sizeof(struct genome_struct));
       output_genome->genes = 
            ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
@@ -262,6 +343,8 @@ grappa_CAML_inv_med_albert
       CAMLreturn(res);
     }
 }
+
+*/
 
 
 /*****************************************************************/

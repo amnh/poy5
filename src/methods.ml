@@ -119,7 +119,7 @@ type transform_cost_matrix = [
 ]
 
 
-type median_solver_chosen = [  `Albert | `Default   ]
+type median_solver_chosen = [ `Siepel | `Albert | `Default   ]
 
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [

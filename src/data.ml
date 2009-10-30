@@ -60,7 +60,7 @@ type dyna_state_t = [
 type re_meth_t = [ `Locus_Breakpoint of int | 
                    `Locus_Inversion of int ]
 
-type median_solver_t = [ `Default | `Albert ]
+type median_solver_t = [ `Default | `Albert | `Siepel  ]
 
 
 type dyna_pam_t = {
@@ -489,6 +489,7 @@ let get_median_solver user_dyna_pam =
             match ms with
             | `Default -> 0
             | `Albert -> 1
+            | `Siepel -> 2 
             | _ -> 0
 
 
