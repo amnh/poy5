@@ -510,6 +510,8 @@ let duplicate data =
         branches = Hashtbl.copy data.branches;
     }
 
+let remove_bl data = { data with branches = create_ht (); }
+
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
 (** [get_recost pams] returns the rearrangement cost in [pams] *)
