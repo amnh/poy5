@@ -364,6 +364,7 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 : Sequen
         match medsov with
         |`Default ->
                 failwith "default median solver is not in grappa"
+        |`BBTSP
         |`Albert
         |`Siepel ->
             ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3 circular)
