@@ -40,7 +40,6 @@ type meds_t = {
     alpha : Alphabet.a 
 }
 
-let get_median_solver med = Data.get_median_solver med.breakinv_pam
 
 (** [init_med seq gen_cost_mat alpha breakinv_pam] returns
 * a breakinv character list with only one element 
