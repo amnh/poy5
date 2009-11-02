@@ -77,6 +77,7 @@ module Compiler : sig
         S_K.primitives * (string * int * S_K.primitives) list * 
         S_K.primitives list All_sets.IntegerMap.t
     val uniform_integer : compiler -> string -> int -> S_K.primitives 
+    val complexity : compiler -> string -> int
 end
 
 (** Primitive operations in an SK machine *)
@@ -438,4 +439,10 @@ end
 
 module Tdrl : sig
     val compiler : Compiler.compiler
+end
+
+module Inversion : sig
+    val compiler : Compiler.compiler
+    val decoder : Compiler.compiler
+    val len : int
 end
