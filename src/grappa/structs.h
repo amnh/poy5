@@ -124,6 +124,7 @@ struct adj_struct
     struct adj_struct *next;
 };
 
+
 typedef struct
 {
     int A;
@@ -179,6 +180,22 @@ typedef struct
     struct genome_struct * con_g3;
     struct genome_struct * con_med; 
 } condense3_mem_t;
+
+
+typedef struct
+{
+    int max_num_genes;
+    int **weights;
+    int *incycle;
+    int *outcycle;
+    int *stack;
+    int *degree;
+    int *otherEnd;
+    struct adj_struct * adjl; 
+    struct adj_struct *adjp;
+    intpair_t * neighbors;
+    edge_t * edges;
+} convert_mem_t;
 
 
 #define HURDLE          1
