@@ -1114,7 +1114,7 @@ module F : Ptree.Tree_Operations
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots ptree else ptree
 
-    let clear_internals t = internal_downpass false t
+    let clear_internals t = {t with Ptree.data = Data.remove_bl t.Ptree.data; }
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1180,17 +1180,9 @@ module F : Ptree.Tree_Operations
             | `Normal -> internal_downpass true ptree
             | `Iterative (`ApproxD iterations)
             | `Iterative (`ThreeD  iterations) ->
-                let remove_bl tree = (* remove branch length table *)
-                    if Hashtbl.length (tree.Ptree.data.Data.branches) > 0 
-                        then begin
-                            Hashtbl.clear (tree.Ptree.data.Data.branches);
-                            info_user_message "Clearing supplied branch lengths.";
-                            tree
-                        end else tree
-                in
                 ptree
+                    --> clear_internals (* remove BLs *)
                     --> internal_downpass true
-                    --> remove_bl
                     --> pick_best_root
                     --> assign_single true
                     --> adjust_tree iterations None
@@ -1446,24 +1438,22 @@ module F : Ptree.Tree_Operations
 
     let break_fn ((s1, s2) as a) b =
         let res = match !Methods.cost with
-        | `Normal -> break_fn a b
+        | `Normal ->
+            b   --> clear_internals
+                --> break_fn a
         | `Iterative (`ApproxD _)
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines ->
-                let breakage =
-                    try break_fn a b
-                    with | Not_found -> failwith "break broken"
-                in
+                let breakage = break_fn a (clear_internals b) in
                 let nt =
-                    try refresh_all_edges true None true None
+                    refresh_all_edges true None true None
                                            (breakage.Ptree.ptree)
-                    with | Not_found -> failwith "RAE broken"
                 in
                 { breakage with 
                     Ptree.ptree = nt; }
         | `Exhaustive_Strong ->
-                let breakage = break_fn a b in
+                let breakage = break_fn a (clear_internals b) in
                 let nt = 
                     refresh_all_edges true None true None
                                            (breakage.Ptree.ptree) in
@@ -1597,25 +1587,22 @@ module F : Ptree.Tree_Operations
 
     let join_fn a b c d =
         let ptree, tdel = match !Methods.cost with
-            | `Normal -> join_fn a b c d 
+            | `Normal -> 
+                d   --> clear_internals
+                    --> join_fn a b c 
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
-                let tree, delta = join_fn a b c d in
-                let tree =
-                    let tree_newr = pick_best_root tree in
-                    let tree_single = assign_single true tree_newr in
-                    let tree_adjust = adjust_tree iterations None tree_single in
-                    tree_adjust
-                    (*
-                   tree --> pick_best_root
-                        --> assign_single true 
-                        --> adjust_tree iterations None*)
+                let tree, delta = join_fn a b c (clear_internals d) in
+                let tree = 
+                    tree --> pick_best_root
+                         --> assign_single true 
+                         --> adjust_tree iterations None
                 in
                 tree, delta
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->
-                let tree, delta = join_fn a b c d in
+                let tree, delta = join_fn a b c (clear_internals d) in
                 uppass tree, delta 
         in
         ptree, tdel

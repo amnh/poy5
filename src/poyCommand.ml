@@ -118,6 +118,7 @@ type transform_method = [
     | `RandomizedTerminals
     | `AlphabeticTerminals
     | `Prealigned_Transform
+    | `UseParsimony
     | `UseLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
           Methods.ml_priors * Methods.ml_gap )
@@ -411,6 +412,7 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
+            | `UseParsimony -> (`UseParsimony id) :: acc
             | `UseLikelihood (a, b, c, d) ->
                     (`UseLikelihood (id, a, b, c, d)) :: acc
             | `Level (l) -> (`Assign_Level (l,id))::acc
@@ -1275,6 +1277,7 @@ let create_expr () =
         transform_method:
             [
                 [ LIDENT "independent" -> `Independent ] |
+                [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
