@@ -115,7 +115,7 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
-    (* debug message 
+    (* debug message  
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
@@ -125,7 +125,7 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
     (*debug message 
     Printf.printf "inv_med_albert,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-     debug message *)
+      debug message *)
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     (* debug msg 
@@ -153,7 +153,9 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
         |`Albert ->
                 Grappa.c_inv_med 1 g0 g1 g2 num_gen circular
         |`Siepel ->
-              Grappa.c_inv_med 2 g0 g1 g2 num_gen circular 
+              Grappa.c_inv_med 2 g0 g1 g2 num_gen circular
+        |`BBTSP ->
+                 Grappa.c_inv_med 3 g0 g1 g2 num_gen circular
     in
     let len = Bigarray.Array1.dim g_med3 in
     let oriarr = Array.init len ( 
