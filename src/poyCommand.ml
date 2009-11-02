@@ -1355,14 +1355,16 @@ let create_expr () =
             ];
         median_solvers:
             [
-                 [ LIDENT "siepel" -> `Siepel ] |
-                [ LIDENT "albert" -> `Albert  ] |
+                [ LIDENT "bbtsp" -> `BBTSP     ] |
+                [ LIDENT "siepel" -> `Siepel   ] |
+                [ LIDENT "albert" -> `Albert   ] |
                 [ LIDENT "default" -> `Default ]
             ];
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
+                    | `BBTSP -> `Median_Solver `BBTSP
                     | `Siepel -> `Median_Solver `Siepel                     
                     | `Albert -> `Median_Solver `Albert 
                     | `Default -> `Median_Solver `Default
