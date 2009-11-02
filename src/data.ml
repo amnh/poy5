@@ -60,7 +60,7 @@ type dyna_state_t = [
 type re_meth_t = [ `Locus_Breakpoint of int | 
                    `Locus_Inversion of int ]
 
-type median_solver_t = [ `Default | `Albert | `Siepel  ]
+type median_solver_t = [ `Default | `Albert | `Siepel | `BBTSP ]
 
 
 type dyna_pam_t = {
@@ -482,7 +482,7 @@ let empty () =
         complex_schema = [];
 }
 
-
+(*
 let get_median_solver user_dyna_pam =
     match user_dyna_pam.median_solver with
     | Some ms -> 
@@ -491,7 +491,7 @@ let get_median_solver user_dyna_pam =
             | `Albert -> 1
             | `Siepel -> 2 
             | _ -> 0
-
+*)
 
 let copy_taxon_characters tc = 
     let new_tc = create_ht () in
