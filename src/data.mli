@@ -54,7 +54,7 @@ type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
     | `Locus_Breakpoint of int    
     | `Locus_Inversion of int ]
 
-type median_solver_t = [ `Default | `Albert | `Siepel  ]
+type median_solver_t = [ `Default | `Albert | `Siepel | `BBTSP  ]
 
 
 type dyna_pam_t = {
@@ -547,11 +547,6 @@ val process_taxon_code :
 val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
-(* 
-* [get_median_solver dyna_pam_t] returns the choice of median solver of current dataset,
-* 0=default, 1=albert
-* *)
-val get_median_solver : dyna_pam_t -> int
 
 val set_likelihood : d -> Methods.ml_spec -> d 
 
