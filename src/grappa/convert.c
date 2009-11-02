@@ -2,6 +2,33 @@
 #include "convert.h"
 #include "binencode.h"
 
+void ini_mem_4_convert (int num_genes)
+{
+    convert_mem_t * convertmem = &CONVERT_MEM;
+    convertmem -> max_num_genes = num_genes;
+    convertmem -> weights = ( int ** ) malloc ( ( 2 * num_genes ) * sizeof ( int * ) );
+    convertmem -> outcycle = (int *) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    convertmem -> incycle = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    convertmem -> stack = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    convertmem -> degree = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    convertmem -> otherEnd = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
+    convertmem -> adjl = ( struct adj_struct * ) malloc ( ( 14 * num_genes ) *
+                                             sizeof ( struct adj_struct ) ); 
+    convertmem -> adjp = ( struct adj_struct * ) malloc ( ( 14 * num_genes ) *
+                                             sizeof ( struct adj_struct ) );
+    convertmem -> neighbors =  ( intpair_t * ) malloc ( ( 2 * num_genes + 1 ) *
+                                     sizeof ( intpair_t ) );
+    convertmem -> edges = ( edge_t * ) malloc ( ( 7 * num_genes ) * sizeof ( edge_t ) );
+    return;
+}
+
+void free_mem_4_convert ()
+{
+    convert_mem_t * convertmem = &CONVERT_MEM;
+    free (convertmem);
+    return;
+}
+
 void
 printWeights ( int **adj_mat, int num_genes )
 {
@@ -10,29 +37,29 @@ printWeights ( int **adj_mat, int num_genes )
 
     num = 2 * num_genes;
 
-    fprintf ( outfile, "    \t" );
+    fprintf ( stdout, "    \t" );
     for ( j = 1; j <= num; j++ )
     {
         if ( j <= num_genes )
-            fprintf ( outfile, "%3d\t", j );
+            fprintf ( stdout, "%3d\t", j );
         else
-            fprintf ( outfile, "%3d\t", -( j - num_genes ) );
+            fprintf ( stdout, "%3d\t", -( j - num_genes ) );
     }
-    fprintf ( outfile, "\n" );
+    fprintf ( stdout, "\n" );
     for ( i = 1; i <= num; i++ )
     {
         if ( i <= num_genes )
-            fprintf ( outfile, "%3d:\t", i );
+            fprintf ( stdout, "%3d:\t", i );
         else
-            fprintf ( outfile, "%3d:\t", -( i - num_genes ) );
+            fprintf ( stdout, "%3d:\t", -( i - num_genes ) );
 
         for ( j = 1; j <= num; j++ )
         {
-            fprintf ( outfile, "%3d\t", adj_mat[i - 1][j - 1] );
+            fprintf ( stdout, "%3d\t", adj_mat[i - 1][j - 1] );
         }
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "\n" );
     }
-    fprintf ( outfile, "\n" );
+    fprintf ( stdout, "\n" );
     return;
 }
 
@@ -358,17 +385,17 @@ convert2_to_tsp ( struct genome_struct *g1,
 #ifdef VERYVERBOSE
     for ( i = -num_genes; i <= num_genes; i++ )
     {
-        fprintf ( outfile, "Node %3d is adjacent to: ", i );
+        fprintf ( stdout, "Node %3d is adjacent to: ", i );
         node = adj_list[i].next;
         while ( node != NULL )
         {
-            fprintf ( outfile, "%3d (weight %4d, status %1d) ",
+            fprintf ( stdout, "%3d (weight %4d, status %1d) ",
                       node->vertex, node->weight, node->status );
             node = node->next;
         }
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "\n" );
     }
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
     return;
 }
