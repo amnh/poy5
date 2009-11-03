@@ -260,7 +260,7 @@ grappa_CAML_inv_med
             case 2: //A. Siepel median solver
               find_reversal_median ( cond3mem_p->con_med, gen, num_cond, NULL );
             break;
-            case 3: //Greedy median solver
+            case 3: //Exact median solver
                convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
                                       num_cond, CIRCULAR );
                bbtsp ( 2 * num_cond, cond3mem_p->con_med->genes, 
@@ -275,7 +275,19 @@ grappa_CAML_inv_med
                         convertmem_p->edges, 
                         CIRCULAR );
             break;
-            case 4: //Exact median solver
+            case 4: //Greedy median solver
+            convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
+                                      num_cond, CIRCULAR );
+            coalestsp ( 2 * num_cond, cond3mem_p->con_med->genes,FALSE, 
+                        gen[0]->genes, gen[1]->genes, gen[2]->genes,
+                        convertmem_p->adjl, 
+                        convertmem_p->neighbors, 
+                        convertmem_p->stack, 
+                        convertmem_p->outcycle, 
+                        convertmem_p->degree,
+                        convertmem_p->otherEnd, 
+                        convertmem_p->edges,
+                        CIRCULAR );
             break;
                 /* case5 and case6 need the CONCORDE package 
                 // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
