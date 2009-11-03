@@ -767,6 +767,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         median_solvers:
             [
+                [ LIDENT "coalestsp" -> <:expr<$str:"`COALESTSP"$>>  ] |
                 [ LIDENT "bbtsp" -> <:expr<$str:"`BBTSP"$>>  ] |
                 [ LIDENT "albert" -> <:expr<$str:"`Albert"$>>  ] |
                 [ LIDENT "siepel" -> <:expr<$str:"`Siepel"$>>  ] |                
