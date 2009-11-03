@@ -1361,7 +1361,7 @@ let create_expr () =
                 [ LIDENT "coalestsp" -> `COALESTSP ] |
                 [ LIDENT "bbtsp" -> `BBTSP     ] |
                 [ LIDENT "siepel" -> `Siepel   ] |
-                [ LIDENT "albert" -> `Albert   ] |
+                [ LIDENT "caprara" -> `Albert   ] |
                 [ LIDENT "default" -> `Default ]
             ];
         chromosome_argument:
