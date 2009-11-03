@@ -1,6 +1,7 @@
 uf.o
 bbtsp.o
 invdist.o
+cheaptsp.o
 correction.o
 condense3.o
 convert.o
