@@ -33,6 +33,8 @@ struct priority_stack
 #endif
 };
 
+List LIST_MEM_STACK;
+
 void *ps_pop ( PriorityStack * ps );
 int ps_empty ( PriorityStack * ps );
 PriorityStack *new_ps ( int min, int max, int stack_nelements,
@@ -41,5 +43,6 @@ void ps_push ( PriorityStack * ps, void *v, int priority );
 void ps_free ( PriorityStack * ps );
 void ps_clear ( PriorityStack * ps );
 void ps_flush ( PriorityStack * ps, List * l, int threshold );
+int ps_check ( PriorityStack * ps);
 
 #endif
