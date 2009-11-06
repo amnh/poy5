@@ -38,7 +38,10 @@ find_reversal_median ( struct genome_struct *median,
     int MIN_MED = 0, MAX_MED = 0, distbetween = 0;
     struct genome_struct dummy;
     struct genome_struct *g[NPERMS];
-    MedianMemory *mm = NULL;
+
+    MedianMemory *mm;// = &SIEPEL_MEM;
+
+//    int test = mm->max_gene_num;   fprintf(stdout,"test=%d\n",test); fflush(stdout);
 
     /* use existing MedianMemory struct or create a new one */
     if ( medmem == NULL )
@@ -46,6 +49,7 @@ find_reversal_median ( struct genome_struct *median,
     else
     {
         mm = medmem;
+        fprintf(stdout,"reset median memory\n"); fflush(stdout);
         reset_median_memory ( mm );
     }
 
@@ -119,6 +123,7 @@ find_reversal_median ( struct genome_struct *median,
            latter can be true only during pass 1) */
         while ( stop == 0 )
         {
+            //fprintf(stdout,"stop==0,pass=%d\n",pass); fflush(stdout);
             Vertex *n, *v;
             Reversal *rev;
             int count;
@@ -129,6 +134,15 @@ find_reversal_median ( struct genome_struct *median,
                 stop = 1;
                 break;
             }
+            else if( ps_check(mm->ps) == 0 )  
+            {
+                stop = 1;
+                break;
+             //   ps_clear ( mm->ps ); 
+             // I'm not sure about this, but if we don't clear the list "mm->ps",  while loop will keep running, for some point it will reach the limit of capacity, and crash 
+            }
+
+            
 
             dummy.genes = v->perm;  /* to accommodate conventions of
                                        find_all_sorting_reversals */
@@ -167,7 +181,6 @@ find_reversal_median ( struct genome_struct *median,
                 }
             }
 
-
             /* now enumerate candidate reversals */
             if ( pass == 1 )
             {                   /* pass 1; here we only consider
@@ -179,7 +192,9 @@ find_reversal_median ( struct genome_struct *median,
                         ( Reversal * ) list_get ( &mm->revs[SORTING][1], i );
                     if ( mm->mark[rev->start][rev->stop] & mm->
                          MASK[SORTING][2] )
-                        push ( &mm->candidates, rev );
+                    {
+                       push ( &mm->candidates, rev );
+                    }
                 }
             }
             else
@@ -202,12 +217,16 @@ find_reversal_median ( struct genome_struct *median,
                 }
             }
 
+  //          fprintf(stdout, "candidates list len=%d\n",(&mm->candidates)->CAPACITY);
+//        fflush(stdout);
             /* now consider each candidate in turn */
             count = 0;
             while ( ( rev = pop_queue ( &mm->candidates ) ) != NULL )
             {
                 count++;
                 n = get_vertex ( mm->vf );
+
+                fprintf(stdout,"check vertex:%d",n->d1); fflush(stdout);
 
                 /* generate permutation induced by reversal */
                 copy_with_reversal ( n->perm, v->perm, ngenes, rev );
@@ -268,7 +287,10 @@ find_reversal_median ( struct genome_struct *median,
                 /* if best possible is better than current upper bound, add to
                    priority stack */
                 if ( n->best_possible_score < MAX_MED )
+                {
+ //                   fprintf(stdout,"MAX_MED=%d,worst=%d,best=%d,push stacks: ",MAX_MED,n->worst_possible_score,n->best_possible_score); fflush(stdout);
                     ps_push ( mm->ps, n, n->best_possible_score );
+                }
                 else
                     return_vertex ( mm->vf, n );
                 /* if worst possible is better than any median so far, set n as
@@ -321,18 +343,25 @@ find_reversal_median ( struct genome_struct *median,
    used by "find_reversal_median".  This mechanism simply helps to
    avoid intensive allocation and deallocation of memory */
 MedianMemory *
+//void
 new_median_memory ( int ngenes, int minm, int maxm )
 {
 
+    fprintf(stdout,"new median memory for siepel \n"); fflush(stdout);
+
     int i, j;
-    MedianMemory *mm;
+    MedianMemory *mm;// = &SIEPEL_MEM;
 
     mm = ( MedianMemory * ) malloc ( sizeof ( MedianMemory ) );
-
+          //      fprintf ( stdout, "memory alloc for medianmemory \n" );
+          //      fflush(stdout);
     mm->mark = ( int ** ) malloc ( ( ngenes + 1 ) * sizeof ( int * ) );
+           //     fprintf ( stdout, "memory alloc for mark \n" ); fflush(stdout);
     for ( i = 0; i < ngenes + 1; i++ )
+    {
         mm->mark[i] = ( int * ) malloc ( ( ngenes + 1 ) * sizeof ( int ) );
-
+    }
+  //  fprintf ( stdout, "memory alloc for vf \n" ); fflush(stdout);
     if ( newvf != NULL )
     {
         mm->vf = newvf;
@@ -342,10 +371,10 @@ new_median_memory ( int ngenes, int minm, int maxm )
         mm->vf = new_vf ( VFSIZE, ngenes, NULL, NULL );
     /*new_vf(VFSIZE, ngenes, NULL, NULL); */
 
+    //  fprintf ( stdout, "memory alloc for mask \n" ); fflush(stdout);
     for ( i = 0; i < NREVTYPES; i++ )
         for ( j = 0; j < NPERMS; j++ )
             mm->MASK[i][j] = pow ( 2, i * NPERMS + j );
-
     /* set up priority stack, reversal sorting memory */
     mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, sizeof ( Vertex * ) );
     mm->rsm = new_reversal_sorting_memory ( ngenes );
@@ -368,6 +397,7 @@ new_median_memory ( int ngenes, int minm, int maxm )
     mm->h = new_hashtable ( ngenes, HASH_EXPECTED_SIZE, HASH_LOADING_FACTOR );
 
     return ( mm );
+    //return;
 }
 
 /* Reset an existing MedianMemory structure, for use in finding a new
@@ -397,4 +427,182 @@ free_median_memory ( MedianMemory * mm, int ngenes )
     ht_free ( mm->h );
     free_distmem ( mm->distmem );
     free ( mm );
+}
+
+void 
+ini_mem_4_siepel (int ngenes)
+{
+
+    int minm = 0; int maxm = ( ngenes + 1 ) * 2;
+    MedianMemory * mem = new_median_memory(ngenes, 0, ( ngenes + 1 ) * 2);
+    SIEPEL_MEM = * mem;
+    return;
+/*
+ * int i; int j;
+    MedianMemory * mm = &SIEPEL_MEM;
+  //  siepel_mem = new_median_memory(num_genes, 0, ( num_genes + 1 ) * 2);
+ //    mm = ( MedianMemory * ) malloc ( sizeof ( MedianMemory ) );
+   //             fprintf ( stdout, "memory alloc for medianmemory,ngene=%d \n",ngenes );
+     //           fflush(stdout);
+    mm->max_gene_num = ngenes;
+    mm->mark = ( int ** ) malloc ( ( ngenes + 1 ) * sizeof ( int * ) );
+              fprintf ( stdout, "memory alloc for mark \n" ); fflush(stdout);
+    for ( i = 0; i < ngenes + 1; i++ )
+    {
+        mm->mark[i] = ( int * ) malloc ( ( ngenes + 1 ) * sizeof ( int ) );
+     //       fprintf ( stdout, "memory alloc for mark[%d] \n",i ); fflush(stdout);
+    }
+    if ( newvf != NULL )
+    {
+        mm->vf = newvf;
+        clean_vf ( newvf, ngenes, NULL, NULL );
+    }
+    else
+        mm->vf = new_vf ( VFSIZE, ngenes, NULL, NULL );
+    //new_vf(VFSIZE, ngenes, NULL, NULL); 
+
+    for ( i = 0; i < NREVTYPES; i++ )
+        for ( j = 0; j < NPERMS; j++ )
+            mm->MASK[i][j] = pow ( 2, i * NPERMS + j );
+
+    // set up priority stack, reversal sorting memory 
+  //  mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, sizeof ( Vertex * ) );
+    PriorityStack * ps = &STACK_MEM_SIEPEL;
+    int min = minm, max=maxm, stack_nelements = QUEUECAPACITY, stack_elementsz = sizeof ( Vertex * );
+    //PriorityStack *ps =
+     //   ( PriorityStack * ) malloc ( sizeof ( PriorityStack ) );
+   fprintf(stdout,"QUEUECAPACITY=%d,minm=%d,maxm=%d\n",QUEUECAPACITY,minm,maxm); fflush(stdout);
+    ps->min = min;
+    ps->max = max;
+    ps->elementsz = stack_elementsz;
+    
+    List * lst = &LIST_MEM_STACK;
+    for ( i = 0; i <= ( max - min ); i++ )
+    {
+           // init_list ( &ps->stacks[i], stack_nelements, stack_elementsz );
+        q->ridx = q->lidx = 0;
+        q->CAPACITY = nelements;
+        q->elementsz = elementsz;
+        q->array = ( void ** ) malloc ( nelements * elementsz );
+
+    }
+    ps->stacks = &LIST_MEM_STACK;
+ //   ps->stacks = ( List * ) calloc ( max - min + 1, sizeof ( List ) );
+    ps->count = 0;
+    ps->idx = ps->max - ps->min;
+#ifdef THREADSAFE
+    pthread_mutex_init ( &ps->mutex, NULL );
+#endif
+    mm->ps = &STACK_MEM_SIEPEL;
+
+/////////////////////////////////////////////////////////////////////////////
+    mm->rsm = new_reversal_sorting_memory ( ngenes );
+
+    // initialize lists used to keep track of neutral, sorting,
+    //   anti-sorting, and candidate reversals 
+    for ( i = 0; i < NREVTYPES; i++ )
+        for ( j = 0; j < NPERMS; j++ )
+            init_list ( &mm->revs[i][j], ( ngenes + 1 ) * ngenes,
+                        sizeof ( Reversal * ) );
+    init_list ( &mm->candidates, ( ngenes + 1 ) * ngenes,
+                sizeof ( Reversal * ) );
+
+    for ( i = 0; i < ngenes + 1; i++ )
+        for ( j = 0; j < ngenes + 1; j++ )
+            mm->mark[i][j] = 0;
+
+  //  mm->distmem = new_distmem ( ngenes );
+///////////////////////////////////////////////////////////////////////////////////////
+   Hashtable *h = &HASHTBL_MEM_SIEPEL;
+  //  mm->h = new_hashtable ( ngenes, HASH_EXPECTED_SIZE, HASH_LOADING_FACTOR );
+   int expected_size=HASH_EXPECTED_SIZE; float loading_factor=HASH_LOADING_FACTOR;
+#ifdef USEDB
+    h->db = dbopen ( NULL, O_RDWR, S_IRWXU, DB_HASH, NULL );
+    if ( h->db == NULL )
+    {
+        fprintf ( stderr, "Error creating hashtable.\n" );
+        exit ( errno );
+    }
+    h->ngenes = ngenes;
+#ifdef THREADSAFE
+    mythread_rwlock_init ( &h->rwlock );
+#endif
+#else
+    h->ngenes = ngenes;
+    // Choose the number of slots so as to fill pages evenly 
+    h->nbuckets = PAGESIZE / sizeof ( int * );  
+    // experiments indicate that there is little value in
+    // having this size be larger than one page 
+    // The size of each bucket depends on the loading factor, the expected
+     //  size of the table, and the number of buckets 
+    h->bucketsize =
+        ceil ( loading_factor * expected_size / ( float ) h->nbuckets );
+   // Choose the number of digits to sample when calculating hashkeys 
+    h->idxdigits = SAMPLE_PERCENTAGE * h->ngenes;
+    if ( h->idxdigits < MIN_DIGITS )
+        h->idxdigits = MIN_DIGITS;
+    if ( h->idxdigits > h->ngenes )
+        h->idxdigits = h->ngenes;
+    h->table = ( int ** ) calloc ( h->nbuckets, sizeof ( int * ) );
+    h->sizes = ( int * ) calloc ( h->nbuckets, sizeof ( int ) );
+    if ( h->table == NULL || h->sizes == NULL )
+    {
+        fprintf ( stderr, "Error allocating space for hashtable.\n" );
+    }
+#ifdef THREADSAFE
+    h->rwlock =
+        ( mythread_rwlock_t * ) calloc ( h->nbuckets,
+                                         sizeof ( mythread_rwlock_t ) );
+    if ( h->rwlock == NULL )
+    {
+        fprintf ( stderr, "Error allocating space for hashtable.\n" );
+    }
+#endif
+    for ( i = 0; i < h->nbuckets; i++ )
+    {
+        h->table[i] = NULL;     // we will allocate these as needed 
+        h->sizes[i] = h->bucketsize;
+#ifdef THREADSAFE
+        mythread_rwlock_init ( &h->rwlock[i] );
+#endif
+    }
+#endif
+     mm->h = &HASHTBL_MEM_SIEPEL;
+
+///////////////////////////////////////////////////////////////////////////////////////
+
+    int NUM_GENES = ngenes;
+    distmem_t * distmem = &DIST_MEM_SIEPEL;
+    distmem->hammingArr =
+        ( int * ) malloc ( ( NUM_GENES + 1 ) * 2 * sizeof ( int ) );
+    distmem->perm1 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->perm2 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->perm =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->done =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->greyEdges =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->stack =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->oriented =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->cc = ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->labeled =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    distmem->components = ( component_t * )
+        malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( component_t ) );
+    distmem->uf = UFalloc ( 2 * NUM_GENES + 2 );
+    mm->distmem = &DIST_MEM_SIEPEL;
+    */
+
+}
+
+void 
+free_mem_4_siepel()
+{
+    MedianMemory * siepel_mem = &SIEPEL_MEM;
+    free(siepel_mem);
 }
