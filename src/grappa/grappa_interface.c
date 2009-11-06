@@ -228,6 +228,8 @@ grappa_CAML_inv_med
     {
         free_mem_4_albert ();
         ini_mem_4_albert (NUM_GENES);
+        free_mem_4_siepel ();
+        ini_mem_4_siepel(NUM_GENES);
         free_mem_4_cond3 ();
         ini_mem_4_cond3 (NUM_GENES);
         free_mem_4_convert();
@@ -258,7 +260,7 @@ grappa_CAML_inv_med
                           (gen,num_cond,cond3mem_p->con_med->genes );
             break;
             case 2: //A. Siepel median solver
-              find_reversal_median ( cond3mem_p->con_med, gen, num_cond, NULL );
+              find_reversal_median ( cond3mem_p->con_med, gen, num_cond, &SIEPEL_MEM );
             break;
             case 3: //Exact median solver
                convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
@@ -480,12 +482,21 @@ grappa_ini_albert_mem (int num_genes)
     return;
 }
 
+void 
+grappa_ini_siepel_mem (int num_genes)
+{
+    ini_mem_4_siepel (num_genes); 
+    return;
+}
+
+
 value 
 grappa_CAML_initialize (value max_num_genes) {
     CAMLparam1(max_num_genes);
     grappa_ini_invdis_mem (Int_val(max_num_genes));
     grappa_ini_cond3_mem (Int_val(max_num_genes));
     grappa_ini_albert_mem(Int_val(max_num_genes));
+    grappa_ini_siepel_mem (Int_val(max_num_genes));
     grappa_ini_convert_mem(Int_val(max_num_genes));
     CAMLreturn(Val_unit);
 }
