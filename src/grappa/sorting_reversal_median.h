@@ -45,13 +45,11 @@ struct median_memory_struct
 };
 
 MedianMemory SIEPEL_MEM;
-distmem_t DIST_MEM_SIEPEL;
-PriorityStack STACK_MEM_SIEPEL;
-Hashtable HASHTBL_MEM_SIEPEL;
+MedianMemory *local_mem_p;
 
 void ini_mem_4_siepel (int ngenes);
 
-void free_mem_4_siepel();
+void free_mem_4_siepel(int ngenes);
 
 MedianMemory * 
 //void
