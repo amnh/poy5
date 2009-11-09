@@ -211,9 +211,9 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
         build_uoc_list ( &uoc_list, mem->conn_comp, mem->comp_label_by_pos,
                          n );
         
-        int lstsize = list_size(&uoc_list);
-        fprintf(stdout,"\n before find_superhurdles, lstsize=%d",lstsize);
-        fflush(stdout);
+      //  int lstsize = list_size(&uoc_list);
+      //  fprintf(stdout,"\n before find_superhurdles, lstsize=%d",lstsize);
+      //  fflush(stdout);
 
 
         /* now find and label superhurdles and double superhurdles */
@@ -1048,8 +1048,8 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
     int mark[nuoc], pred[nuoc], label[nuoc], idx[ncomp+1];
     int i, j, prevlbl, ncycles;
 
-    fprintf(stdout,"\n ncom=%d,prevlbl=%d, init adj_list size = %d\n",ncomp,prevlbl,nuoc); 
-    fflush(stdout);
+   // fprintf(stdout,"\n ncom=%d,prevlbl=%d, init adj_list size = %d\n",ncomp,prevlbl,nuoc); 
+   // fflush(stdout);
     /* build hurdle graph */
     for ( i = 0; i <= ncomp; i++ )
     //for ( i = 0; i < nuoc; i++ )
@@ -1058,7 +1058,7 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
         label[i] = -1;
     }
     for ( i = 0; i <= ncomp; i++ )  idx[i] = -1;
-    fprintf(stdout,"list size=%d",list_size ( uoc_list )); fflush(stdout);
+   // fprintf(stdout,"list size=%d",list_size ( uoc_list )); fflush(stdout);
     prevlbl = ( int ) list_get ( uoc_list, list_size ( uoc_list ) - 1 );
     j = 0;
     label[j] = prevlbl;
@@ -1068,7 +1068,7 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
     {
         int currentlbl;
         currentlbl = ( int ) list_get ( uoc_list, i );
-        fprintf(stdout,"i=%d,currentlbl=%d,",i,currentlbl); fflush(stdout);
+       // fprintf(stdout,"i=%d,currentlbl=%d,",i,currentlbl); fflush(stdout);
         if ( idx[currentlbl] == -1 )
         {
             label[j] = currentlbl;
@@ -1083,7 +1083,7 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                it will be very unusual that the
                degree of any node is greater than
                3 */
-            fprintf(stdout,"push adj_list[%d] and [%d];",idx[currentlbl],idx[prevlbl]); fflush(stdout);
+          //  fprintf(stdout,"push adj_list[%d] and [%d];",idx[currentlbl],idx[prevlbl]); fflush(stdout);
             push ( &adj_list[idx[prevlbl]], ( void * ) idx[currentlbl] );
             push ( &adj_list[idx[currentlbl]], ( void * ) idx[prevlbl] );
         }
@@ -1143,13 +1143,13 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
     }
 
     /* label hurdles according to rules of graph */
-    fprintf(stdout,"\n for loop: %d: \n",nuoc); fflush(stdout);
+   // fprintf(stdout,"\n for loop: %d: \n",nuoc); fflush(stdout);
   //  *nhurdles = 0;
     *nsuperhurdles = 0;
     int hurdles_count = old_nhurdles;
     for ( i = 0; i < nuoc; i++ )
     {
-        fprintf(stdout,"i=%d: ",i); fflush(stdout);
+       // fprintf(stdout,"i=%d: ",i); fflush(stdout);
         int deg, on_cycles;
         deg = list_size ( &adj_list[i] );
         on_cycles = list_size ( &cycles[i] );
@@ -1249,8 +1249,8 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                        and those hurdles form a double
                        superhurdle */
                     /* label v and w as a double superhurdle */
-                    fprintf(stdout,"label[v=%d]=%d,label[w=%d]=%d;",v,label[v],w,label[w]); 
-                    fflush(stdout);
+                    //fprintf(stdout,"label[v=%d]=%d,label[w=%d]=%d;",v,label[v],w,label[w]); 
+                    //fflush(stdout);
                     push ( &conn_comp[label[v]].double_superhurdle_partners,
                            ( void * ) label[w] );
                     push ( &conn_comp[label[w]].double_superhurdle_partners,
@@ -1757,8 +1757,8 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
     build_uoc_list ( &new_uoc_list, new_conn_comp, comp_label_copy, n );
 
     int lstsize = list_size(&new_uoc_list);
-    fprintf(stdout,"\n 2 before find_superhurdles, lstsize=%d",lstsize);
-    fflush(stdout);
+  //  fprintf(stdout,"\n 2 before find_superhurdles, lstsize=%d",lstsize);
+  //  fflush(stdout);
 
     *new_nhurdles = find_superhurdles ( &new_uoc_list, new_conn_comp, new_nuoc, newcomp,
                         //&new_nhurdles, 
@@ -1766,7 +1766,6 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
                         &new_nsuperhurdles );
     //not sure ..... new_nhurdles
    // *new_nhurdles = passint;
-    fprintf(stdout,"check new_nhurdles: %d",(*new_nhurdles)); fflush(stdout);
     if ( (new_nsuperhurdles == *new_nhurdles) && (*new_nhurdles % 2 == 1) )
         *new_nfortresses = 1;
     else
