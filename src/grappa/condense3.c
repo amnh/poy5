@@ -31,9 +31,13 @@ void
 free_mem_4_cond3 ()
 {
     condense3_mem_t * cond3mem = &CONDENSE3_MEM;
+    free (cond3mem->con_g1->genes);
     free (cond3mem->con_g1);
+    free (cond3mem->con_g2->genes);
     free (cond3mem->con_g2);
+    free (cond3mem->con_g3->genes);
     free (cond3mem->con_g3);
+    free (cond3mem->con_med->genes);
     free (cond3mem->con_med);
     free (cond3mem->stack);
     free (cond3mem->pred1);
