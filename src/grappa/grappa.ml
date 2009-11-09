@@ -41,7 +41,7 @@ external c_inv_med : int -> genome -> genome -> genome -> int -> int ->
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
 let _ =
-    c_init(512)
+    c_init(64)
 
 
 let inversion_distance a b c d = 
