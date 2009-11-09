@@ -227,7 +227,7 @@ grappa_CAML_inv_med
     {
         free_mem_4_albert ();
         ini_mem_4_albert (NUM_GENES);
-        free_mem_4_siepel ();
+        free_mem_4_siepel (NUM_GENES);
         ini_mem_4_siepel(NUM_GENES);
         free_mem_4_cond3 ();
         ini_mem_4_cond3 (NUM_GENES);
