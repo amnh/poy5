@@ -204,7 +204,6 @@ grappa_CAML_inv_med
     CAMLlocal1(res);
     int MEDIAN_SOLVER;
     struct genome_struct *g1, *g2, *g3;
-    struct genome_struct *output_genome;
     struct genome_struct *gen[3];
     int CIRCULAR;   
     int NUM_GENES;
@@ -299,11 +298,15 @@ grappa_CAML_inv_med
                 break;
                 */
         }
-        output_genome =(struct genome_struct*) malloc (sizeof(struct genome_struct));
-        output_genome->genes = 
-               ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
         decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
                   cond3mem_p->pred1, cond3mem_p->decode, num_cond );
+    /*    int* outputgenes = NULL;
+          outputgenes =  ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
+        decode3 ( outputgenes, cond3mem_p->con_med->genes, 
+                  cond3mem_p->pred1, cond3mem_p->decode, num_cond );
+        res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, outputgenes,dims);
+        free (outputgenes);
+    */
         /*debug msg 
           fprintf(stdout,"before bigarray:[");
           int x;
@@ -312,7 +315,7 @@ grappa_CAML_inv_med
           fprintf(stdout,"]\n"); fflush(stdout);
        // debug msg */
         res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
-        free(output_genome);
+        
         CAMLreturn(res);        
     }
     else
