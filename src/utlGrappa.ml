@@ -84,6 +84,7 @@ let standardize3 genomeX genomeY genomeZ =
     sta_genomeX, sta_genomeY, sta_genomeZ
 
 let de_standardize3 ori_arr standar_arr arrsize =
+    assert(arrsize>0);
     let res_arr = Array.init arrsize 
     ( fun idx ->  
         let tmp = standar_arr.(idx) in
@@ -115,7 +116,7 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
-    (* debug message  
+    (* debug message 
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
