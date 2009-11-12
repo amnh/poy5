@@ -477,8 +477,8 @@ module SC : sig
     type st_type = 
         | STOrdered
         | STUnordered  
-        | STSankoff of int array array          (* If Sankoff, the cost matrix to use *)
-        | STLikelihood of (MlModel.spec * MlModel.model)  (* The ML model to use *)
+        | STSankoff of int array array   (* If Sankoff, the cost matrix to use *)
+        | STLikelihood of MlModel.model  (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string; (* The file that contained the character

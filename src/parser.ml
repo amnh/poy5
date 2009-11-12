@@ -2515,8 +2515,8 @@ module SC = struct
     type st_type = 
         | STOrdered
         | STUnordered
-        | STSankoff of int array array         (* the cost matrix to use *)
-        | STLikelihood of (MlModel.spec * MlModel.model) (* The ML model to use *)
+        | STSankoff of int array array  (* the cost matrix to use *)
+        | STLikelihood of MlModel.model (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string;    (* The file it came from *)
@@ -3758,86 +3758,23 @@ module SC = struct
                     | Nexus.Files name -> let file = Some name in
                             ((name,var,param,lst,gap,file),chars)
                 in
-                (* verify enough data in a model *)
-                let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
-                    let submatrix = match String.uppercase name with
-                        | "JC69" -> (match param with
-                                | [single] -> MlModel.JC69 single
-                                | [] -> MlModel.JC69 1.0
-                                | _ -> failwith "Parameters don't match model")
-                        | "F81" -> (match param with
-                                | [single] -> MlModel.F81 single
-                                | [] -> MlModel.F81 1.0
-                                | _ -> failwith "Parameters don't match model")
-                        | "K80" | "K2P" -> (match param with
-                                | h1::h2::[] -> MlModel.K2P (h1,h2)
-                                | ratio::[] -> MlModel.K2P (ratio,1.0)
-                                | _ -> failwith "Parameters don't match model")
-                        | "F84" -> (match param with
-                                | h1::h2::[] -> MlModel.F84 (h1,h2)
-                                | _ -> failwith "Parameters don't match model")
-                        | "HKY" | "HKY85" -> (match param with
-                                | h1::h2::[] -> MlModel.HKY85 (h1,h2)
-                                | ratio::[] -> MlModel.HKY85 (ratio,1.0)
-                                | _ -> failwith "Parameters don't match model")
-                        | "TN93" -> (match param with
-                                | h1::h2::h3::[] -> MlModel.TN93 (h1,h2,h3)
-                                | _ -> failwith "Parameters don't match model")
-                        | "GTR" -> MlModel.GTR (Array.of_list param)
-                        | "GIVEN"-> (match file with
-                                | Some name ->
-                                    let mat = Array.of_list (List.map (Array.of_list)
-                                         (TransformationCostMatrix.fm_of_file
-                                         (`Local name))) in
-                                    MlModel.File mat
-                                | _ -> failwith "File not specified")
-                        | _ -> failwith "No Model Specified"
-                    and variation = match String.uppercase var with
-                        | "GAMMA" -> MlModel.Gamma (int_of_string site,
-                                             float_of_string alpha,
-                                             float_of_string alpha)
-                        | "THETA" -> MlModel.Theta (int_of_string site,
-                                             float_of_string alpha,
-                                             float_of_string alpha,
-                                             float_of_string invar)
-                        | "NONE" | "CONSTANT" | "" | _ -> MlModel.Constant
-                    and gap = match String.uppercase gap with
-                        | "TRUE" -> true
-                        | "FALSE" | _ -> false
-                    and priors = 
-                        let priors = List.map snd priors in 
-                        let sum = List.fold_left (+.) 0.0 priors in
-                        if test_priors then begin
-                            match classify_float (sum -. 1.0) with
-                            | FP_subnormal | FP_zero -> ()
-                            | _ -> failwith "Priors sum greater than 1.0"
-                        end;
-                        priors
-                    in
-                    let model_spec = 
-                        {   MlModel.substitution = submatrix;
-                            site_variation = Some variation;
-                            base_priors = MlModel.Given (Array.of_list priors);
-                            use_gap = gap;
-                        }
-                    in
-                    (model_spec,chars)
-                in
                 (* POY block :: process all commands*)
                 List.iter
                     (fun x -> match x with
                      | Nexus.CharacterBranch (trees,chars,bls) ->
                         add_data (trees,chars,bls) acc.branches
                      | Nexus.Likelihood params ->
-                        let m,characters_to_modify =
-                            verify_model 
-                                (List.fold_left proc_model 
-                                                (("",("","","",""),[],[],"",None),[]) 
-                                                params
-                                )
+                        let str_spec,characters_to_modify =
+                            List.fold_left proc_model 
+                                           (MlModel.empty_str_spec,[])
+                                           params
                         in
                         (* how should the alphabet be obtained? *)
-                        let m = STLikelihood (m,MlModel.create acc.characters.(0).st_alph m) in
+                        let m = 
+                            str_spec --> MlModel.convert_string_spec
+                                     --> MlModel.create acc.characters.(0).st_alph
+                                     --> (fun x -> STLikelihood x)
+                        in
                         (* apply spec to each character *)
                         List.iter (apply_on_character_set 
                                         acc.characters
@@ -3845,10 +3782,7 @@ module SC = struct
                                         (fun i -> 
                                             acc.characters.(i) <-
                                                 { acc.characters.(i) with
-                                                    st_type = m;
-                                                }
-                                        )
-                                  )
+                                                    st_type = m; }))
                                   characters_to_modify
                     ) block;
                 Status.user_message Status.Information "Done";

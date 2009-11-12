@@ -246,24 +246,23 @@ let to_string a =
             0 ((cardinal a.data) - 1) in
     "[" ^ String.concat " " strlist ^ "]"
 
+let e_to_list (_,elt) =
+    let rec elt_iter acc elt cntr =
+        if elt = 0 then acc 
+        else if (elt land 1) <> 0 then 
+            elt_iter (cntr :: acc) (elt lsr 1) (cntr + 1)
+        else elt_iter acc (elt lsr 1)  (cntr + 1)
+    in
+    elt_iter [] elt 0
+
 let to_formatter acc attrs c parent d : Xml.xml Sexpr.t list =
     let module T = Xml.Characters in
-    let elt_iter elt =
-        let rec elt_iter acc elt c cntr =
-            if elt = 0 then acc 
-            else if (elt land 1) <> 0 then 
-                elt_iter (cntr :: acc) (elt lsr 1) (c * 2) (cntr + 1)
-            else elt_iter acc (elt lsr 1)  (c * 2) (cntr + 1)
-        in
-        elt_iter [] elt 1 0
-    in
-    let output_character (code, (_, char)) (_, cost) =
-        let res = elt_iter char in 
+    let output_character (code, e) (_, cost) =
         let to_sexp = fun x -> 
             let v= `String (Data.to_human_readable d code x) in
             (PXML -[T.value] [v] --)
         in
-        let contents = `Set (List.map to_sexp res) in 
+        let contents = `Set (List.map to_sexp (e_to_list e)) in 
         (PXML -[T.nonadditive]
                     (* Attributes *)
                     ([T.name]=[`String (Data.code_character code d)]) 

@@ -438,7 +438,7 @@ let median an bn t1 t2 acode bcode =
 let rec list_of n x =
     match n with
     | 0 -> []
-    | e -> x :: (list_of (n-1) x)
+    | e -> x :: (list_of (e-1) x)
 let rec set_in num lst =
     match lst with
     | hd :: tl ->
@@ -474,12 +474,12 @@ let farray_to_int32 x =
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec weights characters =
-    let lkspec,computed_model = match spec.Parser.SC.st_type with
-        | Parser.SC.STLikelihood (x,y) -> x,y
+    let computed_model = match spec.Parser.SC.st_type with
+        | Parser.SC.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
     let (a_size,a_gap) = 
         let alph = spec.Parser.SC.st_alph in
-        match lkspec.MlModel.use_gap with
+        match computed_model.MlModel.spec.MlModel.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
     in
@@ -529,9 +529,7 @@ let of_parser spec weights characters =
        chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
-    let str_time = function | Some x -> `Float x | None -> `String "None"
-    and some_or x = function | Some x -> x | None -> x in
-
+    let str_time = function | Some x -> `Float x | None -> `String "None" in
     let rec make_single_vec char_code single_ray =
         (Array.to_list 
             (Array.mapi 
@@ -549,6 +547,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 { `Set (make_single_vec char_code single_ray) }
         --)
     in
+    (*
     let priors = 
         [(PXML
             -[Xml.Characters.priors]
@@ -556,18 +555,9 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                                         (ba2array mine.model.MlModel.pi_0)) }
         --)]
     in
-    let model =
-        (PXML
-            -[Xml.Characters.model]
-                ([Xml.Characters.name] = [`String mine.model.MlModel.name])
-                ([Xml.Characters.sites] = [`Int mine.model.MlModel.sites])
-                ([Xml.Characters.alpha] = [str_time mine.model.MlModel.alpha])
-                ([Xml.Characters.invar] = [`Float (some_or 0.0 mine.model.MlModel.invar)])
-                { `Set priors }
-        --)
-    and sequence =
+    *)
+    let sequence =
         let likelihood_vec,invariant_vec = s_bigarray mine.chars in
-        (** TODO :: invar vector, and group rates in output(?) **)
         (PXML
             -[Xml.Characters.characters]
             {  
@@ -575,6 +565,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
+        (** TODO: report invar **)
     in
 
     (PXML
@@ -586,7 +577,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
             ([Xml.Nodes.oth_time] = [str_time t2])
             ([attr])
             (* data *)
-            { `Set [model;sequence] }
+            { `Set [sequence] }
         --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
@@ -602,7 +593,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         let new_mine = {mine with chars = copy mine.chars} in
         let model = c1.model in
         let pinv  = match model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-        (*Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle;*)
+        Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle;
         let (nta,nl) = match model.MlModel.ui with
             | None ->
                 readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
@@ -616,7 +607,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                              model.MlModel.prob model.MlModel.pi_0 new_mine.mle
         and ntb = c_t2
         in
-        (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
+        Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl;
         if nta =. c_t1 then
             (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
         else

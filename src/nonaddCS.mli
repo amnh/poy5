@@ -107,8 +107,11 @@ external poly_items : cu -> int -> int = "char_nonadd_CAML_poly_items"
 external to_int : ct -> int -> int = "char_nonadd_CAML_to_int"
 
 (** [elt_to_list set eltnum] returns a list of states that element [eltnum]
-    might be in. *)
+    might be in. ~Deprecated *)
 external elt_to_list : ct -> int -> int list = "char_nonadd_CAML_elt_to_list"
+
+(* this is the prefered method to inspect set bits. *)
+val e_to_list : e -> int list
 
 external to_list : ct -> (int * e * float) list = "char_nonadd_CAML_to_list"
 val of_list : (int * e * float) list -> t
@@ -116,6 +119,8 @@ val of_parser : Data.d -> (Parser.SC.static_state * int) array * 'a -> int -> t 
 val is_potentially_informative : int list option list -> bool
 val max_possible_cost : int list option list -> float
 val min_possible_cost : int list option list -> float
+
+val to_simple_list : t -> (int * e) list
 
 val to_string : t -> string
 (** [to_formatter attrs c parent d : Xml.xml list] returns the formatter for

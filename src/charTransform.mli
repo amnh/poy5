@@ -39,18 +39,20 @@ module type S = sig
 
     (** [substitute_nodes nodes tree] replaces the nodes in tree with the nodes with
         the same taxon code from the list *)
-    val substitute_nodes : ?data:Data.d -> a list -> tree -> tree
+    val substitute_nodes : a list -> tree -> tree
 
     (** [transform_tree f tree] applies a transformation function [f] on all the
         leaves of [tree] and returns the updated tree *)
-    val transform_tree : ?data:Data.d -> (a -> a) -> tree -> tree
+    val transform_tree : (a -> a) -> tree -> tree
 
     val transform_nodes :
       tree Sexpr.t ->
       Data.d ->
       a list -> Methods.char_transform list -> Data.d * a list
 
-
+    val transform_nodes_trees :
+      tree Sexpr.t -> Data.d -> a list -> Methods.tree_transform list
+        -> tree Sexpr.t * Data.d * a list
 
 end
 

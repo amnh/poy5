@@ -111,10 +111,12 @@ type chromosome_args = [
 
 
 type transform_method = [
-    | `Independent
     | `RandomizedTerminals
     | `AlphabeticTerminals
     | `Prealigned_Transform
+    | `EstLikelihood of 
+        ( Methods.ml_substitution * Methods.ml_site_variation option *
+          Methods.ml_priors * Methods.ml_gap )
     | `UseLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
           Methods.ml_priors * Methods.ml_gap )
@@ -404,10 +406,11 @@ let transform_transform acc (id, x) =
             acc
     | #Methods.characters as id ->
             match x with
-            | `Independent -> (`Independent id) :: acc
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
+            | `EstLikelihood (a, b, c, d) ->
+                    (`EstLikelihood (id, a, b, c, d)) :: acc
             | `UseLikelihood (a, b, c, d) ->
                     (`UseLikelihood (id, a, b, c, d)) :: acc
             | `Level (l) -> (`Assign_Level (l,id))::acc
@@ -1209,27 +1212,13 @@ let create_expr () =
             ]];
         ml_substitution: 
             [
-                [ "constant";
-                    x = OPT optional_integer_or_float -> 
-                    let x = match x with
-                        | None -> None 
-                        | Some x -> Some (float_of_string x) 
-                    in `JC69 x ] |
-                [ "jc69";  
-                    x = OPT optional_integer_or_float -> 
-                    let x = match x with
-                        | None -> None
-                        | Some x -> Some (float_of_string x)
-                    in `JC69 x ] |
-                [ "f81";
-                    x = OPT optional_integer_or_float ->
-                    let x = match x with
-                        | None -> None
-                        | Some x -> Some( float_of_string x )
-                    in `F81 x ] |
+                [ "jc69" -> `JC69 ] |
+                [ "f81" -> `F81 ] |
                 (* values of these types get checked later *)
                 [ "f84"; x = OPT ml_floatlist -> `F84 x ] |
-                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] | 
+                [ "k80"; x = OPT ml_floatlist -> `K2P x ] |
+                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] |
+                [ "hky"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
                 [ "gtr"; x = OPT ml_floatlist -> `GTR x ] |
@@ -1240,13 +1229,11 @@ let create_expr () =
                 [ "gamma";":";left_parenthesis;
                     x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
                         let sv_ = Array.of_list (List.map float_of_string y) in
-                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
-                        Some (`Gamma (int_of_string x, alpha, beta)) ] |
+                        Some (`Gamma (int_of_string x, sv_.(0))) ] |
                 [ "theta";":";left_parenthesis;
                     x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
                         let sv_ = Array.of_list (List.map float_of_string y) in
-                        let (alpha,beta,percent) = (Array.get sv_ 0, Array.get sv_ 1,Array.get sv_ 2) in
-                        Some (`Theta (int_of_string x, alpha, beta, percent)) ] |
+                        Some (`Theta (int_of_string x, sv_.(0), sv_.(1))) ] |
                 [ "none" -> None ]
             ];
         ml_priors:
@@ -1271,7 +1258,15 @@ let create_expr () =
             ];
         transform_method:
             [
-                [ LIDENT "independent" -> `Independent ] |
+                [ LIDENT "elikelihood"; ":"; left_parenthesis;
+                    w = ml_substitution; ","; x = ml_site_variation; ",";
+                    y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
+                        let z =
+                            match z with
+                            | None -> `GapAsCharacter false
+                            | Some x -> x
+                        in
+                        `EstLikelihood (w, x, y, z) ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = OPT ml_gaps; right_parenthesis ->

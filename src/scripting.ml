@@ -1350,8 +1350,8 @@ let update_trees_to_data ?(classify=true) force load_data run =
             in
             let ach = Status.get_achieved st in
             if are_leaves_different then
-                let tree = { tree with Ptree.node_data = nodes } in
-                let res = CT.transform_tree ~data:run.data replacer tree in
+                let tree = { tree with Ptree.node_data = nodes; data = run.data } in
+                let res = CT.transform_tree replacer tree in
                 let () = Status.full_report ~adv:(ach + 1) st in
                 res
             else 
@@ -1370,6 +1370,11 @@ let process_transform (run : r) (meth : Methods.transform) =
           { run with
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
+    | #Methods.tree_transform as meth ->
+            let trees,data,nodes =
+                CT.transform_nodes_trees run.trees run.data run.nodes [meth]
+            in
+            { run with trees = trees; nodes = nodes; data = data; }
     | #Methods.char_transform as meth ->
           let data, nodes =
               CT.transform_nodes run.trees run.data run.nodes
@@ -1582,6 +1587,7 @@ let temporary_transform run meth =
                                           (Ptree.set_origin_cost
                                                old_origin_cost)
                                           run.trees })
+    | #Methods.tree_transform
     | #Methods.char_transform ->
           run1,
           `UntransformChar

@@ -3519,10 +3519,22 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter in
     Array.map (fun x -> x /. counter) priors
 
+let apply_on_static_chars data chars st_type = 
+    (* COPY, COPY the new hashtbl, and the only one being changed *)
+    let new_specs = Hashtbl.copy data.character_specs in
+    List.iter 
+        (fun code -> 
+            match Hashtbl.find new_specs code with
+            | Static x -> 
+                Hashtbl.replace new_specs code (Static { x with Parser.SC.st_type = st_type})
+            | _ -> failwith "Illegal conversion") chars;
+    { data with character_specs = new_specs } --> categorize
+
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
-* the likelihood model specified in [lk] *)
+ * the likelihood model specified in [lk] *)
 let set_likelihood data
     ((chars,substitution,site_variation,base_priors,use_gap):Methods.ml_spec) =
+
     let chars = 
         let chars = `Some (get_chars_codes_comp data chars) in
         get_code_from_characters_restricted `AllStatic data chars
@@ -3533,7 +3545,7 @@ let set_likelihood data
         let data = duplicate data in
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
         (* We get the characters and filter them out to have only static types *)
-        let specification,model =
+        let model =
             let alph_size, _ = verify_alphabet data chars in
             let alph_size = if u_gap then alph_size else alph_size -1 in
             let base_priors =
@@ -3555,67 +3567,61 @@ let set_likelihood data
                 match site_variation with
                 | None -> Some MlModel.Constant 
                 | Some x -> (match x with 
-                    | `Gamma (w,y,z) -> Some (MlModel.Gamma (w,y,z))
-                    | `Theta (w,y,z,p) -> Some (MlModel.Theta (w,y,z,p)))
+                    | `Gamma (w,y) -> Some (MlModel.Gamma (w,y))
+                    | `Theta (w,y,p) -> Some (MlModel.Theta (w,y,p)))
             and substitution = 
                 match substitution with
-                | `JC69 None -> MlModel.JC69 1.0
-                | `JC69 (Some x) -> MlModel.JC69 x
-                | `F81 None -> MlModel.F81 1.0
-                | `F81 (Some x) -> MlModel.F81 x
-                | `K2P None ->
-                    let const = (1. /. (float_of_int alph_size)) in
-                    MlModel.K2P (const,((1.0-.const)/.2.0))
+                | `JC69 -> MlModel.JC69
+                | `F81  -> MlModel.F81
                 | `K2P (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 2 then 
-                        MlModel.K2P (Array.get aray 0,Array.get aray 1)
-                    else if Array.length aray = 1 then
-                        (* solution for: R = a/b and a+2b = 1 *)
-                        let beta = 1. /. (aray.(0) +. 2.0) in
-                        let alpha = aray.(0) /. (2.0 +. aray.(0)) in
-                        MlModel.K2P ( alpha, beta )
-                    else
-                        let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ K2P@ requires@ 1@ or@ 2@ parameters" in
-                            failwith("Incorrect Parameters");    
+                    if Array.length aray = 1 then MlModel.K2P (Some aray.(0))
+                    else if Array.length aray = 0 then MlModel.K2P None
+                    else let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" in
+                            failwith("Incorrect Parameters");
+                | `K2P None -> MlModel.K2P None
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
-                    begin match Array.length aray with 
-                        | 2 -> MlModel.HKY85 (Array.get aray 0,Array.get aray 1)    
-                        | 1 -> MlModel.HKY85 (Array.get aray 0,1.0)
-                        | _ ->
-                            let () = Status.user_message Status.Error
-                                "Likelihood@ model@ HKY85@ requires@ 2@ parameters" in
-                            failwith("Incorrect Parameters");
-                    end
+                    if Array.length aray = 1 then MlModel.HKY85 (Some aray.(0))
+                    else if Array.length aray = 0 then MlModel.HKY85 None
+                    else let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" in
+                            failwith("Incorrect Parameters");    
+                | `HKY85 None -> MlModel.HKY85 None
                 | `F84 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray <> 2 then 
-                        let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ F84@ requires@ 2@ parameters" in
+                    if Array.length aray = 1 then MlModel.F84 (Some aray.(0))
+                    else if Array.length aray = 0 then MlModel.F84 None
+                    else let _ = Status.user_message Status.Error
+                            "Likelihood@ model@ HKY85@ requires@ 1@ parameters" in
                             failwith("Incorrect Parameters");
-                    else
-                        MlModel.F84 (Array.get aray 0,Array.get aray 1)
+                | `F84 None -> MlModel.F84 None
                 | `TN93 (Some x) -> 
                     let aray = Array.of_list x in
-                    if Array.length aray <> 3 then
+                    if Array.length aray <> 2 then
                         let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ TN93@ requires@ 3@ parameters" in
+                            "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");
+                    else if Array.length aray = 0 then
+                        MlModel.TN93 None
                     else
-                        MlModel.TN93 (Array.get aray 0,Array.get aray 1,Array.get aray 2)
+                        MlModel.TN93 (Some (aray.(0),aray.(1)))
+                | `TN93 None -> MlModel.TN93 None
                 | `GTR (Some x) ->
                     let aray = Array.of_list x in 
-                    let n_a = (alph_size * (alph_size-1)) / 2 in (* -1 to exclude diagonal from sum *)
+                    let n_a = (alph_size * (alph_size-1)) / 2 in
                     if (Array.length aray) <> n_a then
                         let _ = Status.user_message Status.Error 
                         ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
                          "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
                          (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
                         failwith "Incorrect Parameters";
+                    else if Array.length aray = 0 then
+                        MlModel.GTR None
                     else
-                        MlModel.GTR aray
+                        MlModel.GTR (Some aray)
+                | `GTR None -> MlModel.GTR None
                 | `File str -> 
                         (* this needs to be changed to allow remote files as well *)
                     let matrix = Parser.TransformationCostMatrix.fm_of_file (`Local str) in
@@ -3631,34 +3637,20 @@ let set_likelihood data
                         MlModel.File matrix
                     else
                         failwith "I@ don't@ like@ your@ input@ file."
-
-                    (* eventually everything can be approximated with other
-                    * models, but for now, we can bail on that choice *)
-                | _ -> failwith ("I@ don't@ support@ this@ option.")
             and use_gap =
                 match use_gap with
                 | `GapAsCharacter x -> x
             in
-            let model = { MlModel.substitution = substitution;
-                        site_variation = site_variation;
-                        base_priors = base_priors;
-                        use_gap = use_gap; }
+            let lk_spec = { MlModel.substitution = substitution;
+                            site_variation = site_variation;
+                            base_priors = base_priors;
+                            use_gap = use_gap; }
             in
             (* we can use hd since it MUST be > 1 element *)
-            (model, MlModel.create (get_alphabet data (List.hd chars)) model)
+            MlModel.create (get_alphabet data (List.hd chars)) lk_spec
         in
-        (* We replace the specification of all the characters, and categorize 
-        * them *)
-        List.iter (fun code -> 
-            match Hashtbl.find data.character_specs code with
-            | Static x -> 
-                    Hashtbl.replace data.character_specs code 
-                    (Static 
-                    { x with 
-                    Parser.SC.st_type = 
-                        Parser.SC.STLikelihood (specification,model) })
-            | _ -> failwith "Illegal conversion") chars;
-        categorize data
+        (* We rebuild the specification of all the characters, and categorize them *)
+        apply_on_static_chars data chars (Parser.SC.STLikelihood model)
 
 let get_tran_code_meth data meth = 
     let tran_code_ls, meth =
@@ -5179,7 +5171,6 @@ module Sample = struct
 
 end
 
-
 let to_human_readable data code item =
     let spec = 
         match Hashtbl.find data.character_specs code with
@@ -5232,7 +5223,7 @@ let get_model code data =
     match Hashtbl.find data.character_specs code with
     | Static x -> 
         (match x.Parser.SC.st_type with
-            | Parser.SC.STLikelihood (x,y) -> y
+            | Parser.SC.STLikelihood x -> x
             | _ -> failwith "Data.get_model")
     | _ -> failwith "Data.get_model 2"
 
@@ -5256,7 +5247,7 @@ let apply_on_static ordered unordered sankoff likelihood char data =
                             unordered specified_static_chars
                     | Parser.SC.STSankoff mtx -> 
                             sankoff mtx specified_static_chars 
-                    | Parser.SC.STLikelihood (spec,model) -> 
+                    | Parser.SC.STLikelihood model -> 
                             likelihood model specified_static_chars 
                 in
                 (code, res) :: acc
