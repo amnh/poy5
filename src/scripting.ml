@@ -4109,7 +4109,8 @@ END
                         Status.user_message Status.Error msg;
                         raise (Error_in_Script (err, run))
             in
-            let script = PoyCommand.read_script_files true files in
+            let script = PoyCommand.read_script_files true 
+                (List.map (fun x -> `Filename x) files) in
             let script = Sexpr.of_list script in
             Sexpr.fold_status "Running commands" ~eta:true file_folder run
             script

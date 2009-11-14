@@ -2223,25 +2223,34 @@ let ( --> ) a b = b a
 let rec process_commands optimize command = 
     match command with
     | `ChangeWDir dir -> let dir = simplify_directory dir in Sys.chdir dir; [command]
-    | `ReadScript files -> read_script_files false files
+    | `ReadScript files -> 
+            read_script_files false (List.map (fun x -> `Filename x) files)
     | x -> [x]
 
-and read_script_files optimize files = 
+and read_script_files optimize (files : [`Inlined of string | `Filename of
+string] list)  = 
     let res = 
         List.map
         (fun f -> 
+            let where = 
+                match f with
+                | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                | `Inlined f -> "inlined@ script"
+            in
             try
-                let f = simplify_directory f in
-                let comm = of_file false f in
-                `Echo ("Running file " ^ f, `Information) :: comm
+                match f with
+                | `Inlined f ->
+                        let comm = of_string false f in
+                        `Echo ("Running inlined script", `Information) :: comm
+                | `Filename f ->
+                        let f = simplify_directory f in
+                        let comm = of_file false f in
+                        `Echo ("Running file " ^ f, `Information) :: comm
             with
             | Loc.Exc_located (a, Stream.Error err) ->
-            (*
-            | Loc.Exc_located (a, Token.Error err) ->
-                    *)
                     let is_unknown = "illegal begin of expr" = err in
-                    let msg = "@[<v 4>@[Command@ error@ in@ file@ @{<b>" ^
-                    f ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
+                    let msg = "@[<v 4>@[Command@ error@ in@ " ^
+                    where ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
                     "@}@ between@ characters@ @{<b>" ^ 
                     string_of_int ((Loc.start_off a) - (Loc.start_bol a))
                     ^ "@} and @{<b>" ^
@@ -2253,7 +2262,7 @@ and read_script_files optimize files =
                     failwith "Script execution stopped"
             | err -> 
                     Status.user_message Status.Error 
-                    ("Error@ while@ processing@ script@  " ^ f);
+                    ("Error@ while@ processing@ script@  " ^ where);
                     raise err) 
         files 
     in
