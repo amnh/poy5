@@ -52,7 +52,6 @@ new_hashtable ( int ngenes, int expected_size, float loading_factor )
                                                    there is little value in
                                                    having this size be larger
                                                    than one page */
-
     /* The size of each bucket depends on the loading factor, the expected
        size of the table, and the number of buckets */
     h->bucketsize =
@@ -103,7 +102,7 @@ new_hashtable ( int ngenes, int expected_size, float loading_factor )
 
 /* Insert specified permutation */
 void
-ht_insert ( Hashtable * h, int *perm )
+ht_insert ( Hashtable * h, int *perm, int ngenes )
 {
 #ifdef USEDB
     DBT key, data;
@@ -131,7 +130,7 @@ ht_insert ( Hashtable * h, int *perm )
 #else
     int k;
 
-    k = hash ( h, perm );
+    k = hash ( h, perm, ngenes );
 
 #ifdef THREADSAFE
     mythread_rwlock_wrlock ( &h->rwlock[k] );
@@ -182,11 +181,17 @@ ht_clear ( Hashtable * h )
 {
     int i, j;
     for ( i = 0; i < h->nbuckets; i++ )
-    {
+    {   
         if ( h->table[i] != NULL )
-            for ( j = 0; j < h->sizes[i] &&
-                  h->table[i][j * h->ngenes] != 0; j++ )
+        {
+            for ( j = 0; j < h->sizes[i] 
+                    && h->table[i][j * h->ngenes] != 0;
+                  j++ )
+            {
+               // fprintf(stdout,"clean up [%d][%d],",i,j); fflush(stdout);
                 h->table[i][j * h->ngenes] = 0;
+            }
+        }
     }
 }
 
@@ -198,7 +203,7 @@ ht_clear ( Hashtable * h )
    return value will still indicate whether the entry existed
    previously) */
 int
-ht_find ( Hashtable * h, int *perm, int create )
+ht_find ( Hashtable * h, int *perm, int create, int ngenes )
 {
 #ifdef USEDB
     DBT key, data;
@@ -240,7 +245,7 @@ ht_find ( Hashtable * h, int *perm, int create )
 #else
     int i, k;
     int retval = 0;
-    k = hash ( h, perm );
+    k = hash ( h, perm, ngenes );
 /*   printf("%d\n", k);  */
 
 #ifdef THREADSAFE
@@ -336,18 +341,29 @@ ht_realloc_bucket ( Hashtable * h, int k )
 
 /* Hashing function: operates on a modest percentage of the digits */
 int
-hash ( Hashtable * h, int *perm )
+hash ( Hashtable * h, int *perm, int permsize )
 {
     int i, a;
     unsigned long k;
+    unsigned long old_k;
 
     a = h->ngenes / h->idxdigits;   /* sample every ath digit in the perm,
                                        for a total of idxdigits samples */
-
     k = 0;
-    for ( i = 0; i < h->idxdigits; i++ )
+    for ( i = 0; (i < h->idxdigits) &&((i*a)<permsize); i++ )
     {
+        old_k = k;
+//        fprintf(stdout,"k=%d*%d+%d",MULTIPLIER, k, abs ( perm[i * a])); fflush(stdout);
+     
         k = MULTIPLIER * k + abs ( perm[i * a] );
+        
+  //      fprintf(stdout,"=%d\n",k); fflush(stdout);
+   /*     if (old_k>k)
+        {
+            fprintf(stderr,"The input for hashtable inside grappa is too big, which cause integer overflow, reduce the input please.\n");
+            exit (errno);
+        }
+        */
     }
     return k % h->nbuckets;
 }
