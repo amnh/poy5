@@ -405,7 +405,7 @@ grappa_CAML_inversions (value genes1, value genes2,
     struct genome_arr_t *genes1_arr, *genes2_arr;
     struct genome_struct *permutation, *origin;
     int *temp_genes;
-    Reversal *rev;
+    Reversal *rev; Reversal revrev;
     result = Val_int(0); /* We start with the empty list */
 
     inv_dist = Int_val(dist);
@@ -435,7 +435,8 @@ grappa_CAML_inversions (value genes1, value genes2,
                 origin, num_genes, NULL);
 
         if  (list_size(&intermediate_reversals_list) > 0) {
-            rev = (Reversal *)list_get(&intermediate_reversals_list, 0);
+            revrev = list_get(&intermediate_reversals_list, 0).revelement;
+            rev = &revrev;
             copy_with_reversal(temp_genes, permutation->genes, num_genes, rev);
             permcopy(permutation->genes, temp_genes, num_genes);
             r = caml_alloc_tuple(2);
