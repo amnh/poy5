@@ -16,19 +16,22 @@
 #include <stdio.h>
 #include <assert.h>
 
-/* returns NULL if empty */
-void *
-ps_pop ( PriorityStack * ps )
-{
-    void *i;
 
+//void *
+ElementUnion  ps_pop ( PriorityStack * ps )
+{
+    //void *i;
+    ElementUnion  i;
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
 
     if ( ps->count == 0 )
-        i = NULL;
-
+  //      i = NULL;
+     {
+       fprintf(stderr,"ERROR: Try to pop an empty priority_stack\n ");
+       assert(0);
+    }
     else
     {
         while ( empty ( &ps->stacks[ps->idx] ) )
@@ -49,7 +52,7 @@ ps_pop ( PriorityStack * ps )
 }
 
 PriorityStack *
-new_ps ( int min, int max, int stack_nelements, int stack_elementsz )
+new_ps ( int min, int max, int stack_nelements, enum datatype dtype )
 {
     int i;
     PriorityStack *ps =
@@ -57,9 +60,10 @@ new_ps ( int min, int max, int stack_nelements, int stack_elementsz )
     ps->min = min;
     ps->max = max;
     ps->stacks = ( List * ) calloc ( max - min + 1, sizeof ( List ) );
-    ps->elementsz = stack_elementsz;
+    ps->dtype = dtype;
+    //ps->elementsz = stack_elementsz;
     for ( i = 0; i <= ( max - min ); i++ )
-        init_list ( &ps->stacks[i], stack_nelements, stack_elementsz );
+        init_list ( &ps->stacks[i], stack_nelements, dtype );
     ps->count = 0;
     ps->idx = ps->max - ps->min;
 
@@ -90,6 +94,7 @@ ps_clear ( PriorityStack * ps )
     ps->idx = ps->max - ps->min;
 }
 
+//add ps_check for POY.... if the list of the priority stack is full, return 0.
 int
 ps_check ( PriorityStack * ps)
 {
@@ -107,7 +112,7 @@ ps_check ( PriorityStack * ps)
 
 
 void
-ps_push ( PriorityStack * ps, void *v, int priority )
+ps_push ( PriorityStack * ps, ElementUnion v, int priority )
 {
 
 #ifdef THREADSAFE
@@ -142,7 +147,7 @@ ps_flush ( PriorityStack * ps, List * l, int threshold )
     for ( i = threshold - ps->min + 1; i <= ( ps->max - ps->min ); i++ )
         count += list_size ( &ps->stacks[i] );
 
-    init_list ( l, count, ps->elementsz );
+    init_list ( l, count, ps->dtype );
 /*   fprintf(stderr, "Flushing %d from priority stack\n", count);   */
     if ( count == 0 )
         return;
