@@ -68,12 +68,12 @@ Hashtable *new_hashtable ( int ngenes, int expected_size,
                            float loading_factor );
 
 /* Insert a new permutation in the hash */
-void ht_insert ( Hashtable * h, int *perm );
+void ht_insert ( Hashtable * h, int *perm, int ngenes );
 
 /* Find a permutation in the hash (return 1 if found, 0 if not found);
    if create == 1, permutation will be added if it is not already
    present */
-int ht_find ( Hashtable * h, int *perm, int create );
+int ht_find ( Hashtable * h, int *perm, int create , int ngenes);
 
 /* Free memory associated with hashtable */
 void ht_free ( Hashtable * h );
@@ -88,7 +88,7 @@ void ht_clear ( Hashtable * h );
 void ht_realloc_bucket ( Hashtable * h, int k );
 
 /* Hashing function */
-int hash ( Hashtable * h, int *perm );
+int hash ( Hashtable * h, int *perm, int permsize );
 #endif
 
 #endif
