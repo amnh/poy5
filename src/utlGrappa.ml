@@ -116,7 +116,7 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
-    (* debug message 
+    (* debug message  
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
@@ -124,15 +124,15 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
     in
     debug message *)
     (*debug message 
-    Printf.printf "inv_med_albert,input seqcodes: %!";
+    Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-      debug message *)
+     debug message *)
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     (* debug msg 
      Printf.printf "after standardize: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-    debug msg *)
+     debug msg *)
     let num_gen = Array.length genomeX in 
     (* for alert-median3 solver to work , sequence cannot be empty, also there
     * is a MAX_STR_LEN=2048 macro in grappa, if we need to work on longer sequence, 
