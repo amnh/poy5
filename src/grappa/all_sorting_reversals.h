@@ -24,11 +24,13 @@ struct bit_matrix_struct
     short **v;
 };
 
+/* move this structure to list.h
 typedef struct reversal_struct Reversal;
 struct reversal_struct
 {
     int start, stop;
 };
+*/
 
 enum comp_type
 { ORIENTED, SIMPLEHURDLE, SUPHURDLE, PROTNHURDLE,
