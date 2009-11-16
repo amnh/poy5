@@ -58,6 +58,7 @@ find_inversion_median ( struct genome_struct *median,
     ThreadData *td;
     Vertex *v;
     int d01, d02, d12;
+    ElementUnion tmp;
 
 #ifdef THREADSAFE
     int t, retval;
@@ -127,12 +128,13 @@ find_inversion_median ( struct genome_struct *median,
     sv->h =
         new_hashtable ( sv->ngenes, HASH_EXPECTED_SIZE, HASH_LOADING_FACTOR );
 
-    ht_insert ( sv->h, v->perm );
+    ht_insert ( sv->h, v->perm, sv->ngenes );
 
     sv->ps =
         new_ps ( sv->MIN_MED, sv->MAX_MED, QUEUECAPACITY,
-                 sizeof ( Vertex * ) );
-    ps_push ( sv->ps, v, sv->MIN_MED );
+                 VertexData );
+    tmp.vertexelement = *v;
+    ps_push ( sv->ps, tmp, sv->MIN_MED );
 
     /* loop until median found */
     sv->stop = 0;
@@ -184,6 +186,7 @@ find_inversion_median ( struct genome_struct *median,
     ht_free ( sv->h );
     free ( td );
     free ( sv );
+    // free ( &tmp);
 /*   printf("%d\n", sv->nneighbors);   */
 /* median->genes = sv->bestmed;*/
 }
@@ -197,7 +200,7 @@ do_loop ( void *sv_void )
 {
     ThreadData *td;
     SearchVars *sv;
-    Vertex *v;
+    Vertex *v; Vertex vv;
 
 #ifdef THREADSAFE
     pthread_t *threads;
@@ -281,9 +284,9 @@ do_loop ( void *sv_void )
         pthread_mutex_unlock ( &sv->nwaiting_mutex );
 #endif
 
-        v = ( Vertex * ) ps_pop ( sv->ps );
 
-        if ( v == NULL )
+    //    if ( v == NULL )
+        if ( 0 == (sv->ps)->count ) //empty stack
         {
 #ifdef THREADSAFE
             if ( NTHREADGROUPS > 1 )
@@ -298,6 +301,8 @@ do_loop ( void *sv_void )
                 break;
         }
 
+        vv =  ( ps_pop ( sv->ps )).vertexelement;
+        v = &vv; 
         if ( v->best_possible_score >= sv->MAX_MED )
         {
 #ifdef THREADSAFE
@@ -433,6 +438,7 @@ search_neighbors ( ThreadData * td )
     SearchVars *sv;
     Vertex *n;
     int *id;
+    ElementUnion tmp;
 
     sv = td->sv;
     id = ( int * ) calloc ( sv->ngenes, sizeof ( int ) );
@@ -454,7 +460,7 @@ search_neighbors ( ThreadData * td )
                space and time */
 /*       find_circular_identity(n->perm, id, sv->ngenes); */
 
-            if ( ht_find ( sv->h, n->perm, 0 ) == 1 )   /* already visited */
+            if ( ht_find ( sv->h, n->perm, 0, sv->ngenes ) == 1 )   /* already visited */
                 return_vertex ( sv->vf, n );
 
             else
@@ -499,7 +505,8 @@ search_neighbors ( ThreadData * td )
                 {
                     if ( n->best_possible_score < sv->MAX_MED )
                     {
-                        ps_push ( sv->ps, n, n->best_possible_score );
+                        tmp.vertexelement = *n;
+                        ps_push ( sv->ps, tmp, n->best_possible_score );
 #ifdef THREADSAFE
                         sem_post ( &sv->loop_sem );
 #endif
@@ -524,6 +531,7 @@ search_neighbors ( ThreadData * td )
         }
     }
     free ( id );
+    // free ( &tmp);
 }
 
 /* Create and return a vertex representing the neighbor obtained from
@@ -556,7 +564,7 @@ get_neighbor ( SearchVars * sv, Vertex * v, int start, int end )
 void
 clear_memory ( void *vp )
 {
-    Vertex *v;
+    Vertex *v; Vertex vv;
     List l;
     SearchVars *sv;
 
@@ -564,7 +572,8 @@ clear_memory ( void *vp )
     ps_flush ( sv->ps, &l, sv->MAX_MED );
     while ( !empty ( &l ) )
     {
-        v = ( Vertex * ) pop_stack ( &l );
+        vv = ( pop_stack ( &l )).vertexelement;
+        v = &vv;
         return_vertex ( sv->vf, v );
     }
     free_list ( &l );
