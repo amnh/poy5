@@ -39,20 +39,22 @@ find_reversal_median ( struct genome_struct *median,
     struct genome_struct dummy;
     struct genome_struct *g[NPERMS];
 
+    ElementUnion revtmp ;
+    ElementUnion vertextmp;
+    Vertex vv; 
+    Reversal revrev;
+
     MedianMemory *mm;// = &SIEPEL_MEM;
 
-//    int test = mm->max_gene_num;   fprintf(stdout,"test=%d\n",test); fflush(stdout);
-
-    /* use existing MedianMemory struct or create a new one */
+        /* use existing MedianMemory struct or create a new one */
     if ( medmem == NULL )
         mm = new_median_memory ( ngenes, 0, ( ngenes + 1 ) * 2 );
     else
     {
         mm = medmem;
-      //  fprintf(stdout,"reset median memory\n"); fflush(stdout);
+        fprintf(stdout,"reset median memory\n"); fflush(stdout);
         reset_median_memory ( mm );
     }
-
     /* find pairwise distances and set lower bound for median score */
     for ( MIN_MED = 0, i = 0; i < NPERMS - 1; i++ )
     {
@@ -113,37 +115,51 @@ find_reversal_median ( struct genome_struct *median,
        algorithm */
     for ( pass = 1; pass <= 2; pass++ )
     {                           /* I changed 2 to 1 */
+        fprintf(stdout,"pass=%d\n",pass); fflush(stdout);
         stop = 0;
-        nneighbors = 0;
+        nneighbors = 0; 
         ht_clear ( mm->h );
-        ht_insert ( mm->h, vorig->perm );
-        ps_push ( mm->ps, vorig, MAX_MED );
+        ht_insert ( mm->h, vorig->perm,ngenes );
+        vertextmp.vertexelement=*vorig;
+        ps_push ( mm->ps, vertextmp, MAX_MED );
 
         /* Loop until median is found or no more possibilities remain (the
            latter can be true only during pass 1) */
         while ( stop == 0 )
         {
-            //fprintf(stdout,"stop==0,pass=%d\n",pass); fflush(stdout);
-            Vertex *n, *v;
+            fprintf(stdout,"stop==0,pass=%d\n",pass); fflush(stdout);
+            Vertex *n, *v; 
             Reversal *rev;
             int count;
 
-            if ( ( v = ( Vertex * ) ps_pop ( mm->ps ) ) == NULL ||
-                 v->best_possible_score >= MAX_MED )
+            if ( (mm->ps)->count == 0 ) //stack mm->ps is empty
             {
-                stop = 1;
-                break;
+                fprintf(stdout,"stack mm->ps is empty\n"); fflush(stdout);
+                stop = 1; break;
             }
-            else if( ps_check(mm->ps) == 0 )  
+            else 
             {
-                stop = 1;
-                break;
-             //   ps_clear ( mm->ps ); 
-             // I'm not sure about this, but if we don't clear the list "mm->ps",  while loop will keep running, for some point it will reach the limit of capacity, and crash 
+                vv = (ps_pop(mm->ps)).vertexelement;
+                v = &vv;
+                if ( //( v = ( Vertex * ) ps_pop ( mm->ps ) ) == NULL ||
+                     v->best_possible_score >= MAX_MED )
+                {
+                    stop = 1; break;
+                }
+                else if( ps_check(mm->ps) == 0 )  //what if the stack is full?
+                {
+                    stop = 1; break;
+                 // should we do ps_clear ( mm->ps ); instead? 
+                 // Fix for POY.....
+                 // I'm not sure about this, 
+                 // if we don't do somthing about the list "mm->ps",  
+                 // while loop will keep running, 
+                 // at some point the list will reach the limit of capacity, 
+                 // and crash the program 
+                }
             }
 
             
-
             dummy.genes = v->perm;  /* to accommodate conventions of
                                        find_all_sorting_reversals */
 
@@ -166,8 +182,6 @@ find_reversal_median ( struct genome_struct *median,
                                              1 ? NULL : &mm->revs[NEUTRAL][j],
                                              &dummy, g[j], ngenes, mm->rsm );
             }
-
-
             /* mark each set of reversals with the appropriate bit masks */
             for ( i = 0; i < NREVTYPES; i++ )
             {
@@ -175,12 +189,13 @@ find_reversal_median ( struct genome_struct *median,
                 {
                     for ( k = 0; k < list_size ( &mm->revs[i][j] ); k++ )
                     {
-                        rev = ( Reversal * ) list_get ( &mm->revs[i][j], k );
+                        revrev = ( list_get ( &mm->revs[i][j], k )).revelement;
+                        rev = &revrev ;
+                        fprintf(stdout,"rev.start=%d,stop=%d; ", rev->start,rev->stop); fflush(stdout);
                         mm->mark[rev->start][rev->stop] |= mm->MASK[i][j];
                     }
                 }
             }
-
             /* now enumerate candidate reversals */
             if ( pass == 1 )
             {                   /* pass 1; here we only consider
@@ -188,12 +203,14 @@ find_reversal_median ( struct genome_struct *median,
                                    both g[1] and g[2] */
                 for ( i = 0; i < list_size ( &mm->revs[SORTING][1] ); i++ )
                 {
-                    rev =
-                        ( Reversal * ) list_get ( &mm->revs[SORTING][1], i );
+                    revrev =
+                        ( list_get ( &mm->revs[SORTING][1], i )).revelement;
+                    rev = &revrev;
                     if ( mm->mark[rev->start][rev->stop] & mm->
                          MASK[SORTING][2] )
                     {
-                       push ( &mm->candidates, rev );
+                        revtmp.revelement = *rev;
+                       push ( &mm->candidates, revtmp );
                     }
                 }
             }
@@ -211,26 +228,29 @@ find_reversal_median ( struct genome_struct *median,
                                 ( Reversal * ) malloc ( sizeof ( Reversal ) );
                             rev->start = i;
                             rev->stop = j;
-                            push ( &mm->candidates, rev );
+                            revtmp.revelement= *rev;
+                            push ( &mm->candidates, revtmp );
                         }
                     }
                 }
             }
-
   //          fprintf(stdout, "candidates list len=%d\n",(&mm->candidates)->CAPACITY);
 //        fflush(stdout);
             /* now consider each candidate in turn */
             count = 0;
-            while ( ( rev = pop_queue ( &mm->candidates ) ) != NULL )
+            //while ( ( rev = pop_queue ( &mm->candidates ) ) != NULL )
+            while ( ! is_empty(&mm->candidates) )
             {
                 count++;
                 n = get_vertex ( mm->vf );
+                revrev = (pop_queue ( &mm->candidates)).revelement;
+                rev = &revrev; 
 
                 /* generate permutation induced by reversal */
                 copy_with_reversal ( n->perm, v->perm, ngenes, rev );
 
                 /* check for mark in hash table */
-                if ( ht_find ( mm->h, n->perm, 0 ) == 1 )
+                if ( ht_find ( mm->h, n->perm, 0, ngenes ) == 1 )
                 /*CHANGED by Jijun, 1->0 */
                 {
                     return_vertex ( mm->vf, n );
@@ -239,7 +259,7 @@ find_reversal_median ( struct genome_struct *median,
                     continue;   /* already visited vertex; go on to
                                    next candidate */
                 }
-
+                fprintf(stdout,"check ht->nbuckets=%d \n",mm->h->nbuckets ); fflush(stdout);
                 /* this must always be true */
                 n->distance = v->distance + 1;
 
@@ -287,7 +307,8 @@ find_reversal_median ( struct genome_struct *median,
                 if ( n->best_possible_score < MAX_MED )
                 {
  //                   fprintf(stdout,"MAX_MED=%d,worst=%d,best=%d,push stacks: ",MAX_MED,n->worst_possible_score,n->best_possible_score); fflush(stdout);
-                    ps_push ( mm->ps, n, n->best_possible_score );
+                    vertextmp.vertexelement = *n;
+                    ps_push ( mm->ps, vertextmp, n->best_possible_score );
                 }
                 else
                     return_vertex ( mm->vf, n );
@@ -300,25 +321,32 @@ find_reversal_median ( struct genome_struct *median,
                 }
                 if ( pass == 2 )
                     free ( rev );
-            }
+            }//end of   while ( ! is_empty(&mm->candidates) )
 
             /* unmark all marked reversals and free reversals */
             for ( i = 0; i < NREVTYPES; i++ )
             {
                 for ( j = 0; j < NPERMS; j++ )
                 {
-                    while ( ( rev = pop_queue ( &mm->revs[i][j] ) ) != NULL )
+                    //while ( ( rev = pop_queue ( &mm->revs[i][j] ) ) != NULL )
+                    while ( ! is_empty( &mm->revs[i][j] ) )
                     {
+                        revrev = pop_queue ( &mm->revs[i][j] ).revelement;
+                        rev = &revrev;
                         mm->mark[rev->start][rev->stop] = 0;
-                        free ( rev );
+                     //  free ( &revrev );
                     }
                 }
             }
             if ( pass == 2 )
-                while ( ( rev = pop_queue ( &mm->candidates ) ) != NULL )
-                    free ( rev );
+                while ( !is_empty( &mm->candidates ) )
+                { 
+                     revrev = pop_queue ( &mm->candidates ).revelement;
+                     //rev = &revrev;
+                    //free ( rev ); 
+                }
             return_vertex ( mm->vf, v );
-        }
+        }// end of while ( stop == 0 )
 
         if ( pass == 1 )
         {
@@ -330,10 +358,15 @@ find_reversal_median ( struct genome_struct *median,
                    perfect median */
                 break;
         }
-    }
+    }// end of for (pass=1,...)
 
     if ( medmem == NULL )
         free_median_memory ( mm, ngenes );
+
+    //free(&revtmp);
+    //free(&vertextmp);
+    //free(&vv)
+    //free(&revrev);
 }
 
 
@@ -347,8 +380,8 @@ new_median_memory ( int ngenes, int minm, int maxm )
     MedianMemory *mm;// = &SIEPEL_MEM;
 
     mm = ( MedianMemory * ) malloc ( sizeof ( MedianMemory ) );
-          //      fprintf ( stdout, "memory alloc for medianmemory \n" );
-          //      fflush(stdout);
+    //          fprintf ( stdout, "memory alloc for medianmemory \n" );
+    //            fflush(stdout);
     mm->mark = ( int ** ) malloc ( ( ngenes + 1 ) * sizeof ( int * ) );
            //     fprintf ( stdout, "memory alloc for mark \n" ); fflush(stdout);
     for ( i = 0; i < ngenes + 1; i++ )
@@ -370,7 +403,7 @@ new_median_memory ( int ngenes, int minm, int maxm )
         for ( j = 0; j < NPERMS; j++ )
             mm->MASK[i][j] = pow ( 2, i * NPERMS + j );
     /* set up priority stack, reversal sorting memory */
-    mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, sizeof ( Vertex * ) );
+    mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, VertexData/*sizeof ( Vertex * )*/ );
     mm->rsm = new_reversal_sorting_memory ( ngenes );
 
     /* initialize lists used to keep track of neutral, sorting,
@@ -378,9 +411,9 @@ new_median_memory ( int ngenes, int minm, int maxm )
     for ( i = 0; i < NREVTYPES; i++ )
         for ( j = 0; j < NPERMS; j++ )
             init_list ( &mm->revs[i][j], ( ngenes + 1 ) * ngenes,
-                        sizeof ( Reversal * ) );
+                        VertexData );
     init_list ( &mm->candidates, ( ngenes + 1 ) * ngenes,
-                sizeof ( Reversal * ) );
+                VertexData );
 
     for ( i = 0; i < ngenes + 1; i++ )
         for ( j = 0; j < ngenes + 1; j++ )
