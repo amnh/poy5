@@ -191,7 +191,6 @@ find_reversal_median ( struct genome_struct *median,
                     {
                         revrev = ( list_get ( &mm->revs[i][j], k )).revelement;
                         rev = &revrev ;
-                        fprintf(stdout,"rev.start=%d,stop=%d; ", rev->start,rev->stop); fflush(stdout);
                         mm->mark[rev->start][rev->stop] |= mm->MASK[i][j];
                     }
                 }
@@ -224,12 +223,12 @@ find_reversal_median ( struct genome_struct *median,
                         if ( !( mm->mark[i][j] & mm->MASK[SORTING][0] ) &&
                              !( mm->mark[i][j] & mm->MASK[NEUTRAL][0] ) )
                         {
-                            rev =
-                                ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                            rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
                             rev->start = i;
                             rev->stop = j;
                             revtmp.revelement= *rev;
                             push ( &mm->candidates, revtmp );
+                            free ( rev );
                         }
                     }
                 }
@@ -254,12 +253,10 @@ find_reversal_median ( struct genome_struct *median,
                 /*CHANGED by Jijun, 1->0 */
                 {
                     return_vertex ( mm->vf, n );
-                    if ( pass == 2 )
-                        free ( rev );
+                    //if ( pass == 2 )    free ( rev );
                     continue;   /* already visited vertex; go on to
                                    next candidate */
                 }
-                fprintf(stdout,"check ht->nbuckets=%d \n",mm->h->nbuckets ); fflush(stdout);
                 /* this must always be true */
                 n->distance = v->distance + 1;
 
@@ -319,8 +316,7 @@ find_reversal_median ( struct genome_struct *median,
                     permcopy ( median->genes, n->perm, ngenes );
                     MAX_MED = n->worst_possible_score;
                 }
-                if ( pass == 2 )
-                    free ( rev );
+               // if ( pass == 2 )     free ( rev );
             }//end of   while ( ! is_empty(&mm->candidates) )
 
             /* unmark all marked reversals and free reversals */
