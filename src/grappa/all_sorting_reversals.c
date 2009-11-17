@@ -333,11 +333,11 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
 
                 tmp.revelement = *rev;
                 if ( nhf <= nhurdles + nfortresses )
-                    push ( l, tmp );
+                   push ( l, tmp );
                 else if ( neutral_mode && nhf == nhurdles + nfortresses + 1 )
                     push ( m, tmp );
-                else
-                    free ( rev );
+                else {}
+                free ( rev );
             }
         }
     }
@@ -1707,7 +1707,8 @@ detect_new_unoriented_components ( Reversal * rho,
 
         oriented = 0;
         trivial = 1;
-        push ( mem->stack, list_get ( &mem->bv_pos, lidx ) );
+        inttmp.intelement = i;
+        push ( mem->stack, inttmp );
 
         while ( oriented == 0 && !empty ( mem->stack ) )
         {
@@ -2003,8 +2004,6 @@ add_all_merging_reversals ( List * l, ConnectedComponent * c1,
                                 ( Reversal * ) malloc ( sizeof ( Reversal ) );
                             rev->start = ( a <= b ? a : b );
                             rev->stop = ( a <= b ? b : a );
-
-
                             tmp.revelement = *rev;
                             push ( l, tmp );
                         }
@@ -2329,9 +2328,9 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
  //   init_list ( &separated_ocs, ncomp, IntData );
  //   init_list ( &separating_hurdles, ncomp, IntData );
     // fix that works for POY.....not sure
-    init_list ( &tmpl, 2*ncomp, IntData );
-    init_list ( &separated_ocs, 2*ncomp, IntData );
-    init_list ( &separating_hurdles, 2*ncomp, IntData );
+    init_list ( &tmpl, ncomp, IntData );
+    init_list ( &separated_ocs, ncomp, IntData );
+    init_list ( &separating_hurdles, ncomp, IntData );
 
     /* necessary to keep track of benign comps that fall in the middle
        of hurdle chains; see below */
@@ -2366,12 +2365,10 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
                    tmp1 along with their separating
                    hurdle (currenth) */
                 comp = ( pop_stack ( &tmpl )).intelement; 
-                fprintf(stdout,"n=%d,i=%d,comp=%d;",n,i,comp); fflush(stdout);
                 mark[comp] = 0; /* unmark as we empty list */
                 sepclass[comp] = class;
-                push ( &separated_ocs, pop_stack ( &tmpl ) );
-
-
+                tmp.intelement = comp;
+                push ( &separated_ocs, tmp );
                 tmp.intelement = currenth;
                 push ( &separating_hurdles, tmp );
                 if ( is_separator[currenth] == 0 )
