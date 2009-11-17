@@ -139,7 +139,7 @@ init_list ( List * q, int nelements,  enum datatype dtype )
     q->ridx = q->lidx = 0;
     q->CAPACITY = nelements;
     //q->elementsz = elementsz;
-    q->array = ( ElementUnion * ) malloc ( nelements );
+    q->array = ( ElementUnion * ) malloc ( nelements * sizeof(ElementUnion) );
 }
 
 void
