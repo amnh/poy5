@@ -362,11 +362,11 @@ let all_prelim_to_final ({characters = chars} as node) =
          characters = List.map prelim_to_final chars}
 
 let using_likelihood x =
-    IFDEF USING_LIKELIHOOD THEN
+    IFDEF USE_LIKELIHOOD THEN
         List.fold_left
             (fun a x -> match x with 
                 | StaticMl _ -> a
-                | _ -> false)
+                | _          -> false)
             true x.characters
     ELSE
         false
@@ -414,6 +414,12 @@ let extract_states alph data in_codes node =
             else List.map
                     (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS32.e_to_list e)))
                     (NonaddCS32.to_simple_list a.final)
+        | StaticMl a ->
+            IFDEF USE_LIKELIHOOD THEN
+                MlStaticCS.extract_states a.final
+            ELSE
+                failwith "Unsupported character type"
+            END
         | _ -> failwith "Unsupported character type"
     in
     List.flatten (List.map extract_states_cs node.characters)
@@ -3705,7 +3711,7 @@ module Standard :
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
-        let using_likelihood x = using_likelihood x
+        let using_likelihood = using_likelihood
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost
@@ -3818,17 +3824,18 @@ module Standard :
                         else x
                 | (Kolmo ha) :: ta, _ -> -1
                 | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
-                        IFDEF USE_LIKELIHOOD THEN
+                    IFDEF USE_LIKELIHOOD THEN
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
+                            (* specialized compare --only compares general model *)
+                            let cmp = MlStaticCS.compare ha.preliminary hb.preliminary in
                             if cmp = 0 then 
                                 aux_cmt ta tb
                             else cmp
                         else x
-                        ELSE 
+                    ELSE 
                         0
-                        END
+                    END
                 | (StaticMl ha) :: ta, _ -> -1
                 | (Set ha) :: ta, (Set hb) :: tb ->
                         let x = compare ha.weight hb.weight in

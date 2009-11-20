@@ -237,7 +237,8 @@ let abscissa (a,fa) (b,fb) (c,fc) =
 (* function and braketed area and error *)
 let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon = 
     let iter = ref 1000 in
-    let order_triples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
+    (* order three pairs of values *)
+    let order_tuples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
         if a1 < b1 then
            if b1 < c1 then (a,b,c)
            else if a1 < c1 then (a,c,b)
@@ -247,10 +248,9 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
            else if c1 < b1 then (c,b,a)
            else (b,a,c)
         end
-
+    (* best of three *)
     and best_of ((_,x) as x') ((_,y) as y') = if x <= y then x' else y' in
-
-    (* parabolic interpolation *)
+    (* parabolic interpolation -- main iteration in interpolation *)
     let rec parabolic_interp ((best_t,best_l) as best) a fa b fb c fc : float * float = 
         assert( a > 0.0 && b > 0.0 && c > 0.0 );
         if ((abs_float (fb -. fa)) <= epsilon) or 
@@ -268,9 +268,7 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
                     else failwith "shouldn't happen"
                 end
             with | Colinear -> brent_decision best a fa b fb c fc
-
-    (* golden section search, when function is crappy --this isn't needed when
-     * there is only one minima, as in branch lengths *)
+    (* golden section search -- not used since we can guarantee bracket *)
     and golden_ratio ((best_t,best_l) as best) a af b bf c cf  =
         assert( a > 0.0 && b > 0.0 && c > 0.0 );
         let best,(a,fa),(nb,nfb),(c,fc) = 
@@ -285,9 +283,7 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
         in
         if bf =. nfb or (decr iter) = 0 then best
         else brent_decision best a fa nb nfb c fc
-
-    (* brent exponential search, when points are colinear or monotonic
-     *  does not return a result since we are widening the search area. *)
+    (* brent exponential search, when points are colinear or monotonic *)
     and brent_exp ((best_t,best_l) as best) a fa b fb c fc : float * float =
         assert (fc < fa ); (* since we estimate "past" c *)
         let n = match golden_exterior a c with
@@ -296,15 +292,10 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
         in
         let other = n,f n in
         brent_decision (best_of best other) b fb c fc n (snd other)
-    (**
-     * What to do, what to do? Well, if the three points are monotonic, then
-     * call brent_exp until something better comes up, if there is a minimum
-     * between we can do a parabolic interpolation, else we use a shitty golden
-     * bisect search method each iteration to find a better spot.
-    *) 
+    (* decide what to do -- parabolic interpotion or expansion of range *) 
     and brent_decision best lower fl middle fm upper fu : float * float =
         let (lower,fl),(middle,fm),(upper,fu) = 
-            order_triples (lower,fl) (middle,fm) (upper,fu) in
+            order_tuples (lower,fl) (middle,fm) (upper,fu) in
         if lower =. upper then best
         else if fl <= fm && fm <= fu then (* monotonically increasing *)
             brent_exp best upper fu middle fm lower fl
@@ -312,19 +303,10 @@ let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon =
             brent_exp best lower fl middle fm upper fu
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp best lower fl middle fm upper fu
-        else begin
-            (* let step = 0.0001 in
-            let stepval xref = xref := !xref +. step;!xref
-            and time = ref (lower -. step) and out_chan = open_out "curve.tsv" in
-            Printf.printf "Making file 'curve.tsv': %f -- %f\n" lower upper;
-            while (stepval time) < upper do
-                Printf.fprintf out_chan "%f\t%f\n" !time (f !time);
-            done;
-            close_out out_chan; *)
+        else 
             golden_ratio best lower fl middle fm upper fu
-        end
     in
-    (* set up variables.. order arguments,find golden middle and evaluate *)
+    (* set up variables.. order arguments,find golden middle and evaluate... *)
     assert( lower != upper );
     let middle = golden_middle lower upper in
     let fl = f lower and fm = f middle and fu = f upper in
@@ -593,7 +575,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
         let new_mine = {mine with chars = copy mine.chars} in
         let model = c1.model in
         let pinv  = match model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-        Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle;
+        (* Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle; *)
         let (nta,nl) = match model.MlModel.ui with
             | None ->
                 readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
@@ -607,7 +589,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                              model.MlModel.prob model.MlModel.pi_0 new_mine.mle
         and ntb = c_t2
         in
-        Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl;
+        (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
         if nta =. c_t1 then
             (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
         else
@@ -615,6 +597,32 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                     (fun c s -> All_sets.Integers.add c s) new_mine.codes x in
             (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
     end
+
+(* extract maximum state from all the characters *)
+let extract_states a_node =
+    let ray, _ = s_bigarray a_node.chars in (* ignore invar *)
+    let nchars = Bigarray.Array3.dim2 ray
+    and nrates = Bigarray.Array3.dim1 ray
+    and nalpha = Bigarray.Array3.dim3 ray
+    and priors = a_node.model.MlModel.pi_0 in
+    let result = ref [] in
+    for i = 0 to nchars - 1 do
+        let highest = ref 0.0 and state_ids = ref [] in
+        for j = 0 to nrates - 1 do
+            for k = 0 to nalpha - 1 do
+                let v = (ray.{j,i,k}) *. (priors.{k}) in
+                if v =. !highest then begin
+                    state_ids := k::(!state_ids);
+                    highest := max !highest v;
+                end else if v > !highest then begin
+                    state_ids := [k];
+                    highest := v;
+                end
+            done;
+        done;
+        result := (a_node.weights.{i},i,`List !state_ids)::(!result);
+    done;
+    !result
 
 let distance a_node b_node t1 t2 = (* codes don't matter here *)
     let t = median a_node b_node t1 t2 0 0 in t.mle
@@ -664,6 +672,8 @@ let f_codes_comp t codes =
     { t with chars = filter t.chars opt_idx }
 
 let compare_data a b = compare_chars a.chars b.chars
+
+let compare a b = MlModel.compare a.model b.model
 
 ELSE
 type t = unit

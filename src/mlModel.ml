@@ -24,7 +24,10 @@ let (=.) a b = abs_float (a-.b) < epsilon
 let (>=.) a b = abs_float (a-.b) > ~-.epsilon
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
+
 let debug = true
+let debug_printf msg format = 
+    Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
 let ba_of_array1 x = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout x
 and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout x
@@ -42,7 +45,8 @@ and print_barray2 a =
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
-
+and pp_farray xs =
+    (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string)
@@ -59,7 +63,7 @@ let empty_str_spec = ("",("","","",""),[],[],"",None)
  *      Init_Model
  *      Translate_Custom_Mod_String       *)
     let default_tstv    = 4.0
-    let default_gtr a   = Array.make a 1.0
+    let default_gtr a   = Array.make (((a-1)*a)/2) 1.0
     let default_alpha p = if p then 0.2 else 1.0
     let default_invar   = 0.2
 (* --- ------------------------------ --- *)
@@ -98,13 +102,6 @@ type priors =
     | Estimated of float array
     | Given     of float array
 
-exception Inconsistent_model
-type update_model = 
-    | Model  of subst_model
-    | Rates  of site_var
-    | Percent of float
-    | Priors of priors
-
 type spec = {
     substitution : subst_model;
     site_variation : site_var option;
@@ -124,6 +121,23 @@ type model = {
     d     : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+
+(* a gentler compare that excludes the parameters of the model itself *)
+let compare a b = 
+    let m_compare = match a.spec.substitution,b.spec.substitution with
+        | JC69 , JC69 | F81 , F81 | K2P _, K2P _ | F84 _, F84 _ 
+        | HKY85 _, HKY85 _ | TN93 _,  TN93 _ | GTR _, GTR _ 
+        | File _, File _ -> 0
+        | _,_ -> ~-1
+    and v_compare = match a.spec.site_variation,b.spec.site_variation with
+        | Some (Gamma _), Some (Gamma _) | Some (Theta _), Some (Theta _) -> 0
+        | None, None | Some Constant, Some Constant 
+        | Some Constant, None | None, Some Constant -> 0
+        | _,_ -> ~-1
+    in
+    (* just knowing that they are different is enough *)
+    m_compare + v_compare
+    
 
 (* ------------------------------------------------ *)
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
@@ -291,8 +305,10 @@ let m_f84 pi_ gamma kappa a_size =
    pi_ == n; co_ == ((n-1)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
-
-    assert( ((a_size*(a_size-1))/2) = Array.length co_ );
+    if ((a_size*(a_size-1))/2) <> Array.length co_ then begin
+        failwithf "Length of GTR insufficient against alphabet: %d != %d\n" 
+                    (Array.length co_) a_size;
+    end;
     let n = ref 0 in (* array index *)
     let srm = create_ba2 a_size a_size in
     for i = 0 to (a_size-1) do
@@ -574,19 +590,6 @@ let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
 
 (* Develop a model from a classification --created above *)
 let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp_map,pis) =
-    (* print alphabet and complements *)
-    let () = 
-        Printf.printf "Alphabet:\n";
-        List.iter
-            (fun (s,i) -> 
-                let cs,ci = match Alphabet.complement i alph with
-                    | Some x -> (Alphabet.match_code x alph),x
-                    | None   -> "none",~-1
-                in
-                Printf.printf "\t%s -- %d -- %s -- %d\n" s i cs ci)
-            (Alphabet.to_list alph)
-    in
-
     let alph_size = 
         float_of_int (if gap then Alphabet.size alph else (Alphabet.size alph) - 1)
     and tuple_sum = 
@@ -606,7 +609,6 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
                     else begin
                         let c = try (gap_size +. (All_sets.IntegerMap.find b pis)) /. sum
                                 with | Not_found -> gap_size /. sum in
-                        Printf.printf "Priors %s{%d} = %f\n%!" r b c;
                         c :: acc
                     end
                 (* gaps are characters, seperate them -- minimum is 1/sum.
@@ -615,7 +617,6 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
                 end else begin
                     let c = try (All_sets.IntegerMap.find b pis) /. sum
                             with | Not_found -> 0.0 in
-                    Printf.printf "Priors %s{%d} = %f\n%!" r b c;
                     c :: acc
                 end)
             []
@@ -649,7 +650,6 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
             in
             let kappa = (log (1.0-.(2.0*.s)-.v))-.(log (1.0-.(2.0*.v)))
             and denom = log (1.0-.(2.0*.v)) in
-            Printf.printf "S:%f\tV:%f\tA:%f\n" s v a;
             K2P (Some (kappa /. denom) )
         | `GTR _ ->
             let tuple_sum a1 a2 map =
@@ -675,8 +675,6 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
                                         acc2
                                     else begin
                                         let sum = tuple_sum alph1 alph2 comp_map in
-                                        Printf.printf "Transition %s(%d)->%s(%d) = %f\n%!"
-                                                        s1 alph1 s2 alph2 sum;
                                         sum :: acc2 
                                     end)
                                 (Alphabet.to_list alph) acc1)
@@ -800,8 +798,7 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((orig_val,orig_ll) as ori
      * bisect search method each iteration to find a better spot. *) 
     and brent_decision ((bv,fb) as b) l m u : float * float =
         let ((lv,fl) as l), ((mv,fm) as m), ((uv,fu) as u) = order_triples l m u in
-        if debug then
-            Printf.printf "Iteration %d: B:(%f,%f) L:(%f,%f) M:(%f,%f) U:(%f,%f)\n"
+        debug_printf "Iteration %d: B:(%f,%f) L:(%f,%f) M:(%f,%f) U:(%f,%f)\n%!"
                             (iter_max - !iter) bv fb lv fl mv fm uv fu;
         if lv =. uv then                  (* ending condition(s) *)
             b
@@ -820,12 +817,226 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((orig_val,orig_ll) as ori
     let l = lower,f lower and m = middle,f middle and u = upper,f upper in
     let best = best_of orig (best_of l (best_of m u)) in
     let ((new_val,new_ll) as new_) = brent_decision best l m u in
-    if debug then
-        Printf.printf "Iterated: %d\tImprovement: %f\tVariable: %f -> %f\n%!"
+    debug_printf "Iterated: %d\tImprovement: %f\tVariable: %f -> %f\n%!"
                   (iter_max - !iter) (orig_ll -. new_ll) orig_val new_val;
     new_
 
-(* functions to update the models of evolution of a single (independent) parameter *)
+(* find the derivative of a single variable function *)
+let derivative_at_x ?(epsilon=0.000001) f x = ((f x) -. (f (x-.epsilon))) /. epsilon
+(* find the magnitude of a vector x_array *)
+let magnitude x_array = sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
+(* find the gradient of a multi-variant function at a point x_array *)
+let gradient_at_x ?(epsilon=0.000001) f_array x_array : float array = 
+    let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
+    Array.mapi 
+        (fun i i_val ->
+            derivative_at_x ~epsilon (fun x -> f_array (i_replace i x_array x)) i_val)
+        x_array
+(* dot product of two arrays *)
+let dot_product x_array y_array = 
+    let n = Array.length x_array and r = ref 0.0 in
+    assert (n = Array.length y_array);
+    for i = 0 to n-1 do
+        r := !r +. (x_array.(i) *. y_array.(i));
+    done;
+    !r
+(* map a matrix with a function *)
+let matrix_map f mat = 
+    let n1 = Array.length mat and n2 = Array.length mat.(0) in
+    let output_matrix = Array.create_matrix n1 n2 0.0 in
+    for i = 0 to n1 - 1 do for j = 0 to n2 -1 do 
+        output_matrix.(i).(j) <- f i j mat.(i).(j);
+    done; done;
+    output_matrix
+(* line search along a specified direction *)
+(* Numerical Recipes in C : 9.7            *)
+let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep direction =
+
+    let (=.) a b = epsilon > (abs_float (a -. b)) in
+    (* set up some globals for the function to avoid tons of arguments *)
+    let n = Array.length point and origfpoint = fpoint in
+    (* scale direction so, |pstep| <= maxstep *)
+    let setup_function point direction gradient = 
+        let direction = 
+            let magstep = magnitude direction in
+            if magstep > maxstep then Array.map (fun x -> x *. maxstep /. magstep) direction 
+            else direction
+        and slope = dot_product direction gradient in
+        let minstep = 
+            let r = ref 0.0 in
+            Array.iteri 
+                (fun i x -> 
+                    let tmp = (abs_float direction.(i)) /. (max (abs_float x) 1.0) in
+                    if tmp > !r then r := tmp)
+                point;
+            epsilon /. (!r)
+        and step = 1.0 in
+        direction, slope, minstep, step
+    (* find a new point and *)
+    and step_point point fpoint direction prevstep step minstep slope =
+        if step < minstep then begin
+            debug_printf "\tStepped: %f, to %s --> %f\n" prevstep (pp_farray point) fpoint;
+            (point, fpoint, true)
+        end else begin
+            (* abs ensures that we are searching with all positive values *)
+            let newpoint = Array.init n (fun i -> point.(i) +. step *. direction.(i)) in
+            let newfpoint = f newpoint in
+            if newfpoint <= fpoint +. (alf *. step *. slope) then begin
+                debug_printf "\tStepped: %f, to %s --> %f\n" step (pp_farray newpoint) newfpoint;
+                (point, fpoint, true)
+            end else
+                (newpoint, newfpoint, false)
+        end
+    (* determine the size of the next step based on improvement of current step *)
+    and next_step step prevstep slope newfpoint prevfpoint = 
+        let newstep = 
+            if step =. 1.0 then 
+                ~-. slope /. (2.0 *. (newfpoint -. origfpoint -.  slope))
+            else begin
+                let tstep = 
+                    let rhs1 = newfpoint -. origfpoint -. (step *. slope)
+                    and rhs2 = prevfpoint -. origfpoint -. (prevstep *. slope) in
+                    let rhs1divstepstep = rhs1 /. (step *. step)
+                    and rhs2divpsteppstep = rhs2 /. (prevstep *. prevstep) in
+                    let a =  rhs1divstepstep -. rhs2divpsteppstep
+                    and b = (step *. rhs2divpsteppstep) -. (prevstep *. rhs1divstepstep) in
+                    let a = a /. (step -. prevstep) and b = b /. (step -. prevstep) in
+
+                    if a =. 0.0 then ~-. slope /. (2.0 *. b)
+                    else begin
+                        let disc = (b *. b) -. (3.0 *. a *. slope) in
+                        if disc < 0.0 then 0.5 *. step
+                        else if b <= 0.0 then (~-. b +. (sqrt disc)) /. (3.0 *. a)
+                        else ~-. slope /. (b +. (sqrt disc))
+                    end
+                in
+                min tstep (0.5 *. step)
+            end
+        in
+        max newstep (0.1 *. step)
+    in
+    (* main algorithm -- first instance sets up some variables *)
+    let rec main_ point fpoint slope direction step prevstep minstep = 
+        let newpoint, newfpoint, c = step_point point fpoint direction prevstep step minstep slope in
+        if c then 
+            (newpoint,newfpoint)
+        else begin
+            let newstep = next_step step prevstep slope newfpoint fpoint in
+            main_ newpoint newfpoint slope direction newstep step minstep
+        end
+    in
+    (* initialize and run... *)
+    let direction, slope, minstep, step = setup_function point direction gradient in
+    main_ point fpoint slope direction step step minstep 
+
+
+
+(** BFGS Algorithm                   **)
+(** Numerical Recipes in C : 10.7    **)
+let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=100.0) ?(g_tol=1.0e-5) f p =
+    let n = Array.length p in
+    (* test convergence of a point --that it equals the direction, essentially *)
+    let converged_l direction test_array =
+        let test = ref 0.0 in
+        Array.iteri
+            (fun i x->
+                let temp = max (abs_float x) 1.0 in
+                test := max ((abs_float direction.(i)) /. temp) !test)
+            test_array;
+        (!test < (epsilon *. 4.0))
+    (* test tolerance for zeroing the gradient *)
+    and converged_g fp gradient test_array =
+        let test = ref 0.0 in
+        Array.iteri
+            (fun i x ->
+                let temp = (max (abs_float x) 1.0) /. (max fp 1.0) in
+                let temp = (abs_float gradient.(i)) *. temp in
+                if temp > !test then test := temp)
+            test_array;
+        (!test < g_tol)
+    (* setup initial hessian (identity), initial gradiant vector, maximum step and direction *)
+    and setup_function f_array x_array =
+        let hessian =
+            let h = Array.make_matrix n n 0.0 in
+            for i = 0 to n-1 do h.(i).(i)  <- 1.0 done;
+            h
+        and x_grad = gradient_at_x f_array x_array in
+        let dir = Array.init n (fun i -> ~-. (x_grad.(i)) )
+        and mxstep = mx_step *. (max (magnitude x_array) (float_of_int n)) in
+        hessian, x_grad, mxstep, dir in
+    (* do a line search step --return new p, new fp, new dir, if converged *)
+    let line_searcher f p fp gradient step dir =
+        let np,nfp = line_search f p fp gradient step dir in
+        let dir = Array.init n (fun i -> np.(i) -. p.(i) ) in
+        np, nfp, dir, (converged_l dir np)
+    (* update gradient --ret new gradient, difference of gradients,
+     * difference of gradient times hessian matrix, if converged *)
+    and gradient_update hessian ograd f p fp = 
+        let ngrad = gradient_at_x f p in
+        let dgrad = Array.init n (fun i -> ngrad.(i) -. ograd.(i)) in
+        let hgrad = 
+            Array.init n
+                (fun i -> 
+                    let res = ref 0.0 in
+                    for j = 0 to n-1 do
+                        res := !res +. (hessian.(i).(j) *. dgrad.(j));
+                    done; !res)
+        in
+        ngrad, dgrad, hgrad, (converged_g fp ngrad p)
+    (* Update the hessian matrix --skips the update if fac not sufficiently positive *)
+    and bfgs_update_matrix dgrad hgrad direc hessian =
+        let fac = dot_product dgrad direc
+        and fae = dot_product dgrad hgrad
+        and sumdgr = Array.fold_left (fun a x -> (x *. x) +. a) 0.0 dgrad
+        and sumdir = Array.fold_left (fun a x -> (x *. x) +. a) 0.0 direc in
+        if (fac *. fac) <= (epsilon *. sumdgr *. sumdir) then
+            hessian
+        else begin
+            let fac = 1.0 /. fac and fad = 1.0 /. fae in
+            let dgrad = 
+                Array.init n
+                    (fun i -> (fac *. direc.(i)) -. (fad *. hgrad.(i)))
+            in
+            matrix_map
+                (fun i j x -> x +. (fac *. direc.(i) *. direc.(j))
+                                -. (fad *. hgrad.(i) *. hgrad.(j))
+                                +. (fae *. dgrad.(i) *. dgrad.(j)) )
+                hessian
+        end
+    (* calculate the new direction for the line search by the hessian matrix *)
+    and calculate_direction (hessian:float array array) (gradient:float array) : float array =
+        Array.init n
+            (fun i -> 
+                let acc = ref 0.0 in
+                for j = 0 to n-1 do
+                    acc := !acc -. (hessian.(i).(j) *. gradient.(j))
+                done;
+                !acc) in
+    (* main loop of algorithm *)
+    let iter = ref 0 in
+    let rec main_loop hessian f p fp step direction gradient =
+        incr iter;
+        let np, nfp, direction, c = line_searcher f p fp gradient step direction in
+        if c || (!iter > max_iter) then begin
+            np,nfp
+        end else begin
+            let gradient, diffgrad, hgrad, c = gradient_update hessian gradient f np nfp in
+            if c then begin
+                np,nfp
+            end else begin
+                let hessian = bfgs_update_matrix diffgrad hgrad direction hessian in
+                let direction = calculate_direction hessian gradient in
+                main_loop hessian f np nfp step direction gradient
+            end
+        end in
+    (* initiate algorithm *)
+    let hessian, pgrad, mxstep, dir = setup_function f p and fp = f p in
+    let pf,fpf = main_loop hessian f p fp mxstep dir pgrad in
+    debug_printf "Performed BFGS: (%s,%f) ---[%d]---> (%s,%f)\n%!" (pp_farray p) fp !iter (pp_farray pf) fpf;
+    (pf,fpf)
+
+
+(* functions to update the models of evolutions particular parameters *)
 let update_k2p old_model new_value =
     let subst_spec = { old_model.spec with substitution = K2P (Some new_value) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
@@ -847,6 +1058,13 @@ and update_f84 old_model new_value =
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
+and update_gtr old_model new_values =  
+    let subst_spec = { old_model.spec with substitution = GTR (Some new_values) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_gtr priors new_values (Array.length priors) in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
 and update_alpha old_model new_value = 
     let new_spec_var,new_array = match old_model.spec.site_variation with
         | Some (Gamma (i,_)) -> Some (Gamma (i,new_value)), gamma_rates new_value new_value i
@@ -854,4 +1072,26 @@ and update_alpha old_model new_value =
         | _ -> failwith "Model doesn't specify site variation"
     in
     { old_model with rate = new_array;
-                     spec = { old_model.spec with site_variation = new_spec_var; } }
+                     spec = { old_model.spec with site_variation = new_spec_var;} }
+
+let get_update_function_for_model model = match model.spec.substitution with
+    | F84 _   -> Some (fun y x -> update_f84 y x.(0) )
+    | GTR _   -> Some update_gtr
+    | K2P _   -> Some (fun y x -> update_k2p y x.(0) )
+    | HKY85 _ -> Some (fun y x -> update_hky y x.(0) )
+    | _       -> None
+
+let update_all fun_model old_model new_values = 
+    let n = Array.length new_values in
+    let alpha = new_values.(n - 1) in
+    let model = Array.init (n-1) (fun x -> new_values.(x)) in
+    update_alpha (fun_model old_model model) alpha
+
+let get_current_parameters_for_model model = match model.spec.substitution with
+    | F84 x   -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
+    | K2P x   -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
+    | HKY85 x -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
+    | GTR x   -> x
+    | _       -> None
+
+   

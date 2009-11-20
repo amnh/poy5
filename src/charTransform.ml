@@ -879,10 +879,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         codes
 
-    let rec transform_tree_characters (trees,data,nodes) = function
+    let rec transform_tree_characters (trees,data,nodes) meth =
+        match meth with
         | `EstLikelihood ((chars,a,b,c,d) as x) ->
-            let trees,nodes = Sexpr.fold_left
-                (fun (tsexp,n) t -> 
+            let trees = Sexpr.fold_left
+                (fun tsexp t -> 
                     let chars = 
                         let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
                         Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
@@ -892,18 +893,19 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         | [] -> None | cs -> Some (Array.of_list cs)
                     in
                     let bs = Tree.get_edges_tree t.Ptree.tree in
-                    let ndata,nodes =
+                    let ndata, nodes =
                         (chars_,a,b,c,d) 
                             --> estimate_likelihood_model t bs alpha
                             --> (fun xm -> Parser.SC.STLikelihood xm)
                             --> Data.apply_on_static_chars t.Ptree.data chars
                             --> Node.load_data
                     in
-                    Sexpr.union (`Single {t with Ptree.data = ndata}) tsexp, n @ nodes)
-                (`Empty,[])
+                    let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in
+                    Sexpr.union (`Single ntree) tsexp)
+                `Empty
                 trees
-            (* this data is used when building/loading new trees *)
-            and data = Data.set_likelihood data x in
+            (* this data/nodes are used when building/loading new trees *)
+            and data, nodes = Node.load_data (Data.set_likelihood data x) in
             trees, data, nodes
         | _ -> failwith "not a tree operation"
 

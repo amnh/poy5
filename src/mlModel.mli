@@ -97,10 +97,6 @@ type priors =
     | Estimated of float array
     | Given     of float array
 
-(** [Cannot_iterate] exception thrown when a parameter is trying to be modified
- * in the model but cannot. For example, changing models or rate variation *)
-exception Inconsistent_model
-
 (** [spec] the specification of the model. *)
 type spec = {
     substitution : subst_model;
@@ -134,6 +130,8 @@ type model = {
     (** [ui] the inverse of u. In symmetric cases this isn't needed, ui=ut *)
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+
+val compare : model -> model -> int
 
 (** models to be used outside likelihood if necessary **)
 val m_gtr   : float array -> float array -> int ->
@@ -194,6 +192,19 @@ val brents_method :
     ?iter_max:int -> ?epsilon:float 
         -> float * float -> (float -> float) -> float * float
 
+(* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
+ * gradient [g] and direction [d] of function [f] by point [p], attempting the
+ * longest step with maximum [s] *)
+val line_search : 
+    ?epsilon:float -> ?alf:float -> (float array -> float) -> float array 
+        -> float -> float array -> float -> float array -> float array * float
+
+(* [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
+ * matrix of a function f with starting point init. *)
+val bfgs_method :
+    ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float ->
+        (float array -> float) -> float array -> float array * float
+
 (** [update_k2p m v] update model [m] with new value [v] *)
 val update_k2p : model -> float -> model
 
@@ -203,5 +214,13 @@ val update_hky : model -> float -> model
 (** [update_f84 m v] update model [m] with new value [v] *)
 val update_f84 : model -> float -> model
 
+(** [update_gtr m v] update model [m] with new value [v] *)
+val update_gtr : model -> float array -> model
+
 (** [update_alpha m v] update model [m] with rate parameter [v] *)
 val update_alpha : model -> float -> model
+
+(* [get_update_function_for_model] based on the model provided return a function
+ * that will update the model based on an input value *)
+val get_update_function_for_model : model -> (model -> float array -> model) option
+val get_current_parameters_for_model : model -> float array option

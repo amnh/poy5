@@ -1371,10 +1371,11 @@ let process_transform (run : r) (meth : Methods.transform) =
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
     | #Methods.tree_transform as meth ->
-            let trees,data,nodes =
+            let trees, data, nodes =
                 CT.transform_nodes_trees run.trees run.data run.nodes [meth]
             in
-            { run with trees = trees; nodes = nodes; data = data; }
+            update_trees_to_data false false
+                { run with trees = trees; nodes = nodes; data = data; }
     | #Methods.char_transform as meth ->
           let data, nodes =
               CT.transform_nodes run.trees run.data run.nodes

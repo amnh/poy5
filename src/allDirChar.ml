@@ -1494,20 +1494,86 @@ module F : Ptree.Tree_Operations
             let truncate x = truncate (x *. factor) in
             (truncate a) = (truncate b)
 
+    (* ----------------- *)
+    (* function to adjust the likelihood model of a tree using BFGS --quasi
+     * newtons method. *)
+    let adjust_model tree = 
+        (* replace nodes in a tree, copying relevent data structures *)
+        let substitute_nodes nodes tree =
+            let adder acc x = All_sets.IntegerMap.add (AllDirNode.AllDirF.taxon_code x) x acc in
+            let node_data = List.fold_left adder All_sets.IntegerMap.empty nodes in
+            let tree = { tree with Ptree.node_data = node_data } in
+            internal_downpass true tree
+        (* get all characters to iterate *)
+        and chars = 
+            let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
+            Data.get_code_from_characters_restricted `AllStatic tree.Ptree.data chars
+        (* get current model *)
+        and current_model data chars = 
+            let get_model x = match Hashtbl.find data.Data.character_specs x with
+                | Data.Static dat ->
+                    begin match dat.Parser.SC.st_type with
+                        | Parser.SC.STLikelihood model -> model
+                        | _ -> failwith "unsupported static character"
+                    end
+                | _ -> failwith "unsupported character type"
+            in
+            match List.map get_model chars with
+            | h :: t ->
+                if List.fold_left (fun acc x -> acc && (x = h)) true t then
+                    h
+                else failwith "Inconsistent Model over characters"
+            | _ -> failwith "No Characters found"
+        in
+        let best_tree,best_cost = ref tree,ref (Ptree.get_cost `Unadjusted tree) in
+        (* function for processing a model and applying to a tree --iteration function *)
+        let f_likelihood f tree chars current_model new_values =
+                let ndata,nodes = 
+                    Parser.SC.STLikelihood (f current_model new_values)
+                        --> Data.apply_on_static_chars tree.Ptree.data chars
+                        --> AllDirNode.AllDirF.load_data
+                in
+                let ntree = substitute_nodes nodes { tree with Ptree.data = ndata } in
+                let ncost = Ptree.get_cost `Unadjusted ntree in
+                if ncost < !best_cost then begin
+                    best_tree := ntree;
+                    best_cost := ncost;
+                end;
+                ncost
+        in
+        (* iterate the model only if using likelihood *)
+        if using_likelihood tree then begin
+            let current_model = current_model tree.Ptree.data chars
+            and current_cost = Ptree.get_cost `Adjusted tree in
+            info_user_message "Adjusting Model Parameters";
+            let current_array =
+                match MlModel.get_current_parameters_for_model current_model with
+                | Some x -> x | None -> failwith "No parameters to modify" in 
+            let best_tree, _, best_cost = 
+                match MlModel.get_update_function_for_model current_model with
+                | Some func -> 
+                    let x,bc = 
+                        MlModel.bfgs_method (f_likelihood func tree chars current_model) current_array
+                    in
+                    !best_tree,x,bc
+                | None -> failwith "No function to optimize with"
+            in
+            if best_cost < current_cost then best_tree else tree
+        end else begin
+            tree
+        end
 
-    (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree
-    * *)
+    (* ----------------- *)
+    (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree *)
     let join_fn _ jxn1 jxn2 ptree =
         if debug_join_fn then
             info_user_message "Time to join! (%s) and (%s)"
                 (match jxn1 with
                     | Tree.Single_Jxn x -> string_of_int x
-                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y)
-                )
+                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y))
                 (match jxn2 with
                     | Tree.Single_Jxn x -> string_of_int x
-                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y)
-                )
+                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y))
         else ();
         let lift_data edge_l edge_r i_code ptree = 
             if not (using_likelihood ptree) then begin
@@ -1615,6 +1681,7 @@ module F : Ptree.Tree_Operations
                 let tree = 
                    tree --> pick_best_root
                         --> assign_single true 
+                        --> adjust_model
                         --> adjust_tree iterations None
                 in
                 tree, delta
