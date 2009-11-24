@@ -1248,7 +1248,6 @@ module F : Ptree.Tree_Operations
                     --> pick_best_root
                     --> assign_single true
                     --> adjust_tree iterations None
-                    --> model_fn
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then Printf.printf "Downpass Ends\n%!";
@@ -1648,17 +1647,13 @@ module F : Ptree.Tree_Operations
     let join_fn a b c d =
         let ptree, tdel = match !Methods.cost with
             | `Normal -> 
-                let t,delta = d --> clear_internals
-                                --> join_fn a b c 
-                in 
-                model_fn t,delta
+                d --> clear_internals --> join_fn a b c 
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
                 let tree, delta = join_fn a b c (clear_internals d) in
                 let tree = 
                    tree --> pick_best_root
                         --> assign_single true 
-                        --> model_fn
                         --> adjust_tree iterations None
                 in
                 tree, delta
