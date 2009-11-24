@@ -48,6 +48,7 @@ type breakinv_t = {
 (** Data structure to contain parameters 
 * used to align two breakinv sequences *)
 type breakinvPam_t = {
+    median_solver: Data.median_solver_t; 
     re_meth : Data.re_meth_t;
     keep_median : int;
     circular : int;
@@ -71,6 +72,7 @@ let swap_med m = {
 
 
 let breakinvPam_default = {
+    median_solver = `Default;
     re_meth = `Locus_Breakpoint 10;
     keep_median = 1;
     circular = 0;
@@ -96,48 +98,54 @@ let init seq =  {
     recost2 = 0;    
 }
 
+let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
+
+let get_common_seq (med1:breakinv_t) (med2:breakinv_t) (med3:breakinv_t) = 
+    let arr1 = Sequence.to_array med1.seq
+    and arr2 = Sequence.to_array med2.seq
+    and arr3 = Sequence.to_array med3.seq in
+    let res = Utl.get_common3 arr1 arr2 arr3 equal_orientation in
+    res
+
 (** [get_breakinv_pam user_breakinv_pam] returns 
 * user defined parameters used to align two breakinv sequences *)
 let get_breakinv_pam user_breakinv_pam = 
     let chrom_pam = breakinvPam_default in  
+    let chrom_pam =
+         match user_breakinv_pam.Data.median_solver with
+        | None -> chrom_pam
+        | Some median_solver -> {chrom_pam with median_solver = median_solver}
+    in 
     let chrom_pam = 
         match user_breakinv_pam.Data.re_meth with
         | None -> chrom_pam
         | Some re_meth -> {chrom_pam with re_meth = re_meth}
     in 
-
     let chrom_pam = 
         match user_breakinv_pam.Data.circular with
         | None -> chrom_pam
         | Some circular -> {chrom_pam with circular = circular}
     in 
-
     let chrom_pam = 
         match user_breakinv_pam.Data.keep_median with
         | None -> chrom_pam
         | Some keep_median -> {chrom_pam with keep_median = keep_median}
     in 
-    
     let chrom_pam = 
         match user_breakinv_pam.Data.swap_med with
         | None -> chrom_pam
         | Some swap_med -> {chrom_pam with swap_med = swap_med}
     in 
-
-
     let chrom_pam = 
         match user_breakinv_pam.Data.symmetric with
         | None -> chrom_pam
         | Some sym -> {chrom_pam with symmetric = sym}
     in 
-
     let chrom_pam = 
         match user_breakinv_pam.Data.max_kept_wag with
         | None -> chrom_pam
         | Some max_kept_wag -> {chrom_pam with kept_wag = max_kept_wag}
-    in 
-
-
+    in
     chrom_pam
 
         
@@ -154,26 +162,28 @@ let get_recost user_pams =
 (** [cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam]
 * computes total cost between two breakinv sequences [med1] and [med2].
 * the total cost = editing cost + rearrangement cost *)
-let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
+let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
+(*debug msg 
+    Printf.printf "cmp_cost: %!"; Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+ debug msg*)
     let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in 
     let orientation = Alphabet.get_orientation alpha in
-
     if (len1 < 1) || (len2 < 1) then 0, (0, 0)
     else begin
         match ali_pam.symmetric with
         | true ->
-              let cost12, recost12, _, _ =
+                let cost12, (recost12a,recost12b), _, _ =
                   GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
-              let cost21, recost21, _, _ = 
+              let cost21, (recost21a,recost21b), _, _ = 
                   GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
-                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular  orientation
-              in  
-            if cost12 <= cost21 then cost12, recost12
-              else cost21, recost21
+                      alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
+              in 
+              if cost12 <= cost21 then cost12, (recost12a,recost12b)
+              else cost21, (recost21a,recost21b)
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
@@ -182,7 +192,7 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
                   else 
                       GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
-              in               
+              in      
               cost , recost
     end 
 
@@ -193,7 +203,7 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
     let len1 = Sequence.length med1.seq in 
-    let len2 = Sequence.length med2.seq in 
+    let len2 = Sequence.length med2.seq in
     let orientation = Alphabet.get_orientation alpha in
     if len1 < 1 then 0, (0, 0), [med2]
     else if len2 < 1 then 0, (0, 0), [med1] 
@@ -202,18 +212,10 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
             GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
                 alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
         in 
-    
         let re_seq2 =
             Utl.filterArr (Sequence.to_array alied_gen_seq2) (fun code2 -> code2 != Alphabet.get_gap alpha)
-        in    
-   
-        (*Printf.printf "re_seq2 = { ";
-        Array.iter (Printf.printf " %d, ") re_seq2; 
-        Printf.printf " } \n %!";
-        *) 
+        in     
         let all_order_ls =  [(re_seq2, recost1, recost2)]  in 
-    
-        
         let med_ls = List.fold_left 
             (fun med_ls (re_seq2, recost1, recost2) ->
                  let med_seq = Sequence.init 
@@ -228,14 +230,13 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
                  in
-
+                 let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 
                      {seq = med_seq; 
                       alied_med = alied_gen_seq2;
                       alied_seq1 = alied_gen_seq1;
                       alied_seq2 = alied_gen_seq2;
-
-                      ref_code = Utl.get_new_chrom_ref_code ();
+                      ref_code = newrefcode;
                       ref_code1 = med1.ref_code;
                       ref_code2 = med2.ref_code;
                       cost1 = total_cost - recost2;
@@ -292,17 +293,125 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               | true ->  med1, med2, false
               | false -> med2, med1, true
           in 
-
           let cost, recost, med_ls = find_simple_med2_ls med1 med2 
               gen_cost_mat pure_gen_cost_mat alpha ali_pam in
+          let med_ls = 
+              match swaped with
+              | false -> med_ls
+              | true -> List.map swap_med med_ls
+          in
+    (* debug msg 
+    Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+    Sequence.printseqcode (List.hd med_ls).seq;
+    debug msg*)
+    cost, recost, med_ls
 
+(*
+let find_simple_med3_ls med1 med2 med3 (gen_cost_mat:Cost_matrix.Two_D.m)
+(pure_gen_cost_mat:int array array) alpha ali_pam =
+    let len1 = Sequence.length med1.seq in 
+    let len2 = Sequence.length med2.seq in
+    let orientation = Alphabet.get_orientation alpha in
+    if len1 < 1 then 0, (0, 0), [med2]
+    else if len2 < 1 then 0, (0, 0), [med1]
+    else begin  
+        let med3_arr,c1,c2,_,r1,r2,_,ali_arr11,ali_arr21,_,ali_arr12,_,_ = 
+            GenAli.create_gen_ali3_by_medsov `Albert  ali_pam.kept_wag `Breakinv
+            med1.seq med2.seq med3.seq 
+            pure_gen_cost_mat alpha ali_pam.re_meth ali_pam.swap_med 
+            ali_pam.circular orientation ali_pam.symmetric 
+        in
+        let alied_seq1 = Sequence.of_array ali_arr11 in
+        let alied_seq2 = Sequence.of_array ali_arr21 in
+        let alied_seq_med3 = Sequence.of_array ali_arr12 in
+        let total_cost = c1 + c2 in
+        let median3_withoutgap =
+            Utl.filterArr (ali_arr12) (fun code2 -> code2 != Alphabet.get_gap alpha)
+        in    
+        let all_order_ls =  [(median3_withoutgap, c1, c2)]  in 
+        let med_ls = List.fold_left 
+            (fun med_ls (median3_withoutgap, recost1, recost2) ->
+                 let med_seq = Sequence.init 
+                     (fun index ->
+                          if median3_withoutgap.(index) > 0 then 
+                              begin
+                                  median3_withoutgap.(index)
+                              end
+                          else 
+                              if median3_withoutgap.(index) mod 2  = 0 then -median3_withoutgap.(index) - 1
+                              else -median3_withoutgap.(index) + 1
+                     ) (Array.length median3_withoutgap)
+                 in
+                 let newrefcode =  Utl.get_new_chrom_ref_code () in
+                 let med = 
+                     {seq = med_seq; 
+                      alied_med = alied_seq_med3;
+                      alied_seq1 = alied_seq1;
+                      alied_seq2 = alied_seq2;
+                      ref_code =  newrefcode;
+                      ref_code1 = med1.ref_code;
+                      ref_code2 = med2.ref_code;
+                      cost1 = c1;
+                      cost2 = c2;
+                      recost1 = r1;
+                      recost2 = r2}
+                 in    
+               med::med_ls
+            ) [] all_order_ls 
+        in
+        total_cost, (r1, r2), med_ls
+    end
+*)
+
+(*
+let find_med3_ls med1 med2 med3 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
+    if (med1 == med2) && (med2 == med3) then
+        begin
+        0, (0,0), [
+        { med1 with 
+        alied_seq1 = med1.seq;
+        alied_seq2 = med2.seq; 
+        ref_code = Utl.get_new_chrom_ref_code ();
+        ref_code1 = med1.ref_code;
+        ref_code2 = med2.ref_code;
+        cost1 = 0;
+        cost2 = 0;
+        recost1 = 0;
+        recost2 = 0;
+        }]
+        end
+    else
+    let ali_pam = get_breakinv_pam breakinv_pam in          
+    match ali_pam.symmetric with 
+    | true ->
+          let cost12, recost12, med12_ls = find_simple_med3_ls med1 med2 med3
+              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
+          cost12, recost12, med12_ls
+        (*  let cost21, recost21, med21_ls = find_simple_med3_ls med2 med1 med3
+              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
+          if cost12 <= cost21 then 
+              begin 
+                  cost12, recost12, med12_ls
+              end
+          else begin 
+              let med12_ls = List.map swap_med med21_ls in 
+              cost21, recost21, med12_ls
+          end *)
+    | false ->
+          let med1, med2, swaped = 
+              match Sequence.compare med1.seq med2.seq < 0 with 
+              | true ->  med1, med2, false
+              | false -> med2, med1, true
+          in 
+          let cost, recost, med_ls = find_simple_med3_ls med1 med2 med3
+              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
           let med_ls = 
               match swaped with
               | false -> med_ls
               | true -> List.map swap_med med_ls
           in
          cost, recost, med_ls
-
+*)
 
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)

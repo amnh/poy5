@@ -39,7 +39,9 @@ genome_init ( int N )
         /*     gen[k] = (struct genome_struct*)malloc(sizeof(struct genome_struct));
            gen[k]->genes = (int *)calloc(Num_Genes, sizeof(int)); */
         for ( i = 0; i < Num_Genes; i++ )
+        {
             gen[k]->genes[i] = pi[k][i];
+        }
 /*      gen[k]->encoding = NULL;
       gen[k]->gnamePtr = NULL;*/
     }
@@ -47,9 +49,11 @@ genome_init ( int N )
     {
         rdist[k][k] = 0;
         for ( l = k + 1; l <= 3; l++ )
+        {
             rdist[k][l] = rdist[l][k] =
                 invdist_noncircular ( gen[k], gen[l], 0, Num_Genes,
                                       localDistmem );
+        }
     }
 }
 
@@ -481,6 +485,11 @@ init_global_variables ( int N, distmem_t * distmem )
 
     localDistmem = distmem;
 
+    output_genome =
+        ( struct genome_struct * ) calloc ( 1,
+                                            sizeof ( struct genome_struct ) );
+    output_genome->genes = ( int * ) calloc ( Num_Genes, sizeof ( int ) );
+
     genupd =
         ( struct genome_struct * ) calloc ( 1,
                                             sizeof ( struct genome_struct ) );
@@ -556,6 +565,58 @@ init_global_variables ( int N, distmem_t * distmem )
 
 }
 
+void ini_mem_4_albert(int NUM_GENES)
+{
+   distmem_t * distmem = &ALBERT_DIST_MEM;
+   distmem->hammingArr =
+        ( int * ) malloc ( ( NUM_GENES + 1 ) * 2 * sizeof ( int ) );
+    if ( distmem->hammingArr == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: hammingArr NULL\n" );
+    distmem->perm1 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm1 == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm1 NULL\n" );
+    distmem->perm2 =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm2 == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm2 NULL\n" );
+    distmem->perm =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->perm == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: perm NULL\n" );
+    distmem->done =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->done == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: done NULL\n" );
+    distmem->greyEdges =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->greyEdges == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: greyEdges NULL\n" );
+    distmem->stack =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->stack == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: stack NULL\n" );
+    distmem->oriented =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->oriented == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: oriented NULL\n" );
+    distmem->cc = ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->cc == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: cc NULL\n" );
+    distmem->labeled =
+        ( int * ) malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( int ) );
+    if ( distmem->labeled == ( int * ) NULL )
+        fprintf ( stderr, "ERROR: labeled NULL\n" );
+    distmem->components = ( component_t * )
+        malloc ( ( 2 * NUM_GENES + 2 ) * sizeof ( component_t ) );
+    if ( distmem->components == ( component_t * ) NULL )
+        fprintf ( stderr, "ERROR: components NULL\n" );
+    distmem->uf = UFalloc ( 2 * NUM_GENES + 2 );
+    
+    init_global_variables ( NUM_GENES, &ALBERT_DIST_MEM );
+}
+
+
 void
 free_variables (  )
 {
@@ -595,6 +656,8 @@ free_variables (  )
         free ( gen[i] );
     }
     free ( gen );
+    free ( output_genome->genes );
+    free ( output_genome );
     free ( genupd->genes );
     free ( genupd );
     free ( pme );
@@ -612,6 +675,27 @@ free_variables (  )
     free ( id );
     free ( fid );
 }
+
+
+void free_mem_4_albert ()
+{
+    free_variables ();
+    localDistmem = &ALBERT_DIST_MEM;
+    free ( localDistmem->uf);
+    free ( localDistmem->components );
+    free ( localDistmem->labeled );
+    free ( localDistmem->cc );
+    free ( localDistmem->oriented );
+    free ( localDistmem->stack );
+    free ( localDistmem->greyEdges );
+    free ( localDistmem->done );
+    free ( localDistmem->perm );
+    free ( localDistmem->perm1 );
+    free ( localDistmem->perm2 );
+    free ( localDistmem->hammingArr);
+    return;
+}
+
 
 int *
 albert_inversion_median_circular ( struct genome_struct **passgenome,
@@ -636,7 +720,7 @@ int *
 albert_inversion_median_noncircular ( struct genome_struct **passgenome,
                                       int ngenes, int *genes )
 {
-    int h, i, j, k, l, e, prev, curr;
+  int h, i, j, k, l, e, prev, curr;
     int ncyc, ncyclesk, maxcyclesk, totcycles, inibest, oldbest;
     int mindistk, totdist, kbest;
 
@@ -817,5 +901,8 @@ albert_inversion_median_noncircular ( struct genome_struct **passgenome,
     i = median_distance ( pibest );
 /*  fprintf(fout, "   LB=%d,   UB=%d,   MS=%d,       non-ms=%d\n", 3*mc-UB, mindistk, 3*(Num_Genes+1) - realbest, i);  */
 
+
     return pibest;
+
+    
 }

@@ -1350,7 +1350,7 @@ let update_trees_to_data ?(classify=true) force load_data run =
             in
             let ach = Status.get_achieved st in
             if are_leaves_different then
-                let tree = { tree with Ptree.node_data = nodes; data = run.data } in
+                let tree = { tree with Ptree.node_data = nodes; data = run.data; } in
                 let res = CT.transform_tree replacer tree in
                 let () = Status.full_report ~adv:(ach + 1) st in
                 res
@@ -4116,7 +4116,8 @@ END
                         Status.user_message Status.Error msg;
                         raise (Error_in_Script (err, run))
             in
-            let script = PoyCommand.read_script_files true files in
+            let script = PoyCommand.read_script_files true 
+                (List.map (fun x -> `Filename x) files) in
             let script = Sexpr.of_list script in
             Sexpr.fold_status "Running commands" ~eta:true file_folder run
             script

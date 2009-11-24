@@ -1,6 +1,16 @@
 #ifndef CONVERT_H
 #define CONVERT_H
 
+#include <stdio.h>
+
+//add for POY
+convert_mem_t CONVERT_MEM;
+
+void ini_mem_4_convert (int num_genes);
+
+void free_mem_4_convert ();
+//end
+
 void printWeights ( int **adj_mat, int num_genes );
 
 void convert2_to_tsp ( struct genome_struct *g1,

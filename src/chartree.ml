@@ -1414,6 +1414,7 @@ module TreeOps = struct
     let clear_internals ptree = ptree
     let break_fn = break_fn
     let join_fn = join_fn
+    let model_fn t = t
     let cost_fn = 
         match !Methods.cost with
         | `Normal -> cost_fn

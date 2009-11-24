@@ -82,11 +82,16 @@ new_hashtable ( int ngenes, int expected_size, float loading_factor )
         exit ( errno );
     }
 #endif
-
+    int j;
     for ( i = 0; i < h->nbuckets; i++ )
     {
-        h->table[i] = NULL;     /* we will allocate these as needed */
+      //  h->table[i] = NULL;     /* we will allocate these as needed */
         h->sizes[i] = h->bucketsize;
+         h->table[i] =
+            ( int * ) calloc ( h->sizes[i] * h->ngenes, sizeof ( int ) );
+      for ( j = 0; j < h->sizes[i]; j++ )
+            h->table[i][j * h->ngenes] = 0;
+         
 #ifdef THREADSAFE
         mythread_rwlock_init ( &h->rwlock[i] );
 #endif

@@ -32,6 +32,7 @@ enum rev_type
 typedef struct median_memory_struct MedianMemory;
 struct median_memory_struct
 {
+    int max_gene_num;
     VertexFactory *vf;
     PriorityStack *ps;
     Hashtable *h;
@@ -43,7 +44,16 @@ struct median_memory_struct
     distmem_t *distmem;
 };
 
-MedianMemory *new_median_memory ( int ngenes, int minm, int maxm );
+MedianMemory SIEPEL_MEM;
+MedianMemory *local_mem_p;
+
+void ini_mem_4_siepel (int ngenes);
+
+void free_mem_4_siepel(int ngenes);
+
+MedianMemory * 
+//void
+new_median_memory ( int ngenes, int minm, int maxm );
 
 void reset_median_memory ( MedianMemory * mm );
 void free_median_memory ( MedianMemory * mm, int );

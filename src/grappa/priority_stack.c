@@ -90,6 +90,22 @@ ps_clear ( PriorityStack * ps )
     ps->idx = ps->max - ps->min;
 }
 
+int
+ps_check ( PriorityStack * ps)
+{
+    int res = 1;
+    int i = 0;
+    for ( i = 0; i <= ( ps->max - ps->min ); i++ )
+    {
+        if ( (&ps->stacks[i])->ridx >= (&ps->stacks[i])->CAPACITY )
+            if (  (&ps->stacks[i])->lidx <= 0  )
+                res = 0;
+    }
+    return res;
+}
+
+
+
 void
 ps_push ( PriorityStack * ps, void *v, int priority )
 {
@@ -97,12 +113,14 @@ ps_push ( PriorityStack * ps, void *v, int priority )
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
-
+ /*   fprintf(stdout,"min=%d,max=%d,idx=%d,count=%d,elememtsz=%d,stacks[%d],capa=%d,ridx=%d\n",ps->min,ps->max,ps->idx,ps->count,ps->elementsz,priority - ps->min,
+            (&ps->stacks[priority - ps->min])->CAPACITY,
+            (&ps->stacks[priority - ps->min])->ridx);
+    fflush(stdout); */
     push ( &ps->stacks[priority - ps->min], v );
     ps->count++;
     if ( priority - ps->min < ps->idx )
         ps->idx = priority - ps->min;
-
 #ifdef THREADSAFE
     pthread_mutex_unlock ( &ps->mutex );
 #endif

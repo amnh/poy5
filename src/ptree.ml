@@ -144,6 +144,8 @@ type ('a, 'b) join_fn =
     ('a, 'b) p_tree ->
     ('a, 'b) p_tree * Tree.join_delta
 
+type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+
 type ('a, 'b) cost_fn =
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
@@ -166,7 +168,9 @@ module type Tree_Operations =
     sig
         type a
         type b
+
         val break_fn : (a, b) break_fn
+        val model_fn : (a, b) model_fn
         val join_fn : (a, b) join_fn 
         val cost_fn : (a, b) cost_fn
         val reroot_fn : (a, b) reroot_fn

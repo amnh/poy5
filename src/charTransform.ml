@@ -972,6 +972,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         Status.user_message Status.Information ("@[" ^ name ^ "@]@,")) chars;
                     transform_node_characters trees (data, nodes) (`Static_Aprox (`Some
                     (true, chars), true)))
+        | `UseParsimony chars ->
+            IFDEF USE_LIKELIHOOD THEN
+                Node.load_data (Data.set_parsimony data chars)
+            ELSE
+                Status.user_message Status.Information "Characters are already Parsimony";
+                data,nodes
+            END
         | `UseLikelihood x ->
             IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_likelihood data x)
@@ -1030,7 +1037,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         "produce@ an@ implied@ alignment@ POY@ needs@ a@ " ^
                         "loaded@ tree,@ you@ could@ simply@ build@ one@ " ^
                         "with@ build (1)");
-                        failwith "Illegal transform command")
+                        failwith "Illegal transform command") 
         | (`ReWeight _)
         | (`WeightFactor _) as m ->
                 data
@@ -1095,7 +1102,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 data 
                 --> Data.make_direct_optimization chars
                 --> Data.categorize
-                --> Node.load_data 
+                --> Node.load_data
         | #Methods.dynamic_char_transform as meth -> begin
               let status = 
                   Status.create "Tranform" None 

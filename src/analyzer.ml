@@ -263,6 +263,7 @@ let dependency_relations (init : Methods.script) =
     | #Methods.transform as meth ->
             let res = 
                 match meth with
+                | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _
                 | `Annchrom_to_Breakinv _
@@ -284,6 +285,7 @@ let dependency_relations (init : Methods.script) =
                 | `Prealigned_Transform _
                 | `EstLikelihood _ 
                 | `UseLikelihood _
+                | `UseParsimony _ 
                 | `Assign_Prep_Cost _ ->
                         [([Data], [Data; Trees; JackBoot; Bremer], init,
                         Linnearizable)]
@@ -1615,6 +1617,7 @@ let script_to_string (init : Methods.script) =
     | #Methods.transform as meth ->
             let res = 
                 match meth with
+                | `Median_Solver _
                 | `Seq_to_Chrom _
                 | `Custom_to_Breakinv _
                 | `Annchrom_to_Breakinv _
@@ -1642,6 +1645,7 @@ let script_to_string (init : Methods.script) =
                 | `Search_Based _
                 | `Prealigned_Transform _
                 | `EstLikelihood _
+                | `UseParsimony _ 
                 | `UseLikelihood _
                 | `Automatic_Static_Aprox _
                 | `Automatic_Sequence_Partition _ ->

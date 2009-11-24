@@ -38,7 +38,10 @@ find_reversal_median ( struct genome_struct *median,
     int MIN_MED = 0, MAX_MED = 0, distbetween = 0;
     struct genome_struct dummy;
     struct genome_struct *g[NPERMS];
-    MedianMemory *mm = NULL;
+
+    MedianMemory *mm;// = &SIEPEL_MEM;
+
+//    int test = mm->max_gene_num;   fprintf(stdout,"test=%d\n",test); fflush(stdout);
 
     /* use existing MedianMemory struct or create a new one */
     if ( medmem == NULL )
@@ -46,6 +49,7 @@ find_reversal_median ( struct genome_struct *median,
     else
     {
         mm = medmem;
+      //  fprintf(stdout,"reset median memory\n"); fflush(stdout);
         reset_median_memory ( mm );
     }
 
@@ -119,6 +123,7 @@ find_reversal_median ( struct genome_struct *median,
            latter can be true only during pass 1) */
         while ( stop == 0 )
         {
+            //fprintf(stdout,"stop==0,pass=%d\n",pass); fflush(stdout);
             Vertex *n, *v;
             Reversal *rev;
             int count;
@@ -129,6 +134,15 @@ find_reversal_median ( struct genome_struct *median,
                 stop = 1;
                 break;
             }
+            else if( ps_check(mm->ps) == 0 )  
+            {
+                stop = 1;
+                break;
+             //   ps_clear ( mm->ps ); 
+             // I'm not sure about this, but if we don't clear the list "mm->ps",  while loop will keep running, for some point it will reach the limit of capacity, and crash 
+            }
+
+            
 
             dummy.genes = v->perm;  /* to accommodate conventions of
                                        find_all_sorting_reversals */
@@ -167,7 +181,6 @@ find_reversal_median ( struct genome_struct *median,
                 }
             }
 
-
             /* now enumerate candidate reversals */
             if ( pass == 1 )
             {                   /* pass 1; here we only consider
@@ -179,7 +192,9 @@ find_reversal_median ( struct genome_struct *median,
                         ( Reversal * ) list_get ( &mm->revs[SORTING][1], i );
                     if ( mm->mark[rev->start][rev->stop] & mm->
                          MASK[SORTING][2] )
-                        push ( &mm->candidates, rev );
+                    {
+                       push ( &mm->candidates, rev );
+                    }
                 }
             }
             else
@@ -202,6 +217,8 @@ find_reversal_median ( struct genome_struct *median,
                 }
             }
 
+  //          fprintf(stdout, "candidates list len=%d\n",(&mm->candidates)->CAPACITY);
+//        fflush(stdout);
             /* now consider each candidate in turn */
             count = 0;
             while ( ( rev = pop_queue ( &mm->candidates ) ) != NULL )
@@ -268,7 +285,10 @@ find_reversal_median ( struct genome_struct *median,
                 /* if best possible is better than current upper bound, add to
                    priority stack */
                 if ( n->best_possible_score < MAX_MED )
+                {
+ //                   fprintf(stdout,"MAX_MED=%d,worst=%d,best=%d,push stacks: ",MAX_MED,n->worst_possible_score,n->best_possible_score); fflush(stdout);
                     ps_push ( mm->ps, n, n->best_possible_score );
+                }
                 else
                     return_vertex ( mm->vf, n );
                 /* if worst possible is better than any median so far, set n as
@@ -323,16 +343,19 @@ find_reversal_median ( struct genome_struct *median,
 MedianMemory *
 new_median_memory ( int ngenes, int minm, int maxm )
 {
-
     int i, j;
-    MedianMemory *mm;
+    MedianMemory *mm;// = &SIEPEL_MEM;
 
     mm = ( MedianMemory * ) malloc ( sizeof ( MedianMemory ) );
-
+          //      fprintf ( stdout, "memory alloc for medianmemory \n" );
+          //      fflush(stdout);
     mm->mark = ( int ** ) malloc ( ( ngenes + 1 ) * sizeof ( int * ) );
+           //     fprintf ( stdout, "memory alloc for mark \n" ); fflush(stdout);
     for ( i = 0; i < ngenes + 1; i++ )
+    {
         mm->mark[i] = ( int * ) malloc ( ( ngenes + 1 ) * sizeof ( int ) );
-
+    }
+  //  fprintf ( stdout, "memory alloc for vf \n" ); fflush(stdout);
     if ( newvf != NULL )
     {
         mm->vf = newvf;
@@ -342,10 +365,10 @@ new_median_memory ( int ngenes, int minm, int maxm )
         mm->vf = new_vf ( VFSIZE, ngenes, NULL, NULL );
     /*new_vf(VFSIZE, ngenes, NULL, NULL); */
 
+    //  fprintf ( stdout, "memory alloc for mask \n" ); fflush(stdout);
     for ( i = 0; i < NREVTYPES; i++ )
         for ( j = 0; j < NPERMS; j++ )
             mm->MASK[i][j] = pow ( 2, i * NPERMS + j );
-
     /* set up priority stack, reversal sorting memory */
     mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, sizeof ( Vertex * ) );
     mm->rsm = new_reversal_sorting_memory ( ngenes );
@@ -397,4 +420,22 @@ free_median_memory ( MedianMemory * mm, int ngenes )
     ht_free ( mm->h );
     free_distmem ( mm->distmem );
     free ( mm );
+}
+
+void 
+ini_mem_4_siepel (int ngenes)
+{
+    int minm = 0; int maxm = ( ngenes + 1 ) * 2;
+    local_mem_p = new_median_memory(ngenes, 0, ( ngenes + 1 ) * 2);
+    SIEPEL_MEM = * local_mem_p;
+   // free_median_memory ( mem, ngenes );
+    return;
+}
+
+void 
+free_mem_4_siepel(int ngenes)
+{
+    MedianMemory * siepel_mem = &SIEPEL_MEM;
+    free_median_memory (siepel_mem,ngenes);
+  //  free(siepel_mem);
 }

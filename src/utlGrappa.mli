@@ -79,3 +79,10 @@ val cmp_self_breakpoint_dis : int array -> int -> int
  * where [Y] is an ordered permutation of |genome|
  * For example. [genome] = (-6, 1, 5), Y = (1, 5, 6) *)
 val cmp_self_oriented_breakpoint_dis : int array -> int -> int
+
+(*
+* given three input sequence array, returns the median by calling
+* albert-median-solver. the int here is a sign of circular/or not
+* *)
+val inv_med :  Data.median_solver_t -> int array -> int array -> int array -> int -> int array
+

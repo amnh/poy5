@@ -28,42 +28,42 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
     num_genes = ncount / 2;
 
 #ifdef VERBOSE
-    fprintf ( outfile, "level: %3d,  picked: %3d,  score: %7d,  best: %7d\n",
+    fprintf ( stdout, "level: %3d,  picked: %3d,  score: %7d,  best: %7d\n",
               level, picked, score, *best );
 #ifdef VERYVERBOSE
-    fprintf ( outfile, "Degrees:\n" );
+    fprintf ( stdout, "Degrees:\n" );
     for ( i = -num_genes; i <= num_genes; i++ )
     {
-        fprintf ( outfile, "degree of %3d is %2d", i, degree[i] );
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "degree of %3d is %2d", i, degree[i] );
+        fprintf ( stdout, "\n" );
     }
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 #endif
-    fflush ( outfile );
+    fflush ( stdout );
 
     /* Is tour complete?  (we cannot create bad tours) */
     if ( picked == ncount )
     {                           /* uncommon, I presume */
 #ifdef VERBOSE
-        fprintf ( outfile, "found a full solution\n" );
+        fprintf ( stdout, "found a full solution\n" );
 #endif
-        fflush ( outfile );
+        fflush ( stdout );
         /* yes, so we reached bottom of recursion */
         /* is the new solution better (smaller) ? */
         if ( score < *best )
         {
 #ifdef VERBOSE
-            fprintf ( outfile, "found a better full solution\n" );
-            fflush ( outfile );
+            fprintf ( stdout, "found a better full solution\n" );
+            fflush ( stdout );
 #endif
             /* yes, so copy stack to outcycle */
             for ( i = 0; i < ncount; i++ )
             {
                 outcycle[i] = stack[i];
 #ifdef VERBOSE
-                fprintf ( outfile, "outcycle[%3d]=%3d\n", i, outcycle[i] );
-                fflush ( outfile );
+                fprintf ( stdout, "outcycle[%3d]=%3d\n", i, outcycle[i] );
+                fflush ( stdout );
 #endif
             }
             *best = score;
@@ -104,16 +104,16 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
     }
     lb_new = lb_new / 2;
 #ifdef VERBOSE
-    fprintf ( outfile, "lower bound=%5d\n", lb_new );
-    fflush ( outfile );
+    fprintf ( stdout, "lower bound=%5d\n", lb_new );
+    fflush ( stdout );
 #endif
 
     /* continue only if bound promises possible improvement over best-so-far */
     if ( score + lb_new >= *best )
     {
 #ifdef VERBOSE
-        fprintf ( outfile, "pruning away...\n" );
-        fflush ( outfile );
+        fprintf ( stdout, "pruning away...\n" );
+        fflush ( stdout );
 #endif
         return;
     }
@@ -127,11 +127,11 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
         new_i = newedge->I;
         new_j = newedge->J;
 #ifdef VERBOSE
-        fprintf ( outfile,
+        fprintf ( stdout,
                   "new edge (%3d,%3d), degrees (%3d,%3d), weight %1d, otherEnd[%3d]=%3d\n",
                   new_i, new_j, degree[new_i], degree[new_j],
                   edges[level].edge1->weight, new_i, otherEnd[new_i] );
-        fflush ( outfile );
+        fflush ( stdout );
 #endif
     }
 
@@ -144,11 +144,11 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
               ( ( otherEnd[new_i] == new_j ) && ( picked != ncount - 1 ) ) ) )
     {                           /* edge is not available, get a new one */
 #ifdef VERBOSE
-        fprintf ( outfile,
+        fprintf ( stdout,
                   "new edge (%3d,%3d), degrees (%3d,%3d), weight %1d, otherEnd[%3d]=%3d\n",
                   new_i, new_j, degree[new_i], degree[new_j],
                   edges[level].edge1->weight, new_i, otherEnd[new_i] );
-        fflush ( outfile );
+        fflush ( stdout );
 #endif
         level++;
         newedge++;
@@ -164,22 +164,22 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
         /* Check if current partial solution, when completed, improves on
            best so far; if so, copy it */
 #ifdef VERBOSE
-        fprintf ( outfile, "found a partial solution\n" );
-        fflush ( outfile );
+        fprintf ( stdout, "found a partial solution\n" );
+        fflush ( stdout );
 #endif
         if ( score + ( 3 * ( ncount - picked ) ) < *best )
         {
             /* yes, so copy stack to outcycle */
 #ifdef VERBOSE
-            fprintf ( outfile, "found a better partial solution\n" );
-            fflush ( outfile );
+            fprintf ( stdout, "found a better partial solution\n" );
+            fflush ( stdout );
 #endif
             for ( i = 0; i < ncount; i++ )
             {
                 outcycle[i] = stack[i];
 #ifdef VERBOSE
-                fprintf ( outfile, "outcycle[%3d]=%3d\n", i, outcycle[i] );
-                fflush ( outfile );
+                fprintf ( stdout, "outcycle[%3d]=%3d\n", i, outcycle[i] );
+                fflush ( stdout );
 #endif
             }
             *best = score + 3 * ( ncount - picked );
@@ -189,12 +189,12 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
 
     /* we found an edge to include */
 #ifdef VERYVERBOSE
-    fprintf ( outfile,
+    fprintf ( stdout,
               "level %3d, new edge (%3d,%3d), degrees (%3d,%3d), weight %1d, status %3d, otherEnd[%3d]=%3d, otherEnd[%3d]=%3d\n",
               level, new_i, new_j, degree[new_i], degree[new_j],
               edges[level].edge1->weight, edges[level].edge1->status, new_i,
               otherEnd[new_i], new_j, otherEnd[new_j] );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 
     /* save original status to restore before returning from recursion */
@@ -216,8 +216,8 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
     newedge->edge2->status = STAT_INCLUDED;
 
 #ifdef VERYVERBOSE
-    fprintf ( outfile, "\ninclude: " );
-    fflush ( outfile );
+    fprintf ( stdout, "\ninclude: " );
+    fflush ( stdout );
 #endif
     /* should guard call rather than entry */
     rec_dfs ( ncount, degree, adj_list, stack, outcycle, best,
@@ -239,8 +239,8 @@ rec_dfs ( int ncount, int *degree, struct adj_struct *adj_list,
 
     /* recurse with edge excluded */
 #ifdef VERYVERBOSE
-    fprintf ( outfile, "\nexclude: " );
-    fflush ( outfile );
+    fprintf ( stdout, "\nexclude: " );
+    fflush ( stdout );
 #endif
     rec_dfs ( ncount, degree, adj_list, stack, outcycle, best,
               score, picked, edges, numedges, otherEnd, level + 1 );
@@ -394,19 +394,19 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
 #ifdef DEBUG
     if ( negEdges != ncount / 2 )
     {
-        fprintf ( outfile, "ERROR: negative edges: %d  ncount/2: %d\n",
+        fprintf ( stdout, "ERROR: negative edges: %d  ncount/2: %d\n",
                   negEdges, ncount / 2 );
-        fflush ( outfile );
+        fflush ( stdout );
         for ( i = 0; i < numedges; i++ )
-            fprintf ( outfile, "ERROR:  Edge[%3d]: (%4d, %4d), wt: %7d\n",
+            fprintf ( stdout, "ERROR:  Edge[%3d]: (%4d, %4d), wt: %7d\n",
                       i, edges[i].I, edges[i].J, edges[i].edge1->weight );
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "\n" );
     }
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 #ifdef VERYVERBOSE
     for ( i = 0; i < numedges; i++ )
-        fprintf ( outfile,
+        fprintf ( stdout,
                   "EDGE (%3d,%3d)=(%3d,%3d) has weight %5d=%5d, status %1d=%1d\n",
                   edges[i].I, edges[i].J, edges[i].edge1->vertex,
                   edges[i].edge2->vertex, edges[i].edge1->weight,
@@ -414,17 +414,17 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
                   edges[i].edge2->status );
     for ( i = -num_genes; i <= num_genes; i++ )
     {
-        fprintf ( outfile, "Node %3d is adjacent to: ", i );
+        fprintf ( stdout, "Node %3d is adjacent to: ", i );
         node = adj_list[i].next;
         while ( node != NULL )
         {
-            fprintf ( outfile, "%3d (weight %4d, status %1d) ",
+            fprintf ( stdout, "%3d (weight %4d, status %1d) ",
                       node->vertex, node->weight, node->status );
             node = node->next;
         }
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "\n" );
     }
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 
     /* initialize global variables and structures */
@@ -452,9 +452,9 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
     }
 #ifdef DEBUG
     if ( level != negEdges )
-        fprintf ( outfile, "ERROR: level: %d  negEdges: %d\n", level,
+        fprintf ( stdout, "ERROR: level: %d  negEdges: %d\n", level,
                   negEdges );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 
     best = mincost;             /* if we make the median equal to one of the three
@@ -489,8 +489,8 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
     {
         ind = outcycle[i];
 #ifdef DEBUG
-        fprintf ( outfile, "converting tour; outcycle[%3d]=%3d\n", i, ind );
-        fflush ( outfile );
+        fprintf ( stdout, "converting tour; outcycle[%3d]=%3d\n", i, ind );
+        fflush ( stdout );
 #endif
         if ( ind == NOEDGE )
             break;
@@ -503,10 +503,10 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
         }
     }
 #ifdef DEBUG
-    fprintf ( outfile, "converting tour: degrees computed are:\n" );
+    fprintf ( stdout, "converting tour: degrees computed are:\n" );
     for ( i = -num_genes; i <= num_genes; i++ )
-        fprintf ( outfile, "degree[%3d]=%3d\n", i, degree[i] );
-    fflush ( outfile );
+        fprintf ( stdout, "degree[%3d]=%3d\n", i, degree[i] );
+    fflush ( stdout );
 #endif
 
     /* push on a stack cities of degree 1, if any */
@@ -527,11 +527,11 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
         neighbors[i].B = UNUSED;
     }
 #ifdef DEBUG
-    fprintf ( outfile, "converting tour: neighbors computed are:\n" );
+    fprintf ( stdout, "converting tour: neighbors computed are:\n" );
     for ( i = -num_genes; i <= num_genes; i++ )
-        fprintf ( outfile, "neighbors[%3d].A=%3d, neighbors[%3d].B=%3d\n", i,
+        fprintf ( stdout, "neighbors[%3d].A=%3d, neighbors[%3d].B=%3d\n", i,
                   neighbors[i].A, i, neighbors[i].B );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
     for ( i = 0; i < ncount; i++ )
     {
@@ -553,11 +553,11 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
         }
     }
 #ifdef DEBUG
-    fprintf ( outfile, "converting tour: neighbors computed are:\n" );
+    fprintf ( stdout, "converting tour: neighbors computed are:\n" );
     for ( i = -num_genes; i <= num_genes; i++ )
-        fprintf ( outfile, "neighbors[%3d].A=%3d, neighbors[%3d].B=%3d\n", i,
+        fprintf ( stdout, "neighbors[%3d].A=%3d, neighbors[%3d].B=%3d\n", i,
                   neighbors[i].A, i, neighbors[i].B );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 
     /* Find the starting city, either a city of degree 1
@@ -574,8 +574,8 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
     }
 
 #ifdef DEBUG
-    fprintf ( outfile, "converting; start city is curcity=%3d\n", curcity );
-    fflush ( outfile );
+    fprintf ( stdout, "converting; start city is curcity=%3d\n", curcity );
+    fflush ( stdout );
 #endif
     /* Note that city 0 may pick either of two edges, but this is okay */
     outcycle[0] = curcity;
@@ -616,7 +616,7 @@ tsp_dfs ( int ncount, int mincost, int *found_cost, int *degree,
     }
 #ifdef VERBOSE
     for ( i = 0; i < ncount; i++ )
-        fprintf ( outfile, "Tour[%3d]: %3d\n", i, outcycle[i] );
+        fprintf ( stdout, "Tour[%3d]: %3d\n", i, outcycle[i] );
 #endif
     return;
 }
@@ -640,24 +640,24 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
     num_genes = ncount / 2;
 
 #ifdef VERBOSE
-    fprintf ( outfile, "Running bbtsp on %4d cities... \n", ncount );
-    fprintf ( outfile, "first genome is: " );
+    fprintf ( stdout, "Running bbtsp on %4d cities... \n", ncount );
+    fprintf ( stdout, "first genome is: " );
     for ( i = 0; i < num_genes; i++ )
-        fprintf ( outfile, " %3d", g1[i] );
-    fprintf ( outfile, "\n" );
-    fprintf ( outfile, "second genome is: " );
+        fprintf ( stdout, " %3d", g1[i] );
+    fprintf ( stdout, "\n" );
+    fprintf ( stdout, "second genome is: " );
     for ( i = 0; i < num_genes; i++ )
-        fprintf ( outfile, " %3d", g2[i] );
-    fprintf ( outfile, "\n" );
-    fprintf ( outfile, "third genome is: " );
+        fprintf ( stdout, " %3d", g2[i] );
+    fprintf ( stdout, "\n" );
+    fprintf ( stdout, "third genome is: " );
     for ( i = 0; i < num_genes; i++ )
-        fprintf ( outfile, " %3d", g3[i] );
-    fprintf ( outfile, "\n" );
-    fprintf ( outfile, "median genome is: " );
+        fprintf ( stdout, " %3d", g3[i] );
+    fprintf ( stdout, "\n" );
+    fprintf ( stdout, "median genome is: " );
     for ( i = 0; i < num_genes; i++ )
-        fprintf ( outfile, " %3d", tour[i] );
-    fprintf ( outfile, "\n" );
-    fflush ( outfile );
+        fprintf ( stdout, " %3d", tour[i] );
+    fprintf ( stdout, "\n" );
+    fflush ( stdout );
 #endif
     /* uses positive/negative indexing and so position 0 in arrays
        is always wasted */
@@ -669,17 +669,17 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
 #ifdef VERYVERBOSE
     for ( i = -num_genes; i <= num_genes; i++ )
     {
-        fprintf ( outfile, "Node %3d is adjacent to: ", i );
+        fprintf ( stdout, "Node %3d is adjacent to: ", i );
         node = adj_list[i].next;
         while ( node != NULL )
         {
-            fprintf ( outfile, "%3d (weight %4d, status %1d) ",
+            fprintf ( stdout, "%3d (weight %4d, status %1d) ",
                       node->vertex, node->weight, node->status );
             node = node->next;
         }
-        fprintf ( outfile, "\n" );
+        fprintf ( stdout, "\n" );
     }
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
     /* compute cost of each of the three genomes as a first solution */
     cost1 = cost2 = cost3 = costm = num_genes * ( -LARGENUM );
@@ -868,12 +868,12 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
     }
 
 #ifdef VERYVERBOSE
-    fprintf ( outfile,
+    fprintf ( stdout,
               "done checking, cost1=%3d, cost2=%3d, cost3=%3d, costm=%3d,\n",
               cost1, cost2, cost3, costm );
-    fprintf ( outfile, "               g1=%p, g2=%p, g3=%p, tour=%p,\n", g1,
+    fprintf ( stdout, "               g1=%p, g2=%p, g3=%p, tour=%p,\n", g1,
               g2, g3, tour );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
     /* retain the smallest and pass it down to the bbtsp solver as
        initial solution */
@@ -928,9 +928,9 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
         }
     }
 #ifdef VERYVERBOSE
-    fprintf ( outfile, "found cheapest: mincost=%3d, ptr=%p\n", mincost,
+    fprintf ( stdout, "found cheapest: mincost=%3d, ptr=%p\n", mincost,
               ming );
-    fflush ( outfile );
+    fflush ( stdout );
 #endif
 
     /* Fill in initial solution of cost mincost */
@@ -938,8 +938,8 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
     {
         tour[i] = ming[i];
 #ifdef VERBOSE
-        fprintf ( outfile, "init tour[%3d]=%3d\n", i, tour[i] );
-        fflush ( outfile );
+        fprintf ( stdout, "init tour[%3d]=%3d\n", i, tour[i] );
+        fflush ( stdout );
 #endif
     }
 
@@ -952,9 +952,9 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
     if ( found_cost < mincost )
     {
 #ifdef VERBOSE
-        fprintf ( outfile, "better tour -- found_cost=%5d, mincost=%5d\n",
+        fprintf ( stdout, "better tour -- found_cost=%5d, mincost=%5d\n",
                   found_cost, mincost );
-        fflush ( outfile );
+        fflush ( stdout );
 #endif
         if ( outcycle[0] != -outcycle[1] )
         {
@@ -962,8 +962,8 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
             {
                 tour[i] = outcycle[2 * i];
 #ifdef VERBOSE
-                fprintf ( outfile, "tour[%3d]=%3d\n", i, tour[i] );
-                fflush ( outfile );
+                fprintf ( stdout, "tour[%3d]=%3d\n", i, tour[i] );
+                fflush ( stdout );
 #endif
             }
         }
@@ -973,8 +973,8 @@ bbtsp ( int ncount, int *tour, int use_median, int *g1, int *g2, int *g3,
             {
                 tour[i] = outcycle[( 2 * i + 1 ) % ncount];
 #ifdef VERBOSE
-                fprintf ( outfile, "tour[%3d]=%3d\n", i, tour[i] );
-                fflush ( outfile );
+                fprintf ( stdout, "tour[%3d]=%3d\n", i, tour[i] );
+                fflush ( stdout );
 #endif
             }
         }

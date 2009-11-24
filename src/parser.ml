@@ -3777,15 +3777,12 @@ module SC = struct
                         in
                         (* apply spec to each character *)
                         List.iter (apply_on_character_set 
-                                        acc.characters
-                                        acc.csets
-                                        (fun i -> 
-                                            acc.characters.(i) <-
-                                                { acc.characters.(i) with
-                                                    st_type = m; }))
-                                  characters_to_modify
+                                    acc.characters
+                                    acc.csets
+                                    (fun i -> 
+                                        acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
+                              characters_to_modify
                     ) block;
-                Status.user_message Status.Information "Done";
                 acc
             | _ -> acc
 

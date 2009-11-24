@@ -124,6 +124,7 @@ struct adj_struct
     struct adj_struct *next;
 };
 
+
 typedef struct
 {
     int A;
@@ -164,6 +165,38 @@ typedef struct
     int left;                   /* Index of component to the left of my rightmost block */
     int right;                  /* Index of component to the right of my rightmost block */
 } component_t;
+
+// type for albert-median3 initialization
+typedef struct
+{
+    int max_num_genes;
+    int * stack;
+    int * pred1;
+    int * pred2;
+    int * picked;
+    int * decode;
+    struct genome_struct * con_g1;
+    struct genome_struct * con_g2;
+    struct genome_struct * con_g3;
+    struct genome_struct * con_med; 
+} condense3_mem_t;
+
+
+typedef struct
+{
+    int max_num_genes;
+    int **weights;
+    int *incycle;
+    int *outcycle;
+    int *stack;
+    int *degree;
+    int *otherEnd;
+    struct adj_struct * adjl; 
+    struct adj_struct *adjp;
+    intpair_t * neighbors;
+    edge_t * edges;
+} convert_mem_t;
+
 
 #define HURDLE          1
 #define GREATHURDLE (1<<1)

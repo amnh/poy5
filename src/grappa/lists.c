@@ -9,6 +9,16 @@
 #include <stdio.h>
 #include <assert.h>
 #include "lists.h"
+#include <caml/fail.h>
+
+int
+check ( List * q )
+{
+     if (( q->ridx >= q->CAPACITY ) && ( q->lidx <= 0 ))
+         return 0;
+     else
+         return 1;
+}
 
 void
 push ( List * q, void *v )
@@ -23,10 +33,10 @@ push ( List * q, void *v )
             q->ridx -= q->lidx;
             q->lidx = 0;
         }
-
         else
         {
-            fprintf ( stderr, "ERROR: Exceeded list capacity\n" );
+            fprintf ( stderr, "ERROR: Exceeded list capacity, [%d,%d],cap=%d\n",
+                    q->lidx,q->ridx,q->CAPACITY);
             assert ( 0 );
         }
     }
@@ -101,7 +111,9 @@ copy_list ( List * new, List * old )
     int i;
     init_list ( new, old->CAPACITY, old->elementsz );
     for ( i = 0; i < list_size ( old ); i++ )
+    {
         push ( new, list_get ( old, i ) );
+    }
 }
 
 void

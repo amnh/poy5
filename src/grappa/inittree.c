@@ -504,7 +504,7 @@ initialize_tree_propagate ( int COND, struct tNode *tree, struct tNode *tpool,
                                        NULL );
                 break;
             case INVERSION_MEDIAN_FAST:
-                gen[0] = condnode1->genome;
+                gen[0] = condnode1->genome; // why all condnode1? bug?
                 gen[1] = condnode1->genome;
                 gen[2] = condnode1->genome;
                 if ( CIRCULAR )

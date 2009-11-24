@@ -22,7 +22,7 @@ let () = SadmanOutput.register "Arguments" "$Revision: 1959 $"
 let just_exit = ref false
 let only_run_argument_script = ref false
 let dump_file = ref "ft_output.poy"
-let input : string list ref = ref []
+let input : [`Inlined of string | `Filename of string] list ref = ref []
 
 let change_working_directory str =
     try Sys.chdir str with
@@ -46,6 +46,11 @@ ELSE
     failwith "This version of POY was compiled without plugin support"
 END
 
+let anon_fun kind str =
+    match kind with
+    | `Inlined -> input := (`Inlined str) :: !input
+    | `Filename -> input := (`Filename str) :: !input
+
 
 let parse_list = [
     ("-w", Arg.String change_working_directory,
@@ -58,11 +63,10 @@ let parse_list = [
     ("-no-output-xml", Arg.Unit (fun () -> SadmanOutput.do_sadman := false),
     "Do not generate the output.xml file.");
     ("-plugin", Arg.String process_poy_plugin, 
-    "Load the selected plugins.")
+    "Load the selected plugins.");
+    ("-script", Arg.String (anon_fun `Inlined), 
+    "Inlined script to be included in the analysis.")
 ]
-
-let anon_fun str =
-    input := str :: !input
 
 let usage = 
     "poy [OPTIONS] filename ..."

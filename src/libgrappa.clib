@@ -1,6 +1,10 @@
 uf.o
+bbtsp.o
 invdist.o
+cheaptsp.o
 correction.o
+condense3.o
+convert.o
 binencode.o
 lists.o
 med_util.o
@@ -12,4 +16,3 @@ sorting_reversal_median.o
 inversion_median.o
 inversion_median_alberto.o
 grappa_interface.o
-

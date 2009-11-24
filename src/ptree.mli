@@ -110,6 +110,16 @@ type ('a, 'b) join_fn =
 * is just the tree_delta that was returned as a result of the edge break
 * operation. *)
 
+type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+(** type of functiont hat performs iterations on the model of the tree for
+ * likelihood. Uses the BFGS method -a quasi newtons method- and a line search
+ * function that uses the gradient of the model parameters to determine the
+ * length of the step size for iteration. Further details on these functions in
+ * Numerical Recipes in C; 10-7 and 9-7.
+ *
+ * Eventually this function will take a subset of edges to update with and other
+ * parameters to optimize the efficiency of this function. *)
+
 type ('a, 'b) cost_fn =
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
@@ -141,7 +151,9 @@ module type Tree_Operations =
   sig
     type a 
     type b
+
     val break_fn : (a, b) break_fn
+    val model_fn : (a,b) model_fn
     val join_fn : (a, b) join_fn
     val cost_fn : (a, b) cost_fn
     val reroot_fn : (a, b) reroot_fn

@@ -87,8 +87,11 @@ void find_connected_components ( int begidx, int len, int *inv2, int *upi,
 void build_uoc_list ( List * uoc_list, ConnectedComponent * conn_comp,
                       int *comp_label_by_pos, int n );
 
-void find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
-                         int nuoc, int ncomp, int *nhurdles,
+//void find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
+//                         int nuoc, int ncomp, int *nhurdles,
+//                         int *nsuperhurdles );
+int find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
+                         int nuoc, int ncomp, int old_nhurdles,
                          int *nsuperhurdles );
 
 int find_single_hurdle ( int u, List * adj_list, List * cycles );

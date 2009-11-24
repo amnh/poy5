@@ -98,6 +98,7 @@ val join_fn :
   'a p_tree * Tree.join_delta
 (** [join_fn] is a break function usable for Ptree's searches.  See {!Ptree}
     for more information. *)
+
 val cost_fn :
   Tree.join_jxn ->
   Tree.join_jxn ->

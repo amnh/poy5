@@ -53,12 +53,15 @@ type old_identifiers = [
     | `Missing of bool * int
     | `Random of float
 ]
+
 type identifiers = [
     | old_identifiers
     | `Files of (bool * string list)
 ]
 
+
 type chromosome_args = [
+    | `Median_Solver of Methods.median_solver_chosen
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
     | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
     | `Circular of bool (** indicate if the chromosome is circular or not *)
@@ -117,6 +120,7 @@ type transform_method = [
     | `EstLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
           Methods.ml_priors * Methods.ml_gap )
+    | `UseParsimony
     | `UseLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
           Methods.ml_priors * Methods.ml_gap )
@@ -411,6 +415,7 @@ let transform_transform acc (id, x) =
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
             | `EstLikelihood (a, b, c, d) ->
                     (`EstLikelihood (id, a, b, c, d)) :: acc
+            | `UseParsimony -> (`UseParsimony id) :: acc
             | `UseLikelihood (a, b, c, d) ->
                     (`UseLikelihood (id, a, b, c, d)) :: acc
             | `Level (l) -> (`Assign_Level (l,id))::acc
@@ -1267,6 +1272,7 @@ let create_expr () =
                             | Some x -> x
                         in
                         `EstLikelihood (w, x, y, z) ] |
+                [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
@@ -1345,8 +1351,24 @@ let create_expr () =
                 [ ":"; LIDENT "keep" -> false ] |
                 [ ":"; LIDENT "remove" -> true ]
             ];
+        median_solvers:
+            [
+                [ LIDENT "coalestsp" -> `COALESTSP ] |
+                [ LIDENT "bbtsp" -> `BBTSP     ] |
+                [ LIDENT "siepel" -> `Siepel   ] |
+                [ LIDENT "caprara" -> `Albert   ] |
+                [ LIDENT "default" -> `Default ]
+            ];
         chromosome_argument:
             [
+                [ LIDENT "median_solver"; ":"; c = median_solvers ->
+                    match c with
+                    | `COALESTSP -> `Median_Solver `COALESTSP
+                    | `BBTSP -> `Median_Solver `BBTSP
+                    | `Siepel -> `Median_Solver `Siepel                     
+                    | `Albert -> `Median_Solver `Albert 
+                    | `Default -> `Median_Solver `Default
+                ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 
@@ -2196,25 +2218,34 @@ let ( --> ) a b = b a
 let rec process_commands optimize command = 
     match command with
     | `ChangeWDir dir -> let dir = simplify_directory dir in Sys.chdir dir; [command]
-    | `ReadScript files -> read_script_files false files
+    | `ReadScript files -> 
+            read_script_files false (List.map (fun x -> `Filename x) files)
     | x -> [x]
 
-and read_script_files optimize files = 
+and read_script_files optimize (files : [`Inlined of string | `Filename of
+string] list)  = 
     let res = 
         List.map
         (fun f -> 
+            let where = 
+                match f with
+                | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                | `Inlined f -> "inlined@ script"
+            in
             try
-                let f = simplify_directory f in
-                let comm = of_file false f in
-                `Echo ("Running file " ^ f, `Information) :: comm
+                match f with
+                | `Inlined f ->
+                        let comm = of_string false f in
+                        `Echo ("Running inlined script", `Information) :: comm
+                | `Filename f ->
+                        let f = simplify_directory f in
+                        let comm = of_file false f in
+                        `Echo ("Running file " ^ f, `Information) :: comm
             with
             | Loc.Exc_located (a, Stream.Error err) ->
-            (*
-            | Loc.Exc_located (a, Token.Error err) ->
-                    *)
                     let is_unknown = "illegal begin of expr" = err in
-                    let msg = "@[<v 4>@[Command@ error@ in@ file@ @{<b>" ^
-                    f ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
+                    let msg = "@[<v 4>@[Command@ error@ in@ " ^
+                    where ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
                     "@}@ between@ characters@ @{<b>" ^ 
                     string_of_int ((Loc.start_off a) - (Loc.start_bol a))
                     ^ "@} and @{<b>" ^
@@ -2226,7 +2257,7 @@ and read_script_files optimize files =
                     failwith "Script execution stopped"
             | err -> 
                     Status.user_message Status.Error 
-                    ("Error@ while@ processing@ script@  " ^ f);
+                    ("Error@ while@ processing@ script@  " ^ where);
                     raise err) 
         files 
     in

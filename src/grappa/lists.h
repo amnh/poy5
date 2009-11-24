@@ -18,6 +18,7 @@ struct list
     int elementsz;
 };
 
+int check ( List * q);
 void init_list ( List * q, int nelements, int elementsz );
 void free_list ( List * q );
 void push ( List * q, void *v );

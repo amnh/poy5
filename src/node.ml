@@ -426,8 +426,9 @@ let extract_states alph data in_codes node =
 
 (* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
-    if debug_treebuild then
-        Printf.printf "node.ml cs_median => %!";
+    if  debug_treebuild then
+        Printf.printf "node.ml cs_median on node %d and node %d :\n%!"
+        anode.taxon_code bnode.taxon_code;
     match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
@@ -555,11 +556,11 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 else cb, ca
             in
             if  debug_treebuild  then
-                Printf.printf "call DynamicCS.median... -> %!";
+                info_user_message "call DynamicCS.median ->";
             let median = DynamicCS.median code ca.preliminary cb.preliminary in
             let total_cost = DynamicCS.total_cost median in
             if  debug_treebuild  then
-                Printf.printf "back to node.ml cs_median ,total_cost=%f\n" total_cost;
+                info_user_message "back to node.ml cs_median ,total_cost=%f\n" total_cost;
             let res = 
                 { ca with 
                     preliminary = median;
@@ -1037,7 +1038,7 @@ let median ?branches code old a b =
         match old with
         | None -> 
             if debug_treebuild then
-                Printf.printf "\n node.ml median begin of map4....\n%!";
+               info_user_message "node.ml median begin of map4\n";
             map4 (cs_median code a b None)
                 brancha
                 branchb
@@ -1045,7 +1046,7 @@ let median ?branches code old a b =
                 b.characters
         | Some c ->
             if debug_treebuild then
-                Printf.printf "\n node.ml median begin of map5....\n%!";
+                info_user_message "node.ml median begin of map5\n";
             map5 (fun x -> cs_median code a b (Some x))
                 c.characters
                 brancha
@@ -1056,7 +1057,7 @@ let median ?branches code old a b =
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost a b node_cost in
     if debug_treebuild then
-         Printf.printf "end of mapx in node.ml ...tottal_cost=%f\n\n%!" total_cost;
+         info_user_message"end of mapx in node.ml ...tottal_cost=%f\n" total_cost;
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -1939,10 +1940,14 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lstaticmlcode = 
             (* set garbage collector frequency; multiplier = 4 *)
             let () = 
-                MlStaticCS.gc_alloc_max 
+                IFDEF USE_LIKELIHOOD THEN
+                    MlStaticCS.gc_alloc_max 
                         ((fun m t -> m * ((8 * t) - 5))
                             4
                             (!data).Data.number_of_taxa)
+                ELSE
+                    ()
+                END
             in
             (* apply classify on a list of integers to classify *)
             let set_of_list =
@@ -2516,7 +2521,7 @@ let estimate_time a b =
     map2 (estimate_) a.characters b.characters
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
-     if debug_treebuild then
+    if debug_treebuild then
          Printf.printf "node.ml cs_to_single => %!";
     match parent_cs, mine with
     (* | StaticMl cb, StaticMl ca -> 
@@ -2544,12 +2549,12 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           | Some (Dynamic root) -> Some root.preliminary
           | _ -> None
           in 
-           if debug_treebuild then
+          if debug_treebuild then
                Printf.printf "call DynamicCS.to_single => annchromCS.to_single \n%!";
           let prev_cost, cost, res = 
               DynamicCS.to_single pre_ref_code 
                     root_pre parent.preliminary mine.preliminary 
-            in
+          in
           Dynamic {preliminary = res; final = res; 
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
@@ -2575,14 +2580,12 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
             | None -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
-
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc
     in
-
     match root with
     | Some root ->
         let root_char_opt = List.map (fun c -> Some c) root.characters in
@@ -2618,7 +2621,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         match c1, c2, parent, mine with 
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
-
                 let t1,t2 = match mine.time with 
                     | Some x,Some y -> x,y
                     | _ -> MlStaticCS.estimate_time c1.preliminary c2.preliminary
@@ -2642,8 +2644,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             END
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
-                    DynamicCS.readjust mode to_adjust !modified c1.preliminary c2.preliminary
-                    parent.preliminary mine.preliminary
+                    DynamicCS.readjust mode to_adjust !modified c1.preliminary c2.preliminary parent.preliminary mine.preliminary
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
@@ -2663,7 +2664,6 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         in
         let node_cost = get_characters_cost characters in
         let total_cost = calc_total_cost ch1 ch2 node_cost in
-        
         let res = 
             { mine with characters = characters; total_cost = total_cost; 
             node_cost = node_cost }
@@ -2813,7 +2813,11 @@ let cmp_subtree_recost node_data =
     List.fold_left 
         (fun subtree_recost cs -> 
              match cs with 
-             | Dynamic dyn -> subtree_recost +. DynamicCS.subtree_recost dyn.preliminary
+             | Dynamic dyn ->
+               let res = subtree_recost +. (DynamicCS.subtree_recost
+                     dyn.preliminary) 
+               in
+               res
              | _ -> subtree_recost
         ) 0. node_data.characters
 

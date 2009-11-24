@@ -119,6 +119,8 @@ type transform_cost_matrix = [
 ]
 
 
+type median_solver_chosen = [ `COALESTSP | `BBTSP | `Siepel | `Albert | `Default  ]
+
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [
     | `Locus_Inversion of int
@@ -137,6 +139,7 @@ type chromosome_pam_t = [
     | `Symmetric of bool 
     | `Max_3D_Len of int
     | `Max_kept_wag of int
+    | `Median_Solver of median_solver_chosen
 ]
 
 type kolmo_model = [ `AtomicIndel | `AffineIndel ]
@@ -153,6 +156,7 @@ type dynamic_char_transform = [
         option * int * int * float))*)
 ]
 
+    
 
 type terminal_transform = [
     | `RandomizedTerminals
@@ -194,6 +198,7 @@ type char_transform = [
     | `WeightFactor of (characters * float)
     | `Prealigned_Transform of characters
     | `UseLikelihood of ml_spec
+    | `UseParsimony of characters
     | transform_cost_matrix
     | level 
 ]
@@ -388,7 +393,8 @@ type build_method = [
     | `Wagner_Ordered of build_strategy
     | `Build_Random of build_strategy
     | `Nj
-    | `Prebuilt of filename ]
+    | `Prebuilt of filename 
+    ]
 
 type parallelizable_build = build_method
 

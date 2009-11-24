@@ -46,7 +46,8 @@ let () = Status.init ()
 
 let () =
     try
-        Arg.parse_argv Phylo.args Arguments.parse_list Arguments.anon_fun 
+        Arg.parse_argv Phylo.args Arguments.parse_list 
+        (Arguments.anon_fun `Filename)
         Arguments.usage 
     with
     | Arg.Help _ ->

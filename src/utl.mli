@@ -45,6 +45,8 @@ val binary_index_search : int array -> int -> int
 val find_index : 'a array -> 'b -> ('b -> 'a -> int) -> int
 val get_common :
   'a array -> 'a array -> ('a -> 'a -> int) -> 'a array * 'a array
+val get_common3 :
+  'a array -> 'a array -> 'a array -> ('a -> 'a -> int) -> 'a array * 'a array * 'a array
 val insert : 'a array -> int -> 'a -> 'a array
 val swap_item : int -> int -> 'a array -> 'a array
 val printIntArr : int array -> unit
