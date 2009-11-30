@@ -19,15 +19,16 @@
 
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
-IFDEF USE_LIKELIHOOD THEN
-
 let epsilon = 0.000001
 let (=.) a b = abs_float (a-.b) < epsilon
 let (>=.) a b = abs_float (a-.b) > ~-.epsilon
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
-let debug = true
+let likelihood_not_enabled =
+    "Likelihood not enabled: download different binary or contact mailing list" 
+
+let debug = false
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -123,6 +124,9 @@ type model = {
     d     : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+
+
+IFDEF USE_LIKELIHOOD THEN
 
 (* a gentler compare that excludes the parameters of the model itself *)
 let compare a b = 
@@ -393,11 +397,14 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
+END
+
 (* ------------------------------------------------ *)
 (* CONVERSTION/MODEL CREATION FUNCTIONS             *)
 
 (* convert a string spec to a specification, used in Parser for nexus *)
 let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):string_spec) =
+  IFDEF USE_LIKELIHOOD THEN
     let submatrix = match String.uppercase name with
         | "JC69" -> (match param with
             | [] -> JC69
@@ -453,6 +460,9 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         base_priors = Given (Array.of_list priors);
         use_gap = gap;
     }
+  ELSE
+    failwith likelihood_not_enabled
+  END
 
 (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
 let verify_rates probs rates =
@@ -469,6 +479,7 @@ let verify_rates probs rates =
 
 (* create a model based on a specification and an alphabet *)
 let create alph lk_spec = 
+  IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size,a_gap) = match lk_spec.use_gap with
         | true -> Alphabet.size alph, ~-1
@@ -549,7 +560,11 @@ let create alph lk_spec =
          d = d_;
         ui = ui_;
     }
+  ELSE
+    failwith likelihood_not_enabled
+  END
 
+IFDEF USE_LIKELIHOOD THEN
 
 (* ------------------------------------------------ *)
 (* MODEL ESTIMATION FUNCTIONS                       *)
@@ -729,6 +744,81 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
         use_gap = gap;
     }
 
+let update_k2p old_model new_value =
+    let subst_spec = { old_model.spec with substitution = K2P (Some new_value) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_k2p priors new_value 1.0 old_model.alph in
+    let u,d,ui = diagonalize true subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
+and update_hky old_model new_value =
+    let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_hky85 priors new_value old_model.alph in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
+and update_tn93 old_model ((x,y) as new_value) =
+    let subst_spec = { old_model.spec with substitution = TN93 (Some new_value) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_tn93 priors x y 1.0 old_model.alph in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
+and update_f84 old_model new_value =  
+    let subst_spec = { old_model.spec with substitution = F84 (Some new_value) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_f84 priors new_value 1.0 old_model.alph in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
+and update_gtr old_model new_values =  
+    let subst_spec = { old_model.spec with substitution = GTR (Some new_values) }
+    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    let subst_model = m_gtr priors new_values old_model.alph in
+    let u,d,ui = diagonalize false subst_model in
+    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
+
+and update_alpha old_model new_value = 
+    let new_spec_var,new_array = match old_model.spec.site_variation with
+        | Some (Gamma (i,_))   -> Some (Gamma (i,new_value)),
+                                  gamma_rates new_value new_value i
+        | Some (Theta (i,_,p)) -> Some (Theta (i,new_value,p)),
+                                  gamma_rates new_value new_value i
+        | _ -> failwith "Model doesn't specify site variation"
+    in
+    { old_model with rate = new_array;
+                     spec = { old_model.spec with site_variation = new_spec_var;} }
+
+and update_alpha_invar old_model new_alpha new_invar =
+    let new_spec_var,new_array = match old_model.spec.site_variation with
+        | Some (Gamma (i,_)) -> Some (Gamma (i,new_alpha)),
+                                gamma_rates new_alpha new_alpha i
+        | Some (Theta (i,_,_)) -> Some (Theta (i,new_alpha,new_invar)),
+                                  gamma_rates new_alpha new_alpha i
+        | _ -> failwith "Model doesn't specify site variation"
+    in
+    { old_model with rate = new_array;
+                     spec = { old_model.spec with site_variation = new_spec_var; };
+                     invar = Some new_invar; }
+
+let update_all fun_model old_model new_values =
+    let n = Array.length new_values in
+    let alpha = new_values.(n - 1) in
+    let model = Array.init (n-1) (fun x -> new_values.(x)) in
+    update_alpha (fun_model old_model model) alpha
+
+let update_alli fun_model old_model new_values = 
+    let n = Array.length new_values in
+    let alpha = new_values.(n - 2) 
+    and invar = new_values.(n - 1) in
+    let model = Array.init (n - 2) (fun x -> new_values.(x)) in
+    update_alpha_invar (fun_model old_model model) alpha invar
+
+END
+
+
+
 (** GENERAL BRENTS METHOD **)
 exception Colinear
 (* function and braketed area and error *)
@@ -843,17 +933,22 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((orig_val,orig_ll) as ori
 (* find the derivative of a single variable function *)
 let derivative_at_x ?(epsilon=3.0e-8) f x fx =
     let _,f_new = f (x +. epsilon) in
-    Printf.printf "New LK: %f\n" f_new;
     (f_new -. fx) /. epsilon
 (* find the magnitude of a vector x_array *)
 let magnitude x_array = sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
 (* find the gradient of a multi-variant function at a point x_array *)
 let gradient_at_x ?(epsilon=3.0e-8) f_ x_array f_array : float array = 
-    Printf.printf "Initial Value: %f\n" f_array;
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
     Array.mapi 
         (fun i i_val ->
-            derivative_at_x ~epsilon (fun x -> f_ (i_replace i x_array x)) i_val f_array)
+            derivative_at_x ~epsilon 
+                            (fun x -> 
+                                let newvec = i_replace i x_array x in
+                                let newlk = f_ newvec in
+                                debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
+                                newlk)
+                            i_val
+                            f_array)
         x_array
 (* dot product of two arrays *)
 let dot_product x_array y_array = 
@@ -874,7 +969,7 @@ let matrix_map f mat =
 (* line search along a specified direction *)
 (* Numerical Recipes in C : 9.7            *)
 let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep direction =
-    let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x and get_data x = fst x in
+    let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x in
     (* set up some globals for the function to avoid tons of arguments *)
     let n = Array.length point and origfpoint = get_score fpoint in
     (* scale direction so, |pstep| <= maxstep *)
@@ -947,7 +1042,7 @@ let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep 
 (** BFGS Algorithm                   **)
 (** Numerical Recipes in C : 10.7    **)
 let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5) f p fp =
-   let n = Array.length p and get_score x = snd x and get_data x = fst x in
+   let n = Array.length p and get_score x = snd x in
     (* test convergence of a point --that it equals the direction, essentially *)
     let converged_l direction test_array =
         let test = ref 0.0 in
@@ -1049,68 +1144,95 @@ let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5
     debug_printf "Initial Gradient: %s\n%!" (pp_farray pgrad);
     debug_printf "Initial Direction: %s\n%!" (pp_farray dir);
     let pf,fpf = main_loop hessian f p fp mxstep dir pgrad in
-    debug_printf "Performed BFGS: (%s,%f) ---[%d]---> (%s,%f)\n%!" (pp_farray p)
+    debug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!" (pp_farray p)
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
 
 
-(* functions to update the models of evolutions particular parameters *)
-let update_k2p old_model new_value =
-    let subst_spec = { old_model.spec with substitution = K2P (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_k2p priors new_value 1.0 (Array.length priors) in
-    let u,d,ui = diagonalize true subst_model in
-    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
-
-and update_hky old_model new_value =
-    let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_hky85 priors new_value (Array.length priors) in
-    let u,d,ui = diagonalize false subst_model in
-    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
-
-and update_f84 old_model new_value =  
-    let subst_spec = { old_model.spec with substitution = F84 (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_f84 priors new_value 1.0 (Array.length priors) in
-    let u,d,ui = diagonalize false subst_model in
-    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
-
-and update_gtr old_model new_values =  
-    Printf.printf "Replacing GTR with: %s\n" (pp_farray new_values);
-    let subst_spec = { old_model.spec with substitution = GTR (Some new_values) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_gtr priors new_values (Array.length priors) in
-    let u,d,ui = diagonalize false subst_model in
-    { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
-
-and update_alpha old_model new_value = 
-    let new_spec_var,new_array = match old_model.spec.site_variation with
-        | Some (Gamma (i,_)) -> Some (Gamma (i,new_value)), gamma_rates new_value new_value i
-        | Some (Theta (i,_,p)) -> Some (Theta (i,new_value,p)), gamma_rates new_value new_value i
-        | _ -> failwith "Model doesn't specify site variation"
+(* this assumes that the spec is consistent with the model itself, the returned
+ * update function ensures this consistency *)
+let get_update_function_for_model model =
+  IFDEF USE_LIKELIHOOD THEN
+    let add_alpha model_fun = match model.spec.site_variation with
+        | Some (Gamma _) -> Some (update_all model_fun)
+        | Some (Theta _) -> Some (update_alli model_fun)
+        | None | Some Constant -> Some model_fun
     in
-    { old_model with rate = new_array;
-                     spec = { old_model.spec with site_variation = new_spec_var;} }
+    match model.spec.substitution with
+        | JC69 | F81 | File _ ->
+            begin match model.spec.site_variation with
+                | Some (Gamma _) -> Some (fun y x -> update_alpha y x.(0))
+                | Some (Theta _) -> Some (fun y x -> update_alpha_invar y x.(0) x.(1))
+                | None | Some Constant -> None
+            end
+        | TN93 _  -> add_alpha (fun y x -> update_tn93 y (x.(0),x.(1)) )
+        | F84 _   -> add_alpha (fun y x -> update_f84 y x.(0))
+        | GTR _   -> add_alpha update_gtr
+        | K2P _   -> add_alpha (fun y x -> update_k2p y x.(0))
+        | HKY85 _ -> add_alpha (fun y x -> update_hky y x.(0))
+  ELSE
+    None
+  END
 
-let get_update_function_for_model model = match model.spec.substitution with
-    | F84 _   -> Some (fun y x -> update_f84 y x.(0) )
-    | GTR _   -> Some update_gtr
-    | K2P _   -> Some (fun y x -> update_k2p y x.(0) )
-    | HKY85 _ -> Some (fun y x -> update_hky y x.(0) )
-    | _       -> None
-
-let update_all fun_model old_model new_values = 
-    let n = Array.length new_values in
-    let alpha = new_values.(n - 1) in
-    let model = Array.init (n-1) (fun x -> new_values.(x)) in
-    update_alpha (fun_model old_model model) alpha
-
-let get_current_parameters_for_model model = match model.spec.substitution with
-    | F84 x   -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
-    | K2P x   -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
-    | HKY85 x -> begin match x with | Some x -> Some (Array.make 1 x) | None -> None end
-    | GTR x   -> x
-    | _       -> None
-
-END
+let get_current_parameters_for_model model =
+  IFDEF USE_LIKELIHOOD THEN
+    let make_single_with x = match model.spec.site_variation with
+        | Some (Gamma (cat,alpha)) -> 
+            begin match x with 
+                | None   -> Some (Array.make 1 alpha)
+                | Some x -> let y = Array.make 2 x in y.(1) <- alpha; Some y
+            end
+        | Some (Theta (cat,alpha,invar)) ->
+            begin match x with 
+                | None   -> Some (Array.make 1 alpha)
+                | Some x -> let y = Array.make 2 x in y.(1) <- alpha; Some y
+            end
+        | None | Some Constant -> 
+            begin match x with
+                | None   -> None
+                | Some x -> Some (Array.make 1 x)
+            end
+    in
+    match model.spec.substitution with
+        | JC69 | F81 | File _ -> make_single_with None
+        | F84 x | K2P x | HKY85 x ->
+            make_single_with (match x with | None -> Some default_tstv | _ -> x)
+        | TN93 x  ->
+            let x1,x2 = match x with 
+                | Some (x,y) -> x,y
+                | None -> default_tstv,default_tstv
+            in
+            begin match model.spec.site_variation with
+                | Some (Gamma (cat,alpha)) ->
+                    let y = Array.make 3 alpha in
+                    y.(0) <- x1;
+                    y.(1) <- x2;
+                    Some y
+                | Some (Theta (cat,alpha,invar)) ->
+                    let y = Array.make 4 invar in
+                    y.(0) <- x1;
+                    y.(1) <- x1;
+                    y.(2) <- alpha;
+                    Some y
+                | None | Some Constant -> 
+                    let y = Array.make 2 x2 in
+                    y.(0) <- x1;
+                    Some y
+            end
+        | GTR x ->
+            let x = match x with | Some x -> x | None -> default_gtr model.alph in
+            begin match model.spec.site_variation with
+                | Some (Gamma (cat,alpha)) ->
+                    let y = Array.make (1 + Array.length x) alpha in
+                    Array.blit x 0 y 0 (Array.length x);
+                    Some y
+                | Some (Theta (cat,alpha,invar)) ->
+                    let y = Array.make (2 + Array.length x) alpha in
+                    Array.blit x 0 y 0 (Array.length x);
+                    y.(1 + Array.length x) <- invar;
+                    Some y
+                | None | Some Constant -> Some x
+            end
+  ELSE
+    None
+  END

@@ -27,6 +27,8 @@ type string_spec = string * (string * string * string * string)
 
 val empty_str_spec : string_spec
 
+val likelihood_not_enabled : string
+
 (** [site_var] the site variation rate parameters. *)
 type site_var = 
     (** [Gamma] #categories, alpha, beta *)
@@ -92,6 +94,16 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+(* list of set bits, or packed integer of set bits *)
+type chars = [ `List of int list | `Packed of int ]
+
+(** [convert_string_spec] convert a string spec from nexus and other formats to
+ * the basic specification in for a likelihood model *)
+val convert_string_spec : string_spec -> spec
+
+(** [create_lk_model s] create the model for likelihood from parser *)
+val create  : Alphabet.a -> spec -> model
+
 IFDEF USE_LIKELIHOOD THEN
 
 val compare : model -> model -> int
@@ -152,18 +164,10 @@ val m_jc69  : float array -> float -> int ->
 val m_file  : float array -> float array array -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
-(** [convert_string_spec] convert a string spec from nexus and other formats to
- * the basic specification in for a likelihood model *)
-val convert_string_spec : string_spec -> spec
-
-(** [create_lk_model s] create the model for likelihood from parser *)
-val create  : Alphabet.a -> spec -> model
-
-(** [estimate_model_pair l1 l2 seq1 seq2] does initial classification of the
+(** [classify_seq_pairs l1 l2 seq1 seq2] does initial classification of the
 * transitions from [seq1] to [seq2] Returns a map of complements, the number of
 * of exact matches, and total number of transitions. Only base frequency in the
 * leaves are added to the IntegerMap, indicated by [l1] and [l2]. *)
-type chars = [ `List of int list | `Packed of int ]
 val classify_seq_pairs :
     bool -> bool -> (float * int * chars) list -> (float * int * chars) list ->
         (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) ->
@@ -189,6 +193,8 @@ val diagonalize :
 val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
+END
+
 (** [brents_method ?i ?e o f] uses brents method of parabolic interpolation to
  * find the local minimum near [o] of the function [f]. [i] and [e] are used to
  * control the number of iterations and tolerance, respectively. [o] is a pair
@@ -201,8 +207,9 @@ val brents_method :
  * gradient [g] and direction [d] of function [f] by point [p], attempting the
  * longest step with maximum [s] *)
 val line_search : 
-    ?epsilon:float -> ?alf:float -> (float array -> 'a * float) -> float array 
-        -> 'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
+    ?epsilon:float -> ?alf:float -> (float array -> 'a * float) -> float array
+    -> 
+        'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
 
 (* [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
  * matrix of a function f with starting point init. *)
@@ -210,24 +217,9 @@ val bfgs_method :
     ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float ->
         (float array -> 'a * float) -> float array -> 'a * float -> float array * ('a * float)
 
-(** [update_k2p m v] update model [m] with new value [v] *)
-val update_k2p : model -> float -> model
-
-(** [update_hky m v] update model [m] with new value [v] *)
-val update_hky : model -> float -> model
-
-(** [update_f84 m v] update model [m] with new value [v] *)
-val update_f84 : model -> float -> model
-
-(** [update_gtr m v] update model [m] with new value [v] *)
-val update_gtr : model -> float array -> model
-
-(** [update_alpha m v] update model [m] with rate parameter [v] *)
-val update_alpha : model -> float -> model
-
 (* [get_update_function_for_model] based on the model provided return a function
  * that will update the model based on an input value *)
-val get_update_function_for_model : model -> (model -> float array -> model) option
+val get_update_function_for_model    : model -> (model -> float array -> model) option
 val get_current_parameters_for_model : model -> float array option
 
-END
+

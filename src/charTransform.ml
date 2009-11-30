@@ -733,6 +733,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
     let estimate_likelihood_model p_tree branches alphabet (chars,subst,variation,_,gap) =
+      IFDEF USE_LIKELIHOOD THEN
         let gap = match gap with `GapAsCharacter x -> x in
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
@@ -752,6 +753,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             --> l_traversal branches classify_branch p_tree
             --> MlModel.spec_from_classification alphabet gap subst variation
             --> MlModel.create alphabet
+      ELSE
+        failwith MlModel.likelihood_not_enabled
+      END
 
     let analyze_sequences sensible acc ((node, node_union), leafs) =
         try 

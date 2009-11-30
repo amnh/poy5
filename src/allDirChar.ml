@@ -71,6 +71,48 @@ module F : Ptree.Tree_Operations
         in
         left (* either side can return, no reason for choosing left *)
 
+    (* build table of branch lengths like the table in Data.branches for tree *)
+    let update_branches ptree =
+        let get_codestable data node1 node2 = 
+            let codestimes = 
+                AllDirNode.AllDirF.get_times_between
+                    (Ptree.get_node_data node1 ptree)
+                    (Ptree.get_node_data node2 ptree)
+            and table = Hashtbl.create 1227
+            and insert_set codes table time = 
+                Array.iter
+                    (fun code -> 
+                        let name = Hashtbl.find data.Data.character_codes code in
+                        Hashtbl.add table name time)
+                    codes
+            in
+            List.iter
+                (fun (codes,times) -> match times with
+                    | Some x -> insert_set codes table x
+                    | None -> () )
+                codestimes;
+            table
+        in
+        let name = match ptree.Ptree.tree.Tree.tree_name with
+            | Some x -> String.uppercase x | None -> ""
+        and treebranches = Hashtbl.create 1 (* doing this for only one tree *)
+        and insert_function setmap edge =
+            let Tree.Edge (left,right) = edge in
+            let p1 = create_partition ptree left right
+            and p2 = create_partition ptree right left in
+            let codestable = get_codestable ptree.Ptree.data left right in
+            setmap
+                --> All_sets.IntSetMap.add p1 codestable
+                --> All_sets.IntSetMap.add p2 codestable 
+        in
+        let () =
+            Ptree.get_edges_tree ptree
+                --> List.fold_left insert_function All_sets.IntSetMap.empty
+                --> Hashtbl.add treebranches name
+        in
+        {ptree.Ptree.data with Data.branches = treebranches }
+            --> (fun x -> {ptree with Ptree.data = x})
+
     (* process tree data to find branch lengths *)
     let hashdoublefind tree partitions : (int,(int,float) Hashtbl.t) Hashtbl.t option =
         (* converts table with character names to character ids *)
@@ -1057,10 +1099,10 @@ module F : Ptree.Tree_Operations
      * downpass and uppass information using the lazy all direction nodes *)
     let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
         (* function to process tree->node->charactername to int->float hashtbl
-        * for all the node ids passed --(multiple node_id capability for uppass) *)
+         * for all the node ids passed --(multiple node_id capability for uppass) *)
         let ptree = 
             (* A function to add  the vertices using a post order traversal 
-            * from the Ptree library. *)
+             * from the Ptree library. *)
             let add_vertex_post_order prev code ptree =
                 current_snapshot "AllDirChar.internal_downpass.add_vertex_post_order";
                 match Ptree.get_node code ptree with
@@ -1114,7 +1156,8 @@ module F : Ptree.Tree_Operations
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots ptree else ptree
 
-    let clear_internals t = {t with Ptree.data = Data.remove_bl t.Ptree.data; }
+    let clear_internals t = 
+        {t with Ptree.data = Data.remove_bl t.Ptree.data; }
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1171,7 +1214,7 @@ module F : Ptree.Tree_Operations
 
     (* ----------------- *)
     (* function to adjust the likelihood model of a tree using BFGS --quasi
-     * newtons method. *)
+     * newtons method. Function requires three directions. *)
     let model_fn tree = 
         (* replace nodes in a tree, copying relevent data structures *)
         let substitute_nodes nodes tree =
@@ -1201,33 +1244,57 @@ module F : Ptree.Tree_Operations
         in
         (* function for processing a model and applying to a tree --inner loop *)
         let f_likelihood f tree chars current_model new_values =
-                let ntree =
-                    Parser.SC.STLikelihood (f current_model new_values)
-                        --> Data.apply_on_static_chars tree.Ptree.data chars
-                        --> AllDirNode.AllDirF.load_data
-                        --> (fun (x,y) -> substitute_nodes y {tree with Ptree.data = x}
-                in
-                let ncost = Ptree.get_cost `Adjusted ntree in
-                ntree,ncost
+            let ntree =
+                Parser.SC.STLikelihood (f current_model new_values)
+                    --> Data.apply_on_static_chars tree.Ptree.data chars
+                    --> AllDirNode.AllDirF.load_data
+                    --> (fun (x,y) -> substitute_nodes y {tree with Ptree.data = x} )
+            in
+            let ncost = Ptree.get_cost `Adjusted ntree in
+            ntree,ncost
         in
         (* iterate the model only if using likelihood *)
         if using_likelihood tree then begin
             let current_model = current_model tree.Ptree.data chars
             and current_cost = Ptree.get_cost `Adjusted tree in
-            info_user_message "Adjusting Model Parameters";
             let current_array =
                 match MlModel.get_current_parameters_for_model current_model with
                 | Some x -> x | None -> failwith "No parameters to modify" in 
             let params, (best_tree, best_cost) = 
                 match MlModel.get_update_function_for_model current_model with
                 | Some func -> 
+                    let tree = update_branches tree in
                     MlModel.bfgs_method (f_likelihood func tree chars current_model)
-                                        current_array (tree,current_cost)
+                                        current_array 
+                                        (tree,current_cost)
                 | None -> failwith "No function to optimize with"
             in
             if best_cost < current_cost then best_tree else tree
         end else begin
             tree
+        end
+
+    let adjust_fn ?(epsilon=1.0e-4) ?(max_iter=20) iterations tree = 
+        if using_likelihood tree then begin
+            let rec loop_ iter curr tree =
+                if iter = max_iter then tree
+                else begin
+                    let mtree = model_fn tree in
+                    let mcost = Ptree.get_cost `Adjusted mtree in
+                    if (abs_float (curr -. mcost)) <= epsilon then mtree
+                    else begin
+                        let btree = adjust_tree iterations None mtree in
+                        let bcost = Ptree.get_cost `Adjusted btree in
+                        if (abs_float (mcost -. bcost)) <= epsilon then btree
+                        else loop_ (iter+1) bcost btree
+                    end
+                end
+            in
+            (* ensures that we modify the branch lengths *)
+            let first = adjust_tree iterations None tree in
+            loop_ 0 (Ptree.get_cost `Adjusted first) first
+        end else begin
+            adjust_tree iterations None tree
         end
 
     (* ---------- *)
@@ -1247,7 +1314,7 @@ module F : Ptree.Tree_Operations
                     --> internal_downpass true
                     --> pick_best_root
                     --> assign_single true
-                    --> adjust_tree iterations None
+                    --> adjust_fn iterations
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then Printf.printf "Downpass Ends\n%!";
@@ -1654,7 +1721,7 @@ module F : Ptree.Tree_Operations
                 let tree = 
                    tree --> pick_best_root
                         --> assign_single true 
-                        --> adjust_tree iterations None
+                        --> adjust_fn iterations
                 in
                 tree, delta
             | `Normal_plus_Vitamines
@@ -1809,7 +1876,7 @@ module F : Ptree.Tree_Operations
                             (Ptree.get_node_data prev ptree) in
                 let name_it x = match dat with | [_] -> `Single x 
                                                | []  -> failwith "No character Sets"
-                                               | _   -> `Name dat
+                                               | _   -> `Name
                 in
                 let () = List.iter
                     (fun (code,length) -> match length with
@@ -1840,11 +1907,12 @@ module F : Ptree.Tree_Operations
         in
         trees_table
 
+
     let to_formatter (atr : Xml.attributes)  
             (tree : (a, b) Ptree.p_tree) : Xml.xml =
         let data = tree.Ptree.data in
         let tree = assign_final_states tree in
-        let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in 
+        let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
 (*
         Utl.printIntSet pre_ref_codes;
         Utl.printIntSet fi_ref_codes;
@@ -1853,8 +1921,7 @@ module F : Ptree.Tree_Operations
             let nd = Ptree.get_node_data x tree in
             nd, get_unadjusted parent nd, get_single parent nd
         in
-        let merger a b root = 
-            (`Set [`Single root; `Single a; `Single b]) 
+        let merger a b root = (`Set [`Single root; `Single a; `Single b]) 
         and splitter parent a = get_unadjusted parent a, get_single parent a in
         (* Now we are ready to process the contents of the tree *)
         let rec subtree_to_formatter (pre, fi) cur par 

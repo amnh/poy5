@@ -79,7 +79,7 @@ module type S = sig
                             (float * int * MlModel.chars) list
 
     (** [get_times_between left right] time between two nodes -- **)
-    val get_times_between : n -> n -> (int * (float option)) list
+    val get_times_between : n -> n -> (int array * (float option)) list
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)

@@ -1098,48 +1098,22 @@ END
     List.map func nd.characters
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data) =
-    let null = (0,None) in
+    let null = ([||],None) in
     let func = 
 IFDEF USE_LIKELIHOOD THEN
         let f = 
-            if parent.min_child_code = child.min_child_code then fst 
-            else snd 
+            if parent.min_child_code = child.min_child_code
+                then fst
+                else snd 
         in
         function
-            | StaticMl z ->
-                    (MlStaticCS.get_codes z.preliminary).(0), f z.time
+            | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
             | _ -> null
 ELSE
         fun _ -> null
 END
     in
     List.map func parent.characters
-
-let get_times_between_tbl tbl (nd:node_data) =
-    let func =
-IFDEF USE_LIKELIHOOD THEN
-        let values_match code_ray tbl =
-            if Array.length code_ray = 0 then true else
-            let value = Hashtbl.find tbl (code_ray.(0)) in
-            Array.fold_left 
-                (fun acc x -> 
-                    acc && (value = (Hashtbl.find tbl x)))
-                true
-                code_ray
-        in
-        function
-            | StaticMl z ->
-                    (try
-                        let codes = MlStaticCS.get_codes z.preliminary in
-                        assert(((Array.length codes) > 0) && (values_match codes tbl));
-                        Some (Hashtbl.find tbl codes.(0))
-                    with Not_found -> None)
-            | _ -> None
-ELSE
-        fun _ -> None
-END
-    in
-    List.map func nd.characters
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the
