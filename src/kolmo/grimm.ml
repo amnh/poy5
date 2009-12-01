@@ -10,6 +10,7 @@ let m_false = [SK (S K)]
 (** [m_or x y] is the boolean [x] OR [y]. The argument order in the function
 * reduces the size. *)
 let m_or x y = if x then x else y
+let m_and x y = if x then y else x
 
 (** [m_not x] is the negation of [x]. *)
 let m_not x = if x then m_false else m_true
@@ -140,6 +141,8 @@ module IntegerDecoder = struct
 end
 
 module Inversions = struct
+    let is_genome_limit base = base first
+
     let rec invert_and_merge stack1 stack2 = 
         if Stack.is_empty stack1 then stack2
         else 
@@ -150,14 +153,14 @@ module Inversions = struct
             Stack.push new_a_head (invert_and_merge (Stack.rest stack1) stack2)
 
 
-    let rec process genome stack offset1 offset2 =
+    let rec invert genome stack offset1 offset2 =
         if Church.not_zero offset1 then
             Stack.push (Stack.pop genome) 
-            (process (Stack.rest genome) stack (Church.predecessor offset1)
+            (invert (Stack.rest genome) stack (Church.predecessor offset1)
             offset2) 
         else 
             if Church.not_zero offset2 then
-                process 
+                invert 
                 (Stack.rest genome)
                 (Stack.push (Stack.pop genome) stack) 
                 offset1 
@@ -165,12 +168,66 @@ module Inversions = struct
             else
                 invert_and_merge stack genome
 
+    let rec beginning_of_offset genome beginning position offset1 offset2 =
+        if Church.not_zero offset1 then 
+            beginning_of_offset (Stack.rest genome) 
+            (if is_genome_limit (Stack.pop genome) then position else beginning)
+            (Church.successor position) (Church.predecessor offset1) offset2
+        else if Church.not_zero offset2 then
+            beginning_of_offset (Stack.rest genome) 
+            (if is_genome_limit (Stack.pop genome) then position else beginning)
+            (Church.successor position) offset1 (Church.predecessor offset2)
+        else beginning
+
+    let rec end_of_offset genome position offset1 = 
+        let reached_end_of_chromosome= 
+            m_and (Church.is_zero offset1) (is_genome_limit (Stack.pop genome)) 
+        in
+        if reached_end_of_chromosome then position
+        else
+            end_of_offset (Stack.rest genome) 
+            (Church.successor position) (Church.predecessor offset1)
+            
+
+    let grimm invert genome offset1 offset2 =
+        let chromosome_of_1 = beginning_of_offset genome 0 0 offset1 0 in
+        let chromosome_of_2 = beginning_of_offset genome 0 0 offset1 offset2 in
+        if Church.equal chromosome_of_1 chromosome_of_2 then
+            invert genome Stack.empty offset1 offset2
+        else 
+            let end_of_chromosome_1 = end_of_offset genome 0 offset1 in
+            let choose_translocation is_simple_translocation =
+                let genome = 
+                    invert genome Stack.empty end_of_chromosome_1 chromosome_of_2
+                in
+                if Stream.to_bool is_simple_translocation then 
+                    invert genome Stack.empty offset1 offset2
+                else
+                    let genome = 
+                        invert genome Stack.empty chromosome_of_1
+                        end_of_chromosome_1 
+                    in
+                    let genome = invert genome Stack.empty 
+                        (Church.add 
+                            chromosome_of_1 
+                            (Church.substract end_of_chromosome_1 offset1))
+                        offset2 
+                    in
+                    invert genome Stack.empty
+                    chromosome_of_1 
+                        (Church.add 
+                            (Church.substract end_of_chromosome_1 offset1)
+                            (Church.substract offset2 chromosome_of_2))
+            in
+            choose_translocation
+
+
     let rec my_process _uniform_max continuation genome length do_nothing =
         if do_nothing then continuation genome length
         else 
             let decode_operation offset1 offset2 =
                 my_process _uniform_max continuation 
-                (process genome Stack.empty offset1 offset2) length
+                (grimm invert genome Stack.empty offset1 offset2) length
             in
             let decode_offset2 offset1 =
                 _uniform_max (decode_operation offset1) 0

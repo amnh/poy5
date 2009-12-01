@@ -139,41 +139,38 @@ module IntegerDecoder = struct
 
 end
 
-module Inversions = struct
-    let rec invert_and_merge stack1 stack2 = 
-        if Stack.is_empty stack1 then stack2
-        else 
-            let a_head = Stack.pop stack1 in
-            let a_sign = m_not (a_head second first) in
-            let a_base = a_sign second second in
-            let new_a_head = pair m_false (pair a_sign a_base) in
-            Stack.push new_a_head (invert_and_merge (Stack.rest stack1) stack2)
-
-
-    let rec process genome stack offset1 offset2 =
+module Transpositions = struct
+    let rec transpose genome stack1 offset1 offset2 offset3 = 
         if Church.not_zero offset1 then
             Stack.push (Stack.pop genome) 
-            (process (Stack.rest genome) stack (Church.predecessor offset1)
-            offset2) 
-        else 
-            if Church.not_zero offset2 then
-                process 
-                (Stack.rest genome)
-                (Stack.push (Stack.pop genome) stack) 
-                offset1 
-                (Church.predecessor offset2)
-            else
-                invert_and_merge stack genome
+            (transpose (Stack.rest genome) stack1 
+                (Church.predecessor offset1)
+                offset2 offset3)
+        else if Church.not_zero offset2 then
+            transpose (Stack.rest genome) (Stack.push (Stack.pop genome) stack1) 
+            offset1 (Church.predecessor offset2) offset3
+        else if Church.not_zero offset3 then
+            Stack.push (Stack.pop genome)
+            (transpose (Stack.rest genome) stack1
+            offset1 
+            offset2
+            (Church.predecessor offset3))
+        else Stack.inv_merge stack1 genome
+
 
     let rec my_process _uniform_max continuation genome length do_nothing =
         if do_nothing then continuation genome length
         else 
-            let decode_operation offset1 offset2 =
+            let decode_operation offset1 offset2 offset3 =
                 my_process _uniform_max continuation 
-                (process genome Stack.empty offset1 offset2) length
+                (transpose genome Stack.empty offset1 offset2 offset3) length
+            in
+            let decode_offset3 offset1 offset2 =
+                _uniform_max (decode_operation offset1 offset2) 0
+                length
             in
             let decode_offset2 offset1 =
-                _uniform_max (decode_operation offset1) 0
+                _uniform_max (decode_offset3 offset1) 0
                 length
             in
             let decode_offset1 =
@@ -188,5 +185,5 @@ end)
 
 let compiler =
     Compiler.compile mymodule Compiler.compiler
-let main = Compiler.get compiler "Inversions.my_process"
-let len = Compiler.complexity compiler "Inversions.my_process"
+let main = Compiler.get compiler "Transpositions.my_process"
+let len = Compiler.complexity compiler "Transpositions.my_process"

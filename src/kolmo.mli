@@ -40,6 +40,7 @@ module S_K :
     val s_decode : Encodings.bit list -> primitives
     val sk_define_interpreted : string -> string list -> primitives -> unit
     val create : primitives -> string list -> primitives
+    val to_pdf : primitives -> string -> unit
   end
 
 module Compiler : sig
@@ -439,10 +440,64 @@ end
 
 module Tdrl : sig
     val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Grdrl : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
 end
 
 module Inversion : sig
     val compiler : Compiler.compiler
-    val decoder : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Dcj : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module InversionAndTranslocation : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module Tree : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Identity : sig 
+    val compiler : Compiler.compiler
+    val chromosome_identity : S_K.primitives
+    val chromosome_signed_identity : S_K.primitives
+    val len_chromosome_identity : int
+    val len_chromosome_signed_identity : int
+end
+module Grimm : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module Transpositions : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Networks : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Tandem : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
     val len : int
 end

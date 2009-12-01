@@ -26,6 +26,16 @@ let pair a b c = c a b
 let first = m_true
 let second = m_false
 
+module Stream = struct
+    (* [to_bool] converts a single S into SK and K into K. *)
+    let to_bool x = x [SK S] [SK K] [SK K] m_not m_true
+
+    (* [to_bool_c] is the same as [to_bool], but does this procedure using
+    * continuation passing style, to continue processing the stream with the
+    * output. *)
+    let to_bool_c continuation x = 
+        continuation (x [SK S] [SK K] [SK K] m_not m_true)
+end
 (** Church integers representation. The number n is represented as a list of n
 * trues. The list is formed by pairs. *)
 module Church = struct
@@ -79,17 +89,6 @@ module Church = struct
 
 end
 
-module Stream = struct
-    (* [to_bool] converts a single S into SK and K into K. *)
-    let to_bool x = x [SK S] [SK K] [SK K] m_not m_true
-
-    (* [to_bool_c] is the same as [to_bool], but does this procedure using
-    * continuation passing style, to continue processing the stream with the
-    * output. *)
-    let to_bool_c continuation x = 
-        continuation (x [SK S] [SK K] [SK K] m_not m_true)
-end
-
 module Stack = struct
     let push x stack = pair [SK S] (pair x stack)
     let empty = pair [SK K] [SK K]
@@ -110,7 +109,6 @@ module Stack = struct
         else Church.successor (length (rest stack))
 end
 
-
 module IntegerDecoder = struct
     let church_stream continuation =
         let rec _church_stream continuation acc next =
@@ -121,72 +119,68 @@ module IntegerDecoder = struct
         in
         _church_stream continuation 0
 
-    let apply x y = x y
-
-    let identity x = x
-
     let rec _uniform_max continuation acc bits next =
         let nacc = 
-            apply
-            (if (Stream.to_bool next) then Church.successor else identity)
-            (Church.add acc acc) 
+            Church.add (Church.add acc acc) 
+            (if (Stream.to_bool next) then 1 else 0)
         in
-        let next_to_execute newbits = 
-            if Church.not_zero newbits then continuation nacc
-            else _uniform_max continuation nacc newbits
+        if Church.equal bits 1 then continuation nacc
+        else _uniform_max continuation nacc (Church.predecessor bits)
+
+    let uniform_max continuation = _uniform_max continuation 0 
+
+    let uniform continuation = church_stream (uniform_max continuation)
+
+    let uniform_min_max continuation min max =
+        let my_continuation decoded_integer = 
+            continuation (Church.add min decoded_integer)
         in
-        next_to_execute (Church.predecessor bits)
+        _uniform_max my_continuation max
 
 end
+module Stack = struct
+    val push x stack = pair [SK S] (pair x stack)
+    val empty = pair [SK K] [SK K]
+    val pop stack = stack second first
+    val rest stack = stack second
+    val is_empty stack = Stream.to_bool (stack first)
+    val rec merge a b = 
+        if is_empty a then b
+        else merge (rest a) (push (pop a) b)
+    val rec length stack = 
+        if is_empty stack then Church.zero
+        else Church.successor (length (rest stack))
+end
 
-module Inversions = struct
-    let rec invert_and_merge stack1 stack2 = 
-        if Stack.is_empty stack1 then stack2
-        else 
-            let a_head = Stack.pop stack1 in
-            let a_sign = m_not (a_head second first) in
-            let a_base = a_sign second second in
-            let new_a_head = pair m_false (pair a_sign a_base) in
-            Stack.push new_a_head (invert_and_merge (Stack.rest stack1) stack2)
+let rec aux_identity n stack =
+    if Church.not_zero n then 
+        aux_identity (Church.predecessor n) (Stack.push n stack)
+    else stack
 
+let chromosome_identity mechanism =
+    let create_initial n = 
+        mechanism (aux_identity n Stack.empty)
+    in
+    IntegerDecoder.uniform create_initial
 
-    let rec process genome stack offset1 offset2 =
-        if Church.not_zero offset1 then
-            Stack.push (Stack.pop genome) 
-            (process (Stack.rest genome) stack (Church.predecessor offset1)
-            offset2) 
-        else 
-            if Church.not_zero offset2 then
-                process 
-                (Stack.rest genome)
-                (Stack.push (Stack.pop genome) stack) 
-                offset1 
-                (Church.predecessor offset2)
-            else
-                invert_and_merge stack genome
+let rec aux_signed_identity n stack = 
+    if Church.not_zero n then 
+        aux_signed_identity (Church.predecessor n) 
+        (Stack.push (pair m_true n) stack)
+    else stack
 
-    let rec my_process _uniform_max continuation genome length do_nothing =
-        if do_nothing then continuation genome length
-        else 
-            let decode_operation offset1 offset2 =
-                my_process _uniform_max continuation 
-                (process genome Stack.empty offset1 offset2) length
-            in
-            let decode_offset2 offset1 =
-                _uniform_max (decode_operation offset1) 0
-                length
-            in
-            let decode_offset1 =
-                _uniform_max decode_offset2 0 length
-            in
-            decode_offset1
+let chromosome_signed_identity  mechanism = 
+    let create_initial n =
+        mechanism (aux_signed_identity n Stack.empty)
+    in
+    IntegerDecoder.uniform create_initial
+    )
 
-    let my_process continuation genome length do_nothing =
-        my_process IntegerDecoder._uniform_max continuation genome length
-        do_nothing
-end) 
-
-let compiler =
-    Compiler.compile mymodule Compiler.compiler
-let main = Compiler.get compiler "Inversions.my_process"
-let len = Compiler.complexity compiler "Inversions.my_process"
+let compiler = Compiler.compile mymodule Compiler.compiler
+let chromosome_identity = Compiler.get compiler "chromosome_identity"
+let chromosome_signed_identity = 
+    Compiler.get compiler "chromosome_signed_identity"
+let len_chromosome_identity = 
+    Compiler.complexity compiler "chromosome_identity"
+let len_chromosome_signed_identity =
+    Compiler.complexity compiler "chromosome_signed_identity"

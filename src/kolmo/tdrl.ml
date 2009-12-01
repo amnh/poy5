@@ -65,3 +65,5 @@ module TDRL = struct
         else continuation seq
 
 end) Compiler.compiler
+let main = Compiler.get compiler "TDRL.my_process" 
+let len = Compiler.complexity compiler "TDRL.my_process" 
