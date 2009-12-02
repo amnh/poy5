@@ -164,10 +164,11 @@ void CAML_debug( value s )
  * each row sums to 0 on diagonal elements */
 void rand_sub_mat_gtr( double* A, const int n)
 {
-    srand( time(NULL) );
     int i,j;
+    double diag;
+    srand( time(NULL) );
     for(i=0;i<n;++i){
-        double diag = 0;
+        diag = 0;
         for(j=0;j<n;++j){
             if( i == j ){ continue; }
             A[i*n+j] = (double)rand() / (double)RAND_MAX;
@@ -193,11 +194,11 @@ void transpose( double *A, const int n )
  * each row sums to 0 on diagonal elements */
 void rand_sub_mat_sym( double* A, const int n)
 {
-    srand( time(NULL) );
     int i,j;
-    double temp;
+    double temp,diag;
+    srand( time(NULL) );
     for(i=0;i<n;++i){
-        double diag = 0;
+        diag = 0;
         for(j=0;j<n;++j){
             if( i == j ){ continue; }
             if( i < j ) { diag = diag + A[i*n+j]; continue; }
@@ -539,17 +540,17 @@ mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, doub
             work = register_section( space, lwork, 1 );
             dgetri_(&n, VL, &n, pivot, work, &lwork, &i);
             if ( i < 0 ){
-                failwith ( "dgetri_ argument failed." );
+                failwith ( "dgetri_ argument failed. 1" );
             } else if (i > 0){
-                failwith ( "dgetri_ matrix is singular and inverse cannot be computed." );
+                failwith ( "dgetri_ matrix is singular and inverse cannot be computed. 1" );
             }
         } else if (i < 0) { 
-            failwith ( "dgetri_ argument failed." );
+            failwith ( "dgetri_ argument failed. 2" );
         } else {
-            failwith ( "dgetri_ matrix is singular and inverse cannot be computed." );
+            failwith ( "dgetri_ matrix is singular and inverse cannot be computed. 2" );
         }
     } else {
-        failwith ( "degetri_ unknown error" );
+        failwith ( "degetri_ unknown error." );
     }
     free (pivot);
     return i;
@@ -877,7 +878,6 @@ median_h( const double* P, const double* l, const int c_start, double* tmp, cons
     }
 } */
 
-
 /* calculates the likelihood for the invariant site class */
 double
 loglikelihood_site_invar(const mll* l,const double* pi,const int i)
@@ -969,6 +969,7 @@ loglikelihood_invar( const mll* l, const double *pi )
 double loglikelihood( const mll* l, const double* ws, const double* pi, 
                                 const double* prob, const double pinvar )
 {
+    //printarrayf(l->lv_s, l->rates * l->c_len * l->stride);
 #ifdef KAHANSUMMATION
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
@@ -1058,12 +1059,12 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
                 pa_ = load_next2(&Pa[p_start]);
                 pb_ = load_next2(&Pb[p_start]);
                 acc1 = dotproduct2x2(a_,b_,pa_,pb_);
-                /** -- */
+                // --
                 a_ = load_next2(a+2); b_ = load_next2(b+2);
                 pa_ = load_next2(&Pa[p_start+2]);
                 pb_ = load_next2(&Pb[p_start+2]);
                 acc2 = dotproduct2x2(a_,b_,pa_,pb_);
-                /* -- */
+                //  --
                 acc = _mm_add_pd( acc1, acc2 );
                 p_start+=4;a+=4;b+=4;
             }
@@ -1093,35 +1094,38 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
 #else
 
     /* GENERATION II */
-    int i,j,k,a_start,r_start,c_start,p_start;
-    double *tmp1;
-
-    tmp1 = (double*) malloc( sizeof(double) * amll->stride);
-    r_start = rate_idx * amll->stride * amll->c_len;
-    for(i=0,c_start=0; i < amll->c_len; ++i,c_start+=amll->stride ){
-        for(j=0,p_start=0; j < amll->stride; ++j,p_start+=amll->stride){
-            a_start = r_start + c_start + j;
-            cmll->lv_s[a_start] = tmp1[j] =0;
+    int i, j, k, c_start, p_start;
+    double tmp2, tmp1;
+    c_start = rate_idx * amll->stride * amll->c_len;
+    for(i=0; i < amll->c_len; ++i){
+        p_start = 0;
+        for(j=0; j < amll->stride; ++j){
+            tmp1 = tmp2 = 0.0;
             for(k=0; k < amll->stride; ++k){
-                cmll->lv_s[a_start] += Pa[p_start+k] * amll->lv_s[c_start+k];
-                tmp1[j]             += Pb[p_start+k] * bmll->lv_s[c_start+k];
+                tmp1 += Pa[p_start+k] * amll->lv_s[c_start+k];
+                tmp2 += Pb[p_start+k] * bmll->lv_s[c_start+k];
             }
-            cmll->lv_s[a_start] *= tmp1[j];
+            cmll->lv_s[c_start+j] = MAX( tmp1 * tmp2, 0.0 );
+            p_start += amll->stride;
         }
+        c_start += amll->stride;
     }
+ 
 #endif
-    return;
-
     /* GENERATION I
     int i,j,len,oth;
-    oth = rate_idx*(a->stride*a->c_len);
-    for(i=0; i < a->c_len; ++i){
-        len = oth + (i*a->stride);
-        median_h( Pa, a->lv_s, len, tmp1, a->stride );
-        median_h( Pb, b->lv_s, len, tmp2, a->stride );
-        for(j=0;j < a->stride;++j)
-            c->lv_s[len+j] = MAX((tmp2[j]*tmp1[j]),0);
-    */
+    double *tmp2, *tmp1;
+    tmp1 = (double*) malloc( sizeof(double) * amll->stride );
+    tmp2 = (double*) malloc( sizeof(double) * amll->stride );
+    oth = rate_idx * amll->stride * amll->c_len;
+    for(i=0; i < amll->c_len; ++i){
+        len = oth + (i*amll->stride);
+        tmp1[i] = tmp2[i] = 0.0;
+        median_h( Pa, amll->lv_s, len, tmp1, amll->stride );
+        median_h( Pb, bmll->lv_s, len, tmp2, amll->stride );
+        for(j=0;j < amll->stride;++j)
+            cmll->lv_s[len+j] = MAX((tmp2[j]*tmp1[j]),0);
+    } */
 }
 
 void 
@@ -1179,8 +1183,8 @@ value likelihood_CAML_median_wrapped_sym
     //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
     lk_malloc(c->lv_s, c->rates * c->c_len * c->stride * sizeof(double));
     /* register temp variables */
-    PA = (double*) register_section(space, a->stride*a->stride, 1);
-    PB = (double*) register_section(space, a->stride*a->stride, 1);
+    PA = register_section(space, a->stride*a->stride, 1);
+    PB = register_section(space, a->stride*a->stride, 1);
     tmp1 = register_section( space, b->stride * b->stride, 1 );
     /** 
      *  F(x|r_i,P) = f_right(x*r_i|P) * f_left(x*r_i|P)
@@ -1190,13 +1194,13 @@ value likelihood_CAML_median_wrapped_sym
      *      x    = the branch length
      */
     //printf ("rates:%d\tchars:%d\tstride:%d\n",a->rates,a->c_len,a->stride);
-    for(i=0;i<num_rates;i++){
-        compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride,tmp1 );
-        compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride,tmp1 );
+    for(i=0;i<num_rates;++i){
+        compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride, tmp1 );
+        compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride, tmp1 );
         median_charset( PA, PB, a, b, c, i );
     }
     if(a->invar == 1){
-        c->lv_invar = (int*) malloc ( c->c_len * sizeof(double));
+        c->lv_invar = (int*) malloc ( c->c_len * sizeof(int));
         CHECK_MEM(c->lv_invar);
         median_invar( a,b,c );
     }
@@ -1260,13 +1264,13 @@ value likelihood_CAML_median_wrapped_gtr
     tmp1 = register_section( space, b->stride * b->stride, 1 );
     /* main loop, see symmetric for description */
     //printf("R C S:%d\t%d\t%d\n[",a->rates,a->c_len,a->stride);
-    for(i=0;i<num_rates;i++){
+    for(i=0;i<num_rates;++i){
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
         median_charset( PA, PB, a,b,c, i);
     }
     if(a->invar == 1){
-        c->lv_invar = (int*) malloc( c->c_len * sizeof(double));
+        c->lv_invar = (int*) malloc( c->c_len * sizeof(int));
         CHECK_MEM(c->lv_invar);
         median_invar( a,b,c );
     }
@@ -1300,10 +1304,10 @@ void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,
 {
     int i;
     simp->time = time_a;
-    for(i=0;i<g_n;i++){
-        compose_sym( PA, U, D, time_a*gam[i], a->stride,tmp );
-        compose_sym( PB, U, D, time_b*gam[i], b->stride,tmp );
-        median_charset( PA, PB, a,b,simp->vs, i );
+    for(i=0;i<g_n;++i){
+        compose_sym( PA, U, D, time_a*gam[i], a->stride, tmp );
+        compose_sym( PB, U, D, time_b*gam[i], b->stride, tmp );
+        median_charset( PA, PB, a, b, simp->vs, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
@@ -1315,10 +1319,10 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
 {
     int i;
     simp->time = time_a;
-    for(i=0;i<g_n;i++){
+    for(i=0;i<g_n;++i){
         compose_gtr( PA, U, D, Ui, time_a*gam[i], a->stride, tmp );
         compose_gtr( PB, U, D, Ui, time_b*gam[i], b->stride, tmp );
-        median_charset( PA, PB, a,b,simp->vs, i );
+        median_charset( PA, PB, a, b, simp->vs, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */

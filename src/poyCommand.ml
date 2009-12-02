@@ -1229,16 +1229,22 @@ let create_expr () =
                 [ "gtr"; x = OPT ml_floatlist -> `GTR x ] |
                 [ "file"; ":"; x = STRING -> `File x ]
             ];
+        site_properties:
+            [
+                [ right_parenthesis -> None ] |
+                [ ","; y = LIST1 integer_or_float SEP ",";right_parenthesis ->
+                    Some (List.map float_of_string y) ]
+            ];
         ml_site_variation: 
             [
-                [ "gamma";":";left_parenthesis;
-                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
-                        let sv_ = Array.of_list (List.map float_of_string y) in
-                        Some (`Gamma (int_of_string x, sv_.(0))) ] |
-                [ "theta";":";left_parenthesis;
-                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
-                        let sv_ = Array.of_list (List.map float_of_string y) in
-                        Some (`Theta (int_of_string x, sv_.(0), sv_.(1))) ] |
+                [ "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
+                    let d = match d with | Some [x] -> Some x | None -> None
+                        | _ -> failwith "Improper Gamma Argument" in
+                    Some (`Gamma (int_of_string x, d)) ] |
+                [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
+                    let d = match d with | Some [x;y] -> Some (x,y) | None -> None
+                        | _ -> failwith "Improper Theta Argument" in
+                        Some (`Theta (int_of_string x, d)) ] |
                 [ "none" -> None ]
             ];
         ml_priors:

@@ -175,8 +175,8 @@ type ml_substitution = [
     | `File of string
 ]
 
-type ml_site_variation= [   | `Gamma of int * float
-                            | `Theta of int * float * float ]
+type ml_site_variation= [   | `Gamma of int * float option
+                            | `Theta of int * (float * float) option ]
 type ml_priors = [ `Estimate | `Given of float list | `Constant ]
 type ml_gap = [`GapAsCharacter of bool ]
 
