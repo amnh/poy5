@@ -59,7 +59,7 @@
  */
 double gamma( double z )
 {
-    double x,Lg; int k; int g = 7;
+    double x,Lg; int k;
     static double C[] = 
     {  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
         771.32342877765313, -176.61502916214059, 12.507343278686905,
@@ -69,10 +69,10 @@ double gamma( double z )
         return M_PI / (sin(M_PI*z)*gamma(1-z));
     z--;
     Lg = C[0];
-    for(k=1;k<g+2;++k)
+    for(k=1;k<9;++k)
         Lg = Lg + (C[k] / (z+k));
 
-    x = z + g + 0.5;
+    x = z + 7.5;
     x = sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
     return (x);
 }
@@ -264,10 +264,10 @@ void
 gamma_rates(double* rates,const double a,const double b,const double* cuts,const int k)
 {
     double fac, *ingam;
+    int j;
     fac = a*((double)k)/b;
     ingam = (double*) malloc( k * sizeof(double));
     CHECK_MEM(ingam);
-    int j;
 
     //calculate: rj = (A*k/B)*(I(bB,A+1)-I(aB,A+1))
     for(j=0;j<(k-1);j++){
@@ -288,29 +288,29 @@ value gamma_CAML_rates( value a, value b, value c )
     CAMLlocal1( rates );
     double alpha,beta,*rate_ray,*pcut_ray;
     int cats,j;
+    long dims[1];
 
     alpha = Double_val( a );
     beta =  Double_val( b );
     cats = Int_val( c );
-    rate_ray = (double*) malloc( sizeof(double)*c ); 
+    rate_ray = (double*) malloc( sizeof(double)*cats ); 
     CHECK_MEM(rate_ray);
-    pcut_ray = (double*) malloc( sizeof(double)*c );
+    pcut_ray = (double*) malloc( sizeof(double)*cats );
     CHECK_MEM(pcut_ray);
 
     gamma_pp( pcut_ray, cats, alpha, beta );
     //for(j=0;j<cats-1;++j) //last category isn't used
     //    printf (" [%f] ", pcut_ray[j]);
     //printf("\n");
-
     gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
+    //printf("Alpha %f, Beta %f: ",alpha, beta);
     //for(j=0;j<cats;++j)
     //    printf (" [%f] ", rate_ray[j]);
     //printf("\n");
-
     free( pcut_ray );
-    long dims[1]; dims[0] = cats;
-    rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
 
+    dims[0] = cats;
+    rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
     CAMLreturn( rates );
 }
 //------------------------------------------------------------------------------

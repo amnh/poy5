@@ -3602,8 +3602,12 @@ IFDEF USE_LIKELIHOOD THEN
                 match site_variation with
                 | None -> Some MlModel.Constant 
                 | Some x -> (match x with 
-                    | `Gamma (w,y) -> Some (MlModel.Gamma (w,y))
-                    | `Theta (w,y,p) -> Some (MlModel.Theta (w,y,p)))
+                    | `Gamma (w,y) ->
+                        let y = match y with | Some x -> x | None -> 1.0 in
+                        Some (MlModel.Gamma (w,y))
+                    | `Theta (w,y) ->
+                        let y,p = match y with | Some x -> x | None -> (0.2,0.1) in
+                        Some (MlModel.Theta (w,y,p)))
             and substitution = 
                 match substitution with
                 | `JC69 -> MlModel.JC69

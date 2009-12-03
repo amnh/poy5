@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = false
+let debug = true
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -735,7 +735,7 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
     let v = match rates with
         | None -> None
         | Some (`Gamma (i,_)) -> Some (Gamma (i,1.0))
-        | Some (`Theta (i,_,_)) -> Some (Theta (i,0.2,calc_invar tuple_sum comp_map))
+        | Some (`Theta (i,_)) -> Some (Theta (i,0.2,calc_invar tuple_sum comp_map))
     in
     {
         substitution = m;
@@ -1028,8 +1028,8 @@ let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep 
                 debug_printf "\t\t%f--Accepting %f\n" prevstep (get_score newfpoint);
                 (newpoint,newfpoint,false)
             end else begin
+                debug_printf "\t\t%f--Rejecting %f\n" prevstep (get_score newfpoint);
                 let newstep = next_step step prevstep slope (get_score newfpoint) prevfpoint in
-                debug_printf "\t\t%f--Rejecting %f\n" step (get_score newfpoint);
                 main_ (get_score newfpoint) slope direction newstep step minstep
             end
         end
