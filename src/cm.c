@@ -520,7 +520,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         cm_set_ori_a_sz(res, a_sz);
         cm_set_level(res,level);
         cm_set_map_sz(res, comb_num);
-                cm_set_lcm (res, a_sz);
+        cm_set_lcm (res, a_sz);
         if( (level >1)&&(level<=a_sz) )
         {
             cm_set_gap(res, a_sz);
@@ -553,12 +553,19 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     res->combmap = (int *) calloc(combmatrix_size,1);
     res->comb2list = (int *) calloc( comb2list_size,1);
-    if( (level >1)&&(level<=a_sz) )
-        size = combmatrix_size;
+    if( (level >1)&&(level<=a_sz) )  size = combmatrix_size;
     res->cost = (int *) calloc (size, 1);
+    if(res->cost == NULL)
+        failwith("ERROR: cannot alloc res->cost");
     res->worst = (int *) calloc (size, 1);
+    if(res->worst == NULL)
+        failwith("ERROR: cannot alloc res->worst");
     res->prepend_cost = (int *) calloc (size, 1);
+    if(res->prepend_cost == NULL)
+        failwith("ERROR: cannot alloc res->prepend_cost");
     res->tail_cost = (int *) calloc (size, 1);
+    if(res->tail_cost==NULL)
+        failwith("ERROR: cannot alloc res->tail_cost");
     if( (level >1)&&(level<=a_sz) )
     size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
     else
