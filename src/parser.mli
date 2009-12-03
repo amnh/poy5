@@ -422,13 +422,6 @@ module NewSeq : sig
    
 end   
 
-module Phylip : sig
-(** A parser implementation for the Phylip file format - just convert to 
-* Hennig Format*)
-   val convert_to_hennig: filename -> in_channel
-   
-end 
-
 module GrappaParser : sig
     val of_channel : in_channel -> t array 
 
@@ -573,6 +566,12 @@ module SC : sig
         OldHennig.Encoding.s array * (t array * string) list * 
         (string option * Tree.tree_types list) list -> file_output
 end
+
+module Phylip : sig
+
+   val of_file : filename -> SC.file_output * string
+   
+end 
 
 module PAlphabet : sig
     val of_file : filename -> bool -> bool -> Alphabet.a * Cost_matrix.Two_D.m *
