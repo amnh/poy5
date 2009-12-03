@@ -94,17 +94,17 @@ ps_clear ( PriorityStack * ps )
     ps->idx = ps->max - ps->min;
 }
 
-//add ps_check for POY.... if the list of the priority stack is full, return 0.
+//add ps_full for POY.... if the list of the priority stack is full, return 0.
 int
-ps_check ( PriorityStack * ps)
+ps_full ( PriorityStack * ps)
 {
-    int res = 1;
+    int res = 0;
     int i = 0;
     for ( i = 0; i <= ( ps->max - ps->min ); i++ )
     {
         if ( (&ps->stacks[i])->ridx >= (&ps->stacks[i])->CAPACITY )
             if (  (&ps->stacks[i])->lidx <= 0  )
-                res = 0;
+                res = 1;
     }
     return res;
 }
@@ -122,10 +122,20 @@ ps_push ( PriorityStack * ps, ElementUnion v, int priority )
             (&ps->stacks[priority - ps->min])->CAPACITY,
             (&ps->stacks[priority - ps->min])->ridx);
     fflush(stdout); */
-    push ( &ps->stacks[priority - ps->min], v );
-    ps->count++;
-    if ( priority - ps->min < ps->idx )
-        ps->idx = priority - ps->min;
+    if (!is_full( &ps->stacks[priority - ps->min]))
+    {
+        push ( &ps->stacks[priority - ps->min], v );
+        ps->count++;
+        if ( priority - ps->min < ps->idx )
+            ps->idx = priority - ps->min;
+    }
+    else
+    {
+        fprintf(stderr,
+                "ERROR: Cannot push, Stack #.%d=(%d-%d) of priority stack is full\n", 
+                priority - ps->min, priority , ps->min); 
+        assert ( 0 );
+    }
 #ifdef THREADSAFE
     pthread_mutex_unlock ( &ps->mutex );
 #endif
