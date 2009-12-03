@@ -45,6 +45,6 @@ void ps_push ( PriorityStack * ps, ElementUnion v, int priority );
 void ps_free ( PriorityStack * ps );
 void ps_clear ( PriorityStack * ps );
 void ps_flush ( PriorityStack * ps, List * l, int threshold );
-int ps_check ( PriorityStack * ps);
+int ps_pull ( PriorityStack * ps);
 
 #endif
