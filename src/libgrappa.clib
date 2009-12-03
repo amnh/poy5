@@ -1,5 +1,6 @@
 uf.o
 bbtsp.o
+bitvector.o
 invdist.o
 cheaptsp.o
 correction.o
