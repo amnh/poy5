@@ -10,14 +10,14 @@
 #include <assert.h>
 #include "lists.h"
 #include <caml/fail.h>
-//check if the list is full, so if return 0, else return 1
+//check if the list is full, full return 1, else return 0
 int
-check ( List * q )
+is_full ( List * q )
 {
      if (( q->ridx >= q->CAPACITY ) && ( q->lidx <= 0 ))
-         return 0;
-     else
          return 1;
+     else
+         return 0;
 }
 
 
@@ -41,10 +41,9 @@ push ( List * q, /* void *v */ ElementUnion v )
             q->ridx -= q->lidx;
             q->lidx = 0;
         }
-
         else
         {
-            fprintf ( stderr, "ERROR: Exceeded list capacity\n" );
+            fprintf ( stderr, "ERROR: Exceeded list capacity,list's right idx=%d, left idx=%d.\n" );
             assert ( 0 );
         }
     }
