@@ -4163,7 +4163,7 @@ module Phylip = struct
                     observed true
             with Alphabet.Illegal_Character _ -> false
         in
-        match is_dna,is_prot,is_nuc with
+        match is_dna,is_nuc,is_prot with
             | true,_,_ -> Alphabet.dna
             | _,true,_ -> Alphabet.nucleotides
             | _,_,true -> Alphabet.aminoacids
@@ -4177,6 +4177,14 @@ module Phylip = struct
         for i = 0 to row-1 do for j = 0 to col-1 do
             matrix.(i).(j) <- f i j
         done done
+
+    let list_of_packed d =
+        let rec loop_ c i d = match d land 1 with
+            | 0 when d = 0 -> c
+            | 0  -> loop_ c (i+1) (d lsr 1)
+            | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+            | _  -> failwith "Phylip.list_of_packed"
+        in loop_ [] 0 d
 
     let of_file (file : filename) = 
         let tax_array, seq_array = convert_ file
@@ -4202,23 +4210,32 @@ module Phylip = struct
             match_alphabets observed
         in
         let final_seq_matrix =
-            let seq_matrix = Array.make_matrix ntaxas nchars None
-            and seq_alph = Alphabet.to_sequential alphabet in
+            let seq_matrix = Array.make_matrix ntaxas nchars None in
             matrix_iter
                 (fun i j ->
-                    let value = String.make 1 (Buffer.nth (seq_array.(i)) j) in
-                    Some (`List [(Alphabet.match_base value seq_alph)]))
+                    let values = 
+                        Buffer.nth (seq_array.(i)) j
+                            --> String.make 1 
+                            --> (fun x -> Alphabet.match_base x alphabet)
+                            --> list_of_packed
+                    in
+                    Some (`List values) )
                 seq_matrix;
             seq_matrix
         and get_observed seq i = 
+            let rec add_elms full = function
+                | x::xs when List.exists (fun y -> x = y) full -> add_elms full xs
+                | x::xs -> add_elms (x::full) xs
+                | [] -> full
+            in
             Array.fold_left
                 (fun acc x -> 
-                    let value = match x.(i) with 
-                                | Some (`List [x]) -> x
-                                | _ -> failwith "impossible"
+                    let values =
+                        match x.(i) with 
+                        | Some (`List x) -> x
+                        | _ -> failwith "impossible"
                     in
-                    if List.exists (fun a -> a = value) acc
-                        then acc else value :: acc)
+                    add_elms acc values)
                 [] seq
         in
         let final_chars_array = 
