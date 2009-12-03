@@ -12,7 +12,7 @@
 #ifndef WINNT
 #include <pthread.h>
 #endif
-#define VFSIZE 10000
+#define VFSIZE 10000 /* this should be the same as in sorting_reversal_median.h*/
 typedef struct vertex Vertex;
 struct vertex
 {
@@ -34,6 +34,11 @@ struct vertex_factory
     int capacity;
     int length;
     int width;
+
+    int offseth;
+    int offsett;
+    int full;
+    
     void ( *clear_mem ) ( void * );
     void *clear_mem_arg;
     int medianNGenes;
