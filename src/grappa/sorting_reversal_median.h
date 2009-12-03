@@ -13,7 +13,8 @@
 #include "all_sorting_reversals.h"
 #include "vertex_factory.h"
 #include "hashtable.h"
-#define VFSIZE 10000            /* size of vertex factory */
+#define VFSIZE 10000            /* size of vertex factory*/
+/*should be the same as in vertex_factory.h */
 
 #define HASH_EXPECTED_SIZE 5000 /* this is deliberately low, since the
                                    realloc operations seem fairly
@@ -49,14 +50,14 @@ MedianMemory *local_mem_p;
 
 void ini_mem_4_siepel (int ngenes);
 
-void free_mem_4_siepel(int ngenes);
+void free_mem_4_siepel();
 
 MedianMemory * 
 //void
 new_median_memory ( int ngenes, int minm, int maxm );
 
 void reset_median_memory ( MedianMemory * mm );
-void free_median_memory ( MedianMemory * mm, int );
+void free_median_memory ( );
 
 void find_reversal_median ( struct genome_struct *median,
                             struct genome_struct **gen,
