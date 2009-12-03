@@ -142,6 +142,7 @@ void
 bitvector_get_positions_of_ones ( BitVector * bv, List * l )
 {
     int i, j, k, idx;
+    ElementUnion inttmp;
     clear_list ( l );
     idx = 0;
     for ( i = 0; i < bv->nbytes; i++ )
@@ -150,7 +151,10 @@ bitvector_get_positions_of_ones ( BitVector * bv, List * l )
         for ( j = 0; j < SZ; j++ )
         {
             if ( bv->v[i] & ( 1 << k ) )
-                push ( l, ( void * ) idx );
+            {
+                inttmp.intelement = idx;
+                push ( l, inttmp );
+            }
             k--;
             idx++;
         }
