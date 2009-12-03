@@ -25,7 +25,16 @@ void ini_mem_4_convert (int num_genes)
 void free_mem_4_convert ()
 {
     convert_mem_t * convertmem = &CONVERT_MEM;
-    free (convertmem);
+    free (convertmem->weights);
+    free (convertmem->outcycle);
+    free (convertmem->incycle);
+    free (convertmem->stack);
+    free (convertmem->degree);
+    free (convertmem->otherEnd);
+    free (convertmem->adjl);
+    free (convertmem->adjp);
+    free (convertmem->neighbors);
+    free (convertmem->edges);
     return;
 }
 
