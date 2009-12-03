@@ -62,6 +62,29 @@ let headers =
         "array_pool.h";
         "avl.h";
         "cm.h";
+        "concorde/INCLUDE/bigguy.h";
+        "concorde/INCLUDE/combs.h";
+        "concorde/INCLUDE/consec1.h";
+        "concorde/INCLUDE/cut.h";
+        "concorde/INCLUDE/cuttree.h";
+        "concorde/INCLUDE/delaunay.h";
+        "concorde/INCLUDE/edgegen.h";
+        "concorde/INCLUDE/fmatch.h";
+        "concorde/INCLUDE/heldkarp.h";
+        "concorde/INCLUDE/kdtree.h";
+        "concorde/INCLUDE/linkern.h";
+        "concorde/INCLUDE/localcut.h";
+        "concorde/INCLUDE/lp.h";
+        "concorde/INCLUDE/machdefs.h";
+        "concorde/INCLUDE/macrorus.h";
+        "concorde/INCLUDE/mlinkern.h";
+        "concorde/INCLUDE/necklace.h";
+        "concorde/INCLUDE/pq.h";
+        "concorde/INCLUDE/pqsets.h";
+        "concorde/INCLUDE/tinytsp.h";
+        "concorde/INCLUDE/tsp.h";
+        "concorde/INCLUDE/util.h";
+        "concorde/INCLUDE/verify.h";
         "config.h";
         "floatmatrix.h";
         "gamma.h";
@@ -323,6 +346,9 @@ dispatch begin function
 
     flag ["c"; "compile"; "use_likelihood"]
         (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
+
+    flag ["c"; "compile"; "use_concorde"]
+        (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
 
     flag ["c"; "compile"; "use_readline"]
         (S[A"-ccopt"; A"-DUSEREADLINE"]);
