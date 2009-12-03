@@ -49,8 +49,9 @@ union elementunion
     //int * intlistelement;
 } ;
 
-
-int check ( List * q );
+// check if the list is full, before push
+int is_full ( List * q );
+// check if the list is empty, before pop
 int is_empty ( List * q );
 //void init_list ( List * q, int nelements, int elementsz );
 void init_list ( List * q, int nelements, enum datatype dtype );
