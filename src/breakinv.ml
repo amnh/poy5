@@ -272,7 +272,8 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 ali_pam.BreakinvAli.median_solver
                 ali_pam.BreakinvAli.kept_wag
                 seq1 seq2 seq3 
-                ch1.pure_gen_cost_mat 
+                ch1.gen_cost_mat
+            (*    ch1.pure_gen_cost_mat *)
                 ch1.alpha 
                 ali_pam.BreakinvAli.re_meth
                 ali_pam.BreakinvAli.swap_med 
