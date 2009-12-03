@@ -227,7 +227,7 @@ grappa_CAML_inv_med
     {
         free_mem_4_albert ();
         ini_mem_4_albert (NUM_GENES);
-        free_mem_4_siepel (NUM_GENES);
+        free_mem_4_siepel ();
         ini_mem_4_siepel(NUM_GENES);
         free_mem_4_cond3 ();
         ini_mem_4_cond3 (NUM_GENES);
@@ -290,12 +290,19 @@ grappa_CAML_inv_med
                         convertmem_p->edges,
                         CIRCULAR );
             break;
-                /* case5 and case6 need the CONCORDE package 
-                // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
+            /* case5 and case6 need the CONCORDE package 
+            // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
+            IFDEF USE_CONCORDE THEN
             case 5:
                 break;
             case 6:
                 break;
+            ELSE
+            case 5:
+                break;
+            case 6:
+                break;
+            END
                 */
         }
         decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
