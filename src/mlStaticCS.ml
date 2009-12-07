@@ -431,14 +431,6 @@ let rec set_in num lst =
         match num with
         | 0 -> [1.0]
         | e -> (list_of (e) 0.0) @ [1.0]
-let rec sublist l a b =
-    match l with
-    | hd::tl ->
-       (match a,b with
-        | 0,0 -> []
-        | 0,_ -> hd::sublist tl 0 (b-1)
-        | _,_ -> sublist tl (a-1) b)
-    | _ -> [] 
 let farray_to_int32 x =
     let ipow =
         let rec ipow acc a =
@@ -460,7 +452,7 @@ let of_parser spec weights characters =
         | Parser.SC.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
     let (a_size,a_gap) = 
-        let alph = spec.Parser.SC.st_alph in
+        let alph = Alphabet.to_sequential spec.Parser.SC.st_alph in
         match computed_model.MlModel.spec.MlModel.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
@@ -479,7 +471,7 @@ let of_parser spec weights characters =
             else
                 let pl = List.fold_right set_in lst (list_of a_size 0.0) in
                 assert( a_size = List.length pl);
-                Array.of_list (sublist pl 0 a_size)
+                Array.of_list pl
     in
     (* convert character array to abstract type --redo *)
     let aa_chars = Array.map loop_ characters in (* create initial arrays *)

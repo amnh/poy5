@@ -4237,12 +4237,12 @@ module Phylip = struct
                     in
                     add_elms acc values)
                 [] seq
-        in
+        and seq_alphabet = Alphabet.to_sequential alphabet in
         let final_chars_array = 
             Array.init nchars 
                 (fun i->{SC.st_filesource = file;
                             st_name = file ^ ":" ^ (string_of_int i);
-                            st_alph = alphabet;
+                            st_alph = seq_alphabet;
                             st_observed = get_observed final_seq_matrix i;
                             st_labels = [];
                             st_weight = 1.0;
