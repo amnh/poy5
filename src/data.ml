@@ -5330,8 +5330,7 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     | `Local filename
                     | `Remote filename -> of_file data filename)
                     *)
-            | Parser.Is_Clustal
-            | Parser.Is_TinySeq
+            | Parser.Is_Clustal | Parser.Is_TinySeq
             | Parser.Is_Fasta | Parser.Is_Genome | Parser.Is_ASN1
             | Parser.Is_Genbank | Parser.Is_INSDSeq | Parser.Is_GBSeq
             | Parser.Is_XML | Parser.Is_NewSeq ->
@@ -5341,7 +5340,12 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     Cost_matrix.Two_D.default 
                     (`Normal3d (Cost_matrix.Three_D.default)) 
                     annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
-            | Parser.Is_Phylip | Parser.Is_Hennig -> 
+            | Parser.Is_Phylip ->
+                    file_type_message "phylip";
+                    let fo,fn = Parser.Phylip.of_file filename in
+                    report_static_input fn fo;
+                    add_static_parsed_file data fn fo
+            | Parser.Is_Hennig -> 
                     let data = add_file [Characters; Trees] in
                     file_type_message "hennig86/Nona";
                     add_static_file `Hennig data filename
