@@ -29,7 +29,7 @@ is_empty (List * q)
 }
 
 void
-push ( List * q, /* void *v */ ElementUnion v )
+push ( List * q,  ElementUnion v )
 {
     int i=0;
     if ( q->ridx >= q->CAPACITY )
@@ -131,13 +131,11 @@ empty ( List * q )
 
 /* Must be executed on a new list before it is usable!!! */
 void
-//init_list ( List * q, int nelements, int elementsz )
 init_list ( List * q, int nelements,  enum datatype dtype )
 {
     q->dtype = dtype;
     q->ridx = q->lidx = 0;
     q->CAPACITY = nelements;
-    //q->elementsz = elementsz;
     q->array = ( ElementUnion * ) malloc ( nelements * sizeof(ElementUnion) );
 }
 
