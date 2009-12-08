@@ -35,6 +35,8 @@ let (-->) b a = a b
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
 
+let failwithf format = Printf.ksprintf (failwith) format
+
 module IntSet = All_sets.Integers
 
 exception Illegal_argument of string
@@ -165,6 +167,7 @@ let extract_cost = function
         ELSE
             failwith likelihood_error
         END
+
 
 let get_characters_cost chars =
     List.fold_left (fun a b -> a +. (extract_cost b)) 0. chars
@@ -359,16 +362,69 @@ let all_prelim_to_final ({characters = chars} as node) =
          characters = List.map prelim_to_final chars}
 
 let using_likelihood x =
-    List.fold_left
-        (fun a x -> match x with 
-            | StaticMl _ -> a
-            | _ -> false) true x.characters
+    IFDEF USE_LIKELIHOOD THEN
+        List.fold_left
+            (fun a x -> match x with 
+                | StaticMl _ -> a
+                | _          -> false)
+            true x.characters
+    ELSE
+        false
+    END
 
 let float_close ?(epsilon=0.001) a b =
     let diff = a -. b in
     (abs_float diff) < epsilon
 
-let failwithf format = Printf.ksprintf (failwith) format
+(* extracts data on whole character set *)
+let extract_states alph data in_codes node =
+    let alph = Alphabet.to_sequential alph in
+    let include_cs = match in_codes with
+        | Some in_codes ->
+            (fun cs_codes ->    
+                let r = ref false in
+                for i = 0 to (Array.length in_codes) - 1 do begin
+                    if !r then ()
+                    else begin
+                        for j = 0 to (Array.length cs_codes) - 1 do
+                            r := !r || (in_codes.(i) = cs_codes.(j));
+                        done;
+                    end
+                end done;
+                !r)
+        | None -> (fun _ -> true) (* all data *)
+    and norm c = 
+        List.map
+            (fun x -> let str = Data.to_human_readable data c x in
+                      Alphabet.find_base str alph)
+    in
+    let extract_states_cs = function
+        | Nonadd8 a ->
+            if not (include_cs a.final.NonaddCS8.codes) then []
+            else List.map
+                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS8.e_to_list e)) )
+                    (NonaddCS8.to_simple_list a.final)
+        | Nonadd16 a ->
+            if not (include_cs a.final.NonaddCS16.codes) then []
+            else List.map
+                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS16.e_to_list e) ))
+                    (NonaddCS16.to_simple_list a.final)
+        | Nonadd32 a ->
+            if not (include_cs a.final.NonaddCS32.codes) then []
+            else List.map
+                    (fun (c,e) -> a.weight, c, `List (norm c (NonaddCS32.e_to_list e)))
+                    (NonaddCS32.to_simple_list a.final)
+        | StaticMl a ->
+            IFDEF USE_LIKELIHOOD THEN
+                MlStaticCS.extract_states a.final
+            ELSE
+                failwith "Unsupported character type"
+            END
+        | _ -> failwith "Unsupported character type"
+    in
+    List.flatten (List.map extract_states_cs node.characters)
+
+(* calculate the median between two nodes *)
 let rec cs_median code anode bnode prev t1 t2 a b =
     if  debug_treebuild then
         Printf.printf "node.ml cs_median on node %d and node %d :\n%!"
@@ -1042,48 +1098,22 @@ END
     List.map func nd.characters
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data) =
-    let null = (0,None) in
+    let null = ([||],None) in
     let func = 
 IFDEF USE_LIKELIHOOD THEN
         let f = 
-            if parent.min_child_code = child.min_child_code then fst 
-            else snd 
+            if parent.min_child_code = child.min_child_code
+                then fst
+                else snd 
         in
         function
-            | StaticMl z ->
-                    (MlStaticCS.get_codes z.preliminary).(0), f z.time
+            | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
             | _ -> null
 ELSE
         fun _ -> null
 END
     in
     List.map func parent.characters
-
-let get_times_between_tbl tbl (nd:node_data) =
-    let func =
-IFDEF USE_LIKELIHOOD THEN
-        let values_match code_ray tbl =
-            if Array.length code_ray = 0 then true else
-            let value = Hashtbl.find tbl (code_ray.(0)) in
-            Array.fold_left 
-                (fun acc x -> 
-                    acc && (value = (Hashtbl.find tbl x)))
-                true
-                code_ray
-        in
-        function
-            | StaticMl z ->
-                    (try
-                        let codes = MlStaticCS.get_codes z.preliminary in
-                        assert(((Array.length codes) > 0) && (values_match codes tbl));
-                        Some (Hashtbl.find tbl codes.(0))
-                    with Not_found -> None)
-            | _ -> None
-ELSE
-        fun _ -> None
-END
-    in
-    List.map func nd.characters
 
 (** [median_w_times gp nd1 nd2 t1 t2]
  * uses time data from two correct nodes, [time_1] and [time_2] for the
@@ -1842,8 +1872,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left (fun acc code ->
                     match Hashtbl.find (!data).Data.character_specs code with
                     | Data.Static spec ->
-                            let lkspec,model = match spec.Parser.SC.st_type with
-                                | Parser.SC.STLikelihood (x,y) -> x,y
+                            let lkspec = match spec.Parser.SC.st_type with
+                                | Parser.SC.STLikelihood x -> x.MlModel.spec
                                 | _ -> assert false
                             in
                            (try
@@ -1898,7 +1928,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left (fun a v -> All_sets.Integers.add v a)
                                 All_sets.Integers.empty
             and gap_as_character x = match x.Parser.SC.st_type with
-                | Parser.SC.STLikelihood (s,_) -> s.MlModel.use_gap
+                | Parser.SC.STLikelihood s -> s.MlModel.spec.MlModel.use_gap
                 | _ -> assert false
             in
             (* create map of weight classes *)
@@ -3653,12 +3683,13 @@ module Standard :
         let get_characters _ = get_characters_of_type
         let median = median
         let apply_time = apply_time
+        let extract_states a d _ c n = extract_states a d c n
         let tree_size _ = tree_size
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
-        let using_likelihood x = using_likelihood x
+        let using_likelihood = using_likelihood
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost
@@ -3771,17 +3802,18 @@ module Standard :
                         else x
                 | (Kolmo ha) :: ta, _ -> -1
                 | (StaticMl ha) :: ta, (StaticMl hb) :: tb ->
-                        IFDEF USE_LIKELIHOOD THEN
+                    IFDEF USE_LIKELIHOOD THEN
                         let x = compare ha.weight hb.weight in
                         if x = 0 then
-                            let cmp = compare ha.preliminary hb.preliminary in
+                            (* specialized compare --only compares general model *)
+                            let cmp = MlStaticCS.compare ha.preliminary hb.preliminary in
                             if cmp = 0 then 
                                 aux_cmt ta tb
                             else cmp
                         else x
-                        ELSE 
+                    ELSE 
                         0
-                        END
+                    END
                 | (StaticMl ha) :: ta, _ -> -1
                 | (Set ha) :: ta, (Set hb) :: tb ->
                         let x = compare ha.weight hb.weight in

@@ -168,16 +168,17 @@ let test_file file =
             else 
                 Is_XML
         end
-    else if anywhere_match (Str.regexp "^[a-zA-Z0-9_]+") line 
-            && anywhere_match (Str.regexp " *[0-9]+") line2 then
-                Is_NewSeq
     else if 
         anywhere_match (Str.regexp "^[a-zA-Z._-]+ +[a-zA-Z._-]+\\s*") line
     then Is_Dictionary
-    else if anywhere_match (Str.regexp "^[0-9]+ *[0-9]+") line then
+    else if anywhere_match (Str.regexp "^[0-9]+[\\t ]+[0-9]+") line then
         Is_Phylip
     else if anywhere_match (Str.regexp "^ *(") line then
         Is_Trees
+    (* NewSeq regexs match Phylip as well, and must be below it *)
+    else if anywhere_match (Str.regexp "^[a-zA-Z0-9_]+") line 
+            && anywhere_match (Str.regexp " *[0-9]+") line2 then
+                Is_NewSeq
     else Is_Unknown
 
 let trim str = 
@@ -711,66 +712,6 @@ module NewSeq = struct
         let file = to_fasta file in
         open_in file
 
-end
-
-module Phylip = struct
-    let convert_to_hennig file =
-        let ch, file = FileStream.channel_n_filename file and
-        outName, chout = Filename.open_temp_file "temp" ".hen" and
-        index = ref 0 and
-        num_taxa = ref "" and
-        num_char = ref "" in
-        let line = input_line ch in
-        if Str.string_match (Str.regexp 
-        "\\(^[0-9]+\\) *\\([0-9]+\\)") line 0 then 
-            begin
-                num_taxa := (Str.matched_group 1 line); 
-                num_char := (Str.matched_group 2 line);
-            end;
-        print_endline !num_char;
-        print_endline !num_taxa;
-        let num_taxa_int = int_of_string !num_taxa in
-        let sequence_array = Array.make num_taxa_int "" and
-        taxa_array = Array.make num_taxa_int "" in
-        try
-            while true do
-                let line = input_line ch in
-                if Str.string_match 
-                (Str.regexp " *\\([a-zA-Z]+\\) +\\([a-zA-Z ]+\\)+") 
-                line 0 then
-                    begin
-                        taxa_array.(!index) <- (Str.matched_group 1 line);
-                        sequence_array.(!index) <- (Str.matched_group 2 line);
-                        index := (!index + 1) mod num_taxa_int;
-                    end
-                else if Str.string_match (Str.regexp " *\\([a-ZA-Z]+\\)") 
-                line 0 then
-                    begin
-                        let temp_string = sequence_array.(!index) in
-                        sequence_array.(!index) <- 
-                            temp_string ^ (Str.matched_group 1 line);
-                            index := (!index + 1) mod num_taxa_int;
-                    end
-                else if Str.string_match (Str.regexp " +") line 0 then
-                    index := 0;
-            done;
-            open_in outName;
-        with
-        | End_of_file -> 
-                output_string chout "xread\n";
-                output_string chout (!num_taxa ^ " " ^ !num_char ^ "\n");
-                for i = 0 to num_taxa_int - 1 do
-                    output_string chout (taxa_array.(i) ^ "\n");
-                    output_string chout (sequence_array.(i) ^ "\n");
-                done;  
-                output_string chout ";";
-                (open_in outName) 
-
-      (*  output_string chout "xread\n";
-        output_string chout !num_char;
-        output_string chout (" " ^ !num_taxa ^ "\n"); *)
- 
-    
 end
 
 (* Parser for trees in (a (b c)) format *)
@@ -2074,9 +2015,6 @@ module OldHennig = struct
         let res = of_channel ch in
         close_in ch;
         res
-    
-        
-
 
     let split_ordered encoding_specs taxa = 
         (* ordered and unordered characters index location in the 
@@ -2262,7 +2200,6 @@ module OldHennig = struct
         close_out phy_file;
         print_endline "End of converting from Hennig format to Phtlip format"
  
-
     (* If taxa lists are added to the functionality (and they will), this is the
     * place. Simply add a parameter with the set of taxa that will be used in
     * the analysis and match it in the execution (below all these functions). I
@@ -2515,8 +2452,8 @@ module SC = struct
     type st_type = 
         | STOrdered
         | STUnordered
-        | STSankoff of int array array         (* the cost matrix to use *)
-        | STLikelihood of (MlModel.spec * MlModel.model) (* The ML model to use *)
+        | STSankoff of int array array  (* the cost matrix to use *)
+        | STLikelihood of MlModel.model (* The ML model to use *)
 
     type static_spec = {
         st_filesource : string;    (* The file it came from *)
@@ -3758,110 +3695,31 @@ module SC = struct
                     | Nexus.Files name -> let file = Some name in
                             ((name,var,param,lst,gap,file),chars)
                 in
-                (* verify enough data in a model *)
-                let verify_model ((name,(var,site,alpha,invar),param,priors,gap,file),chars) =
-                    IFDEF USE_LIKELIHOOD THEN
-                    let submatrix = match String.uppercase name with
-                        | "JC69" -> (match param with
-                                | [single] -> MlModel.JC69 single
-                                | [] -> MlModel.JC69 1.0
-                                | _ -> failwith "Parameters don't match model")
-                        | "F81" -> (match param with
-                                | [single] -> MlModel.F81 single
-                                | [] -> MlModel.F81 1.0
-                                | _ -> failwith "Parameters don't match model")
-                        | "K80" | "K2P" -> (match param with
-                                | h1::h2::[] -> MlModel.K2P (h1,h2)
-                                | ratio::[] -> MlModel.K2P (ratio,1.0)
-                                | _ -> failwith "Parameters don't match model")
-                        | "F84" -> (match param with
-                                | h1::h2::[] -> MlModel.F84 (h1,h2)
-                                | _ -> failwith "Parameters don't match model")
-                        | "HKY" | "HKY85" -> (match param with
-                                | h1::h2::[] -> MlModel.HKY85 (h1,h2)
-                                | ratio::[] -> MlModel.HKY85 (ratio,1.0)
-                                | _ -> failwith "Parameters don't match model")
-                        | "TN93" -> (match param with
-                                | h1::h2::h3::[] -> MlModel.TN93 (h1,h2,h3)
-                                | _ -> failwith "Parameters don't match model")
-                        | "GTR" -> MlModel.GTR (Array.of_list param)
-                        | "GIVEN"-> (match file with
-                                | Some name ->
-                                    let mat = Array.of_list (List.map (Array.of_list)
-                                         (TransformationCostMatrix.fm_of_file
-                                         (`Local name))) in
-                                    MlModel.File mat
-                                | _ -> failwith "File not specified")
-                        | _ -> failwith "No Model Specified"
-                    and variation = match String.uppercase var with
-                        | "GAMMA" -> MlModel.Gamma (int_of_string site,
-                                             float_of_string alpha,
-                                             float_of_string alpha)
-                        | "THETA" -> MlModel.Theta (int_of_string site,
-                                             float_of_string alpha,
-                                             float_of_string alpha,
-                                             float_of_string invar)
-                        | "NONE" | "CONSTANT" | "" | _ -> MlModel.Constant
-                    and gap = match String.uppercase gap with
-                        | "TRUE" -> true
-                        | "FALSE" | _ -> false
-                    and priors = 
-                        let priors = List.map snd priors in 
-                        let sum = List.fold_left (+.) 0.0 priors in
-                        if test_priors then begin
-                            match classify_float (sum -. 1.0) with
-                            | FP_subnormal | FP_zero -> ()
-                            | _ -> failwith "Priors sum greater than 1.0"
-                        end;
-                        priors
-                    in
-                    let model_spec = 
-                        {   MlModel.substitution = submatrix;
-                            site_variation = Some variation;
-                            base_priors = MlModel.Given (Array.of_list priors);
-                            use_gap = gap;
-                        }
-                    in
-                    (model_spec,chars)
-                    ELSE
-                        failwith "Likelihood not enabled: download different binary or contact mailing list" 
-                    END
-                in
                 (* POY block :: process all commands*)
                 List.iter
                     (fun x -> match x with
                      | Nexus.CharacterBranch (trees,chars,bls) ->
                         add_data (trees,chars,bls) acc.branches
                      | Nexus.Likelihood params ->
-                        IFDEF USE_LIKELIHOOD THEN
-                            let m,characters_to_modify =
-                                verify_model 
-                                    (List.fold_left proc_model 
-                                                (("",("","","",""),[],[],"",None),[]) 
-                                                params
-                                    )
-                            in
-                            (* how should the alphabet be obtained? *)
-                            let m = 
-                                STLikelihood (m,MlModel.create acc.characters.(0).st_alph m)
-                            in
-                            (* apply spec to each character *)
-                            List.iter (apply_on_character_set 
-                                        acc.characters
-                                        acc.csets
-                                        (fun i -> 
-                                            acc.characters.(i) <-
-                                                { acc.characters.(i) with
-                                                    st_type = m;
-                                                }
-                                        )
-                                  )
-                                  characters_to_modify
-                        ELSE
-                            failwith "Likelihood not enabled: download different binary or contact mailing list" 
-                        END
+                        let str_spec,characters_to_modify =
+                            List.fold_left proc_model 
+                                           (MlModel.empty_str_spec,[])
+                                           params
+                        in
+                        (* how should the alphabet be obtained? *)
+                        let m = 
+                            str_spec --> MlModel.convert_string_spec
+                                     --> MlModel.create acc.characters.(0).st_alph
+                                     --> (fun x -> STLikelihood x)
+                        in
+                        (* apply spec to each character *)
+                        List.iter (apply_on_character_set 
+                                    acc.characters
+                                    acc.csets
+                                    (fun i -> 
+                                        acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
+                              characters_to_modify
                     ) block;
-                Status.user_message Status.Information "Done";
                 acc
             | _ -> acc
 
@@ -4239,6 +4097,169 @@ module SC = struct
 
     let fill_observed data =
         Nexus.fill_observed data.characters data.matrix
+end
+
+module Phylip = struct
+
+    let convert_ file =
+        let taxa_char_lengths = Str.regexp "\\(^[0-9]+\\)[\\t ]+\\([0-9]+\\)"
+        and name_sequence = Str.regexp " *\\([a-zA-Z0-9]+\\)[\\t ]+\\([a-zA-Z?-]+\\)+"
+        and continued_seq = Str.regexp " *\\([a-ZA-Z?-]+\\)"
+        and reset_order = Str.regexp " +" in
+
+        let ch, file = FileStream.channel_n_filename file
+        and index = ref 0 in
+
+        let ntaxa,nchar = 
+            let line = input_line ch in
+            if Str.string_match taxa_char_lengths line 0 then 
+                    (Str.matched_group 1 line), (Str.matched_group 2 line)
+            else
+                failwith "Error parsing Phylip format; number of taxa and characters."
+        in
+        let num_taxa_int = int_of_string ntaxa
+        and num_char_int = int_of_string nchar in
+
+        let sequence_array = Array.init num_taxa_int (fun _ -> Buffer.create num_char_int)
+        and taxa_array = Array.make num_taxa_int ""
+        and line_number = ref 0 in
+        try
+            while true do
+                let line = input_line ch in
+                let () = incr line_number in
+                if Str.string_match name_sequence line 0 then
+                    begin
+                        taxa_array.(!index) <- (Str.matched_group 1 line);
+                        Buffer.add_string sequence_array.(!index) (Str.matched_group 2 line);
+                        index := (!index + 1) mod num_taxa_int;
+                    end
+                else if Str.string_match continued_seq line 0 then
+                    begin
+                        Buffer.add_string sequence_array.(!index) (Str.matched_group 1 line);
+                        index := (!index + 1) mod num_taxa_int;
+                    end
+                else if Str.string_match reset_order line 0 then
+                    index := 0
+                else
+                    failwithf "I Cannot parse the Phylip file line %d." !line_number
+            done;
+            raise End_of_file
+        with | End_of_file -> taxa_array, sequence_array
+
+    let match_alphabets observed = 
+        let is_dna =
+            try All_sets.Strings.fold
+                    (fun e d -> let _ = Alphabet.match_base e Alphabet.dna in d)
+                    observed true
+            with Alphabet.Illegal_Character _ -> false
+        and is_prot = 
+            try All_sets.Strings.fold
+                    (fun e p -> let _ = Alphabet.match_base e Alphabet.aminoacids in p)
+                    observed true
+            with Alphabet.Illegal_Character _ -> false
+        and is_nuc = 
+            try All_sets.Strings.fold
+                    (fun e n -> let _ = Alphabet.match_base e Alphabet.nucleotides in n)
+                    observed true
+            with Alphabet.Illegal_Character _ -> false
+        in
+        match is_dna,is_nuc,is_prot with
+            | true,_,_ -> Alphabet.dna
+            | _,true,_ -> Alphabet.nucleotides
+            | _,_,true -> Alphabet.aminoacids
+            | false,false,false ->
+                    failwith "I cannot detect the Alphabet in the Phylip file"
+
+    let matrix_iter f matrix =
+        let row = Array.length matrix in 
+        assert(row > 0);
+        let col = Array.length matrix.(0) in
+        for i = 0 to row-1 do for j = 0 to col-1 do
+            matrix.(i).(j) <- f i j
+        done done
+
+    let list_of_packed d =
+        let rec loop_ c i d = match d land 1 with
+            | 0 when d = 0 -> c
+            | 0  -> loop_ c (i+1) (d lsr 1)
+            | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+            | _  -> failwith "Phylip.list_of_packed"
+        in loop_ [] 0 d
+
+    let of_file (file : filename) = 
+        let tax_array, seq_array = convert_ file
+        and file = match file with | `Local x | `Remote x -> x in
+        let final_taxa_array = Array.map (fun x -> Some x) tax_array
+        and nchars = Buffer.length seq_array.(0) 
+        and ntaxas = Array.length seq_array in
+        let alphabet =
+            let observed = 
+                Array.fold_left
+                    (fun acc x ->
+                        assert( nchars = (Buffer.length x));
+                        let acc2 = ref acc in
+                        for i=0 to nchars-1 do
+                            let value = String.make 1 (Buffer.nth x i) in
+                            if All_sets.Strings.mem value !acc2 then ()
+                            else acc2 := All_sets.Strings.add value !acc2
+                        done;
+                        !acc2)
+                    (All_sets.Strings.empty)
+                    seq_array
+            in
+            match_alphabets observed
+        in
+        let final_seq_matrix =
+            let seq_matrix = Array.make_matrix ntaxas nchars None in
+            matrix_iter
+                (fun i j ->
+                    let values = 
+                        Buffer.nth (seq_array.(i)) j
+                            --> String.make 1 
+                            --> (fun x -> Alphabet.match_base x alphabet)
+                            --> list_of_packed
+                    in
+                    Some (`List values) )
+                seq_matrix;
+            seq_matrix
+        and get_observed seq i = 
+            let rec add_elms full = function
+                | x::xs when List.exists (fun y -> x = y) full -> add_elms full xs
+                | x::xs -> add_elms (x::full) xs
+                | [] -> full
+            in
+            Array.fold_left
+                (fun acc x -> 
+                    let values =
+                        match x.(i) with 
+                        | Some (`List x) -> x
+                        | _ -> failwith "impossible"
+                    in
+                    add_elms acc values)
+                [] seq
+        in
+        let final_chars_array = 
+            Array.init nchars 
+                (fun i->{SC.st_filesource = file;
+                            st_name = file ^ ":" ^ (string_of_int i);
+                            st_alph = alphabet;
+                            st_observed = get_observed final_seq_matrix i;
+                            st_labels = [];
+                            st_weight = 1.0;
+                            st_type = SC.STUnordered;
+                            st_equivalents = [(Alphabet.gap_repr,[])];
+                            st_missing = "?";
+                            st_matchstate = None;
+                            st_gap = Alphabet.gap_repr;
+                            st_eliminate = false;
+                            st_case = true;
+                            st_used_observed = None;
+                            st_observed_used = None; })
+        in
+        { SC.empty_parsed () with
+          SC.taxa = final_taxa_array;
+             matrix = final_seq_matrix; 
+             characters = final_chars_array; }, file
 end
 
 

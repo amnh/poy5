@@ -73,8 +73,13 @@ module type S = sig
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
 
+    (** [extract_states a r b] extract parsimony states at node [b] toward [a],
+     * exclude all characters not present in [r] if it exists, else all of them **)
+    val extract_states : Alphabet.a -> Data.d -> int option -> int array option -> n ->
+                            (float * int * MlModel.chars) list
+
     (** [get_times_between left right] time between two nodes -- **)
-    val get_times_between : n -> n -> (int * (float option)) list
+    val get_times_between : n -> n -> (int array * (float option)) list
 
     (** [to_string n] produces a string representation of the node. This is used
     * for debugging purposes. There is no particular format requirement. *)

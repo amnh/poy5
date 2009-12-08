@@ -244,6 +244,8 @@ module OneDirF :
 
     let uppass_heuristic pcode ptime mine a b = mine
 
+    let extract_states alph d a c0 b = Node.Standard.extract_states alph d None c0 (force_val b)
+
     let using_likelihood a : bool = 
         Node.Standard.using_likelihood (force_val a)
 
@@ -662,13 +664,21 @@ type nad8 = Node.Standard.nad8 = struct
      *
      * returns the branch length between the child and parent, contained in
      * parent, although, it shouldn't matter as long as the directions are
-     * available, and should be. The directions paseed to OneDirF are those
-     * going down the tree from child to parent. The data is retrieved from the
-     * parent in the Node.Standard, along with the character set code *)
+     * available *)
     let get_times_between child par =
         OneDirF.get_times_between
                 (not_with (taxon_code par) child.adjusted).lazy_node
                 (either_with (taxon_code child) par.adjusted).lazy_node
+
+    (** [extract_states par child] extract the states of child toward par *)
+    let extract_states alph data parc codes mine = 
+        let n = match parc with
+            | None -> begin match mine.adjusted with
+                | [x] -> x
+                |  _  -> failwith "AllDirNode.extract_states No Direction" end
+            | Some x -> not_with x mine.adjusted
+        in
+        OneDirF.extract_states alph data None codes n.lazy_node
 
     (** [apply_time child parent] applies time from parent into child --used on
      * leaves when the uppass_heuristic doesn't normally run over internal nodes

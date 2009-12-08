@@ -551,8 +551,10 @@ val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
-val set_parsimony : d -> Methods.characters -> d 
+val apply_on_static_chars : d -> int list -> Parser.SC.st_type -> d
+val verify_alphabet : d -> int list -> int * Alphabet.a
 
+val set_parsimony : d -> Methods.characters -> d 
 val set_likelihood : d -> Methods.ml_spec -> d 
 
 val to_faswincladfile : d -> string option -> unit

@@ -158,6 +158,8 @@ val union: t -> t -> t -> t
 * iff [a < b], [compare a b = 0] iff [a = b], otherwise [compare a b > 0]. *)
 val compare_data : t -> t -> int
 
+val compare : t -> t -> int
+
 (** [readjust check has_changed c1 c2 mine t1 t2 ]
  *       -> modified set * old_mle * new_mle * (new_branch_lengths) * new node
  *
@@ -192,6 +194,10 @@ val distance : t -> t -> float -> float -> float
 (* to be able to see the results on each vertex of the tree. *)
 val to_formatter : Xml.attributes -> t -> float option * float option -> 
                         Data.d -> Xml.xml Sexpr.t list
+
+val extract_states : t -> (float * int * MlModel.chars) list 
+
+
 
 val get_codes : t -> int array
 

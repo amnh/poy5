@@ -50,7 +50,9 @@ module type S = sig
       Data.d ->
       a list -> Methods.char_transform list -> Data.d * a list
 
-
+    val transform_nodes_trees :
+      tree Sexpr.t -> Data.d -> a list -> Methods.tree_transform list
+        -> tree Sexpr.t * Data.d * a list
 
 end
 

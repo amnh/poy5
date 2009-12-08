@@ -1370,6 +1370,12 @@ let process_transform (run : r) (meth : Methods.transform) =
           { run with
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
+    | #Methods.tree_transform as meth ->
+            let trees, data, nodes =
+                CT.transform_nodes_trees run.trees run.data run.nodes [meth]
+            in
+            update_trees_to_data false false
+                { run with trees = trees; nodes = nodes; data = data; }
     | #Methods.char_transform as meth ->
           let data, nodes =
               CT.transform_nodes run.trees run.data run.nodes
@@ -1582,6 +1588,7 @@ let temporary_transform run meth =
                                           (Ptree.set_origin_cost
                                                old_origin_cost)
                                           run.trees })
+    | #Methods.tree_transform
     | #Methods.char_transform ->
           run1,
           `UntransformChar
@@ -4109,7 +4116,8 @@ END
                         Status.user_message Status.Error msg;
                         raise (Error_in_Script (err, run))
             in
-            let script = PoyCommand.read_script_files true files in
+            let script = PoyCommand.read_script_files true 
+                (List.map (fun x -> `Filename x) files) in
             let script = Sexpr.of_list script in
             Sexpr.fold_status "Running commands" ~eta:true file_folder run
             script

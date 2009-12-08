@@ -114,10 +114,12 @@ type chromosome_args = [
 
 
 type transform_method = [
-    | `Independent
     | `RandomizedTerminals
     | `AlphabeticTerminals
     | `Prealigned_Transform
+    | `EstLikelihood of 
+        ( Methods.ml_substitution * Methods.ml_site_variation option *
+          Methods.ml_priors * Methods.ml_gap )
     | `UseParsimony
     | `UseLikelihood of 
         ( Methods.ml_substitution * Methods.ml_site_variation option *
@@ -408,10 +410,11 @@ let transform_transform acc (id, x) =
             acc
     | #Methods.characters as id ->
             match x with
-            | `Independent -> (`Independent id) :: acc
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
+            | `EstLikelihood (a, b, c, d) ->
+                    (`EstLikelihood (id, a, b, c, d)) :: acc
             | `UseParsimony -> (`UseParsimony id) :: acc
             | `UseLikelihood (a, b, c, d) ->
                     (`UseLikelihood (id, a, b, c, d)) :: acc
@@ -1214,44 +1217,34 @@ let create_expr () =
             ]];
         ml_substitution: 
             [
-                [ "constant";
-                    x = OPT optional_integer_or_float -> 
-                    let x = match x with
-                        | None -> None 
-                        | Some x -> Some (float_of_string x) 
-                    in `JC69 x ] |
-                [ "jc69";  
-                    x = OPT optional_integer_or_float -> 
-                    let x = match x with
-                        | None -> None
-                        | Some x -> Some (float_of_string x)
-                    in `JC69 x ] |
-                [ "f81";
-                    x = OPT optional_integer_or_float ->
-                    let x = match x with
-                        | None -> None
-                        | Some x -> Some( float_of_string x )
-                    in `F81 x ] |
+                [ "jc69" -> `JC69 ] |
+                [ "f81" -> `F81 ] |
                 (* values of these types get checked later *)
                 [ "f84"; x = OPT ml_floatlist -> `F84 x ] |
-                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] | 
+                [ "k80"; x = OPT ml_floatlist -> `K2P x ] |
+                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] |
+                [ "hky"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
                 [ "gtr"; x = OPT ml_floatlist -> `GTR x ] |
                 [ "file"; ":"; x = STRING -> `File x ]
             ];
+        site_properties:
+            [
+                [ right_parenthesis -> None ] |
+                [ ","; y = LIST1 integer_or_float SEP ",";right_parenthesis ->
+                    Some (List.map float_of_string y) ]
+            ];
         ml_site_variation: 
             [
-                [ "gamma";":";left_parenthesis;
-                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
-                        let sv_ = Array.of_list (List.map float_of_string y) in
-                        let (alpha,beta) = (Array.get sv_ 0, Array.get sv_ 1) in
-                        Some (`Gamma (int_of_string x, alpha, beta)) ] |
-                [ "theta";":";left_parenthesis;
-                    x = INT;",";y = LIST1 integer_or_float SEP ",";right_parenthesis -> 
-                        let sv_ = Array.of_list (List.map float_of_string y) in
-                        let (alpha,beta,percent) = (Array.get sv_ 0, Array.get sv_ 1,Array.get sv_ 2) in
-                        Some (`Theta (int_of_string x, alpha, beta, percent)) ] |
+                [ "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
+                    let d = match d with | Some [x] -> Some x | None -> None
+                        | _ -> failwith "Improper Gamma Argument" in
+                    Some (`Gamma (int_of_string x, d)) ] |
+                [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
+                    let d = match d with | Some [x;y] -> Some (x,y) | None -> None
+                        | _ -> failwith "Improper Theta Argument" in
+                        Some (`Theta (int_of_string x, d)) ] |
                 [ "none" -> None ]
             ];
         ml_priors:
@@ -1276,7 +1269,15 @@ let create_expr () =
             ];
         transform_method:
             [
-                [ LIDENT "independent" -> `Independent ] |
+                [ LIDENT "elikelihood"; ":"; left_parenthesis;
+                    w = ml_substitution; ","; x = ml_site_variation; ",";
+                    y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
+                        let z =
+                            match z with
+                            | None -> `GapAsCharacter false
+                            | Some x -> x
+                        in
+                        `EstLikelihood (w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
@@ -2223,25 +2224,34 @@ let ( --> ) a b = b a
 let rec process_commands optimize command = 
     match command with
     | `ChangeWDir dir -> let dir = simplify_directory dir in Sys.chdir dir; [command]
-    | `ReadScript files -> read_script_files false files
+    | `ReadScript files -> 
+            read_script_files false (List.map (fun x -> `Filename x) files)
     | x -> [x]
 
-and read_script_files optimize files = 
+and read_script_files optimize (files : [`Inlined of string | `Filename of
+string] list)  = 
     let res = 
         List.map
         (fun f -> 
+            let where = 
+                match f with
+                | `Filename f -> "file@ @{<b>" ^ f ^ "@}@"
+                | `Inlined f -> "inlined@ script"
+            in
             try
-                let f = simplify_directory f in
-                let comm = of_file false f in
-                `Echo ("Running file " ^ f, `Information) :: comm
+                match f with
+                | `Inlined f ->
+                        let comm = of_string false f in
+                        `Echo ("Running inlined script", `Information) :: comm
+                | `Filename f ->
+                        let f = simplify_directory f in
+                        let comm = of_file false f in
+                        `Echo ("Running file " ^ f, `Information) :: comm
             with
             | Loc.Exc_located (a, Stream.Error err) ->
-            (*
-            | Loc.Exc_located (a, Token.Error err) ->
-                    *)
                     let is_unknown = "illegal begin of expr" = err in
-                    let msg = "@[<v 4>@[Command@ error@ in@ file@ @{<b>" ^
-                    f ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
+                    let msg = "@[<v 4>@[Command@ error@ in@ " ^
+                    where ^ "@}@ line@ @{<b>" ^ string_of_int (Loc.start_line a) ^
                     "@}@ between@ characters@ @{<b>" ^ 
                     string_of_int ((Loc.start_off a) - (Loc.start_bol a))
                     ^ "@} and @{<b>" ^
@@ -2253,7 +2263,7 @@ and read_script_files optimize files =
                     failwith "Script execution stopped"
             | err -> 
                     Status.user_message Status.Error 
-                    ("Error@ while@ processing@ script@  " ^ f);
+                    ("Error@ while@ processing@ script@  " ^ where);
                     raise err) 
         files 
     in

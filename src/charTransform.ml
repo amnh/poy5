@@ -64,6 +64,10 @@ module type S = sig
       tree Sexpr.t ->
       Data.d -> a list -> Methods.char_transform list -> Data.d * a list
 
+    val transform_nodes_trees :
+      tree Sexpr.t -> Data.d -> a list -> Methods.tree_transform list 
+        -> tree Sexpr.t * Data.d * a list
+
 end
 
 exception No_trees
@@ -725,6 +729,34 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         --> List.map (produce_partitions data tree)
         --> List.fold_left process_partitions data
 
+    (* estimate a likelihood model from non-addative characters as defined in
+     * chars, over branches. Classify all transitions and count base frequencies
+     * of leaves for priors, then construct the model. *)
+    let estimate_likelihood_model p_tree branches alphabet (chars,subst,variation,_,gap) =
+      IFDEF USE_LIKELIHOOD THEN
+        let gap = match gap with `GapAsCharacter x -> x in
+        let is_leaf ptree code = match Ptree.get_node code ptree with
+            | Tree.Leaf _     -> true
+            | Tree.Interior _ -> false
+            | Tree.Single _   -> assert( false ) (* shouldnot happen *)
+        in
+        let classify_branch ptree e acc = 
+            let Tree.Edge (ac,bc) = e and data = ptree.Ptree.data in
+            let a = Ptree.get_node_data ac ptree and b = Ptree.get_node_data bc ptree in
+            let dataa = Node.extract_states alphabet data (Some bc) chars a
+            and datab = Node.extract_states alphabet data (Some ac) chars b in
+            MlModel.classify_seq_pairs (is_leaf ptree ac) (is_leaf ptree bc) dataa datab acc
+        and l_traversal lst classify_func ptree acc =
+            List.fold_left (fun acc e -> classify_func ptree e acc) acc lst
+        in
+        (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
+            --> l_traversal branches classify_branch p_tree
+            --> MlModel.spec_from_classification alphabet gap subst variation
+            --> MlModel.create alphabet
+      ELSE
+        failwith MlModel.likelihood_not_enabled
+      END
+
     let analyze_sequences sensible acc ((node, node_union), leafs) =
         try 
             let leaf_sequences = 
@@ -851,7 +883,37 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         codes
 
-    let rec transform_node_characters trees (data, nodes) (meth : Methods.char_transform)  =
+    let rec transform_tree_characters (trees,data,nodes) meth =
+        match meth with
+        | `EstLikelihood ((chars,a,b,c,d) as x) ->
+            let trees = Sexpr.fold_left
+                (fun tsexp t -> 
+                    let chars = 
+                        let chars = `Some (Data.get_chars_codes_comp t.Ptree.data chars) in
+                        Data.get_code_from_characters_restricted `AllStatic t.Ptree.data chars
+                    in
+                    let _,alpha = Data.verify_alphabet t.Ptree.data chars
+                    and chars_ = match chars with
+                        | [] -> None | cs -> Some (Array.of_list cs)
+                    in
+                    let bs = Tree.get_edges_tree t.Ptree.tree in
+                    let ndata, nodes =
+                        (chars_,a,b,c,d) 
+                            --> estimate_likelihood_model t bs alpha
+                            --> (fun xm -> Parser.SC.STLikelihood xm)
+                            --> Data.apply_on_static_chars t.Ptree.data chars
+                            --> Node.load_data
+                    in
+                    let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in
+                    Sexpr.union (`Single ntree) tsexp)
+                `Empty
+                trees
+            (* this data/nodes are used when building/loading new trees *)
+            and data, nodes = Node.load_data (Data.set_likelihood data x) in
+            trees, data, nodes
+        | _ -> failwith "not a tree operation"
+
+    let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =
         let load_transformed_data new_data = 
             let data, nodes =
                 new_data 
@@ -931,11 +993,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 " or contact support on the mailing list");
                 data,nodes
             END
-        | `Independent chars -> failwith "this isn't a command right now"
         | `Prealigned_Transform chars ->
                 data 
-                --> (fun d -> Data.prealigned_characters
-                ImpliedAlignment.analyze_tcm d chars)
+                --> (fun d -> Data.prealigned_characters ImpliedAlignment.analyze_tcm d chars)
                 --> Data.categorize
                 --> Node.load_data 
         | `MultiStatic_Aprox (chars, remove_non_informative) ->
@@ -1062,7 +1122,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                         let new_data = 
                             Data.transform_chrom_to_rearranged_seq data meth
                                 char_codes ia_ls 
-                        in                  
+                        in
                         new_data                           
                   | _ -> 
                         Data.transform_dynamic meth data 
@@ -1071,6 +1131,22 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
               load_transformed_data new_data 
           end 
 
+    let transform_nodes_trees trees data nodes (trans : Methods.tree_transform list) = 
+        let len = List.length trans in 
+        let st = 
+            Status.create "Transforming" (Some len) " of transformations applied"
+        in
+        let apply_transformation acc res =
+            let res = transform_tree_characters acc res in
+            let _ =
+                let ach = Status.get_achieved st in
+                Status.full_report ~adv:(ach +1) st
+            in
+            res
+        in
+        let res = List.fold_left apply_transformation (trees,data,nodes) trans in
+        Status.finished st;
+        res
 
     let transform_nodes trees data nodes (trans : Methods.char_transform list) = 
         let len = List.length trans in 
@@ -1086,7 +1162,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             in
             res
         in
-        let res = List.fold_left (apply_transformation trees) (data, nodes) trans in
+        let res = List.fold_left (apply_transformation trees) (data,nodes) trans in
         Status.finished st;
         res
 end 

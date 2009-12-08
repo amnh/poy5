@@ -164,8 +164,8 @@ type terminal_transform = [
 ]
 
 type ml_substitution = [
-    | `JC69 of float option 
-    | `F81 of float option
+    | `JC69
+    | `F81
     | `F84 of float list option
     | `HKY85 of float list option
     | `K2P of float list option
@@ -175,9 +175,9 @@ type ml_substitution = [
     | `File of string
 ]
 
-type ml_site_variation= [   | `Gamma of int * float * float  
-                            | `Theta of int * float * float*float ]
-type ml_priors = [`Estimate | `Given of float list | `Constant ]
+type ml_site_variation= [   | `Gamma of int * float option
+                            | `Theta of int * (float * float) option ]
+type ml_priors = [ `Estimate | `Given of float list | `Constant ]
 type ml_gap = [`GapAsCharacter of bool ]
 
 type ml_spec = 
@@ -200,14 +200,16 @@ type char_transform = [
     | `UseLikelihood of ml_spec
     | `UseParsimony of characters
     | transform_cost_matrix
-    | `Independent of characters
     | level 
 ]
 
-
+type tree_transform = [
+    | `EstLikelihood of ml_spec
+]
 
 type transform = [
     | char_transform
+    | tree_transform
     | terminal_transform
     | `OriginCost of float
 ]

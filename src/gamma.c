@@ -59,7 +59,7 @@
  */
 double gamma( double z )
 {
-    double x,Lg; int k; int g = 7;
+    double x,Lg; int k;
     static double C[] = 
     {  0.99999999999980993, 676.5203681218851, -1259.1392167224028,
         771.32342877765313, -176.61502916214059, 12.507343278686905,
@@ -69,10 +69,10 @@ double gamma( double z )
         return M_PI / (sin(M_PI*z)*gamma(1-z));
     z--;
     Lg = C[0];
-    for(k=1;k<g+2;++k)
+    for(k=1;k<9;++k)
         Lg = Lg + (C[k] / (z+k));
 
-    x = z + g + 0.5;
+    x = z + 7.5;
     x = sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
     return (x);
 }
@@ -116,40 +116,15 @@ double lngamma_pdf(const double r, const double alpha, const double beta)
     return (pow(beta,alpha)*pow(r, alpha-1)) / (exp(beta*r + lngamma(alpha)) );
 }
 
-/** [gamma_pp out k alpha beta step]
- * Finds the cut points, into [out], that create fractions of the percent total
- */
-void gamma_pp(double* out,const int k,const double alpha,const double beta)
-{
-    double x,y1,y2,y,z,f; int i;
-    x = STEP; y = 0; z = 0; f = STEP/2; //initial values; gamma_pdf(0) = inf
-
-    for(i=0;i<(k-1);i++){
-        z = ((double)i+1) / ((double)k);
-        y1 = lngamma_pdf(x,alpha,beta);
-        while( y <= z ){
-            x += STEP;
-            y2 = lngamma_pdf(x,alpha,beta);
-            //printf("lngpdf: %f\t gampdf: %f\n", y2, gamma_pdf(x,alpha,beta));
-            y += f*(y1+y2);
-            y1 = y2;
-        }
-        out[i] = x;
-        z += 1/k;
-    }
-}
-
 /** confluent hypergeometric (for incomplete gamma ratio)
  *   ___inf
  *   \       ______x^r_______ 
  *   /      (p+1)(p+2)...(p+r)
  *   ---r=1
- */
 double gamma_M(const double z, const double a) 
 {
     double bottom,sum,z_pow,prev; int iter;
     iter = 0; bottom = 1; z_pow = 1; sum = 0; prev = 0;
-
     do {
         prev = sum;
         sum += z_pow / bottom;
@@ -159,7 +134,7 @@ double gamma_M(const double z, const double a)
     } while( fabs(sum-prev) > EPSILON );
 
     return sum;
-}
+} */
 
 
 /** [gamma_i x a ]
@@ -167,14 +142,14 @@ double gamma_M(const double z, const double a)
  *      ~Bhattacharjee (1970), Algorithm AS32
  *
  *      a - alpha parameter
- *      x - bound of integral */
+ *      x - bound of integral
 double gamma_i(const double x, const double a)
 {
     //if ( x < p || (a <= x && x <= 1.0) ) {
         return (exp(-x)*pow(x,a)/gamma(a+1)) * gamma_M(x,a);
     //else
     //    return 1 - exp(-x)*pow(x,a) / gamma(a) * gamma_C(x,a);
-}
+} */
 
 
 /**
@@ -256,6 +231,181 @@ double gammap( const double x, const double a )
     return gam;
 }
 
+/** [point_normal p]
+ * Finds the percentage point [p] of the normal distribution.
+ *
+ * Algorithm AS241: The Percentage Points of the Normal Distribution.
+ */
+double point_normal( double p ){
+  static double zero = 0.0, one = 1.0, half = 0.5;
+  static double split1 = 0.425, split2 = 5.0;
+  static double const1 = 0.180625, const2 = 1.6;
+  static double a[8] = {
+    3.3871328727963666080e0,
+    1.3314166789178437745e+2,
+    1.9715909503065514427e+3,
+    1.3731693765509461125e+4,
+    4.5921953931549871457e+4,
+    6.7265770927008700853e+4,
+    3.3430575583588128105e+4,
+    2.5090809287301226727e+3
+  };
+  static double b[8] = { 
+    0.0,
+    4.2313330701600911252e+1,
+    6.8718700749205790830e+2,
+    5.3941960214247511077e+3,
+    2.1213794301586595867e+4,
+    3.9307895800092710610e+4,
+    2.8729085735721942674e+4,
+    5.2264952788528545610e+3
+  };
+  static double c[8] = {
+    1.42343711074968357734e0,
+    4.63033784615654529590e0,
+    5.76949722146069140550e0,
+    3.64784832476320460504e0,
+    1.27045825245236838258e0,
+    2.41780725177450611770e-1,
+    2.27238449892691845833e-2,
+    7.74545014278341407640e-4
+  };
+  static double d[8] = { 
+    0.0,
+    2.05319162663775882187e0,
+    1.67638483018380384940e0,
+    6.89767334985100004550e-1,
+    1.48103976427480074590e-1,
+    1.51986665636164571966e-2,
+    5.47593808499534494600e-4,
+    1.05075007164441684324e-9
+  };
+  static double e[8] = {
+    6.65790464350110377720e0,
+    5.46378491116411436990e0,
+    1.78482653991729133580e0,
+    2.96560571828504891230e-1,
+    2.65321895265761230930e-2,
+    1.24266094738807843860e-3,
+    2.71155556874348757815e-5,
+    2.01033439929228813265e-7
+  };
+  static double f[8] = { 
+    0.0,
+    5.99832206555887937690e-1,
+    1.36929880922735805310e-1,
+    1.48753612908506148525e-2,
+    7.86869131145613259100e-4,
+    1.84631831751005468180e-5,
+    1.42151175831644588870e-7,
+    2.04426310338993978564e-15
+  };
+  double q, r, ret;
+  
+  q = p - half;
+  if (fabs(q) <= split1) {
+    r = const1 - q * q;
+    ret = q * (((((((a[7] * r + a[6]) * r + a[5]) * r + a[4]) * r + a[3])
+		 * r + a[2]) * r + a[1]) * r + a[0]) /
+      (((((((b[7] * r + b[6]) * r + b[5]) * r + b[4]) * r + b[3])
+	 * r + b[2]) * r + b[1]) * r + one);
+    
+    return ret;
+  }
+  /* else */
+  if (q < zero)
+    r = p;
+  else
+    r = one - p;
+  
+  if (r <= zero)
+    return zero;
+  
+  r = sqrt(-log(r));
+  if (r <= split2) {
+    r -= const2;
+    ret = (((((((c[7] * r + c[6]) * r + c[5]) * r + c[4]) * r + c[3])
+	     * r + c[2]) * r + c[1]) * r + c[0]) /
+      (((((((d[7] * r + d[6]) * r + d[5]) * r + d[4]) * r + d[3])
+	 * r + d[2]) * r + d[1]) * r + one);
+  }
+  else {
+    r -= split2;
+    ret = (((((((e[7] * r + e[6]) * r + e[5]) * r + e[4]) * r + e[3])
+	     * r + e[2]) * r + e[1]) * r + e[0]) /
+      (((((((f[7] * r + f[6]) * r + f[5]) * r + f[4]) * r + f[3])
+	 * r + f[2]) * r + f[1]) * r + one);
+  }
+  
+  if (q < zero)
+    ret = -ret;
+  
+  return ret;
+}
+
+/** [chi_pp p v]
+ * Finds the percentage point [p] of the chi squared distribution of [v] degrees
+ * of freedom.  The gamma is related to this distribution by the define below.
+ *
+ * Algorithm AS91: The Percentage Points of the chi^2 Distribution
+ *      (translated to C, and removed goto's) */
+double chi_pp( double p, double v ){
+    double ch,s1,s2,s3,s4,s5,s6;
+    double e,aa,xx,c,g,x,p1,a,q,p2,t,ig,b;
+
+    if (p < 0.000002 || p > 0.999998) return -1;
+    if(v <= 0.0) return -1;
+
+    e = 0.5e-6;         /** error term **/
+    aa= 0.6931471805;
+    xx = 0.5 * v;
+    c  = xx - 1.0;
+    g  = lngamma( xx );
+
+    if( v < -1.24 * log(p) ){
+        ch = pow(p * xx * exp ( g + xx * aa), 1.0/xx);
+        if( ch - e < 0 ) return ch;
+    } else if( v > 0.32) {
+        x = point_normal( p );
+        p1 = 0.222222 / v;
+        ch = v * pow( x * sqrt( p1 ) + 1 - p1, 3.0) ;
+        if (ch > 2.2 * v + 6)
+            ch = -2.0 * (log(1-p) - c*log(0.5*ch)+g);
+    } else {
+        ch  = 0.4;
+        a = log (1 - p);
+        do{ 
+            q  = ch;
+            p1 = 1 + ch * (4.67 + ch);
+            p2 = ch * (6.73 + ch * (6.66 + ch));
+            t  = -0.5 + (4.67 + 2*ch)/p1 - (6.73 + ch*(13.32 + 3*ch))/p2;
+            ch = ch - (1- exp( a + g + 0.5*ch+c*aa) * p2/p1)/t;
+        } while( fabs( q/ch - 1) - 0.01 > 0.0 );
+    }
+
+    do{
+        q  = ch;
+        p1 = .5*ch;
+        ig = gammap( p1, xx );
+        if (ig < 0) return -1;
+        p2 = p - ig;
+        t  = p2 * exp( xx*aa + g + p1 - c*log(ch));
+        b  = t / ch;
+        a  = (0.5*t) - (b*c);
+        /* Seven terms of the Taylor series */
+        s1 = (210 + a*(140 + a*(105 + a*(84 + a*(70 + 60*a))))) / 420.0;
+        s2 = (420 + a*(735 + a*(966 + a*(1141 + 1278*a)))) / 2520.0;
+        s3 = (210 + a*(462 + a*(707 + 932*a))) / 2520.0;
+        s4 = (252 + a*(672 + 1182*a) + c*(294 + a*(889 + 1740*a))) / 5040.0;
+        s5 = ( 84 + 264*a + c*(175 + 606*a)) / 2520.0;
+        s6 = (120 + c*(346+127*c)) / 5040.0;
+        ch+= t*(1+0.5*t*s1-b*c*(s1-b*(s2-b*(s3-b*(s4-b*(s5-b*s6))))));
+    } while( fabs(q / ch - 1.0) > e);
+
+    return (ch);
+}
+#define gamma_pp(prob,alpha,beta) chi_pp(prob,2.0*alpha)/(2.0*beta)
+
 /** [gamma_rates rates alpha beta cuts k]
  * calculates the rates into [rates] with percentage points [cuts] of [k]
  * categories and shape parameters [alpha] and [beta]
@@ -264,10 +414,10 @@ void
 gamma_rates(double* rates,const double a,const double b,const double* cuts,const int k)
 {
     double fac, *ingam;
+    int j;
     fac = a*((double)k)/b;
     ingam = (double*) malloc( k * sizeof(double));
     CHECK_MEM(ingam);
-    int j;
 
     //calculate: rj = (A*k/B)*(I(bB,A+1)-I(aB,A+1))
     for(j=0;j<(k-1);j++){
@@ -288,29 +438,30 @@ value gamma_CAML_rates( value a, value b, value c )
     CAMLlocal1( rates );
     double alpha,beta,*rate_ray,*pcut_ray;
     int cats,j;
+    long dims[1];
 
     alpha = Double_val( a );
     beta =  Double_val( b );
     cats = Int_val( c );
-    rate_ray = (double*) malloc( sizeof(double)*c ); 
+    rate_ray = (double*) malloc( sizeof(double)*cats ); 
     CHECK_MEM(rate_ray);
-    pcut_ray = (double*) malloc( sizeof(double)*c );
+    pcut_ray = (double*) malloc( sizeof(double)*cats );
     CHECK_MEM(pcut_ray);
 
-    gamma_pp( pcut_ray, cats, alpha, beta );
+    for(j=1;j<cats;++j)
+        pcut_ray[j-1] = gamma_pp( (double)j/(double)cats, alpha, beta );
     //for(j=0;j<cats-1;++j) //last category isn't used
     //    printf (" [%f] ", pcut_ray[j]);
     //printf("\n");
-
     gamma_rates( rate_ray, alpha, beta, pcut_ray, cats );
+    //printf("Alpha %f, Beta %f: ",alpha, beta);
     //for(j=0;j<cats;++j)
     //    printf (" [%f] ", rate_ray[j]);
     //printf("\n");
-
     free( pcut_ray );
-    long dims[1]; dims[0] = cats;
-    rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
 
+    dims[0] = cats;
+    rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
     CAMLreturn( rates );
 }
 //------------------------------------------------------------------------------
