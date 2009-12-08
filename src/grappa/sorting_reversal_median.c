@@ -18,6 +18,8 @@
 #include "invdist.h"
 #include "simpleio.h"
 #include <math.h>
+#include "assert.h"
+
 int VIncrease = 100;
 extern VertexFactory *newvf;
 /* Find a reversal median of the given signed permutations and store
@@ -39,7 +41,6 @@ find_reversal_median ( struct genome_struct *median,
     struct genome_struct dummy;
     struct genome_struct *g[NPERMS];
     ElementUnion revtmp ;
-    ElementUnion vertextmp;
     Reversal revrev;
     MedianMemory *mm;
 
@@ -74,7 +75,6 @@ find_reversal_median ( struct genome_struct *median,
             int oth1 = d[i + 1][( j + 1 ) % NPERMS];
             int oth2 =
                 ( j - i == 1 ) ? d[i][( j + 1 ) % NPERMS] : d[i + 1][j];
-
             /* see if d[i][j] is the longest of the 3 pw distances */
             if ( d[i][j] >= oth1 && d[i][j] >= oth2 )
             {
@@ -102,62 +102,69 @@ find_reversal_median ( struct genome_struct *median,
 
     /* initialize median struct, which will hold best median so far */
     permcopy ( median->genes, vorig->perm, ngenes );
-//debug msg
-    fprintf(stdout,"initialize median with :");
+/*debug msg
+    fprintf(stdout,"MIN_MED=%d,MAX_MED=%d,initialize median with :",MIN_MED,MAX_MED);
     for (i=0;i<ngenes;i++)
-    {
         fprintf(stdout,"%d,",(median->genes)[i]);
-    }
-    fflush(stdout);
-
+    fprintf(stdout,"\n"); fflush(stdout);
+*/
     /* This is the main loop, controlling the two passes through the
        algorithm */
     for ( pass = 1; pass <= 2; pass++ )
     {                           /* I changed 2 to 1 */
-  //      fprintf(stdout,"PASS=%d,max-med=%d,min-med=%d\n",pass,MAX_MED,MIN_MED); fflush(stdout);
+        //fprintf(stdout,"PASS=%d \n",pass); fflush(stdout);
         stop = 0;
         nneighbors = 0; 
         ht_clear ( mm->h );
         ht_insert ( mm->h, vorig->perm,ngenes );
+        ps_clear(mm->ps);
+        vf_clear(mm->vf);
+        ElementUnion vertextmp;
         vertextmp.vertexelement = *vorig;
         ps_push ( mm->ps, vertextmp, MAX_MED );
-
+        mark_vertex (mm->vf,vorig);
         /* Loop until median is found or no more possibilities remain (the
            latter can be true only during pass 1) */
-    //    fprintf(stdout,"loop until median is found or not more possible remain\n");
-        fflush(stdout);
         while ( stop == 0 )
         {
-        //    fprintf(stdout,"stop==0,pass=%d,\n ",pass); fflush(stdout);
-            Vertex *n, *v; 
-            Vertex vv;
+        //  fprintf(stdout,"stop==0,pass=%d,\n ",pass); fflush(stdout);
+            Vertex *v; Vertex vv;
             Reversal *rev;
             int count;
 
+            if( 1 == vf_no_free_vertex(mm->vf,mm->ps->count) ) // vertex factory mm->vf are all in use
+            {
+                    //fprintf(stdout," no more free vertex,STOP\n"); fflush(stdout);
+                    vf_clear (mm->vf);
+                    ps_clear (mm->ps);
+                    stop = 1; 
+                    break;
+            }
             if ( (mm->ps)->count == 0 ) //stack mm->ps is empty
             {
-                fprintf(stdout,"stack mm->ps is empty,STOP\n"); fflush(stdout);
+                //fprintf(stdout,"stack mm->ps is empty,STOP\n",pass); fflush(stdout);
+                vf_clear (mm->vf);
                 stop = 1; break;
             }
             else 
             {
                 vv = (ps_pop(mm->ps)).vertexelement;
                 v = &vv;
-                if ( //( v = ( Vertex * ) ps_pop ( mm->ps ) ) == NULL ||
-                     v->best_possible_score >= MAX_MED )
+                if ( ht_find ( mm->h, v->perm, 0, ngenes ) == 1 )
                 {
-                    fprintf(stdout,"v->best_possible_score >= MAX_MED,STOP\n"); fflush(stdout);
+                    return_vertex ( mm->vf, v );
+                    continue;   /* already visited vertex; go on to
+                                   next candidate */
+                }
+                ht_insert ( mm->h, v->perm,ngenes );
+                
+                if ( v->best_possible_score >= MAX_MED )
+                {
+                    //fprintf(stdout,"v->best_possible_score >= MAX_MED,STOP\n"); fflush(stdout);
+                    return_vertex( mm->vf, v);
                     stop = 1; break;
                 }
-                else if( ps_full(mm->ps)  )  //what if the stack is full?
-                {
-                    fprintf(stdout,"stack mm->ps is full,STOP\n"); fflush(stdout);
-                    stop = 1; break;
-                 // do ps_clear ( mm->ps ); instead? 
-                 // Fix for POY.....
-                 // not sure about this, 
-                }
-            }
+             }
             
             dummy.genes = v->perm;  /* to accommodate conventions of
                                        find_all_sorting_reversals */
@@ -208,7 +215,7 @@ find_reversal_median ( struct genome_struct *median,
                          MASK[SORTING][2] )
                     {
                         revtmp.revelement = *rev;
-                       push ( &mm->candidates, revtmp );
+                        push ( &mm->candidates, revtmp );
                     }
                 }
             }
@@ -236,7 +243,18 @@ find_reversal_median ( struct genome_struct *median,
             count = 0;
             while ( ! is_empty(&mm->candidates) )
             {
+                if( 1 == vf_no_free_vertex(mm->vf,mm->ps->count) ) 
+                    // vertex factory mm->vf are all in use
+                {
+                   // fprintf(stdout," no more free vertex,STOP\n"); fflush(stdout);
+                    vf_clear (mm->vf);
+                    ps_clear (mm->ps);
+                    stop = 1; 
+                    break;
+                } 
+
                 count++;
+                Vertex *n;
                 n = get_vertex ( mm->vf );
                 revrev = (pop_queue ( &mm->candidates)).revelement;
                 rev = &revrev; 
@@ -251,6 +269,7 @@ find_reversal_median ( struct genome_struct *median,
                     continue;   /* already visited vertex; go on to
                                    next candidate */
                 }
+                ht_insert ( mm->h, n->perm,ngenes );
                 /* this must always be true */
                 n->distance = v->distance + 1;
                 /* set distance wrt d[1] according to whether a sorting,
@@ -283,44 +302,52 @@ find_reversal_median ( struct genome_struct *median,
                 /* if meets lower bound, then stop */
                 if ( n->worst_possible_score <= MIN_MED )
                 {
-                    fprintf(stdout,"meets lower bound,copy from n->perm to median, Break Loop, STOP\n");
-                    fflush(stdout);
+                   // fprintf(stdout,"meets lower bound,copy n->perm to median, Break Loop, STOP\n");
+                    //fflush(stdout);
                     permcopy ( median->genes, n->perm, ngenes );
+                    vf_clear (mm->vf);
+                    ps_clear (mm->ps);
                     stop = 1;
                     found_one = 1;
                     break;
                 }
+                 /* if worst possible is better than any median so far, set n as
+                   median and lower upper bound */
+                else if ( n->worst_possible_score < MAX_MED )
+                {
+                   // fprintf(stdout,"n->worst possible is better than any median so far, \
+                            copy from n->perm to median->genes, set MAX_MED to %d\n\
+                                ",n->worst_possible_score); fflush(stdout);
+                    permcopy ( median->genes, n->perm, ngenes );
+                    MAX_MED = n->worst_possible_score;
+                    return_vertex(mm->vf,n);
+                }
+
                 /* if best possible is better than current upper bound, add to
                    priority stack */
-                if ( n->best_possible_score < MAX_MED )
+                else if ( n->best_possible_score < MAX_MED )
                 {
-           //         fprintf(stdout,"MAX_MED=%d > possible best=%d, push to mm->ps; ",
-             //               MAX_MED,n->best_possible_score); fflush(stdout);
-                    vertextmp.vertexelement = *n;
                     if (!is_full( &(mm->ps)->stacks[n->best_possible_score - mm->ps->min]))
+                    {
+                        ElementUnion vertextmp;
+                        vertextmp.vertexelement = *n;
                         ps_push ( mm->ps, vertextmp, n->best_possible_score );     
+                        mark_vertex (mm->vf, n);
+                    }
                     else
+                    {
+                        return_vertex ( mm->vf, n );
                         continue; 
-                       //if the priority stack of current kind is full
+                       //if the priority stack of this best_possible_score is full
                        // what we do next?skip this candidate? reuse the stack?
+                    }
                 }
                 else
                 {
-                 //   fprintf(stdout,"no better score "); fflush(stdout);
                     return_vertex ( mm->vf, n );
                 }
-                /* if worst possible is better than any median so far, set n as
-                   median and lower upper bound */
-                if ( n->worst_possible_score < MAX_MED )
-                {
-    //                fprintf(stdout,"worst possible is better than any median so far, \
-    //                        copy from n->perm to median->genes, set MAX_MED to %d\n",
-    //                        n->worst_possible_score); fflush(stdout);
-                    permcopy ( median->genes, n->perm, ngenes );
-                    MAX_MED = n->worst_possible_score;
-                }
             }//end of   while ( ! is_empty(&mm->candidates) )
-          //  fprintf(stdout," end of while, %d candidates \n",count); fflush(stdout);
+         //  fprintf(stdout," end of while, %d candidates \n",count); fflush(stdout);
             /* unmark all marked reversals and free reversals */
             for ( i = 0; i < NREVTYPES; i++ )
             {
@@ -335,19 +362,22 @@ find_reversal_median ( struct genome_struct *median,
                         mm->mark[rev->start][rev->stop] = 0;
                         else
                         {
-                          fprintf(stdout,"rev->start=%d,stop=%d\n",
-                                  rev->start,rev->stop);
-                          fflush(stdout);
+                          fprintf(stdout,"ERROR: revelement with crazy values: \
+                          rev->start=%d,stop=%d\n", rev->start,rev->stop);
+                          assert(0);
                         }
                     }
                 }
             }
             if ( pass == 2 )
+            {
                 while ( !is_empty( &mm->candidates ) )
                 { 
                      revrev = pop_queue ( &mm->candidates ).revelement;
                 }
-            return_vertex ( mm->vf, v );
+            }
+            mm->vf->freevertex ++;
+            return_vertex(mm->vf,v);
         }// end of while ( stop == 0 )
 
    //     fprintf(stdout,"STOP the search for pass %d\n", pass); fflush(stdout);
@@ -355,36 +385,38 @@ find_reversal_median ( struct genome_struct *median,
         {
             if ( found_one == 1 )   /* found perfect median */
             {
-                fprintf(stdout,"we find the perfect median! Break\n"); fflush(stdout);
+               // fprintf(stdout,"we find the perfect median! Break\n"); fflush(stdout);
                 break;
             }
             else if ( MAX_MED == ( d[0][1] + d[1][2] + d[0][2] ) / 2.0 + 1 )
             {
-                fprintf(stdout,"MAX_MED=(%d,+%d+%d)/2+1,Break\n",d[0][1],d[1][2],d[0][2]);
-                fflush(stdout);
+                //fprintf(stdout,"MAX_MED=(%d,+%d+%d)/2+1,Break\n",d[0][1],d[1][2],d[0][2]);
+                //fflush(stdout);
                 /* in this case, we know we can do no
                    better, because we know there is no
                    perfect median */
                 break;
             }
         }
-    }// end of for (pass=1,...)
-    if ( medmem == NULL )
-        free_median_memory ( );
-//debug msg
+    }// end of for (pass=1,2;)
+    if ( medmem == NULL )  free_median_memory ( );
+    return_vertex (mm->vf, vorig);
+
+/*debug msg
     fprintf(stdout,"Result median is :");
     for (i=0;i<ngenes;i++)
     {
         fprintf(stdout,"%d,",(median->genes)[i]);
     }
     fprintf(stdout,"\n"); fflush(stdout);
-
+*/
 }
 
 
 /* Return a new MedianMemory struct containing various data structures
    used by "find_reversal_median".  This mechanism simply helps to
    avoid intensive allocation and deallocation of memory */
+//local_mem_p = new_median_memory(ngenes, 0, ( ngenes + 1 ) * 2);
 MedianMemory *
 new_median_memory ( int ngenes, int minm, int maxm )
 {
@@ -410,7 +442,12 @@ new_median_memory ( int ngenes, int minm, int maxm )
         for ( j = 0; j < NPERMS; j++ )
             mm->MASK[i][j] = pow ( 2, i * NPERMS + j );
     /* set up priority stack, reversal sorting memory */
-    mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, VertexData/*sizeof ( Vertex * )*/ );
+// QUEUECAPACITY was set to 500000 in head file
+// 500000 is too big, the size of each line of priority stack should not to
+// bigger than the size of vertex factory, when we are out of free vertex, we
+// stop the searching loop, thus stop pushing vertex to priority stack.
+//  mm->ps = new_ps ( minm, maxm, QUEUECAPACITY, VertexData );
+    mm->ps = new_ps ( minm, maxm, mm->vf->length, VertexData );
     mm->rsm = new_reversal_sorting_memory ( ngenes );
 
     /* initialize lists used to keep track of neutral, sorting,
