@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = true
+let debug = false
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -306,6 +306,11 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
+let normalize_gtr = true
+let normalize ray = 
+    let last_val = ray.((Array.length ray) - 1) in
+    Array.map (fun i -> i /. last_val) ray
+
 (* val gtr :: ANY ALPHABET size
    pi_ == n; co_ == ((n-1)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
@@ -538,11 +543,8 @@ let create alph lk_spec =
             false, m_tn93 priors ts tv 1.0 a_size, lk_spec.substitution
         | GTR c ->
             let c = match c with 
-                | Some xs ->
-                    (* normalize so last element is = 1.0 *)
-                    let last = xs.( (Array.length xs) - 1) in
-                    Array.map (fun x -> x /. last) xs
-                | None -> default_gtr a_size
+                | Some xs -> normalize xs
+                | None    -> default_gtr a_size
             in
             false, m_gtr priors c a_size, (GTR (Some c))
         | File m-> false, m_file priors m a_size, lk_spec.substitution
@@ -773,9 +775,12 @@ and update_f84 old_model new_value =
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_gtr old_model new_values =  
-    let subst_spec = { old_model.spec with substitution = GTR (Some new_values) }
+    let normalized_values = 
+        if normalize_gtr then normalize new_values else new_values
+    in
+    let subst_spec = { old_model.spec with substitution = GTR (Some normalized_values) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_gtr priors new_values old_model.alph in
+    let subst_model = m_gtr priors normalized_values old_model.alph in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -1022,7 +1027,7 @@ let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep 
         if step < minstep then
             (point,fpoint,true) (* -~verify convergence~- *)
         else begin
-            let newpoint = Array.init n (fun i -> point.(i) +. (step *. direction.(i))) in
+            let newpoint = Array.init n (fun i -> abs_float (point.(i) +. (step *. direction.(i)))) in
             let newfpoint = f newpoint in
             if (get_score newfpoint) <= origfpoint then begin
                 debug_printf "\t\t%f--Accepting %f\n" prevstep (get_score newfpoint);
@@ -1054,11 +1059,12 @@ let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5
         (!test < (epsilon *. 4.0))
     (* Test tolerance for zeroing the gradient *)
     and converged_g fp gradient test_array =
-        let test = ref 0.0 in
+        let test = ref 0.0
+        and denom = max fp 1.0 in
         Array.iteri
             (fun i x ->
-                let temp = (max (abs_float x) 1.0) /. (max fp 1.0) in
-                let temp = (abs_float gradient.(i)) *. temp in
+                let temp = (max (abs_float x) 1.0) /. denom in
+                let temp = temp *. (abs_float gradient.(i)) in
                 if temp > !test then test := temp)
             test_array;
         (!test < g_tol)

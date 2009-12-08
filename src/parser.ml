@@ -171,7 +171,7 @@ let test_file file =
     else if 
         anywhere_match (Str.regexp "^[a-zA-Z._-]+ +[a-zA-Z._-]+\\s*") line
     then Is_Dictionary
-    else if anywhere_match (Str.regexp "^[0-9]+ *[0-9]+") line then
+    else if anywhere_match (Str.regexp "^[0-9]+[\\t ]+[0-9]+") line then
         Is_Phylip
     else if anywhere_match (Str.regexp "^ *(") line then
         Is_Trees
@@ -4102,8 +4102,8 @@ end
 module Phylip = struct
 
     let convert_ file =
-        let taxa_char_lengths = Str.regexp "\\(^[0-9]+\\) +\\([0-9]+\\)"
-        and name_sequence = Str.regexp " *\\([a-zA-Z0-9]+\\) +\\([a-zA-Z?-]+\\)+"
+        let taxa_char_lengths = Str.regexp "\\(^[0-9]+\\)[\\t ]+\\([0-9]+\\)"
+        and name_sequence = Str.regexp " *\\([a-zA-Z0-9]+\\)[\\t ]+\\([a-zA-Z?-]+\\)+"
         and continued_seq = Str.regexp " *\\([a-ZA-Z?-]+\\)"
         and reset_order = Str.regexp " +" in
 
@@ -4237,12 +4237,12 @@ module Phylip = struct
                     in
                     add_elms acc values)
                 [] seq
-        and seq_alphabet = Alphabet.to_sequential alphabet in
+        in
         let final_chars_array = 
             Array.init nchars 
                 (fun i->{SC.st_filesource = file;
                             st_name = file ^ ":" ^ (string_of_int i);
-                            st_alph = seq_alphabet;
+                            st_alph = alphabet;
                             st_observed = get_observed final_seq_matrix i;
                             st_labels = [];
                             st_weight = 1.0;

@@ -411,6 +411,7 @@ let median an bn t1 t2 acode bcode =
         let loglike = 
             loglikelihood n_chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob pinvar
         in
+        assert( loglike >= 0.0 );
         { an with
             chars = n_chars;
             mle = loglike; 
@@ -496,6 +497,7 @@ let of_parser spec weights characters =
                                 computed_model.MlModel.prob
                                 pinvar
     in
+    assert( loglike >= 0.0 );
     {    mle  = loglike;
        model  = computed_model;
        codes  = Array.map (fun (x,y) -> y) characters; 
