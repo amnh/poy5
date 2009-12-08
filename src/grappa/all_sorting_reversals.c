@@ -2209,7 +2209,6 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
         free_list ( &mem->conn_comp[i].cyclelist );
         free_list ( &mem->conn_comp[i].double_superhurdle_partners );
     }
-    free ( mem->conn_comp );
     free ( mem->cc_beg );
     free ( mem->cc_end );
     free ( mem->cc_e );
@@ -2228,6 +2227,7 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
             free_bitvector ( &mem->conn_comp[i].v[j] );
         free ( mem->conn_comp[i].v );
     }
+    free ( mem->conn_comp );
     for ( i = 0; i < mem->ngenes + 1; i++ )
         free_bitvector ( &mem->bv_v[i] );
     free_bitvector ( &mem->bv_p );
