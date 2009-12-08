@@ -17,18 +17,15 @@
 #include <assert.h>
 
 
-//void *
-ElementUnion  ps_pop ( PriorityStack * ps )
+ElementUnion ps_pop ( PriorityStack * ps )
 {
-    //void *i;
     ElementUnion  i;
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
 
     if ( ps->count == 0 )
-  //      i = NULL;
-     {
+    {
        fprintf(stderr,"ERROR: Try to pop an empty priority_stack\n ");
        assert(0);
     }
@@ -39,7 +36,6 @@ ElementUnion  ps_pop ( PriorityStack * ps )
             ps->idx++;
             assert ( ps->idx <= ps->max - ps->min );
         }
-
         i = pop_stack ( &ps->stacks[ps->idx] );
         ps->count--;
     }
@@ -61,7 +57,6 @@ new_ps ( int min, int max, int stack_nelements, enum datatype dtype )
     ps->max = max;
     ps->stacks = ( List * ) calloc ( max - min + 1, sizeof ( List ) );
     ps->dtype = dtype;
-    //ps->elementsz = stack_elementsz;
     for ( i = 0; i <= ( max - min ); i++ )
         init_list ( &ps->stacks[i], stack_nelements, dtype );
     ps->count = 0;
@@ -110,7 +105,6 @@ ps_full ( PriorityStack * ps)
 }
 
 
-
 void
 ps_push ( PriorityStack * ps, ElementUnion v, int priority )
 {
@@ -118,10 +112,6 @@ ps_push ( PriorityStack * ps, ElementUnion v, int priority )
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
- /*   fprintf(stdout,"min=%d,max=%d,idx=%d,count=%d,elememtsz=%d,stacks[%d],capa=%d,ridx=%d\n",ps->min,ps->max,ps->idx,ps->count,ps->elementsz,priority - ps->min,
-            (&ps->stacks[priority - ps->min])->CAPACITY,
-            (&ps->stacks[priority - ps->min])->ridx);
-    fflush(stdout); */
     if (!is_full( &ps->stacks[priority - ps->min]))
     {
         push ( &ps->stacks[priority - ps->min], v );
