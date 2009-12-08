@@ -1185,7 +1185,7 @@ invdist_noncircular ( struct genome_struct *g1, struct genome_struct *g2,
                 fprintf(stderr,"[%d]=%d,",j,g1->genes[j]);
             fprintf(stdout,"\n gene2 : "); fflush(stdout);
             for (j=0;j<num_genes;j++)
-                fprintf(stderr,"[%d]=%d,",num_genes,g2->genes[j]);
+                fprintf(stderr,"[%d]=%d,",j,g2->genes[j]);
             assert(0);
         }
         else {}
