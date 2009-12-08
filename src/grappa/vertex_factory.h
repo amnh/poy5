@@ -16,7 +16,9 @@
 typedef struct vertex Vertex;
 struct vertex
 {
+    int inuse;
     int *perm;
+    int NO;
     unsigned int distance;      /* distance from home */
     unsigned short best_possible_score; /* score of best possible median */
     unsigned short worst_possible_score;    /* score of worst possible median */
@@ -36,8 +38,8 @@ struct vertex_factory
     int width;
 
     int offseth;
-    int offsett;
     int full;
+    int freevertex;
     
     void ( *clear_mem ) ( void * );
     void *clear_mem_arg;
@@ -59,4 +61,7 @@ void vf_free ( VertexFactory * vf );
 
 void clean_vf ( VertexFactory * vf, int ngenes,
                 void ( *clear_mem ) ( void * ), void *arg );
+
+void vf_clear ( VertexFactory * vf );
+int vf_no_free_vertex (VertexFactory * vf, int ps_size);
 #endif
