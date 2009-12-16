@@ -8,6 +8,7 @@ condense3.o
 convert.o
 binencode.o
 lists.o
+lk_main.o
 med_util.o
 all_sorting_reversals.o
 vertex_factory.o
