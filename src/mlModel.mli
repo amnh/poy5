@@ -52,7 +52,7 @@ type subst_model =
     (** [GTR] alphabetical order describtion of the transition rates *)
     | GTR   of (float array) option
     (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
-    | File  of float array array 
+    | File  of float array array * string
 
 (** [priors] the prior probabilities. This is only used in specification, in
  * favor of a C-type big array for compatibility.  *)
@@ -194,6 +194,8 @@ val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Ar
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 END
+
+val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
 
 (** [brents_method ?i ?e o f] uses brents method of parabolic interpolation to
  * find the local minimum near [o] of the function [f]. [i] and [e] are used to

@@ -3672,7 +3672,7 @@ IFDEF USE_LIKELIHOOD THEN
                                     else failwith "I@ don't@ like@ your@ input@ file:"
                                 ) matrix;
                     if Array.length matrix = alph_size then 
-                        MlModel.File matrix
+                        MlModel.File (matrix,str)
                     else
                         failwith "I@ don't@ like@ your@ input@ file."
             and use_gap =

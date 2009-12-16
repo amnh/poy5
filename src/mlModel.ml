@@ -99,7 +99,7 @@ type subst_model =
     | HKY85 of float option
     | TN93  of (float * float) option
     | GTR   of float array option
-    | File  of float array array 
+    | File  of float array array * string
 
 type priors = 
     | Estimated of float array
@@ -132,8 +132,8 @@ IFDEF USE_LIKELIHOOD THEN
 let compare a b = 
     let m_compare = match a.spec.substitution,b.spec.substitution with
         | JC69 , JC69 | F81 , F81 | K2P _, K2P _ | F84 _, F84 _ 
-        | HKY85 _, HKY85 _ | TN93 _,  TN93 _ | GTR _, GTR _ 
-        | File _, File _ -> 0
+        | HKY85 _, HKY85 _ | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
+        | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
         | Some (Gamma _), Some (Gamma _) | Some (Theta _), Some (Theta _) -> 0
@@ -437,8 +437,8 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
                     --> read_file
                     --> List.map (Array.of_list)
                     --> Array.of_list
-                    --> (fun x -> File x)
-            | _ -> failwith "File not specified; Erasing hard drive. done.")
+                    --> (fun x -> File (x,name))
+            | _ -> failwith "File not specified for Likelihood Model.")
         (* ERROR *)
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
@@ -545,7 +545,7 @@ let create alph lk_spec =
                 | None -> default_gtr a_size
             in
             false, m_gtr priors c a_size, (GTR (Some c))
-        | File m-> false, m_file priors m a_size, lk_spec.substitution
+        | File (m,s)-> false, m_file priors m a_size, lk_spec.substitution
     in
     let (u_,d_,ui_) = diagonalize sym sub_mat in
     {
@@ -817,7 +817,49 @@ let update_alli fun_model old_model new_values =
 
 END
 
-
+(* [to_formatter m]
+ * builds a formatted output of the model [m] spec. Since the spec can be
+ * transformed to the model, this is a much more readable form then other model
+ * data --the decomposed matrix for example. *)
+let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list = 
+    let priors = 
+        let inner = 
+            Array.mapi
+                (fun i v ->
+                    (PXML -[Xml.Characters.vector]
+                        ([Xml.Alphabet.value] = [`Float v])
+                        { `String (Alphabet.match_code i alph)} --))
+                (match model.spec.base_priors with | Given x | Estimated x -> x)
+        in
+        (PXML -[Xml.Characters.priors] { `Set (Array.to_list inner) } --)
+    and get_model model = match model.spec.substitution with
+            | JC69    -> "jc69"     | F81     -> "f81"
+            | K2P _   -> "k2p"      | F84 _   -> "f84"
+            | HKY85 _ -> "hky85"    | TN93 _  -> "tn93"
+            | GTR _   -> "gtr"      | File _  -> "file"
+    and get_alpha m = match m.spec.site_variation with
+        | None | Some Constant -> `Float 0.0
+        | Some (Gamma (_,x)) 
+        | Some (Theta (_,x,_))  -> `Float x
+    and get_invar m = match m.spec.site_variation with
+        | Some (Gamma _) | None | Some Constant -> `Float 0.0
+        | Some (Theta (_,_,p))  -> `Float p
+    and get_gap m = if m.spec.use_gap then `String "yes" else `String "no"
+    and get_cats m = match m.spec.site_variation with
+        | None | Some Constant -> `Int 1
+        | Some (Gamma (c,_)) 
+        | Some (Theta (c,_,_))  -> `Int c
+    in
+    (PXML
+        -[Xml.Characters.model]
+            ([Xml.Characters.name] = [`String (get_model model)])
+            ([Xml.Characters.categories] = [get_cats model])
+            ([Xml.Characters.alpha] = [get_alpha model])
+            ([Xml.Characters.invar] = [get_invar model]) 
+            ([Xml.Characters.gapascharacter] = [get_gap model]) 
+        { `Set [priors] }
+    --) :: []
+(* -> Xml.xml Sexpr.t list *)
 
 (** GENERAL BRENTS METHOD **)
 exception Colinear
