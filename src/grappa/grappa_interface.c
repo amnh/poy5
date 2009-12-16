@@ -27,6 +27,8 @@
 #include "convert.h"
 #include "bbtsp.h"
 
+#include "lk_main.h"
+
 #define Genome_matrix_struct(a) ((struct genome_struct *) Data_custom_val(a))
 
 VertexFactory *newvf = NULL; 
@@ -290,20 +292,31 @@ grappa_CAML_inv_med
                         convertmem_p->edges,
                         CIRCULAR );
             break;
-            /* case5 and case6 need the CONCORDE package 
+            /* case5 and case6 need the CONCORDE package  */
             // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
-            IFDEF USE_CONCORDE THEN
-            case 5:
-                break;
+#ifdef USE_CONCORDE
+            /*
             case 6:
+                convert_to_tsp ( gen[0], gen[1],
+                                 gen[2], num_cond, CIRCULAR,
+                                 convertmem_p->weights );
+                chlinkern ( 2 * num_cond,convertmem_p->weights, cond3mem_p->con_med->genes,
+                            convertmem_p->incycle, convertmem_p->outcycle );
                 break;
-            ELSE
-            case 5:
-                break;
-            case 6:
-                break;
-            END
                 */
+            case 5:
+                 convert_to_tsp ( gen[0], gen[1],
+                                 gen[2], num_cond, CIRCULAR,
+                                 convertmem_p->weights );
+                 greedylk ( 2 * num_cond, convertmem_p->weights, 
+                            cond3mem_p->con_med->genes,
+                            convertmem_p->incycle, 
+                            convertmem_p->outcycle );
+                break;
+#endif
+            default:
+                fprintf(stderr, "unknown choice of median solver !\n");
+                break;                
         }
         decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
                   cond3mem_p->pred1, cond3mem_p->decode, num_cond );
