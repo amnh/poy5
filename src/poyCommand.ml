@@ -1359,16 +1359,18 @@ let create_expr () =
             ];
         median_solvers:
             [
+                [ LIDENT "chainedlk" -> `ChainedLK ] |
                 [ LIDENT "coalestsp" -> `COALESTSP ] |
-                [ LIDENT "bbtsp" -> `BBTSP     ] |
-                [ LIDENT "siepel" -> `Siepel   ] |
-                [ LIDENT "caprara" -> `Albert   ] |
-                [ LIDENT "default" -> `Default ]
+                [ LIDENT "bbtsp" -> `BBTSP         ] |
+                [ LIDENT "siepel" -> `Siepel       ] |
+                [ LIDENT "caprara" -> `Albert      ] |
+                [ LIDENT "default" -> `Default     ]
             ];
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
                     match c with
+                    | `ChainedLK -> `Median_Solver `ChainedLK
                     | `COALESTSP -> `Median_Solver `COALESTSP
                     | `BBTSP -> `Median_Solver `BBTSP
                     | `Siepel -> `Median_Solver `Siepel                     
