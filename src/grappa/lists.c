@@ -137,6 +137,8 @@ init_list ( List * q, int nelements,  enum datatype dtype )
     q->ridx = q->lidx = 0;
     q->CAPACITY = nelements;
     q->array = ( ElementUnion * ) malloc ( nelements * sizeof(ElementUnion) );
+    if ( q->array == NULL)
+        fprintf(stderr, "cannot malloc list (funciton init_list in grappa/lists.c) \n");
 }
 
 void
