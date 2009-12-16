@@ -661,6 +661,7 @@ OBJEXT
 DUSE_NATIVEDYNLINK
 DUSE_XSLT
 DUSE_LIKELIHOOD
+DUSE_CONCORDE
 DUSEREADLINE
 DUSENCURSES
 DUSEPARALLEL
@@ -694,6 +695,7 @@ USE_LONG_SEQUENCES
 USE_LARGE_ALPHABETS
 USE_XSLT
 USE_LIKELIHOOD
+USE_CONCORDE
 USE_SSE3
 USE_VERIFY_COSTS
 POY_VERSION_NUMBER
@@ -1329,6 +1331,9 @@ Optional Features:
   --enable-likelihood     Enable the use of static and dynamic likelihood
                           functions. This option requires an implementation of
                           lapack and blas to be installed.
+  --enable-concorde       Enable the use of "CHLINKERN" and "GREEDYLK" tsp
+                          median solver. This option requires concorde
+                          package.
   --enable-sse3           Enable the Streaming SIMD Extensions for likelihood
                           characters.
   --enable-large-alphabets
@@ -2598,6 +2603,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+
 CONFIG_DATE=`date`
 
 USEWIN32="false"
@@ -2747,6 +2754,15 @@ else
 fi
 
 
+# Check whether --enable-concorde was given.
+if test "${enable_concorde+set}" = set; then
+  enableval=$enable_concorde; USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
+                 OUSE_CONCORDE=",use_concorde"
+else
+  USE_CONCORDE="false"
+fi
+
+
 # Check whether --enable-sse3 was given.
 if test "${enable_sse3+set}" = set; then
   enableval=$enable_sse3; USE_SSE3="true"
@@ -2769,6 +2785,26 @@ if test "${enable_cost_verification+set}" = set; then
 else
   USE_VERIFY_COSTS="false"
 fi
+
+
+# check the concorde package
+case ${OS_INFORMATION} in
+	*-apple-*)
+		if test $USE_CONCORDE = "true"; then
+  CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
+                 LIBS="$HOME/concorde/concorde.a $LIBS";
+                 OUSE_CONCORDE=",use_concorde";
+                 DUSE_CONCORDE="-DUSE_CONCORDE";
+
+else
+  { echo "$as_me:$LINENO: result: Not Using Concorde " >&5
+echo "${ECHO_T}Not Using Concorde " >&6; }
+
+fi
+
+		;;
+	*)
+esac
 
 
 # Time to handle the lapack checks
@@ -4699,6 +4735,8 @@ See \`config.log' for more details." >&2;}
 fi
 
 fi
+
+
 
 
 #AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
@@ -7759,6 +7797,7 @@ OBJEXT!$OBJEXT$ac_delim
 DUSE_NATIVEDYNLINK!$DUSE_NATIVEDYNLINK$ac_delim
 DUSE_XSLT!$DUSE_XSLT$ac_delim
 DUSE_LIKELIHOOD!$DUSE_LIKELIHOOD$ac_delim
+DUSE_CONCORDE!$DUSE_CONCORDE$ac_delim
 DUSEREADLINE!$DUSEREADLINE$ac_delim
 DUSENCURSES!$DUSENCURSES$ac_delim
 DUSEPARALLEL!$DUSEPARALLEL$ac_delim
@@ -7792,6 +7831,7 @@ USE_LONG_SEQUENCES!$USE_LONG_SEQUENCES$ac_delim
 USE_LARGE_ALPHABETS!$USE_LARGE_ALPHABETS$ac_delim
 USE_XSLT!$USE_XSLT$ac_delim
 USE_LIKELIHOOD!$USE_LIKELIHOOD$ac_delim
+USE_CONCORDE!$USE_CONCORDE$ac_delim
 USE_SSE3!$USE_SSE3$ac_delim
 USE_VERIFY_COSTS!$USE_VERIFY_COSTS$ac_delim
 POY_VERSION_NUMBER!$POY_VERSION_NUMBER$ac_delim
@@ -7808,8 +7848,6 @@ OCAMLBUILD!$OCAMLBUILD$ac_delim
 MERCURIAL!$MERCURIAL$ac_delim
 OCAMLFLAGS!$OCAMLFLAGS$ac_delim
 EXTRAS!$EXTRAS$ac_delim
-NATIVEDYNLINK!$NATIVEDYNLINK$ac_delim
-USE_NATIVEDYNLINK!$USE_NATIVEDYNLINK$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -7851,6 +7889,8 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+NATIVEDYNLINK!$NATIVEDYNLINK$ac_delim
+USE_NATIVEDYNLINK!$USE_NATIVEDYNLINK$ac_delim
 OCAMLVERSION!$OCAMLVERSION$ac_delim
 CONFIG_DATE!$CONFIG_DATE$ac_delim
 CPP!$CPP$ac_delim
@@ -7861,7 +7901,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 8; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 10; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
