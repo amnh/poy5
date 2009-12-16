@@ -324,6 +324,15 @@ dispatch begin function
     flag ["c"; "compile"; "use_likelihood"]
         (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
 
+    flag ["c"; "compile"; "use_concorde"]
+        (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
+
+  (*  flag ["link"; "ocaml"; "use_concorde"]
+        (S[A"-cclib"; A"-L/Users/lyn/concorde"]); 
+*)
+    
+   (* dep  ["link"; "ocaml"; "use_concorde"] ["libconcorde.a"]; *)
+
     flag ["c"; "compile"; "use_readline"]
         (S[A"-ccopt"; A"-DUSEREADLINE"]);
 
@@ -361,6 +370,7 @@ dispatch begin function
 
     dep  ["link"; "ocaml"; "use_gzcaml"] ["libgzcaml.a"; "libzlibstubs.a"];
     dep  ["link"; "ocaml"; "use_parallel"] ["libmpicaml.a"];
+
 
     (* As an approximation all our C files use the headers.
        Note: This will import headers in the build directory. *)
