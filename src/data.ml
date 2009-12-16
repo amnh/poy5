@@ -60,7 +60,7 @@ type dyna_state_t = [
 type re_meth_t = [ `Locus_Breakpoint of int | 
                    `Locus_Inversion of int ]
 
-type median_solver_t = [ `Default | `Albert | `Siepel | `BBTSP | `COALESTSP ]
+type median_solver_t = [ `Default | `Albert | `Siepel | `BBTSP | `COALESTSP | `ChainedLK ]
 
 
 type dyna_pam_t = {
