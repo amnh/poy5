@@ -368,8 +368,9 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     let comoriarr1,comoriarr2,comoriarr3 = Utl.get_common3 oriarr1 oriarr2 oriarr3 equal_orientation in
     let ori_arr_med3 =
         match medsov with
-        |`Default ->
-                failwith "default median solver is not in grappa"
+        |`Vinh ->
+                failwith "Vinh median solver is not in grappa"
+        |`SimpleLK
         |`ChainedLK 
         |`COALESTSP
         |`BBTSP
