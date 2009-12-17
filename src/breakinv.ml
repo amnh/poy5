@@ -246,8 +246,8 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         mine_seq,cost1,cost2,cost3
     else
         match ali_pam.BreakinvAli.median_solver with
-        | `Default ->
-            if debug then Printf.printf "Default median solver\n%!";
+        | `Vinh ->
+            if debug then Printf.printf "Vinh median solver\n%!";
             let adjust_seq, cost1,cost2,cost3 = 
                 GenAli.create_gen_ali3 ali_pam.BreakinvAli.kept_wag 
                 seq1 seq2 seq3 mine_seq 
