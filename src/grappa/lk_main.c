@@ -90,7 +90,9 @@ chlinkern ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
 
     in_repeater = ncount;
 
-    nearnum = 4 * quadtry;
+    //nearnum = 4 * quadtry;
+
+    nearnum= (int)(ncount-1)/2;
 
     if ( CCedgegen_junk_k_nearest ( ncount, nearnum, &dat,
                                     ( double * ) NULL, 1,
