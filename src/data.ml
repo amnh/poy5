@@ -60,7 +60,8 @@ type dyna_state_t = [
 type re_meth_t = [ `Locus_Breakpoint of int | 
                    `Locus_Inversion of int ]
 
-type median_solver_t = [ `Default | `Albert | `Siepel | `BBTSP | `COALESTSP | `ChainedLK ]
+type median_solver_t = [ `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
+`ChainedLK | `SimpleLK ]
 
 
 type dyna_pam_t = {
@@ -124,7 +125,7 @@ type dyna_pam_t = {
 (** [dyna_pam_default] assigns default values for parameters 
 * used to create the median between two chromosomes or genomes *)
 let dyna_pam_default ={
-    median_solver = Some `Default;
+    median_solver = Some `Albert;
     seed_len = Some 9;
     re_meth = Some (`Locus_Breakpoint 10);
     circular = Some 0;
