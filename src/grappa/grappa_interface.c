@@ -295,16 +295,7 @@ grappa_CAML_inv_med
             /* case5 and case6 need the CONCORDE package  */
             // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
 #ifdef USE_CONCORDE
-            /*
-            case 6:
-                convert_to_tsp ( gen[0], gen[1],
-                                 gen[2], num_cond, CIRCULAR,
-                                 convertmem_p->weights );
-                chlinkern ( 2 * num_cond,convertmem_p->weights, cond3mem_p->con_med->genes,
-                            convertmem_p->incycle, convertmem_p->outcycle );
-                break;
-                */
-            case 5:
+            case 5: //SimpleLK TSP median solver 
                  convert_to_tsp ( gen[0], gen[1],
                                  gen[2], num_cond, CIRCULAR,
                                  convertmem_p->weights );
@@ -313,6 +304,16 @@ grappa_CAML_inv_med
                             convertmem_p->incycle, 
                             convertmem_p->outcycle );
                 break;
+            case 6: //ChainedLK TSP median solver
+                convert_to_tsp ( gen[0], gen[1],
+                                 gen[2], num_cond, CIRCULAR,
+                                 convertmem_p->weights );
+                chlinkern ( 2 * num_cond,
+                        convertmem_p->weights, 
+                        cond3mem_p->con_med->genes,
+                        convertmem_p->incycle, convertmem_p->outcycle );
+                break;
+                
 #endif
             default:
                 fprintf(stderr, "unknown choice of median solver !\n");
