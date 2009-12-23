@@ -123,13 +123,13 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
     (* debug message  *)
+    (*debug message *)
+    (*debug message 
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
-    (*debug message *)
-    (*debug message 
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
      debug message *)
