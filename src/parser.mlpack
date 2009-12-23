@@ -6,12 +6,10 @@ parser/Files
 parser/FixedStatesDict
 parser/GBSeq
 parser/Genbank
-parser/GrappaParser
 parser/INSDSeq
 parser/IgnoreList
 parser/NewSeq
 parser/OldHennig
-parser/PAlphabet
 parser/Phylip
 parser/SetGroups
 parser/TinySeq

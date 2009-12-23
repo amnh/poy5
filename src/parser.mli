@@ -359,11 +359,6 @@ module Phylip : sig
    val of_file : FileStream.f -> Nexus.File.nexus * string
 end 
 
-module PAlphabet : sig
-    val of_file : FileStream.f -> bool -> bool -> Alphabet.a * Cost_matrix.Two_D.m *
-        Cost_matrix.Three_D.m
-    end
-
 module SetGroups : sig
     type set_type =
             | Group 

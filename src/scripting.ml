@@ -1500,7 +1500,7 @@ let load_data (meth : Methods.input) data nodes =
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let alphabet, twod, threed =
-                    Parser.PAlphabet.of_file alph orientation init3D in
+                    Alphabet.of_file alph orientation init3D in
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
                 let tcmfile = FileStream.filename alph in
@@ -1517,7 +1517,7 @@ let load_data (meth : Methods.input) data nodes =
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let alphabet, twod, threed =
-                    Parser.PAlphabet.of_file alph orientation init3D 
+                    Alphabet.of_file alph orientation init3D 
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file tcmfile twod (`Normal3d threed)
                 annotated alphabet `DO is_prealigned `Breakinv data seq
