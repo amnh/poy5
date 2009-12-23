@@ -348,7 +348,7 @@ module MakeNormal
             accordingly *)
         let break edge tree =
             let Tree.Edge(bfrom, bto) = edge in
-            let breakage = TreeOps.break_fn (bfrom, bto) tree in
+            let breakage = TreeOps.break_fn None (bfrom, bto) tree in
             TreeOps.uppass breakage.Ptree.ptree 
         in
         let tree = Ptree.set_origin_cost origin_cost tree in
@@ -487,7 +487,7 @@ module MakeNormal
                         (report_trees_and_branches do_compress filename data)
             | `AllVisited filename ->
                     let join_fn incr a b c = 
-                        let a, _ = TreeOps.join_fn incr a b c in
+                        let a, _ = TreeOps.join_fn None incr a b c in
                         a
                     in
                     let do_compress = None <> filename in
@@ -506,6 +506,30 @@ module MakeNormal
         (fun prev item -> create_sampler data queue prev item) 
         sampler
         lst
+
+    let create_adjust_manager = function
+        | `LocalOptimum l_opt ->
+            let m, b = l_opt.Methods.tabu_iterate in
+            let thrsh = match m with 
+                | `Threshold f 
+                | `Both (f,_) 
+                | `Neighborhood f -> Some f
+                | `Always -> Some 0.0
+                | `Null 
+                | `MaxCount _ -> None
+            and count =  match m with
+                | `MaxCount m 
+                | `Both (_,m) -> Some m
+                | `Always 
+                | `Neighborhood _ -> Some 0
+                | `Null 
+                | `Threshold _ -> None
+            in
+            match b with
+            | `Null           -> PhyloTabus.simple_nm_none count thrsh
+            | `AllBranches    -> PhyloTabus.simple_nm_all count thrsh
+            | `BreakDelta     -> PhyloTabus.complex_nm_delta count thrsh
+            | `Neighborhood   -> PhyloTabus.complex_nm_neighborhood count thrsh
 
 let rec find_local_optimum ?base_sampler ?queue data emergency_queue
         (trees : (a, b) Ptree.p_tree Sexpr.t)
@@ -621,11 +645,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     PhyloTabus.partitioned_join (`Height 4) (get_depth depth)
                     *)
         in
-        let iterfn =
-            match l_opt.Methods.tabu_nodes with
-            | `Null -> PhyloTabus.simple_nm_none 
-            | `Leaves -> PhyloTabus.simple_nm_leaves
-        in
+        let iterfn = create_adjust_manager meth in
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
             | `Bfs depth ->

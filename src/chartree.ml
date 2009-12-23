@@ -1412,14 +1412,14 @@ module TreeOps = struct
     type a = Node.node_data
     type b = Node.node_data
     let clear_internals ptree = ptree
-    let break_fn = break_fn
-    let join_fn = join_fn
-    let model_fn t = t
-    let cost_fn = 
+    let break_fn _ = break_fn
+    let join_fn _ = join_fn
+    let adjust_fn ?(epsilon) ?(max_iter) _ t = t
+    let cost_fn _ = 
         match !Methods.cost with
         | `Normal -> cost_fn
         | _ -> exact_cost_fn
-    let reroot_fn = reroot_fn
+    let reroot_fn _ = reroot_fn
     let string_of_node = Node.Standard.to_string
     let features meth lst = features meth (("skipping", "false") :: lst)
     let downpass = downpass

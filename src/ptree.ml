@@ -135,18 +135,40 @@ type ('a, 'b) breakage = {
 }
 
 
-type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
+(* the nodes manager takes the properties from the cost, reroot, join, and break
+ * functions, and determines how to iterate the tree *)
+class type ['a, 'b] nodes_manager = object
+    method update_model : ('a, 'b) p_tree -> unit
+    method update_iterate :
+            ('a, 'b) p_tree -> 
+            ([ `Break of ('a, 'b) breakage 
+             | `Join of Tree.join_delta 
+             | `Reroot of incremental list
+             | `Cost ]) -> unit
+    method clone : ('a, 'b) nodes_manager
+    method branches : Tree.edge list option
+    method model : bool
+end
+
+type ('a, 'b) break_fn =
+    ('a, 'b ) nodes_manager option ->
+        Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 
 type ('a, 'b) join_fn =   
+    ('a, 'b ) nodes_manager option -> 
     incremental list ->
     Tree.join_jxn ->
     Tree.join_jxn ->
     ('a, 'b) p_tree ->
     ('a, 'b) p_tree * Tree.join_delta
 
-type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+type ('a, 'b) adjust_fn = 
+    ?epsilon:(float) -> ?max_iter:(int) ->
+        ('a, 'b ) nodes_manager option ->
+            ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type ('a, 'b) cost_fn =
+    ('a, 'b ) nodes_manager option -> 
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
     'a ->
@@ -154,6 +176,7 @@ type ('a, 'b) cost_fn =
     clade_cost
     
 type ('a, 'b) reroot_fn =
+    ('a, 'b ) nodes_manager option -> 
     bool ->
     Tree.edge ->
     ('a, 'b) p_tree ->
@@ -170,7 +193,7 @@ module type Tree_Operations =
         type b
 
         val break_fn : (a, b) break_fn
-        val model_fn : (a, b) model_fn
+        val adjust_fn : (a, b) adjust_fn
         val join_fn : (a, b) join_fn 
         val cost_fn : (a, b) cost_fn
         val reroot_fn : (a, b) reroot_fn
@@ -233,11 +256,11 @@ class type ['a, 'b] tabu_mgr = object
      * should ensure the invariant that edges in the tabu and the edges in the tree are
      * in sync. Note that directionality could be reversed. *)
 
-    method update_reroot : ('a, 'b) breakage -> unit
-
-    method update_join : 
-        ('a, 'b) p_tree -> Tree.join_delta -> unit
+    method update_reroot  : ('a, 'b) breakage -> unit
+    method update_join    : ('a, 'b) p_tree -> Tree.join_delta -> unit
         
+    method get_node_manager : ('a, 'b) nodes_manager option
+
     method features : (string * string) list -> (string * string) list
     (** What does this method do? *)
 
@@ -286,7 +309,7 @@ end
     (** [process cost_fn join_fn
      *       join_1_jxn join_2_jxn tree_delta 
      *       broken_tree -> Travesal Status *)
-      method process : ('a, 'b) cost_fn -> float -> 'a ->
+      method process : ('a, 'b) cost_fn -> ('a, 'b) adjust_fn -> float -> 'a ->
           ('a, 'b) join_fn -> incremental list ->
           Tree.join_jxn -> Tree.join_jxn -> 
           ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
@@ -388,16 +411,15 @@ module type SEARCH = sig
           keeping trees, a method for weighting trees, a number of iterations to perform,
           and a function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list -> int ->
-
+          (a, b) p_tree list -> 
+          int ->
           int ->
           ((a, b) p_tree -> float) ->
           Methods.fusing_keep_method ->
           int ->
-          ((a, b) p_tree -> (a, b) p_tree
-               list) ->
+          ((a, b) p_tree -> (a, b) p_tree list) ->
           (int * int) ->
-          (a, b) p_tree list
+            (a, b) p_tree list
 
       val search_local_next_best : (search_step * string) -> searcher
       val search : bool -> (search_step * string) -> searcher
@@ -915,7 +937,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     (** Function used for debugging purposes...*)
     let verify_cost old_cost old_delta cdnd new_delta j1 j2 t_delta pt =
-        let t, _ = Tree_Ops.join_fn [] j1 j2 pt in
+        let t, _ = Tree_Ops.join_fn None [] j1 j2 pt in
         let new_cost = get_cost `Adjusted t in
         match new_delta with
         | Cost new_delta ->
@@ -1006,7 +1028,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     (get_corrected_jnx h1), (get_corrected_jnx h2)
                 in
-                let ptree, tree_delta = (Tree_Ops.join_fn [] j1 j2 ptree) in
+                let ptree, tree_delta = Tree_Ops.join_fn None [] j1 j2 ptree in
                 (* Now we ensure that the root is located in between the two 
                 * handles that we just joined. This is needed for constrained
                 * building. *)
@@ -1020,7 +1042,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let l = new_vertex l 
                     and r = new_vertex r in
                     let tree, inc = 
-                        Tree_Ops.reroot_fn true (Tree.Edge (l, r)) ptree 
+                        Tree_Ops.reroot_fn None true (Tree.Edge (l, r)) ptree 
                     in
                     Tree_Ops.incremental_uppass tree inc
                 in
@@ -1043,8 +1065,9 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         and h2 = (Tree.get_node_id e2 pt.tree) in
                         let j1 = Tree.Edge_Jxn(h1, h2) in
                         let status:t_status = 
-                            (srch_mgr#process Tree_Ops.cost_fn infinity 
-                                 nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr) 
+                            (srch_mgr#process 
+                                Tree_Ops.cost_fn infinity 
+                                    nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr)
                         in
                         status, srch_mgr
                     in
@@ -1145,8 +1168,7 @@ let simplify x jxn =
     | `Same -> assert false
 
 let single_spr_round pb parent_side child_side 
-(tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a,
-Tree_Ops.b) search_mgr) breakage = 
+        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) breakage = 
     let child_info = get_side_info child_side breakage in
     let child_jxn, handle_of_child = 
         match child_info.topology_delta with
@@ -1183,7 +1205,8 @@ Tree_Ops.b) search_mgr) breakage =
                 | `Same -> do_search ()
                 | _ ->
                         let what_to_do_next =
-                            search#process Tree_Ops.cost_fn 
+                            search#process Tree_Ops.cost_fn
+                            Tree_Ops.adjust_fn
                             breakage.break_delta 
                             child_info.clade_node
                             Tree_Ops.join_fn breakage.incremental parent_jxn 
@@ -1203,8 +1226,10 @@ let spr_join pb tabu search breakage =
     | x -> x
 
 let tbr_join pb tabu search breakage =
-    let reroot_on_edge to_reroot edge breakage =
-        let ptree, inc = Tree_Ops.reroot_fn true edge breakage.ptree in
+    let reroot_on_edge tabu to_reroot edge breakage =
+        let ptree, inc =
+            Tree_Ops.reroot_fn (tabu#get_node_manager) true edge breakage.ptree
+        in
         let Tree.Edge (a, b) = Tree.normalize_edge edge ptree.tree in
         let create_clade_info clade_info =
             let handle = handle_of a ptree in
@@ -1246,8 +1271,7 @@ let tbr_join pb tabu search breakage =
                                 if debug then
                                     Printf.printf "Rerooting in %d %d\n%!" a b;
                                 let search_breakage = 
-                                    reroot_on_edge to_reroot edge 
-                                    breakage 
+                                    reroot_on_edge tabu to_reroot edge breakage 
                                 in
                                 tabu#update_reroot search_breakage;
                                 do_search search_breakage
@@ -1256,13 +1280,13 @@ let tbr_join pb tabu search breakage =
 
 let breakage_to_pb x = `Pair x.tree_delta
 
-let do_search neighborhood tree tabu search =
+let do_search neighborhood (tree: ('a,'b) p_tree) (tabu: ('a,'b) tabu_mgr) (search : ('a, 'b) search_mgr) : unit =
     let rec do_search () =
         match tabu#break_edge with
         | None -> Tree.Break
         | Some (Tree.Edge ((a, b) as x)) -> 
                 if debug then Printf.printf "Breaking in %d %d\n%!" a b;
-                let breakage = Tree_Ops.break_fn x tree in
+                let breakage = Tree_Ops.break_fn (tabu#get_node_manager) x tree in
                 let breakage = apply_incremental breakage in
                 if debug then
                     assert (
@@ -1292,7 +1316,7 @@ let spr_step a b c =
     do_search spr_join a b c;
     c
 
-let search passit (searcher, name) search =
+let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, 'b) search_mgr =
     let status = Status.create name None ("Searching") in
     try
         while search#any_trees do
@@ -1432,11 +1456,16 @@ let fuse_all_locations ?min ?max trees =
     Tree.fuse_all_locations ~filter trees
 
 let fuse source_arg target_arg =
+    let adjust_mgr = 
+        (* let _,_,_,adj1 = source_arg and _,_,_,adj2 = target_arg in
+        Some  (new nodes manager adj1 adj2) *)
+        None
+    in
     (* reroot if necessary *)
     let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge)) as arg) =
         if is_edge edge tree then arg
         else
-            let tree, updt = Tree_Ops.reroot_fn false edge tree in
+            let tree, updt = Tree_Ops.reroot_fn adjust_mgr false edge tree in
             let tree = Tree_Ops.incremental_uppass tree updt in
             tree, tree.tree, edge 
     in
@@ -1515,9 +1544,14 @@ let copy_component handle source target =
 
 
 let fuse source target terminals =
+    let adjust_mgr = 
+        (* let _,_,_,adjust_one = source and _,_,_,adjust_two = target in
+        Some (new node_manager adjust_one adjust_two) *)
+        None
+    in
     let debug = false in
     let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge))) =
-        let tree, updt = Tree_Ops.reroot_fn false edge tree in
+        let tree, updt = Tree_Ops.reroot_fn adjust_mgr false edge tree in
         let tree = Tree_Ops.incremental_uppass tree updt in
         tree, tree.tree, edge 
     in
@@ -1553,10 +1587,10 @@ let fuse source target terminals =
     assert (tb = sb);
     if debug then prerr_endline "About to break";
     let stree, (sld, srd), sinc = 
-        let breakage = Tree_Ops.break_fn sedge stree in
+        let breakage = Tree_Ops.break_fn adjust_mgr sedge stree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     and ttree, (tld, trd), tinc = 
-        let breakage = Tree_Ops.break_fn tedge ttree in
+        let breakage = Tree_Ops.break_fn adjust_mgr tedge ttree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     in
     let stree = Tree_Ops.incremental_uppass stree sinc
@@ -1579,7 +1613,7 @@ let fuse source target terminals =
         | `Edge (_, la, lb, _) -> (Tree.Edge_Jxn (la, lb))
         | `Single (x, _) -> Tree.Single_Jxn x
     in
-    let tree, _ = Tree_Ops.join_fn [] jxn jxn2 tree in
+    let tree, _ = Tree_Ops.join_fn adjust_mgr [] jxn jxn2 tree in
     let tree =Tree_Ops.uppass tree in
     tree
 
@@ -1588,8 +1622,8 @@ let fuse source target terminals =
     list of trees to start with, the max number of trees and a method for keeping
     trees, a method for weighting trees, a number of iterations to perform, and a
     function to process new trees *)
-let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
-        process (cmin, cmax) =
+let fuse_generations trees terminals max_trees tree_weight tree_keep
+                        iterations process (cmin, cmax) =
     let () = 
         if 2 > List.length trees then 
             failwith "Tree fusing: must have at least two trees"
@@ -1737,7 +1771,7 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
             FPSet.add (Tree.Fingerprint.fingerprint x.tree) acc) 
         FPSet.empty trees 
         in
-        gen fp trees 1 
+        gen fp trees 1
     in
     Status.finished status;
     limit_num res

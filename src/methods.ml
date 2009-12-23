@@ -364,9 +364,9 @@ type output_class = [
 type tabu_join_strategy = [
     | `UnionBased of int option
     | `AllBased of int option
-    | `Partition of [`Sets of (All_sets.IntSet.t Lazy.t) | 
-    `MaxDepth of int | `ConstraintFile of filename ] list
-]
+    | `Partition of [ `Sets of (All_sets.IntSet.t Lazy.t)
+                    | `MaxDepth of int 
+                    | `ConstraintFile of filename ] list ]
 
 (* New tree build_method methods.
 * 
@@ -444,10 +444,20 @@ type tabu_reroot_strategy = [
     | `Bfs of int option
 ]
 
-type tabu_nodes_strategy = [
-    | `Null
-    | `Leaves
-]
+(* defines how branches and the model for likelihood are iterated *)
+type tabu_modeli_strategy = [
+    | `Threshold of float   (* model iteration based on score improvement *)
+    | `MaxCount of int      (* number of search iterations before iterating model *)
+    | `Always               (* always iterate the model *)
+    | `Both of float * int  (* both threshold and count *)
+    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
+    | `Null ]               (* no iteration of model *)
+type tabu_branchi_strategy = [
+    | `BreakDelta           (* path along join -> break *)
+    | `Neighborhood         (* neighborhood around join point *)
+    | `AllBranches          (* iterate all the branches in the tree *)
+    | `Null ]               (* no iteration of branches *)
+type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy
 
 type origin_cost = float option
 
@@ -482,10 +492,10 @@ type local_opt = {
     cc : cost_calculation list;
     oo : origin_cost;
     tm : trajectory_method;
-    tabu_break : tabu_break_strategy;
-    tabu_join  : tabu_join_strategy;
-    tabu_reroot: tabu_reroot_strategy;
-    tabu_nodes : tabu_nodes_strategy;
+    tabu_break   : tabu_break_strategy;
+    tabu_join    : tabu_join_strategy;
+    tabu_reroot  : tabu_reroot_strategy;
+    tabu_iterate : tabu_iteration_strategy;
     samples : samples list;
 }
 

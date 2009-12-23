@@ -1256,7 +1256,7 @@ let reroot_at_outgroup run =
                try
                    let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
-                       TreeOps.reroot_fn false (Tree.Edge (outgroup, nbr)) ptree in
+                       TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
                    let ptree = TreeOps.incremental_uppass ptree update in
                    ptree
                with _ -> ptree
@@ -4674,16 +4674,16 @@ let set_console_run r = console_run_val := r
             | Tree.Interior (_, b, c, d) -> [b; c; d]
             | Tree.Leaf (_, b) -> [b]
             | Tree.Single _ -> []
-        let join x y tree = TreeOps.join_fn [] x y tree 
+        let join x y tree = TreeOps.join_fn None [] x y tree 
         let break x tree = 
-            let breakage = TreeOps.break_fn x tree in
+            let breakage = TreeOps.break_fn None x tree in
             let tree = 
                 TreeOps.incremental_uppass breakage.Ptree.ptree
                 breakage.Ptree.incremental 
             in
             tree, breakage.Ptree.tree_delta
         let reroot edge tree = 
-            let a, b = TreeOps.reroot_fn true edge tree in
+            let a, b = TreeOps.reroot_fn None true edge tree in
             let a = TreeOps.incremental_uppass a b in
             a
         let downpass = TreeOps.downpass

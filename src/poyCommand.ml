@@ -708,7 +708,7 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.tabu_break = `DistanceSorted false;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
-                    Methods.tabu_nodes = `Leaves; (* TODO: nodes_manager *)
+                    Methods.tabu_iterate = `MaxCount 20, `BreakDelta;
                     Methods.samples = [] }
 
 let swap_default_none = { swap_default with Methods.ss = `None }
