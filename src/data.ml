@@ -1637,7 +1637,7 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
         let ch, file = FileStream.channel_n_filename file in
         let r = 
             match style with
-            | `Hennig -> Hennig.Parsed.of_channel ch file 
+            | `Hennig -> Hennig.File.of_channel ch file 
             | `Nexus  -> Nexus.File.of_channel ch file
         in
         if report then

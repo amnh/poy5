@@ -46,7 +46,7 @@ let test_file file =
     in
     FileStream.Pervasives.close_in ch;
     if Wildcard.anywhere_match (Str.regexp "^CLUSTAL") line then Is_Clustal
-    else if Hennig.File.is_hennig file then Is_Hennig
+    else if Hennig.P.is_hennig file then Is_Hennig
     (* treat dpread as a hennig file *)
     else if Wildcard.anywhere_match (Str.regexp "COMPLEX") line then
         Is_ComplexTerminals

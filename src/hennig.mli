@@ -1,8 +1,8 @@
-module Parsed : sig
+module File : sig
     val of_channel : in_channel -> string -> Nexus.File.nexus
 end
 
-module File : sig
+module P : sig
     type characters = 
         | Range of (int * int)
         | Single of int
@@ -36,7 +36,7 @@ end
 module Grammar : sig
     type token
     val xread : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (int * int * string)
-    val command : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> File.command
+    val command : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.command
 end
 
 module Lexer : sig
