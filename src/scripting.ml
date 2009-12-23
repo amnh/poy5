@@ -32,6 +32,10 @@ type search_results = {
     total_ratchet : int;
 }
 
+(* Before we begin, set the correct error printing functions in the parsers *)
+let () = 
+    Nexus.File.print_error := Status.user_message Status.Error
+
 (* We define a few functions to deal with the search results type *)
 let empty_search_results = {
     tree_costs_found = All_sets.FloatMap.empty;
