@@ -15,6 +15,5 @@ parser/PAlphabet
 parser/Phylip
 parser/SetGroups
 parser/TinySeq
-parser/Trees
 parser/Wildcard
 parser/XMLGB
