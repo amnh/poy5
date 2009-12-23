@@ -135,7 +135,7 @@ let to_formatter s =
 
 type taxon = string
 
-type file_output = {
+type nexus = {
     char_cntr : int ref;
     taxa : string option array;
     characters : static_spec array;
@@ -781,7 +781,7 @@ let add_all_taxa taxa new_taxa =
     let new_taxa = List.map (fun x -> Some x) new_taxa in
     Array.append taxa (Array.of_list new_taxa)
 
-let add_prealigned_characters file chars (acc:file_output) = 
+let add_prealigned_characters file chars (acc:nexus) = 
     let form = chars.File.char_format in
     let start_position = !(acc.char_cntr) in
     let taxa = 
@@ -939,7 +939,7 @@ let produce_cost_type_function (labels, cost_matrix) character =
     in 
     { character with st_type = STSankoff cost_matrix }
 
-let update_assumptions cost_table (acc:file_output) item = 
+let update_assumptions cost_table (acc:nexus) item = 
     match item with
     | File.Options (default, polytcount, gapmode) ->
             let _ = match default with
@@ -1123,7 +1123,7 @@ let generate_parser_friendly (translations:(string*string) list)
     let tree = Tree.Parse.post_process (translate_branch tree,"") in
     (Some name, [tree])
 
-let process_parsed file (acc:file_output) parsed : file_output =
+let process_parsed file (acc:nexus) parsed : nexus =
     match parsed with
     | File.Taxa (number, taxa_list) ->
             let cnt = int_of_string number in

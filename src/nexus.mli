@@ -170,7 +170,7 @@ module Parsed : sig
 
     type taxon = string
 
-    type file_output = {
+    type nexus = {
         char_cntr : int ref;
         taxa : string option array;
         characters : static_spec array;
@@ -181,7 +181,7 @@ module Parsed : sig
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     }
 
-    val empty_parsed : unit -> file_output
+    val empty_parsed : unit -> nexus
 
     val static_state_to_list : 
         [ `Bits of BitSet.t | `List of int list ] -> int list
@@ -212,7 +212,7 @@ module Parsed : sig
 
     val find_taxon : string option array -> string -> int
 
-    val of_channel : in_channel -> string -> file_output
+    val of_channel : in_channel -> string -> nexus
 
     val generate_alphabet : string list -> string -> Alphabet.a
 

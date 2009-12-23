@@ -111,7 +111,7 @@ let make_sankoff_matrix spec =
             if x = y then 0
             else 1))
 
-let process_command file (mode, (acc:file_output)) = function
+let process_command file (mode, (acc:nexus)) = function
     | File.Nstates x -> (x, acc)
     | File.Xread data ->
             let lex = Lexing.from_string data in

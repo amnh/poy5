@@ -1308,7 +1308,7 @@ data : Nexus.Parsed.static_state =
         res
 
 let to_new_parser ?(separator=":") filename alphabet (specs, data, trees) :
-    Nexus.Parsed.file_output =
+    Nexus.Parsed.nexus =
     let taxa, data = 
         let data, taxa = List.split data in
         Array.map (fun x -> Some x) (Array.of_list taxa),

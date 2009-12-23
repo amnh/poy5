@@ -1,5 +1,5 @@
 module Parsed : sig
-    val of_channel : in_channel -> string -> Nexus.Parsed.file_output
+    val of_channel : in_channel -> string -> Nexus.Parsed.nexus
 end
 
 module File : sig

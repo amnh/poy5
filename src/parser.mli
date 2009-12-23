@@ -279,7 +279,7 @@ module OldHennig : sig
         string ->
         Alphabet.a array option ->
         Encoding.s array * (FileContents.t array * string) list * 
-        (string option * Tree.Parse.tree_types list) list -> Nexus.Parsed.file_output
+        (string option * Tree.Parse.tree_types list) list -> Nexus.Parsed.nexus
 end
 
 module Asn1 : sig
@@ -376,7 +376,7 @@ module IgnoreList : sig
 end
 
 module Phylip : sig
-   val of_file : FileStream.f -> Nexus.Parsed.file_output * string
+   val of_file : FileStream.f -> Nexus.Parsed.nexus * string
 end 
 
 module PAlphabet : sig

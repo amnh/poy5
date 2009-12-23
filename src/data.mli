@@ -466,9 +466,9 @@ val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list
 
-val add_static_parsed_file : d -> string -> Nexus.Parsed.file_output -> d
+val add_static_parsed_file : d -> string -> Nexus.Parsed.nexus -> d
 
-val add_multiple_static_parsed_file : d -> (string * Nexus.Parsed.file_output) list -> d
+val add_multiple_static_parsed_file : d -> (string * Nexus.Parsed.nexus) list -> d
 
 val get_used_observed : int -> d -> (int, int) Hashtbl.t
 

@@ -1473,7 +1473,8 @@ let branches_to_map data branch_table trees =
     new_tree_table
 
 (* convert Nexus.Parsed.file_output to Data.d *)
-let gen_add_static_parsed_file do_duplicate data file (file_out : Nexus.Parsed.file_output) =
+let gen_add_static_parsed_file do_duplicate data file 
+    (file_out : Nexus.Parsed.nexus) =
     let data = 
         if do_duplicate then duplicate data 
         else data
@@ -4900,7 +4901,7 @@ let lexicographic_taxon_codes data =
     change_taxon_codes (Array.stable_sort ~cmp:lexicographic_sort) data
 
 (* A function to produce the alignment of prealigned data *)
-let process_prealigned analyze_tcm data code : (string * Nexus.Parsed.file_output) =
+let process_prealigned analyze_tcm data code : (string * Nexus.Parsed.nexus) =
     let alph = get_sequence_alphabet code data in
     let gap = Alphabet.get_gap alph in
     let character_name = code_character code data in
