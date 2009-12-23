@@ -341,21 +341,6 @@ module GrappaParser : sig
 
 end
 
-module TransformationCostMatrix : sig
-
-    val of_channel : 
-        ?orientation:bool -> ?use_comb:bool -> ?level:int -> int -> FileStream.greader -> Cost_matrix.Two_D.m
-
-    val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
-
-    val fm_of_file: FileStream.f -> float list list
-
-    val of_list : ?use_comb:bool -> ?level:int -> int list list -> int -> Cost_matrix.Two_D.m 
-
-    val of_file : ?use_comb:bool -> FileStream.f -> int -> Cost_matrix.Two_D.m
-
-end
-
 module Dictionary : sig
     val of_channel : in_channel -> (string, string) Hashtbl.t
     val of_channel_assoc : in_channel -> (string * string) list

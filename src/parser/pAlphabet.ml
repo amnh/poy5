@@ -16,10 +16,10 @@ let of_file fn orientation init3D =
         try
             let all_elements = -1 (* we don't allow ambiguities here *) in
             if do_comb then
-                TransformationCostMatrix.of_channel 
+                Cost_matrix.Two_D.of_channel 
                 ~orientation:orientation ~level:level all_elements file 
             else
-                TransformationCostMatrix.of_channel_nocomb
+                Cost_matrix.Two_D.of_channel_nocomb
                 ~orientation all_elements file
         with
         | Failure "No Alphabet" -> 

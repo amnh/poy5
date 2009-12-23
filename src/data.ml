@@ -3677,7 +3677,7 @@ IFDEF USE_LIKELIHOOD THEN
                 | `GTR None -> MlModel.GTR None
                 | `File str -> 
                         (* this needs to be changed to allow remote files as well *)
-                    let matrix = Parser.TransformationCostMatrix.fm_of_file (`Local str) in
+                    let matrix = Cost_matrix.Two_D.fm_of_file (`Local str) in
                     let matrix = Array.of_list (List.map (Array.of_list) matrix) in
                     (* check the array size == a_size *)
                     (* check the array array size == a_size *)
@@ -4182,7 +4182,7 @@ let assign_tcm_to_characters_from_file data chars file =
         match file with
         | None -> (fun x -> Cost_matrix.Two_D.default), Some "tcm:(1,2)"
         | Some f -> 
-                Parser.TransformationCostMatrix.of_file f, 
+                Cost_matrix.Two_D.of_file f, 
                 Some (FileStream.filename f)
     in
     assign_tcm_to_characters data chars file None tcm None true
