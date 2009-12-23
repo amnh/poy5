@@ -336,11 +336,6 @@ module NewSeq : sig
    
 end   
 
-module GrappaParser : sig
-    val of_channel : in_channel -> FileContents.t array 
-
-end
-
 module Dictionary : sig
     val of_channel : in_channel -> (string, string) Hashtbl.t
     val of_channel_assoc : in_channel -> (string * string) list
