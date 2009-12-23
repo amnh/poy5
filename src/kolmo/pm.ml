@@ -25,6 +25,8 @@ module type List = sig
     val complement : S_K.primitives -> S_K.primitives
 end
 
+module UTree = Tree 
+
 module type Tree = sig
     type ocaml_tree
     val leaf : S_K.primitives -> S_K.primitives
@@ -603,13 +605,13 @@ module LogInt : IntegerRepresentation with type extras = unit = struct
 end
 
 module EncodedInteger : IntegerRepresentation with 
-type extras = int option Parser.Tree.t = struct
-    type extras = int option Parser.Tree.t 
+type extras = int option UTree.Parse.t = struct
+    type extras = int option UTree.Parse.t 
 
     let rec encoder tree =
         match tree with
-        | Parser.Tree.Leaf (Some x) -> Tree.leaf (LogInt.of_int () x)
-        | Parser.Tree.Node ([l;r ], None) ->
+        | UTree.Parse.Leafp (Some x) -> Tree.leaf (LogInt.of_int () x)
+        | UTree.Parse.Nodep ([l;r ], None) ->
                 Tree.join (encoder l) (encoder r) (SK K)
         | _ -> failwith "Illegal tree"
 
@@ -629,10 +631,10 @@ type extras = int option Parser.Tree.t = struct
     let of_int tree int =
         let rec aux_int tree =
             match tree with
-            | Parser.Tree.Leaf (Some x) ->
+            | UTree.Parse.Leafp (Some x) ->
                     if x = int then Some (SK K)
                     else None
-            | Parser.Tree.Node ([l; r], None) ->
+            | UTree.Parse.Nodep ([l; r], None) ->
                     (match aux_int l with
                     | None ->
                             (match aux_int r with
@@ -647,8 +649,8 @@ type extras = int option Parser.Tree.t = struct
 
     let rec to_int tree int =
         match tree with
-        | Parser.Tree.Leaf (Some x) -> x
-        | Parser.Tree.Node ([l; r], None) ->
+        | UTree.Parse.Leafp (Some x) -> x
+        | UTree.Parse.Nodep ([l; r], None) ->
                 (match S_K.eval (SK (Hd [int])) with
                 | `K -> to_int l (SK (Tl [int])) 
                 | `Node [`S; `K] -> to_int r (SK (Tl [int]))

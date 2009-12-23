@@ -201,8 +201,8 @@ let parse =
         let true_nelts = 
             Array.fold_left (fun acc x ->
                 match x with
-                | Parser.Unordered_Character _, _ -> acc + 1
-                | Parser.Inactive_Character, _ -> acc
+                | FileContents.Unordered_Character _, _ -> acc + 1
+                | FileContents.Inactive_Character, _ -> acc
                 | _ -> 
                     raise
                   (Invalid_argument "Nonadditive characters must be unordered"))
@@ -214,11 +214,11 @@ let parse =
             else 
                 let (elt, eltcode) = elts.(item) in
                 match elt with
-                | Parser.Unordered_Character (elt, _) -> 
+                | FileContents.Unordered_Character (elt, _) -> 
                         set_elt_code set true_item eltcode;
                         set_elt set true_item elt;
                         filler (item + 1) (true_item + 1)
-                | Parser.Inactive_Character -> 
+                | FileContents.Inactive_Character -> 
                         filler (item + 1) true_item
                 | _ -> failwith "Impossible"
         in
@@ -425,7 +425,7 @@ let of_parser data codes (elts, code) n =
                 let (elt, eltcode) = elts.(item) in
                 let observed = 
                     match Hashtbl.find data.Data.character_specs eltcode with
-                    | Data.Static enc -> enc.Parser.SC.st_observed 
+                    | Data.Static enc -> enc.Nexus.Parsed.st_observed 
                     | _ -> assert false
                 in
                 let observed_arr = Array.of_list observed in
@@ -463,7 +463,7 @@ let is_potentially_informative elts =
             match x with
             | None -> None
             | Some x -> 
-                    let x = Parser.SC.static_state_to_list x in
+                    let x = Nexus.Parsed.static_state_to_list x in
                     Some 
                     (List.fold_left 
                     (fun acc x -> All_sets.Integers.add x acc) 
@@ -504,7 +504,7 @@ let min_cost elts =
 
 let extract_elements_present elts = 
     List.fold_right (fun x acc -> match x with None -> acc | Some h -> 
-        (Parser.SC.static_state_to_list h) :: acc)
+        (Nexus.Parsed.static_state_to_list h) :: acc)
     elts []
 
 let max_possible_cost elts =
@@ -523,7 +523,7 @@ let max_possible_cost elts =
         List.fold_left (fun c a -> 
             if List.mem code a then c else c +. 1.) 0. elts
 
-let min_possible_cost (elts : Parser.SC.static_state list) =
+let min_possible_cost (elts : Nexus.Parsed.static_state list) =
     let elts = extract_elements_present elts in
     let states = 
         let stateset = 

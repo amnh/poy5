@@ -42,7 +42,7 @@ module type S = sig
             Methods.support_tree Sexpr.t
 
     val support_to_string_tree : 
-        Data.d -> Methods.support_tree -> Parser.Tree.tree_types
+        Data.d -> Methods.support_tree -> Tree.Parse.tree_types
 
     (** [join_support_trees trees] takes a list of [(iterations, support_tree)]
         pairs and combines them into a single support tree *)
@@ -52,13 +52,13 @@ module type S = sig
 val bremer_of_input_file :
     (Tree.u_tree -> string -> int) -> int ->
         (int -> string) -> Data.d -> Methods.filename list -> 
-            (a, b) Ptree.p_tree Sexpr.t -> Parser.Tree.tree_types Sexpr.t
+            (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
 (** Like [bremer_of_input_file] but trust whatever input cost is provided with
 * each tree .*)
 val bremer_of_input_file_but_trust_input_cost : int ->
     (int -> string) -> Data.d -> Methods.filename list -> 
-        (a, b) Ptree.p_tree Sexpr.t -> Parser.Tree.tree_types Sexpr.t
+        (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
 end
 (** support.ml *)
@@ -547,11 +547,11 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
 
     let support_to_parser_tree to_a diag =
         let rec d = function
-            | Methods.Leaf i -> Parser.Tree.Leaf (to_a (Methods.Leaf i))
+            | Methods.Leaf i -> Tree.Parse.Leafp (to_a (Methods.Leaf i))
             | Methods.Node (f, left, right) ->
-                  Parser.Tree.Node ([d left; d right;],
+                  Tree.Parse.Nodep ([d left; d right;],
                                     to_a (Methods.Node (f, left, right)))
-        in Parser.Tree.Flat (d diag)
+        in Tree.Parse.Flat (d diag)
 
     let support_to_string_tree data = support_to_parser_tree
         (function
@@ -588,21 +588,25 @@ module MakeNormal (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge :
             | Tree.Single _ -> failwith "Not a tree?"
         in
         let expected_cost = match tree with
-            | Parser.Tree.Annotated (_,str) -> str
+            | Tree.Parse.Annotated (_,str) -> str
             | _ -> failwith "No Expected Cost" in
-        let tree = Tree.convert_to (None,[tree]) data in
+        let tree = 
+            Tree.Parse.convert_to (None,[tree]) 
+            (fun taxon -> Data.taxon_code taxon data)
+            (Data.number_of_taxa data)
+        in
         let tree = Tree.reroot (pair tree) tree in
         process_cost tree expected_cost, Tree.CladeFP.sets tree
 
     let generate_sets_for_bremer process_cost root data file =
-        let trees = Parser.Tree.of_file file in
+        let trees = Tree.Parse.of_file file in
         let for_brem = List.flatten (List.map (List.map (generate_sets
         process_cost data root)) trees) in
         Sexpr.of_list for_brem
 
     let bremer_of_input_file process_cost root to_string data file 
     (trees : (a, b) Ptree.p_tree Sexpr.t) =
-        let process_one_tree tree : Parser.Tree.tree_types =
+        let process_one_tree tree : Tree.Parse.tree_types =
             Ptree.bremer to_string
             (int_of_float (Ptree.get_cost `Adjusted tree))
             tree.Ptree.tree (generate_sets process_cost data root) file

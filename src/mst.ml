@@ -70,14 +70,14 @@ let kruskal meth distance_matrix list =
 
 let rec collapser tree =
     match tree with
-    | Parser.Tree.Leaf _ -> tree
-    | Parser.Tree.Node (chld, cont) ->
+    | Tree.Parse.Leafp _ -> tree
+    | Tree.Parse.Nodep (chld, cont) ->
             match chld with
             | [chld] -> 
                     collapser chld
             | [] -> failwith "empty?"
             | children ->
-                    Parser.Tree.Node ((List.map collapser chld), cont)
+                    Tree.Parse.Nodep ((List.map collapser chld), cont)
 
 let get_neighbors_not_visited visited vertex mst =
     let neighs = All_sets.IntegerMap.find vertex mst in
@@ -113,7 +113,7 @@ let post_order prioritize to_name mst =
     let rec aux_dfs visited vertex =
         let leaf = 
             let name = to_name vertex in
-            Parser.Tree.Leaf name
+            Tree.Parse.Leafp name
         and visited = All_sets.Integers.add vertex visited in
         let neighbors = 
             let tmp = get_neighbors_not_visited visited vertex mst in
@@ -124,19 +124,19 @@ let post_order prioritize to_name mst =
                 let visited, nt = aux_dfs visited vertex in
                 (visited, nt :: trees)) (visited, []) neighbors 
         in
-        let tree = Parser.Tree.Node (leaf :: trees, "") in
+        let tree = Tree.Parse.Nodep (leaf :: trees, "") in
         visited, tree
     in
     let item = get_random_vertex mst in
     let _, tree = aux_dfs All_sets.Integers.empty item in 
-    Parser.Tree.Flat (collapser tree)
+    Tree.Parse.Flat (collapser tree)
 
 let simplified_order to_name mst = 
     let rec aux_dfs visited vertex = 
         let name = to_name vertex 
         and visited = All_sets.Integers.add vertex visited in
         match get_neighbors_not_visited visited vertex mst with
-        | [] -> visited, (Parser.Tree.Leaf name)
+        | [] -> visited, (Tree.Parse.Leafp name)
         | neighbors ->
                 let neighbors = List.map (fun (x, _) -> x) neighbors in
                 let visited, trees =
@@ -144,7 +144,7 @@ let simplified_order to_name mst =
                         let visited, nt = aux_dfs visited vertex in
                         (visited, nt :: trees)) (visited, []) neighbors
                 in
-                visited, Parser.Tree.Node (trees, name)
+                visited, Tree.Parse.Nodep (trees, name)
     in
     let start =  (* If we have choosen a leaf, we take it's neighbor *)
         let item = get_random_vertex mst in
@@ -153,7 +153,7 @@ let simplified_order to_name mst =
         | _ -> item
     in
     let _, tree = aux_dfs All_sets.Integers.empty start in
-    Parser.Tree.Flat tree
+    Tree.Parse.Flat tree
 
 let bfs_traversal prioritize mst =
     let queue = Queue.create () in

@@ -192,24 +192,24 @@ let report_error b e =
 %token VAR
 %token OPTCODE DNA PROTEINS NUMBER GAPS NOGAPS
 %token LPARENT RPARENT GT EQUAL QUESTION SEMICOLON DASH LSQ RSQ PLUS STAR BACKSLASH LBRACKET RBRACKET DOT 
-%type <Hennig.command> command
+%type <File.command> command
 %start command
 %type <(int * int * string)> xread
 %start xread
 %%
 
 command:
-    | DATA SEMICOLON { Hennig.Xread $1 }
-    | CCODE character_change_list SEMICOLON { Hennig.Ccode $2 }
-    | TREES SEMICOLON { Hennig.Tread $1 }
-    | COSTS cost_change_list SEMICOLON { Hennig.Cost $2 }
-    | PROCEDURE BACKSLASH SEMICOLON { Hennig.Ignore }
-    | OPTCODE INT DOT INT SEMICOLON { Hennig.Ignore }
-    | CNAMES char_names_list SEMICOLON { Hennig.Charname $2 }
-    | NSTATES number_of_states SEMICOLON { Hennig.Nstates (Some $2) }
+    | DATA SEMICOLON { File.Xread $1 }
+    | CCODE character_change_list SEMICOLON { File.Ccode $2 }
+    | TREES SEMICOLON { File.Tread $1 }
+    | COSTS cost_change_list SEMICOLON { File.Cost $2 }
+    | PROCEDURE BACKSLASH SEMICOLON { File.Ignore }
+    | OPTCODE INT DOT INT SEMICOLON { File.Ignore }
+    | CNAMES char_names_list SEMICOLON { File.Charname $2 }
+    | NSTATES number_of_states SEMICOLON { File.Nstates (Some $2) }
     | error SEMICOLON { 
         report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
-        Hennig.Ignore 
+        File.Ignore 
     }
 
 gap:
@@ -235,20 +235,20 @@ character_change_list:
     | character_change character_change_list { $1 :: $2 }
     | { [] }
 character_change:
-    | PLUS character_list   { Hennig.Additive $2 }
-    | DASH character_list   { Hennig.NonAdditive $2 }
-    | LSQ character_list    { Hennig.Active $2 }
-    | RSQ character_list    { Hennig.Inactive $2 }
-    | LPARENT character_list { Hennig.Sankoff $2 }
-    | RPARENT character_list { Hennig.NonAdditive $2 }
-    | BACKSLASH INT character_list { Hennig.Weight (int_of_string $2, $3) }
+    | PLUS character_list   { File.Additive $2 }
+    | DASH character_list   { File.NonAdditive $2 }
+    | LSQ character_list    { File.Active $2 }
+    | RSQ character_list    { File.Inactive $2 }
+    | LPARENT character_list { File.Sankoff $2 }
+    | RPARENT character_list { File.NonAdditive $2 }
+    | BACKSLASH INT character_list { File.Weight (int_of_string $2, $3) }
 character_list:
-    | DOT { [Hennig.All] }
+    | DOT { [File.All] }
     | aux_character_list { $1 }
 aux_character_list:
-    | INT DOT INT aux_character_list { (Hennig.Range (int_of_string $1,
+    | INT DOT INT aux_character_list { (File.Range (int_of_string $1,
     int_of_string $3)) :: $4 }
-    | INT aux_character_list { (Hennig.Single (int_of_string $1)) :: $2 }
+    | INT aux_character_list { (File.Single (int_of_string $1)) :: $2 }
     | { [] }
 cost_change_list:
     | cost_change cost_change_list { $1 :: $2 }

@@ -92,14 +92,14 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
     let calc_depth_leaves t depth max_depth num_leaves longest_name =
         let rec calc_depth_leaves fn t depth max_depth num_leaves longest_name =
             match t with
-            | Parser.Tree.Node (y, _) -> 
+            | Tree.Parse.Nodep (y, _) -> 
                 incr depth;
                 List.iter
                     (fun t -> 
                         calc_depth_leaves fn t depth max_depth num_leaves longest_name)
                     y;
                 decr depth;
-            | Parser.Tree.Leaf y -> 
+            | Tree.Parse.Leafp y -> 
                 incr depth;
                 if !depth > !max_depth then max_depth := !depth;
                 decr depth;
@@ -109,18 +109,18 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                 incr num_leaves
         in
         match t with
-        | Parser.Tree.Annotated (t,_) 
-        | Parser.Tree.Flat t ->
+        | Tree.Parse.Annotated (t,_) 
+        | Tree.Parse.Flat t ->
             calc_depth_leaves (fun x -> x) t depth max_depth num_leaves longest_name
-        | Parser.Tree.Branches t ->
+        | Tree.Parse.Branches t ->
             calc_depth_leaves 
                     (fun (x,_) -> x) t depth max_depth num_leaves longest_name
-        | Parser.Tree.Characters t ->
+        | Tree.Parse.Characters t ->
             calc_depth_leaves 
                     (fun (x,_) -> x) t depth max_depth num_leaves longest_name
 
 
-    (** [draw_tree t] takes a t which is a Parser.Tree.t type and draws a tree 
+    (** [draw_tree t] takes a t which is a Tree.Parse.t type and draws a tree 
     *   also have optional arguments title, size and leafColor - The graph
     *   should have already been open.
     *   title - takes a string 
@@ -150,7 +150,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
        in        
        let rec coord depth deltaX deltaY tree =
            match tree with
-           | Parser.Tree.Leaf name ->
+           | Tree.Parse.Leafp name ->
                    let row = update_counter () in
                    let y = total_height - ((row - 1) * deltaY)  and
                    x = (!max_depth * deltaX + 10) in
@@ -163,7 +163,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                    display := G.draw_string ~tag !display name;
                    display := G.set_color !display prev_color;
                    (x, y)
-           | Parser.Tree.Node (children, name) ->
+           | Tree.Parse.Nodep (children, name) ->
                    let coord_children =
                        List.map (coord (depth+1) deltaX deltaY) children
                    in
@@ -207,7 +207,7 @@ module Make = functor (G : GRAPHICS_TYPE) -> struct
                    display := G.plot !display x avg;
                    (x, avg)
        in
-       let _ = coord 1 deltaX deltaY (Parser.Tree.strip_tree t) in 
+       let _ = coord 1 deltaX deltaY (Tree.Parse.strip_tree t) in 
        !display
 
        let rec get_children tree =

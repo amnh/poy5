@@ -31,7 +31,7 @@ type contents =
     | CostMatrix  (** A transformation cost matrix *)
     | Trees       (** Trees *)
 
-type parsed_trees = ((string option * Parser.Tree.tree_types list) * string * int)
+type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int)
 
 type dyna_state_t = [
 (** A short sequence, no rearrangements are allowed*)
@@ -199,7 +199,7 @@ type kolmo_spec = {
 type specs = 
     (** Static homology characters, includes the encoding specs from the
     * parser *)
-    | Static of Parser.SC.static_spec
+    | Static of Nexus.Parsed.static_spec
     (** A dynamic homology based character type, with three parameters, the
     * file name containing the set of sequences, the filename of the valid 
     * fixed states that can be used for that set of sequences, and the file
@@ -261,7 +261,7 @@ type cs_d =
 
     (* A static homology character, containing its code, and the character
     * itself. If None, means missing data. *)
-    | Stat of (int * Parser.SC.static_state)
+    | Stat of (int * Nexus.Parsed.static_state)
 
 type cs = cs_d * specified
 
@@ -420,27 +420,27 @@ val process_parsed_sequences :
     string -> Cost_matrix.Two_D.m -> costmatrix_3d 
     -> dyna_initial_assgn -> bool ->
     Alphabet.a -> string -> dyna_state_t -> d -> 
-    (Sequence.s list list list * Parser.taxon) list -> d
+    (Sequence.s list list list * Parser.E.taxon) list -> d
 
 val process_molecular_file : string -> Cost_matrix.Two_D.m ->
     costmatrix_3d -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
-        dyna_state_t -> d -> Parser.filename -> d
+        dyna_state_t -> d -> FileStream.f -> d
 
-val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> Parser.filename -> d
+val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> FileStream.f -> d
 
-val process_trees : d -> Parser.filename -> d
+val process_trees : d -> FileStream.f -> d
 
-val process_fixed_states : d -> Parser.filename option -> d
+val process_fixed_states : d -> FileStream.f option -> d
 
-val add_synonyms_file : d -> Parser.filename -> d
+val add_synonyms_file : d -> FileStream.f -> d
 
 val add_synonym : d -> (string * string) -> d
 
-val process_ignore_file : d -> Parser.filename -> d
+val process_ignore_file : d -> FileStream.f -> d
 
 val process_ignore_taxon : d -> string -> d
 
-val process_analyze_only_file : bool -> d -> Parser.filename list -> d
+val process_analyze_only_file : bool -> d -> FileStream.f list -> d
 
 val number_of_taxa : d -> int
 
@@ -462,13 +462,13 @@ val get_sequence_alphabet : int -> d -> Alphabet.a
 
 val get_files : d -> (string * contents list) list
 
-val add_file : d -> contents list -> Parser.filename -> d
+val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list
 
-val add_static_parsed_file : d -> string -> Parser.SC.file_output -> d
+val add_static_parsed_file : d -> string -> Nexus.Parsed.file_output -> d
 
-val add_multiple_static_parsed_file : d -> (string * Parser.SC.file_output) list -> d
+val add_multiple_static_parsed_file : d -> (string * Nexus.Parsed.file_output) list -> d
 
 val get_used_observed : int -> d -> (int, int) Hashtbl.t
 
@@ -511,13 +511,13 @@ val get_chars_codes_comp : d -> bool_characters -> int list
 
 val process_ignore_characters : bool -> d -> characters -> d
 
-val process_ignore_characters_file : bool -> d -> Parser.filename -> d
+val process_ignore_characters_file : bool -> d -> FileStream.f -> d
 
 val complement_characters : d -> characters -> [ `All | `Some of int list | `Names of string list ]
 
 val complement_taxa : d -> int list -> int list
 
-val process_analyze_only_characters_file : bool -> bool -> d -> Parser.filename list -> d
+val process_analyze_only_characters_file : bool -> bool -> d -> FileStream.f list -> d
 
 val process_rename_characters : d -> (string * string) -> d
 
@@ -530,16 +530,16 @@ val assign_affine_gap_cost :
     d -> bool_characters -> Cost_matrix.cost_model -> d
 
 val assign_tail : 
-    d -> bool_characters -> [ `File of Parser.filename | `Array of int array ] -> d
+    d -> bool_characters -> [ `File of FileStream.f | `Array of int array ] -> d
 
 val assign_prepend : 
-    d -> bool_characters -> [ `File of Parser.filename | `Array of int array ] -> d
+    d -> bool_characters -> [ `File of FileStream.f | `Array of int array ] -> d
 
 val assign_tcm_to_characters_from_file :
-    d -> bool_characters -> Parser.filename option -> d
+    d -> bool_characters -> FileStream.f option -> d
 
 val process_complex_terminals :
-    d -> Parser.filename -> d
+    d -> FileStream.f -> d
 
 val get_alphabet : d -> int -> Alphabet.a
 val get_pam : d -> int -> dyna_pam_t
@@ -552,7 +552,7 @@ val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
-val apply_on_static_chars : d -> int list -> Parser.SC.st_type -> d
+val apply_on_static_chars : d -> int list -> Nexus.Parsed.st_type -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a
 
 val set_parsimony : d -> Methods.characters -> d 
@@ -579,7 +579,7 @@ val kolmo_round_factor : float
 val transform_weight : [ `ReWeight of (bool_characters * float) | `WeightFactor of
 (bool_characters * float) ] -> d -> d
 
-val file_exists : d -> Parser.filename -> bool
+val file_exists : d -> FileStream.f -> bool
 
 val make_fixed_states : bool_characters -> d -> d
 
@@ -603,8 +603,8 @@ type tcm_class =
 
 val prealigned_characters :   
     (Cost_matrix.Two_D.m -> Alphabet.a ->
-              tcm_class * ([> `Exists ] -> int -> Parser.t list -> 
-                  Parser.t list) *
+              tcm_class * ([> `Exists ] -> int -> FileContents.t list -> 
+                  FileContents.t list) *
                  (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list ->
                      (Alphabet.a * Parser.OldHennig.Encoding.s) list)) ->
                            d -> bool_characters -> d
@@ -649,8 +649,8 @@ val to_human_readable : d -> int -> int -> string
  * is applied iff [c] is nonadditive, and [add] iff [c] is additive. For any
  * other character the function returns true.*)
 val apply_boolean : 
-    (Parser.SC.static_state list -> bool) -> 
-        (Parser.SC.static_state list -> bool) -> d -> int -> bool
+    (Nexus.Parsed.static_state list -> bool) -> 
+        (Nexus.Parsed.static_state list -> bool) -> d -> int -> bool
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
@@ -661,16 +661,16 @@ val get_model : int -> d -> MlModel.model
  * of all the terminals stored in [e], and returns the result per character in a
  * list of tuples holding the character code and the result. *)
 val apply_on_static :
-    (Parser.SC.static_state list -> float) -> (Parser.SC.static_state list -> 
+    (Nexus.Parsed.static_state list -> float) -> (Nexus.Parsed.static_state list -> 
         float) -> 
-        (int array array -> Parser.SC.static_state list -> float) -> 
-            (MlModel.model -> Parser.SC.static_state list -> float) -> bool_characters ->
+        (int array array -> Nexus.Parsed.static_state list -> float) -> 
+            (MlModel.model -> Nexus.Parsed.static_state list -> float) -> bool_characters ->
             d -> (int * float) list
 
 val repack_codes : d -> d
 
 val verify_trees : d -> parsed_trees -> unit
 
-val guess_class_and_add_file : bool -> bool -> d -> Parser.filename -> d
+val guess_class_and_add_file : bool -> bool -> d -> FileStream.f -> d
 
 val report_kolmogorov_machine : string option -> d -> d

@@ -737,15 +737,15 @@ let large_number = max_int / 8
 let make_leaf states x = 
     let arr = Array.make states large_number in
     List.iter (fun x -> arr.(x) <- 0) x;
-    Parser.Tree.Leaf arr
+    Tree.Parse.Leafp arr
 
 let rec aux_bb bound lst mtx tree = 
     let states = Array.length mtx in
     let calc_node left right = 
         let get_arr left = 
             match left with
-            | Parser.Tree.Leaf x
-            | Parser.Tree.Node (_, x) -> x 
+            | Tree.Parse.Leafp x
+            | Tree.Parse.Nodep (_, x) -> x 
         in
         let left = get_arr left 
         and right = get_arr right in
@@ -759,11 +759,11 @@ let rec aux_bb bound lst mtx tree =
             done;
             !res) 
     in
-    let join a b = Parser.Tree.Node ([a; b], calc_node a b) in
+    let join a b = Tree.Parse.Nodep ([a; b], calc_node a b) in
     let get_cost tree =
         let arr = 
             match tree with
-            | Parser.Tree.Node (_, arr) | Parser.Tree.Leaf arr -> arr 
+            | Tree.Parse.Nodep (_, arr) | Tree.Parse.Leafp arr -> arr 
         in
         Array.fold_left min large_number arr 
     in
@@ -778,12 +778,12 @@ let rec aux_bb bound lst mtx tree =
     in
     let rec append_everywhere terminal tree =
         match tree with
-        | Parser.Tree.Leaf x -> [join terminal tree]
-        | Parser.Tree.Node ([a; b], _) ->
+        | Tree.Parse.Leafp x -> [join terminal tree]
+        | Tree.Parse.Nodep ([a; b], _) ->
                 (join b (join a terminal)) :: (join a (join b terminal)) ::
                     (List.map (join a) (append_everywhere terminal b)) @
                     (List.map (join b) (append_everywhere terminal a))
-        | Parser.Tree.Node _ -> assert false
+        | Tree.Parse.Nodep _ -> assert false
     in
     match lst with
     | [] -> 
@@ -849,13 +849,13 @@ let get_all_possible_assignments (elts : int list option list) =
     in
     List.map All_sets.Integers.elements x
 
-let min_possible_cost mtx (elts : Parser.SC.static_state list) = 
+let min_possible_cost mtx (elts : Nexus.Parsed.static_state list) = 
     let all_possible = 
         let rec filter_none acc lst =
             match lst with
             | None :: t -> filter_none acc t
             | (Some x) :: t -> 
-                    filter_none ((Parser.SC.static_state_to_list x) :: acc) t
+                    filter_none ((Nexus.Parsed.static_state_to_list x) :: acc) t
             | [] -> acc
         in
         filter_none [] elts

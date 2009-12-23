@@ -112,10 +112,10 @@ let sets_of_parser data tree =
     let get_code x = Data.taxon_code x data in
     let rec process tree acc =
         match tree with
-        | Parser.Tree.Leaf x ->
+        | Tree.Parse.Leafp x ->
                 let res = All_sets.Integers.singleton (get_code x) in
                 All_sets.IntSet.add res acc, res
-        | Parser.Tree.Node (chld, _) ->
+        | Tree.Parse.Nodep (chld, _) ->
                 let acc, lst = List.fold_left (fun (acc, res) x ->
                     let a, b = process x acc in
                     a, (b :: res)) (acc, []) chld
@@ -126,7 +126,7 @@ let sets_of_parser data tree =
                 in
                 All_sets.IntSet.add union acc, union
     in
-    fst (process (Parser.Tree.strip_tree tree) All_sets.IntSet.empty)
+    fst (process (Tree.Parse.strip_tree tree) All_sets.IntSet.empty)
 
 let sets meth data trees = 
     match meth with
@@ -139,7 +139,7 @@ let sets meth data trees =
         with
         | None -> sets_of_consensus trees
         | Some filename ->
-            try match Parser.Tree.of_file filename with
+            try match Tree.Parse.of_file filename with
             | [[tree]] -> lazy (sets_of_parser data tree)
             | _ -> 
                     Status.user_message Status.Error

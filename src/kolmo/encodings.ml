@@ -87,12 +87,12 @@ let huffman_tree lst =
         | [(x, _)] ->  x
         | (x, a) :: (y, b) :: tl ->
                 let l = 
-                    (((Parser.Tree.Node ([x; y], None)), a +. b) :: tl)
+                    (((Tree.Parse.Nodep ([x; y], None)), a +. b) :: tl)
                 in
                 sort_n_merge l
         | [] -> failwith "Empty alphabet"
     in
-    let r = List.map (fun (x, y) -> (Parser.Tree.Leaf (Some x)), y) lst in
+    let r = List.map (fun (x, y) -> (Tree.Parse.Leafp (Some x)), y) lst in
     sort_n_merge r
 
 let huffman lst =
@@ -101,13 +101,13 @@ let huffman lst =
         let hshtbl = Hashtbl.create 97 in
         let rec generate_table acc tree =
             match tree with
-            | Parser.Tree.Leaf (Some x) ->
+            | Tree.Parse.Leafp (Some x) ->
                     Hashtbl.add hshtbl x (List.rev acc)
-            | Parser.Tree.Node ([a; b], None) ->
+            | Tree.Parse.Nodep ([a; b], None) ->
                     generate_table (Zero :: acc) a;
                     generate_table (One :: acc) b;
-            | Parser.Tree.Node (_, _)
-            | Parser.Tree.Leaf None -> assert false
+            | Tree.Parse.Nodep (_, _)
+            | Tree.Parse.Leafp None -> assert false
         in
         generate_table [] tree;
         hshtbl
@@ -115,16 +115,16 @@ let huffman lst =
     (fun list_to_decode ->
         let rec aux_decoder (decoded, tree_left) item =
             match tree_left with
-            | Parser.Tree.Leaf (Some x) -> 
+            | Tree.Parse.Leafp (Some x) -> 
                     aux_decoder ((x :: decoded), tree) item
-            | Parser.Tree.Node ([a; b], None) ->
+            | Tree.Parse.Nodep ([a; b], None) ->
                     (match item with
                     | Zero -> (decoded, a)
                     | One -> (decoded, b))
             | _ -> failwith "Illegal message"
         in
         match List.fold_left aux_decoder ([], tree) list_to_decode with
-        | lst, Parser.Tree.Leaf (Some x) -> List.rev (x :: lst)
+        | lst, Tree.Parse.Leafp (Some x) -> List.rev (x :: lst)
         | _ -> failwith "Illegal message"),
     (fun list_to_encode ->
         let res = List.map (Hashtbl.find encoded_table) list_to_encode in

@@ -146,7 +146,7 @@ module type S = sig
             * and geographic information associated with it. The leaves are exactly the
             * input data, while the interior vertices are computed by POY or user
             * provided plugins. *)
-            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Tree.Parse.t
 
             (* The represenatation of the name of a node. We don't use plain strings
             * because they would make the generation of the XML a little bit too verbose
@@ -606,7 +606,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             let extract_gis x = 
                 snd 
-                (match x with  Parser.Tree.Leaf x | Parser.Tree.Node (_, x) -> x)
+                (match x with  Tree.Parse.Leafp x | Tree.Parse.Nodep (_, x) -> x)
 
             let empty = 
                 { TemporalGIS.coordinates = 
@@ -635,18 +635,18 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                         | Some ((`Single x), root) ->  
                                 let node = get_node x in
                                 let gis = get_gis x in
-                                Parser.Tree.Leaf (node, gis)
+                                Tree.Parse.Leafp (node, gis)
                         | Some ((`Edge edge), root) ->
                                 let leaf _ cur _ =
                                     let node = get_node cur in
                                     let gis = get_gis cur in
-                                    Parser.Tree.Leaf (node, gis)
+                                    Tree.Parse.Leafp (node, gis)
                                 and internal _ cur x y =
                                     let xgis = extract_gis x
                                     and ygis = extract_gis y in
                                     let my_gis = TemporalGIS.initial_ancestor xgis ygis in
                                     let node = get_node cur in
-                                    Parser.Tree.Node ([x; y], (node, my_gis))
+                                    Tree.Parse.Nodep ([x; y], (node, my_gis))
                                 in
                                 let node = 
                                     try Hashtbl.find nodes (`String "root") with
@@ -656,13 +656,13 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                 let left, right = 
                                     Tree.post_order_node_with_edge_visit leaf 
                                     internal (Tree.Edge edge) tree.Ptree.tree 
-                                    (Parser.Tree.Leaf (node, empty))
+                                    (Tree.Parse.Leafp (node, empty))
                                 in
                                 let gis = 
                                     TemporalGIS.initial_ancestor (extract_gis left) 
                                     (extract_gis right)
                                 in
-                                Parser.Tree.Node ([left; right], (node, gis))
+                                Tree.Parse.Nodep ([left; right], (node, gis))
                         | None -> assert false)
                 | _ -> failwith "Kml generation requires forest of only one tree"
 
@@ -672,21 +672,21 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                     else
                         let rec aux parent_gis tree =
                             match tree with
-                            | Parser.Tree.Leaf _ -> (tree, false)
-                            | Parser.Tree.Node ([x; y], (node, gis)) ->
+                            | Tree.Parse.Leafp _ -> (tree, false)
+                            | Tree.Parse.Nodep ([x; y], (node, gis)) ->
                                     let x, x_changed = aux gis x
                                     and y, y_changed = aux gis y in
                                     let my_gis = 
                                         TemporalGIS.adjust_ancestor gis parent_gis 
                                         (extract_gis x) (extract_gis y) 
                                     in
-                                    Parser.Tree.Node ([x; y], (node, my_gis)), 
+                                    Tree.Parse.Nodep ([x; y], (node, my_gis)), 
                                     x_changed || y_changed || my_gis <> gis
                             | _ -> assert false
                         in
                         match tree with
-                        | Parser.Tree.Leaf _ -> tree
-                        | Parser.Tree.Node ([x; y], (node, root_gis)) ->
+                        | Tree.Parse.Leafp _ -> tree
+                        | Tree.Parse.Nodep ([x; y], (node, root_gis)) ->
                                 let x_gis = extract_gis x in
                                 let y, y_changed = aux x_gis y in
                                 let y_gis = extract_gis y in
@@ -696,7 +696,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                     (extract_gis y)
                                 in
                                 let res = 
-                                    Parser.Tree.Node ([y; x], (node, root_gis)) in
+                                    Tree.Parse.Nodep ([y; x], (node, root_gis)) in
                                 if x_changed || y_changed then 
                                     downpass (iterations - 1) res
                                 else res
@@ -709,9 +709,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 let rec aux parent tree =
                     let name = 
                         match tree with
-                        | Parser.Tree.Leaf (x, _) ->
+                        | Tree.Parse.Leafp (x, _) ->
                                 Xml.attribute Xml.Nodes.name x
-                        | Parser.Tree.Node (chld, (x, _)) ->
+                        | Tree.Parse.Nodep (chld, (x, _)) ->
                                 let name = Xml.attribute Xml.Nodes.name x in
                                 List.iter (aux (Some (name :> Xml.xml Xml.contents))) chld;
                                 name
@@ -721,7 +721,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 aux None tree;
                 res
 
-            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Tree.Parse.t
             type topology = 
                 { ancestors : (Xml.unstructured, Xml.xml Xml.contents option) Hashtbl.t;
                   nodes : (Xml.unstructured, Xml.xml) Hashtbl.t; 
@@ -1151,11 +1151,11 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                 let res = ref [] in
                 let rec aux parent_gis tree =
                     match tree with
-                    | Parser.Tree.Leaf (node, gis) -> 
+                    | Tree.Parse.Leafp (node, gis) -> 
                             res := 
                                 (place_node folder.node_information 
                                 data topology node parent_gis None None gis) :: !res
-                    | Parser.Tree.Node ([l;r] as chld, (node, gis)) ->
+                    | Tree.Parse.Nodep ([l;r] as chld, (node, gis)) ->
                             let l = Some (KTree.extract_gis l)
                             and r = Some (KTree.extract_gis r) in
                             res := 
@@ -1307,7 +1307,7 @@ IFDEF USEPARALLEL THEN
             failwith ("Failed reading file with exception " ^ str)
 ELSE
     *)
-   List.map (fun x -> `Local x)  (Parser.explode_filenames files)
+   List.map (fun x -> `Local x)  (Parser.Wildcard.explode_filenames files)
    (*
 END
    *)
@@ -2002,7 +2002,7 @@ let get_trees_for_support support_class run =
                             fs)
                         run.trees
                 | `InputFile x ->
-                        let trees = Parser.Tree.of_file (`Local x) in
+                        let trees = Tree.Parse.of_file (`Local x) in
                         Sexpr.of_list
                         (List.map 
                         (fun tree ->
@@ -4690,7 +4690,7 @@ let set_console_run r = console_run_val := r
         let uppass = TreeOps.uppass
 
         let of_string str data nodes =
-            let tree = List.map (fun x -> None,x) (Parser.Tree.of_string str) in
+            let tree = List.map (fun x -> None,x) (Tree.Parse.of_string str) in
             Sexpr.to_list (Build.prebuilt tree (data, nodes))
 
         let to_string collapse tree data = 
@@ -4701,7 +4701,7 @@ let set_console_run r = console_run_val := r
             List.map (AsciiTree.for_formatter false true true) res 
 
         let of_file file data nodes =
-            let trees = List.map (fun x -> None,x) (Parser.Tree.of_file (`Local file)) in
+            let trees = List.map (fun x -> None,x) (Tree.Parse.of_file (`Local file)) in
             Sexpr.to_list (Build.prebuilt trees (data, nodes))
 
         let of_nodes data nodes = 
@@ -4787,7 +4787,7 @@ end
 
 module FILES = struct
 
-    let explode str = Parser.explode_filenames [(`Local str)]
+    let explode str = Parser.Wildcard.explode_filenames [(`Local str)]
 
     let do_ch f str = str, (f str)
 
@@ -4960,10 +4960,10 @@ module DNA = struct
             in
             let alph = 
                 if prealigned then 
-                    Parser.Prealigned_Alphabet (Alphabet.nucleotides)
-                else Parser.Nucleic_Acids
+                    FileContents.Prealigned_Alphabet (Alphabet.nucleotides)
+                else FileContents.Nucleic_Acids
             in
-            let res = Parser.Fasta.of_channel alph ch in
+            let res = Fasta.of_channel alph ch in
             List.map converter (List.filter filter res)
 
         let multi_of_channel ch = 
@@ -4979,12 +4979,12 @@ module DNA = struct
             let converter acc (lst, txn) =
                 List.fold_left (merger txn) acc (List.flatten lst)
             in
-            let res = Parser.Fasta.of_channel Parser.Nucleic_Acids ch in
+            let res = Fasta.of_channel FileContents.Nucleic_Acids ch in
             List.fold_left converter [] res
 
         let to_channel ch seqs =
             let converter (lst, txn) = (txn, lst) in
-            Parser.Fasta.to_channel ch (List.map converter seqs) alph
+            Fasta.to_channel ch (List.map converter seqs) alph
 
         let of_file prealigned str = 
             FILES.run_n_close str (of_channel prealigned)
@@ -5029,7 +5029,7 @@ module DNA = struct
 
     module Generic = struct
         let molecular file =
-            Fasta.of_channel false (Parser.molecular_to_fasta (`Local file))
+            Fasta.of_channel false (Parser.Files.molecular_to_fasta (`Local file))
     end
 
     module Align = struct

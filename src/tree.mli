@@ -168,7 +168,6 @@ val other_two_nbrs : int -> node -> int * int
 val get_path_to_handle : int -> u_tree -> int * edge list
 val break : break_jxn -> u_tree -> u_tree * break_delta
 val join : join_jxn -> join_jxn -> u_tree -> u_tree * join_delta
-val convert_to : string option * Parser.Tree.tree_types list -> Data.d -> u_tree
 val make_disjoint_tree : int list -> u_tree
 val move_handle : int -> u_tree -> u_tree * int list
 val edge_map : (edge -> 'a) -> u_tree -> (edge * 'a) list
@@ -301,3 +300,60 @@ val replace_codes : (int -> int) -> u_tree -> u_tree
 val destroy_component : int -> u_tree -> u_tree
 
 val copy_component : int -> u_tree -> u_tree -> u_tree
+
+module Parse : sig
+    (** Parser for tree in format (a (b c)) *)
+
+    type 'a t = Leafp of 'a | Nodep of 'a t list * 'a
+
+    type tree_types =
+        | Flat of string t
+        | Annotated of (string t * string)
+        | Branches of ((string * float option) t)
+        | Characters of ((string * string option) t)
+
+    (** [print_tree t] prints a tree **)
+    val print_tree : tree_types -> unit
+
+    (** [of_string x] given a string x of a tree in the form (a (b c)), returns
+    * its representation as an internal t type. If an error occurs, an
+    * Illegal_tree_format error is raised. *)
+    val of_string : string -> tree_types list list
+
+    (** [of_channel x] creates a list of all the trees contained in the input
+    * channel x in ascii format. Each tree should be in a single line. In case
+    * of error the function raises Illegal_molecular_format. *)
+    val of_channel : in_channel -> tree_types list list
+
+    (** [of_file] is a shortcut of [of_channel], when the channel is an opened
+    * file. *)
+    val of_file : FileStream.f -> tree_types list list
+
+    (** [stream_of_file f] produces a function that returns on each call one of
+    * the trees in the input file [f]. If no more trees are found, an
+    * End_of_file exception is raised. The function _requires_ that the trees be
+    * separated with associated information, semicolons, or stars.*)
+    val stream_of_file : bool -> FileStream.f -> ((unit -> tree_types) * (unit -> unit))
+
+    val cannonic_order : tree_types -> tree_types
+
+    exception Illegal_argument
+    exception Illegal_tree_format of string
+
+    (** [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
+    * infromation [x] such that [f x = true]. If there is the need for a new
+    * root, then [newroot] must be provided. If the [newroot] is required and
+    * not provided, the function raises an [Illegal_argument] exception. *)
+    val cleanup : ?newroot:string  -> (string -> bool) -> tree_types -> tree_types option
+
+    (** [post_process t] takes a basic tree and converts it to Flat,Branches or
+     * Annotated based on it's properties. *)
+    val post_process : (string * (float option * string option)) t * string -> tree_types
+
+    val map : ('a -> 'b) -> 'a t -> 'b t
+    val map_tree : (string -> string) -> tree_types -> tree_types
+
+    val strip_tree : tree_types -> string t
+    val maximize_tree : tree_types -> (string * string option) t
+    val convert_to : string option * tree_types list -> (string -> int) -> int -> u_tree
+end

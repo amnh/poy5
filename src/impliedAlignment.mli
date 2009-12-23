@@ -92,7 +92,7 @@ type matrix_class =
 val analyze_tcm :
     Cost_matrix.Two_D.m -> Alphabet.a ->
         matrix_class *
-        ([`Exists | `Missing ] -> int -> Parser.t list -> Parser.t list) *
+        ([`Exists | `Missing ] -> int -> FileContents.t list -> FileContents.t list) *
         (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list -> 
             (Alphabet.a * Parser.OldHennig.Encoding.s) list)
 

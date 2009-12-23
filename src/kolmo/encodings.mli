@@ -31,6 +31,6 @@ val huffman : ('a * float) list ->
     ((encoding -> 'a list) * ('a list -> encoding))
 
 (* The tree representation of a huffman code *)
-val huffman_tree : ('a * float) list -> 'a option Parser.Tree.t
+val huffman_tree : ('a * float) list -> 'a option Tree.Parse.t
 
 val geometric : int -> int -> float -> (int * float) list

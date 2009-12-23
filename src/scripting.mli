@@ -108,7 +108,7 @@ type tree = (a, b) Ptree.p_tree
             * and geographic information associated with it. The leaves are exactly the
             * input data, while the interior vertices are computed by POY or user
             * provided plugins. *)
-            type simplified_topology = (Xml.xml * TemporalGIS.sample) Parser.Tree.t
+            type simplified_topology = (Xml.xml * TemporalGIS.sample) Tree.Parse.t
 
             (* The represenatation of the name of a node. We don't use plain strings
             * because they would make the generation of the XML a little bit too verbose
