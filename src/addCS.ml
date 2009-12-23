@@ -555,8 +555,8 @@ let of_parser data (it, taxon) code =
         | None, code ->
                 match Hashtbl.find data.Data.character_specs code with
                 | Data.Static enc -> 
-                        (first enc.Nexus.Parsed.st_observed, 
-                        last enc.Nexus.Parsed.st_observed,
+                        (first enc.Nexus.File.st_observed, 
+                        last enc.Nexus.File.st_observed,
                         code) :: acc
                 | _ -> assert false
     in
@@ -567,7 +567,7 @@ let of_parser data (it, taxon) code =
 
 let ( --> ) a b = b a
 
-let min_possible_cost (elts : Nexus.Parsed.static_state list ) =
+let min_possible_cost (elts : Nexus.File.static_state list ) =
     let get_last lst = 
         assert (lst <> []);
         List.hd (List.rev lst) 
@@ -632,7 +632,7 @@ let is_potentially_informative elts =
                 match b with
                 | None  -> a
                 | Some lst ->
-                        let lst = Nexus.Parsed.static_state_to_list lst in
+                        let lst = Nexus.File.static_state_to_list lst in
                         match lst with
                         | [] -> a
                         | lst ->

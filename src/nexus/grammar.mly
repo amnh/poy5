@@ -11,16 +11,16 @@ let parse_error s =
         and e = (Parsing.symbol_end_pos ()) in
         let b = string_of_int (b.Lexing.pos_cnum)
         and e = string_of_int (e.Lexing.pos_cnum) in
-        !File.print_error
+        !P.print_error
         (s ^ "@ between@ characters@ " ^ b ^ 
         "@ and@ " ^ e)
     with
-    | _ -> !File.print_error s
+    | _ -> !P.print_error s
 
 let report_error text b e =
     let b = string_of_int (b.Lexing.pos_cnum)
     and e = string_of_int (e.Lexing.pos_cnum) in
-    !File.print_error
+    !P.print_error
     ("There@ was@ a@ parsing@ error@ between@ characters@ " ^ b ^ "@ and@ "
     ^ e ^ " in the " ^ text)
 %}
@@ -165,11 +165,11 @@ COLON LBRACKET RBRACKET
 %token <string> FLOAT
 %token <string> INTEGER
 %start tree
-%type <File.tree> tree
+%type <P.tree> tree
 %start header
 %type <unit> header
 %start block
-%type <File.block> block
+%type <P.block> block
 %start symbol_pair
 %type <(string * string list)> symbol_pair
 %start symbol_list
@@ -181,52 +181,52 @@ header:
     ;
 block:
     | BEGIN TAXA SEMICOLON taxa ENDNEXUS SEMICOLON  
-        { File.Taxa $4 }
+        { P.Taxa $4 }
     | BEGIN TAXA SEMICOLON IDENT error ENDNEXUS SEMICOLON 
-        { if $4 = "TITLE" then !File.print_error mesquite_error;
+        { if $4 = "TITLE" then !P.print_error mesquite_error;
             raise Parsing.Parse_error }
     | BEGIN CHARACTERS SEMICOLON characters ENDNEXUS SEMICOLON 
-        { File.Characters $4 }
+        { P.Characters $4 }
     | BEGIN DATA SEMICOLON characters ENDNEXUS SEMICOLON
-        { File.Characters $4 }
+        { P.Characters $4 }
     | BEGIN UNALIGNED SEMICOLON unaligned ENDNEXUS SEMICOLON
-        { File.Unaligned $4 }
+        { P.Unaligned $4 }
     | BEGIN TREES SEMICOLON optional_translate tree_list ENDNEXUS SEMICOLON
-        { File.Trees ($4,$5) }
+        { P.Trees ($4,$5) }
     | BEGIN NOTES SEMICOLON notes ENDNEXUS SEMICOLON 
-        { File.Notes $4 }
+        { P.Notes $4 }
     | BEGIN DISTANCES SEMICOLON distances ENDNEXUS SEMICOLON 
-        { File.Distances $4 }
+        { P.Distances $4 }
     | BEGIN ASSUMPTIONS SEMICOLON assumptions ENDNEXUS SEMICOLON
-        { File.Assumptions $4 }
+        { P.Assumptions $4 }
     | BEGIN SETS SEMICOLON sets_block ENDNEXUS SEMICOLON
-        { File.Sets $4 }
+        { P.Sets $4 }
     | BEGIN IDENT error ENDNEXUS SEMICOLON
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN UNALIGNED SEMICOLON error ENDNEXUS SEMICOLON
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN NOTES SEMICOLON error ENDNEXUS SEMICOLON 
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN DISTANCES SEMICOLON error ENDNEXUS SEMICOLON 
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
-        { File.Error $2 }
+        { P.Error $2 }
     | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
-        { File.Poy $4 }
+        { P.Poy $4 }
     ;
 assumptions:
     | assumption_items assumptions { $1 :: $2 }
     | { [] }
     ;
 assumption_items:
-    | optional_assumption_options   { File.Options $1 }
-    | optional_user_type            { File.UserType $1 }
-    | optional_type_set             { File.TypeDef $1 }
-    | optional_wtset                { File.WeightDef $1 }
-    | optional_exset                { File.ExcludeSet $1 }
-    | optional_ancstates            { File.AncestralDef $1 }
+    | optional_assumption_options   { P.Options $1 }
+    | optional_user_type            { P.UserType $1 }
+    | optional_type_set             { P.TypeDef $1 }
+    | optional_wtset                { P.WeightDef $1 }
+    | optional_exset                { P.ExcludeSet $1 }
+    | optional_ancstates            { P.AncestralDef $1 }
     | error                         
     { report_error "Assumption Block" (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
         raise Parsing.Parse_error }
@@ -245,23 +245,23 @@ deftype:
     | { None }
     ;
 polytcount:
-    | POLYTCOUNT EQUAL MINSTEPS { File.MinSteps }
-    | POLYTCOUNT EQUAL MAXSTEPS { File.MaxSteps }
-    | { File.MinSteps }
+    | POLYTCOUNT EQUAL MINSTEPS { P.MinSteps }
+    | POLYTCOUNT EQUAL MAXSTEPS { P.MaxSteps }
+    | { P.MinSteps }
     ;
 gapmode:
-    | GAPMODE EQUAL MISSING { File.Missing }
-    | GAPMODE EQUAL NEWSTATE { File.NewState }
-    | { File.NewState }
+    | GAPMODE EQUAL MISSING { P.Missing }
+    | GAPMODE EQUAL NEWSTATE { P.NewState }
+    | { P.NewState }
     ;
 optional_user_type:
     | USERTYPE IDENT user_type_definition SEMICOLON { ($2, $3) }
     ;
 user_type_definition:
-    | EQUAL INTEGER numbers_and_chars { File.StepMatrix ($2, $3) }
+    | EQUAL INTEGER numbers_and_chars { P.StepMatrix ($2, $3) }
     | STEPMATRIX EQUAL INTEGER numbers_and_chars 
-        { File.StepMatrix ($3, $4) }
-    | CSTREE DATACSTREE { File.CSTree $2 }
+        { P.StepMatrix ($3, $4) }
+    | CSTREE DATACSTREE { P.CSTree $2 }
     ;
 numbers_and_chars:
     | number_and_char numbers_and_chars { $1 :: $2 }
@@ -294,16 +294,16 @@ do_star:
     | { true }
 optional_set_for_assumptions:
     | do_star IDENT do_token EQUAL standard_type_set SEMICOLON 
-        { ($1, $2, $3, File.Standard $5) }
+        { ($1, $2, $3, P.Standard $5) }
     | do_star IDENT STANDARD do_token EQUAL standard_type_set SEMICOLON 
-        { ($1, $2, $4, File.Standard $6) }
+        { ($1, $2, $4, P.Standard $6) }
     | do_star IDENT VECTOR do_token EQUAL vector_type_set SEMICOLON 
-        { ($1, $2, $4,File.Vector $6) }
+        { ($1, $2, $4,P.Vector $6) }
     ;
 standard_type_set_item:
-    | INTEGER COLON characterset_list { File.Code ($1, $3) }
-    | FLOAT COLON characterset_list   { File.Code ($1, $3) }
-    | IDENT COLON characterset_list   { File.IName ($1, $3) }
+    | INTEGER COLON characterset_list { P.Code ($1, $3) }
+    | FLOAT COLON characterset_list   { P.Code ($1, $3) }
+    | IDENT COLON characterset_list   { P.IName ($1, $3) }
     ;
 standard_type_set:
     | standard_type_set_item COMMA standard_type_set { ($1 :: $3) }
@@ -349,35 +349,35 @@ optional_set_pair_list:
     | { [] }
     ;
 set_pair:
-    | TAXON EQUAL characterset     { File.TaxonSet $3 }
-    | CHARACTER EQUAL characterset { File.CharacterSet $3 }
-    | STATE EQUAL characterset      { File.StateSet $3 }
-    | TREE EQUAL characterset        { File.TreeSet $3 }
+    | TAXON EQUAL characterset     { P.TaxonSet $3 }
+    | CHARACTER EQUAL characterset { P.CharacterSet $3 }
+    | STATE EQUAL characterset      { P.StateSet $3 }
+    | TREE EQUAL characterset        { P.TreeSet $3 }
     ;
 source:
-    | INLINE    {File.Inline }
-    | FILE      { File.File }
-    | RESOURCE  { File.Resource }
+    | INLINE    {P.Inline }
+    | FILE      { P.File }
+    | RESOURCE  { P.Resource }
     ;
 optional_pictureformat:
     | FORMAT EQUAL pictureformat { Some $3 }
     | { None }
     ;
 pictureformat:
-    | PICT      { File.Pict }
-    | TIFF      { File.Tiff }
-    | EPS       { File.Eps }
-    | JPEG      { File.Jpeg }
-    | GIF       { File.Gif }
+    | PICT      { P.Pict }
+    | TIFF      { P.Tiff }
+    | EPS       { P.Eps }
+    | JPEG      { P.Jpeg }
+    | GIF       { P.Gif }
     ;
 optional_encode:
     | ENCODE EQUAL pictureencoding { Some $3 }
     | { None }
     ;
 pictureencoding:
-    | NONE  { File.None }
-    | UUENCODE { File.UUEncode }
-    | BINHEX    { File.BinHex }
+    | NONE  { P.None }
+    | UUENCODE { P.UUEncode }
+    | BINHEX    { P.BinHex }
     ;
 optional_translate:
     | TRANSLATE names SEMICOLON
@@ -397,30 +397,30 @@ optional_tree_prequel:
 poy_block:
     | CHARACTERBRANCH TREES EQUAL names NAMES EQUAL characterset_list SEMICOLON
                   MAP pairs_list_float SEMICOLON poy_block
-        { File.CharacterBranch ($4, $7, $10) :: $12}
+        { P.CharacterBranch ($4, $7, $10) :: $12}
 
-    | LIKELIHOOD model_block poy_block { File.Likelihood $2 :: $3 }
+    | LIKELIHOOD model_block poy_block { P.Likelihood $2 :: $3 }
     | { [] }
     ;
 model_block:
     | MODEL EQUAL IDENT SEMICOLON model_block
-            { (File.Model $3) :: $5 }
+            { (P.Model $3) :: $5 }
     | VARIATION EQUAL IDENT SEMICOLON model_block
-            { (File.Variation $3) :: $5 }
+            { (P.Variation $3) :: $5 }
     | SITES EQUAL INTEGER SEMICOLON model_block
-            { (File.Variation_Sites $3) :: $5 }
+            { (P.Variation_Sites $3) :: $5 }
     | PERCENT EQUAL FLOAT SEMICOLON model_block
-            { (File.Variation_Invar $3) :: $5 }
+            { (P.Variation_Invar $3) :: $5 }
     | ALPHA EQUAL FLOAT SEMICOLON model_block
-            { (File.Variation_Alpha $3) :: $5 }
+            { (P.Variation_Alpha $3) :: $5 }
     | PRIORS EQUAL pairs_list_float model_block
-            { (File.Priors $3) :: $4 }
+            { (P.Priors $3) :: $4 }
     | CHARSET EQUAL characterset_list SEMICOLON model_block
-            { (File.Chars $3) :: $5 }
+            { (P.Chars $3) :: $5 }
     | PARAMETERS EQUAL float_list model_block
-            { (File.Parameters $3) :: $4 }
+            { (P.Parameters $3) :: $4 }
     | FILE EQUAL QUOTED SEMICOLON model_block
-            { (File.Files $3) :: $5 }
+            { (P.Files $3) :: $5 }
     | SEMICOLON { [] }
     ;
 
@@ -449,19 +449,19 @@ characters:
      optional_charstatelabels optional_charlabels optional_statelabels 
      DATA SEMICOLON 
      { 
-         { File.char_taxon_dimensions = $2;
-         File.char_char_dimensions = $5;
-         File.char_format = $7;
-         File.char_eliminate = $8;
-         File.char_taxlabels = $9;
-         File.char_statelabels = $10;
-         File.char_charlabels = $11;
-         File.char_charstates = $12;
-         File.chars = $13;}
+         { P.char_taxon_dimensions = $2;
+         P.char_char_dimensions = $5;
+         P.char_format = $7;
+         P.char_eliminate = $8;
+         P.char_taxlabels = $9;
+         P.char_statelabels = $10;
+         P.char_charlabels = $11;
+         P.char_charstates = $12;
+         P.chars = $13;}
      }
 unaligned:
     | optional_unaligned_dimensions optional_format DATA SEMICOLON
-        { { File.unal_taxon_dimensions = $1; unal_format = $2; unal = $3 } }
+        { { P.unal_taxon_dimensions = $1; unal_format = $2; unal = $3 } }
      ;
 optional_unaligned_dimensions:
     | DIMENSIONS optional_taxa_dimensions { $2 }
@@ -507,9 +507,9 @@ format_items_list:
     |           { [] }
     ;
 format_items:
-    | DATATYPE EQUAL datatype { File.Datatype $3 }
+    | DATATYPE EQUAL datatype { P.Datatype $3 }
     | DATATYPE EQUAL error {
-        !File.print_error
+        !P.print_error
         ("Many@ \"NEXUS\"@ files@ include@ in@ the@ CHARACTERS@ or@ DATA@ " ^
         "block@ the@ dataype@ @[<b>mixed@]@ or@ @[<b>restriction@]@ or@ something@ else.@ " ^
         "@ Those@ are@ most@ likely@ Mr.Bayes@ files.@ No@ matter@ that@ " ^
@@ -517,44 +517,44 @@ format_items:
         "NEXUS@ file.@ I can@ not@ process@ this.@ I@ am@ sorry. " ^
         "You'll@ have@ to@ convert@ it@ to@ a@ valid@ nexus@ file.");
         raise Parsing.Parse_error }
-    | RESPECTCASE { File.RespectCase }
-    | MISSING EQUAL symbol { File.FMissing $3 }
-    | GAP EQUAL symbol { File.Gap $3 }
+    | RESPECTCASE { P.RespectCase }
+    | MISSING EQUAL symbol { P.FMissing $3 }
+    | GAP EQUAL symbol { P.Gap $3 }
     | SYMBOLS EQUAL QUOTED { 
         let len = String.length $3 in
-        File.Symbols (String.sub $3 0 (len - 1))}
-    | EQUATE EQUAL QUOTED { File.Equate $3 }
-    | MATCHCHAR EQUAL symbol { File.MatchChar $3 }
-    | NOLABELS     { File.Labels false }
-    | LABELS        { File.Labels true }
-    | TRANSPOSE     { File.Transpose }
+        P.Symbols (String.sub $3 0 (len - 1))}
+    | EQUATE EQUAL QUOTED { P.Equate $3 }
+    | MATCHCHAR EQUAL symbol { P.MatchChar $3 }
+    | NOLABELS     { P.Labels false }
+    | LABELS        { P.Labels true }
+    | TRANSPOSE     { P.Transpose }
     | INTERLEAVE    EQUAL { 
-        !File.print_error
+        !P.print_error
         ("Many@ \"NEXUS\"@ files@ include@ in@ the@ CHARACTERS@ or@ DATA@ " ^
         "block@ the@ directives@ interleave=yes@ or@ interleave=no.@ " ^
         "@[<b>That@ is@ not@ a@ valid@ NEXUS@ directive@].@ To@ fix@ your@ file@ " ^
         "replace@ interleave=yes@ with@ INTERLEAVE,@ or@ just@ remove@ it@ " ^
         "if@ you@ see@ interleave=no.");
         raise Parsing.Parse_error }
-    | INTERLEAVE    { File.Interleave }
-    | ITEMS EQUAL item { File.Items $3 }
-    | STATESFORMAT EQUAL states_format { File.StatesFormat $3 }
-    | NOTOKENS     { File.Tokens false }
-    | TOKENS        { File.Tokens true }
-    | TRIANGLE EQUAL triangle_format { File.Triangle $3 }
+    | INTERLEAVE    { P.Interleave }
+    | ITEMS EQUAL item { P.Items $3 }
+    | STATESFORMAT EQUAL states_format { P.StatesFormat $3 }
+    | NOTOKENS     { P.Tokens false }
+    | TOKENS        { P.Tokens true }
+    | TRIANGLE EQUAL triangle_format { P.Triangle $3 }
     ;
 triangle_format:
-    | LOWER { File.Lower }
-    | UPPER { File.Upper }
-    | BOTH { File.Both }
+    | LOWER { P.Lower }
+    | UPPER { P.Upper }
+    | BOTH { P.Both }
     ;
 datatype:
-    | STANDARD { File.DStandard }
-    | DNA { File.Dna }
-    | RNA { File.Rna }
-    | NUCLEOTIDE { File.Nucleotide }
-    | PROTEIN { File.Protein }
-    | CONTINUOUS { File.Continuous }
+    | STANDARD { P.DStandard }
+    | DNA { P.Dna }
+    | RNA { P.Rna }
+    | NUCLEOTIDE { P.Nucleotide }
+    | PROTEIN { P.Protein }
+    | CONTINUOUS { P.Continuous }
     ;
 symbol:
     | IDENT { $1 }
@@ -570,20 +570,20 @@ symbol_pair:
     | symbol EQUAL LPARENT symbol_list RPARENT { ($1, $4) }
     ;
 item:
-    | MIN { File.Min }
-    | MAX { File.Max }
-    | MEDIAN  { File.Median }
-    | AVERAGE { File.Average }
-    | VARIANCE { File.Variance }
-    | STDERROR { File.Stderror }
-    | SAMPLESIZE { File.SampleSize }
-    | STATES     { File.States }
+    | MIN { P.Min }
+    | MAX { P.Max }
+    | MEDIAN  { P.Median }
+    | AVERAGE { P.Average }
+    | VARIANCE { P.Variance }
+    | STDERROR { P.Stderror }
+    | SAMPLESIZE { P.SampleSize }
+    | STATES     { P.States }
     ;
 states_format:
-    | STATESPRESENT { File.StatesPresent }
-    | INDIVIDUALS   { File.Individuals }
-    | COUNT         { File.Count }
-    | FREQUENCY     { File.Frequency }
+    | STATESPRESENT { P.StatesPresent }
+    | INDIVIDUALS   { P.Individuals }
+    | COUNT         { P.Count }
+    | FREQUENCY     { P.Frequency }
     ;
 optional_taxa_dimensions:
     | NTAX EQUAL INTEGER { Some $3 }
@@ -603,12 +603,12 @@ characterset_list:
     | characterset      { [$1] }
     ;
 characterset:
-    | INTEGER DASH CHAR    { File.Range ($1, None) }
-    | INTEGER DASH INTEGER { File.Range ($1, Some $3) }
-    | INTEGER              { File.Single ($1) }
-    | IDENT                { File.CharSet $1 }
-    | SINGLEQUOTED         { File.Name $1 }
-    | CHAR                 { File.Name (String.make 1 $1) }
+    | INTEGER DASH CHAR    { P.Range ($1, None) }
+    | INTEGER DASH INTEGER { P.Range ($1, Some $3) }
+    | INTEGER              { P.Single ($1) }
+    | IDENT                { P.CharSet $1 }
+    | SINGLEQUOTED         { P.Name $1 }
+    | CHAR                 { P.Name (String.make 1 $1) }
     ;
 any_thing_minus_end:
     | TAXA  { () }
@@ -746,9 +746,9 @@ tree:
     | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | IDENT optional_length optional_comment { File.Leaf ($1, ($2, $3)) }
+    | IDENT optional_length optional_comment { P.Leaf ($1, ($2, $3)) }
     | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
-                            { File.Node ($2, $4, ($5, $6)) }
+                            { P.Node ($2, $4, ($5, $6)) }
     ;
 single_tree_list:
     | single_tree COMMA single_tree_list { $1 :: $3 }

@@ -138,13 +138,13 @@ let of_file (file : FileStream.f) =
     in
     let final_chars_array = 
         Array.init nchars 
-            (fun i-> {Nexus.Parsed.st_filesource = file;
+            (fun i-> {Nexus.File.st_filesource = file;
                         st_name = file ^ ":" ^ (string_of_int i);
                         st_alph = alphabet;
                         st_observed = get_observed final_seq_matrix i;
                         st_labels = [];
                         st_weight = 1.0;
-                        st_type = Nexus.Parsed.STUnordered;
+                        st_type = Nexus.File.STUnordered;
                         st_equivalents = [(Alphabet.gap_repr,[])];
                         st_missing = "?";
                         st_matchstate = None;
@@ -154,7 +154,7 @@ let of_file (file : FileStream.f) =
                         st_used_observed = None;
                         st_observed_used = None; })
     in
-    { Nexus.Parsed.empty_parsed () with
-      Nexus.Parsed.taxa = final_taxa_array;
+    { Nexus.File.empty_parsed () with
+      Nexus.File.taxa = final_taxa_array;
          matrix = final_seq_matrix; 
          characters = final_chars_array; }, file

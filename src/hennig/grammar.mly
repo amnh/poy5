@@ -6,16 +6,16 @@ let parse_error s =
         and e = (Parsing.symbol_end_pos ()) in
         let b = string_of_int (b.Lexing.pos_cnum)
         and e = string_of_int (e.Lexing.pos_cnum) in
-        !Nexus.File.print_error
+        !Nexus.P.print_error
         (s ^ "@ between@ characters@ " ^ b ^ 
         "@ and@ " ^ e)
     with
-    | _ -> !Nexus.File.print_error s
+    | _ -> !Nexus.P.print_error s
 
 let report_error b e =
     let b = string_of_int (b.Lexing.pos_cnum)
     and e = string_of_int (e.Lexing.pos_cnum) in
-    !Nexus.File.print_error
+    !Nexus.P.print_error
     ("Unrecognized@ command@ between@ characters@ " ^ b ^ "@ and@ "
     ^ e)
 %}

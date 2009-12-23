@@ -425,7 +425,7 @@ let of_parser data codes (elts, code) n =
                 let (elt, eltcode) = elts.(item) in
                 let observed = 
                     match Hashtbl.find data.Data.character_specs eltcode with
-                    | Data.Static enc -> enc.Nexus.Parsed.st_observed 
+                    | Data.Static enc -> enc.Nexus.File.st_observed 
                     | _ -> assert false
                 in
                 let observed_arr = Array.of_list observed in
@@ -463,7 +463,7 @@ let is_potentially_informative elts =
             match x with
             | None -> None
             | Some x -> 
-                    let x = Nexus.Parsed.static_state_to_list x in
+                    let x = Nexus.File.static_state_to_list x in
                     Some 
                     (List.fold_left 
                     (fun acc x -> All_sets.Integers.add x acc) 
@@ -504,7 +504,7 @@ let min_cost elts =
 
 let extract_elements_present elts = 
     List.fold_right (fun x acc -> match x with None -> acc | Some h -> 
-        (Nexus.Parsed.static_state_to_list h) :: acc)
+        (Nexus.File.static_state_to_list h) :: acc)
     elts []
 
 let max_possible_cost elts =
@@ -523,7 +523,7 @@ let max_possible_cost elts =
         List.fold_left (fun c a -> 
             if List.mem code a then c else c +. 1.) 0. elts
 
-let min_possible_cost (elts : Nexus.Parsed.static_state list) =
+let min_possible_cost (elts : Nexus.File.static_state list) =
     let elts = extract_elements_present elts in
     let states = 
         let stateset = 

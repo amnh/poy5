@@ -265,11 +265,11 @@ module OldHennig : sig
     val to_new_spec : 
         ?separator:string ->
         string -> Alphabet.a -> Encoding.s -> int -> 
-           Nexus.Parsed.static_spec
+           Nexus.File.static_spec
 
     (** Symmetric to the previous one, but for the observed state of a taxon *)
-    val to_new_atom : (FileContents.t, Nexus.Parsed.static_state) Hashtbl.t -> Nexus.Parsed.static_spec ->
-        Encoding.s -> FileContents.t -> Nexus.Parsed.static_state
+    val to_new_atom : (FileContents.t, Nexus.File.static_state) Hashtbl.t -> Nexus.File.static_spec ->
+        Encoding.s -> FileContents.t -> Nexus.File.static_state
 
     (** [of_old_parser filename alphabets old_parsed] converts the [old_parsed]
      * style of static homology parsed file to the new style, with (optional)
@@ -279,7 +279,7 @@ module OldHennig : sig
         string ->
         Alphabet.a array option ->
         Encoding.s array * (FileContents.t array * string) list * 
-        (string option * Tree.Parse.tree_types list) list -> Nexus.Parsed.nexus
+        (string option * Tree.Parse.tree_types list) list -> Nexus.File.nexus
 end
 
 module Asn1 : sig
@@ -376,7 +376,7 @@ module IgnoreList : sig
 end
 
 module Phylip : sig
-   val of_file : FileStream.f -> Nexus.Parsed.nexus * string
+   val of_file : FileStream.f -> Nexus.File.nexus * string
 end 
 
 module PAlphabet : sig

@@ -34,7 +34,7 @@ type search_results = {
 
 (* Before we begin, set the correct error printing functions in the parsers *)
 let () = 
-    Nexus.File.print_error := Status.user_message Status.Error
+    Nexus.P.print_error := Status.user_message Status.Error
 
 (* We define a few functions to deal with the search results type *)
 let empty_search_results = {

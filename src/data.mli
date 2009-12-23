@@ -199,7 +199,7 @@ type kolmo_spec = {
 type specs = 
     (** Static homology characters, includes the encoding specs from the
     * parser *)
-    | Static of Nexus.Parsed.static_spec
+    | Static of Nexus.File.static_spec
     (** A dynamic homology based character type, with three parameters, the
     * file name containing the set of sequences, the filename of the valid 
     * fixed states that can be used for that set of sequences, and the file
@@ -261,7 +261,7 @@ type cs_d =
 
     (* A static homology character, containing its code, and the character
     * itself. If None, means missing data. *)
-    | Stat of (int * Nexus.Parsed.static_state)
+    | Stat of (int * Nexus.File.static_state)
 
 type cs = cs_d * specified
 
@@ -466,9 +466,9 @@ val add_file : d -> contents list -> FileStream.f -> d
 
 val get_taxa : d -> string list
 
-val add_static_parsed_file : d -> string -> Nexus.Parsed.nexus -> d
+val add_static_parsed_file : d -> string -> Nexus.File.nexus -> d
 
-val add_multiple_static_parsed_file : d -> (string * Nexus.Parsed.nexus) list -> d
+val add_multiple_static_parsed_file : d -> (string * Nexus.File.nexus) list -> d
 
 val get_used_observed : int -> d -> (int, int) Hashtbl.t
 
@@ -552,7 +552,7 @@ val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
-val apply_on_static_chars : d -> int list -> Nexus.Parsed.st_type -> d
+val apply_on_static_chars : d -> int list -> Nexus.File.st_type -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a
 
 val set_parsimony : d -> Methods.characters -> d 
@@ -649,8 +649,8 @@ val to_human_readable : d -> int -> int -> string
  * is applied iff [c] is nonadditive, and [add] iff [c] is additive. For any
  * other character the function returns true.*)
 val apply_boolean : 
-    (Nexus.Parsed.static_state list -> bool) -> 
-        (Nexus.Parsed.static_state list -> bool) -> d -> int -> bool
+    (Nexus.File.static_state list -> bool) -> 
+        (Nexus.File.static_state list -> bool) -> d -> int -> bool
 
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
@@ -661,10 +661,10 @@ val get_model : int -> d -> MlModel.model
  * of all the terminals stored in [e], and returns the result per character in a
  * list of tuples holding the character code and the result. *)
 val apply_on_static :
-    (Nexus.Parsed.static_state list -> float) -> (Nexus.Parsed.static_state list -> 
+    (Nexus.File.static_state list -> float) -> (Nexus.File.static_state list -> 
         float) -> 
-        (int array array -> Nexus.Parsed.static_state list -> float) -> 
-            (MlModel.model -> Nexus.Parsed.static_state list -> float) -> bool_characters ->
+        (int array array -> Nexus.File.static_state list -> float) -> 
+            (MlModel.model -> Nexus.File.static_state list -> float) -> bool_characters ->
             d -> (int * float) list
 
 val repack_codes : d -> d

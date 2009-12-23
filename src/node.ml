@@ -1757,20 +1757,20 @@ let classify size chars data =
             match spec with
             | Data.Static spec ->
                 (* categorize likelihood and unordered characters *)
-                (match spec.Nexus.Parsed.st_type with
-                    | Nexus.Parsed.STUnordered    -> (code, spec) :: acc
-                    | Nexus.Parsed.STLikelihood m -> (code, spec) :: acc
+                (match spec.Nexus.File.st_type with
+                    | Nexus.File.STUnordered    -> (code, spec) :: acc
+                    | Nexus.File.STLikelihood m -> (code, spec) :: acc
                     | _ -> acc)
             | _ -> acc) data.Data.character_specs []
     in
     (* transform each static column into a list with current weight. ~NL *)
     let taxa (code,spec) = 
         let weight,observed = 
-            match spec.Nexus.Parsed.st_type with
-            | Nexus.Parsed.STUnordered ->
-                    spec.Nexus.Parsed.st_weight, spec.Nexus.Parsed.st_observed
-            | Nexus.Parsed.STLikelihood m ->
-                    spec.Nexus.Parsed.st_weight, spec.Nexus.Parsed.st_observed
+            match spec.Nexus.File.st_type with
+            | Nexus.File.STUnordered ->
+                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
+            | Nexus.File.STLikelihood m ->
+                    spec.Nexus.File.st_weight, spec.Nexus.File.st_observed
             | _ -> assert false
         in
         Hashtbl.fold (fun _ taxon_chars acc ->
@@ -1872,8 +1872,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left (fun acc code ->
                     match Hashtbl.find (!data).Data.character_specs code with
                     | Data.Static spec ->
-                            let lkspec = match spec.Nexus.Parsed.st_type with
-                                | Nexus.Parsed.STLikelihood x -> x.MlModel.spec
+                            let lkspec = match spec.Nexus.File.st_type with
+                                | Nexus.File.STLikelihood x -> x.MlModel.spec
                                 | _ -> assert false
                             in
                            (try
@@ -1927,8 +1927,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let set_of_list =
                 List.fold_left (fun a v -> All_sets.Integers.add v a)
                                 All_sets.Integers.empty
-            and gap_as_character x = match x.Nexus.Parsed.st_type with
-                | Nexus.Parsed.STLikelihood s -> s.MlModel.spec.MlModel.use_gap
+            and gap_as_character x = match x.Nexus.File.st_type with
+                | Nexus.File.STLikelihood s -> s.MlModel.spec.MlModel.use_gap
                 | _ -> assert false
             in
             (* create map of weight classes *)
@@ -1942,8 +1942,8 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             | _ -> assert false
                         in
                         if gap_as_character p_x
-                            then Alphabet.size p_x.Nexus.Parsed.st_alph
-                            else (Alphabet.size p_x.Nexus.Parsed.st_alph) - 1
+                            then Alphabet.size p_x.Nexus.File.st_alph
+                            else (Alphabet.size p_x.Nexus.File.st_alph) - 1
                     in
                     classify alph_len true all !data
                 | [] -> assert false
@@ -1982,12 +1982,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
-            (Data.Stat (code, Some (`List enc.Nexus.Parsed.st_observed)), 
+            (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), 
             `Unknown) 
         in
         let gen_nadd code =
             let enc = get_static_encoding code in
-            (Data.Stat (code, Some (`List enc.Nexus.Parsed.st_observed)), `Unknown) 
+            (Data.Stat (code, Some (`List enc.Nexus.File.st_observed)), `Unknown) 
         in
         let gen_dynamic code =
             let alph = Data.get_alphabet !data code in
@@ -2002,7 +2002,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let specs = Hashtbl.find !data.Data.character_specs code in
             let states = 
                 match specs with
-                | Data.Static enc -> `List enc.Nexus.Parsed.st_observed
+                | Data.Static enc -> `List enc.Nexus.File.st_observed
                 | _ -> assert false 
             in
             (Data.Stat (code, Some states), `Unknown)

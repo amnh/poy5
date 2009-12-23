@@ -1247,33 +1247,33 @@ let generate_alphabet alph spec =
                 fst (List.split (Alphabet.to_list alph)), 
                 Alphabet.match_code (Alphabet.get_gap alph) alph
     in
-    Nexus.Parsed.generate_alphabet alph gap
+    Nexus.File.generate_alphabet alph gap
 
 let to_new_spec ?(separator=":") filename alph spec pos =
     let newspec = 
-        Nexus.Parsed.spec_of_alph alph filename (filename ^ separator ^ string_of_int pos)
+        Nexus.File.spec_of_alph alph filename (filename ^ separator ^ string_of_int pos)
     in
     let newspec =
         if not spec.active then 
-            { newspec with Nexus.Parsed.st_eliminate = true }
+            { newspec with Nexus.File.st_eliminate = true }
         else newspec
     in
     let newspec = 
-        { newspec with Nexus.Parsed.st_weight = float_of_int
+        { newspec with Nexus.File.st_weight = float_of_int
         spec.weight } 
     in
     match spec.ordered with
     | Is_unordered  -> newspec
     | Is_ordered -> 
             { newspec with 
-                Nexus.Parsed.st_type = Nexus.Parsed.STOrdered }
+                Nexus.File.st_type = Nexus.File.STOrdered }
     | Is_sankoff -> 
             { newspec with 
-                Nexus.Parsed.st_type = Nexus.Parsed.STSankoff spec.cost_matrix }
+                Nexus.File.st_type = Nexus.File.STSankoff spec.cost_matrix }
 
 let to_new_atom table_of_atoms 
-(newspec : Nexus.Parsed.static_spec) (oldspec : encoding_spec)  
-data : Nexus.Parsed.static_state =
+(newspec : Nexus.File.static_spec) (oldspec : encoding_spec)  
+data : Nexus.File.static_state =
     if Hashtbl.mem table_of_atoms data then 
         Hashtbl.find table_of_atoms data
     else
@@ -1308,7 +1308,7 @@ data : Nexus.Parsed.static_state =
         res
 
 let to_new_parser ?(separator=":") filename alphabet (specs, data, trees) :
-    Nexus.Parsed.nexus =
+    Nexus.File.nexus =
     let taxa, data = 
         let data, taxa = List.split data in
         Array.map (fun x -> Some x) (Array.of_list taxa),
@@ -1340,15 +1340,15 @@ let to_new_parser ?(separator=":") filename alphabet (specs, data, trees) :
                     specs.(x) x)
     in
     let table_of_atoms = Hashtbl.create 1667 in
-    let new_data : Nexus.Parsed.static_state array array =
+    let new_data : Nexus.File.static_state array array =
         Array.init ntaxa (fun x ->
             Array.init nchars (fun y ->
                 to_new_atom table_of_atoms 
                 new_specs.(y) specs.(y) data.(x).(y)))
     in
-    Nexus.Parsed.fill_observed new_specs new_data;
-    { (Nexus.Parsed.empty_parsed ()) with
-        Nexus.Parsed.taxa = taxa;
+    Nexus.File.fill_observed new_specs new_data;
+    { (Nexus.File.empty_parsed ()) with
+        Nexus.File.taxa = taxa;
         characters = new_specs;
         matrix = new_data;
         trees = trees;

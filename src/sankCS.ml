@@ -849,13 +849,13 @@ let get_all_possible_assignments (elts : int list option list) =
     in
     List.map All_sets.Integers.elements x
 
-let min_possible_cost mtx (elts : Nexus.Parsed.static_state list) = 
+let min_possible_cost mtx (elts : Nexus.File.static_state list) = 
     let all_possible = 
         let rec filter_none acc lst =
             match lst with
             | None :: t -> filter_none acc t
             | (Some x) :: t -> 
-                    filter_none ((Nexus.Parsed.static_state_to_list x) :: acc) t
+                    filter_none ((Nexus.File.static_state_to_list x) :: acc) t
             | [] -> acc
         in
         filter_none [] elts

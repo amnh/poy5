@@ -1,4 +1,4 @@
-open Nexus.Parsed 
+open Nexus.File 
 
 let default_hennig gap_handling alph equates file pos = 
     let gaps =  match gap_handling with
@@ -41,8 +41,8 @@ let hennig_upto n =
 let hennig_for_upto is_gap_state file n pos =
         let lst = hennig_upto n in
         let alph, equates= 
-            Nexus.Parsed.make_symbol_alphabet "7" lst [] [Nexus.File.Datatype
-            Nexus.File.DStandard]
+            Nexus.File.make_symbol_alphabet "7" lst [] [Nexus.P.Datatype
+            Nexus.P.DStandard]
         in
         default_hennig is_gap_state alph equates file pos
 
@@ -54,8 +54,8 @@ let rec generate_default of_type file pos =
             let equ =  [("0",["A"]); ("1",["C"]);
                         ("2",["G"]); ("3",["T"]); ("4",[gap])] in
             let alph, equates = 
-                Nexus.Parsed.make_symbol_alphabet gap [] equ [Nexus.File.Datatype
-                Nexus.File.Dna]
+                Nexus.File.make_symbol_alphabet gap [] equ [Nexus.P.Datatype
+                Nexus.P.Dna]
             in
             default_hennig x alph equates file pos
 
@@ -64,14 +64,14 @@ let rec generate_default of_type file pos =
             let equ =  [("0",["A"]); ("1",["C"]);
                         ("2",["G"]); ("3",["U"]); ("4",[gap])]  in
             let alph, equates = 
-                Nexus.Parsed.make_symbol_alphabet "-" [] equ [Nexus.File.Datatype
-                Nexus.File.Rna]
+                Nexus.File.make_symbol_alphabet "-" [] equ [Nexus.P.Datatype
+                Nexus.P.Rna]
             in
             default_hennig x alph equates file pos
     | Some (`Protein x) ->
             let alph, equates = 
-                Nexus.Parsed.make_symbol_alphabet "-" [] [] [Nexus.File.Datatype
-                Nexus.File.Protein]
+                Nexus.File.make_symbol_alphabet "-" [] [] [Nexus.P.Datatype
+                Nexus.P.Protein]
             in
             default_hennig x alph equates file pos
     | Some (`Number x) ->
@@ -132,8 +132,8 @@ let process_command file (mode, (acc:nexus)) = function
                         "We only allow one xread command per hennig file"
             in
             (* Now we can parse the contents using the default parser *)
-            Nexus.Parsed.process_matrix true `Hennig matrix taxa characters 
-            (fun name -> Nexus.Parsed.find_taxon taxa name)
+            Nexus.File.process_matrix true `Hennig matrix taxa characters 
+            (fun name -> Nexus.File.find_taxon taxa name)
             (fun x y v -> matrix.(x).(y) <- v) to_parse;
             mode, {acc with
                         taxa = taxa;

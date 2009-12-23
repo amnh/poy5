@@ -228,7 +228,7 @@ type specs =
     (** Static homology characters, includes the encoding specs from the
     * parser and the name of the file it comes from (the name includes the
     * column number). *)
-    | Static of Nexus.Parsed.static_spec
+    | Static of Nexus.File.static_spec
 
     (** A dynamic homology based character type, with three parameters, the
     * file name containing the set of sequences, the filename of the valid 
@@ -275,7 +275,7 @@ type cs_d =
     | Dyna of (int * Sequence.s dyna_data)
     (* A static homology character, containing its code, and the character
     * itself *)
-    | Stat of (int * Nexus.Parsed.static_state)
+    | Stat of (int * Nexus.File.static_state)
 
 type cs = cs_d * specified
 
@@ -632,7 +632,7 @@ let annotated_sequences bool data =
 let get_weight c data = 
     match Hashtbl.find data.character_specs c with
     | Dynamic spec -> spec.weight
-    | Static spec -> spec.Nexus.Parsed.st_weight
+    | Static spec -> spec.Nexus.File.st_weight
     | _ -> 1.0
 
 let get_weights data =
@@ -944,15 +944,15 @@ let get_taxon_characters data tcode =
 
 (* Changes in place *)
 let add_static_character_spec data (code, spec) =
-    if not spec.Nexus.Parsed.st_eliminate then begin
+    if not spec.Nexus.File.st_eliminate then begin
         Hashtbl.replace data.character_specs code (Static spec);
-        Hashtbl.add data.character_names spec.Nexus.Parsed.st_name code;
-        Hashtbl.replace data.character_codes code spec.Nexus.Parsed.st_name;
+        Hashtbl.add data.character_names spec.Nexus.File.st_name code;
+        Hashtbl.replace data.character_codes code spec.Nexus.File.st_name;
     end else ()
 
 let report_static_input file f_out =
-    let characters = Array.length f_out.Nexus.Parsed.characters 
-    and taxa = Array.length f_out.Nexus.Parsed.taxa in
+    let characters = Array.length f_out.Nexus.File.characters 
+    and taxa = Array.length f_out.Nexus.File.taxa in
     let msg =
         "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^ 
         string_of_int characters 
@@ -1472,15 +1472,15 @@ let branches_to_map data branch_table trees =
     List.iter add_single_tree trees;
     new_tree_table
 
-(* convert Nexus.Parsed.file_output to Data.d *)
+(* convert Nexus.File.file_output to Data.d *)
 let gen_add_static_parsed_file do_duplicate data file 
-    (file_out : Nexus.Parsed.nexus) =
+    (file_out : Nexus.File.nexus) =
     let data = 
         if do_duplicate then duplicate data 
         else data
     in
     (* A function to report the taxa loading *)
-    let len_taxa = Array.length file_out.Nexus.Parsed.taxa in
+    let len_taxa = Array.length file_out.Nexus.File.taxa in
     let st = Status.create "Loading Characters" (Some len_taxa) "taxa" in
     (* [codes] contain the character speecification for the sequences in
     * this file *)
@@ -1489,7 +1489,7 @@ let gen_add_static_parsed_file do_duplicate data file
             incr data.character_code_gen;
             (!(data.character_code_gen)), x
         in
-        Array.map ~f:builder file_out.Nexus.Parsed.characters
+        Array.map ~f:builder file_out.Nexus.File.characters
     in
     Status.full_report ~msg:"Storing the character specifications" st;
     (* Now we add the codes to the data *)
@@ -1500,18 +1500,18 @@ let gen_add_static_parsed_file do_duplicate data file
         | Some name ->
                 let data, _ = process_taxon_code data name file in
                 data
-        | None -> data) ~init:data file_out.Nexus.Parsed.taxa 
+        | None -> data) ~init:data file_out.Nexus.File.taxa 
     in
     for row = 0 to len_taxa - 1 do
         (* We ignore the data because we already processed the names *)
-        match file_out.Nexus.Parsed.taxa.(row) with
+        match file_out.Nexus.File.taxa.(row) with
         | None -> ()
         | Some tname ->
                 let _, tcode = process_taxon_code data tname file in
                 let tl = get_taxon_characters data tcode in
                 let add_character column it =
                     let chcode, spec = codes.(column) in
-                    if not spec.Nexus.Parsed.st_eliminate then begin
+                    if not spec.Nexus.File.st_eliminate then begin
                         let specified = 
                             match it with
                             | Some _ -> `Specified
@@ -1524,7 +1524,7 @@ let gen_add_static_parsed_file do_duplicate data file
                 in
                 let _ = Array.fold_left ~f:add_character 
                                         ~init:0
-                                        file_out.Nexus.Parsed.matrix.(row) in
+                                        file_out.Nexus.File.matrix.(row) in
                 Hashtbl.replace data.taxon_characters tcode tl;
                 let did = Status.get_achieved st in
                 Status.full_report ~adv:(did + 1) st;
@@ -1534,7 +1534,7 @@ let gen_add_static_parsed_file do_duplicate data file
         let cnt = ref 0 in
         let trees = List.rev_map ~f:
                 (fun x ->
-                    (x, file, (incr cnt; !cnt))) file_out.Nexus.Parsed.trees in
+                    (x, file, (incr cnt; !cnt))) file_out.Nexus.File.trees in
         { data with trees = data.trees @ trees } in
     (* combine the branch lengths of the root if it's a rooted tree *)
     let () =
@@ -1567,7 +1567,7 @@ let gen_add_static_parsed_file do_duplicate data file
                                     (match (get_stuff l1),(get_stuff l2) with
                                      | Some x,Some y ->
                                         unroot_branch_lengths 
-                                            file_out.Nexus.Parsed.branches name x y
+                                            file_out.Nexus.File.branches name x y
                                      | _ -> ()
                                     )
                                 | _ -> ()
@@ -1596,7 +1596,7 @@ let gen_add_static_parsed_file do_duplicate data file
             process_parsed_sequences "tcm:(1,2)" tcm (`Normal3d tcm3d) `DO false alphabet file
             `Seq data sequences
         in
-        List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.Parsed.unaligned
+        List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.File.unaligned
     in
     let () = (* create `character --> setname` table *)
         Hashtbl.iter 
@@ -1605,16 +1605,16 @@ let gen_add_static_parsed_file do_duplicate data file
                     (fun name ->
                         Hashtbl.add data.character_nsets name set_name)
                     char_names)
-            file_out.Nexus.Parsed.csets
+            file_out.Nexus.File.csets
     in
     (* create set for branches *)
     let tbl = branches_to_map data 
-                              file_out.Nexus.Parsed.branches
-                              file_out.Nexus.Parsed.trees
+                              file_out.Nexus.File.branches
+                              file_out.Nexus.File.trees
     in
     Status.finished st;
     {data with 
-        character_sets = file_out.Nexus.Parsed.csets;
+        character_sets = file_out.Nexus.File.csets;
         branches = tbl;
     }
 
@@ -1638,7 +1638,7 @@ let add_static_file ?(report = true) style data (file : FileStream.f) =
         let r = 
             match style with
             | `Hennig -> Hennig.Parsed.of_channel ch file 
-            | `Nexus  -> Nexus.Parsed.of_channel ch file
+            | `Nexus  -> Nexus.File.of_channel ch file
         in
         if report then
             report_static_input file r;
@@ -2058,7 +2058,7 @@ let to_channel ch data =
     in
     let print_characters _ = function
         | Static a ->
-                let str = Nexus.Parsed.to_string a in
+                let str = Nexus.File.to_string a in
                 output_string ch str;
                 output_string ch "\n"
         | Dynamic dspec ->
@@ -2095,8 +2095,8 @@ let rec taxon_code name data =
 let get_tcm code data = 
     match Hashtbl.find data.character_specs code with
     | Static spec -> 
-            (match spec.Nexus.Parsed.st_type with
-            | Nexus.Parsed.STSankoff x -> x
+            (match spec.Nexus.File.st_type with
+            | Nexus.File.STSankoff x -> x
             | _ -> failwith "Unexpected")
     | _ -> failwith "Unexpected"
 
@@ -2164,14 +2164,14 @@ let categorize data =
     let categorizer code spec data =
         match spec with
         | Static enc -> (* Process static characters *)
-                let observed = List.length enc.Nexus.Parsed.st_observed in
+                let observed = List.length enc.Nexus.File.st_observed in
                 let between x y = observed >= x && observed <= y in
-                (match enc.Nexus.Parsed.st_type with
-                | Nexus.Parsed.STSankoff _ -> classify code data
-                | Nexus.Parsed.STOrdered when observed > 1 ->
+                (match enc.Nexus.File.st_type with
+                | Nexus.File.STSankoff _ -> classify code data
+                | Nexus.File.STOrdered when observed > 1 ->
                       { data with additive = code :: data.additive }
-                | Nexus.Parsed.STOrdered -> data
-                | Nexus.Parsed.STUnordered ->
+                | Nexus.File.STOrdered -> data
+                | Nexus.File.STUnordered ->
                         if between 0 1 then
                             { data with non_additive_1 = code ::
                                 data.non_additive_1 }
@@ -2188,7 +2188,7 @@ let categorize data =
                             { data with non_additive_33 = code :: 
                                 data.non_additive_33 }
                         else data
-                | Nexus.Parsed.STLikelihood _ ->
+                | Nexus.File.STLikelihood _ ->
                         { data with static_ml = code :: data.static_ml })
         | Dynamic _ -> { data with dynamics = code :: data.dynamics }
         | Set -> data
@@ -2250,7 +2250,7 @@ let get_used_observed code d =
         | Static a -> a
         | _ -> failwith "Data.get_used_observed expects a static character"
     in
-    match a.Nexus.Parsed.st_used_observed with
+    match a.Nexus.File.st_used_observed with
     | Some x -> x
     | None -> failwith "Data.get_used_observed"
 
@@ -2383,7 +2383,7 @@ let character_spec_to_formatter enc : Xml.xml =
                 ([T.chars] = [`String ""])
                 ([T.words] = [int d.ks.wordset])
                 ([T.ints] = [int d.ks.intset]) --)
-    | Static enc -> Nexus.Parsed.to_formatter enc    
+    | Static enc -> Nexus.File.to_formatter enc    
     | Dynamic dspec ->
             let initial =
                 match dspec.initial_assignment with
@@ -3432,7 +3432,7 @@ let get_alphabet data c =
     match Hashtbl.find data.character_specs c  with
     | Dynamic dspec -> dspec.alph
     | Kolmogorov dspec -> dspec.dhs.alph
-    | Static  sspec -> sspec.Nexus.Parsed.st_alph
+    | Static  sspec -> sspec.Nexus.File.st_alph
     | _ -> failwith "Data.get_alphabet"
 
 let verify_alphabet data chars = 
@@ -3452,7 +3452,7 @@ let independent chars data =
         (* specs -> Static (static_spec) -> st_type -> STLikelihood (ml_model) -> set_code *)
         let c_spec = Hashtbl.find tbl num in
         let n_ = match c_spec with
-            | Static ss -> Static (Nexus.Parsed.change_ml_code (next_likelihood_set ()) ss)
+            | Static ss -> Static (Nexus.File.change_ml_code (next_likelihood_set ()) ss)
             | _ -> failwith "I only do this for likelihood characters" in
         Hashtbl.replace tbl num n_
     in
@@ -3557,7 +3557,7 @@ let apply_on_static_chars data chars st_type =
         (fun code -> 
             match Hashtbl.find new_specs code with
             | Static x -> 
-                Hashtbl.replace new_specs code (Static { x with Nexus.Parsed.st_type = st_type})
+                Hashtbl.replace new_specs code (Static { x with Nexus.File.st_type = st_type})
             | _ -> failwith "Illegal conversion") chars;
     { data with character_specs = new_specs } --> categorize
 
@@ -3573,7 +3573,7 @@ IFDEF USE_LIKELIHOOD THEN
     | [] -> data
     | chars ->
         let data = duplicate data in
-        apply_on_static_chars data chars (Nexus.Parsed.STUnordered)
+        apply_on_static_chars data chars (Nexus.File.STUnordered)
 ELSE
     data
 END
@@ -3701,7 +3701,7 @@ IFDEF USE_LIKELIHOOD THEN
             MlModel.create (get_alphabet data (List.hd chars)) lk_spec
         in
         (* We rebuild the specification of all the characters, and categorize them *)
-        apply_on_static_chars data chars (Nexus.Parsed.STLikelihood model)
+        apply_on_static_chars data chars (Nexus.File.STLikelihood model)
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list" 
 END
@@ -3885,7 +3885,7 @@ let process_ignore_characters_file report data file =
             data
 
 let replace_name_in_spec name = function
-    | Static e -> Static { e with Nexus.Parsed.st_name = name }
+    | Static e -> Static { e with Nexus.File.st_name = name }
     | Dynamic dspec -> Dynamic { dspec with filename = name }
     | Kolmogorov d ->
             Kolmogorov { d with dhs = { d.dhs with filename = name } }
@@ -4470,7 +4470,7 @@ let to_faswincladfile data filename =
     let output_weights (acc, pos) code = 
         match Hashtbl.find data.character_specs code with
         | Static enc ->
-                let weight = enc.Nexus.Parsed.st_weight in 
+                let weight = enc.Nexus.File.st_weight in 
                 if weight = 1. then (acc, pos + 1)
                 else (acc ^ "@[<v 0>ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
                 string_of_int pos ^ ";@]@.", pos + 1)
@@ -4510,20 +4510,20 @@ let to_faswincladfile data filename =
                     fo (string_of_int max)
         in
         let print_type (x : (([`Pair of (int * int) | `Single of int]) *
-        Nexus.Parsed.st_type) option)  = 
+        Nexus.File.st_type) option)  = 
             match x with
             | None -> ()
-            | Some (range, Nexus.Parsed.STUnordered) ->
+            | Some (range, Nexus.File.STUnordered) ->
                     fo "@[<v 0>cc - "; output_range range; fo ";@]@."
-            | Some (range, Nexus.Parsed.STOrdered) ->
+            | Some (range, Nexus.File.STOrdered) ->
                     fo "@[<v 0>cc + "; output_range range; fo ";@]@."
-            | Some ((`Single min), Nexus.Parsed.STSankoff matrix) ->
+            | Some ((`Single min), Nexus.File.STSankoff matrix) ->
                     output_element min matrix
-            | Some ((`Pair (min, max)), Nexus.Parsed.STSankoff matrix) ->
+            | Some ((`Pair (min, max)), Nexus.File.STSankoff matrix) ->
                     for i = min to max do 
                         output_element i matrix
                     done;
-            | Some (range, Nexus.Parsed.STLikelihood _) -> 
+            | Some (range, Nexus.File.STLikelihood _) -> 
                     fo "@[<v 0>cc - "; output_range range; fo ";@]@."
                     (* failwith "Hennig files do not support likelihood characters" *)
         in
@@ -4532,7 +4532,7 @@ let to_faswincladfile data filename =
             List.fold_left ~f:(fun (previous, cnt) code ->
                 let spec = 
                     match Hashtbl.find data.character_specs code with
-                    | Static x -> x.Nexus.Parsed.st_type
+                    | Static x -> x.Nexus.File.st_type
                     | _ -> assert false
                 in
                 match previous with
@@ -4565,7 +4565,7 @@ let to_faswincladfile data filename =
                 | Set  
                 | Kolmogorov _ -> assert false
                 | Static spec ->
-                        match spec.Nexus.Parsed.st_labels with
+                        match spec.Nexus.File.st_labels with
                         | [] ->
                                 (Alphabet.to_list (get_alphabet data code))
                                 --> List.sort ~cmp:(fun (_, a) (_, b) -> a - b)
@@ -4701,7 +4701,7 @@ let flush d =
 let set_weight weight spec =
     match spec with
     | Static enc ->
-            Static { enc with Nexus.Parsed.st_weight = weight}
+            Static { enc with Nexus.File.st_weight = weight}
     | Dynamic enc ->
             Dynamic ({ enc with weight = weight })
     | Kolmogorov enc ->
@@ -4713,7 +4713,7 @@ let set_weight_factor weight spec =
     match spec with
     | Static enc ->
             Static 
-            { enc with Nexus.Parsed.st_weight = enc.Nexus.Parsed.st_weight *. weight }
+            { enc with Nexus.File.st_weight = enc.Nexus.File.st_weight *. weight }
     | Dynamic enc ->
             Dynamic ({ enc with weight = enc.weight *. weight })
     | Kolmogorov enc ->
@@ -4901,7 +4901,7 @@ let lexicographic_taxon_codes data =
     change_taxon_codes (Array.stable_sort ~cmp:lexicographic_sort) data
 
 (* A function to produce the alignment of prealigned data *)
-let process_prealigned analyze_tcm data code : (string * Nexus.Parsed.nexus) =
+let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     let alph = get_sequence_alphabet code data in
     let gap = Alphabet.get_gap alph in
     let character_name = code_character code data in
@@ -5106,13 +5106,13 @@ let process_prealigned analyze_tcm data code : (string * Nexus.Parsed.nexus) =
                 Parser.OldHennig.to_new_atom table newenc.(y) enc matrix.(x).(y)))
     in
     let res =
-        { (Nexus.Parsed.empty_parsed ()) with
-          Nexus.Parsed.taxa = Array.of_list names;
+        { (Nexus.File.empty_parsed ()) with
+          Nexus.File.taxa = Array.of_list names;
           characters = newenc;
           matrix = matrix;
         } in
-    Nexus.Parsed.fill_observed res.Nexus.Parsed.characters
-        res.Nexus.Parsed.matrix;
+    Nexus.File.fill_observed res.Nexus.File.characters
+        res.Nexus.File.matrix;
     character_name, res
 
 type tcm_class =
@@ -5232,17 +5232,17 @@ let to_human_readable data code item =
         | _ -> assert false
     in
     let item = 
-        match spec.Nexus.Parsed.st_type with
-        | Nexus.Parsed.STUnordered -> List.nth spec.Nexus.Parsed.st_observed item
-        | Nexus.Parsed.STLikelihood _ | Nexus.Parsed.STOrdered | Nexus.Parsed.STSankoff _ -> item
+        match spec.Nexus.File.st_type with
+        | Nexus.File.STUnordered -> List.nth spec.Nexus.File.st_observed item
+        | Nexus.File.STLikelihood _ | Nexus.File.STOrdered | Nexus.File.STSankoff _ -> item
     in
     let name =
         try 
-            try List.nth spec.Nexus.Parsed.st_labels item with
-            | _ -> Alphabet.match_code item spec.Nexus.Parsed.st_alph 
+            try List.nth spec.Nexus.File.st_labels item with
+            | _ -> Alphabet.match_code item spec.Nexus.File.st_alph 
         with
             | (Alphabet.Illegal_Code n) as err ->
-                Alphabet.print spec.Nexus.Parsed.st_alph;
+                Alphabet.print spec.Nexus.File.st_alph;
                 raise err
     in
     name
@@ -5263,11 +5263,11 @@ let apply_boolean nonadd_f add_f data char =
                     | Not_found -> None :: acc)
                 data.taxon_characters []
             in
-            (match x.Nexus.Parsed.st_type with
-            | Nexus.Parsed.STUnordered -> 
+            (match x.Nexus.File.st_type with
+            | Nexus.File.STUnordered -> 
                     let all_specs = generate_characters_list () in
                     nonadd_f all_specs
-            | Nexus.Parsed.STOrdered -> 
+            | Nexus.File.STOrdered -> 
                     let all_specs = generate_characters_list () in
                     add_f all_specs
             | _ -> true)
@@ -5276,8 +5276,8 @@ let apply_boolean nonadd_f add_f data char =
 let get_model code data =
     match Hashtbl.find data.character_specs code with
     | Static x -> 
-        (match x.Nexus.Parsed.st_type with
-            | Nexus.Parsed.STLikelihood x -> x
+        (match x.Nexus.File.st_type with
+            | Nexus.File.STLikelihood x -> x
             | _ -> failwith "Data.get_model")
     | _ -> failwith "Data.get_model 2"
 
@@ -5294,14 +5294,14 @@ let apply_on_static ordered unordered sankoff likelihood char data =
                         with Not_found -> acc) data.taxon_characters []
                 in
                 let res = 
-                    match spec.Nexus.Parsed.st_type with
-                    | Nexus.Parsed.STOrdered -> 
+                    match spec.Nexus.File.st_type with
+                    | Nexus.File.STOrdered -> 
                             ordered specified_static_chars
-                    | Nexus.Parsed.STUnordered -> 
+                    | Nexus.File.STUnordered -> 
                             unordered specified_static_chars
-                    | Nexus.Parsed.STSankoff mtx -> 
+                    | Nexus.File.STSankoff mtx -> 
                             sankoff mtx specified_static_chars 
-                    | Nexus.Parsed.STLikelihood model -> 
+                    | Nexus.File.STLikelihood model -> 
                             likelihood model specified_static_chars 
                 in
                 (code, res) :: acc

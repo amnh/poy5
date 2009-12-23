@@ -900,7 +900,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     let ndata, nodes =
                         (chars_,a,b,c,d) 
                             --> estimate_likelihood_model t bs alpha
-                            --> (fun xm -> Nexus.Parsed.STLikelihood xm)
+                            --> (fun xm -> Nexus.File.STLikelihood xm)
                             --> Data.apply_on_static_chars t.Ptree.data chars
                             --> Node.load_data
                     in

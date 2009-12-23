@@ -1,4 +1,4 @@
-module File : sig
+module P : sig
     type datatype = 
          DStandard | Dna | Rna | Nucleotide | Protein | Continuous 
 
@@ -123,9 +123,9 @@ end
 
 module Grammar : sig
     type token
-    val tree : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> File.tree
+    val tree : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.tree
     val header : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> unit
-    val block : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> File.block
+    val block : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.block
     val symbol_pair : 
         (Lexing.lexbuf -> token) -> Lexing.lexbuf -> (string * string list) 
     val symbol_list : 
@@ -138,7 +138,7 @@ module Lexer : sig
     val tree_tokens : Lexing.lexbuf -> Grammar.token
 end
 
-module Parsed : sig
+module File : sig
     type st_type = 
         | STOrdered
         | STUnordered  
@@ -199,7 +199,7 @@ module Parsed : sig
     val to_formatter : static_spec -> Xml.xml
 
     val make_symbol_alphabet : string -> string list ->  (string * string list) list
-    -> File.format_options list -> Alphabet.a * (string * string list) list 
+    -> P.format_options list -> Alphabet.a * (string * string list) list 
 
     val process_matrix : 
        bool ->
