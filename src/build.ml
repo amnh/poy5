@@ -163,7 +163,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let rec aux_random_constructor tree node =
             let tree, _ = 
                 let (Tree.Edge (x, y)) = pick_random_edge tree in
-                TreeOps.join_fn [] (Tree.Edge_Jxn (x, y)) node tree
+                TreeOps.join_fn None [] (Tree.Edge_Jxn (x, y)) node tree
                 in
                 tree
         in
@@ -179,7 +179,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         in
         match nodes with
         | f :: s :: tail ->
-                let new_tree, _ = TreeOps.join_fn [] f s initial_tree in
+                let new_tree, _ = TreeOps.join_fn None [] f s initial_tree in
                 Sexpr.fold_status
                 "Random tree" ~eta:true aux_random_constructor new_tree 
                 (Sexpr.of_list tail)
@@ -219,7 +219,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             match edges with
             | (Tree.Edge (x, y)) :: t ->
                     let new_tree, _ = 
-                        TreeOps.join_fn [] (Tree.Edge_Jxn (x, y)) cur_handle
+                        TreeOps.join_fn None [] (Tree.Edge_Jxn (x, y)) cur_handle
                         tree
                     in
                     let new_cost = Ptree.get_cost `Adjusted new_tree in
@@ -258,7 +258,7 @@ module MakeNormal (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let codef = Node.taxon_code f 
                         and codes = Node.taxon_code s in
                         let new_tree, _ = 
-                            TreeOps.join_fn [] (Tree.Single_Jxn codef) 
+                            TreeOps.join_fn None [] (Tree.Single_Jxn codef) 
                             (Tree.Single_Jxn codes) initial_tree
                         in
                         let res =
