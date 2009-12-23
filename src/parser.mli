@@ -157,7 +157,6 @@ module OldHennig : sig
     val of_file :
         FileStream.f -> Encoding.s array * (FileContents.t array * string) list * 
             (string option * Tree.Parse.tree_types list) list
-    val convert_to_Phylip_format_file : FileStream.f -> string -> unit
 
     (** Splits the set of characters of a taxa in additive and non additive in a
     * tuple. *)
@@ -354,10 +353,6 @@ end
 module IgnoreList : sig
     val of_channel : in_channel -> string list
 end
-
-module Phylip : sig
-   val of_file : FileStream.f -> Nexus.File.nexus * string
-end 
 
 module SetGroups : sig
     type set_type =

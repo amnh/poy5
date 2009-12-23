@@ -5357,7 +5357,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
             | Parser.Files.Is_Phylip->
                     file_type_message "phylip";
-                    let fo,fn = Parser.Phylip.of_file filename in
+                    let fo = Phylip.of_file filename in
+                    let fn = FileStream.filename filename in
                     report_static_input fn fo;
                     add_static_parsed_file data fn fo
             | Parser.Files.Is_Hennig-> 

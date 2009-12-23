@@ -10,7 +10,6 @@ parser/INSDSeq
 parser/IgnoreList
 parser/NewSeq
 parser/OldHennig
-parser/Phylip
 parser/SetGroups
 parser/TinySeq
 parser/Wildcard

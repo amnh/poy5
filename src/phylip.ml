@@ -157,4 +157,4 @@ let of_file (file : FileStream.f) =
     { Nexus.File.empty_parsed () with
       Nexus.File.taxa = final_taxa_array;
          matrix = final_seq_matrix; 
-         characters = final_chars_array; }, file
+         characters = final_chars_array; }
