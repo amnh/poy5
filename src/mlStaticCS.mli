@@ -182,7 +182,7 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->
 * (should be treated as if [states] held all the possible states for the
 * character).*)
 (*  [spec] -> [weights] -> [characters: ([states]*[code]) array] -> t *)
-val of_parser : Parser.SC.static_spec -> float array -> ((Parser.SC.static_state * int) array) -> t
+val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * int) array) -> t
 
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float

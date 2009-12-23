@@ -449,11 +449,11 @@ let farray_to_int32 x =
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec weights characters =
-    let computed_model = match spec.Parser.SC.st_type with
-        | Parser.SC.STLikelihood x -> x
+    let computed_model = match spec.Nexus.File.st_type with
+        | Nexus.File.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
     let (a_size,a_gap) = 
-        let alph = Alphabet.to_sequential spec.Parser.SC.st_alph in
+        let alph = Alphabet.to_sequential spec.Nexus.File.st_alph in
         match computed_model.MlModel.spec.MlModel.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
