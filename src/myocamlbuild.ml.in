@@ -331,7 +331,6 @@ dispatch begin function
         (S[A"-cclib"; A"-L/Users/lyn/concorde"]); 
 *)
     
-   (* dep  ["link"; "ocaml"; "use_concorde"] ["libconcorde.a"]; *)
 
     flag ["c"; "compile"; "use_readline"]
         (S[A"-ccopt"; A"-DUSEREADLINE"]);
