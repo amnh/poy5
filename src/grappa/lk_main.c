@@ -1,4 +1,6 @@
+#include <stdio.h>
 #ifdef USE_CONCORDE
+//#include "lk_main.h"
 
 #include "machdefs.h"
 #include "linkern.h"
@@ -298,3 +300,4 @@ greedylk ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
 }
 
 #endif
+
