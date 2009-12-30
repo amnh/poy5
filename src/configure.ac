@@ -180,16 +180,18 @@ fi
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
    AC_MSG_RESULT([yes])
+   AC_MSG_RESULT([Using Concorde])
    CONCORDE_LIB="$concorde_dir/concorde.a"
    CONCORDE_CFLAGS="-I$concorde_dir/INCLUDE"
    CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE"
-   LIBS="$CONCORDE_LIB $LIBS"
+   LIBS="-L$concorde_dir $LIBS"
    OUSE_CONCORDE=",use_concorde"
    DUSE_CONCORDE="-DUSE_CONCORDE"
 else
    AC_MSG_RESULT([no])
    CONCORDE_LIB=""
    CONCORDE_CFLAGS=""
+   OUSE_CONCORDE=""
    AC_MSG_RESULT( [Not Using Concorde ] )
 fi
 
