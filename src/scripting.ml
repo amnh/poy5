@@ -86,9 +86,9 @@ let build_has item = function
     | `Mst _ 
     | `Nj
     | `Prebuilt _ -> false
-    | `Branch_and_Bound (_, _, _, _, l) 
-    | `Build (_, _, l)
-    | `Build_Random (_, _, _, l, _) -> has_something item l
+    | `Branch_and_Bound ((_, _, _, _, l),_) 
+    | `Build (_, _, l,_)
+    | `Build_Random ((_, _, _, l, _),_) -> has_something item l
 
 
 module type S = sig
@@ -4735,8 +4735,10 @@ let set_console_run r = console_run_val := r
         let tbr = local_neigh `Tbr
 
         let build data nodes = 
-            Sexpr.to_list (Build.build_initial_trees `Empty data nodes 
-            (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [])))
+            Sexpr.to_list 
+                (Build.build_initial_trees `Empty data nodes 
+                    (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [],(`MaxCount 20,`JoinDelta)))
+                )
     end
 
 

@@ -178,6 +178,19 @@ type thresh_trees = [
     | `Trees of int
 ]
 
+type iteration_strategy = [
+    | `NullModel
+    | `AlwaysModel
+    | `ThresholdModel of float
+    | `MaxCountModel of int
+    | `BothModel of float * int
+    | `NeighborhoodModel of float
+    | `NullBranches
+    | `AllBranches
+    | `JoinDeltaBranches
+    | `NeighborhoodBranches
+]
+
 type builda = [
     | thresh_trees
     | `Lookahead of int
@@ -193,6 +206,7 @@ type builda = [
     | keep_method
     | transform
     | Methods.tabu_join_strategy
+    | `IterationB of iteration_strategy list
 ]
 
 type swap_neighborhood = [
@@ -214,6 +228,7 @@ type swap_trajectory = [
 | `Annealing of (float * float) ]
 
 type swapa = [
+    | `IterationS of iteration_strategy list
     | `Forest of float
     | thresh_trees
     | keep_method
@@ -454,7 +469,6 @@ let transform_transform acc (id, x) =
             | `BreakinvToSeq x -> (`Breakinv_to_Custom (id, x)) :: acc
             | (`OriginCost _) as id -> id :: acc
 
-
 let transform_transform_arguments x =
     List.fold_left transform_transform [] x
 
@@ -463,15 +477,38 @@ let modify_acc acc c = function
     | [] -> acc
     | files -> (`Other (files, c)) :: acc
 
+
+let iter_default =  `MaxCount 20, `JoinDelta
+
 (* Building *)
 let build_default_method_args = (1, 0.0, `Last, [], `UnionBased None)
 let build_default_method = `Wagner_Rnd build_default_method_args
-let build_default = (10, build_default_method, [])
+let build_default = (10, build_default_method,[],iter_default)
 
-let transform_build ((n, (meth : Methods.build_method), (trans :
-    Methods.transform list)) as acc) = function
-    | `Nj -> (n, `Nj, trans)
-    | `Prebuilt fn -> (n, (`Prebuilt fn), trans)
+let transform_iterations 
+    (items : iteration_strategy list) :
+        Methods.tabu_modeli_strategy * Methods.tabu_branchi_strategy = 
+    List.fold_left
+        (fun (a,b) -> function
+            | `NullModel -> (`Null,b)
+            | `AlwaysModel -> (`Always,b)
+            | `ThresholdModel x -> (`Threshold x, b)
+            | `MaxCountModel x -> (`MaxCount x, b)
+            | `BothModel (x,y) -> (`Both (x,y), b)
+            | `NeighborhoodModel y -> (`Neighborhood y,b)
+            | `NullBranches     -> (a,`Null)
+            | `AllBranches      -> (a,`AllBranches)
+            | `JoinDeltaBranches -> (a,`JoinDelta)
+            | `NeighborhoodBranches -> (a,`Neighborhood))
+        iter_default items
+
+let transform_build
+        ((n, (meth:Methods.build_method), 
+         (trans:Methods.transform list),
+         (iter:Methods.tabu_iteration_strategy)) as acc)
+        (builder: builda) = match builder with
+    | `Nj -> (n, `Nj, trans,iter)
+    | `Prebuilt fn -> (n, (`Prebuilt fn), trans,iter)
     | `RandomTree ->
             begin match meth with
             | `Nj
@@ -479,9 +516,8 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Ordered x 
             | `Wagner_Distances x 
             | `Wagner_Mst x
-            | `Build_Random x 
-            | `Wagner_Rnd x -> 
-                    (n, (`Build_Random x), trans)
+            | `Build_Random (x,_)
+            | `Wagner_Rnd x -> (n, (`Build_Random (x,iter)), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint tree has already been selected as build method."
@@ -490,8 +526,7 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                     "Branch and bound tree has already been selected as build method."
             end
     | `Constraint file ->
-            let file = 
-                match file with
+            let file = match file with
                 | None -> None
                 | Some x -> Some (`Local x)
             in
@@ -499,9 +534,9 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
             | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
             | `Wagner_Mst (keep_max, _, keep_method, lst, _)
-            | `Build_Random (keep_max, _, keep_method, lst, _) 
+            | `Build_Random ((keep_max, _, keep_method, lst, _),_)
             | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
-                    (n, (`Constraint (1, 0.0, file, lst)), trans)
+                    (n, (`Constraint (1, 0.0, file, lst)), trans, iter)
             | `Branch_and_Bound _ ->
                     failwith
                     "Branch and bound has already been selected as build method."
@@ -520,12 +555,11 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Ordered (keep_max, _, keep_method, lst, _) 
             | `Wagner_Distances (keep_max, _, keep_method, lst, _) 
             | `Wagner_Mst (keep_max, _, keep_method, lst, _)
-            | `Build_Random (keep_max, _, keep_method, lst, _) 
+            | `Build_Random ((keep_max, _, keep_method, lst, _),_)
             | `Wagner_Rnd (keep_max, _, keep_method, lst, _) -> 
-                    (n, (`Branch_and_Bound (bound, None, keep_method,
-                    keep_max, lst)), trans)
-            | `Branch_and_Bound x ->
-                    (n, `Branch_and_Bound x, trans)
+                    (n,`Branch_and_Bound ((bound, None, keep_method, keep_max, lst),iter),trans,iter)
+            | `Branch_and_Bound (x,_) ->
+                    (n, `Branch_and_Bound (x,iter), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint has already been selected as build method."
@@ -543,7 +577,7 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Mst x
             | `Wagner_Rnd x 
             | `Wagner_Ordered x
-            | `Build_Random x -> (n, (`Wagner_Distances x), trans)
+            | `Build_Random (x,_) -> (n, (`Wagner_Distances x), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint has already been selected as build method."
@@ -561,7 +595,7 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Distances x
             | `Wagner_Rnd x 
             | `Wagner_Ordered x
-            | `Build_Random x -> (n, (`Wagner_Mst x), trans)
+            | `Build_Random (x,_) -> (n, (`Wagner_Mst x), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint has already been selected as build method."
@@ -579,7 +613,7 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Distances x
             | `Wagner_Mst x
             | `Wagner_Ordered x
-            | `Build_Random x -> (n, (`Wagner_Rnd x), trans)
+            | `Build_Random (x,_) -> (n, (`Wagner_Rnd x), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint has already been selected as build method."
@@ -596,8 +630,8 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
             | `Wagner_Ordered _ -> acc
             | `Wagner_Distances x
             | `Wagner_Mst x
-            | `Build_Random x 
-            | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans)
+            | `Build_Random (x ,_)
+            | `Wagner_Rnd x -> (n, (`Wagner_Ordered x), trans, iter)
             | `Constraint _ ->
                     failwith 
                     "Constraint has already been selected as build method."
@@ -626,9 +660,9 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                 | `Wagner_Ordered y -> 
                         `Wagner_Ordered (converter y)
             in
-            n, nmeth, trans
+            n, nmeth, trans, iter
     | `Trees x ->
-            (x, meth, trans)
+            (x, meth, trans, iter)
     | `Lookahead x ->
             let converter (_, b, c, d, e) = (x, b, c, d, e) in
             let nmeth = 
@@ -647,7 +681,7 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                 | `Wagner_Ordered y -> 
                         `Wagner_Ordered (converter y)
             in
-            n, nmeth, trans
+            n, nmeth, trans, iter
     | `Last
     | `First
     | `Keep_Random as x -> 
@@ -663,14 +697,17 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                         `Wagner_Mst (converter y)
                 | `Wagner_Rnd y -> `Wagner_Rnd (converter y)
                 | `Wagner_Ordered y -> `Wagner_Ordered (converter y)
-                | `Build_Random y -> `Build_Random (converter y)
-                | `Branch_and_Bound (a, b, _, c, d) ->
-                        `Branch_and_Bound (a, b, x, c, d)
+                | `Build_Random (y,i) -> `Build_Random ((converter y),i)
+                | `Branch_and_Bound ((a, b, _, c, d),i) ->
+                        `Branch_and_Bound ((a, b, x, c, d),i)
             in
-            n, nmeth, trans
+            n, nmeth, trans, iter
     | `Transform x ->
             let t = transform_transform_arguments x in
-            (n, meth, (t @ trans))
+            (n, meth, (t @ trans), iter)
+    | `IterationB xs ->
+            let (m,b) as i = transform_iterations xs in
+            n, meth, trans, i
     | #Methods.tabu_join_strategy as tabu ->
             let converter (a, b, c, d, _) = (a, b, c, d, tabu) in
             let nmeth = 
@@ -687,15 +724,16 @@ let transform_build ((n, (meth : Methods.build_method), (trans :
                         `Wagner_Rnd (converter y)
                 | `Wagner_Ordered y -> 
                         `Wagner_Ordered (converter y)
-                | `Build_Random y -> 
-                        `Build_Random (converter y)
+                | `Build_Random (y,i) -> 
+                        `Build_Random ((converter y),i)
 
             in
-            n, nmeth, trans
+            n, nmeth, trans, iter
 
-let transform_build_arguments x =
-    let (x, y, z) = List.fold_left transform_build build_default  x in
-    (x, y, List.rev z)
+let transform_build_arguments x
+    : int * Methods.build_method * Methods.cost_calculation list * Methods.tabu_iteration_strategy =
+    let (x, y, z, i) = List.fold_left transform_build build_default x in
+    (x, y, List.rev z, i)
 
 (* Swapping *)
 let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
@@ -708,7 +746,7 @@ let swap_default ={ Methods.ss =  `Alternate (`Spr, `Tbr);
                     Methods.tabu_break = `DistanceSorted false;
                     Methods.tabu_join = `UnionBased None;
                     Methods.tabu_reroot = `Bfs None;
-                    Methods.tabu_iterate = `MaxCount 20, `BreakDelta;
+                    Methods.tabu_iterate = iter_default;
                     Methods.samples = [] }
 
 let swap_default_none = { swap_default with Methods.ss = `None }
@@ -726,6 +764,9 @@ let transform_swap l_opt (param : swapa) = match param with
         let t = transform_transform_arguments x in 
         let cclist = t @ l_opt.Methods.cc in
         { l_opt with Methods.cc = cclist }
+    | `IterationS xs ->
+        let i = transform_iterations xs in
+        { l_opt with Methods.tabu_iterate = i; }
     | `Forest cost ->
         let origin = Some cost in
         print_endline ("Forest: "^string_of_float cost);
@@ -820,10 +861,9 @@ let transform_perturb_arguments x : Methods.script list =
 let support_default_swap = `LocalOptimum swap_default
 let support_select = 36.0
 let support_resamplings = 5
-let support_default_build = (1, build_default_method, [])
+let support_default_build = (1, build_default_method, [],iter_default)
 let support_default = 
-    `Bremer, (support_select, support_resamplings, support_default_swap,
-    (support_default_build))
+    `Bremer, (support_select, support_resamplings, support_default_swap, support_default_build)
 
 let transform_support (meth, (ss, sr, ssw, sb)) = function
     | `Swap s ->
@@ -851,10 +891,17 @@ let transform_support (meth, (ss, sr, ssw, sb)) = function
             (`Jackknife, r)
 
 let rec transform_support_arguments args =
+    (* lift iteration to the local_optimum; for ease of use *)
+    let lift (`LocalOptimum l_opt) ((_,_,_,i) as all) = 
+        `LocalOptimum {l_opt with Methods.tabu_iterate = i},all
+    in
     match List.fold_left transform_support support_default args with
-    | `Bremer, (_, _, c, d) ->`Bremer (c, (`Build d), 0, 1)
-    | `Jackknife, (a, b, c, d) -> `Jackknife (a, b, c, (`Build d), None)
-    | `Bootstrap, (_, b, c, d) -> `Bootstrap (b, c, (`Build d), None)
+    | `Bremer, (_, _, c, d) ->
+        let c,d = lift c d in `Bremer (c, (`Build d), 0, 1)
+    | `Jackknife, (a, b, c, d) ->
+        let c,d = lift c d in `Jackknife (a, b, c, (`Build d), None)
+    | `Bootstrap, (_, b, c, d) ->
+        let c,d = lift c d in `Bootstrap (b, c, (`Build d), None)
     
 (* Reporting things *)
 let transform_report ((acc : Methods.script list), file) (item : reporta) = 
@@ -1073,8 +1120,7 @@ let default_search : Methods.script list =
         change_transforms
         [`Automatic_Sequence_Partition (`All, false, None)]
     in
-    List.rev (`Build build_default :: 
-        `LocalOptimum s1 :: `LocalOptimum s2 :: [`LocalOptimum s3])
+    List.rev (`Build build_default :: `LocalOptimum s1 :: `LocalOptimum s2 :: [`LocalOptimum s3])
 
 let transform_search items = 
     let do_transform = 
@@ -1095,16 +1141,18 @@ let transform_search items =
     | _ -> failwith "Forgot to update the list of options of search?"
 
 let transform_stdsearch items = 
-    `StandardSearch (List.fold_left (fun (a, e, b, c, d, f, g) x ->
-        match x with
-        | `MaxTime x -> (Some x, e, b, c, d, f, g)
-        | `MinTime x -> (a, Some x, b, c, d, f, g)
-        | `MaxRam x -> (a, e, b, Some x, d, f, g)
-        | `MinHits x -> (a, e, Some x, c, d, f, g)
-        | `Visited x -> (a, e, b, c, d, Some x, g)
-        | `ConstraintFile x -> (a, e, b, c, d, f, Some x)
-        | `Target x -> (a, e, b, c, Some x, f, g)) (None, None, None, None, None,
-        None, None) items)
+    `StandardSearch 
+        (List.fold_left
+            (fun (a, e, b, c, d, f, g) x -> match x with
+                | `MaxTime x -> (Some x, e, b, c, d, f, g)
+                | `MinTime x -> (a, Some x, b, c, d, f, g)
+                | `MaxRam x -> (a, e, b, Some x, d, f, g)
+                | `MinHits x -> (a, e, Some x, c, d, f, g)
+                | `Visited x -> (a, e, b, c, d, Some x, g)
+                | `ConstraintFile x -> (a, e, b, c, d, f, Some x)
+                | `Target x -> (a, e, b, c, Some x, f, g))
+            (None, None, None, None, None, None, None)
+            items)
 
 
 let rec transform_command (acc : Methods.script list) (meth : command) : Methods.script list =
@@ -1767,6 +1815,39 @@ let create_expr () =
                 [ "mb"; ":"; x = INT ->((int_of_string x) * 
                     1000 * 1000 / (Sys.word_size / 8)) ]
             ];
+
+
+        model_iter2:
+            [
+                ["threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
+                ["max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
+                ["neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ]
+            ];
+        model_iter :
+            [
+                ["never" -> `NullModel] |
+                ["always" -> `AlwaysModel] |
+                [ left_parenthesis; x = model_iter2; right_parenthesis -> x]
+            ];
+        branch_iter :
+            [
+                ["never" -> `NullBranches] |
+                ["always" -> `AllBranches] |
+                ["join_delta" -> `JoinDeltaBranches] |
+                ["join_region" -> `NeighborhoodBranches]
+            ];
+        iterate_options:
+            [
+                ["model"; ":"; x = model_iter -> x] |
+                ["branch"; ":"; x = branch_iter -> x]
+            ];
+        iteration_method:
+            [
+                [ LIDENT "iteration"; ":";
+                    left_parenthesis;
+                        a = LIST1 [x = iterate_options -> x] SEP ",";
+                    right_parenthesis -> a ]
+            ];
         std_search_argument:
             [   
                 [ LIDENT "target_cost"; ":"; x = integer_or_float -> `Target
@@ -1778,8 +1859,7 @@ let create_expr () =
                 [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
                 [ LIDENT "min_time"; ":"; x = time -> 
                     `MinTime (float_of_int x) ] |
-                [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]
-            ];
+                [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]            ];
         search:
             [
                 [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
@@ -1943,6 +2023,7 @@ let create_expr () =
                 [ x = build_method -> (x :> builda) ] |
                 [ x = join_method -> (x :> builda) ] |
                 [ x = keep_method -> (x :> builda) ] |
+                [ a = iteration_method -> `IterationB a] |
                 [ x = cost_calculation -> (x :> builda) ] |
                 [ LIDENT "lookahead"; ":"; x = INT -> 
                     `Lookahead (int_of_string x) ]
@@ -2010,7 +2091,8 @@ let create_expr () =
                 [ a = trajectory_method -> a ] |
                 [ a = break_method -> a ] |
                 [ a = reroot_method -> a ] |
-                [ a = join_method -> (a :> swapa) ] 
+                [ a = join_method -> (a :> swapa) ] |
+                [ a = iteration_method -> `IterationS a]
             ];
         trajectory_method:
             [

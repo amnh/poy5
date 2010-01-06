@@ -59,10 +59,10 @@ module type S = sig
 
     (** An edge/node manager that handles a particular strategy to process the edges of a tree *)
     type emc 
+    class type nm = [a, b] Ptree.nodes_manager
 
     (** An edge/node manager for a side of a tree *)
     type semc
-    type snmc
 
     (** An edge manager that uses the union of the vertices contained in a
     * subtree to decide weather or not it is necessary to continue down that
@@ -101,10 +101,10 @@ module type S = sig
 
     (** iteration managers -- from doing nothing to everything and something
      * between. The first two arguments define the model iteration pattern *)
-    val simple_nm_none : int option -> float option -> snmc
-    val simple_nm_all : int option -> float option -> snmc
-    val complex_nm_delta : int option -> float option -> snmc
-    val complex_nm_neighborhood : int option -> float option -> snmc
+    val simple_nm_none : int option -> float option -> nm
+    val simple_nm_all : int option -> float option -> nm
+    val complex_nm_delta : int option -> float option -> nm
+    val complex_nm_neighborhood : int option -> float option -> nm
 
     (** {2 Tabu Managers} *)
 
@@ -116,7 +116,7 @@ module type S = sig
 
     (* A standard tabu manager that composes three edge managers on a starting
     * phylogeny: the join, reroot, iterate and break managers. *)
-    class standard_tabu : phylogeny -> semc -> semc -> emc -> snmc -> tabu_mgr
+    class standard_tabu : phylogeny -> semc -> semc -> emc -> nm -> tabu_mgr
 
 end
 
@@ -160,7 +160,6 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             else 0
 
     class type ['a, 'b] nodes_manager = object
-        method update_model : ('a, 'b) Ptree.p_tree -> unit
         method update_iterate :
             ('a, 'b) Ptree.p_tree -> 
             ([ `Break of ('a, 'b) Ptree.breakage 
@@ -170,6 +169,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method clone : ('a, 'b) nodes_manager
         method branches : Tree.edge list option
         method model : bool
+        method to_string : string 
     end
 
     class virtual ['a, 'b] tabu_base = object (self)
@@ -654,7 +654,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     (* root class; only updates the model using threshold and count. subclasses
      * must provide branch functionality *)
-    class virtual nm_simple_base mcount mthreshold ptree = object (self)
+    class virtual nm_simple_base mcount mthreshold = object (self)
 
             val threshold = mthreshold
             val maxcount  = mcount
@@ -662,22 +662,29 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             val mutable score = None
             val mutable iterate = false
 
-            method update_model (tree: ('a,'b) Ptree.p_tree) = 
-                let new_score = Ptree.get_cost `Adjusted tree
-                and _count () = match maxcount with
-                    | Some c when count > c -> count <- 0; true
-                    | Some _ | None   -> false
-                in
-                count <- count + 1;
-                match score, threshold with
-                    | Some x, Some t when x *. t < new_score ->
-                        iterate <- true;
-                        score <- Some new_score;
-                    | None, _ ->
-                        iterate <- _count ();
-                        score <- Some new_score;
-                    | Some x, _ ->
-                        iterate <- _count ()
+            method private update_model (tree: ('a,'b) Ptree.p_tree)
+                    (fn : ([ `Break of ('a, 'b) Ptree.breakage 
+                           | `Join of Tree.join_delta 
+                           | `Reroot of Ptree.incremental list
+                           | `Cost ]) ) = match fn with
+                    | `Break _ | `Reroot _ | `Cost -> ()
+                    | `Join _ -> begin
+                        let new_score = Ptree.get_cost `Adjusted tree
+                        and _count () = match maxcount with
+                            | Some c when count > c -> count <- 0; true
+                            | Some _ | None   -> false
+                        in
+                        count <- count + 1;
+                        match score, threshold with
+                            | Some x, Some t when x *. t < new_score ->
+                                iterate <- true;
+                                score <- Some new_score;
+                            | None, _ ->
+                                iterate <- _count ();
+                                score <- Some new_score;
+                            | Some x, _ ->
+                                iterate <- _count ()
+                    end
 
             method model    =
                 if not iterate then false
@@ -692,29 +699,39 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                                              | `Join of Tree.join_delta 
                                              | `Reroot of Ptree.incremental list
                                              | `Cost ]) -> unit
+            method virtual to_string : string
         end
 
-    class nm_simple_none mcount mthreshold (ptree : (Node.n,Edge.e) Ptree.p_tree) :
-        [Node.n,Edge.e] nodes_manager = object (self)
-            inherit nm_simple_base mcount mthreshold ptree as super
+    class nm_simple_none mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+            inherit nm_simple_base mcount mthreshold as super
 
             method branches = Some []
-            method update_iterate t _ = self#update_model t
+            method update_iterate t m = self#update_model t m
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
+            method to_string =
+                let opt_ to_str = function | Some x -> to_str x | None -> "none" in
+                Printf.sprintf 
+                    "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
+                    (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
+                    (opt_ string_of_float score) "None"
     end
 
-    class nm_simple_all mcount mthreshold (ptree : (Node.n,Edge.e) Ptree.p_tree) :
-        [Node.n,Edge.e] nodes_manager = object (self)
-            inherit nm_simple_base mcount mthreshold ptree as super
+    class nm_simple_all mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+            inherit nm_simple_base mcount mthreshold as super
 
             method branches = None
-            method update_iterate t _ = self#update_model t
+            method update_iterate t m = self#update_model t m
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
+            method to_string =
+                let opt_ to_str = function | Some x -> to_str x | None -> "none" in
+                Printf.sprintf 
+                    "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
+                    (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
+                    (opt_ string_of_float score) "Always"
     end
 
-    class nm_complex_delta mcount mthreshold (ptree : (Node.n,Edge.e) Ptree.p_tree) : 
-        [Node.n,Edge.e] nodes_manager = object (self)
-            inherit nm_simple_base mcount mthreshold ptree as super
+    class nm_complex_delta mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+            inherit nm_simple_base mcount mthreshold as super
 
             val mutable b_list = None
 
@@ -739,7 +756,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             method update_iterate tree fn = match fn with
                 | `Break _ | `Cost | `Reroot _ -> ()
                 | `Join (_,_,delta) ->
-                    let () = self#update_model tree in
+                    let () = self#update_model tree fn in
                     b_list <- Some (self#edges_of_path tree delta)
 
             method branches = match b_list with
@@ -755,36 +772,55 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                 | None -> 
                     Printf.printf "Iterating Edges: All\n%!";
                     None
+
+            method to_string =
+                let opt_ to_str = function | Some x -> to_str x | None -> "none" in
+                Printf.sprintf 
+                    "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
+                    (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
+                    (opt_ string_of_float score) "Join Delta"
     end
 
-    class nm_complex_neighborhood mcount mthreshold (ptree : (Node.n,Edge.e) Ptree.p_tree) : 
-        [Node.n,Edge.e] nodes_manager = object (self)
-            inherit nm_simple_base mcount mthreshold ptree as super
+    class nm_complex_neighborhood mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)
+            inherit nm_simple_base mcount mthreshold as super
     
             val mutable b_list = []
 
-            method private edges_of_delta tree delta1 delta2 = 
-                let make_edge a b = 
-                    let new_edge = Tree.Edge (a,b) in
-                    assert( Ptree.is_edge new_edge tree );
-                    new_edge
-                in
-                let acc,i1 = match delta1 with
+            method private edges_of_delta tree deltal deltar = 
+                let rec make_edge a b = 
+                    let edge =
+                        let new_edge = Tree.Edge (a,b) in
+                        if Ptree.is_edge new_edge tree then
+                            new_edge
+                        else begin
+                            let oth_edge = Tree.Edge (b,a) in 
+                            assert( Ptree.is_edge oth_edge tree );
+                            oth_edge
+                        end
+                    in
+                    edge
+                and get_edges_on_side = function
                     | `Single (i,_)      -> [], i
-                    | `Edge (i,l1,l2,_)  -> [(make_edge i l1); (make_edge i l2)], i
-                in 
-                match delta2 with
-                    | `Single (i2, _)    -> (make_edge i2 i1) :: acc
-                    | `Edge (i2,l1,l2,_) -> 
-                        (make_edge i2 l1) :: (make_edge i2 l2) :: (make_edge i2 i1) :: acc
+                    | `Edge (i,l,r,_)  -> [(make_edge i l); (make_edge i r)], i
+                in
+                let acc1,il = get_edges_on_side deltal
+                and acc2,ir = get_edges_on_side deltar in
+                (make_edge il ir) :: (acc1 @ acc2)
 
             method update_iterate tree fn = match fn with
                 | `Break _ | `Cost | `Reroot _ -> ()
                 | `Join (d1,d2,_) ->
-                    let () = self#update_model tree in
+                    let () = self#update_model tree fn in
                     b_list <- self#edges_of_delta tree d1 d2
 
             method branches = Some b_list
+
+            method to_string =
+                let opt_ to_str = function | Some x -> to_str x | None -> "none" in
+                Printf.sprintf 
+                    "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
+                    (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
+                    (opt_ string_of_float score) "Join Neighborhood"
     end
 
     class simple_dfs (ptree : (Node.n, Edge.e) Ptree.p_tree) : 
@@ -1775,8 +1811,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
     end
 
-    type emc = ((Node.n, Edge.e) Ptree.p_tree -> (Node.n, Edge.e) edges_manager)
-    type snmc = ((Node.n, Edge.e) Ptree.p_tree -> (Node.n, Edge.e) nodes_manager)
+    type emc  =((Node.n, Edge.e) Ptree.p_tree -> (Node.n, Edge.e) edges_manager)
     type semc = [`Left | `Right] -> emc
 
     class side_manager side ptree (join : semc) (reroot : semc) = object
@@ -2282,10 +2317,10 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
     let only_once_break ptree = new only_once_break ptree
     let simple_dfs_from_middle ptree = new simple_dfs ptree
     
-    let simple_nm_none c t ptree = new nm_simple_none c t ptree
-    let simple_nm_all c t ptree = new nm_simple_all c t ptree
-    let complex_nm_delta c t ptree = new nm_complex_delta c t ptree 
-    let complex_nm_neighborhood c t ptree = new nm_complex_neighborhood c t ptree
+    let simple_nm_none c t = new nm_simple_none c t
+    let simple_nm_all c t = new nm_simple_all c t
+    let complex_nm_delta c t = new nm_complex_delta c t
+    let complex_nm_neighborhood c t = new nm_complex_neighborhood c t
 
     let add_to_banned_list neigh1 neigh2 b1 b2 map_of_banned tree =
         let add_to_map_banned a neigh1 b1 b2 map_of_banned =
@@ -2363,13 +2398,13 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
         (* see, ('a, 'b) Ptree.tabu_mgr *)
     class standard_tabu (ptree : (Node.n, Edge.e) Ptree.p_tree) (join : semc) 
-    (reroot : semc) (break : emc) (iterate : snmc) = object (self)
+    (reroot : semc) (break : emc) (iterate : nm) = object (self)
         val timer = Timer.start ()
         val mutable current_time = 0
         val left = new side_manager `Left ptree join reroot
         val right = new side_manager `Right ptree join reroot
         val break = break ptree
-        val adjust_mgr = Some (iterate ptree)
+        val adjust_mgr = Some iterate
         val mutable last_side : [`Left | `Right] = `Left
         val banned_map = ref Tree.EdgeMap.empty
         val mutable current_banned = Tree.EdgeSet.empty

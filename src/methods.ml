@@ -368,6 +368,21 @@ type tabu_join_strategy = [
                     | `MaxDepth of int 
                     | `ConstraintFile of filename ] list ]
 
+(* defines how branches and the model for likelihood are iterated *)
+type tabu_modeli_strategy = [
+    | `Threshold of float   (* model iteration based on score improvement *)
+    | `MaxCount of int      (* number of search iterations before iterating model *)
+    | `Always               (* always iterate the model *)
+    | `Both of float * int  (* both threshold and count *)
+    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
+    | `Null ]               (* no iteration of model *)
+type tabu_branchi_strategy = [
+    | `JoinDelta           (* path along join -> break *)
+    | `Neighborhood         (* neighborhood around join point *)
+    | `AllBranches          (* iterate all the branches in the tree *)
+    | `Null ]               (* no iteration of branches *)
+type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy
+
 (* New tree build_method methods.
 * 
 * [Wagner_Rnd a] creates Wagner (Minimum spanning) trees adding the taxa in
@@ -383,28 +398,31 @@ type tabu_join_strategy = [
 type build_strategy = 
     int * float * keep_method * cost_calculation list * tabu_join_strategy
 
+
 type build_method = [
     | `Constraint of (int * float * filename option * cost_calculation list)
     | `Branch_and_Bound  of
-        (float option * float option * keep_method * int * cost_calculation list)
+        (float option * float option * keep_method * int * cost_calculation list) * tabu_iteration_strategy
     | `Wagner_Rnd of build_strategy
     | `Wagner_Mst of build_strategy
     | `Wagner_Distances of build_strategy
     | `Wagner_Ordered of build_strategy
-    | `Build_Random of build_strategy
+    | `Build_Random of build_strategy * tabu_iteration_strategy
     | `Nj
     | `Prebuilt of filename 
-    ]
+]
+(* because of type constraints the above uses tabu_iteration_strat when in fact
+ * the one contained in the Build constructor below will be utilized. *)
 
 type parallelizable_build = build_method
 
 type build = [
     | `Nj
     | `Prebuilt of filename
-    | `Build of int * build_method * cost_calculation list
-    | `Build_Random of build_strategy
+    | `Build of int * build_method * cost_calculation list * tabu_iteration_strategy
+    | `Build_Random of build_strategy * tabu_iteration_strategy
     | `Branch_and_Bound  of
-        (float option * float option * keep_method * int * cost_calculation list)
+        (float option * float option * keep_method * int * cost_calculation list) * tabu_iteration_strategy
 ]
 
 (* Optimality criterion employed. Self explanatory. *)
@@ -443,21 +461,6 @@ type tabu_break_strategy = [
 type tabu_reroot_strategy = [
     | `Bfs of int option
 ]
-
-(* defines how branches and the model for likelihood are iterated *)
-type tabu_modeli_strategy = [
-    | `Threshold of float   (* model iteration based on score improvement *)
-    | `MaxCount of int      (* number of search iterations before iterating model *)
-    | `Always               (* always iterate the model *)
-    | `Both of float * int  (* both threshold and count *)
-    | `Neighborhood of float(* same as threshold but weighted around join neighborhood *)
-    | `Null ]               (* no iteration of model *)
-type tabu_branchi_strategy = [
-    | `BreakDelta           (* path along join -> break *)
-    | `Neighborhood         (* neighborhood around join point *)
-    | `AllBranches          (* iterate all the branches in the tree *)
-    | `Null ]               (* no iteration of branches *)
-type tabu_iteration_strategy = tabu_modeli_strategy * tabu_branchi_strategy
 
 type origin_cost = float option
 
@@ -767,7 +770,7 @@ type script = [
     | `SelectYourTrees
     | `StandardSearch of 
         (float option * float option * int option * 
-        int option * float option * string option option * string option)
+            int option * float option * string option option * string option)
     | `Plugin of (string * script plugin_arguments)
     | input
     | transform

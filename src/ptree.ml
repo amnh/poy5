@@ -138,7 +138,6 @@ type ('a, 'b) breakage = {
 (* the nodes manager takes the properties from the cost, reroot, join, and break
  * functions, and determines how to iterate the tree *)
 class type ['a, 'b] nodes_manager = object
-    method update_model : ('a, 'b) p_tree -> unit
     method update_iterate :
             ('a, 'b) p_tree -> 
             ([ `Break of ('a, 'b) breakage 
@@ -148,6 +147,7 @@ class type ['a, 'b] nodes_manager = object
     method clone : ('a, 'b) nodes_manager
     method branches : Tree.edge list option
     method model : bool
+    method to_string : string
 end
 
 type ('a, 'b) break_fn =
@@ -278,14 +278,15 @@ class type ['a, 'b] wagner_mgr =
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
             ('a, 'b) cost_fn ->
-                float ->
-                    'a ->
-                        ('a, 'b) join_fn ->
-                            Tree.join_jxn ->
-                                Tree.join_jxn -> 
-                                    ('a, 'b) p_tree -> 
-                                        ('a, 'b) wagner_edges_mgr ->
-                                            t_status
+                ('a, 'b) nodes_manager option ->
+                    float ->
+                        'a ->
+                            ('a, 'b) join_fn ->
+                                Tree.join_jxn ->
+                                    Tree.join_jxn -> 
+                                        ('a, 'b) p_tree -> 
+                                            ('a, 'b) wagner_edges_mgr ->
+                                                t_status
     method evaluate : unit
     method results : (('a, 'b) p_tree * float) list
 end
@@ -309,7 +310,7 @@ end
     (** [process cost_fn join_fn
      *       join_1_jxn join_2_jxn tree_delta 
      *       broken_tree -> Travesal Status *)
-      method process : ('a, 'b) cost_fn -> ('a, 'b) adjust_fn -> float -> 'a ->
+      method process : ('a, 'b) cost_fn -> float -> 'a ->
           ('a, 'b) join_fn -> incremental list ->
           Tree.join_jxn -> Tree.join_jxn -> 
           ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
@@ -347,6 +348,7 @@ module type SEARCH = sig
       val make_wagner_tree :
           ?sequence:(int list) ->
         (a, b) p_tree ->
+        (a, b) nodes_manager option ->
         (a, b) wagner_mgr ->
             ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
         (a, b) wagner_mgr 
@@ -987,7 +989,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
           method clone = ({<>} :> (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
           method init _ = ()
           method next_tree = assert false
-          method process _ _ _ _ _ _ _ _ = assert false
+          method process _ _ _ _ _ _ _ _ _ = assert false
           method evaluate = ()
           method results = [ptree, get_cost `Adjusted ptree]
       end
@@ -1000,10 +1002,9 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         @param cost_fn function to determine the cost of the tree.
         @return the wagner tree. i.e. best spr tree over the given data. *)
     let make_wagner_tree ?(sequence) ptree 
-            (srch_mgr : (Tree_Ops.a, Tree_Ops.b) wagner_mgr) 
-            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b)
-            wagner_edges_mgr))
-            = 
+            (i_mgr    : (Tree_Ops.a, Tree_Ops.b) nodes_manager option)
+            (srch_mgr : (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
+            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b) wagner_edges_mgr)) = 
         let nodes = 
             match sequence with
             | None -> Tree.handle_list ptree.tree
@@ -1028,7 +1029,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     (get_corrected_jnx h1), (get_corrected_jnx h2)
                 in
-                let ptree, tree_delta = Tree_Ops.join_fn None [] j1 j2 ptree in
+                let ptree, tree_delta = Tree_Ops.join_fn i_mgr [] j1 j2 ptree in
                 (* Now we ensure that the root is located in between the two 
                 * handles that we just joined. This is needed for constrained
                 * building. *)
@@ -1042,14 +1043,14 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let l = new_vertex l 
                     and r = new_vertex r in
                     let tree, inc = 
-                        Tree_Ops.reroot_fn None true (Tree.Edge (l, r)) ptree 
+                        Tree_Ops.reroot_fn i_mgr true (Tree.Edge (l, r)) ptree 
                     in
                     Tree_Ops.incremental_uppass tree inc
                 in
                 let cst = get_cost `Adjusted ptree in
                 (* function adds the given nd to each of the edges of pt and
                 * picks the tree/s according to some optimality criterion. *)
-                let add_node_everywhere (pt, cst, tabu_mgr) nd srch_mgr =
+                let add_node_everywhere (pt, cst, tabu_mgr) nd (srch_mgr: ('a,'b) wagner_mgr) =
                     let j2, nd_data =
                         match (get_component_root nd ptree).root_median with
                         | None -> assert false
@@ -1066,7 +1067,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         let j1 = Tree.Edge_Jxn(h1, h2) in
                         let status:t_status = 
                             (srch_mgr#process 
-                                Tree_Ops.cost_fn infinity 
+                                Tree_Ops.cost_fn i_mgr infinity 
                                     nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr)
                         in
                         status, srch_mgr
@@ -1091,7 +1092,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 in
               (* sequentially add rest of the nodes to the
               * tree *)
-              let rec seq_add nodes srch_mgr added = 
+              let rec seq_add nodes (srch_mgr: ('a,'b) wagner_mgr) added = 
                   match nodes with
                   | [] -> srch_mgr
                   | nd :: rest ->
@@ -1206,7 +1207,6 @@ let single_spr_round pb parent_side child_side
                 | _ ->
                         let what_to_do_next =
                             search#process Tree_Ops.cost_fn
-                            Tree_Ops.adjust_fn
                             breakage.break_delta 
                             child_info.clade_node
                             Tree_Ops.join_fn breakage.incremental parent_jxn 

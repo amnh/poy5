@@ -91,7 +91,6 @@ type ('a, 'b) breakage = {
 }
 
 class type ['a, 'b] nodes_manager = object
-    method update_model : ('a, 'b) p_tree -> unit
     method update_iterate :
             ('a, 'b) p_tree -> 
             ([ `Break of ('a, 'b) breakage 
@@ -101,6 +100,7 @@ class type ['a, 'b] nodes_manager = object
     method clone : ('a, 'b) nodes_manager
     method branches : Tree.edge list option
     method model : bool
+    method to_string : string
 end
 
 
@@ -203,6 +203,7 @@ class type ['a, 'b] wagner_edges_mgr = object
     method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method clone : ('a, 'b) wagner_edges_mgr
     method exclude : Tree.edge list -> unit
+    (* method get_node_manager : ('a, 'b) nodes_manager option *)
 end
 
   class type ['a, 'b] wagner_mgr =
@@ -215,6 +216,7 @@ end
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
             ('a, 'b) cost_fn ->
+              ('a,'b) nodes_manager option ->
                 float ->
                     'a ->
                         ('a, 'b) join_fn ->
@@ -265,7 +267,7 @@ end
         (** [process cost_fn join_fn
          *       join_1_jxn join_2_jxn tree_delta 
          *       broken_tree -> Travesal Status *)
-          method process : ('a, 'b) cost_fn -> ('a, 'b) adjust_fn -> float -> 'a ->
+          method process : ('a, 'b) cost_fn -> float -> 'a ->
               ('a, 'b) join_fn -> incremental list ->
               Tree.join_jxn -> Tree.join_jxn -> 
               ('a, 'b) tabu_mgr -> ('a, 'b) p_tree -> t_status 
@@ -299,6 +301,7 @@ module type SEARCH = sig
   val make_wagner_tree :
       ?sequence:(int list) ->
     (a, b) p_tree ->
+    (a, b) nodes_manager option ->
     (a, b) wagner_mgr ->
     ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
     (a, b) wagner_mgr
