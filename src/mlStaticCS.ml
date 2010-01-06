@@ -510,7 +510,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
             | Data.Static x -> x
             | _ -> assert false
         in
-        spec.Parser.SC.st_alph
+        spec.Nexus.File.st_alph
             --> Alphabet.to_sequential
             --> Alphabet.match_code state_code
     in
