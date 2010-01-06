@@ -34,13 +34,16 @@ let get_orientated_code code =
 
 let to_ori_arr arr =
     Array.init (Array.length arr) (fun index->
+        assert((arr.(index)<>0));
         if( arr.(index) mod 2 == 0) then -(arr.(index)/2)
         else (arr.(index)+1)/2 )
 
 let from_ori_arr arr = 
     Array.init (Array.length arr) (fun index->
+        assert((arr.(index)<>0));
         if (arr.(index)<0) then (abs arr.(index))*2
-        else (arr.(index))*2-1)
+        else (arr.(index))*2-1
+        )
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
 
@@ -339,20 +342,23 @@ let re_align seq11 seq12 seq21 seq22 gapcode =
         if len1>=len2 then seq11,new_seq,seq12
         else new_seq,seq21,seq22
 
-let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 : Sequence.s) (seq3 : Sequence.s) gen_cost_mat alpha re_meth  max_swap_med circular orientation sym =
-    (* debug msg
-    * Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
+let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
+    Sequence.s) (seq3 : Sequence.s) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
+    (* debug msg 
+    Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3;
     debug msg *)
     let gapcode = Alphabet.get_gap alpha in
-    let size = Array.length gen_cost_mat in
+ (*   let size = Array.length gen_cost_mat in
     let gen_cost_mat = Array.init (size - 1) 
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
     in 
+  
     let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in  
     let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
     Cost_matrix.Two_D.set_gap gen_cost_mat gapcode; 
+ *)
     let arr1 = Sequence.to_array seq1
     and arr2 = Sequence.to_array seq2 
     and arr3 = Sequence.to_array seq3 in
@@ -362,8 +368,10 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 : Sequen
     let comoriarr1,comoriarr2,comoriarr3 = Utl.get_common3 oriarr1 oriarr2 oriarr3 equal_orientation in
     let ori_arr_med3 =
         match medsov with
-        |`Default ->
-                failwith "default median solver is not in grappa"
+        |`Vinh ->
+                failwith "Vinh median solver is not in grappa"
+        |`SimpleLK
+        |`ChainedLK 
         |`COALESTSP
         |`BBTSP
         |`Albert

@@ -3374,7 +3374,7 @@ The \poycommand{calculate\_support} command does not output support values by de
                        $o + l \times e$. The default values are $o=10, e=1.0$.}
                         {chromindel}
  
- 	               \argumentdefinition{circular}{\obligatory{\poybool}} 
+ 	          \argumentdefinition{circular}{\obligatory{\poybool}} 
                         {Specifies if chromosome is circular (boolean value 
                         \texttt{true}) or linear (boolean value \texttt{false}).
                         The default value of \poyargument{circular} is
@@ -3395,7 +3395,20 @@ The \poycommand{calculate\_support} command does not output support values by de
                         all generated rearrangements.}
                         {median}
 
-        		      \argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
+               \argumentdefinition{median\_solver}{\obligatory{\poyint}}
+               {Specifies the median solver. User can choose from
+               default(caprara),vinh,siepel,bbtsp,coaletsp,chainedlk and simplelk. The
+               default median solver is caprara median solver. Note:
+               Concorde package is required for chainedlk and simplelk median
+               solver. 
+               Concorde package can be downloaded from
+               http://www.tsp.gatech.edu//concorde/downloads/downloads.htm.
+               Concorde package must be installed under the home directory.
+               }
+               {median\_solver}
+
+
+        		\argumentdefinition{max\_kept\_wag}{\obligatory{\poyint}}
                         {Defines the maximum number of Wagner\-based possible ancestral sequence
                         alignments kept to create the next set of alignments during the pairwise alignment
                         with rearrangement process.  The default value of \poyargument{max\_kept\_wag} is 1,

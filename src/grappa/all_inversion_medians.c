@@ -58,8 +58,11 @@ find_all_inversion_medians ( List * medians,
     Vertex *v;
     int d01, d02, d12;
     int *newmed;
-    void *item;
+    //void *item;
+    ElementUnion  item;
     List tmplist;
+    ElementUnion vertextmp;
+    ElementUnion intarrtmp;
 
 #ifdef THREADSAFE
     int t, retval;
@@ -113,10 +116,11 @@ find_all_inversion_medians ( List * medians,
     }
 
     sv->bestmeds =
-        new_ps ( sv->MIN_MED, sv->MAX_MED, NMEDS, sizeof ( int * ) );
+        new_ps ( sv->MIN_MED, sv->MAX_MED, NMEDS, IntData );
     newmed = ( int * ) calloc ( sv->ngenes, sizeof ( int ) );
     permcopy ( newmed, v->perm, sv->ngenes );
-    ps_push ( sv->bestmeds, newmed, sv->MAX_MED );
+    intarrtmp.intarrelement = *newmed; 
+    ps_push ( sv->bestmeds, intarrtmp, sv->MAX_MED );
 
     v->best_possible_score = sv->MIN_MED;
     v->worst_possible_score = sv->MAX_MED;
@@ -125,12 +129,14 @@ find_all_inversion_medians ( List * medians,
     sv->h =
         new_hashtable ( sv->ngenes, HASH_EXPECTED_SIZE, HASH_LOADING_FACTOR );
 
-    ht_insert ( sv->h, v->perm );
+    ht_insert ( sv->h, v->perm, );
 
     sv->ps =
         new_ps ( sv->MIN_MED, sv->MAX_MED, QUEUECAPACITY,
-                 sizeof ( Vertex * ) );
-    ps_push ( sv->ps, v, sv->MIN_MED );
+                 VertexData );
+    //ps_push ( sv->ps, v, sv->MIN_MED, sv->ngenes );
+    vertextmp.vertexelement = *v;
+    ps_push ( sv->ps, vertextmp, sv->MIN_MED );
 
     /* loop until median found */
     sv->stop = 0;
@@ -187,10 +193,15 @@ find_all_inversion_medians ( List * medians,
        others */
     ps_flush ( sv->bestmeds, &tmplist,
                sv->bestmeds->idx + sv->bestmeds->min );
-    while ( ( item = pop_queue ( &tmplist ) ) != NULL )
-        free ( item );
+    while ( !is_empty( &tmplist ) ) 
+    {
+        item = pop_queue ( &tmplist ) 
+        free ( &item );
+    }
     copy_list ( medians, &sv->bestmeds->stacks[sv->bestmeds->idx] );
     ps_free ( sv->bestmeds );
+    //free ( &vertextmp);
+    //free ( &intarrtmp);
 }
 
 /* This routine controls the major loop of the search, during each
@@ -202,7 +213,7 @@ do_loop_all_meds ( void *sv_void )
 {
     ThreadData *td;
     SearchVars *sv;
-    Vertex *v;
+    Vertex *v; Vertex vv;
 
 #ifdef THREADSAFE
     pthread_t *threads;
@@ -285,10 +296,9 @@ do_loop_all_meds ( void *sv_void )
         sv->nwaiting--;
         pthread_mutex_unlock ( &sv->nwaiting_mutex );
 #endif
-
-        v = ( Vertex * ) ps_pop ( sv->ps );
-
-        if ( v == NULL )
+       
+        //if ( v == NULL )
+        if ( 0 == (sv->ps)->count )  //empty stack
         {
 #ifdef THREADSAFE
             if ( NTHREADGROUPS > 1 )
@@ -302,6 +312,9 @@ do_loop_all_meds ( void *sv_void )
 #endif
                 break;
         }
+
+        vv = ( ps_pop ( sv->ps )).vertexelement;
+        v = &vv;
 
         if ( v->best_possible_score > sv->MAX_MED )
         {
@@ -418,6 +431,7 @@ search_neighbors_all_meds ( ThreadData * td )
     Vertex *n;
     int *id;
     int *newmed;
+    ElementUnion tmp;
 
     sv = td->sv;
     id = ( int * ) calloc ( sv->ngenes, sizeof ( int ) );
@@ -439,7 +453,7 @@ search_neighbors_all_meds ( ThreadData * td )
                space and time */
             find_circular_identity ( n->perm, id, sv->ngenes );
 
-            if ( ht_find ( sv->h, id, 0 ) == 1 )    /* already visited */
+            if ( ht_find ( sv->h, id, 0 , sv->ngenes) == 1 )    /* already visited */
                 return_vertex ( sv->vf, n );
 
             else
@@ -456,7 +470,7 @@ search_neighbors_all_meds ( ThreadData * td )
                 if ( n->distance <= ( *td->v )->distance )
                     continue;
 
-                ht_insert ( sv->h, id );
+                ht_insert ( sv->h, id, sv->ngenes );
 
                 d1 = invdist_circular ( &g, sv->other1, sv->ngenes,
                                         td->distmem );
@@ -475,6 +489,7 @@ search_neighbors_all_meds ( ThreadData * td )
 #endif
                     newmed = ( int * ) calloc ( sv->ngenes, sizeof ( int ) );
                     permcopy ( newmed, n->perm, sv->ngenes );
+                    tmp.intelement = 
                     ps_push ( sv->bestmeds, newmed, n->worst_possible_score );
 #ifdef THREADSAFE
                     pthread_mutex_unlock ( &sv->max_med_mutex );
@@ -510,4 +525,5 @@ search_neighbors_all_meds ( ThreadData * td )
         }
     }
     free ( id );
+    //free ( &tmp );
 }

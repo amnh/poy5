@@ -54,4 +54,7 @@ void find_circular_identity ( int *perm, int *id, int ngenes );
    specified reversal */
 void copy_with_reversal ( int *dest, int *src, int n, Reversal * rev );
 
+int
+check_repeat ( int *arr, int size);
+
 #endif

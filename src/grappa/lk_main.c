@@ -1,4 +1,6 @@
-#ifdef CONCORDE
+#include <stdio.h>
+#ifdef USE_CONCORDE
+//#include "lk_main.h"
 
 #include "machdefs.h"
 #include "linkern.h"
@@ -90,20 +92,19 @@ chlinkern ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
 
     in_repeater = ncount;
 
-    nearnum = 4 * quadtry;
+    //nearnum = 4 * quadtry;
+
+    nearnum= (int)(ncount-1)/2;
 
     if ( CCedgegen_junk_k_nearest ( ncount, nearnum, &dat,
                                     ( double * ) NULL, 1,
                                     &tempcount, &templist, run_silently ) )
     {
-        fprintf ( stderr, "CCedgegen_junk_k_nearest failed\n" );
+        fprintf ( stderr, "grappa/lk_main.c CCedgegen_junk_k_nearest failed\n" );
         val = -1.0;
         goto CLEANUP;
     }
 
-#if 0
-    randcycle ( ncount, incycle, &rstate );
-#else
     if ( CCedgegen_junk_nearest_neighbor_tour
          ( ncount, CCutil_lprand ( &rstate ) % ncount, &dat, incycle,
            &val, run_silently ) )
@@ -112,7 +113,6 @@ chlinkern ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
         val = -1.0;
         goto CLEANUP;
     }
-#endif
 
     do
     {
@@ -189,6 +189,7 @@ greedylk ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
     int rval = 0;
     CCrandstate rstate;
     int run_silently = 1;
+    int run_verbosely = 0;
     double time_bound = 0.0;
     double length_bound = 0.0;
     int i, genes;
@@ -225,15 +226,22 @@ greedylk ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
         goto CLEANUP;
     }
 
+    int nearnum= (int)(ncount-1)/2;
+    //plan.quadnearest used to set to 2, fix this for POY 
+    //Note: 2*nearnum cannot be bigger than (ncount-1)
+    //in function CCedgegen_junk_node_k_nearest()  of concorde/EDGEGEN/xnear.c,
+    //we update all neighbor, ncount-1 will be the total number of neighbor 
+    //after this, we gonna check 2*plan.quadnearest of the neighbours
+    //so ncount-1 >= nearnum*2
     CCedgegen_init_edgegengroup ( &plan );
-    plan.quadnearest = 2;
+    plan.quadnearest = nearnum; 
 
     rval =
         CCedgegen_edges ( &plan, ncount, &dat, ( double * ) NULL, &tempcount,
                           &templist, run_silently, &rstate );
     if ( rval )
     {
-        fprintf ( stderr, "CCedgegen_edges failed\n" );
+        fprintf ( stderr, "grappa/lk_main.c CCedgegen_edges failed\n" );
         goto CLEANUP;
     }
 
@@ -292,3 +300,4 @@ greedylk ( int ncount, int **adj, int *tour, int *incycle, int *outcycle )
 }
 
 #endif
+

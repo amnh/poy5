@@ -1233,8 +1233,8 @@ module F : Ptree.Tree_Operations
         and get_current_model data chars = 
             let get_model x = match Hashtbl.find data.Data.character_specs x with
                 | Data.Static dat ->
-                    begin match dat.Parser.SC.st_type with
-                        | Parser.SC.STLikelihood model -> model
+                    begin match dat.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood model -> model
                         | _ -> failwith "unsupported static character"
                     end
                 | _ -> failwith "unsupported character type"
@@ -1249,7 +1249,7 @@ module F : Ptree.Tree_Operations
         (* function for processing a model and applying to a tree --inner loop *)
         let f_likelihood f tree chars current_model new_values =
             let ntree =
-                Parser.SC.STLikelihood (f current_model new_values)
+                Nexus.File.STLikelihood (f current_model new_values)
                     --> Data.apply_on_static_chars tree.Ptree.data chars
                     --> AllDirNode.AllDirF.load_data
                     --> (fun (x,y) -> substitute_nodes y {tree with Ptree.data = x} )

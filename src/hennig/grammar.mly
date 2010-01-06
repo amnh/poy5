@@ -6,15 +6,16 @@ let parse_error s =
         and e = (Parsing.symbol_end_pos ()) in
         let b = string_of_int (b.Lexing.pos_cnum)
         and e = string_of_int (e.Lexing.pos_cnum) in
-        Status.user_message Status.Error 
+        !Nexus.P.print_error
         (s ^ "@ between@ characters@ " ^ b ^ 
         "@ and@ " ^ e)
     with
-    | _ -> Status.user_message Status.Error s
+    | _ -> !Nexus.P.print_error s
+
 let report_error b e =
     let b = string_of_int (b.Lexing.pos_cnum)
     and e = string_of_int (e.Lexing.pos_cnum) in
-    Status.user_message Status.Error 
+    !Nexus.P.print_error
     ("Unrecognized@ command@ between@ characters@ " ^ b ^ "@ and@ "
     ^ e)
 %}
@@ -192,24 +193,24 @@ let report_error b e =
 %token VAR
 %token OPTCODE DNA PROTEINS NUMBER GAPS NOGAPS
 %token LPARENT RPARENT GT EQUAL QUESTION SEMICOLON DASH LSQ RSQ PLUS STAR BACKSLASH LBRACKET RBRACKET DOT 
-%type <Hennig.command> command
+%type <P.command> command
 %start command
 %type <(int * int * string)> xread
 %start xread
 %%
 
 command:
-    | DATA SEMICOLON { Hennig.Xread $1 }
-    | CCODE character_change_list SEMICOLON { Hennig.Ccode $2 }
-    | TREES SEMICOLON { Hennig.Tread $1 }
-    | COSTS cost_change_list SEMICOLON { Hennig.Cost $2 }
-    | PROCEDURE BACKSLASH SEMICOLON { Hennig.Ignore }
-    | OPTCODE INT DOT INT SEMICOLON { Hennig.Ignore }
-    | CNAMES char_names_list SEMICOLON { Hennig.Charname $2 }
-    | NSTATES number_of_states SEMICOLON { Hennig.Nstates (Some $2) }
+    | DATA SEMICOLON {P.Xread $1 }
+    | CCODE character_change_list SEMICOLON {P.Ccode $2 }
+    | TREES SEMICOLON {P.Tread $1 }
+    | COSTS cost_change_list SEMICOLON {P.Cost $2 }
+    | PROCEDURE BACKSLASH SEMICOLON {P.Ignore }
+    | OPTCODE INT DOT INT SEMICOLON {P.Ignore }
+    | CNAMES char_names_list SEMICOLON {P.Charname $2 }
+    | NSTATES number_of_states SEMICOLON {P.Nstates (Some $2) }
     | error SEMICOLON { 
         report_error (Parsing.symbol_start_pos ()) (Parsing.symbol_end_pos ());
-        Hennig.Ignore 
+       P.Ignore 
     }
 
 gap:
@@ -235,20 +236,20 @@ character_change_list:
     | character_change character_change_list { $1 :: $2 }
     | { [] }
 character_change:
-    | PLUS character_list   { Hennig.Additive $2 }
-    | DASH character_list   { Hennig.NonAdditive $2 }
-    | LSQ character_list    { Hennig.Active $2 }
-    | RSQ character_list    { Hennig.Inactive $2 }
-    | LPARENT character_list { Hennig.Sankoff $2 }
-    | RPARENT character_list { Hennig.NonAdditive $2 }
-    | BACKSLASH INT character_list { Hennig.Weight (int_of_string $2, $3) }
+    | PLUS character_list   {P.Additive $2 }
+    | DASH character_list   {P.NonAdditive $2 }
+    | LSQ character_list    {P.Active $2 }
+    | RSQ character_list    {P.Inactive $2 }
+    | LPARENT character_list {P.Sankoff $2 }
+    | RPARENT character_list {P.NonAdditive $2 }
+    | BACKSLASH INT character_list {P.Weight (int_of_string $2, $3) }
 character_list:
-    | DOT { [Hennig.All] }
+    | DOT { [P.All] }
     | aux_character_list { $1 }
 aux_character_list:
-    | INT DOT INT aux_character_list { (Hennig.Range (int_of_string $1,
+    | INT DOT INT aux_character_list { (P.Range (int_of_string $1,
     int_of_string $3)) :: $4 }
-    | INT aux_character_list { (Hennig.Single (int_of_string $1)) :: $2 }
+    | INT aux_character_list { (P.Single (int_of_string $1)) :: $2 }
     | { [] }
 cost_change_list:
     | cost_change cost_change_list { $1 :: $2 }

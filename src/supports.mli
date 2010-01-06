@@ -40,7 +40,7 @@ module type S = sig
             Methods.support_tree Sexpr.t
 
 val support_to_string_tree : Data.d -> Methods.support_tree ->
-                             Parser.Tree.tree_types
+                             Tree.Parse.tree_types
 
 (** [join_support_trees trees] takes a list of [(iterations, support_tree)]
     pairs and combines them into a single support tree *)
@@ -57,13 +57,13 @@ val join_support_trees : (int * Methods.support_tree) list -> Methods.support_tr
 val bremer_of_input_file :
     (Tree.u_tree -> string -> int) -> int ->
         (int -> string) -> Data.d -> Methods.filename list -> 
-            (a, b) Ptree.p_tree Sexpr.t -> Parser.Tree.tree_types Sexpr.t
+            (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
 (** Like [bremer_of_input_file] but trust whatever input cost is provided with
 * each tree in it's annotated information.*)
 val bremer_of_input_file_but_trust_input_cost : int ->
     (int -> string) -> Data.d -> Methods.filename list -> 
-        (a, b) Ptree.p_tree Sexpr.t -> Parser.Tree.tree_types Sexpr.t
+        (a, b) Ptree.p_tree Sexpr.t -> Tree.Parse.tree_types Sexpr.t
 
 end
 

@@ -8,6 +8,7 @@
 #include "invdist.h"
 #include "simpleio.h"
 #include <math.h>
+#include "assert.h"
 
 /* Returns the median score of a potenial median with respect to three
    specified "vertex" genomes.  "gens" is assumed to be an array of at
@@ -188,12 +189,49 @@ find_circular_identity ( int *perm, int *id, int ngenes )
     }
 }
 
+
+int
+check_repeat ( int *arr, int size)
+{
+    int i; int j; int k;
+    int tmparr[64];
+    int sign = 0;
+    for(i=0;i<64;i++) tmparr[i] = 0;
+    for(i=0;i<size;i++)
+    {
+        if (arr[i]>0) j = arr[i];
+        else j = -arr[i];
+        tmparr[j] ++;
+        if(tmparr[j]>1)
+        {
+        fprintf(stdout,"{ j=%d }",j); fflush(stdout);
+            sign = 1;
+        }
+     }
+    return sign;
+}
+
 /* Copies a permutation, simultaneously representing the effect of the
    specified reversal */
 void
 copy_with_reversal ( int *dest, int *src, int n, Reversal * rev )
 {
+    assert(dest!=src); 
     int i, mid;
+    int tmp[64];
+    for(i=0 ; i<n ; i++)
+        tmp[i]=src[i];
+    if ( 1== check_repeat( src, n ))
+    {
+        fprintf(stdout," \n copy from repeated src,rev=(%d,%d): ",
+                rev->start,rev->stop);
+        for(i=0;i<n;i++)
+            fprintf(stdout,"[%d]=%d,",i,src[i]);
+        fprintf(stdout,"\n"); fflush(stdout);
+        assert(0);
+    }
+   // src = tmp;
+
     for ( i = 0; i < rev->start; i++ )
         dest[i] = src[i];
 
@@ -206,4 +244,21 @@ copy_with_reversal ( int *dest, int *src, int n, Reversal * rev )
 
     for ( i = rev->stop; i < n; i++ )
         dest[i] = src[i];
+
+    if ( 1== check_repeat( dest, n ))
+    {
+        fprintf(stdout," \n copy from src: ");
+        for(i=0;i<n;i++)
+            fprintf(stdout,"[%d]=%d/%d,",i,src[i],tmp[i]);
+        fprintf(stdout," \n to dest with rev:(%d,%d), has repeated items, dest = \n",
+                rev->start,rev->stop);
+        for(i=0;i<n;i++)
+            fprintf(stdout,"[%d]=%d,",i,dest[i]);
+        fprintf(stdout,"\n"); fflush(stdout);
+        assert(0);
+    }
+
+    
 }
+
+

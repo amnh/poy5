@@ -14,6 +14,9 @@ AC_PROG_CC
 AC_SUBST(DUSE_NATIVEDYNLINK)
 AC_SUBST(DUSE_XSLT)
 AC_SUBST(DUSE_LIKELIHOOD)
+AC_SUBST(DUSE_CONCORDE)
+AC_SUBST(CONCORDE_LIB)
+AC_SUBST(CONCORDE_CFLAGS)
 AC_SUBST(DUSEREADLINE)
 AC_SUBST(DUSENCURSES)
 AC_SUBST(DUSEPARALLEL)
@@ -49,6 +52,7 @@ AC_SUBST(USE_LONG_SEQUENCES)
 AC_SUBST(USE_LARGE_ALPHABETS)
 AC_SUBST(USE_XSLT)
 AC_SUBST(USE_LIKELIHOOD)
+AC_SUBST(USE_CONCORDE)
 AC_SUBST(USE_SSE3)
 AC_SUBST(USE_VERIFY_COSTS)
 
@@ -144,6 +148,12 @@ AC_ARG_ENABLE([likelihood], [AS_HELP_STRING([--enable-likelihood],
                option requires an implementation of lapack and blas to be installed.])],
                 [USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"], [USE_LIKELIHOOD="false"])
 
+#AC_ARG_ENABLE([concorde], [AS_HELP_STRING([--enable-concorde],
+#              [Enable the use of "CHLINKERN" and "GREEDYLK" tsp median solver. This
+#               option requires concorde package.])],
+#                [USE_CONCORDE="true"; DUSE_CONCORDE="-DUSE_CONCORDE";
+#                 OUSE_CONCORDE=",use_concorde"], [USE_CONCORDE="false"])
+
 AC_ARG_ENABLE([sse3], [AS_HELP_STRING([--enable-sse3],
               [Enable the Streaming SIMD Extensions for likelihood characters.])],
                [USE_SSE3="true"],[USE_SSE3="false"])
@@ -157,6 +167,48 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [Check every pairwise sequence alignment cost. This is only intended for development and debugging purposes.])],
               [USE_VERIFY_COSTS="true"; DUSE_VERIFY_COSTS="-DUSE_VERIFY_COSTS"; OUSE_VERIFY_COSTS=",use_verify_costs"],
               [USE_VERIFY_COSTS="false"])
+
+AC_ARG_WITH([concorde_dir],
+[AS_HELP_STRING([--with-concorde-dir=<DIR>],
+[set the path to concorde library])],
+[
+ if test x"$withval" != x"no"; then
+      concorde_dir=$withval
+fi
+],[])
+
+AC_MSG_CHECKING([for concorde.a])
+if test -f "$concorde_dir/concorde.a"; then
+   AC_MSG_RESULT([yes])
+   AC_MSG_RESULT([Using Concorde])
+   CONCORDE_LIB="$concorde_dir/concorde.a"
+   CONCORDE_CFLAGS="-I$concorde_dir/INCLUDE"
+   CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE"
+   LIBS="-L$concorde_dir $LIBS"
+   OUSE_CONCORDE=",use_concorde"
+   DUSE_CONCORDE="-DUSE_CONCORDE"
+else
+   AC_MSG_RESULT([no])
+   CONCORDE_LIB=""
+   CONCORDE_CFLAGS=""
+   OUSE_CONCORDE=""
+   AC_MSG_RESULT( [Not Using Concorde ] )
+fi
+
+
+#AS_IF([test $USE_CONCORDE = "true"],
+#				[
+#                CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE";
+                 #CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
+                 #LIBS="$HOME/concorde/concorde.a $LIBS";
+#                 LIBS="$CONCORDE_LIB $LIBS";
+#                 OUSE_CONCORDE=",use_concorde";
+#                DUSE_CONCORDE="-DUSE_CONCORDE";
+#                 ],
+#                 [AC_MSG_RESULT( [Not Using Concorde ])]
+#               )
+
+
 
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
@@ -244,6 +296,8 @@ AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS
 
 AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([readline], [readline],
       [LIBS="-lreadline $LIBS"; AC_DEFINE(HAVE_LIBREADLINE)], [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.])])])
+
+
 
 #AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
 #      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])

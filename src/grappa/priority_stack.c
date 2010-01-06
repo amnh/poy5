@@ -16,19 +16,19 @@
 #include <stdio.h>
 #include <assert.h>
 
-/* returns NULL if empty */
-void *
-ps_pop ( PriorityStack * ps )
-{
-    void *i;
 
+ElementUnion ps_pop ( PriorityStack * ps )
+{
+    ElementUnion  i;
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
 
     if ( ps->count == 0 )
-        i = NULL;
-
+    {
+       fprintf(stderr,"ERROR: Try to pop an empty priority_stack\n ");
+       assert(0);
+    }
     else
     {
         while ( empty ( &ps->stacks[ps->idx] ) )
@@ -36,7 +36,6 @@ ps_pop ( PriorityStack * ps )
             ps->idx++;
             assert ( ps->idx <= ps->max - ps->min );
         }
-
         i = pop_stack ( &ps->stacks[ps->idx] );
         ps->count--;
     }
@@ -49,7 +48,7 @@ ps_pop ( PriorityStack * ps )
 }
 
 PriorityStack *
-new_ps ( int min, int max, int stack_nelements, int stack_elementsz )
+new_ps ( int min, int max, int stack_nelements, enum datatype dtype )
 {
     int i;
     PriorityStack *ps =
@@ -57,9 +56,9 @@ new_ps ( int min, int max, int stack_nelements, int stack_elementsz )
     ps->min = min;
     ps->max = max;
     ps->stacks = ( List * ) calloc ( max - min + 1, sizeof ( List ) );
-    ps->elementsz = stack_elementsz;
+    ps->dtype = dtype;
     for ( i = 0; i <= ( max - min ); i++ )
-        init_list ( &ps->stacks[i], stack_nelements, stack_elementsz );
+        init_list ( &ps->stacks[i], stack_nelements, dtype );
     ps->count = 0;
     ps->idx = ps->max - ps->min;
 
@@ -90,37 +89,43 @@ ps_clear ( PriorityStack * ps )
     ps->idx = ps->max - ps->min;
 }
 
+//add ps_full for POY.... if the list of the priority stack is full, return 0.
 int
-ps_check ( PriorityStack * ps)
+ps_full ( PriorityStack * ps)
 {
-    int res = 1;
+    int res = 0;
     int i = 0;
     for ( i = 0; i <= ( ps->max - ps->min ); i++ )
     {
         if ( (&ps->stacks[i])->ridx >= (&ps->stacks[i])->CAPACITY )
             if (  (&ps->stacks[i])->lidx <= 0  )
-                res = 0;
+                res = 1;
     }
     return res;
 }
 
 
-
 void
-ps_push ( PriorityStack * ps, void *v, int priority )
+ps_push ( PriorityStack * ps, ElementUnion v, int priority )
 {
 
 #ifdef THREADSAFE
     pthread_mutex_lock ( &ps->mutex );
 #endif
- /*   fprintf(stdout,"min=%d,max=%d,idx=%d,count=%d,elememtsz=%d,stacks[%d],capa=%d,ridx=%d\n",ps->min,ps->max,ps->idx,ps->count,ps->elementsz,priority - ps->min,
-            (&ps->stacks[priority - ps->min])->CAPACITY,
-            (&ps->stacks[priority - ps->min])->ridx);
-    fflush(stdout); */
-    push ( &ps->stacks[priority - ps->min], v );
-    ps->count++;
-    if ( priority - ps->min < ps->idx )
-        ps->idx = priority - ps->min;
+    if (!is_full( &ps->stacks[priority - ps->min]))
+    {
+        push ( &ps->stacks[priority - ps->min], v );
+        ps->count++;
+        if ( priority - ps->min < ps->idx )
+            ps->idx = priority - ps->min;
+    }
+    else
+    {
+        fprintf(stderr,
+                "ERROR: Cannot push, Stack #.%d=(%d-%d) of priority stack is full\n", 
+                priority - ps->min, priority , ps->min); 
+        assert ( 0 );
+    }
 #ifdef THREADSAFE
     pthread_mutex_unlock ( &ps->mutex );
 #endif
@@ -142,7 +147,7 @@ ps_flush ( PriorityStack * ps, List * l, int threshold )
     for ( i = threshold - ps->min + 1; i <= ( ps->max - ps->min ); i++ )
         count += list_size ( &ps->stacks[i] );
 
-    init_list ( l, count, ps->elementsz );
+    init_list ( l, count, ps->dtype );
 /*   fprintf(stderr, "Flushing %d from priority stack\n", count);   */
     if ( count == 0 )
         return;

@@ -725,179 +725,6 @@ let test_tree tree =
 *)
 let (-->) a b = b a
 
-let add_tree_to d add_to tree =
-    (* below, fill in tree names for consistent tree *)
-    let tree = Parser.Tree.maximize_tree tree in
-    let avail_codes = ref add_to.avail_ids in
-    let cg = 
-        fun () -> 
-            match !avail_codes with
-            | h :: t -> 
-                    avail_codes := t;
-                    h
-            | [] -> assert false
-    in
-    let rec assign_codes parent data = function
-        | Parser.Tree.Leaf (name,nname) ->
-                let tc = 
-                    try Data.taxon_code name d with
-                    | Not_found as err ->
-                            Status.user_message Status.Error
-                            ("Could@ not@ find@ data@ loaded@ for@ taxon@ " ^
-                            StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
-                            raise err
-                in
-                (* let () = match nname with
-                    | Some x ->
-                            let x = String.uppercase x in
-                            Hashtbl.replace add_to.names tc x
-                    | None -> ()
-                in *)
-                Parser.Tree.Leaf (Leaf (tc, parent)), tc
-        | Parser.Tree.Node (child_nodes, (txt,nname)) ->
-                let rec resolve_more_children (chil:(string * string option) Parser.Tree.t list) = match chil with
-                    | [a; b] as x -> x
-                    | [taxon] ->
-                            Status.user_message Status.Error
-                            ("Your@ tree@ file@ has@ a@ subtree@ or@ taxon@ " ^
-                            "occurring@ as@ the@ unique@ member@ of@ an@ " ^
-                            "internal@ node@ in@ the@ tree@ " ^
-                            "(maybe@ there@ is@ a@ space@ missing@ between@ " ^
-                            "taxa?).@ I@ am@ cancelling@ this@ read@ command");
-                            failwith "Illegal Tree file format"
-                    | [] -> 
-                            Status.user_message Status.Error
-                            ("Your@ tree@ file@ has@ a@ (),@ that@ is,@ " ^
-                            "an@ opening@ parentheses@ followed@ immediately@ "
-                            ^ "by@ a@ closing@ parentheses.@ Empty@ trees@ "
-                            ^ "are@ not@ allowed@ in@ a@ tree@ file,@ so@ I@ " ^
-                            "am@ cancelling@ this@ read@ command");
-                            failwith "Illegal Tree file format"
-                    | a :: b :: t ->
-                            resolve_more_children ((Parser.Tree.Node ([a; b], (txt,nname))) :: t)
-                in
-                let sc = cg () in 
-                (* let () = match nname with
-                    | Some x -> 
-                        let x = String.uppercase x in
-                        Hashtbl.replace add_to.names sc x
-                    | None -> ()
-                in *)
-                let child_nodes = resolve_more_children child_nodes in
-                match child_nodes with
-                | [a; b] ->
-                        let ta, ca = assign_codes sc data a in
-                        let tb, cb = assign_codes sc data b in
-                        Parser.Tree.Node ([ta; tb], 
-                        Interior (sc, parent, ca, cb)), sc
-                | _ -> failwith "Tree.assign_codes"
-    in
-    let add_edge a b = EdgeSet.add (Edge (a, b)) in
-    let remove_edge a b = EdgeSet.remove (Edge (a, b)) in
-    let replace_parent vertices v par = 
-        let vertex = All_sets.IntegerMap.find v vertices in
-        let vertex = 
-            match vertex with
-            | Interior (a, _, b, c) -> Interior (a, par, b, c)
-            | Leaf (a, _) -> Leaf (a, par)
-            | Single _ -> failwith "Unexpected Tree.replace_parent"
-        in
-        All_sets.IntegerMap.add v vertex vertices
-    in
-    let rec add_edges_n_vertices tree (edges, vertices) =
-        match tree with
-        | Parser.Tree.Node ([x; y], ((Interior (a, b, c, d)) as v)) ->
-                let vertices = All_sets.IntegerMap.add a v vertices 
-                and edges =  edges --> add_edge b a --> add_edge a c -->
-                    add_edge a d
-                in
-                add_edges_n_vertices x 
-                (add_edges_n_vertices y (edges, vertices))
-        | Parser.Tree.Leaf ((Leaf (a, b)) as v) ->
-                let vertices = All_sets.IntegerMap.add a v vertices 
-                and edges = add_edge b a edges in
-                (edges, vertices)
-        | _ -> failwith "Unexpected Tree.add_edges_n_vertices"
-    in
-    let tree =  
-        (* We clean up a tree that has only one leaf, this is valid when
-        processing forest, but invalid inside a tree. *)
-        match tree with
-        | (Parser.Tree.Leaf _) as x
-        | Parser.Tree.Node ([((Parser.Tree.Leaf _) as x)], _) -> x
-        | y -> y
-    in
-    match assign_codes (-1) d tree with
-    | Parser.Tree.Node ([a; b], (Interior (sc, _, ca, cb))), _ ->
-            let edges, vertices = 
-                add_edges_n_vertices b
-                (add_edges_n_vertices a 
-                (add_to.d_edges, add_to.u_topo))
-            in
-            let vertices = replace_parent vertices ca cb in
-            let vertices = replace_parent vertices cb ca in
-            let edges = edges -->
-                remove_edge sc ca --> remove_edge sc cb -->
-                    add_edge ca cb
-            in
-            let handles = All_sets.Integers.add ca add_to.handles in
-            { add_to with
-                u_topo = vertices;
-                d_edges = edges;
-                handles = handles;
-                avail_ids = !avail_codes;
-                new_ids = cg ();
-            }
-    | Parser.Tree.Leaf (Leaf (tc, _)), _ -> 
-            let vertices = 
-                All_sets.IntegerMap.add tc (Single tc)
-                add_to.u_topo 
-            in
-            let handles = All_sets.Integers.add tc add_to.handles in
-            { add_to with 
-                    avail_ids = !avail_codes;
-                    u_topo = vertices;
-                    handles = handles
-            }
-    | _ ->failwith "We need trees with more than two taxa"
-
-let convert_to ((name,trees): string option * Parser.Tree.tree_types list) (data:Data.d) : u_tree = 
-    let add_available total tree =
-        let rec aux max av =
-            if max = total then av
-            else aux (max - 1) (max :: av)
-        in
-        { tree with avail_ids = aux (2 * total) [] }
-    in
-    let verify_leaves acc t =
-        let rec verify_leaves f acc = function
-            | Parser.Tree.Node (cld, _) ->
-                List.fold_left (verify_leaves f) acc cld
-            | Parser.Tree.Leaf name -> let name = f name in
-                try 
-                    let code = Data.taxon_code name data in
-                    (Hashtbl.mem data.Data.taxon_characters code) && acc
-                with 
-                | Not_found -> 
-                        Status.user_message Status.Error 
-                        ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
-                        ^ "loaded. Please@ verify@ your@ input@ files.");
-                        false
-        in match t with
-            | Parser.Tree.Flat t
-            | Parser.Tree.Annotated (t,_) ->
-                    (verify_leaves (fun x -> x) true t) & acc
-            | Parser.Tree.Characters t ->
-                    (verify_leaves (fst) true t) & acc
-            | Parser.Tree.Branches t ->
-                    (verify_leaves (fst) true t) & acc
-    in
-    if not (List.fold_left verify_leaves true trees) then
-        failwith "Illegal input tree"
-    else
-        let utree = { (empty ()) with tree_name = name } in
-        let tree = add_available data.Data.number_of_taxa utree in
-        List.fold_left (add_tree_to data) tree trees
 
 (** [make_disjoint_tree n]
     @return a disjointed tree with the given nodes and 0 edges *)
@@ -1801,9 +1628,634 @@ let print_forest forest =
     let handles = (All_sets.Integers.elements (get_handles forest)) in
         (ignore (List.map (fun x -> prerr_newline ();
                                     print_tree x forest) handles))
+module Parse = struct
+    (* A simple representation of a tree *)
+    type 'a t = Leafp of 'a | Nodep of 'a t list * 'a
+
+    (* types of trees that can be returned *)
+    type tree_types =
+        | Flat of string t
+        | Annotated of (string t * string)
+        | Branches of (string * float option) t
+        | Characters of (string * string option) t
+
+    let print_tree t = 
+        let rec n_spaces n = if n = 0 then "" else (n_spaces (n-1))^"\t" in
+        let rec print_nodes printer depth = function
+            | Leafp dat -> Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat)
+            | Nodep (lst,dat) -> 
+                    Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat);
+                    List.iter (print_nodes printer (depth+1)) lst
+        and ident = fun x -> x
+        and get_some f = function | Some x -> f x | None -> "None" in
+        match t with
+            | Flat t -> print_nodes ident 0 t
+            | Annotated (t,a) -> print_nodes ident 0 (Nodep ([t],a))
+            | Branches t -> print_nodes (fun (x,l) -> x^"["^(get_some (string_of_float) l)^"]") 0 t
+            | Characters t -> print_nodes (fun (x,y) -> x^"["^(get_some (ident) y)^"]") 0 t
+
+    exception Trailing_characters
+
+    exception Illegal_tree_format of string
+
+    (* map on tree w/out annotations *)
+    let rec map fn = function
+        | (Leafp d) -> Leafp (fn d)
+        | Nodep (list,d) ->
+              Nodep (List.map (map fn) list, fn d)
+    (* map on post_processed tree *)
+    let map_tree fn = function
+        | Annotated (t,a) -> Annotated ((map fn t),a)
+        | Branches t -> Branches (map (fun (x,d) -> (fn x,d)) t)
+        | Flat t -> Flat (map fn t)
+        | Characters t -> Characters (map (fun (x,d) -> (fn x,d)) t)
+
+    (* fold_left on tree data *)
+    let fold_left_data fn a t =
+        let rec fold_left_data2 fn a t = match t with
+            | Leafp d -> fn a d
+            | Nodep (list,d) ->
+                fn (List.fold_left (fold_left_data2 fn) a list) d
+        in
+        match t with
+        | (Leafp d),str -> (fn a d)
+        | ((Nodep (list, d)),str) ->
+            fn (List.fold_left (fold_left_data2 fn) a list) d
+    (* fold_left on tree annotations *)
+    let fold_left_annot fn a t = match t with
+        | (Leafp d),str -> fn a str
+        | (Nodep (list, d)),str -> fn a str
+
+    let gen_aux_of_stream_gen do_stream stream =
+        let taxon_name x = not (FileStream.is_taxon_delimiter x) in
+        let close_squared_parenthesis = [ ']' ] in
+        (*
+        let ignore_cost_bracket () =
+            ignore (stream#read_excl close_squared_parenthesis);
+            ignore (stream#getch);
+            ()
+        in
+        *)
+        let get_cost_bracket () =
+            let res = stream#read_excl close_squared_parenthesis in
+            ignore (stream#getch);
+            res
+        in
+        let read_taxon_name () = 
+            stream#read_while taxon_name
+        in
+
+        let rec read_branch_length acc : float option=
+            match stream#getch with
+            | v when not (taxon_name v) -> 
+                stream#putback v;
+                let str = String.concat "" (List.map 
+                                                    (fun x -> String.make 1 x)
+                                                    (List.rev acc))
+                in
+                Some (float_of_string str)
+            | ('0' .. '9') as v -> read_branch_length (v :: acc)
+            | '.' -> read_branch_length ('.' :: acc)
+            | ':' -> read_branch_length acc
+            |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
+        in
+
+        let rec read_branch acc : (string * (float option * string option)) t =
+            stream#skip_ws_nl;
+            match stream#getch with
+            | '(' -> 
+                    let res = read_branch [] in
+                    read_branch (res :: acc)
+            | ')' -> 
+                    Nodep (acc, ("",(None,None)))
+            | '[' -> 
+                    let bracket = Some (get_cost_bracket ()) in
+                    let acc = (match acc with
+                     | Leafp (t,(branch,_)) ::tl      -> Leafp ((t,(branch,bracket))) :: tl
+                     | Nodep (a, (t,(branch,_))) ::tl -> Nodep ((a, (t,(branch,bracket)))) :: tl
+                     | _ -> raise (Illegal_tree_format "Unexpected Character")
+                    ) in
+                    read_branch acc
+            | ':' ->
+                    let branch = read_branch_length [] in
+                    let acc = (match acc with
+                     | Leafp (t,(_,bracket)) ::tl      -> Leafp ((t,(branch,bracket))) :: tl
+                     | Nodep (a,(t,(_,bracket))) ::tl -> Nodep ((a, (t,(branch,bracket)))) :: tl
+                     | _ -> raise (Illegal_tree_format "Unexpected Character")
+                    ) in
+                    read_branch acc
+            | v when taxon_name v ->
+                    stream#putback v;
+                    let taxon = read_taxon_name () in
+                    read_branch ((Leafp (taxon,(None,None))) :: acc)
+            | v ->
+                    let character = stream#get_position in
+                    let ch = Char.escaped v in
+                    if List.exists (fun x -> x = ch) [","; ";"] then
+                        read_branch acc
+                    else
+                        let _ = 
+                            let msg = 
+                                "I@ will@ use@ the@ character@ " ^ ch ^ 
+                                " in@ position@ " ^ string_of_int character ^ 
+                                "@ as@ a@ taxon@ name@ separator" 
+                            in
+                            Status.user_message Status.Information msg;
+                        in
+                        read_branch acc
+        in
+        let rec read_tree acc1 acc2 =
+            let prepend acc2 acc1 =
+                (* We have to do this to avoid bogus warnings when we read a
+                * separator that closes the list of trees (for example a
+                * trailing semicolon) *)
+                match acc2 with
+                | [] -> acc1
+                | acc2 -> acc2 :: acc1 
+            in
+            let () = try stream#skip_ws_nl; with | End_of_file -> () in
+            match stream#getch_safe with
+            | None -> prepend acc2 acc1
+            | Some v -> (match v with
+                | '(' -> 
+                        let res = 
+                            try read_branch [] with
+                            | End_of_file -> 
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        read_tree acc1 ((res, "") :: acc2)
+                | '*'
+                | ';' -> 
+                        let acc1 = prepend acc2 acc1 in
+                        read_tree acc1 []
+                | ':' ->
+                        let dist = read_branch_length [] in
+                        let acc2 = (match acc2 with
+                         | ((Nodep (lst,(name,(None,bracket)))),q) :: tl ->
+                                 ((Nodep (lst,(name,(dist,bracket)))),q) :: tl
+                         | ((Leafp (name,(None,bracket))),q) :: tl ->
+                                 ((Leafp (name,(dist,bracket))),q) :: tl
+                         | _ -> raise 
+                            (Illegal_tree_format "Unexpected Character")
+                        ) in
+                        read_tree acc1 acc2
+                | '[' -> 
+                        let contents = 
+                            try get_cost_bracket () with
+                            | End_of_file ->
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        let acc2 = 
+                            match acc2 with
+                            | (h, _) :: t -> (h, contents) :: t
+                            | [] -> 
+                                    let msg = "Unexpected cost spec" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        read_tree acc1 acc2
+                | v -> 
+                        let character = stream#get_position in
+                        let ch = Char.escaped v in
+                        let message = "Unexpected character " ^ ch ^ 
+                        " in position " ^ string_of_int character in
+                        failwith message
+                )
+        in
+        let read_tree_str =
+            let acc2 = ref None in
+            let rec tree_generator () =
+                stream#skip_ws_nl;
+                match stream#getch with
+                | '(' -> 
+                        let res = 
+                            try read_branch [] with
+                            | End_of_file -> 
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        (match !acc2 with
+                        | None -> 
+                                acc2 := Some (res, "");
+                                tree_generator ()
+                        | Some _ -> raise (Illegal_tree_format "Trees ignored!"))
+                | '*'
+                | ';' -> 
+                        (match !acc2 with
+                        | None -> raise (Illegal_tree_format "No trees to read?")
+                        | Some tree ->
+                                acc2 := None;
+                                tree)
+                | ':' -> let dist = read_branch_length [] in
+                         (match !acc2 with
+                          | Some ((Nodep (lst,(name,(_,bracket)))),q) ->
+                                  acc2 := None;
+                                 ((Nodep (lst,(name,(dist,bracket)))),q)
+                          | Some ((Leafp (name,(_,bracket))),q) ->
+                                  acc2 := None;
+                                 ((Leafp (name,(dist,bracket))),q)
+                          | _ -> raise 
+                            (Illegal_tree_format "Unexpected Character")
+                         )
+                | '[' -> 
+                        let contents = 
+                            try get_cost_bracket () with
+                            | End_of_file ->
+                                    let msg = "Unexpected end of file" in
+                                    raise (Illegal_tree_format msg)
+                        in
+                        (match !acc2 with
+                        | Some (h, _) -> 
+                                acc2 := None;
+                                (h, contents) 
+                        | None -> 
+                                let msg = "Unexpected cost spec" in
+                                raise (Illegal_tree_format msg))
+                | v -> 
+                        let character = stream#get_position in
+                        let ch = Char.escaped v in
+                        let message = "Unexpected character " ^ ch ^ 
+                        " in position " ^ string_of_int character in
+                        failwith message
+            in
+            tree_generator
+        in
+        if not do_stream then `Treess (read_tree [] [])
+        else `Stream (read_tree_str)
+
+    (* post_processing function for trees. Will figure out what type of tree we
+    * are parsing and apply the correct varient type *)
+    let post_process (t:(string * (float option * string option)) t * string):tree_types = 
+        let branches_exist t = 
+                fold_left_data
+                   (fun a (s,(n,c)) -> match n with | None -> a | _ -> true)
+                    false t
+        and characters_exist t = 
+                fold_left_data
+                    (fun a (s,(n,c)) -> match c with | None -> a | _ -> true)
+                    false t
+        and annotations_exist (t,str) = match str with
+            | "" -> false
+            | _ -> true
+        in
+        
+        let remove_branches (t,s) = map (fun (d,(n,c)) -> d) t,s
+        and remove_annot_1branches (t,s) = map (fun (d,(n,c)) -> d,c) t
+        and remove_annot_2branches (t,s) = map (fun (d,(n,c)) -> d,n) t
+        and remove_all (t,s)  = map (fst) t in
+
+        match annotations_exist t,branches_exist t,characters_exist t with
+        | false,false,false  -> Flat (remove_all t)
+        |  true,false,false  ->
+                let t,s = remove_branches t in Annotated (t,s)
+        | false, true,false  -> Branches (remove_annot_2branches t)
+        |   _  ,  _  , true  -> Characters (remove_annot_1branches t)
+        |   _  ,  _  ,  _   -> Branches (remove_annot_2branches t)
+
+    (** general function for trees *)
+    let gen_aux_of_stream str = match gen_aux_of_stream_gen false str with
+        | `Treess t -> List.rev_map (List.rev_map (post_process)) t
+        | `Stream _ -> assert false
+
+    (** [(gen_)of_string ...] **)
+    let gen_of_string f str = 
+        try
+            let stream = new FileStream.string_reader str in
+            f stream
+        with
+        | Trailing_characters -> 
+                raise (Illegal_tree_format "Trailing characters in tree.")
+    let of_string str = gen_of_string gen_aux_of_stream str
+
+    (** [(gen_)of_channel ...] **)
+    let gen_of_channel f ch =
+        try
+            let stream = FileStream.stream_reader ch in
+            f stream
+        with
+        | End_of_file -> failwith "Unexpected end of file"
+    let of_channel ch = gen_of_channel gen_aux_of_stream ch
+
+    (** [(gen_)of_file ...] **)
+    let gen_of_file f file =
+        try
+            let ch = FileStream.open_in file in
+            let x = f ch in
+            close_in ch;
+            x
+        with
+        | Failure msg ->
+                let file = FileStream.filename file in
+                let msg = file ^ ": " ^ msg in
+                raise (Illegal_tree_format msg)
+        | (Sys_error err) as e ->
+                let file = FileStream.filename file in
+                let msg = "Couldn't@ open@ the@ trees@ file@ " ^ 
+                StatusCommon.escape file ^ 
+                ".@ The@ error@ message@ is@ @[" ^ err ^ "@]"in
+                Status.user_message Status.Error msg;
+                raise e
+    let of_file file = gen_of_file of_channel file
+
+    (** [stream of_file .. ] *)
+    let stream_of_file is_compressed file =
+        let ch, to_close = 
+            if is_compressed then
+                let protocol = 
+                    let ch = FileStream.open_in_bin file in
+                    let res = Lz.detect_type ch in
+                    close_in ch;
+                    res
+                in
+                match protocol with
+                | `Zlib -> 
+                        let real_ch = FileStream.open_in_gz file in
+                        FileStream.gz_reader real_ch,
+                        `Zlib real_ch
+                | #Lz.protocol as protocol ->
+                        match protocol with
+                        | `Compressed x -> 
+                                let real_ch = FileStream.open_in_bin file in
+                                new FileStream.compressed_reader protocol real_ch, 
+                                `Regular real_ch
+                        | `NoCompression -> 
+                                let real_ch = FileStream.open_in_bin file in
+                                FileStream.stream_reader real_ch,
+                                `Regular real_ch
+            else
+                let real_ch = FileStream.open_in_bin file in
+                FileStream.stream_reader real_ch, `Regular real_ch
+        in
+        match gen_aux_of_stream_gen true ch with
+        | `Treess _ -> assert false
+        | `Stream s -> 
+                (fun () -> post_process (s ())), 
+                match to_close with
+                | `Regular real_ch -> (fun () -> close_in real_ch)
+                | `Zlib real_ch -> (fun () -> Gz.close_in real_ch)
+
+    let cannonic_order tree =
+        let rec build_cannonic_order fn = function
+            | Leafp d -> (Leafp d, d)
+            | Nodep (chld , cnt) ->
+                    let nch = List.sort fn (List.map (build_cannonic_order fn) chld) in
+                    let _, b = List.hd nch in
+                    let nch = List.map (fun (x, _) -> x) nch in
+                    Nodep (nch, cnt), b
+        in
+        match tree with
+            | Annotated (t,str) ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Annotated (tree,str)
+            | Flat t ->
+                let tree,_ = 
+                    build_cannonic_order (fun (_,a) (_,b) -> compare a b) t
+                in Flat tree
+            | Branches t ->
+                let tree,_ = build_cannonic_order 
+                                (fun (_,(d1,_)) (_,(d2,_)) -> compare d1 d2)
+                                t
+                in Branches tree
+            | Characters t ->
+                let tree,_ = build_cannonic_order 
+                                (fun (_,(d1,_)) (_,(d2,_)) -> compare d1 d2)
+                                t
+                in Characters tree
+
+    exception Illegal_argument
+
+    let strip_tree = function
+        | Annotated (t,_) | Flat t -> t
+        | Characters t -> map (fst) t
+        | Branches t -> map (fst) t
+
+    let maximize_tree = function
+        | Characters t -> t
+        | Branches t -> map (fun (x,_) -> x,None) t
+        | Annotated (t,_)
+        | Flat t -> map (fun x -> x,None) t
+
+    let cleanup ?newroot f tree =
+        let rec aux_cleanup f tree = 
+            match tree with
+            | Leafp x -> 
+                    if f x then []
+                    else [tree]
+            | Nodep (chld, x) ->
+                    let res = List.flatten (List.map (aux_cleanup f) chld) in
+                    match res with
+                    | [] | [_] -> res
+                    | y -> [Nodep (y, x)]
+        in
+        match tree with
+        | Annotated (t,str) -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Annotated (x,str))
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Annotated (Nodep (x, y),str)))
+        | Branches t -> (match aux_cleanup (fun (s,d) -> f s) t with
+             | [] -> None
+             | [x] -> Some (Branches x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Branches (Nodep (x,(y,None)))))
+        | Characters t -> (match aux_cleanup (fun (s,d) -> f s) t with
+             | [] -> None
+             | [x] -> Some (Characters x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Characters (Nodep (x,(y,None)))))
+        | Flat t -> (match aux_cleanup f t with
+             | [] -> None
+             | [x] -> Some (Flat x)
+             | x -> match newroot with
+                    | None -> raise Illegal_argument
+                    | Some y -> Some (Flat (Nodep (x, y))))
+
+    let add_tree_to taxon_code add_to tree =
+        (* below, fill in tree names for consistent tree *)
+        let tree = maximize_tree tree in
+        let avail_codes = ref add_to.avail_ids in
+        let cg = 
+            fun () -> 
+                match !avail_codes with
+                | h :: t -> 
+                        avail_codes := t;
+                        h
+                | [] -> assert false
+        in
+        let rec assign_codes parent = function
+            | Leafp (name,nname) ->
+                    let tc = 
+                        try taxon_code name with
+                        | Not_found as err ->
+                                Status.user_message Status.Error
+                                ("Could@ not@ find@ data@ loaded@ for@ taxon@ " ^
+                                StatusCommon.escape name ^ "@ in@ a@ loaded@ tree.");
+                                raise err
+                    in
+                    (* let () = match nname with
+                        | Some x ->
+                                let x = String.uppercase x in
+                                Hashtbl.replace add_to.names tc x
+                        | None -> ()
+                    in *)
+                    Leafp (Leaf (tc, parent)), tc
+            | Nodep (child_nodes, (txt,nname)) ->
+                    let rec resolve_more_children (chil:(string * string option) t list) = match chil with
+                        | [a; b] as x -> x
+                        | [taxon] ->
+                                Status.user_message Status.Error
+                                ("Your@ tree@ file@ has@ a@ subtree@ or@ taxon@ " ^
+                                "occurring@ as@ the@ unique@ member@ of@ an@ " ^
+                                "internal@ node@ in@ the@ tree@ " ^
+                                "(maybe@ there@ is@ a@ space@ missing@ between@ " ^
+                                "taxa?).@ I@ am@ cancelling@ this@ read@ command");
+                                failwith "Illegal Tree file format"
+                        | [] -> 
+                                Status.user_message Status.Error
+                                ("Your@ tree@ file@ has@ a@ (),@ that@ is,@ " ^
+                                "an@ opening@ parentheses@ followed@ immediately@ "
+                                ^ "by@ a@ closing@ parentheses.@ Empty@ trees@ "
+                                ^ "are@ not@ allowed@ in@ a@ tree@ file,@ so@ I@ " ^
+                                "am@ cancelling@ this@ read@ command");
+                                failwith "Illegal Tree file format"
+                        | a :: b :: t ->
+                                resolve_more_children ((Nodep ([a; b], (txt,nname))) :: t)
+                    in
+                    let sc = cg () in 
+                    (* let () = match nname with
+                        | Some x -> 
+                            let x = String.uppercase x in
+                            Hashtbl.replace add_to.names sc x
+                        | None -> ()
+                    in *)
+                    let child_nodes = resolve_more_children child_nodes in
+                    match child_nodes with
+                    | [a; b] ->
+                            let ta, ca = assign_codes sc a in
+                            let tb, cb = assign_codes sc b in
+                            Nodep ([ta; tb], 
+                            Interior (sc, parent, ca, cb)), sc
+                    | _ -> failwith "Tree.assign_codes"
+        in
+        let add_edge a b = EdgeSet.add (Edge (a, b)) in
+        let remove_edge a b = EdgeSet.remove (Edge (a, b)) in
+        let replace_parent vertices v par = 
+            let vertex = All_sets.IntegerMap.find v vertices in
+            let vertex = 
+                match vertex with
+                | Interior (a, _, b, c) -> Interior (a, par, b, c)
+                | Leaf (a, _) -> Leaf (a, par)
+                | Single _ -> failwith "Unexpected Tree.replace_parent"
+            in
+            All_sets.IntegerMap.add v vertex vertices
+        in
+        let rec add_edges_n_vertices tree (edges, vertices) =
+            match tree with
+            | Nodep ([x; y], ((Interior (a, b, c, d)) as v)) ->
+                    let vertices = All_sets.IntegerMap.add a v vertices 
+                    and edges =  edges --> add_edge b a --> add_edge a c -->
+                        add_edge a d
+                    in
+                    add_edges_n_vertices x 
+                    (add_edges_n_vertices y (edges, vertices))
+            | Leafp ((Leaf (a, b)) as v) ->
+                    let vertices = All_sets.IntegerMap.add a v vertices 
+                    and edges = add_edge b a edges in
+                    (edges, vertices)
+            | _ -> failwith "Unexpected Tree.add_edges_n_vertices"
+        in
+        let tree =  
+            (* We clean up a tree that has only one leaf, this is valid when
+            processing forest, but invalid inside a tree. *)
+            match tree with
+            | (Leafp _) as x
+            | Nodep ([((Leafp _) as x)], _) -> x
+            | y -> y
+        in
+        match assign_codes (-1) tree with
+        | Nodep ([a; b], (Interior (sc, _, ca, cb))), _ ->
+                let edges, vertices = 
+                    add_edges_n_vertices b
+                    (add_edges_n_vertices a 
+                    (add_to.d_edges, add_to.u_topo))
+                in
+                let vertices = replace_parent vertices ca cb in
+                let vertices = replace_parent vertices cb ca in
+                let edges = edges -->
+                    remove_edge sc ca --> remove_edge sc cb -->
+                        add_edge ca cb
+                in
+                let handles = All_sets.Integers.add ca add_to.handles in
+                { add_to with
+                    u_topo = vertices;
+                    d_edges = edges;
+                    handles = handles;
+                    avail_ids = !avail_codes;
+                    new_ids = cg ();
+                }
+        | Leafp (Leaf (tc, _)), _ -> 
+                let vertices = 
+                    All_sets.IntegerMap.add tc (Single tc)
+                    add_to.u_topo 
+                in
+                let handles = All_sets.Integers.add tc add_to.handles in
+                { add_to with 
+                        avail_ids = !avail_codes;
+                        u_topo = vertices;
+                        handles = handles
+                }
+        | _ ->failwith "We need trees with more than two taxa"
+
+    let convert_to ((name,trees): string option * tree_types list) taxon_code
+        maximum_number_of_taxa : u_tree = 
+        let add_available total tree =
+            let rec aux max av =
+                if max = total then av
+                else aux (max - 1) (max :: av)
+            in
+            { tree with avail_ids = aux (2 * total) [] }
+        in
+        (*
+        let verify_leaves acc t =
+            let rec verify_leaves f acc = function
+                | Node (cld, _) ->
+                    List.fold_left (verify_leaves f) acc cld
+                | Leaf name -> let name = f name in
+                    try 
+                        let code = get_code name in
+                        (Hashtbl.mem data.Data.taxon_characters code) && acc
+                    with 
+                    | Not_found -> 
+                            Status.user_message Status.Error 
+                            ("The@ terminal@ " ^ name ^ "@ has@ no@ characters@ "
+                            ^ "loaded. Please@ verify@ your@ input@ files.");
+                            false
+            in match t with
+                | Flat t
+                | Annotated (t,_) ->
+                        (verify_leaves (fun x -> x) true t) & acc
+                | Characters t ->
+                        (verify_leaves (fst) true t) & acc
+                | Branches t ->
+                        (verify_leaves (fst) true t) & acc
+        in
+        if not (List.fold_left verify_leaves true trees) then
+            failwith "Illegal input tree"
+        else
+        *)
+            let utree = { (empty ()) with tree_name = name } in
+            let tree = add_available maximum_number_of_taxa utree in
+            List.fold_left (add_tree_to taxon_code) tree trees
+
+end
 
 module Fingerprint = struct
-    type t = int Parser.Tree.t
+    type t = int Parse.t
 
     let find_smallest_leaf {u_topo = topo} =
         All_sets.IntegerMap.fold
@@ -1821,16 +2273,16 @@ module Fingerprint = struct
         in
         let rec fp p = function
             | Single _ -> failwith "Strange place to leave a single"
-            | Leaf (myid, _) -> myid, Parser.Tree.Leaf myid
+            | Leaf (myid, _) -> myid, Parse.Leafp myid
             | (Interior (myid, c1, c2, c3)) as node ->
                   let c1, c2 = other_two_nbrs p node in
                   let c1id, c1l = fp myid (get_node c1 t) in
                   let c2id, c2l = fp myid (get_node c2 t) in
-                  if c1id < c2id then c1id, Parser.Tree.Node ([c1l; c2l], c1id)
-                  else c2id, Parser.Tree.Node ([c2l; c1l], c2id)
+                  if c1id < c2id then c1id, Parse.Nodep ([c1l; c2l], c1id)
+                  else c2id, Parse.Nodep ([c2l; c1l], c2id)
         in 
         let _, left = fp smallest (get_node parent_id t) in
-        Parser.Tree.Node ([Parser.Tree.Leaf smallest; left], smallest)
+        Parse.Nodep ([Parse.Leafp smallest; left], smallest)
 
     let compare = compare
 

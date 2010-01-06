@@ -65,23 +65,23 @@ type phylogeny = (Node.node_data, unit) p_tree
 let cannonize a =
     let rec cannonize fn a = 
         match a with
-        | Parser.Tree.Leaf x -> x, a
-        | Parser.Tree.Node (lst, _) ->
+        | Parser.Trees.Leaf x -> x, a
+        | Parser.Trees.Node (lst, _) ->
                 let res = List.rev_map cannonize lst in
                 match List.sort (fun ((x : string), _) ((y : string), _) ->
                     Pervasives.compare x y ) res  with
                     | ((h, _) :: _) as lst ->
                             let _, res = List.split lst in
-                            h, (Parser.Tree.Node (res, h))
+                            h, (Parser.Trees.Node (res, h))
                     | [] -> failwith "Ptree.cannonize"
     in
     match a with
-    | Parser.Tree.Annotated (t,str) ->
-        let a,b = cannonize (fun x -> x) t in a,(Parser.Tree.Annotated (b,str))
-    | Parser.Tree.Flat t -> 
-        let a,b = cannonize t in a,(Parser.Tree.Flat b)
-    | Parser.Tree.Branches t ->
-        let a,b = cannonize t in a,(Parser.Tree.Branches b)
+    | Parser.Trees.Annotated (t,str) ->
+        let a,b = cannonize (fun x -> x) t in a,(Parser.Trees.Annotated (b,str))
+    | Parser.Trees.Flat t -> 
+        let a,b = cannonize t in a,(Parser.Trees.Flat b)
+    | Parser.Trees.Branches t ->
+        let a,b = cannonize t in a,(Parser.Trees.Branches b)
 *)
 
 type cost_type = [ `Adjusted | `Unadjusted ]
@@ -427,20 +427,20 @@ module type SEARCH = sig
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          string option * Parser.Tree.tree_types list ->
+          string option * Tree.Parse.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types list
+                        string -> Tree.Parse.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) ->
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types
+                        string -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -449,21 +449,21 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Tree.Parse.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
         val build_forest :
             bool -> (a, b) p_tree ->
-          string -> Parser.Tree.tree_types list
+          string -> Tree.Parse.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Tree.Parse.tree_types list
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool ->
-            Parser.Tree.tree_types list
+            Tree.Parse.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
@@ -1777,12 +1777,14 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
     limit_num res
 
 (** [convert_to tree d]
-    @param tree the Parser.Tree.t that is being used to build trees.
+    @param tree the Tree.Parse.t that is being used to build trees.
     @param d Data.d the data associated with the parser tree.
-    @return p_tree that corresponds to the Parser.Tree.t *)
+    @return p_tree that corresponds to the Tree.Parse.t *)
 let convert_to tree (data, nd_data_lst) = 
-    (* convert the Parser.Tree.t to Tree.u_tree *)
-    let ut = Tree.convert_to tree data in
+    (* convert the Tree.Parse.t to Tree.u_tree *)
+    let ut = 
+        Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon
+        data) (Data.number_of_taxa data) in
     let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
     let data_adder ptree nd = 
@@ -1791,21 +1793,21 @@ let convert_to tree (data, nd_data_lst) =
     (List.fold_left data_adder pt nd_data_lst)
 
 (** [build_trees tree]
-    @param tree the ptree which is being converted into a Parser.Tree.t
+    @param tree the ptree which is being converted into a Tree.Parse.t
     @param str_gen is a function that generates a string for each vertex in the
     tree
     @param collapse is a function that check weather or not a branch can be
     collapsed.
-    @return the ptree in the form of a Parser.Tree.t *)
+    @return the ptree in the form of a Tree.Parse.t *)
 let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
     let sortthem a b ao bo data ad bd =
         match String.compare ao bo with
-        | 0 | 1 -> Parser.Tree.Node (b @ a, data), bd + 1, bo
-        | _ -> Parser.Tree.Node (a @ b, data), bd + 1, ao
+        | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
+        | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
     in
     let get_children = function
-        | Parser.Tree.Leaf _ as x -> [x]
-        | Parser.Tree.Node (lst, _) -> lst
+        | Tree.Parse.Leafp _ as x -> [x]
+        | Tree.Parse.Nodep (lst, _) -> lst
     in
 
     (* create an empty table if none is passed *)
@@ -1831,7 +1833,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
         match node with
         | Tree.Leaf (self, parent) -> 
               let data = str_gen root self (Some parent) in
-              Parser.Tree.Leaf data, 0, (fst data)
+              Tree.Parse.Leafp data, 0, (fst data)
         | Tree.Interior (our_id, _, _, _) ->
               let (ch1, ch2) = 
                   assert (prev_node <> Tree.get_id node);
@@ -1860,14 +1862,14 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
               let data = str_gen root our_id (Some prev_node) in
 
               if bd > ad then
-                  Parser.Tree.Node (a @ b, data), bd + 1, bo
+                  Tree.Parse.Nodep (a @ b, data), bd + 1, bo
                 (* if equal then sort children alphabetically *)
               else if bd = ad then sortthem a b ao bo data ad bd 
-              else Parser.Tree.Node (b @ a, data), ad + 1, ao
+              else Tree.Parse.Nodep (b @ a, data), ad + 1, ao
         | Tree.Single _ -> failwith "Unexpected single"
     in
     
-    let map : Parser.Tree.tree_types list =
+    let map : Tree.Parse.tree_types list =
         List.map
         (fun handle ->
             let tree = 
@@ -1877,7 +1879,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
                    let acc, _, _ = rec_down true (Tree.get_node parent
                                            tree) handle in
                    let str = str_gen true self (Some parent) in 
-                   [(Parser.Tree.Leaf str); acc]
+                   [(Tree.Parse.Leafp str); acc]
              | Tree.Interior (self, par_id, ch1, ch2) ->
                    let par = Tree.get_node par_id tree in
                    let ch1 = Tree.get_node ch1 tree in
@@ -1888,22 +1890,22 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
                    let data = str_gen true self (Some par_id) in
                    if acc2d > acc1d then
                        if acc1d > accd then
-                           [Parser.Tree.Node ([acc; acc1], data); acc2]
+                           [Tree.Parse.Nodep ([acc; acc1], data); acc2]
                        else 
-                           [Parser.Tree.Node ([acc1; acc], data); acc2]
+                           [Tree.Parse.Nodep ([acc1; acc], data); acc2]
                    else if acc1d > accd then
                        if acc2d > accd then 
-                           [Parser.Tree.Node ([acc; acc2], data); acc1]
+                           [Tree.Parse.Nodep ([acc; acc2], data); acc1]
                        else 
-                           [Parser.Tree.Node ([acc2; acc], data); acc1]
+                           [Tree.Parse.Nodep ([acc2; acc], data); acc1]
                    else 
                        if acc2d > acc1d then
-                           [Parser.Tree.Node ([acc1;acc2], data); acc]
+                           [Tree.Parse.Nodep ([acc1;acc2], data); acc]
                        else 
-                           [Parser.Tree.Node ([acc2;acc1], data); acc]
-             | Tree.Single self -> [(Parser.Tree.Leaf (str_gen true self None))]
-             in Parser.Tree.post_process 
-                    ( Parser.Tree.Node (tree,("",(None,None))),root )
+                           [Tree.Parse.Nodep ([acc2;acc1], data); acc]
+             | Tree.Single self -> [(Tree.Parse.Leafp (str_gen true self None))]
+             in Tree.Parse.post_process 
+                    ( Tree.Parse.Nodep (tree,("",(None,None))),root )
             ) (* ^ there is going to have to be something in that "" *)
             (All_sets.Integers.elements (Tree.get_handles tree))
     in
@@ -1911,7 +1913,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
 
 
     (** [build_tree tree]
-        @param tree the ptree being converted into a Parser.Tree.t
+        @param tree the ptree being converted into a Tree.Parse.t
         @return the tree with the smallest handle_id in ptree *)
     let build_tree tree strgen collapse branches (root:string) =
         let map = build_trees tree strgen collapse branches root in
@@ -1947,15 +1949,15 @@ let compare_trees a b =
     let rec compare acc a b = 
         acc &&
         (match a, b with
-        | Parser.Tree.Leaf x, Parser.Tree.Leaf y ->  x = y
-        | Parser.Tree.Node (ca, _), Parser.Tree.Node (cb, _) ->
+        | Tree.Parse.Leafp x, Tree.Parse.Leafp y ->  x = y
+        | Tree.Parse.Nodep (ca, _), Tree.Parse.Nodep (cb, _) ->
                 fold_2 compare true ca cb
         | _, _ -> false)
     in match a,b with
-    | Parser.Tree.Branches t1, Parser.Tree.Branches t2 -> compare true t1 t2
-    | Parser.Tree.Annotated (t1,_), Parser.Tree.Annotated (t2,_) -> compare true t1 t2
-    | Parser.Tree.Flat t1, Parser.Tree.Flat t2 -> compare true t1 t2
-    | Parser.Tree.Characters t1, Parser.Tree.Characters t2 -> compare true t1 t2
+    | Tree.Parse.Branches t1, Tree.Parse.Branches t2 -> compare true t1 t2
+    | Tree.Parse.Annotated (t1,_), Tree.Parse.Annotated (t2,_) -> compare true t1 t2
+    | Tree.Parse.Flat t1, Tree.Parse.Flat t2 -> compare true t1 t2
+    | Tree.Parse.Characters t1, Tree.Parse.Characters t2 -> compare true t1 t2
     | _ -> failwith "Fill this all in??! really?"
 
 let get_unique trees =
@@ -1975,7 +1977,7 @@ let get_unique trees =
                 try
                 List.rev_map 
                     (fun (x, y) -> 
-                        x,Parser.Tree.cannonic_order (build_tree_with_codes y ""))
+                        x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
                     trees
                 with
                 | Not_found as err -> 
@@ -2045,34 +2047,34 @@ let build_forest_as_tree collapse tree cost =
     | [] -> failwith "no trees?"
     | trees -> 
         match List.hd trees with
-        | Parser.Tree.Annotated (t,str) ->
+        | Tree.Parse.Annotated (t,str) ->
             let chillens = List.map 
                 (fun x -> match x with 
-                    | Parser.Tree.Annotated (x,_) -> x
+                    | Tree.Parse.Annotated (x,_) -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Flat (Parser.Tree.Node (chillens, "forest"))
-        | Parser.Tree.Flat t ->
+            Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
+        | Tree.Parse.Flat t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Flat x -> x
+                    | Tree.Parse.Flat x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Flat (Parser.Tree.Node (chillens, "forest"))
-        | Parser.Tree.Characters t ->
+            Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
+        | Tree.Parse.Characters t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Characters x -> x
+                    | Tree.Parse.Characters x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Characters (Parser.Tree.Node (chillens, ("forest",None)))
-        | Parser.Tree.Branches t ->
+            Tree.Parse.Characters (Tree.Parse.Nodep (chillens, ("forest",None)))
+        | Tree.Parse.Branches t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Branches x -> x
+                    | Tree.Parse.Branches x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Branches (Parser.Tree.Node (chillens, ("forest",None)))
+            Tree.Parse.Branches (Tree.Parse.Nodep (chillens, ("forest",None)))
 
 let build_forest_with_names_n_costs collapse tree cost branches = 
     let collapse_f = handle_collapse collapse tree in
@@ -2106,8 +2108,8 @@ let disp_trees str tree strgen root =
         trees := List.tl !trees
     done
 (** [to_xml tree data f]
-@param tree the ptree which is being converted into a Parser.Tree.t
-@return the ptree in the form of a Parser.Tree.t *)
+@param tree the ptree which is being converted into a Tree.Parse.t
+@return the ptree in the form of a Tree.Parse.t *)
 let to_xml ch tree =
     let rec rec_down node prev_node =
         match node with
@@ -2339,8 +2341,8 @@ let make_tree_counters code_generator counters gen_tree =
         add_or_not false single counters
     in
     let rec make_tree_counters counters tree = match tree with
-        | Parser.Tree.Leaf d -> add_singleton (code_generator d)
-        | Parser.Tree.Node (lst, _) ->
+        | Tree.Parse.Leafp d -> add_singleton (code_generator d)
+        | Tree.Parse.Nodep (lst, _) ->
             let all_sets, counters =
                 List.fold_left (fun (all_sets, counters) child ->
                     let its_sets, counters = 
@@ -2354,7 +2356,7 @@ let make_tree_counters code_generator counters gen_tree =
             in
             add_or_not false all_sets counters
     in
-    make_tree_counters counters (Parser.Tree.strip_tree gen_tree)
+    make_tree_counters counters (Tree.Parse.strip_tree gen_tree)
 
 let add_consensus_to_counters counters trees = 
     let new_counter = 
@@ -2384,7 +2386,7 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
                     let code = All_sets.Integers.choose set in
                     coder := code;
                     let name = to_string code in
-                    let newtree = Parser.Tree.Flat (Parser.Tree.Leaf name) in
+                    let newtree = Tree.Parse.Flat (Tree.Parse.Leafp name) in
                     let trees = 
                         All_sets.IntegerMap.add code (newtree, set) builttrees 
                     in
@@ -2403,8 +2405,8 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
                         Printf.sprintf "%.2f" (cnt /. denominator)
                     else ""
                 in
-                let all_trees = List.map (Parser.Tree.strip_tree) all_trees in
-                Parser.Tree.Flat (Parser.Tree.Node (all_trees, msg))
+                let all_trees = List.map (Tree.Parse.strip_tree) all_trees in
+                Tree.Parse.Flat (Tree.Parse.Nodep (all_trees, msg))
     in
     All_sets.Integers.fold (fun x trees ->
         All_sets.IntegerMap.add x (tree, set) trees)
@@ -2496,7 +2498,7 @@ let extract_bremer to_string sets =
 * tree) of sets, for the input tree *)
 let bremer to_string cost tree generator files =
     let tree_file_handlers = 
-        ref (List.map (Parser.Tree.stream_of_file true) files) 
+        ref (List.map (Tree.Parse.stream_of_file true) files) 
     in
     (* We first create a function that takes a map of clades and best cost found
     * for a tree _not_ containing the set, and a set of clades belonging to a

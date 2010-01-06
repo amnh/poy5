@@ -31,8 +31,9 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
     int nhurdles, nsuperhurdles, nfortresses, nuoc;
     int i, n, j, c, k, h1, h2, ncomp, npseudohurdles, neutral_mode;
     List uoc_list;
-    Reversal *rev;
+    Reversal *rev; Reversal revrev;
     ReversalSortingMemory *mem;
+    ElementUnion tmp; 
 
     if ( rsm == NULL )
         mem = new_reversal_sorting_memory ( ngenes );
@@ -139,10 +140,11 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
         clear_list ( &mem->cyclelist[i] );
         clear_list ( &mem->cyclelist[c + 1 + i] );
     }
+    
     for ( i = 0; i <= ngenes; i++ )
     {
-        push ( &mem->cyclelist[mem->be[i] * ( c + 1 ) + mem->cycle[i]],
-               ( void * ) i );
+        tmp.intelement = i;
+        push ( &mem->cyclelist[mem->be[i] * ( c + 1 ) + mem->cycle[i]],  tmp );
     }
 
     /* initialize connected component structs */
@@ -163,8 +165,8 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
        belongs; simultaneously update orientations of components */
     for ( i = 0; i < c; i++ )
     {
-        push ( &mem->conn_comp[mem->comp_label_by_cycle[i]].cyclelist,
-               ( void * ) i );
+        tmp.intelement = i;
+        push ( &mem->conn_comp[mem->comp_label_by_cycle[i]].cyclelist, tmp );
         if ( mem->conn_comp[mem->comp_label_by_cycle[i]].type != ORIENTED
              && list_size ( &mem->cyclelist[i] ) > 0
              && list_size ( &mem->cyclelist[c + 1 + i] ) > 0 )
@@ -176,7 +178,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
     {
         if ( list_size ( &mem->conn_comp[i].cyclelist ) == 1 )
         {
-            j = ( int ) list_get ( &mem->conn_comp[i].cyclelist, 0 );
+            j = ( list_get ( &mem->conn_comp[i].cyclelist, 0 )).intelement;
             if ( list_size ( &mem->cyclelist[j] ) +
                  list_size ( &mem->cyclelist[c + 1 + j] ) == 1 )
                 mem->conn_comp[i].type = TRIVIAL;
@@ -189,10 +191,10 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
     {
         if ( mem->conn_comp[i].type == ORIENTED )
         {
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
             build_overlap_matrix ( &mem->conn_comp[i], mem->upi, mem->inv2,
                                    n, c, mem->cyclelist );
-#endif
+//#endif
         }
         else if ( mem->conn_comp[i].type != TRIVIAL )
             nuoc++;
@@ -204,18 +206,14 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
     {                           /* if two or less, all must be simple
                                    hurdles */
 
+      //  fprintf(stdout,"nuoc=%d,find superhurdles...\n",nuoc); fflush(stdout);
         /* first find sequence in which unoriented components appear; 
            reduce repeated appearances to single instances */
-        init_list ( &uoc_list, n, sizeof ( int ) );
+        init_list ( &uoc_list, n, IntData );
 
         build_uoc_list ( &uoc_list, mem->conn_comp, mem->comp_label_by_pos,
                          n );
         
-      //  int lstsize = list_size(&uoc_list);
-      //  fprintf(stdout,"\n before find_superhurdles, lstsize=%d",lstsize);
-      //  fflush(stdout);
-
-
         /* now find and label superhurdles and double superhurdles */
         //find_superhurdles ( &uoc_list, mem->conn_comp, nuoc, ncomp,
         //                    &nhurdles, &nsuperhurdles );
@@ -266,14 +264,13 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
              0 )
         {
             printf ( " (double superhurdle with %d",
-                     ( int ) list_get ( &mem->conn_comp[i].
-                                        double_superhurdle_partners, 0 ) );
+                     ( list_get ( &mem->conn_comp[i].double_superhurdle_partners, 0 ) ).intelement);
             if ( list_size ( &mem->conn_comp[i].double_superhurdle_partners )
                  > 1 )
                 printf ( " and %d",
-                         ( int ) list_get ( &mem->conn_comp[i].
+                          list_get ( &mem->conn_comp[i].
                                             double_superhurdle_partners,
-                                            1 ) );
+                                            1 ).intelement );
             printf ( ")" );
         }
         if ( mem->conn_comp[i].protecting_superhurdle != -1 )
@@ -286,7 +283,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
         for ( j = 0; j < list_size ( &mem->conn_comp[i].cyclelist ); j++ )
         {
             int x;
-            x = ( int ) list_get ( &mem->conn_comp[i].cyclelist, j );
+            x = (list_get ( &mem->conn_comp[i].cyclelist, j )).intelement;
             printf ( "(%d: %d x 0, %d x 1)\n", x,
                      list_size ( &mem->cyclelist[x] ),
                      list_size ( &mem->cyclelist[c + 1 + x] ) );
@@ -302,20 +299,22 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
             for ( k = 0; k < list_size ( &mem->cyclelist[c + 1 + i] ); k++ )
             {
                 int a, b, nhf;
-                rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
-                a = ( int ) list_get ( &mem->cyclelist[i], j );
-                b = ( int ) list_get ( &mem->cyclelist[c + 1 + i], k );
+             //   rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                rev = & revrev;
+                a = (  list_get ( &mem->cyclelist[i], j )).intelement;
+                b = (  list_get ( &mem->cyclelist[c + 1 + i], k )).intelement;
                 rev->start = ( a <= b ? a : b );
                 rev->stop = ( a <= b ? b : a );
 
 
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
                 nhf =
                     new_nhurdles_plus_nfortresses ( mem->
                                                     comp_label_by_cycle[i],
                                                     rev, n, ncomp, nuoc,
                                                     nhurdles, nfortresses,
                                                     mem );
+                /*
 #else
                 nhf =
                     new_nhurdles_plus_nfortresses_cc ( mem->
@@ -324,13 +323,16 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                                        nhurdles, nfortresses,
                                                        mem );
 #endif
+*/
 
+
+                tmp.revelement = *rev;
                 if ( nhf <= nhurdles + nfortresses )
-                    push ( l, rev );
+                   push ( l, tmp );
                 else if ( neutral_mode && nhf == nhurdles + nfortresses + 1 )
-                    push ( m, rev );
-                else
-                    free ( rev );
+                    push ( m, tmp );
+                else {}
+                //free ( rev );
             }
         }
     }
@@ -354,20 +356,21 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                           k++ )
                     {
                         int a, b, nhf;
-                        rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
-                        a = ( int ) list_get ( &mem->
+                        //rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                        rev = &revrev;
+                        a = (  list_get ( &mem->
                                                cyclelist[i2 * ( c + 1 ) + i],
-                                               j );
-                        b = ( int ) list_get ( &mem->
+                                               j )).intelement;
+                        b = (  list_get ( &mem->
                                                cyclelist[i2 * ( c + 1 ) + i],
-                                               k );
+                                               k )).intelement;
                         rev->start = ( a <= b ? a : b );
                         rev->stop = ( a <= b ? b : a );
 
                         if ( mem->conn_comp[mem->comp_label_by_cycle[i]].
                              type == ORIENTED )
                         {
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
                             nhf =
                                 new_nhurdles_plus_nfortresses ( mem->
                                                                 comp_label_by_cycle
@@ -376,6 +379,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                                                 nhurdles,
                                                                 nfortresses,
                                                                 mem );
+/*
 #else
                             nhf =
                                 new_nhurdles_plus_nfortresses_cc ( mem->
@@ -387,18 +391,24 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                                                    nfortresses,
                                                                    mem );
 #endif
+*/
+                            
                             if ( nhf == nhurdles + nfortresses )
-                                push ( m, rev );
-                            else
-                                free ( rev );
+                            {
+                                tmp.revelement = *rev;
+                                push ( m, tmp );
+                            }
+                            else {} //free ( rev );
                         }
                         else if ( mem->conn_comp[mem->comp_label_by_cycle[i]].
                                   type != SIMPLEHURDLE )
+                        {
                             /* in the case of a trivial comp, we
                                can't get this far */
-                            push ( m, rev );
-                        else
-                            free ( rev );
+                            tmp.revelement = *rev;
+                            push ( m, tmp );
+                        }
+                        else  {}// free ( rev );
                     }
                 }
             }
@@ -442,6 +452,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
 
     /* enumerate neutral reversals that act on different cycles of
        simple hurdles */
+    //Reversal *rev; Reversal revrev;
     if ( neutral_mode && nsuperhurdles < nhurdles )
     {
         if ( nfortresses == 1 || nsuperhurdles < 3 || nsuperhurdles % 2 == 0
@@ -453,7 +464,6 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                 {
                     int j2, k2, a, b;
                     List *edges1, *edges2;
-                    Reversal *rev;
                     for ( j = 0;
                           j < list_size ( &mem->conn_comp[i].cyclelist );
                           j++ )
@@ -464,27 +474,27 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                         {
                             edges1 =
                                 &mem->
-                                cyclelist[( int )
+                                cyclelist[( 
                                           list_get ( &mem->conn_comp[i].
-                                                     cyclelist, j )];
+                                                     cyclelist, j )).intelement];
                             edges2 =
                                 &mem->
-                                cyclelist[( int )
+                                cyclelist[( 
                                           list_get ( &mem->conn_comp[i].
-                                                     cyclelist, j2 )];
+                                                     cyclelist, j2 )).intelement];
                             for ( k = 0; k < list_size ( edges1 ); k++ )
                             {
                                 for ( k2 = 0; k2 < list_size ( edges2 );
                                       k2++ )
                                 {
-                                    a = ( int ) list_get ( edges1, k );
-                                    b = ( int ) list_get ( edges2, k2 );
-                                    rev =
-                                        ( Reversal * )
-                                        malloc ( sizeof ( Reversal ) );
+                                    a = (  list_get ( edges1, k )).intelement;
+                                    b = (  list_get ( edges2, k2 )).intelement;
+                                   // rev =( Reversal * )malloc ( sizeof ( Reversal ) );
+                                    rev = &revrev;
                                     rev->start = ( a <= b ? a : b );
                                     rev->stop = ( a <= b ? b : a );
-                                    push ( m, rev );
+                                    tmp.revelement = *rev;
+                                    push ( m, tmp );
                                 }
                             }
                         }
@@ -501,7 +511,10 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
     {
         if ( mem->conn_comp[i].type == SIMPLEHURDLE ||
              mem->conn_comp[i].type == SUPHURDLE )
-            push ( mem->mhurdles, ( void * ) i );
+        {
+            tmp.intelement = i;
+            push ( mem->mhurdles, tmp );
+        }
     }
 
 
@@ -519,8 +532,8 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
         {
             for ( j = i + 1; j < list_size ( mem->mhurdles ); j++ )
             {
-                h1 = ( int ) list_get ( mem->mhurdles, i );
-                h2 = ( int ) list_get ( mem->mhurdles, j );
+                h1 = ( list_get ( mem->mhurdles, i )).intelement;
+                h2 = (  list_get ( mem->mhurdles, j )).intelement;
 
                 if ( nfortresses == 0 &&
                      eliminating_components_creates_fortress ( h1, h2,
@@ -569,11 +582,11 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                 separator = llabel[i];
                 for ( k = 0; k < list_size ( &ocs[i] ); k++ )
                 {
-                    oc = ( int ) list_get ( &ocs[i], k );
+                    oc = ( list_get ( &ocs[i], k )).intelement;
                     for ( j = 0; j < list_size ( mem->mhurdles ); j++ )
                     {
 
-                        h = ( int ) list_get ( mem->mhurdles, j );
+                        h = ( list_get ( mem->mhurdles, j )).intelement;
 
                         if ( h == separator )
                             continue;
@@ -622,10 +635,10 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
 
                     for ( k = 0; k < list_size ( &ocs[i] ); k++ )
                     {
-                        int o1 = ( int ) list_get ( &ocs[i], k );
+                        int o1 = ( list_get ( &ocs[i], k )).intelement;
                         for ( k2 = 0; k2 < list_size ( &ocs[j] ); k2++ )
                         {
-                            int o2 = ( int ) list_get ( &ocs[j], k2 );
+                            int o2 = ( list_get ( &ocs[j], k2 )).intelement;
                             add_all_merging_reversals ( l,
                                                         &mem->conn_comp[o1],
                                                         &mem->conn_comp[o2],
@@ -643,12 +656,15 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                 /* we will need a list of benign components that have no
                    separating hurdle */
                 List non_separated_ocs;
-                init_list ( &non_separated_ocs, ncomp, sizeof ( int ) );
+                init_list ( &non_separated_ocs, ncomp, IntData );
                 for ( i = 0; i < ncomp; i++ )
                     if ( is_separated[i] == 0
                          && ( mem->conn_comp[i].type == ORIENTED
                               || mem->conn_comp[i].type == TRIVIAL ) )
-                        push ( &non_separated_ocs, ( void * ) i );
+                    {
+                            tmp.intelement = i;
+                        push ( &non_separated_ocs, tmp );
+                    }
 
 
                 if ( nfortresses == 1 )
@@ -658,25 +674,24 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                        then merge each component of one list with each component
                        of the other */
                     List to_merge1, to_merge2;
-                    init_list ( &to_merge1, ncomp, sizeof ( int ) );
-                    init_list ( &to_merge2, ncomp, sizeof ( int ) );
+                    init_list ( &to_merge1, ncomp, IntData );
+                    init_list ( &to_merge2, ncomp, IntData );
                     for ( i = 0; i < list_size ( mem->mhurdles ); i++ )
                     {
-                        int h = ( int ) list_get ( mem->mhurdles, i );
-                        push ( &to_merge1, ( void * ) h );
+                        int h = ( list_get ( mem->mhurdles, i )).intelement;
+                        push ( &to_merge1, list_get ( mem->mhurdles, i ) );
                         for ( j = 0;
                               lidx[h] != -1
                               && j < list_size ( &ocs[lidx[h]] ); j++ )
                         {
-                            int oc = ( int ) list_get ( &ocs[lidx[h]], j );
-                            push ( &to_merge1, ( void * ) oc );
+                            push ( &to_merge1, list_get ( &ocs[lidx[h]], j ) );
                         }
 
                         /* anchor of chain */
                         if ( mem->conn_comp[h].anchor != -1 )
                         {
-                            push ( &to_merge2,
-                                   ( void * ) mem->conn_comp[h].anchor );
+                            tmp.intelement = mem->conn_comp[h].anchor;
+                            push ( &to_merge2, tmp );
                         }
 
                         /* all protected nonhurdles not in chain */
@@ -687,7 +702,8 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                  mem->conn_comp[j].chain !=
                                  mem->conn_comp[h].chain )
                             {
-                                push ( &to_merge2, ( void * ) j );
+                                 tmp.intelement = j;
+                                push ( &to_merge2, tmp);
                             }
                         }
 
@@ -697,20 +713,20 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                               j++ )
                         {
                             int bc =
-                                ( int ) list_get ( &non_separated_ocs, j );
+                                (  list_get ( &non_separated_ocs, j )).intelement;
 
                             /* don't add if the benign component falls in the middle
                                of hurdle h's chain */
                             if ( bc_hurdchain[bc] != mem->conn_comp[h].chain )
-                                push ( &to_merge2, ( void * ) bc );
+                                push ( &to_merge2, list_get ( &non_separated_ocs, j ) );
                         }
 
                         for ( j = 0; j < list_size ( &to_merge1 ); j++ )
                         {
-                            int c1 = ( int ) list_get ( &to_merge1, j );
+                            int c1 = (  list_get ( &to_merge1, j )).intelement;
                             for ( k = 0; k < list_size ( &to_merge2 ); k++ )
                             {
-                                int c2 = ( int ) list_get ( &to_merge2, k );
+                                int c2 = ( list_get ( &to_merge2, k )).intelement;
                                 add_all_merging_reversals ( l,
                                                             &mem->
                                                             conn_comp[c1],
@@ -731,19 +747,24 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                 if ( neutral_mode )
                 {
                     List tmpl;
-                    init_list ( &tmpl, ncomp, sizeof ( int ) );
+                    init_list ( &tmpl, ncomp, IntData );
                     for ( i = 0; i < list_size ( mem->mhurdles ); i++ )
                     {
-                        int hrdl = ( int ) list_get ( mem->mhurdles, i );
+                        int hrdl = (  list_get ( mem->mhurdles, i )).intelement;
                         /* anchor of chain */
                         if ( mem->conn_comp[hrdl].anchor != -1 )
+                        {
+                             tmp.intelement = mem->conn_comp[hrdl].anchor;
                             push ( &tmpl,
-                                   ( void * ) mem->conn_comp[hrdl].anchor );
+                                   tmp );
+                        }
                         /* hurdle itself, if it's a simple hurdle but not the
                            anchor of its own chain (rare but possible) */
                         if ( mem->conn_comp[hrdl].type == SIMPLEHURDLE &&
                              mem->conn_comp[hrdl].anchor != hrdl )
-                            push ( &tmpl, ( void * ) hrdl );
+                        {
+                            push ( &tmpl, list_get ( mem->mhurdles, i ) );
+                        }
                         /* protected nonhurdles not in chain */
                         for ( j = 0; j < ncomp; j++ )
                         {
@@ -762,7 +783,10 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                     if ( mem->conn_comp[j].chain < 0 &&
                                          mem->conn_comp[j].chain !=
                                          -1 * hrdl - 1 )
-                                        push ( &tmpl, ( void * ) j );
+                                    {
+                                        tmp.intelement = j;
+                                        push ( &tmpl, tmp );
+                                    }
                                 }
                                 /* anchored case: merge with any PNH of another chain */
                                 else
@@ -770,7 +794,10 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                     if ( mem->conn_comp[j].chain !=
                                          mem->conn_comp[hrdl].chain
                                          && j != mem->conn_comp[hrdl].anchor )
-                                        push ( &tmpl, ( void * ) j );
+                                    {
+                                        tmp.intelement = j;
+                                        push ( &tmpl, tmp );
+                                    }
                                 }
                             }
                         }
@@ -779,7 +806,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                               j++ )
                         {
                             int bc =
-                                ( int ) list_get ( &non_separated_ocs, j );
+                                ( list_get ( &non_separated_ocs, j )).intelement;
                             /* have to distinguish between anchored and unanchored cases */
                             if ( ( mem->conn_comp[hrdl].anchor != -1 &&
                                    bc_hurdchain[bc] !=
@@ -787,25 +814,27 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                  || ( mem->conn_comp[hrdl].anchor == -1
                                       && bc_hurdchain[bc] < 0
                                       && bc_hurdchain[bc] != -1 * hrdl - 1 ) )
-                                push ( &tmpl, ( void * ) bc );
+                                push ( &tmpl, list_get ( &non_separated_ocs, j ) );
                         }
                         /* double superhurdle partners */
                         for ( j = 0;
                               j <
                               list_size ( &mem->conn_comp[hrdl].
                                           double_superhurdle_partners ); j++ )
-                            if ( ( int )
+                            if ( ( 
                                  list_get ( &mem->conn_comp[hrdl].
                                             double_superhurdle_partners,
-                                            j ) > hrdl )
+                                            j ) ).intelement > hrdl )
                             {
                                 /* '>' to be sure we only add once */
                                 int partner =
-                                    ( int ) list_get ( &mem->conn_comp[hrdl].
+                                    ( list_get ( &mem->conn_comp[hrdl].
                                                        double_superhurdle_partners,
-                                                       j );
-                                push ( &tmpl, ( void * ) partner );
-
+                                                       j )).intelement;
+                                push ( &tmpl,
+                                        list_get ( &mem->conn_comp[hrdl].
+                                                       double_superhurdle_partners,j )
+                                        );
                                 /* also add separated benign components */
                                 for ( k = 0; lidx[partner] != -1 &&
                                       k < list_size ( &ocs[lidx[partner]] );
@@ -820,7 +849,7 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                            the BCs that hrdl separates */
                         for ( j = 0; j < list_size ( &tmpl ); j++ )
                         {
-                            int comp = ( int ) list_get ( &tmpl, j );
+                            int comp = (  list_get ( &tmpl, j )).intelement;
                             if ( hrdl != comp )
                                 add_all_merging_reversals ( m,
                                                             &mem->
@@ -837,8 +866,8 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                       k++ )
                                 {
                                     int c1 =
-                                        ( int ) list_get ( &ocs[lidx[hrdl]],
-                                                           k );
+                                        ( list_get ( &ocs[lidx[hrdl]],
+                                                           k )).intelement;
                                     add_all_merging_reversals ( m,
                                                                 &mem->
                                                                 conn_comp[c1],
@@ -860,14 +889,14 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
                                   k++ )
                             {
                                 int k2, c1 =
-                                    ( int ) list_get ( &ocs[lidx[hrdl]], k );
+                                    ( list_get ( &ocs[lidx[hrdl]], k )).intelement;
                                 for ( k2 = k + 1;
                                       k2 < list_size ( &ocs[lidx[hrdl]] );
                                       k2++ )
                                 {
                                     int c2 =
-                                        ( int ) list_get ( &ocs[lidx[hrdl]],
-                                                           k2 );
+                                        ( list_get ( &ocs[lidx[hrdl]],
+                                                           k2 ).intelement);
                                     if ( sepclass[c1] != sepclass[c2] )
                                         add_all_merging_reversals ( m,
                                                                     &mem->
@@ -899,6 +928,8 @@ find_all_sorting_reversals ( List * l, List * m, struct genome_struct *pi,
 
     if ( rsm == NULL )
         free_reversal_sorting_memory ( mem );
+
+    // free(&tmp);
 }
 
 /* To run in normal mode, set source_comp_label to NULL and
@@ -915,6 +946,7 @@ find_connected_components ( int begidx, int len, int *inv2, int *upi,
 {
     int extent_b, extent_e;
     int i, top, comp;
+    ElementUnion tmp; 
 
     if ( source_comp_label == NULL )    /* be sure that they're
                                            consistent ... */
@@ -956,8 +988,13 @@ find_connected_components ( int begidx, int len, int *inv2, int *upi,
             continue;
 
         if ( i == mem->cc_beg[mem->cc_e[i]] )
-            push ( mem->stack, ( void * ) mem->cc_e[i] );
-        top = ( int ) peek_stack ( mem->stack );
+        {
+            tmp.intelement = mem->cc_e[i];
+            push ( mem->stack, tmp );
+        }
+        if (is_empty( mem->stack)) break;
+        else
+        top = ( peek_stack ( mem->stack ) ).intelement;
 
         extent_b = mem->cc_beg[mem->cc_e[i]];
         extent_e = mem->cc_end[mem->cc_e[i]];
@@ -969,7 +1006,9 @@ find_connected_components ( int begidx, int len, int *inv2, int *upi,
                 ( extent_e > mem->cc_end[top] ? extent_e : mem->cc_end[top] );
             mem->cc_parent[mem->cc_beg[top]] = mem->cc_beg[mem->cc_e[i]];
             pop_stack ( mem->stack );
-            top = ( int ) peek_stack ( mem->stack );
+            if (is_empty( mem->stack)) break;
+            else
+            top = ( peek_stack ( mem->stack )).intelement;
         }
         mem->cc_beg[top] = ( extent_b < mem->cc_beg[top] ? extent_b :
                              mem->cc_beg[top] );
@@ -1014,6 +1053,8 @@ find_connected_components ( int begidx, int len, int *inv2, int *upi,
                 mem->conn_comp[dest_comp_label[i]].endidx = i + 1;
         }
     }
+
+    // free(&tmp);
 }
 
 /* Given an array of connected components, find sequence in which
@@ -1024,19 +1065,23 @@ build_uoc_list ( List * uoc_list, ConnectedComponent * conn_comp,
                  int *comp_label_by_pos, int n )
 {
     int i, prev, current;
+    ElementUnion tmp; 
     prev = comp_label_by_pos[n - 1];
-  //  fprintf(stdout,"\n build uoc list %d:\n ",n); fflush(stdout);
+   // fprintf(stdout,"\n build uoc list n=%d:\n ",n); fflush(stdout);
     for ( i = 0; i < n; i++ )
     {
         current = comp_label_by_pos[i];
+    //    fprintf(stdout,"i=%d,current=%d\n",i,current); fflush(stdout);
         if ( conn_comp[current].type != ORIENTED &&
              conn_comp[current].type != TRIVIAL && current != prev )
         {
- //           fprintf(stdout,"[%d]=%d",i,current); fflush(stdout);
-            push ( uoc_list, ( void * ) current );
+    //        fprintf(stdout,"push current to uoc_list \n"); fflush(stdout);
+            tmp.intelement = current;
+            push ( uoc_list, tmp );
             prev = current;
         }
     }
+  //  fprintf(stdout,"end of build uoc list\n"); fflush(stdout);
 }
 
 int
@@ -1044,68 +1089,81 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                     int nuoc, int ncomp, int old_nhurdles, int *nsuperhurdles )
 {
 
-    List S, adj_list[nuoc], cycles[nuoc], three_cycles_memb;
-    int mark[nuoc], pred[nuoc], label[nuoc], idx[ncomp+1];
+    List S;
+    List adj_list[ncomp+1];//[nuoc];
+    List cycles[nuoc], three_cycles_memb;
+    int mark[nuoc], pred[nuoc];
+    int label[ncomp+1]; //[nuoc];
+    int idx[ncomp+1];
     int i, j, prevlbl, ncycles;
+    ElementUnion tmp; 
 
-   // fprintf(stdout,"\n ncom=%d,prevlbl=%d, init adj_list size = %d\n",ncomp,prevlbl,nuoc); 
-   // fflush(stdout);
     /* build hurdle graph */
     for ( i = 0; i <= ncomp; i++ )
     //for ( i = 0; i < nuoc; i++ )
     {
-        init_list ( &adj_list[i], nuoc, sizeof ( int ) );   /* could be smaller */
+        init_list ( &adj_list[i], nuoc, IntData );   /* could be smaller */
         label[i] = -1;
     }
     for ( i = 0; i <= ncomp; i++ )  idx[i] = -1;
-   // fprintf(stdout,"list size=%d",list_size ( uoc_list )); fflush(stdout);
-    prevlbl = ( int ) list_get ( uoc_list, list_size ( uoc_list ) - 1 );
+    prevlbl = ( list_get ( uoc_list, list_size ( uoc_list ) - 1 )).intelement;
+ //   fprintf(stdout,"ncomp=%d,prevlbl=%d,size of uoc_list=%d\n",ncomp,prevlbl, 
+  //          list_size ( uoc_list ));
+  //  fflush(stdout);
     j = 0;
     label[j] = prevlbl;
     idx[prevlbl] = j;
     j++;
-    for ( i = 0; i < list_size ( uoc_list ); i++ )
+    int listsz =  list_size ( uoc_list );
+    int currentlbl,  idx_currentlbl;
+    for ( i = 0; i < listsz; i++ )
     {
-        int currentlbl;
-        currentlbl = ( int ) list_get ( uoc_list, i );
-       // fprintf(stdout,"i=%d,currentlbl=%d,",i,currentlbl); fflush(stdout);
-        if ( idx[currentlbl] == -1 )
+        currentlbl = ( list_get ( uoc_list, i )).intelement;
+    //    fprintf(stdout,"i=%d: ",i); fflush(stdout);
+        if ( idx[currentlbl]<0 || idx[currentlbl]>listsz  )
         {
             label[j] = currentlbl;
             idx[currentlbl] = j;
             j++;
+    //        fprintf(stdout,"idx[%d] <-- %d,",currentlbl,idx[currentlbl]);
+    //        fflush(stdout);
         }
+        else 
+         //   fprintf(stdout,"idx[%d] = %d,",currentlbl,idx[currentlbl]);
+        idx_currentlbl = idx[currentlbl];
+        tmp.intelement = idx_currentlbl;
         if ( prevlbl != currentlbl &&
-             !list_contains ( &adj_list[idx[prevlbl]],
-                              ( void * ) ( idx[currentlbl] ) ) )
+             !list_contains ( &adj_list[idx[prevlbl]], &tmp ))
         {
             /* we'll use a linear search, because
                it will be very unusual that the
-               degree of any node is greater than
-               3 */
-          //  fprintf(stdout,"push adj_list[%d] and [%d];",idx[currentlbl],idx[prevlbl]); fflush(stdout);
-            push ( &adj_list[idx[prevlbl]], ( void * ) idx[currentlbl] );
-            push ( &adj_list[idx[currentlbl]], ( void * ) idx[prevlbl] );
+               degree of any node is greater than 3 */
+     //       fprintf(stdout,"push adj_list[%d] and [%d];",
+    //             idx[currentlbl],idx[prevlbl]); fflush(stdout);
+            tmp.intelement = idx[currentlbl];
+            push ( &adj_list[idx[prevlbl]], tmp );
+            tmp.intelement = idx[prevlbl];
+            push ( &adj_list[idx[currentlbl]],tmp );
         }
         prevlbl = currentlbl;
     }
 
     /* find cycles; label member nodes */
- //   fprintf(stdout,"\n nuoc=%d \n",nuoc); fflush(stdout);
-    init_list ( &S, (nuoc+1), sizeof ( int ) );
-    init_list ( &three_cycles_memb, nuoc / 2, sizeof ( int ) );
+    init_list ( &S, (nuoc+1), IntData );
+    init_list ( &three_cycles_memb, nuoc / 2, IntData );
     for ( i = 0; i < nuoc; i++ )
     {
         mark[i] = 0;
         pred[i] = -1;
-        init_list ( &cycles[i], nuoc * 2, sizeof ( int ) ); /* I changed from nuco/2 */
+        init_list ( &cycles[i], nuoc * 2, IntData ); /* I changed from nuco/2 */
     }
     ncycles = 0;
-    push ( &S, 0 );
+    tmp.intelement = 0;
+    push ( &S, tmp );
     while ( !empty ( &S ) )
     {
         int v, u, n, p, cs;
-        v = ( int ) pop_stack ( &S );
+        v = ( pop_stack ( &S )).intelement;
   //      fprintf(stdout,"\nafter pop_stack: lidx=%d,ridx=%d \n",(&S)->lidx,(&S)->ridx); fflush(stdout);
         p = pred[v];
         if ( mark[v] == 0 )
@@ -1113,28 +1171,33 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
             mark[v] = 1;
             for ( i = 0; i < list_size ( &adj_list[v] ); i++ )
             {
-                n = ( int ) list_get ( &adj_list[v], i );
+                n = ( list_get ( &adj_list[v], i )).intelement;
                 if ( n != p )
                 {
                     if ( mark[n] == 1 )
                     {
-                        push ( &cycles[n], ( void * ) ncycles );
+                         tmp.intelement = ncycles;
+                        push ( &cycles[n], tmp );
                         cs = 1; /* size of cycle */
                         u = v;
                         while ( u != n )
                         {
-                            push ( &cycles[u], ( void * ) ncycles );
+                            tmp.intelement = ncycles;
+                            push ( &cycles[u], tmp );
                             cs++;
                             u = pred[u];
                         }
                         if ( cs == 3 )
-                            push ( &three_cycles_memb, ( void * ) v );
+                        {
+                            tmp.intelement = v;
+                            push ( &three_cycles_memb, tmp );
+                        }
                         ncycles++;
                     }
                     else
                     {
-                   //     fprintf(stdout,"lidx=%d,ridx=%d;",(&S)->lidx,(&S)->ridx); fflush(stdout);
-                        push ( &S, ( void * ) n );
+                        tmp.intelement = n;
+                        push ( &S, tmp );
                         pred[n] = v;
                     }
                 }
@@ -1180,30 +1243,34 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                     conn_comp[label[i]].mult_protected = 1;
                 conn_comp[label[i]].chain = -1;
             }
-            else
+            else if (deg == 1) // what if deg is 0? Not sure...
             {                   /* degree of exactly one */
                 int n, degn, cyclesn;
-                n = ( int ) list_get ( &adj_list[i], 0 );
-                degn = list_size ( &adj_list[n] );
-                cyclesn = list_size ( &cycles[n] );
-                if ( ( cyclesn > 0 && degn == 3 ) ||
-                     ( cyclesn == 0 && degn == 2 ) )
+                if (!is_empty(&adj_list[i]))
                 {
-                    conn_comp[label[i]].type = SUPHURDLE;
-                    ( *nsuperhurdles )++;
-                    if ( degn == 3 )
+                    n = ( list_get ( &adj_list[i], 0 )).intelement;
+                    degn = list_size ( &adj_list[n] );
+                    cyclesn = list_size ( &cycles[n] );
+                    if ( ( cyclesn > 0 && degn == 3 ) ||
+                         ( cyclesn == 0 && degn == 2 ) )
                     {
-                        conn_comp[label[n]].type = PSEUDOHURDLE;
-                        conn_comp[label[n]].protecting_superhurdle = label[i];
-                        conn_comp[label[i]].protected_pseudohurdle = label[n];
+                        conn_comp[label[i]].type = SUPHURDLE;
+                        ( *nsuperhurdles )++;
+                        if ( degn == 3 )
+                        {
+                            conn_comp[label[n]].type = PSEUDOHURDLE;
+                            conn_comp[label[n]].protecting_superhurdle = label[i];
+                            conn_comp[label[i]].protected_pseudohurdle = label[n];
+                        }
                     }
-                }
-                else
-                    conn_comp[label[i]].type = SIMPLEHURDLE;
+                    else
+                        conn_comp[label[i]].type = SIMPLEHURDLE;
 
-              //  fprintf(stdout,"~ nhurdles=%d ~",(*nhurdles)); fflush(stdout);
-              //  ( *nhurdles )++;    /* either way it counts as a hurdle */
-              hurdles_count++;
+                  //  fprintf(stdout,"~ nhurdles=%d ~",(*nhurdles)); fflush(stdout);
+                  //  ( *nhurdles )++;    /* either way it counts as a hurdle */
+                  hurdles_count++;
+                }
+                else {}
             }
         }
     }
@@ -1214,7 +1281,7 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
     {
         int u[3], deg[3], k, l, v, w;
         /* find three vertices of cycle */
-        u[0] = ( int ) list_get ( &three_cycles_memb, i );
+        u[0] = ( list_get ( &three_cycles_memb, i )).intelement;
         u[1] = pred[u[0]];
         u[2] = pred[u[1]];
         for ( j = 0; j < 3; j++ )
@@ -1251,10 +1318,16 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                     /* label v and w as a double superhurdle */
                     //fprintf(stdout,"label[v=%d]=%d,label[w=%d]=%d;",v,label[v],w,label[w]); 
                     //fflush(stdout);
+
+
+                    tmp.intelement = label[w];
                     push ( &conn_comp[label[v]].double_superhurdle_partners,
-                           ( void * ) label[w] );
+                           tmp );
+
+
+                    tmp.intelement = label[v];
                     push ( &conn_comp[label[w]].double_superhurdle_partners,
-                           ( void * ) label[v] );
+                           tmp );
                 }
             }
         }
@@ -1277,7 +1350,7 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                 {
                     int stop = 0;
                     int prevj = i;
-                    j = ( int ) list_get ( &adj_list[i], 0 );
+                    j = ( list_get ( &adj_list[i], 0 )).intelement;
                     while ( !stop )
                     {
                         conn_comp[label[j]].chain = label[i];
@@ -1306,8 +1379,8 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                                attribute for normal purposes); in the case of a
                                3-member chain, we'll set it to some large negative
                                value */
-                            x1 = label[( int ) list_get ( &adj_list[i], 0 )];
-                            x2 = label[( int ) list_get ( &adj_list[j], 0 )];
+                            x1 = label[( list_get ( &adj_list[i], 0 )).intelement];
+                            x2 = label[( list_get ( &adj_list[j], 0 )).intelement];
 
                             if ( x1 == x2 )
                                 conn_comp[x1].chain = NEGINFINITY;
@@ -1319,11 +1392,11 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
                         }
                         else
                         {       /* degree exactly two (middle of chain) */
-                            int newj = ( int ) list_get ( &adj_list[j], 0 );
+                            int newj = ( list_get ( &adj_list[j], 0 )).intelement;
                             if ( newj == prevj )
                             {
                                 prevj = j;
-                                j = ( int ) list_get ( &adj_list[j], 1 );
+                                j = ( list_get ( &adj_list[j], 1 )).intelement;
                             }
                             else
                             {
@@ -1336,7 +1409,6 @@ find_superhurdles ( List * uoc_list, ConnectedComponent * conn_comp,
             }
         }
     }
-
     return hurdles_count;
 }
 
@@ -1352,7 +1424,7 @@ find_single_hurdle ( int u, List * adj_list, List * cycles )
     /* here we know that deg == 3 */
     for ( i = 0; i < list_size ( &adj_list[u] ); i++ )
     {
-        v = ( int ) list_get ( &adj_list[u], i );
+        v = ( list_get ( &adj_list[u], i )).intelement;
         if ( list_size ( &cycles[v] ) == 0 )
             break;
     }
@@ -1370,9 +1442,9 @@ find_single_hurdle ( int u, List * adj_list, List * cycles )
 
         /* we know v == 2; advance v in the direction AWAY from the
            original 3-cycle */
-        next = ( int ) list_get ( &adj_list[v], 0 ) == prev ?
-            ( int ) list_get ( &adj_list[v], 1 ) :
-            ( int ) list_get ( &adj_list[v], 0 );
+        next = ( list_get ( &adj_list[v], 0 )).intelement == prev ?
+            ( list_get ( &adj_list[v], 1 )).intelement :
+            ( list_get ( &adj_list[v], 0 )).intelement;
         prev = v;
         v = next;
     }
@@ -1382,13 +1454,14 @@ find_single_hurdle ( int u, List * adj_list, List * cycles )
 }
 
 
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
 void
 build_overlap_matrix ( ConnectedComponent * cc, int *upi, int *inv2,
                        int n, int c, List * cyclelist )
 {
     int i, j, k, t, cycno, idx;
     int count[n];
+    ElementUnion tmp; 
 
     clear_list ( &cc->beg );
     clear_list ( &cc->end );
@@ -1396,7 +1469,7 @@ build_overlap_matrix ( ConnectedComponent * cc, int *upi, int *inv2,
 
     for ( i = 0; i < list_size ( &cc->cyclelist ); i++ )
     {
-        cycno = ( int ) list_get ( &cc->cyclelist, i );
+        cycno = (  list_get ( &cc->cyclelist, i )).intelement;
         for ( t = 0; t <= 1; t++ )
         {                       /* consider edges of each orientation */
             List *belist;
@@ -1405,22 +1478,30 @@ build_overlap_matrix ( ConnectedComponent * cc, int *upi, int *inv2,
             {
                 for ( k = 0; k <= 1; k++ )
                 {               /* consider both sides of black edge */
-                    idx = ( int ) list_get ( belist, j ) * 2 + k;
+                    idx = ( list_get ( belist, j )).intelement * 2 + k;
                     if ( upi[idx] % 2 == 0 )
                     {           /* consider each gray edge only when we
                                    find its even-numbered end (to
                                    avoid counting twice) */
-                        push ( &cc->beg,
-                               ( void * ) ( idx <
+
+
+
+                        tmp.intelement =  ( idx <
                                             inv2[upi[idx] +
                                                  1] ? idx : inv2[upi[idx] +
-                                                                 1] ) );
-                        push ( &cc->end,
-                               ( void * ) ( idx <
+                                                                 1] );
+                        push ( &cc->beg,tmp  );
+
+
+                        tmp.intelement = ( idx <
                                             inv2[upi[idx] +
                                                  1] ? inv2[upi[idx] +
-                                                           1] : idx ) );
-                        push ( &cc->grey_edges, ( void * ) upi[idx] );
+                                                           1] : idx );
+                        push ( &cc->end, tmp  );
+
+
+                        tmp.intelement = upi[idx];
+                        push ( &cc->grey_edges, tmp );
                     }
                 }
             }
@@ -1442,10 +1523,10 @@ build_overlap_matrix ( ConnectedComponent * cc, int *upi, int *inv2,
         for ( j = i + 1; j < list_size ( &cc->grey_edges ); j++ )
         {
             int beg1, beg2, end1, end2;
-            beg1 = ( int ) list_get ( &cc->beg, i );
-            beg2 = ( int ) list_get ( &cc->beg, j );
-            end1 = ( int ) list_get ( &cc->end, i );
-            end2 = ( int ) list_get ( &cc->end, j );
+            beg1 = ( list_get ( &cc->beg, i )).intelement;
+            beg2 = ( list_get ( &cc->beg, j )).intelement;
+            end1 = ( list_get ( &cc->end, i )).intelement;
+            end2 = ( list_get ( &cc->end, j )).intelement;
             if ( ( beg1 < beg2 && beg2 < end1 && end1 < end2 ) ||
                  ( beg2 < beg1 && beg1 < end2 && end2 < end1 ) )
             {
@@ -1459,6 +1540,8 @@ build_overlap_matrix ( ConnectedComponent * cc, int *upi, int *inv2,
         if ( count[i] % 2 == 1 )
             bitvector_set ( &cc->p, i, 1 );
     }
+
+    // free(&tmp);
 }
 
 int
@@ -1470,11 +1553,11 @@ new_nhurdles_plus_nfortresses ( int ccidx, Reversal * rev,
 
     int new_nhurdles = 0, new_nfortresses = 0;
     ConnectedComponent *cc;
-    List *l;
+    List *l; List ll;
 
     cc = &mem->conn_comp[ccidx];
     clear_list ( mem->V );
-    printf ( "%d ", mem->V->array[0] );
+ //   printf ( "%d ", mem->V->array[0] );
     detect_new_unoriented_components ( rev, cc, mem );
     if ( empty ( mem->V ) )     /* no new uoc */
         return ( nhurdles + nfortresses );
@@ -1484,10 +1567,12 @@ new_nhurdles_plus_nfortresses ( int ccidx, Reversal * rev,
        whether new uocs lead to new hurdles and/or fortresses */
 
     if ( nuoc + list_size ( mem->V ) >= 3 )
+    {
         count_hurdles_after_reversal ( mem->V, mem->comp_label_by_pos,
                                        mem->conn_comp,
                                        rev, mem->inv2, n, ncomp, nuoc,
                                        &new_nhurdles, &new_nfortresses );
+    }
     else
         new_nhurdles = nhurdles + list_size ( mem->V );
     /* in this case, no protection is
@@ -1496,11 +1581,16 @@ new_nhurdles_plus_nfortresses ( int ccidx, Reversal * rev,
        not possible */
 
     /* be sure to clear mem->V */
-    while ( ( l = ( List * ) pop_stack ( mem->V ) ) != NULL )
+    while ( !is_empty(mem->V) ) // mem->V is a List of List
     {
-        free_list ( l );
-        free ( l );
+        pop_stack ( mem->V );
+
+       // ll = pop_stack ( mem->V ).listelement;
+       // l = &ll;
+       // free_list ( l );
+        //free ( l );
     }
+    //free_list (l);
 
     return ( new_nhurdles + new_nfortresses );
 }
@@ -1512,7 +1602,9 @@ detect_new_unoriented_components ( Reversal * rho,
 {
     int i, k, lidx;
     float rbeg, rend;
-    List *U = NULL;
+    List U ;//= NULL;
+    ElementUnion inttmp; 
+    ElementUnion listtmp; 
 
     k = list_size ( &cc->grey_edges );
 
@@ -1532,11 +1624,14 @@ detect_new_unoriented_components ( Reversal * rho,
     for ( i = 0; i < k; i++ )
     {
         int beg, end;
-        beg = ( int ) list_get ( &cc->beg, i );
-        end = ( int ) list_get ( &cc->end, i );
+        beg = (list_get ( &cc->beg, i )).intelement;
+        end = (list_get ( &cc->end, i )).intelement;
         if ( ( rbeg < beg && beg < rend && rend < end ) ||
              ( beg < rbeg && rbeg < end && end < rend ) )
-            push ( &mem->bv_pos, ( void * ) i );
+        {
+            inttmp.intelement = i;
+            push ( &mem->bv_pos,  inttmp );
+        }
     }
     set_bitvector_length ( &mem->bv_a, k );
     bitvector_set_positions_of_ones ( &mem->bv_a, &mem->bv_pos );
@@ -1546,8 +1641,8 @@ detect_new_unoriented_components ( Reversal * rho,
     for ( i = 0; i < list_size ( &cc->grey_edges ); i++ )
     {
         printf ( "v(%d) [%d,%d]:\t", i,
-                 ( int ) list_get ( &cc->grey_edges, i ),
-                 ( int ) list_get ( &cc->grey_edges, i ) + 1 );
+                 (list_get ( &cc->grey_edges, i )).intelement,
+                 ( list_get ( &cc->grey_edges, i ) + 1 )).intelement;
         print_bits ( stdout, &mem->bv_v[i] );
     }
     printf ( "p:\t\t" );
@@ -1560,7 +1655,7 @@ detect_new_unoriented_components ( Reversal * rho,
     bitvector_get_positions_of_ones ( &mem->bv_a, &mem->bv_pos );
     for ( i = 0; i < list_size ( &mem->bv_pos ); i++ )
     {
-        int pos = ( int ) list_get ( &mem->bv_pos, i );
+        int pos = (list_get ( &mem->bv_pos, i )).intelement;
         bitvector_set ( &mem->bv_v[pos], pos, 1 );
         bitwise_xor ( &mem->bv_v[pos], &mem->bv_a, &mem->bv_v[pos] );
     }
@@ -1589,8 +1684,8 @@ detect_new_unoriented_components ( Reversal * rho,
     for ( i = 0; i < list_size ( &cc->grey_edges ); i++ )
     {
         printf ( "v(%d) [%d,%d]:\t", i,
-                 ( int ) list_get ( &cc->grey_edges, i ),
-                 ( int ) list_get ( &cc->grey_edges, i ) + 1 );
+                 (list_get ( &cc->grey_edges, i )).intelement,
+                 ( list_get ( &cc->grey_edges, i ) + 1 )).intelement;
         print_bits ( stdout, &mem->bv_v[i] );
     }
     printf ( "p:\t\t" );
@@ -1607,29 +1702,30 @@ detect_new_unoriented_components ( Reversal * rho,
 
     if ( list_size ( &mem->bv_pos ) > 0 )
     {
-        U = ( List * ) malloc ( sizeof ( List ) );
-        init_list ( U, 2 * ( 2 * mem->ngenes + 2 ), sizeof ( int ) );
+     //   U = ( List * ) malloc ( sizeof ( List ) );
+        init_list ( &U, 2 * ( 2 * mem->ngenes + 2 ), IntData );
     }
 
     for ( lidx = 0; lidx < list_size ( &mem->bv_pos ); lidx++ )
     {
         int oriented, j, m, trivial;
-        i = ( int ) list_get ( &mem->bv_pos, lidx );
-
+        i = (list_get ( &mem->bv_pos, lidx )).intelement;
         if ( mem->ge_mark[i] != -1 )
             continue;
-
         clear_list ( mem->stack );
-        clear_list ( U );
-
+        clear_list ( &U );
         oriented = 0;
         trivial = 1;
-        push ( mem->stack, ( void * ) i );
-
+        inttmp.intelement = i;
+        push ( mem->stack, inttmp );
         while ( oriented == 0 && !empty ( mem->stack ) )
         {
-            j = ( int ) pop_stack ( mem->stack );
-            push ( U, list_get ( &cc->grey_edges, j ) );
+            j = ( pop_stack ( mem->stack )).intelement;
+            int tmp = list_get ( &cc->grey_edges, j ).intelement;
+            //fprintf(stdout,"push %d to list U\n",tmp);
+            inttmp.intelement = tmp;
+            push ( &U, inttmp );
+            //push ( &U, list_get ( &cc->grey_edges, j ) );
             mem->ge_mark[j] = i;
             for ( m = 0; m < k; m++ )
             {
@@ -1643,28 +1739,34 @@ detect_new_unoriented_components ( Reversal * rho,
                     break;
                 }
                 if ( mem->ge_mark[m] == -1 )
-                    push ( mem->stack, ( void * ) m );
+                {
+                    inttmp.intelement = m;
+                    push ( mem->stack, inttmp );
+                }
             }
         }
         if ( oriented == 0 && trivial == 0 )
         {
-            push ( mem->V, ( void * ) U );
-
+            listtmp.listelement = U;
+            push ( mem->V, listtmp );
             if ( lidx < list_size ( &mem->bv_pos ) - 1 )
             {
                 /* allocate new list for next pass */
-                U = ( List * ) malloc ( sizeof ( List ) );
-                init_list ( U, 2 * ( 2 * mem->ngenes + 2 ), sizeof ( int ) );
+             //   U = ( List * ) malloc ( sizeof ( List ) );
+             //   init_list ( &U, 2 * ( 2 * mem->ngenes + 2 ), IntData );
             }
         }
         else if ( lidx == list_size ( &mem->bv_pos ) - 1 )
         {
-            free_list ( U );
-            free ( U );
+    //        free_list ( &U );
+          //  free ( U );
         }
     }
+
+    if ( list_size ( &mem->bv_pos ) > 0 )
+        free_list ( &U );
 }
-#endif
+//#endif
 
 void
 count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
@@ -1706,13 +1808,7 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
     newcomp = ncomp;
     for ( i = 0; i < list_size ( V ); i++ )
     {
-/*    List *U = (List*)list_get(V, i);
-    for (j = 0; j < list_size(U); j++) {
-      label = (int)list_get(U, j);
-      comp_label_copy[inv_copy[label]] = comp_label_copy[inv_copy[label + 1]] = 
-        newcomp; 
-    }*/
-        label = ( int ) list_get ( V, i );
+        label = ( list_get ( V, i )).intelement;
         comp_label_copy[inv_copy[label]] =
             comp_label_copy[inv_copy[label + 1]] = newcomp;
         newcomp++;
@@ -1735,7 +1831,7 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
             new_conn_comp[i].type = conn_comp[i].type;
 
         init_list ( &new_conn_comp[i].double_superhurdle_partners, 2,
-                    sizeof ( int ) );
+                    IntData );
         new_conn_comp[i].protecting_superhurdle =
             new_conn_comp[i].protected_pseudohurdle = -1;
         new_conn_comp[i].chain = new_conn_comp[i].anchor = i;
@@ -1753,12 +1849,11 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
 
     /* count hurdles and superhurdles, using the same machinery as
        before */
-    init_list ( &new_uoc_list, n, sizeof ( int ) );
-    build_uoc_list ( &new_uoc_list, new_conn_comp, comp_label_copy, n );
 
-    int lstsize = list_size(&new_uoc_list);
-  //  fprintf(stdout,"\n 2 before find_superhurdles, lstsize=%d",lstsize);
-  //  fflush(stdout);
+   // fprintf(stdout,"count_hurdles_after_reversal,call init_list, build list\n");
+   // fflush(stdout);
+    init_list ( &new_uoc_list, n, IntData );
+    build_uoc_list ( &new_uoc_list, new_conn_comp, comp_label_copy, n );
 
     *new_nhurdles = find_superhurdles ( &new_uoc_list, new_conn_comp, new_nuoc, newcomp,
                         //&new_nhurdles, 
@@ -1776,7 +1871,8 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
     free ( inv_copy );
 }
 
-#ifndef BITWISE_DETECT
+
+//#ifndef BITWISE_DETECT
 /* Calculate the new number of hurdles and fortresses after a
    specified reversal.  This version simply re-runs
    "connected_components" on the component in question. */
@@ -1785,7 +1881,8 @@ count_hurdles_after_reversal ( List * V, int *comp_label_by_position,
    case in which multiple new UOCs are introduced (rare but possible).
    It doesn't seem worth fixing now, since the bitwise detect alg
    appears to be preferable under all conditions (in other words,
-   always compile with -DBITWISE_DETECT) */
+   always compile with -BITWISE_DETECT) */
+/*
 int
 new_nhurdles_plus_nfortresses_cc ( int ccidx, Reversal * rev,
                                    int n, int ncomp, int nuoc,
@@ -1797,6 +1894,7 @@ new_nhurdles_plus_nfortresses_cc ( int ccidx, Reversal * rev,
     int new_nhurdles = 0, new_nfortresses = 0;
     int MAXCOMPS;
     ConnectedComponent *cc;
+    ElementUnion tmp; 
 
     cc = &mem->conn_comp[ccidx];
     MAXCOMPS = ( cc->endidx - cc->begidx ) / 4 + 1;
@@ -1821,26 +1919,29 @@ new_nhurdles_plus_nfortresses_cc ( int ccidx, Reversal * rev,
 
         comp = mem->new_comp_labels[i];
 
-        /* consider grey edge only when finding its even-numbered end */
+        // consider grey edge only when finding its even-numbered end 
         if ( mem->upi_cpy[i] % 2 == 0 )
         {
-            push ( &mem->comp_grey_edges[comp], ( void * ) mem->upi_cpy[i] );
+
+
+            tmp.intelement = mem->upi_cpy[i];
+            push ( &mem->comp_grey_edges[comp], tmp );
         }
 
         mem->comp_count[comp]++;
 
         if ( mem->comp_mark[comp] == 0 && i % 2 == 0
              && mem->be_cpy[i / 2] == 1 )
-            mem->comp_mark[comp] = 1;   /* a single divergent black edge is
+            mem->comp_mark[comp] = 1;   
+  // a single divergent black edge is
                                            enough to ensure that the entire 
-                                           component is oriented */
+                                           component is oriented 
     }
 
     badcomp = -1;
     for ( i = 0; i < MAXCOMPS; i++ )
         if ( mem->comp_mark[i] == 0 && mem->comp_count[i] > 2 )
-            /* note that trivial components are
-               handled specially */
+            // note that trivial components are handled specially 
             badcomp = i;
 
     if ( badcomp == -1 )
@@ -1850,28 +1951,33 @@ new_nhurdles_plus_nfortresses_cc ( int ccidx, Reversal * rev,
     }
     else
     {
-
-        /* here we know that the reversal has created at least one
-           unoriented component */
-
+        // here we know that the reversal has created at least one
+           unoriented component 
+        
         if ( nuoc + 1 >= 3 )
+        {
+
+            fprintf(stdout,"1\n"); fflush(stdout);
             count_hurdles_after_reversal ( &mem->comp_grey_edges[badcomp],
                                            mem->comp_label_by_pos,
                                            mem->conn_comp,
                                            rev, mem->inv2, n, ncomp, nuoc,
                                            &new_nhurdles, &new_nfortresses );
+        }
         else
             new_nhurdles = nhurdles + 1;
-        /* in this case, no protection is
+        // in this case, no protection is
            possible, so the new uoc must be a
            hurdle; furthermore, a fortress is
-           not possible */
+           not possible 
 
     }
 
+    // free(&tmp);
     return ( new_nhurdles + new_nfortresses );
 }
 #endif
+*/
 
 /* add to the list all reversals that merge specified two components */
 void
@@ -1879,8 +1985,9 @@ add_all_merging_reversals ( List * l, ConnectedComponent * c1,
                             ConnectedComponent * c2, List * cyclelist, int c )
 {
     int i, j, k, k2, a, b, o1, o2;
-    Reversal *rev;
+    Reversal *rev; Reversal revrev;
     List *edges1, *edges2;
+    ElementUnion tmp; 
 
     /* add every pair of black edges from the two cycles */
     for ( i = 0; i < list_size ( &c1->cyclelist ); i++ )
@@ -1893,21 +2000,22 @@ add_all_merging_reversals ( List * l, ConnectedComponent * c1,
                 {
                     edges1 =
                         &cyclelist[o1 * ( c + 1 ) +
-                                   ( int ) list_get ( &c1->cyclelist, i )];
+                                   (list_get ( &c1->cyclelist, i )).intelement];
                     edges2 =
                         &cyclelist[o2 * ( c + 1 ) +
-                                   ( int ) list_get ( &c2->cyclelist, j )];
+                                   (list_get ( &c2->cyclelist, j )).intelement];
                     for ( k = 0; k < list_size ( edges1 ); k++ )
                     {
                         for ( k2 = 0; k2 < list_size ( edges2 ); k2++ )
                         {
-                            a = ( int ) list_get ( edges1, k );
-                            b = ( int ) list_get ( edges2, k2 );
-                            rev =
-                                ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                            a = (list_get ( edges1, k )).intelement;
+                            b = (list_get ( edges2, k2 )).intelement;
+                     //     rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                            rev = &revrev;
                             rev->start = ( a <= b ? a : b );
                             rev->stop = ( a <= b ? b : a );
-                            push ( l, rev );
+                            tmp.revelement = *rev;
+                            push ( l, tmp );
                         }
                     }
                 }
@@ -1922,23 +2030,29 @@ add_all_cutting_reversals ( List * l, ConnectedComponent * cc,
 {
     int j, k, k2, a, b;
     List *edges;
-    Reversal *rev;
+    Reversal *rev; Reversal revrev;
+    ElementUnion tmp; 
+
     for ( j = 0; j < list_size ( &cc->cyclelist ); j++ )
     {
-        edges = &cyclelist[( int ) list_get ( &cc->cyclelist, j )];
+        edges = &cyclelist[( list_get ( &cc->cyclelist, j )).intelement];
         for ( k = 0; k < list_size ( edges ); k++ )
         {
             for ( k2 = k + 1; k2 < list_size ( edges ); k2++ )
             {
-                a = ( int ) list_get ( edges, k );
-                b = ( int ) list_get ( edges, k2 );
-                rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                a = ( list_get ( edges, k )).intelement;
+                b = ( list_get ( edges, k2 )).intelement;
+            //    rev = ( Reversal * ) malloc ( sizeof ( Reversal ) );
+                rev = &revrev;
                 rev->start = ( a <= b ? a : b );
                 rev->stop = ( a <= b ? b : a );
-                push ( l, rev );
+                tmp.revelement = *rev;
+                push ( l, tmp );
             }
         }
     }
+
+    // free(&tmp);
 }
 
 /* Returns a value indicating whether merging components h1 and h2
@@ -1973,11 +2087,11 @@ form_double_superhurdle ( int h1, int h2, ConnectedComponent * conn_comp )
 {
 
     if ( ( list_size ( &conn_comp[h1].double_superhurdle_partners ) >= 1 &&
-           ( int ) list_get ( &conn_comp[h1].double_superhurdle_partners,
-                              0 ) == h2 )
+           (  list_get ( &conn_comp[h1].double_superhurdle_partners,
+                              0 ).intelement) == h2 )
          || ( list_size ( &conn_comp[h1].double_superhurdle_partners ) == 2
-              && ( int ) list_get ( &conn_comp[h1].
-                                    double_superhurdle_partners, 1 ) == h2 ) )
+              && (  list_get ( &conn_comp[h1].
+                                    double_superhurdle_partners, 1 )).intelement == h2 ) )
         return 1;
 
     return 0;
@@ -1988,7 +2102,7 @@ new_reversal_sorting_memory ( int ngenes )
 {
     ReversalSortingMemory *mem;
     int n = 2 * ngenes + 2;
-    int i;
+    int i,j;
 
     mem =
         ( ReversalSortingMemory * )
@@ -2013,15 +2127,15 @@ new_reversal_sorting_memory ( int ngenes )
     mem->cc_e = ( int * ) malloc ( n * sizeof ( int ) );
     mem->cc_parent = ( int * ) malloc ( n * sizeof ( int ) );
     mem->stack = ( List * ) malloc ( sizeof ( List ) );
-    init_list ( mem->stack, n * 4, sizeof ( int ) );
+    init_list ( mem->stack, n * 4, IntData );
 
     mem->V = ( List * ) malloc ( sizeof ( List ) );
-    init_list ( mem->V, n / 4 + 1, sizeof ( int ) );
+    init_list ( mem->V, n / 4 + 1, IntData );
 
     mem->mhurdles = ( List * ) malloc ( sizeof ( List ) );
-    init_list ( mem->mhurdles, 2 * ( ngenes + 1 ), sizeof ( int ) );
+    init_list ( mem->mhurdles, 2 * ( ngenes + 1 ), IntData );
     for ( i = 0; i < 2 * ( ngenes + 2 ); i++ )
-        init_list ( &mem->cyclelist[i], ngenes + 1, sizeof ( int ) );
+        init_list ( &mem->cyclelist[i], ngenes + 1, IntData );
     for ( i = 0; i < ngenes + 1; i++ )
     {
         init_list ( &mem->conn_comp[i].cyclelist, ngenes + 1,
@@ -2030,7 +2144,7 @@ new_reversal_sorting_memory ( int ngenes )
                     sizeof ( int ) );
     }
 
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
     init_bitvector ( &mem->bv_a, ngenes + 1 );
     init_bitvector ( &mem->bv_p, ngenes + 1 );
     init_bitvector ( &mem->bv_l, ngenes + 1 );
@@ -2041,16 +2155,17 @@ new_reversal_sorting_memory ( int ngenes )
     mem->ge_mark = ( int * ) malloc ( ( ngenes + 1 ) * sizeof ( int ) );
     for ( i = 0; i < ngenes + 1; i++ )
     {
-        init_list ( &mem->conn_comp[i].beg, n, sizeof ( int ) );
-        init_list ( &mem->conn_comp[i].end, n, sizeof ( int ) );
-        init_list ( &mem->conn_comp[i].grey_edges, n, sizeof ( int ) );
+        init_list ( &mem->conn_comp[i].beg, n, IntData );
+        init_list ( &mem->conn_comp[i].end, n, IntData );
+        init_list ( &mem->conn_comp[i].grey_edges, n, IntData );
         init_bitvector ( &mem->conn_comp[i].p, ngenes + 1 );
         mem->conn_comp[i].v =
             ( BitVector * ) malloc ( ( ngenes + 1 ) * sizeof ( BitVector ) );
         for ( j = 0; j < ngenes + 1; j++ )
             init_bitvector ( &mem->conn_comp[i].v[j], ngenes + 1 );
     }
-    init_list ( &mem->bv_pos, ngenes + 1, sizeof ( int ) );
+    init_list ( &mem->bv_pos, ngenes + 1, IntData );
+/*
 #else
     mem->upi_cpy = ( int * ) malloc ( n * sizeof ( int ) );
     mem->comp_label_cpy = ( int * ) malloc ( n * sizeof ( int ) );
@@ -2062,8 +2177,9 @@ new_reversal_sorting_memory ( int ngenes )
     mem->comp_grey_edges =
         ( List * ) malloc ( ( n / 4 + 1 ) * sizeof ( List ) );
     for ( i = 0; i < n / 4 + 1; i++ )
-        init_list ( &mem->comp_grey_edges[i], n / 2, sizeof ( int ) );
+        init_list ( &mem->comp_grey_edges[i], n / 2, IntData );
 #endif
+*/
 
     return mem;
 }
@@ -2071,7 +2187,7 @@ new_reversal_sorting_memory ( int ngenes )
 void
 free_reversal_sorting_memory ( ReversalSortingMemory * mem )
 {
-    int i, n;
+    int i, j, n;
 
     n = 2 * mem->ngenes + 2;
     free ( mem->inv );
@@ -2093,7 +2209,6 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
         free_list ( &mem->conn_comp[i].cyclelist );
         free_list ( &mem->conn_comp[i].double_superhurdle_partners );
     }
-    free ( mem->conn_comp );
     free ( mem->cc_beg );
     free ( mem->cc_end );
     free ( mem->cc_e );
@@ -2101,7 +2216,7 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
     free_list ( mem->stack );
     free ( mem->stack );
 
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
     for ( i = 0; i < mem->ngenes + 1; i++ )
     {
         free_list ( &mem->conn_comp[i].beg );
@@ -2112,6 +2227,7 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
             free_bitvector ( &mem->conn_comp[i].v[j] );
         free ( mem->conn_comp[i].v );
     }
+    free ( mem->conn_comp );
     for ( i = 0; i < mem->ngenes + 1; i++ )
         free_bitvector ( &mem->bv_v[i] );
     free_bitvector ( &mem->bv_p );
@@ -2120,6 +2236,7 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
     free ( mem->bv_v );
     free ( mem->ge_mark );
     free_list ( &mem->bv_pos );
+/*
 #else
     free ( mem->upi_cpy );
     free ( mem->comp_label_cpy );
@@ -2133,6 +2250,7 @@ free_reversal_sorting_memory ( ReversalSortingMemory * mem )
     free ( mem->comp_grey_edges );
     free ( mem );
 #endif
+*/
 }
 
 /* create copies of key arrays, adjusting for reversal */
@@ -2205,6 +2323,7 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
     List tmpl, separated_ocs, separating_hurdles;
     int mark[n];
     int currenth, prevuoc, currentuoc, start, comp, class = 0, i, j;
+    ElementUnion tmp; 
 
     /* init arrays */
     for ( i = 0; i < n; i++ )
@@ -2216,9 +2335,13 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
     }
 
     /* init lists */
-    init_list ( &tmpl, ncomp, sizeof ( int ) );
-    init_list ( &separated_ocs, ncomp, sizeof ( int ) );
-    init_list ( &separating_hurdles, ncomp, sizeof ( int ) );
+ //   init_list ( &tmpl, ncomp, IntData );
+ //   init_list ( &separated_ocs, ncomp, IntData );
+ //   init_list ( &separating_hurdles, ncomp, IntData );
+    // fix that works for POY.....not sure
+    init_list ( &tmpl, ncomp, IntData );
+    init_list ( &separated_ocs, ncomp, IntData );
+    init_list ( &separating_hurdles, ncomp, IntData );
 
     /* necessary to keep track of benign comps that fall in the middle
        of hurdle chains; see below */
@@ -2252,11 +2375,13 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
                 /* save any oriented components in
                    tmp1 along with their separating
                    hurdle (currenth) */
-                comp = ( int ) pop_stack ( &tmpl );
+                comp = ( pop_stack ( &tmpl )).intelement; 
                 mark[comp] = 0; /* unmark as we empty list */
                 sepclass[comp] = class;
-                push ( &separated_ocs, ( void * ) comp );
-                push ( &separating_hurdles, ( void * ) currenth );
+                tmp.intelement = comp;
+                push ( &separated_ocs, tmp );
+                tmp.intelement = currenth;
+                push ( &separating_hurdles, tmp );
                 if ( is_separator[currenth] == 0 )
                 {
                     is_separator[currenth] = 1;
@@ -2281,7 +2406,7 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
 
             while ( !empty ( &tmpl ) )
             {
-                int c = ( int ) pop_stack ( &tmpl );
+                int c = pop_stack ( &tmpl ).intelement;
                 mark[c] = 0;
 
                 /* while we're at it, we'll keep track of benign components
@@ -2357,7 +2482,8 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
                component that could be mergeable;
                store in tmpl */
             mark[comp] = 1;
-            push ( &tmpl, ( void * ) comp );
+            tmp.intelement = comp;
+            push ( &tmpl, tmp );
         }
     }
 
@@ -2369,8 +2495,9 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
         *ocs = ( List * ) malloc ( *nseparators * sizeof ( List ) );
         for ( i = 0; i < *nseparators; i++ )
         {
-            init_list ( &( *ocs )[i], list_size ( &separated_ocs ),
-                        sizeof ( int ) );
+            //fix that works for POY....not sure
+            init_list ( &( *ocs )[i], 2*list_size ( &separated_ocs ), IntData );
+       //   init_list ( &( *ocs )[i], list_size ( &separated_ocs ),  sizeof ( int ) );
             llabel[i] = -1;
         }
         for ( i = 0; i < ncomp; i++ )
@@ -2380,9 +2507,9 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
         }
         for ( i = 0; i < list_size ( &separated_ocs ); i++ )
         {
-            oc = ( int ) list_get ( &separated_ocs, i );
+            oc = (list_get ( &separated_ocs, i )).intelement;
             is_separated[oc] = 1;
-            h = ( int ) list_get ( &separating_hurdles, i );
+            h = ( list_get ( &separating_hurdles, i )).intelement;
             j = lidx[h];
             if ( j == -1 )
             {
@@ -2390,11 +2517,12 @@ find_separating_hurdles ( int *is_separator, int *sepclass,
                 lidx[h] = j;
                 llabel[j] = h;
             }
-            push ( &( *ocs )[j], ( void * ) oc );
+            push ( &( *ocs )[j], list_get ( &separated_ocs, i ) );
         }
     }
 
     free_list ( &tmpl );
     free_list ( &separated_ocs );
     free_list ( &separating_hurdles );
+    // free(&tmp);
 }

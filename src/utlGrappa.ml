@@ -47,7 +47,13 @@ let standardize genomeX genomeY =
     done; 
 
     let sta_genomeY = Array.init num_gene 
-        (fun idx -> 
+        (fun idx ->
+            if ( genomeY.(idx) > max_index )||( genomeY.(idx) < -max_index )
+            then
+                Array.iteri (fun a arr ->
+                    Printf.printf "[%d]=%d,%!" a arr
+            ) genomeY
+                ;
              match genomeY.(idx) > 0 with 
              | true -> index_arr.(genomeY.(idx)) 
              | false -> -index_arr.(-genomeY.(idx)) 
@@ -116,27 +122,27 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int array) (genomeZ : int array) circular =
-    (* debug message 
+    (* debug message  *)
+    (*debug message *)
+    (*debug message 
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
-    debug message *)
-    (*debug message 
-    Printf.printf "inv_med_albert,input seqcodes: %!";
+    Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-      debug message *)
+     debug message *)
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     (* debug msg 
-     Printf.printf "after standardize: %!";
+     Printf.printf "standardize input seq: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-    debug msg *)
+     debug msg *)
     let num_gen = Array.length genomeX in 
     (* for alert-median3 solver to work , sequence cannot be empty, also there
     * is a MAX_STR_LEN=2048 macro in grappa, if we need to work on longer sequence, 
-    * modify the macro in structs.h to accomodate your requirement*)
+    * modify the macro in structs.h to accomodate our requirement*)
     assert (num_gen>0); assert(num_gen<=2048);
     let genome_arr = Grappa.c_create_empty_genome_arr 3 num_gen in  
     for index = 0 to num_gen - 1 do
@@ -149,16 +155,21 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
     let g_med3 =
         match medsov with
-        |`Default ->
-                failwith "default median solver is not in grappa"
+        |`Vinh ->
+                failwith "Vinh median solver is not in grappa"
         |`Albert ->
                 Grappa.c_inv_med 1 g0 g1 g2 num_gen circular
         |`Siepel ->
               Grappa.c_inv_med 2 g0 g1 g2 num_gen circular
         |`BBTSP ->
-                 Grappa.c_inv_med 3 g0 g1 g2 num_gen circular
+            Grappa.c_inv_med 3 g0 g1 g2 num_gen circular
         |`COALESTSP ->
              Grappa.c_inv_med 4 g0 g1 g2 num_gen circular
+        |`SimpleLK ->
+            Grappa.c_inv_med 5 g0 g1 g2 num_gen circular
+        |`ChainedLK ->
+            Grappa.c_inv_med 6 g0 g1 g2 num_gen circular
+        
     in
     let len = Bigarray.Array1.dim g_med3 in
     let oriarr = Array.init len ( 

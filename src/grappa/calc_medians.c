@@ -279,10 +279,9 @@ main ( int argc, char *argv[] )
         }
         else
         {                       /* ALLMEDS == 1 */
-            while ( ( medianstruct.genes =
-                      ( int * ) pop_queue ( &medianlist ) ) != NULL )
+            while ( !is_empty(  &medianlist ))
             {
-
+                medianstruct.genes = ( pop_queue ( &medianlist ) ).intelement;
                 score = median_score ( genomes, &medianstruct,
                                        NUM_GENES, distmem );
 

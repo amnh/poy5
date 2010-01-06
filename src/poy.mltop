@@ -47,8 +47,6 @@ Heap
 Help
 HelpIndex
 Hennig
-HennigLexer
-HennigParser
 ImpliedAlignment
 IncList
 IntSpec
@@ -64,8 +62,6 @@ MlModel
 MlStaticCS
 Mst
 Nexus
-NexusLexer
-NexusParser
 Node
 NodeSig
 NonaddCS16

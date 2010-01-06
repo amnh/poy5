@@ -72,7 +72,7 @@ let swap_med m = {
 
 
 let breakinvPam_default = {
-    median_solver = `Default;
+    median_solver = `Albert;
     re_meth = `Locus_Breakpoint 10;
     keep_median = 1;
     circular = 0;
