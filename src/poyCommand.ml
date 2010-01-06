@@ -1821,7 +1821,9 @@ let create_expr () =
             [
                 ["threshold"; ":"; x = FLOAT -> `ThresholdModel (float_of_string x) ]|
                 ["max_count"; ":"; x = INT -> `MaxCountModel (int_of_string x) ]|
-                ["neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ]
+                ["neighborhood"; ":"; x = FLOAT -> `NeighborhoodModel (float_of_string x) ] |
+                ["never" -> `NullModel] |
+                ["always" -> `AlwaysModel]
             ];
         model_iter :
             [
@@ -1832,7 +1834,7 @@ let create_expr () =
         branch_iter :
             [
                 ["never" -> `NullBranches] |
-                ["always" -> `AllBranches] |
+                ["all" -> `AllBranches] |
                 ["join_delta" -> `JoinDeltaBranches] |
                 ["join_region" -> `NeighborhoodBranches]
             ];
