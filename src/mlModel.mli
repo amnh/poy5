@@ -201,7 +201,7 @@ END
  * of floating point numbers, essentially, representing a point *)
 val brents_method :
     ?iter_max:int -> ?epsilon:float 
-        -> float * float -> (float -> float) -> float * float
+        -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
  * gradient [g] and direction [d] of function [f] by point [p], attempting the
@@ -221,5 +221,9 @@ val bfgs_method :
  * that will update the model based on an input value *)
 val get_update_function_for_model    : model -> (model -> float array -> model) option
 val get_current_parameters_for_model : model -> float array option
+
+(* [get_update_function_for_alpha] based on the alpha parameters in model *)
+val get_update_function_for_alpha    : model -> (model -> float -> model) option
+val get_current_parameters_for_alpha : model -> float option
 
 
