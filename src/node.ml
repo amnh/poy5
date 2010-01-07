@@ -2154,15 +2154,15 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
             let result = 
-                (* remove new code in structure *)
-                let seperate_data dat =
-                    let pairs = dat --> List.map snd --> List.flatten in
-                    let fsts = List.map fst pairs and snds = List.map snd pairs in
-                    fsts,snds
-                in
-                (* add character set to result *)
+               (* add character set to result *)
                 let single_ml_group result lst =
                   IFDEF USE_LIKELIHOOD THEN
+                    (* remove new code in structure *)
+                    let seperate_data dat =
+                        let pairs = dat --> List.map snd --> List.flatten in
+                        let fsts = List.map fst pairs and snds = List.map snd pairs in
+                        fsts,snds
+                    in
                     match lst with
                     | [] -> result
                     | all_data ->
