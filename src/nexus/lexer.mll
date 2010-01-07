@@ -1,6 +1,6 @@
 (* Nexus lexer *)
 {
-    open NexusParser
+    open Grammar
     exception Eof
     let keyword_table = Hashtbl.create 53
     let token_table = [

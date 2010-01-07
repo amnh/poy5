@@ -31,6 +31,7 @@ void
 free_mem_4_cond3 ()
 {
     condense3_mem_t * cond3mem = &CONDENSE3_MEM;
+    int num_genes = cond3mem->max_num_genes;
     free (cond3mem->con_g1->genes);
     free (cond3mem->con_g1);
     free (cond3mem->con_g2->genes);
@@ -40,10 +41,10 @@ free_mem_4_cond3 ()
     free (cond3mem->con_med->genes);
     free (cond3mem->con_med);
     free (cond3mem->stack);
-    free (cond3mem->pred1);
-    free (cond3mem->pred2);
-    free (cond3mem->picked);
-    free (cond3mem->decode);
+    free (cond3mem->pred1-num_genes);
+    free (cond3mem->pred2-num_genes);
+    free (cond3mem->picked-num_genes);
+    free (cond3mem->decode-num_genes);
     return;
 }
 
@@ -566,8 +567,24 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
     fprintf ( outfile, "\n" );
     fflush ( outfile );
 #endif
-
-    
+/*
+    fprintf(stdout,"\n succ array = ");
+    for ( i = -num_genes; i <= num_genes; i++ )
+    {
+        fprintf(stdout,"[%d]=%d,",i,succ[i]);
+    }
+    fprintf(stdout,"\n pred array = ");
+    for ( i = -num_genes; i <= num_genes; i++ )
+    {
+        fprintf(stdout,"[%d]=%d,",i,pred[i]);
+    }
+    fprintf(stdout,"\n decode array = ");
+    for ( i = -num_genes; i <= num_genes; i++ )
+    {
+        fprintf(stdout,"[%d]=%d,",i,decode[i]);
+    }
+    fflush(stdout);
+*/  
 
     /* We'll keep the arrays code, succ, and pred for decoding
        after a successful relabeling */
@@ -596,6 +613,14 @@ decode3 ( int *outgenes, int *ingenes, int *succ, int *decode, int num_cond )
     fprintf ( outfile, "code: " );
     fflush ( outfile );
 #endif
+/*
+    fprintf(stdout,"\n ingenes is: ");
+    for ( i = 0; i < num_cond; i++ )
+    {
+        fprintf(stdout,"[%d]=%d,",i,ingenes[i]);
+    }
+    fflush(stdout); 
+*/
     for ( i = 0; i < num_cond; i++ )
     {                           /* scan condensed genome */
         gene = decode[ingenes[i]];

@@ -19,141 +19,63 @@
 
 (** Parsing files for phylogenetic analysis. *)
 
-(** A file location specification. This type is used in the error reporting for
- * molecular files, such as Fasta and POY formats. *)
-type fl = {
-    filename : string;  (** The filename of the error *)
-    taxon : string;     (** Name of the taxon containing the error *)
-    sequence : string;  (** Sequence where the error was detected *)
-    character : string; (** Character where the error was detected *)
-    line : int;         (** Line number of the error occurrence *)
-}
-    
-(** Illegal format for Hennig86 files. The starting position of the error is
-* reported in the string, but note that the string will contain the complete
-* file starting there. *)
-exception Illegal_hennig86_format of string
+module E : sig
+        
+    (** Illegal format for Hennig86 files. The starting position of the error is
+    * reported in the string, but note that the string will contain the complete
+    * file starting there. *)
+    exception Illegal_hennig86_format of string
 
-(** Illegal format for DNA and Protein sequences. The error location is reported
- * in the fl dataype. *)
-exception Illegal_molecular_format of fl
+    (** In the current version of POY only DNA sequences are supported. In the near
+     * future, Protein sequences should supported, but in the meanwhile any attempt
+     * to analyze this type will raise this exception. If necessary, other file
+     * formats that should but are not supported yet can raise this exception. *)
+    exception Unsupported_file_format of string
 
-(** In the current version of POY only DNA sequences are supported. In the near
- * future, Protein sequences should supported, but in the meanwhile any attempt
- * to analyze this type will raise this exception. If necessary, other file
- * formats that should but are not supported yet can raise this exception. *)
-exception Unsupported_file_format of string
+    (** A taxon name ... *)
+    type taxon = string
 
-(** The file type as detected or according to the user suplied format. *)
-type ft = 
-    | Is_Hennig     (** A Hennig86 file format *)
-    | Is_Dpread     (** A POY dpread file format *)
-    | Is_Clustal    (** A Clustal file format *)
-    | Is_Fasta      (** A Fasta file format *)
-    | Is_Poy        (** A Poy file format *)
-    | Is_Genome     (** A Genome (Grappa) file format *)
-    | Is_ASN1       (** An ASN1 file format *)
-    | Is_Genbank    (** A Genbank file format *)
-    | Is_INSDSeq    (** A INSDSeq XML file format *)
-    | Is_GBSeq      (** A GBSeq XML file format *)
-    | Is_TinySeq    (** A TinySeq XML file format *)
-    | Is_XML        (** A XML file format *)
-    | Is_Nexus      (** A Nexus file format *)
-    | Is_NewSeq     
-    | Is_Dictionary
-    | Is_Fixed_States_Dictionary
-    | Is_Phylip     (** PHYLIP file format *)     
-    | Is_Unknown    (** Unknown file format *)
-    | Is_Trees      (** Trees file in parenthetical format *)
-    | Is_ComplexTerminals (** Define complex terminals *)
-
-(** Type of data contained in a file (either Fasta, POY or Hennig86
- * formats *)
-type t = 
-    | Nucleic_Acids 
-    | Proteins 
-    | Prealigned_Alphabet of Alphabet.a
-    | AlphSeq of Alphabet.a
-    | Inactive_Character 
-    | Ordered_Character of (int * int * bool)
-    | Unordered_Character of (int * bool)
-    | Sankoff_Character of (int list * bool)
-    | Genes of int array
-
-(** [is_unknown t] tells observers whether this present character was listed as
-    unknown by the user *)
-val is_unknown : t -> bool
-
-(** A taxon name ... *)
-type taxon = string
-
-type filename = [ `Local of string | `Remote of string ]
-
-(** [test_file a] tries to guess the appropriate format of a file with path [a].
-* If the file doesn't exists raises a Sys_error of string exception, otherwise it
- * will return the guessed type (or Is_Unknown) *)
-val test_file : filename -> ft
-
-
-(** [lor_list_withhash l hash] returns the logical or of the hash values of all
-    of the values in [l] *)
-val lor_list_withhash : int list -> (int, int) Hashtbl.t option -> int
-
-
-module Tree : sig
-    (** Parser for tree in format (a (b c)) *)
-
-    type 'a t = Leaf of 'a | Node of 'a t list * 'a
-
-    type tree_types =
-        | Flat of string t
-        | Annotated of (string t * string)
-        | Branches of ((string * float option) t)
-        | Characters of ((string * string option) t)
-
-    (** [print_tree t] prints a tree **)
-    val print_tree : tree_types -> unit
-
-    (** [of_string x] given a string x of a tree in the form (a (b c)), returns
-    * its representation as an internal t type. If an error occurs, an
-    * Illegal_tree_format error is raised. *)
-    val of_string : string -> tree_types list list
-
-    (** [of_channel x] creates a list of all the trees contained in the input
-    * channel x in ascii format. Each tree should be in a single line. In case
-    * of error the function raises Illegal_molecular_format. *)
-    val of_channel : in_channel -> tree_types list list
-
-    (** [of_file] is a shortcut of [of_channel], when the channel is an opened
-    * file. *)
-    val of_file : filename -> tree_types list list
-
-    (** [stream_of_file f] produces a function that returns on each call one of
-    * the trees in the input file [f]. If no more trees are found, an
-    * End_of_file exception is raised. The function _requires_ that the trees be
-    * separated with associated information, semicolons, or stars.*)
-    val stream_of_file : bool -> filename -> ((unit -> tree_types) * (unit -> unit))
-
-    val cannonic_order : tree_types -> tree_types
-
-    exception Illegal_argument
-
-    (** [cleanup ~newroot f t] removes from the tree [t] the leaves that contain
-    * infromation [x] such that [f x = true]. If there is the need for a new
-    * root, then [newroot] must be provided. If the [newroot] is required and
-    * not provided, the function raises an [Illegal_argument] exception. *)
-    val cleanup : ?newroot:string  -> (string -> bool) -> tree_types -> tree_types option
-
-    (** [post_process t] takes a basic tree and converts it to Flat,Branches or
-     * Annotated based on it's properties. *)
-    val post_process : (string * (float option * string option)) t * string -> tree_types
-
-    val map : ('a -> 'b) -> 'a t -> 'b t
-    val map_tree : (string -> string) -> tree_types -> tree_types
-
-    val strip_tree : tree_types -> string t
-    val maximize_tree : tree_types -> (string * string option) t
 end
+
+module Files : sig
+    (** The file type as detected or according to the user suplied format. *)
+    type ft = 
+        | Is_Hennig     (** A Hennig86 file format *)
+        | Is_Dpread     (** A POY dpread file format *)
+        | Is_Clustal    (** A Clustal file format *)
+        | Is_Fasta      (** A Fasta file format *)
+        | Is_Poy        (** A Poy file format *)
+        | Is_Genome     (** A Genome (Grappa) file format *)
+        | Is_ASN1       (** An ASN1 file format *)
+        | Is_Genbank    (** A Genbank file format *)
+        | Is_INSDSeq    (** A INSDSeq XML file format *)
+        | Is_GBSeq      (** A GBSeq XML file format *)
+        | Is_TinySeq    (** A TinySeq XML file format *)
+        | Is_XML        (** A XML file format *)
+        | Is_Nexus      (** A Nexus file format *)
+        | Is_NewSeq     
+        | Is_Dictionary
+        | Is_Fixed_States_Dictionary
+        | Is_Phylip     (** PHYLIP file format *)     
+        | Is_Unknown    (** Unknown file format *)
+        | Is_Trees      (** Trees file in parenthetical format *)
+        | Is_ComplexTerminals (** Define complex terminals *)
+
+    (** [is_unknown t] tells observers whether this present character was listed as
+        unknown by the user *)
+    val is_unknown : FileContents.t -> bool
+
+    (** [test_file a] tries to guess the appropriate format of a file with path [a].
+    * If the file doesn't exists raises a Sys_error of string exception, otherwise it
+     * will return the guessed type (or Is_Unknown) *)
+    val test_file : FileStream.f -> ft
+
+    val molecular_to_fasta : FileStream.f -> in_channel
+
+end
+
+
+
 
 
 (** Hennig file format parser *)
@@ -229,22 +151,21 @@ module OldHennig : sig
     * this list is a tuple (c, d), where [c] is the array of its characters in 
     * the Hennig86 file, and [d] is the name of the taxon on it. *)
     val of_channel : 
-        in_channel -> Encoding.s array * (t array * string) list *
-            (string option * Tree.tree_types list) list
+        in_channel -> Encoding.s array * (FileContents.t array * string) list *
+            (string option * Tree.Parse.tree_types list) list
 
     val of_file :
-        filename -> Encoding.s array * (t array * string) list * 
-            (string option * Tree.tree_types list) list
-    val convert_to_Phylip_format_file : filename -> string -> unit
+        FileStream.f -> Encoding.s array * (FileContents.t array * string) list * 
+            (string option * Tree.Parse.tree_types list) list
 
     (** Splits the set of characters of a taxa in additive and non additive in a
     * tuple. *)
-    val split_ordered : Encoding.s array -> (t array * string) list -> 
-        (Encoding.s array * (t array * string) list) * 
-        (Encoding.s array * (t array * string) list)
+    val split_ordered : Encoding.s array -> (FileContents.t array * string) list -> 
+        (Encoding.s array * (FileContents.t array * string) list) * 
+        (Encoding.s array * (FileContents.t array * string) list)
 
-    val merger : (Encoding.s array * (t array * string) list) list -> 
-        (int * int) array * (t array * int) list 
+    val merger : (Encoding.s array * (FileContents.t array * string) list) list -> 
+        (int * int) array * (FileContents.t array * int) list 
 
     val print_character_specs : Pervasives.out_channel -> unit
     
@@ -303,15 +224,15 @@ module OldHennig : sig
 
     (** [filter_matrix l m] selects those characters with character specification
     * code in the list [l] from the character matrix [m]. *)
-    val filter_matrix : int list -> (int * int) array * (t array * int) list ->
-        (int * int) array * (t array * int) list 
+    val filter_matrix : int list -> (int * int) array * (FileContents.t array * int) list ->
+        (int * int) array * (FileContents.t array * int) list 
 
     val clear_characters : unit -> unit
 
     val clear_taxa : unit -> unit
 
-    val flatten_matrix : (int * int) array * (t array * int) list -> 
-        ((t * int) array * int) list
+    val flatten_matrix : (int * int) array * (FileContents.t array * int) list -> 
+        ((FileContents.t * int) array * int) list
 
     val code_character : int -> Encoding.s
 
@@ -331,54 +252,46 @@ module OldHennig : sig
      * - nonadditive chars with 17 <= states <= 32
      * - nonadditive chars with >=33 states
      *)
-    val categorize_chars : ((t * int) array * int) ->
-        (((t * int) array * int) * ((t * int) array * int) *
-             ((t * int) array * int) * ((t * int) array * int) *
-             ((t * int) array * int))
+    val categorize_chars : ((FileContents.t * int) array * int) ->
+        (((FileContents.t * int) array * int) * ((FileContents.t * int) array * int) *
+             ((FileContents.t * int) array * int) * ((FileContents.t * int) array * int) *
+             ((FileContents.t * int) array * int))
 
+    val generate_alphabet : Alphabet.a option -> Encoding.s -> Alphabet.a
+
+    (** [of_old_spec filename alph old position] converts an old static homology
+    * specification to the new style. *)
+    val to_new_spec : 
+        ?separator:string ->
+        string -> Alphabet.a -> Encoding.s -> int -> 
+           Nexus.File.static_spec
+
+    (** Symmetric to the previous one, but for the observed state of a taxon *)
+    val to_new_atom : (FileContents.t, Nexus.File.static_state) Hashtbl.t -> Nexus.File.static_spec ->
+        Encoding.s -> FileContents.t -> Nexus.File.static_state
+
+    (** [of_old_parser filename alphabets old_parsed] converts the [old_parsed]
+     * style of static homology parsed file to the new style, with (optional)
+     * assignment of [alphabets], and is assigned [st_filesource] [filename]. *)
+    val to_new_parser : 
+        ?separator:string ->
+        string ->
+        Alphabet.a array option ->
+        Encoding.s array * (FileContents.t array * string) list * 
+        (string option * Tree.Parse.tree_types list) list -> Nexus.File.nexus
 end
 
-module type MOLECULAR = sig
-
-    val of_channel : t -> in_channel -> (Sequence.s list list list * taxon) list
-    (** [of_channel x y] takes an input channel y with information in ascii
-    * format of a molecular data of type t and outputs the list of sequences and
-    * taxon names contained in the file. If the function finds an unexpected
-    * character or an illegal condition for a specific file format, an
-    * Illegal_molecular_format or Unsupported_file_format exception is raised. *)
-
-    val to_channel : 
-        out_channel -> (Sequence.s * taxon) list -> Alphabet.a -> unit
-    (** [to_channel x y z] writes in the output channel x the sequences and taxon
-    * list y using the alphabet z for the sequences in y. If the function finds
-    * an illegal element in any of the sequences for the alphabet z, raises an
-    * Alphabet.Illegal_Code exception. There is no guarantee on the state of the
-    * output file if the exception is raised.*)
-
-    val of_file : t -> filename -> (Sequence.s list list list * taxon) list
-end
-
-module Poy : MOLECULAR
-(** A parser implementation for the Poy file format *)
-
-val alphabet_of_t : t -> Alphabet.a
-(** [alphabet_of_t t] returns the alphabet associated with this character
-    type *)
-
-module Fasta : MOLECULAR
-(** A parser implementation for the Fasta file format *)
-
-module ASN1 : sig
+module Asn1 : sig
 (** A parser implementation for the ASN.1 file format - just convert to 
 * Fasta Format*)
-   val convert_to_fasta: filename -> in_channel
+   val convert_to_fasta: FileStream.f -> in_channel
    
 end 
 
 module Genbank : sig
 (** A parser implementation for the Genbank file format - just convert to 
 * Fasta Format*)
-    val convert_to_fasta: ?filename:string -> filename -> in_channel
+    val convert_to_fasta: ?filename:string -> FileStream.f -> in_channel
    
 end 
 
@@ -386,28 +299,28 @@ end
 module INSDSeq : sig
 (** A parser implementation for the INSDSeq XML file format - just convert to 
 * Fasta Format*)
-   val convert_to_fasta: filename -> in_channel
+   val convert_to_fasta: FileStream.f -> in_channel
    
 end 
 
 module GBSeq : sig
 (** A parser implementation for the GBSeq XML file format - just convert to 
 * Fasta Format*)
-   val convert_to_fasta: filename -> in_channel
+   val convert_to_fasta: FileStream.f -> in_channel
    
 end  
 
 module TinySeq : sig
 (** A parser implementation for the TinySeq XML file format - just convert to 
 * Fasta Format*)
-   val convert_to_fasta: filename -> in_channel
+   val convert_to_fasta: FileStream.f -> in_channel
    
 end  
 
-module XML : sig
+module XMLGB : sig
 (** A parser implementation for the XML file format - just convert to 
 * Fasta Format*)
-   val convert_to_fasta: filename -> in_channel
+   val convert_to_fasta: FileStream.f -> in_channel
    
 end   
 
@@ -417,30 +330,10 @@ module NewSeq : sig
 *      1     AAAGAUUAAG CCAUGCAUGU CUAAGUAUAA ACAAUUAUAC AGUGAAACUG CGAAUGGCUC
 *     61     AUUAAAUCAG UUAUAGUUUA UUUGAUGAAA CCUUACUACA UGGGAUAACU GUGGUAAUUC
 *)
-   val convert_to_fasta: filename -> in_channel
-   val to_fasta : filename -> string
+   val convert_to_fasta: FileStream.f -> in_channel
+   val to_fasta : FileStream.f -> string
    
 end   
-
-module GrappaParser : sig
-    val of_channel : in_channel -> t array 
-
-end
-
-module TransformationCostMatrix : sig
-
-    val of_channel : 
-        ?orientation:bool -> ?use_comb:bool -> ?level:int -> int -> FileStream.greader -> Cost_matrix.Two_D.m
-
-    val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> Cost_matrix.Two_D.m
-
-    val fm_of_file: filename -> float list list
-
-    val of_list : ?use_comb:bool -> ?level:int -> int list list -> int -> Cost_matrix.Two_D.m 
-
-    val of_file : ?use_comb:bool -> filename -> int -> Cost_matrix.Two_D.m
-
-end
 
 module Dictionary : sig
     val of_channel : in_channel -> (string, string) Hashtbl.t
@@ -449,7 +342,7 @@ end
 
 module FixedStatesDict : sig
 
-    val of_channel : t -> in_channel -> Sequence.s list
+    val of_channel : FileContents.t -> in_channel -> Sequence.s list
 
     val create_dp_read_file : 
         ?filename:string -> string -> (Sequence.s * string) list -> 
@@ -461,123 +354,6 @@ module IgnoreList : sig
     val of_channel : in_channel -> string list
 end
 
-val print_error_message : fl -> unit
-
-val molecular_to_fasta : filename -> in_channel
-
-module SC : sig
-
-    type st_type = 
-        | STOrdered
-        | STUnordered  
-        | STSankoff of int array array   (* If Sankoff, the cost matrix to use *)
-        | STLikelihood of MlModel.model  (* The ML model to use *)
-
-    type static_spec = {
-        st_filesource : string; (* The file that contained the character
-        originally *)
-        st_name : string;       (* The name assigned to the character *)
-        st_alph : Alphabet.a;   (* The set of potential character symbols *)
-        st_observed : int list; (* The set of observed states *)
-        st_labels : string list;(* The labels assigned to the states *)
-        st_weight : float;      (* The character weight *)
-        st_type : st_type;      (* The type of character *)
-        st_equivalents : (string * string list) list;
-                                (* Things that are the same in the input *)
-        st_missing : string;       (* The character that represents missing data *)
-        st_matchstate : string option; 
-            (* The chaaracter that marks the same state as teh first taxon *)
-        st_gap : string;            (* The gap representation *)
-        st_eliminate : bool;       (* Wether or not the user wants to get rid of it *)
-        st_case : bool;       (* Wether or not the user wants be case sensistive *)
-        st_used_observed : (int, int) Hashtbl.t option;
-        st_observed_used : (int, int) Hashtbl.t option;
-    }
-
-    type static_state = [ `Bits of BitSet.t | `List of int list ]  option
-
-    type file_output = {
-        char_cntr : int ref;
-        taxa : string option array;
-        characters : static_spec array;
-        matrix : static_state array array;
-        csets : (string, string list) Hashtbl.t;
-        trees : (string option * Tree.tree_types list) list;
-        unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
-        branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
-    }
-
-    val empty_parsed : unit -> file_output
-
-    val static_state_to_list : 
-        [ `Bits of BitSet.t | `List of int list ] -> int list
-    (** [spec_of_alph alphabet missing gap] generates a specification that can read
-    * the elements in the [alphabet] using when the matrix represents [missing]
-    * data and [gaps] as specified. *)
-    val spec_of_alph : Alphabet.a -> string -> string -> static_spec
-
-    (** [to_string v] outputs a string representation of the static_specification
-    * [v] *)
-    val to_string : static_spec -> string
-
-    (** [to_formatter v] generates a standard [Xml.xml] representation of
-    * [to_formatter]. *)
-    val to_formatter : static_spec -> Xml.xml
-
-    (** [file_output] is the standard output generated by a Static Homology file
-    * parser
-    type file_output = 
-        string option array * static_spec array * static_state array array * 
-        (string option * Tree.tree_types) list list * 
-        ((Alphabet.a * (Sequence.s list list list * taxon) list) list) *
-        (string, (string, (string, float) Hashtbl.t) Hashtbl.t) Hashtbl.t *)
-
-    (** [of_channel style ch filename] generates a parsed output from the input
-    * file contained in the [ch] channel, using the appropriate [style] to parse
-    * either Hennig or Nexus files. The characters are assigned [st_filesource]
-    * [filename]. *)
-    val of_channel : [`Hennig | `Nexus ] -> in_channel -> string -> file_output
-
-    (** [fill_observed parsed] takes a parsed output and updates whatever
-    * internal information is needed in a post parsing step (for now only the observed
-    * states in the [static_spec] field) *)
-    val fill_observed : file_output -> unit
-
-    val generate_alphabet : Alphabet.a option -> OldHennig.Encoding.s ->
-        Alphabet.a
-
-    (** [of_old_spec filename alph old position] converts an old static homology
-    * specification to the new style. *)
-    val of_old_spec : 
-        ?separator:string ->
-        string -> Alphabet.a -> OldHennig.Encoding.s -> int -> 
-            static_spec
-
-    (** Symmetric to the previous one, but for the observed state of a taxon *)
-    val of_old_atom : (t, static_state) Hashtbl.t -> static_spec -> OldHennig.Encoding.s -> t -> static_state
-
-    (** [of_old_parser filename alphabets old_parsed] converts the [old_parsed]
-     * style of static homology parsed file to the new style, with (optional)
-     * assignment of [alphabets], and is assigned [st_filesource] [filename]. *)
-    val of_old_parser : 
-        ?separator:string ->
-        string ->
-        Alphabet.a array option ->
-        OldHennig.Encoding.s array * (t array * string) list * 
-        (string option * Tree.tree_types list) list -> file_output
-end
-
-module Phylip : sig
-
-   val of_file : filename -> SC.file_output * string
-   
-end 
-
-module PAlphabet : sig
-    val of_file : filename -> bool -> bool -> Alphabet.a * Cost_matrix.Two_D.m *
-        Cost_matrix.Three_D.m
-    end
-
 module SetGroups : sig
     type set_type =
             | Group 
@@ -588,7 +364,7 @@ module SetGroups : sig
             | Set of 'a * set_type * 'a ct list
     type t = string ct
 
-    val of_file : filename -> t list
+    val of_file : FileStream.f -> t list
     val to_string : t -> string
     val unify : t -> t -> t             (* can fail *)
     val unify_list : t list -> t
@@ -596,4 +372,6 @@ module SetGroups : sig
     end
 
 
-val explode_filenames : [`Local of string | `Remote of string ] list -> string list
+module Wildcard : sig
+    val explode_filenames : FileStream.f list -> string list
+end

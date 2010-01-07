@@ -767,11 +767,13 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         median_solvers:
             [
+                [ LIDENT "simplelk" ->  <:expr<$str:"`SimpleLK"$>> ] |
+                [ LIDENT "chainedlk" ->  <:expr<$str:"`ChainedLK"$>> ] |
                 [ LIDENT "coalestsp" -> <:expr<$str:"`COALESTSP"$>>  ] |
                 [ LIDENT "bbtsp" -> <:expr<$str:"`BBTSP"$>>  ] |
-                [ LIDENT "caprara" -> <:expr<$str:"`Albert"$>>  ] |
+                [ LIDENT "default" -> <:expr<$str:"`Albert"$>>  ] |
                 [ LIDENT "siepel" -> <:expr<$str:"`Siepel"$>>  ] |                
-                [ LIDENT "default" -> <:expr<$str:"`Default"$>> ]
+                [ LIDENT "vinh" -> <:expr<$str:"`Vinh"$>> ]
             ];
         chromosome_argument:
             [

@@ -12,11 +12,13 @@
 #ifndef WINNT
 #include <pthread.h>
 #endif
-#define VFSIZE 10000
+#define VFSIZE 10000 /* this should be the same as in sorting_reversal_median.h*/
 typedef struct vertex Vertex;
 struct vertex
 {
+    int inuse;
     int *perm;
+    int NO;
     unsigned int distance;      /* distance from home */
     unsigned short best_possible_score; /* score of best possible median */
     unsigned short worst_possible_score;    /* score of worst possible median */
@@ -34,6 +36,11 @@ struct vertex_factory
     int capacity;
     int length;
     int width;
+
+    int offseth;
+    int full;
+    int freevertex;
+    
     void ( *clear_mem ) ( void * );
     void *clear_mem_arg;
     int medianNGenes;
@@ -54,4 +61,7 @@ void vf_free ( VertexFactory * vf );
 
 void clean_vf ( VertexFactory * vf, int ngenes,
                 void ( *clear_mem ) ( void * ), void *arg );
+
+void vf_clear ( VertexFactory * vf );
+int vf_no_free_vertex (VertexFactory * vf, int ps_size);
 #endif

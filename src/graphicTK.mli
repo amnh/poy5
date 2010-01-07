@@ -17,4 +17,4 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-val display : ('a * string Parser.Tree.t) array -> unit
+val display : ('a * string Parser.Trees.t) array -> unit

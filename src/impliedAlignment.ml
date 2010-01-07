@@ -1303,7 +1303,7 @@ let analyze_tcm tcm alph =
         if Hashtbl.mem table it then
             Hashtbl.find table it
         else begin
-            let r = Parser.Unordered_Character (it, false) in
+            let r = FileContents.Unordered_Character (it, false) in
             Hashtbl.add table it r;
             r
         end
@@ -1480,7 +1480,7 @@ let analyze_tcm tcm alph =
                 if Hashtbl.mem table it then
                     Hashtbl.find table it
                 else begin
-                    let r = Parser.Sankoff_Character (it, false) in
+                    let r = FileContents.Sankoff_Character (it, false) in
                     Hashtbl.add table it r;
                     r
                 end
@@ -2092,11 +2092,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             let in_taxa, not_in_taxa =
                 match clas with 
                 | `Insertion -> 
-                        Parser.Unordered_Character (1, false), 
-                        Parser.Unordered_Character (2, false)
+                        FileContents.Unordered_Character (1, false), 
+                        FileContents.Unordered_Character (2, false)
                 | `Deletion -> 
-                        Parser.Unordered_Character (2, false),
-                        Parser.Unordered_Character (1, false)
+                        FileContents.Unordered_Character (2, false),
+                        FileContents.Unordered_Character (1, false)
             in
             let taxa_list : All_sets.Integers.t = 
                 Sexpr.fold_left 
@@ -2130,8 +2130,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 "r" None Alphabet.Sequential
             in
             let in_taxa, not_in_taxa = 
-                        Parser.Unordered_Character (1, false), 
-                        Parser.Unordered_Character (2, false)
+                        FileContents.Unordered_Character (1, false), 
+                        FileContents.Unordered_Character (2, false)
             in 
             let taxa_list : All_sets.Integers.t = 
                 Sexpr.fold_left 
@@ -2346,7 +2346,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
     let update_ia_encodings (encs, species, trees) =
         let add_states int acc =
             match int with
-            | Parser.Unordered_Character (int, _) ->
+            | FileContents.Unordered_Character (int, _) ->
                     let a = 1 land int
                     and b = 2 land int 
                     and c = 4 land int 
@@ -2387,7 +2387,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
-            Parser.SC.of_old_parser ~separator character (Some alphabets) (encodings, b, c)
+            Parser.OldHennig.to_new_parser ~separator character (Some alphabets) (encodings, b, c)
         in
         Status.finished st;
         character, res

@@ -14,13 +14,13 @@ module Encodings :
     val decode : encoding -> natural
     val huffman :
       ('a * float) list -> (encoding -> 'a list) * ('a list -> encoding)
-    val huffman_tree : ('a * float) list -> 'a option Parser.Tree.t
+    val huffman_tree : ('a * float) list -> 'a option Tree.Parse.t
     val geometric : int -> int -> float -> (int * float) list
   end
 
 module S_K :
   sig
-    exception Illegal_Expression of string Parser.Tree.t list
+    exception Illegal_Expression of string Tree.Parse.t list
     type primitives = [`S | `K | `Label of string | `Node of primitives list |
     `Debugger of string | `Lazy of primitives Lazy.t]
     val debug : bool ref

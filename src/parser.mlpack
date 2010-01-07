@@ -1,0 +1,16 @@
+parser/Asn1
+parser/ClustalSeq
+parser/Dictionary
+parser/E
+parser/Files
+parser/FixedStatesDict
+parser/GBSeq
+parser/Genbank
+parser/INSDSeq
+parser/IgnoreList
+parser/NewSeq
+parser/OldHennig
+parser/SetGroups
+parser/TinySeq
+parser/Wildcard
+parser/XMLGB

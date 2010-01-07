@@ -415,6 +415,7 @@ let median an bn t1 t2 acode bcode =
         let loglike = 
             loglikelihood n_chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob pinvar
         in
+        assert( loglike >= 0.0 );
         { an with
             chars = n_chars;
             mle = loglike; 
@@ -435,14 +436,6 @@ let rec set_in num lst =
         match num with
         | 0 -> [1.0]
         | e -> (list_of (e) 0.0) @ [1.0]
-let rec sublist l a b =
-    match l with
-    | hd::tl ->
-       (match a,b with
-        | 0,0 -> []
-        | 0,_ -> hd::sublist tl 0 (b-1)
-        | _,_ -> sublist tl (a-1) b)
-    | _ -> [] 
 let farray_to_int32 x =
     let ipow =
         let rec ipow acc a =
@@ -460,11 +453,11 @@ let farray_to_int32 x =
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec weights characters =
-    let computed_model = match spec.Parser.SC.st_type with
-        | Parser.SC.STLikelihood x -> x
+    let computed_model = match spec.Nexus.File.st_type with
+        | Nexus.File.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
     let (a_size,a_gap) = 
-        let alph = spec.Parser.SC.st_alph in
+        let alph = Alphabet.to_sequential spec.Nexus.File.st_alph in
         match computed_model.MlModel.spec.MlModel.use_gap with
         | true -> Alphabet.size alph, (-1)
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
@@ -483,7 +476,7 @@ let of_parser spec weights characters =
             else
                 let pl = List.fold_right set_in lst (list_of a_size 0.0) in
                 assert( a_size = List.length pl);
-                Array.of_list (sublist pl 0 a_size)
+                Array.of_list pl
     in
     (* convert character array to abstract type --redo *)
     let aa_chars = Array.map loop_ characters in (* create initial arrays *)
@@ -508,6 +501,7 @@ let of_parser spec weights characters =
                                 computed_model.MlModel.prob
                                 pinvar
     in
+    assert( loglike >= 0.0 );
     {    mle  = loglike;
        model  = computed_model;
        codes  = Array.map (fun (x,y) -> y) characters; 
@@ -515,12 +509,21 @@ let of_parser spec weights characters =
        chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
+    let human_readable char_code state_code = 
+        let spec = match Hashtbl.find data.Data.character_specs char_code with
+            | Data.Static x -> x
+            | _ -> assert false
+        in
+        spec.Nexus.File.st_alph
+            --> Alphabet.to_sequential
+            --> Alphabet.match_code state_code
+    in
     let str_time = function | Some x -> `Float x | None -> `String "None" in
     let rec make_single_vec char_code single_ray =
         (Array.to_list 
             (Array.mapi 
                 (fun state_code value ->
-                    let alph = Data.to_human_readable data char_code state_code in
+                    let alph = human_readable char_code state_code in
                     (PXML -[Xml.Characters.vector]
                         ([Xml.Alphabet.value] = [`Float value])
                         {`String alph} --))
@@ -533,15 +536,6 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 { `Set (make_single_vec char_code single_ray) }
         --)
     in
-    (*
-    let priors = 
-        [(PXML
-            -[Xml.Characters.priors]
-                { `Set (make_single_vec (Array.get mine.codes 0) 
-                                        (ba2array mine.model.MlModel.pi_0)) }
-        --)]
-    in
-    *)
     let sequence =
         let likelihood_vec,invariant_vec = s_bigarray mine.chars in
         (PXML
@@ -551,9 +545,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
-        (** TODO: report invar **)
     in
-
     (PXML
         (* tag *)
         -[Xml.Characters.likelihood]

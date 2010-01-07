@@ -242,6 +242,8 @@ module Two_D : sig
 
     (* [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
+    val of_file : ?use_comb:bool -> FileStream.f -> int -> m
+    val fm_of_file: FileStream.f -> float list list
 end
 
 module Three_D : sig

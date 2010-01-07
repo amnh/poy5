@@ -65,23 +65,23 @@ type phylogeny = (Node.node_data, unit) p_tree
 let cannonize a =
     let rec cannonize fn a = 
         match a with
-        | Parser.Tree.Leaf x -> x, a
-        | Parser.Tree.Node (lst, _) ->
+        | Parser.Trees.Leaf x -> x, a
+        | Parser.Trees.Node (lst, _) ->
                 let res = List.rev_map cannonize lst in
                 match List.sort (fun ((x : string), _) ((y : string), _) ->
                     Pervasives.compare x y ) res  with
                     | ((h, _) :: _) as lst ->
                             let _, res = List.split lst in
-                            h, (Parser.Tree.Node (res, h))
+                            h, (Parser.Trees.Node (res, h))
                     | [] -> failwith "Ptree.cannonize"
     in
     match a with
-    | Parser.Tree.Annotated (t,str) ->
-        let a,b = cannonize (fun x -> x) t in a,(Parser.Tree.Annotated (b,str))
-    | Parser.Tree.Flat t -> 
-        let a,b = cannonize t in a,(Parser.Tree.Flat b)
-    | Parser.Tree.Branches t ->
-        let a,b = cannonize t in a,(Parser.Tree.Branches b)
+    | Parser.Trees.Annotated (t,str) ->
+        let a,b = cannonize (fun x -> x) t in a,(Parser.Trees.Annotated (b,str))
+    | Parser.Trees.Flat t -> 
+        let a,b = cannonize t in a,(Parser.Trees.Flat b)
+    | Parser.Trees.Branches t ->
+        let a,b = cannonize t in a,(Parser.Trees.Branches b)
 *)
 
 type cost_type = [ `Adjusted | `Unadjusted ]
@@ -135,18 +135,40 @@ type ('a, 'b) breakage = {
 }
 
 
-type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
+(* the nodes manager takes the properties from the cost, reroot, join, and break
+ * functions, and determines how to iterate the tree *)
+class type ['a, 'b] nodes_manager = object
+    method update_iterate :
+            ('a, 'b) p_tree -> 
+            ([ `Break of ('a, 'b) breakage 
+             | `Join of Tree.join_delta 
+             | `Reroot of incremental list
+             | `Cost ]) -> unit
+    method clone : ('a, 'b) nodes_manager
+    method branches : Tree.edge list option
+    method model : bool
+    method to_string : string
+end
+
+type ('a, 'b) break_fn =
+    ('a, 'b ) nodes_manager option ->
+        Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 
 type ('a, 'b) join_fn =   
+    ('a, 'b ) nodes_manager option -> 
     incremental list ->
     Tree.join_jxn ->
     Tree.join_jxn ->
     ('a, 'b) p_tree ->
     ('a, 'b) p_tree * Tree.join_delta
 
-type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+type ('a, 'b) adjust_fn = 
+    ?epsilon:(float) -> ?max_iter:(int) ->
+        ('a, 'b ) nodes_manager option ->
+            ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type ('a, 'b) cost_fn =
+    ('a, 'b ) nodes_manager option -> 
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
     'a ->
@@ -154,6 +176,7 @@ type ('a, 'b) cost_fn =
     clade_cost
     
 type ('a, 'b) reroot_fn =
+    ('a, 'b ) nodes_manager option -> 
     bool ->
     Tree.edge ->
     ('a, 'b) p_tree ->
@@ -170,7 +193,7 @@ module type Tree_Operations =
         type b
 
         val break_fn : (a, b) break_fn
-        val model_fn : (a, b) model_fn
+        val adjust_fn : (a, b) adjust_fn
         val join_fn : (a, b) join_fn 
         val cost_fn : (a, b) cost_fn
         val reroot_fn : (a, b) reroot_fn
@@ -233,11 +256,11 @@ class type ['a, 'b] tabu_mgr = object
      * should ensure the invariant that edges in the tabu and the edges in the tree are
      * in sync. Note that directionality could be reversed. *)
 
-    method update_reroot : ('a, 'b) breakage -> unit
-
-    method update_join : 
-        ('a, 'b) p_tree -> Tree.join_delta -> unit
+    method update_reroot  : ('a, 'b) breakage -> unit
+    method update_join    : ('a, 'b) p_tree -> Tree.join_delta -> unit
         
+    method get_node_manager : ('a, 'b) nodes_manager option
+
     method features : (string * string) list -> (string * string) list
     (** What does this method do? *)
 
@@ -255,14 +278,15 @@ class type ['a, 'b] wagner_mgr =
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
             ('a, 'b) cost_fn ->
-                float ->
-                    'a ->
-                        ('a, 'b) join_fn ->
-                            Tree.join_jxn ->
-                                Tree.join_jxn -> 
-                                    ('a, 'b) p_tree -> 
-                                        ('a, 'b) wagner_edges_mgr ->
-                                            t_status
+                ('a, 'b) nodes_manager option ->
+                    float ->
+                        'a ->
+                            ('a, 'b) join_fn ->
+                                Tree.join_jxn ->
+                                    Tree.join_jxn -> 
+                                        ('a, 'b) p_tree -> 
+                                            ('a, 'b) wagner_edges_mgr ->
+                                                t_status
     method evaluate : unit
     method results : (('a, 'b) p_tree * float) list
 end
@@ -324,6 +348,7 @@ module type SEARCH = sig
       val make_wagner_tree :
           ?sequence:(int list) ->
         (a, b) p_tree ->
+        (a, b) nodes_manager option ->
         (a, b) wagner_mgr ->
             ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
         (a, b) wagner_mgr 
@@ -388,35 +413,34 @@ module type SEARCH = sig
           keeping trees, a method for weighting trees, a number of iterations to perform,
           and a function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list -> int ->
-
+          (a, b) p_tree list -> 
+          int ->
           int ->
           ((a, b) p_tree -> float) ->
           Methods.fusing_keep_method ->
           int ->
-          ((a, b) p_tree -> (a, b) p_tree
-               list) ->
+          ((a, b) p_tree -> (a, b) p_tree list) ->
           (int * int) ->
-          (a, b) p_tree list
+            (a, b) p_tree list
 
       val search_local_next_best : (search_step * string) -> searcher
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          string option * Parser.Tree.tree_types list ->
+          string option * Tree.Parse.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types list
+                        string -> Tree.Parse.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) ->
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types
+                        string -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -425,21 +449,21 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Tree.Parse.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
         val build_forest :
             bool -> (a, b) p_tree ->
-          string -> Parser.Tree.tree_types list
+          string -> Tree.Parse.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Tree.Parse.tree_types list
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool ->
-            Parser.Tree.tree_types list
+            Tree.Parse.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
@@ -915,7 +939,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
     (** Function used for debugging purposes...*)
     let verify_cost old_cost old_delta cdnd new_delta j1 j2 t_delta pt =
-        let t, _ = Tree_Ops.join_fn [] j1 j2 pt in
+        let t, _ = Tree_Ops.join_fn None [] j1 j2 pt in
         let new_cost = get_cost `Adjusted t in
         match new_delta with
         | Cost new_delta ->
@@ -965,7 +989,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
           method clone = ({<>} :> (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
           method init _ = ()
           method next_tree = assert false
-          method process _ _ _ _ _ _ _ _ = assert false
+          method process _ _ _ _ _ _ _ _ _ = assert false
           method evaluate = ()
           method results = [ptree, get_cost `Adjusted ptree]
       end
@@ -978,10 +1002,9 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         @param cost_fn function to determine the cost of the tree.
         @return the wagner tree. i.e. best spr tree over the given data. *)
     let make_wagner_tree ?(sequence) ptree 
-            (srch_mgr : (Tree_Ops.a, Tree_Ops.b) wagner_mgr) 
-            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b)
-            wagner_edges_mgr))
-            = 
+            (i_mgr    : (Tree_Ops.a, Tree_Ops.b) nodes_manager option)
+            (srch_mgr : (Tree_Ops.a, Tree_Ops.b) wagner_mgr)
+            (create_tabu_mgr : (('a, b) p_tree -> int -> (Tree_Ops.a, Tree_Ops.b) wagner_edges_mgr)) = 
         let nodes = 
             match sequence with
             | None -> Tree.handle_list ptree.tree
@@ -1006,7 +1029,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     in
                     (get_corrected_jnx h1), (get_corrected_jnx h2)
                 in
-                let ptree, tree_delta = (Tree_Ops.join_fn [] j1 j2 ptree) in
+                let ptree, tree_delta = Tree_Ops.join_fn i_mgr [] j1 j2 ptree in
                 (* Now we ensure that the root is located in between the two 
                 * handles that we just joined. This is needed for constrained
                 * building. *)
@@ -1020,14 +1043,14 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     let l = new_vertex l 
                     and r = new_vertex r in
                     let tree, inc = 
-                        Tree_Ops.reroot_fn true (Tree.Edge (l, r)) ptree 
+                        Tree_Ops.reroot_fn i_mgr true (Tree.Edge (l, r)) ptree 
                     in
                     Tree_Ops.incremental_uppass tree inc
                 in
                 let cst = get_cost `Adjusted ptree in
                 (* function adds the given nd to each of the edges of pt and
                 * picks the tree/s according to some optimality criterion. *)
-                let add_node_everywhere (pt, cst, tabu_mgr) nd srch_mgr =
+                let add_node_everywhere (pt, cst, tabu_mgr) nd (srch_mgr: ('a,'b) wagner_mgr) =
                     let j2, nd_data =
                         match (get_component_root nd ptree).root_median with
                         | None -> assert false
@@ -1043,8 +1066,9 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         and h2 = (Tree.get_node_id e2 pt.tree) in
                         let j1 = Tree.Edge_Jxn(h1, h2) in
                         let status:t_status = 
-                            (srch_mgr#process Tree_Ops.cost_fn infinity 
-                                 nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr) 
+                            (srch_mgr#process 
+                                Tree_Ops.cost_fn i_mgr infinity 
+                                    nd_data Tree_Ops.join_fn j1 j2 pt tabu_mgr)
                         in
                         status, srch_mgr
                     in
@@ -1068,7 +1092,7 @@ module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 in
               (* sequentially add rest of the nodes to the
               * tree *)
-              let rec seq_add nodes srch_mgr added = 
+              let rec seq_add nodes (srch_mgr: ('a,'b) wagner_mgr) added = 
                   match nodes with
                   | [] -> srch_mgr
                   | nd :: rest ->
@@ -1145,8 +1169,7 @@ let simplify x jxn =
     | `Same -> assert false
 
 let single_spr_round pb parent_side child_side 
-(tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a,
-Tree_Ops.b) search_mgr) breakage = 
+        (tabu : (Tree_Ops.a, Tree_Ops.b) tabu_mgr) (search : (Tree_Ops.a, Tree_Ops.b) search_mgr) breakage = 
     let child_info = get_side_info child_side breakage in
     let child_jxn, handle_of_child = 
         match child_info.topology_delta with
@@ -1183,7 +1206,7 @@ Tree_Ops.b) search_mgr) breakage =
                 | `Same -> do_search ()
                 | _ ->
                         let what_to_do_next =
-                            search#process Tree_Ops.cost_fn 
+                            search#process Tree_Ops.cost_fn
                             breakage.break_delta 
                             child_info.clade_node
                             Tree_Ops.join_fn breakage.incremental parent_jxn 
@@ -1203,8 +1226,10 @@ let spr_join pb tabu search breakage =
     | x -> x
 
 let tbr_join pb tabu search breakage =
-    let reroot_on_edge to_reroot edge breakage =
-        let ptree, inc = Tree_Ops.reroot_fn true edge breakage.ptree in
+    let reroot_on_edge tabu to_reroot edge breakage =
+        let ptree, inc =
+            Tree_Ops.reroot_fn (tabu#get_node_manager) true edge breakage.ptree
+        in
         let Tree.Edge (a, b) = Tree.normalize_edge edge ptree.tree in
         let create_clade_info clade_info =
             let handle = handle_of a ptree in
@@ -1246,8 +1271,7 @@ let tbr_join pb tabu search breakage =
                                 if debug then
                                     Printf.printf "Rerooting in %d %d\n%!" a b;
                                 let search_breakage = 
-                                    reroot_on_edge to_reroot edge 
-                                    breakage 
+                                    reroot_on_edge tabu to_reroot edge breakage 
                                 in
                                 tabu#update_reroot search_breakage;
                                 do_search search_breakage
@@ -1256,13 +1280,13 @@ let tbr_join pb tabu search breakage =
 
 let breakage_to_pb x = `Pair x.tree_delta
 
-let do_search neighborhood tree tabu search =
+let do_search neighborhood (tree: ('a,'b) p_tree) (tabu: ('a,'b) tabu_mgr) (search : ('a, 'b) search_mgr) : unit =
     let rec do_search () =
         match tabu#break_edge with
         | None -> Tree.Break
         | Some (Tree.Edge ((a, b) as x)) -> 
                 if debug then Printf.printf "Breaking in %d %d\n%!" a b;
-                let breakage = Tree_Ops.break_fn x tree in
+                let breakage = Tree_Ops.break_fn (tabu#get_node_manager) x tree in
                 let breakage = apply_incremental breakage in
                 if debug then
                     assert (
@@ -1292,7 +1316,7 @@ let spr_step a b c =
     do_search spr_join a b c;
     c
 
-let search passit (searcher, name) search =
+let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, 'b) search_mgr =
     let status = Status.create name None ("Searching") in
     try
         while search#any_trees do
@@ -1432,11 +1456,16 @@ let fuse_all_locations ?min ?max trees =
     Tree.fuse_all_locations ~filter trees
 
 let fuse source_arg target_arg =
+    let adjust_mgr = 
+        (* let _,_,_,adj1 = source_arg and _,_,_,adj2 = target_arg in
+        Some  (new nodes manager adj1 adj2) *)
+        None
+    in
     (* reroot if necessary *)
     let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge)) as arg) =
         if is_edge edge tree then arg
         else
-            let tree, updt = Tree_Ops.reroot_fn false edge tree in
+            let tree, updt = Tree_Ops.reroot_fn adjust_mgr false edge tree in
             let tree = Tree_Ops.incremental_uppass tree updt in
             tree, tree.tree, edge 
     in
@@ -1515,9 +1544,14 @@ let copy_component handle source target =
 
 
 let fuse source target terminals =
+    let adjust_mgr = 
+        (* let _,_,_,adjust_one = source and _,_,_,adjust_two = target in
+        Some (new node_manager adjust_one adjust_two) *)
+        None
+    in
     let debug = false in
     let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge))) =
-        let tree, updt = Tree_Ops.reroot_fn false edge tree in
+        let tree, updt = Tree_Ops.reroot_fn adjust_mgr false edge tree in
         let tree = Tree_Ops.incremental_uppass tree updt in
         tree, tree.tree, edge 
     in
@@ -1553,10 +1587,10 @@ let fuse source target terminals =
     assert (tb = sb);
     if debug then prerr_endline "About to break";
     let stree, (sld, srd), sinc = 
-        let breakage = Tree_Ops.break_fn sedge stree in
+        let breakage = Tree_Ops.break_fn adjust_mgr sedge stree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     and ttree, (tld, trd), tinc = 
-        let breakage = Tree_Ops.break_fn tedge ttree in
+        let breakage = Tree_Ops.break_fn adjust_mgr tedge ttree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     in
     let stree = Tree_Ops.incremental_uppass stree sinc
@@ -1579,7 +1613,7 @@ let fuse source target terminals =
         | `Edge (_, la, lb, _) -> (Tree.Edge_Jxn (la, lb))
         | `Single (x, _) -> Tree.Single_Jxn x
     in
-    let tree, _ = Tree_Ops.join_fn [] jxn jxn2 tree in
+    let tree, _ = Tree_Ops.join_fn adjust_mgr [] jxn jxn2 tree in
     let tree =Tree_Ops.uppass tree in
     tree
 
@@ -1588,8 +1622,8 @@ let fuse source target terminals =
     list of trees to start with, the max number of trees and a method for keeping
     trees, a method for weighting trees, a number of iterations to perform, and a
     function to process new trees *)
-let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
-        process (cmin, cmax) =
+let fuse_generations trees terminals max_trees tree_weight tree_keep
+                        iterations process (cmin, cmax) =
     let () = 
         if 2 > List.length trees then 
             failwith "Tree fusing: must have at least two trees"
@@ -1737,18 +1771,20 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep iterations
             FPSet.add (Tree.Fingerprint.fingerprint x.tree) acc) 
         FPSet.empty trees 
         in
-        gen fp trees 1 
+        gen fp trees 1
     in
     Status.finished status;
     limit_num res
 
 (** [convert_to tree d]
-    @param tree the Parser.Tree.t that is being used to build trees.
+    @param tree the Tree.Parse.t that is being used to build trees.
     @param d Data.d the data associated with the parser tree.
-    @return p_tree that corresponds to the Parser.Tree.t *)
+    @return p_tree that corresponds to the Tree.Parse.t *)
 let convert_to tree (data, nd_data_lst) = 
-    (* convert the Parser.Tree.t to Tree.u_tree *)
-    let ut = Tree.convert_to tree data in
+    (* convert the Tree.Parse.t to Tree.u_tree *)
+    let ut = 
+        Tree.Parse.convert_to tree (fun taxon -> Data.taxon_code taxon
+        data) (Data.number_of_taxa data) in
     let pt = { (empty data) with tree = ut } in
     (* function to add leaf-node data to the ptree. *)
     let data_adder ptree nd = 
@@ -1757,21 +1793,21 @@ let convert_to tree (data, nd_data_lst) =
     (List.fold_left data_adder pt nd_data_lst)
 
 (** [build_trees tree]
-    @param tree the ptree which is being converted into a Parser.Tree.t
+    @param tree the ptree which is being converted into a Tree.Parse.t
     @param str_gen is a function that generates a string for each vertex in the
     tree
     @param collapse is a function that check weather or not a branch can be
     collapsed.
-    @return the ptree in the form of a Parser.Tree.t *)
+    @return the ptree in the form of a Tree.Parse.t *)
 let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
     let sortthem a b ao bo data ad bd =
         match String.compare ao bo with
-        | 0 | 1 -> Parser.Tree.Node (b @ a, data), bd + 1, bo
-        | _ -> Parser.Tree.Node (a @ b, data), bd + 1, ao
+        | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
+        | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
     in
     let get_children = function
-        | Parser.Tree.Leaf _ as x -> [x]
-        | Parser.Tree.Node (lst, _) -> lst
+        | Tree.Parse.Leafp _ as x -> [x]
+        | Tree.Parse.Nodep (lst, _) -> lst
     in
 
     (* create an empty table if none is passed *)
@@ -1797,7 +1833,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
         match node with
         | Tree.Leaf (self, parent) -> 
               let data = str_gen root self (Some parent) in
-              Parser.Tree.Leaf data, 0, (fst data)
+              Tree.Parse.Leafp data, 0, (fst data)
         | Tree.Interior (our_id, _, _, _) ->
               let (ch1, ch2) = 
                   assert (prev_node <> Tree.get_id node);
@@ -1826,14 +1862,14 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
               let data = str_gen root our_id (Some prev_node) in
 
               if bd > ad then
-                  Parser.Tree.Node (a @ b, data), bd + 1, bo
+                  Tree.Parse.Nodep (a @ b, data), bd + 1, bo
                 (* if equal then sort children alphabetically *)
               else if bd = ad then sortthem a b ao bo data ad bd 
-              else Parser.Tree.Node (b @ a, data), ad + 1, ao
+              else Tree.Parse.Nodep (b @ a, data), ad + 1, ao
         | Tree.Single _ -> failwith "Unexpected single"
     in
     
-    let map : Parser.Tree.tree_types list =
+    let map : Tree.Parse.tree_types list =
         List.map
         (fun handle ->
             let tree = 
@@ -1843,7 +1879,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
                    let acc, _, _ = rec_down true (Tree.get_node parent
                                            tree) handle in
                    let str = str_gen true self (Some parent) in 
-                   [(Parser.Tree.Leaf str); acc]
+                   [(Tree.Parse.Leafp str); acc]
              | Tree.Interior (self, par_id, ch1, ch2) ->
                    let par = Tree.get_node par_id tree in
                    let ch1 = Tree.get_node ch1 tree in
@@ -1854,22 +1890,22 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
                    let data = str_gen true self (Some par_id) in
                    if acc2d > acc1d then
                        if acc1d > accd then
-                           [Parser.Tree.Node ([acc; acc1], data); acc2]
+                           [Tree.Parse.Nodep ([acc; acc1], data); acc2]
                        else 
-                           [Parser.Tree.Node ([acc1; acc], data); acc2]
+                           [Tree.Parse.Nodep ([acc1; acc], data); acc2]
                    else if acc1d > accd then
                        if acc2d > accd then 
-                           [Parser.Tree.Node ([acc; acc2], data); acc1]
+                           [Tree.Parse.Nodep ([acc; acc2], data); acc1]
                        else 
-                           [Parser.Tree.Node ([acc2; acc], data); acc1]
+                           [Tree.Parse.Nodep ([acc2; acc], data); acc1]
                    else 
                        if acc2d > acc1d then
-                           [Parser.Tree.Node ([acc1;acc2], data); acc]
+                           [Tree.Parse.Nodep ([acc1;acc2], data); acc]
                        else 
-                           [Parser.Tree.Node ([acc2;acc1], data); acc]
-             | Tree.Single self -> [(Parser.Tree.Leaf (str_gen true self None))]
-             in Parser.Tree.post_process 
-                    ( Parser.Tree.Node (tree,("",(None,None))),root )
+                           [Tree.Parse.Nodep ([acc2;acc1], data); acc]
+             | Tree.Single self -> [(Tree.Parse.Leafp (str_gen true self None))]
+             in Tree.Parse.post_process 
+                    ( Tree.Parse.Nodep (tree,("",(None,None))),root )
             ) (* ^ there is going to have to be something in that "" *)
             (All_sets.Integers.elements (Tree.get_handles tree))
     in
@@ -1877,7 +1913,7 @@ let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
 
 
     (** [build_tree tree]
-        @param tree the ptree being converted into a Parser.Tree.t
+        @param tree the ptree being converted into a Tree.Parse.t
         @return the tree with the smallest handle_id in ptree *)
     let build_tree tree strgen collapse branches (root:string) =
         let map = build_trees tree strgen collapse branches root in
@@ -1913,15 +1949,15 @@ let compare_trees a b =
     let rec compare acc a b = 
         acc &&
         (match a, b with
-        | Parser.Tree.Leaf x, Parser.Tree.Leaf y ->  x = y
-        | Parser.Tree.Node (ca, _), Parser.Tree.Node (cb, _) ->
+        | Tree.Parse.Leafp x, Tree.Parse.Leafp y ->  x = y
+        | Tree.Parse.Nodep (ca, _), Tree.Parse.Nodep (cb, _) ->
                 fold_2 compare true ca cb
         | _, _ -> false)
     in match a,b with
-    | Parser.Tree.Branches t1, Parser.Tree.Branches t2 -> compare true t1 t2
-    | Parser.Tree.Annotated (t1,_), Parser.Tree.Annotated (t2,_) -> compare true t1 t2
-    | Parser.Tree.Flat t1, Parser.Tree.Flat t2 -> compare true t1 t2
-    | Parser.Tree.Characters t1, Parser.Tree.Characters t2 -> compare true t1 t2
+    | Tree.Parse.Branches t1, Tree.Parse.Branches t2 -> compare true t1 t2
+    | Tree.Parse.Annotated (t1,_), Tree.Parse.Annotated (t2,_) -> compare true t1 t2
+    | Tree.Parse.Flat t1, Tree.Parse.Flat t2 -> compare true t1 t2
+    | Tree.Parse.Characters t1, Tree.Parse.Characters t2 -> compare true t1 t2
     | _ -> failwith "Fill this all in??! really?"
 
 let get_unique trees =
@@ -1941,7 +1977,7 @@ let get_unique trees =
                 try
                 List.rev_map 
                     (fun (x, y) -> 
-                        x,Parser.Tree.cannonic_order (build_tree_with_codes y ""))
+                        x,Tree.Parse.cannonic_order (build_tree_with_codes y ""))
                     trees
                 with
                 | Not_found as err -> 
@@ -2011,34 +2047,34 @@ let build_forest_as_tree collapse tree cost =
     | [] -> failwith "no trees?"
     | trees -> 
         match List.hd trees with
-        | Parser.Tree.Annotated (t,str) ->
+        | Tree.Parse.Annotated (t,str) ->
             let chillens = List.map 
                 (fun x -> match x with 
-                    | Parser.Tree.Annotated (x,_) -> x
+                    | Tree.Parse.Annotated (x,_) -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Flat (Parser.Tree.Node (chillens, "forest"))
-        | Parser.Tree.Flat t ->
+            Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
+        | Tree.Parse.Flat t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Flat x -> x
+                    | Tree.Parse.Flat x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Flat (Parser.Tree.Node (chillens, "forest"))
-        | Parser.Tree.Characters t ->
+            Tree.Parse.Flat (Tree.Parse.Nodep (chillens, "forest"))
+        | Tree.Parse.Characters t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Characters x -> x
+                    | Tree.Parse.Characters x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Characters (Parser.Tree.Node (chillens, ("forest",None)))
-        | Parser.Tree.Branches t ->
+            Tree.Parse.Characters (Tree.Parse.Nodep (chillens, ("forest",None)))
+        | Tree.Parse.Branches t ->
             let chillens = List.map 
                 (fun x -> match x with
-                    | Parser.Tree.Branches x -> x
+                    | Tree.Parse.Branches x -> x
                     | _ -> failwith "consistency"
                 ) trees in
-            Parser.Tree.Branches (Parser.Tree.Node (chillens, ("forest",None)))
+            Tree.Parse.Branches (Tree.Parse.Nodep (chillens, ("forest",None)))
 
 let build_forest_with_names_n_costs collapse tree cost branches = 
     let collapse_f = handle_collapse collapse tree in
@@ -2072,8 +2108,8 @@ let disp_trees str tree strgen root =
         trees := List.tl !trees
     done
 (** [to_xml tree data f]
-@param tree the ptree which is being converted into a Parser.Tree.t
-@return the ptree in the form of a Parser.Tree.t *)
+@param tree the ptree which is being converted into a Tree.Parse.t
+@return the ptree in the form of a Tree.Parse.t *)
 let to_xml ch tree =
     let rec rec_down node prev_node =
         match node with
@@ -2305,8 +2341,8 @@ let make_tree_counters code_generator counters gen_tree =
         add_or_not false single counters
     in
     let rec make_tree_counters counters tree = match tree with
-        | Parser.Tree.Leaf d -> add_singleton (code_generator d)
-        | Parser.Tree.Node (lst, _) ->
+        | Tree.Parse.Leafp d -> add_singleton (code_generator d)
+        | Tree.Parse.Nodep (lst, _) ->
             let all_sets, counters =
                 List.fold_left (fun (all_sets, counters) child ->
                     let its_sets, counters = 
@@ -2320,7 +2356,7 @@ let make_tree_counters code_generator counters gen_tree =
             in
             add_or_not false all_sets counters
     in
-    make_tree_counters counters (Parser.Tree.strip_tree gen_tree)
+    make_tree_counters counters (Tree.Parse.strip_tree gen_tree)
 
 let add_consensus_to_counters counters trees = 
     let new_counter = 
@@ -2350,7 +2386,7 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
                     let code = All_sets.Integers.choose set in
                     coder := code;
                     let name = to_string code in
-                    let newtree = Parser.Tree.Flat (Parser.Tree.Leaf name) in
+                    let newtree = Tree.Parse.Flat (Tree.Parse.Leafp name) in
                     let trees = 
                         All_sets.IntegerMap.add code (newtree, set) builttrees 
                     in
@@ -2369,8 +2405,8 @@ let build_a_tree to_string denominator print_frequency coder trees (set, cnt) =
                         Printf.sprintf "%.2f" (cnt /. denominator)
                     else ""
                 in
-                let all_trees = List.map (Parser.Tree.strip_tree) all_trees in
-                Parser.Tree.Flat (Parser.Tree.Node (all_trees, msg))
+                let all_trees = List.map (Tree.Parse.strip_tree) all_trees in
+                Tree.Parse.Flat (Tree.Parse.Nodep (all_trees, msg))
     in
     All_sets.Integers.fold (fun x trees ->
         All_sets.IntegerMap.add x (tree, set) trees)
@@ -2462,7 +2498,7 @@ let extract_bremer to_string sets =
 * tree) of sets, for the input tree *)
 let bremer to_string cost tree generator files =
     let tree_file_handlers = 
-        ref (List.map (Parser.Tree.stream_of_file true) files) 
+        ref (List.map (Tree.Parse.stream_of_file true) files) 
     in
     (* We first create a function that takes a map of clades and best cost found
     * for a tree _not_ containing the set, and a set of clades belonging to a

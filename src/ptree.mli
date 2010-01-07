@@ -90,13 +90,30 @@ type ('a, 'b) breakage = {
     incremental : incremental list;
 }
 
-type ('a, 'b) break_fn = Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
+class type ['a, 'b] nodes_manager = object
+    method update_iterate :
+            ('a, 'b) p_tree -> 
+            ([ `Break of ('a, 'b) breakage 
+             | `Join of Tree.join_delta 
+             | `Reroot of incremental list
+             | `Cost ]) -> unit
+    method clone : ('a, 'b) nodes_manager
+    method branches : Tree.edge list option
+    method model : bool
+    method to_string : string
+end
+
+
+
+type ('a, 'b) break_fn =
+    ('a, 'b ) nodes_manager option -> Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 (** type of function that breaks the tree at a given break jxn and returns the
 * tree with the edge broken, change in the tree topology, any additional data
 * that might be useful to the caller, the cost of breaking the tree at this jxn
 * and finally the node that was the root of the clade. *)
     
 type ('a, 'b) join_fn =   
+    ('a, 'b ) nodes_manager option -> 
     incremental list ->
     Tree.join_jxn ->
     Tree.join_jxn ->
@@ -110,17 +127,16 @@ type ('a, 'b) join_fn =
 * is just the tree_delta that was returned as a result of the edge break
 * operation. *)
 
-type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
-(** type of functiont hat performs iterations on the model of the tree for
- * likelihood. Uses the BFGS method -a quasi newtons method- and a line search
- * function that uses the gradient of the model parameters to determine the
- * length of the step size for iteration. Further details on these functions in
- * Numerical Recipes in C; 10-7 and 9-7.
- *
- * Eventually this function will take a subset of edges to update with and other
- * parameters to optimize the efficiency of this function. *)
+type ('a, 'b) adjust_fn = 
+    ?epsilon:(float) -> ?max_iter:(int) ->
+        ('a, 'b ) nodes_manager option ->
+            ('a, 'b) p_tree -> ('a, 'b) p_tree
+(** type of function that performs iterations on the model and branch lengths
+ * of the tree for likelihood. This function takes if the model needs to be
+ * iterated and what edges to adjust branch lengths. *)
 
 type ('a, 'b) cost_fn =
+    ('a, 'b ) nodes_manager option -> 
     Tree.join_jxn -> Tree.join_jxn ->
     float ->
     'a ->
@@ -132,6 +148,7 @@ type ('a, 'b) cost_fn =
 * at this location. *)
 
 type ('a, 'b) reroot_fn =
+    ('a, 'b ) nodes_manager option -> 
     bool ->
     Tree.edge ->
     ('a, 'b) p_tree ->
@@ -153,7 +170,7 @@ module type Tree_Operations =
     type b
 
     val break_fn : (a, b) break_fn
-    val model_fn : (a,b) model_fn
+    val adjust_fn : (a,b) adjust_fn
     val join_fn : (a, b) join_fn
     val cost_fn : (a, b) cost_fn
     val reroot_fn : (a, b) reroot_fn
@@ -186,6 +203,7 @@ class type ['a, 'b] wagner_edges_mgr = object
     method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method clone : ('a, 'b) wagner_edges_mgr
     method exclude : Tree.edge list -> unit
+    (* method get_node_manager : ('a, 'b) nodes_manager option *)
 end
 
   class type ['a, 'b] wagner_mgr =
@@ -198,6 +216,7 @@ end
         method next_tree : ('a, 'b) p_tree * float * ('a, 'b) wagner_edges_mgr
         method process :
             ('a, 'b) cost_fn ->
+              ('a,'b) nodes_manager option ->
                 float ->
                     'a ->
                         ('a, 'b) join_fn ->
@@ -225,6 +244,7 @@ class type ['a, 'b] tabu_mgr = object
     method update_reroot : ('a, 'b) breakage -> unit
     method update_join : ('a, 'b) p_tree -> Tree.join_delta -> unit
     method break_edges : Tree.edge list
+    method get_node_manager : ('a, 'b) nodes_manager option
 
 end 
 
@@ -281,6 +301,7 @@ module type SEARCH = sig
   val make_wagner_tree :
       ?sequence:(int list) ->
     (a, b) p_tree ->
+    (a, b) nodes_manager option ->
     (a, b) wagner_mgr ->
     ((a, b) p_tree -> int -> (a, b) wagner_edges_mgr) ->
     (a, b) wagner_mgr
@@ -350,34 +371,34 @@ module type SEARCH = sig
         trees, a method for weighting trees, a number of iterations to perform, and a
         function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list -> int ->
+          (a, b) p_tree list ->
+          int ->
           int ->
           ((a, b) p_tree -> float) ->
           Methods.fusing_keep_method ->
           int ->
-          ((a, b) p_tree -> (a, b) p_tree
-               list) ->
+          ((a, b) p_tree -> (a, b) p_tree list) ->
           (int * int) ->
-          (a, b) p_tree list
+            (a, b) p_tree list
 
       val search_local_next_best : (search_step * string) -> searcher
       val search : bool -> (search_step * string) -> searcher
 
         val convert_to :
-          string option * Parser.Tree.tree_types list ->
+          string option * Tree.Parse.tree_types list ->
           Data.d * a list -> (a, b) p_tree
 
         val build_trees: Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) -> 
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types list
+                        string -> Tree.Parse.tree_types list
 
         val build_tree : Tree.u_tree -> 
             (int -> string) -> 
                 (int -> int -> bool) ->
                     ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
-                        string -> Parser.Tree.tree_types
+                        string -> Tree.Parse.tree_types
 
         val never_collapse :  (a, b) p_tree -> int -> int -> bool
 
@@ -386,20 +407,20 @@ module type SEARCH = sig
         val get_unique : (a, b) p_tree list -> (a, b) p_tree list 
 
         val build_tree_with_names :
-        bool -> (a, b) p_tree -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> Tree.Parse.tree_types
 
         val build_tree_with_names_n_costs :
-        bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+        bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
         val build_forest :
-            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types list
         val build_forest_as_tree :
-            bool -> (a, b) p_tree -> string -> Parser.Tree.tree_types
+            bool -> (a, b) p_tree -> string -> Tree.Parse.tree_types
 
         val build_forest_with_names :
-            bool -> (a, b) p_tree -> Parser.Tree.tree_types list
+            bool -> (a, b) p_tree -> Tree.Parse.tree_types list
         val build_forest_with_names_n_costs :
             bool -> (a, b) p_tree -> string -> bool ->
-            Parser.Tree.tree_types list
+            Tree.Parse.tree_types list
 
         val to_xml : 
             Pervasives.out_channel -> (a, b) p_tree -> unit
@@ -545,11 +566,11 @@ val get_parent_or_root_data :
 
 val choose_leaf : ('a, 'b) p_tree -> int
 
-(* val cannonize :  Parser.Tree.tree_types -> string * Parser.Tree.tree_types *)
+(* val cannonize :  Tree.Parse.tree_types -> string * Tree.Parse.tree_types *)
 
 val consensus :
     (('a, 'b) p_tree -> int -> int -> bool) -> (int -> string) -> int -> 
-    ('a, 'b) p_tree list -> int -> Parser.Tree.tree_types
+    ('a, 'b) p_tree list -> int -> Tree.Parse.tree_types
 
 val add_tree_to_counters :
     (int -> int -> bool) -> int Tree.CladeFPMap.t ->
@@ -561,14 +582,14 @@ val add_consensus_to_counters :
 
 val supports :
     (int -> string) -> int -> float -> Tree.u_tree -> int Tree.CladeFPMap.t ->
-     Parser.Tree.tree_types
+     Tree.Parse.tree_types
 
 val support_of_input :
-    (int -> string) -> int -> float -> Parser.Tree.tree_types list -> Data.d -> int Tree.CladeFPMap.t ->
-        Parser.Tree.tree_types
+    (int -> string) -> int -> float -> Tree.Parse.tree_types list -> Data.d -> int Tree.CladeFPMap.t ->
+        Tree.Parse.tree_types
 
 val extract_bremer :  (All_sets.Integers.elt -> string) ->
-  int Tree.CladeFPMap.t -> Parser.Tree.tree_types  
+  int Tree.CladeFPMap.t -> Tree.Parse.tree_types  
 
 (** [bremer to_string cost t conversion file] calculates a bremer support tree (for
 * printing purposes) of the tree [t] (which must be properly rooted) which has
@@ -585,10 +606,10 @@ val extract_bremer :  (All_sets.Integers.elt -> string) ->
 * not containing the child clade of the branch within [sets]. *)
 val bremer :
     (int -> string) -> int -> Tree.u_tree -> 
-              ((Parser.Tree.tree_types) -> (int * Tree.CladeFP.CladeSet.t)) ->
-          Parser.filename list -> Parser.Tree.tree_types
+              ((Tree.Parse.tree_types) -> (int * Tree.CladeFP.CladeSet.t)) ->
+          FileStream.f list -> Tree.Parse.tree_types
               
 val preprocessed_consensus :
   (All_sets.Integers.elt -> string) ->
-  int -> int -> int Tree.CladeFPMap.t -> Parser.Tree.tree_types
+  int -> int -> int Tree.CladeFPMap.t -> Tree.Parse.tree_types
 

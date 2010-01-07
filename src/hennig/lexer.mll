@@ -1,6 +1,6 @@
 (* Hennig lexer *)
 {
-    open HennigParser
+    open Grammar
     exception Eof
 
     let ( --> ) a b = b a

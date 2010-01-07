@@ -463,11 +463,11 @@ let rec replace_labels ?(prefix="") replacer env compiler =
 
 let get_count a =
     match a with
-    | Parser.Tree.Leaf (_, a)
-    | Parser.Tree.Node (_, (_, a)) -> a
+    | Tree.Parse.Leafp (_, a)
+    | Tree.Parse.Nodep (_, (_, a)) -> a
 
 module OrderedPair = struct
-    type t = (int * int) Parser.Tree.t
+    type t = (int * int) Tree.Parse.t
     let compare a b = (get_count a) - (get_count b)
 end
 
@@ -483,16 +483,16 @@ let rec make_tree heap =
         let second, heap = getem heap in
         let contents = 
             let count = (get_count first) + (get_count second) in
-            Parser.Tree.Node ([first; second], (~-1, count))
+            Tree.Parse.Nodep ([first; second], (~-1, count))
         in
         make_tree (MergeHeap.insert contents heap)
 
 let rec create_codes acc trail tree =
     match tree with
-    | Parser.Tree.Node ([l; r], _) ->
+    | Tree.Parse.Nodep ([l; r], _) ->
             let acc = create_codes acc (`S :: trail) l in
             create_codes acc (`K :: trail) r
-    | Parser.Tree.Leaf (code, _) ->
+    | Tree.Parse.Leafp (code, _) ->
             All_sets.IntegerMap.add code (List.rev trail) acc
     | _ -> assert false
 
@@ -504,7 +504,7 @@ let assign_code_based_on_frequencies initial_frequencies functions env compiler 
     in
     let heap = 
         All_sets.IntegerMap.fold (fun a b acc ->
-        MergeHeap.insert (Parser.Tree.Leaf (a, b)) acc) 
+        MergeHeap.insert (Tree.Parse.Leafp (a, b)) acc) 
         count MergeHeap.empty 
     in
     let tree = make_tree heap in

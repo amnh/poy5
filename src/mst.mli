@@ -22,7 +22,7 @@ type priorities = Random | Closest2 | Furthest2
 type mst_preference = Closest | Furthest
 
 val kruskal : mst_preference -> (int -> int -> float) -> int list -> mst
-val post_order : priorities -> (int -> string) -> mst -> Parser.Tree.tree_types
+val post_order : priorities -> (int -> string) -> mst -> Tree.Parse.tree_types
 val bfs_traversal : priorities -> mst -> int list
 val dfs_traversal : priorities -> mst -> int list
 val print_mst_tree : (int -> string) -> mst -> string option -> unit

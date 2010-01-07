@@ -87,6 +87,9 @@ val prepare_tree_for_downpass :
   ('a, 'b) Ptree.p_tree ->
   Tree.join_delta -> int * ('a, 'b) Ptree.p_tree
 
+(**
+ * These functions are encapsulated in the treeops module.
+
 val break_fn : (Node.Standard.n, 'b) Ptree.break_fn
 (** [break_fn] is a break function usable for Ptree's searches.  See {!Ptree}
     for more information. *)
@@ -114,7 +117,7 @@ val reroot_fn :
   'a p_tree -> 'a p_tree * incremental list
 (** [reroot_fn] is a break function usable for Ptree's searches.  See {!Ptree}
     for more information. *)
-
+*)
 
 (** Module for performing these operations without skipping based on the
     min-cost-of-clade criterion (see above) *)

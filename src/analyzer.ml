@@ -308,11 +308,11 @@ let dependency_relations (init : Methods.script) =
                 | `Nj
                 | `Prebuilt _ ->
                         [([Data], [Data; Trees], init, Linnearizable)]
-                | `Build (_, _, lst) when List.exists is_tree_dependent lst ->
+                | `Build (_, _, lst, _) when List.exists is_tree_dependent lst ->
                         [([Data; Trees], [Data; Trees], init, Parallelizable)]
-                | `Build (_, (`Constraint (_, _, Some _, _)), _) ->
+                | `Build (_, (`Constraint (_, _, Some _, _)), _, _) ->
                         [([Data; Trees], [Trees], init, Parallelizable)]
-                | `Build (_, (`Constraint (_, _, None, _)), _) ->
+                | `Build (_, (`Constraint (_, _, None, _)), _, _) ->
                         [([Data; Trees], [Trees], init, NonComposable)]
                 | `Build _
                 | `Build_Random _ ->
@@ -709,7 +709,7 @@ let rec get_tip next_command =
                     * the operations *)
                     match x.run with
                     | `PerturbateNSearch _ -> recurse_to_find_tip x
-                    | `Build (_, y, _) ->
+                    | `Build (_, y, _, _) ->
                             (match y with
                             | `Constraint (_, _, None, _) -> 
                                     (* Hum, we need to collect all of the trees
@@ -768,7 +768,7 @@ let rec explode_tree tree =
             in
             (match x.run with
             | `PerturbateNSearch _ -> parallelize_this_command ()
-            | `Build (_, x, _) ->
+            | `Build (_, x, _, _) ->
                     (match x with
                     | `Constraint (_, _, None, _) ->
                             do_not_parallelize_me_but_recurse ()
@@ -1306,9 +1306,9 @@ let rec linearize2 queue acc =
                                 raise err
                         in
                         (match x.run with
-                        | `Build (total, b, c) ->
+                        | `Build (total, b, c, d) ->
                                 let item = 
-                                    Tree { x with run = `Build (1, b, c) } 
+                                    Tree { x with run = `Build (1, b, c, d) } 
                                 in
                                 let todol = ref []
                                 and composerl = ref []
@@ -1466,14 +1466,13 @@ let break_in_independent_sections x =
     in
     a :: b
 
-let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script
-list)= 
+let rec correct_parallel_pipelines_with_internal_transform (res : Methods.script list)= 
     match res with
     | (`ParallelPipeline (times, ((h :: t) as acc), comp, continue)) as hd :: tl ->
             let tl = correct_parallel_pipelines_with_internal_transform tl in
             let continue = correct_parallel_pipelines_with_internal_transform continue in
             (match h with
-            | `Build (a, b, cost_calculation) ->
+            | `Build (a, b, cost_calculation, i) ->
                     (match cost_calculation with
                     | [] -> 
                             (`ParallelPipeline (times, acc, comp, continue)) :: tl
@@ -1488,7 +1487,7 @@ list)=
                             (make_discard name_pre) :: (make_discard name_post)
                             :: continue
                         in
-                        let acc = (make_set name_post) :: (`Build (a, b, [])) ::
+                        let acc = (make_set name_post) :: (`Build (a, b, [],i)) ::
                             (make_set name_pre) :: t
                         in
                         (make_store name_pre) :: 
@@ -1496,7 +1495,7 @@ list)=
                             ((make_store name_post) ::
                                 (`ParallelPipeline (times, acc, comp, continue))
                                 :: tl)))
-            | `Branch_and_Bound (_, _, _, _, cost_calculation)
+            | `Branch_and_Bound ((_, _, _, _, cost_calculation),_)
             | `LocalOptimum { Methods.cc = cost_calculation } 
             | `PerturbateNSearch (_, _, `LocalOptimum { Methods.cc =
                 cost_calculation } , _, _) ->

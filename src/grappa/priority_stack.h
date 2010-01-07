@@ -27,7 +27,8 @@ struct priority_stack
     int min, max;               /* values of min and max priorities */
     int idx;                    /* index of current min list */
     int count;                  /* current number of items */
-    int elementsz;              /* size of each element in pstack */
+    enum datatype dtype;
+    //int elementsz;              /* size of each element in pstack */
 #ifdef THREADSAFE
     pthread_mutex_t mutex;
 #endif
@@ -35,14 +36,15 @@ struct priority_stack
 
 List LIST_MEM_STACK;
 
-void *ps_pop ( PriorityStack * ps );
+//void *
+ElementUnion  ps_pop ( PriorityStack * ps );
 int ps_empty ( PriorityStack * ps );
 PriorityStack *new_ps ( int min, int max, int stack_nelements,
-                        int stack_elementsz );
-void ps_push ( PriorityStack * ps, void *v, int priority );
+                        enum datatype dtype );
+void ps_push ( PriorityStack * ps, ElementUnion v, int priority );
 void ps_free ( PriorityStack * ps );
 void ps_clear ( PriorityStack * ps );
 void ps_flush ( PriorityStack * ps, List * l, int threshold );
-int ps_check ( PriorityStack * ps);
+int ps_pull ( PriorityStack * ps);
 
 #endif

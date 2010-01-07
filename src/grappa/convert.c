@@ -1,3 +1,5 @@
+#define BIGDOUBLE (1e30)
+
 #include "structs.h"
 #include "convert.h"
 #include "binencode.h"
@@ -7,6 +9,9 @@ void ini_mem_4_convert (int num_genes)
     convert_mem_t * convertmem = &CONVERT_MEM;
     convertmem -> max_num_genes = num_genes;
     convertmem -> weights = ( int ** ) malloc ( ( 2 * num_genes ) * sizeof ( int * ) );
+    int i;
+    for (i=0;i<num_genes*2;i++)
+        convertmem->weights[i] = (int *) malloc ( ( 2 * num_genes ) * sizeof ( int ) );
     convertmem -> outcycle = (int *) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
     convertmem -> incycle = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
     convertmem -> stack = ( int * ) malloc ( ( 2 * num_genes + 1 ) * sizeof ( int ) );
@@ -25,7 +30,16 @@ void ini_mem_4_convert (int num_genes)
 void free_mem_4_convert ()
 {
     convert_mem_t * convertmem = &CONVERT_MEM;
-    free (convertmem);
+    free (convertmem->weights);
+    free (convertmem->outcycle);
+    free (convertmem->incycle);
+    free (convertmem->stack);
+    free (convertmem->degree);
+    free (convertmem->otherEnd);
+    free (convertmem->adjl);
+    free (convertmem->adjp);
+    free (convertmem->neighbors);
+    free (convertmem->edges);
     return;
 }
 
@@ -363,10 +377,12 @@ convert2_to_tsp ( struct genome_struct *g1,
     }
 
     /* Add (g,-g) edges, one in front of each list */
+
     for ( i = -num_genes; i < 0; i++ )
     {
         slot->vertex = -i;
-        slot->weight = -LARGENUM;
+        slot->weight = -LARGENUM; //#define LARGENUM 3000 in convert.h
+    //    slot->weight = -BIGDOUBLE; //#define LARGENUM 3000 in convert.h
         slot->status = STAT_INCLUDED;
         slot->next = adj_list[i].next;
         adj_list[i].next = slot;
@@ -376,6 +392,7 @@ convert2_to_tsp ( struct genome_struct *g1,
     {
         slot->vertex = -i;
         slot->weight = -LARGENUM;
+ //     slot->weight = -BIGDOUBLE;
         slot->status = STAT_INCLUDED;
         slot->next = adj_list[i].next;
         adj_list[i].next = slot;

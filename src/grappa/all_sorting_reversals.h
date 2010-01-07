@@ -24,11 +24,13 @@ struct bit_matrix_struct
     short **v;
 };
 
+/* move this structure to list.h
 typedef struct reversal_struct Reversal;
 struct reversal_struct
 {
     int start, stop;
 };
+*/
 
 enum comp_type
 { ORIENTED, SIMPLEHURDLE, SUPHURDLE, PROTNHURDLE,
@@ -46,13 +48,13 @@ struct cc_struct
     int protected_pseudohurdle;
     int chain, anchor;
     int mult_protected;
-#ifdef BITWISE_DETECT
+//#ifdef BITWISE_DETECT
     BitVector *v;
     BitVector p;
     List grey_edges;
     List beg;
     List end;
-#endif
+//#endif
 };
 
 typedef struct rsm_struct ReversalSortingMemory;
@@ -62,15 +64,17 @@ struct rsm_struct
         *comp_label_by_cycle, ngenes, *cc_beg, *cc_end, *cc_e, *cc_parent;
     List *cyclelist, *mhurdles, *V, *stack;
     ConnectedComponent *conn_comp;
-#if BITWISE_DETECT
+//#if BITWISE_DETECT
     BitVector bv_a, bv_p, bv_l, *bv_v;
     int *ge_mark;
     List bv_pos;
+/*
 #else
     int *upi_cpy, *comp_label_cpy, *inv2_cpy, *new_comp_labels, *be_cpy,
         *comp_mark, *comp_count;
     List *comp_grey_edges;
 #endif
+*/
 };
 
 

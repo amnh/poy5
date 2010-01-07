@@ -27,6 +27,8 @@
 #include "convert.h"
 #include "bbtsp.h"
 
+#include "lk_main.h"
+
 #define Genome_matrix_struct(a) ((struct genome_struct *) Data_custom_val(a))
 
 VertexFactory *newvf = NULL; 
@@ -227,7 +229,7 @@ grappa_CAML_inv_med
     {
         free_mem_4_albert ();
         ini_mem_4_albert (NUM_GENES);
-        free_mem_4_siepel (NUM_GENES);
+        free_mem_4_siepel ();
         ini_mem_4_siepel(NUM_GENES);
         free_mem_4_cond3 ();
         ini_mem_4_cond3 (NUM_GENES);
@@ -290,13 +292,32 @@ grappa_CAML_inv_med
                         convertmem_p->edges,
                         CIRCULAR );
             break;
-                /* case5 and case6 need the CONCORDE package 
-                // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
-            case 5:
+            /* case5 and case6 need the CONCORDE package  */
+            // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
+#ifdef USE_CONCORDE
+            case 5: //SimpleLK TSP median solver 
+                 convert_to_tsp ( gen[0], gen[1],
+                                 gen[2], num_cond, CIRCULAR,
+                                 convertmem_p->weights );
+                 greedylk ( 2 * num_cond, convertmem_p->weights, 
+                            cond3mem_p->con_med->genes,
+                            convertmem_p->incycle, 
+                            convertmem_p->outcycle );
                 break;
-            case 6:
+            case 6: //ChainedLK TSP median solver
+                convert_to_tsp ( gen[0], gen[1],
+                                 gen[2], num_cond, CIRCULAR,
+                                 convertmem_p->weights );
+                chlinkern ( 2 * num_cond,
+                        convertmem_p->weights, 
+                        cond3mem_p->con_med->genes,
+                        convertmem_p->incycle, convertmem_p->outcycle );
                 break;
-                */
+                
+#endif
+            default:
+                fprintf(stderr, "unknown choice of median solver !\n");
+                break;                
         }
         decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
                   cond3mem_p->pred1, cond3mem_p->decode, num_cond );
@@ -405,7 +426,7 @@ grappa_CAML_inversions (value genes1, value genes2,
     struct genome_arr_t *genes1_arr, *genes2_arr;
     struct genome_struct *permutation, *origin;
     int *temp_genes;
-    Reversal *rev;
+    Reversal *rev; Reversal revrev;
     result = Val_int(0); /* We start with the empty list */
 
     inv_dist = Int_val(dist);
@@ -435,7 +456,8 @@ grappa_CAML_inversions (value genes1, value genes2,
                 origin, num_genes, NULL);
 
         if  (list_size(&intermediate_reversals_list) > 0) {
-            rev = (Reversal *)list_get(&intermediate_reversals_list, 0);
+            revrev = list_get(&intermediate_reversals_list, 0).revelement;
+            rev = &revrev;
             copy_with_reversal(temp_genes, permutation->genes, num_genes, rev);
             permcopy(permutation->genes, temp_genes, num_genes);
             r = caml_alloc_tuple(2);

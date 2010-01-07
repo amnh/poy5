@@ -361,13 +361,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                         operation. 
              @return Function to decide whether to perform a join
              and possibly store the resulting tree for further searching.  *)
-        method process (cost_fn : (a, b) Ptree.cost_fn)
+        method process 
+            (cost_fn : (a, b) Ptree.cost_fn)
+            (adjust_opt)
             (b_delta : float)
             (cd_nd : a)
             (join_fn : (a, b) Ptree.join_fn)
             (j1 : Tree.join_jxn)
             (j2 : Tree.join_jxn) 
-            pt 
+            (pt : (a, b) Ptree.p_tree)
             (tabu_mgr : (a, b) Ptree.wagner_edges_mgr) = 
                 (* Ignores the b_delta as it does not make sense for 
                  * wagner trees algo *)
@@ -376,12 +378,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 | Ptree.NoCost -> infinity
                 | Ptree.Cost(x) -> x
             in
-            match cost_fn j1 j2 cld_cst cd_nd pt with
+            match cost_fn adjust_opt j1 j2 cld_cst cd_nd pt with
             | Ptree.Cost cc ->
                     let (_, real_cost, _) as v = 
                         let tabu_mgr = tabu_mgr#clone in
                         (Lazy.lazy_from_fun (fun () ->
-                        let nt, dlt = join_fn [] j1 j2 pt in
+                        let nt, dlt = join_fn adjust_opt [] j1 j2 pt in
                         let cst = Ptree.get_cost `Adjusted nt in
                         tabu_mgr#update_join nt dlt;
                         (nt, cst, c_delta, tabu_mgr)), 
@@ -491,7 +493,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (tabu_mgr : (Node.n, Edge.e) Ptree.tabu_mgr)
             pt = 
             incr_trees_considered ();
-            let clade_cost = (cost_fn j1 j2 b_delta cd_nd pt) in
+            let adjust_mgr = tabu_mgr#get_node_manager in
+            let clade_cost = cost_fn adjust_mgr j1 j2 b_delta cd_nd pt in
             match clade_cost with
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost(cc) ->
@@ -501,7 +504,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                           let expected_new_cost =
                               cur_best_cost -. b_delta +. cc in
                           let newtree, tree_delta =
-                              join_fn incremental j1 j2 pt in
+                              join_fn adjust_mgr incremental j1 j2 pt in
                           let actual_new_cost = 
                               Ptree.get_cost `Adjusted newtree 
                           in
@@ -532,7 +535,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                   end;
                   if ( cc < b_delta ) then begin
                       c_delta <- (Ptree.Cost(cc)) ;
-                      let nt, j_delta = (join_fn incremental j1 j2 pt) in
+                      let nt, j_delta = join_fn adjust_mgr incremental j1 j2 pt in
                       let cst = Ptree.get_cost `Adjusted nt in
                       if cst < cur_best_cost then begin
                           let new_tabu = tabu_mgr#clone in
@@ -632,9 +635,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                     self#update_tabu_queues;
                     Tree.Break
                 end else 
-                    super#process cost_fn b_delta cd_nd join_fn 
-                    incremental j1 j2 tabu_mgr pt
-
+                    super#process cost_fn b_delta cd_nd join_fn incremental j1 j2 tabu_mgr pt
         method results =
             let results = super#results in
             List.map (fun (a, b, c) -> rediagnose (remove_exclude a), b, c) 
@@ -866,14 +867,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (tabu_mgr : ('a, 'b) Ptree.tabu_mgr)
             pt = 
             incr_trees_considered ();
-            let clade_cost = (cost_fn j1 j2 b_delta cd_nd pt) in
+            let clade_cost = cost_fn (tabu_mgr#get_node_manager) j1 j2 b_delta cd_nd pt in
             match clade_cost with
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost(cc) ->
                     tabu_mgr#break_distance cc;
                     let new_tabu = tabu_mgr#clone in
                     let cost = Ptree.get_cost `Adjusted pt +. cc in
-                    let ljoin = lazy (join_fn incremental j1 j2 pt) in
+                    let ljoin = lazy (join_fn (tabu_mgr#get_node_manager) incremental j1 j2 pt) in
                     let ltree = lazy (let (t, _) = Lazy.force ljoin in t) in
                     let ltabu =
                         lazy (let (t, j) = Lazy.force ljoin in
@@ -993,10 +994,10 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
                 let Tree.Edge break = 
                     Tree.normalize_edge break tree.Ptree.tree 
                 in
-                let breakage = break_fn break tree in
+                let breakage = break_fn (ntabu#get_node_manager) break tree in
                 let () = ntabu#update_break breakage in
                 let tree, treed = 
-                    join_fn breakage.Ptree.incremental 
+                    join_fn (ntabu#get_node_manager) breakage.Ptree.incremental 
                     r1 r2 breakage.Ptree.ptree 
                 in
                 let () = ntabu#update_join tree treed in
@@ -1041,13 +1042,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (tabu_mgr : ('a, 'b) Ptree.tabu_mgr)
             pt = 
             incr_trees_considered ();
-            match cost_fn j1 j2 b_delta cd_nd pt with
+            match cost_fn (tabu_mgr#get_node_manager) j1 j2 b_delta cd_nd pt with
             | Ptree.NoCost -> Tree.Skip
             | Ptree.Cost cc ->
                     tabu_mgr#break_distance cc;
                     sampler#process incremental j1 j2 cd_nd pt None b_delta cc None; 
                     if cc < b_delta then 
-                      let nt, j_delta = (join_fn incremental j1 j2 pt) in
+                      let nt, j_delta = 
+                          join_fn (tabu_mgr#get_node_manager) incremental j1 j2 pt 
+                      in
                       let cst = Ptree.get_cost `Adjusted nt in
                       if cst < cur_best_cost then 
                         let _ =
@@ -1190,7 +1193,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             (tabu_mgr : (Node.n, Edge.e) Ptree.tabu_mgr)
             pt =
         incr_trees_considered ();
-            let clade_cost = (cost_fn j1 j2 b_delta cd_nd pt) in
+            let clade_cost = cost_fn (tabu_mgr#get_node_manager) j1 j2 b_delta cd_nd pt in
             let union_cost = 
                 match file with
                 | Some _ ->
@@ -1244,9 +1247,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         inherit first_best_srch_mgr sampler as super
 
         val nbhood_report = 500 (* The module of the report update *)
-        method process cost_fn b_delta cd_nd join_fn incremental j1 j2
-            tabu_mgr tree =
-            let cost = match cost_fn j1 j2 infinity cd_nd tree with
+        method process cost_fn b_delta cd_nd join_fn incremental j1 j2 tabu_mgr tree =
+            let cost = match cost_fn (tabu_mgr#get_node_manager) j1 j2 infinity cd_nd tree with
             | Ptree.NoCost -> infinity
             | Ptree.Cost c -> orig_cost' +. c -. b_delta in
             (*** update values of all clades not in this tree *)

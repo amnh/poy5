@@ -5,7 +5,10 @@ open Command
 let zlib_lib = "-lz"
 
 let static = true
-
+let concordelib= "@CONCORDE_LIB@"
+(*
+"/home/lhong/concorde/concorde.a"
+*)
 let cc = "@CC@"
 let cflags = "@CFLAGS@"
 let clibs = "@LIBS@"
@@ -13,6 +16,7 @@ let interface =
     if "@USEINTERFACE@" = "readline" then 
         "status_flat.ml"
     else "status_@USEINTERFACE@.ml"
+
 
 let split string = 
     let len = String.length string in
@@ -42,7 +46,9 @@ let process_flags ocaml_option cflags =
     in
     cflags
 
-let ccompileflags = A"-cc" ::  A cc :: process_flags "-ccopt" cflags 
+let ccompileflags =
+    let flags = process_flags "-ccopt" cflags in  
+    A"-cc" ::  A cc :: flags 
 
 let clinkflags = 
     let flags = process_flags "-cclib" clibs in
@@ -118,6 +124,7 @@ let headers =
 dispatch begin function
 | After_rules ->
 
+
     rule "version.tex generation" 
         ~prod:"version.tex"
         ~dep:"makeVersion.native"
@@ -139,7 +146,7 @@ dispatch begin function
 
     rule "commands.pdf generation"
         ~prod:"commands.pdf"
-        ~deps:["doc/commands.tex"; "doc/allcommands.tex";
+        ~deps:["doc/!commands.tex"; "doc/allcommands.tex";
         "doc/poy3commands.tex"; "doc/QuickStart.tex"; "doc/poylibrary.bib";
         "doc/poyheuristics.tex"; "version.tex"; "doc/poytutorials.tex"; 
         "doc/figures/amnhlogoblue2.pdf";
@@ -241,7 +248,7 @@ dispatch begin function
         begin fun env _build ->
             let cmx = env "%.cmx" and cmxs = env "%.cmxs" in
             let tags = tags_of_pathname cmx++"shared"++"cmxs" in
-            Cmd(S[!(Options.ocamlopt); T tags; A"-o"; P cmxs; A "-shared"; P cmx ])
+            Cmd(S[!(Options.ocamlopt); T tags; A "-o"; P cmxs; A "-shared"; P cmx ])
         end;
 
     rule "status.ml file generation"
@@ -297,8 +304,8 @@ dispatch begin function
     flag ["link"; "ocaml"; "byte"; "use_grappa"]
          (S[A"-cclib"; A"-lgrappa"; A"-cclib"; A"-L."]);
 
-    flag ["link"; "library"; "ocaml"; "native"; "use_grappa"]
-         (S[A"-cclib"; A"-lgrappa"]);
+    flag ["link"; "ocaml"; "native"; "use_grappa"]
+         (S[A"-cclib"; A"-lgrappa"; A"-cclib"; A"-L."]);
 
     dep  ["link"; "ocaml"; "use_grappa"] ["libgrappa.a"];
 
@@ -323,6 +330,16 @@ dispatch begin function
 
     flag ["c"; "compile"; "use_likelihood"]
         (S[A"-ccopt"; A"-DUSE_LIKELIHOOD"]);
+
+    flag ["c"; "compile"; "use_concorde"]
+        (S[A"-ccopt"; A"-DUSE_CONCORDE"]);
+
+    flag ["link"; "use_concorde"] (A concordelib); 
+
+  (*  flag ["link"; "ocaml"; "use_concorde"]
+        (S[A"-cclib"; A"-L/Users/lyn/concorde"]); 
+*)
+    
 
     flag ["c"; "compile"; "use_readline"]
         (S[A"-ccopt"; A"-DUSEREADLINE"]);
@@ -365,6 +382,7 @@ dispatch begin function
     (* As an approximation all our C files use the headers.
        Note: This will import headers in the build directory. *)
     dep  ["compile"; "c"] headers;
+
 | _ -> ()
 
 end

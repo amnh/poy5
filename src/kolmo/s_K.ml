@@ -3,7 +3,7 @@ let (-->) a b = b a
 type primitives = [ `S | `K | `Label of string | `Node of primitives list |
     `Debugger of string | `Lazy of primitives Lazy.t]
 
-exception Illegal_Expression of string Parser.Tree.t list
+exception Illegal_Expression of string Tree.Parse.t list
 
 let universe = Hashtbl.create 97 
 
@@ -12,18 +12,18 @@ let of_string string =
         | [x] -> 
                 let rec reverse tree = 
                     match tree with
-                    | Parser.Tree.Node (s, "") ->
+                    | Tree.Parse.Nodep (s, "") ->
                             `Node (List.rev_map reverse s)
-                    | Parser.Tree.Leaf "S" -> `S
-                    | Parser.Tree.Leaf "K" -> `K
-                    | Parser.Tree.Leaf x -> `Label x
+                    | Tree.Parse.Leafp "S" -> `S
+                    | Tree.Parse.Leafp "K" -> `K
+                    | Tree.Parse.Leafp x -> `Label x
                     | x -> raise (Illegal_Expression [x])
                 in 
-                reverse (Parser.Tree.strip_tree x)
-        | x -> raise (Illegal_Expression (List.map Parser.Tree.strip_tree x))
+                reverse (Tree.Parse.strip_tree x)
+        | x -> raise (Illegal_Expression (List.map Tree.Parse.strip_tree x))
     in
     string 
-        --> Parser.Tree.of_string
+        --> Tree.Parse.of_string
         --> List.map no_forest
         --> List.hd
 

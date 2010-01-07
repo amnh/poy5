@@ -425,7 +425,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         method process incremental jux1 jux2 vertex tree new_tree delta cost real_cost =
             let failwithf format = Printf.ksprintf (failwith) format in
 
-            let tree,_ = TreeOps.join_fn incremental jux1 jux2 tree in
+            let tree,_ = TreeOps.join_fn None incremental jux1 jux2 tree in
             let cost = Ptree.get_cost `Adjusted tree in
             (* check 0 cost *)
             let () = match classify_float cost with
@@ -613,7 +613,7 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
 
             method process incremental j1 j2 _ pt _ bd _ _ =
                 let total_cost = 
-                    let joined, _ = TreeOps.join_fn incremental j1 j2 pt in
+                    let joined, _ = TreeOps.join_fn None incremental j1 j2 pt in
                     let total_cost = Ptree.get_cost `Adjusted joined in
                     string_of_float total_cost
                 in

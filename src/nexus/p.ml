@@ -123,8 +123,9 @@ type block =
     | Ignore of string
     | Unaligned of unalg_data
     | Trees of (string * string) list * string list 
-    | Notes of ((set_pair list * source * string) option * (set_pair list *
-    pictureformat option * pictureencoding option * source * string) option) 
+    | Notes of 
+        ((set_pair list * source * string) option * (set_pair list *
+            pictureformat option * pictureencoding option * source * string) option) 
     | Assumptions of assumption_items list 
     | Error of string
     | Sets of (string * charset list) list
@@ -135,3 +136,6 @@ type tree_i =
     | Node of (tree_i list * string option * (float option * string option))
 
 type tree = string * tree_i
+
+let print_error = ref prerr_string
+

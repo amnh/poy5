@@ -142,7 +142,7 @@ module GraphOfXML = struct
      *)
     let rec xml_calc_depth_leaves t depth max_depth num_leaves longest_name =
        match t with
-        | Parser.Tree.Node (y, _) -> 
+        | Parser.Trees.Node (y, _) -> 
                 incr depth;
                 for i = 0 to (List.length y) - 1 do
                     xml_calc_depth_leaves (List.nth y i) depth max_depth num_leaves
@@ -150,7 +150,7 @@ module GraphOfXML = struct
                 done;
                 decr depth;
                 
-        | Parser.Tree.Leaf y -> 
+        | Parser.Trees.Leaf y -> 
                 incr depth;
                 if !depth > !max_depth then
                     max_depth := !depth;
@@ -171,8 +171,8 @@ module GraphOfXML = struct
                          info_table_nonadd
                  else if Str.string_match (Str.regexp " *</htu>") line 0 then
                          match nodeLst with
-                         | hd :: Parser.Tree.Node (children, x):: tl  ->
-                                 let newNode = Parser.Tree.Node (hd::children, x) in
+                         | hd :: Parser.Trees.Node (children, x):: tl  ->
+                                 let newNode = Parser.Trees.Node (hd::children, x) in
                                     read_xml ch is_node (newNode :: tl) code
                                     info_table_add info_table_nonadd
                         | hd :: [] -> (hd, info_table_add, info_table_nonadd);
@@ -181,14 +181,14 @@ module GraphOfXML = struct
                  (Str.regexp " *<code>") line 0 then
                      let code = GraphTree.get_code ch in
                      if is_node then
-                         let newNode = Parser.Tree.Node ([], code) in 
+                         let newNode = Parser.Trees.Node ([], code) in 
                          read_xml ch is_node (newNode :: nodeLst) code
                          info_table_add info_table_nonadd
                      else
                          match nodeLst with
-                         |Parser.Tree.Node (lst, x)::tl ->
-                                 let newNode = Parser.Tree.Node 
-                                 ((Parser.Tree.Leaf code)::lst, x) in
+                         |Parser.Trees.Node (lst, x)::tl ->
+                                 let newNode = Parser.Trees.Node 
+                                 ((Parser.Trees.Leaf code)::lst, x) in
                                  read_xml ch is_node (newNode::tl) code
                                  info_table_add info_table_nonadd
                          | _ -> raise (GraphTree.Wrong_format "Adding a Leaf ")
@@ -243,7 +243,7 @@ module GraphOfXML = struct
        in        
        let rec coord point_list deltaX deltaY tree =
            match tree with
-           | Parser.Tree.Leaf name ->
+           | Parser.Trees.Leaf name ->
                    let row = update_counter () in
                    let y = row * deltaY  and
                    x = (!max_depth * deltaX + 10) in
@@ -254,7 +254,7 @@ module GraphOfXML = struct
                    Graphics.set_color prev_color;
                    point_list := (x, y, name)::!point_list;
                    (x, y)
-           | Parser.Tree.Node (children, name) ->
+           | Parser.Trees.Node (children, name) ->
                    let coord_children =
                        List.map (coord point_list deltaX deltaY) children
                    in
