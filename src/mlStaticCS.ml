@@ -215,8 +215,7 @@ let median_fmat a_vec b_vec a_mat b_mat =
     array_map2 (median_char a_mat b_mat) a_vec b_vec
 
 let median_invar ain bin = 
-    Array.init (Array.length ain)
-               (fun x -> if ain.(x) = bin.(x) then ain.(x) else Int32.zero)
+    Array.init (Array.length ain) (fun x -> Int32.logand ain.(x) bin.(x) )
 
 (** --- SEARCH METHODS --- **)
 
@@ -333,22 +332,22 @@ let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
         Array.mapi
             (fun i _ -> 
                 median_fmat ach.(i) bch.(i) 
-                            (make_matrix a.model (t1 *. a.model.MlModel.rate.{i}) )
-                            (make_matrix b.model (t2 *. b.model.MlModel.rate.{i}) ) )
+                            (make_matrix a.model (t1 *. a.model.MlModel.rate.{i}))
+                            (make_matrix b.model (t2 *. b.model.MlModel.rate.{i})) )
             ach (* arbitrary, as long as it's the same length *)
-    and cin = match ain,bin with
+    and rooti = match ain,bin with
         | Some x, Some y -> Some (median_invar x y)
         | None, None -> None
-        | _ -> failwith "I cannot calculate invariant sites with one side"
+        | _ -> failwith "Inconsistency"
     in
-    root, mle root pi_ prob
+    root,rooti,mle root pi_ prob
 
 let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
     let stepval xref = xref := !xref +. step;!xref
     and time = ref (min -. step) and out_chan = open_out f in
     while (stepval time) < max do
         let c_time = !time /. 2.0 in
-        let _,ll = ocaml_median a b 0 0 c_time c_time in
+        let _,_,ll = ocaml_median a b 0 0 c_time c_time in
         Printf.fprintf out_chan "%f\t%f\n" !time ll;
     done;
     close_out out_chan;
@@ -358,7 +357,7 @@ let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) =
  * converts the stored variables into float array/matrices and adjusts branches *)
 let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
     let dist = t1 +. t2 in
-    let median_2 t1 t2 = let _,ll = ocaml_median a b 0 0 t1 t2 in ll in
+    let median_2 t1 t2 = let _,_,ll = ocaml_median a b 0 0 t1 t2 in ll in
     let t,ll = brents_method (dist,b_ll)
                              (fun x -> let half = x /. 2.0 in median_2 half half)
                              (dist /. 10.0) (dist *. 1.5) epsilon
@@ -385,14 +384,19 @@ let estimate_time a b =
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
 let median an bn t1 t2 acode bcode =
     if pure_ocaml then begin
-        let faa,loglike = ocaml_median an bn acode bcode t1 t2 in
+        let faa,faa_i,loglike = ocaml_median an bn acode bcode t1 t2 in
         { an with
             chars = 
                 bigarray_s 
                     (Bigarray.Array3.of_array Bigarray.float64
                                               Bigarray.c_layout
                                               faa)
-                    None; (* TODO : invar and weights *)
+                    (match faa_i with
+                        | Some faa_i -> 
+                           Some (Bigarray.Array1.of_array Bigarray.int32
+                                                          Bigarray.c_layout
+                                                          faa_i)
+                        | None -> None);
             mle = loglike;
         }
     end else
