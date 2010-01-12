@@ -509,21 +509,19 @@ let of_parser spec weights characters =
        chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
-    let human_readable char_code state_code = 
-        let spec = match Hashtbl.find data.Data.character_specs char_code with
+    let get_alphabet ccode = 
+        let spec = match Hashtbl.find data.Data.character_specs ccode with
             | Data.Static x -> x
-            | _ -> assert false
-        in
-        spec.Nexus.File.st_alph
-            --> Alphabet.to_sequential
-            --> Alphabet.match_code state_code
+            | _ -> assert false in
+        Alphabet.to_sequential spec.Nexus.File.st_alph
     in
-    let str_time = function | Some x -> `Float x | None -> `String "None" in
+    let str_time = function | Some x -> `Float x | None -> `String "None"
+    and alphabet = get_alphabet (mine.codes.(0)) in
     let rec make_single_vec char_code single_ray =
         (Array.to_list 
             (Array.mapi 
                 (fun state_code value ->
-                    let alph = human_readable char_code state_code in
+                    let alph = Alphabet.match_code state_code alphabet in
                     (PXML -[Xml.Characters.vector]
                         ([Xml.Alphabet.value] = [`Float value])
                         {`String alph} --))
@@ -545,7 +543,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
-    in
+    and model_data = MlModel.to_formatter alphabet mine.model in
     (PXML
         (* tag *)
         -[Xml.Characters.likelihood]
@@ -555,7 +553,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
             ([Xml.Nodes.oth_time] = [str_time t2])
             ([attr])
             (* data *)
-            { `Set [sequence] }
+            { `Set (model_data @ [sequence]) }
         --) :: []
 (* -> Xml.xml Sexpr.t list *)
 

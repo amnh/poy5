@@ -854,6 +854,50 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
         | None | Some Constant -> `Int 1
         | Some (Gamma (c,_)) 
         | Some (Theta (c,_,_))  -> `Int c
+    and parameters m = match m.spec.substitution with
+        | JC69
+        | F81 -> []
+        | K2P x
+        | F84 x
+        | HKY85 x ->
+                let x = match x with 
+                        | Some x -> x 
+                        | None -> default_tstv
+                in
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`Float x])
+                    { `String "" } --)]
+        | TN93 x -> 
+                let a,b = match x with
+                        | Some (a,b) -> a,b
+                        | None -> default_tstv,default_tstv
+                in
+                (PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`Float a])
+                    { `String "" } --) ::
+                [(PXML -[Xml.Data.param 2]
+                    ([Xml.Alphabet.value] = [`Float b])
+                    { `String "" } --)]
+
+        | GTR ray ->
+                let ray = match ray with 
+                    | None -> default_gtr m.alph
+                    | Some x -> x
+                in
+                let r,_ =
+                    Array.fold_right
+                        (fun x (acc,i) ->
+                            (PXML -[Xml.Data.param i]
+                                ([Xml.Alphabet.value] = [`Float x])
+                                { `String "" } --) :: acc,i+1)
+                        ray
+                        ([],1)
+                in
+                r
+        | File (_,str) ->
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`String str])
+                    { `String "" } --)]
     in
     (PXML
         -[Xml.Characters.model]
@@ -862,7 +906,7 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
             ([Xml.Characters.alpha] = [get_alpha model])
             ([Xml.Characters.invar] = [get_invar model]) 
             ([Xml.Characters.gapascharacter] = [get_gap model]) 
-        { `Set [priors] }
+        { `Set (priors :: (parameters model)) }
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
