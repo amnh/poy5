@@ -752,18 +752,28 @@ let forest_search data queue origin_cost search trees =
             data.Data.taxon_codes (0, 0)
         in
         (* TODO: take only best of these *)
-        let process t = Sexpr.to_list (find_local_optimum data queue
-        (Sexpr.singleton t) (sets_of_consensus trees) local_optimum) in
-        let trees = 
+        let process t =
+            Sexpr.to_list (find_local_optimum data
+                                              queue
+                                              (Sexpr.singleton t) 
+                                              (sets_of_consensus trees)
+                                              local_optimum)
+        in
+        let tree_list_with_nodes_managers =
+            List.map
+                (fun x -> x,create_adjust_manager local_optimum)
+                (Sexpr.to_list trees)
+        in
+        let trees =
             PtreeSearch.fuse_generations
-            (Sexpr.to_list trees)
-            max_code
-            max_trees
-            weighting
-            keep_method
-            iterations
-            process
-            (min, Pervasives.min (cntr - 3) max)
+                tree_list_with_nodes_managers
+                max_code
+                max_trees
+                weighting
+                keep_method
+                iterations
+                process
+                (min, Pervasives.min (cntr - 3) max)
         in
         Sadman.finish [];
         Sexpr.of_list trees

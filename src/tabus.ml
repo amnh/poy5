@@ -170,6 +170,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         method branches : Tree.edge list option
         method model : bool
         method to_string : string 
+        method fuse : ('a,'b) nodes_manager -> ('a,'b) nodes_manager 
     end
 
     class virtual ['a, 'b] tabu_base = object (self)
@@ -692,6 +693,8 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
 
             method clone = ({< >} :> (Node.n, Edge.e) nodes_manager)
 
+            method fuse _ = self#clone
+
             (* these much be implemented *)
             method virtual branches       : Tree.edge list option
             method virtual update_iterate : ('a, 'b) Ptree.p_tree ->
@@ -714,6 +717,14 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                     "Nodes Manager:\n\tmodel- counts: (%s,%d) threshold:(%s,%s)\n\tBranches:%s\n%!"
                     (opt_ string_of_int mcount) count (opt_ string_of_float mthreshold)
                     (opt_ string_of_float score) "None"
+(*
+            method fuse x = 
+                let r = x#clone in
+                let r#count = x#count + self#count in
+                let r#score = min self#count x#score in
+                let r#iterate = x#iterate || self#iterate in
+                r
+*)
     end
 
     class nm_simple_all mcount mthreshold : [Node.n,Edge.e] nodes_manager = object (self)

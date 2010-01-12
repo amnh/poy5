@@ -377,6 +377,7 @@ type fusea = [
     | `Swap of swapa list
     | `Weighting of [`Uniform]
     | `Clades of int * int option
+    | `IterationF of iteration_strategy list
 ]
 
 type searcha = [
@@ -827,6 +828,14 @@ let rec transform_fuse ?(iterations=None) ?(keep=None) ?(replace=`Better)
                          let search = transform_swap_arguments swapas in
                          transform_fuse ~iterations ~keep ~replace ~search
                              ~weighting ~clades xs
+                   | `IterationF stuff -> 
+                        let strat = transform_iterations stuff in
+                        let search = match search with
+                            | `LocalOptimum x -> 
+                                `LocalOptimum {x with Methods.tabu_iterate = strat; }
+                        in
+                        transform_fuse 
+                                ~iterations ~keep ~replace ~search ~weighting ~clades xs
                   )
 
 
@@ -1891,6 +1900,7 @@ let create_expr () =
             |   [ LIDENT "weighting"; ":"; w = fuseaweighting -> `Weighting w]
             |   [ LIDENT "clades"; ":"; cfrom = INT; cto = OPT fusea_cto ->
                       `Clades (int_of_string cfrom, cto)]
+            |   [ a = iteration_method -> `IterationF a]
             ];
         fuseareplace:
             [ [ LIDENT "better" -> `Better ]

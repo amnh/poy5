@@ -148,6 +148,7 @@ class type ['a, 'b] nodes_manager = object
     method branches : Tree.edge list option
     method model : bool
     method to_string : string
+    method fuse : ('a,'b) nodes_manager -> ('a, 'b) nodes_manager
 end
 
 type ('a, 'b) break_fn =
@@ -413,7 +414,7 @@ module type SEARCH = sig
           keeping trees, a method for weighting trees, a number of iterations to perform,
           and a function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list -> 
+          ((a, b) p_tree * (a,b) nodes_manager) list -> 
           int ->
           int ->
           ((a, b) p_tree -> float) ->
@@ -1441,8 +1442,7 @@ type ('a, 'b) fuse_locations =
         (('a, 'b) p_tree * Tree.u_tree * Tree.edge) list Sexpr.t
 
 let fuse_all_locations ?min ?max trees =
-    let min = 
-        match min with
+    let min = match min with
         | Some x when x < 3 -> Some 3
         | None -> Some 3 
         | x -> x
@@ -1452,7 +1452,7 @@ let fuse_all_locations ?min ?max trees =
     | Some min, None -> (fun (_, s) -> s >= min)
     | None, Some max -> (fun (_, s) -> s <= max)
     | Some min, Some max -> Tree.fuse_cladesize ~min ~max in
-    let trees = List.map (fun t -> (t, t.tree)) trees in
+    let trees = List.map (fun ((t,_) as x) -> (x,t.tree)) trees in
     Tree.fuse_all_locations ~filter trees
 
 let fuse source_arg target_arg =
@@ -1544,14 +1544,13 @@ let copy_component handle source target =
 
 
 let fuse source target terminals =
-    let adjust_mgr = 
-        (* let _,_,_,adjust_one = source and _,_,_,adjust_two = target in
-        Some (new node_manager adjust_one adjust_two) *)
-        None
+    let adj_1,adj_2 = 
+        let ((_,adj1),_,_) = source and ((_,adj2),_,_) = target in
+        adj1, adj2
     in
     let debug = false in
-    let maybe_reroot ((tree, utree, (Tree.Edge(efrom, eto) as edge))) =
-        let tree, updt = Tree_Ops.reroot_fn adjust_mgr false edge tree in
+    let maybe_reroot (((tree, adj), utree, (Tree.Edge(efrom, eto) as edge))) =
+        let tree, updt = Tree_Ops.reroot_fn (Some adj) false edge tree in
         let tree = Tree_Ops.incremental_uppass tree updt in
         tree, tree.tree, edge 
     in
@@ -1587,10 +1586,10 @@ let fuse source target terminals =
     assert (tb = sb);
     if debug then prerr_endline "About to break";
     let stree, (sld, srd), sinc = 
-        let breakage = Tree_Ops.break_fn adjust_mgr sedge stree in
+        let breakage = Tree_Ops.break_fn (Some adj_1) sedge stree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     and ttree, (tld, trd), tinc = 
-        let breakage = Tree_Ops.break_fn adjust_mgr tedge ttree in
+        let breakage = Tree_Ops.break_fn (Some adj_2) tedge ttree in
         breakage.ptree, breakage.tree_delta, breakage.incremental
     in
     let stree = Tree_Ops.incremental_uppass stree sinc
@@ -1608,14 +1607,14 @@ let fuse source target terminals =
         | (`Single (x, _)), _
         | _, (`Single (x, _)) -> original, (Tree.Single_Jxn x)
     in
-    let jxn2 = 
-        match tld with
+    let jxn2 = match tld with
         | `Edge (_, la, lb, _) -> (Tree.Edge_Jxn (la, lb))
         | `Single (x, _) -> Tree.Single_Jxn x
     in
-    let tree, _ = Tree_Ops.join_fn adjust_mgr [] jxn jxn2 tree in
+    let adj_3 = adj_1#fuse adj_2 in
+    let tree, _ = Tree_Ops.join_fn (Some adj_3) [] jxn jxn2 tree in
     let tree =Tree_Ops.uppass tree in
-    tree
+    tree,adj_3
 
 (** [fuse_generations trees max_trees tree_weight tree_keep iterations process]
     runs a genetic algorithm-style search using tree fusing.  The function takes a
@@ -1631,9 +1630,10 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
     in
     let status = Status.create "Tree Fusing" (Some iterations) "" in
     let () = Status.full_report status in
+    (* remove lowest cost trees from list so length equals max_trees *)
     let limit_num trees =
         let len = List.length trees in
-        let trees = List.sort (fun a b -> 
+        let trees = List.sort (fun (a,_) (b,_) -> 
             compare (get_cost `Adjusted b) (get_cost `Adjusted a))  trees 
         in
         let trees = ref trees in
@@ -1651,20 +1651,19 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                 let old_trees = source :: target :: trees' in
                 limit_num (List.rev_append new_trees old_trees)
         | `Better ->
-                let target_cost = get_cost `Adjusted target in
+                let target_cost = get_cost `Adjusted (fst target) in
                 let new_trees =
-                    List.filter (fun t -> target_cost >= get_cost `Adjusted t) new_trees in
+                    List.filter (fun (t,_) -> target_cost >= get_cost `Adjusted t) new_trees in
                 match new_trees with
                 | [] -> source :: target :: trees'
                 | new_trees ->
                         (* omit target if we're running out of space *)
-                let old_trees =
-                    if (List.length new_trees + List.length trees' + 1) 
-                        >= max_trees then 
+                    let old_trees =
+                        if (List.length new_trees + List.length trees' + 1) >= max_trees then 
                             source :: trees'
-                    else source :: target :: trees'
-                in
-                limit_num (List.rev_append new_trees old_trees)
+                        else source :: target :: trees'
+                    in
+                    limit_num (List.rev_append new_trees old_trees)
     in
     let rec choose_remove ?(i=1) f weights items = 
         match weights with
@@ -1674,8 +1673,9 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                 else 
                     let c, i, ws, is = 
                         let tl = List.tl items in
-                        choose_remove ~i:(succ i) (f -. w) ws tl in
-                        c, i, w :: ws, (List.hd items) :: is
+                        choose_remove ~i:(succ i) (f -. w) ws tl
+                    in
+                    c, i, w :: ws, (List.hd items) :: is
         | [] -> failwith "choose_remove" 
     in
     let choose_remove f weights items =
@@ -1707,7 +1707,7 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
         else begin
             let trees = limit_num trees in
             Status.full_report ~adv:iter status;
-            let weights = List.map tree_weight trees in
+            let weights = List.map (fun (t,_) -> tree_weight t) trees in
             let wsum = List.fold_left (+.) 0. weights in
             let source, snum, weights, trees' =
                 choose_remove (Random.float wsum) weights trees in
@@ -1715,26 +1715,22 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
             let target, tnum, weights, trees' =
                 choose_remove (Random.float wsum) weights trees' in
             let msg = ("tree #" ^ string_of_int snum
-                       ^ " [" ^ string_of_float (get_cost `Adjusted source) ^ "]"
+                       ^ " [" ^ string_of_float (get_cost `Adjusted (fst source)) ^ "]"
                        ^ " -> " ^ "tree #" ^ string_of_int tnum
-                       ^ " [" ^ string_of_float (get_cost `Adjusted target) ^ "]") in
+                       ^ " [" ^ string_of_float (get_cost `Adjusted (fst target)) ^ "]") in
             let locations = fuse_all_locations ~min:cmin ~max:cmax [source; target] in
-            (*
-            let location = Sexpr.choose_random locations in
-            *)
-            let process_location location =
-                match location with
+            (* let location = Sexpr.choose_random locations in *)
+            let process_location location = match location with
                 | [t1; t2] ->
-                      let t1, t2 =
-                          match t1 with
-                          | (tree, _, _) when tree == source -> t1, t2
-                          | (tree, _, _) when tree == target -> t1, t2
-                          | _ -> assert false in
-                      let new_tree = fuse t1 t2 terminals in
-                      Status.full_report ~msg:(msg ^ ": tree with cost "
-                                               ^ string_of_float (get_cost `Adjusted new_tree))
-                          status;
-                          new_tree
+                    let t1, t2 = match t1 with
+                        | ((tree,_), _, _) when tree == (fst source) -> t1, t2
+                        | ((tree,_), _, _) when tree == (fst target) -> t1, t2
+                        | _ -> assert false in
+                    let new_tree,a3 = fuse t1 t2 terminals in
+                    Status.full_report 
+                        ~msg:(msg ^ ": tree with cost " ^ string_of_float (get_cost `Adjusted new_tree))
+                        status;
+                    (new_tree,a3)
                 | _ -> assert false
             in
             let new_tree, _ = Sexpr.fold_left 
@@ -1742,39 +1738,45 @@ let fuse_generations trees terminals max_trees tree_weight tree_keep
                     let new_tree = process_location x in
                     match acc with
                     | res, cost -> 
-                            let new_cost = get_cost `Adjusted new_tree in
+                            let new_cost = get_cost `Adjusted (fst new_tree) in
                             if  new_cost <  cost then
                                     Some new_tree, new_cost
-                            else acc) (None, get_cost `Adjusted target) locations
+                            else acc)
+                (None, get_cost `Adjusted (fst target))
+                locations
             in
             let fp, trees =
                 match new_tree with
                 | None -> fp, trees
-                | Some new_tree ->
+                | Some (new_tree,adj) ->
                         let nfp = Tree.Fingerprint.fingerprint new_tree.tree in
                         if FPSet.mem nfp fp then 
-                            fp, keeper [new_tree] source target trees'
+                            fp, keeper [(new_tree,adj)] source target trees'
                         else
-                            let new_trees = process new_tree in
+                            let new_trees =
+                                List.map (fun t -> t,adj#clone) (process new_tree) in
                             let fp = 
-                                List.fold_left (fun acc x -> FPSet.add 
-                                    (Tree.Fingerprint.fingerprint x.tree) acc) 
-                                fp new_trees 
+                                List.fold_left 
+                                    (fun acc (x,_) -> 
+                                        FPSet.add (Tree.Fingerprint.fingerprint x.tree) acc) 
+                                    fp
+                                    new_trees
                             in
                             fp, keeper new_trees source target trees'
             in
             gen fp trees (succ iter)
-
     end in
+    let remove_managers xs = List.map (fun (x,_) -> x) xs in
     let res = 
-        let fp = List.fold_left (fun acc x -> 
-            FPSet.add (Tree.Fingerprint.fingerprint x.tree) acc) 
-        FPSet.empty trees 
+        let fp = 
+            List.fold_left 
+                (fun acc (x,_) -> FPSet.add (Tree.Fingerprint.fingerprint x.tree) acc)
+                FPSet.empty trees
         in
         gen fp trees 1
     in
     Status.finished status;
-    limit_num res
+    remove_managers (limit_num res)
 
 (** [convert_to tree d]
     @param tree the Tree.Parse.t that is being used to build trees.
