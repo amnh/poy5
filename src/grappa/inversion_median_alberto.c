@@ -484,12 +484,12 @@ init_global_variables ( int N, distmem_t * distmem )
     MAXEDG = MAXNOD * MAXNOD / 2 - MAXM;
 
     localDistmem = distmem;
-
+/* output_genome should be init outside of alberto
     output_genome =
         ( struct genome_struct * ) calloc ( 1,
                                             sizeof ( struct genome_struct ) );
     output_genome->genes = ( int * ) calloc ( Num_Genes, sizeof ( int ) );
-
+*/
     genupd =
         ( struct genome_struct * ) calloc ( 1,
                                             sizeof ( struct genome_struct ) );
@@ -656,8 +656,9 @@ free_variables (  )
         free ( gen[i] );
     }
     free ( gen );
-    free ( output_genome->genes );
-    free ( output_genome );
+//    free ( output_genome->genes ); 
+//    output_genome should be free outside of alberto.
+//    free ( output_genome );
     free ( genupd->genes );
     free ( genupd );
     free ( pme );
