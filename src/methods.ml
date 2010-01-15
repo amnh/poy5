@@ -119,7 +119,7 @@ type transform_cost_matrix = [
 ]
 
 
-type median_solver_chosen = [ `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
+type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
 `Siepel | `Albert | `Vinh  ]
 
 (** parameters used in determining the medians between two chromosomes or genomes *)
