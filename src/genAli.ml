@@ -370,6 +370,7 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
         match medsov with
         |`Vinh ->
                 failwith "Vinh median solver is not in grappa"
+        |`MGR
         |`SimpleLK
         |`ChainedLK 
         |`COALESTSP
