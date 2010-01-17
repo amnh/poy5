@@ -128,6 +128,32 @@ module IntegerDecoder = struct
 end
 
 module DCJ = struct
+    let marker x = pair m_true x
+
+    let dcj_identity mechanism =
+        let rec build_genome genome cnt =
+            if Church.not_zero cnt then
+                let check_if_internal_limit is_internal =
+                    if Stream.to_bool is_internal then
+                        build_genome  
+                        (Stack.push 
+                            (pair m_false (pair m_true cnt)) genome)
+                        (Church.predecessor cnt)
+                    else 
+                        let choose_class circular_mark =
+                            build_genome 
+                            (Stack.push (marker (Stream.to_bool circular_mark))
+                            genome)
+                            cnt
+                        in
+                        choose_class
+                in
+                check_if_internal_limit
+            else mechanism genome
+        in
+        IntegerDecoder.church_stream 
+            (IntegerDecoder._uniform_max (build_genome Stack.empty) 0)
+
 
     let rec invert_and_merge stack1 stack2 = 
         if Stack.is_empty stack1 then stack2
@@ -160,7 +186,6 @@ module DCJ = struct
             else m_true
 
     let apply1 f x = f x
-    let marker x = pair m_true x
     let circular_mark = marker m_true
     let linear_mark = marker m_false
 

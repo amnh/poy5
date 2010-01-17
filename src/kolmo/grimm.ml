@@ -140,7 +140,7 @@ module IntegerDecoder = struct
 
 end
 
-module Inversions = struct
+module Grimm = struct
     let is_genome_limit base = base first
 
     let rec invert_and_merge stack1 stack2 = 
@@ -189,7 +189,7 @@ module Inversions = struct
             (Church.successor position) (Church.predecessor offset1)
             
 
-    let grimm invert genome offset1 offset2 =
+    let do_grimm invert genome offset1 offset2 =
         let chromosome_of_1 = beginning_of_offset genome 0 0 offset1 0 in
         let chromosome_of_2 = beginning_of_offset genome 0 0 offset1 offset2 in
         if Church.equal chromosome_of_1 chromosome_of_2 then
@@ -227,7 +227,7 @@ module Inversions = struct
         else 
             let decode_operation offset1 offset2 =
                 my_process _uniform_max continuation 
-                (grimm invert genome Stack.empty offset1 offset2) length
+                (do_grimm invert genome Stack.empty offset1 offset2) length
             in
             let decode_offset2 offset1 =
                 _uniform_max (decode_operation offset1) 0
@@ -238,12 +238,12 @@ module Inversions = struct
             in
             decode_offset1
 
-    let my_process continuation genome length do_nothing =
+    let grimm continuation genome length do_nothing =
         my_process IntegerDecoder._uniform_max continuation genome length
         do_nothing
 end) 
 
 let compiler =
     Compiler.compile mymodule Compiler.compiler
-let main = Compiler.get compiler "Inversions.my_process"
-let len = Compiler.complexity compiler "Inversions.my_process"
+let main = Compiler.get compiler "Grimm.grimm"
+let len = Compiler.complexity compiler "Grimm.grimm"

@@ -110,42 +110,58 @@ end
 
 module Network = struct
 
-    let rec branch_processor _uniform_max max_levels continuation mechanism levels parent seq =
-        let add_sequence_in_position pos seq = 
-            continuation (Array.insert pos seq levels)
-        in
-        let process_position pos = 
-            mechanism (add_sequence_in_position pos) parent seq 
-        in
-        _uniform_max process_position 0 max_levels
-
-    let rec process_level _uniform_max process_network mechanism max_levels parents current levels =
-        if Stack.is_empty current then process_network levels
+    let rec item_processor _uniform_max max_offset max_levels 
+    continuation mechanism levels current_level previous_levels 
+    seq offset =
+        if Church.not_zero offset then
+            let process_output_of_mechanism result =
+                item_processor _uniform_max max_offset max_levels
+                continuation
+                mechanism 
+                (Array.insert (Church.predecessor offset) result levels) 
+                current_level
+                previous_levels seq
+            in
+            mechanism process_output_of_mechanism seq
         else 
-            let next = Stack.pop current in
-            branch_processor max_levels
-                (process_level _uniform_max process_network 
-                mechanism max_levels parents (Stack.rest current)) 
-                mechanism parents next
+            (* We are done with this seq, time to move on *)
+            if Stack.is_empty current_level then
+                (* We are done with this level, see if there is any more
+                * available in the next level *)
+                if Church.not_zero max_levels then
+                    let new_current_level = Stack.pop levels in
+                    let new_previous_levels = 
+                        Stack.push new_current_level previous_levels
+                    in
+                    let new_levels = Stack.rest levels in
+                    item_processor _uniform_max 
+                    (Church.predecessor max_levels) 
+                    continuation mechanism 
+                    new_levels (Stack.rest new_current_level) 
+                    new_previous_levels (Stack.pop new_current_level)
+                else 
+                    continuation (Stack.pop levels)
+            else 
+                item_processor _uniform_max max_levels continuation
+                mechanism levels (Stack.rest current_level) previous_levels
+                (Stack.pop current_level)
 
-    let rec process_network _uniform_max mechanism max_levels current_level parents levels =
-        if Church.not_zero current_level then 
-            process_level _uniform_max
-                (process_network _uniform_max mechanism max_levels 
-                    (Church.predecessor current_level) (Stack.pop levels)) 
-                mechanism max_levels parents (Stack.pop levels) (Stack.rest levels)
-        else 
-            Stack.pop levels
+    let identity x = x
 
-    let network _uniform_max mechanism root =
-        let process_levels levels = 
-            process_network _uniform_max mechanism levels levels Stack.empty 
-            (Array.insert 0 root (Array.insert 0 root (Array.create levels)))
+    let start_processing church_stream _uniform_max mechanism sequence =
+        let start max_levels max_offset = 
+            item_processor _uniform_max max_offset 
+            (Church.predecessor max_levels) identity mechanism 
+            (Array.create max_levels) Stack.empty Stack.empty sequence
         in
-        IntegerDecoder.church_stream (_uniform_max process_levels 0)
+        let decode_offset max_levels = 
+            church_stream (_uniform_max (start max_levels) 0)
+        in
+        church_stream (_uniform_max decode_offset 0)
 
-    let network mechanism root = 
-        network IntegerDecoder._uniform_max mechanism root
+    let network mechanism sequence = 
+        start_processing IntegerDecoder.church_stream
+        IntegerDecoder._uniform_max
 
 end) 
 

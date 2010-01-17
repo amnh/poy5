@@ -169,7 +169,7 @@ let rec aux_signed_identity n stack =
         (Stack.push (pair m_true n) stack)
     else stack
 
-let chromosome_signed_identity  mechanism = 
+let chromosome_signed_identity mechanism = 
     let create_initial n =
         mechanism (aux_signed_identity n Stack.empty)
     in

@@ -501,3 +501,27 @@ module Tandem : sig
     val main : S_K.primitives
     val len : int
 end
+
+module Indelsubs : sig
+    val compiler : Compiler.compiler
+
+    val jc_indel_main : S_K.primitives
+    val jc_indel_len : int
+    val k2p_indel_main : S_K.primitives
+    val k2p_indel_len : int
+    val gtr_indel_main : S_K.primitives
+    val gtr_indel_len : int
+
+    val jc_aff_main : S_K.primitives
+    val jc_aff_len : int
+    val k2p_aff_main : S_K.primitives
+    val k2p_aff_len : int
+    val gtr_aff_main : S_K.primitives
+    val gtr_aff_len : int
+    val jc_main : S_K.primitives
+    val k2p_main : S_K.primitives
+    val gtr_main : S_K.primitives
+    val jc_len : int
+    val k2p_len : int
+    val gtr_len : int
+end
