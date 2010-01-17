@@ -1,7 +1,12 @@
 let (-->) a b = b a
 
-type primitives = [ `S | `K | `Label of string | `Node of primitives list |
-    `Debugger of string | `Lazy of primitives Lazy.t]
+type primitives = 
+    [ `S 
+    | `K 
+    | `Label of string 
+    | `Node of primitives list 
+    | `Debugger of string 
+    | `Lazy of primitives Lazy.t]
 
 exception Illegal_Expression of string Tree.Parse.t list
 
@@ -97,26 +102,10 @@ let rec simplify tree =
             if !debug then print_endline str; 
             []
 
-
 let rec reduce tree = 
     match simplify tree with
     | [x] -> x
     | x -> `Node x
-(*
-    if !debug_sk then print_endline (to_string tree);
-    match simplify tree with
-    | [ntree], true -> reduce ntree
-    | [ntree], false -> ntree
-    | [], _ -> raise (Illegal_Expression [])
-    | lst, false -> `Node lst
-    | lst, true -> 
-            match lst with
-            | [`S; _]
-            | [`K; _]
-            | [`S; _; _] -> `Node lst
-            | _ -> reduce (`Node lst)
-*)
-
 
 let evaluate x = 
     x --> of_string --> reduce 
@@ -156,6 +145,35 @@ let s_encode tree =
     in
     to_bit_list tree
 
+    let to_pdf sk filename = 
+        let unit = 10 in
+        let width = 150 in
+        let display = Graphicpdf.open_file filename in
+        let lst = s_encode sk in
+        let length = List.length lst in 
+        let lst = List.rev lst in
+        let origin = (length, display, 0, unit, unit, unit) in
+        let _, display, _, _, maxx, maxy = 
+            List.fold_left (fun (item, display, x, y, mx, my) 
+                bit ->
+                let x, y, mx, my = 
+                    if 0 = (item mod width) then 
+                        unit, y + unit, mx, y + unit
+                    else x + unit, y, max mx (x + unit), my
+                in
+                let display = Graphicpdf.moveto display x y in
+                let fill = bit = Encodings.One in 
+                let display = 
+                    Graphicpdf.square fill display unit 
+                in
+                (item - 1, display, x, y, mx, my)) origin lst
+        in
+        let display = 
+            let unit = 2 * unit in
+            Graphicpdf.moveto display 
+            (maxx + unit) (maxy + unit)
+        in
+        Graphicpdf.close_graph display
 
     let rec s_decode lst = 
         let rec aux_s_decode lst = 

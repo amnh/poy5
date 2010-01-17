@@ -143,7 +143,18 @@ type chromosome_pam_t = [
     | `Median_Solver of median_solver_chosen
 ]
 
-type kolmo_model = [ `AtomicIndel | `AffineIndel ]
+
+type indel_prob = 
+    [ `Probs  of (float * float) | `Encoding of (string * string) ]
+
+type substitution_prob =
+    [ `Probs of float | `Encoding of string ]
+
+type probs =  (indel_prob * substitution_prob)
+
+type kolmo_model = 
+    [ `AtomicIndel of ((float option) * ((float * float * float)  option)) 
+    | `AffineIndel  of ((float option) * ((float * float * float) option)) ]
 
 type dynamic_char_transform = [
     | `Seq_to_Chrom of (characters * chromosome_pam_t list)

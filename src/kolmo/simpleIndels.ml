@@ -1,5 +1,6 @@
 let simple_indelsubstitution max compiler =
-    Compiler.compile_decoder (OCAMLSK
+    Compiler.compile_decoder 
+    (OCAMLSK
         let m_true = [SK K]
         let m_false = [SK (S K)]
         let m_and y x = if x then y else x
@@ -22,6 +23,7 @@ let simple_indelsubstitution max compiler =
             val rest stack = second stack
             val is_empty stack = Stream.to_bool (first stack)
         end
+
         module Church = struct
             let zero = pair m_false [SK K]
             val successor x = pair m_true x                                   
@@ -267,8 +269,8 @@ let simple_indelsubstitution max compiler =
                     in
                     continuation (do_substitution sequence position base)
                 in
-                IntegerDecoderC.uniform_max (decode_base (do_substitution continuation
-                seq))
+                IntegerDecoderC.uniform_max 
+                    (decode_base (do_substitution continuation seq))
         end
 
         module Branch = struct

@@ -232,7 +232,7 @@ let lineto ?tag ?link display x y =
     let display = add_ops display ops in
     set_max { display with current_x = x; current_y = y }
 
-let polyline display lst =
+let polyline_ fill display lst =
     let current_x = ref display.current_x 
     and current_y = ref display.current_y in
     let ops = 
@@ -243,7 +243,8 @@ let polyline display lst =
                         let a, b = float_of_int a, float_of_int b in
                         current_x := a;
                         current_y := b;
-                        (Pdfpages.Op_l (a, b)) :: acc) tl [Pdfpages.Op_S])
+                        (Pdfpages.Op_l (a, b)) :: acc) tl 
+                        [if fill then Pdfpages.Op_B else Pdfpages.Op_S])
         | _ -> failwith "Polyline needs at least two points"
     in
     let display = 
@@ -251,6 +252,20 @@ let polyline display lst =
     in
     let display = add_ops display ops in
     set_max display
+
+let square fill display side =
+    let x = int_of_float display.current_x
+    and y = int_of_float display.current_y in
+    polyline_ fill display
+        [ (x, y, "", ""); 
+            (x + side, y, "", ""); 
+            (x + side, y + side, "", "");
+            (x, y + side, "", "");
+            (x, y, "", "") ]
+
+let fill_polyline display side = polyline_ true display side
+
+let polyline display side = polyline_ false display side
 
 let move_to display x y =
     set_max { display with current_x = x; current_y = y } 

@@ -184,8 +184,8 @@ and compile must_be_defined environment (spec : S_K.primitives kolmo_function)  
 
 type compiler = {
     environment : environment_item All_sets.StringMap.t list;
-    decoder :   (All_sets.StringMap.key * All_sets.IntegerMap.key *
-    S_K.primitives) list;
+    decoder :
+        (All_sets.StringMap.key * All_sets.IntegerMap.key * S_K.primitives) list;
     final_code : S_K.primitives list All_sets.IntegerMap.t;
 }
 
@@ -660,4 +660,7 @@ let uniform_integer compiler decoder integer =
         (if integer = 0 then [`S; `S] 
             else generate_list 0 [] integer))
 
+let (-->) a b = b a
 
+let complexity compiler funct =
+    funct --> get compiler --> S_K.s_encode --> List.length
