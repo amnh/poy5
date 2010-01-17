@@ -2157,14 +2157,13 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 (* add character set to result *)
                 let single_ml_group =
                   IFDEF USE_LIKELIHOOD THEN
-                (* remove new code in structure *)
+                    (* remove new code in structure *)
                     let seperate_data dat =
                         let pairs = dat --> List.map snd --> List.flatten in
                         let fsts = List.map fst pairs and snds = List.map snd pairs in
                         fsts,snds
                     in
-                    fun result lst ->
-                        match lst with
+                    fun result -> function
                         | [] -> result
                         | all_data ->
                             let ws,cs = seperate_data all_data in
@@ -2191,10 +2190,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                                            time = None,None }
                             in
                             { result with characters = c :: result.characters;
-                                          total_cost = result.total_cost +.  cost; }
+                                          total_cost = result.total_cost +. cost; }
                   ELSE
-                    fun result lst ->
-                        result
+                    fun result _ -> result
                   END
                 in
                 List.fold_left single_ml_group result lstaticmlcode

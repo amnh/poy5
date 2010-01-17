@@ -42,6 +42,7 @@ AC_SUBST(OUSE_VERIFY_COSTS)
 AC_SUBST(OUSEGRAPHICS)
 AC_SUBST(OUSEWIN32)
 AC_SUBST(OUSE_SSE3)
+AC_SUBST(OUSE_CONCORDE)
 
 AC_SUBST(USEINTERFACE)
 AC_SUBST(USESHAREDHD)
@@ -231,7 +232,7 @@ case ${OS_INFORMATION} in
 	*-apple-*)
 		AS_IF([test $USE_SSE3 = "true"],
 			[AC_CHECK_HEADER(pmmintrin.h,
-				[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+				CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3",
 				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
 			[AC_MSG_RESULT([not using SSE3])])
 		;;
@@ -239,7 +240,7 @@ case ${OS_INFORMATION} in
 		AS_IF([test $USE_SSE3 = "true"],
 			[AC_CHECK_HEADER(pmmintrin.h,
        			[AC_CHECK_FUNC(posix_memalign,
-   					[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3";AC_MSG_RESULT([yes])],
+   					[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
 	     			[AC_MSG_FAILURE([posix_memalign not found])])],
  				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
 			AC_MSG_RESULT([not using SSE3]))

@@ -83,6 +83,8 @@ module Characters = struct
     let alpha = "Alpha"
     let invar = "Invarient"
     let vector = "Vector"
+    let categories = "Rate Classes"
+    let gapascharacter = "Gap Character"
 
     (* Their values *)
     let min = "Min"

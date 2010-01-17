@@ -39,6 +39,7 @@ module type S = sig
         (a, b) Ptree.p_tree Sexpr.t -> unit
 
       val forest_break_search_tree :
+        (a, b) Ptree.nodes_manager option ->  
         float ->
         (a, b) Ptree.p_tree ->
         (a, b) Ptree.p_tree
@@ -343,12 +344,12 @@ module MakeNormal
         what we actually do is check the median cost at each node, and then, for
         candidate nodes, we pick the best of its edges to break.
     *)
-    let forest_break_search_tree origin_cost tree =
+    let forest_break_search_tree adj_mgr origin_cost tree =
         (** [break edge tree] breaks an edge in the tree and updates the tree data
             accordingly *)
         let break edge tree =
             let Tree.Edge(bfrom, bto) = edge in
-            let breakage = TreeOps.break_fn (bfrom, bto) tree in
+            let breakage = TreeOps.break_fn adj_mgr (bfrom, bto) tree in
             TreeOps.uppass breakage.Ptree.ptree 
         in
         let tree = Ptree.set_origin_cost origin_cost tree in
@@ -364,7 +365,6 @@ module MakeNormal
                 with _ -> tree)
             tree.Ptree.edge_data tree in
         (* (TODO: also check the roots for breaking!!) *)
-
         tree
 
     (** [forest_joins forest] attempts to join pairs of forest components using
@@ -448,7 +448,7 @@ module MakeNormal
             | 1, _ -> new PhyloQueues.first_best_srch_mgr (sampler ())
             | n, th -> new PhyloQueues.hold_n_threshold_srch_mgr n keep th (sampler ())
 
-    let create_sampler data queue previous item = 
+    let create_sampler data queue previous item adj_tabu = 
         let ob = 
             match item with
             | `PrintTrajectory filename -> 
@@ -487,23 +487,47 @@ module MakeNormal
                         (report_trees_and_branches do_compress filename data)
             | `AllVisited filename ->
                     let join_fn incr a b c = 
-                        let a, _ = TreeOps.join_fn incr a b c in
+                        let a, _ = TreeOps.join_fn (Some adj_tabu) incr a b c in
                         a
                     in
                     let do_compress = None <> filename in
                     (new SamplerApp.visited join_fn 
-                    (simplified_report_trees do_compress filename data))
+                        (simplified_report_trees do_compress filename data))
         in
         new Sampler.composer previous ob
 
-    let sampler sampler data queue lst () =
+    let create_adjust_manager = function
+        | `LocalOptimum l_opt ->
+            let m, b = l_opt.Methods.tabu_iterate in
+            let thrsh = match m with 
+                | `Threshold f 
+                | `Both (f,_) 
+                | `Neighborhood f -> Some f
+                | `Always -> Some 0.0
+                | `Null 
+                | `MaxCount _ -> None
+            and count =  match m with
+                | `MaxCount m 
+                | `Both (_,m) -> Some m
+                | `Always 
+                | `Neighborhood _ -> Some 0
+                | `Null 
+                | `Threshold _ -> None
+            in
+            match b with
+            | `Null           -> PhyloTabus.simple_nm_none count thrsh
+            | `AllBranches    -> PhyloTabus.simple_nm_all count thrsh
+            | `JoinDelta      -> PhyloTabus.complex_nm_delta count thrsh
+            | `Neighborhood   -> PhyloTabus.complex_nm_neighborhood count thrsh
+
+    let sampler meth sampler data queue lst () =
         let sampler = 
             match sampler with
             | Some x -> x
             | None -> new Sampler.do_nothing
-        in
+        and adj_tabu = create_adjust_manager meth in
         List.fold_left 
-        (fun prev item -> create_sampler data queue prev item) 
+        (fun prev item -> create_sampler data queue prev item adj_tabu) 
         sampler
         lst
 
@@ -535,7 +559,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
             trajectory, break_tabu, join_tabu, reroot_tabu, nodes_tabu, samples)
             = meth in *)
     let `LocalOptimum (l_opt) = meth in
-    let samplerf = sampler base_sampler data emergency_queue l_opt.Methods.samples in
+    let samplerf = sampler meth base_sampler data emergency_queue l_opt.Methods.samples in
     let sets =
         try
             match l_opt.Methods.tabu_join with
@@ -621,11 +645,7 @@ let rec find_local_optimum ?base_sampler ?queue data emergency_queue
                     PhyloTabus.partitioned_join (`Height 4) (get_depth depth)
                     *)
         in
-        let iterfn =
-            match l_opt.Methods.tabu_nodes with
-            | `Null -> PhyloTabus.simple_nm_none 
-            | `Leaves -> PhyloTabus.simple_nm_leaves
-        in
+        let iterfn = create_adjust_manager meth in
         let rerootfn =
             match l_opt.Methods.tabu_reroot with
             | `Bfs depth ->
@@ -674,10 +694,11 @@ let forest_search data queue origin_cost search trees =
        medians for breaking.  Once those are broken, we search on the entire
        forest of trees.  We then attempt to TBR join to improve our overall
        score... *)
+    let adj_mgr = Some (create_adjust_manager search) in
 
     let trees =
         Sexpr.map_status "Breaking trees"
-            (forest_break_search_tree origin_cost)
+            (forest_break_search_tree adj_mgr origin_cost)
             trees in
 
     let trees = 

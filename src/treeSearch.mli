@@ -37,6 +37,7 @@ module type S = sig
         (a, b) Ptree.p_tree Sexpr.t -> unit
 
       val forest_break_search_tree :
+        (a, b) Ptree.nodes_manager option ->
         float ->
         (a, b) Ptree.p_tree ->
         (a, b) Ptree.p_tree

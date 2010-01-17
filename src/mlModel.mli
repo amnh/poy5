@@ -52,7 +52,7 @@ type subst_model =
     (** [GTR] alphabetical order describtion of the transition rates *)
     | GTR   of (float array) option
     (** [File] matrix read from a file, diagonal is readjusted so row = 0 *)
-    | File  of float array array 
+    | File  of float array array * string
 
 (** [priors] the prior probabilities. This is only used in specification, in
  * favor of a C-type big array for compatibility.  *)
@@ -195,13 +195,15 @@ val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Ar
 
 END
 
+val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
+
 (** [brents_method ?i ?e o f] uses brents method of parabolic interpolation to
  * find the local minimum near [o] of the function [f]. [i] and [e] are used to
  * control the number of iterations and tolerance, respectively. [o] is a pair
  * of floating point numbers, essentially, representing a point *)
 val brents_method :
     ?iter_max:int -> ?epsilon:float 
-        -> float * float -> (float -> float) -> float * float
+        -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
  * gradient [g] and direction [d] of function [f] by point [p], attempting the
@@ -221,5 +223,9 @@ val bfgs_method :
  * that will update the model based on an input value *)
 val get_update_function_for_model    : model -> (model -> float array -> model) option
 val get_current_parameters_for_model : model -> float array option
+
+(* [get_update_function_for_alpha] based on the alpha parameters in model *)
+val get_update_function_for_alpha    : model -> (model -> float -> model) option
+val get_current_parameters_for_alpha : model -> float option
 
 

@@ -112,7 +112,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             match root.Ptree.root_median with
             | Some ((`Edge (a, b)), _) ->
                     let new_tree, _ = 
-                        TreeOps.reroot_fn false (Tree.Edge (a, b)) new_tree 
+                        TreeOps.reroot_fn None false (Tree.Edge (a, b)) new_tree 
                     in
                     new_tree
             | _ -> new_tree)

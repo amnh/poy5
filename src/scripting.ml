@@ -90,9 +90,9 @@ let build_has item = function
     | `Mst _ 
     | `Nj
     | `Prebuilt _ -> false
-    | `Branch_and_Bound (_, _, _, _, l) 
-    | `Build (_, _, l)
-    | `Build_Random (_, _, _, l, _) -> has_something item l
+    | `Branch_and_Bound ((_, _, _, _, l),_) 
+    | `Build (_, _, l,_)
+    | `Build_Random ((_, _, _, l, _),_) -> has_something item l
 
 
 module type S = sig
@@ -1260,7 +1260,7 @@ let reroot_at_outgroup run =
                try
                    let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
-                       TreeOps.reroot_fn false (Tree.Edge (outgroup, nbr)) ptree in
+                       TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
                    let ptree = TreeOps.incremental_uppass ptree update in
                    ptree
                with _ -> ptree
@@ -4678,16 +4678,16 @@ let set_console_run r = console_run_val := r
             | Tree.Interior (_, b, c, d) -> [b; c; d]
             | Tree.Leaf (_, b) -> [b]
             | Tree.Single _ -> []
-        let join x y tree = TreeOps.join_fn [] x y tree 
+        let join x y tree = TreeOps.join_fn None [] x y tree 
         let break x tree = 
-            let breakage = TreeOps.break_fn x tree in
+            let breakage = TreeOps.break_fn None x tree in
             let tree = 
                 TreeOps.incremental_uppass breakage.Ptree.ptree
                 breakage.Ptree.incremental 
             in
             tree, breakage.Ptree.tree_delta
         let reroot edge tree = 
-            let a, b = TreeOps.reroot_fn true edge tree in
+            let a, b = TreeOps.reroot_fn None true edge tree in
             let a = TreeOps.incremental_uppass a b in
             a
         let downpass = TreeOps.downpass
@@ -4739,8 +4739,10 @@ let set_console_run r = console_run_val := r
         let tbr = local_neigh `Tbr
 
         let build data nodes = 
-            Sexpr.to_list (Build.build_initial_trees `Empty data nodes 
-            (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [])))
+            Sexpr.to_list 
+                (Build.build_initial_trees `Empty data nodes 
+                    (`Build (1, (`Wagner_Rnd (1, 0.,`Last, [], `UnionBased None)), [],(`MaxCount 20,`JoinDelta)))
+                )
     end
 
 
