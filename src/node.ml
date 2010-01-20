@@ -439,7 +439,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     | _ ->
                         MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
-                if code <= 0 then (t1 , 0.0) else (t1,t2)
+                if code <= 0 then (t1/.2.0,t1/.2.0) else (t1,t2)
             in 
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary

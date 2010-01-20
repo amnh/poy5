@@ -125,7 +125,6 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
-
 IFDEF USE_LIKELIHOOD THEN
 
 (* a gentler compare that excludes the parameters of the model itself *)
@@ -140,9 +139,20 @@ let compare a b =
         | None, None | Some Constant, Some Constant 
         | Some Constant, None | None, Some Constant -> 0
         | _,_ -> ~-1
+    and g_compare = if a.spec.use_gap = b.spec.use_gap then 0 else ~-1
+    and p_compare = 
+        let a_pri = match a.spec.base_priors with | Estimated x | Given x -> x
+        and b_pri = match b.spec.base_priors with | Estimated x | Given x -> x
+        and results = ref 0 in
+        try
+            for i = 0 to a.alph do
+                if a_pri.(i) <> b_pri.(i) then results := ~-1
+            done;
+            !results
+        with _ -> ~-1
     in
     (* just knowing that they are different is enough *)
-    m_compare + v_compare
+    m_compare + v_compare + g_compare + p_compare + p_compare
     
 (* ------------------------------------------------ *)
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
@@ -854,6 +864,50 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
         | None | Some Constant -> `Int 1
         | Some (Gamma (c,_)) 
         | Some (Theta (c,_,_))  -> `Int c
+    and parameters m = match m.spec.substitution with
+        | JC69
+        | F81 -> []
+        | K2P x
+        | F84 x
+        | HKY85 x ->
+                let x = match x with 
+                        | Some x -> x 
+                        | None -> default_tstv
+                in
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`Float x])
+                    { `String "" } --)]
+        | TN93 x -> 
+                let a,b = match x with
+                        | Some (a,b) -> a,b
+                        | None -> default_tstv,default_tstv
+                in
+                (PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`Float a])
+                    { `String "" } --) ::
+                [(PXML -[Xml.Data.param 2]
+                    ([Xml.Alphabet.value] = [`Float b])
+                    { `String "" } --)]
+
+        | GTR ray ->
+                let ray = match ray with 
+                    | None -> default_gtr m.alph
+                    | Some x -> x
+                in
+                let r,_ =
+                    Array.fold_right
+                        (fun x (acc,i) ->
+                            (PXML -[Xml.Data.param i]
+                                ([Xml.Alphabet.value] = [`Float x])
+                                { `String "" } --) :: acc,i+1)
+                        ray
+                        ([],1)
+                in
+                r
+        | File (_,str) ->
+                [(PXML -[Xml.Data.param 1]
+                    ([Xml.Alphabet.value] = [`String str])
+                    { `String "" } --)]
     in
     (PXML
         -[Xml.Characters.model]
@@ -862,7 +916,7 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
             ([Xml.Characters.alpha] = [get_alpha model])
             ([Xml.Characters.invar] = [get_invar model]) 
             ([Xml.Characters.gapascharacter] = [get_gap model]) 
-        { `Set [priors] }
+        { `Set (priors :: (parameters model)) }
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
 

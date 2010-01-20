@@ -101,6 +101,7 @@ class type ['a, 'b] nodes_manager = object
     method branches : Tree.edge list option
     method model : bool
     method to_string : string
+    method fuse : ('a,'b) nodes_manager -> ('a, 'b) nodes_manager
 end
 
 
@@ -371,7 +372,7 @@ module type SEARCH = sig
         trees, a method for weighting trees, a number of iterations to perform, and a
         function to process new trees *)
       val fuse_generations :
-          (a, b) p_tree list ->
+          ((a, b) p_tree * (a,b) nodes_manager) list ->
           int ->
           int ->
           ((a, b) p_tree -> float) ->
