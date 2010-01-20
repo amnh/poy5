@@ -716,7 +716,40 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> 
                             <:expr<`ChangeDynPam $exSem_of_list x$>> ] | 
                 [ LIDENT "chrom_to_seq" -> <:expr<`ChromToSeq []>> ] |
-                [ LIDENT "breakinv_to_custom" -> <:expr<`BreakinvToSeq []>> ] 
+                [ LIDENT "breakinv_to_custom" -> <:expr<`BreakinvToSeq []>> ] |
+                [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
+                    match y with
+                    | None -> 
+                            <:expr<`Seq_to_Kolmogorov (`AtomicIndel (None,
+                            None)) >>
+                    | Some x -> x ]
+            ];
+        optional_kolmogorov_parameters: 
+            [ 
+                [ ":"; left_parenthesis; 
+                    x = LIST0 [ x = kolmogorov_parameters -> x] SEP ","; 
+                    right_parenthesis  -> 
+                        let default = (<:expr<None>>, <:expr<None>>) in
+                        let x, y = 
+                            List.fold_left (fun acc x ->
+                                match x with 
+                                | `Event n -> (<:expr<Some $n$>>, snd acc)
+                                | `IndelSub n -> (fst acc, <:expr<Some $n$>>) ) default 
+                                x
+                        in
+                        <:expr<`Seq_to_Kolmogorov (`AtomicIndel ($x$, $y$))>> ] 
+            ];
+        kolmogorov_parameters:
+            [
+                [ LIDENT "event"; ":"; x = flex_float -> 
+                    `Event <:expr<($x$)>> ] | 
+                [ LIDENT "indelsub"; ":"; left_parenthesis; insertion =
+                    flex_float;
+                    ","; deletion = flex_float; ","; 
+                    substitution = flex_float; right_parenthesis -> 
+                        `IndelSub
+                        <:expr<($insertion$,
+                         $deletion$, $substitution$)>> ]
             ];
         time:
             [
@@ -767,6 +800,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
             ];
         median_solvers:
             [
+                [ LIDENT "mgr" ->  <:expr<$str:"`MGR"$>> ] |
                 [ LIDENT "simplelk" ->  <:expr<$str:"`SimpleLK"$>> ] |
                 [ LIDENT "chainedlk" ->  <:expr<$str:"`ChainedLK"$>> ] |
                 [ LIDENT "coalestsp" -> <:expr<$str:"`COALESTSP"$>>  ] |

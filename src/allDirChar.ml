@@ -1226,9 +1226,9 @@ module F : Ptree.Tree_Operations
             let node_data = List.fold_left adder All_sets.IntegerMap.empty nodes in
             internal_downpass true {tree with Ptree.node_data = node_data}
         (* get all characters to iterate *)
-        and chars = 
+        and chars =
             let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
-            Data.get_code_from_characters_restricted `AllStatic tree.Ptree.data chars
+            Data.get_code_from_characters_restricted `Likelihood tree.Ptree.data chars
         (* get current model *)
         and get_current_model data chars = 
             let get_model x = match Hashtbl.find data.Data.character_specs x with
@@ -1272,7 +1272,7 @@ module F : Ptree.Tree_Operations
                 in
                 results
             | None -> failwith "No function to optimize with"
-        in (*
+        in
         info_user_message "\t Iterated Model to %f" best_cost;
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
@@ -1286,7 +1286,7 @@ module F : Ptree.Tree_Operations
                 in
                 snd results
         in
-        info_user_message "\t Iterated Alpha to %f" best_cost; *)
+        info_user_message "\t Iterated Alpha to %f" best_cost;
         if best_cost < current_cost then best_tree else tree
 
     let adjust_fn ?(epsilon=1.0e-4) ?(max_iter=20) node_man tree = 

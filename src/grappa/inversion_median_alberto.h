@@ -114,7 +114,9 @@ int *piupd;
 struct genome_struct **gen;
 struct genome_struct *genupd;   /* genome for updating sol. */
 struct genome_struct **id;
-struct genome_struct *output_genome; // output genome for grappa_interface.c
+//struct genome_struct *output_genome;
+//this should be defined outside of alberto
+// output genome for grappa_interface.c
 
 
 /* ********** functions   ************ */

@@ -29,7 +29,12 @@
 
 #include "lk_main.h"
 
+#include "mgr.h"
+
 #define Genome_matrix_struct(a) ((struct genome_struct *) Data_custom_val(a))
+
+
+struct genome_struct *output_genome; // output genome 
 
 VertexFactory *newvf = NULL; 
 int DOBRANCH;
@@ -41,6 +46,22 @@ struct genome_arr_t
     int num_genome;
     int num_gene;
 };
+
+void
+ini_mem_4_all (int num_genes )
+{
+   output_genome =
+        ( struct genome_struct * ) calloc ( 1,
+                                            sizeof ( struct genome_struct ) );
+    output_genome->genes = ( int * ) calloc ( Num_Genes, sizeof ( int ) ); 
+}
+
+void
+free_mem_4_all ()
+{
+    free ( output_genome->genes );
+    free ( output_genome );
+}
 
 void grappa_CAML_genome_arr_free (value c_genome_arr) {
     //printf("Start of genone_arr_CAML_free\n"); fflush(stdout); 
@@ -222,11 +243,12 @@ grappa_CAML_inv_med
 
     condense3_mem_t * cond3mem_p; cond3mem_p =  &CONDENSE3_MEM;
     convert_mem_t * convertmem_p; convertmem_p = &CONVERT_MEM;
-
     old_max_num_genes = cond3mem_p->max_num_genes;
     if (old_max_num_genes >= NUM_GENES) {}
     else
     {
+        free_mem_4_all ();
+        ini_mem_4_all (NUM_GENES);
         free_mem_4_albert ();
         ini_mem_4_albert (NUM_GENES);
         free_mem_4_siepel ();
@@ -235,115 +257,124 @@ grappa_CAML_inv_med
         ini_mem_4_cond3 (NUM_GENES);
         free_mem_4_convert();
         ini_mem_4_convert(NUM_GENES);
+        free_mem_4_mgr();
+        mgr_ini_mem(NUM_GENES,0);
     }
-    condense3 ( g1->genes,
-                g2->genes,
-                g3->genes,
-                cond3mem_p->con_g1->genes,
-                cond3mem_p->con_g2->genes,
-                cond3mem_p->con_g3->genes, 
-                NUM_GENES, &num_cond,
-                cond3mem_p->pred1, cond3mem_p->pred2, 
-                cond3mem_p->picked, cond3mem_p->decode );
-    if (num_cond>0)
+    if(MEDIAN_SOLVER<7)
     {
-        gen[0] = cond3mem_p->con_g1;
-        gen[1] = cond3mem_p->con_g2;
-        gen[2] = cond3mem_p->con_g3;
-        switch (MEDIAN_SOLVER)
+        condense3 ( g1->genes,
+                    g2->genes,
+                    g3->genes,
+                    cond3mem_p->con_g1->genes,
+                    cond3mem_p->con_g2->genes,
+                    cond3mem_p->con_g3->genes, 
+                    NUM_GENES, &num_cond,
+                    cond3mem_p->pred1, cond3mem_p->pred2, 
+                    cond3mem_p->picked, cond3mem_p->decode );
+        if (num_cond>0)
         {
-            case 1: //Alberto Capara median solver
-              if ( CIRCULAR )
-                      albert_inversion_median_circular 
-                          ( gen,num_cond,cond3mem_p->con_med->genes );
-              else
-                      albert_inversion_median_noncircular
-                          (gen,num_cond,cond3mem_p->con_med->genes );
-            break;
-            case 2: //A. Siepel median solver
-              find_reversal_median ( cond3mem_p->con_med, gen, num_cond, &SIEPEL_MEM );
-            break;
-            case 3: //Exact median solver
-               convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
-                                      num_cond, CIRCULAR );
-               bbtsp ( 2 * num_cond, cond3mem_p->con_med->genes, 
-                       FALSE, /* cannot use median that does not exist */
-                        gen[0]->genes, gen[1]->genes, gen[2]->genes,
-                        convertmem_p->adjl, 
-                        convertmem_p->neighbors, 
-                        convertmem_p->stack, 
-                        convertmem_p->outcycle, 
-                        convertmem_p->degree,
-                        convertmem_p->otherEnd, 
-                        convertmem_p->edges, 
-                        CIRCULAR );
-            break;
-            case 4: //Greedy median solver
-            convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
-                                      num_cond, CIRCULAR );
-            coalestsp ( 2 * num_cond, cond3mem_p->con_med->genes,FALSE, 
-                        gen[0]->genes, gen[1]->genes, gen[2]->genes,
-                        convertmem_p->adjl, 
-                        convertmem_p->neighbors, 
-                        convertmem_p->stack, 
-                        convertmem_p->outcycle, 
-                        convertmem_p->degree,
-                        convertmem_p->otherEnd, 
-                        convertmem_p->edges,
-                        CIRCULAR );
-            break;
-            /* case5 and case6 need the CONCORDE package  */
-            // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
+            gen[0] = cond3mem_p->con_g1;
+            gen[1] = cond3mem_p->con_g2;
+            gen[2] = cond3mem_p->con_g3;
+            switch (MEDIAN_SOLVER)
+            {
+                case 1: //Alberto Capara median solver
+                  if ( CIRCULAR )
+                          albert_inversion_median_circular 
+                              ( gen,num_cond,cond3mem_p->con_med->genes );
+                  else
+                          albert_inversion_median_noncircular
+                              (gen,num_cond,cond3mem_p->con_med->genes );
+                break;
+                case 2: //A. Siepel median solver
+                  find_reversal_median ( cond3mem_p->con_med, gen, num_cond, &SIEPEL_MEM );
+                break;
+                case 3: //Exact median solver
+                   convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
+                                          num_cond, CIRCULAR );
+                   bbtsp ( 2 * num_cond, cond3mem_p->con_med->genes, 
+                           FALSE, /* cannot use median that does not exist */
+                            gen[0]->genes, gen[1]->genes, gen[2]->genes,
+                            convertmem_p->adjl, 
+                            convertmem_p->neighbors, 
+                            convertmem_p->stack, 
+                            convertmem_p->outcycle, 
+                            convertmem_p->degree,
+                            convertmem_p->otherEnd, 
+                            convertmem_p->edges, 
+                            CIRCULAR );
+                break;
+                case 4: //Greedy median solver
+                convert2_to_tsp ( gen[0], gen[1], gen[2], convertmem_p->adjl, convertmem_p->adjp,
+                                          num_cond, CIRCULAR );
+                coalestsp ( 2 * num_cond, cond3mem_p->con_med->genes,FALSE, 
+                            gen[0]->genes, gen[1]->genes, gen[2]->genes,
+                            convertmem_p->adjl, 
+                            convertmem_p->neighbors, 
+                            convertmem_p->stack, 
+                            convertmem_p->outcycle, 
+                            convertmem_p->degree,
+                            convertmem_p->otherEnd, 
+                            convertmem_p->edges,
+                            CIRCULAR );
+                break;
+                /* case5 and case6 need the CONCORDE package  */
+                // http://www.tsp.gatech.edu//concorde/downloads/downloads.htm
 #ifdef USE_CONCORDE
-            case 5: //SimpleLK TSP median solver 
-                 convert_to_tsp ( gen[0], gen[1],
-                                 gen[2], num_cond, CIRCULAR,
-                                 convertmem_p->weights );
-                 greedylk ( 2 * num_cond, convertmem_p->weights, 
+                case 5: //SimpleLK TSP median solver 
+                     convert_to_tsp ( gen[0], gen[1],
+                                     gen[2], num_cond, CIRCULAR,
+                                     convertmem_p->weights );
+                     greedylk ( 2 * num_cond, convertmem_p->weights, 
+                                cond3mem_p->con_med->genes,
+                                convertmem_p->incycle, 
+                                convertmem_p->outcycle );
+                    break;
+                case 6: //ChainedLK TSP median solver
+                    convert_to_tsp ( gen[0], gen[1],
+                                     gen[2], num_cond, CIRCULAR,
+                                     convertmem_p->weights );
+                    chlinkern ( 2 * num_cond,
+                            convertmem_p->weights, 
                             cond3mem_p->con_med->genes,
-                            convertmem_p->incycle, 
-                            convertmem_p->outcycle );
-                break;
-            case 6: //ChainedLK TSP median solver
-                convert_to_tsp ( gen[0], gen[1],
-                                 gen[2], num_cond, CIRCULAR,
-                                 convertmem_p->weights );
-                chlinkern ( 2 * num_cond,
-                        convertmem_p->weights, 
-                        cond3mem_p->con_med->genes,
-                        convertmem_p->incycle, convertmem_p->outcycle );
-                break;
-                
+                            convertmem_p->incycle, convertmem_p->outcycle );
+                    break;
 #endif
-            default:
-                fprintf(stderr, "unknown choice of median solver !\n");
-                break;                
-        }
-        decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
-                  cond3mem_p->pred1, cond3mem_p->decode, num_cond );
-    /*    int* outputgenes = NULL;
-          outputgenes =  ( int * ) calloc ( (num_genes ) , sizeof ( int ) );
-        decode3 ( outputgenes, cond3mem_p->con_med->genes, 
-                  cond3mem_p->pred1, cond3mem_p->decode, num_cond );
-        res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, outputgenes,dims);
-        free (outputgenes);
-    */
-        /*debug msg 
-          fprintf(stdout,"before bigarray:[");
-          int x;
-          for (x=0;x<NUM_GENES;x++)
-              fprintf(stdout,"%d,",output_genome->genes[x]);
-          fprintf(stdout,"]\n"); fflush(stdout);
-       // debug msg */
-        res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, output_genome->genes,dims);
+                default:
+                    fprintf(stderr, "unknown choice of median solver !\n");
+                    break;                
+            }
+            decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
+                      cond3mem_p->pred1, cond3mem_p->decode, num_cond );
+            /*debug msg 
+              fprintf(stdout,"before bigarray:[");
+              int x;
+              for (x=0;x<NUM_GENES;x++)
+                  fprintf(stdout,"%d,",output_genome->genes[x]);
+              fprintf(stdout,"]\n"); fflush(stdout);
+           // debug msg */
         
-        CAMLreturn(res);        
+            res = 
+            alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
+                    output_genome->genes,dims);
+            CAMLreturn(res);        
+        }
+        else
+        {
+            res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
+            CAMLreturn(res);
+        }
+
     }
-    else
+    else// MEDIAN_SOLVER == 7, MGR median solver
     {
-        res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
-        CAMLreturn(res);
+         mgr_med (g1->genes,g2->genes,g3->genes,NUM_GENES,CIRCULAR,output_genome);
+         res = 
+            alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
+                    output_genome->genes,dims);
+            CAMLreturn(res);
     }
+
 }
 
 value 
@@ -515,13 +546,23 @@ grappa_ini_siepel_mem (int num_genes)
 }
 
 
+void
+grappa_ini_mem (int num_genes)
+{
+    ini_mem_4_all (num_genes);
+    return;
+}
+
+
 value 
 grappa_CAML_initialize (value max_num_genes) {
     CAMLparam1(max_num_genes);
+    grappa_ini_mem (Int_val(max_num_genes));
     grappa_ini_invdis_mem (Int_val(max_num_genes));
     grappa_ini_cond3_mem (Int_val(max_num_genes));
     grappa_ini_albert_mem(Int_val(max_num_genes));
     grappa_ini_siepel_mem (Int_val(max_num_genes));
     grappa_ini_convert_mem(Int_val(max_num_genes));
+    mgr_ini_mem(Int_val(max_num_genes),0);
     CAMLreturn(Val_unit);
 }

@@ -40,6 +40,7 @@ module S_K :
     val s_decode : Encodings.bit list -> primitives
     val sk_define_interpreted : string -> string list -> primitives -> unit
     val create : primitives -> string list -> primitives
+    val to_pdf : primitives -> string -> unit
   end
 
 module Compiler : sig
@@ -77,6 +78,7 @@ module Compiler : sig
         S_K.primitives * (string * int * S_K.primitives) list * 
         S_K.primitives list All_sets.IntegerMap.t
     val uniform_integer : compiler -> string -> int -> S_K.primitives 
+    val complexity : compiler -> string -> int
 end
 
 (** Primitive operations in an SK machine *)
@@ -430,4 +432,96 @@ end
 
 module SimpleIndels : sig
     val apply_model : int -> Compiler.compiler -> Compiler.compiler
+end
+
+module SkBasics : sig
+    val res : Compiler.compiler -> Compiler.compiler
+end
+
+module Tdrl : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Grdrl : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Inversion : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Dcj : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module InversionAndTranslocation : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module TreeHypothesis : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Identity : sig 
+    val compiler : Compiler.compiler
+    val chromosome_identity : S_K.primitives
+    val chromosome_signed_identity : S_K.primitives
+    val len_chromosome_identity : int
+    val len_chromosome_signed_identity : int
+end
+module Grimm : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+module Transpositions : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Networks : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Tandem : sig
+    val compiler : Compiler.compiler
+    val main : S_K.primitives
+    val len : int
+end
+
+module Indelsubs : sig
+    val compiler : Compiler.compiler
+
+    val jc_indel_main : S_K.primitives
+    val jc_indel_len : int
+    val k2p_indel_main : S_K.primitives
+    val k2p_indel_len : int
+    val gtr_indel_main : S_K.primitives
+    val gtr_indel_len : int
+
+    val jc_aff_main : S_K.primitives
+    val jc_aff_len : int
+    val k2p_aff_main : S_K.primitives
+    val k2p_aff_len : int
+    val gtr_aff_main : S_K.primitives
+    val gtr_aff_len : int
+    val jc_main : S_K.primitives
+    val k2p_main : S_K.primitives
+    val gtr_main : S_K.primitives
+    val jc_len : int
+    val k2p_len : int
+    val gtr_len : int
 end

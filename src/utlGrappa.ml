@@ -169,6 +169,8 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
             Grappa.c_inv_med 5 g0 g1 g2 num_gen circular
         |`ChainedLK ->
             Grappa.c_inv_med 6 g0 g1 g2 num_gen circular
+        |`MGR ->
+            Grappa.c_inv_med 7 g0 g1 g2 num_gen circular
         
     in
     let len = Bigarray.Array1.dim g_med3 in
