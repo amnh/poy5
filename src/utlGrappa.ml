@@ -151,7 +151,26 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
     let g0 = Grappa.c_get_one_genome genome_arr 0 in
     let g1 = Grappa.c_get_one_genome genome_arr 1 in 
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
-    let g_med3 =
+    let med3arr =
+        match medsov with
+        |`Vinh ->
+                failwith "Vinh median solver is not in grappa"
+        |`Albert ->
+                Grappa.get_med3_arr 1 g0 g1 g2 num_gen circular
+        |`Siepel ->
+              Grappa.get_med3_arr 2 g0 g1 g2 num_gen circular
+        |`BBTSP ->
+            Grappa.get_med3_arr 3 g0 g1 g2 num_gen circular
+        |`COALESTSP ->
+             Grappa.get_med3_arr 4 g0 g1 g2 num_gen circular
+        |`SimpleLK ->
+            Grappa.get_med3_arr 5 g0 g1 g2 num_gen circular
+        |`ChainedLK ->
+            Grappa.get_med3_arr 6 g0 g1 g2 num_gen circular
+        |`MGR ->
+            Grappa.get_med3_arr 7 g0 g1 g2 num_gen circular
+    in
+ (*   let g_med3 =
         match medsov with
         |`Vinh ->
                 failwith "Vinh median solver is not in grappa"
@@ -176,11 +195,12 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
         fun index ->
            Int32.to_int (g_med3.{index})
     ) in
+ *)
     (* debug msg 
      Printf.printf "output ori seqcode = %!"; print_intarr oriarr;
      print_newline();
      debug msg*)
-    let resarr = de_standardize3 ori_genomeX oriarr num_gen in
+    let resarr = de_standardize3 ori_genomeX med3arr num_gen in
     (* debug msg 
      Printf.printf "output seqcode = %!"; print_intarr resarr;
      print_newline();
