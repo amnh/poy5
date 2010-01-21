@@ -37,16 +37,26 @@ external c_inv_med : int -> genome -> genome -> genome -> int -> int ->
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
    = "grappa_CAML_inv_med_bytecode" "grappa_CAML_inv_med"
 
-
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
 let _ =
     c_init(64)
 
+let bigarr_to_intarr bigarr = 
+    let len = Bigarray.Array1.dim bigarr in
+    let intarr = Array.init len ( 
+        fun index ->
+           Int32.to_int (bigarr.{index})
+    ) in
+    intarr
+
+let get_med3_arr (medsov : int) (g0 : genome) (g1 : genome) (g2 : genome) num_gen circular =
+    let bigarr_med3 = c_inv_med medsov g0 g1 g2 num_gen circular in
+    let intarr_med3 = bigarr_to_intarr bigarr_med3 in
+    intarr_med3
 
 let inversion_distance a b c d = 
     c_cmp_inv_dis a b c (if d then 1 else 0)
-
 
 (* See [inversions] *)
 external c_inversions : 
