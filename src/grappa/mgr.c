@@ -610,7 +610,7 @@ void initialize_treemem(treemem_t *treemem, int nb_spec) {
 	 int i;
 	 // the nodes already in the tree, 1 implies in the tree, 
 	 //								   0 implies not in tree
-	 treemem->tree_array = (int *)ckalloc(nb_spec * sizeof(int));
+	 treemem->tree_array = (int *)malloc(nb_spec * sizeof(int));
 	 for (i=0;i<nb_spec;i++)
 		  treemem->tree_array[i]=0;
 	 treemem->tree_size = 0;
@@ -745,7 +745,7 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
 	spec_left=nb_spec;
 			
     // the number of transformations we did on each genome
-    nbreag = (int *)ckalloc(nb_spec * sizeof(int));
+    nbreag = (int *)malloc(nb_spec * sizeof(int));
     for (i=0;i<nb_spec;i++)
           nbreag[i]=0;
 
