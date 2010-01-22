@@ -65,7 +65,7 @@ let standardize3 genomeX genomeY genomeZ =
     let max_index = Array.fold_left 
         (fun max_gene gene -> max max_gene (abs gene) ) (-1) genomeX 
     in 
-    let num_gene = Array.length genomeX in  
+    let num_gene = Array.length genomeX in
     let sta_genomeX = Array.init num_gene (fun index -> index + 1) in
     let index_arr = Array.make (max_index + 1) 0 in     
     for idx = 0 to num_gene - 1 do
@@ -170,32 +170,6 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
         |`MGR ->
             Grappa.get_med3_arr 7 g0 g1 g2 num_gen circular
     in
- (*   let g_med3 =
-        match medsov with
-        |`Vinh ->
-                failwith "Vinh median solver is not in grappa"
-        |`Albert ->
-                Grappa.c_inv_med 1 g0 g1 g2 num_gen circular
-        |`Siepel ->
-              Grappa.c_inv_med 2 g0 g1 g2 num_gen circular
-        |`BBTSP ->
-            Grappa.c_inv_med 3 g0 g1 g2 num_gen circular
-        |`COALESTSP ->
-             Grappa.c_inv_med 4 g0 g1 g2 num_gen circular
-        |`SimpleLK ->
-            Grappa.c_inv_med 5 g0 g1 g2 num_gen circular
-        |`ChainedLK ->
-            Grappa.c_inv_med 6 g0 g1 g2 num_gen circular
-        |`MGR ->
-            Grappa.c_inv_med 7 g0 g1 g2 num_gen circular
-        
-    in
-    let len = Bigarray.Array1.dim g_med3 in
-    let oriarr = Array.init len ( 
-        fun index ->
-           Int32.to_int (g_med3.{index})
-    ) in
- *)
     (* debug msg 
      Printf.printf "output ori seqcode = %!"; print_intarr oriarr;
      print_newline();
