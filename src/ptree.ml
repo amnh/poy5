@@ -163,6 +163,8 @@ type ('a, 'b) join_fn =
     ('a, 'b) p_tree ->
     ('a, 'b) p_tree * Tree.join_delta
 
+type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
+
 type ('a, 'b) adjust_fn = 
     ?epsilon:(float) -> ?max_iter:(int) ->
         ('a, 'b ) nodes_manager option ->
@@ -195,6 +197,7 @@ module type Tree_Operations =
 
         val break_fn : (a, b) break_fn
         val adjust_fn : (a, b) adjust_fn
+        val model_fn : (a, b) model_fn
         val join_fn : (a, b) join_fn 
         val cost_fn : (a, b) cost_fn
         val reroot_fn : (a, b) reroot_fn

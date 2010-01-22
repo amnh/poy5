@@ -497,6 +497,7 @@ type samples = [
     | `AttemptsDistr of string option
     | `BreakVsJoin of string option
     | `Likelihood of string option
+    | `LikelihoodModel of string option
 ]
 
 type local_opt = {

@@ -480,6 +480,9 @@ module MakeNormal
             | `BreakVsJoin filename ->
                     new SamplerRes.break_n_join_distances 
                     (Status.user_message (Status.Output (filename, false, [])))
+            | `LikelihoodModel filename ->
+                    new SamplerRes.likelihood_model_iteration
+                        (Status.user_message (Status.Output (filename, false, [])))
             | `Likelihood filename ->
                     let do_compress = None <> filename in
                     new SamplerRes.likelihood_verification

@@ -1881,7 +1881,7 @@ let create_expr () =
         branch_iter :
             [
                 ["never" -> `NullBranches] |
-                ["all" -> `AllBranches] |
+                ["all_branches" -> `AllBranches] |
                 ["join_delta" -> `JoinDeltaBranches] |
                 ["join_region" -> `NeighborhoodBranches]
             ];
@@ -1908,7 +1908,8 @@ let create_expr () =
                 [ LIDENT "visited"; x = OPT string_arg -> `Visited x ] |
                 [ LIDENT "min_time"; ":"; x = time -> 
                     `MinTime (float_of_int x) ] |
-                [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]            ];
+                [ LIDENT "constraint"; ":"; x = STRING -> `ConstraintFile x ]
+            ];
         search:
             [
                 [ LIDENT "search"; left_parenthesis; a = LIST0 [ x =
@@ -2184,7 +2185,9 @@ let create_expr () =
                 [ LIDENT "_breakvsjoin"; x = OPT string_arg ->
                     `BreakVsJoin x ] |
                 [ LIDENT "_likelihood"; x = OPT string_arg ->
-                    `Likelihood x ]
+                    `Likelihood x ] |
+                [ LIDENT "_model"; x = OPT string_arg ->
+                    `LikelihoodModel x ]
             ];
         swap_method:
             [

@@ -416,6 +416,20 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         let seq = get_sequence_data node in
         string_of_float (total_saturation seq)
 
+    class ['a] likelihood_model_iteration printer = object
+        inherit [Node.n, 'a] do_nothing
+
+        val stamp = (* Random should be initialized previously *)
+            (string_of_int (Random.int 1000000))^(string_of_float (Unix.time ()))
+
+        method process incr jux1 jux2 vert tree ntree delta cost real_cost = 
+            let printf format = Printf.ksprintf printer format in
+            let cost_before= Ptree.get_cost `Adjusted tree in
+            let tree_after = TreeOps.model_fn tree in
+            let cost_after = Ptree.get_cost `Adjusted tree_after in
+            printf "%s -- Adjusted: %f --> %f\n" stamp cost_before cost_after
+    end
+
     (* samper to verify a trees likelihood properties
      *      -- Tree cost > 0
      *      -- All root medians have the same score *)
