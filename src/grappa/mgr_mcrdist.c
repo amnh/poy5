@@ -43,7 +43,6 @@
 #include "mgr_e_malloc.h"
 
 
-
 int get_caps_pgpath(graph_t *G, int capno);
 
 
