@@ -652,10 +652,10 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
     }
 
     int nb_spec = num_genomes;
-    Genomes.label = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.same_as = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.nb_chromo = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.dist_mat = (int *)malloc(nb_spec * nb_spec * sizeof(int));
+    Genomes.label = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.same_as = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.nb_chromo = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.dist_mat = (int *)malloc(2*(nb_spec-1) * 2*(nb_spec-1) * sizeof(int));
 
     Genomes_copy.label = (int *)malloc(nb_spec * sizeof(int));
     Genomes_copy.same_as = (int *)malloc(nb_spec * sizeof(int));
@@ -715,8 +715,6 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     // finish initialization of the input genomes, including actual nb_chromo
     init_G_struct
         (&Genomes_copy, mgr_genome_list_copy, nb_spec, num_genes, num_chromosomes);
-
-  
     // assign memory for genomes assuming each marker is his own chromosome (worst case)
     initialize_genome_list(&mgr_genome_list, 2*(nb_spec-1), num_genes, num_chromosomes);
     // initialize structure for Genomes which includes true nb_chromo for each genome
@@ -724,7 +722,7 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     // we also keep the genome_list_copy as a reference
     copy_first_n(&Genomes_copy, &Genomes, nb_spec);
     for (i=0; i<nb_spec; i++)
-        strcpy((mgr_genome_list)[i].gnamePtr, (mgr_genome_list_copy)[i].gnamePtr);
+        strcpy((mgr_genome_list_copy)[i].gnamePtr, (mgr_genome_list)[i].gnamePtr);
 
     // corresponds to the true size of the alphabet
     size_alpha = num_genes - 2*num_chromosomes;
