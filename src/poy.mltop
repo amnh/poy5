@@ -33,6 +33,7 @@ Diagnosis
 DynamicCS
 Edge
 Enum
+Fasta
 FileStream
 FingerPrint
 FMatrix
@@ -68,6 +69,7 @@ NonaddCS16
 NonaddCS32
 NonaddCS8
 Parser
+Phylip
 Phylo
 PoyCommand
 PoyExtension
