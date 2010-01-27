@@ -610,7 +610,7 @@ void initialize_treemem(treemem_t *treemem, int nb_spec) {
 	 int i;
 	 // the nodes already in the tree, 1 implies in the tree, 
 	 //								   0 implies not in tree
-	 treemem->tree_array = (int *)ckalloc(nb_spec * sizeof(int));
+	 treemem->tree_array = (int *)malloc(nb_spec * sizeof(int));
 	 for (i=0;i<nb_spec;i++)
 		  treemem->tree_array[i]=0;
 	 treemem->tree_size = 0;
@@ -629,15 +629,15 @@ void free_treemem(treemem_t *treemem) {
 
 void free_mem_4_mgr()
 {
-  //  free_genome_list(mgr_genome_list,3);
-  //  free_genome_list(mgr_genome_list_copy,3);
     free_G_struct(&Genomes,4); 
     free_G_struct(&Genomes_copy,3); 
+    mcdist_freemem(&MGR_DISTMEM);
 }
 
 void mgr_ini_mem (int num_genes, int num_chromosomes)
 {
     int num_genomes = 3; //median of 3 genomes
+    mcdist_allocmem(num_genes, num_chromosomes, &MGR_DISTMEM);
     mgr_genome_list_copy =
     (struct mgr_genome_struct *) malloc(num_genomes*sizeof(struct mgr_genome_struct));
     int i;
@@ -652,10 +652,10 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
     }
 
     int nb_spec = num_genomes;
-    Genomes.label = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.same_as = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.nb_chromo = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.dist_mat = (int *)malloc(nb_spec * nb_spec * sizeof(int));
+    Genomes.label = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.same_as = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.nb_chromo = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.dist_mat = (int *)malloc(2*(nb_spec-1) * 2*(nb_spec-1) * sizeof(int));
 
     Genomes_copy.label = (int *)malloc(nb_spec * sizeof(int));
     Genomes_copy.same_as = (int *)malloc(nb_spec * sizeof(int));
@@ -687,12 +687,8 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     /* Data structure for the phylogeny */
     treemem_t treemem;	/* the tree itself */
     int spec_left;		/* number of genomes left to be put in the tree */
-    int *nbreag = NULL; /* number of rearrangements that were carried in each genome */
+    int *nbreag = NULL;/* number of rearrangements that were carried in each genome */
     int total_weight;	/* total weight of the tree */
-
-    /* Memory required by MCDIST (Glenn Tesler)*/
-    mgr_distmem_t distmem;
-
     double avg_nb_rev=0;
     
     /* consider unichromosome first
@@ -719,8 +715,6 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     // finish initialization of the input genomes, including actual nb_chromo
     init_G_struct
         (&Genomes_copy, mgr_genome_list_copy, nb_spec, num_genes, num_chromosomes);
-
-  
     // assign memory for genomes assuming each marker is his own chromosome (worst case)
     initialize_genome_list(&mgr_genome_list, 2*(nb_spec-1), num_genes, num_chromosomes);
     // initialize structure for Genomes which includes true nb_chromo for each genome
@@ -728,12 +722,11 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     // we also keep the genome_list_copy as a reference
     copy_first_n(&Genomes_copy, &Genomes, nb_spec);
     for (i=0; i<nb_spec; i++)
-        strcpy((mgr_genome_list)[i].gnamePtr, (mgr_genome_list_copy)[i].gnamePtr);
+        strcpy((mgr_genome_list_copy)[i].gnamePtr, (mgr_genome_list)[i].gnamePtr);
 
     // corresponds to the true size of the alphabet
     size_alpha = num_genes - 2*num_chromosomes;
 
-    mcdist_allocmem(num_genes, num_chromosomes, &distmem);
 
     if (condensing == TRUE) {
         condense_genomes(&Genomes, nb_spec, verbose);
@@ -741,7 +734,7 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
 		//special_print_genomes2(stdout, &Genomes, nb_spec);
 	}
 
-    compute_dist_mat(&Genomes, nb_spec, &distmem);
+    compute_dist_mat(&Genomes, nb_spec, &MGR_DISTMEM);
 
      // allocate memory for the tree/phylogeny that we want to build
     initialize_treemem(&treemem, nb_spec);
@@ -750,25 +743,25 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
 	spec_left=nb_spec;
 			
     // the number of transformations we did on each genome
-    nbreag = (int *)ckalloc(nb_spec * sizeof(int));
+    nbreag = (int *)malloc(nb_spec * sizeof(int));
     for (i=0;i<nb_spec;i++)
           nbreag[i]=0;
 
     // check to see if two genomes are identical before we begin
 	check_for_merge(&Genomes, nbreag, nb_spec, &spec_left,
-					&distmem, &treemem, verbose);
+					&MGR_DISTMEM, &treemem, verbose);
 
     if (spec_left == 3) {
         int perfect_triplet;
         if (verbose) {
         solve_triplet(&Genomes, nbreag, &perfect_triplet, 2,
                           nb_spec, &spec_left,
-                          depth, &distmem, &treemem, &Preancestors, 
+                          depth, &MGR_DISTMEM, &treemem, &Preancestors, 
                           heuristic, condensing, verbose);
         } else {
             solve_triplet(&Genomes, nbreag, &perfect_triplet, 2,
                           nb_spec, &spec_left,
-                          depth, &distmem, &treemem, NULL, 
+                          depth, &MGR_DISTMEM, &treemem, NULL, 
                           heuristic, condensing, verbose);
         }
     }
@@ -789,9 +782,7 @@ debug msg */
     /* do we need this ?
   // only need to do this if we haven't been able to solve the problem
     // using only good reversals
-    if (find_total_dist(&Genomes, nb_spec, &distmem) !=0) {
-        fprintf (stdout, "we haven't been able to solve the problem\n");
-        fflush(stdout);
+    if (find_total_dist(&Genomes, nb_spec, &MGR_DISTMEM) !=0) {
         int did_grow = TRUE;
         G_struct Star;
         struct genome_struct *star_list;
@@ -807,7 +798,7 @@ debug msg */
         initialize_genome_list(&star_list, 3, num_genes, num_chromosomes);
         init_G_struct(&Star, star_list, 3, num_genes, num_chromosomes);
         start_tree(&Genomes, &Star, nbreag, nb_spec, &spec_left,
-                   depth, &distmem, &treemem, heuristic, condensing, verbose) ;
+                   depth, &MGR_DISTMEM, &treemem, heuristic, condensing, verbose) ;
         // at each iteration, adds a new genome to the tree
         while (treemem.tree_size < nb_spec && did_grow==1) {
             if (verbose) {
@@ -816,7 +807,7 @@ debug msg */
                 fflush(stdout);
             }
             growing_tree(&Genomes, &Star, nbreag, nb_spec, &spec_left,
-                         depth, &distmem, &treemem, &did_grow, heuristic, condensing, verbose) ;
+                         depth, &MGR_DISTMEM, &treemem, &did_grow, heuristic, condensing, verbose) ;
             if (verbose) {
                 special_print_genomes2(stdout, &Genomes, 2*(nb_spec-1));
             }
@@ -824,13 +815,13 @@ debug msg */
         free_G_struct(&Star, 3);
         // these good rearrangements weren't counted in the edges yet
         add_nbrev_edges(treemem.the_edge_list, nbreag, nb_spec);
-    }// if (find_total_dist(&Genomes, nb_spec, &distmem) !=0)
+    }// if (find_total_dist(&Genomes, nb_spec, &MGR_DISTMEM) !=0)
     else { // when the tree was solve only using good rearrangements
         // need to finish the list with the last 3 genomes
         fprintf(stdout,"finish edge list\n");
         fflush(stdout);
         finish_edge_list(&Genomes, nbreag, nb_spec, &treemem);
-    }// if (find_total_dist(&Genomes, nb_spec, &distmem) !=0)
+    }// if (find_total_dist(&Genomes, nb_spec, &MGR_DISTMEM) !=0)
     */
     // merge the list of merged that occured while doing good rearrangements
     // with the list of edges that occured when building the phylogeny
@@ -855,8 +846,7 @@ debug msg */
         free_G_struct(&Preancestors, nb_spec);
     }
     
-    // free memory for MCDIST, move this out....later
-    mcdist_freemem(&distmem);
+    
 
     
 }

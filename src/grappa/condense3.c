@@ -498,8 +498,6 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
         fflush ( outfile );
     }
 #endif
-
-
     /* write the new genomes */
     /* genome 1 */
 #ifdef VERYVERBOSE
@@ -515,8 +513,6 @@ condense3 ( int *ingene1, int *ingene2, int *ingene3,
 #ifdef VERYVERBOSE
             fprintf ( outfile, "%3d, ", code[ind] );
 #endif
-
-
             outgene1[index] = code[ind];
             index++;
         }

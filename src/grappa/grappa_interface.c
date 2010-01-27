@@ -53,7 +53,7 @@ ini_mem_4_all (int num_genes )
    output_genome =
         ( struct genome_struct * ) calloc ( 1,
                                             sizeof ( struct genome_struct ) );
-    output_genome->genes = ( int * ) calloc ( Num_Genes, sizeof ( int ) ); 
+    output_genome->genes = ( int * ) calloc ( num_genes, sizeof ( int ) ); 
 }
 
 void
