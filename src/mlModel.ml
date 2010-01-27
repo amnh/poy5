@@ -1,4 +1,4 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
 (* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -934,12 +934,12 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
     and golden_middle a b = 
         let a,b = if a < b then a,b else b,a in
         let ret = a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0)) in
-        Printf.printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;
+(*        Printf.printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;*)
         ret
     (* a point outside of a and b such that (a-b)/(x-b) = phi *)
     and golden_exterior a b =
         let ret = a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0)) in
-        Printf.printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;
+(*        Printf.printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;*)
         ret
     (* the minimum of a parabola based on three points *)
     and abscissa (a,(_,fa)) (b,(_,fb)) (c,(_,fc)) =
@@ -948,7 +948,7 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
         if denom =. 0.0 then raise Colinear
         else begin
             let abscissa = b -. (0.5 *. (numer /. denom)) in
-            Printf.printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;
+(*            Printf.printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;*)
             abscissa
         end
     (* set the total number of iterations to take place *)
@@ -1029,7 +1029,7 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp b l m u
         else begin                        (* shouldn't really happen *)
-            Printf.printf "Warning: curvature error";
+(*            Printf.printf "Warning: curvature error";*)
             golden_ratio b l m u
         end
     in

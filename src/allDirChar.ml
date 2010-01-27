@@ -1273,7 +1273,7 @@ module F : Ptree.Tree_Operations
                 results
             | None -> failwith "No function to optimize with"
         in
-        info_user_message "\t Iterated Model to %f" best_cost;
+        (* info_user_message "\t Iterated Model to %f" best_cost; *)
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
@@ -1286,7 +1286,7 @@ module F : Ptree.Tree_Operations
                 in
                 snd results
         in
-        info_user_message "\t Iterated Alpha to %f" best_cost;
+        (* info_user_message "\t Iterated Alpha to %f" best_cost; *)
         if best_cost < current_cost then best_tree else tree
 
     let adjust_fn ?(epsilon=1.0e-4) ?(max_iter=20) node_man tree = 
@@ -1298,7 +1298,7 @@ module F : Ptree.Tree_Operations
                 else begin
                     let mtree = model_fn itree in
                     let mcost = Ptree.get_cost `Adjusted mtree in
-                    info_user_message "Step %d; Iterated Model %f --> %f" iter icost mcost;
+                    (* info_user_message "Step %d; Iterated Model %f --> %f" iter icost mcost; *)
                     if (abs_float (icost -. mcost)) <= epsilon 
                         then mtree
                         else loop_bl (iter+1) mcost mtree
@@ -1309,7 +1309,7 @@ module F : Ptree.Tree_Operations
                 else begin
                     let btree = adjust_tree iterations branches None itree in
                     let bcost = Ptree.get_cost `Adjusted btree in
-                    info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;
+(*                    info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;*)
                     if (abs_float (icost -. bcost)) <= epsilon 
                         then btree 
                         else loop_m (iter+1) bcost btree
@@ -1320,7 +1320,7 @@ module F : Ptree.Tree_Operations
             if do_branches then begin
                 let btree = adjust_tree iterations branches None first_tree in
                 let bcost = Ptree.get_cost `Adjusted btree in
-                info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;
+(*                info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;*)
                 loop_m 1 (Ptree.get_cost `Adjusted btree) btree
             end else begin
                 loop_m 0 first_cost first_tree
@@ -1334,7 +1334,7 @@ module F : Ptree.Tree_Operations
                 in
                 adjust_ (node_man#model) do_branches (node_man#branches) None tree
             | None ->
-                warning_user_message "No Iteration Manager; using current default";
+(*                warning_user_message "No Iteration Manager; using current default";*)
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)
                 | `Iterative (`ThreeD  iterations) -> adjust_ true true None iterations tree

@@ -677,7 +677,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
                         in
                         count <- count + 1;
                         match score, threshold with
-                            | Some x, Some t when x *. t < new_score ->
+                            | Some x, Some t when x *. (1.0 +. t) < new_score ->
                                 iterate <- true;
                                 score <- Some new_score;
                             | None, _ ->
