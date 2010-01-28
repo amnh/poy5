@@ -922,8 +922,10 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
 
 (** GENERAL BRENTS METHOD **)
 exception Colinear
+let between b a c = let a,c = min a c,max a c in (a <= b && b <= c)
+
 (* function and braketed area and error *)
-let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
+let brents_method ?(iter_max=1000) ?(min_val=1.0e-5) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
     (* equality and greater-than functions with epsilon error *)
     let (=.) a b = abs_float (a-.b) < epsilon
     and (>=.) a b = abs_float (a-.b) > ~-.epsilon
@@ -934,13 +936,14 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
     and golden_middle a b = 
         let a,b = if a < b then a,b else b,a in
         let ret = a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0)) in
+        assert( between ret a b );
 (*        Printf.printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;*)
         ret
     (* a point outside of a and b such that (a-b)/(x-b) = phi *)
     and golden_exterior a b =
         let ret = a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0)) in
 (*        Printf.printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;*)
-        ret
+        if ret < min_val then min_val else ret
     (* the minimum of a parabola based on three points *)
     and abscissa (a,(_,fa)) (b,(_,fb)) (c,(_,fc)) =
         let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
@@ -975,8 +978,11 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
         if ((abs_float (fb -. fa)) <= epsilon) or 
            ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
         else
-            try
-                let xv = abscissa a b c in let fx = f xv in let x = xv,fx in
+            try let xv = match abscissa a b c with
+                    | x when x < min_val -> min_val
+                    | x -> x
+                in
+                let fx = f xv in let x = xv,fx in
                 if (get_score fx) =. fb || xv =. bv || xv <= epsilon then best
                 else begin
                     let best = best_of best x in
