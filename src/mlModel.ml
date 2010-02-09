@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = true
+let debug = false
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -922,6 +922,7 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
 
 (** GENERAL BRENTS METHOD **)
 let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+    debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
   (*-- approximation of equality; based on epsilon above *)
@@ -932,9 +933,10 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
     let rec create_initial_three_and_bracket (o,(_,fo) as o') =
         let rec create_scaled (v,_) s = 
             let vs = max (v *.s) v_min in let fvs = f vs in
+            debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
             (vs,fvs)
-        and push_left a b c = b,c,(create_scaled c 1.5)
-        and push_right a b c = (create_scaled a 0.5),a,b
+        and push_left a b c = (create_scaled a 0.5),a,b
+        and push_right a b c = b,c,(create_scaled c 1.5)
         and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
             if l =. h then (low,med,hi) (* converged, but brent will return this anyway *)
             else if fl <= fm && fm <= fh then (* increasing *)
@@ -943,12 +945,17 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
                 let a,b,c = push_right low med hi in bracket_region a b c
             else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
             else begin (* bracketed a maximum... wut? *)
-                failwith "Cannot bracket a region for brents method"
+                failwithf "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]"
+                            l fl m fm h fh
             end
         in
+        debug_printf "Trying to bracket around %f,%f\n%!" o fo;
         bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
+
   (*-- brents method as in Numerical Recipe in C; 10.2 *)
     and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b e iters =
+        debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
+                        iters a b x w v;
         let xm = (a +. b) /. 2.0
         and tol1 = tol *. (abs_float x) +. epsilon in
         (* check ending conditions *)
@@ -990,9 +997,10 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
                     else max v_min (x+.(sign tol1 d)) in
             let fu = f u in
             let u',fu = (u,fu), snd fu in
+            debug_printf "Calculated [%f,%f] in Brent\n%!" u fu;
             (* what to do with results for next iteration *)
             if fu <= fx then begin
-                let a,b = if u >= x then x,b else a,b in
+                let a, b = if u >= x then x,b else a,b in
                 brent u' x' w' a b e (iters+1)
             end else begin
                 let a,b = if u < x then u,b else b,u in
@@ -1004,7 +1012,10 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
         end
     in
     let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
-    brent m m m lv hv 0.0 0
+    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0 in
+    debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
+                    v_orig (snd f_orig) b fb;
+    res
 
 (* find the derivative of a single variable function *)
 let derivative_at_x ?(epsilon=3.0e-8) f x fx =
