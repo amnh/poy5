@@ -1,4 +1,4 @@
-* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
 (* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = false
+let debug = true
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -921,133 +921,90 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
 (* -> Xml.xml Sexpr.t list *)
 
 (** GENERAL BRENTS METHOD **)
-exception Colinear
-let between b a c = let a,c = min a c,max a c in (a <= b && b <= c)
-
-(* function and braketed area and error *)
-let brents_method ?(iter_max=1000) ?(min_val=1.0e-5) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
-    (* equality and greater-than functions with epsilon error *)
-    let (=.) a b = abs_float (a-.b) < epsilon
-    and (>=.) a b = abs_float (a-.b) > ~-.epsilon
-    and get_score x = snd x
-    (* get and decrement, because it makes more sense *)
-    and decr x = decr x; !x 
-    (* a point between a and b such that (a-x)/(b-x) = phi *)
-    and golden_middle a b = 
-        let a,b = if a < b then a,b else b,a in
-        let ret = a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0)) in
-        assert( between ret a b );
-(*        Printf.printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;*)
-        ret
-    (* a point outside of a and b such that (a-b)/(x-b) = phi *)
-    and golden_exterior a b =
-        let ret = a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0)) in
-(*        Printf.printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;*)
-        if ret < min_val then min_val else ret
-    (* the minimum of a parabola based on three points *)
-    and abscissa (a,(_,fa)) (b,(_,fb)) (c,(_,fc)) =
-        let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
-        and denom = ((b-.a)*.(fb-.fc)) -. ((b-.c)*.(fb-.fa)) in
-        if denom =. 0.0 then raise Colinear
+let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+  (*-- constant for the golden ratio *)
+    let golden = 0.3819660 in
+  (*-- approximation of equality; based on epsilon above *)
+    let (=.) a b = (abs_float (a -. b)) < epsilon in
+  (*-- a function that copies the sign of the second argument to the first *)
+    let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
+  (*-- auxillary functions to bracket a region *)
+    let rec create_initial_three_and_bracket (o,(_,fo) as o') =
+        let rec create_scaled (v,_) s = 
+            let vs = max (v *.s) v_min in let fvs = f vs in
+            (vs,fvs)
+        and push_left a b c = b,c,(create_scaled c 1.5)
+        and push_right a b c = (create_scaled a 0.5),a,b
+        and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
+            if l =. h then (low,med,hi) (* converged, but brent will return this anyway *)
+            else if fl <= fm && fm <= fh then (* increasing *)
+                let a,b,c = push_left low med hi in bracket_region a b c
+            else if fl >= fm && fm >= fh then (* decreasing *)
+                let a,b,c = push_right low med hi in bracket_region a b c
+            else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
+            else begin (* bracketed a maximum... wut? *)
+                failwith "Cannot bracket a region for brents method"
+            end
+        in
+        bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
+  (*-- brents method as in Numerical Recipe in C; 10.2 *)
+    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b e iters =
+        let xm = (a +. b) /. 2.0
+        and tol1 = tol *. (abs_float x) +. epsilon in
+        (* check ending conditions *)
+        if iters > max_iter then failwith "Too many iterations in brent"
+        else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
         else begin
-            let abscissa = b -. (0.5 *. (numer /. denom)) in
-(*            Printf.printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;*)
-            abscissa
-        end
-    (* set the total number of iterations to take place *)
-    and iter = ref iter_max in
-    (* order the three results by domain *)
-    let order_triples ((a,_) as a') ((b,_) as b') ((c,_) as c') =
-        if a < b then
-           if b < c then (a',b',c')
-           else if a < c then (a',c',b')
-           else (c',a',b')
-        else begin
-           if a < c then (b',a',c')
-           else if c < b then (c',b',a')
-           else (b',a',c')
-        end
-    (* choose best likelihood of two values *)
-    and best_of ((_,(_,x)) as x') ((_,(_,y)) as y') = if x <= y then x' else y' in
-    (* parabolic interpolation *)
-    let rec parabolic_interp ((best_t,(_,best_l)) as best) ((av,(_,fa)) as a) 
-                                                           ((bv,(_,fb)) as b)
-                                                           ((cv,(_,fc)) as c) = 
-        assert( av >=. 0.0 && bv >=. 0.0 && cv >=. 0.0 );
-        assert( fa >=. 0.0 && fb >=. 0.0 && fc >=. 0.0 );
-        if ((abs_float (fb -. fa)) <= epsilon) or 
-           ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
-        else
-            try let xv = match abscissa a b c with
-                    | x when x < min_val -> min_val
-                    | x -> x
-                in
-                let fx = f xv in let x = xv,fx in
-                if (get_score fx) =. fb || xv =. bv || xv <= epsilon then best
-                else begin
-                    let best = best_of best x in
-                    if av < xv && xv < bv      then parabolic_interp best a x b
-                    else if xv < av            then parabolic_interp best x a b
-                    else if bv < xv && xv < cv then parabolic_interp best b x c
-                    else if cv < xv            then parabolic_interp best b c x
-                    else failwith "shouldn't happen"
+            let d,e = 
+                if (abs_float e) > tol1 then begin
+                    (* calculate the abscissa *)
+                    let r = (x -. w) *. (fx -. fv) 
+                    and q = (x -. v) *. (fx -. fw) in
+                    let p = ((x -. v) *. q) -. ((x-.w) *. r) in
+                    let q = 2.0 *. (q -. r) in
+                    let p = if q > 0.0 then ~-. p else p in
+                    let q = abs_float q in
+                    (* the acceptability of the parabolic fit *)
+                    if (abs_float p) >= (abs_float (0.5 *. q *. e))
+                        || p <= q *. (a -. x) || p >= q *. (b -. x) then
+                        (* do a golden section instead of parabolic fit *)
+                        let e = if x >= xm then a-.x else b -. x in
+                        golden *. e, e
+                    else begin
+                        (* take the parabolic step *)
+                        let d = p /. q in
+                        let u = x +. d in
+                        if (u -. a) < (tol1 *. 2.0) || (b -. u) < (tol1 *. 2.0) 
+                            then sign tol1 (xm -. x),d
+                            else d,d
+                    end
+                end else begin
+                    let e = if x >= xm then a -. x else b -. x in
+                    golden *. e, e
                 end
-            with | Colinear -> brent_decision best a b c
-    (* golden section search, when function is crappy --this isn't needed when
-     * there is only one minima, as in branch lengths *)
-    and golden_ratio ((best_t,best_l) as best) ((av,fa) as a) ((bv,fb) as b) ((cv,fc) as c)  =
-        assert( av >=. 0.0 && bv >=. 0.0 && cv >=. 0.0 );
-        let best,a,nb,c = 
-            if (abs_float (cv-.bv)) > (abs_float (bv-.av)) then
-                let other = golden_middle bv cv in let other = (other,f other) in
-                let best = best_of best other in
-                best,b,other,c
-            else 
-                let other = golden_middle av bv in let other = (other,f other) in
-                let best = best_of best other in
-                best,a,other,b
-        in
-        if (decr iter) = 0  or (get_score fb) =. (get_score (snd nb)) then best
-        else brent_decision best a nb c
-    (* brent exponential search, when points are colinear or monotonic
-     * does not return a result since we are widening the search area. *)
-    and brent_exp ((best_t,_) as best) a b c : float * ('a  * float) =
-        assert (snd c < snd a); (* since we estimate "past" c, always *)
-        let n = match golden_exterior (fst a) (fst c) with
-            | x when x <= 0.0 -> epsilon
-            | x -> x 
-        in
-        let other = n,f n in
-        brent_decision (best_of best other) b c other
-    (* What to do, what to do? Well, if the three points are monotonic, then
-     * call brent_exp until something better comes up, if there is a minimum
-     * between we can do a parabolic interpolation, else we use a shitty golden
-     * bisect search method each iteration to find a better spot. *) 
-    and brent_decision ((bv,fb) as b) l m u : float * ('a * float) =
-        let ((lv,(_,fl)) as l), ((mv,(_,fm)) as m), ((uv,(_,fu)) as u) = order_triples l m u in
-        debug_printf "Iteration %d: B:(%f,%f) L:(%f,%f) M:(%f,%f) U:(%f,%f)\n%!"
-                            (iter_max - !iter) bv (get_score fb) lv fl mv fm uv fu;
-        if lv =. uv then b                (* converged *)
-        else if fl <= fm && fm <= fu then (* monotonically increasing *)
-            brent_exp b u m l
-        else if fl >= fm && fm >= fu then (* monotonically decreasing *)
-            brent_exp b l m u
-        else if fm <= fl && fm <= fu then (* minimum between *)
-            parabolic_interp b l m u
-        else begin                        (* shouldn't really happen *)
-(*            Printf.printf "Warning: curvature error";*)
-            golden_ratio b l m u
+            in
+            (* the ONLY function evalution for each iteration *)
+            let u = 
+                if (abs_float d) >= tol1
+                    then max v_min (x+.d)
+                    else max v_min (x+.(sign tol1 d)) in
+            let fu = f u in
+            let u',fu = (u,fu), snd fu in
+            (* what to do with results for next iteration *)
+            if fu <= fx then begin
+                let a,b = if u >= x then x,b else a,b in
+                brent u' x' w' a b e (iters+1)
+            end else begin
+                let a,b = if u < x then u,b else b,u in
+                if fu <= fw || w =. x then
+                    brent x' u' w' a b e (iters+1)
+                else 
+                    brent x' w' u' a b e (iters+1)
+            end
         end
     in
-    (* set up variables.. order arguments,find golden middle and evaluate *)
-    let lower = 0.20 *. v_orig and upper = 2.0 *. v_orig in
-    let middle = golden_middle lower upper in
-    let l = lower,f lower and m = middle,f middle and u = upper,f upper in
-    let best = best_of orig (best_of l (best_of m u)) in
-    let ((new_val,new_ll) as new_) = brent_decision best l m u in
-    debug_printf "Iterated: %d\tImprovement: %f\tVariable: %f -> %f\n%!"
-                  (iter_max - !iter) ((get_score f_orig) -. (get_score new_ll)) v_orig new_val;
-    new_
+    let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
+    brent m m m lv hv 0.0 0
 
 (* find the derivative of a single variable function *)
 let derivative_at_x ?(epsilon=3.0e-8) f x fx =
