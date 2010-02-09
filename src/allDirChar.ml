@@ -1274,15 +1274,16 @@ module F : Ptree.Tree_Operations
             | None -> failwith "No function to optimize with"
         in
         (* info_user_message "\t Iterated Model to %f" best_cost; *)
+        let current_model = get_current_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
-                let current_m = get_current_model best_tree.Ptree.data chars in
-                let current_a = MlModel.get_current_parameters_for_alpha current_m in
+                let best_tree = update_branches best_tree in
+                let current_a = MlModel.get_current_parameters_for_alpha current_model in
                 let results = 
                     MlModel.brents_method ((get_some current_a),(best_tree,best_cost))
-                                          (f_likelihood func tree chars current_m)
+                                          (f_likelihood func best_tree chars current_model)
                 in
                 snd results
         in
