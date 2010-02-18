@@ -45,7 +45,8 @@ type t = {
     c3 : Cost_matrix.Three_D.m;     (** The three dimensional cost matrix to be used in the character set *)
     alph : Alphabet.a;              (** The alphabet of the sequence set *)
     breakinv_pam : Data.dyna_pam_t; 
-    code : int;                     (** The set code *)
+    code : int;                     (** The set code. n = this is nth 
+    chromosome of multichromosome genes, n = 1,2,3,...... *) 
 }
 
 let cardinal x = IntMap.fold (fun _ _ acc -> acc + 1) x.meds 0
@@ -165,6 +166,99 @@ let median3 p n c1 c2 =
     let acc = IntMap.empty in
     let medp12_map = IntMap.fold median p.meds acc in
     { n with meds = medp12_map; }
+
+let flatten t_lst = 
+    let parent = List.hd t_lst in
+    IntMap.fold ( fun kn parent_medst (seq_lstlst:Sequence.s list list) ->
+       let medst_lst = List.map (fun x ->  IntMap.find kn x.meds
+       ) (List.tl t_lst) in
+       let medls_lst = List.map (fun x -> x.Breakinv.med_ls
+       ) medst_lst in
+       (*let ch1_medst = IntMap.find kn ch1.meds
+       and ch2_medst = IntMap.find kn ch2.meds 
+       and mine_medst = IntMap.find kn mine.meds in
+       let ch1_medls = ch1_medst.Breakinv.med_ls 
+       and ch2_medls = ch2_medst.Breakinv.med_ls
+       and parent_medls = parent_medst.Breakinv.med_ls
+       and mine_medls = mine_medst.Breakinv.med_ls in
+       let ch1_seq = (List.hd ch1_medls).BreakinvAli.seq 
+       and ch2_seq = (List.hd ch2_medls).BreakinvAli.seq 
+       and mine_seq = (List.hd mine_medls).BreakinvAli.seq 
+       and parent_seq = (List.hd parent_medls).BreakinvAli.seq in 
+       let add_seqlst:Sequence.s list = [ch1_seq;ch2_seq;parent_seq;mine_seq] in
+       *)
+       let add_seqlst:Sequence.s list = 
+           List.map (fun x -> (List.hd x).BreakinvAli.seq) medls_lst 
+       in
+       let parent_seq = (List.hd (parent_medst.Breakinv.med_ls)).BreakinvAli.seq in
+       let add_seqlst = parent_seq::add_seqlst in
+       match seq_lstlst with
+       | [[]] ->(*this is the first median we visit in the IntMap*)
+              (*  [[ch1_seq];[ch2_seq];[parent_seq];[mine_seq]] *)
+              List.map (fun x -> [x]) add_seqlst
+       | _ ->  
+           List.map2 
+               (fun (addseq:Sequence.s) (seqlst:Sequence.s list) -> 
+                  addseq :: seqlst  
+               ) add_seqlst seq_lstlst;
+    ) parent.meds [[]]
+
+(* is the nth of IntMap corresponding to nth of the sequence list? *)
+let update_t oldt (newseqlst:Sequence.s list) (delimiterslst: int list list) =
+    let i = ref 0 in
+    let newmedsMap = 
+      IntMap.mapi ( fun key old_meds_t ->
+          (* Printf.printf "key is %d\n%!" key; when we have only one median of
+          * each node, key is 1. what if we have more than one median?*)
+          let res = Breakinv.update_medst old_meds_t (List.nth newseqlst !i) (List.nth
+          delimiterslst !i) in
+          i := !i +1 ;
+          res
+      ) oldt.meds
+    in
+    { oldt with meds = newmedsMap }
+
+let single_to_multi single_t =
+    let maxlen = ref 0 in
+    let medianlst_single_mapset = to_list single_t in
+    let medianlst_multi_mapset (*(Breakinv.meds_t list, IntMap.key) list *) = 
+        List.map (fun (med,code) ->
+        let medst_lst:meds_t list = Breakinv.single_to_multi med in
+        let newlen = List.length medst_lst in
+        if (newlen > (!maxlen)) then maxlen := newlen;
+        (medst_lst,code) 
+        ) medianlst_single_mapset in
+    let maxlen = !maxlen in 
+    let empty = IntMap.empty in
+    let maplst = Array.to_list (Array.make maxlen empty) in
+    let maplst = List.map (fun x -> ref x) maplst in
+    let medlen = (List.length medianlst_multi_mapset) in
+    for i = 0 to (List.length medianlst_multi_mapset)-1 do
+        begin
+            let (medst_lst,code) = List.nth medianlst_multi_mapset i in
+            let len = List.length medst_lst in
+            (* length of medst_lst maybe shorter than maplist,that's why we cannot use
+            * map2 here *)
+            Printf.printf "bkinvCS.ml single_to_multi, medianNUM=%d,code=%d,maxlen = %d,len=%d\n%!" medlen code maxlen len;
+            for j = 0 to len-1 do
+                let add_medst = List.nth medst_lst j in
+                let add_to_map = List.nth maplst j in
+                add_to_map := IntMap.add (j+1) add_medst !add_to_map
+            done;
+        end
+    done;
+    let count = ref 0 in
+    let t_list = 
+        List.map (fun intmap ->
+        count := !count + 1;
+        let intmap = !intmap in
+        { single_t with meds = intmap; code = !count }
+    ) maplst
+    in
+    t_list
+    (* wait, what we do with costs?recosts?etc *)
+
+
 
 (** [readjust to_adjust modified ch1 ch2 parent mine] returns
 * the readjusted median set [mine] of three breakinv character

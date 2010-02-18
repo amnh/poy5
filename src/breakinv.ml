@@ -233,17 +233,25 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let seq2 = (List.hd ch2.med_ls).BreakinvAli.seq in
     let seq3 = (List.hd parent.med_ls).BreakinvAli.seq in
     let mine_seq = (List.hd mine.med_ls).BreakinvAli.seq in
-    (* debug msg *)
-    if debug then begin
+    let delimiters1 = (List.hd ch1.med_ls).BreakinvAli.delimiter_lst in 
+    let delimiters2 = (List.hd ch2.med_ls).BreakinvAli.delimiter_lst in 
+    let delimiters3 = (List.hd parent.med_ls).BreakinvAli.delimiter_lst in 
+    (* debug msg 
     Printf.printf "### Breakinv.readjust_3d compute the old cost first,check seq1/seq2/seq3/mine_seq ###\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3; Sequence.printseqcode mine_seq;
     Printf.printf "old~cost1,cost2,cost3=%d,%d,%d;\n%!" cost1 cost2 cost3;
-    end;
-    (*debug msg*)
-    let  adjust_seq, new_cost1, new_cost2, new_cost3 =
+    Printf.printf "deli = [%!";
+    List.iter (Printf.printf "%d,") delimiters1;
+    Printf.printf "] [%!";
+    List.iter (Printf.printf "%d,") delimiters2;
+    Printf.printf "] [%!";
+    List.iter (Printf.printf "%d,") delimiters3;
+    Printf.printf "]\n%!";
+    debug msg*)
+    let  adjust_seq, adjust_delimiters, new_cost1, new_cost2, new_cost3 =
     if (cost1=0)&&(cost2=0)&&(cost3=0) then
-        mine_seq,cost1,cost2,cost3
+        mine_seq,[],cost1,cost2,cost3
     else
         match ali_pam.BreakinvAli.median_solver with
         | `Vinh ->
@@ -264,14 +272,15 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 Printf.printf "adjustseq = %!";
                 Sequence.printseqcode adjust_seq;
             end;
-            adjust_seq,cost1,cost2,cost3
+            adjust_seq,[],cost1,cost2,cost3
         | _ ->
             if debug then Printf.printf "Grappa median solver\n%!";
-            let adjust_seq,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
+            let adjust_seq,delimiter_lst,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
                 GenAli.create_gen_ali3_by_medsov 
                 ali_pam.BreakinvAli.median_solver
                 ali_pam.BreakinvAli.kept_wag
                 seq1 seq2 seq3 
+                [delimiters1;delimiters2;delimiters3]
                 ch1.gen_cost_mat
             (*    ch1.pure_gen_cost_mat *)
                 ch1.alpha 
@@ -281,14 +290,22 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 (Alphabet.get_orientation ch1.alpha) 
                 ali_pam.BreakinvAli.symmetric 
             in
-            adjust_seq,cost1,cost2,cost3
+            adjust_seq,delimiter_lst,cost1,cost2,cost3
     in
     let new_cost = new_cost1+new_cost2+new_cost3 in
     if old_cost <= new_cost then 
         cost3, mine, false
     else 
         let amed = List.hd mine.med_ls in
-        let adjust_med_ls = {amed with BreakinvAli.seq = adjust_seq} in 
+        let adjust_med_ls = 
+        {amed with BreakinvAli.seq = adjust_seq
+        } in
+        let adjust_med_ls = 
+        match adjust_delimiters with
+        | [] -> adjust_med_ls
+        | _ -> 
+            {adjust_med_ls with BreakinvAli.delimiter_lst = adjust_delimiters}
+        in
         new_cost3, {mine with med_ls = [adjust_med_ls]}, true
        
     
@@ -318,4 +335,18 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
 let get_active_ref_code meds = 
     let med = List.hd meds.med_ls in
     med.BreakinvAli.ref_code, med.BreakinvAli.ref_code1, med.BreakinvAli.ref_code2
+
+let update_medst old_medst newseq delimiters =
+    let new_bkinv_t = 
+        BreakinvAli.update_bkinv_t (List.hd old_medst.med_ls) newseq delimiters
+    in
+    {old_medst with med_ls = [new_bkinv_t] }
+
+let single_to_multi medst = 
+    let medls = List.hd medst.med_ls in
+    let (medls_lst:breakinv_t list) = BreakinvAli.single_to_multi medls in
+    List.map (fun bkinvt_hd ->
+        { medst with med_ls = [bkinvt_hd] }
+    )medls_lst
+        
 
