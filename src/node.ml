@@ -258,6 +258,24 @@ let map5 f a b c d e=
     in
     mapper a b c d e []
 
+let mapN f in_lstlst =
+    let len = 
+         List.fold_left (fun last_lst_len this_lst -> 
+            let this_lst_len = List.length this_lst in
+            (* make sure each list of input listlist has the same length*)
+            assert(this_lst_len = last_lst_len); 
+            this_lst_len
+        ) (List.length (List.hd in_lstlst)) (List.tl in_lstlst)
+    in
+    let res_lst = ref [] in
+    for i = len-1 downto 0 do
+        let f_input = List.map (fun lst -> List.nth lst i) in_lstlst in
+        let res = f f_input in
+        res_lst := res :: (!res_lst);
+    done;
+    !res_lst
+
+
 let recode f n = 
     { n with taxon_code = f n.taxon_code }
 
@@ -1372,7 +1390,7 @@ let edge_distance clas nodea nodeb =
                      let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in
                      extract_cost m)
         | _ -> failwith "Incompatible characters (5)"
-    and distance_lists chs1 chs2 acc =
+    and distance_lists (chs1:cs list) chs2 acc =
         match chs1, chs2 with
         | ch1 :: chs1, ch2 :: chs2 ->
               distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
@@ -2333,6 +2351,181 @@ let structure_into_sets data (nodes : node_data list) =
     in
     nodes, !data'
 
+let flatten cs_lst=
+    let dycs_lst = List.map (fun x -> match x with
+    | Dynamic x_dycs -> x_dycs.preliminary
+    | _ -> failwith ("we only deal with DynamicCS now")
+    ) cs_lst
+    in
+    let seq_lstlst = DynamicCS.flatten dycs_lst in
+    seq_lstlst
+
+let flatten_cslist (characters_lst: cs list list) =
+    Printf.printf "flatten_cslist on characters_lst,len=%d\n%!" (List.length
+    characters_lst);
+    let (seq_lstlstlst:Sequence.s list list list) 
+    = mapN flatten characters_lst in
+    (* = map4 flatten c1 c2 parent mine in *)
+    (* seq_lstlstlst is like following:
+      {
+          (
+            [seq of 1th median of 1th chromosome of 1th node;
+             seq of 2th median of 1th chromosome of 1th node;
+             .... ];
+            [seq of 1th median of 1th chromosome of 2th node;
+             ...... 2th ..........1th ......................;
+             .....];
+            ......
+          )
+          (
+            [seq of 1th median of 2th chromosome of 1th node;
+             seq of 2th median of 2th chromosome of 1th node;
+             .... ];
+            [seq of 1th median of 2th chromosome of 2th node;
+             ...... 2th ..........2th ......................;
+             .....];
+            ......
+          )
+          ......
+          ......
+          (
+              [seq of 1th median of nth chromosome of 1th node;
+               seq of 2th ....................................;
+               ..... ];
+              [seq of 1th median of nth chromosome of 1th node;
+               seq of 2th median of ..........................
+               ..... ];
+               .......
+          )
+      }
+    *)
+    let transpose in_lstlst =
+        let len = List.length (List.hd in_lstlst) in
+        let out_lstlst = ref [] in
+        for i = 0 to len -1 do
+            out_lstlst := (ref [])::(!out_lstlst)
+        done;
+        let out_lstlst = !out_lstlst in
+        List.iter (fun in_lst ->
+            let len = List.length in_lst in
+            for i = 0 to len-1 do
+                let out_i = List.nth out_lstlst i in
+                out_i := (List.nth in_lst i)::(!out_i); 
+            done;
+        ) in_lstlst;
+        let out_lstlst = List.map (fun out_i -> !out_i) out_lstlst in
+        out_lstlst
+    in
+    let generate_delimiters (seqlstlst: Sequence.s list list) = 
+        List.map (fun seqlst ->
+                    List.map (fun seq -> Sequence.length seq) seqlst 
+                 ) seqlstlst 
+    in
+    let lst_node_chrom_seqlst = transpose seq_lstlstlst in
+    let lst_node_median_seqlst = List.map 
+        (fun node_chrom_seqlst -> transpose node_chrom_seqlst
+        )lst_node_chrom_seqlst in
+    let deli_lstlstlst = List.map generate_delimiters lst_node_median_seqlst
+    in
+    lst_node_median_seqlst, deli_lstlstlst
+
+let single_to_multi_chromosome single_cs =
+    let dynCS_t_list:DynamicCS.t list =
+        match single_cs with
+            | Dynamic cs ->
+                    DynamicCS.single_to_multi cs.preliminary
+            | _ -> 
+                failwith ("single-chromosome to multi-chromosome :\ 
+                    we only deal with DynamicCS now")
+    in
+    let dynCS_t_r_list = 
+        List.map (fun dynCS_t -> 
+            match single_cs with 
+            |Dynamic s_cs -> {s_cs with preliminary = dynCS_t; final = dynCS_t}
+            | _ -> failwith ("single to multichromosome : we only deal with DynamicCS now")
+            )dynCS_t_list 
+    in
+    List.map (fun dynCS_t_r -> Dynamic dynCS_t_r ) dynCS_t_r_list 
+
+let multi_to_single_chromosome node_data newseq delimiters =
+    let old_characters = node_data.characters in
+    let new_characters = 
+    match (List.hd old_characters) with
+    | Dynamic cs ->
+            let new_preliminary = DynamicCS.update_t cs.preliminary newseq delimiters in
+            Dynamic {cs with preliminary = new_preliminary}
+    | _ -> failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
+    in
+    { node_data with characters = [new_characters] }    
+
+
+
+
+let transform_multi_chromosome ( nodes : node_data list ) = 
+    let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
+    let (seq_lstlstlst:Sequence.s list list list),(delimiter_lstlstlst: int list
+        list list) = flatten_cslist characters_lst
+        in
+        (* now the seq_lstlstlst is like this:
+          {
+            (
+            [seq of 1th median of 1th chromosome of 1th node;
+             seq of 1th median of 2th chromosome of 1th node;
+             .... ];
+            [seq of 2th median of 1th chromosome of 1th node;
+             ...... 2th ..........2th ......................;
+             .....];
+            ......
+            )
+            (
+            [seq of 1th median of 1th chromosome of 2th node;
+             seq of 1th median of 2th chromosome of 2th node;
+             .... ];
+            [seq of 2th median of 1th chromosome of 2th node;
+             ...... 2th ..........2th ......................;
+             .....];
+            ......
+            )
+            .......
+            ( ... )
+          }
+        * *)
+        (*debug msg 
+        Printf.printf "check delimiters list after flatten =>\n%!";
+        List.iter (fun intlstlst -> 
+            Printf.printf "(\n%!";
+            List.iter (fun intlst -> Printf.printf "[%!";
+               List.iter (Printf.printf "%d,%!") intlst; 
+                Printf.printf "]\n%!"; )intlstlst;  Printf.printf ")\n%!";
+            )delimiter_lstlstlst;
+        Printf.printf "check seq list =>\n%!";
+        List.iter (fun seqlstlst -> 
+            Printf.printf "(\n%!";
+            List.iter (fun seqlst -> 
+                Printf.printf "{%!";   List.iter (Sequence.printseqcode) seqlst; 
+                Printf.printf "}\n%!") seqlstlst; Printf.printf ")\n%!";
+        )seq_lstlstlst;
+         debug msg*)
+        let nodelst_medlst_seq = List.map (fun node_medlst_seqlst ->
+            List.map (fun node_med_seqlst -> Sequence.concat node_med_seqlst)
+            node_medlst_seqlst) seq_lstlstlst
+        in
+        (* nodelst_medlst_seq is
+        * { ( sequence of 1th median); ( sequence of 2th median ); .... }
+        * deli_lstlst is
+        * { 
+            (delimiter lst of seqeunce of 1th median);
+            (delimiter lst of sequence of 2th median);
+            ......
+        * *)
+        let new_nodedata_lst = 
+        map3 (fun old_nodedata node_medlst_seq deli_lstlst -> 
+            multi_to_single_chromosome old_nodedata node_medlst_seq deli_lstlst)
+         nodes nodelst_medlst_seq delimiter_lstlstlst in
+        new_nodedata_lst
+    
+
+
 let load_data ?(silent=true) ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
@@ -2425,6 +2618,9 @@ let load_data ?(silent=true) ?(classify=true) data =
     in
     let nodes, data = structure_into_sets data nodes in
     current_snapshot "Node.load_data end";
+    let nodes =
+        transform_multi_chromosome nodes 
+    in
     data, nodes
 
 (* OUTPUT TO XML *)
@@ -2587,7 +2783,8 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
     let ch1, ch2 =
-        if ch1.min_child_code < ch2.min_child_code then ch1, ch2
+        if ch1.min_child_code < ch2.min_child_code then
+            ch1, ch2
         else ch2, ch1
     in
     let modified = ref All_sets.Integers.empty in
@@ -2599,14 +2796,12 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     | Some x,Some y -> x,y
                     | _ -> MlStaticCS.estimate_time c1.preliminary c2.preliminary
                 in
-
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
                                         c2.preliminary mine.preliminary t1 t2
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
-
                 StaticMl 
                     { mine with 
                         preliminary=res;final=res;
@@ -2632,6 +2827,78 @@ let readjust mode to_adjust ch1 ch2 parent mine =
     in
     if mine.total_cost = infinity then mine, !modified
     else
+(*        let (seq_lstlstlst:Sequence.s list list list),(delimiter_lstlstlst: int list
+        list list) =
+            flatten_cslist ch1.characters ch2.characters parent.characters
+            mine.characters
+        in *)
+        (* now the seq_lstlstlst is like this:
+          {
+            (
+            [seq of 1th median of 1th chromosome of 1th node;
+             seq of 1th median of 2th chromosome of 1th node;
+             .... ];
+            [seq of 2th median of 1th chromosome of 1th node;
+             ...... 2th ..........2th ......................;
+             .....];
+            ......
+            )
+            (
+            [seq of 1th median of 1th chromosome of 2th node;
+             seq of 1th median of 2th chromosome of 2th node;
+             .... ];
+            [seq of 2th median of 1th chromosome of 2th node;
+             ...... 2th ..........2th ......................;
+             .....];
+            ......
+            )
+            .......
+            ( ... )
+          }
+        * *)
+        (*debug msg
+        Printf.printf "check delimiters list after flatten =>\n%!";
+        List.iter (fun intlstlst -> 
+            Printf.printf "(\n%!";
+            List.iter (fun intlst -> Printf.printf "[%!";
+               List.iter (Printf.printf "%d,%!") intlst; 
+                Printf.printf "]\n%!"; )intlstlst;  Printf.printf ")\n%!";
+            )delimiter_lstlstlst;
+        Printf.printf "check seq list =>\n%!";
+        List.iter (fun seqlstlst -> 
+            Printf.printf "(\n%!";
+            List.iter (fun seqlst -> 
+                Printf.printf "{%!";   List.iter (Sequence.printseqcode) seqlst; 
+                Printf.printf "}\n%!") seqlstlst; Printf.printf ")\n%!";
+        )seq_lstlstlst;
+        debug msg*)
+   (*     let nodelst_medlst_seq = List.map (fun node_medlst_seqlst ->
+            List.map (fun node_med_seqlst -> Sequence.concat node_med_seqlst)
+            node_medlst_seqlst) seq_lstlstlst
+        in *)
+        (* nodelst_medlst_seq is
+        * { ( sequence of 1th median); ( sequence of 2th median ); .... }
+        * deli_lstlst is
+        * { 
+            (delimiter lst of seqeunce of 1th median);
+            (delimiter lst of sequence of 2th median);
+            ......
+        * *)
+        (*
+        let [new_ch1;new_ch2;new_parent;new_mine] = 
+        map3 (fun oldch node_medlst_seq deli_lstlst -> 
+            multi_to_single_chromosome oldch node_medlst_seq deli_lstlst)
+        [ch1;ch2;parent;mine] nodelst_medlst_seq delimiter_lstlstlst in
+        assert((List.length new_ch1.characters)>0);
+        assert((List.length new_ch2.characters)>0);
+        assert((List.length new_parent.characters)>0);
+        let new_cs = 
+            cs_readjust (List.hd new_ch1.characters) (List.hd
+            new_ch2.characters) (List.hd new_parent.characters) (List.hd
+            new_mine.characters)
+        in
+        let new_cslst = single_to_multi_chromosome new_cs in 
+        let characters = new_cslst in *)
         let characters = 
             map4 cs_readjust ch1.characters ch2.characters
             parent.characters mine.characters

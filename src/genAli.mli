@@ -154,12 +154,13 @@ val create_gen_ali3_by_medsov :
     Sequence.s ->
     Sequence.s ->
     Sequence.s ->
+    int list list ->
     Cost_matrix.Two_D.m ->
   (*  int array array -> *)
     Alphabet.a ->
     [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
     'a -> int -> bool -> bool -> 
-        Sequence.s * int * int * int * int * int * int 
+        Sequence.s * int list * int * int * int * int * int * int 
         * int array * int array * int array * int array * int array * int array
 
 

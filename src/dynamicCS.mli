@@ -156,6 +156,17 @@ val to_single : ChromCS.IntSet.t -> t option -> t -> t -> float * float * t
 (** [to_single_root n] is the same as [to_single n n]. *)
 val to_single_root : ChromCS.IntSet.t -> t -> float * float * t
 
+(** get the sequences list out of each node, and return them as a list of list
+* Sequence.s 
+* output is  [ seqlst_node1; seqlst_node2; ....]
+* each seqlst_nodex is the sequence list of all the medians keep in this node. 
+* *)
+val flatten :  t list -> Sequence.s list list
+
+val update_t : t -> Sequence.s list -> int list list -> t
+
+val single_to_multi : t -> t list
+
 (** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
 * set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and
 * parent of [mine] respectively). The function returns a triple [(a, b, c)],
