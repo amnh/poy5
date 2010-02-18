@@ -644,11 +644,15 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
     for (i=0 ; i<num_genomes; i++) {
     (mgr_genome_list_copy)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
     (mgr_genome_list_copy)[i].genes = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list_copy)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list_copy)[i].num_delimiters = 0;
     }
     mgr_genome_list = (struct mgr_genome_struct *) malloc(2*(num_genomes-1)*sizeof(struct mgr_genome_struct));
     for (i=0 ; i<2*(num_genomes-1); i++) {
     (mgr_genome_list)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
     (mgr_genome_list)[i].genes = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list)[i].num_delimiters = 0;
     }
 
     int nb_spec = num_genomes;
@@ -664,54 +668,123 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
 
 }
 
-void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
+void multi_to_single ( int which_genome, int * gene, int * delimiters, int size_gene, int size_delimiters, int max_size_deli)
+{
+  int cap = size_gene+1;
+  int i,j;
+  int outpos = 0, inpos = 0;
+  for (i=0;i<size_delimiters;i++)
+  {
+      int count = delimiters[i];
+      mgr_genome_list_copy[which_genome].genes[outpos] = cap;
+      cap++; outpos++;
+      for(j=inpos;j<inpos+count;outpos++,j++)
+      {
+          mgr_genome_list_copy[which_genome].genes[outpos] = gene[j];
+      }
+      inpos = inpos + count;
+      mgr_genome_list_copy[which_genome].genes[outpos] = cap; 
+      cap ++; outpos ++;
+  }fprintf(stdout,"\n"); 
+  if(max_size_deli>size_delimiters)
+  {
+      int diff = max_size_deli - size_delimiters;
+      for(i=outpos;i<diff*2+outpos;i++)
+      {
+            mgr_genome_list_copy[which_genome].genes[i] = cap; cap++;
+      }
+  }
+}
+
+int single_to_multi ( int * in_gene, int * out_gene, int * out_delimiters, int gene_size, int delimiters_size)
+{
+    assert(in_gene != NULL); assert( out_gene != NULL); assert(out_delimiters!=NULL);
+    int i=0,j=0,k=0,count=0;
+    int alpha_size = gene_size - delimiters_size*2;
+    fprintf(stdout,"single to multi, gene size =%d, delimiters size = %d\n", gene_size,delimiters_size);
+    for (i=0;i<gene_size;i++)
+    {
+        if( (in_gene[i]<=alpha_size)&&(in_gene[i]>=(-alpha_size)) )
+        {
+            out_gene[j]=in_gene[i];  
+            fprintf(stdout,"out gene[%d]<-in gene[%d]=%d;",j,i,out_gene[j]);
+            fflush(stdout);
+            j++; count++; 
+        }
+        else
+        {
+            if(count!=0)
+            {
+                out_delimiters[k] = count;
+                fprintf(stdout,"out delimiters[%d]<-count=%d;",k,count); 
+                fflush(stdout);
+                k++; count = 0;
+            }
+        }
+    }
+    return k;
+
+}
+
+void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli3, int num_deli1, int num_deli2, int num_deli3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
 {
     int i,j;
     int NumGenomes = 3;
-    int circular = CIRCULAR;
+    int circular;// = CIRCULAR;
     int nb_spec=3;
     int num_genes;
     int size_alpha = SIZE_ALPHA;
     int num_chromosomes;
     int genome_type=GLINEAR;
+    if (CIRCULAR) genome_type = GCIRCULAR; 
+    if((num_deli1>0)||(num_deli2>0)||(num_deli3>0)) genome_type = GMULTI;
     int condensing = FALSE;
     int optimize = FALSE;
 	int alternatives = FALSE;
     int verbose = FALSE;
     int depth=2;/* depth of the search when running out of good rearrangements */
-    int heuristic = 0;
-    // -H: heuristic to speed up triplet resolution
-    //    1 -> only look at reversals initially and picks first good one
-    //    2 -> only look at reversals initially, take shortest one
-
+    int heuristic = 0; // -H: heuristic to speed up triplet resolution
     /* Data structure for the phylogeny */
     treemem_t treemem;	/* the tree itself */
     int spec_left;		/* number of genomes left to be put in the tree */
     int *nbreag = NULL;/* number of rearrangements that were carried in each genome */
     int total_weight;	/* total weight of the tree */
     double avg_nb_rev=0;
-    
-    /* consider unichromosome first
+    int max_num_deli = 0; 
+    if(num_deli1>num_deli2) max_num_deli = num_deli1;
+    else max_num_deli = num_deli2;
+    if(max_num_deli<num_deli3) max_num_deli = num_deli3;
     if (genome_type == GMULTI) { // multichromosomal distance
     // we've assume that we have the maximum number of chromosomes
     // in order not to reassign memory
-       num_genes = 3*size_alpha;
-       num_chromosomes = size_alpha;
+       num_genes = size_alpha+2*max_num_deli;
+       num_chromosomes = max_num_deli;
     }
-    else */ 
-    { // unichromosomal distance
-                num_genes = size_alpha;
-                num_chromosomes = 0;
+    else  { // unichromosomal distance
+        num_genes = size_alpha;  num_chromosomes = 0;
     }
-
-    
-   for (j=0;j<size_alpha;j++)
-   {
-    (mgr_genome_list_copy)[0].genes[j] = g1[j]; 
-    (mgr_genome_list_copy)[1].genes[j] = g2[j]; 
-    (mgr_genome_list_copy)[2].genes[j] = g3[j];
-   }
-  
+    if (genome_type == GMULTI)
+    {
+        multi_to_single ( 0, g1, deli1, size_alpha, num_deli1, max_num_deli);
+        multi_to_single ( 1, g2, deli2, size_alpha, num_deli1, max_num_deli);
+        multi_to_single ( 2, g3, deli3, size_alpha, num_deli1, max_num_deli);
+    }
+    else {
+       for (j=0;j<size_alpha;j++)
+       {
+        (mgr_genome_list_copy)[0].genes[j] = g1[j]; 
+        (mgr_genome_list_copy)[1].genes[j] = g2[j]; 
+        (mgr_genome_list_copy)[2].genes[j] = g3[j];
+       }
+    }
+    fprintf(stdout,"check mgr gene: \n");
+    for(i=0;i<3;i++)
+    {
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",(mgr_genome_list_copy)[i].genes[j]);
+        fprintf(stdout,"\n");
+    }
+    fprintf(stdout,"end of checking\n"); fflush(stdout);
     // finish initialization of the input genomes, including actual nb_chromo
     init_G_struct
         (&Genomes_copy, mgr_genome_list_copy, nb_spec, num_genes, num_chromosomes);
@@ -834,7 +907,13 @@ debug msg */
         uncondense_genomes(&Genomes, 2*(nb_spec-1), verbose);	
     }
         
-    copy_genes((Genomes.genome_list)->genes,g_med->genes,size_alpha);
+    if (genome_type == GMULTI)
+    {
+        int real_deli_num = single_to_multi ( (Genomes.genome_list)->genes, g_med->genes, g_med->delimiters, num_genes,max_num_deli);
+        g_med->deli_num =  real_deli_num;//max_num_deli;
+    }
+    else
+        copy_genes((Genomes.genome_list)->genes,g_med->genes,num_genes);
 
     // free memory for the number of rearrangements
     free(nbreag);
@@ -845,9 +924,6 @@ debug msg */
     if (verbose) {
         free_G_struct(&Preancestors, nb_spec);
     }
-    
-    
-
     
 }
 

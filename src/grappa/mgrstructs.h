@@ -122,6 +122,8 @@ struct mgr_genome_struct {
 	int num_chr;          /* number of chromosome in this genome */
 	int ori_num_g;        /* original number of genes in this genome before alphabet conversion */
 	a_strip *alphabet;	/* each gene can actually be a strip, alphabet stores conversion table */
+    int *delimiters;
+    int num_delimiters;
 	
 };
 

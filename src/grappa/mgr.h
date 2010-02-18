@@ -10,6 +10,7 @@ struct mgr_genome_struct *mgr_genome_list_copy;
 struct mgr_genome_struct median_genome;
 
 
+
 int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					int *spec_left,
 					int reversals,      // TRUE if we want to include reversals
@@ -31,7 +32,7 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
 
 void mgr_ini_mem (int num_genes, int num_chromosomes);
 
-void mgr_med(int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med);
+void mgr_med(int * g1, int * g2,int * g3, int * deli1, int * deli2, int * deli3, int num_deli1, int num_deli2, int num_deli3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med);
 
 int solve_triplet (G_struct *Genomes, int *nbreag, int *perfect_triplet, int reduction_type, int nb_spec, int *spec_left, int depth, mgr_distmem_t *distmem, treemem_t *treemem,
 G_struct *Preancestors,int heuristic, int condensing, int verbose) ;

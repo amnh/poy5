@@ -111,8 +111,10 @@ struct genome_struct
 {
     int *genes;
     int genome_num;
+    int *delimiters;
+    int deli_num;
     char *encoding;
-    char *gnamePtr;             /* Used to copy the gname when adding genomes to the tree */
+    char *gnamePtr; /* Used to copy the gname when adding genomes to the tree */
     char parent[32];
 };
 
