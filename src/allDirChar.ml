@@ -356,6 +356,8 @@ module F : Ptree.Tree_Operations
             and ndb = (List.hd ((Ptree.get_node_data b
             new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
             in
+            if debug_cost_fn then
+            Printf.printf "calc distance of node.%d and %d\n" a b;
             let dist = 
                 Node.distance_of_type Node.has_to_single 0.
                 (AllDirNode.force_val nda) (AllDirNode.force_val ndb)
