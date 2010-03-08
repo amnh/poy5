@@ -33,9 +33,6 @@
 
 #define Genome_matrix_struct(a) ((struct genome_struct *) Data_custom_val(a))
 
-
-struct genome_struct *output_genome; // output genome 
-
 VertexFactory *newvf = NULL; 
 int DOBRANCH;
 
@@ -50,19 +47,21 @@ struct genome_arr_t
 void
 ini_mem_4_all (int num_genes )
 {
-   output_genome =
+ /*  output_genome =
         ( struct genome_struct * ) calloc ( 1,
                                             sizeof ( struct genome_struct ) );
     output_genome->genes = ( int * ) calloc ( num_genes, sizeof ( int ) );
     output_genome->delimiters = ( int * ) calloc ( num_genes, sizeof ( int ) );
     output_genome->deli_num = 0;
+    */
 }
 
 void
 free_mem_4_all ()
-{
+{/*
     free ( output_genome->genes );
-    free ( output_genome );
+    free ( output_genome->delimiters );
+    free ( output_genome ); */
 }
 
 void grappa_CAML_genome_arr_free (value c_genome_arr) {
@@ -75,10 +74,21 @@ void grappa_CAML_genome_arr_free (value c_genome_arr) {
     for (i = 0 ; i < genome_arr->num_genome; i++){
        genome = genome_arr->genome_ptr + i;
         if (genome != (struct genome_struct *) NULL) {            
-            free (genome->genes);
-            free (genome->gnamePtr);
-            if ( genome->delimiters!=NULL )
+            if(genome->genes != (int*) NULL) 
+                free (genome->genes);
+            else 
+                fprintf(stderr," grappa_CAML_genome_arr_free :\
+                        try to free empty genes\n");
+            if(genome->gnamePtr != (char*) NULL)
+                        free (genome->gnamePtr);
+            else
+                fprintf(stderr," grappa_CAML_genome_arr_free :\
+                        try to free emty gnamePtr\n");
+            if(genome->delimiters != (int*) NULL)
                 free (genome->delimiters);
+            else
+                 fprintf(stderr," grappa_CAML_genome_arr_free :\
+                        try to free emty delimiters\n");
         }
     }
     free (genome_arr->genome_ptr); 
@@ -222,7 +232,6 @@ value grappa_CAML_get_delimiter_bigarr ( value in_genome, value num_deli )
 
 }
 
-
 value grappa_CAML_get_gene_bigarr (value in_genome,value num_gene)
 {
     CAMLparam2(in_genome,num_gene);
@@ -247,17 +256,41 @@ value grappa_CAML_get_gene_bigarr (value in_genome,value num_gene)
 value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2, 
 				      value c_num_gen, value c_circular) {
     CAMLparam4(c_gene1, c_gene2, c_num_gen, c_circular); 
-    int num_gene, distance, circ;
+    int num_gene, distance, circ, num_chromosome;
     struct genome_struct *g1, *g2;
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
     num_gene = Int_val (c_num_gen);
     circ = Int_val (c_circular);
-    if (circ == 1) {
-         distance = invdist_circular_nomem(g1, g2, num_gene); 
-    } else {
-         distance = invdist_noncircular_nomem(g1, g2, 0, num_gene);
-    } 
+    int deli_num1 = g1->deli_num;
+    int deli_num2 = g2->deli_num;
+  /*  fprintf(stdout,"grappa, c_cmp_inv_dis with deli_num1=%d, deli_num2=%d \n",
+            deli_num1, deli_num2);
+    fflush(stdout);
+    int i;
+        fprintf(stdout,"g1 = {");
+        for(i=0;i<num_gene;i++)
+        { 
+            fprintf(stdout,"%d,",g1->genes[i]);
+        }
+        fprintf(stdout,"} ; g2 = { ");
+        for(i=0;i<num_gene;i++)
+        { 
+            fprintf(stdout,"%d,",g2->genes[i]);
+        }fprintf(stdout," }\n");
+        fflush(stdout); */
+    if ((deli_num1>1)||(deli_num2>1))
+    {
+        distance = mgr_invdist(g1->genes,g2->genes,num_gene,g1->delimiters,g2->delimiters,deli_num1,deli_num2);
+    }
+    else
+    {
+        if (circ == 1) {
+             distance = invdist_circular_nomem(g1, g2, num_gene); 
+        } else {
+            distance = invdist_noncircular_nomem(g1, g2, 0, num_gene);
+        }
+    }
     CAMLreturn(Val_int(distance));
 }
 
@@ -273,6 +306,8 @@ grappa_CAML_inv_med
     int MEDIAN_SOLVER;
     struct genome_struct *g1, *g2, *g3;
     struct genome_struct *gen[3];
+    struct genome_struct *out_genome_list;
+    struct genome_arr_t *out_genome_arr;
     int CIRCULAR;   
     int NUM_GENES;
     int num_cond;
@@ -290,6 +325,22 @@ grappa_CAML_inv_med
     convert_mem_t * convertmem_p; convertmem_p = &CONVERT_MEM;
     old_max_num_genes = cond3mem_p->max_num_genes;
 
+
+    out_genome_list =
+        ( struct genome_struct * ) malloc ( 1 *
+                                            sizeof ( struct genome_struct ) );
+    if ( out_genome_list == ( struct genome_struct * ) NULL )
+        fprintf ( stderr, "ERROR: genome_list NULL\n" );
+    out_genome_list[0].gnamePtr =
+            ( char * ) malloc ( MAX_NAME * sizeof ( char ) );
+    sprintf (out_genome_list[0].gnamePtr, "%i", 0);
+    if ( out_genome_list[0].gnamePtr == ( char * ) NULL )
+    {
+            fprintf ( stderr, "ERROR: gname NULL\n" );
+    };
+    out_genome_list[0].genes =( int * ) malloc ( NUM_GENES * sizeof ( int ) );
+    out_genome_list[0].delimiters = (int *) malloc (NUM_GENES * sizeof (int) );
+
     if (old_max_num_genes >= NUM_GENES) {}
     else
     {
@@ -306,10 +357,12 @@ grappa_CAML_inv_med
         free_mem_4_convert();
         ini_mem_4_convert(NUM_GENES);
         free_mem_4_mgr();
-        mgr_ini_mem(NUM_GENES,0);
+        mgr_ini_mem(NUM_GENES); 
+        //3 times of original gene size is the worst case for multi-chromosome.
     }
-    if ((g1->deli_num>0)||(g2->deli_num>0)||(g3->deli_num>0)) 
-    {//if we are dealing with multichromosome, in the worst case, each loci is a singlechromosome ($a$b$c$....), we will need 3 times of memory-size.
+   /* if ((g1->deli_num>0)||(g2->deli_num>0)||(g3->deli_num>0)) 
+    {
+    //if we are dealing with multichromosome, in the worst case, each loci is a singlechromosome ($a$b$c$....), we will need 3 times of memory-size.
         multichromosome = 1;
         if(old_max_num_genes <3*NUM_GENES)
         {
@@ -318,7 +371,8 @@ grappa_CAML_inv_med
              free_mem_4_mgr();
              mgr_ini_mem(3*NUM_GENES,0);
         }
-    }
+    }*/
+
     if(MEDIAN_SOLVER<7)
     {
         condense3 ( g1->genes,
@@ -403,25 +457,21 @@ grappa_CAML_inv_med
                     fprintf(stderr, "unknown choice of median solver !\n");
                     break;                
             }
-            decode3 ( output_genome->genes, cond3mem_p->con_med->genes, 
+            decode3 ( out_genome_list->genes, cond3mem_p->con_med->genes, 
                       cond3mem_p->pred1, cond3mem_p->decode, num_cond );
             /*debug msg 
               fprintf(stdout,"before bigarray:[");
               int x;
               for (x=0;x<NUM_GENES;x++)
-                  fprintf(stdout,"%d,",output_genome->genes[x]);
+                  fprintf(stdout,"%d,",out_genome_list->genes[x]);
               fprintf(stdout,"]\n"); fflush(stdout);
            // debug msg */
-      /*  
-            res = 
-            alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
-                    output_genome->genes,dims);
-            CAMLreturn(res);        
-            */
+      /*  res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
+                    out_genome_list->genes,dims); CAMLreturn(res);        */
         }
         else
         {
-            output_genome = g1;
+            out_genome_list = g1;
           //  res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
           //  CAMLreturn(res);
         }
@@ -429,30 +479,26 @@ grappa_CAML_inv_med
     }
     else// MEDIAN_SOLVER == 7, MGR median solver
     {
-         mgr_med (g1->genes,g2->genes,g3->genes,g1->delimiters,g2->delimiters,g3->delimiters,g1->deli_num,g2->deli_num,g3->deli_num, NUM_GENES,CIRCULAR,output_genome);
-         fprintf(stdout,"output_genome = [\n");
+         mgr_med (g1->genes,g2->genes,g3->genes,g1->delimiters,g2->delimiters,g3->delimiters,g1->deli_num,g2->deli_num,g3->deli_num, NUM_GENES,CIRCULAR,out_genome_list);
+  /* debug msg
+         fprintf(stdout,"out_genome_list = [");
          int xx=0; 
          for(xx=0;xx<NUM_GENES;xx++)
-             fprintf(stdout,"%d,",output_genome->genes[xx]);
-         fprintf(stdout,"\n [");
-         for(xx=0;xx<output_genome->deli_num;xx++)
-             fprintf(stdout,"%d",output_genome->delimiters[xx]);
+             fprintf(stdout,"%d,",out_genome_list->genes[xx]);
+         fprintf(stdout,"]; delimiters = [");
+         for(xx=0;xx<out_genome_list->deli_num;xx++)
+             fprintf(stdout,"%d",out_genome_list->delimiters[xx]);
          fprintf(stdout,"]\n");
          fflush(stdout);
-         /*
-         res = 
-            alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
-                    output_genome->genes,dims);
-         CAMLreturn(res); */
+        debug msg */
     }
-     CAMLlocal1 (c_genome_arr);
-     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
-      struct genome_arr_t * genome_arr;
-     genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
-     genome_arr->genome_ptr = output_genome;    
-     genome_arr->num_genome = 1;
-     genome_arr->num_gene = NUM_GENES;
-     CAMLreturn(c_genome_arr);
+    CAMLlocal1 (c_genome_arr);
+    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 1000000);
+    out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
+    out_genome_arr->genome_ptr = out_genome_list;    
+    out_genome_arr->num_genome = 1;
+    out_genome_arr->num_gene = NUM_GENES;
+    CAMLreturn(c_genome_arr); 
 
 }
 
@@ -657,6 +703,6 @@ grappa_CAML_initialize (value max_num_genes) {
     grappa_ini_albert_mem(Int_val(max_num_genes));
     grappa_ini_siepel_mem (Int_val(max_num_genes));
     grappa_ini_convert_mem(Int_val(max_num_genes));
-    mgr_ini_mem(Int_val(max_num_genes),0);
+    mgr_ini_mem(Int_val(max_num_genes));
     CAMLreturn(Val_unit);
 }
