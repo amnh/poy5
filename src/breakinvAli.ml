@@ -200,12 +200,56 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               cost , recost
     end 
 
+let pick_delimiters med1 med2 med_seq = 
+    let arr1 = Sequence.to_array med1.seq 
+    and arr2 = Sequence.to_array med2.seq
+    and arr3 = Sequence.to_array med_seq
+    in
+    assert( (Array.length arr1) = (Array.length arr2) );
+    assert( (Array.length arr1) = (Array.length arr2) );
+    let num_genes = Array.length arr3 in
+    let deli1 = Array.of_list med1.delimiter_lst 
+    and deli2 = Array.of_list med2.delimiter_lst
+    in
+    (* debug msg *)
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "],%!";
+    in
+    Printf.printf "pick delimiters :\n { %!";
+    Sequence.printseqcode med1.seq;
+    Sequence.printseqcode med2.seq;
+    Sequence.printseqcode med_seq;
+    print_intarr deli1; print_intarr deli2; 
+    Printf.printf " } num_genes = %d \n%!" num_genes;
+    (* debug msg *)
+    let dis11 = UtlGrappa.cmp_inversion_dis_multichrom 
+                arr1 arr3 deli1 deli1 num_genes
+    in
+    let dis12 = UtlGrappa.cmp_inversion_dis_multichrom 
+    arr2 arr3 deli2 deli1 num_genes
+    in
+    let dist21 = UtlGrappa.cmp_inversion_dis_multichrom 
+               arr1 arr3 deli1 deli2 num_genes  
+    in
+    let dist22 = UtlGrappa.cmp_inversion_dis_multichrom 
+               arr2 arr3 deli2 deli2 num_genes
+    in
+    if (dis11+dis12)>(dist21+dist22) then Printf.printf "pick delimiter 1 \n%!"
+    else Printf.printf "pick delimiter 2\n%!";
+    if (dis11+dis12)>(dist21+dist22) then med2.delimiter_lst
+    else med1.delimiter_lst
+
 
 (** find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam]
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
-
-let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
+let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
+    (* debug msg *)
+    Printf.printf "find simple med2 ls:";
+    Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+    (* debug msg *)
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in
     let orientation = Alphabet.get_orientation alpha in
@@ -234,6 +278,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
                  in
+                 let newdelimiters = pick_delimiters med1 med2 med_seq
+                 in
                  let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 
                      {seq = med_seq; 
@@ -247,7 +293,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                       cost2 = total_cost - recost1;
                       recost1 = recost1;
                       recost2 = recost2;
-                      delimiter_lst = med1.delimiter_lst 
+                      delimiter_lst = newdelimiters 
                      }
                  in    
                med::med_ls
