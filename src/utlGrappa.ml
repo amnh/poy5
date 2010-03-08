@@ -31,21 +31,26 @@ let fprintf = Printf.fprintf
  * into [sta_X] and [sta_Y] such that [genomeX=(1,...,k)]) 
  * For example: [genomeX] = (5, -3, 2) and [genomeY] = (-2, 3, 5)
  * [sta_X] = (1, 2, 3) and [sta_Y] = (-3, -2, 1 *)
-let standardize genomeX genomeY = 
+let standardize genomeX genomeY =
+(*  debug msg
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "],%!";
+    in
+    Printf.printf "standardize,input :%! ";
+    print_intarr genomeX; print_intarr genomeY; *)
     let max_index = Array.fold_left 
         (fun max_gene gene -> max max_gene (abs gene) ) (-1) genomeX 
     in 
-
     let num_gene = Array.length genomeX in  
     let sta_genomeX = Array.init num_gene (fun index -> index + 1) in
-
     let index_arr = Array.make (max_index + 1) 0 in     
     for idx = 0 to num_gene - 1 do
         match genomeX.(idx) > 0 with
         | true -> index_arr.( genomeX.(idx) ) <- (idx + 1)
         | false -> index_arr.( -genomeX.(idx) ) <- -(idx + 1)
     done; 
-
     let sta_genomeY = Array.init num_gene 
         (fun idx ->
             if ( genomeY.(idx) > max_index )||( genomeY.(idx) < -max_index )
@@ -59,6 +64,10 @@ let standardize genomeX genomeY =
              | false -> -index_arr.(-genomeY.(idx)) 
         )
     in  
+  (*  debug msg 
+    Printf.printf "end of standardize, output : %!";
+    print_intarr sta_genomeX; print_intarr sta_genomeY;
+    Printf.printf "\n%!"; *)
     sta_genomeX, sta_genomeY
 
 let standardize3 (genomeX:int array) (genomeY:int array) (genomeZ:int array) = 
@@ -98,6 +107,54 @@ let de_standardize3 ori_arr standar_arr arrsize =
         else - ori_arr.((abs tmp)-1)
     ) in
     res_arr
+
+let to_ori_arr arr =
+    Array.init (Array.length arr) (fun index->
+        assert((arr.(index)<>0));
+        if( arr.(index) mod 2 == 0) then -(arr.(index)/2)
+        else (arr.(index)+1)/2 )
+
+let cmp_inversion_dis_multichrom (genomeX :int array) (genomeY : int array)
+(delimiterX : int array) (delimiterY : int array) num_gen = 
+    let set_seq = 1 and set_delimiters = 0 in
+    let genomeX,genomeY = to_ori_arr genomeX, to_ori_arr genomeY
+    in
+    let sta_genomeX, sta_genomeY = standardize genomeX genomeY in
+    let num_gen = Array.length genomeX in  
+    let genome_arr = Grappa.c_create_empty_genome_arr 2 num_gen in  
+    for index = 0 to num_gen - 1 do
+        Grappa.c_set set_seq genome_arr 0 index sta_genomeX.(index);   
+        Grappa.c_set set_seq genome_arr 1 index sta_genomeY.(index);   
+    done;
+    (* debug msg 
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "],%!";
+    in
+     debug msg *)
+    (* debug msg 
+     Printf.printf "standardize input seq: %!";
+    print_intarr genomeX; print_intarr genomeY; 
+    Printf.printf "standardized seq: %!";
+    print_intarr sta_genomeX; print_intarr sta_genomeY; 
+    Printf.printf "deli array =  %!";
+    print_intarr delimiterX; print_intarr delimiterY;
+    Printf.printf "\n%!";
+     debug msg *)
+    let num_deliX = Array.length delimiterX and 
+    num_deliY = Array.length delimiterY in
+    (* if number of deli is 1, it is a single chromosome, no need to pass delimiters array *)
+    for index = 0 to num_deliX - 1 do
+        Grappa.c_set set_delimiters genome_arr 0 index delimiterX.(index);   
+    done;
+    for index = 0 to num_deliY - 1 do
+        Grappa.c_set set_delimiters genome_arr 1 index delimiterY.(index);   
+    done;
+    let g0 = Grappa.c_get_one_genome genome_arr 0 in
+    let g1 = Grappa.c_get_one_genome genome_arr 1 in  
+    let inv_dis = Grappa.c_cmp_inv_dis g0 g1 num_gen 0 in   
+    inv_dis 
 
 
 (** [cmp_inversion_dis genomeX genomeY circular] computes
@@ -168,6 +225,8 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
+    (* if number of deli is 1, it is a single chromosome, no need to pass
+    * delimiters array *)
     for index = 0 to num_deliX - 1 do
         Grappa.c_set set_delimiters genome_arr 0 index deliX.(index);   
     done;
