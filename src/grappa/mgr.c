@@ -28,7 +28,7 @@ int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					// we use pair1 pair2 to indicate which node need to be merged
 					struct mgr_genome_struct *old_genome) 
 {
-
+fprintf(stdout,"mgr.c carry best reag, "); fflush(stdout);
     struct mgr_genome_struct *genome_list = Genomes->genome_list;
     list_reag *the_list = NULL, *temp_list = NULL;
     int score_list, total_dist, found_something = FALSE;
@@ -58,6 +58,7 @@ int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 		if (total_dist == 0)
 			return FALSE;
 	
+fprintf(stdout,"call build_list_reag\n"); fflush(stdout);
         // build the list of good rearrangements
 		score_list = build_list_reag(&the_list, Genomes, nb_spec, *spec_left,
 									 reversals, transloc, fusion, fission,
@@ -158,6 +159,8 @@ int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 	}
 	
 	erase_list_reag(the_list);
+
+    fprintf(stdout, "end of carry best reag\n"); fflush(stdout);
 	
 	return found_something;
 }
@@ -444,7 +447,7 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
 						  mgr_distmem_t *distmem, treemem_t *treemem, 
 						  int heuristic, int pair1, int pair2, int verbose) 
 {
-
+fprintf(stdout,"solve_with_good_reag\n"); fflush(stdout);
   int found_something = TRUE;
   int last_genomenb = 1;
   int reduction_type;
@@ -601,6 +604,7 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
   }
   
   
+fprintf(stdout,"end of solve_with_good_reag\n"); fflush(stdout);
   free(old_genome.genes);
 
 }
@@ -637,6 +641,7 @@ void free_mem_4_mgr()
 
 void mgr_ini_mem (int num_genes)
 {
+    fprintf(stdout,"mgr ini mem, num_genes = %d\n",num_genes); fflush(stdout);
     int num_genomes = 3; //median of 3 genomes
     mgr_genome_list_copy =
     (struct mgr_genome_struct *) malloc(num_genomes*sizeof(struct mgr_genome_struct));
@@ -647,6 +652,11 @@ void mgr_ini_mem (int num_genes)
     (mgr_genome_list_copy)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
     (mgr_genome_list_copy)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
     (mgr_genome_list_copy)[i].num_delimiters = 0;
+     // alphabet is useful only in condense function inside MGR, anyway, we still
+   // initialize it here, just in case.
+	initialize_alphabet(&(mgr_genome_list_copy[i].alphabet), num_genes, TRUE);
+ //   fprintf(stdout, "check alphabet of mgr_genome_list copy, i=%d : \n",i); fflush(stdout);
+   // print_alphabet((mgr_genome_list_copy[i].alphabet), num_genes);
     }
     mgr_genome_list = (struct mgr_genome_struct *) malloc(2*(num_genomes-1)*sizeof(struct mgr_genome_struct));
     for (i=0 ; i<2*(num_genomes-1); i++) {
@@ -655,7 +665,12 @@ void mgr_ini_mem (int num_genes)
     (mgr_genome_list)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
     (mgr_genome_list)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
     (mgr_genome_list)[i].num_delimiters = 0;
-    (mgr_genome_list)[i].alphabet = (a_strip *) NULL; 
+   // (mgr_genome_list)[i].alphabet = (a_strip *) NULL; 
+   // alphabet is useful only in condense function inside MGR, anyway, we still
+   // initialize it here, just in case.
+	initialize_alphabet(&(mgr_genome_list[i].alphabet), num_genes, TRUE);
+  //  fprintf(stdout, "check alphabet in mgr_genome_list, i=%d : \n",i); fflush(stdout);
+  //  print_alphabet((mgr_genome_list[i].alphabet), num_genes);
     }
 
     int nb_spec = num_genomes;
@@ -740,7 +755,7 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
     int res = 0;
     if(num_deli1>num_deli2) max_num_deli = num_deli1;
     else max_num_deli = num_deli2;
-    /* debug msg */
+    /* debug msg 
     int x=0;
     fprintf(stdout,"mgr_invdist, g1 = {");
     for(x=0;x<num_genes;x++)
@@ -758,7 +773,7 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
     for(x=0;x<num_deli2;x++)
         fprintf(stdout,"%d,",deli2[x]);
     fprintf(stdout,"] \n"); fflush(stdout);
-    /* debug msg */
+     debug msg */
     mgr_genome_pair = 
      (struct mgr_genome_struct *) malloc(2*sizeof(struct mgr_genome_struct));
     int i;
@@ -779,7 +794,9 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
         (&(mgr_genome_pair[0]), &(mgr_genome_pair[1]), num_genes, max_num_deli, &dist_mem, NULL);
     mcdist_freemem(&dist_mem);
     free_genome_list(mgr_genome_pair,2);
-    fprintf(stdout," res = %d\n",res); fflush(stdout);
+    /*debug msg
+     fprintf(stdout," res = %d\n",res); fflush(stdout);
+     debug msg*/
     return res;
 }
 
@@ -878,8 +895,9 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
 //	}
 
     mcdist_allocmem(num_genes, num_chromosomes, &dist_mem);
+    fprintf(stdout,"start compute dist mat:\n");
     compute_dist_mat(&Genomes, nb_spec, &dist_mem);
-   // if (verbose) {
+//    if (verbose){
 			fprintf(stdout, "\nInitial pairwise distance matrix:\n"); fflush(stdout);
 			print_dist_mat(&Genomes, nb_spec);
 //	}	

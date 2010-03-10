@@ -40,8 +40,6 @@
 
 void initialize_alphabet(a_strip **alphabet, int size_alpha, int identity) {
 	int j;
-		
-	//fprintf(stdout, "create a new alphabet %d\n", size_alpha);
 	(*alphabet) = (a_strip *) e_malloc(size_alpha*sizeof(a_strip), "alphabet");
 	for (j=0; j<size_alpha; j++) {
 		(*alphabet)[j].size = MAXSTRIP;
@@ -58,13 +56,15 @@ void initialize_alphabet(a_strip **alphabet, int size_alpha, int identity) {
 
 void free_alphabet(a_strip *alphabet, int size_alpha) {
 	int j;
-	
-	//fprintf(stdout, "in free alphabet %d\n", size_alpha);
-	for (j=0; j<size_alpha; j++) {
-		//fprintf(stdout, "freeing strip %d of size %d\n", j, alphabet[j].size);
-	   if(alphabet[j].strip != (a_strip*) NULL)  free(alphabet[j].strip);
-	}
-	free(alphabet);
+    if (alphabet != NULL)
+    {
+        //fprintf(stdout, "in free alphabet %d\n", size_alpha);
+        for (j=0; j<size_alpha; j++) {
+            //fprintf(stdout, "freeing strip %d of size %d\n", j, alphabet[j].size);
+           if(alphabet[j].strip != (int*) NULL)  free(alphabet[j].strip);
+        }
+        free(alphabet);
+    }
 }
 
 void check_alpha(a_strip *alphabet, int size_alpha, int ori_size_alpha) {
@@ -101,9 +101,9 @@ void check_alpha(a_strip *alphabet, int size_alpha, int ori_size_alpha) {
 void copy_alphabet(a_strip *alphabet1, a_strip **alphabet2, int size_alpha1, int size_alpha2) {
 	int i, j;
 	
-	//fprintf(stdout, "in copy_alphabet (%d %d)\n", size_alpha1, size_alpha2);
-	//print_alphabet(alphabet1, size_alpha1);
-	//print_alphabet(*alphabet2, size_alpha2);
+//	fprintf(stdout, "in copy_alphabet (%d %d)\n", size_alpha1, size_alpha2);
+//	print_alphabet(alphabet1, size_alpha1);
+//	print_alphabet(*alphabet2, size_alpha2);
 	
 	if (size_alpha1 != size_alpha2) {
 		free_alphabet(*alphabet2, size_alpha2);
@@ -146,7 +146,7 @@ void copy_genome_struct(struct mgr_genome_struct *genome1, struct mgr_genome_str
 	copy_genes(genome1->genes, genome2->genes, genome1->num_g);
 
 	
-	if (need_copy_alphabet == TRUE) {
+	if ((need_copy_alphabet == TRUE)&&(genome1->alphabet != NULL)) {
 		copy_alphabet(genome1->alphabet, &(genome2->alphabet), size_alpha1, size_alpha2);
 		genome2->num_g = genome1->num_g;
 		genome2->num_chr = genome1->num_chr;
@@ -264,7 +264,7 @@ void update_for_merge(G_struct *Genomes, int *nbreag, mgr_distmem_t *distmem,
 		copy_genome_struct(&genome_list[gindex2], &genome_list[gindex3], TRUE);
 		Genomes->nb_chromo[gindex3] = Genomes->nb_chromo[gindex2];
 			
-
+fprintf(stdout,"update for merge\n"); fflush(stdout);
 		// should now all be zero
 		compute_dist_mat(Genomes, nb_spec, distmem);
 		
@@ -300,7 +300,7 @@ void check_for_merge(G_struct *Genomes, int *nbreag,
 			}
 		}
 	}
-					
+	fprintf(stdout,"check_for_merge\n"); fflush(stdout);				
 	compute_dist_mat(Genomes, nb_spec, distmem);
 					
 //	}
@@ -356,7 +356,9 @@ void initialize_genome_list(struct mgr_genome_struct **genome_list, int nb_spec,
 		((*genome_list)[i]).num_g = num_genes;
 		((*genome_list)[i]).ori_num_g = num_genes;
 		((*genome_list)[i]).num_chr = num_chromosomes;
-		((*genome_list)[i]).alphabet = NULL;
+   //     fprintf(stdout,"check alphabet in initialize_genome_list :\n");
+    //    print_alphabet(((*genome_list)[i]).alphabet, size_alpha);
+	//	((*genome_list)[i]).alphabet = NULL;
 	}
 	
 
@@ -423,16 +425,12 @@ void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
     Genomes->dist_mat = (int *)malloc(nb_spec * nb_spec * sizeof(int));
 */
     Genomes->genome_list = genome_list;
-
-
 	if (num_chromosomes>0) {
 		size_alpha = num_genes/3;
 	}
 	else {
 		size_alpha = num_genes;
 	}
-
-	
     for (i=0; i<nb_spec; i++) {
         if (num_chromosomes == 0) {
             /* unichromosomal case: count it as 1 chromosome */
@@ -443,25 +441,21 @@ void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
             Genomes->nb_chromo[i] = num_chromosomes;
             j = num_genes;
             while (Genomes->nb_chromo[i] > 0 && (&Genomes->genome_list[i])->genes[j-2] == j-1) {
-
                 /* ends in two caps, which is our standardized null */
                 j -= 2;
                 Genomes->nb_chromo[i]--;
             }
         }
-
         Genomes->label[i] = i;
         Genomes->same_as[i] = -1;
-		
-				
 		/* alphabet won't be used unless condensing option is selected */
-
 		genome_list[i].num_g = num_genes;
 		genome_list[i].ori_num_g = num_genes;
 		genome_list[i].num_chr = num_chromosomes;
-		initialize_alphabet(&(genome_list[i].alphabet), size_alpha, TRUE);
+	//	move initialize_alphabet to mgr_ini_mem
+    //	initialize_alphabet(&(genome_list[i].alphabet), size_alpha, TRUE);
 		
-		/*genome_list[i].alphabet = (a_strip *) e_malloc(num_genes*sizeof(a_strip), "alphabet");
+        /*genome_list[i].alphabet = (a_strip *) e_malloc(num_genes*sizeof(a_strip), "alphabet");
 		
 		for (j=0; j<num_genes; j++) {
 			(genome_list[i].alphabet[j]).size = MAXSTRIP;
@@ -472,7 +466,6 @@ void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
 		}*/
 		
     }
-	
 	find_max_chromo_size(Genomes, nb_spec);    
 }
 
@@ -518,7 +511,7 @@ void compute_dist_mat(G_struct *Genomes, int nb_spec, mgr_distmem_t *distmem)
 			else dist_mat[i*nb_spec + j] = dist_mat[j*nb_spec + i] = 0;
 		}
 	}
-	
+fprintf(stdout,"compute_dist_mat, call find_max_chromo_size\n "); fflush(stdout);	
 	// also compute max_chromo_size
 	find_max_chromo_size(Genomes, nb_spec);
 
@@ -571,31 +564,7 @@ void remove_null_chromos (struct mgr_genome_struct *genome_list, int nb_spec,
     //    fflush(stdout);
 	old_num_genes = *num_genes;
 	*num_chromosomes = max_num_deli;  
-	*num_genes = alpha_size + max_num_deli*2;
-		
-	for (i=0; i<nb_spec; i++) {
-        k=0;	 
-		 new_genes = (int *)malloc((*num_genes)*sizeof(int));
-		 // this is the real genome
-		 for (j=0; j<old_num_genes; j++)
-         {
-             int tmp = genome_list[i].genes[j];
-             if(tmp<=(*num_genes))
-             {
-  //               fprintf(stdout,"fill in [%d][%d]=%d\n", i,j,  genome_list[i].genes[j]);
-  //               fflush(stdout);
-			  new_genes[k] = genome_list[i].genes[j];
-              k++;
-             }
-         }
-		 
-		 free(genome_list[i].genes);
-		 genome_list[i].genes = new_genes;
-		 
-//		 print_genome_multichrom(&genome_list[i], *num_genes, *num_chromosomes);
-		 
-	}
-	
+	*num_genes = alpha_size + max_num_deli*2;	
 }
 
 
@@ -635,23 +604,37 @@ void add_null_chromos(struct mgr_genome_struct *genome_list, int nb_spec,
 
 
 void find_max_chromo_size(G_struct *Genomes, int nb_spec) {
-	cbounds_t cb;
 	int gindex, c1, size, max_size = 0;
     struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	
 	if (genome_list[0].num_chr > 0) {
 
 		for (gindex = 0; gindex<nb_spec; gindex++) {
-			init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr, &genome_list[gindex], &cb);
+            cbounds_t * cb;
+            cb = ( cbounds_t *) malloc ( sizeof( cbounds_t));
+            fprintf(stdout, "count_cbounds =%d ", count_cbounds); fflush(stdout);
+              count_cbounds ++;
+	cb->cNum     = (int *) malloc(genome_list[gindex].num_g*sizeof(int));
+	cb->cBound   = (int *) malloc((genome_list[gindex].num_chr+1)*sizeof(int));
+
+
+            fprintf(stdout,"find max chromo size, gindex=%d \n",gindex);
+		//	init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr, &genome_list[gindex], &cb);
+        	init_cbounds_wmem(genome_list[gindex].num_g, 
+                    genome_list[gindex].num_chr,  
+                    &genome_list[gindex], cb);
+
 		
 			//fprintf(stdout, "In genome %d, sizes:\n", gindex);
 			for (c1 = 1; c1 <= Genomes->nb_chromo[gindex]; c1++) {
-				size = cb.cBound[c1]-1 - (cb.cBound[c1-1]+1);
+				size = cb->cBound[c1]-1 - (cb->cBound[c1-1]+1);
 				if (size > max_size) {
 					max_size = size;
 				}
 				//fprintf(stdout, "%d (%d)\n", size, max_size);
 			}
+            //fprintf(stdout, "free cbounds\n"); fflush(stdout);
+            free_cbounds(cb);
 		}
 		Genomes->max_chromo_size = max_size;
 	}
@@ -678,7 +661,7 @@ void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,
 			
 	if (genome_list[0].num_chr>0 && (the_list->sc1<0 || the_list->sc2<0)) {
 		/* get the chromosome boundaries */
-		
+		fprintf(stdout,"carry_on_reag, "); fflush(stdout);
 		init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr,
 			&genome_list[gindex],
 			&cb);
@@ -726,7 +709,10 @@ void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,
 	local_distmat_update(gindex, Genomes, nb_spec, distmem);
 
 	if (genome_list[gindex].num_chr>0 && (the_list->sc1<0 || the_list->sc2<0)) 
-		free_cbounds(&cb);
+    {
+        //fprintf(stdout," free cb\n "); fflush(stdout);
+        free_cbounds(&cb);
+    }
 	
 
 }
@@ -776,7 +762,7 @@ void print_one_reag(list_reag *the_list, G_struct *Genomes,
 			
 	if (genome_list[gindex].num_chr>0) {
 		/* get the chromosome boundaries */
-		
+		fprintf(stdout,"print_one_reag, ");
 		init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr,
 			&genome_list[gindex],
 			&cb);

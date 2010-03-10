@@ -135,16 +135,23 @@ void init_cbounds_wmem(int num_genes, int num_chromosomes,
 void init_cbounds(int num_genes, int num_chromosomes,
 				  struct mgr_genome_struct *g1,
 				  cbounds_t *cb) {
-	cb->cNum     = (int *) e_malloc(num_genes*sizeof(int), "cb->cNum");
-	cb->cBound   = (int *) e_malloc((num_chromosomes+1)*sizeof(int),
-									"cb->cBound");
-	
+    //fprintf(stdout,"init_cbounds, num_genes/num_chromo=%d/%d, count_cbounds=%d\n",
+    //        num_genes, num_chromosomes,count_cbounds);
+    //fflush(stdout);
+//	cb->cNum     = (int *) e_malloc(num_genes*sizeof(int), "cb->cNum");
+//	cb->cBound   = (int *) e_malloc((num_chromosomes+1)*sizeof(int),
+//									"cb->cBound");
+    count_cbounds ++;
+	cb->cNum     = (int *) malloc(num_genes*sizeof(int));
+	cb->cBound   = (int *) malloc((num_chromosomes+1)*sizeof(int));
 	init_cbounds_wmem(num_genes, num_chromosomes, g1, cb);
 }
 
 
 
 void free_cbounds(cbounds_t *cb) {
+   // fprintf(stdout,"free_cbounds,count_cbounds=%d\n",count_cbounds);
+    count_cbounds --;
 	free(cb->cBound);
 	free(cb->cNum);
 }
@@ -553,10 +560,9 @@ int build_list_reag(list_reag **a_list, G_struct *Genomes , int nb_spec, int spe
 
 	// GB first compute the pairwise distances
 	//compute_dist_mat(Genomes, nb_spec, num_genes, num_chromosomes, distmem);
-
 	while (first_loop == TRUE || (the_list == NULL && rev_size >= 0 && rev_size <= Genomes->max_chromo_size)) {
 		
-		//fprintf(stdout, "in while loop, rev_size == %d\n", rev_size);
+	//	fprintf(stdout, "in while loop, rev_size == %d\n", rev_size);
 		first_loop = FALSE; 
 		/* in most case we will only do this loop once, except when we are looking for reversals
 		of a fixed size and we want to increase that size */
@@ -603,7 +609,6 @@ int build_list_reag(list_reag **a_list, G_struct *Genomes , int nb_spec, int spe
 				
 				
 				if (genome_list[gindex1].num_chr > 0) {
-					
 					/* get the chromosome boundaries */
 					init_cbounds(genome_list[gindex1].num_g,
 								 genome_list[gindex1].num_chr,
@@ -951,7 +956,6 @@ int build_list_reag(list_reag **a_list, G_struct *Genomes , int nb_spec, int spe
   /* clean up memory */
   
   if (genome_list[gindex1].num_chr>0) {
-	  
 	  free_cbounds(&cb);
 	  //  free_simple_genome(dest_genome);
   }

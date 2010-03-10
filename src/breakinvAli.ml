@@ -168,7 +168,8 @@ let get_recost user_pams =
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 (*debug msg 
-    Printf.printf "cmp_cost: %!"; Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+    Printf.printf "cmp_cost: %!"; 
+    Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
  debug msg*)
     let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length med1.seq in 
@@ -211,7 +212,7 @@ let pick_delimiters med1 med2 med_seq =
     let deli1 = Array.of_list med1.delimiter_lst 
     and deli2 = Array.of_list med2.delimiter_lst
     in
-    (* debug msg *)
+    (* debug msg 
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
@@ -223,7 +224,7 @@ let pick_delimiters med1 med2 med_seq =
     Sequence.printseqcode med_seq;
     print_intarr deli1; print_intarr deli2; 
     Printf.printf " } num_genes = %d \n%!" num_genes;
-    (* debug msg *)
+     debug msg *)
     let dis11 = UtlGrappa.cmp_inversion_dis_multichrom 
                 arr1 arr3 deli1 deli1 num_genes
     in
@@ -236,8 +237,10 @@ let pick_delimiters med1 med2 med_seq =
     let dist22 = UtlGrappa.cmp_inversion_dis_multichrom 
                arr2 arr3 deli2 deli2 num_genes
     in
+   (*debug msg
     if (dis11+dis12)>(dist21+dist22) then Printf.printf "pick delimiter 1 \n%!"
     else Printf.printf "pick delimiter 2\n%!";
+    debug msg*)
     if (dis11+dis12)>(dist21+dist22) then med2.delimiter_lst
     else med1.delimiter_lst
 
@@ -246,10 +249,10 @@ let pick_delimiters med1 med2 med_seq =
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
-    (* debug msg *)
+    (* debug msg 
     Printf.printf "find simple med2 ls:";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
-    (* debug msg *)
+     debug msg *)
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in
     let orientation = Alphabet.get_orientation alpha in

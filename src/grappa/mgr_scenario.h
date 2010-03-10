@@ -94,13 +94,12 @@ void clean_scenario_mem(struct mgr_genome_struct *current_genome,
 			mgr_distmem_t *distmem);
 
 
-
+int count_cbounds;
 typedef struct {
   /* these arrays use positions in the signed permutation,
      not the doubled unsigned one that is used
      in distmem->chromNum,chromBd
      Also cBound is indexed differently */
-
   int *cNum;           /* array mapping gene position to chromosome # */
 
   int *cBound;         /* array mapping chromosome # to left end of chrom */
