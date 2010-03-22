@@ -75,7 +75,8 @@ type model = {
     (** [spec] specification this model was created from *)
     spec  : spec;
     (** [alph] size of the alphabet for the model *)
-    alph : int;
+    alph : Alphabet.a;
+    alph_s : int;
     (** [pi_0] priors for the model *)
     pi_0  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     (** [invar] the percent used for the proportion of invariant sites *)
@@ -194,6 +195,8 @@ val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Ar
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 END
+
+val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
 val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
 

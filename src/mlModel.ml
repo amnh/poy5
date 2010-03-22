@@ -114,7 +114,8 @@ type spec = {
 
 type model = {
     spec  : spec;
-    alph  : int;
+    alph  : Alphabet.a;
+    alph_s: int;
     pi_0  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
     invar : float option;
     rate  : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t;
@@ -130,12 +131,21 @@ IFDEF USE_LIKELIHOOD THEN
 (* a gentler compare that excludes the parameters of the model itself *)
 let compare a b = 
     let m_compare = match a.spec.substitution,b.spec.substitution with
-        | JC69 , JC69 | F81 , F81 | K2P _, K2P _ | F84 _, F84 _ 
-        | HKY85 _, HKY85 _ | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
+        | JC69 , JC69 | F81 , F81 -> 0
+        | K2P m, K2P x | F84 m, F84 x | HKY85 m, HKY85 x ->
+                begin match m,x with
+                | None,None -> 0
+                | Some v,Some x when v =. x-> 0
+                | _,_ -> ~-1
+                end
+        | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
-        | Some (Gamma _), Some (Gamma _) | Some (Theta _), Some (Theta _) -> 0
+        | Some (Gamma (i,a)), Some (Gamma (ix,ax)) ->
+                if i = ix && a = ax then 0 else ~-1
+        | Some (Theta (i,a,p)), Some (Theta (ix,ax,px)) ->
+                if i = ix && a = ax && p = px then 0 else ~-1
         | None, None | Some Constant, Some Constant 
         | Some Constant, None | None, Some Constant -> 0
         | _,_ -> ~-1
@@ -144,15 +154,17 @@ let compare a b =
         let a_pri = match a.spec.base_priors with | Estimated x | Given x -> x
         and b_pri = match b.spec.base_priors with | Estimated x | Given x -> x
         and results = ref 0 in
-        try
-            for i = 0 to a.alph do
-                if a_pri.(i) <> b_pri.(i) then results := ~-1
+        if a.alph_s = b.alph_s then begin
+            for i = 0 to a.alph_s - 1 do
+                if not (a_pri.(i) =. b_pri.(i)) then results := ~-1
             done;
             !results
-        with _ -> ~-1
+        end else begin
+            ~-1
+        end    
     in
     (* just knowing that they are different is enough *)
-    m_compare + v_compare + g_compare + p_compare + p_compare
+    m_compare + v_compare + g_compare + p_compare
     
 (* ------------------------------------------------ *)
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
@@ -412,7 +424,47 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
+let barray_to_matrix bray =  
+    let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
+    let r = Array.make_matrix a b 0.0 in
+    for i = 0 to a-1 do for j = 0 to b-1 do
+        r.(i).(j) <- bray.{i,j};
+    done; done; r
+
+(* integerized converstion and composition of a model and branch lenghth *)
+let integerized_model ?(sigma=4) model t =
+    let sigma = 10.0 ** (float_of_int sigma) in
+    let matrix = 
+        barray_to_matrix (match model.ui with 
+        | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
+        | None    -> compose_sym FMatrix.scratch_space model.u model.d t)
+    and imatrix = Array.make_matrix model.alph_s model.alph_s 0 in
+    assert( model.alph_s = Array.length matrix);
+    assert( model.alph_s = Array.length matrix.(0));
+    for i = 0 to (Array.length matrix) - 1 do
+        for j = 0 to (Array.length matrix.(0)) - 1 do
+            (* diagonal of matrix must = 0 *)
+            if i = j 
+                then imatrix.(i).(j) <- 0
+                else imatrix.(i).(j) <- ~- (int_of_float (sigma *. (log matrix.(i).(j) ) ) )
+        done;
+    done;
+    imatrix
+
 END
+
+(* create a cost matrix from a model *)
+let model_to_cm model t =
+    let input = 
+        IFDEF USE_LIKELIHOOD THEN 
+            integerized_model model t
+        ELSE
+            failwith likelihood_not_enabled
+        END
+    in
+    let llst = Array.to_list (Array.map Array.to_list input) in
+    let res = Cost_matrix.Two_D.of_list llst model.alph_s in
+    res
 
 (* ------------------------------------------------ *)
 (* CONVERSTION/MODEL CREATION FUNCTIONS             *)
@@ -566,7 +618,8 @@ let create alph lk_spec =
       spec = {lk_spec with substitution = subst_model; };
      invar = invar;
       pi_0 = ba_of_array1 priors;
-      alph = a_size;
+      alph = alph;
+    alph_s = a_size;
          s = sub_mat;
          u = u_;
          d = d_;
@@ -759,28 +812,28 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
 let update_k2p old_model new_value =
     let subst_spec = { old_model.spec with substitution = K2P (Some new_value) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_k2p priors new_value 1.0 old_model.alph in
+    let subst_model = m_k2p priors new_value 1.0 old_model.alph_s in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_hky old_model new_value =
     let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_hky85 priors new_value old_model.alph in
+    let subst_model = m_hky85 priors new_value old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_tn93 old_model ((x,y) as new_value) =
     let subst_spec = { old_model.spec with substitution = TN93 (Some new_value) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_tn93 priors x y 1.0 old_model.alph in
+    let subst_model = m_tn93 priors x y 1.0 old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f84 old_model new_value =  
     let subst_spec = { old_model.spec with substitution = F84 (Some new_value) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_f84 priors new_value 1.0 old_model.alph in
+    let subst_model = m_f84 priors new_value 1.0 old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -790,7 +843,7 @@ and update_gtr old_model new_values =
     in
     let subst_spec = { old_model.spec with substitution = GTR (Some normalized_values) }
     and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
-    let subst_model = m_gtr priors normalized_values old_model.alph in
+    let subst_model = m_gtr priors normalized_values old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -891,7 +944,7 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
 
         | GTR ray ->
                 let ray = match ray with 
-                    | None -> default_gtr m.alph
+                    | None -> default_gtr m.alph_s
                     | Some x -> x
                 in
                 let r,_ =
@@ -1329,7 +1382,7 @@ let get_current_parameters_for_model model =
             y.(0) <- x1;
             Some y
         | GTR ((Some _) as x) -> x
-        | GTR None -> Some (default_gtr model.alph)
+        | GTR None -> Some (default_gtr model.alph_s)
   ELSE
     None
   END
@@ -1392,7 +1445,10 @@ and get_current_parameters_for_model_with_alpha model =
                     Some y
             end
         | GTR x ->
-            let x = match x with | Some x -> x | None -> default_gtr model.alph in
+            let x = match x with 
+                    | Some x -> x 
+                    | None -> default_gtr model.alph_s
+            in
             begin match model.spec.site_variation with
                 | Some (Gamma (cat,alpha)) ->
                     let y = Array.make (1 + Array.length x) alpha in
