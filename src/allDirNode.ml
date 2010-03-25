@@ -236,6 +236,10 @@ module OneDirF :
             let y = force_val y in
             Node.Standard.apply_time root x y)
 
+    let combine a b = 
+        lazy_from_fun
+            (fun () -> Node.Standard.combine (force_val a) (force_val b))
+
     let estimate_time x y =
         apply_f_on_lazy (Node.Standard.estimate_time) x y
 
@@ -246,8 +250,8 @@ module OneDirF :
 
     let extract_states alph d a c0 b = Node.Standard.extract_states alph d None c0 (force_val b)
 
-    let using_likelihood a : bool = 
-        Node.Standard.using_likelihood (force_val a)
+    let using_likelihood types a : bool = 
+        Node.Standard.using_likelihood types (force_val a)
 
     let to_string v = Node.Standard.to_string (force_val v)
 
@@ -657,8 +661,8 @@ type nad8 = Node.Standard.nad8 = struct
         let get_dir p c = (not_with (taxon_code p) c.unadjusted).lazy_node in
         OneDirF.estimate_time (get_dir left right) (get_dir right left)
 
-    let using_likelihood node : bool =
-        OneDirF.using_likelihood (List.hd (node.unadjusted)).lazy_node
+    let using_likelihood types node : bool =
+        OneDirF.using_likelihood types (List.hd (node.unadjusted)).lazy_node
 
     (** [get_times_between child par] 
      *
@@ -711,6 +715,29 @@ type nad8 = Node.Standard.nad8 = struct
         }] in
         { unadjusted = node; adjusted = node; }
 
+
+    (** **)
+    let combine a_node b_node = 
+        let rec find (a,b) = function
+            | [] -> failwith "direction not found"
+            | h::t -> begin match h.dir with
+                | Some (x,y) when x = a && y = b -> h
+                | Some (x,y) when x = b && y = a -> h
+                | _ -> find (a,b) t
+            end
+        and combine_ bs a : node_dir = 
+            let oth = match a.dir with
+                | Some (a,b) -> find (a,b) bs
+                | None -> assert( 1 = List.length bs); List.hd bs
+            in
+            { a with
+                lazy_node = OneDirF.combine a.lazy_node oth.lazy_node; }
+        in
+        {
+            adjusted = List.map (combine_ b_node.adjusted) a_node.adjusted;
+          unadjusted = List.map (combine_ b_node.unadjusted) a_node.unadjusted;
+        }
+        
 
     (** [uppass_heuristic tbl curr ch1 ch2 par r]
      * [cur], at this point will have one direction ([ch1],[ch2]), after this call
@@ -777,30 +804,26 @@ type nad8 = Node.Standard.nad8 = struct
         (* get the times in all directions --AB have them in M and M has it in P *)
         let time_M2A = 
             lazy_from_fun (fun () ->
-            Node.get_times_between 
-                (force_val data_m2p) (Some (min_taxon_code mc a)) )
+                Node.get_times_between 
+                    (force_val data_m2p) (Some (min_taxon_code mc a)) )
         and time_M2B = 
             lazy_from_fun (fun () ->
-            Node.get_times_between 
-                (force_val data_m2p) (Some (min_taxon_code mc b)) )
+                Node.get_times_between 
+                    (force_val data_m2p) (Some (min_taxon_code mc b)) )
         and time_M2P =
-            lazy_from_fun (fun () ->
-                match p_time with
+            lazy_from_fun (fun () -> match p_time with
                 | Some timedat ->
                     let timedat = force_val (either_with mc timedat.adjusted).lazy_node in
                     Node.get_times_between timedat None
                 | None -> 
                     let timedat = force_val (either_with mc p_data.adjusted).lazy_node in
-                    Node.get_times_between timedat (Some (min_taxon_code pc m))
-                    )
+                    Node.get_times_between timedat (Some (min_taxon_code pc m)))
         in
-    
-        (* PRINT OUT THE TIMES BETWEEN
-        Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"
-                mc ac pp_opt_list (force_val time_M2A)
-                mc bc pp_opt_list (force_val time_M2B)
-                mc pc pp_opt_list (force_val time_M2P);
-        *)
+        (* PRINT OUT THE TIMES BETWEEN *)
+(*        Printf.printf "(%d--%d):%a\t(%d--%d):%a\t(%d--%d):%a\n%!"*)
+(*                mc ac pp_opt_list (force_val time_M2A)*)
+(*                mc bc pp_opt_list (force_val time_M2B)*)
+(*                mc pc pp_opt_list (force_val time_M2P);*)
 
         (* call medians with times supplied *)
         let node_A = lazy_from_fun
@@ -831,8 +854,8 @@ type nad8 = Node.Standard.nad8 = struct
                                     (time_M2A) )
         in
 
-        let dir_A= { code= mc; lazy_node= node_A; dir= Some(bc,pc); }
-        and dir_B= { code= mc; lazy_node= node_B; dir= Some(ac,pc); }
+        let dir_A= { code= mc; lazy_node= node_A;   dir= Some(bc,pc); }
+        and dir_B= { code= mc; lazy_node= node_B;   dir= Some(ac,pc); }
         and dir_C= { code= mc; lazy_node= data_m2p; dir= Some(ac,bc); } in
         let allDir = [ dir_A ; dir_B ; dir_C ] in
         let res = { unadjusted = allDir; adjusted = allDir } in
@@ -876,8 +899,6 @@ type nad8 = Node.Standard.nad8 = struct
         in
         let node = { mine with adjusted=[node_dir]; } in
         (node,modified)
-
-
 
 
     let to_string nodes =

@@ -43,7 +43,7 @@ exception Illegal_argument of string
 
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
-    `Sank | `Seq | `StaticMl ]
+    `Sank | `Seq | `StaticMl | `Ml ]
 
 type 'a r = {
     preliminary : 'a;
@@ -122,6 +122,17 @@ type cs =
     | Kolmo of KolmoCS.t r
     | Set of cs css r
     | StaticMl of ml_rep
+
+let cs_string = function 
+    | Nonadd8 _ -> "nonadd8"
+    | Nonadd16 _ -> "nonadd16"
+    | Nonadd32 _ -> "nonadd32"
+    | Add _ -> "add"
+    | Sank _ -> "sank"
+    | Dynamic x -> DynamicCS.name_string x.preliminary
+    | Set _ -> "set"
+    | Kolmo _ -> "kolmo"
+    | StaticMl _ -> "staticml"
 
 let rec to_string_ch ch1 =
     match ch1 with
@@ -212,6 +223,27 @@ type node_data =
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
+
+let print_times n =
+    let get_times = function 
+        | Nonadd8 x  -> x.time
+        | Nonadd16 x -> x.time
+        | Nonadd32 x -> x.time
+        | Add x      -> x.time
+        | Sank x     -> x.time
+        | Dynamic x  -> x.time
+        | Set x      -> x.time
+        | Kolmo x    -> x.time
+        | StaticMl x -> x.time
+    in
+    List.iter
+        (fun ncs ->
+            let one,two = get_times ncs in
+            Printf.printf "%d -- (%s,%s)\n%!"
+            n.taxon_code
+            (match one with | Some x -> string_of_float x | None -> "none")
+            (match two with | Some x -> string_of_float x | None -> "none") )
+        n.characters
 
 let get_min_taxon_code nd = nd.min_child_code
 
@@ -331,8 +363,7 @@ let calc_total_cost c1 c2 c_cost =
         assert (c1.cost_mode = c2.cost_mode);
         match c1.cost_mode with
         | `Likelihood -> c_cost
-        | `Parsimony -> 
-                c_cost +. c1.total_cost +. c2.total_cost
+        | `Parsimony -> c_cost +. c1.total_cost +. c2.total_cost
     in
     res
 
@@ -361,16 +392,27 @@ let all_prelim_to_final ({characters = chars} as node) =
     {node with
          characters = List.map prelim_to_final chars}
 
-let using_likelihood x =
-    IFDEF USE_LIKELIHOOD THEN
-        List.fold_left
-            (fun a x -> match x with 
-                | StaticMl _ -> a
-                | _          -> false)
-            true x.characters
-    ELSE
-        false
-    END
+let using_likelihood types x =
+    let x,y = 
+        IFDEF USE_LIKELIHOOD THEN
+            List.fold_left
+                (fun ((static,dyn) as res) x -> match x with 
+                    | StaticMl _ -> (true,dyn)
+                    | Dynamic x ->
+                        begin match x.preliminary with
+                        | DynamicCS.MlCS _ -> (static,true)
+                        | _ -> res
+                    end
+                    | _          -> res)
+                (false,false) x.characters
+        ELSE
+            false,false
+        END
+    in
+    match types with
+    | `Static   -> x
+    | `Dynamic  -> y
+    | `Either   -> x || y
 
 let float_close ?(epsilon=0.001) a b =
     let diff = a -. b in
@@ -435,23 +477,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             assert (ca.weight = cb.weight);
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
-                    | Some (time1), Some (time2) -> time1,time2
-                    | _ ->
-                        MlStaticCS.estimate_time ca.preliminary cb.preliminary
+                    | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
+                    | Some (t1), Some (t2) -> (t1,t2)
+                    | _ -> MlStaticCS.estimate_time ca.preliminary cb.preliminary
                 in
-                if code <= 0 then (t1/.2.0,t1/.2.0) else (t1,t2)
+                t1,t2
             in 
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
                                   t1 t2 anode.taxon_code bnode.taxon_code in
             let n_cost = MlStaticCS.root_cost median in
-
             if debug then 
                 info_user_message
                     "Calculating %d with %f(%d) and %f(%d) = %f"
                     code t1 anode.taxon_code t2 bnode.taxon_code n_cost
             else ();
-
             let t1,t2 =
                 if anode.min_child_code < bnode.min_child_code then t1, t2
                 else t2, t1
@@ -555,18 +595,41 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 if anode.min_child_code < bnode.min_child_code then ca, cb
                 else cb, ca
             in
-            if  debug_treebuild  then
-                info_user_message "call DynamicCS.median ->";
-            let median = DynamicCS.median code ca.preliminary cb.preliminary in
+            let median, ((t1,t2) as time) = match ca.preliminary, cb.preliminary with
+                | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
+                    IFDEF USE_LIKELIHOOD THEN
+                        let t1, t2 =
+                            let t1,t2 = match t1,t2 with
+                                | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
+                                | Some (t1), Some (t2) -> (t1,t2)
+                                | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
+                            in
+                            if anode.min_child_code < bnode.min_child_code 
+                                then t1, t2
+                                else t2, t1
+                        in 
+                        if debug then 
+                            info_user_message
+                                "Calculating %d with %f(%d) and %f(%d)"
+                                code t1 anode.taxon_code t2 bnode.taxon_code
+                        else ();
+                        DynamicCS.median code ca.preliminary cb.preliminary
+                                            (Some t1) (Some t2), 
+                        (Some t1,Some t2)
+                    ELSE
+                        failwith likelihood_error
+                    END
+                | ca_prelim, cb_prelim ->
+                    DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
+            in
             let total_cost = DynamicCS.total_cost median in
-            if  debug_treebuild  then
-                info_user_message "back to node.ml cs_median ,total_cost=%f\n" total_cost;
             let res = 
                 { ca with 
                     preliminary = median;
                     final = median;
                     cost = ca.weight *. total_cost;
                     sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost;
+                    time = time;
                 } 
             in
             Dynamic res
@@ -725,26 +788,34 @@ let apply_time root child parent =
     IFDEF USE_LIKELIHOOD THEN
         let p,q = if child.min_child_code = parent.min_child_code then fst,snd else snd,fst in
         let p_opt to_string = function | None -> "None" | Some x -> to_string x in
+        let apply_it p pndtime = 
+            let res = if root then begin
+                        match fst pndtime, snd pndtime with
+                        | Some x, Some y -> Some (x +. y)
+                        | _,_ -> failwith "Incorrect ML in a root node"
+                      end else p pndtime
+            in
+            if debug then
+                info_user_message "Applying %s (root:%b) to %d -- %d%!"
+                                  (p_opt string_of_float res) root
+                                  (child.taxon_code) (parent.taxon_code);
+            res
+        in
         let rec apply_times ch par = match ch,par with
             | StaticMl cnd,StaticMl pnd ->
-                let the_time =
-                    if root then begin
-                        match fst pnd.time,snd pnd.time with
-                        | Some x, Some y -> Some (x +. y)
-                        | _,_ -> failwith "Incorrect BL in a root node"
-                    end else p pnd.time
-                in
-                if debug then
-                    info_user_message "Applying %s to %d -- %d"
-                        (p_opt string_of_float the_time) (child.taxon_code)
-                                                         (parent.taxon_code);
-                StaticMl { cnd with time = the_time,the_time }
+                let time = apply_it p pnd.time in
+                StaticMl { cnd with time = time,time }
+            | Dynamic cnd, Dynamic pnd -> 
+                begin match cnd.preliminary,pnd.preliminary with
+                | DynamicCS.MlCS _,DynamicCS.MlCS _ ->
+                    let time = apply_it p pnd.time in
+                    Dynamic { cnd with time = time,time }
+                | _,_ -> ch
+                end
             | _ -> ch
         in
-        {
-          child with characters =
-                 List.map2 apply_times child.characters parent.characters
-        }
+        { child with characters =
+                 List.map2 apply_times child.characters parent.characters }
     ELSE
         child
     END
@@ -789,7 +860,6 @@ let verify_time a oa b ob =
     in
     List.fold_left2 verify_ true a.characters b.characters
 
-
 let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> 
@@ -815,16 +885,12 @@ let rec cs_final_states pn nn c1n c2n p n c1 c2 =
               cc2.preliminary in
           Sank { cn with final = m }
     | Dynamic cp, Dynamic cn, Dynamic cc1, Dynamic cc2 ->
-          let m = 
-              DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary
-          in
+          let m = DynamicCS.median_3 cp.final cn.preliminary cc1.preliminary
+              cc2.preliminary in
           Dynamic { cn with final = m }
     | Kolmo cp, Kolmo cn, Kolmo cc1, Kolmo cc2 ->
-          let m = 
-              KolmoCS.median_3 cp.final cn.preliminary cc1.preliminary
-              cc2.preliminary
-          in
+          let m = KolmoCS.median_3 cp.final cn.preliminary cc1.preliminary
+              cc2.preliminary in
           Kolmo { cn with final = m }
     | Set cp, Set cn, Set cc1, Set cc2 ->
           (match cn.preliminary.smethod with
@@ -991,19 +1057,57 @@ let get_set =
 
 let median_counter = ref (-1)
 
+(* returns a modified with b *)
+let combine anode bnode =
+    let combine_ a b =
+        if debug then 
+            info_user_message "Combining (%d): %s and %s%!"
+                           (anode.taxon_code) (cs_string a) (cs_string b);
+        match a,b with
+        | Dynamic a_, StaticMl b_ -> 
+            let median_p = DynamicCS.combine a_.preliminary b_.preliminary
+            and median_f = DynamicCS.combine a_.final b_.final in
+            Dynamic 
+                { a_ with preliminary = median_p;
+                          final = median_f;
+                          cost = b_.cost;
+                          sum_cost = b_.sum_cost; }
+        | _,_ -> a
+    in
+    { bnode with 
+        characters = List.map2 combine_ anode.characters bnode.characters; }
+
 let median ?branches code old a b =
     let convert_2_lst chars tbl =
+        let values_match code_ray tbl = (* array is guarentreed to be > 0 *)
+            let value = Hashtbl.find tbl (code_ray.(0)) in
+            Array.fold_left 
+                (fun acc x -> 
+                    acc && (value = (Hashtbl.find tbl x)))
+                true
+                code_ray
+        in
         List.map
             (fun x -> match x with
+                | Dynamic z -> IFDEF USE_LIKELIHOOD THEN
+                    begin match z.preliminary with
+                    | DynamicCS.MlCS zdat ->
+                        (match tbl with
+                         | Some x ->
+                            let x = try Hashtbl.find x chars.taxon_code
+                                    with | Not_found ->
+                                        failwithf "Cannot find taxon_code %d" chars.taxon_code;
+                            in
+                            let codes = MlDynamicCS.get_codes zdat in
+(*                            assert( ((Array.length codes) > 0) && (values_match codes x));*)
+                            Some (Hashtbl.find x codes.(0))
+                         | None -> None)
+                    | _ -> None
+                    end
+                    ELSE
+                        None
+                    END
                 | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
-                    let values_match code_ray tbl = (* array is guarentreed to be > 0 *)
-                        let value = Hashtbl.find tbl (code_ray.(0)) in
-                        Array.fold_left 
-                            (fun acc x -> 
-                                acc && (value = (Hashtbl.find tbl x)))
-                            true
-                            code_ray
-                    in
                     (match tbl with
                     | Some x ->
                         let x =
@@ -1012,8 +1116,18 @@ let median ?branches code old a b =
                                 failwithf "Cannot find taxon_code %d" chars.taxon_code;
                         in
                         let codes = MlStaticCS.get_codes z.preliminary in
-                        assert(((Array.length codes) > 0) && (values_match codes x));
-                        Some (Hashtbl.find x codes.(0))
+(*                        assert(((Array.length codes) > 0) && (values_match codes x));*)
+                        begin
+                            try Some (Hashtbl.find x codes.(0))
+                            with | Not_found -> None
+(*                                Printf.printf "Cannot find %d; of: " codes.(0);*)
+(*                                Array.iter (Printf.printf "%d, ") codes;*)
+(*                                print_newline ();*)
+(*                                Printf.printf "Found: ";*)
+(*                                Hashtbl.iter (fun k v -> Printf.printf "%d, " k) x;*)
+(*                                print_newline ();*)
+(*                                failwith "Not_found"*)
+                        end
                     | None -> None)
                     ELSE
                         None
@@ -1033,7 +1147,6 @@ let median ?branches code old a b =
 
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
-
     let new_characters =
         match old with
         | None -> 
@@ -1061,22 +1174,25 @@ let median ?branches code old a b =
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
-    { 
-        characters = new_characters;
-        total_cost =
-            if excluded
-            then infinity
-            else total_cost;
-        node_cost = node_cost;
-        taxon_code = code;
-        min_child_code = min a.min_child_code b.min_child_code;
-        num_child_edges = num_child_edges;
-        num_height = num_height;
-        num_otus = a.num_otus + b.num_otus;
-        exclude_sets = a.exclude_sets;
-        exclude_info = exclude_info;
-        cost_mode = a.cost_mode;
-    }
+    let results = 
+        { 
+            characters = new_characters;
+            total_cost =
+                if excluded
+                then infinity
+                else total_cost;
+            node_cost = node_cost;
+            taxon_code = code;
+            min_child_code = min a.min_child_code b.min_child_code;
+            num_child_edges = num_child_edges;
+            num_height = num_height;
+            num_otus = a.num_otus + b.num_otus;
+            exclude_sets = a.exclude_sets;
+            exclude_info = exclude_info;
+            cost_mode = a.cost_mode;
+        }
+    in
+    results
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
  * the child node. data must be contained already in [nd] *)
@@ -1090,7 +1206,13 @@ IFDEF USE_LIKELIHOOD THEN
                 (function | Some x,Some y -> Some (x+.y)
                           | _ -> None)
         in
-        function StaticMl z -> f z.time | _ -> None
+        function | StaticMl z -> f z.time 
+                 | Dynamic z ->
+                    begin match z.preliminary with
+                    | DynamicCS.MlCS _ -> f z.time
+                    | _ -> None
+                    end
+                 | _ -> None
 ELSE
         fun _ -> None
 END
@@ -1108,6 +1230,12 @@ IFDEF USE_LIKELIHOOD THEN
         in
         function
             | StaticMl z -> MlStaticCS.get_codes z.preliminary, f z.time
+            | Dynamic z ->
+                begin match z.preliminary with
+                | DynamicCS.MlCS x ->
+                    MlDynamicCS.get_codes x, f z.time
+                | _ -> null
+                end
             | _ -> null
 ELSE
         fun _ -> null
@@ -1210,6 +1338,15 @@ IFDEF USE_LIKELIHOOD THEN
             begin match a.time with
             | Some x,Some y -> acc +. x +. y
             | _ -> failwith "Seriously?"
+            end
+        | Dynamic a -> 
+            begin match a.preliminary with
+            | DynamicCS.MlCS _ -> 
+                begin match a.time with
+                | Some x,Some y -> acc +. x +. y
+                | _ -> failwith "Seriously?"
+                end
+            | _ -> acc
             end
         | _ -> acc
     in
@@ -1380,8 +1517,7 @@ let edge_distance clas nodea nodeb =
         | _ -> failwith "Incompatible characters (6)" in
     distance_lists nodea.characters nodeb.characters 0.
 
-let has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-| `Nonadd | `Sank | `Seq | `StaticMl ] list = [`Seq ; `Chrom; `Annchrom; `Breakinv ]
+let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv ]
 
 module ToSingleModule = Set.Make (struct type t = to_single let compare =
     compare end)
@@ -1389,7 +1525,7 @@ module ToSingleModule = Set.Make (struct type t = to_single let compare =
 let all_characters_single = 
     List.fold_left (fun acc x -> ToSingleModule.add x acc) ToSingleModule.empty
     [ `Add ; `Annchrom ; `Breakinv ; `Chrom ; `Genome ; `Kolmo ; `Nonadd ;
-    `Sank ; `Seq ; `StaticMl ]
+    `Sank ; `Seq ; `StaticMl; `Ml ]
 
 let not_to_single =
     ToSingleModule.elements
@@ -1972,13 +2108,14 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         (* We need ways of making empty characters when a character is
            unspecified *)
         let get_static_encoding code =
-            let specs =
-                Hashtbl.find !data.Data.character_specs code in
+            let specs = Hashtbl.find !data.Data.character_specs code in
             match specs with
             | Data.Static encoding -> encoding
             | Data.Dynamic _
             | Data.Kolmogorov _
-            | Data.Set -> failwith "get_static_encoding" in
+            | Data.Set -> failwith "get_static_encoding"
+        in
+          
         let module Enc = Parser.OldHennig.Encoding in
         let gen_add code =
             let enc = get_static_encoding code in
@@ -2012,6 +2149,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         fun tcode acc ->
             current_snapshot "Generating taxon";
             let tcharacters = Hashtbl.find !data.Data.taxon_characters tcode in
+(*            Printf.printf "Generating Taxon %d\nHas Characters: %!" tcode;*)
+(*            Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) tcharacters;*)
+(*            print_newline ();*)
             let get_character_with_code_n_weight gen_new (w, acc, cnt) (weight, code) = 
                 try 
                     weight, (Hashtbl.find tcharacters code) :: acc, cnt + 1
@@ -2073,21 +2213,21 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 { preliminary = c; final = c; cost = 0.; sum_cost = 0.; weight =
                     w; time = None,None }
             in
-            let result = 
+            let result = (* NONADD8 *)
                 List.fold_left 
                 (fun acc (a, b, c) -> 
                     add_characters (NonaddCS8.of_parser !data c)
                     (fun c w -> Nonadd8 (make_with_w c w)) acc (a, b))
                 result lnadd8_chars
             in
-            let result =
+            let result =(* NONADD16 *)
                 List.fold_left 
                 (fun acc (a, b, c) -> 
                     add_characters (NonaddCS16.of_parser !data c)
                     (fun c w -> Nonadd16 (make_with_w c w)) acc (a, b))
                 result lnadd16_chars
             in
-            let result =
+            let result = (* NONADD32 *)
                 List.fold_left 
                 (fun acc (a, b, c) -> add_characters (NonaddCS32.of_parser !data c)
                 (fun c w -> Nonadd32 (make_with_w c w)) acc (a, b))
@@ -2097,13 +2237,13 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 match lnadd33_chars with
                 | _ -> result
             in
-            let result = 
+            let result =  (* ADDITIVE *)
                 List.fold_left 
                 (fun acc (a, b, _) -> add_characters (AddCS.of_parser !data)
                 (fun c w -> Add (make_with_w c w)) acc (a, b))
                 result ladd_chars
             in
-            let result = 
+            let result = (* DYNAMIC *)
                 match ldynamic_chars with
                 | [] -> result
                 | _ ->
@@ -2115,7 +2255,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                       let c : cs list = List.map (fun c -> Dynamic c) c in 
                       { result with characters = c @ result.characters } 
             in
-            let result = 
+            let result = (* KOLMO *)
                 match lkolmo_chars with
                 | [] -> result
                 | _ ->
@@ -2133,7 +2273,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                         total_cost = total_cost +. result.total_cost;
                         node_cost = total_cost +. result.node_cost;}
             in
-            let result = 
+            let result = (* SANK *)
                 let single_lsank_chars_process result (code, lst) =
                     match lst with
                     | [] -> result
@@ -2153,11 +2293,9 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 in
                 List.fold_left single_lsank_chars_process result lsank_chars
             in
-            let result = 
-                (* add character set to result *)
+            let result = (* ML *)
                 let single_ml_group =
                   IFDEF USE_LIKELIHOOD THEN
-                    (* remove new code in structure *)
                     let seperate_data dat =
                         let pairs = dat --> List.map snd --> List.flatten in
                         let fsts = List.map fst pairs and snds = List.map snd pairs in
@@ -2168,14 +2306,17 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                         | all_data ->
                             let ws,cs = seperate_data all_data in
                             let spec = 
-                                match Hashtbl.find (!data).Data.character_specs 
-                                                   (List.hd cs)
-                                with
+                                match Hashtbl.find (!data).Data.character_specs
+                                                    (List.hd cs) with
                                 | Data.Static x -> x 
                                 | _ -> assert false
                             in
                             let c = 
-                                cs --> List.map (Hashtbl.find tcharacters)
+                                cs --> List.map 
+                                        (fun x -> 
+                                            try Hashtbl.find tcharacters x
+                                            with | Not_found -> 
+                                                failwithf "Couldn't find char %d" x)
                                    --> List.map extract_stat (* bitset * code *)
                                    --> Array.of_list
                                    --> MlStaticCS.of_parser spec (Array.of_list ws)
@@ -2200,34 +2341,32 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let () = current_snapshot "Finished taxon" in
             result :: acc
 
-let node_contents_compare a b =         (* sets? *)
-    match a, b with
+let node_contents_compare a b = match a, b with
     | Nonadd8 _ , Nonadd8 _
     | Nonadd16 _, Nonadd16 _
     | Nonadd32 _, Nonadd32 _
     | Add _     , Add _
     | Sank _    , Sank _
-    | Dynamic _     , Dynamic _
-    | Kolmo _     , Kolmo _
+    | Dynamic _ , Dynamic _
+    | Kolmo _   , Kolmo _
     | StaticMl _, StaticMl _
-    | Set _     , Set _      -> 0
-
-    | Nonadd8 _ , _          -> (-1)
-    | _         , Nonadd8 _  -> ( 1)
-    | Nonadd16 _, _          -> (-1)
-    | _         , Nonadd16 _ -> ( 1)
-    | Nonadd32 _, _          -> (-1)
-    | _         , Nonadd32 _ -> ( 1)
-    | Add _     , _          -> (-1)
-    | _         , Add _      -> ( 1)
-    | Sank _    , _          -> (-1)
-    | _         , Sank _     -> ( 1)
-    | Dynamic _     , _          -> (-1)
-    | _         , Dynamic _      -> ( 1)
-    | Kolmo _, _ -> (-1)
-    | _, Kolmo _ -> (1)
-    | StaticMl _, _ -> (-1)
-    | _, StaticMl _ -> (1)
+    | Set _     , Set _      ->  0 (* Sets correct? *)
+    | Nonadd8 _ , _          -> -1
+    | _         , Nonadd8 _  ->  1
+    | Nonadd16 _, _          -> -1
+    | _         , Nonadd16 _ ->  1
+    | Nonadd32 _, _          -> -1
+    | _         , Nonadd32 _ ->  1
+    | Add _     , _          -> -1
+    | _         , Add _      ->  1
+    | Sank _    , _          -> -1
+    | _         , Sank _     ->  1
+    | Dynamic _ , _          -> -1
+    | _         , Dynamic _  ->  1
+    | Kolmo _   , _          -> -1
+    | _         , Kolmo _    ->  1
+    | StaticMl _, _          -> -1
+    | _         , StaticMl _ ->  1
 
 
 (** [structure_into_sets data nodes] reads the complex terminal structure
@@ -2368,16 +2507,25 @@ let load_data ?(silent=true) ?(classify=true) data =
         and kolmogorov = List.filter is_mem data.Data.kolmogorov
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
+
+        let has_dynamic = 
+            List.fold_left
+                (fun acc code -> 
+                    match Hashtbl.find data.Data.character_specs code with
+                    | Data.Dynamic {Data.state = state} when state = `Ml -> true
+                    | _ -> acc)
+                (false)
+                (dynamics)
+        in
         current_snapshot "start nonadd set2";
         let n8 = make_set_of_list n8
         and n16 = make_set_of_list n16
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
-        let cost_mode = 
-            match static_ml with
-            | [] -> `Parsimony
-            | _  -> `Likelihood
+        let cost_mode = match static_ml, has_dynamic with
+            | [], false -> `Parsimony
+            |  _,_      -> `Likelihood
         in
         current_snapshot "end nonadd set2";
         let r = 
@@ -2392,6 +2540,7 @@ let load_data ?(silent=true) ?(classify=true) data =
             All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
             data.Data.taxon_codes 0 
         in
+(*        Printf.printf "TAXONS: %d\n%!" ntaxa;*)
         let st, finalize = 
             if not silent then
                 let status = 
@@ -2407,14 +2556,10 @@ let load_data ?(silent=true) ?(classify=true) data =
             else (fun () -> ()), (fun () -> ())
         in
         let res = 
-            All_sets.IntegerMap.fold (fun x _ acc -> 
-                try 
-                    let res = generate_taxon x acc in
-                    st ();
-                    res
-                with 
-                Not_found -> acc)
-            data.Data.taxon_codes []
+            All_sets.IntegerMap.fold 
+                (fun x _ acc -> 
+                    let res = generate_taxon x acc in st (); res)
+                data.Data.taxon_codes []
         in
         finalize ();
         res
@@ -2532,7 +2677,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           Dynamic {preliminary = res; final = res; 
                    cost = (mine.weight *.  cost);
                    sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = None,None}
+                   weight = mine.weight; time = mine.time}
           (*
     | Kolmo parent, Kolmo mine ->
              Do we need this only for dynamic characters? I will first get it
@@ -3654,17 +3799,6 @@ let compare_downpass = compare_data_preliminary
 
 let set_node_cost a b = { b with node_cost = a }
 
-let extract_time nd = 
-    IFDEF USE_LIKELIHOOD THEN
-        let rec t_filter chs = match chs with
-            | [] -> []
-            | StaticMl a :: ttail -> a.time :: t_filter ttail
-            | _ :: ttail -> t_filter ttail in
-        let lst = nd.characters in t_filter lst 
-    ELSE
-        []
-    END
-
 module Standard : 
     NodeSig.S with type e = exclude and type n = node_data and type other_n =
         node_data =
@@ -3682,6 +3816,7 @@ module Standard :
         let character_costs _ = character_costs
         let get_characters _ = get_characters_of_type
         let median = median
+        let combine = combine
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let tree_size _ = tree_size
@@ -3857,7 +3992,10 @@ let total_cost_of_type t n =
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
         | Dynamic x, t -> 
                 (match x.preliminary, t with
-                | DynamicCS.SeqCS _, `Seq -> acc +. (x.sum_cost *. x.weight)
+                | DynamicCS.MlCS _, `Ml -> 
+                        acc +. (x.cost)
+                | DynamicCS.SeqCS _, `Seq ->
+                        acc +. (x.sum_cost *. x.weight)
                 | DynamicCS.BreakinvCS _, `Breakinv -> 
                         acc +. (x.sum_cost *.  x.weight)
                 | DynamicCS.ChromCS _, `Chrom -> 

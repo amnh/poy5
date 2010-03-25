@@ -35,8 +35,7 @@ module type S = sig
     * downpass defined states are named the "preliminary" states in most
     * parsimony related literature. At the beginning, there is one vertex that
     * has to use the same preliminary and final states (usually the root), so
-    * the fix_preliminary function assigns the preliminary states as final too.
-    * *)
+    * the fix_preliminary function assigns the preliminary states as final too. *)
     val fix_preliminary : n -> n
 
     (** [distance a b] calculates the distance between the nodes [a] and [b]. *)
@@ -53,6 +52,10 @@ module type S = sig
     * updates the final_assignment for the specified direction. *)
     val final_states : int option -> n -> n -> n -> n -> n
 
+
+    (** [combine node_a node_b] combine two nodes in a particular fashion. *)
+    val combine : n -> n -> n
+
     (** [uppass_heuristic pardata partime cur a b] updates a node in three
      * directions in AllDirF. In One Direction and Standard we call the
      * final_states functions --which used to be `median_3`. This function will
@@ -68,7 +71,7 @@ module type S = sig
     val apply_time : bool -> n -> n -> n
 
     (** [using_likelihood x] -> bool, if all chracters are likelihood **)
-    val using_likelihood : n -> bool
+    val using_likelihood : [`Static | `Dynamic | `Either] -> n -> bool
 
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list
@@ -177,7 +180,8 @@ module type S = sig
     * updated [d] that holds the information of the nodes created. The function
     * can optionally take two labled arguments, the list of codes of the [taxa]
     * to be loaded (then the list only contains those taxa), or the list of the
-    * [codes] of the characters that are to be loaded. *)
+    * [codes] of the characters that are to be loaded.
+    * MAKE SURE THE DATA IS CATEGORIZED by, (Data.categorize data) *)
     val load_data : 
         ?silent:bool -> (* ?taxa:(int list) -> ?codes:(int list) -> *)
             ?classify:bool -> Data.d -> Data.d * (n list)

@@ -108,6 +108,8 @@ module OldHennig : sig
 
         val set_tcm : s -> int array array -> s
 
+        val set_likelihood_model : MlModel.model option -> s -> s
+
         (** Get the assigned weight to a character *)
         val get_weight : s -> int
 
@@ -141,6 +143,8 @@ module OldHennig : sig
         val set_unordered : s -> s
 
         val set_sankoff : s -> int array array -> s
+
+        val print : s -> unit 
     end
 
     (** [of_channel x] takes as input a channel_in of text containing the

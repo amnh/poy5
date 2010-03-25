@@ -80,7 +80,7 @@ module OrderedTuple = struct
     let compare (a, _) (b, _) = a - b
 end
 
-module AssList = Set.Make (OrderedTuple)
+module AssocList = Set.Make (OrderedTuple)
 
 type cg = (unit -> int)
 
@@ -106,7 +106,7 @@ let create_ias (state : dyna_state_t) s code cg =
     and hom_acc = Hashtbl.create 1667 in
     let order_lst = ref [] in
     let add_codes pos =
-        if (pos = 0) && (state = `Seq) then ()
+        if (pos = 0) && ((state = `Seq) || (state = `Ml)) then ()
         else begin
             let code = cg () in
             Hashtbl.add code_acc pos code;
@@ -157,6 +157,50 @@ let print_debug a' b' a b m =
     Sequence.Clip.Align.print_backtrack a.seq b.seq m;
     *)
     printem "\n"
+
+(* print seq *)
+let print_seq seq = 
+    let single (xxx:Methods.ia_seq) : unit = 
+        match xxx with
+            | `DO x | `First x | `Last x ->
+                output_string stdout "[";
+                Array.iter (fun y -> Printf.printf "[%d]" y) x;
+                output_string stdout "]"
+    in
+    List.iter
+    (fun (d,seq) ->
+        Printf.printf "%d --" d;
+        List.iter
+            (fun each -> 
+                All_sets.IntegerMap.iter
+                    (fun k v -> 
+                        Printf.printf "%d --" k;
+                        Array.iter (fun v -> single v) v;
+                        print_newline ()) 
+                    each)
+            seq)
+    seq
+
+let print_indel indels = 
+    let codes c =
+        List.fold_left 
+            (fun a d -> a^", "^(string_of_int d))
+            "" (Sexpr.to_list c)
+    in
+    List.iter
+      (fun y -> 
+        List.iter
+          (fun x ->
+            Sexpr.iter
+              (function
+                | `Single (s,chars,l,di,cs) ->
+                    Printf.printf "%s in %s: starting at %d of length %d with %s\n%!"
+                        (match di with | `Deletion -> "Deletion" | `Insertion -> "Insertion")
+                        (codes cs) s l chars 
+                | `Empty | `Set _ -> ())
+              x)
+          y)
+      indels
 
 let print_algn_debug = false
 let print_anc_debug = false
@@ -254,7 +298,7 @@ let calculate_indels a b alph b_children =
 (* TODO CHILDREN *)
 let ancestor calculate_median state prealigned all_minus_gap a b 
             codea codeb cm alph achld bchld = 
-   (* if print_anc_debug then*)
+   if print_anc_debug then
         Status.user_message Status.Information
         ("The ancestors of " ^ string_of_int codea ^ " and " ^ string_of_int codeb);
     let a, b, mincode = 
@@ -274,8 +318,8 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     in
     let create_gaps len = 
         Sequence.Clip.init kind (fun _ -> gap) len 
-    and aempty = (Sequence.Clip.is_empty a.seq gap) && (state = `Seq)
-    and bempty = (Sequence.Clip.is_empty b.seq gap) && (state = `Seq) in
+    and aempty = (Sequence.Clip.is_empty a.seq gap) && ((state = `Seq) || (state = `Ml))
+    and bempty = (Sequence.Clip.is_empty b.seq gap) && ((state = `Seq) || (state = `Ml)) in
     let a', b', nogap, indels, clip_length =
         let anb_indels = `Set [a.indels; b.indels] in
         let a', b', _, nogap, indels, clip_length =
@@ -524,6 +568,11 @@ let ancestor_sequence prealigned calculate_median all_minus_gap
     ancestor calculate_median `Seq prealigned all_minus_gap
     a_seq b_seq acode bcode cm alpha achld bchld) a_ls b_ls
 
+let ancestor_likelihood prealigned calculate_median all_minus_gap 
+        acode bcode achld bchld a_ls b_ls cm alpha chrom_pam =
+    Array_ops.map_2 (fun a_seq b_seq ->
+    ancestor calculate_median `Ml prealigned all_minus_gap
+    a_seq b_seq acode bcode cm alpha achld bchld) a_ls b_ls
 
 (* [ancestor_chrom prealigned calculate_median all_minus_gap acode bcode 
 *  achld bchld a b cm alpha chrom_pam] merges the implied alignments of two clades and 
@@ -1174,11 +1223,11 @@ let present_absent_alph =
     [("present", 1, None); ("absent", 2, None)] 
     "absent" None Alphabet.Sequential
 
-(* A function that analyzes a cost matrix and an alphabet and
-* generates a pair of functions f and g, such that f converts 
-* a state into a list of character states, and g converts a state into it's
-* appropriate Parser.Hennig.Encoding.s *)
-let analyze_tcm tcm alph =
+(* A function that analyzes a cost matrix, likelihood model, and an alphabet
+ * and generates a pair of functions f and g, such that f converts 
+ * a state into a list of character states, and g converts a state into its
+ * appropriate Parser.Hennig.Encoding.s *)
+let analyze_tcm tcm model alph =
     let gap = Alphabet.get_gap alph 
     and all = Alphabet.get_all alph in
     let for_sankoff =
@@ -1314,8 +1363,9 @@ let analyze_tcm tcm alph =
             let all = extract_all all in
             let encoding = 
                 alph,
-                (Parser.OldHennig.Encoding.set_weight
-                Parser.OldHennig.Encoding.dna_encoding weight)
+                (Parser.OldHennig.Encoding.set_likelihood_model model
+                    (Parser.OldHennig.Encoding.set_weight
+                        Parser.OldHennig.Encoding.dna_encoding weight))
             in
             let to_parser is_missing states acc = 
                 match is_missing, states with
@@ -1327,11 +1377,12 @@ let analyze_tcm tcm alph =
     | `AllOneGapSame (subsc, gapcost) ->
             let present_absent = 
                 present_absent_alph,
-                (Parser.OldHennig.Encoding.gap_encoding gapcost)
+                    (Parser.OldHennig.Encoding.gap_encoding gapcost)
             and subs = 
                 alph,
-                (Parser.OldHennig.Encoding.set_weight
-                Parser.OldHennig.Encoding.dna_encoding subsc)
+                (Parser.OldHennig.Encoding.set_likelihood_model model
+                    (Parser.OldHennig.Encoding.set_weight
+                        Parser.OldHennig.Encoding.dna_encoding subsc))
             in
             let notgap = lnot gap in
             (* We assume we have dna sequences *)
@@ -1360,9 +1411,10 @@ let analyze_tcm tcm alph =
             * *)
             let subs = 
                 alph,
-                (Parser.OldHennig.Encoding.set_weight
-                Parser.OldHennig.Encoding.dna_encoding
-                subsc)
+                (Parser.OldHennig.Encoding.set_likelihood_model model
+                    (Parser.OldHennig.Encoding.set_weight
+                        Parser.OldHennig.Encoding.dna_encoding
+                        subsc))
             in
             let notgap = lnot gap in
             let all = notgap land (extract_all all) in
@@ -1421,6 +1473,7 @@ let analyze_tcm tcm alph =
                 let res = Parser.OldHennig.Encoding.default () in
                 let res = Parser.OldHennig.Encoding.set_min res 0 in
                 let res = Parser.OldHennig.Encoding.set_max res (size - 1) in
+                let res = Parser.OldHennig.Encoding.set_likelihood_model model res in
                 let set = 
                     let rec add_consecutive_integers cur max acc = 
                         if cur = max then acc
@@ -1517,7 +1570,7 @@ module type S = sig
         tree -> Methods.implied_alignment list
 
     val to_static_homologies : bool ->
-        (tree -> int list -> tree) ->
+        (tree -> int list -> tree) -> bool -> 
             bool  -> Methods.characters -> Data.d -> tree -> Data.d
 
 end
@@ -1581,16 +1634,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                  ) 
                  data  
             in
-            AssList.singleton (taxon_id, data), data
+            AssocList.singleton (taxon_id, data), data
         in
         let convert_node parent ptree _ id _ =
             let data = Ptree.get_node_data id ptree in
             let taxon_id = Node.taxon_code data in
-            let data = 
-                let par =                     
-                    match parent with
+            let data =
+                let par = match parent with
                     | Some _ -> parent
-                    | None -> Some (Ptree.get_parent taxon_id ptree)
+                    | None ->
+                        try Some (Ptree.get_parent taxon_id ptree)
+                        with | _ -> None 
                 in
                 if Tree.is_leaf id ptree.Ptree.tree then
                     (* In a leaf we have to do something more complex, if we are
@@ -1616,6 +1670,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 let ancestor_f =
                     assert (x.state = y.state);
                     match x.state with
+                    | `Ml -> ancestor_likelihood false
                     | `Seq ->  ancestor_sequence false
                     | `Chromosome -> ancestor_chrom true
                     | `Annotated -> ancestor_annchrom true
@@ -1641,13 +1696,13 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
 
             
-            let unionresult = AssList.union ac bc in
+            let unionresult = AssocList.union ac bc in
 
             let map2result = List.map2 ancestor_builder a b in
             
             unionresult, map2result
                 (*
-            AssList.union ac bc, List.map2 ancestor_builder a b
+            AssocList.union ac bc, List.map2 ancestor_builder a b
                 *)
             
             in 
@@ -1656,7 +1711,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         | Tree.Single self -> 
                 let a, b = convert_node None ptree () self ([], []) in
                 Status.finished st;
-                AssList.elements a, b
+                AssocList.elements a, b
         | _ ->
               let self, other, root  =      
                   let root = Ptree.get_component_root handle ptree in  
@@ -1670,7 +1725,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             Ptree.post_order_node_with_edge_visit 
                             (convert_node None ptree) join_2_nodes 
                             (Tree.Edge (self, other)) ptree
-                            (AssList.empty, [])
+                            (AssocList.empty, [])
                         in 
                         let  a' = 
                             let new_ptree = 
@@ -1773,7 +1828,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                       if Tree.is_leaf code ptree.Ptree.tree then
                           assoc :: acc
                       else acc) []
-                      (AssList.elements x)
+                      (AssocList.elements x)
               in
               cleanedup, y
 
@@ -1809,7 +1864,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
  (* TODO ADD something to pick correctly the chromosome case *)
     let convert_a_taxon kind fi_ias_arr tax_ias_arr =
         match kind with 
-        | `Seq ->
+        | `Ml | `Seq ->
                 let res =
                     Array_ops.map_2 (fun (len, remap, recode) ias ->
                     let column code = 
@@ -1911,12 +1966,11 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         list (of characters) ) list (of handles) *)
         let res = 
             Handles.fold 
-            (fun (x : int) acc -> 
-                (of_tree_handle all_but_gap cg x tree) :: acc) 
-            (Tree.get_handles tree.Ptree.tree) []
+                (fun (x : int) acc ->
+                    (of_tree_handle all_but_gap cg x tree) :: acc) 
+                    (Tree.get_handles tree.Ptree.tree)
+                    []
         in
-
-        
         let indel_blocks = 
             List.map (fun (_, x) -> 
                 (List.map (fun x -> 
@@ -2052,7 +2106,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                      (fun char_code alied_seq ->
                          let char_state = Codes.find char_code !char_states in 
                          match char_state with 
-                         | `Seq | `Annotated | `Breakinv -> alied_seq
+                         | `Ml | `Seq | `Annotated | `Breakinv -> alied_seq
                          | `Chromosome | `Genome ->
                                  let break_map = find_break_map () in
                                  let alied_seq = Array.map (function `DO x |
@@ -2156,9 +2210,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
 
 
 
-    let ia_to_parser_compatible data imtx =
-        match imtx with
-        | [(all_taxa, all_blocks), dum_chars] ->
+    let ia_to_parser_compatible (data:Data.d) (imtx:Methods.implied_alignment) =
+        let single_ia_to_parser main_acc ((all_taxa, all_blocks), dum_chars) =
               let process_each = fun (acc, enc, clas) (taxcode, sequence) ->
                     let preprocess_sequence alph x =
                         let res = ref `Missing in
@@ -2180,15 +2233,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     * function that will convert an observed state into it's
                     * appropriate Parser.t *)
                     let sequence, transform_functions = 
-                        List.fold_left (fun acc s ->
-                            All_sets.IntegerMap.fold
+                        List.fold_left 
+                            (fun acc s ->
+                              All_sets.IntegerMap.fold
                                 (fun c s_arr (acc, funs) -> 
                                     let alph = Data.get_alphabet data c in
+                                    let model = Data.get_model_opt data c in
                                     let funs =
                                         if All_sets.IntegerMap.mem c funs then funs
                                         else begin
                                             let tcm = Data.get_sequence_tcm c data in
-                                            let mc, f, g = analyze_tcm tcm alph in
+                                            let mc, f, g = analyze_tcm tcm model alph in
                                             All_sets.IntegerMap.add c (mc, f, g) funs
                                         end 
                                     in
@@ -2198,11 +2253,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             c, (mis_sta, s)) 
                                         s_arr 
                                     in 
-                                    List.rev_append (Array.to_list s_arr') acc, funs)  
+                                    List.rev_append (Array.to_list s_arr') acc, funs)
                                 s acc)
-                        ([], All_sets.IntegerMap.empty) sequence 
+                            ([], All_sets.IntegerMap.empty)
+                            sequence 
                     in
-                    let clas, res, encf = 
+                    let (clas: matrix_class), 
+                        (res: FileContents.t list), 
+                        (encf:(Alphabet.a * Parser.OldHennig.Encoding.s) list)  = 
+
                         List.fold_left 
                         (fun (_, acc, acc2) (code, (is_missing, s)) -> 
                             let clas, to_parser, to_encoding = 
@@ -2283,7 +2342,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                             `Exists
                                       | _ -> `Missing
                                   end 
-                            in  
+                            in
                             let s = 
                                 match s with
                                 | `DO x | `First x | `Last x -> x
@@ -2292,7 +2351,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             (Array.fold_right (to_parser is_missing) s acc), 
                             (Array.fold_right to_encoding s acc2))
                         (`AllSankoff None, [], []) sequence 
-                    in 
+                    in
                     let name = 
                         try Data.code_taxon taxcode data with
                         | Not_found -> (string_of_int taxcode) 
@@ -2310,7 +2369,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 in
                                 Some encf), clas
                 in
-                (match List.fold_left process_each ([], None, `AllSankoff None) all_taxa with
+                (match List.fold_left process_each main_acc all_taxa with
                 | r, Some enc, clas -> 
                         let arr = 
                             Array.of_list enc, (List.map (fun (x, y) ->
@@ -2333,15 +2392,44 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                     all_blocks
                             | _ -> arr
                         in
-
                         let (a,b) = List.fold_left
                                     (post_process_dum_cost data) (a,b) dum_chars
                         in
-
                         a, b, []
                 | [], _, _ -> [||], [], []
                 | _, None, _ -> failwith "How is this possible?")
-        | _ -> failwith "ImpliedAlignment.ia_to_parser_compatible"
+        in
+        let all = 
+            List.map (single_ia_to_parser ([], None, `AllSankoff None))
+                     (imtx)
+        in
+(*        List.iter*)
+(*            (fun (opt,lst,mtrx) ->*)
+(*                let () =*)
+(*                    Printf.printf "FileContents: %!";*)
+(*                    List.iter (fun (_,str) -> Printf.printf "%s, " str) lst;*)
+(*                    print_newline () in*)
+(*                let () = *)
+(*                    Printf.printf "%d Encodings\n%!" (Array.length opt);*)
+(*                    Array.iter (fun (a,e) -> Parser.OldHennig.Encoding.print e;) opt;*)
+(*                    print_newline ()*)
+(*                in*)
+(*                let () =*)
+(*                    Printf.printf "Matrix: %!";*)
+(*                    List.iter*)
+(*                        (function*)
+(*                            | `AllOne x -> Printf.printf "AllOne %d, %!" x*)
+(*                            | `AllOneGapSame (x,y) -> *)
+(*                                Printf.printf "AllOneGapSame (%d,%d), %!" x y*)
+(*                            | `AffinePartition (x,y,z) ->*)
+(*                                Printf.printf "AffinePartition (%d,%d,%d),%!" x y z*)
+(*                            | `AllSankoff _ -> Printf.printf "AllSankoff,%!")*)
+(*                        mtrx;*)
+(*                    print_newline ()*)
+(*                in*)
+(*                ())*)
+(*            all;*)
+        all
 
     let update_ia_encodings (encs, species, trees) =
         let add_states int acc =
@@ -2374,20 +2462,31 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let arr = Array.mapi updater encs in
         arr, species, trees
 
-    let to_static_character ?(separator=":") remove_non_informative character iamtx data = 
+    (* create an Parser.OldHennig.encoding_spec, then produce static_spec *)
+    let to_static_character ?(separator=":") disjoint remove_non_informative
+                                character (iamtxs:Methods.implied_alignment) (data:Data.d) =
         let st = 
             Status.create "Static Approximation" None 
             "Converting implied alignments to static characters"
         in
-        let res = (ia_to_parser_compatible data iamtx) in
-        let (a, b, c) = 
-            if remove_non_informative then update_ia_encodings res 
+        let res = 
+            let encodings = ia_to_parser_compatible data iamtxs in
+(*            if disjoint then *)
+(*                combine_parser_compatible encodings*)
+(*            else *)
+            match encodings with
+            | [single] -> single
+            |    _     -> failwith "Disjoint tree in static approx"
+        in
+        let (a, b, c) =
+            if remove_non_informative then update_ia_encodings res
             else res
         in
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
-            Parser.OldHennig.to_new_parser ~separator character (Some alphabets) (encodings, b, c)
+            Parser.OldHennig.to_new_parser ~separator character
+                                            (Some alphabets) (encodings, b, c)
         in
         Status.finished st;
         character, res
@@ -2419,7 +2518,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                          kind,
                          (if 1 = Cost_matrix.Two_D.combine tcm then
                             fun x -> x land ((lnot gap) land all)
-                         else fun x -> x), filter_fn tree [x]) codes
+                         else fun x -> x), filter_fn tree [x]) 
+                    codes
             in
             List.map of_tree filtered_trees
         in
@@ -2479,22 +2579,24 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         codes
     
-    let to_static_homologies ignore filter_fn remove_noninformative 
-            (chars : Methods.characters)  data tree = 
+    let to_static_homologies ignore filter_fn disjoint remove_noninformative 
+                                (chars : Methods.characters)  data tree = 
         let codes = get_char_codes chars data in
         let names = List.map (fun x -> Data.code_character x data) codes in
         let all_to_add = 
             List.fold_left (fun acc code -> 
                 let prefix = Data.code_character code data in
-                let _, ia = 
+                let _, ia =
                     aux_create_implied_alignment filter_fn [code] data tree 
                 in
+(*                List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
                 assert (1 = List.length ia);
                 let ia = List.hd ia in
-
-                let name = prefix in
                 let separator = ":ia:" in
-                (to_static_character ~separator remove_noninformative name ia data) :: acc) 
+                let res = 
+                    to_static_character ~separator disjoint remove_noninformative prefix ia data
+                in
+                (Some code, res) :: acc )
             []
             codes
         in

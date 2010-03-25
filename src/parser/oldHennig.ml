@@ -408,9 +408,32 @@ type encoding_spec =
         active : bool;
         ordered : ordtype;
         cost_matrix : int array array;
+        likelihood_model : MlModel.model option;
         observed_used : mapping_type;
         used_observed : mapping_type;
     }
+
+let print_encoding_spec s = 
+    let str_of_mapping = function
+        | Do_Nothing -> "nothing"
+        | Do_Ordered _ -> "ordered"
+        | Do_Unordered _ -> "unordered"
+        | Do_Sankoff -> "sankoff"
+    in
+    Printf.printf ("Max: %d\t Min: %d\n"^^
+                   "Weight: %d\t Active: %b\n"^^
+                   "Type: %s\tModel?: %b\n"^^
+                   "ObservedUsed?: %s\n"^^
+                   "UsedObserved?: %s\nSets: ")
+        s.max s.min
+        s.weight s.active
+        (match s.ordered with | Is_ordered -> "ordered"
+            | Is_unordered -> "unordered" | Is_sankoff -> "sankoff")
+        (match s.likelihood_model with | Some _ -> true | None -> false)
+        (str_of_mapping s.observed_used)
+        (str_of_mapping s.used_observed);
+        All_sets.Integers.iter (fun k -> Printf.printf "%d, " k) s.set;
+        print_newline ()
 
 let dna_encoding = 
     let codes = 
@@ -433,6 +456,7 @@ let dna_encoding =
         active = true;
         ordered = Is_unordered;
         cost_matrix = [||];
+        likelihood_model = None;
         observed_used = Do_Nothing;
         used_observed = Do_Unordered used_observed;
     }
@@ -528,6 +552,7 @@ let default_encoding_specs _ =
         active = true;
         ordered = Is_ordered;
         cost_matrix = [||];
+        likelihood_model = None;
         observed_used = Do_Nothing;
         used_observed = Do_Nothing;
     }
@@ -866,6 +891,7 @@ module Encoding = struct
     let dna_encoding = dna_encoding
     (* Encoding specification *)
     let default = default_encoding_specs
+    let print = print_encoding_spec
     let get_min x = x.min
     let get_max x = x.max
     let set_min x y = { x with min = y }
@@ -894,6 +920,8 @@ module Encoding = struct
         | Do_Ordered a | Do_Unordered a -> Some a 
         | Do_Nothing -> None
         | Do_Sankoff -> None
+    let set_likelihood_model model x =
+        {x with likelihood_model = model;}
     let set_used_observed item x = 
         {x with used_observed = item }
     let to_string enc = 
@@ -1262,12 +1290,15 @@ let to_new_spec ?(separator=":") filename alph spec pos =
         { newspec with Nexus.File.st_weight = float_of_int
         spec.weight } 
     in
-    match spec.ordered with
-    | Is_unordered  -> newspec
-    | Is_ordered -> 
+    match spec.ordered,spec.likelihood_model with
+    | _, Some model ->
+        { newspec with
+            Nexus.File.st_type = Nexus.File.STLikelihood model }        
+    | Is_unordered, _ -> newspec
+    | Is_ordered, _ -> 
             { newspec with 
                 Nexus.File.st_type = Nexus.File.STOrdered }
-    | Is_sankoff -> 
+    | Is_sankoff, _ -> 
             { newspec with 
                 Nexus.File.st_type = Nexus.File.STSankoff spec.cost_matrix }
 

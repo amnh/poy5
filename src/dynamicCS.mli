@@ -73,6 +73,7 @@ exception No_Union
 (** A dynamic character type. 'a can be SeqCS, ChromCS, BreakCS, GenomeCS ...*)
 type t = 
     | SeqCS  of SeqCS.t
+    | MlCS of MlDynamicCS.t
     | BreakinvCS of  BreakinvCS.t 
     | ChromCS of ChromCS.t 
     | AnnchromCS of AnnchromCS.t
@@ -126,6 +127,9 @@ val union : t -> u -> u -> u
 val cardinal_union : u -> int
 val poly_saturation : u -> int -> float
 
+(** combine a dynamic and static character set *)
+val combine : t -> MlStaticCS.t -> t
+
 (** [of_array spec genome_arr code taxon num_taxa] 
 * creates a dynamic character set from genome array [genome_arr] *)
 val of_array :
@@ -142,7 +146,7 @@ val of_list :
 
 (** [median a b] creates the median set between dynamic 
 * character sets [a] and [b] *)
-val median : int -> t -> t -> t
+val median : int -> t -> t -> float option -> float option -> t
 
 (** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state
  * which is closest to [p] among those available in [n]. Useful for tree length
@@ -171,7 +175,7 @@ val median_3 : t -> t -> t -> t -> t
 (* Like [distance] but calculates it only 
 * if the type of the characters match one of those listed. *)
 val distance_of_type : 
-    [`Seq | `Breakinv | `Chrom | `Annchrom | `Genome] list  -> float -> t -> t -> float
+    [`Seq | `Ml | `Breakinv | `Chrom | `Annchrom | `Genome] list  -> float -> t -> t -> float
 
 (** [distance_of_type a b] returns the distance between
 * two dynamic character sets [a] and [b] *)
@@ -184,6 +188,9 @@ val distance_union : u -> u -> float
 (** [to_string a] returns dynamic character set [a] 
 * into the string format *)
 val to_string : t -> string
+
+(* name of the character type *)
+val name_string : t -> string
 
 (* [dist_2 delta n a b] calculates the cost of joining 
 * the node containing  chromosome character set [n]

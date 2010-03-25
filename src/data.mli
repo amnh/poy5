@@ -36,6 +36,8 @@ type parsed_trees = ((string option * Tree.Parse.tree_types list) * string * int
 type dyna_state_t = [
 (** A short sequence, no rearrangements are allowed*)
 | `Seq
+| `Ml
+
 (** A long sequence, genes inside are broken down
  * automatically, rearrangements are allowed*)
 | `Chromosome
@@ -137,6 +139,7 @@ type dynamic_hom_spec = {
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : costmatrix_3d;
+    lk_model : MlModel.model option;
     alph : Alphabet.a;
     state : dyna_state_t;
     pam : dyna_pam_t;
@@ -345,6 +348,8 @@ type d = {
     taxon_names : int All_sets.StringMap.t;
     (** A map between the taxon codes and their corresponding names *)
     taxon_codes : string All_sets.IntegerMap.t;
+    (* A mapping of the dynamic data to static character codes *)
+    dynamic_static_codes : (int list) All_sets.IntegerMap.t;
     (** A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
     (* A map between the character names and their corresponding codes *)
@@ -468,7 +473,7 @@ val get_taxa : d -> string list
 
 val add_static_parsed_file : d -> string -> Nexus.File.nexus -> d
 
-val add_multiple_static_parsed_file : d -> (string * Nexus.File.nexus) list -> d
+val add_multiple_static_parsed_file : d -> (int option * (string * Nexus.File.nexus)) list -> d
 
 val get_used_observed : int -> d -> (int, int) Hashtbl.t
 
@@ -487,7 +492,7 @@ val synonyms_to_formatter : d -> Xml.xml
 val to_formatter : Xml.attributes -> d -> Xml.xml 
 
 val get_code_from_characters_restricted :
-    [ `Dynamic |  `NonAdditive | `Likelihood | 
+    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | 
         `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] ->
              d -> characters -> int list
 
@@ -589,6 +594,7 @@ val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
 val has_likelihood: d -> bool 
+val has_dynamic_likelihood: d -> bool
 
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
@@ -602,7 +608,7 @@ type tcm_class =
     | `AllSankoff of (string -> int) option]
 
 val prealigned_characters :   
-    (Cost_matrix.Two_D.m -> Alphabet.a ->
+    (Cost_matrix.Two_D.m -> MlModel.model option -> Alphabet.a ->
               tcm_class * ([> `Exists ] -> int -> FileContents.t list -> 
                   FileContents.t list) *
                  (int -> (Alphabet.a * Parser.OldHennig.Encoding.s) list ->
@@ -655,6 +661,7 @@ val apply_boolean :
 (** [get_model c d] returns the model of the ML character with code [c] in data
 * [d]. If the character is not of type ML, it will raise an exception. *)
 val get_model : int -> d -> MlModel.model
+val get_model_opt : d -> int -> MlModel.model option
 
 (** [min_max_possible_cost a b c d e] applies the functions [a], [b] and [c] in
  * the ordered, unordered, and sankoff characters respectively listed in [d], 

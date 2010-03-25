@@ -35,6 +35,7 @@ exception No_Union
 (** A dynamic character type. 'a can be SeqCS, ChromCS, BreakCS, GenomeCS ...*)
 type t = 
     | SeqCS  of SeqCS.t
+    | MlCS of MlDynamicCS.t
     | BreakinvCS of  BreakinvCS.t 
     | ChromCS of ChromCS.t 
     | AnnchromCS of AnnchromCS.t
@@ -51,6 +52,7 @@ let failwith_todo f_name =
 (** [alpha a] returns the alphabet of dynamic character set [a] *)
 let alpha (a : t) = 
     match a with 
+    | MlCS a -> MlDynamicCS.alph a
     | SeqCS a -> a.SeqCS.alph
     | ChromCS a -> a.ChromCS.alph
     | GenomeCS a -> a.GenomeCS.alph
@@ -61,6 +63,7 @@ let alpha (a : t) =
 *  dynamic character set [a]*)
 let total_cost (a : t) = 
     match a with 
+    | MlCS a -> MlDynamicCS.total_cost a
     | SeqCS a -> a.SeqCS.total_cost
     | ChromCS a -> a.ChromCS.total_cost
     | GenomeCS a -> a.GenomeCS.total_cost
@@ -71,7 +74,7 @@ let total_cost (a : t) =
 *  dynamic character set [a]*)
 let total_recost (a : t) = 
     match a with 
-    | SeqCS a -> 0.
+    | MlCS _ | SeqCS _ -> 0.
     | ChromCS a -> a.ChromCS.total_recost
     | GenomeCS a -> a.GenomeCS.total_recost
     | BreakinvCS a -> a.BreakinvCS.total_recost
@@ -81,7 +84,7 @@ let total_recost (a : t) =
 * subtree whose root contains dynamic character set [a] *)
 let subtree_recost (a : t) = 
     match a with 
-    | SeqCS a -> 0.0
+    | MlCS _ | SeqCS _ -> 0.0
     | ChromCS a -> a.ChromCS.subtree_recost
     | GenomeCS a -> a.GenomeCS.subtree_recost
     | BreakinvCS a -> a.BreakinvCS.subtree_recost
@@ -91,6 +94,7 @@ let subtree_recost (a : t) =
 * of dynamic character set [a] *)
 let c2 (a : t) = 
     match a with 
+    | MlCS a -> MlDynamicCS.get_cm a
     | SeqCS a -> a.SeqCS.heuristic.SeqCS.c2
     | ChromCS a -> a.ChromCS.c2
     | GenomeCS a -> a.GenomeCS.c2
@@ -111,6 +115,7 @@ let chrom_pam (a : t) =
 * dynamic character set [a] *)
 let state (a : t) : Data.dyna_state_t= 
     match a with 
+    | MlCS a -> `Ml
     | SeqCS a -> `Seq
     | ChromCS a -> `Chromosome
     | GenomeCS a -> `Genome
@@ -120,6 +125,7 @@ let state (a : t) : Data.dyna_state_t=
 (** [code a] returns the code of dynamic character set [a] *)
 let code (a : t) = 
     match a with 
+    | MlCS a -> MlDynamicCS.code a
     | SeqCS a -> a.SeqCS.code
     | ChromCS a -> a.ChromCS.code
     | GenomeCS a -> a.GenomeCS.code
@@ -149,7 +155,7 @@ let copy_chrom_map s_ch d_ch =
 * into a set of chromosome arrays *)
 let leaf_sequences (a : t) = 
     match a with 
-    | SeqCS a -> 
+    | MlCS {MlDynamicCS.seq = a} | SeqCS a -> 
             let map = ref IntMap.empty in
             for i = (SeqCS.cardinal a) - 1 downto 0 do
                 map := IntMap.add a.SeqCS.codes.(i)
@@ -243,41 +249,48 @@ let poly_saturation x v =
     (float_of_int polyacc) /. (float_of_int polylen)
 
 
+
+let combine a b = match a with
+    | MlCS a -> MlCS (MlDynamicCS.combine a b)
+    | _ -> a
+
 (** [of_array spec genome_arr code taxon num_taxa] 
 * creates a dynamic character set from genome array [genome_arr] *)
 let of_array spec genome_arr code taxon num_taxa = 
     match spec.Data.state with
-    | `Seq | `Breakinv | `Chromosome as meth ->
+    | `Ml | `Seq as meth ->
+            let seq_arr = 
+                Array.map 
+                (fun (genome_data, genome_code) ->
+                    let seqs = 
+                        Array.map (fun x -> x.Data.seq)
+                        genome_data.Data.seq_arr
+                    in  
+                    (seqs, genome_code)) genome_arr
+            in 
+            let t = SeqCS.of_array spec seq_arr code taxon in
+            begin match meth, spec.Data.lk_model with
+            | `Seq,_ -> SeqCS t
+            | `Ml,Some m -> MlCS (MlDynamicCS.make t m)
+            | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"
+            end
+    | `Breakinv | `Chromosome as meth ->
+            let seq_arr = 
+                Array.map 
+                (fun (genome_data, genome_code) ->
+                    let first_seq = 
+                        genome_data.Data.seq_arr.(0).Data.seq in  
+                    (first_seq, genome_code)) genome_arr
+            in 
             begin match meth with
-            | `Seq -> 
-                    let seq_arr = 
-                        Array.map 
-                        (fun (genome_data, genome_code) ->
-                            let seqs = 
-                                Array.map (fun x -> x.Data.seq)
-                                genome_data.Data.seq_arr
-                            in  
-                            (seqs, genome_code)) genome_arr
+            | `Breakinv -> 
+                    let t = BreakinvCS.of_array spec seq_arr code in
+                    BreakinvCS t
+            | `Chromosome  ->
+                    let t = 
+                        ChromCS.of_array spec seq_arr code taxon num_taxa 
                     in 
-                    let t = SeqCS.of_array spec seq_arr code taxon in
-                    SeqCS t
-            | `Breakinv | `Chromosome as meth ->
-                    let seq_arr = 
-                        Array.map 
-                        (fun (genome_data, genome_code) ->
-                            let first_seq = 
-                                genome_data.Data.seq_arr.(0).Data.seq in  
-                            (first_seq, genome_code)) genome_arr
-                    in 
-                    match meth with
-                    | `Breakinv -> 
-                            let t = BreakinvCS.of_array spec seq_arr code in
-                            BreakinvCS t
-                    | `Chromosome  ->
-                            let t = 
-                                ChromCS.of_array spec seq_arr code taxon num_taxa 
-                            in 
-                            ChromCS t
+                    ChromCS t
             end
     | `Annotated -> 
           let t = AnnchromCS.of_array spec genome_arr code  taxon num_taxa in
@@ -296,9 +309,10 @@ let of_list spec genome_ls =
 
 (** [median a b] creates the median set between dynamic 
 * character sets [a] and [b] *)
-let median code a b =
+let median code a b t1 t2 =
     if debug then Printf.printf "dynamicCs.median\n%!";
-    match a, b with 
+    match a, b with
+    | MlCS a, MlCS b -> MlCS (MlDynamicCS.median code a b t1 t2)
     | SeqCS a, SeqCS b -> SeqCS (SeqCS.median code a b)
     | ChromCS a, ChromCS b -> ChromCS (ChromCS.median2 a b)
     | GenomeCS a, GenomeCS b -> GenomeCS (GenomeCS.median2 a b)
@@ -310,6 +324,8 @@ let median code a b =
 * three dynamic character sets [p], [c1] and [c2] *)
 let median_3 p n c1 c2 =
     match p, n, c1, c2 with 
+    | MlCS p, MlCS n, MlCS c1, MlCS c2 -> 
+          MlCS (MlDynamicCS.median_3 p n c1 c2)
     | SeqCS p, SeqCS n, SeqCS c1, SeqCS c2 -> 
           SeqCS (SeqCS.median_3 p n c1 c2)
     | BreakinvCS p, BreakinvCS n, BreakinvCS c1, BreakinvCS c2 -> 
@@ -332,9 +348,11 @@ let distance_of_type t missing_distance a b =
     and has_chrom = has_t `Chrom 
     and has_gen = has_t `Genome
     and has_break = has_t `Breakinv
+    and has_lk = has_t `Ml
     and has_ann = has_t `Annchrom in
     match a, b with
-    | SeqCS a, SeqCS b when has_seq -> (SeqCS.distance missing_distance a b)
+    | MlCS a, MlCS b when has_lk -> MlDynamicCS.distance missing_distance a b
+    | SeqCS a, SeqCS b when has_seq -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b when has_chrom -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b when has_gen -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b when has_break -> BreakinvCS.distance a b  
@@ -345,7 +363,8 @@ let distance_of_type t missing_distance a b =
 * two dynamic character sets [a] and [b] *)
 let distance missing_distance a b =
     match a, b with   
-    | SeqCS a, SeqCS b -> (SeqCS.distance missing_distance a b)
+    | MlCS a, MlCS b -> MlDynamicCS.distance missing_distance a b
+    | SeqCS a, SeqCS b -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b -> GenomeCS.distance a b  
     | BreakinvCS a, BreakinvCS b -> BreakinvCS.distance a b  
@@ -367,6 +386,7 @@ let distance_union a b =
 * into the string format *)
 let to_string a =
     match a with 
+    | MlCS a -> MlDynamicCS.to_string a
     | SeqCS a -> SeqCS.to_string a
     | BreakinvCS a -> BreakinvCS.to_string a
     | ChromCS a -> ChromCS.to_string a
@@ -374,13 +394,22 @@ let to_string a =
     | AnnchromCS a -> AnnchromCS.to_string a
 
 
+let name_string a = match a with 
+    | MlCS _ -> "Dynamic Likelihood"
+    | SeqCS _ -> "Sequence"
+    | BreakinvCS _ -> "Break Inversion"
+    | ChromCS _ -> "Chromosome"
+    | GenomeCS _ -> "Genome"
+    | AnnchromCS _ -> "Annotated Chromosome"
+
 (* [dist_2 delta n a b] calculates the cost of joining 
 * the node containing  chromosome character set [n]
 * between two nodes containing [a] and [b]. 
 * [a] must be the parent (ancestor) of [b] *)
 let dist_2 delta n a b =
     match n, a, b with 
-    | SeqCS n, SeqCS a, SeqCS b -> (SeqCS.dist_2 delta n a b)
+    | MlCS n, MlCS a, MlCS b -> MlDynamicCS.dist_2 delta n a b
+    | SeqCS n, SeqCS a, SeqCS b -> SeqCS.dist_2 delta n a b
     | ChromCS n, ChromCS a, ChromCS b -> ChromCS.dist_2 n a b
     | GenomeCS n, GenomeCS a, GenomeCS b -> GenomeCS.dist_2 n a b
     | BreakinvCS n, BreakinvCS a, BreakinvCS b -> BreakinvCS.dist_2 n a b
@@ -394,6 +423,7 @@ let dist_2 delta n a b =
 * also in  chromosome character set [c] *)
 let f_codes s c = 
     match s with 
+    | MlCS s -> MlCS (MlDynamicCS.f_codes s c)
     | SeqCS s -> SeqCS (SeqCS.f_codes s c)
     | ChromCS s -> ChromCS (ChromCS.f_codes s c)
     | GenomeCS s -> GenomeCS (GenomeCS.f_codes s c)
@@ -407,6 +437,7 @@ let f_codes s c =
 * also in  chromosome character set [c] *)
 let f_codes_comp s c = 
     match s with 
+    | MlCS s -> MlCS (MlDynamicCS.f_codes_comp s c)
     | SeqCS s -> SeqCS (SeqCS.f_codes_comp s c)
     | ChromCS s -> ChromCS (ChromCS.f_codes_comp s c)
     | GenomeCS s -> GenomeCS (GenomeCS.f_codes_comp s c)
@@ -436,45 +467,39 @@ let rec compare_union a b =
 (** [to_formatter ref_codes attr t parent_t] returns
 * dynamic character set [t] into Tag.output format *) 
 let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list = 
-    match t, parent_t with 
-    | SeqCS t, _ -> begin
-            match parent_t with
-            | None -> SeqCS.to_formatter attr t None d 
-            | Some (SeqCS parent_t) ->  
-                    SeqCS.to_formatter attr t (Some parent_t) d
-            | _ -> failwith "to_formatter in dynamicCS"
-    end
-    | ChromCS t, _  -> begin 
-          match parent_t with 
-          | None ->  ChromCS.to_formatter ref_codes attr t None d
-          | Some (ChromCS parent_t) -> ChromCS.to_formatter ref_codes attr t (Some parent_t) d
-          | _ -> failwith "to_formatter in dynamicCS"
-      end 
-    | AnnchromCS t, _ -> begin
-          match parent_t with 
-          | None ->  AnnchromCS.to_formatter ref_codes attr t None d
-          | Some (AnnchromCS parent_t) -> AnnchromCS.to_formatter ref_codes attr t (Some parent_t) d
-          | _ -> failwith "to_formatter in dynamicCS"
-      end 
-    | BreakinvCS t, __ -> begin
-          match parent_t with 
-          | None ->  BreakinvCS.to_formatter ref_codes attr t None d
-          | Some (BreakinvCS parent_t) ->BreakinvCS.to_formatter ref_codes attr t (Some parent_t) d
-          | _ -> failwith "to_formatter in dynamicCS"
-      end 
-    | GenomeCS t,  _ -> begin
-          match parent_t with
-          | None -> GenomeCS.to_formatter ref_codes attr t None d
-          | Some (GenomeCS parent_t) -> GenomeCS.to_formatter ref_codes attr t (Some parent_t) d
-          | _ -> failwith "to_formatter in dynamicCS"
-      end 
+    match t,parent_t with 
+    | MlCS t, None ->
+            MlDynamicCS.to_formatter attr t None d
+    | MlCS t, Some (MlCS parent_t) ->
+            MlDynamicCS.to_formatter attr t (Some parent_t) d
+    | SeqCS t, None ->
+            SeqCS.to_formatter attr t None d 
+    | SeqCS t, Some (SeqCS parent_t) ->
+            SeqCS.to_formatter attr t (Some parent_t) d
+    | ChromCS t, None ->
+            ChromCS.to_formatter ref_codes attr t None d
+    | ChromCS t, Some (ChromCS parent_t) ->
+            ChromCS.to_formatter ref_codes attr t (Some parent_t) d
+    | AnnchromCS t, None ->
+            AnnchromCS.to_formatter ref_codes attr t None d
+    | AnnchromCS t, Some (AnnchromCS parent_t) ->
+            AnnchromCS.to_formatter ref_codes attr t (Some parent_t) d
+    | BreakinvCS t, None ->
+            BreakinvCS.to_formatter ref_codes attr t None d
+    | BreakinvCS t, Some (BreakinvCS parent_t) ->
+            BreakinvCS.to_formatter ref_codes attr t (Some parent_t) d
+    | GenomeCS t, None ->
+            GenomeCS.to_formatter ref_codes attr t None d
+    | GenomeCS t, Some (GenomeCS parent_t) -> 
+            GenomeCS.to_formatter ref_codes attr t (Some parent_t) d
 
-
+    | _ , _ -> failwith "inconsistent types in DynamicCS.to_formatter"
 
 (** [tabu_distance a_final b_final] returns the 
 * tabu distance between dynamic character set [a_final] and [b_final] *)
 let tabu_distance a_final b_final = 
     match a_final, b_final with 
+    | _, MlCS b_final -> MlDynamicCS.tabu_distance b_final
     | _, SeqCS b_final -> (SeqCS.tabu_distance b_final)
     | ChromCS a_final, ChromCS b_final -> ChromCS.max_distance a_final b_final
     | GenomeCS a_final, GenomeCS b_final -> GenomeCS.max_distance a_final b_final
@@ -493,8 +518,8 @@ let get_active_ref_code t =
     | _ -> IntSet.empty, IntSet.empty
 
 
-let cardinal x =
-    match x with
+let cardinal = function
+    | MlCS x -> MlDynamicCS.cardinal x
     | SeqCS x -> SeqCS.cardinal x
     | ChromCS x -> ChromCS.cardinal x
     | GenomeCS x -> GenomeCS.cardinal x
@@ -506,8 +531,8 @@ let get_sequence_union code x =
     | U_SeqCS x -> SeqCS.Union.get_sequence_union code x
     | U_Others -> failwith "DynamicCS.get_sequence_union"
 
-let encoding enc x =
-    match x with
+let encoding enc x = match x with
+    | MlCS x -> MlDynamicCS.encoding enc x
     | SeqCS x -> SeqCS.encoding enc x
     | _ -> failwith "Unsupported DynamicCS.encoding"
 

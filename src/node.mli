@@ -23,7 +23,7 @@ exception Illegal_argument of string
 
 type to_single = 
     [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
-    `Sank | `Seq | `StaticMl ]
+    `Sank | `Seq | `StaticMl | `Ml ]
 (** A character set with all the information it needs for fast calculations *)
 type 'a r = { 
     preliminary : 'a;    (** Characters of the downpass *)
@@ -108,21 +108,17 @@ val compare_uppass : node_data -> node_data -> int
 * definition. *)
 val compare_downpass : node_data -> node_data -> int
 
-val has_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-            | `Nonadd | `Sank | `Seq | `StaticMl ] list
+val has_to_single : to_single list
 
-val not_to_single : [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-            | `Nonadd | `Sank | `Seq | `StaticMl ] list
-
+val not_to_single : to_single list
 
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
 val distance_of_type :   
     ?para:int option ->
       ?parb:int option ->
-          [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo
-            | `Nonadd | `Sank | `Seq | `StaticMl ] list -> 
-                    float -> node_data -> node_data -> float
+        to_single list -> 
+          float -> node_data -> node_data -> float
 
 (** [dist_2 delta a b c] calculates the cost of joining a vertex [n] between
 * the vertices [a] and [b]. If the function finds that the cost is greated

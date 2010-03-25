@@ -44,6 +44,9 @@ type dyna_state_t = [
     (** A short sequence, no rearrangements are allowed*)
     | `Seq
 
+    (** same as above but for likelihood characters *)
+    | `Ml
+
     (** A long sequence, genes inside are broken automatically, 
     * rearrangements are allowed*)
     | `Chromosome
@@ -166,6 +169,7 @@ type dynamic_hom_spec = {
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
     tcm3d : costmatrix_3d; (*Cost_matrix.Three_D.m;*)
+    lk_model : MlModel.model option;
     alph : Alphabet.a;
     state : dyna_state_t;
     pam : dyna_pam_t;
@@ -361,6 +365,8 @@ type d = {
     taxon_names : int All_sets.StringMap.t;
     (* A map between the taxon codes and their corresponding names *)
     taxon_codes : string All_sets.IntegerMap.t;
+    (* A mapping of the dynamic data to static character codes *)
+    dynamic_static_codes : (int list) All_sets.IntegerMap.t;
     (* A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
     (* A map between the character names and their corresponding codes *)
@@ -456,6 +462,7 @@ let empty () =
         taxon_names = All_sets.StringMap.empty;
         taxon_files = All_sets.StringMap.empty;
         taxon_codes = All_sets.IntegerMap.empty;
+        dynamic_static_codes = All_sets.IntegerMap.empty;
         taxon_characters = create_ht ();
         character_names = create_ht ();
         character_codes = create_ht ();
@@ -590,7 +597,7 @@ let print (data : d) =
                        let  char_name = Hashtbl.find data.character_codes code in 
                        Printf.fprintf stdout "%s -> " char_name; 
                        Array.iter (fun seq -> 
-                                       Printf.fprintf stdout "%i:" seq.code;
+                                       Printf.fprintf stdout "%d:" seq.code;
                                        Sequence.print stdout seq.seq Alphabet.nucleotides;
                                        Printf.fprintf stdout " | "
                                  ) dyna_data.seq_arr;
@@ -605,10 +612,17 @@ let print (data : d) =
         | Dynamic dspec ->
               (match dspec.state with 
                | `Seq -> Printf.fprintf stdout "Seq"
+               | `Ml -> Printf.fprintf stdout "Dynamic ML"
                | `Breakinv -> Printf.fprintf stdout "Breakinv"
                | `Chromosome -> Printf.fprintf stdout "Chromosome"
                | `Genome -> Printf.fprintf stdout "Genome"
                | `Annotated -> Printf.fprintf stdout "Annotated")
+        | Static {Nexus.File.st_type=st_type} ->
+              (match st_type with
+               | Nexus.File.STOrdered -> Printf.fprintf stdout "Ordered"
+               | Nexus.File.STUnordered -> Printf.fprintf stdout "Unordered"
+               | Nexus.File.STLikelihood m -> Printf.fprintf stdout "Static ML"
+               | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff")
         | _ -> Printf.fprintf stdout "Not Dynamic");
 
         print_newline ()
@@ -1183,6 +1197,7 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
             initial_assignment = default_mode;
             tcm2d = tcm;
             tcm3d = tcm3;
+            lk_model = None;
             alph = alphabet;
             state = dyna_state;
             pam = dyna_pam_default;
@@ -1474,7 +1489,7 @@ let branches_to_map data branch_table trees =
 
 (* convert Nexus.File.file_output to Data.d *)
 let gen_add_static_parsed_file do_duplicate data file 
-    (file_out : Nexus.File.nexus) =
+                                ((file_out): Nexus.File.nexus): int array * d =
     let data = 
         if do_duplicate then duplicate data 
         else data
@@ -1491,6 +1506,7 @@ let gen_add_static_parsed_file do_duplicate data file
         in
         Array.map ~f:builder file_out.Nexus.File.characters
     in
+    let new_codes = Array.map fst codes in
     Status.full_report ~msg:"Storing the character specifications" st;
     (* Now we add the codes to the data *)
     Array.iter ~f:(add_static_character_spec data) codes;
@@ -1613,23 +1629,49 @@ let gen_add_static_parsed_file do_duplicate data file
                               file_out.Nexus.File.trees
     in
     Status.finished st;
-    {data with 
-        character_sets = file_out.Nexus.File.csets;
-        branches = tbl;
-    }
+    new_codes,
+        {data with 
+            character_sets = file_out.Nexus.File.csets;
+            branches = tbl; }
 
-let add_static_parsed_file data file triple =
-    gen_add_static_parsed_file true data file triple 
+let add_static_parsed_file (data:d) (file:string) (triple:Nexus.File.nexus) : d =
+    let _,d = gen_add_static_parsed_file true data file triple in d
 
+let print_parsed_data lst = 
+    let print_single (iopt,(str,nexus)) =
+        Printf.printf "%s -- %s"
+            (match iopt with | Some x -> string_of_int x | None -> "none") str;
+        Printf.printf "Taxa: ";
+        Array.iter (fun x -> Printf.printf "%s, "
+                            (match x with | Some x -> x | None -> "none") )
+                  nexus.Nexus.File.taxa;
+        print_newline ();
+        Printf.printf "Data: %d x %d" (Array.length nexus.Nexus.File.matrix)
+                                      (Array.length nexus.Nexus.File.matrix.(0))
+    in
+    List.iter print_single lst
 
 let add_multiple_static_parsed_file data list =
+(*    print_parsed_data list;*)
     let data = duplicate data in
-    let data = 
-        List.fold_left ~f:(fun acc (file, triple) ->
-        gen_add_static_parsed_file false acc file triple)
-        ~init:data list
+    let data,map = 
+        List.fold_left 
+            ~f:(fun (data,map) (code,(file, triple)) ->
+                    let ncodes,data = gen_add_static_parsed_file false data file triple in
+                    match code with
+                    | Some code -> 
+                        (data,All_sets.IntegerMap.add code (Array.to_list ncodes) map)
+                    | None -> (data,map))
+            ~init:(data,data.dynamic_static_codes)
+            list
     in
-    data
+(*    Printf.printf "Applying Static Codes: ";*)
+(*    All_sets.IntegerMap.iter *)
+(*        (fun k vs -> Printf.printf "%d -- " k; *)
+(*                     List.iter (fun x -> Printf.printf " [%d] " x) vs;*)
+(*                     print_newline ())*)
+(*        map;*)
+    { data with dynamic_static_codes = map; }
 
 
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
@@ -2533,7 +2575,7 @@ let create_alpha_c2_breakinvs (data : d) chcode =
 
     let gen_gap_code = max_code + 2 in  
     gen_alpha := (Alphabet.gap_repr, gen_gap_code, None)::!gen_alpha;  
-    gen_alpha := (Alphabet.elt_complement ^ Alphabet.gap_repr, (gen_gap_code + 1), None)::!gen_alpha;     
+    gen_alpha := (Alphabet.elt_complement ^ Alphabet.gap_repr, (gen_gap_code + 1), None)::!gen_alpha;
 
     let gen_com_code = gen_gap_code + 2 in  
     gen_alpha := ("*", gen_com_code, None)::!gen_alpha;  
@@ -3310,6 +3352,12 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
     let kind_lst = 
         match kind with
         | `Dynamic -> data.dynamics
+        | `DynamicLikelihood ->
+            List.filter
+                (fun x -> match Hashtbl.find data.character_specs x with
+                    | Dynamic x when x.state = `Ml -> true
+                    | _ -> false)
+                data.dynamics
         | `NonAdditive ->
                         data.non_additive_1 @
                         data.non_additive_8 @
@@ -3459,6 +3507,16 @@ let get_tcmfile data c =
     | Kolmogorov dspec -> dspec.dhs.tcm
     | _ -> failwith "Data.get_tcmfile"
 
+let get_model_opt data c = 
+    match Hashtbl.find data.character_specs c with
+    | Dynamic dspec -> dspec.lk_model
+    | Static sspec ->
+        begin match sspec.Nexus.File.st_type with
+            | Nexus.File.STLikelihood model -> Some model
+            | _ -> None
+        end
+    | _ -> None
+
 let get_alphabet data c =
     match Hashtbl.find data.character_specs c  with
     | Dynamic dspec -> dspec.alph
@@ -3545,7 +3603,8 @@ let compute_priors data chars u_gap =
     * each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
     let counter = ref 0 in
-    let gap_char = Alphabet.get_gap alph in (* 4, usually *)
+    let gap_char = Alphabet.get_gap alph in
+    let longest = ref 0 and lengths = ref [] in
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
     let taxon_adder _ taxon_chars =
@@ -3553,33 +3612,66 @@ let compute_priors data chars u_gap =
             for i = 0 to size - 1 do
                 priors.(i) <- priors.(i) +. inverse;
             done
-        in
+        and total = ref 0 in
         let adder char_code =
             let (cs, _) = Hashtbl.find taxon_chars char_code in
             incr counter;
             match cs with
             | Stat (_, None) ->
-                    when_no_data_is_loaded priors inverse size
+                when_no_data_is_loaded priors inverse size
+            | Dyna (_, dyna_data ) ->
+                let list_of_packed d =
+                    let rec loop_ c i d = match d land 1 with
+                    | 0 when d = 0 -> c
+                    | 0  -> loop_ c (i+1) (d lsr 1)
+                    | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+                    | _  -> failwith "Data.list_of_packed"
+                    in loop_ [] 0 d
+                in
+                Array.iter
+                    (fun x ->
+                        total := (Sequence.length x.seq) + !total;
+                        for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
+                            let lst = list_of_packed (Sequence.get x.seq i) in
+                            if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
+                                (* No gaps are allowed
+                                   when_no_data_is_loaded priors inverse size *)
+                                assert false
+                            else
+                                let inv = 1.0 /. (float_of_int (List.length lst)) in
+                                List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
+                        done)
+                    dyna_data.seq_arr
             | Stat (_, (Some lst)) -> 
-                    (let lst = 
-                        match lst with
+                    let lst = match lst with
                         | `List x -> x
                         | `Bits x -> BitSet.to_list x
                     in
-                    if ((List.exists (fun x -> x = gap_char) lst) && 
-                        not u_gap) || (lst = []) then
+                    if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
                         when_no_data_is_loaded priors inverse size
                     else
                         let inverse = 1. /. (float_of_int (List.length lst)) in
-                        List.iter (fun x -> priors.(x) <- priors.(x) +.
-                        inverse) lst)
-            | _ -> failwith "Data.compute_priors"
+                        List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
         in
-        List.iter adder chars
+        List.iter adder chars;
+        longest := max !total !longest;
+        lengths := !total :: !lengths
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
     let counter = float_of_int !counter in
-    Array.map (fun x -> x /. counter) priors
+    Array.iter ~f:(fun x -> Printf.printf "[%f]" x) priors;
+    Printf.printf "\nLongest %d\n%!" !longest;
+    if u_gap then begin
+        (* modify the gaps to an estimate *)
+        let total_added_gaps = 
+            float_of_int
+                (List.fold_left ~f:(fun acc x -> (x - !longest) + acc) ~init:0 !lengths)
+        in
+        priors.(gap_char) <- total_added_gaps;
+        Array.map ~f:(fun x -> x /. (counter +. total_added_gaps)) priors
+    end else begin
+        Array.map ~f:(fun x -> x /. counter) priors
+    end
 
 let apply_on_static_chars data chars st_type = 
     (* COPY, COPY the new hashtbl, and the only one being changed *)
@@ -3590,6 +3682,23 @@ let apply_on_static_chars data chars st_type =
             | Static x -> 
                 Hashtbl.replace new_specs code (Static { x with Nexus.File.st_type = st_type})
             | _ -> failwith "Illegal conversion") chars;
+    { data with character_specs = new_specs } --> categorize
+
+let apply_likelihood_model_on_all_chars data char_codes (model:MlModel.model) = 
+    let new_specs = Hashtbl.copy data.character_specs
+    and model_opt = Some model
+    and model_enc = Nexus.File.STLikelihood model in
+    List.iter
+        (fun code -> 
+            match Hashtbl.find new_specs code with
+            | Static x ->
+                Hashtbl.replace new_specs code 
+                                (Static { x with Nexus.File.st_type = model_enc; })
+            | Dynamic x ->
+                Hashtbl.replace new_specs code 
+                                (Dynamic {x with state = `Ml;
+                                                 lk_model = model_opt; })
+            | _ -> failwith "Illegal conversion") char_codes;
     { data with character_specs = new_specs } --> categorize
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
@@ -3615,18 +3724,14 @@ END
 let set_likelihood data
     ((chars,substitution,site_variation,base_priors,use_gap):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
-    let chars = 
-        let chars = `Some (get_chars_codes_comp data chars) in
-        get_code_from_characters_restricted `AllStatic data chars
-    in
-    match chars with
+    match get_chars_codes_comp data chars with
     | [] -> data
     | chars ->
         let data = duplicate data in
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
         (* We get the characters and filter them out to have only static types *)
         let model =
-            let alph_size, _ = verify_alphabet data chars in
+            let alph_size,alph = verify_alphabet data chars in
             let alph_size = if u_gap then alph_size else alph_size -1 in
             let base_priors =
                 match base_priors with
@@ -3729,10 +3834,11 @@ IFDEF USE_LIKELIHOOD THEN
                             base_priors = base_priors;
                             use_gap = use_gap; }
             in
-            MlModel.create (get_alphabet data (List.hd chars)) lk_spec
+            MlModel.create alph lk_spec
         in
         (* We rebuild the specification of all the characters, and categorize them *)
-        apply_on_static_chars data chars (Nexus.File.STLikelihood model)
+        (* apply_on_static_chars data chars (Nexus.File.STLikelihood model)*)
+        apply_likelihood_model_on_all_chars data chars model
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list" 
 END
@@ -4854,18 +4960,26 @@ let number_of_taxa d =
 let has_dynamic d = 
     match d.dynamics, d.kolmogorov with
     | [], [] -> false
-    | _ -> true
+    | _      -> true
 
 let has_likelihood d = 
     match d.static_ml with
     | [] -> false
-    | _ -> true
+    | _  -> true
+
+let has_dynamic_likelihood d = 
+    match d.dynamics with
+    | []      -> false
+    | hd :: _ ->
+        match Hashtbl.find d.character_specs hd with
+        | Dynamic spec when spec.state = `Ml -> true
+        | _                                  -> false
 
 (** Functions to modify the taxon codes *)
 let change_taxon_codes reorder_function data =
     let data = duplicate data in
     (* First we produce a hash table with an randomized reassignment of codes
-    * for the taxa in data *)
+     * for the taxa in data *)
     let htbl =
         let taxon_codes = 
             All_sets.StringMap.fold (fun name code acc -> 
@@ -4882,7 +4996,7 @@ let change_taxon_codes reorder_function data =
         htbl
     in
     (* Now that we have the assignment, we proceed to modify the contents of the
-    * new data. *)
+     * new data. *)
     let find htbl code =
         try Hashtbl.find htbl code with
         | Not_found -> code 
@@ -4934,11 +5048,12 @@ let lexicographic_taxon_codes data =
 (* A function to produce the alignment of prealigned data *)
 let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
     let alph = get_sequence_alphabet code data in
+    let model = get_model_opt data code in
     let gap = Alphabet.get_gap alph in
     let character_name = code_character code data in
     let tcm_case, do_states, do_encoding = 
         let cm = get_sequence_tcm code data in
-        analyze_tcm cm alph
+        analyze_tcm cm model alph
     in
     (* We first define a function that collects all the limits of the gaps so
     * that we can define the gap characters if the gap opening parameter is
@@ -5156,8 +5271,15 @@ let prealigned_characters analyze_tcm data chars =
     let codes = get_chars_codes_comp data chars in
     let names = List.map (fun x -> code_character x data) codes in
     let res = List.rev_map (process_prealigned analyze_tcm data) codes in
-    let d = add_multiple_static_parsed_file data res in
-    process_ignore_characters false d (`Names names) 
+    let d =
+        List.fold_left
+            ~f:(fun acc (file,triple) ->
+                    let _,d = gen_add_static_parsed_file false acc file triple in
+                    d)
+            ~init:data
+            res
+    in
+    process_ignore_characters false d (`Names names)
 
 let sequence_statistics ch data =
     let codes = get_chars_codes_comp data ch in
@@ -5401,7 +5523,9 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     file_type_message "dpread file";
                     let parsed = Parser.OldHennig.of_file filename in
                     let fn = FileStream.filename filename in
-                    let converted = Parser.OldHennig.to_new_parser fn None parsed in
+                    let converted = 
+                        Parser.OldHennig.to_new_parser fn None parsed
+                    in
                     add_static_parsed_file data fn converted
             | Parser.Files.Is_Fixed_States_Dictionary->
                     let data = add_file [] in
