@@ -547,7 +547,7 @@ value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
     }
 
     CAMLlocal1 (c_genome_arr);
-    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 1000000);
+    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
     genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
     genome_arr->genome_ptr = genome_list;    
     genome_arr->num_genome = Numgenome;

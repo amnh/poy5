@@ -223,7 +223,7 @@ void copy_first_n(G_struct *Genomes1, G_struct *Genomes2, int nb_spec)
 // In this procedure gindex1 is now like gindex2 so we modify treemem accordingly
 void update_for_merge(G_struct *Genomes, int *nbreag, mgr_distmem_t *distmem,
 					  treemem_t *treemem, int gindex1, int gindex2, int nb_spec, 
-					  int spec_left, int verbose)
+					  int spec_left, int verbose, cbounds_t * cb)
 {
 	struct mgr_genome_struct *genome_list = Genomes->genome_list;
 
@@ -264,9 +264,8 @@ void update_for_merge(G_struct *Genomes, int *nbreag, mgr_distmem_t *distmem,
 		copy_genome_struct(&genome_list[gindex2], &genome_list[gindex3], TRUE);
 		Genomes->nb_chromo[gindex3] = Genomes->nb_chromo[gindex2];
 			
-fprintf(stdout,"update for merge\n"); fflush(stdout);
 		// should now all be zero
-		compute_dist_mat(Genomes, nb_spec, distmem);
+		compute_dist_mat(Genomes, nb_spec, distmem,cb);
 		
 		// reset to pretend we have 3 final genomes (all identical)
 		Genomes->same_as[gindex1] = -1;
@@ -278,7 +277,8 @@ fprintf(stdout,"update for merge\n"); fflush(stdout);
 
 void check_for_merge(G_struct *Genomes, int *nbreag, 
 						 int nb_spec, int *spec_left, 
-						 mgr_distmem_t *distmem, treemem_t *treemem, int verbose) {
+						 mgr_distmem_t *distmem, treemem_t *treemem, int verbose,
+                         cbounds_t * cb) {
   //	struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	int i, j;
 	
@@ -293,15 +293,14 @@ void check_for_merge(G_struct *Genomes, int *nbreag,
 						Genomes->same_as[i] = j;
 						(*spec_left)--;
 					}
-					update_for_merge(Genomes, nbreag, distmem, treemem, i, j, nb_spec, *spec_left, verbose);
+					update_for_merge(Genomes, nbreag, distmem, treemem, i, j, nb_spec, *spec_left, verbose,cb);
 					j=nb_spec;	//to leave the loop
 					
 				}
 			}
 		}
 	}
-	fprintf(stdout,"check_for_merge\n"); fflush(stdout);				
-	compute_dist_mat(Genomes, nb_spec, distmem);
+	compute_dist_mat(Genomes, nb_spec, distmem,cb);
 					
 //	}
 }
@@ -414,7 +413,7 @@ void print_G_struct(G_struct *Genomes, int nb_spec) {
 //init_G_struct here no longer alloc memory for G_struct, instead, all G_structs
 //should be defined in mgr.h and initlized in mgr_ini_mem of mgr.c
 void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
-                   int nb_spec, int num_genes, int num_chromosomes)
+                   int nb_spec, int num_genes, int num_chromosomes,cbounds_t * cb)
 {
     int i, j;
 	int size_alpha;
@@ -452,7 +451,7 @@ void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
 		genome_list[i].num_g = num_genes;
 		genome_list[i].ori_num_g = num_genes;
 		genome_list[i].num_chr = num_chromosomes;
-	//	move initialize_alphabet to mgr_ini_mem
+	//	move initialize_alphabet to function "mgr_ini_mem"
     //	initialize_alphabet(&(genome_list[i].alphabet), size_alpha, TRUE);
 		
         /*genome_list[i].alphabet = (a_strip *) e_malloc(num_genes*sizeof(a_strip), "alphabet");
@@ -466,7 +465,7 @@ void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
 		}*/
 		
     }
-	find_max_chromo_size(Genomes, nb_spec);    
+	find_max_chromo_size(Genomes, nb_spec,cb);    
 }
 
 void free_G_struct(G_struct *Genomes, int nb_spec)
@@ -490,7 +489,8 @@ void print_dist_mat(G_struct *Genomes, int nb_spec)
 		fprintf(stdout, "\n");
 	}	
 }
-void compute_dist_mat(G_struct *Genomes, int nb_spec, mgr_distmem_t *distmem) 
+void compute_dist_mat(G_struct *Genomes, int nb_spec, mgr_distmem_t *distmem, 
+        cbounds_t * cb) 
 {
 	struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	int *dist_mat = Genomes->dist_mat;
@@ -511,9 +511,8 @@ void compute_dist_mat(G_struct *Genomes, int nb_spec, mgr_distmem_t *distmem)
 			else dist_mat[i*nb_spec + j] = dist_mat[j*nb_spec + i] = 0;
 		}
 	}
-fprintf(stdout,"compute_dist_mat, call find_max_chromo_size\n "); fflush(stdout);	
 	// also compute max_chromo_size
-	find_max_chromo_size(Genomes, nb_spec);
+	find_max_chromo_size(Genomes, nb_spec,cb);
 
 					 	 
 }
@@ -583,7 +582,7 @@ void add_null_chromos(struct mgr_genome_struct *genome_list, int nb_spec,
 	*num_genes = 3*(*num_genes);
 		
 	for (i=0; i<nb_spec; i++) {
-		 		 
+		//move this out later 		 
 		 new_genes = (int *)e_malloc((*num_genes) * sizeof(int), "new_genes");
 		 // this is the real genome
 		 for (j=0; j<old_num_genes; j++) 
@@ -603,38 +602,35 @@ void add_null_chromos(struct mgr_genome_struct *genome_list, int nb_spec,
 }
 
 
-void find_max_chromo_size(G_struct *Genomes, int nb_spec) {
+void find_max_chromo_size(G_struct *Genomes, int nb_spec,cbounds_t * cb) {
 	int gindex, c1, size, max_size = 0;
     struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	
 	if (genome_list[0].num_chr > 0) {
 
 		for (gindex = 0; gindex<nb_spec; gindex++) {
-            cbounds_t * cb;
-            cb = ( cbounds_t *) malloc ( sizeof( cbounds_t));
-            fprintf(stdout, "count_cbounds =%d ", count_cbounds); fflush(stdout);
-              count_cbounds ++;
-	cb->cNum     = (int *) malloc(genome_list[gindex].num_g*sizeof(int));
-	cb->cBound   = (int *) malloc((genome_list[gindex].num_chr+1)*sizeof(int));
-
-
-            fprintf(stdout,"find max chromo size, gindex=%d \n",gindex);
+            int num_genes = genome_list[gindex].num_g;
+            int num_chromosomes =  genome_list[gindex].num_chr;
+ //           cbounds_t cb;
+ //           init_cbounds(num_genes,num_chromosomes, &genome_list[gindex], &cb);
+    //        fprintf(stdout,"find max chromo size, gindex=%d \n",gindex);
 		//	init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr, &genome_list[gindex], &cb);
-        	init_cbounds_wmem(genome_list[gindex].num_g, 
+//cbounds_t * cb = &cb_max_chromo_size;
+     if ((cb->cBound == NULL) || (cb->cBound == (int*) NULL)) fprintf(stderr, "error cBound \n");
+     if ((cb->cNum == NULL) || (cb->cNum == (int*) NULL)) fprintf(stderr, "error cNum \n");
+        init_cbounds_wmem(genome_list[gindex].num_g, 
                     genome_list[gindex].num_chr,  
                     &genome_list[gindex], cb);
-
 		
-			//fprintf(stdout, "In genome %d, sizes:\n", gindex);
+		//	fprintf(stdout, "In genome %d, sizes:\n", gindex);
 			for (c1 = 1; c1 <= Genomes->nb_chromo[gindex]; c1++) {
 				size = cb->cBound[c1]-1 - (cb->cBound[c1-1]+1);
 				if (size > max_size) {
 					max_size = size;
 				}
-				//fprintf(stdout, "%d (%d)\n", size, max_size);
+	            //fprintf(stdout, "%d (%d) ;", size, max_size);
 			}
-            //fprintf(stdout, "free cbounds\n"); fflush(stdout);
-            free_cbounds(cb);
+   //         free_cbounds(&cb);
 		}
 		Genomes->max_chromo_size = max_size;
 	}
@@ -649,7 +645,8 @@ void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,
 	struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	//	int *dist_mat = Genomes->dist_mat;
 	int s1=0, e1=0, s2=0, e2=0;
-	cbounds_t cb;        /* structure with chromosome boundaries */
+//	cbounds_t cb;        /* structure with chromosome boundaries */
+    cbounds_t * cb = &cb_carry_on_reag;
 	int gindex;
 	
 #if 0
@@ -661,22 +658,30 @@ void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,
 			
 	if (genome_list[0].num_chr>0 && (the_list->sc1<0 || the_list->sc2<0)) {
 		/* get the chromosome boundaries */
-		fprintf(stdout,"carry_on_reag, "); fflush(stdout);
-		init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr,
-			&genome_list[gindex],
-			&cb);
+        if((cb->cNum==NULL)||(cb->cBound==NULL))
+        {
+            int num_g    = genome_list[gindex].num_g;
+            int num_chr  = genome_list[gindex].num_chr;
+            cb->cNum     = (int *) malloc(num_g*sizeof(int));
+            cb->cBound   = (int *) malloc((num_chr+1)*sizeof(int));
+            cb->num_genes = num_g;
+            cb->num_chromosomes = num_chr;
+        }
+        else {}
+		init_cbounds_wmem(genome_list[gindex].num_g, genome_list[gindex].num_chr,
+			&genome_list[gindex], cb);
 		
 		if (the_list->sc1 < 0) { // we need to flip this chromo
 			
-			s1 = cb.cBound[(-the_list->sc1)-1];
-			e1 = cb.cBound[(-the_list->sc1)]-1;
+			s1 = cb->cBound[(-the_list->sc1)-1];
+			e1 = cb->cBound[(-the_list->sc1)]-1;
 			
 			reverse_in_place_genes(genome_list[gindex].genes, s1,e1);
 		}
 		if (the_list->sc2 < 0) { // we need to flip this chromo
 			
-			s2 = cb.cBound[(-the_list->sc2)-1];
-			e2 = cb.cBound[(-the_list->sc2)]-1;
+			s2 = cb->cBound[(-the_list->sc2)-1];
+			e2 = cb->cBound[(-the_list->sc2)]-1;
 			
 			reverse_in_place_genes(genome_list[gindex].genes, s2,e2);
 		}      
@@ -711,7 +716,7 @@ void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,
 	if (genome_list[gindex].num_chr>0 && (the_list->sc1<0 || the_list->sc2<0)) 
     {
         //fprintf(stdout," free cb\n "); fflush(stdout);
-        free_cbounds(&cb);
+        //free_cbounds(&cb);
     }
 	
 
@@ -745,7 +750,8 @@ void print_one_reag(list_reag *the_list, G_struct *Genomes,
 	struct mgr_genome_struct *genome_list = Genomes->genome_list;
 	// int *dist_mat = Genomes->dist_mat;
 	int s1=0, e1=0, s2=0, e2=0;  /* used to flip chromo if necessary */
-	cbounds_t cb;        /* structure with chromosome boundaries */
+	//cbounds_t cb;        /* structure with chromosome boundaries */
+    cbounds_t * cb = &cb_print_one_reag;
 	int gindex;
 
 
@@ -762,29 +768,38 @@ void print_one_reag(list_reag *the_list, G_struct *Genomes,
 			
 	if (genome_list[gindex].num_chr>0) {
 		/* get the chromosome boundaries */
-		fprintf(stdout,"print_one_reag, ");
-		init_cbounds(genome_list[gindex].num_g, genome_list[gindex].num_chr,
-			&genome_list[gindex],
-			&cb);
+        if((cb->cNum==NULL)||(cb->cBound==NULL))
+        {
+            fprintf(stdout, "init cb_print_one_reag\n"); fflush(stdout);
+            int num_g    = genome_list[gindex].num_g;
+            int num_chr  = genome_list[gindex].num_chr;
+            cb->cNum     = (int *) malloc(num_g*sizeof(int));
+            cb->cBound   = (int *) malloc((num_chr+1)*sizeof(int));
+            cb->num_genes = num_g;
+            cb->num_chromosomes = num_chr;
+        }
+        else {}
+        init_cbounds_wmem(genome_list[gindex].num_g, genome_list[gindex].num_chr,
+			&genome_list[gindex], cb);
 		
 		if (the_list->sc1 < 0) { // we need to flip this chromo
-			s1 = cb.cBound[(-the_list->sc1)-1];
-			e1 = cb.cBound[(-the_list->sc1)]-1;
+			s1 = cb->cBound[(-the_list->sc1)-1];
+			e1 = cb->cBound[(-the_list->sc1)]-1;
 			reverse_in_place_genes(genome_list[gindex].genes, s1, e1);
 		}
 		else {
-			s1 = cb.cBound[the_list->sc1-1];
-			e1 = cb.cBound[the_list->sc1]-1;
+			s1 = cb->cBound[the_list->sc1-1];
+			e1 = cb->cBound[the_list->sc1]-1;
 		}
 		
 		if (the_list->sc2 < 0) { // we need to flip this chromo
-			s2 = cb.cBound[(-the_list->sc2)-1];
-			e2 = cb.cBound[(-the_list->sc2)]-1;
+			s2 = cb->cBound[(-the_list->sc2)-1];
+			e2 = cb->cBound[(-the_list->sc2)]-1;
 			reverse_in_place_genes(genome_list[gindex].genes, s2,e2);
 		}
 		else {
-			s2 = cb.cBound[the_list->sc2-1];
-			e2 = cb.cBound[the_list->sc2]-1;
+			s2 = cb->cBound[the_list->sc2-1];
+			e2 = cb->cBound[the_list->sc2]-1;
 		}
 	}
 
@@ -815,8 +830,8 @@ void print_one_reag(list_reag *the_list, G_struct *Genomes,
 
 	copy_genes(old_genome->genes, genome_list[gindex].genes, genome_list[gindex].num_g);
 	
-	if (genome_list[gindex].num_chr>0)
-		free_cbounds(&cb);
+//	if (genome_list[gindex].num_chr>0)
+		//free_cbounds(&cb);
 
 }
 
@@ -968,12 +983,26 @@ void condense_genomes(G_struct *Genomes, int nb_spec, int verbose) {
 		lowcap = genome_list[gref].num_g + 1;
 		initial_alpha_size = genome_list[gref].num_g;
 	}
-	
-	// allocate memory for conversion table
+    convert = convert_condense_genomes;
+    if((convert == NULL)||(convert == (int * )NULL))
+    {	// allocate memory for conversion table
+        fprintf(stdout, "init mem for convert_condense_genomes\n");
 	convert = (int *) e_malloc(lowcap*sizeof(int), "conversion table");
-	
+    }
+    else {}
+	Breakpoint_array * bkarr = &bkarr_condense_genomes;
+    if((bkarr->array == NULL)||(bkarr->num_genes==0))
+    {
+        fprintf(stdout, "init bk_array condense_genomes\n");
+        int num_g = genome_list[gref].num_g;
+        bkarr->num_genes = num_g;
+        bkarr->array =  (char *) e_malloc((num_g/4 + 1) * sizeof(char),
+									  "breakpoints");
+    }
+    else {}
+    breakpoints = (bkarr->array);
 	// allocate memory for breakpoints
-    init_isBP_mem(genome_list[gref].num_g, genome_list[gref].num_chr, &breakpoints);
+//    init_isBP_mem(genome_list[gref].num_g, genome_list[gref].num_chr, &breakpoints);
 	init_isBP_array(genome_list[gref].num_g, genome_list[gref].num_chr, nb_spec, // only consider real genome for finding breakpoints
 					Genomes, gref, //use the first genome as the reference
 					breakpoints);
@@ -1135,8 +1164,8 @@ void condense_genomes(G_struct *Genomes, int nb_spec, int verbose) {
 		}
 	}
 			
-	free(convert);
-	clean_isBP_mem(breakpoints);
+	//free(convert);
+	//clean_isBP_mem(breakpoints);
 	
 	if (verbose) {
 		special_print_genomes2(stdout, Genomes,  nb_spec);

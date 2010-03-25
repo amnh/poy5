@@ -28,6 +28,16 @@
 #define GENOME_OPS_H
 
 #include "mgrstructs.h"
+//#include "mgr_my_testrev.h"
+#include "mgr_scenario.h"
+
+cbounds_t cb_carry_on_reag; 
+cbounds_t cb_print_one_reag; 
+
+Breakpoint_array bkarr_condense_genomes;
+
+int * convert_condense_genomes;
+
 
 void initialize_alphabet(a_strip **alphabet, int num_g, int identity);
 
@@ -48,11 +58,12 @@ void copy_first_n(G_struct *Genomes1, G_struct *Genomes2,
 
 void update_for_merge(G_struct *Genomes, int *nbreag, mgr_distmem_t *distmem,
 					  treemem_t *treemem, int gindex1, int gindex2, int nb_spec, 
-					  int spec_left, int verbose) ;
+					  int spec_left, int verbose, cbounds_t * cb) ;
 
 void check_for_merge(G_struct *Genomes, int *nbreag, 
 						 int nb_spec, int *spec_left, 
-						 mgr_distmem_t *distmem, treemem_t *treemem, int verbose) ;
+						 mgr_distmem_t *distmem, treemem_t *treemem, int verbose,
+                         cbounds_t * cb) ;
 
 void initialize_genome_list(struct mgr_genome_struct **genome_list, int nb_spec,
 							int num_genes, int num_chromosomes);
@@ -65,7 +76,7 @@ void print_G_struct(G_struct *Genomes, int nb_spec);
 
 void init_G_struct(G_struct *Genomes, struct mgr_genome_struct *genome_list,
 						 int nb_spec, int num_genes,
-						 int num_chromosomes) ;
+						 int num_chromosomes, cbounds_t * cb) ;
 
 void free_G_struct(G_struct *Genomes, int nb_spec);
 
@@ -74,7 +85,7 @@ void free_G_struct(G_struct *Genomes, int nb_spec);
 void print_dist_mat(G_struct *Genomes, int nb_spec) ;
 
 void compute_dist_mat(G_struct *Genomes, int nb_spec,
-						 mgr_distmem_t *distmem);
+						 mgr_distmem_t *distmem, cbounds_t * cb);
 
 void local_distmat_update(int gindex, G_struct *Genomes, int nb_spec, 
 						  mgr_distmem_t *distmem);
@@ -91,7 +102,7 @@ void remove_null_chromos (struct mgr_genome_struct *genome_list, int nb_spec,
 					  int *num_genes, int *num_chromosomes, int alpha_size, 
                       int max_num_deli) ;
 
-void find_max_chromo_size(G_struct *Genomes, int nb_spec);
+void find_max_chromo_size(G_struct *Genomes, int nb_spec, cbounds_t * cb);
 
 
 void carry_on_reag(list_reag *the_list, G_struct *Genomes, int nb_spec,

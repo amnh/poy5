@@ -24,6 +24,9 @@
 /* Last modified on Wed Aug 2, 2006, by Guillaume Bourque
 */
 
+
+cbounds_t cb_compute_Rscore; //mgr_list_ops, "compute_Rscore"
+
 list_edge *RemoveItem_edge(list_edge *the_list);
 
 void erase_list_edge(list_edge *the_list);
