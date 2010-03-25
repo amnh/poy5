@@ -417,10 +417,9 @@ val get_weight : int -> d -> float
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences : 
-    string -> Cost_matrix.Two_D.m -> costmatrix_3d 
-    -> dyna_initial_assgn -> bool ->
-    Alphabet.a -> string -> dyna_state_t -> d -> 
-    (Sequence.s list list list * Parser.E.taxon) list -> d
+    bool -> string -> Cost_matrix.Two_D.m -> costmatrix_3d ->
+        dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
+            d -> (Sequence.s list list list * Parser.E.taxon) list -> d
 
 val process_molecular_file : string -> Cost_matrix.Two_D.m ->
     costmatrix_3d -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 

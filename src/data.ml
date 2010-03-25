@@ -1089,7 +1089,7 @@ let repack_codes data =
 let ( --> ) a b = b a
 let failwithf format = Printf.ksprintf failwith format
 
-let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet 
+let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotated alphabet 
     file dyna_state data (res : (Sequence.s list list list *
     All_sets.StringMap.key) list)  =
     let data = duplicate data in
@@ -1205,11 +1205,9 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
             in
             let tl = get_taxon_characters data tcode in
             let seqa = 
-                let makeone seqa = 
-                    {seq=seqa; code = -1}
-                in
+                let makeone seqa = {seq=seqa; code = -1} in
                 match dyna_state with 
-                | `Seq -> Array.map makeone seq
+                | `Seq when not is_prealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
             in 
@@ -1593,8 +1591,8 @@ let gen_add_static_parsed_file do_duplicate data file
                 size 1 1 all_elements
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences "tcm:(1,2)" tcm (`Normal3d tcm3d) `DO false alphabet file
-            `Seq data sequences
+            process_parsed_sequences false "tcm:(1,2)" tcm (`Normal3d tcm3d) 
+                                     `DO false alphabet file `Seq data sequences
         in
         List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.File.unaligned
     in
@@ -1798,7 +1796,7 @@ mode is_prealigned dyna_state data file =
         aux_process_molecular_file 
         tcmfile tcm tcm3 alphabet
         (fun alph parsed -> 
-            process_parsed_sequences tcmfile tcm tcm3 mode annotated 
+            process_parsed_sequences is_prealigned tcmfile tcm tcm3 mode annotated 
             alph (FileStream.filename file) dyna_state data parsed)
         (fun x -> 
             if not is_prealigned then FileContents.AlphSeq x
@@ -3548,7 +3546,7 @@ let compute_priors data chars u_gap =
     let gap_char = Alphabet.get_gap alph in (* 4, usually *)
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
-    let taxon_adder _ taxon_chars =
+    let taxon_adder tax taxon_chars =
         let when_no_data_is_loaded priors inverse size = 
             for i = 0 to size - 1 do
                 priors.(i) <- priors.(i) +. inverse;
@@ -3571,8 +3569,7 @@ let compute_priors data chars u_gap =
                         when_no_data_is_loaded priors inverse size
                     else
                         let inverse = 1. /. (float_of_int (List.length lst)) in
-                        List.iter (fun x -> priors.(x) <- priors.(x) +.
-                        inverse) lst)
+                        List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst)
             | _ -> failwith "Data.compute_priors"
         in
         List.iter adder chars
@@ -3581,8 +3578,9 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter in
     Array.map (fun x -> x /. counter) priors
 
+
+(* apply a type to a set of STATIC characters in data *)
 let apply_on_static_chars data chars st_type = 
-    (* COPY, COPY the new hashtbl, and the only one being changed *)
     let new_specs = Hashtbl.copy data.character_specs in
     List.iter 
         (fun code -> 
@@ -3591,6 +3589,7 @@ let apply_on_static_chars data chars st_type =
                 Hashtbl.replace new_specs code (Static { x with Nexus.File.st_type = st_type})
             | _ -> failwith "Illegal conversion") chars;
     { data with character_specs = new_specs } --> categorize
+
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
@@ -3964,32 +3963,35 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
             ) ~init:t_ch_ia_map ia
         ) ~init:FullTupleMap.empty ia_ls  
     in  
-    let data = List.fold_left ~f:(fun data char_code ->
-        let char_name = Hashtbl.find data.character_codes char_code in
-        let tcm = get_tcm2d data char_code 
-        and tcm3d = get_tcm3d data char_code 
-        and alph = get_alphabet data char_code
-        and tcmfile = get_tcmfile data char_code in
-        let data = 
-            process_ignore_characters true data (`Some [char_code]) 
-        in
-        let seqs = IntMap.fold (fun (t_code : int) (t_name : string) seqs ->
-            try
-                let ia_arr = FullTupleMap.find (t_code, char_code) t_ch_ia_map in
-                let ia_arr = 
-                    Array.map 
-                    (function `DO ia | `Last ia | `First ia ->
-                        let seq = Sequence.of_code_arr ia Alphabet.gap in 
-                        Sequence.prepend_char seq Alphabet.gap)
-                    ia_arr
-                in 
-                ([[Array.to_list ia_arr]], t_name) :: seqs
-            with Not_found -> seqs) 
-            data.taxon_codes []
-        in                   
-        process_parsed_sequences tcmfile tcm tcm3d `DO false alph
-        char_name `Seq data seqs) ~init:data 
-        tran_code_ls 
+    let data = List.fold_left 
+        ~f:(fun data char_code ->
+            let char_name = Hashtbl.find data.character_codes char_code in
+            let tcm = get_tcm2d data char_code 
+            and tcm3d = get_tcm3d data char_code 
+            and alph = get_alphabet data char_code
+            and tcmfile = get_tcmfile data char_code in
+            let data = 
+                process_ignore_characters true data (`Some [char_code]) 
+            in
+            let seqs = 
+                IntMap.fold 
+                    (fun (t_code : int) (t_name : string) seqs ->
+                        try
+                            let ia_arr = FullTupleMap.find (t_code, char_code) t_ch_ia_map in
+                            let ia_arr = 
+                                Array.map 
+                                    (function `DO ia | `Last ia | `First ia ->
+                                        let seq = Sequence.of_code_arr ia Alphabet.gap in 
+                                        Sequence.prepend_char seq Alphabet.gap)
+                                    ia_arr
+                            in 
+                            ([[Array.to_list ia_arr]], t_name) :: seqs
+                        with Not_found -> seqs) 
+                    data.taxon_codes []
+            in                   
+            process_parsed_sequences false tcmfile tcm tcm3d `DO false 
+                                     alph char_name `Seq data seqs)
+        ~init:data tran_code_ls 
     in 
     categorize data
 

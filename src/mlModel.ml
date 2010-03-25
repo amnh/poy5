@@ -959,8 +959,10 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
         let xm = (a +. b) /. 2.0
         and tol1 = tol *. (abs_float x) +. epsilon in
         (* check ending conditions *)
-        if iters > max_iter then failwith "Too many iterations in brent"
-        else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
+        if iters > max_iter then begin
+            debug_printf "Too many iterations in brents method: %d" iters;
+            x'
+        end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
         else begin
             let d,e = 
                 if (abs_float e) > tol1 then begin
