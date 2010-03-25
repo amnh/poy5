@@ -114,7 +114,7 @@ new_vf ( int startsize, int ngenes, void ( *clear_mem ) ( void * ),
     if(ngenes>64)
     {
         fitsize = (int)( fitsize/ ((int)(ngenes/64)+1) );
-        fprintf(stdout,"ngenes is %d,reduce the startsize to %d\n",ngenes,fitsize);
+    //    fprintf(stdout,"ngenes is %d,reduce the startsize to %d\n",ngenes,fitsize);
     }
     startsize = fitsize;
     int i;
