@@ -190,12 +190,14 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
-    (*debug message
+    (* debug message 
     let print_intarr arr = 
         Printf.printf "[%!";
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
+     debug message *)
+    (*debug message
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
      debug message *)
@@ -216,15 +218,16 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let deliX = Array.of_list deli1 
     and deliY = Array.of_list deli2
     and deliZ = Array.of_list deli3 in
-    (* debug msg 
-     Printf.printf "standardize input seq: %!";
-    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-     Printf.printf "deli array =  %!";
-    print_intarr deliX; print_intarr deliY; print_intarr deliZ;
-     debug msg *)
-    let num_deliX = Array.length deliX
+     let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
+    (* debug msg 
+   (*  Printf.printf "standardize input seq: %!";
+    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ; *)
+     Printf.printf "num_deli = %d,%d,%d,deli array =  %!" num_deliX num_deliY
+     num_deliZ;
+    print_intarr deliX; print_intarr deliY; print_intarr deliZ;
+     debug msg *)
     (* if number of deli is 1, it is a single chromosome, no need to pass
     * delimiters array *)
     for index = 0 to num_deliX - 1 do
