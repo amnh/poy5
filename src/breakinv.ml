@@ -236,6 +236,10 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     let delimiters1 = (List.hd ch1.med_ls).BreakinvAli.delimiter_lst in 
     let delimiters2 = (List.hd ch2.med_ls).BreakinvAli.delimiter_lst in 
     let delimiters3 = (List.hd parent.med_ls).BreakinvAli.delimiter_lst in 
+    (* no need to keep 0 in delimiter list*)
+    let delimiters1 = List.filter (fun x -> x<>0 ) delimiters1 in
+    let delimiters2 = List.filter (fun x -> x<>0 ) delimiters2 in
+    let delimiters3 = List.filter (fun x -> x<>0 ) delimiters3 in
     (* debug msg 
     Printf.printf "### Breakinv.readjust_3d compute the old cost first,check seq1/seq2/seq3/mine_seq ###\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
@@ -282,7 +286,6 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
                 seq1 seq2 seq3 
                 [delimiters1;delimiters2;delimiters3]
                 ch1.gen_cost_mat
-            (*    ch1.pure_gen_cost_mat *)
                 ch1.alpha 
                 ali_pam.BreakinvAli.re_meth
                 ali_pam.BreakinvAli.swap_med 
