@@ -2403,33 +2403,50 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             List.map (single_ia_to_parser ([], None, `AllSankoff None))
                      (imtx)
         in
-(*        List.iter*)
-(*            (fun (opt,lst,mtrx) ->*)
-(*                let () =*)
-(*                    Printf.printf "FileContents: %!";*)
-(*                    List.iter (fun (_,str) -> Printf.printf "%s, " str) lst;*)
-(*                    print_newline () in*)
-(*                let () = *)
-(*                    Printf.printf "%d Encodings\n%!" (Array.length opt);*)
-(*                    Array.iter (fun (a,e) -> Parser.OldHennig.Encoding.print e;) opt;*)
-(*                    print_newline ()*)
-(*                in*)
-(*                let () =*)
-(*                    Printf.printf "Matrix: %!";*)
-(*                    List.iter*)
-(*                        (function*)
-(*                            | `AllOne x -> Printf.printf "AllOne %d, %!" x*)
-(*                            | `AllOneGapSame (x,y) -> *)
-(*                                Printf.printf "AllOneGapSame (%d,%d), %!" x y*)
-(*                            | `AffinePartition (x,y,z) ->*)
-(*                                Printf.printf "AffinePartition (%d,%d,%d),%!" x y z*)
-(*                            | `AllSankoff _ -> Printf.printf "AllSankoff,%!")*)
-(*                        mtrx;*)
-(*                    print_newline ()*)
-(*                in*)
-(*                ())*)
-(*            all;*)
         all
+
+
+    let combine_parser_compatible encodings :
+              (Alphabet.a * Parser.OldHennig.Encoding.s) array 
+            * (FileContents.t array * string) list
+            * (string option * Tree.Parse.tree_types list) list =
+        (* define the columns for the static alignment; longest data. *)
+        let length,new_encodings = match encodings with
+            | (one,_,_) :: tl ->
+                List.fold_left 
+                    (fun ((l,_) as acc) (es,_,_) ->
+                        if l < (Array.length es) 
+                            then (Array.length es,es)
+                            else acc)
+                    (Array.length one,one)
+                    tl
+            | [] -> failwith "Combine: No encodings found?"
+        in
+        (* combine the data; apply missing data to shorter sequences *)
+        let filecontents = 
+            let create_gap (alph,_) =
+                let gap = Alphabet.get_gap alph in
+                FileContents.Unordered_Character (gap,false)
+            in
+            let pad characters =
+                List.map
+                    (fun (single,name) ->
+                        let new_contents = 
+                            Array.init 
+                                length 
+                                (fun i ->
+                                    if i < (Array.length single) then single.(i)
+                                    else create_gap new_encodings.(i))
+                        in
+                        (new_contents,name))
+                    characters
+            in
+            List.fold_left (fun acc (_,enc,_) -> (pad enc) @ acc) [] encodings 
+        in
+        (* combine the trees *)
+        let trees = List.fold_left (fun a (_,_,t) -> t @ a) [] encodings in
+        (new_encodings,filecontents,trees)
+
 
     let update_ia_encodings (encs, species, trees) =
         let add_states int acc =
@@ -2471,12 +2488,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let res = 
             let encodings = ia_to_parser_compatible data iamtxs in
-(*            if disjoint then *)
-(*                combine_parser_compatible encodings*)
-(*            else *)
-            match encodings with
-            | [single] -> single
-            |    _     -> failwith "Disjoint tree in static approx"
+            if disjoint then 
+                combine_parser_compatible encodings
+            else 
+                match encodings with
+                | [single] -> single
+                |    _     -> failwith "Disjoint tree in static approx"
         in
         let (a, b, c) =
             if remove_non_informative then update_ia_encodings res

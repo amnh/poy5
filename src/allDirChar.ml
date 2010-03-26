@@ -568,11 +568,11 @@ module F : Ptree.Tree_Operations
                     --> assign_single_subtree root b a 
                     --> assign_single_subtree root a b 
                     --> (fun ptree ->
-                        Ptree.assign_root_to_connected_component 
-                        handle 
-                        (Some ((`Edge (a, b)), readjusted))
-                        comp.Ptree.component_cost
-                        (Some (check_cost ptree handle None))
+                            Ptree.assign_root_to_connected_component 
+                                    handle
+                                    (Some ((`Edge (a, b)), readjusted))
+                                    comp.Ptree.component_cost
+                                    (Some (check_cost ptree handle None))
                         (* handle is already added in generate_root_and_assign *)
                         ptree)
             | Some ((`Single a) as edge, rootg) ->
@@ -674,31 +674,29 @@ module F : Ptree.Tree_Operations
                 in
                 res
             | None ->
-                    IntSet.fold
-                        (fun h ptree ->
-                                try 
-                                    begin match (Ptree.get_component_root h ptree).Ptree.root_median with
-                                        | Some ((`Edge (a,b)),c) -> 
-                                            Tree.pre_order_node_with_edge_visit_simple_root
-                                                    add_vertex_pre_order
-                                                    (Tree.Edge (a,b))
-                                                    ptree.Ptree.tree ptree
-                                        | None
-                                        | Some _ -> ptree
-                                    end
-                                with | Not_found -> 
-                                    begin match Ptree.get_node h ptree with
-                                        | Tree.Leaf (a,b)
-                                        | Tree.Interior (a,b,_,_) -> 
-                                            Tree.pre_order_node_with_edge_visit_simple_root
-                                                    add_vertex_pre_order
-                                                    (Tree.Edge (a,b))
-                                                    ptree.Ptree.tree ptree
-                                        | Tree.Single _ -> ptree
-                                    end
-                        )
-                        ptree.Ptree.tree.Tree.handles
-                        ptree
+                IntSet.fold
+                    (fun h ptree ->
+                        try begin
+                        match (Ptree.get_component_root h ptree).Ptree.root_median with
+                            | Some ((`Edge (a,b)),c) -> 
+                                Tree.pre_order_node_with_edge_visit_simple_root
+                                            add_vertex_pre_order
+                                            (Tree.Edge (a,b))
+                                            ptree.Ptree.tree ptree
+                            | None
+                            | Some _ -> ptree
+                        end with | Not_found -> 
+                            begin match Ptree.get_node h ptree with
+                                | Tree.Leaf (a,b)
+                                | Tree.Interior (a,b,_,_) -> 
+                                    Tree.pre_order_node_with_edge_visit_simple_root
+                                                add_vertex_pre_order
+                                                (Tree.Edge (a,b))
+                                                ptree.Ptree.tree ptree
+                                | Tree.Single _ -> ptree
+                            end)
+                    ptree.Ptree.tree.Tree.handles
+                    ptree
         in
         (* fill in roots for all edges *)
         current_snapshot "AllDirChar refresh_all_edges internal fold";
@@ -740,10 +738,7 @@ module F : Ptree.Tree_Operations
                 ptree.Ptree.tree.Tree.handles 
                 IntMap.empty
         in
-        {
-            ptree with 
-            Ptree.component_root = new_roots;
-        }
+        { ptree with Ptree.component_root = new_roots; }
 
     let get_active_ref_code tree =
         let get_active_ref_code parent node = 
@@ -1483,23 +1478,30 @@ module F : Ptree.Tree_Operations
             in
             let nodes = IntMap.mapi (combine_nodes) tree1.Ptree.node_data
             and edges = Tree.EdgeMap.mapi (combine_edges) tree1.Ptree.edge_data in
-            { tree1 with 
-                Ptree.node_data = nodes;
-                Ptree.edge_data = edges;
-                Ptree.component_root = tree2.Ptree.component_root; }
+            let ntree =  
+                { tree1 with 
+                    Ptree.node_data      = nodes;
+                    Ptree.edge_data      = edges; }
+            in
+            (* refresh all roots *)
+            let roots =
+                IntSet.fold
+                    (fun x acc ->
+                        let nroot = match Ptree.get_node x ntree with 
+                            | Tree.Interior (a,b,_,_) 
+                            | Tree.Leaf (a,b) -> create_root a b ntree
+                            | Tree.Single _ -> create_root x x ntree
+                        in
+                        IntMap.add x nroot acc)
+                    tree1.Ptree.tree.Tree.handles
+                    IntMap.empty
+            in
+            { ntree with Ptree.component_root = roots; }
         and is_complete tree =
             1 = (IntSet.cardinal tree.Ptree.tree.Tree.handles)
-(*            let l = *)
-(*                Tree.port_order_node_with_edge_visit_simple*)
-(*                    (fun acc x -> match Ptree.get_node x tree with*)
-(*                        | Tree.Leaf _ -> acc+1*)
-(*                        | _           -> acc)*)
-(*                    (Tree.Edge (a,b)) (tree.Ptree.tree) 0*)
-(*            in*)
-(*            l = (tree.Ptree.data.Data.number_of_taxa)*)
         in
         (* compose above functions: create a static tree then combine w/ dynamic *)
-        if (is_complete tree) && (using_likelihood `Dynamic tree)
+        if (using_likelihood `Dynamic tree)
             then combine tree (create_static_tree tree)
             else tree
 
