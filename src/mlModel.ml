@@ -415,7 +415,7 @@ let compose_model sub_mat t =
 END
 
 (* ------------------------------------------------ *)
-(* CONVERSTION/MODEL CREATION FUNCTIONS             *)
+(* CONVERSION/MODEL CREATION FUNCTIONS             *)
 
 (* convert a string spec to a specification, used in Parser for nexus *)
 let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):string_spec) =
@@ -459,12 +459,14 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         | _  -> failwith "Incorrect Model"
     and variation = match String.uppercase var with
         | "GAMMA" ->
-            Gamma (int_of_string site, float_of_string alpha)
+            let alpha = try float_of_string alpha with | _ -> default_alpha false in
+            Gamma (int_of_string site, alpha)
         | "THETA" -> 
-            Theta (int_of_string site,
-                   float_of_string alpha,
-                   float_of_string invar)
-        | "NONE" | "CONSTANT" | "" | _ -> Constant
+            let alpha = try float_of_string alpha with | _ -> default_alpha true in
+            let invar = try float_of_string invar with | _ -> default_invar in
+            Theta (int_of_string site, alpha, invar)
+        | "NONE" | "CONSTANT" | "" -> Constant
+        | _ -> failwith "Unrecognized variation method"
     and gap = match String.uppercase gap with
         | "TRUE" -> true
         | "FALSE" | _ -> false
@@ -473,8 +475,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
     {   substitution = submatrix;
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
-        use_gap = gap;
-    }
+        use_gap = gap; }
   ELSE
     failwith likelihood_not_enabled
   END

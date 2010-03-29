@@ -28,6 +28,8 @@ module FullTupleMap = All_sets.FullTupleMap
 module IntMap = All_sets.IntegerMap
     
 let output_error = Status.user_message Status.Error
+let ( --> ) a b = b a
+let failwithf format = Printf.ksprintf failwith format
 
 let debug_kolmo = false
 
@@ -745,6 +747,125 @@ let trim taxon =
         String.sub taxon start (final - start + 1) 
     else taxon
 
+(* convert branch lengths with subsets of leaves *)
+let branches_to_map data branch_table trees = 
+    let complete_set =
+        All_sets.StringMap.fold
+            (fun k v acc -> All_sets.Integers.add v acc)
+            data.taxon_names
+            (All_sets.Integers.empty)
+    and new_tree_table = Hashtbl.create 13 in
+    let create_complement to_remove =
+        All_sets.Integers.fold
+            (All_sets.Integers.remove)
+            to_remove
+            complete_set
+    and create_all_char_table dist = 
+        let new_internal = Hashtbl.create 1229 in
+        Hashtbl.iter
+            (fun _ v -> Hashtbl.add new_internal v dist)
+            data.character_codes;
+        new_internal
+    (* add two table lengths, to resolve rooted trees *)
+    and add_two_lengths tbl1 tbl2 =
+        Hashtbl.iter
+            (fun k dist1 ->
+                let dist2 =
+                    try Hashtbl.find tbl2 k
+                    with | Not_found -> failwith "Sets don't match"
+                in
+                Hashtbl.replace tbl1 k (dist1 +. dist2))
+            tbl1
+    in
+    (* assoc partition with a value, if it exists, then add them, as it is
+     * due to a rooted tree *)
+    let add_single (t_name:string) (set:All_sets.Integers.t)
+                   (chartbl_opt : (string,float) Hashtbl.t option)
+                   (partition_map : 'a All_sets.IntSetMap.t) : 'a All_sets.IntSetMap.t =
+        match chartbl_opt with
+        | Some n -> 
+            let comp = create_complement set in
+            if (All_sets.IntSetMap.mem set partition_map) 
+                or (All_sets.IntSetMap.mem comp partition_map)
+                then begin
+                    let t = All_sets.IntSetMap.find set partition_map in
+                    add_two_lengths t n;
+                    partition_map --> 
+                        All_sets.IntSetMap.add comp t -->
+                        All_sets.IntSetMap.add set t
+                end else begin
+                    partition_map --> 
+                        All_sets.IntSetMap.add comp n -->
+                        All_sets.IntSetMap.add set n
+                end
+        | None -> partition_map
+    in
+    let rec continually_add t_name f_ext mapp t_node =
+        match t_node with
+        | Tree.Parse.Leafp (x,dat) ->
+            let single_set =
+                try
+                    let t_code = All_sets.StringMap.find x data.taxon_names in
+                    All_sets.Integers.add t_code (All_sets.Integers.empty)
+                with Not_found -> failwithf "Cannot find taxon name %s" x
+            in
+            (single_set,add_single t_name single_set (f_ext dat) mapp)
+        | Tree.Parse.Nodep (xs,(_,dat)) ->
+            let children_set,children_map =
+                List.fold_left
+                    ~f:(fun (oths,othm) nd ->
+                         let (one_set,one_map) = continually_add t_name f_ext othm nd in
+                         (All_sets.Integers.union oths one_set, one_map))
+                    ~init:(All_sets.Integers.empty,mapp)
+                    xs
+            in
+            children_set,add_single t_name children_set (f_ext dat) children_map
+    in 
+    let add_single_tree (t_name_opt,t) =
+        let tree_name =
+            match t_name_opt with | Some n -> String.uppercase n | None -> ""
+        in
+        let tree_map = List.fold_left
+            ~f:(fun acc_map x -> match x with
+                | Tree.Parse.Branches t ->
+                    let _,map = continually_add
+                        tree_name
+                        (fun x -> match (x:float option) with
+                            | Some x -> Some (create_all_char_table x)
+                            | None -> None)
+                        acc_map
+                        t
+                    in
+                    map
+                | Tree.Parse.Characters t ->
+                    let old_table = match branch_table with
+                        | None -> failwith "Cannot find defined table"
+                        | Some branch_table -> 
+                            try Hashtbl.find branch_table tree_name
+                            with | Not_found ->
+                                failwithf "Cannot find pre-defined tree, %s." tree_name
+                    in
+                    let _,map =
+                        continually_add
+                            tree_name
+                            (fun x -> match (x:string option) with
+                                | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
+                                | None -> None)
+                            acc_map
+                            t
+                    in 
+                    map
+                (* skip other types of trees *)
+                | _ -> acc_map)
+            ~init:(All_sets.IntSetMap.empty)
+            t
+        in
+        Hashtbl.add new_tree_table tree_name tree_map
+    in
+    List.iter add_single_tree trees;
+    new_tree_table
+
+
 let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let esc_file = StatusCommon.escape file in
     let leafs acc tree = 
@@ -820,19 +941,19 @@ let process_trees data file =
             "@ contains@ " ^ string_of_int len ^ "@ trees.@]"
         in
         let cnt = ref 0 in
-        let trees =
-            List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
+        let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
+        let branches =
+            branches_to_map data None (List.map (fun (x,_,_) -> x) trees) in
         Status.user_message Status.Information msg;
-        { data with trees = data.trees @ trees }
+        { data with trees = data.trees @ trees;
+                    branches = branches; }
     with
     | Sys_error err ->
-            let file = FileStream.filename file in
-            let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-            "trees.@ @ The@ system@ error@ message@ is@ "
-                ^ err ^
-            ".@]" in
-            output_error msg;
-            data
+        let file = FileStream.filename file in
+        let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
+                  "trees.@ @ The@ system@ error@ message@ is@ " ^ err ^ ".@]" in
+        output_error msg;
+        data
 
 let process_fixed_states data file = 
         match file with
@@ -1086,8 +1207,6 @@ let repack_codes data =
     process_available recode_character check data greatest_char_code 
     available_char_codes
 
-let ( --> ) a b = b a
-let failwithf format = Printf.ksprintf failwith format
 
 let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotated alphabet 
     file dyna_state data (res : (Sequence.s list list list *
@@ -1354,122 +1473,6 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
     in 
     data
 
-(* convert branch lengths with subsets of leaves *)
-let branches_to_map data branch_table trees = 
-    let complete_set =
-        All_sets.StringMap.fold
-            (fun k v acc -> All_sets.Integers.add v acc)
-            data.taxon_names
-            (All_sets.Integers.empty)
-    and new_tree_table = Hashtbl.create 13 in
-    let create_complement to_remove =
-        All_sets.Integers.fold
-            (All_sets.Integers.remove)
-            to_remove
-            complete_set
-    and create_all_char_table dist = 
-        let new_internal = Hashtbl.create 1229 in
-        Hashtbl.iter
-            (fun _ v -> Hashtbl.add new_internal v dist)
-            data.character_codes;
-        new_internal
-    (* add two table lengths, to resolve rooted trees *)
-    and add_two_lengths tbl1 tbl2 =
-        Hashtbl.iter
-            (fun k dist1 ->
-                let dist2 =
-                    try Hashtbl.find tbl2 k
-                    with | Not_found -> failwith "Sets don't match"
-                in
-                Hashtbl.replace tbl1 k (dist1 +. dist2))
-            tbl1
-    in
-    (* assoc partition with a value, if it exists, then add them, as it is
-     * due to a rooted tree *)
-    let add_single (t_name:string) (set:All_sets.Integers.t)
-                   (chartbl_opt : (string,float) Hashtbl.t option)
-                   (partition_map : 'a All_sets.IntSetMap.t) : 'a All_sets.IntSetMap.t =
-        match chartbl_opt with
-        | Some n -> 
-            let comp = create_complement set in
-            if (All_sets.IntSetMap.mem set partition_map) or (All_sets.IntSetMap.mem comp partition_map)
-                then begin
-                    let t = All_sets.IntSetMap.find set partition_map in
-                    add_two_lengths t n;
-                    partition_map --> 
-                        All_sets.IntSetMap.add comp t -->
-                        All_sets.IntSetMap.add set t
-                end else begin
-                    partition_map --> 
-                        All_sets.IntSetMap.add comp n -->
-                        All_sets.IntSetMap.add set n
-                end
-        | None -> partition_map
-    in
-
-    let rec continually_add t_name f_ext mapp t_node =
-        match t_node with
-        | Tree.Parse.Leafp (x,dat) ->
-            let single_set =
-                try
-                    let t_code = All_sets.StringMap.find x data.taxon_names in
-                    All_sets.Integers.add t_code (All_sets.Integers.empty)
-                with Not_found -> failwithf "Cannot find taxon name %s" x
-            in
-            (single_set,add_single t_name single_set (f_ext dat) mapp)
-        | Tree.Parse.Nodep (xs,(_,dat)) ->
-            let children_set,children_map =
-                List.fold_left
-                    ~f:(fun (oths,othm) nd ->
-                         let (one_set,one_map) = continually_add t_name f_ext othm nd in
-                         (All_sets.Integers.union oths one_set, one_map))
-                    ~init:(All_sets.Integers.empty,mapp)
-                    xs
-            in
-            children_set,add_single t_name children_set (f_ext dat) children_map
-    in 
-    let add_single_tree (t_name_opt,t) =
-        let tree_name =
-            match t_name_opt with | Some n -> String.uppercase n | None -> ""
-        in
-        let tree_map = List.fold_left
-            ~f:(fun acc_map x -> match x with
-                | Tree.Parse.Branches t ->
-                    let _,map = continually_add
-                        tree_name
-                        (fun x -> match (x:float option) with
-                            | Some x -> Some (create_all_char_table x)
-                            | None -> None)
-                        acc_map
-                        t
-                    in
-                    map
-                | Tree.Parse.Characters t ->
-                    let old_table =
-                        try Hashtbl.find branch_table tree_name
-                        with | Not_found ->
-                            failwithf "Cannot find pre-defined tree, %s." tree_name
-                    in
-                    let _,map =
-                        continually_add
-                            tree_name
-                            (fun x -> match (x:string option) with
-                                | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
-                                | None -> None)
-                            acc_map
-                            t
-                    in 
-                    map
-                (* skip other types of trees *)
-                | _ -> acc_map)
-            ~init:(All_sets.IntSetMap.empty)
-            t
-        in
-        Hashtbl.add new_tree_table tree_name tree_map
-    in
-    List.iter add_single_tree trees;
-    new_tree_table
-
 (* convert Nexus.File.file_output to Data.d *)
 let gen_add_static_parsed_file do_duplicate data file 
     (file_out : Nexus.File.nexus) =
@@ -1566,8 +1569,7 @@ let gen_add_static_parsed_file do_duplicate data file
                                      | Some x,Some y ->
                                         unroot_branch_lengths 
                                             file_out.Nexus.File.branches name x y
-                                     | _ -> ()
-                                    )
+                                     | _ -> ())
                                 | _ -> ()
                         in ()
                     ) trees
@@ -1607,7 +1609,7 @@ let gen_add_static_parsed_file do_duplicate data file
     in
     (* create set for branches *)
     let tbl = branches_to_map data 
-                              file_out.Nexus.File.branches
+                              (Some file_out.Nexus.File.branches)
                               file_out.Nexus.File.trees
     in
     Status.finished st;
