@@ -1675,7 +1675,7 @@ let check_if_taxa_are_ok file taxa =
     let _, second = List.fold_left ~f:(fun (acc, is_ok) x ->
         let msg =
             ("There@ is@ a@ taxon@ name@ that@ has@ "
-            ^ "illegal@ characters@ on@ it@ ([]();, ).@ This@ leaves@ the@ "
+            ^ "illegal@ characters@ on@ it@ ([]();,: ).@ This@ leaves@ the@ "
             ^ "generated@ trees@ "
             ^ "unreadable!.@ If you@ want@ to@ continue,@ that's@ "
             ^ "your@ call...@ the@ file@ is@ " ^ StatusCommon.escape file 
