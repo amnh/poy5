@@ -43,7 +43,7 @@
 #include "mgrstructs.h"
 #include "mgr_graph_edit.h"
 
-
+#include <caml/fail.h>
 
 /* build the graph G(Pi,Gamma) (page 220; page 224(d)) */
 
@@ -67,7 +67,10 @@ void double_perms(struct mgr_genome_struct *g1, struct mgr_genome_struct *g2,
   perm2      = distmem->perm2;          /* doubled pi-hat */
   perm       = distmem->perm;           /* composition */
 
-
+/*for(i=0;i<=2*num_genes;i++)
+{
+    perm1[i]=0; perm2[i]=0; perm[i]=0;
+}*/
 
   /* create doubled (gamma-hat)^(-1) */
   for (i=0 ; i<num_genes ; i++) {
@@ -136,8 +139,14 @@ void double_perms(struct mgr_genome_struct *g1, struct mgr_genome_struct *g2,
   fprintf(stdout,"\n");
 
   fflush(stdout);
-#endif
+fprintf(stdout, "i:  ");
+  for (i=0 ; i<2*num_genes ; i++) {
+    fprintf(stdout,"%4d ",i);
+  }
+  fprintf(stdout, "\n");
 
+  fflush(stdout);
+#endif
 
 
   /* composition */
@@ -148,15 +157,50 @@ void double_perms(struct mgr_genome_struct *g1, struct mgr_genome_struct *g2,
   }
   perm[n-1] = n-1;
 
-#ifdef DEBUG
+//#ifdef DEBUG
+/*
+ if((perm[61]==60)&&(perm[63]==60))
+{
   fprintf(stdout," P: ");
   for (i=0 ; i<n ; i++) {
-    fprintf(stdout,"%4d ",perm[i]);
+    fprintf(stdout,"[%d]%4d ",i,perm[i]);
   }
   fprintf(stdout,"\n");
 
   fflush(stdout);
-#endif
+
+   fprintf(stdout,"G1: ");
+  for (i=0 ; i<num_genes ; i++) {
+    fprintf(stdout,"[%d]%4d ",i,g1->genes[i]);
+  }
+  fprintf(stdout,"\n");
+
+  fprintf(stdout,"P1: ");
+  for (i=1 ; i<=2*num_genes ; i++) {
+    fprintf(stdout,"[%d]%4d ",i,perm1[i]);
+  }
+  fprintf(stdout,"\n");
+
+  fflush(stdout);
+
+  fprintf(stdout,"G2: ");
+  for (i=0 ; i<num_genes ; i++) {
+    fprintf(stdout,"[%d]%4d ",i,
+	    offset < num_genes ?
+	    g2->genes[(offset+i)%num_genes] :
+	    - g2->genes[(offset-i)%num_genes] );
+  }
+  fprintf(stdout,"\n");
+
+  fprintf(stdout,"P2: ");
+  for (i=1 ; i<=2*num_genes ; i++) {
+    fprintf(stdout,"[%d]%4d ",i,perm2[i]);
+  }
+  fprintf(stdout,"\n");
+
+  fflush(stdout);
+}*/
+//#endif
 
 }
 
@@ -219,11 +263,14 @@ void classify_cycle_path(graph_t *G,
   int *Bcap, *Gcap;
 
   int i;
+  int j;
   int next;
 
   int rightmost; /* the rightmost vertex in a cycle/path */
   int Bpos, Gpos;
   int endtag;
+
+  //G = &G_mcdist_noncircular;
 
   int size = G->size;
   mgr_distmem_t *distmem = G->distmem;
@@ -233,6 +280,14 @@ void classify_cycle_path(graph_t *G,
   n_adjacencies = n_cycles = n_pp = n_pg = n_gg = 0;
 
   G -> components_good = FALSE; /* components not yet computed */
+/*
+  fprintf(stdout, "greyEdges[size=%d] = \n",size);
+  for (i=0 ; i<size ; i++)
+  {
+      fprintf(stdout, "%d,",distmem->greyEdges[i]);
+  }
+  fprintf(stdout, "\n"); fflush(stdout);
+*/
 
 
 
@@ -361,6 +416,7 @@ void classify_cycle_path(graph_t *G,
 	    done[next] = 1;
 	    cycle[next] = i;
 	    rightmost  = rightmost >= next ? rightmost : next;
+//	  if (next % 2 == 0)  next++;	  else   next--;
 	  }   
 	} while (endtag   &&   next != i);
 
@@ -371,22 +427,50 @@ void classify_cycle_path(graph_t *G,
 	  /* path, follow other half, starting from the gray edge */
 	  next  = i;
 	  endtag = 1;
-	  do {
+      
+
+      int count = 0;
+	  do { 
+          count ++;
+          if(count >1000)
+          {
+              fprintf(stdout, "\ngreyEdges[%d]=%d;",next,greyEdges[next]);
+              fflush(stdout);
+          }
 	    /* gray edge */
 	    if (greyEdges[next] < 0) {
 	      endtag = 0;
 	      Gpos = next;
 	    } else {
+            if(count > 1000)
+            {
+                fprintf(stdout, "next<--%d,done[%d]<--1,cycle[%d]<--%d;",
+                        greyEdges[next],next,next,i);
+            }
 	      next = greyEdges[next];
 	      done[next] = 1;
 	      cycle[next] = i;
 	      rightmost = rightmost >= next ? rightmost : next;
 	      /* black edge */
 	      if (next % 2 == 0)  next++;	  else   next--;
+          if(count>1000) { fprintf(stdout, "next <-- %d ;",next); fflush(stdout); }
 	      done[next] = 1;
 	      cycle[next] = i;
 	      rightmost = rightmost >= next? rightmost : next;
 	    };
+
+      if(count>1005)
+      {
+            fprintf(stdout, "i=%d,greyEdges[size=%d] = \n",i,size);
+              for (i=0 ; i<size ; i++)
+           {
+          fprintf(stdout, "[%d]:%d,",i,distmem->greyEdges[i]);
+          }
+      fprintf(stdout, "\n"); fflush(stdout);
+      failwith("endless loop");
+      }
+
+
 	  } 
 	  while(endtag); 
 	};

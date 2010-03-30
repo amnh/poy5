@@ -26,6 +26,8 @@
 */
 
 
+struct mgr_genome_struct trial_genome_build_list_reag;
+
 void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 		 graph_t *G);
 

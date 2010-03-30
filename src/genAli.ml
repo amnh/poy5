@@ -343,22 +343,18 @@ let re_align seq11 seq12 seq21 seq22 gapcode =
         else new_seq,seq21,seq22
 
 let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
-    Sequence.s) (seq3 : Sequence.s) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
+    Sequence.s) (seq3 : Sequence.s) (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
     (* debug msg 
     Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3;
+    Printf.printf "delimiters lst =\n%!";
+    List.iter (fun lst -> 
+        Printf.printf "[%!"; 
+        List.iter (Printf.printf "%d,") lst; 
+        Printf.printf "];%!") delimiter_lstlst;
     debug msg *)
     let gapcode = Alphabet.get_gap alpha in
- (*   let size = Array.length gen_cost_mat in
-    let gen_cost_mat = Array.init (size - 1) 
-        (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
-    in 
-  
-    let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in  
-    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
-    Cost_matrix.Two_D.set_gap gen_cost_mat gapcode; 
- *)
     let arr1 = Sequence.to_array seq1
     and arr2 = Sequence.to_array seq2 
     and arr3 = Sequence.to_array seq3 in
@@ -366,7 +362,7 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     and oriarr2 = to_ori_arr (arr2) 
     and oriarr3 = to_ori_arr (arr3) in
     let comoriarr1,comoriarr2,comoriarr3 = Utl.get_common3 oriarr1 oriarr2 oriarr3 equal_orientation in
-    let ori_arr_med3 =
+    let ori_arr_med3,delimiter_arr =
         match medsov with
         |`Vinh ->
                 failwith "Vinh median solver is not in grappa"
@@ -377,7 +373,8 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
         |`BBTSP
         |`Albert
         |`Siepel ->
-            ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3 circular)
+            ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3
+            delimiter_lstlst circular)
 
     in
     let arr_med3 = from_ori_arr ori_arr_med3 in
@@ -387,7 +384,10 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     let totalcost1, (recost11,recost12), alied_arr11,alied_arr12  =
         cmp_cost `Breakinv arr1 arr_med3 comarr1 gen_cost_mat gapcode re_meth circular orientation
     in
-    (* debug msg
+    (* debug msg 
+    Printf.printf "GenAli.ml: delimiters :\n%!";
+    Array.iter (Printf.printf "%d,") delimiter_arr;
+    Printf.printf "\n%!";
     Printf.printf "~~ cost1 between [%!"; 
     Array.iter (Printf.printf "%d,") arr1; 
     Printf.printf " ] and [ %!";
@@ -420,7 +420,7 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     Array.iter (Printf.printf "%d," ) comarr3;
     Printf.printf " ] is %d\n%!" totalcost3;
     debug msg*)
-    (Sequence.of_array arr_med3), 
+    (Sequence.of_array arr_med3), (Array.to_list delimiter_arr),
     totalcost1,totalcost2,totalcost3,  
     recost11+recost12,recost21+recost22,recost31+recost32,
     alied_arr11,alied_arr21,alied_arr31,

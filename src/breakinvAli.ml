@@ -42,6 +42,8 @@ type breakinv_t = {
     cost2 : int; (** the cost between this breakinv and its second child *)
     recost1 : int; (** the recost between this breakinv and its first child *)
     recost2 : int; (** the recost between this breakinv and its second child *)
+
+    delimiter_lst : int list (* delimiter list for multichromosome *)
 }
 
 
@@ -96,6 +98,8 @@ let init seq =  {
     cost2 = 0;
     recost1 = 0;
     recost2 = 0;    
+
+    delimiter_lst = [];
 }
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
@@ -164,7 +168,8 @@ let get_recost user_pams =
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 (*debug msg 
-    Printf.printf "cmp_cost: %!"; Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+    Printf.printf "cmp_cost: %!"; 
+    Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
  debug msg*)
     let ali_pam = get_breakinv_pam breakinv_pam in     
     let len1 = Sequence.length med1.seq in 
@@ -196,12 +201,58 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               cost , recost
     end 
 
+let pick_delimiters med1 med2 med_seq = 
+    let arr1 = Sequence.to_array med1.seq 
+    and arr2 = Sequence.to_array med2.seq
+    and arr3 = Sequence.to_array med_seq
+    in
+    assert( (Array.length arr1) = (Array.length arr2) );
+    assert( (Array.length arr1) = (Array.length arr2) );
+    let num_genes = Array.length arr3 in
+    let deli1 = Array.of_list med1.delimiter_lst 
+    and deli2 = Array.of_list med2.delimiter_lst
+    in
+    (* debug msg 
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "],%!";
+    in
+    Printf.printf "pick delimiters :\n { %!";
+    Sequence.printseqcode med1.seq;
+    Sequence.printseqcode med2.seq;
+    Sequence.printseqcode med_seq;
+    print_intarr deli1; print_intarr deli2; 
+    Printf.printf " } num_genes = %d \n%!" num_genes;
+     debug msg *)
+    let dis11 = UtlGrappa.cmp_inversion_dis_multichrom 
+                arr1 arr3 deli1 deli1 num_genes
+    in
+    let dis12 = UtlGrappa.cmp_inversion_dis_multichrom 
+    arr2 arr3 deli2 deli1 num_genes
+    in
+    let dist21 = UtlGrappa.cmp_inversion_dis_multichrom 
+               arr1 arr3 deli1 deli2 num_genes  
+    in
+    let dist22 = UtlGrappa.cmp_inversion_dis_multichrom 
+               arr2 arr3 deli2 deli2 num_genes
+    in
+   (*debug msg
+    if (dis11+dis12)>(dist21+dist22) then Printf.printf "pick delimiter 1 \n%!"
+    else Printf.printf "pick delimiter 2\n%!";
+    debug msg*)
+    if (dis11+dis12)>(dist21+dist22) then med2.delimiter_lst
+    else med1.delimiter_lst
+
 
 (** find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam]
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
-
-let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =  
+let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
+    (* debug msg 
+    Printf.printf "find simple med2 ls:";
+    Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+     debug msg *)
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in
     let orientation = Alphabet.get_orientation alpha in
@@ -230,6 +281,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
                  in
+                 let newdelimiters = pick_delimiters med1 med2 med_seq
+                 in
                  let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 
                      {seq = med_seq; 
@@ -242,7 +295,9 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                       cost1 = total_cost - recost2;
                       cost2 = total_cost - recost1;
                       recost1 = recost1;
-                      recost2 = recost2}
+                      recost2 = recost2;
+                      delimiter_lst = newdelimiters 
+                     }
                  in    
                med::med_ls
             ) [] all_order_ls 
@@ -269,6 +324,7 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         cost2 = 0;
         recost1 = 0;
         recost2 = 0;
+        delimiter_lst = med1.delimiter_lst
         }]
         end
     else
@@ -305,113 +361,6 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     Sequence.printseqcode (List.hd med_ls).seq;
     debug msg*)
     cost, recost, med_ls
-
-(*
-let find_simple_med3_ls med1 med2 med3 (gen_cost_mat:Cost_matrix.Two_D.m)
-(pure_gen_cost_mat:int array array) alpha ali_pam =
-    let len1 = Sequence.length med1.seq in 
-    let len2 = Sequence.length med2.seq in
-    let orientation = Alphabet.get_orientation alpha in
-    if len1 < 1 then 0, (0, 0), [med2]
-    else if len2 < 1 then 0, (0, 0), [med1]
-    else begin  
-        let med3_arr,c1,c2,_,r1,r2,_,ali_arr11,ali_arr21,_,ali_arr12,_,_ = 
-            GenAli.create_gen_ali3_by_medsov `Albert  ali_pam.kept_wag `Breakinv
-            med1.seq med2.seq med3.seq 
-            pure_gen_cost_mat alpha ali_pam.re_meth ali_pam.swap_med 
-            ali_pam.circular orientation ali_pam.symmetric 
-        in
-        let alied_seq1 = Sequence.of_array ali_arr11 in
-        let alied_seq2 = Sequence.of_array ali_arr21 in
-        let alied_seq_med3 = Sequence.of_array ali_arr12 in
-        let total_cost = c1 + c2 in
-        let median3_withoutgap =
-            Utl.filterArr (ali_arr12) (fun code2 -> code2 != Alphabet.get_gap alpha)
-        in    
-        let all_order_ls =  [(median3_withoutgap, c1, c2)]  in 
-        let med_ls = List.fold_left 
-            (fun med_ls (median3_withoutgap, recost1, recost2) ->
-                 let med_seq = Sequence.init 
-                     (fun index ->
-                          if median3_withoutgap.(index) > 0 then 
-                              begin
-                                  median3_withoutgap.(index)
-                              end
-                          else 
-                              if median3_withoutgap.(index) mod 2  = 0 then -median3_withoutgap.(index) - 1
-                              else -median3_withoutgap.(index) + 1
-                     ) (Array.length median3_withoutgap)
-                 in
-                 let newrefcode =  Utl.get_new_chrom_ref_code () in
-                 let med = 
-                     {seq = med_seq; 
-                      alied_med = alied_seq_med3;
-                      alied_seq1 = alied_seq1;
-                      alied_seq2 = alied_seq2;
-                      ref_code =  newrefcode;
-                      ref_code1 = med1.ref_code;
-                      ref_code2 = med2.ref_code;
-                      cost1 = c1;
-                      cost2 = c2;
-                      recost1 = r1;
-                      recost2 = r2}
-                 in    
-               med::med_ls
-            ) [] all_order_ls 
-        in
-        total_cost, (r1, r2), med_ls
-    end
-*)
-
-(*
-let find_med3_ls med1 med2 med3 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam = 
-    if (med1 == med2) && (med2 == med3) then
-        begin
-        0, (0,0), [
-        { med1 with 
-        alied_seq1 = med1.seq;
-        alied_seq2 = med2.seq; 
-        ref_code = Utl.get_new_chrom_ref_code ();
-        ref_code1 = med1.ref_code;
-        ref_code2 = med2.ref_code;
-        cost1 = 0;
-        cost2 = 0;
-        recost1 = 0;
-        recost2 = 0;
-        }]
-        end
-    else
-    let ali_pam = get_breakinv_pam breakinv_pam in          
-    match ali_pam.symmetric with 
-    | true ->
-          let cost12, recost12, med12_ls = find_simple_med3_ls med1 med2 med3
-              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
-          cost12, recost12, med12_ls
-        (*  let cost21, recost21, med21_ls = find_simple_med3_ls med2 med1 med3
-              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
-          if cost12 <= cost21 then 
-              begin 
-                  cost12, recost12, med12_ls
-              end
-          else begin 
-              let med12_ls = List.map swap_med med21_ls in 
-              cost21, recost21, med12_ls
-          end *)
-    | false ->
-          let med1, med2, swaped = 
-              match Sequence.compare med1.seq med2.seq < 0 with 
-              | true ->  med1, med2, false
-              | false -> med2, med1, true
-          in 
-          let cost, recost, med_ls = find_simple_med3_ls med1 med2 med3
-              gen_cost_mat pure_gen_cost_mat alpha ali_pam in
-          let med_ls = 
-              match swaped with
-              | false -> med_ls
-              | true -> List.map swap_med med_ls
-          in
-         cost, recost, med_ls
-*)
 
 (** [get_costs med child_ref] returns the cost
 * from this breakinv median to its child [child_ref] *)
@@ -468,8 +417,27 @@ let create_breakinv_test =
         print_endline "End of create_breakinv_test"
     else ()
 
+let update_bkinv_t old_bkinvt newseq delimiters =
+    { old_bkinvt with seq = newseq; delimiter_lst = delimiters }
 
-
-
-
+let single_to_multi bkinvt =
+    let seq = bkinvt.seq and delimiters = bkinvt.delimiter_lst in
+    assert( (List.length delimiters)>0 );
+    let count = ref 0 in
+    Printf.printf "single to multi in breakinvAli.ml, check delimiter list:\n [%!";
+    List.iter (Printf.printf "%d,") delimiters;
+    Printf.printf "]\n%!";
+    let seq_lst = List.map ( fun delimiter ->
+        let empty: Sequence.s = Sequence.get_empty_seq () in
+        for i = !count to (!count + delimiter)-1 do
+            Sequence.prepend empty (Sequence.get seq i)
+        done;
+        count := !count + delimiter;
+        (Sequence.reverse empty)
+    ) delimiters in
+    Printf.printf "break single seq into seq list:\n%!";
+    List.map (fun s ->
+        Sequence.printseqcode s;
+        { bkinvt with seq = s; delimiter_lst = [] }
+    ) seq_lst
 

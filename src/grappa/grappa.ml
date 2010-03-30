@@ -33,9 +33,23 @@ external c_cmp_inv_dis : genome -> genome -> int -> int ->  int
 (* for the median3, call albert-median resolver*)
 (* genomeX, genomeY, genomeZ, number of genes in each genome, circular/or not,
 * output the median of X, Y and Z *)
-external c_inv_med : int -> genome -> genome -> genome -> int -> int -> 
+external c_inv_med : int -> genome -> genome -> genome -> int -> int ->
+    genome_arr
+  (*
     (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+  *)
    = "grappa_CAML_inv_med_bytecode" "grappa_CAML_inv_med"
+
+external c_get_gene_bigarr : genome -> int ->
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+    = "grappa_CAML_get_gene_bigarr"
+
+external c_get_delimiter_num : genome -> int =
+    "grappa_CAML_get_delimiter_num"
+
+external c_get_delimiter_bigarr : genome -> int ->
+    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
+    = "grappa_CAML_get_delimiter_bigarr"
 
 external c_init : int -> unit = "grappa_CAML_initialize" 
 
@@ -50,10 +64,19 @@ let bigarr_to_intarr bigarr =
     ) in
     intarr
 
-let get_med3_arr (medsov : int) (g0 : genome) (g1 : genome) (g2 : genome) num_gen circular =
-    let bigarr_med3 = c_inv_med medsov g0 g1 g2 num_gen circular in
-    let intarr_med3 = bigarr_to_intarr bigarr_med3 in
-    intarr_med3
+let get_med3_arr (g1 : genome) num_gene = 
+    let med3_bigarr =  c_get_gene_bigarr g1 num_gene in
+    bigarr_to_intarr med3_bigarr
+
+let get_delimiter_arr (g1 : genome) num_delimiter = 
+    let deli_bigarr =  c_get_delimiter_bigarr g1 num_delimiter in
+    bigarr_to_intarr deli_bigarr
+
+let get_med3_genome (medsov : int) (g0 : genome) (g1 : genome) (g2 : genome) num_gen circular =
+    let output_genome_arr = c_inv_med medsov g0 g1 g2 num_gen circular in
+    c_get_one_genome output_genome_arr 0 
+  (*  let intarr_med3 = bigarr_to_intarr bigarr_med3 in
+    intarr_med3 *)
 
 let inversion_distance a b c d = 
     c_cmp_inv_dis a b c (if d then 1 else 0)
@@ -70,7 +93,7 @@ let inversions a b c d = List.rev (c_inversions a b c d)
 
 external c_create_empty_genome_arr : int -> int -> genome_arr = "grappa_CAML_create_empty_genome_arr"
 
-external c_set : genome_arr -> int -> int -> int -> unit = "grappa_CAML_set"
+external c_set : int -> genome_arr -> int -> int -> int -> unit = "grappa_CAML_set"
 
 let genomes arr = 
     (* Create an array of genomes *)
@@ -81,7 +104,7 @@ let genomes arr =
         let res = c_create_empty_genome_arr total genes in
         let () = 
             Array.iteri (fun a chrom ->
-                Array.iteri (c_set res a) chrom) arr
+                Array.iteri (c_set 1 res a) chrom) arr
         in
         res
 

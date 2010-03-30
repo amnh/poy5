@@ -40,6 +40,9 @@ val standardize : int array -> int array -> int array * int array
  * For example: [genomeX] = (-6, 1, 5), [genomeY] = (-5, 1, 6) *)
 val cmp_inversion_dis : int array -> int array -> int -> int
 
+val cmp_inversion_dis_multichrom : int array -> int array -> int array -> int
+array -> int -> int
+
 (** [cmp_breakpoint_dis genomeX genomeY circular] computes
  * the breakpoint distance between two given gene orders 
  * [genomeX=(x1, x2, ... xk)] and [genomeY=(y1, y2,..yk)]. 
@@ -84,5 +87,6 @@ val cmp_self_oriented_breakpoint_dis : int array -> int -> int
 * given three input sequence array, returns the median by calling
 * albert-median-solver. the int here is a sign of circular/or not
 * *)
-val inv_med :  Data.median_solver_t -> int array -> int array -> int array -> int -> int array
+val inv_med :  Data.median_solver_t -> int array -> int array -> int array ->
+    int list list -> int -> int array * int array
 

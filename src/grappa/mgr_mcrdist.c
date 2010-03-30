@@ -42,6 +42,8 @@
 #include "mgr_graph_components.h"
 #include "mgr_e_malloc.h"
 
+#include <caml/fail.h>
+
 
 int get_caps_pgpath(graph_t *G, int capno);
 
@@ -75,11 +77,10 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 		      */
 
 #ifdef DEBUG
-  fprintf(outfile,"buildG_grey: num_genes: %3d  num_chromosomes: %3d\n",
+  fprintf(stdout,"buildG_grey: num_genes: %3d  num_chromosomes: %3d\n",
 	  num_genes, num_chromosomes);
 #endif
-
-  G->distmem = distmem;
+//  G->distmem = distmem; //why here?
   size = G->size = 2*num_genes+2;
 
 
@@ -143,6 +144,7 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
   if (j1 != size-2)
     greyEdges[size-1] = j1;
 
+  
   /* now delete some edges incident with caps or tails:
      mark
            pi-cap tail tail pi-cap
@@ -161,69 +163,62 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
     /* initialize chromosome numbers: it's one huge chromosome */
     for (i=0; i<size; i++)
       chromNum[i] = 0;
-
     chromBd[0] = 0;
     chromBd[1] = size;
-
-  } else {
+  }//if (num_chromosomes == 0) 
+  else {
     /* multichromosomal */
-
     lowcap = 2*num_genes - 4*num_chromosomes + 1;
-
     cnum=0;  /* chromosome counter */
-
     i=0;
     inchrom = FALSE; /* at start of a chromosome */
-
     chromNum[i] = cnum;
     greyEdges[i++] = V_TAIL;
-
     while (i < size-1) {
       if (perm2[i] >= lowcap) {          /* regions between chromosomes */
 	if (inchrom == FALSE) {
 	  cnum++; /* started a new chromosome */
 	  inchrom = TRUE;
 	  chromBd[cnum] = i;
-
 	  /* deleting tail is easy */
 	  chromNum[i] = cnum; greyEdges[i++] = V_TAIL;
-
 	  /* deleting grey edge leaving tail is longer */
 	  chromNum[i] = cnum;
 	  j1 = greyEdges[i];
-
 	  /* JCSS - NULL CHROMOSOME BUG FIX */
 	  greyEdges[i] = V_PICAP;
-
 	  if (j1 == V_ADJ) {
 	    /* adjacency, restore vertex number */
 	    if (i%2 == 0) j1=i+1; else j1=i-1;
 	  }
 	  if (j1>=0) greyEdges[j1] = V_GTAIL;
 	  i++;
-	} else {
+	}//if (inchrom == FALSE) 
+    else {
 	  /* delete grey edge leaving tail */
 	  j1 = greyEdges[i];
-
 	  /* JCSS - NULL CHROMOSOME BUG FIX */
-	  greyEdges[i] = V_PICAP;
-
+	  //new fix:
+      greyEdges[i] = V_PICAP;
+	  //greyEdges[i] = V_GTAIL;
 	  if (j1 == V_ADJ) {
 	    /* adjacency, restore vertex number */
 	    if (i%2 == 0) j1=i+1; else j1=i-1;
 	  }
-	  if (j1>=0) greyEdges[j1] = V_GTAIL;
-
+	  if (j1>=0) {
+          //greyEdges[j1] = V_PICAP; 
+          // new fix:
+           greyEdges[j1] = V_GTAIL;
+      }
 	  chromNum[i] = cnum;
 	  i++;
-
 	  /* delete tail */
 	  chromNum[i] = cnum; greyEdges[i++] = V_TAIL;
 	  inchrom = FALSE;
-	}
-
-      } else {                           /* region within a chromosome */
-	chromNum[i] = cnum;
+	}//end of  if (inchrom == FALSE)
+    }// if (perm2[i] >= lowcap)  
+    else {                           /* region within a chromosome */
+        chromNum[i] = cnum;
 #if 0
 	/* delete gamma-tails */
 	j1 = greyEdges[i];
@@ -232,14 +227,13 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 	  /* greyEdges[j1] = V_PICAP; */  /* already done */
 	}
 #endif
-	i++;
-      }
-    }
+    i++;
+    }//end of  if (perm2[i] >= lowcap)
+    }//end of if (num_chromosomes == 0)
     chromNum[i] = cnum+1;
     chromBd[cnum+1] = i;
     greyEdges[i++] = V_TAIL;  /* end */
   }
-
 
 #ifdef DEBUG
 #if 0
@@ -248,15 +242,12 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 	    perm[i], greyEdges[i] == V_ADJ ? V_ADJ : perm[greyEdges[i]]);
   }
 #endif
-
-  fprintf(outfile,"IP: ");
+  fprintf(stdout,"IP: ");
   for (i=0; i<size ; i++)
-    fprintf(outfile,"%4d ",
+    fprintf(stdout,"%4d ",
 	    invperm[i]);
-  fprintf(outfile,"\n");
-
-
-  fprintf(outfile,"Grey edges:");
+  fprintf(stdout,"\n");
+  fprintf(stdout,"Grey edges:");
 #if 0
   fprintf(outfile,"\nP:  ");
   for (i=0; i<size ; i++)
@@ -269,14 +260,12 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
     fprintf(outfile,"%4d ",
 	    greyEdges[i]<0 ? greyEdges[i] : perm[greyEdges[i]]);
 #endif
-
-  fprintf(outfile,"\nE0: ");
+  fprintf(stdout,"\nE0: ");
   for (i=0; i<size ; i++)
-    fprintf(outfile,"%4d ",
+    fprintf(stdout,"%4d ",
 	    greyEdges[i]);
-  fprintf(outfile,"\n");
-
-  fflush(outfile);
+  fprintf(stdout,"\n\n");
+  fflush(stdout);
 #endif
 
 }
@@ -309,7 +298,7 @@ void repairG_chrom(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 		      */
 
 #ifdef DEBUG
-  fprintf(outfile,"buildG_grey: num_genes: %3d  num_chromosomes: %3d\n",
+  fprintf(stdout,"buildG_grey: num_genes: %3d  num_chromosomes: %3d\n",
 	  num_genes, num_chromosomes);
 #endif
 
@@ -1467,52 +1456,50 @@ void copy_perm_to_genome(int *perm,
 void mcdist_allocmem(int num_genes, int num_chromosomes,
 		     mgr_distmem_t *distmem)
 {
+//    fprintf(stdout,"mcdist_allocmem, %d,%d\n",num_genes,num_chromosomes);
   int gsize = 2*num_genes+2;      /* # entries in doubled genome */
 
-  distmem->perm1 = (int *) e_malloc(gsize*sizeof(int), "perm1");
+  distmem->perm1 = (int *) malloc(gsize*sizeof(int));
 
-  distmem->perm2 = (int *) e_malloc(gsize*sizeof(int), "perm2");
+  distmem->perm2 = (int *) malloc(gsize*sizeof(int));
 
-  distmem->perm = (int *) e_malloc(gsize*sizeof(int), "perm");
+  distmem->perm = (int *) malloc(gsize*sizeof(int));
 
-  distmem->done = (int *) e_malloc(gsize*sizeof(int), "done");
+  distmem->done = (int *) malloc(gsize*sizeof(int));
 
-  distmem->greyEdges = (int *) e_malloc(gsize*sizeof(int), "greyEdges");
+  distmem->greyEdges = (int *) malloc(gsize*sizeof(int));
 
-  distmem->stack = (int *) e_malloc(gsize*sizeof(int), "stack");
+  distmem->stack = (int *) malloc(gsize*sizeof(int));
 
-  distmem->oriented = (int *) e_malloc(gsize*sizeof(int), "oriented");
+  distmem->oriented = (int *) malloc(gsize*sizeof(int));
 
-  distmem->cc = (int *) e_malloc(gsize*sizeof(int), "cc");
+  distmem->cc = (int *) malloc(gsize*sizeof(int));
 
-  distmem->labeled = (int *) e_malloc(gsize*sizeof(int), "labeled");
+  distmem->labeled = (int *) malloc(gsize*sizeof(int));
 
 
   /* # components is at most # genes+1, since every pair of verts is
      joined by a black edge */
   distmem->components = (mgr_component_t *)
-     e_malloc((num_genes+1)*sizeof(mgr_component_t), "components");
+     malloc((num_genes+1)*sizeof(mgr_component_t));
 
-  distmem->Bcap = (int *) e_malloc(gsize*sizeof(int), "Bcap");
+  distmem->Bcap = (int *) malloc(gsize*sizeof(int));
 
-  distmem->Gcap = (int *) e_malloc(gsize*sizeof(int), "Gcap");
+  distmem->Gcap = (int *) malloc(gsize*sizeof(int));
 
-  distmem->ptype = (int *) e_malloc(gsize*sizeof(int), "ptype");
+  distmem->ptype = (int *) malloc(gsize*sizeof(int));
 
-  distmem->chromNum = (int *) e_malloc(gsize*sizeof(int), "chromNum");
+  distmem->chromNum = (int *) malloc(gsize*sizeof(int));
 
-  distmem->chromBd = (int *) e_malloc((num_chromosomes+2)*sizeof(int),
-				      "chromBd");
-  distmem->capMark = (int *) e_malloc((2*num_chromosomes)*sizeof(int),
-				      "capMark");
+  distmem->chromBd = (int *) malloc((num_chromosomes+2)*sizeof(int));
+  distmem->capMark = (int *) malloc((2*num_chromosomes)*sizeof(int));
 
-  distmem->cappedp1 = (int *) e_malloc(num_genes * sizeof(int), "cappedp1");
+  distmem->cappedp1 = (int *) malloc(num_genes * sizeof(int));
   
-  distmem->cappedp2 = (int *) e_malloc(num_genes * sizeof(int), "cappedp2");
+  distmem->cappedp2 = (int *) malloc(num_genes * sizeof(int));
 }
 
 void mcdist_freemem(mgr_distmem_t *distmem) {
-
   free(distmem->cappedp2);
   free(distmem->cappedp1);
   free(distmem->capMark);
@@ -1609,7 +1596,6 @@ int mcdist_noncircular_full(struct mgr_genome_struct *g1,
 	       0, /* offset */
 	       num_genes,
 	       distmem);
-
 
 
   /* construct the grey edges, caps, tails (p. 225(d)) */
@@ -1852,7 +1838,74 @@ void mcdist_partial_G(struct mgr_genome_struct *g1,
   return;
 }
 
-
+/* This is a sanity check for input genomes.
+ * each genome has a int array "genes", if the size of genes is 100, any number
+ * from 1 to 100 shows up in the genes array once, and only once. The number
+ * could show up in the negative way.
+ * INPUT: pass the mgr_genome_struct g, or the int array and its size.
+ * OUTPUT: if there is no problem, return 0. otherwise, return -1, also print
+ * out message for debug.
+ * */
+int sanity_check(struct mgr_genome_struct *g, int * in_genes, int size)
+{
+    int i;
+    int j;
+    int * checkgenes;
+    int checksize;
+     int min,max;
+    
+        if((g != NULL)&&(g->genes != NULL))
+        {
+            checkgenes = g->genes;
+            checksize = g->num_g+1;
+            min = 0;
+            max = checksize;
+        }
+        else if(in_genes != NULL)
+        {
+            checkgenes = in_genes;
+            checksize = size;
+            min = 1;
+            max = checksize+1;
+        }
+        else { failwith("cannot run sanity check with NULL input"); }
+    if(checksize>1)
+    {
+     int checklist[600];
+     for(i=0;i<600;i++)    checklist[i]=0;
+     for(i=0;i<checksize;i++)
+     {
+         int idx = checkgenes[i];
+         if ((idx>=min)&&(idx<max))
+         checklist[idx]++;
+         else if ( (idx<=-min)&&(idx>-max))
+             checklist[-idx]++;
+         else 
+             fprintf(stderr,"ERROR: checksize=%d,index out of bound:%d\n",checksize,idx);
+     }
+     int sign = 0;
+     int start;
+     if( in_genes == NULL) start = 0;
+     else start = 1;
+     for(i=start;i<checksize;i++)
+         if(checklist[i]!=1)
+         {
+             fprintf(stderr, 
+                     "checklist[%d]=%d!=1\n",i,checklist[i]); 
+             fflush(stdout); 
+             sign = -1;
+         }
+     if(sign==-1) {
+         for(j=0;j<checksize;j++)
+                 fprintf(stdout, "[%d]%d, ", j,checkgenes[j]);
+             fprintf(stdout, "\n");
+             fflush(stdout);
+     }
+     return sign;
+     }
+     else 
+         return 0;
+}
 
 /* interface to compute the distance (p. 226, steps 1 & 2)
    that discards the other info not needed for only distance */
@@ -1863,11 +1916,31 @@ int mcdist_noncircular(struct mgr_genome_struct *g1,
 		       mgr_distmem_t *distmem,
 		       graphstats_t *graphstats)
 {
-  graph_t G;
+  graph_t * G = &G_mcdist_noncircular;//graph_t G;
+  //G = &G_mcdist_noncircular;
+  if( (G == NULL)||(G == (graph_t*)NULL) )
+  {
+      fprintf(stdout,"init memory graph_t for mcdist_noncircular\n"); fflush(stdout);
+      G = (graph_t *)malloc(sizeof(graph_t));
+  }
+  G->distmem = distmem;
+  G->size = 2*num_genes+2;
+  
   pathcounts_t pcounts_G;
   int s2flag;
-
-
+  /*debug msg  
+  fprintf(stdout,"mcdist noncircular,num_genes=%d,num_chromosomes=%d\n",
+          num_genes,num_chromosomes);
+  int jj;
+  int * point = g1->genes;
+                for(jj=0;jj<num_genes;jj++)
+                    fprintf(stdout,"%d,",point[jj]);
+                fprintf(stdout," \n");
+   point = g2->genes;
+                for(jj=0;jj<num_genes;jj++)
+                    fprintf(stdout,"%d,",point[jj]);
+                fprintf(stdout,"\n");
+debug msg */ 
   /* allow calling for unichromosomal genomes */
   if (num_chromosomes == 0)
     return invdist_noncircular_v(g1, g2,
@@ -1875,10 +1948,15 @@ int mcdist_noncircular(struct mgr_genome_struct *g1,
 				 num_genes, distmem, graphstats);
 
   /* multichromosomal */
-  return mcdist_noncircular_full(g1, g2,
+
+  //sanity_check(g1);
+  //sanity_check(g2);
+  int res = mcdist_noncircular_full(g1, g2,
 				 num_genes, num_chromosomes, distmem,
-				 &G, &pcounts_G, &s2flag,
+				 G, &pcounts_G, &s2flag,
 				 graphstats);
+ // fprintf(stdout, "res = %d\n", res); fflush(stdout);
+  return res;
 
 }
 

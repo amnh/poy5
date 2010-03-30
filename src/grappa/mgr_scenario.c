@@ -35,6 +35,7 @@
 #include "mgr_mcrdist.h"
 #include "mgr_e_malloc.h"
 
+#include <caml/fail.h>
 
 
 #define ABS(n) (n >=0 ? n : (0-n))
@@ -51,6 +52,8 @@ void init_cbounds(int num_genes, int num_chromosomes,
 
 void free_cbounds(cbounds_t *cb);
 
+
+void init_cbounds_memory (int num_genes, int num_chromosomes, cbounds_t * cb);
 
 /* initialize memory
    compute breakpoints
