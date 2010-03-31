@@ -97,6 +97,7 @@ module CommandCompletion = struct
         "echo";
         "end";
         "error";
+        "estimate";
         "exact";
         "exhaustive_do";
         "exit";
@@ -107,6 +108,7 @@ module CommandCompletion = struct
         "fixed_states";
         "forest";
         "fuse";
+        "gamma";
         "gap_opening";
         "gb";
         "genome";
@@ -129,6 +131,7 @@ module CommandCompletion = struct
         "keep";
         "last";
         "level";
+        "likelihood";
         "load";
         "locus_breakpoint";
         "locus_indel";
@@ -143,6 +146,7 @@ module CommandCompletion = struct
         "median";
         "median_solver";
         "memory";
+        "model";
         "min_loci_len";
         "min_rearrangement_len";
         "min_time";
@@ -154,6 +158,7 @@ module CommandCompletion = struct
         "nodes";
         "nolog";
         "nomargin";
+        "none";
         "normal_do";
         "normal_do_plus";
         "not";
@@ -213,6 +218,7 @@ module CommandCompletion = struct
         "tcm";
         "td";
         "terminals";
+        "theta";
         "threshold";
         "ti";
         "timedprint";

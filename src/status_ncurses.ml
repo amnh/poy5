@@ -75,16 +75,13 @@ let is_parallel x f =
 let rank c = my_rank := c
 
 (* The verbosity that will be used in a particular run *)
-let verbsty : ([ `Low | `Medium | `High ] ref) = ref `Low
+let verbosity : ([ `None | `Low | `Medium | `High ] ref) = ref `Low
 
 (* [set_verbosity v] sets the verbosity of the calling process to [v] *)
-let set_verbosity v = 
-    verbsty := v
+let set_verbosity v = verbosity := v
 
-(* [get_verbosity ()] gets the value of the current setting for the verbosity
-* level *)
-let get_verbosity () = 
-    !verbsty
+(* [get_verbosity ()] gets the  current setting for the verbosity level *)
+let get_verbosity () = !verbosity
 
 let columns =  
     ref (NcursesML.columns ())
@@ -604,14 +601,18 @@ let update_status st =
     | None -> ()
 
 let report st =
-    assert (find_status st);
-    update_status st
+    match !verbosity with
+    | `None -> ()
+    |    _  ->
+        assert (find_status st);
+        update_status st
 
 let user_message t v =
-    match t with
-    | Status -> ()
-    | Output _ -> print t (StatusCommon.string_to_format v)
-    | _ -> print t (StatusCommon.string_to_format (v ^ "@."))
+    match !verbosity,t with
+    |    _ , Error    -> print t (StatusCommon.string_to_format (v ^ "@."))
+    |    _ , Output _ -> print t (StatusCommon.string_to_format v)
+    | `None, _        -> ()
+    |    _ , _        -> print t (StatusCommon.string_to_format (v ^ "@."))
 
 let create name max lm =
     match !status_stack with
@@ -651,22 +652,25 @@ let output_table t v =
             print t (StatusCommon.string_to_format "@.")
 
 let finished st =
-    if 1 = !(st.line) then
-        user_message Information ("Finished " ^ st.name);
-    assert (find_status st);
-    st.last_message := "Finished\n";
-    st.achieved := 
-        begin match st.max with
-        | None -> !(st.achieved)
-        | Some v -> v
-        end;
-    if !use_colors then begin
-        NcursesML.use_red st.window true;
-        update_status st;
-        NcursesML.use_red st.window false;
-    end else 
-        update_status st;
-    eliminate_status_subwindow st
+    match !verbosity with
+    | `None -> ()
+    | _ -> 
+        if 1 = !(st.line) then
+            user_message Information ("Finished " ^ st.name);
+        assert (find_status st);
+        st.last_message := "Finished\n";
+        st.achieved := 
+            begin match st.max with
+            | None -> !(st.achieved)
+            | Some v -> v
+            end;
+        if !use_colors then begin
+            NcursesML.use_red st.window true;
+            update_status st;
+            NcursesML.use_red st.window false;
+        end else 
+            update_status st;
+        eliminate_status_subwindow st
 
 let full_report ?msg ?adv st =
     begin match msg with

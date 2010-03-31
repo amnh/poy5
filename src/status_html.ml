@@ -30,7 +30,7 @@ let are_we_parallel = ref false
 
 let my_rank = ref 0
 
-let verbosity : ([ `Low | `Medium | `High ] ref) = ref `Low
+let verbosity : ([ `None | `Low | `Medium | `High ] ref) = ref `Low
 
 let slaves_deal_in_this_way : (c -> string -> unit) ref = ref (fun _ _ -> ())
 
@@ -228,11 +228,17 @@ let message status string =
     else !slaves_deal_in_this_way Status string
 
 let report status = 
-    if (not !are_we_parallel) || (0 = !my_rank) then
-        status#print
-    else ()
+    match !verbosity with
+    | `None -> ()
+    |  _ -> 
+        if (not !are_we_parallel) || (0 = !my_rank) then
+            status#print
+        else ()
 
-let finished status = status#destroy ()
+let finished status =
+    match !verbosity with
+    | `None -> ()
+    | _     -> status#destroy ()
 
 let full_report ?msg ?adv status =
     let _ =
@@ -299,6 +305,13 @@ let user_message ty t =
                 output#print ("@[<v 4>@{<c:red>@{<b>Error: @}@}@,@[" ^^ t ^^
                 "@]@]@.%!")
     end else !slaves_deal_in_this_way ty t
+
+let user_message c msg = 
+    match !verbosity,c with
+    |    _ , Error ->  user_message c msg
+    | `None, _ -> ()
+    |    _ , _ ->  user_message c msg
+
 
 let do_output_table t v =
     if 0 = !my_rank then 

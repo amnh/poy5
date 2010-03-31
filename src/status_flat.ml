@@ -32,7 +32,7 @@ type formatter_output = StatusCommon.formatter_output
 type c = SearchReport | Status | Warning | Error | Information 
          | Output of (string option * bool * formatter_output list)
 
-let verbosity : [`Low | `Medium | `High ] ref = ref `High
+let verbosity : [ `None | `Low | `Medium | `High ] ref = ref `High
 
 let set_verbosity x = verbosity := x
 
@@ -195,7 +195,9 @@ let single_channel_report st ch =
     !to_do_if_parallel Status str
 
 let report st =
-    List.iter (single_channel_report st) !channels
+    match !verbosity with
+    | `None -> ()
+    |     _ -> List.iter (single_channel_report st) !channels
 
 let single_channel_finished st =
     let s = 
@@ -204,7 +206,9 @@ let single_channel_finished st =
     !to_do_if_parallel Status s
 
 let finished st =
-    single_channel_finished st
+    match !verbosity with
+    | `None -> ()
+    | _     -> single_channel_finished st
 
 let single_user_message c msg =
     let str = Printf.sprintf "@[%s@]" msg in
@@ -220,9 +224,13 @@ let full_report ?msg ?adv st =
     | None -> ()
     end;
     report st
+ 
 
-let user_message c msg =
-    single_user_message c msg
+let user_message c msg = 
+    match !verbosity,c with
+    |    _ , Error -> single_user_message c msg
+    | `None, _     -> ()
+    |    _ , _     -> single_user_message c msg
 
 let init () = ()
 
