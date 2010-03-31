@@ -110,6 +110,8 @@ type spec = {
     site_variation : site_var option;
     base_priors : priors;
     use_gap : bool;
+    iterate_model : bool;
+    iterate_alpha : bool;
 }
 
 type model = {
@@ -420,34 +422,51 @@ END
 (* convert a string spec to a specification, used in Parser for nexus *)
 let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):string_spec) =
   IFDEF USE_LIKELIHOOD THEN
+    let iterate_model = ref true in
+    let iterate_alpha = ref true in
     let submatrix = match String.uppercase name with
-        | "JC69" -> (match param with
+        | "JC69" -> 
+            iterate_model := false;
+            (match param with
             | [] -> JC69
             | _ -> failwith "Parameters don't match model")
-        | "F81" -> (match param with
+        | "F81" -> 
+            iterate_model := false;
+            (match param with
             | [] -> F81
             | _ -> failwith "Parameters don't match model")
         | "K80" | "K2P" -> (match param with
-            | ratio::[] -> K2P (Some ratio)
+            | ratio::[] -> 
+                iterate_model := false;    
+                K2P (Some ratio)
             | []        -> K2P None
             | _ -> failwith "Parameters don't match model")
         | "F84" -> (match param with
-            | ratio::[] -> F84 (Some ratio)
+            | ratio::[] ->
+                iterate_model := false;    
+                F84 (Some ratio)
             | []        -> F84 None
             | _ -> failwith "Parameters don't match model")
         | "HKY" | "HKY85" -> (match param with
-            | ratio::[] -> HKY85 (Some ratio)
+            | ratio::[] ->
+                iterate_model := false;    
+                HKY85 (Some ratio)
             | []        -> HKY85 None
             | _ -> failwith "Parameters don't match model")
         | "TN93" -> (match param with
-            | ts::tv::[] -> TN93 (Some (ts,tv))
+            | ts::tv::[] ->
+                iterate_model := false;    
+                TN93 (Some (ts,tv))
             | []         -> TN93 None
             | _ -> failwith "Parameters don't match model")
         | "GTR" -> (match param with
             | [] -> GTR None
-            | ls -> GTR (Some (Array.of_list ls)) )
+            | ls -> 
+                iterate_model := false;    
+                GTR (Some (Array.of_list ls)) )
         | "GIVEN"-> (match file with
             | Some name ->
+                iterate_model := false;    
                 (`Local name)
                     --> read_file
                     --> List.map (Array.of_list)
@@ -459,13 +478,24 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         | _  -> failwith "Incorrect Model"
     and variation = match String.uppercase var with
         | "GAMMA" ->
-            let alpha = try float_of_string alpha with | _ -> default_alpha false in
+            let alpha = try let res = float_of_string alpha in
+                            iterate_alpha := false;
+                            res
+                        with | _ -> default_alpha false in
             Gamma (int_of_string site, alpha)
         | "THETA" -> 
-            let alpha = try float_of_string alpha with | _ -> default_alpha true in
-            let invar = try float_of_string invar with | _ -> default_invar in
+            let alpha = try let res = float_of_string alpha in
+                            iterate_alpha := false;
+                            res
+                        with | _ -> default_alpha true in
+            let invar = try let res = float_of_string invar in
+                            iterate_alpha := !iterate_alpha || false;
+                            res
+                        with | _ -> default_invar in
             Theta (int_of_string site, alpha, invar)
-        | "NONE" | "CONSTANT" | "" -> Constant
+        | "NONE" | "CONSTANT" | "" ->
+            iterate_alpha := false;
+            Constant
         | _ -> failwith "Unrecognized variation method"
     and gap = match String.uppercase gap with
         | "TRUE" -> true
@@ -475,7 +505,9 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
     {   substitution = submatrix;
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
-        use_gap = gap; }
+        use_gap = gap;
+        iterate_model = !iterate_model;
+        iterate_alpha = !iterate_alpha; }
   ELSE
     failwith likelihood_not_enabled
   END
@@ -483,7 +515,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
 (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
 let verify_rates probs rates =
     let p1 = (Bigarray.Array1.dim probs) = (Bigarray.Array1.dim rates)
-    and p2 = 
+    and p2 =
         let rsps = ref 0.0 and ps = ref 0.0 in
         for i = 0 to (Bigarray.Array1.dim probs) - 1 do
             rsps := !rsps +. (probs.{i} *.  rates.{i});
@@ -755,6 +787,8 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
         site_variation = v;
         base_priors = Estimated (Array.of_list f_priors);
         use_gap = gap;
+        iterate_model = true;
+        iterate_alpha = true;
     }
 
 let update_k2p old_model new_value =
@@ -1243,23 +1277,28 @@ let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5
  * update function ensures this consistency *)
 let get_update_function_for_model_with_alpha model =
   IFDEF USE_LIKELIHOOD THEN
-    let add_alpha model_fun = match model.spec.site_variation with
-        | Some (Gamma _) -> Some (update_all model_fun)
-        | Some (Theta _) -> Some (update_alli model_fun)
-        | None | Some Constant -> Some model_fun
+    let add_alpha model_fun =
+        if model.spec.iterate_alpha then begin
+            match model.spec.site_variation with
+            | Some (Gamma _) -> Some (update_all model_fun)
+            | Some (Theta _) -> Some (update_alli model_fun)
+            | None | Some Constant -> Some model_fun
+        end else begin
+            Some model_fun
+        end
     in
-    match model.spec.substitution with
-        | JC69 | F81 | File _ ->
+    match model.spec.substitution, model.spec.iterate_model with
+        | _, false | JC69 ,_ | F81,_ | File _,_ ->
             begin match model.spec.site_variation with
                 | Some (Gamma _) -> Some (fun y x -> update_alpha y x.(0))
                 | Some (Theta _) -> Some (fun y x -> update_alpha_invar y x.(0) x.(1))
                 | None | Some Constant -> None
             end
-        | TN93 _  -> add_alpha (fun y x -> update_tn93 y (x.(0),x.(1)) )
-        | F84 _   -> add_alpha (fun y x -> update_f84 y x.(0))
-        | GTR _   -> add_alpha update_gtr
-        | K2P _   -> add_alpha (fun y x -> update_k2p y x.(0))
-        | HKY85 _ -> add_alpha (fun y x -> update_hky y x.(0))
+        | TN93 _,_  -> add_alpha (fun y x -> update_tn93 y (x.(0),x.(1)) )
+        | F84 _,_   -> add_alpha (fun y x -> update_f84 y x.(0))
+        | GTR _,_   -> add_alpha update_gtr
+        | K2P _,_   -> add_alpha (fun y x -> update_k2p y x.(0))
+        | HKY85 _,_ -> add_alpha (fun y x -> update_hky y x.(0))
   ELSE
     None
   END
@@ -1268,23 +1307,31 @@ let get_update_function_for_model_with_alpha model =
  * update function ensures this consistency *)
 and get_update_function_for_model model =
   IFDEF USE_LIKELIHOOD THEN
-    match model.spec.substitution with
-        | JC69 | F81 | File _ -> None
-        | TN93 _  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) )
-        | F84 _   -> Some (fun y x -> update_f84 y x.(0))
-        | GTR _   -> Some update_gtr
-        | K2P _   -> Some (fun y x -> update_k2p y x.(0))
-        | HKY85 _ -> Some (fun y x -> update_hky y x.(0))
+    if model.spec.iterate_model then begin
+        match model.spec.substitution with
+            | JC69 | F81 | File _ -> None
+            | TN93 _  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) )
+            | F84 _   -> Some (fun y x -> update_f84 y x.(0))
+            | GTR _   -> Some update_gtr
+            | K2P _   -> Some (fun y x -> update_k2p y x.(0))
+            | HKY85 _ -> Some (fun y x -> update_hky y x.(0))
+    end else begin
+        None
+    end
   ELSE
     None
   END
 
 and get_update_function_for_alpha model = 
   IFDEF USE_LIKELIHOOD THEN
-    match model.spec.site_variation with
-    | Some (Gamma _) -> Some update_alpha
-    | Some (Theta _) -> Some update_alpha
-    | None | Some Constant -> None
+    if model.spec.iterate_alpha then begin
+        match model.spec.site_variation with
+        | Some (Gamma _) -> Some update_alpha
+        | Some (Theta _) -> Some update_alpha
+        | None | Some Constant -> None
+    end else begin
+        None
+    end
   ELSE
     None
   END

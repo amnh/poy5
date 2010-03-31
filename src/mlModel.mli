@@ -66,6 +66,8 @@ type spec = {
     site_variation : site_var option;
     base_priors : priors;
     use_gap : bool;
+    iterate_model : bool;
+    iterate_alpha : bool;
 }
 
 (** [model] type to define the model used in the calculation of the likelihood
@@ -103,6 +105,11 @@ val convert_string_spec : string_spec -> spec
 
 (** [create_lk_model s] create the model for likelihood from parser *)
 val create  : Alphabet.a -> spec -> model
+
+val default_tstv : float
+val default_gtr : int -> float array
+val default_alpha : bool -> float
+val default_invar : float
 
 IFDEF USE_LIKELIHOOD THEN
 

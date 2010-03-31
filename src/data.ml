@@ -384,6 +384,8 @@ type d = {
     (* branch lengths read from nexus file: tree -> node -> char *)
     (* node is defined by partition of leaves in the tree        *)
     branches : (string,((string,float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t;
+    (* determine if we should iterate the branches *)
+    iterate_branches : bool;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -468,6 +470,7 @@ let empty () =
         ignore_character_set = [];
         trees = [];
         branches = create_ht ();
+        iterate_branches = true;
         non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
@@ -504,7 +507,8 @@ let duplicate data =
         branches = Hashtbl.copy data.branches;
     }
 
-let remove_bl data = { data with branches = create_ht (); }
+let remove_bl data = { data with branches = create_ht (); 
+                                 iterate_branches = true; }
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -748,13 +752,16 @@ let trim taxon =
     else taxon
 
 (* convert branch lengths with subsets of leaves *)
-let branches_to_map data branch_table trees = 
+let branches_to_map data initial_table branch_table trees = 
     let complete_set =
         All_sets.StringMap.fold
             (fun k v acc -> All_sets.Integers.add v acc)
             data.taxon_names
             (All_sets.Integers.empty)
-    and new_tree_table = Hashtbl.create 13 in
+    and new_tree_table = match initial_table with
+        | Some x -> x
+        | None -> Hashtbl.create 13
+    and found = ref false in
     let create_complement to_remove =
         All_sets.Integers.fold
             (All_sets.Integers.remove)
@@ -828,6 +835,7 @@ let branches_to_map data branch_table trees =
         let tree_map = List.fold_left
             ~f:(fun acc_map x -> match x with
                 | Tree.Parse.Branches t ->
+                    found := true;
                     let _,map = continually_add
                         tree_name
                         (fun x -> match (x:float option) with
@@ -838,6 +846,7 @@ let branches_to_map data branch_table trees =
                     in
                     map
                 | Tree.Parse.Characters t ->
+                    found := true;
                     let old_table = match branch_table with
                         | None -> failwith "Cannot find defined table"
                         | Some branch_table -> 
@@ -863,7 +872,7 @@ let branches_to_map data branch_table trees =
         Hashtbl.add new_tree_table tree_name tree_map
     in
     List.iter add_single_tree trees;
-    new_tree_table
+    new_tree_table,!found
 
 
 let verify_trees data (((name,tree), file, position) : parsed_trees) =
@@ -942,11 +951,14 @@ let process_trees data file =
         in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
-        let branches =
-            branches_to_map data None (List.map (fun (x,_,_) -> x) trees) in
+        let branches,found =
+            branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
+        in
+        let i_branch = Hashtbl.fold (fun _ _ _ -> true) branches false in
         Status.user_message Status.Information msg;
         { data with trees = data.trees @ trees;
-                    branches = branches; }
+                    branches = branches;
+                    iterate_branches = (not found);}
     with
     | Sys_error err ->
         let file = FileStream.filename file in
@@ -1613,14 +1625,17 @@ let gen_add_static_parsed_file do_duplicate data file
             file_out.Nexus.File.csets
     in
     (* create set for branches *)
-    let tbl = branches_to_map data 
-                              (Some file_out.Nexus.File.branches)
-                              file_out.Nexus.File.trees
+    let tbl,found =
+        branches_to_map data 
+                        None
+                        (Some file_out.Nexus.File.branches)
+                        file_out.Nexus.File.trees
     in
     Status.finished st;
     {data with 
         character_sets = file_out.Nexus.File.csets;
         branches = tbl;
+        iterate_branches = (not found);
     }
 
 let add_static_parsed_file data file triple =
@@ -3630,6 +3645,7 @@ IFDEF USE_LIKELIHOOD THEN
     | chars ->
         let data = duplicate data in
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
+        let i_alpha = ref true and i_model = ref true in
         (* We get the characters and filter them out to have only static types *)
         let model =
             let alph_size, _ = verify_alphabet data chars in
@@ -3654,36 +3670,57 @@ IFDEF USE_LIKELIHOOD THEN
                 | None -> Some MlModel.Constant 
                 | Some x -> (match x with 
                     | `Gamma (w,y) ->
-                        let y = match y with | Some x -> x | None -> 1.0 in
+                        let y = match y with
+                            | Some x -> i_alpha := false; x 
+                            | None -> MlModel.default_alpha false
+                        in
                         Some (MlModel.Gamma (w,y))
                     | `Theta (w,y) ->
-                        let y,p = match y with | Some x -> x | None -> (0.2,0.1) in
+                        let y,p = match y with 
+                            | Some x -> i_alpha := false; x 
+                            | None -> (MlModel.default_alpha true,
+                                        MlModel.default_invar)
+                        in
                         Some (MlModel.Theta (w,y,p)))
             and substitution = 
                 match substitution with
-                | `JC69 -> MlModel.JC69
-                | `F81  -> MlModel.F81
+                | `JC69 ->
+                    i_model := false;    
+                    MlModel.JC69
+                | `F81  ->
+                    i_model := false;    
+                    MlModel.F81
                 | `K2P (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.K2P (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.K2P None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.K2P (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.K2P None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");
                 | `K2P None -> MlModel.K2P None
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.HKY85 (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.HKY85 None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.HKY85 (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.HKY85 None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");    
-                | `HKY85 None -> MlModel.HKY85 None
+                | `HKY85 None -> 
+                    MlModel.HKY85 None
                 | `F84 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.F84 (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.F84 None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.F84 (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.F84 None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ HKY85@ requires@ 1@ parameters" in
                             failwith("Incorrect Parameters");
                 | `F84 None -> MlModel.F84 None
@@ -3693,24 +3730,28 @@ IFDEF USE_LIKELIHOOD THEN
                         let _ = Status.user_message Status.Error
                             "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");
-                    else if Array.length aray = 0 then
+                    else if Array.length aray = 0 then begin
                         MlModel.TN93 None
-                    else
+                    end else begin
+                        i_model := false;
                         MlModel.TN93 (Some (aray.(0),aray.(1)))
+                    end
                 | `TN93 None -> MlModel.TN93 None
                 | `GTR (Some x) ->
                     let aray = Array.of_list x in 
                     let n_a = (alph_size * (alph_size-1)) / 2 in
                     if (Array.length aray) <> n_a then
-                        let _ = Status.user_message Status.Error 
+                        let () = Status.user_message Status.Error 
                         ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
                          "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
                          (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
                         failwith "Incorrect Parameters";
-                    else if Array.length aray = 0 then
+                    else if Array.length aray = 0 then begin
                         MlModel.GTR None
-                    else
+                    end else begin
+                        i_model := false;
                         MlModel.GTR (Some aray)
+                    end
                 | `GTR None -> MlModel.GTR None
                 | `File str -> 
                         (* this needs to be changed to allow remote files as well *)
@@ -3733,6 +3774,8 @@ IFDEF USE_LIKELIHOOD THEN
             let lk_spec = { MlModel.substitution = substitution;
                             site_variation = site_variation;
                             base_priors = base_priors;
+                            iterate_model = !i_model;
+                            iterate_alpha = !i_alpha;
                             use_gap = use_gap; }
             in
             MlModel.create (get_alphabet data (List.hd chars)) lk_spec

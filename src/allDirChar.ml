@@ -116,7 +116,7 @@ module F : Ptree.Tree_Operations
                 --> List.fold_left insert_function All_sets.IntSetMap.empty
                 --> Hashtbl.add treebranches name
         in
-        {ptree.Ptree.data with Data.branches = treebranches }
+        {ptree.Ptree.data with Data.branches = treebranches; }
             --> (fun x -> {ptree with Ptree.data = x})
 
     (* process tree data to find branch lengths *)
@@ -1312,7 +1312,7 @@ module F : Ptree.Tree_Operations
                 else begin
                     let btree = adjust_tree iterations branches None itree in
                     let bcost = Ptree.get_cost `Adjusted btree in
-(*                    info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;*)
+                    (* info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;*)
                     if (abs_float (icost -. bcost)) <= epsilon 
                         then btree 
                         else loop_m (iter+1) bcost btree
@@ -1323,7 +1323,7 @@ module F : Ptree.Tree_Operations
             if do_branches then begin
                 let btree = adjust_tree iterations branches None first_tree in
                 let bcost = Ptree.get_cost `Adjusted btree in
-(*                info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;*)
+                (* info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;*)
                 loop_m 1 (Ptree.get_cost `Adjusted btree) btree
             end else begin
                 loop_m 0 first_cost first_tree
@@ -1333,11 +1333,12 @@ module F : Ptree.Tree_Operations
             match node_man with
             | Some node_man -> 
                 let do_branches =
-                    match node_man#branches with | Some [] -> false | _ -> true
+                    (match node_man#branches with | Some [] -> false | _ -> true)
+                        && (tree.Ptree.data.Data.iterate_branches)
                 in
                 adjust_ (node_man#model) do_branches (node_man#branches) None tree
             | None ->
-(*                warning_user_message "No Iteration Manager; using current default";*)
+                (* warning_user_message "No Iteration Manager; using current default";*)
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)
                 | `Iterative (`ThreeD  iterations) -> adjust_ true true None iterations tree

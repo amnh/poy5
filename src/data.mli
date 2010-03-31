@@ -363,6 +363,7 @@ type d = {
     ignore_character_set : string list;
     trees : parsed_trees list;
     branches : (string,((string,float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t;
+    iterate_branches : bool;
     non_additive_1 : int list;
     non_additive_8 : int list;
     non_additive_16 : int list;
