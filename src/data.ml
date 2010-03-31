@@ -383,7 +383,7 @@ type d = {
     trees : parsed_trees list;
     (* branch lengths read from nexus file: tree -> node -> char *)
     (* node is defined by partition of leaves in the tree        *)
-    branches : (string,((string,float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t;
+    branches : (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option;
     (* determine if we should iterate the branches *)
     iterate_branches : bool;
     (* The set of codes that belong to the class of Non additive with up to 1
@@ -469,7 +469,7 @@ let empty () =
         ignore_taxa_set = All_sets.Strings.empty;
         ignore_character_set = [];
         trees = [];
-        branches = create_ht ();
+        branches = None;
         iterate_branches = true;
         non_additive_1 = [];
         non_additive_8 = [];
@@ -504,11 +504,16 @@ let duplicate data =
         character_specs = Hashtbl.copy data.character_specs;
         character_sets = Hashtbl.copy data.character_sets;
         character_nsets = Hashtbl.copy data.character_nsets;
-        branches = Hashtbl.copy data.branches;
+        branches = 
+            match data.branches with
+            | Some branches -> Some (Hashtbl.copy branches)
+            | None -> None;
     }
 
-let remove_bl data = { data with branches = create_ht (); 
-                                 iterate_branches = true; }
+let remove_bl force data =
+    if (not force) && not data.iterate_branches then data
+    else { data with branches = None;
+                     iterate_branches = true; }
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -951,10 +956,10 @@ let process_trees data file =
         in
         let cnt = ref 0 in
         let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
-        let branches,found =
+        let branches, found =
             branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
         in
-        let i_branch = Hashtbl.fold (fun _ _ _ -> true) branches false in
+        let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
         { data with trees = data.trees @ trees;
                     branches = branches;
@@ -1631,6 +1636,7 @@ let gen_add_static_parsed_file do_duplicate data file
                         (Some file_out.Nexus.File.branches)
                         file_out.Nexus.File.trees
     in
+    let tbl = if found then Some tbl else None in
     Status.finished st;
     {data with 
         character_sets = file_out.Nexus.File.csets;
