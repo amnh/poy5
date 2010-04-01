@@ -517,10 +517,20 @@ let no_iterative_other_than_for_seqs = false
 
 let flatten t_lst =
     let bkCS_t_lst = List.map (fun x -> match x with
-    |BreakinvCS x_bkinvCS -> x_bkinvCS
-    |_ -> failwith ("we only dealwith breakinv now")
+    | BreakinvCS x_bkinvCS -> x_bkinvCS
+    | _ -> failwith ("we only dealwith breakinv now")
     ) t_lst in
     BreakinvCS.flatten bkCS_t_lst 
+
+(* this is a tempory fix, multichromosome from MGR should be useful for all
+* types of dynamic data.*)
+let is_available in_data =
+    let res = 
+    match in_data with
+    | BreakinvCS bk_t -> 1
+    | _ -> 0
+    in
+    res
 
 let update_t oldt newseqlst delimiterslst =
     let newt = 
