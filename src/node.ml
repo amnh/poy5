@@ -2619,7 +2619,9 @@ let load_data ?(silent=true) ?(classify=true) data =
     let nodes, data = structure_into_sets data nodes in
     current_snapshot "Node.load_data end";
     let nodes =
-        transform_multi_chromosome nodes 
+        match dynamics with
+        | h::t -> transform_multi_chromosome nodes 
+        | _ -> nodes
     in
     data, nodes
 
