@@ -2351,6 +2351,15 @@ let structure_into_sets data (nodes : node_data list) =
     in
     nodes, !data'
 
+let is_available in_data =
+    let res = 
+        match (List.hd in_data) with
+        |  Dynamic x_dycs ->                
+                DynamicCS.is_available x_dycs.preliminary
+        | _ -> 0
+    in
+    res
+
 let flatten cs_lst=
     let dycs_lst = List.map (fun x -> match x with
     | Dynamic x_dycs -> x_dycs.preliminary
@@ -2461,11 +2470,15 @@ let multi_to_single_chromosome node_data newseq delimiters =
 
 
 
-let transform_multi_chromosome ( nodes : node_data list ) = 
+let transform_multi_chromosome ( nodes : node_data list ) =
+    let available = 
+        is_available (List.hd nodes).characters 
+    in
+    if (available=1) then begin
     let characters_lst: cs list list = List.map (fun x -> x.characters) nodes in
     let (seq_lstlstlst:Sequence.s list list list),(delimiter_lstlstlst: int list
         list list) = flatten_cslist characters_lst
-        in
+    in
         (* now the seq_lstlstlst is like this:
           {
             (
@@ -2523,6 +2536,9 @@ let transform_multi_chromosome ( nodes : node_data list ) =
             multi_to_single_chromosome old_nodedata node_medlst_seq deli_lstlst)
          nodes nodelst_medlst_seq delimiter_lstlstlst in
         new_nodedata_lst
+    end
+    else 
+        nodes
     
 
 
