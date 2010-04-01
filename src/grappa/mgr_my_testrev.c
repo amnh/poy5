@@ -80,10 +80,10 @@ void init_cbounds_wmem(int num_genes, int num_chromosomes,
      if ((cb->cNum == NULL) || (cb->cNum == (int*) NULL)) fprintf(stderr, "`error cNum \n");
 fflush(stderr);
 
-    if(cb->num_genes!=num_genes) 
-        fprintf(stderr, "Warning in init_cbounds_wmem: num_gene=%d!=%d\n", num_genes,cb->num_genes);
-    if(cb->num_chromosomes != num_chromosomes)
-        fprintf(stderr, "Warning in init_cbounds_wmem: num_chromosome=%d!=%d\n", num_chromosomes,cb->num_chromosomes);
+    if(cb->num_genes<num_genes) 
+        fprintf(stderr, "Warning in init_cbounds_wmem: num_gene we need is %d, bigger than %d\n", num_genes,cb->num_genes);
+    if(cb->num_chromosomes < num_chromosomes)
+        fprintf(stderr, "Warning in init_cbounds_wmem: num_chromosome=%d>%d\n", num_chromosomes,cb->num_chromosomes);
     fflush(stderr);
 
 	int i;
