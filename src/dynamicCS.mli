@@ -163,6 +163,8 @@ val to_single_root : ChromCS.IntSet.t -> t -> float * float * t
 * *)
 val flatten :  t list -> Sequence.s list list
 
+val is_available : t -> int
+
 val update_t : t -> Sequence.s list -> int list list -> t
 
 val single_to_multi : t -> t list
