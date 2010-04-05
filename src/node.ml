@@ -2370,8 +2370,6 @@ let flatten cs_lst=
     seq_lstlst
 
 let flatten_cslist (characters_lst: cs list list) =
-    (*Printf.printf "flatten_cslist on characters_lst,len=%d\n%!" (List.length
-    characters_lst); *)
     let (seq_lstlstlst:Sequence.s list list list) 
     = mapN flatten characters_lst in
     (* = map4 flatten c1 c2 parent mine in *)

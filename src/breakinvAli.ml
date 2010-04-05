@@ -201,13 +201,28 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
               cost , recost
     end 
 
+let better_capping med1_seq med2_seq delimiters =
+    let arr1 = Sequence.to_array med1_seq 
+    and arr2 = Sequence.to_array med2_seq in
+    assert( (Array.length arr1) = (Array.length arr2) );
+    let deli1 = Array.of_list delimiters in 
+    let deli2 = deli1 in 
+    (*this is true since we choose delimiters of med1 as
+    the delimiter for med2. btw, med1 is one of the two 
+    parents of med2 in "pick_delimiters" *)
+    let new_medseq2, new_deli2 = 
+        UtlGrappa.find_better_capping arr1 arr2 deli1 deli2
+    in
+    (Sequence.of_array new_medseq2),(Array.to_list new_deli2)
+
+
 let pick_delimiters med1 med2 med_seq = 
     let arr1 = Sequence.to_array med1.seq 
     and arr2 = Sequence.to_array med2.seq
     and arr3 = Sequence.to_array med_seq
     in
     assert( (Array.length arr1) = (Array.length arr2) );
-    assert( (Array.length arr1) = (Array.length arr2) );
+    assert( (Array.length arr3) = (Array.length arr2) );
     let num_genes = Array.length arr3 in
     let deli1 = Array.of_list med1.delimiter_lst 
     and deli2 = Array.of_list med2.delimiter_lst
@@ -229,7 +244,7 @@ let pick_delimiters med1 med2 med_seq =
                 arr1 arr3 deli1 deli1 num_genes
     in
     let dis12 = UtlGrappa.cmp_inversion_dis_multichrom 
-    arr2 arr3 deli2 deli1 num_genes
+                arr2 arr3 deli2 deli1 num_genes
     in
     let dist21 = UtlGrappa.cmp_inversion_dis_multichrom 
                arr1 arr3 deli1 deli2 num_genes  
@@ -241,8 +256,8 @@ let pick_delimiters med1 med2 med_seq =
     if (dis11+dis12)>(dist21+dist22) then Printf.printf "pick delimiter 1 \n%!"
     else Printf.printf "pick delimiter 2\n%!";
     debug msg*)
-    if (dis11+dis12)>(dist21+dist22) then med2.delimiter_lst
-    else med1.delimiter_lst
+    if (dis11+dis12)>(dist21+dist22) then med2,med2.delimiter_lst
+    else med1,med1.delimiter_lst
 
 
 (** find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam]
@@ -250,7 +265,14 @@ let pick_delimiters med1 med2 med_seq =
 * allowing rearrangements *) 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
     (* debug msg 
-    Printf.printf "find simple med2 ls:";
+    let print_intlist lst = 
+        Printf.printf "[%!";
+        List.iter (Printf.printf "%d,") lst;
+        Printf.printf "]\n%!"
+    in
+     debug msg *)
+    (* debug msg 
+    Printf.printf "find_simple_med2_ls in breakinvAli.ml :\n";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
      debug msg *)
     let len1 = Sequence.length med1.seq in 
@@ -281,8 +303,16 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                               else -re_seq2.(index) + 1
                      ) (Array.length re_seq2)
                  in
-                 let newdelimiters = pick_delimiters med1 med2 med_seq
-                 in
+                 (* create delimiter for the new median *)
+                 (* just pick the better one from its two parents, for now *)
+                 (* then we do "find better capping" after this*)
+                 let chosen_parent,newdelimiters = pick_delimiters med1 med2 med_seq in
+                 let med_seq, newdelimiters = 
+                     better_capping chosen_parent.seq med_seq newdelimiters in
+                 (* debug msg 
+                 Printf.printf "seqcode with better capping:\n%!";
+                 Sequence.printseqcode med_seq; print_intlist newdelimiters; 
+                 debug msg *)
                  let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 
                      {seq = med_seq; 

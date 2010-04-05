@@ -90,3 +90,6 @@ val cmp_self_oriented_breakpoint_dis : int array -> int -> int
 val inv_med :  Data.median_solver_t -> int array -> int array -> int array ->
     int list list -> int -> int array * int array
 
+
+val find_better_capping : int array -> int array -> int array -> int array -> int array * int array
+

@@ -75,8 +75,8 @@ void init_cbounds_wmem(int num_genes, int num_chromosomes,
 					   struct mgr_genome_struct *g1,
 					   cbounds_t *cb) {
 	
-    if(cb == NULL) fprintf(stderr, "`error cb\n");
-    if ((cb->cBound == NULL) || (cb->cBound == (int*) NULL)) fprintf(stderr, "`error cBound \n");
+    if(cb == NULL) fprintf(stderr, "`error cb in init_cbounds_wmem\n");
+    if ((cb->cBound == NULL) || (cb->cBound == (int*) NULL)) fprintf(stderr, "`error cBound in init_cbounds_wmem\n");
      if ((cb->cNum == NULL) || (cb->cNum == (int*) NULL)) fprintf(stderr, "`error cNum \n");
 fflush(stderr);
 
@@ -1006,7 +1006,7 @@ int try_good_operation(int optype, G_struct *Genomes, int nb_spec, int spec_left
 	 	 	 p->dest_genome = &genome_list[i];
 			 dist = dist_mat[gindex1*nb_spec+i];
 			 //a_reduction = my_try_operation(optype, dist, p);
-             if(-1 == sanity_check(p->dest_genome, 301))
+ /*            if(-1 == sanity_check(p->dest_genome, 301))
              {
                  failwith("ERROR: check p->dest failed");
              }
@@ -1014,6 +1014,7 @@ int try_good_operation(int optype, G_struct *Genomes, int nb_spec, int spec_left
              {
                  failwith("ERROR: check p->trial failed");
              }
+*/
 			 int d2 = mcdist_noncircular(p->trial_genome, p->dest_genome,
 			  p->num_genes, p->num_chromosomes,
 			  p->distmem, NULL);
