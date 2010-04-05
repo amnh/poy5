@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = true
+let debug = false
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
