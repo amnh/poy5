@@ -28,7 +28,7 @@ let failwithf format = Printf.ksprintf failwith format
 let likelihood_not_enabled =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
-let debug = false
+let debug = true
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -669,38 +669,40 @@ let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
 
 (* Develop a model from a classification --created above *)
 let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp_map,pis) =
-    let alph_size = 
-        float_of_int (if gap then Alphabet.size alph else (Alphabet.size alph) - 1)
-    and tuple_sum = 
+    let tuple_sum = 
         All_sets.FullTupleMap.fold (fun k v a -> a +. v) comp_map 0.0 in
     let f_priors = 
         let sum = All_sets.IntegerMap.fold (fun k v x -> v +. x) pis 0.0
         and gap_size =
-            let s = try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
-                    with | Not_found -> 0.0 in
-            s /. alph_size
+            try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
+            with | Not_found -> 0.0
         in
-        let l = List.fold_left
-            (fun acc (r,b) ->
-                (* if gaps aren't characters then incorporate them *)
-                if not gap then begin
-                    if b = Alphabet.get_gap alph then acc
-                    else begin
-                        let c = try (gap_size +. (All_sets.IntegerMap.find b pis)) /. sum
-                                with | Not_found -> gap_size /. sum in
-                        c :: acc
-                    end
-                (* gaps are characters, seperate them -- minimum is 1/sum.
-                 * essentially saying one character must exist, else a different
-                 * alphabet should have been chosen *)
-                end else begin
-                    let c = try (All_sets.IntegerMap.find b pis) /. sum
-                            with | Not_found -> 0.0 in
-                    c :: acc
-                end)
-            []
-            (Alphabet.to_list alph)
-        in 
+        let l =
+            (* subtract gaps from totals *)
+            if not gap then begin
+                let sum = sum -. gap_size in
+                List.fold_left
+                    (fun acc (r,b) -> match b with
+                        | b when b = Alphabet.get_gap alph -> acc
+                        | b ->
+                            let c = 
+                                try (All_sets.IntegerMap.find b pis) /. sum
+                                with | Not_found -> 0.0 in
+                            c :: acc)
+                    []
+                    (Alphabet.to_list alph)
+            (* gaps are charcters *)
+            end else begin
+                List.fold_left
+                    (fun acc (r,b) -> 
+                        let c = try (All_sets.IntegerMap.find b pis) /. sum
+                                with | Not_found -> 0.0 in
+                        c :: acc)
+                    []
+                    (Alphabet.to_list alph)
+            end
+        in
+        (* TODO: what to do if we don't have any of a state? *)
         List.rev l
     and is_comp a b = match Alphabet.complement a alph with
         | Some x -> x = b
@@ -955,8 +957,19 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
+let modifier = ref 0 (* to avoid one file with multiple iterations *)
+let graph_function ?(steps=10000) filename lower upper f = 
+    incr modifier;
+    let step_size = (upper -. lower) /. (float_of_int steps)
+    and out_chan = open_out ((string_of_int !modifier)^"_"^filename) in
+    for i = 0 to steps - 1 do
+        let x = (lower +. ((float_of_int i) *. step_size)) in
+        Printf.fprintf out_chan "%f\t%f\n" x (f x)
+    done;
+    ()
+
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
@@ -986,17 +999,14 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
         in
         debug_printf "Trying to bracket around %f,%f\n%!" o fo;
         bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
-
   (*-- brents method as in Numerical Recipe in C; 10.2 *)
-    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b e iters =
+    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b d e iters =
         debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
                         iters a b x w v;
         let xm = (a +. b) /. 2.0
         and tol1 = tol *. (abs_float x) +. epsilon in
         (* check ending conditions *)
-        if iters > max_iter then begin
-            debug_printf "Too many iterations in brents method: %d" iters;
-            x'
+        if iters > max_iter then begin x'
         end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
         else begin
             let d,e = 
@@ -1008,48 +1018,57 @@ let brents_method ?(max_iter=100) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-1
                     let q = 2.0 *. (q -. r) in
                     let p = if q > 0.0 then ~-. p else p in
                     let q = abs_float q in
-                    (* the acceptability of the parabolic fit *)
+                    (* the acceptability of the parabolic fit? *)
                     if (abs_float p) >= (abs_float (0.5 *. q *. e))
                         || p <= q *. (a -. x) || p >= q *. (b -. x) then
                         (* do a golden section instead of parabolic fit *)
                         let e = if x >= xm then a-.x else b -. x in
-                        golden *. e, e
+                        let d,e = golden *. e, e in
+                        debug_printf "\tDoing a golden section search1: %f//%f\n" d e;
+                        d,e
                     else begin
                         (* take the parabolic step *)
-                        let d = p /. q in
-                        let u = x +. d in
-                        if (u -. a) < (tol1 *. 2.0) || (b -. u) < (tol1 *. 2.0) 
-                            then sign tol1 (xm -. x),d
-                            else d,d
+                        let d_new = p /. q in
+                        let u = x +. d_new in
+                        let d,e = 
+                            if (u -. a) < (tol1 *. 2.0) || (b -. u) < (tol1 *. 2.0) 
+                                then sign tol1 (xm -. x),d
+                                else d_new,d
+                        in
+                        debug_printf "\tDoing a parabolic fit: %f//%f\n" d e;
+                        d,e
                     end
                 end else begin
                     let e = if x >= xm then a -. x else b -. x in
-                    golden *. e, e
+                    let d,e = golden *. e, e in
+                    debug_printf "\tDoing a golden section search2: %f//%f\n" d e;
+                    d,e
                 end
             in
             (* the ONLY function evalution for each iteration *)
             let u = 
                 if (abs_float d) >= tol1
                     then max v_min (x+.d)
-                    else max v_min (x+.(sign tol1 d)) in
+                    else max v_min (x+.(sign tol1 d))
+            in
             let fu = f u in
             let u',fu = (u,fu), snd fu in
-            debug_printf "Calculated [%f,%f] in Brent\n%!" u fu;
+            debug_printf "\tCalculated [%f,%f] in Brent\n%!" u fu;
             (* what to do with results for next iteration *)
             if fu <= fx then begin
-                let a, b = if u >= x then x,b else a,b in
-                brent u' x' w' a b e (iters+1)
+                let a,b = if u >= x then x,b else a,x in
+                brent u' x' w' a b d e (iters+1)
             end else begin
-                let a,b = if u < x then u,b else b,u in
+                let a,b = if u < x then u,b else a,u in
                 if fu <= fw || w =. x then
-                    brent x' u' w' a b e (iters+1)
+                    brent x' u' w' a b d e (iters+1)
                 else 
-                    brent x' w' u' a b e (iters+1)
+                    brent x' w' u' a b d e (iters+1)
             end
         end
     in
     let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
-    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0 in
+    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
     debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
                     v_orig (snd f_orig) b fb;
     res
