@@ -85,7 +85,7 @@ let breakinvPam_default = {
 
 
 (** [init seq] creates a new breakinv sequence from [seq] *)
-let init seq =  {        
+let init seq delimiters =  {        
     seq = seq;  
     alied_med = Sequence.get_empty_seq ();
     alied_seq1 = Sequence.get_empty_seq ();
@@ -99,7 +99,7 @@ let init seq =  {
     recost1 = 0;
     recost2 = 0;    
 
-    delimiter_lst = [];
+    delimiter_lst = delimiters;
 }
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
@@ -216,7 +216,7 @@ let better_capping med1_seq med2_seq delimiters =
     (Sequence.of_array new_medseq2),(Array.to_list new_deli2)
 
 
-let pick_delimiters med1 med2 med_seq = 
+let pick_delimiters med1 med2 med_seq =
     let arr1 = Sequence.to_array med1.seq 
     and arr2 = Sequence.to_array med2.seq
     and arr3 = Sequence.to_array med_seq
@@ -264,16 +264,18 @@ let pick_delimiters med1 med2 med_seq =
 * finds all medians between breakinv sequence [med1] and [med2]
 * allowing rearrangements *) 
 let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam = 
-    (* debug msg 
+    (* debug msg  
     let print_intlist lst = 
         Printf.printf "[%!";
         List.iter (Printf.printf "%d,") lst;
         Printf.printf "]\n%!"
     in
      debug msg *)
-    (* debug msg 
-    Printf.printf "find_simple_med2_ls in breakinvAli.ml :\n";
+    (* debug msg  
+    Printf.printf "find_simple_med2_ls in breakinvAli.ml,med1/med2.seq = :\n";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
+    Printf.printf " delimiter list = \n%!";
+    print_intlist med1.delimiter_lst; print_intlist med2.delimiter_lst;
      debug msg *)
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in
@@ -306,9 +308,16 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                  (* create delimiter for the new median *)
                  (* just pick the better one from its two parents, for now *)
                  (* then we do "find better capping" after this*)
-                 let chosen_parent,newdelimiters = pick_delimiters med1 med2 med_seq in
-                 let med_seq, newdelimiters = 
-                     better_capping chosen_parent.seq med_seq newdelimiters in
+                 let med_seq, newdelimiters =
+                     match med1.delimiter_lst,med2.delimiter_lst with
+                     | h1::t1, h2::t2 -> 
+                         let chosen_parent,newdelimiters = 
+                             pick_delimiters med1 med2 med_seq in
+                            better_capping chosen_parent.seq med_seq newdelimiters 
+                     | [] , [] -> med_seq, []
+                     | _ -> 
+                             failwith "uncompatible delimiters from two parents' medians"
+                 in
                  (* debug msg 
                  Printf.printf "seqcode with better capping:\n%!";
                  Sequence.printseqcode med_seq; print_intlist newdelimiters; 
@@ -454,9 +463,11 @@ let single_to_multi bkinvt =
     let seq = bkinvt.seq and delimiters = bkinvt.delimiter_lst in
     assert( (List.length delimiters)>0 );
     let count = ref 0 in
+    (*
     Printf.printf "single to multi in breakinvAli.ml, check delimiter list:\n [%!";
     List.iter (Printf.printf "%d,") delimiters;
     Printf.printf "]\n%!";
+    *)
     let seq_lst = List.map ( fun delimiter ->
         let empty: Sequence.s = Sequence.get_empty_seq () in
         for i = !count to (!count + delimiter)-1 do
@@ -465,7 +476,6 @@ let single_to_multi bkinvt =
         count := !count + delimiter;
         (Sequence.reverse empty)
     ) delimiters in
-    Printf.printf "break single seq into seq list:\n%!";
     List.map (fun s ->
         Sequence.printseqcode s;
         { bkinvt with seq = s; delimiter_lst = [] }

@@ -908,8 +908,8 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
     in 
     let gap_code = Cost_matrix.Two_D.gap cm in 
     let a, b = a.(0), b.(0) in 
-    let meda = BreakinvAli.init (Sequence.Clip.extract_s a.seq) in 
-    let medb = BreakinvAli.init (Sequence.Clip.extract_s b.seq) in 
+    let meda = BreakinvAli.init (Sequence.Clip.extract_s a.seq ) []  in 
+    let medb = BreakinvAli.init (Sequence.Clip.extract_s b.seq ) []  in 
 (*    Printf.printf "The sequence a is %s, and b is %s\n%!" (Sequence.to_string
     meda.BreakinvAli.seq alpha) (Sequence.to_string medb.BreakinvAli.seq
     alpha);*)
