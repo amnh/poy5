@@ -53,9 +53,9 @@ and pp_farray xs =
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list * string * string option
+                          * float list * ( string * float ) list * bool * string option
 
-let empty_str_spec = ("",("","","",""),[],[],"",None)
+let empty_str_spec = ("",("","","",""),[],[],false,None)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -517,11 +517,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
                    float_of_string alpha,
                    float_of_string invar)
         | "NONE" | "CONSTANT" | "" | _ -> Constant
-    and gap = match String.uppercase gap with
-        | "TRUE" -> true
-        | "FALSE" | _ -> false
-    and priors = List.map snd priors
-    in
+    and priors = List.map snd priors in
     {   substitution = submatrix;
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
@@ -579,10 +575,15 @@ let create alph lk_spec =
     in
     assert( verify_rates probabilities variation );
     (* extract the prior probability *)
-    let priors = match lk_spec.base_priors with
-        | Estimated p
-        | Given p -> assert(a_size = Array.length p); p
+    let priors =
+        let p = match lk_spec.base_priors with | Estimated p | Given p -> p in
+        assert(a_size = Array.length p);
+        Array.iter (fun x -> Printf.printf "[%f] " x) p;
+        print_newline ();
+        assert( 1.0 =. (Array.fold_left (fun a b -> a +. b) 0.0 p) );
+        p
     in
+
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
     let sym, sub_mat, subst_model = match lk_spec.substitution with
         | JC69  -> true,  m_jc69 priors 1.0 a_size, JC69
@@ -987,12 +988,12 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
     and golden_middle a b = 
         let a,b = if a < b then a,b else b,a in
         let ret = a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0)) in
-        Printf.printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;
+        debug_printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;
         ret
     (* a point outside of a and b such that (a-b)/(x-b) = phi *)
     and golden_exterior a b =
         let ret = a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0)) in
-        Printf.printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;
+        debug_printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;
         ret
     (* the minimum of a parabola based on three points *)
     and abscissa (a,(_,fa)) (b,(_,fb)) (c,(_,fc)) =
@@ -1001,7 +1002,7 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
         if denom =. 0.0 then raise Colinear
         else begin
             let abscissa = b -. (0.5 *. (numer /. denom)) in
-            Printf.printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;
+            debug_printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;
             abscissa
         end
     (* set the total number of iterations to take place *)

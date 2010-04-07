@@ -8,8 +8,8 @@ type st_type =
     | STLikelihood of MlModel.model (* The ML model to use *)
 
 type static_spec = {
-    st_filesource : string;    (* The file it came from *)
-    st_name : string;          (* The name assigned to the character *)
+    st_filesource : string; (* The file it came from *)
+    st_name : string;       (* The name assigned to the character *)
     st_alph : Alphabet.a;   (* The set of potential character symbols *)
     st_observed : int list; (* The set of observed states *)
     st_labels : string list;(* The labels assigned to the states *)
@@ -17,12 +17,12 @@ type static_spec = {
     st_type : st_type;      (* The type of character *)
     st_equivalents : (string * string list) list;
                             (* Things that are the same in the input *)
-    st_missing : string;       (* The character that represents missing data *)
+    st_missing : string;    (* The character that represents missing data *)
     st_matchstate : string option; 
         (* The chaaracter that marks the same state as teh first taxon *)
-    st_gap : string;            (* The gap representation *)
-    st_eliminate : bool;       (* Wether or not the user wants to get rid of it *)
-    st_case : bool;       (* Wether or not the user wants be case sensistive *)
+    st_gap : string;        (* The gap representation *)
+    st_eliminate : bool;    (* Whether or not the user wants to get rid of it *)
+    st_case : bool;         (* Whether or not the user wants be case sensistive *)
     st_used_observed : (int, int) Hashtbl.t option;
     st_observed_used : (int, int) Hashtbl.t option;
 }

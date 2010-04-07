@@ -23,7 +23,7 @@
  * the type follows: 
  *      modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list * string * string option
+                          * float list * ( string * float ) list * bool * string option
 
 val empty_str_spec : string_spec
 
