@@ -2371,9 +2371,9 @@ let flatten cs_lst=
 
 let flatten_cslist (characters_lst: cs list list) =
     let (seq_lstlstlst:Sequence.s list list list) 
-    = mapN flatten characters_lst in
-    (* = map4 flatten c1 c2 parent mine in *)
-    (* seq_lstlstlst is like following:
+    = mapN flatten characters_lst in 
+    (* for BreakinvCS, seq_lstlstlst is like following ( other dynamicCS data
+    * types I know in are simpler than this):
       {
           (
             [seq of 1th median of 1th chromosome of 1th node;
@@ -2461,12 +2461,10 @@ let multi_to_single_chromosome node_data newseq delimiters =
     | Dynamic cs ->
             let new_preliminary = DynamicCS.update_t cs.preliminary newseq delimiters in
             Dynamic {cs with preliminary = new_preliminary}
-    | _ -> failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
+    | _ -> 
+    failwith ("multichromosome to singlechromosome : we only deal with DynamicCS now")
     in
-    { node_data with characters = [new_characters] }    
-
-
-
+    { node_data with characters = [new_characters] }   
 
 let transform_multi_chromosome ( nodes : node_data list ) =
     let available = 
@@ -2521,7 +2519,7 @@ let transform_multi_chromosome ( nodes : node_data list ) =
             List.map (fun node_med_seqlst -> Sequence.concat node_med_seqlst)
             node_medlst_seqlst) seq_lstlstlst
         in
-        (* nodelst_medlst_seq is
+        (* note: after concat, nodelst_medlst_seq is
         * { ( sequence of 1th median); ( sequence of 2th median ); .... }
         * deli_lstlst is
         * { 
@@ -2529,6 +2527,14 @@ let transform_multi_chromosome ( nodes : node_data list ) =
             (delimiter lst of sequence of 2th median);
             ......
         * *)
+        (* debug msg
+        Printf.printf "after concat: %!";
+        List.iter (fun seqlst ->
+            Printf.printf "(\n%!";
+            List.iter (Sequence.printseqcode) seqlst;
+            Printf.printf ")\n%!";
+        )nodelst_medlst_seq;
+         debug msg*)
         let new_nodedata_lst = 
         map3 (fun old_nodedata node_medlst_seq deli_lstlst -> 
             multi_to_single_chromosome old_nodedata node_medlst_seq deli_lstlst)

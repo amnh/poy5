@@ -516,18 +516,28 @@ let encoding enc x =
 let no_iterative_other_than_for_seqs = false
 
 let flatten t_lst =
-    let bkCS_t_lst = List.map (fun x -> match x with
-    | BreakinvCS x_bkinvCS -> x_bkinvCS
-    | _ -> failwith ("we only dealwith breakinv now")
-    ) t_lst in
-    BreakinvCS.flatten bkCS_t_lst 
+    match List.hd t_lst with
+    | BreakinvCS _ ->
+          let bkCS_t_lst = List.map (fun x -> match x with
+          | BreakinvCS x_bkinvCS -> x_bkinvCS
+          | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
+          ) t_lst in
+          BreakinvCS.flatten bkCS_t_lst
+    | SeqCS _ -> 
+          let seqCS_t_lst = List.map (fun x -> match x with
+          | SeqCS x_seqCS -> x_seqCS
+          | _ -> failwith "ERROR data type in flatten of dynamicCS.ml"
+          ) t_lst in
+          SeqCS.flatten seqCS_t_lst
+    | _ -> failwith ("we don't deal with this type of dynmaic data now")
+     
 
-(* this is a tempory fix, multichromosome from MGR should be useful for all
-* types of dynamic data.*)
+(* return 1 if we are dealing with this kind of dynamic data for multi-chromosome.*)
 let is_available in_data =
     let res = 
     match in_data with
     | BreakinvCS bk_t -> 1
+    | SeqCS seq_t -> SeqCS.is_available seq_t
     | _ -> 0
     in
     res
@@ -535,9 +545,15 @@ let is_available in_data =
 let update_t oldt newseqlst delimiterslst =
     let newt = 
     match oldt with
-    |BreakinvCS bk_t ->
+    | BreakinvCS bk_t ->
        BreakinvCS ( BreakinvCS.update_t bk_t newseqlst delimiterslst )
-    |_ -> failwith ("we only update breakinv now")
+       (*skip SeqCS now, back later*)
+    | SeqCS seqcs_t ->
+            SeqCS ( SeqCS.update_t seqcs_t newseqlst delimiterslst ) 
+  (*  | ChromCS chrom_t ->
+            ChromCS ( ChromCS.update_t seqcs_t newseqlst delimiterslst ) 
+  *)
+    |_ -> failwith ("we don't update this , not yet")
     in
     newt
     
