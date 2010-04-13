@@ -174,19 +174,6 @@ let flatten t_lst =
        ) (List.tl t_lst) in
        let medls_lst = List.map (fun x -> x.Breakinv.med_ls
        ) medst_lst in
-       (*let ch1_medst = IntMap.find kn ch1.meds
-       and ch2_medst = IntMap.find kn ch2.meds 
-       and mine_medst = IntMap.find kn mine.meds in
-       let ch1_medls = ch1_medst.Breakinv.med_ls 
-       and ch2_medls = ch2_medst.Breakinv.med_ls
-       and parent_medls = parent_medst.Breakinv.med_ls
-       and mine_medls = mine_medst.Breakinv.med_ls in
-       let ch1_seq = (List.hd ch1_medls).BreakinvAli.seq 
-       and ch2_seq = (List.hd ch2_medls).BreakinvAli.seq 
-       and mine_seq = (List.hd mine_medls).BreakinvAli.seq 
-       and parent_seq = (List.hd parent_medls).BreakinvAli.seq in 
-       let add_seqlst:Sequence.s list = [ch1_seq;ch2_seq;parent_seq;mine_seq] in
-       *)
        let add_seqlst:Sequence.s list = 
            List.map (fun x -> (List.hd x).BreakinvAli.seq) medls_lst 
        in
