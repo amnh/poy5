@@ -20,21 +20,20 @@
 let () = SadmanOutput.register "Node" "$Revision: 2871 $"
 let infinity = float_of_int max_int
 
-let debug = false
-let debug_exclude = false
-let debug_sets = false
-let debug_set_cost = false
+let debug           = false
+let debug_exclude   = false
+let debug_sets      = false
+let debug_set_cost  = false
 let debug_treebuild = false
-let odebug = Status.user_message Status.Information
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
 
 let (-->) b a = a b
 
+let odebug = Status.user_message Status.Information
 let info_user_message format = 
     Printf.ksprintf (Status.user_message Status.Information) format
-
 let failwithf format = Printf.ksprintf (failwith) format
 
 module IntSet = All_sets.Integers
@@ -477,9 +476,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             assert (ca.weight = cb.weight);
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
-                    | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
-                    | Some (t1), Some (t2) -> (t1,t2)
-                    | _ -> MlStaticCS.estimate_time ca.preliminary cb.preliminary
+                    | Some (t1), Some (t2) when code <= 0 -> 
+(*                        Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
+(*                            code anode.taxon_code bnode.taxon_code (t1/.2.0) (t2/.2.0);*)
+                        (t1/.2.0,t2/.2.0)
+                    | Some (t1), Some (t2) ->
+(*                         Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
+(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
+                        (t1,t2)
+                    | _ -> 
+                        let t1,t2 = 
+                            MlStaticCS.estimate_time ca.preliminary cb.preliminary
+                        in
+(*                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
+(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
+                        (t1,t2)
                 in
                 t1,t2
             in 
@@ -600,9 +611,20 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     IFDEF USE_LIKELIHOOD THEN
                         let t1, t2 =
                             let t1,t2 = match t1,t2 with
-                                | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
-                                | Some (t1), Some (t2) -> (t1,t2)
-                                | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
+                                | Some (t1), Some (t2) when code <= 0 ->
+(*                                    Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
+(*                                        code anode.taxon_code bnode.taxon_code *)
+(*                                        (t1/.2.0) (t2/.2.0);*)
+                                    (t1/.2.0,t1/.2.0)
+                                | Some (t1), Some (t2) ->
+(*                                     Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
+(*                                        code anode.taxon_code bnode.taxon_code t1 t2;*)
+                                    (t1,t2)
+                                | _ -> 
+                                    let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
+(*                                    Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
+(*                                        code anode.taxon_code bnode.taxon_code t1 t2;*)
+                                    t1,t2
                             in
                             if anode.min_child_code < bnode.min_child_code 
                                 then t1, t2
@@ -1079,14 +1101,14 @@ let combine anode bnode =
 
 let median ?branches code old a b =
     let convert_2_lst chars tbl =
-        let values_match code_ray tbl = (* array is guarentreed to be > 0 *)
-            let value = Hashtbl.find tbl (code_ray.(0)) in
-            Array.fold_left 
-                (fun acc x -> 
-                    acc && (value = (Hashtbl.find tbl x)))
-                true
-                code_ray
-        in
+(*        let values_match code_ray tbl = |+ array is guarentreed to be > 0 +|*)
+(*            let value = Hashtbl.find tbl (code_ray.(0)) in*)
+(*            Array.fold_left *)
+(*                (fun acc x -> *)
+(*                    acc && (value = (Hashtbl.find tbl x)))*)
+(*                true*)
+(*                code_ray*)
+(*        in*)
         List.map
             (fun x -> match x with
                 | Dynamic z -> IFDEF USE_LIKELIHOOD THEN
@@ -1930,7 +1952,7 @@ let classify size chars data =
             | ((_, _, x) as h) :: t -> 
                     let chars = List.fold_left add_taxon_to_accumulator [x] t in
                     reshape chars h
-            | [] -> failwith "Nothing?" (* must be of least length one, else it *)
+            | [] -> failwith "Nothing?" (* must be of least length one, *)
         in
         collapse size chars all_static
     in
@@ -1947,7 +1969,8 @@ let classify size doit chars data =
     else None
 
 module OrderedML = struct
-    type t = MlModel.spec (* we could choose model or spec, but spec can use compare below *)
+    (* we could choose model or spec, but spec can use Pervasives.compare *)
+    type t = MlModel.spec 
     let compare a b = Pervasives.compare a b
 end
 module MLModelMap = Map.Make (OrderedML)
@@ -1974,7 +1997,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             (* get weight of character; map has Data.weight included *)
             let get_weight c = match weights with
                 | None   -> Data.get_weight c !data
-                | Some v ->All_sets.IntegerMap.find c v
+                | Some v -> All_sets.IntegerMap.find c v
             in
             let table = Hashtbl.create 1667 in
             let weights = 
@@ -2622,6 +2645,19 @@ let dump_node printer node par =
             ELSE
                 ()
             END
+        | Dynamic a, Dynamic p ->
+            IFDEF USE_LIKELIHOOD THEN
+                let f = 
+                    if node.min_child_code = par.min_child_code then fst 
+                    else snd 
+                in
+                let strs x = match f x with | None -> "none"
+                        | Some x -> string_of_float x 
+                in
+                printer (strs p.time)
+            ELSE
+                ()
+            END
         | _ -> ()
     in
     List.iter2 dump_map node.characters par.characters
@@ -2876,23 +2912,18 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           | _ -> failwith "Fucking up with Sank at cs_to_formatter in node.ml" 
       end  
     | Dynamic cs, _, Dynamic cs_single -> begin
-          match parent_cs with 
-          | None ->
-                DynamicCS.to_formatter pre_ref_codes pre cs.preliminary None d
-                @ DynamicCS.to_formatter fi_ref_codes fin  cs.final None  d
-                @ 
-                (DynamicCS.to_formatter pre_ref_codes sing 
-                cs_single.preliminary None d)
-          | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
-                (DynamicCS.to_formatter pre_ref_codes pre cs.preliminary
-                (Some parent_cs.preliminary) d) 
-                @ 
-                (DynamicCS.to_formatter
-                fi_ref_codes fin cs.final (Some parent_cs.final)
-                d) 
-                @ 
-                (DynamicCS.to_formatter pre_ref_codes sing 
-                cs_single.preliminary (Some parent_cs_single.preliminary) d)
+        match parent_cs with 
+        | None ->
+            DynamicCS.to_formatter pre_ref_codes pre cs.preliminary None cs.time d
+          @ DynamicCS.to_formatter fi_ref_codes fin cs.final None cs.time  d
+          @ DynamicCS.to_formatter pre_ref_codes sing cs_single.preliminary None cs.time d
+        | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
+            DynamicCS.to_formatter pre_ref_codes pre cs.preliminary
+                (Some parent_cs.preliminary) cs.time d
+          @ DynamicCS.to_formatter fi_ref_codes fin cs.final 
+                (Some parent_cs.final) cs.time d
+          @ DynamicCS.to_formatter pre_ref_codes sing cs_single.preliminary 
+                (Some parent_cs_single.preliminary) cs.time d
           | _ -> failwith "Fucking up with Dynamic at cs_to_formatter in node.ml"
       end 
     | Kolmo x, _, Kolmo x_single -> 

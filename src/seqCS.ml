@@ -1482,6 +1482,7 @@ type t = {
     priority : int list;            (** The information ordering *)
 }
 
+
 module Union = struct
     (* The union of sequences *)
     type ustr = {
@@ -2151,6 +2152,34 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
         | Some x -> Array.map (fun x -> Some x) x.characters
     in
     Array_ops.fold_right_3 output_sequence [] t.codes t.characters parent
+
+let get_sequences (data:t) : Sequence.s array array =
+    Array.map 
+        (function
+            | Heuristic_Selection x -> [| x.DOS.sequence |]
+            | Relaxed_Lifted (rl,_) -> rl.RL.sequence_table
+            | Partitioned y ->
+                Array.map 
+                    (function | PartitionedDOS.DO x | PartitionedDOS.First x 
+                              | PartitionedDOS.Last x -> x.DOS.sequence)
+                    y)
+        data.characters
+
+let align_2 (one:t) (two:t) =
+    let ones = get_sequences one and twos = get_sequences two in
+    assert( (Array.length ones) = (Array.length twos));
+    if 0 = Array.length ones then [| |]
+    else begin
+        Array.mapi (fun i _ -> 
+            Array.mapi (fun j _ ->
+                let a,b,m = 
+                    Sequence.Align.align_2 ones.(i).(j) twos.(i).(j) 
+                                           one.heuristic.c2 Matrix.default
+                in
+                (a,b,m))
+            ones.(i))
+        ones
+    end
 
 let tabu_distance a = 
     Array.fold_left (fun sum y -> 
