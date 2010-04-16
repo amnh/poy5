@@ -1375,17 +1375,16 @@ let process_transform (run : r) (meth : Methods.transform) =
                 trees =
                   Sexpr.map (Ptree.set_origin_cost float) run.trees }
     | #Methods.tree_transform as meth ->
-            let trees, data, nodes =
-                CT.transform_nodes_trees run.trees run.data run.nodes [meth]
-            in
-            update_trees_to_data false false
-                { run with trees = trees; nodes = nodes; data = data; }
+        let trees, data, nodes =
+            CT.transform_nodes_trees run.trees run.data run.nodes [meth]
+        in
+        update_trees_to_data false false
+                {run with trees = trees; nodes = nodes; data = data;}
     | #Methods.char_transform as meth ->
-          let data, nodes =
-              CT.transform_nodes run.trees run.data run.nodes
-                  [meth] 
-          in
-          update_trees_to_data false false { run with nodes = nodes; data = data }
+        let data, nodes =
+              CT.transform_nodes run.trees run.data run.nodes [meth] 
+        in
+        update_trees_to_data false false {run with nodes = nodes; data = data}
     | #Methods.terminal_transform as meth ->
             let data, htbl = Data.randomize_taxon_codes meth run.data in
             let data, nodes = Node.load_data data in
@@ -1593,11 +1592,8 @@ let temporary_transform run meth =
                                                old_origin_cost)
                                           run.trees })
     | #Methods.tree_transform
-    | #Methods.char_transform ->
-          run1,
-          `UntransformChar
-    | #Methods.terminal_transform ->
-            run1, `UntransformChar
+    | #Methods.char_transform     -> run1, `UntransformChar
+    | #Methods.terminal_transform -> run1, `UntransformChar
 
 (** [temporary_transforms run meths] transforms [run] as specified by the list
     of transformations [meths].  It returns the transformed [run] and a list of
@@ -1606,8 +1602,17 @@ let temporary_transforms meths run =
     let replace_chars myrun =
         let trees =
             Sexpr.map_status "Untransforming Characters"
-                (CT.replace_nodes run.nodes) myrun.trees in
-        { run with trees = trees } in
+                (fun o_tree ->
+                    let data =
+                        Data.sync_static_to_dynamic_model_branches  
+                                 ~src:o_tree.Ptree.data
+                                ~dest:run.data
+                    in
+                    CT.replace_nodes_data run.nodes data o_tree)
+                myrun.trees
+        in
+        { run with trees = trees; }
+    in
     match meths with
     | [] -> run, [(fun a -> a)]
     | meths ->
@@ -3881,8 +3886,9 @@ END
                 name)) dosomething mergingscript) run run.trees
             in
             let run = 
-                { run with trees = run.stored_trees; original_trees = `Empty; 
-                stored_trees = `Empty } 
+                {run with   trees = run.stored_trees;
+                            original_trees = `Empty; 
+                            stored_trees = `Empty; } 
             in
             let run = folder run (`Discard ([`Data], name)) in
             run
@@ -3940,19 +3946,18 @@ END
                 let `LocalOptimum m = meth in
                 TreeSearch.sets m.Methods.tabu_join run.data run.trees 
             in
-            let do_search run =
-            match is_forest meth with
-            | Some cost ->
+            let do_search run = match is_forest meth with
+                | Some cost ->
                     PTS.forest_search
-                    run.data 
-                    run.queue 
-                    cost 
-                    meth run.trees
-            | None ->
+                        run.data 
+                        run.queue 
+                        cost 
+                        meth run.trees
+                | None ->
                     PTS.find_local_optimum
-                    run.data
-                    run.queue
-                    run.trees sets meth 
+                        run.data
+                        run.queue
+                        run.trees sets meth 
             in
             (match TreeSearch.get_transformations meth with
             | [] ->

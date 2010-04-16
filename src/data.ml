@@ -28,6 +28,7 @@ module FullTupleMap = All_sets.FullTupleMap
 module IntMap = All_sets.IntegerMap
     
 let output_error = Status.user_message Status.Error
+let output_warning = Status.user_message Status.Warning
 
 let debug_kolmo = false
 
@@ -367,6 +368,7 @@ type d = {
     taxon_codes : string All_sets.IntegerMap.t;
     (* A mapping of the dynamic data to static character codes *)
     dynamic_static_codes : (int list) All_sets.IntegerMap.t;
+    static_dynamic_codes : (int) All_sets.IntSetMap.t;
     (* A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
     (* A map between the character names and their corresponding codes *)
@@ -463,6 +465,7 @@ let empty () =
         taxon_files = All_sets.StringMap.empty;
         taxon_codes = All_sets.IntegerMap.empty;
         dynamic_static_codes = All_sets.IntegerMap.empty;
+        static_dynamic_codes = All_sets.IntSetMap.empty;
         taxon_characters = create_ht ();
         character_names = create_ht ();
         character_codes = create_ht ();
@@ -509,7 +512,73 @@ let duplicate data =
         branches = Hashtbl.copy data.branches;
     }
 
-let remove_bl data = { data with branches = create_ht (); }
+let remove_bl data =
+    { data with branches = create_ht (); }
+
+(* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
+ * map from destination, and the branches structure from source. This behavior
+ * is used after an implied alignment applies the dynamic_static_codes map to
+ * the newly created data (dest), and needs to copy over and update the
+ * branches. *)
+let convert_dynamic_to_static_branches ~src ~dest = 
+    let add_data desttbl char_name dat =
+        let c_code =
+            Hashtbl.find src.character_names char_name
+        in
+        if IntMap.mem c_code dest.dynamic_static_codes then
+            List.iter
+                (fun c ->
+                    let n = Hashtbl.find dest.character_codes c in
+                    Hashtbl.add desttbl n dat)
+                (IntMap.find c_code dest.dynamic_static_codes)
+        else ()
+    in
+    let copy_tree = Hashtbl.create 10 in
+    Hashtbl.iter
+        (fun tree map ->
+            let results =
+                All_sets.IntSetMap.fold
+                    (fun intset ntbl acc -> 
+                        let copy_node = Hashtbl.create 10 in
+                        Hashtbl.iter (add_data copy_node) ntbl;
+                        All_sets.IntSetMap.add intset copy_node acc)
+                    map
+                    All_sets.IntSetMap.empty
+            in
+            Hashtbl.add copy_tree tree results)
+        src.branches;
+    { dest with branches = copy_tree; }
+
+(* the converse of the above function *)
+let convert_static_to_dynamic_branches ~src ~dest = 
+    let add_data ctbl ntbl : unit = 
+        All_sets.IntSetMap.iter
+            (fun set new_code ->
+                let new_name = Hashtbl.find dest.character_codes new_code
+                and old_name = 
+                    let rep_code = All_sets.Integers.min_elt set in
+                    Hashtbl.find src.character_codes rep_code
+                in
+                let lengths = Hashtbl.find ctbl old_name in
+                Hashtbl.add ntbl new_name lengths)
+            src.static_dynamic_codes
+    in
+    let copy_tree = Hashtbl.create 10 in
+    Hashtbl.iter
+        (fun tree map -> 
+            let results = 
+                All_sets.IntSetMap.fold
+                    (fun partition lengths intset -> 
+                        let ntbl = Hashtbl.create 1 in 
+                        add_data lengths ntbl;
+                        All_sets.IntSetMap.add partition ntbl intset)
+                    map
+                    All_sets.IntSetMap.empty
+            in
+            Hashtbl.add copy_tree tree results)
+        src.branches;
+    {dest with branches = copy_tree}
+
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -517,11 +586,8 @@ let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 let get_recost user_pams = 
     match user_pams.re_meth with
     | None -> failwith "The rearrangement cost is not specified"
-    | Some re_meth ->
-        match re_meth with
-            | `Locus_Breakpoint c -> c
-            | `Locus_Inversion c -> c
-
+    | Some (`Locus_Breakpoint c)
+    | Some (`Locus_Inversion c) -> c
 
 (** [get_locus_indel_cost user_pams] returns the locus indel cost in [pams] *)
 let get_locus_indel_cost user_pams = 
@@ -604,8 +670,23 @@ let print (data : d) =
                        print_newline ();
                  | _ -> ()
             ) ch_ls;
-    in
-    let print_specs (code : int) (spec : specs) = 
+    and print_branches tree_name set = 
+        Printf.printf "Tree: [%s]\n" tree_name;
+        All_sets.IntSetMap.iter
+            (fun intset code_tbl ->
+                Printf.printf "\t[";
+                All_sets.Integers.iter (Printf.printf "%d, ") intset;
+                Printf.printf "]:";
+                let print_one = ref 0 in
+                Hashtbl.iter 
+                    (fun n f ->
+                        if !print_one = 0 then begin
+                            incr print_one;
+                            Printf.printf "\t\t%s -- %f\n" n f
+                        end else ())
+                    code_tbl)
+            set
+    and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
         Printf.fprintf stdout "Key: %i, name: %s " code name; 
         (match spec with 
@@ -624,7 +705,6 @@ let print (data : d) =
                | Nexus.File.STLikelihood m -> Printf.fprintf stdout "Static ML"
                | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff")
         | _ -> Printf.fprintf stdout "Not Dynamic");
-
         print_newline ()
     in 
     let print_character_codes key bind =
@@ -635,7 +715,10 @@ let print (data : d) =
     Printf.printf "\n check taxon_characters:\n %!";
     Hashtbl.iter print_taxon data.taxon_characters;
     Printf.printf "\n check character_specs:\n%!";
-    Hashtbl.iter print_specs data.character_specs 
+    Hashtbl.iter print_specs data.character_specs;
+    Printf.printf "\n check branches:\n%!";
+    Hashtbl.iter print_branches data.branches;
+    print_newline ()
 
 
     (*
@@ -1665,13 +1748,17 @@ let add_multiple_static_parsed_file data list =
             ~init:(data,data.dynamic_static_codes)
             list
     in
-(*    Printf.printf "Applying Static Codes: ";*)
-(*    All_sets.IntegerMap.iter *)
-(*        (fun k vs -> Printf.printf "%d -- " k; *)
-(*                     List.iter (fun x -> Printf.printf " [%d] " x) vs;*)
-(*                     print_newline ())*)
-(*        map;*)
-    { data with dynamic_static_codes = map; }
+    let reverse = 
+        All_sets.IntegerMap.fold
+            (fun i lst acc ->
+                let key = List.fold_right ~f:All_sets.Integers.add
+                                          ~init:All_sets.Integers.empty lst in
+                All_sets.IntSetMap.add key i acc)
+            map 
+            All_sets.IntSetMap.empty
+    in
+    { data with dynamic_static_codes = map;
+                static_dynamic_codes = reverse; }
 
 
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
@@ -3594,7 +3681,7 @@ let make_char_sets sets d =
 *)
 
 (** [compute_priors data chars] computes the observed frequencies for all the
-* elements in the alphabet shared by the characters *)
+ * elements in the alphabet shared by the characters *)
 let compute_priors data chars u_gap = 
     let size, alph = verify_alphabet data chars in
     let size = if u_gap then size else size-1 in
@@ -3615,7 +3702,6 @@ let compute_priors data chars u_gap =
         and total = ref 0 in
         let adder char_code =
             let (cs, _) = Hashtbl.find taxon_chars char_code in
-            incr counter;
             match cs with
             | Stat (_, None) ->
                 when_no_data_is_loaded priors inverse size
@@ -3631,6 +3717,7 @@ let compute_priors data chars u_gap =
                 Array.iter
                     (fun x ->
                         total := (Sequence.length x.seq) + !total;
+                        counter := (Sequence.length x.seq) + !counter;
                         for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
                             let lst = list_of_packed (Sequence.get x.seq i) in
                             if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
@@ -3649,18 +3736,20 @@ let compute_priors data chars u_gap =
                     in
                     if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
                         when_no_data_is_loaded priors inverse size
-                    else
+                    else begin
+                        incr counter;
                         let inverse = 1. /. (float_of_int (List.length lst)) in
                         List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
+                    end
         in
         List.iter adder chars;
         longest := max !total !longest;
         lengths := !total :: !lengths
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
-    let counter = float_of_int !counter in
-    Array.iter ~f:(fun x -> Printf.printf "[%f]" x) priors;
-    Printf.printf "\nLongest %d\n%!" !longest;
+    let counter = Array.fold_left ~f:(fun a b -> a +. b) ~init:0.0 priors in
+(*    Array.iter ~f:(fun x -> Printf.printf "[%f]" x) priors;       *)
+(*    Printf.printf "\nLongest %d\nCounter %f%!" !longest counter;  *)
     if u_gap then begin
         (* modify the gaps to an estimate *)
         let total_added_gaps = 
@@ -3684,21 +3773,58 @@ let apply_on_static_chars data chars st_type =
             | _ -> failwith "Illegal conversion") chars;
     { data with character_specs = new_specs } --> categorize
 
-let apply_likelihood_model_on_all_chars data char_codes (model:MlModel.model) = 
-    let new_specs = Hashtbl.copy data.character_specs
-    and model_opt = Some model
-    and model_enc = Nexus.File.STLikelihood model in
-    List.iter
-        (fun code -> 
-            match Hashtbl.find new_specs code with
-            | Static x ->
-                Hashtbl.replace new_specs code 
-                                (Static { x with Nexus.File.st_type = model_enc; })
+(* this is the only function that applies a likelihood model to a set of
+ * characters. it ensures that the dynamic characters have gap as an additional
+ * state *)
+let apply_likelihood_model_on_char_table replace data table codes model = 
+    let model_opt = ref None
+    and model_enc = Nexus.File.STLikelihood model
+    and is_likelihood = function Nexus.File.STLikelihood _ -> true | _ -> false
+    and priors_ () = compute_priors data codes true in
+    if replace then begin
+        (* replace only likelihood characters in set of codes *)
+        List.iter
+            (fun code -> match Hashtbl.find table code with
+            | Static x when (is_likelihood x.Nexus.File.st_type) -> 
+                Hashtbl.replace table code
+                    (Static {x with Nexus.File.st_type = model_enc; })
+            | Dynamic ({state = state} as x) when state = `Ml ->
+                let () = match !model_opt with
+                    | None -> 
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _ -> ()
+                in
+                Hashtbl.replace table code
+                    (Dynamic {x with state = `Ml;
+                                     lk_model = !model_opt;})
+            | _ -> ())
+            codes
+    end else begin
+        (* replace all characters in the set of codes *)
+        List.iter
+            (fun code -> match Hashtbl.find table code with
+            | Static x -> 
+                Hashtbl.replace table code
+                    (Static {x with Nexus.File.st_type = model_enc; })
             | Dynamic x ->
-                Hashtbl.replace new_specs code 
-                                (Dynamic {x with state = `Ml;
-                                                 lk_model = model_opt; })
-            | _ -> failwith "Illegal conversion") char_codes;
+                let () = match !model_opt with
+                    | None -> 
+                        if model.MlModel.spec.MlModel.use_gap 
+                            then model_opt := Some model
+                            else model_opt :=
+                                Some (MlModel.add_gap_to_model priors_ model)
+                    | Some _ -> ()
+                in
+                Hashtbl.replace table code
+                    (Dynamic {x with state = `Ml;
+                                     lk_model = !model_opt;})
+            | _ -> failwith "Illegal conversion")
+        codes
+    end
+
+let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) = 
+    let new_specs = Hashtbl.copy data.character_specs in
+    apply_likelihood_model_on_char_table false data new_specs char_codes model;
     { data with character_specs = new_specs } --> categorize
 
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
@@ -3732,7 +3858,7 @@ IFDEF USE_LIKELIHOOD THEN
         (* We get the characters and filter them out to have only static types *)
         let model =
             let alph_size,alph = verify_alphabet data chars in
-            let alph_size = if u_gap then alph_size else alph_size -1 in
+            let alph_size = if u_gap then alph_size else alph_size - 1 in
             let base_priors =
                 match base_priors with
                 | `Estimate -> 
@@ -3740,7 +3866,7 @@ IFDEF USE_LIKELIHOOD THEN
                         MlModel.Estimated (base_p)
                 | `Constant ->
                         let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
-                        MlModel.Given (base_p)
+                        MlModel.ConstantPi (base_p)
                 | `Given arr -> 
                         let arr = Array.of_list arr in
                         if alph_size = Array.length arr then
@@ -3838,7 +3964,7 @@ IFDEF USE_LIKELIHOOD THEN
         in
         (* We rebuild the specification of all the characters, and categorize them *)
         (* apply_on_static_chars data chars (Nexus.File.STLikelihood model)*)
-        apply_likelihood_model_on_all_chars data chars model
+        apply_likelihood_model_on_chars data chars model
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list" 
 END
@@ -4974,6 +5100,88 @@ let has_dynamic_likelihood d =
         match Hashtbl.find d.character_specs hd with
         | Dynamic spec when spec.state = `Ml -> true
         | _                                  -> false
+
+(* [sync_model_branches copy translate src dest] sync the data from the src to
+ * destination. Copy defines if the data returned is a copy, or if the
+ * destination should be returned. The translate parameter will translate the
+ * codes in the branch lengths with the map defined in the dynamic_static_codes
+ * map. *)
+let sync_dynamic_to_static_model_branches ~src ~dest =
+    let dest = convert_dynamic_to_static_branches src dest in
+    let char_specs =
+        let spec = Hashtbl.copy dest.character_specs in
+        All_sets.IntegerMap.iter
+            (fun src_c dest_cs -> match get_model_opt src src_c with
+                | Some x ->
+                    apply_likelihood_model_on_char_table true dest spec dest_cs x
+                | None -> ())
+            dest.dynamic_static_codes;
+        spec
+    in
+    { dest with character_specs = char_specs; }
+
+(* converse of above function *)
+let sync_static_to_dynamic_model_branches ~src ~dest = 
+    (* confirm a set is consistent and return model *)
+    let get_model_from_set data codes = 
+        get_model_opt data (All_sets.Integers.min_elt codes)
+    in
+    let dest = convert_static_to_dynamic_branches src dest in
+    let char_specs = 
+        let spec = Hashtbl.copy dest.character_specs in
+        All_sets.IntSetMap.iter
+            (fun src_cs dest_c -> 
+                match get_model_from_set src src_cs with
+                | Some x ->
+                    apply_likelihood_model_on_char_table true dest spec [dest_c] x
+                | None -> ())
+            src.static_dynamic_codes;
+        spec
+    in
+    { dest with character_specs = char_specs; }
+
+let remove_active_present_encodings data = 
+    let is_likelihood = function
+        | Nexus.File.STLikelihood _ -> true | _ -> false in
+    let test_using_likelihood data = 
+        let ret = ref false in
+        Hashtbl.iter
+            (fun x spec -> match spec with
+                | Static {Nexus.File.st_type = st_type} -> 
+                    ret := !ret || (is_likelihood st_type)
+                | _ -> ())
+            data.character_specs;
+        !ret
+    (* recreate static_dynamic codes from dynamic_static map *)
+    and reverse map = 
+        All_sets.IntegerMap.fold
+            (fun i lst acc ->
+                let key = List.fold_right ~f:All_sets.Integers.add
+                                          ~init:All_sets.Integers.empty lst in
+                All_sets.IntSetMap.add key i acc)
+            map 
+            All_sets.IntSetMap.empty
+    in
+    if test_using_likelihood data then begin
+        let copy_spec = Hashtbl.copy data.character_specs in
+        let map = Hashtbl.fold
+            (fun k v acc -> match v with
+                | Static {Nexus.File.st_type = st_type;}
+                    when not (is_likelihood st_type) ->
+                        let () = Hashtbl.remove copy_spec k in
+                        IntMap.remove k acc
+                | Dynamic _    | Set 
+                | Kolmogorov _ | Static _ -> acc)
+            copy_spec
+            data.dynamic_static_codes
+        in
+        { data with character_specs = copy_spec;
+                    dynamic_static_codes = map;
+                    static_dynamic_codes = reverse map; }
+    end else begin
+        data
+    end
+
 
 (** Functions to modify the taxon codes *)
 let change_taxon_codes reorder_function data =

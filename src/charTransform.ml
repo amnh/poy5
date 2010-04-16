@@ -52,6 +52,8 @@ module type S = sig
 
     val replace_nodes : a list -> tree -> tree
 
+    val replace_nodes_data : a list -> Data.d -> tree -> tree
+
     (** [substitute_nodes nodes tree] replaces the nodes in tree with the nodes with
         the same taxon code from the list *)
     val substitute_nodes : a list -> tree -> tree
@@ -404,6 +406,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             List.find (fun x -> Node.taxon_code x = Node.taxon_code node) nodes 
         in
         transform_tree filter tree
+
+    let replace_nodes_data nodes data tree = 
+        let filter node = 
+            List.find (fun x -> Node.taxon_code x = Node.taxon_code node) nodes 
+        in
+        transform_tree filter {tree with Ptree.data = data}
 
     let unsupported_character_messages = function
         | `Assign_Transformation_Cost_Matrix (_, _) ->
@@ -963,22 +971,27 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                             "with@ build (1)");
                             failwith "Illegal transform command")
         | `Automatic_Static_Aprox sensible ->
-                (match analyze_sequences sensible data trees with
+                begin match analyze_sequences sensible data trees with
                 | [] -> data, nodes
                 | chars ->
-                      Status.user_message Status.Information 
-                    "I@ will@ make@ static@ the@ characters@,";
-                    List.iter (fun x -> 
-                        let name = Data.code_character x data in
-                        let name = StatusCommon.escape name in
-                        Status.user_message Status.Information ("@[" ^ name ^ "@]@,")) chars;
-                    transform_node_characters trees (data, nodes) (`Static_Aprox (`Some
-                    (true, chars), true)))
+                    Status.user_message Status.Information 
+                        "I@ will@ make@ static@ the@ characters@,";
+                    List.iter 
+                        (fun x -> 
+                            let name = Data.code_character x data in
+                            let name = StatusCommon.escape name in
+                            Status.user_message Status.Information ("@[" ^ name ^ "@]@,"))
+                        chars;
+                    transform_node_characters 
+                            trees
+                            (data, nodes) 
+                            (`Static_Aprox (`Some (true, chars), true))
+                end
         | `UseParsimony chars ->
             IFDEF USE_LIKELIHOOD THEN
                 Node.load_data (Data.set_parsimony data chars)
             ELSE
-                Status.user_message Status.Information "Characters are already Parsimony";
+                Status.user_message Status.Information "No characters have been transformed";
                 data,nodes
             END
         | `UseLikelihood x ->

@@ -2664,14 +2664,14 @@ let dump_node printer node par =
 
 let estimate_time a b =
     let estimate_ ca cb = match ca,cb with
-    | StaticMl ca, StaticMl cb -> 
-        IFDEF USE_LIKELIHOOD THEN
-            let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-            Some (t1+.t2)
-        ELSE
-            None
-        END
-    | _,_ -> None
+        | StaticMl ca, StaticMl cb -> 
+            IFDEF USE_LIKELIHOOD THEN
+                let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                Some (t1+.t2)
+            ELSE
+                None
+            END
+        | _, _ -> None
     in
     map2 (estimate_) a.characters b.characters
 

@@ -26,7 +26,10 @@ let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
 let likelihood_not_enabled =
-    "Likelihood not enabled: download different binary or contact mailing list" 
+    "Likelihood@ not@ enabled:@ download@ different@ binary@ or@ contact@ mailing@ list" 
+let dyno_likelihood_warning = 
+    "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
+    "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
 
 let debug = false
 let debug_printf msg format = 
@@ -61,15 +64,13 @@ let empty_str_spec = ("",("","","",""),[],[],false,None)
 (*  These are used for DNA sequences, and
  *  might not be applicable for all types
  *  of datasets.                          *)
-
 (* See, Set_Model_Parameters,
  *      Init_Model
  *      Translate_Custom_Mod_String       *)
-    let default_tstv    = 4.0
-    let default_gtr a   = Array.make (((a-1)*a)/2) 1.0
-    let default_alpha p = if p then 0.2 else 1.0
-    let default_invar   = 0.2
-(* --- ------------------------------ --- *)
+let default_tstv    = 4.0
+let default_gtr a   = Array.make (((a-1)*a)/2) 1.0
+let default_alpha p = if p then 0.2 else 1.0
+let default_invar   = 0.2
 
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
@@ -102,8 +103,9 @@ type subst_model =
     | File  of float array array * string
 
 type priors = 
-    | Estimated of float array
-    | Given     of float array
+    | Estimated  of float array
+    | Given      of float array
+    | ConstantPi of float array
 
 type spec = {
     substitution : subst_model;
@@ -151,8 +153,10 @@ let compare a b =
         | _,_ -> ~-1
     and g_compare = if a.spec.use_gap = b.spec.use_gap then 0 else ~-1
     and p_compare = 
-        let a_pri = match a.spec.base_priors with | Estimated x | Given x -> x
-        and b_pri = match b.spec.base_priors with | Estimated x | Given x -> x
+        let a_pri = match a.spec.base_priors with 
+            | ConstantPi x | Estimated x | Given x -> x
+        and b_pri = match b.spec.base_priors with
+            | ConstantPi x | Estimated x | Given x -> x
         and results = ref 0 in
         if a.alph_s = b.alph_s then begin
             for i = 0 to a.alph_s - 1 do
@@ -328,7 +332,6 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
-let normalize_gtr = true
 let normalize ray = 
     let last_val = ray.((Array.length ray) - 1) in
     Array.map (fun i -> i /. last_val) ray
@@ -576,10 +579,9 @@ let create alph lk_spec =
     assert( verify_rates probabilities variation );
     (* extract the prior probability *)
     let priors =
-        let p = match lk_spec.base_priors with | Estimated p | Given p -> p in
+        let p = match lk_spec.base_priors with 
+            | ConstantPi p | Estimated p | Given p -> p in
         assert(a_size = Array.length p);
-        Array.iter (fun x -> Printf.printf "[%f] " x) p;
-        print_newline ();
         assert( 1.0 =. (Array.fold_left (fun a b -> a +. b) 0.0 p) );
         p
     in
@@ -629,6 +631,38 @@ let create alph lk_spec =
   ELSE
     failwith likelihood_not_enabled
   END
+
+let add_gap_to_model compute_priors model = 
+    Status.user_message Status.Warning dyno_likelihood_warning;
+    let size = model.alph_s + 1 in
+    let priors = match model.spec.base_priors with
+        | Estimated _  -> Estimated (compute_priors ())
+        | ConstantPi _ -> ConstantPi (Array.make size (1.0/.(float_of_int size)))
+        | Given    _ ->
+            failwith ("I cannot transform the specified model to add gap as a"^
+                      "character. The given priors requires a prior for the"^
+                      "gap character.")
+    and rates = match model.spec.substitution with
+        (* these models require no changes *)
+        | JC69    | F81 | K2P _   | F84 _
+        | HKY85 _ | TN93 _ | GTR None -> model.spec.substitution
+        (* user defined rate matrices cannot on transfered *)
+        | File _ -> 
+            failwith ("I cannot transform the specified characters to"^
+                      " dynamic likelihood characters; the given rate"^
+                      " matrix requires gap transformation rates.")
+        (* ignore supplied transitions; these could have been applied by the
+         * optimization functions; we don't know if they were given *)
+        | GTR _ -> GTR None
+    in
+    let new_spec = {model.spec with base_priors = priors; 
+                                        use_gap = true;
+                                   substitution = rates; }
+    in
+    create model.alph new_spec
+
+let add_gap_to_model compute_priors model = 
+    if model.spec.use_gap then model else add_gap_to_model compute_priors model
 
 IFDEF USE_LIKELIHOOD THEN
 
@@ -812,38 +846,41 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
 
 let update_k2p old_model new_value =
     let subst_spec = { old_model.spec with substitution = K2P (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    and priors = match old_model.spec.base_priors with 
+                 | ConstantPi x | Estimated x | Given x -> x in
     let subst_model = m_k2p priors new_value 1.0 old_model.alph_s in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_hky old_model new_value =
     let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    and priors = match old_model.spec.base_priors with
+                 | ConstantPi x | Estimated x | Given x -> x in
     let subst_model = m_hky85 priors new_value old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_tn93 old_model ((x,y) as new_value) =
     let subst_spec = { old_model.spec with substitution = TN93 (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    and priors = match old_model.spec.base_priors with
+                 | ConstantPi x | Estimated x | Given x -> x in
     let subst_model = m_tn93 priors x y 1.0 old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f84 old_model new_value =  
     let subst_spec = { old_model.spec with substitution = F84 (Some new_value) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    and priors = match old_model.spec.base_priors with
+                 | ConstantPi x | Estimated x | Given x -> x in
     let subst_model = m_f84 priors new_value 1.0 old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_gtr old_model new_values =  
-    let normalized_values = 
-        if normalize_gtr then normalize new_values else new_values
-    in
+    let normalized_values = normalize new_values in
     let subst_spec = { old_model.spec with substitution = GTR (Some normalized_values) }
-    and priors = match old_model.spec.base_priors with | Estimated x | Given x -> x in
+    and priors = match old_model.spec.base_priors with
+                 | ConstantPi x | Estimated x | Given x -> x in
     let subst_model = m_gtr priors normalized_values old_model.alph_s in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
@@ -898,7 +935,8 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
                     (PXML -[Xml.Characters.vector]
                         ([Xml.Alphabet.value] = [`Float v])
                         { `String (Alphabet.match_code i alph)} --))
-                (match model.spec.base_priors with | Given x | Estimated x -> x)
+                (match model.spec.base_priors with
+                    | ConstantPi x | Given x | Estimated x -> x)
         in
         (PXML -[Xml.Characters.priors] { `Set (Array.to_list inner) } --)
     and get_model model = match model.spec.substitution with

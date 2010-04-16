@@ -2406,6 +2406,26 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         all
 
 
+    let print_contents_of_parser_compatible (enc_array,cont_lst,_) : unit = 
+        let file_contents_to_state = function
+            | FileContents.Unordered_Character (one,b) -> one
+            | _ -> failwith "unsupported output"
+        in
+        print_string "\t\t";
+        Array.iter
+            (fun (alph,enc) -> Printf.printf "%2d " (Alphabet.size alph))
+            enc_array;
+        print_newline ();
+        List.iter
+            (fun (contents_array,str) ->
+                Printf.printf "%s\t" str;
+                Array.iter
+                    (fun c -> Printf.printf "%2d " (file_contents_to_state c))
+                    contents_array;
+                print_newline ())
+            cont_lst;
+        ()
+
     let combine_parser_compatible encodings :
               (Alphabet.a * Parser.OldHennig.Encoding.s) array 
             * (FileContents.t array * string) list
@@ -2426,7 +2446,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let filecontents = 
             let create_gap (alph,_) =
                 let gap = Alphabet.get_gap alph in
-                FileContents.Unordered_Character (gap,false)
+                FileContents.Unordered_Character (gap,true)
             in
             let pad characters =
                 List.map
@@ -2445,7 +2465,9 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         (* combine the trees *)
         let trees = List.fold_left (fun a (_,_,t) -> t @ a) [] encodings in
-        (new_encodings,filecontents,trees)
+        let results = (new_encodings,filecontents,trees) in
+        (* print_contents_of_parser_compatible results;*)
+        results
 
 
     let update_ia_encodings (encs, species, trees) =
@@ -2597,7 +2619,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         codes
     
     let to_static_homologies ignore filter_fn disjoint remove_noninformative 
-                                (chars : Methods.characters)  data tree = 
+                                (chars : Methods.characters) data tree = 
         let codes = get_char_codes chars data in
         let names = List.map (fun x -> Data.code_character x data) codes in
         let all_to_add = 
@@ -2606,18 +2628,21 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 let _, ia =
                     aux_create_implied_alignment filter_fn [code] data tree 
                 in
-(*                List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
+                (* List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
                 assert (1 = List.length ia);
                 let ia = List.hd ia in
                 let separator = ":ia:" in
                 let res = 
-                    to_static_character ~separator disjoint remove_noninformative prefix ia data
+                    to_static_character ~separator disjoint 
+                            remove_noninformative prefix ia data
                 in
                 (Some code, res) :: acc )
             []
             codes
         in
         let d = Data.add_multiple_static_parsed_file data all_to_add in
+        let d = Data.sync_dynamic_to_static_model_branches ~src:tree.Ptree.data ~dest:d in
+        let d = Data.remove_active_present_encodings d in
         if ignore then Data.process_ignore_characters false d (`Names names)
         else d
 

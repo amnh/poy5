@@ -350,6 +350,7 @@ type d = {
     taxon_codes : string All_sets.IntegerMap.t;
     (* A mapping of the dynamic data to static character codes *)
     dynamic_static_codes : (int list) All_sets.IntegerMap.t;
+    static_dynamic_codes : (int) All_sets.IntSetMap.t;
     (** A map of each taxon code and their corresponding character list *)
     taxon_characters : (int, (int, cs) Hashtbl.t) Hashtbl.t;
     (* A map between the character names and their corresponding codes *)
@@ -558,10 +559,11 @@ val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
 val apply_on_static_chars : d -> int list -> Nexus.File.st_type -> d
+val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a
 
-val set_parsimony : d -> Methods.characters -> d 
-val set_likelihood : d -> Methods.ml_spec -> d 
+val set_parsimony  : d -> Methods.characters -> d 
+val set_likelihood : d -> Methods.ml_spec    -> d 
 
 val to_faswincladfile : d -> string option -> unit
 
@@ -595,6 +597,15 @@ val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 val has_dynamic : d -> bool 
 val has_likelihood: d -> bool 
 val has_dynamic_likelihood: d -> bool
+
+(* functions on translating data from static to dynamic *)
+val convert_dynamic_to_static_branches : src:d -> dest:d -> d
+val convert_static_to_dynamic_branches : src:d -> dest:d -> d
+
+val sync_dynamic_to_static_model_branches : src:d -> dest:d -> d
+val sync_static_to_dynamic_model_branches : src:d -> dest:d -> d
+
+val remove_active_present_encodings : d -> d
 
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 

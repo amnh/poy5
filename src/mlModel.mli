@@ -57,8 +57,9 @@ type subst_model =
 (** [priors] the prior probabilities. This is only used in specification, in
  * favor of a C-type big array for compatibility.  *)
 type priors = 
-    | Estimated of float array
-    | Given     of float array
+    | Estimated  of float array
+    | Given      of float array
+    | ConstantPi of float array
 
 (** [spec] the specification of the model. *)
 type spec = {
@@ -103,7 +104,13 @@ type chars = [ `List of int list | `Packed of int ]
 val convert_string_spec : string_spec -> spec
 
 (** [create_lk_model s] create the model for likelihood from parser *)
-val create  : Alphabet.a -> spec -> model
+val create : Alphabet.a -> spec -> model
+
+(** [enable_gaps f m] a function to add gaps to the model; this is used to
+ * ensure that dynamic characters have gaps as a character during transforms.
+ * The compute priors function is only used if the previous model had estimated
+ * priors, and they need to be computed again *)
+val add_gap_to_model : (unit -> float array) -> model -> model
 
 IFDEF USE_LIKELIHOOD THEN
 
