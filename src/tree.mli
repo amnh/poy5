@@ -210,6 +210,8 @@ val print_forest : u_tree -> unit
 
 val verify_edge : edge -> u_tree -> bool
 
+val create_partition : u_tree -> int -> int -> All_sets.Integers.t
+
 (** Module to fingerprint trees and compare them *)
 module Fingerprint : sig
     type t

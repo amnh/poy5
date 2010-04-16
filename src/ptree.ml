@@ -728,6 +728,11 @@ let post_order_node_with_edge_visit f g e ptree acc =
 let pre_order_edge_visit f id ptree acc = 
     Tree.pre_order_edge_visit f id ptree.tree acc
 
+(** [create_partitions t l r]
+    Create partition of node ids from edge l--r *)
+let create_partition t l r = 
+    Tree.create_partition t.tree l r
+
 let post_order_downpass_style leaf interior id ptree =
     let rec processor prev curr =
         match get_node curr ptree with
@@ -1286,7 +1291,9 @@ let tbr_join pb tabu search breakage =
 
 let breakage_to_pb x = `Pair x.tree_delta
 
-let do_search neighborhood (tree: ('a,'b) p_tree) (tabu: ('a,'b) tabu_mgr) (search : ('a, 'b) search_mgr) : unit =
+let do_search neighborhood (tree: ('a,'b) p_tree) 
+                           (tabu: ('a,'b) tabu_mgr)
+                           (search : ('a,'b) search_mgr) : unit =
     let rec do_search () =
         match tabu#break_edge with
         | None -> Tree.Break

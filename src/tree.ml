@@ -1445,6 +1445,20 @@ let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
     in
     acc --> processor_skip b a --> processor_skip a b
 
+
+(** [create_partition t l r]; returns the partitions that that seperate the edge
+ * between the [l] and [r] nodes using the tree topology [t]. *)
+let create_partition tree left_node right_node =
+    let left,right = 
+        post_order_node_with_edge_visit
+            (fun p x a -> All_sets.Integers.add x a)
+            (fun p x acc_l acc_r -> All_sets.Integers.union acc_l acc_r)
+            (Edge (left_node,right_node) )
+            tree
+            All_sets.Integers.empty
+    in
+    left
+
 (** [post_order_node_visit f id bt ad acc]
 @param f function to applied to all the nodes in post-order.
 @param id the node_id from where the traversal is started.
