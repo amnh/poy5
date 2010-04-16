@@ -91,6 +91,9 @@ external filter: s -> int array -> s = "likelihood_CAML_filter"
  * compares two sets, returns -1,0,1 depending on which set is larger *)
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
+(* report the minimum branch length allowed *)
+external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
+
 (** calculates the proporation of similarity between two sequences *)
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
@@ -120,6 +123,7 @@ val median_cost : t -> float
 * computes whatever heuristic values will be assigned to [Node.final] in
 * a vertex, for the vertex [nn] with parent [pn] and children [c1] and [c2]. *)
 val median_3 : t -> t -> t -> t -> t
+
 
 val print_barray1 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t -> unit
 val print_barray2 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> unit

@@ -124,6 +124,15 @@ let print_barray3 a =
             done; Printf.printf "\n"; 
         done; Printf.printf "\n";
     done; Printf.printf "\n"; ()
+let print_barray3with1 a b =
+    for i = 0 to (Bigarray.Array3.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array3.dim2 a)-1 do
+            Printf.printf "%f:\t" b.{j};
+            for k = 0 to (Bigarray.Array3.dim3 a)-1 do
+                Printf.printf "%2.10f\t" a.{i,j,k};
+            done; Printf.printf "\n"; 
+        done; Printf.printf "\n";
+    done; Printf.printf "\n%!"; ()
 
 let pp_fopt chan v = 
     output_string chan 
@@ -463,8 +472,7 @@ let of_parser spec weights characters =
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
     in
     (* loop to create array for each character *)
-    let loop_ (states,code) =
-        match states with 
+    let loop_ (states,code) = match states with 
         | None -> Array.make a_size 1.0
         | Some s -> 
             let lst = match s with
@@ -495,6 +503,7 @@ let of_parser spec weights characters =
     let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
+(*    print_barray3with1 ba_chars weights;*)
     let loglike = loglikelihood lk_chars
                                 weights
                                 computed_model.MlModel.pi_0
@@ -509,14 +518,8 @@ let of_parser spec weights characters =
        chars  = lk_chars; }
 
 let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
-    let get_alphabet ccode = 
-        let spec = match Hashtbl.find data.Data.character_specs ccode with
-            | Data.Static x -> x
-            | _ -> assert false in
-        Alphabet.to_sequential spec.Nexus.File.st_alph
-    in
     let str_time = function | Some x -> `Float x | None -> `String "None"
-    and alphabet = get_alphabet (mine.codes.(0)) in
+    and alphabet = mine.model.MlModel.alph in
     let rec make_single_vec char_code single_ray =
         (Array.to_list 
             (Array.mapi 
