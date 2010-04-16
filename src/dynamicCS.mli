@@ -218,8 +218,8 @@ val compare_union : u -> u -> int
 (** [to_formatter ref_codes attr t parent_t] returns
 * dynamic character set [t] into Tag.output format *) 
 val to_formatter :
-  ChromCS.IntSet.t ->
-  Xml.attribute list -> t -> t option -> Data.d -> Xml.xml Sexpr.t list
+    ChromCS.IntSet.t -> Xml.attribute list -> t -> t option ->
+        float option * float option ->  Data.d -> Xml.xml Sexpr.t list
 
 (** [tabu_distance a_final b_final] returns the 
 * tabu distance between dynamic character set [a_final] and [b_final] *)
