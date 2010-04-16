@@ -502,10 +502,9 @@ let duplicate data =
         character_names = Hashtbl.copy data.character_names;
         character_codes = Hashtbl.copy data.character_codes;
         character_specs = Hashtbl.copy data.character_specs;
-        character_sets = Hashtbl.copy data.character_sets;
+        character_sets  = Hashtbl.copy data.character_sets;
         character_nsets = Hashtbl.copy data.character_nsets;
-        branches = 
-            match data.branches with
+        branches = match data.branches with
             | Some branches -> Some (Hashtbl.copy branches)
             | None -> None;
     }
@@ -3570,12 +3569,13 @@ let compute_priors data chars u_gap =
     (* A function that takes a list of states and add the appropriate value to
     * each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
-    let counter = ref 0 in
+    let counter = ref 0 and gap_counter = ref 0 in
     let gap_char = Alphabet.get_gap alph in (* 4, usually *)
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
     let taxon_adder tax taxon_chars =
         let when_no_data_is_loaded priors inverse size = 
+            incr gap_counter;
             for i = 0 to size - 1 do
                 priors.(i) <- priors.(i) +. inverse;
             done
@@ -3587,24 +3587,33 @@ let compute_priors data chars u_gap =
             | Stat (_, None) ->
                     when_no_data_is_loaded priors inverse size
             | Stat (_, (Some lst)) -> 
-                    (let lst = 
-                        match lst with
-                        | `List x -> x
-                        | `Bits x -> BitSet.to_list x
-                    in
-                    if ((List.exists (fun x -> x = gap_char) lst) && 
-                        not u_gap) || (lst = []) then
-                        when_no_data_is_loaded priors inverse size
-                    else
-                        let inverse = 1. /. (float_of_int (List.length lst)) in
-                        List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst)
+                let lst = match lst with
+                    | `List x -> x
+                    | `Bits x -> BitSet.to_list x
+                in
+                if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
+                    when_no_data_is_loaded priors inverse size
+                else begin
+                    let inverse = 1. /. (float_of_int (List.length lst)) in
+                    List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
+                end
             | _ -> failwith "Data.compute_priors"
         in
         List.iter adder chars
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
-    let counter = float_of_int !counter in
-    Array.map (fun x -> x /. counter) priors
+    let counter = float_of_int !counter
+    and gcounter = float_of_int !gap_counter in
+    let final_priors = 
+        if u_gap then begin
+            let counter = counter -. gcounter
+            and weight  = gcounter /. (float_of_int size) in
+            Array.map (fun x -> (x -. weight) /. counter) priors
+        end else begin
+            Array.map (fun x -> x /. counter) priors
+        end
+    in
+    final_priors
 
 
 (* apply a type to a set of STATIC characters in data *)
