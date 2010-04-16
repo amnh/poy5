@@ -78,7 +78,9 @@ let seqCS_median matrix a b =
                             (to_bitset a_algn a), (to_bitset b_algn b), 
                             (SeqCS.Raw res);
                         costs = make_cost (c /.  Data.kolmo_round_factor);
-                        position = 0; }
+                        position = 0;
+                        delimiters =  a.SeqCS.DOS.delimiters;
+                       }
                     in
                     SeqCS.Heuristic_Selection res
             | SeqCS.Relaxed_Lifted _, SeqCS.Relaxed_Lifted _ 

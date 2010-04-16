@@ -1729,8 +1729,9 @@ module Parse = struct
                 in
                 Some (float_of_string str)
             | ('0' .. '9') as v -> read_branch_length (v :: acc)
+            | 'e' -> read_branch_length ('e' :: acc)
+            | 'E' -> read_branch_length ('E' :: acc)
             | '.' -> read_branch_length ('.' :: acc)
-            | ':' -> read_branch_length acc
             |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
         in
 

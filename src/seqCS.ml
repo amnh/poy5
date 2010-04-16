@@ -621,6 +621,8 @@ module ProtAff = struct
 end
 
 module DOS = struct
+
+
     let rec bitset_to_seq gap set =
         match set with
         | Raw x -> x
@@ -660,8 +662,12 @@ module DOS = struct
             aligned_children : packed_algn * packed_algn * packed_algn;
             costs : cost_tuple;
             position : int;
+            delimiters: int list;
         }
 
+    let update_do_single_sequence oldone newseq newdeli =
+        { oldone with sequence = newseq; delimiters = newdeli }
+    
     let safe_reverse x = 
         { x with sequence = Sequence.safe_reverse x.sequence }
 
@@ -670,6 +676,7 @@ module DOS = struct
         aligned_children = Raw seq, Raw seq, Raw seq;
         costs = { min = 0.0; max = 0.0 };
         position = 0;
+        delimiters = []
     }
 
     let to_union a = Sequence.Unions.leaf a.sequence
@@ -757,11 +764,12 @@ module DOS = struct
             Printf.printf "]\n %!";
         in
         let print_seqlist seq =
-            Printf.printf "len = %d, seq=[%!" (Sequence.length seq);
+           (* Printf.printf "len = %d, seq=[%!" (Sequence.length seq);
             for i=0 to (Sequence.length seq) - 1 do
                 Printf.printf "%d," (Sequence.get seq i);
             done;
-            Printf.printf "]\n%!";
+            Printf.printf "]\n%!";*)
+           Sequence.printseqcode seq;
         in
         let check_seq seq seqpack =
             Printf.printf "check seq/bit array,%d,%d,%d:\n%!" gap size level;
@@ -772,7 +780,7 @@ module DOS = struct
                          print_seqlist (bitset_to_seq gap seqpack);
                 | _ -> ()
         in
-        (* above are functions for checking sequence*)
+        (* above are debug functions *)
         if Sequence.is_empty a.sequence gap then
             create b.sequence, 0 
         else if Sequence.is_empty b.sequence gap then
@@ -792,12 +800,13 @@ module DOS = struct
                         in
                         seqm, tmpa, tmpb, tmpcost, seqmwg
             in
+            
+            let rescost = make_cost tmpcost in
             if debug then begin 
-                Printf.printf "a/b= %!"; 
+                Printf.printf "costs = (%f,%f), a/b= %!" rescost.min rescost.max; 
                 print_seqlist a.sequence; print_seqlist b.sequence;
                 Printf.printf "seqm: %!"; print_seqlist seqm;
             end;
-            let rescost = make_cost tmpcost in
             let ba = seq_to_bitset gap tmpa (Raw a.sequence)
             and bb = seq_to_bitset gap tmpb (Raw b.sequence) 
             and bm = seq_to_bitset gap seqmwg (Raw seqm) in
@@ -810,12 +819,11 @@ module DOS = struct
             if (seqmwg = bitset_to_seq gap bm) then ()
             else 
             check_seq seqmwg bm;
-            
             assert (tmpa = bitset_to_seq gap ba);
             assert (tmpb = bitset_to_seq gap bb);
             assert (seqmwg = bitset_to_seq gap bm);
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
-            position = 0 }, tmpcost
+            position = 0; delimiters = a.delimiters}, tmpcost
 
     let median_3_no_union h p n c1 c2 =
         let with_parent c =
@@ -1168,7 +1176,9 @@ module PartitionedDOS = struct
                 tmpcost := !tmpcost + cost;
                 { DOS.sequence = seqm.DOS.sequence; 
                 aligned_children = (ba, bb, bm); 
-                costs = rescost; position = 0 }
+                costs = rescost; position = 0; 
+                (*tmp solution, fix this later*)
+                delimiters = a.DOS.delimiters }
         in
         let res = 
             Array.init (Array.length a) (fun i ->
@@ -1268,7 +1278,10 @@ module PartitionedDOS = struct
         { DOS.sequence = res;
         aligned_children = Raw res, Raw res, Raw res;
         costs = {min = min; max = max};
-        position = 0 }
+        position = 0;
+        (* fix this later *)
+        delimiters = []
+        }
 
 
     let dist_2 h n a b =
@@ -1465,6 +1478,7 @@ module RL = struct
         let _, v = median (-1) tmp n in
         (int_of_float v) + (int_of_float t)
 end
+
 type sequence_characters =
 | Heuristic_Selection of DOS.do_single_sequence
 | Partitioned of PartitionedDOS.partitioned_sequence
@@ -1482,6 +1496,58 @@ type t = {
     priority : int list;            (** The information ordering *)
 }
 
+(* return 1 if we are dealing with this kind of SeqCS data for multi-chromosome.*)
+let is_available in_data =
+    match (in_data.characters).(0) with
+    | Heuristic_Selection _ -> 0
+    | Partitioned _ -> 0
+    | Relaxed_Lifted _ -> 0
+    
+let flatten t_lst = 
+    List.map ( fun x -> 
+    let gapcode = Alphabet.get_gap x.alph in
+        let seqchar_arr =  x.characters in
+        List.map (fun x -> match x with
+        | Heuristic_Selection dos_single_seq ->
+                let ori_seq = dos_single_seq.DOS.sequence in
+                (* for multi-chromosome,
+                * delete the "beginning position" gap of sequence 
+                * we are going to concat these seq into one later in 
+                * "transform_multi_chromosome" of node.ml,
+                * *)
+                let new_seq = Sequence.fold_righti 
+                (fun acc pos item ->
+                    if (pos=0)&&(item=gapcode) then acc
+                    else
+                        let _ = Sequence.prepend acc item in
+                        acc
+                ) (Sequence.create ((Sequence.length ori_seq)-1)) ori_seq 
+                in
+                new_seq   
+        | _ -> failwith "not there yet"
+        ) (Array.to_list seqchar_arr)
+    ) t_lst
+
+let update_t oldt (newseqlst:Sequence.s list) (delimiterslst: int list list)  =
+    let i = ref 0 in
+    (* do we need to patch a gap to the begging of the newseq? *)
+    (* if we do so, the delimiter list should be modified as well*)
+    (* why do we have a gap at the beginning of each sequence for SeqCS, 
+    * but not for BreakinvCS? *)
+    (* let gapcode = Alphabet.get_gap x.alph in *)
+    let old_characters_list = Array.to_list oldt.characters in
+    let new_characters_list = List.map (fun seq_char ->
+        match seq_char with
+        | Heuristic_Selection oldone ->
+                let newone = DOS.update_do_single_sequence oldone  
+                (List.nth newseqlst !i) (List.nth delimiterslst !i) in
+                i := !i +1;
+                Heuristic_Selection newone
+        | _ -> failwith "not there yet"
+    ) old_characters_list
+    in
+    let new_characters = Array.of_list new_characters_list in
+    {oldt with characters = new_characters }
 
 module Union = struct
     (* The union of sequences *)

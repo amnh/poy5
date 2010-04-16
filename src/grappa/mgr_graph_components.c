@@ -120,7 +120,11 @@ void form_connected_components(graph_t *G)
       fflush(outfile);
 #endif // 0
 #endif // DEBUG
-      while (stack_root[stack_ptr] >parent[i]) {
+      // stack_ptr will go down below 0. I don't think it should
+      while (/*(stack_ptr>=0) &&*/ (stack_root[stack_ptr] > parent[i])) {
+         // fprintf(stdout,"stack_root[%d]=%d > parent[%d] = %d\n",
+           //       stack_ptr,stack_root[stack_ptr],i,parent[i]);
+         // fflush(stdout);
         /*union top to the i's connected component*/
         parent[stack_root[stack_ptr]]=parent[i];
         if (right < stack_range[stack_ptr])
@@ -176,8 +180,12 @@ void form_connected_components(graph_t *G)
   /*label each node with its root*/
   for (i=0; i< G->num_components; i++) {
     p=components[i].index;
+  //  fprintf(stdout,"p=%d,i=%d\n",p,i);
     while(p!=-1) {
-      cc[p]=i;p=next[p];
+    //  fprintf(stdout,"cc[p]=i,");
+      cc[p]=i;
+    //  fprintf(stdout,"p=next[p]=%d\n",next[p]); fflush(stdout);
+      p=next[p];
     }
   }
 

@@ -27,8 +27,10 @@ type filename = string
 module FullTupleMap = All_sets.FullTupleMap
 module IntMap = All_sets.IntegerMap
     
+let ( --> ) a b = b a
 let output_error = Status.user_message Status.Error
 let output_warning = Status.user_message Status.Warning
+let failwithf format = Printf.ksprintf failwith format
 
 let debug_kolmo = false
 
@@ -389,7 +391,9 @@ type d = {
     trees : parsed_trees list;
     (* branch lengths read from nexus file: tree -> node -> char *)
     (* node is defined by partition of leaves in the tree        *)
-    branches : (string,((string,float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t;
+    branches : (string, ((string, float) Hashtbl.t) All_sets.IntSetMap.t) Hashtbl.t option;
+    (* determine if we should iterate the branches *)
+    iterate_branches : bool;
     (* The set of codes that belong to the class of Non additive with up to 1
     * states (useless!) *)
     non_additive_1 : int list;
@@ -475,7 +479,8 @@ let empty () =
         ignore_taxa_set = All_sets.Strings.empty;
         ignore_character_set = [];
         trees = [];
-        branches = create_ht ();
+        branches = None;
+        iterate_branches = true;
         non_additive_1 = [];
         non_additive_8 = [];
         non_additive_16 = [];
@@ -507,13 +512,12 @@ let duplicate data =
         character_names = Hashtbl.copy data.character_names;
         character_codes = Hashtbl.copy data.character_codes;
         character_specs = Hashtbl.copy data.character_specs;
-        character_sets = Hashtbl.copy data.character_sets;
+        character_sets  = Hashtbl.copy data.character_sets;
         character_nsets = Hashtbl.copy data.character_nsets;
-        branches = Hashtbl.copy data.branches;
+        branches = match data.branches with
+            | Some branches -> Some (Hashtbl.copy branches)
+            | None -> None;
     }
-
-let remove_bl data =
-    { data with branches = create_ht (); }
 
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
  * map from destination, and the branches structure from source. This behavior
@@ -533,21 +537,24 @@ let convert_dynamic_to_static_branches ~src ~dest =
                 (IntMap.find c_code dest.dynamic_static_codes)
         else ()
     in
-    let copy_tree = Hashtbl.create 10 in
-    Hashtbl.iter
-        (fun tree map ->
-            let results =
-                All_sets.IntSetMap.fold
-                    (fun intset ntbl acc -> 
-                        let copy_node = Hashtbl.create 10 in
-                        Hashtbl.iter (add_data copy_node) ntbl;
-                        All_sets.IntSetMap.add intset copy_node acc)
-                    map
-                    All_sets.IntSetMap.empty
-            in
-            Hashtbl.add copy_tree tree results)
-        src.branches;
-    { dest with branches = copy_tree; }
+    match src.branches with
+    | Some branches ->
+        let copy_tree = Hashtbl.create 10 in
+        Hashtbl.iter
+            (fun tree map ->
+                let results =
+                    All_sets.IntSetMap.fold
+                        (fun intset ntbl acc -> 
+                            let copy_node = Hashtbl.create 10 in
+                            Hashtbl.iter (add_data copy_node) ntbl;
+                            All_sets.IntSetMap.add intset copy_node acc)
+                        map
+                        All_sets.IntSetMap.empty
+                in
+                Hashtbl.add copy_tree tree results)
+            branches;
+        { dest with branches = Some copy_tree; }
+    | None -> dest
 
 (* the converse of the above function *)
 let convert_static_to_dynamic_branches ~src ~dest = 
@@ -563,22 +570,29 @@ let convert_static_to_dynamic_branches ~src ~dest =
                 Hashtbl.add ntbl new_name lengths)
             src.static_dynamic_codes
     in
-    let copy_tree = Hashtbl.create 10 in
-    Hashtbl.iter
-        (fun tree map -> 
-            let results = 
-                All_sets.IntSetMap.fold
-                    (fun partition lengths intset -> 
-                        let ntbl = Hashtbl.create 1 in 
-                        add_data lengths ntbl;
-                        All_sets.IntSetMap.add partition ntbl intset)
-                    map
-                    All_sets.IntSetMap.empty
-            in
-            Hashtbl.add copy_tree tree results)
-        src.branches;
-    {dest with branches = copy_tree}
+    match src.branches with
+    | Some branches ->
+        let copy_tree = Hashtbl.create 10 in
+        Hashtbl.iter
+            (fun tree map -> 
+                let results = 
+                    All_sets.IntSetMap.fold
+                        (fun partition lengths intset -> 
+                            let ntbl = Hashtbl.create 1 in 
+                            add_data lengths ntbl;
+                            All_sets.IntSetMap.add partition ntbl intset)
+                        map
+                        All_sets.IntSetMap.empty
+                in
+                Hashtbl.add copy_tree tree results)
+            branches;
+        {dest with branches = Some copy_tree; }
+    | None -> dest
 
+let remove_bl force data =
+    if (not force) && not data.iterate_branches then data
+    else { data with branches = None;
+                     iterate_branches = true; }
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -716,8 +730,12 @@ let print (data : d) =
     Hashtbl.iter print_taxon data.taxon_characters;
     Printf.printf "\n check character_specs:\n%!";
     Hashtbl.iter print_specs data.character_specs;
-    Printf.printf "\n check branches:\n%!";
-    Hashtbl.iter print_branches data.branches;
+    let () = match data.branches with
+        | Some databranches -> 
+            Printf.printf "\n check branches:\n%!";
+            Hashtbl.iter print_branches databranches
+        | None -> ()
+    in
     print_newline ()
 
 
@@ -842,6 +860,130 @@ let trim taxon =
         String.sub taxon start (final - start + 1) 
     else taxon
 
+(* convert branch lengths with subsets of leaves *)
+let branches_to_map data initial_table branch_table trees = 
+    let complete_set =
+        All_sets.StringMap.fold
+            (fun k v acc -> All_sets.Integers.add v acc)
+            data.taxon_names
+            (All_sets.Integers.empty)
+    and new_tree_table = match initial_table with
+        | Some x -> x
+        | None -> Hashtbl.create 13
+    and found = ref false in
+    let create_complement to_remove =
+        All_sets.Integers.fold
+            (All_sets.Integers.remove)
+            to_remove
+            complete_set
+    and create_all_char_table dist = 
+        let new_internal = Hashtbl.create 1229 in
+        Hashtbl.iter
+            (fun _ v -> Hashtbl.add new_internal v dist)
+            data.character_codes;
+        new_internal
+    (* add two table lengths, to resolve rooted trees *)
+    and add_two_lengths tbl1 tbl2 =
+        Hashtbl.iter
+            (fun k dist1 ->
+                let dist2 =
+                    try Hashtbl.find tbl2 k
+                    with | Not_found -> failwith "Sets don't match"
+                in
+                Hashtbl.replace tbl1 k (dist1 +. dist2))
+            tbl1
+    in
+    (* assoc partition with a value, if it exists, then add them, as it is
+     * due to a rooted tree *)
+    let add_single (t_name:string) (set:All_sets.Integers.t)
+                   (chartbl_opt : (string,float) Hashtbl.t option)
+                   (partition_map : 'a All_sets.IntSetMap.t) : 'a All_sets.IntSetMap.t =
+        match chartbl_opt with
+        | Some n -> 
+            let comp = create_complement set in
+            if (All_sets.IntSetMap.mem set partition_map) 
+                or (All_sets.IntSetMap.mem comp partition_map)
+                then begin
+                    let t = All_sets.IntSetMap.find set partition_map in
+                    add_two_lengths t n;
+                    partition_map --> 
+                        All_sets.IntSetMap.add comp t -->
+                        All_sets.IntSetMap.add set t
+                end else begin
+                    partition_map --> 
+                        All_sets.IntSetMap.add comp n -->
+                        All_sets.IntSetMap.add set n
+                end
+        | None -> partition_map
+    in
+    let rec continually_add t_name f_ext mapp t_node =
+        match t_node with
+        | Tree.Parse.Leafp (x,dat) ->
+            let single_set =
+                try
+                    let t_code = All_sets.StringMap.find x data.taxon_names in
+                    All_sets.Integers.add t_code (All_sets.Integers.empty)
+                with Not_found -> failwithf "Cannot find taxon name %s" x
+            in
+            (single_set,add_single t_name single_set (f_ext dat) mapp)
+        | Tree.Parse.Nodep (xs,(_,dat)) ->
+            let children_set,children_map =
+                List.fold_left
+                    ~f:(fun (oths,othm) nd ->
+                         let (one_set,one_map) = continually_add t_name f_ext othm nd in
+                         (All_sets.Integers.union oths one_set, one_map))
+                    ~init:(All_sets.Integers.empty,mapp)
+                    xs
+            in
+            children_set,add_single t_name children_set (f_ext dat) children_map
+    in 
+    let add_single_tree (t_name_opt,t) =
+        let tree_name =
+            match t_name_opt with | Some n -> String.uppercase n | None -> ""
+        in
+        let tree_map = List.fold_left
+            ~f:(fun acc_map x -> match x with
+                | Tree.Parse.Branches t ->
+                    found := true;
+                    let _,map = continually_add
+                        tree_name
+                        (fun x -> match (x:float option) with
+                            | Some x -> Some (create_all_char_table x)
+                            | None -> None)
+                        acc_map
+                        t
+                    in
+                    map
+                | Tree.Parse.Characters t ->
+                    found := true;
+                    let old_table = match branch_table with
+                        | None -> failwith "Cannot find defined table"
+                        | Some branch_table -> 
+                            try Hashtbl.find branch_table tree_name
+                            with | Not_found ->
+                                failwithf "Cannot find pre-defined tree, %s." tree_name
+                    in
+                    let _,map =
+                        continually_add
+                            tree_name
+                            (fun x -> match (x:string option) with
+                                | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
+                                | None -> None)
+                            acc_map
+                            t
+                    in 
+                    map
+                (* skip other types of trees *)
+                | _ -> acc_map)
+            ~init:(All_sets.IntSetMap.empty)
+            t
+        in
+        Hashtbl.add new_tree_table tree_name tree_map
+    in
+    List.iter add_single_tree trees;
+    new_tree_table,!found
+
+
 let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let esc_file = StatusCommon.escape file in
     let leafs acc tree = 
@@ -917,19 +1059,22 @@ let process_trees data file =
             "@ contains@ " ^ string_of_int len ^ "@ trees.@]"
         in
         let cnt = ref 0 in
-        let trees =
-            List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
+        let trees = List.map ~f:(fun x -> incr cnt; (None,x), file, !cnt) trees in
+        let branches, found =
+            branches_to_map data None None (List.map (fun (x,_,_) -> x) trees)
+        in
+        let branches = if found then Some branches else None in
         Status.user_message Status.Information msg;
-        { data with trees = data.trees @ trees }
+        { data with trees = data.trees @ trees;
+                    branches = branches;
+                    iterate_branches = (not found);}
     with
     | Sys_error err ->
-            let file = FileStream.filename file in
-            let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-            "trees.@ @ The@ system@ error@ message@ is@ "
-                ^ err ^
-            ".@]" in
-            output_error msg;
-            data
+        let file = FileStream.filename file in
+        let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
+                  "trees.@ @ The@ system@ error@ message@ is@ " ^ err ^ ".@]" in
+        output_error msg;
+        data
 
 let process_fixed_states data file = 
         match file with
@@ -1183,10 +1328,8 @@ let repack_codes data =
     process_available recode_character check data greatest_char_code 
     available_char_codes
 
-let ( --> ) a b = b a
-let failwithf format = Printf.ksprintf failwith format
 
-let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet 
+let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotated alphabet 
     file dyna_state data (res : (Sequence.s list list list *
     All_sets.StringMap.key) list)  =
     let data = duplicate data in
@@ -1308,11 +1451,9 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
             in
             let tl = get_taxon_characters data tcode in
             let seqa = 
-                let makeone seqa = 
-                    {seq=seqa; code = -1}
-                in
+                let makeone seqa = {seq=seqa; code = -1} in
                 match dyna_state with 
-                | `Seq -> Array.map makeone seq
+                | `Seq when not is_prealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
             in 
@@ -1459,122 +1600,6 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
     in 
     data
 
-(* convert branch lengths with subsets of leaves *)
-let branches_to_map data branch_table trees = 
-    let complete_set =
-        All_sets.StringMap.fold
-            (fun k v acc -> All_sets.Integers.add v acc)
-            data.taxon_names
-            (All_sets.Integers.empty)
-    and new_tree_table = Hashtbl.create 13 in
-    let create_complement to_remove =
-        All_sets.Integers.fold
-            (All_sets.Integers.remove)
-            to_remove
-            complete_set
-    and create_all_char_table dist = 
-        let new_internal = Hashtbl.create 1229 in
-        Hashtbl.iter
-            (fun _ v -> Hashtbl.add new_internal v dist)
-            data.character_codes;
-        new_internal
-    (* add two table lengths, to resolve rooted trees *)
-    and add_two_lengths tbl1 tbl2 =
-        Hashtbl.iter
-            (fun k dist1 ->
-                let dist2 =
-                    try Hashtbl.find tbl2 k
-                    with | Not_found -> failwith "Sets don't match"
-                in
-                Hashtbl.replace tbl1 k (dist1 +. dist2))
-            tbl1
-    in
-    (* assoc partition with a value, if it exists, then add them, as it is
-     * due to a rooted tree *)
-    let add_single (t_name:string) (set:All_sets.Integers.t)
-                   (chartbl_opt : (string,float) Hashtbl.t option)
-                   (partition_map : 'a All_sets.IntSetMap.t) : 'a All_sets.IntSetMap.t =
-        match chartbl_opt with
-        | Some n -> 
-            let comp = create_complement set in
-            if (All_sets.IntSetMap.mem set partition_map) or (All_sets.IntSetMap.mem comp partition_map)
-                then begin
-                    let t = All_sets.IntSetMap.find set partition_map in
-                    add_two_lengths t n;
-                    partition_map --> 
-                        All_sets.IntSetMap.add comp t -->
-                        All_sets.IntSetMap.add set t
-                end else begin
-                    partition_map --> 
-                        All_sets.IntSetMap.add comp n -->
-                        All_sets.IntSetMap.add set n
-                end
-        | None -> partition_map
-    in
-
-    let rec continually_add t_name f_ext mapp t_node =
-        match t_node with
-        | Tree.Parse.Leafp (x,dat) ->
-            let single_set =
-                try
-                    let t_code = All_sets.StringMap.find x data.taxon_names in
-                    All_sets.Integers.add t_code (All_sets.Integers.empty)
-                with Not_found -> failwithf "Cannot find taxon name %s" x
-            in
-            (single_set,add_single t_name single_set (f_ext dat) mapp)
-        | Tree.Parse.Nodep (xs,(_,dat)) ->
-            let children_set,children_map =
-                List.fold_left
-                    ~f:(fun (oths,othm) nd ->
-                         let (one_set,one_map) = continually_add t_name f_ext othm nd in
-                         (All_sets.Integers.union oths one_set, one_map))
-                    ~init:(All_sets.Integers.empty,mapp)
-                    xs
-            in
-            children_set,add_single t_name children_set (f_ext dat) children_map
-    in 
-    let add_single_tree (t_name_opt,t) =
-        let tree_name =
-            match t_name_opt with | Some n -> String.uppercase n | None -> ""
-        in
-        let tree_map = List.fold_left
-            ~f:(fun acc_map x -> match x with
-                | Tree.Parse.Branches t ->
-                    let _,map = continually_add
-                        tree_name
-                        (fun x -> match (x:float option) with
-                            | Some x -> Some (create_all_char_table x)
-                            | None -> None)
-                        acc_map
-                        t
-                    in
-                    map
-                | Tree.Parse.Characters t ->
-                    let old_table =
-                        try Hashtbl.find branch_table tree_name
-                        with | Not_found ->
-                            failwithf "Cannot find pre-defined tree, %s." tree_name
-                    in
-                    let _,map =
-                        continually_add
-                            tree_name
-                            (fun x -> match (x:string option) with
-                                | Some nd -> Some (Hashtbl.find old_table (String.uppercase nd))
-                                | None -> None)
-                            acc_map
-                            t
-                    in 
-                    map
-                (* skip other types of trees *)
-                | _ -> acc_map)
-            ~init:(All_sets.IntSetMap.empty)
-            t
-        in
-        Hashtbl.add new_tree_table tree_name tree_map
-    in
-    List.iter add_single_tree trees;
-    new_tree_table
-
 (* convert Nexus.File.file_output to Data.d *)
 let gen_add_static_parsed_file do_duplicate data file 
                                 ((file_out): Nexus.File.nexus): int array * d =
@@ -1672,8 +1697,7 @@ let gen_add_static_parsed_file do_duplicate data file
                                      | Some x,Some y ->
                                         unroot_branch_lengths 
                                             file_out.Nexus.File.branches name x y
-                                     | _ -> ()
-                                    )
+                                     | _ -> ())
                                 | _ -> ()
                         in ()
                     ) trees
@@ -1697,8 +1721,8 @@ let gen_add_static_parsed_file do_duplicate data file
                 size 1 1 all_elements
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences "tcm:(1,2)" tcm (`Normal3d tcm3d) `DO false alphabet file
-            `Seq data sequences
+            process_parsed_sequences false "tcm:(1,2)" tcm (`Normal3d tcm3d) 
+                                     `DO false alphabet file `Seq data sequences
         in
         List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.File.unaligned
     in
@@ -1712,15 +1736,19 @@ let gen_add_static_parsed_file do_duplicate data file
             file_out.Nexus.File.csets
     in
     (* create set for branches *)
-    let tbl = branches_to_map data 
-                              file_out.Nexus.File.branches
-                              file_out.Nexus.File.trees
+    let tbl,found =
+        branches_to_map data 
+                        None
+                        (Some file_out.Nexus.File.branches)
+                        file_out.Nexus.File.trees
     in
+    let tbl = if found then Some tbl else None in
     Status.finished st;
     new_codes,
         {data with 
             character_sets = file_out.Nexus.File.csets;
-            branches = tbl; }
+            branches = tbl;
+            iterate_branches = (not found); }
 
 let add_static_parsed_file (data:d) (file:string) (triple:Nexus.File.nexus) : d =
     let _,d = gen_add_static_parsed_file true data file triple in d
@@ -1738,6 +1766,7 @@ let print_parsed_data lst =
                                       (Array.length nexus.Nexus.File.matrix.(0))
     in
     List.iter print_single lst
+
 
 let add_multiple_static_parsed_file data list =
 (*    print_parsed_data list;*)
@@ -1809,7 +1838,7 @@ let check_if_taxa_are_ok file taxa =
     let _, second = List.fold_left ~f:(fun (acc, is_ok) x ->
         let msg =
             ("There@ is@ a@ taxon@ name@ that@ has@ "
-            ^ "illegal@ characters@ on@ it@ ([]();, ).@ This@ leaves@ the@ "
+            ^ "illegal@ characters@ on@ it@ ([]();,: ).@ This@ leaves@ the@ "
             ^ "generated@ trees@ "
             ^ "unreadable!.@ If you@ want@ to@ continue,@ that's@ "
             ^ "your@ call...@ the@ file@ is@ " ^ StatusCommon.escape file 
@@ -1932,7 +1961,7 @@ mode is_prealigned dyna_state data file =
         aux_process_molecular_file 
         tcmfile tcm tcm3 alphabet
         (fun alph parsed -> 
-            process_parsed_sequences tcmfile tcm tcm3 mode annotated 
+            process_parsed_sequences is_prealigned tcmfile tcm tcm3 mode annotated 
             alph (FileStream.filename file) dyna_state data parsed)
         (fun x -> 
             if not is_prealigned then FileContents.AlphSeq x
@@ -3694,13 +3723,14 @@ let compute_priors data chars u_gap =
     (* A function that takes a list of states and add the appropriate value to
     * each of the components of the priors *)
     let inverse = 1. /. (float_of_int size) in
-    let counter = ref 0 in
-    let gap_char = Alphabet.get_gap alph in
     let longest = ref 0 and lengths = ref [] in
+    let gap_char = Alphabet.get_gap alph in (* 4, usually *)
+    let counter = ref 0 and gap_counter = ref 0 in
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
-    let taxon_adder _ taxon_chars =
+    let taxon_adder tax taxon_chars =
         let when_no_data_is_loaded priors inverse size = 
+            incr gap_counter;
             for i = 0 to size - 1 do
                 priors.(i) <- priors.(i) +. inverse;
             done
@@ -3752,23 +3782,27 @@ let compute_priors data chars u_gap =
         lengths := !total :: !lengths
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
-    let counter = Array.fold_left ~f:(fun a b -> a +. b) ~init:0.0 priors in
-(*    Array.iter ~f:(fun x -> Printf.printf "[%f]" x) priors;       *)
-(*    Printf.printf "\nLongest %d\nCounter %f%!" !longest counter;  *)
-    if u_gap then begin
-        (* modify the gaps to an estimate *)
-        let total_added_gaps = 
-            float_of_int
-                (List.fold_left ~f:(fun acc x -> (x - !longest) + acc) ~init:0 !lengths)
-        in
-        priors.(gap_char) <- total_added_gaps;
-        Array.map ~f:(fun x -> x /. (counter +. total_added_gaps)) priors
-    end else begin
-        Array.map ~f:(fun x -> x /. counter) priors
-    end
+    let counter = float_of_int !counter
+    and gcounter = float_of_int !gap_counter in
+    let final_priors = 
+        if u_gap then begin
+            let total_added_gaps = 
+                float_of_int
+                    (List.fold_left ~f:(fun acc x -> (x - !longest) + acc) ~init:0 !lengths)
+            in
+            priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
+            let counter = counter -. gcounter +. total_added_gaps;
+            and weight  = gcounter /. (float_of_int size) in
+            Array.map (fun x -> (x -. weight) /. counter) priors
+        end else begin
+            Array.map (fun x -> x /. counter) priors
+        end
+    in
+    final_priors
 
+
+(* apply a type to a set of STATIC characters in data *)
 let apply_on_static_chars data chars st_type = 
-    (* COPY, COPY the new hashtbl, and the only one being changed *)
     let new_specs = Hashtbl.copy data.character_specs in
     List.iter 
         (fun code -> 
@@ -3860,6 +3894,7 @@ IFDEF USE_LIKELIHOOD THEN
     | chars ->
         let data = duplicate data in
         let u_gap = match use_gap with | `GapAsCharacter a -> a in
+        let i_alpha = ref true and i_model = ref true in
         (* We get the characters and filter them out to have only static types *)
         let model =
             let alph_size,alph = verify_alphabet data chars in
@@ -3884,36 +3919,57 @@ IFDEF USE_LIKELIHOOD THEN
                 | None -> Some MlModel.Constant 
                 | Some x -> (match x with 
                     | `Gamma (w,y) ->
-                        let y = match y with | Some x -> x | None -> 1.0 in
+                        let y = match y with
+                            | Some x -> i_alpha := false; x 
+                            | None -> MlModel.default_alpha false
+                        in
                         Some (MlModel.Gamma (w,y))
                     | `Theta (w,y) ->
-                        let y,p = match y with | Some x -> x | None -> (0.2,0.1) in
+                        let y,p = match y with 
+                            | Some x -> i_alpha := false; x 
+                            | None -> (MlModel.default_alpha true,
+                                        MlModel.default_invar)
+                        in
                         Some (MlModel.Theta (w,y,p)))
             and substitution = 
                 match substitution with
-                | `JC69 -> MlModel.JC69
-                | `F81  -> MlModel.F81
+                | `JC69 ->
+                    i_model := false;    
+                    MlModel.JC69
+                | `F81  ->
+                    i_model := false;    
+                    MlModel.F81
                 | `K2P (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.K2P (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.K2P None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.K2P (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.K2P None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");
                 | `K2P None -> MlModel.K2P None
                 | `HKY85 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.HKY85 (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.HKY85 None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.HKY85 (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.HKY85 None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");    
-                | `HKY85 None -> MlModel.HKY85 None
+                | `HKY85 None -> 
+                    MlModel.HKY85 None
                 | `F84 (Some x) ->
                     let aray = Array.of_list x in
-                    if Array.length aray = 1 then MlModel.F84 (Some aray.(0))
-                    else if Array.length aray = 0 then MlModel.F84 None
-                    else let _ = Status.user_message Status.Error
+                    if Array.length aray = 1 then begin
+                        i_model := false;
+                        MlModel.F84 (Some aray.(0))
+                    end else if Array.length aray = 0 then begin
+                        MlModel.F84 None
+                    end else let _ = Status.user_message Status.Error
                             "Likelihood@ model@ HKY85@ requires@ 1@ parameters" in
                             failwith("Incorrect Parameters");
                 | `F84 None -> MlModel.F84 None
@@ -3923,24 +3979,28 @@ IFDEF USE_LIKELIHOOD THEN
                         let _ = Status.user_message Status.Error
                             "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" in
                             failwith("Incorrect Parameters");
-                    else if Array.length aray = 0 then
+                    else if Array.length aray = 0 then begin
                         MlModel.TN93 None
-                    else
+                    end else begin
+                        i_model := false;
                         MlModel.TN93 (Some (aray.(0),aray.(1)))
+                    end
                 | `TN93 None -> MlModel.TN93 None
                 | `GTR (Some x) ->
                     let aray = Array.of_list x in 
                     let n_a = (alph_size * (alph_size-1)) / 2 in
                     if (Array.length aray) <> n_a then
-                        let _ = Status.user_message Status.Error 
+                        let () = Status.user_message Status.Error 
                         ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
                          "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
                          (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
                         failwith "Incorrect Parameters";
-                    else if Array.length aray = 0 then
+                    else if Array.length aray = 0 then begin
                         MlModel.GTR None
-                    else
+                    end else begin
+                        i_model := false;
                         MlModel.GTR (Some aray)
+                    end
                 | `GTR None -> MlModel.GTR None
                 | `File str -> 
                         (* this needs to be changed to allow remote files as well *)
@@ -3963,6 +4023,8 @@ IFDEF USE_LIKELIHOOD THEN
             let lk_spec = { MlModel.substitution = substitution;
                             site_variation = site_variation;
                             base_priors = base_priors;
+                            iterate_model = !i_model;
+                            iterate_alpha = !i_alpha;
                             use_gap = use_gap; }
             in
             MlModel.create alph lk_spec
@@ -4201,32 +4263,35 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
             ) ~init:t_ch_ia_map ia
         ) ~init:FullTupleMap.empty ia_ls  
     in  
-    let data = List.fold_left ~f:(fun data char_code ->
-        let char_name = Hashtbl.find data.character_codes char_code in
-        let tcm = get_tcm2d data char_code 
-        and tcm3d = get_tcm3d data char_code 
-        and alph = get_alphabet data char_code
-        and tcmfile = get_tcmfile data char_code in
-        let data = 
-            process_ignore_characters true data (`Some [char_code]) 
-        in
-        let seqs = IntMap.fold (fun (t_code : int) (t_name : string) seqs ->
-            try
-                let ia_arr = FullTupleMap.find (t_code, char_code) t_ch_ia_map in
-                let ia_arr = 
-                    Array.map 
-                    (function `DO ia | `Last ia | `First ia ->
-                        let seq = Sequence.of_code_arr ia Alphabet.gap in 
-                        Sequence.prepend_char seq Alphabet.gap)
-                    ia_arr
-                in 
-                ([[Array.to_list ia_arr]], t_name) :: seqs
-            with Not_found -> seqs) 
-            data.taxon_codes []
-        in                   
-        process_parsed_sequences tcmfile tcm tcm3d `DO false alph
-        char_name `Seq data seqs) ~init:data 
-        tran_code_ls 
+    let data = List.fold_left 
+        ~f:(fun data char_code ->
+            let char_name = Hashtbl.find data.character_codes char_code in
+            let tcm = get_tcm2d data char_code 
+            and tcm3d = get_tcm3d data char_code 
+            and alph = get_alphabet data char_code
+            and tcmfile = get_tcmfile data char_code in
+            let data = 
+                process_ignore_characters true data (`Some [char_code]) 
+            in
+            let seqs = 
+                IntMap.fold 
+                    (fun (t_code : int) (t_name : string) seqs ->
+                        try
+                            let ia_arr = FullTupleMap.find (t_code, char_code) t_ch_ia_map in
+                            let ia_arr = 
+                                Array.map 
+                                    (function `DO ia | `Last ia | `First ia ->
+                                        let seq = Sequence.of_code_arr ia Alphabet.gap in 
+                                        Sequence.prepend_char seq Alphabet.gap)
+                                    ia_arr
+                            in 
+                            ([[Array.to_list ia_arr]], t_name) :: seqs
+                        with Not_found -> seqs) 
+                    data.taxon_codes []
+            in                   
+            process_parsed_sequences false tcmfile tcm tcm3d `DO false 
+                                     alph char_name `Seq data seqs)
+        ~init:data tran_code_ls 
     in 
     categorize data
 

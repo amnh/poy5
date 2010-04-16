@@ -76,7 +76,7 @@ let test_file file =
             else 
                 Is_XML
         end
-    else if Wildcard.anywhere_match (Str.regexp "^[0-9]+ *[0-9]+") line then
+    else if Wildcard.anywhere_match (Str.regexp "^[0-9]+[ \t]*[0-9]+") line then
         Is_Phylip
     else if Wildcard.anywhere_match (Str.regexp "^[a-zA-Z0-9_]+") line 
             && Wildcard.anywhere_match (Str.regexp " *[0-9]+") line2 then

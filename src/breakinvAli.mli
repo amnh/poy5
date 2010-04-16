@@ -58,7 +58,7 @@ type breakinvPam_t = {
 val breakinvPam_default : breakinvPam_t
 
 (** [init seq] creates a new breakinv sequence from [seq] *)
-val init : Sequence.s -> breakinv_t
+val init : Sequence.s -> int list -> breakinv_t
 
 (** [get_breakinv_pam user_breakinv_pam] returns 
 * user defined parameters used to align two breakinv sequences *)

@@ -344,7 +344,7 @@ let re_align seq11 seq12 seq21 seq22 gapcode =
 
 let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     Sequence.s) (seq3 : Sequence.s) (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
-    (* debug msg *)
+    (* debug msg 
     Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3;
@@ -353,7 +353,7 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
         Printf.printf "[%!"; 
         List.iter (Printf.printf "%d,") lst; 
         Printf.printf "];%!") delimiter_lstlst;
-    (*debug msg *)
+    debug msg *)
     let gapcode = Alphabet.get_gap alpha in
     let arr1 = Sequence.to_array seq1
     and arr2 = Sequence.to_array seq2 

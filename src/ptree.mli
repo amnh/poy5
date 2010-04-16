@@ -183,7 +183,7 @@ module type Tree_Operations =
     val reroot_fn : (a, b) reroot_fn
     val string_of_node : a -> string
     val features : Methods.local_optimum -> (string * string) list -> (string * string) list
-    val clear_internals : (a, b) p_tree -> (a, b) p_tree
+    val clear_internals : bool -> (a, b) p_tree -> (a, b) p_tree
     val downpass : (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree

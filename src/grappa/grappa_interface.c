@@ -279,9 +279,9 @@ value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2,
             fprintf(stdout,"%d,",g2->genes[i]);
         }fprintf(stdout," }\n");
         fflush(stdout); */
-    if ((deli_num1>1)||(deli_num2>1))
+    if ((deli_num1>1)||(deli_num2>1)) //deal with multichromosome input
     {
-        distance = mgr_invdist(g1->genes,g2->genes,num_gene,g1->delimiters,g2->delimiters,deli_num1,deli_num2);
+        distance = mgr_invdist(g1->genes,g2->genes,num_gene,g1->delimiters,g2->delimiters,deli_num1,deli_num2); 
     }
     else
     {
@@ -295,6 +295,38 @@ value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2,
 }
 
 
+value grappa_CAML_better_capping (value c_gene1, value c_gene2, value num_genes)
+{
+    CAMLparam3(c_gene1,c_gene2,num_genes);
+    int NUM_GENES = Int_val(num_genes);
+    long dims[1]; dims[0] = NUM_GENES;
+    struct genome_struct *g1, *g2, *out_genome_list;
+    g1 = (struct genome_struct *) Data_custom_val (c_gene1);
+    g2 = (struct genome_struct *) Data_custom_val (c_gene2);
+    out_genome_list =
+    (struct genome_struct *) malloc (1*sizeof (struct genome_struct) );
+    if ( out_genome_list == ( struct genome_struct * ) NULL )
+        failwith ("ERROR: genome_list in grappa_CAML_better_capping is NULL" );
+    out_genome_list[0].gnamePtr =
+            ( char * ) malloc ( MAX_NAME * sizeof ( char ) );
+    sprintf (out_genome_list[0].gnamePtr, "%i", 0);
+    if ( out_genome_list[0].gnamePtr == ( char * ) NULL )
+            failwith( "ERROR: gname of genome_list in grappa_CAML_better_capping is NULL" );
+    out_genome_list[0].genes =( int * ) malloc ( NUM_GENES * sizeof ( int ) );
+    out_genome_list[0].delimiters = (int *) malloc (NUM_GENES * sizeof (int) );
+
+    better_capping (g1->genes,g2->genes,NUM_GENES,g1->delimiters,g2->delimiters,g1->deli_num,g2->deli_num,out_genome_list);
+
+    struct genome_arr_t *out_genome_arr;
+    CAMLlocal1 (c_genome_arr);
+    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
+    out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
+    out_genome_arr->genome_ptr = out_genome_list;    
+    out_genome_arr->num_genome = 1;
+    out_genome_arr->num_gene = NUM_GENES;
+    CAMLreturn(c_genome_arr); 
+
+}
 
 value 
 grappa_CAML_inv_med 
@@ -547,7 +579,7 @@ value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
     }
 
     CAMLlocal1 (c_genome_arr);
-    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 1000000);
+    c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
     genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
     genome_arr->genome_ptr = genome_list;    
     genome_arr->num_genome = Numgenome;

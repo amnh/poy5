@@ -25,6 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
+let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -109,15 +110,7 @@ module F : Ptree.Tree_Operations
                 --> Hashtbl.add treebranches name
         in
         {ptree with
-            Ptree.data = {ptree.Ptree.data with Data.branches = treebranches;}}
-
-    (* Update Data.d specifications with model data *)
-    let update_specs chars model ptree = 
-        let data = 
-            Data.apply_likelihood_model_on_chars ptree.Ptree.data chars model
-        in
-        {ptree with Ptree.data = data;}
-
+            Ptree.data = {ptree.Ptree.data with Data.branches = Some treebranches;}}
 
     (* process tree data to find branch lengths *)
     let hashdoublefind tree partitions : (int,(int,float) Hashtbl.t) Hashtbl.t option =
@@ -137,24 +130,25 @@ module F : Ptree.Tree_Operations
         in
         (* test if that table exists, and convert each partition to the node id
             it belongs from, and the charcter_names to character ids *) 
-        try
-            let ret_table = Hashtbl.create 27 in
-            let tree_tbl = Hashtbl.find (tree.Ptree.data).Data.branches t_name in
-            let res = List.fold_left
-                (fun acc (partition,node_id) ->
-                    try 
-                        let node_n = IntSetMap.find partition tree_tbl in
-                        let tbl = transform_keys (Hashtbl.create 27)
-                                                 node_n
-                                                 (tree.Ptree.data).Data.character_names
-                        in
-                        let () = Hashtbl.replace ret_table node_id tbl in
-                        true
-                    with | Not_found -> (false or acc) )
-                false
-                partitions
-            in
-            if res then Some ret_table else None
+        try match tree.Ptree.data.Data.branches with
+            | Some btable ->
+                let ret_table = Hashtbl.create 27 in
+                let tree_tbl = Hashtbl.find btable t_name in
+                let res = List.fold_left
+                    (fun acc (partition,node_id) ->
+                        try let node_n = All_sets.IntSetMap.find partition tree_tbl in
+                            let tbl = 
+                                transform_keys (Hashtbl.create 27) node_n
+                                               (tree.Ptree.data).Data.character_names
+                            in
+                            let () = Hashtbl.replace ret_table node_id tbl in
+                            true
+                        with | Not_found -> (false or acc) )
+                    false
+                    partitions
+                in
+                if res then Some ret_table else None
+            | None -> None
         (* return nothing if the node wasn't found *)
         with | Not_found ->
             if debug_branch_fn then
@@ -612,7 +606,7 @@ module F : Ptree.Tree_Operations
                     and p2 = Ptree.create_partition ptree a b,a in
                     match hashdoublefind ptree [p1;p2] with
                     | Some x -> create_lazy_edge ~branches:x rhandle root_opt adjusted ptree a b 
-                    | None -> create_lazy_edge rhandle root_opt adjusted ptree a b 
+                    | None   -> create_lazy_edge rhandle root_opt adjusted ptree a b 
                 else
                     create_lazy_edge rhandle root_opt adjusted ptree a b 
             in
@@ -1164,8 +1158,8 @@ module F : Ptree.Tree_Operations
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots ptree else ptree
 
-    let clear_internals t = 
-        {t with Ptree.data = Data.remove_bl t.Ptree.data; }
+    let clear_internals force t =
+        {t with Ptree.data = Data.remove_bl force t.Ptree.data; }
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1282,23 +1276,24 @@ module F : Ptree.Tree_Operations
                                         (tree,current_cost)
                 in
                 results
-            | None -> failwith "No function to optimize with"
+            | None -> (tree,current_cost)
         in
-        if debug_adjust_fn then
+        if debug_model_fn then
             info_user_message "\t Iterated Model to %f" best_cost;
+        let current_model = get_current_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
             | Some func ->
-                let current_m = get_current_model best_tree.Ptree.data chars in
-                let current_a = MlModel.get_current_parameters_for_alpha current_m in
+                let best_tree = update_branches best_tree in
+                let current_a = MlModel.get_current_parameters_for_alpha current_model in
                 let results = 
                     MlModel.brents_method ((get_some current_a),(best_tree,best_cost))
-                                          (f_likelihood func tree chars current_m)
+                                          (f_likelihood func best_tree chars current_model)
                 in
                 snd results
         in
-        if debug_adjust_fn then
+        if debug_model_fn then
             info_user_message "\t Iterated Alpha to %f" best_cost;
         if best_cost < current_cost then best_tree else tree
 
@@ -1311,7 +1306,7 @@ module F : Ptree.Tree_Operations
                 else begin
                     let mtree = model_fn itree in
                     let mcost = Ptree.get_cost `Adjusted mtree in
-                    if debug_adjust_fn then
+                    if debug_model_fn then
                         info_user_message "Step %d; Iterated Model %f --> %f" iter icost mcost;
                     if (abs_float (icost -. mcost)) <= epsilon 
                         then mtree
@@ -1323,7 +1318,7 @@ module F : Ptree.Tree_Operations
                 else begin
                     let btree = adjust_tree iterations branches None itree in
                     let bcost = Ptree.get_cost `Adjusted btree in
-                    if debug_adjust_fn then
+                    if debug_model_fn then
                         info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;
                     if (abs_float (icost -. bcost)) <= epsilon 
                         then btree 
@@ -1335,7 +1330,7 @@ module F : Ptree.Tree_Operations
             if do_branches then begin
                 let btree = adjust_tree iterations branches None first_tree in
                 let bcost = Ptree.get_cost `Adjusted btree in
-                if debug_adjust_fn then
+                if debug_model_fn then
                     info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;
                 loop_m 1 (Ptree.get_cost `Adjusted btree) btree
             end else begin
@@ -1346,15 +1341,18 @@ module F : Ptree.Tree_Operations
             match node_man with
             | Some node_man -> 
                 let do_branches =
-                    match node_man#branches with | Some [] -> false | _ -> true
+                    (match node_man#branches with | Some [] -> false | _ -> true)
+                        && (tree.Ptree.data.Data.iterate_branches)
                 in
                 adjust_ (node_man#model) do_branches (node_man#branches) None tree
             | None ->
-                if debug_adjust_fn then
+                if debug_model_fn then
                     warning_user_message "No Iteration Manager; using current default";
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)
-                | `Iterative (`ThreeD  iterations) -> adjust_ true true None iterations tree
+                | `Iterative (`ThreeD  iterations) -> 
+                    adjust_ true (tree.Ptree.data.Data.iterate_branches) 
+                            None iterations tree
                 | _ -> tree
         end else begin
             match !Methods.cost with
@@ -1376,6 +1374,7 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ApproxD iterations)
             | `Iterative (`ThreeD  iterations) ->
                 ptree
+                    --> clear_internals false (* remove BLs *)
                     --> internal_downpass true
                     --> pick_best_root
                     --> assign_single true
@@ -1564,13 +1563,7 @@ module F : Ptree.Tree_Operations
     (* break_fn has type handle * int (node) -> tree -> tree * delta * aux_data *)
     let break_fn (tree_node, clade_node_id) (ptree : phylogeny) =
         (* remove branch length table *)
-        let () = 
-            if Hashtbl.length (ptree.Ptree.data.Data.branches) > 0 
-                then begin
-                    Hashtbl.clear (ptree.Ptree.data.Data.branches);
-                    info_user_message "Clearing supplied branch lengths."
-                end else ()
-        in
+        let ptree = clear_internals true ptree in
         (* -------------------------- *)
         let (Tree.Edge (tree_node, clade_node_id)) as edge = 
             Tree.normalize_edge (Tree.Edge (tree_node, clade_node_id)) 
@@ -1727,14 +1720,12 @@ module F : Ptree.Tree_Operations
 
     let break_fn n_mgr ((s1, s2) as a) b =
         let res = match !Methods.cost with
-        | `Normal ->
-            b   --> clear_internals
-                --> break_fn a
+        | `Normal -> break_fn a b
         | `Iterative (`ApproxD _)
         | `Iterative (`ThreeD _)
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines ->
-                let breakage = break_fn a (clear_internals b) in
+                let breakage = break_fn a b in
                 let nt =
                     refresh_all_edges true None true None
                                            (breakage.Ptree.ptree)
@@ -1742,7 +1733,7 @@ module F : Ptree.Tree_Operations
                 { breakage with 
                     Ptree.ptree = nt; }
         | `Exhaustive_Strong ->
-                let breakage = break_fn a (clear_internals b) in
+                let breakage = break_fn a b in
                 let nt = 
                     refresh_all_edges true None true None
                                            (breakage.Ptree.ptree) in
@@ -1879,12 +1870,12 @@ module F : Ptree.Tree_Operations
     let join_fn n_mgr a b c d =
         let ptree, tdel = match !Methods.cost with
             | `Normal -> 
-                let tree,delta = join_fn a b c d in
+                let tree,delta =join_fn a b c (clear_internals true d) in
                 update_node_manager tree (`Join delta) n_mgr;
                 adjust_fn n_mgr tree, delta
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->
-                let tree, delta = join_fn a b c d in
+                let tree, delta = join_fn a b c (clear_internals true d) in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = 
                    tree --> pick_best_root
@@ -1895,7 +1886,7 @@ module F : Ptree.Tree_Operations
             | `Normal_plus_Vitamines
             | `Exhaustive_Weak
             | `Exhaustive_Strong ->
-                let tree, delta = join_fn a b c d in
+                let tree, delta = join_fn a b c (clear_internals true d) in
                 update_node_manager tree (`Join delta) n_mgr;
                 uppass (adjust_fn n_mgr tree), delta 
         in

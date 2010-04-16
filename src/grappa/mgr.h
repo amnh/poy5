@@ -1,5 +1,6 @@
 
 #include "mgrstructs.h"
+#include "mgr_scenario.h"
 
 G_struct Genomes;
 G_struct Genomes_copy;
@@ -9,6 +10,24 @@ struct mgr_genome_struct *mgr_genome_list;
 struct mgr_genome_struct *mgr_genome_list_copy;
 struct mgr_genome_struct median_genome;
 
+struct mgr_genome_struct * mgr_genome_list_cap;
+
+mgr_distmem_t distmem_mgrmed;
+mgr_distmem_t distmem_capgraph;
+mgr_distmem_t distmem_mgrinvdist;
+
+
+cbounds_t  * cb_max_chromo_size;// mgr_genome_ops.c, "find_max_chromo_size"
+//cbounds_t  * cb_carry_on_reag;//mgr_genome_ops.c, "carry_on_reag" 
+//cbounds_t  * cb_print_one_reag;//mgr_genome_ops.c, "print_one_reag"
+//cbounds_t  * cb_build_list_reag; //mgr_my_testrev.c, "build_list_reag" 
+//cbounds_t  * cb_compute_Rscore; //mgr_list_ops, "compute_Rscore"
+
+list_listreag list_carry_best_reag;
+list_listreag list_carry_best_reag2;
+
+list_listreag list_do_k_reag;
+//list_listreag list_find_k_reag2;
 
 int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					int *spec_left,

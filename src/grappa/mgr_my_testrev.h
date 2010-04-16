@@ -25,6 +25,12 @@
 */
 #include "mgr_scenario.h"
 
+
+Breakpoint_array bkarr_build_list_reag;
+
+list_reag list_build_list_reag;
+
+
 void init_cbounds_wmem(int num_genes, int num_chromosomes,
 					   struct mgr_genome_struct *g1,
 					   cbounds_t *cb);
@@ -77,8 +83,10 @@ int isBP(int g, char *breakpoints);
 #define CFIRST 5       /* count # tries till first success */
 #define CNF1   6       /* number of fields */
 
+cbounds_t  cb_build_list_reag; //mgr_my_testrev.c, "build_list_reag"
 
-int build_list_reag(list_reag **a_list, G_struct *Genomes , int nb_spec, int spec_left,
+int build_list_reag(list_listreag * in_list,//list_reag **a_list, 
+        G_struct *Genomes , int nb_spec, int spec_left,
 					int reversals,      // TRUE if we want to include reversals
 					int transloc, 	// TRUE if we want to include translocations
 					int fusion,

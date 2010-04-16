@@ -112,6 +112,8 @@ type spec = {
     site_variation : site_var option;
     base_priors : priors;
     use_gap : bool;
+    iterate_model : bool;
+    iterate_alpha : bool;
 }
 
 type model = {
@@ -470,39 +472,56 @@ let model_to_cm model t =
     res
 
 (* ------------------------------------------------ *)
-(* CONVERSTION/MODEL CREATION FUNCTIONS             *)
+(* CONVERSION/MODEL CREATION FUNCTIONS             *)
 
 (* convert a string spec to a specification, used in Parser for nexus *)
 let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):string_spec) =
   IFDEF USE_LIKELIHOOD THEN
+    let iterate_model = ref true in
+    let iterate_alpha = ref true in
     let submatrix = match String.uppercase name with
-        | "JC69" -> (match param with
+        | "JC69" -> 
+            iterate_model := false;
+            (match param with
             | [] -> JC69
             | _ -> failwith "Parameters don't match model")
-        | "F81" -> (match param with
+        | "F81" -> 
+            iterate_model := false;
+            (match param with
             | [] -> F81
             | _ -> failwith "Parameters don't match model")
         | "K80" | "K2P" -> (match param with
-            | ratio::[] -> K2P (Some ratio)
+            | ratio::[] -> 
+                iterate_model := false;    
+                K2P (Some ratio)
             | []        -> K2P None
             | _ -> failwith "Parameters don't match model")
         | "F84" -> (match param with
-            | ratio::[] -> F84 (Some ratio)
+            | ratio::[] ->
+                iterate_model := false;    
+                F84 (Some ratio)
             | []        -> F84 None
             | _ -> failwith "Parameters don't match model")
         | "HKY" | "HKY85" -> (match param with
-            | ratio::[] -> HKY85 (Some ratio)
+            | ratio::[] ->
+                iterate_model := false;    
+                HKY85 (Some ratio)
             | []        -> HKY85 None
             | _ -> failwith "Parameters don't match model")
         | "TN93" -> (match param with
-            | ts::tv::[] -> TN93 (Some (ts,tv))
+            | ts::tv::[] ->
+                iterate_model := false;    
+                TN93 (Some (ts,tv))
             | []         -> TN93 None
             | _ -> failwith "Parameters don't match model")
         | "GTR" -> (match param with
             | [] -> GTR None
-            | ls -> GTR (Some (Array.of_list ls)) )
+            | ls -> 
+                iterate_model := false;    
+                GTR (Some (Array.of_list ls)) )
         | "GIVEN"-> (match file with
             | Some name ->
+                iterate_model := false;    
                 (`Local name)
                     --> read_file
                     --> List.map (Array.of_list)
@@ -514,18 +533,32 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         | _  -> failwith "Incorrect Model"
     and variation = match String.uppercase var with
         | "GAMMA" ->
-            Gamma (int_of_string site, float_of_string alpha)
+            let alpha = try let res = float_of_string alpha in
+                            iterate_alpha := false;
+                            res
+                        with | _ -> default_alpha false in
+            Gamma (int_of_string site, alpha)
         | "THETA" -> 
-            Theta (int_of_string site,
-                   float_of_string alpha,
-                   float_of_string invar)
-        | "NONE" | "CONSTANT" | "" | _ -> Constant
+            let alpha = try let res = float_of_string alpha in
+                            iterate_alpha := false;
+                            res
+                        with | _ -> default_alpha true in
+            let invar = try let res = float_of_string invar in
+                            iterate_alpha := !iterate_alpha || false;
+                            res
+                        with | _ -> default_invar in
+            Theta (int_of_string site, alpha, invar)
+        | "NONE" | "CONSTANT" | "" ->
+            iterate_alpha := false;
+            Constant
+        | _ -> failwith "Unrecognized variation method"
     and priors = List.map snd priors in
     {   substitution = submatrix;
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
         use_gap = gap;
-    }
+        iterate_model = !iterate_model;
+        iterate_alpha = !iterate_alpha; }
   ELSE
     failwith likelihood_not_enabled
   END
@@ -533,7 +566,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
 (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
 let verify_rates probs rates =
     let p1 = (Bigarray.Array1.dim probs) = (Bigarray.Array1.dim rates)
-    and p2 = 
+    and p2 =
         let rsps = ref 0.0 and ps = ref 0.0 in
         for i = 0 to (Bigarray.Array1.dim probs) - 1 do
             rsps := !rsps +. (probs.{i} *.  rates.{i});
@@ -724,38 +757,40 @@ let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
 
 (* Develop a model from a classification --created above *)
 let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp_map,pis) =
-    let alph_size = 
-        float_of_int (if gap then Alphabet.size alph else (Alphabet.size alph) - 1)
-    and tuple_sum = 
+    let tuple_sum = 
         All_sets.FullTupleMap.fold (fun k v a -> a +. v) comp_map 0.0 in
     let f_priors = 
         let sum = All_sets.IntegerMap.fold (fun k v x -> v +. x) pis 0.0
         and gap_size =
-            let s = try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
-                    with | Not_found -> 0.0 in
-            s /. alph_size
+            try All_sets.IntegerMap.find (Alphabet.get_gap alph) pis
+            with | Not_found -> 0.0
         in
-        let l = List.fold_left
-            (fun acc (r,b) ->
-                (* if gaps aren't characters then incorporate them *)
-                if not gap then begin
-                    if b = Alphabet.get_gap alph then acc
-                    else begin
-                        let c = try (gap_size +. (All_sets.IntegerMap.find b pis)) /. sum
-                                with | Not_found -> gap_size /. sum in
-                        c :: acc
-                    end
-                (* gaps are characters, seperate them -- minimum is 1/sum.
-                 * essentially saying one character must exist, else a different
-                 * alphabet should have been chosen *)
-                end else begin
-                    let c = try (All_sets.IntegerMap.find b pis) /. sum
-                            with | Not_found -> 0.0 in
-                    c :: acc
-                end)
-            []
-            (Alphabet.to_list alph)
-        in 
+        let l =
+            (* subtract gaps from totals *)
+            if not gap then begin
+                let sum = sum -. gap_size in
+                List.fold_left
+                    (fun acc (r,b) -> match b with
+                        | b when b = Alphabet.get_gap alph -> acc
+                        | b ->
+                            let c = 
+                                try (All_sets.IntegerMap.find b pis) /. sum
+                                with | Not_found -> 0.0 in
+                            c :: acc)
+                    []
+                    (Alphabet.to_list alph)
+            (* gaps are charcters *)
+            end else begin
+                List.fold_left
+                    (fun acc (r,b) -> 
+                        let c = try (All_sets.IntegerMap.find b pis) /. sum
+                                with | Not_found -> 0.0 in
+                        c :: acc)
+                    []
+                    (Alphabet.to_list alph)
+            end
+        in
+        (* TODO: what to do if we don't have any of a state? *)
         List.rev l
     and is_comp a b = match Alphabet.complement a alph with
         | Some x -> x = b
@@ -842,6 +877,8 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
         site_variation = v;
         base_priors = Estimated (Array.of_list f_priors);
         use_gap = gap;
+        iterate_model = true;
+        iterate_alpha = true;
     }
 
 let update_k2p old_model new_value =
@@ -1012,128 +1049,121 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
+let modifier = ref 0 (* to avoid one file with multiple iterations *)
+let graph_function ?(steps=10000) filename lower upper f = 
+    incr modifier;
+    let step_size = (upper -. lower) /. (float_of_int steps)
+    and out_chan = open_out ((string_of_int !modifier)^"_"^filename) in
+    for i = 0 to steps - 1 do
+        let x = (lower +. ((float_of_int i) *. step_size)) in
+        Printf.fprintf out_chan "%f\t%f\n" x (f x)
+    done;
+    ()
+
 (** GENERAL BRENTS METHOD **)
-exception Colinear
-(* function and braketed area and error *)
-let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
-    (* equality and greater-than functions with epsilon error *)
-    let (=.) a b = abs_float (a-.b) < epsilon
-    and (>=.) a b = abs_float (a-.b) > ~-.epsilon
-    and get_score x = snd x
-    (* get and decrement, because it makes more sense *)
-    and decr x = decr x; !x 
-    (* a point between a and b such that (a-x)/(b-x) = phi *)
-    and golden_middle a b = 
-        let a,b = if a < b then a,b else b,a in
-        let ret = a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0)) in
-        debug_printf "Golden Middle: %f -> [%f] <- %f\n%!" a ret b;
-        ret
-    (* a point outside of a and b such that (a-b)/(x-b) = phi *)
-    and golden_exterior a b =
-        let ret = a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0)) in
-        debug_printf "Golden Exterior: %f -> %f -> [%f]\n%!" a b ret;
-        ret
-    (* the minimum of a parabola based on three points *)
-    and abscissa (a,(_,fa)) (b,(_,fb)) (c,(_,fc)) =
-        let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
-        and denom = ((b-.a)*.(fb-.fc)) -. ((b-.c)*.(fb-.fa)) in
-        if denom =. 0.0 then raise Colinear
+let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+    debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
+  (*-- constant for the golden ratio *)
+    let golden = 0.3819660 in
+  (*-- approximation of equality; based on epsilon above *)
+    let (=.) a b = (abs_float (a -. b)) < epsilon in
+  (*-- a function that copies the sign of the second argument to the first *)
+    let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
+  (*-- auxillary functions to bracket a region *)
+    let rec create_initial_three_and_bracket (o,(_,fo) as o') =
+        let rec create_scaled (v,_) s = 
+            let vs = max (v *.s) v_min in let fvs = f vs in
+            debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
+            (vs,fvs)
+        and push_left a b c = (create_scaled a 0.5),a,b
+        and push_right a b c = b,c,(create_scaled c 1.5)
+        and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
+            if l =. h then (low,med,hi) (* converged, but brent will return this anyway *)
+            else if fl <= fm && fm <= fh then (* increasing *)
+                let a,b,c = push_left low med hi in bracket_region a b c
+            else if fl >= fm && fm >= fh then (* decreasing *)
+                let a,b,c = push_right low med hi in bracket_region a b c
+            else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
+            else begin (* bracketed a maximum... wut? *)
+                failwithf "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]"
+                            l fl m fm h fh
+            end
+        in
+        debug_printf "Trying to bracket around %f,%f\n%!" o fo;
+        bracket_region (create_scaled o' 0.2) o' (create_scaled o' 2.0)
+  (*-- brents method as in Numerical Recipe in C; 10.2 *)
+    and brent ((x,(_,fx)) as x') ((w,(_,fw)) as w') ((v,(_,fv)) as v') a b d e iters =
+        debug_printf "Iteration %d, bracketing (%f,%f) with: %f,%f,%f\n%!" 
+                        iters a b x w v;
+        let xm = (a +. b) /. 2.0
+        and tol1 = tol *. (abs_float x) +. epsilon in
+        (* check ending conditions *)
+        if iters > max_iter then begin x'
+        end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
         else begin
-            let abscissa = b -. (0.5 *. (numer /. denom)) in
-            debug_printf "Abscissa: (%f,%f) -> (%f,%f) <- (%f,%f) [%f]\n%!" a fa b fb c fc abscissa;
-            abscissa
-        end
-    (* set the total number of iterations to take place *)
-    and iter = ref iter_max in
-    (* order the three results by domain *)
-    let order_triples ((a,_) as a') ((b,_) as b') ((c,_) as c') =
-        if a < b then
-           if b < c then (a',b',c')
-           else if a < c then (a',c',b')
-           else (c',a',b')
-        else begin
-           if a < c then (b',a',c')
-           else if c < b then (c',b',a')
-           else (b',a',c')
-        end
-    (* choose best likelihood of two values *)
-    and best_of ((_,(_,x)) as x') ((_,(_,y)) as y') = if x <= y then x' else y' in
-    (* parabolic interpolation *)
-    let rec parabolic_interp ((best_t,(_,best_l)) as best) ((av,(_,fa)) as a) 
-                                                           ((bv,(_,fb)) as b)
-                                                           ((cv,(_,fc)) as c) = 
-        assert( av >=. 0.0 && bv >=. 0.0 && cv >=. 0.0 );
-        assert( fa >=. 0.0 && fb >=. 0.0 && fc >=. 0.0 );
-        if ((abs_float (fb -. fa)) <= epsilon) or 
-           ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
-        else
-            try
-                let xv = abscissa a b c in let fx = f xv in let x = xv,fx in
-                if (get_score fx) =. fb || xv =. bv || xv <= epsilon then best
-                else begin
-                    let best = best_of best x in
-                    if av < xv && xv < bv      then parabolic_interp best a x b
-                    else if xv < av            then parabolic_interp best x a b
-                    else if bv < xv && xv < cv then parabolic_interp best b x c
-                    else if cv < xv            then parabolic_interp best b c x
-                    else failwith "shouldn't happen"
+            let d,e = 
+                if (abs_float e) > tol1 then begin
+                    (* calculate the abscissa *)
+                    let r = (x -. w) *. (fx -. fv) 
+                    and q = (x -. v) *. (fx -. fw) in
+                    let p = ((x -. v) *. q) -. ((x-.w) *. r) in
+                    let q = 2.0 *. (q -. r) in
+                    let p = if q > 0.0 then ~-. p else p in
+                    let q = abs_float q in
+                    (* the acceptability of the parabolic fit? *)
+                    if (abs_float p) >= (abs_float (0.5 *. q *. e))
+                        || p <= q *. (a -. x) || p >= q *. (b -. x) then
+                        (* do a golden section instead of parabolic fit *)
+                        let e = if x >= xm then a-.x else b -. x in
+                        let d,e = golden *. e, e in
+                        debug_printf "\tDoing a golden section search1: %f//%f\n" d e;
+                        d,e
+                    else begin
+                        (* take the parabolic step *)
+                        let d_new = p /. q in
+                        let u = x +. d_new in
+                        let d,e = 
+                            if (u -. a) < (tol1 *. 2.0) || (b -. u) < (tol1 *. 2.0) 
+                                then sign tol1 (xm -. x),d
+                                else d_new,d
+                        in
+                        debug_printf "\tDoing a parabolic fit: %f//%f\n" d e;
+                        d,e
+                    end
+                end else begin
+                    let e = if x >= xm then a -. x else b -. x in
+                    let d,e = golden *. e, e in
+                    debug_printf "\tDoing a golden section search2: %f//%f\n" d e;
+                    d,e
                 end
-            with | Colinear -> brent_decision best a b c
-    (* golden section search, when function is crappy --this isn't needed when
-     * there is only one minima, as in branch lengths *)
-    and golden_ratio ((best_t,best_l) as best) ((av,fa) as a) ((bv,fb) as b) ((cv,fc) as c)  =
-        assert( av >=. 0.0 && bv >=. 0.0 && cv >=. 0.0 );
-        let best,a,nb,c = 
-            if (abs_float (cv-.bv)) > (abs_float (bv-.av)) then
-                let other = golden_middle bv cv in let other = (other,f other) in
-                let best = best_of best other in
-                best,b,other,c
-            else 
-                let other = golden_middle av bv in let other = (other,f other) in
-                let best = best_of best other in
-                best,a,other,b
-        in
-        if (decr iter) = 0  or (get_score fb) =. (get_score (snd nb)) then best
-        else brent_decision best a nb c
-    (* brent exponential search, when points are colinear or monotonic
-     * does not return a result since we are widening the search area. *)
-    and brent_exp ((best_t,_) as best) a b c : float * ('a  * float) =
-        assert (snd c < snd a); (* since we estimate "past" c, always *)
-        let n = match golden_exterior (fst a) (fst c) with
-            | x when x <= 0.0 -> epsilon
-            | x -> x 
-        in
-        let other = n,f n in
-        brent_decision (best_of best other) b c other
-    (* What to do, what to do? Well, if the three points are monotonic, then
-     * call brent_exp until something better comes up, if there is a minimum
-     * between we can do a parabolic interpolation, else we use a shitty golden
-     * bisect search method each iteration to find a better spot. *) 
-    and brent_decision ((bv,fb) as b) l m u : float * ('a * float) =
-        let ((lv,(_,fl)) as l), ((mv,(_,fm)) as m), ((uv,(_,fu)) as u) = order_triples l m u in
-        debug_printf "Iteration %d: B:(%f,%f) L:(%f,%f) M:(%f,%f) U:(%f,%f)\n%!"
-                            (iter_max - !iter) bv (get_score fb) lv fl mv fm uv fu;
-        if lv =. uv then b                (* converged *)
-        else if fl <= fm && fm <= fu then (* monotonically increasing *)
-            brent_exp b u m l
-        else if fl >= fm && fm >= fu then (* monotonically decreasing *)
-            brent_exp b l m u
-        else if fm <= fl && fm <= fu then (* minimum between *)
-            parabolic_interp b l m u
-        else begin                        (* shouldn't really happen *)
-(*            Printf.printf "Warning: curvature error";*)
-            golden_ratio b l m u
+            in
+            (* the ONLY function evalution for each iteration *)
+            let u = 
+                if (abs_float d) >= tol1
+                    then max v_min (x+.d)
+                    else max v_min (x+.(sign tol1 d))
+            in
+            let fu = f u in
+            let u',fu = (u,fu), snd fu in
+            debug_printf "\tCalculated [%f,%f] in Brent\n%!" u fu;
+            (* what to do with results for next iteration *)
+            if fu <= fx then begin
+                let a,b = if u >= x then x,b else a,x in
+                brent u' x' w' a b d e (iters+1)
+            end else begin
+                let a,b = if u < x then u,b else a,u in
+                if fu <= fw || w =. x then
+                    brent x' u' w' a b d e (iters+1)
+                else 
+                    brent x' w' u' a b d e (iters+1)
+            end
         end
     in
-    (* set up variables.. order arguments,find golden middle and evaluate *)
-    let lower = 0.20 *. v_orig and upper = 2.0 *. v_orig in
-    let middle = golden_middle lower upper in
-    let l = lower,f lower and m = middle,f middle and u = upper,f upper in
-    let best = best_of orig (best_of l (best_of m u)) in
-    let ((new_val,new_ll) as new_) = brent_decision best l m u in
-    debug_printf "Iterated: %d\tImprovement: %f\tVariable: %f -> %f\n%!"
-                  (iter_max - !iter) ((get_score f_orig) -. (get_score new_ll)) v_orig new_val;
-    new_
+    let (lv,_),m,(hv,_) = create_initial_three_and_bracket orig in
+    let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
+    debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
+                    v_orig (snd f_orig) b fb;
+    res
 
 (* find the derivative of a single variable function *)
 let derivative_at_x ?(epsilon=3.0e-8) f x fx =
@@ -1358,23 +1388,28 @@ let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5
  * update function ensures this consistency *)
 let get_update_function_for_model_with_alpha model =
   IFDEF USE_LIKELIHOOD THEN
-    let add_alpha model_fun = match model.spec.site_variation with
-        | Some (Gamma _) -> Some (update_all model_fun)
-        | Some (Theta _) -> Some (update_alli model_fun)
-        | None | Some Constant -> Some model_fun
+    let add_alpha model_fun =
+        if model.spec.iterate_alpha then begin
+            match model.spec.site_variation with
+            | Some (Gamma _) -> Some (update_all model_fun)
+            | Some (Theta _) -> Some (update_alli model_fun)
+            | None | Some Constant -> Some model_fun
+        end else begin
+            Some model_fun
+        end
     in
-    match model.spec.substitution with
-        | JC69 | F81 | File _ ->
+    match model.spec.substitution, model.spec.iterate_model with
+        | _, false | JC69 ,_ | F81,_ | File _,_ ->
             begin match model.spec.site_variation with
                 | Some (Gamma _) -> Some (fun y x -> update_alpha y x.(0))
                 | Some (Theta _) -> Some (fun y x -> update_alpha_invar y x.(0) x.(1))
                 | None | Some Constant -> None
             end
-        | TN93 _  -> add_alpha (fun y x -> update_tn93 y (x.(0),x.(1)) )
-        | F84 _   -> add_alpha (fun y x -> update_f84 y x.(0))
-        | GTR _   -> add_alpha update_gtr
-        | K2P _   -> add_alpha (fun y x -> update_k2p y x.(0))
-        | HKY85 _ -> add_alpha (fun y x -> update_hky y x.(0))
+        | TN93 _,_  -> add_alpha (fun y x -> update_tn93 y (x.(0),x.(1)) )
+        | F84 _,_   -> add_alpha (fun y x -> update_f84 y x.(0))
+        | GTR _,_   -> add_alpha update_gtr
+        | K2P _,_   -> add_alpha (fun y x -> update_k2p y x.(0))
+        | HKY85 _,_ -> add_alpha (fun y x -> update_hky y x.(0))
   ELSE
     None
   END
@@ -1383,23 +1418,31 @@ let get_update_function_for_model_with_alpha model =
  * update function ensures this consistency *)
 and get_update_function_for_model model =
   IFDEF USE_LIKELIHOOD THEN
-    match model.spec.substitution with
-        | JC69 | F81 | File _ -> None
-        | TN93 _  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) )
-        | F84 _   -> Some (fun y x -> update_f84 y x.(0))
-        | GTR _   -> Some update_gtr
-        | K2P _   -> Some (fun y x -> update_k2p y x.(0))
-        | HKY85 _ -> Some (fun y x -> update_hky y x.(0))
+    if model.spec.iterate_model then begin
+        match model.spec.substitution with
+            | JC69 | F81 | File _ -> None
+            | TN93 _  -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) )
+            | F84 _   -> Some (fun y x -> update_f84 y x.(0))
+            | GTR _   -> Some update_gtr
+            | K2P _   -> Some (fun y x -> update_k2p y x.(0))
+            | HKY85 _ -> Some (fun y x -> update_hky y x.(0))
+    end else begin
+        None
+    end
   ELSE
     None
   END
 
 and get_update_function_for_alpha model = 
   IFDEF USE_LIKELIHOOD THEN
-    match model.spec.site_variation with
-    | Some (Gamma _) -> Some update_alpha
-    | Some (Theta _) -> Some update_alpha
-    | None | Some Constant -> None
+    if model.spec.iterate_alpha then begin
+        match model.spec.site_variation with
+        | Some (Gamma _) -> Some update_alpha
+        | Some (Theta _) -> Some update_alpha
+        | None | Some Constant -> None
+    end else begin
+        None
+    end
   ELSE
     None
   END

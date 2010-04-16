@@ -32,6 +32,10 @@
    1 is LEND, 5 is REND, -2 is LREND
    3 4 are NORMAL
    */
+
+#ifndef MGR_SCENARIO_H
+#define MGR_SCENARIO_H
+
 #define T_NORMAL 0
 #define T_LTAIL 1
 #define T_RTAIL 2
@@ -94,24 +98,32 @@ void clean_scenario_mem(struct mgr_genome_struct *current_genome,
 			mgr_distmem_t *distmem);
 
 
-
+int count_cbounds;
 typedef struct {
   /* these arrays use positions in the signed permutation,
      not the doubled unsigned one that is used
      in distmem->chromNum,chromBd
      Also cBound is indexed differently */
-
   int *cNum;           /* array mapping gene position to chromosome # */
 
   int *cBound;         /* array mapping chromosome # to left end of chrom */
   /* chromosome i=1,2,... is in positions
      cBound[i-1], cBound[i-1]+1, ..., cBound[i]-1
      */
-
+  int num_genes;
+  int num_chromosomes;
      
   
 } cbounds_t;
 
+typedef struct {
+    int num_genes;
+    char *array; 
+} Breakpoint_array;
+
 
 #define SUCCESSOR(k) successors[ (k)>0 ? (k)-1 : -(k)-1+num_genes+2 ]
 #define ISUCCESSOR(k) (*successors)[ (k)>0 ? (k)-1 : -(k)-1+num_genes+2 ]
+
+
+#endif // IFNDF MGR_SCENARIO_H

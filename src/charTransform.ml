@@ -724,18 +724,18 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 List.map (fun (seqs, taxon) ->
                     ([[seqs]], Data.code_taxon taxon data)) sequences
             in
-            Data.process_parsed_sequences tcmfile tcm treed 
-            `DO false alph name `Seq data new_data 
+            Data.process_parsed_sequences false tcmfile tcm treed `DO false
+                                          alph name `Seq data new_data 
         in
         root 
-        --> Node.get_sequences None
-        --> List.filter (fun (c, _, _, _, _) -> All_sets.Integers.mem c codes)
-        --> List.map (insert_union None root_union)
-        --> List.filter (function Some _ -> true | _ -> false)
-        --> List.map (function Some x -> x | _ -> assert false)
-        --> List.map (get_positions mode)
-        --> List.map (produce_partitions data tree)
-        --> List.fold_left process_partitions data
+            --> Node.get_sequences None
+            --> List.filter (fun (c, _, _, _, _) -> All_sets.Integers.mem c codes)
+            --> List.map (insert_union None root_union)
+            --> List.filter (function Some _ -> true | _ -> false)
+            --> List.map (function Some x -> x | _ -> assert false)
+            --> List.map (get_positions mode)
+            --> List.map (produce_partitions data tree)
+            --> List.fold_left process_partitions data
 
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies

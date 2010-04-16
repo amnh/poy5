@@ -2989,8 +2989,8 @@ end
              run
      | `KML (plugin, csv, output_file) ->
             let trees =                          
-                let classify = false in
-                let run = update_trees_to_data ~classify false true run in
+                (* let classify = false in
+                let run = update_trees_to_data ~classify false true run in*)
                 run.trees  
             in 
             let plugin = 
@@ -4359,14 +4359,18 @@ IFDEF USE_XSLT THEN
                     let ofilename = Some filename in
                     let fmt = Data.to_formatter [] run.data in
                     let trs = 
-                        Sexpr.map (fun tr ->
-                        let classify = false in
-                        let run = update_trees_to_data ~classify false true 
-                        { run with trees = `Single tr } in
-                        match run.trees with
-                        | `Single tr ->
-                            TreeOps.to_formatter [] run.data tr
-                        | _ -> assert false)
+                        Sexpr.map 
+                            (fun tr ->
+                                let classify = false in
+                                let run =
+                                    update_trees_to_data 
+                                                ~classify false true 
+                                                {run with trees = `Single tr}
+                                in
+                                match run.trees with
+                                | `Single tr ->
+                                    TreeOps.to_formatter [] run.data tr
+                                | _ -> assert false)
                         run.trees 
                     in
                     StatusCommon.Files.set_margin ofilename 0;
@@ -4385,24 +4389,25 @@ END
                     in
                     run
             | `Diagnosis filename ->                                    
-                    let trees =                          
-                        let classify = false in
-                        let run = update_trees_to_data ~classify false true run in
+                    let trees = 
+                        (* This would be used to rediagnose the tree to the
+                         * data, but since the data is in the tree are
+                         * consistent, and we are not changing the data, this is
+                         * fine. *)
+                        (* let classify = false in
+                           let run = update_trees_to_data ~classify false true run in*)
                         Sexpr.map (TreeOps.to_formatter []) run.trees  
                     in 
-                    Status.user_message (Status.Output (filename, false, [])) 
-                    "@[";
-                    Sexpr.leaf_iter 
-                    (PoyFormaters.trees_to_formater filename []) 
-                    trees;
+                    Status.user_message (Status.Output (filename, false, [])) "@[";
+                    Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
                     (* Flush the formatter *)
                     Status.user_message (Status.Output (filename, false, []))
-                    "@]%!";                     
+                                        "@]%!";
                     run
             | `GraphicDiagnosis filename ->
-                    let trees =                          
-                        let classify = false in
-                        let run = update_trees_to_data ~classify false true run in
+                    let trees =
+                        (* let classify = false in
+                           let run = update_trees_to_data ~classify false true run in*)
                         Sexpr.map (TreeOps.to_formatter []) run.trees  
                     in 
                     GraphicsPs.display_diagnosis "Diagnosis" filename trees;

@@ -105,6 +105,7 @@
 #define HASGG    (1<<1)
 
 
+int * nbreag;
 
 typedef struct {
 	int size;
@@ -210,7 +211,7 @@ typedef struct {
 
 } mgr_distmem_t;
 
-mgr_distmem_t MGR_DISTMEM;
+
 
 typedef struct {
   int size;             /* # vertices */
@@ -228,6 +229,7 @@ typedef struct {
   mgr_distmem_t *distmem;   /* all the structures and arrays defining the graph */
 } graph_t;
 
+graph_t G_mcdist_noncircular;
 
 typedef struct {
   int num_pp;           /* # pi-pi paths */
@@ -332,8 +334,15 @@ typedef struct a_list_reag{
   int Rscore;           /* counts how many times rearrangements involving the same edges
 	                     * were seen in the list */
   
-  struct a_list_reag *next;
+  struct a_list_reag *next; //no longer in use
 } list_reag;
+
+
+typedef struct {
+    list_reag * reaglist; //the list of list_reag
+    int list_size; //current size of reaglist
+    int max_size; //max size of this list_listreag
+}list_listreag;
 
 /* contains all the info for the genomes */
 typedef struct {

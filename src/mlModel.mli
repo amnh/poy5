@@ -67,6 +67,8 @@ type spec = {
     site_variation : site_var option;
     base_priors : priors;
     use_gap : bool;
+    iterate_model : bool;
+    iterate_alpha : bool;
 }
 
 (** [model] type to define the model used in the calculation of the likelihood
@@ -111,6 +113,11 @@ val create : Alphabet.a -> spec -> model
  * The compute priors function is only used if the previous model had estimated
  * priors, and they need to be computed again *)
 val add_gap_to_model : (unit -> float array) -> model -> model
+
+val default_tstv : float
+val default_gtr : int -> float array
+val default_alpha : bool -> float
+val default_invar : float
 
 IFDEF USE_LIKELIHOOD THEN
 
@@ -212,7 +219,7 @@ val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
  * control the number of iterations and tolerance, respectively. [o] is a pair
  * of floating point numbers, essentially, representing a point *)
 val brents_method :
-    ?iter_max:int -> ?epsilon:float 
+    ?max_iter:int -> ?v_min:float -> ?tol:float -> ?epsilon:float 
         -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
