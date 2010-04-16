@@ -6,10 +6,15 @@ syntax: glob
 *.cma
 *.o
 *.a
+poy.native
+poy.byte
+poy.d.byte
+poy.top
 .depend
 help.ml
 help.txt
 Makefile
+*.swp
 output.0
 requests
 traces.0
