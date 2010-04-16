@@ -62,7 +62,7 @@ void free_alphabet(a_strip *alphabet, int size_alpha) {
 	//fprintf(stdout, "in free alphabet %d\n", size_alpha);
 	for (j=0; j<size_alpha; j++) {
 		//fprintf(stdout, "freeing strip %d of size %d\n", j, alphabet[j].size);
-		free(alphabet[j].strip);
+	   if(alphabet[j].strip != (a_strip*) NULL)  free(alphabet[j].strip);
 	}
 	free(alphabet);
 }
@@ -372,6 +372,7 @@ void free_genome_list(struct mgr_genome_struct *genome_list, int nb_spec)
 		for (i=0; i<nb_spec; i++) {
 			free(genome_list[i].gnamePtr);
 			free(genome_list[i].genes);
+            free(genome_list[i].delimiters);
 			if (genome_list[i].alphabet != NULL) {
 				if (genome_list[i].num_chr>0) {
 					free_alphabet(genome_list[i].alphabet, genome_list[i].num_g/3);
@@ -558,6 +559,45 @@ int find_total_dist(G_struct *Genomes, int nb_spec, mgr_distmem_t *distmem)
 					 
 	 return total;
 }
+
+void remove_null_chromos (struct mgr_genome_struct *genome_list, int nb_spec,
+					  int *num_genes, int *num_chromosomes, int alpha_size, 
+                      int max_num_deli) 
+{
+	int i, j, old_num_genes, k;
+	int *new_genes;
+	//	fprintf(stdout,"num_genes =%d,num_chromosomes=%d,alpha_size=%d,max_num_deli=%d\n",
+    //            (*num_genes),(*num_chromosomes),alpha_size,max_num_deli);
+    //    fflush(stdout);
+	old_num_genes = *num_genes;
+	*num_chromosomes = max_num_deli;  
+	*num_genes = alpha_size + max_num_deli*2;
+		
+	for (i=0; i<nb_spec; i++) {
+        k=0;	 
+		 new_genes = (int *)malloc((*num_genes)*sizeof(int));
+		 // this is the real genome
+		 for (j=0; j<old_num_genes; j++)
+         {
+             int tmp = genome_list[i].genes[j];
+             if(tmp<=(*num_genes))
+             {
+  //               fprintf(stdout,"fill in [%d][%d]=%d\n", i,j,  genome_list[i].genes[j]);
+  //               fflush(stdout);
+			  new_genes[k] = genome_list[i].genes[j];
+              k++;
+             }
+         }
+		 
+		 free(genome_list[i].genes);
+		 genome_list[i].genes = new_genes;
+		 
+//		 print_genome_multichrom(&genome_list[i], *num_genes, *num_chromosomes);
+		 
+	}
+	
+}
+
 
 // this procedure adds null chromo at the end of each genome to allow for the max
 // number of possible fissions

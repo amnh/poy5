@@ -87,6 +87,10 @@ int find_total_dist(G_struct *Genomes, int nb_spec,
 void add_null_chromos(struct mgr_genome_struct *genome_list, int nb_spec,
 		      int *num_genes, int *num_chromosomes) ;
 
+void remove_null_chromos (struct mgr_genome_struct *genome_list, int nb_spec,
+					  int *num_genes, int *num_chromosomes, int alpha_size, 
+                      int max_num_deli) ;
+
 void find_max_chromo_size(G_struct *Genomes, int nb_spec);
 
 

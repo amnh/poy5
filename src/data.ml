@@ -1212,6 +1212,10 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
             ) ~init:0 arr 
         in
         (* Check for errors *)
+        (* we are going to deal with multichromosome genomes, each of them could
+        * have different number chromosomes, this error check must be
+        * modified*)
+        (*
         (if (annotated = false) && (dyna_state != `Genome) then 
             match Array.length arr with
             | 0 -> ()
@@ -1231,7 +1235,8 @@ let process_parsed_sequences tcmfile tcm tcm3 default_mode annotated alphabet
                                ); 
                            failwith ("Inconsistent input file " ^  file);  
                    end) arr
-        ); 
+        );
+        *)
         let res = ref [] in
         for j = loci - 1 downto 0 do 
             let loci = ref [] in

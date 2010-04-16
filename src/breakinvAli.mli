@@ -38,6 +38,8 @@ type breakinv_t = {
     cost2 : int; (** the cost between this breakinv and its second child *)
     recost1 : int; (** the recost between this breakinv and its first child *)
     recost2 : int; (** the recost between this breakinv and its second child *)
+
+    delimiter_lst: int list (* delimiter list for multichromosome *)
 }
 
 (** Data structure to contain parameters 
@@ -99,3 +101,9 @@ val find_med3_ls :
 val get_costs : breakinv_t -> int -> int * int
 
 val get_common_seq :  breakinv_t -> breakinv_t -> breakinv_t -> int array * int array * int array
+
+val update_bkinv_t : breakinv_t -> Sequence.s -> int list -> breakinv_t
+
+val single_to_multi : breakinv_t -> breakinv_t list
+
+

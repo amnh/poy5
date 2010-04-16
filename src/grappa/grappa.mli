@@ -8,10 +8,11 @@ val c_get_one_genome : genome_arr -> int -> genome
 val c_cmp_inv_dis : genome -> genome -> int -> int -> int
 val inversion_distance : genome -> genome -> int -> bool -> int
 val c_create_empty_genome_arr : int -> int -> genome_arr
-val c_set : genome_arr -> int -> int -> int -> unit 
+val c_set : int -> genome_arr -> int -> int -> int -> unit 
 val inversions : genome -> genome -> int -> int -> (int * int) list 
 val genomes : int array array -> genome_arr
 val genes : int array array -> genome array
-external c_inv_med : int -> genome -> genome -> genome -> int -> int -> 
-    (int32, Bigarray.int32_elt, Bigarray.c_layout) Bigarray.Array1.t 
-   = "grappa_CAML_inv_med_bytecode" "grappa_CAML_inv_med" 
+val get_med3_genome : int -> genome -> genome -> genome -> int -> int -> genome
+val get_med3_arr : genome -> int -> int array
+val get_delimiter_arr : genome -> int -> int array
+val c_get_delimiter_num : genome ->  int

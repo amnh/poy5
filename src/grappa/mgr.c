@@ -9,6 +9,7 @@
 #include "mgr_list_ops.h"
 #include "mgr_my_testrev.h"
 #include "mgr_genome_ops.h"
+#include <caml/fail.h>
 //#include "mgr_write_data.h"
 
 
@@ -610,7 +611,7 @@ void initialize_treemem(treemem_t *treemem, int nb_spec) {
 	 int i;
 	 // the nodes already in the tree, 1 implies in the tree, 
 	 //								   0 implies not in tree
-	 treemem->tree_array = (int *)ckalloc(nb_spec * sizeof(int));
+	 treemem->tree_array = (int *)malloc(nb_spec * sizeof(int));
 	 for (i=0;i<nb_spec;i++)
 		  treemem->tree_array[i]=0;
 	 treemem->tree_size = 0;
@@ -629,13 +630,12 @@ void free_treemem(treemem_t *treemem) {
 
 void free_mem_4_mgr()
 {
-  //  free_genome_list(mgr_genome_list,3);
-  //  free_genome_list(mgr_genome_list_copy,3);
     free_G_struct(&Genomes,4); 
     free_G_struct(&Genomes_copy,3); 
+    //mcdist_freemem(&MGR_DISTMEM);
 }
 
-void mgr_ini_mem (int num_genes, int num_chromosomes)
+void mgr_ini_mem (int num_genes)
 {
     int num_genomes = 3; //median of 3 genomes
     mgr_genome_list_copy =
@@ -643,19 +643,26 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
     int i;
     for (i=0 ; i<num_genomes; i++) {
     (mgr_genome_list_copy)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
-    (mgr_genome_list_copy)[i].genes = (int*)malloc(num_genes*sizeof(int));
+   //if we are dealing with multichromosome, in the worst case, each loci is a singlechromosome ($a$b$c$....), we will need 3 times of original num_genes
+    (mgr_genome_list_copy)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
+    (mgr_genome_list_copy)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list_copy)[i].num_delimiters = 0;
     }
     mgr_genome_list = (struct mgr_genome_struct *) malloc(2*(num_genomes-1)*sizeof(struct mgr_genome_struct));
     for (i=0 ; i<2*(num_genomes-1); i++) {
     (mgr_genome_list)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
-    (mgr_genome_list)[i].genes = (int*)malloc(num_genes*sizeof(int));
+    //if we are dealing with multichromosome, in the worst case, each loci is a singlechromosome ($a$b$c$....), we will need 3 times of original num_genes
+    (mgr_genome_list)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
+    (mgr_genome_list)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list)[i].num_delimiters = 0;
+    (mgr_genome_list)[i].alphabet = (a_strip *) NULL; 
     }
 
     int nb_spec = num_genomes;
-    Genomes.label = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.same_as = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.nb_chromo = (int *)malloc(nb_spec * sizeof(int));
-    Genomes.dist_mat = (int *)malloc(nb_spec * nb_spec * sizeof(int));
+    Genomes.label = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.same_as = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.nb_chromo = (int *)malloc(2*(nb_spec-1) * sizeof(int));
+    Genomes.dist_mat = (int *)malloc(2*(nb_spec-1) * 2*(nb_spec-1) * sizeof(int));
 
     Genomes_copy.label = (int *)malloc(nb_spec * sizeof(int));
     Genomes_copy.same_as = (int *)malloc(nb_spec * sizeof(int));
@@ -664,63 +671,194 @@ void mgr_ini_mem (int num_genes, int num_chromosomes)
 
 }
 
-void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
+//input : genes array, delimiters array
+//create a single-chromosome genome that mimic the multi-chromosome genome,
+//store it in mgr_genome_list_copy.
+void multi_to_single ( int * out_genes, int * in_genes, int * in_delimiters, int size_gene, int size_delimiters, int max_size_deli)
 {
+  int cap = size_gene+1;
+  int i,j;
+  int outpos = 0, inpos = 0;
+  for (i=0;i<size_delimiters;i++)
+  {
+      int count = in_delimiters[i];
+      //mgr_genome_list_copy[which_genome].genes[outpos] = cap;
+      out_genes[outpos] = cap;
+      cap++; outpos++;
+      for(j=inpos;j<inpos+count;outpos++,j++)
+      {
+          //mgr_genome_list_copy[which_genome].genes[outpos] = gene[j];
+          out_genes[outpos] = in_genes[j];
+      }
+      inpos = inpos + count;
+      //mgr_genome_list_copy[which_genome].genes[outpos] = cap; 
+      out_genes[outpos] = cap; 
+      cap ++; outpos ++;
+  } 
+  if(max_size_deli>size_delimiters)
+  {
+      int diff = max_size_deli - size_delimiters;
+      for(i=outpos;i<diff*2+outpos;i++)
+      {
+            //mgr_genome_list_copy[which_genome].genes[i] = cap; 
+            out_genes[i] = cap; 
+            cap++;
+      }
+  }
+}
+
+int single_to_multi ( int * in_gene, int * out_gene, int * out_delimiters, int gene_size, int delimiters_size)
+{
+    assert(in_gene != (int*)NULL); assert( out_gene != (int*)NULL); assert(out_delimiters!= (int*)NULL);
+    int i=0,j=0,k=0,count=0;
+    int alpha_size = gene_size - delimiters_size*2;
+    for (i=0;i<gene_size;i++)
+    {
+        if( (in_gene[i]<=alpha_size)&&(in_gene[i]>=(-alpha_size)) )
+        {
+            out_gene[j]=in_gene[i];  
+            j++; count++; 
+        }
+        else
+        {
+            if(count!=0)
+            {
+                out_delimiters[k] = count;
+                k++; count = 0;
+            }
+        }
+    }
+    return k;
+
+}
+
+int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, int num_deli1, int num_deli2)
+{
+    mgr_distmem_t dist_mem;
+    struct mgr_genome_struct * mgr_genome_pair;
+    int max_num_deli = 0;
+    int res = 0;
+    if(num_deli1>num_deli2) max_num_deli = num_deli1;
+    else max_num_deli = num_deli2;
+    /* debug msg */
+    int x=0;
+    fprintf(stdout,"mgr_invdist, g1 = {");
+    for(x=0;x<num_genes;x++)
+        fprintf(stdout,"%d,",g1[x]);
+    fprintf(stdout,"} g2 = {");
+    for(x=0;x<num_genes;x++)
+    {
+        if (g2[x]==0) failwith("g2=0");
+        fprintf(stdout,"%d,",g2[x]);
+    }
+    fprintf(stdout,"}\n deli1 = [");
+    for(x=0;x<num_deli1;x++)
+        fprintf(stdout,"%d,",deli1[x]);
+    fprintf(stdout,"] deli2 = [");
+    for(x=0;x<num_deli2;x++)
+        fprintf(stdout,"%d,",deli2[x]);
+    fprintf(stdout,"] \n"); fflush(stdout);
+    /* debug msg */
+    mgr_genome_pair = 
+     (struct mgr_genome_struct *) malloc(2*sizeof(struct mgr_genome_struct));
+    int i;
+    for (i=0 ; i<2; i++) {
+    (mgr_genome_pair)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
+    (mgr_genome_pair)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
+    (mgr_genome_pair)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_pair)[i].num_delimiters = 0;
+    (mgr_genome_pair)[i].alphabet = (a_strip *) NULL; 
+    }
+    multi_to_single (mgr_genome_pair[0].genes, g1, deli1, num_genes, num_deli1, max_num_deli);
+    multi_to_single (mgr_genome_pair[1].genes, g2, deli2, num_genes, num_deli2, max_num_deli);
+    num_genes = num_genes + max_num_deli * 2 ;
+   // not sure, do we need this? 
+   // add_null_chromos(mgr_genome_list_copy, nb_spec, &num_genes, &num_chromosomes);
+    mcdist_allocmem(num_genes, max_num_deli, &dist_mem);
+    res = mcdist_noncircular
+        (&(mgr_genome_pair[0]), &(mgr_genome_pair[1]), num_genes, max_num_deli, &dist_mem, NULL);
+    mcdist_freemem(&dist_mem);
+    free_genome_list(mgr_genome_pair,2);
+    fprintf(stdout," res = %d\n",res); fflush(stdout);
+    return res;
+}
+
+void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli3, int num_deli1, int num_deli2, int num_deli3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
+{
+    mgr_distmem_t dist_mem;
     int i,j;
     int NumGenomes = 3;
-    int circular = CIRCULAR;
+    int circular;// = CIRCULAR;
     int nb_spec=3;
     int num_genes;
     int size_alpha = SIZE_ALPHA;
     int num_chromosomes;
     int genome_type=GLINEAR;
+    if (CIRCULAR) genome_type = GCIRCULAR; 
+    if((num_deli1>1)||(num_deli2>1)||(num_deli3>1))
+    {
+        genome_type = GMULTI;
+    }
     int condensing = FALSE;
     int optimize = FALSE;
 	int alternatives = FALSE;
     int verbose = FALSE;
     int depth=2;/* depth of the search when running out of good rearrangements */
-    int heuristic = 0;
-    // -H: heuristic to speed up triplet resolution
-    //    1 -> only look at reversals initially and picks first good one
-    //    2 -> only look at reversals initially, take shortest one
-
+    int heuristic = 0; // -H: heuristic to speed up triplet resolution
     /* Data structure for the phylogeny */
     treemem_t treemem;	/* the tree itself */
     int spec_left;		/* number of genomes left to be put in the tree */
-    int *nbreag = NULL; /* number of rearrangements that were carried in each genome */
+    int *nbreag = NULL;/* number of rearrangements that were carried in each genome */
     int total_weight;	/* total weight of the tree */
-
-    /* Memory required by MCDIST (Glenn Tesler)*/
-    mgr_distmem_t distmem;
-
     double avg_nb_rev=0;
-    
-    /* consider unichromosome first
+    int max_num_deli = 0;
+    if(num_deli1>num_deli2) max_num_deli = num_deli1;
+    else max_num_deli = num_deli2;
+    if(max_num_deli<num_deli3) max_num_deli = num_deli3;
     if (genome_type == GMULTI) { // multichromosomal distance
     // we've assume that we have the maximum number of chromosomes
     // in order not to reassign memory
-       num_genes = 3*size_alpha;
-       num_chromosomes = size_alpha;
+       num_genes = size_alpha+2*max_num_deli;
+       num_chromosomes = max_num_deli;
     }
-    else */ 
-    { // unichromosomal distance
-                num_genes = size_alpha;
-                num_chromosomes = 0;
+    else  { // unichromosomal distance
+        num_genes = size_alpha;  num_chromosomes = 0;
     }
-
-    
-   for (j=0;j<size_alpha;j++)
-   {
-    (mgr_genome_list_copy)[0].genes[j] = g1[j]; 
-    (mgr_genome_list_copy)[1].genes[j] = g2[j]; 
-    (mgr_genome_list_copy)[2].genes[j] = g3[j];
-   }
-  
+    if (genome_type == GMULTI)
+    {
+        multi_to_single 
+        ( (mgr_genome_list_copy)[0].genes, g1, deli1, size_alpha, num_deli1, max_num_deli);
+        multi_to_single 
+        ( (mgr_genome_list_copy)[1].genes, g2, deli2, size_alpha, num_deli1, max_num_deli);
+        multi_to_single 
+        ( (mgr_genome_list_copy)[2].genes, g3, deli3, size_alpha, num_deli1, max_num_deli);
+    }
+    else {
+       for (j=0;j<size_alpha;j++)
+       {
+        (mgr_genome_list_copy)[0].genes[j] = g1[j]; 
+        (mgr_genome_list_copy)[1].genes[j] = g2[j]; 
+        (mgr_genome_list_copy)[2].genes[j] = g3[j];
+       }
+    }
+    // this function adds null chromo at the end of each genome to allow for the max
+    // number of possible fissions
+    //num_genes will become 3 tims of original gene size, num_chromosomes++.
+    if (num_chromosomes > 0)
+        add_null_chromos(mgr_genome_list_copy, nb_spec, &num_genes, &num_chromosomes);
+    /* debug msg
+    fprintf(stdout,"check mgr gene: \n");
+    for(i=0;i<3;i++)
+    {
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",(mgr_genome_list_copy)[i].genes[j]);
+        fprintf(stdout,"\n");
+    }
+    fprintf(stdout,"end of checking\n"); fflush(stdout);
+    debug msg*/
     // finish initialization of the input genomes, including actual nb_chromo
     init_G_struct
         (&Genomes_copy, mgr_genome_list_copy, nb_spec, num_genes, num_chromosomes);
-
-  
     // assign memory for genomes assuming each marker is his own chromosome (worst case)
     initialize_genome_list(&mgr_genome_list, 2*(nb_spec-1), num_genes, num_chromosomes);
     // initialize structure for Genomes which includes true nb_chromo for each genome
@@ -728,20 +866,23 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
     // we also keep the genome_list_copy as a reference
     copy_first_n(&Genomes_copy, &Genomes, nb_spec);
     for (i=0; i<nb_spec; i++)
-        strcpy((mgr_genome_list)[i].gnamePtr, (mgr_genome_list_copy)[i].gnamePtr);
+        strcpy((mgr_genome_list_copy)[i].gnamePtr, (mgr_genome_list)[i].gnamePtr);
 
     // corresponds to the true size of the alphabet
     size_alpha = num_genes - 2*num_chromosomes;
 
-    mcdist_allocmem(num_genes, num_chromosomes, &distmem);
-
-    if (condensing == TRUE) {
-        condense_genomes(&Genomes, nb_spec, verbose);
+ //   if (condensing == TRUE) {
+//        condense_genomes(&Genomes, nb_spec, verbose);
 		//uncondense_genomes(&Genomes, nb_spec);
 		//special_print_genomes2(stdout, &Genomes, nb_spec);
-	}
+//	}
 
-    compute_dist_mat(&Genomes, nb_spec, &distmem);
+    mcdist_allocmem(num_genes, num_chromosomes, &dist_mem);
+    compute_dist_mat(&Genomes, nb_spec, &dist_mem);
+   // if (verbose) {
+			fprintf(stdout, "\nInitial pairwise distance matrix:\n"); fflush(stdout);
+			print_dist_mat(&Genomes, nb_spec);
+//	}	
 
      // allocate memory for the tree/phylogeny that we want to build
     initialize_treemem(&treemem, nb_spec);
@@ -750,48 +891,47 @@ void mgr_med (int * g1, int * g2,int * g3, int SIZE_ALPHA, int CIRCULAR, struct 
 	spec_left=nb_spec;
 			
     // the number of transformations we did on each genome
-    nbreag = (int *)ckalloc(nb_spec * sizeof(int));
+    nbreag = (int *)malloc(nb_spec * sizeof(int));
     for (i=0;i<nb_spec;i++)
           nbreag[i]=0;
 
     // check to see if two genomes are identical before we begin
 	check_for_merge(&Genomes, nbreag, nb_spec, &spec_left,
-					&distmem, &treemem, verbose);
+					&dist_mem, &treemem, verbose);
 
     if (spec_left == 3) {
         int perfect_triplet;
         if (verbose) {
         solve_triplet(&Genomes, nbreag, &perfect_triplet, 2,
                           nb_spec, &spec_left,
-                          depth, &distmem, &treemem, &Preancestors, 
+                          depth, &dist_mem, &treemem, &Preancestors, 
                           heuristic, condensing, verbose);
         } else {
             solve_triplet(&Genomes, nbreag, &perfect_triplet, 2,
                           nb_spec, &spec_left,
-                          depth, &distmem, &treemem, NULL, 
+                          depth, &dist_mem, &treemem, NULL, 
                           heuristic, condensing, verbose);
         }
     }
-/* debug msg
+/* debug msg 
+    int ii,jj;
     struct mgr_genome_struct *tmplist= Genomes_copy.genome_list;
     tmplist = Genomes.genome_list;
     for(ii=0;ii<4;ii++)
     {
                 fprintf(stdout,"ii=%d : [",ii);
                 int * point = tmplist->genes;
-                for(jj=0;jj<size_alpha;jj++)
+                for(jj=0;jj<num_genes;jj++)
                     fprintf(stdout,"%d,",point[jj]);
                 fprintf(stdout,"]\n");
                 fflush(stdout);
                 tmplist ++;
     }
-debug msg */
+ debug msg */
     /* do we need this ?
   // only need to do this if we haven't been able to solve the problem
     // using only good reversals
-    if (find_total_dist(&Genomes, nb_spec, &distmem) !=0) {
-        fprintf (stdout, "we haven't been able to solve the problem\n");
-        fflush(stdout);
+    if (find_total_dist(&Genomes, nb_spec, &dist_mem) !=0) {
         int did_grow = TRUE;
         G_struct Star;
         struct genome_struct *star_list;
@@ -807,7 +947,7 @@ debug msg */
         initialize_genome_list(&star_list, 3, num_genes, num_chromosomes);
         init_G_struct(&Star, star_list, 3, num_genes, num_chromosomes);
         start_tree(&Genomes, &Star, nbreag, nb_spec, &spec_left,
-                   depth, &distmem, &treemem, heuristic, condensing, verbose) ;
+                   depth, &dist_mem, &treemem, heuristic, condensing, verbose) ;
         // at each iteration, adds a new genome to the tree
         while (treemem.tree_size < nb_spec && did_grow==1) {
             if (verbose) {
@@ -816,7 +956,7 @@ debug msg */
                 fflush(stdout);
             }
             growing_tree(&Genomes, &Star, nbreag, nb_spec, &spec_left,
-                         depth, &distmem, &treemem, &did_grow, heuristic, condensing, verbose) ;
+                         depth, &dist_mem, &treemem, &did_grow, heuristic, condensing, verbose) ;
             if (verbose) {
                 special_print_genomes2(stdout, &Genomes, 2*(nb_spec-1));
             }
@@ -824,13 +964,13 @@ debug msg */
         free_G_struct(&Star, 3);
         // these good rearrangements weren't counted in the edges yet
         add_nbrev_edges(treemem.the_edge_list, nbreag, nb_spec);
-    }// if (find_total_dist(&Genomes, nb_spec, &distmem) !=0)
+    }// if (find_total_dist(&Genomes, nb_spec, &dist_mem) !=0)
     else { // when the tree was solve only using good rearrangements
         // need to finish the list with the last 3 genomes
         fprintf(stdout,"finish edge list\n");
         fflush(stdout);
         finish_edge_list(&Genomes, nbreag, nb_spec, &treemem);
-    }// if (find_total_dist(&Genomes, nb_spec, &distmem) !=0)
+    }// if (find_total_dist(&Genomes, nb_spec, &dist_mem) !=0)
     */
     // merge the list of merged that occured while doing good rearrangements
     // with the list of edges that occured when building the phylogeny
@@ -843,21 +983,25 @@ debug msg */
         uncondense_genomes(&Genomes, 2*(nb_spec-1), verbose);	
     }
         
-    copy_genes((Genomes.genome_list)->genes,g_med->genes,size_alpha);
+    if (genome_type == GMULTI)
+    {
+        remove_null_chromos (Genomes.genome_list, nb_spec, &num_genes, &num_chromosomes, size_alpha, max_num_deli);
+        int real_deli_num = single_to_multi ( (Genomes.genome_list)->genes, g_med->genes, g_med->delimiters, num_genes,max_num_deli);
+        g_med->deli_num =  real_deli_num;//max_num_deli;
+    }
+    else
+        copy_genes((Genomes.genome_list)->genes,g_med->genes,num_genes);
 
     // free memory for the number of rearrangements
     free(nbreag);
     // free memory for phylogeny
     free_treemem(&treemem);
    
+    mcdist_freemem(&dist_mem);
     // free preancestors
     if (verbose) {
         free_G_struct(&Preancestors, nb_spec);
     }
-    
-    // free memory for MCDIST, move this out....later
-    mcdist_freemem(&distmem);
-
     
 }
 

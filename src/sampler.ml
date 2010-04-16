@@ -427,7 +427,8 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             let cost_before= Ptree.get_cost `Adjusted tree in
             let tree_after = TreeOps.model_fn tree in
             let cost_after = Ptree.get_cost `Adjusted tree_after in
-            printf "%s -- Adjusted: %f --> %f\n" stamp cost_before cost_after
+            Printf.printf "PRINTING!!!\n%!";
+            printf "%s -- Adjusted: %f --> %f\n%!" stamp cost_before cost_after
     end
 
     (* samper to verify a trees likelihood properties

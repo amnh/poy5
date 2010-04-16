@@ -1121,7 +1121,7 @@ let brents_method ?(iter_max=1000) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) 
         else if fm <= fl && fm <= fu then (* minimum between *)
             parabolic_interp b l m u
         else begin                        (* shouldn't really happen *)
-            Printf.printf "Warning: curvature error";
+(*            Printf.printf "Warning: curvature error";*)
             golden_ratio b l m u
         end
     in

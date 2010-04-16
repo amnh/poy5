@@ -540,6 +540,32 @@ let encoding enc x = match x with
 * are properly fixed. *)
 let no_iterative_other_than_for_seqs = false
 
+let flatten t_lst =
+    let bkCS_t_lst = List.map (fun x -> match x with
+    |BreakinvCS x_bkinvCS -> x_bkinvCS
+    |_ -> failwith ("we only dealwith breakinv now")
+    ) t_lst in
+    BreakinvCS.flatten bkCS_t_lst 
+
+let update_t oldt newseqlst delimiterslst =
+    let newt = 
+    match oldt with
+    |BreakinvCS bk_t ->
+       BreakinvCS ( BreakinvCS.update_t bk_t newseqlst delimiterslst )
+    |_ -> failwith ("we only update breakinv now")
+    in
+    newt
+    
+let single_to_multi single_t =
+    let tlist = 
+        match single_t with
+        |BreakinvCS bk_t ->
+                List.map (fun bkinvCS_t -> BreakinvCS bkinvCS_t )
+                ( BreakinvCS.single_to_multi bk_t )
+        |_ -> failwith ("we only deal with breakinv now")
+    in
+    tlist
+
 (** [readjust ch1 ch2 par mine] attempts to (heuristically) readjust the character 
 * set [mine] to somewhere in between [ch1], [ch2], and [par] (the children and
 * parent of [mine] respectively). The function returns a triple [(a, b, c)],
@@ -556,40 +582,31 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
                 SeqCS.readjust mode to_adjust modified ch1 ch2 parent mine in
             let prev_cost = SeqCS.distance 0. ch1 mine +. SeqCS.distance 0. ch2 mine in
             modified, prev_cost, new_cost, (SeqCS nc)
-
     | _, _, _, mine when no_iterative_other_than_for_seqs ->  
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine
-
     | ChromCS ch1, ChromCS ch2, ChromCS parent, ChromCS mine when ch1.ChromCS.alph =
         Alphabet.nucleotides -> 
             let modified, new_cost, nc = 
                 ChromCS.readjust to_adjust modified ch1 ch2 parent mine in
             let prev_cost = ChromCS.distance ch1 mine +. ChromCS.distance ch2 mine in
             modified, prev_cost, new_cost, (ChromCS nc)
-
     | AnnchromCS ch1, AnnchromCS ch2, AnnchromCS parent, AnnchromCS mine 
         when ch1.AnnchromCS.alph = Alphabet.nucleotides -> 
           let modified, new_cost, nc = 
               AnnchromCS.readjust to_adjust modified ch1 ch2 parent mine in
           let prev_cost = AnnchromCS.distance ch1 mine +. AnnchromCS.distance ch2 mine in
           modified, prev_cost, new_cost, (AnnchromCS nc)
-
-
     | BreakinvCS ch1, BreakinvCS ch2, BreakinvCS parent, BreakinvCS mine ->
           let modified, new_cost, nc = 
               BreakinvCS.readjust to_adjust modified ch1 ch2 parent mine in
           let prev_cost = BreakinvCS.distance ch1 mine +. BreakinvCS.distance ch2 mine in
           modified, prev_cost, new_cost, (BreakinvCS nc)
-
-
     | GenomeCS ch1, GenomeCS ch2, GenomeCS parent, GenomeCS mine ->
           let modified, new_cost, nc = 
               GenomeCS.readjust to_adjust modified ch1 ch2 parent mine in
           let prev_cost = GenomeCS.distance ch1 mine +. GenomeCS.distance ch2 mine in
           modified, prev_cost, new_cost, (GenomeCS nc)
-              
-
     | _, _, _, mine ->  
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine
