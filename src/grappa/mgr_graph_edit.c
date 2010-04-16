@@ -301,7 +301,6 @@ void classify_cycle_path(graph_t *G,
   Gcap       = distmem->Gcap;
   ptype      = distmem->ptype;
 
-
   /* Initialization */
   /* Count adjacencies */
   /* Mark adjacencies and tails as done, everything else as not done */

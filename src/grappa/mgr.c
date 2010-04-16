@@ -226,7 +226,6 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 		
     //if (the_list != NULL) { // we did find at least one rearrangement
     if (the_list->list_size > 0) { // we did find at least one rearrangement
-	
 	   //temp_list=the_list;
         int idx = 0;   
 		if (verbose) {
@@ -781,17 +780,44 @@ void free_treemem(treemem_t *treemem) {
 	 erase_list_edge(treemem->the_edge_list);
 }
 
+void free_cap_mem (int nb_spec)
+{
+    int i;
+    if( mgr_genome_list_cap != NULL)
+    {
+    	for (i=0; i<nb_spec; i++) {
+			free(mgr_genome_list_cap[i].gnamePtr);
+			free(mgr_genome_list_cap[i].genes);
+            free(mgr_genome_list_cap[i].delimiters);
+			if (mgr_genome_list_cap[i].alphabet != NULL) {
+				if (mgr_genome_list_cap[i].num_chr>0) {
+					free_alphabet(mgr_genome_list_cap[i].alphabet, 
+                            mgr_genome_list_cap[i].num_g/3);
+				}
+				else {
+					free_alphabet(mgr_genome_list_cap[i].alphabet, 
+                            mgr_genome_list_cap[i].num_g);
+				}		
+			}
+		}
+    }
+    free(mgr_genome_list_cap);
+}
+
 void free_mem_4_mgr()
 {
     free_G_struct(&Genomes,4); 
-    free_G_struct(&Genomes_copy,3); 
-    //mcdist_freemem(&MGR_DISTMEM);
+    free_G_struct(&Genomes_copy,3);
+
+   free_cap_mem(3);
 
     free_cbounds(cb_max_chromo_size);
 
     free(nbreag);
 
     mcdist_freemem(&distmem_mgrmed);
+    mcdist_freemem(&distmem_mgrinvdist);
+    mcdist_freemem(&distmem_capgraph);
 
     free_list_listreag_memory (&list_carry_best_reag);
     free_list_listreag_memory (&list_carry_best_reag2);
@@ -821,6 +847,8 @@ void mgr_ini_mem (int num_genes)
     int num_chromosomes = num_genes; //consider the worst case, each loci is a chromosome
      
     mcdist_allocmem(3*num_genes, num_chromosomes, &distmem_mgrmed);
+    mcdist_allocmem(3*num_genes, num_chromosomes, &distmem_mgrinvdist);
+    mcdist_allocmem(3*num_genes, num_chromosomes, &distmem_capgraph);
 
     nbreag = (int *)malloc(3 * sizeof(int));
    
@@ -866,6 +894,19 @@ void mgr_ini_mem (int num_genes)
     Genomes_copy.same_as = (int *)malloc(nb_spec * sizeof(int));
     Genomes_copy.nb_chromo = (int *)malloc(nb_spec * sizeof(int));
     Genomes_copy.dist_mat = (int *)malloc(nb_spec * nb_spec * sizeof(int));
+
+    mgr_genome_list_cap = 
+     (struct mgr_genome_struct *) malloc(3*sizeof(struct mgr_genome_struct));
+    for (i=0 ; i<3; i++) {
+    (mgr_genome_list_cap)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
+    (mgr_genome_list_cap)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
+    (mgr_genome_list_cap)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list_cap)[i].num_delimiters = 0;
+    (mgr_genome_list_cap)[i].alphabet = (a_strip *) NULL; 
+    }
+
+
+    
 
 }
 
@@ -948,9 +989,14 @@ int single_to_multi ( int * in_gene, int * out_gene, int * out_delimiters, int g
 
 }
 
+
+
+
+//distance with mgr distance function.
 int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, int num_deli1, int num_deli2)
 {
-    mgr_distmem_t dist_mem;
+   // mgr_distmem_t dist_mem;//move this out later
+    mgr_distmem_t * dist_mem = &distmem_mgrinvdist;
     struct mgr_genome_struct * mgr_genome_pair;
     int max_num_deli = 0;
     int res = 0;
@@ -991,10 +1037,12 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
    // not sure, do we need this? 
    // add_null_chromos(mgr_genome_list_copy, nb_spec, &num_genes, &num_chromosomes);
   // fprintf(stdout, "alloc mem for mcdist, %d,%d\n",num_genes,max_num_deli);
-    mcdist_allocmem(num_genes, max_num_deli, &dist_mem);
+  //  mcdist_allocmem(num_genes, max_num_deli, &dist_mem);
     res = mcdist_noncircular
-        (&(mgr_genome_pair[0]), &(mgr_genome_pair[1]), num_genes, max_num_deli, &dist_mem, NULL);
-    mcdist_freemem(&dist_mem);
+        (&(mgr_genome_pair[0]), &(mgr_genome_pair[1]), num_genes, max_num_deli, dist_mem, NULL);
+
+    
+  //  mcdist_freemem(&dist_mem);
     free_genome_list(mgr_genome_pair,2);
     /*debug msg
      fprintf(stdout," res = %d\n",res); fflush(stdout);
@@ -1002,9 +1050,51 @@ int mgr_invdist (int * g1, int * g2, int num_genes, int * deli1, int * deli2, in
     return res;
 }
 
+/* given a pair of delimeters: in_deli1 and in_deli2, fill out_g2 with a better "capping" of g2 */
+void better_capping (int * g1, int * g2, int num_genes, int * in_deli1, int * in_deli2, int num_deli1, int num_deli2, struct genome_struct * out_g2)
+{
+    int i;
+    struct mgr_genome_struct *tmplist = NULL;
+    mgr_distmem_t * dist_mem_cap = &distmem_capgraph;
+    int max_num_deli = 0;
+    if(num_deli1>num_deli2) max_num_deli = num_deli1;
+    else max_num_deli = num_deli2;
+/*
+    struct mgr_genome_struct * mgr_genome_list;
+    mgr_genome_list = 
+     (struct mgr_genome_struct *) malloc(3*sizeof(struct mgr_genome_struct));
+    int i;
+    for (i=0 ; i<3; i++) {
+    (mgr_genome_list)[i].gnamePtr = (char *) malloc(MAX_STR_LEN*sizeof(char));
+    (mgr_genome_list)[i].genes = (int*)malloc(3*num_genes*sizeof(int));
+    (mgr_genome_list)[i].delimiters = (int*)malloc(num_genes*sizeof(int));
+    (mgr_genome_list)[i].num_delimiters = 0;
+    (mgr_genome_list)[i].alphabet = (a_strip *) NULL; 
+    }
+*/
+    multi_to_single (mgr_genome_list_cap[0].genes, g1, in_deli1, num_genes, num_deli1, max_num_deli);
+    multi_to_single (mgr_genome_list_cap[1].genes, g2, in_deli2, num_genes, num_deli2, max_num_deli);
+    num_genes = num_genes + max_num_deli * 2 ;
+
+    int num_chromosomes = max_num_deli;
+    tmplist = mgr_genome_list_cap;
+    int dis = mcdist_capgraph 
+        (tmplist, tmplist++, num_genes, num_chromosomes, dist_mem_cap,NULL);
+    for(i=0;i<num_genes;i++)
+    {
+        mgr_genome_list_cap[2].genes[i] = dist_mem_cap->cappedp2[i];
+    }
+    int real_deli_num = single_to_multi ( mgr_genome_list_cap[2].genes, out_g2->genes, out_g2->delimiters, num_genes,max_num_deli);
+    out_g2->deli_num =  real_deli_num;
+
+   //  free_genome_list(mgr_genome_list,3);
+
+}
+
 void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli3, int num_deli1, int num_deli2, int num_deli3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
 {  
     mgr_distmem_t * dist_mem = &distmem_mgrmed;
+   // mgr_distmem_t * dist_mem_cap = &distmem_capgraph;
     int i,j;
     int NumGenomes = 3;
     int circular;// = CIRCULAR;
@@ -1061,7 +1151,7 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
        }
     }
     // add_null_chromos adds null chromo at the end of each genome
-    // num_genes will become 3 tims of original gene size.
+    // num_genes will be 3*(original gene size).
     if (num_chromosomes > 0)
         add_null_chromos(mgr_genome_list_copy, nb_spec, &num_genes, &num_chromosomes);
     /* debug msg
@@ -1110,6 +1200,8 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
 			print_dist_mat(&Genomes, nb_spec);
 	}	
 
+   // struct mgr_genome_struct *tmplist = NULL;//this is for debug msg
+        
      // allocate memory for the tree/phylogeny that we want to build
     initialize_treemem(&treemem, nb_spec);
 
@@ -1142,7 +1234,8 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
     }
 /* debug msg 
     int ii,jj;
-    struct mgr_genome_struct *tmplist= Genomes_copy.genome_list;
+    //struct mgr_genome_struct *
+     //   tmplist= Genomes_copy.genome_list;
     tmplist = Genomes.genome_list;
     for(ii=0;ii<4;ii++)
     {
@@ -1209,9 +1302,21 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
         }												
         uncondense_genomes(&Genomes, 2*(nb_spec-1), verbose);	
     }
-        
+    
+  
     if (genome_type == GMULTI)
     {
+ /*       fprintf(stdout,"\n TESTING, num_genes=%d,num_chrom=%d\n",
+                                    num_genes,num_chromosomes);
+       tmplist = Genomes_copy.genome_list;
+        int test;
+        for(ii=0;ii<4;ii++) {
+        test = mcdist_capgraph 
+            (Genomes.genome_list, tmplist+i, num_genes, num_chromosomes, dist_mem_cap,NULL);
+        fprintf(stdout,"mcdist capgraph = %d\n",test);
+        }
+        fflush(stdout);
+*/
         remove_null_chromos (Genomes.genome_list, nb_spec, &num_genes, &num_chromosomes, size_alpha, max_num_deli);
         int real_deli_num = single_to_multi ( (Genomes.genome_list)->genes, g_med->genes, g_med->delimiters, num_genes,max_num_deli);
         g_med->deli_num =  real_deli_num;//max_num_deli;

@@ -114,6 +114,13 @@ let to_ori_arr arr =
         if( arr.(index) mod 2 == 0) then -(arr.(index)/2)
         else (arr.(index)+1)/2 )
 
+let from_ori_arr arr = 
+    Array.init (Array.length arr) (fun index->
+        assert((arr.(index)<>0));
+        if (arr.(index)<0) then (abs arr.(index))*2
+        else (arr.(index))*2-1
+        )
+
 let cmp_inversion_dis_multichrom (genomeX :int array) (genomeY : int array)
 (delimiterX : int array) (delimiterY : int array) num_gen = 
     let set_seq = 1 and set_delimiters = 0 in
@@ -187,6 +194,55 @@ let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
     inv_dis 
 
 
+let find_better_capping (genomeX : int array) (genomeY : int array) (delimiterX:
+    int array) (delimiterY :int array) =
+    (* debug message 
+    let print_intarr arr = 
+        Printf.printf "[%!";
+        Array.iter (Printf.printf "%d,%!") arr;
+        Printf.printf "]\n%!";
+    in
+     debug message *)
+    (*debug message 
+    Printf.printf "find better capping ,input seqcodes/delimiters:\n %!";
+    print_intarr genomeX; print_intarr genomeY; 
+    print_intarr delimiterX; print_intarr delimiterY;
+     debug message *)
+    let set_seq = 1 and set_delimiters = 0 in
+    let genomeX,genomeY = to_ori_arr genomeX, to_ori_arr genomeY
+    in
+    let ori_genomeX = genomeX in
+    let sta_genomeX, sta_genomeY = standardize genomeX genomeY in
+    let num_gen = Array.length genomeX in  
+    let genome_arr = Grappa.c_create_empty_genome_arr 2 num_gen in  
+    for index = 0 to num_gen - 1 do
+        Grappa.c_set set_seq genome_arr 0 index sta_genomeX.(index);   
+        Grappa.c_set set_seq genome_arr 1 index sta_genomeY.(index);   
+    done;
+    let num_deliX = Array.length delimiterX 
+    and num_deliY = Array.length delimiterY in
+    for index = 0 to num_deliX - 1 do
+        Grappa.c_set set_delimiters genome_arr 0 index delimiterX.(index);   
+    done;
+    for index = 0 to num_deliY - 1 do
+        Grappa.c_set set_delimiters genome_arr 1 index delimiterY.(index);   
+    done;
+    let g0 = Grappa.c_get_one_genome genome_arr 0 in
+    let g1 = Grappa.c_get_one_genome genome_arr 1 in  
+    let new_g1 = Grappa.get_better_capping_genome g0 g1 num_gen in 
+    let new_g1_intarr = Grappa.genome_to_gene_intarr new_g1 num_gen in
+    let delinum = Grappa.c_get_delimiter_num new_g1 in
+    let deli_arr = Grappa.get_delimiter_arr new_g1 delinum in
+    let resarr = de_standardize3 ori_genomeX new_g1_intarr num_gen in
+    let resarr = from_ori_arr resarr in
+    (*debug msg
+    Printf.printf "res seq/deli = \n%!"; 
+    print_intarr resarr; print_intarr deli_arr;
+    debug msg*)
+    resarr,deli_arr
+
+
+
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
@@ -207,18 +263,22 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let genome_arr = Grappa.c_create_empty_genome_arr 3 num_gen in  
      assert (num_gen>0); assert(num_gen<=2048);
     (* for alert-median3 solver to work , sequence cannot be empty, also there
-    * is a MAX_STR_LEN=2048 macro in grappa, if we need to work on longer sequence, 
+    * is a MAX_STR_LEN=2048 macro in grappa, if we need to work with longer sequence, 
     * modify the macro in structs.h to accomodate new requirement*)
     for index = 0 to num_gen - 1 do
         Grappa.c_set set_seq genome_arr 0 index genomeX.(index);   
         Grappa.c_set set_seq genome_arr 1 index genomeY.(index);   
         Grappa.c_set set_seq genome_arr 2 index genomeZ.(index);
     done;
-    let [deli1;deli2;deli3] = delimiters_lstlst in
+    assert( (List.length delimiters_lstlst) = 3 );
+    let deli1 = List.hd delimiters_lstlst 
+    and deli2 = List.nth delimiters_lstlst 1
+    and deli3 = List.nth delimiters_lstlst 2
+    in
     let deliX = Array.of_list deli1 
     and deliY = Array.of_list deli2
     and deliZ = Array.of_list deli3 in
-     let num_deliX = Array.length deliX
+    let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
     (* debug msg 
@@ -262,7 +322,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
         |`MGR ->
             Grappa.get_med3_genome 7 g0 g1 g2 num_gen circular
     in
-    let med3arr = Grappa.get_med3_arr gmed num_gen in
+    let med3arr = Grappa.genome_to_gene_intarr gmed num_gen in
     let delinum = Grappa.c_get_delimiter_num gmed in
     let deli_arr = Grappa.get_delimiter_arr gmed delinum in
     (* debug msg 

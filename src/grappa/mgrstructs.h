@@ -211,7 +211,7 @@ typedef struct {
 
 } mgr_distmem_t;
 
-mgr_distmem_t mgrmed_dist_mem;
+
 
 typedef struct {
   int size;             /* # vertices */

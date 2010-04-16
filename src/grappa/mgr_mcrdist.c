@@ -45,6 +45,7 @@
 #include <caml/fail.h>
 
 
+
 int get_caps_pgpath(graph_t *G, int capno);
 
 
@@ -67,7 +68,7 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
 
   int size;
   int inchrom;       /* Boolean: TRUE  = inside chromosome
-			         FALSE = at boundary
+			      FALSE = at boundary
 		      */
   int lowcap;        /* smallest doubled gene # corresponding to a cap */
   int cnum;          /* index 1,2,...,N of the current chromosome */
@@ -1437,8 +1438,7 @@ void copy_perm_to_genome(int *perm,
   int i;
 
   for (i=0; i<num_genes; i++)
-    g->genes[i] = perm[i];
-
+      g->genes[i] = perm[i];
 }
 
 
@@ -1983,8 +1983,8 @@ int mcdist_capgraph_connections(struct mgr_genome_struct *g1,
 {
   int dist;
   int s2flag;    /* treatment of 2 semiknots */
+   
 
- 
   /* page 226 algorithm, steps 1 & 2 */
   dist = mcdist_noncircular_full(g1, g2,
 				 num_genes, num_chromosomes, distmem,
@@ -2022,28 +2022,60 @@ int mcdist_capgraph(struct mgr_genome_struct *g1,
 		    graphstats_t *graphstats)
 {
   int dist;
-  graph_t G;
+ // graph_t G;
   pathcounts_t pcounts_G;
 
-
+  graph_t * G = &G_mcdist_noncircular;
+  if( (G == NULL)||(G == (graph_t*)NULL) )
+  {
+      fprintf(stdout,"init memory graph_t for mcdist_noncircular\n"); fflush(stdout);
+      G = (graph_t *)malloc(sizeof(graph_t));
+  }
+  G->distmem = distmem;
+  G->size = 2*num_genes+2;
+/*
+ fprintf(stdout," mcdist_capgraph,before,num_genes=%d,num_chrom=%d\n",num_genes,num_chromosomes);
+    int j; fprintf(stdout,"[");
+        int * point = g1->genes;
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",point[j]);
+        fprintf(stdout,"]\n");
+        point = g2->genes;
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",point[j]);
+        fprintf(stdout,"]\n");
+*/
+if(distmem == NULL)
+    failwith("NULL dist_mem in mcdist_capgraph");
 
   dist = mcdist_capgraph_connections(g1, g2,
 				     num_genes, num_chromosomes,
 				     distmem,
-				     &G, &pcounts_G,
+				     G, &pcounts_G,
 				     graphstats);
 
   /* read off the final perms from the graph */
   mcdist_capgraph_finalperms(g1, g2,
 			     num_genes, num_chromosomes,
 			     distmem,
-			     &G,
+			     G,
 			     graphstats);
-
-
+/* debug msg
+ fprintf(stdout,"distmem:\ncappedp1: \n[");
+      point = distmem->cappedp1;
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",point[j]);
+        fprintf(stdout,"]\n cappedp2: \n[");
+        point = distmem->cappedp2;
+        for(j=0;j<num_genes;j++)
+            fprintf(stdout,"%d,",point[j]);
+        fprintf(stdout,"]\n");
+        fflush(stdout);
+*/
+//we don't want to change the input gene
   /* output results by overwriting original genome */
-  copy_perm_to_genome(distmem->cappedp1, g1, num_genes);
-  copy_perm_to_genome(distmem->cappedp2, g2, num_genes);
+//  copy_perm_to_genome(distmem->cappedp1, g1, num_genes);
+//  copy_perm_to_genome(distmem->cappedp2, g2, num_genes);
 
   return dist;
 }

@@ -13,6 +13,7 @@ val inversions : genome -> genome -> int -> int -> (int * int) list
 val genomes : int array array -> genome_arr
 val genes : int array array -> genome array
 val get_med3_genome : int -> genome -> genome -> genome -> int -> int -> genome
-val get_med3_arr : genome -> int -> int array
+val genome_to_gene_intarr : genome -> int -> int array
 val get_delimiter_arr : genome -> int -> int array
 val c_get_delimiter_num : genome ->  int
+val get_better_capping_genome : genome -> genome -> int -> genome

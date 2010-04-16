@@ -10,7 +10,12 @@ struct mgr_genome_struct *mgr_genome_list;
 struct mgr_genome_struct *mgr_genome_list_copy;
 struct mgr_genome_struct median_genome;
 
+struct mgr_genome_struct * mgr_genome_list_cap;
+
 mgr_distmem_t distmem_mgrmed;
+mgr_distmem_t distmem_capgraph;
+mgr_distmem_t distmem_mgrinvdist;
+
 
 cbounds_t  * cb_max_chromo_size;// mgr_genome_ops.c, "find_max_chromo_size"
 //cbounds_t  * cb_carry_on_reag;//mgr_genome_ops.c, "carry_on_reag" 

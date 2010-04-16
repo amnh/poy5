@@ -26,7 +26,12 @@ external c_print_genome_arr : genome_arr -> int -> int -> unit = "grappa_CAML_pr
 (*give index in array and returns the one genome at that index *)
 external c_get_one_genome : genome_arr -> int -> genome = "grappa_CAML_get_one_genome"
 
-(*  for the distance returned *)
+(* for multichromosome only
+* Given the two input genome g1 and g2, return a new g2 with better capping *)
+external c_better_capping : genome -> genome -> int -> genome_arr
+= "grappa_CAML_better_capping"
+
+(*  for the distance returned, now this function also deals with multichromosome *)
 external c_cmp_inv_dis : genome -> genome -> int -> int ->  int 
 =  "grappa_CAML_cmp_inv_dis"
 
@@ -64,9 +69,9 @@ let bigarr_to_intarr bigarr =
     ) in
     intarr
 
-let get_med3_arr (g1 : genome) num_gene = 
-    let med3_bigarr =  c_get_gene_bigarr g1 num_gene in
-    bigarr_to_intarr med3_bigarr
+let genome_to_gene_intarr (g1 : genome) num_gene = 
+    let gene_bigarr =  c_get_gene_bigarr g1 num_gene in
+    bigarr_to_intarr gene_bigarr
 
 let get_delimiter_arr (g1 : genome) num_delimiter = 
     let deli_bigarr =  c_get_delimiter_bigarr g1 num_delimiter in
@@ -77,6 +82,10 @@ let get_med3_genome (medsov : int) (g0 : genome) (g1 : genome) (g2 : genome) num
     c_get_one_genome output_genome_arr 0 
   (*  let intarr_med3 = bigarr_to_intarr bigarr_med3 in
     intarr_med3 *)
+
+let get_better_capping_genome (g0 : genome) (g1 : genome) num_gen =
+    let output_genome_arr = c_better_capping g0 g1 num_gen in
+    c_get_one_genome output_genome_arr 0 
 
 let inversion_distance a b c d = 
     c_cmp_inv_dis a b c (if d then 1 else 0)
