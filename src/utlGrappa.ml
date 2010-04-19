@@ -253,7 +253,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
         Printf.printf "],%!";
     in
      debug message *)
-    (*debug message
+    (*debug message 
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
      debug message *)
@@ -323,16 +323,27 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
             Grappa.get_med3_genome 7 g0 g1 g2 num_gen circular
     in
     let med3arr = Grappa.genome_to_gene_intarr gmed num_gen in
-    let delinum = Grappa.c_get_delimiter_num gmed in
-    let deli_arr = Grappa.get_delimiter_arr gmed delinum in
+    let delinum = 
+        match medsov with
+        | `MGR ->
+                Grappa.c_get_delimiter_num gmed
+        | _ -> 0
+    in
+    let deli_arr = 
+        match medsov with
+        | `MGR ->
+                Grappa.get_delimiter_arr gmed delinum
+        | _ -> [||]
+    in
     (* debug msg 
      Printf.printf "output ori seqcode = %!"; print_intarr med3arr;
      print_newline();
-     Printf.printf "delimiters = %!"; print_intarr deli_arr;
+     Printf.printf "delinum=%d,delimiters = %!" delinum; 
+     print_intarr deli_arr;
      print_newline();
       debug msg*)
     let resarr = de_standardize3 ori_genomeX med3arr num_gen in
-    (* debug msg 
+    (* debug msg  
      Printf.printf "output seqcode = %!"; print_intarr resarr;
      print_newline();
      debug msg*)
