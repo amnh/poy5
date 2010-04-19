@@ -353,7 +353,8 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
         Printf.printf "[%!"; 
         List.iter (Printf.printf "%d,") lst; 
         Printf.printf "];%!") delimiter_lstlst;
-    debug msg *)
+    Printf.printf "\n%!";
+     debug msg *)
     let gapcode = Alphabet.get_gap alpha in
     let arr1 = Sequence.to_array seq1
     and arr2 = Sequence.to_array seq2 
