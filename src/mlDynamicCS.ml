@@ -1,4 +1,25 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
 
+let () = SadmanOutput.register "MlDynamicCS" "$Id$"
+
+IFDEF USE_LIKELIHOOD THEN
 (*---- type for the module *)
 
 (* The process of constructing this record is as follows,
@@ -41,6 +62,26 @@ let total_cost t = match t.ia with
 let get_codes t  = t.seq.SeqCS.codes
 
 let combine t (b:MlStaticCS.t) = {t with ia = Some b}
+
+let leaf_sequences {seq = a} = 
+    let map = ref All_sets.IntegerMap.empty in
+    for i = (SeqCS.cardinal a) - 1 downto 0 do
+        map := All_sets.IntegerMap.add a.SeqCS.codes.(i)
+            (match a.SeqCS.characters.(i) with
+            | SeqCS.Partitioned x ->
+                    Array.map (function 
+                        | SeqCS.PartitionedDOS.Last x ->
+                                `Last x.SeqCS.DOS.sequence
+                        | SeqCS.PartitionedDOS.DO x  ->
+                                `DO x.SeqCS.DOS.sequence
+                        | SeqCS.PartitionedDOS.First x ->
+                                `First x.SeqCS.DOS.sequence) x
+            | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
+            | SeqCS.Relaxed_Lifted (t, x) -> 
+                    let p = SeqCS.RL.find_smallest x in
+                    [|`DO t.SeqCS.RL.sequence_table.(p)|]) !map
+    done;
+    !map
 
 
 (*---- to formatter, and printing functions *)
@@ -148,3 +189,27 @@ let f_codes_comp s c =
 
 (*---- make an initial leaf node; still requires IA. *)
 let make s m = { seq = s; model = m; ia = None };
+
+ELSE
+type t = unit
+
+let alph _          = failwith MlStaticCS.likelihood_error
+let total_cost _    = failwith MlStaticCS.likelihood_error
+let get_cm _        = failwith MlStaticCS.likelihood_error
+let code _          = failwith MlStaticCS.likelihood_error
+let combine _ _     = failwith MlStaticCS.likelihood_error
+let make _ _        = failwith MlStaticCS.likelihood_error
+let median _ _ _ _ _= failwith MlStaticCS.likelihood_error
+let median_3 _ _ _ _= failwith MlStaticCS.likelihood_error
+let distance _ _ _  = failwith MlStaticCS.likelihood_error
+let to_string _     = failwith MlStaticCS.likelihood_error
+let name_string _   = failwith MlStaticCS.likelihood_error
+let dist_2 _ _ _ _  = failwith MlStaticCS.likelihood_error
+let f_codes _ _     = failwith MlStaticCS.likelihood_error
+let f_codes_comp _ _= failwith MlStaticCS.likelihood_error
+let tabu_distance _ = failwith MlStaticCS.likelihood_error
+let cardinal _      = failwith MlStaticCS.likelihood_error
+let encoding _ _    = failwith MlStaticCS.likelihood_error
+let leaf_sequences _= failwith MlStaticCS.likelihood_error
+let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+ENDIF
