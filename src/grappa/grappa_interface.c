@@ -491,21 +491,10 @@ grappa_CAML_inv_med
             }
             decode3 ( out_genome_list->genes, cond3mem_p->con_med->genes, 
                       cond3mem_p->pred1, cond3mem_p->decode, num_cond );
-            /*debug msg 
-              fprintf(stdout,"before bigarray:[");
-              int x;
-              for (x=0;x<NUM_GENES;x++)
-                  fprintf(stdout,"%d,",out_genome_list->genes[x]);
-              fprintf(stdout,"]\n"); fflush(stdout);
-           // debug msg */
-      /*  res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, 
-                    out_genome_list->genes,dims); CAMLreturn(res);        */
         }
         else
         {
             out_genome_list = g1;
-          //  res = alloc_bigarray (BIGARRAY_INT32 | BIGARRAY_C_LAYOUT, 1, g1->genes,dims);
-          //  CAMLreturn(res);
         }
 
     }
