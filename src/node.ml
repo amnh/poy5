@@ -26,9 +26,6 @@ let debug_sets      = false
 let debug_set_cost  = false
 let debug_treebuild = false
 
-let likelihood_error = 
-    "Likelihood not enabled: download different binary or contact mailing list" 
-
 let (-->) b a = a b
 
 let odebug = Status.user_message Status.Information
@@ -159,7 +156,7 @@ let rec to_string_ch ch1 =
         IFDEF USE_LIKELIHOOD THEN
             ("static ML: " ^ MlStaticCS.to_string a.preliminary)
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END
 
 let extract_cost = function
@@ -175,7 +172,7 @@ let extract_cost = function
         IFDEF USE_LIKELIHOOD THEN
             v.cost
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END
 
 
@@ -233,7 +230,12 @@ let print_times n =
         | Dynamic x  -> x.time
         | Set x      -> x.time
         | Kolmo x    -> x.time
-        | StaticMl x -> x.time
+        | StaticMl x ->
+            IFDEF USE_LIKELIHOOD THEN
+                x.time
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
     in
     List.iter
         (fun ncs ->
@@ -392,7 +394,7 @@ let rec prelim_to_final =
             IFDEF USE_LIKELIHOOD THEN
                 StaticMl (cs_prelim_to_final a)
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Nonadd8 a -> Nonadd8 (cs_prelim_to_final a)
         | Nonadd16 a -> Nonadd16 (cs_prelim_to_final a)
@@ -537,7 +539,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             in
             StaticMl res
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END
     | Nonadd8 ca, Nonadd8 cb ->
             assert (ca.weight = cb.weight);
@@ -657,7 +659,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                             (Some t1) (Some t2), 
                         (Some t1,Some t2)
                     ELSE
-                        failwith likelihood_error
+                        failwith MlStaticCS.likelihood_error
                     END
                 | ca_prelim, cb_prelim ->
                     DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
@@ -1105,13 +1107,17 @@ let combine anode bnode =
                            (anode.taxon_code) (cs_string a) (cs_string b);
         match a,b with
         | Dynamic a_, StaticMl b_ -> 
-            let median_p = DynamicCS.combine a_.preliminary b_.preliminary
-            and median_f = DynamicCS.combine a_.final b_.final in
-            Dynamic 
-                { a_ with preliminary = median_p;
-                          final = median_f;
-                          cost = b_.cost;
-                          sum_cost = b_.sum_cost; }
+            IFDEF USE_LIKELIHOOD THEN
+                let median_p = DynamicCS.combine a_.preliminary b_.preliminary
+                and median_f = DynamicCS.combine a_.final b_.final in
+                Dynamic 
+                    { a_ with preliminary = median_p;
+                              final = median_f;
+                              cost = b_.cost;
+                              sum_cost = b_.sum_cost; }
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
         | _,_ -> a
     in
     { bnode with 
@@ -1418,7 +1424,7 @@ let compare_data_final {characters=chs1} {characters=chs2} =
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.final b.final
             ELSE
-                failwith likelihood_error  
+                failwith MlStaticCS.likelihood_error  
             END
         | Set { final = { set = a } }, Set { final = { set = b } } ->
               (* Temporary solution.  The problem is: our `Any_Of nodes need to
@@ -1464,7 +1470,7 @@ let compare_data_preliminary {characters=chs1} {characters=chs2} =
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.preliminary b.preliminary
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Set { preliminary = { set = a } }, Set {preliminary = { set = b }} ->
               (* See above... *)
@@ -1536,7 +1542,7 @@ let edge_distance clas nodea nodeb =
                 let x = cs_median 0 nodea nodeb None None None ch1 ch2 in
                 match x with | StaticMl x -> 0.0 *. x.cost | _ -> assert false
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Set a, Set b ->
               (match a.final.smethod with
@@ -1645,7 +1651,7 @@ let distance ?(para=None) ?(parb=None)  missing_distance
                 match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
                              | _ -> assert false
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Set a, Set b ->
               (match a.final.smethod with
@@ -1686,7 +1692,7 @@ let dist_2 minimum_delta n a b =
                 let c = cs_median (-1) x a None None None a' x' in
                 match c with | StaticMl c -> nn.weight *. c.cost | _ -> assert false
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Nonadd8 n, Nonadd8 a, Nonadd8 b ->
               n.weight *. NonaddCS8.dist_2 n.final a.final b.final
@@ -2914,7 +2920,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
                     }
             )
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END *)
     | Dynamic parent, Dynamic mine ->
             (* Do we need this only for dynamic characters? I will first get it
@@ -3013,7 +3019,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                         time = Some t1, Some t2;
                     }
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
@@ -3236,7 +3242,7 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
         IFDEF USE_LIKELIHOOD THEN
             MlStaticCS.to_formatter pre cs.preliminary cs.time d
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END
     | _ -> assert false
 
@@ -3449,7 +3455,7 @@ let rec filter_character_codes (codes : All_sets.Integers.t) item =
         IFDEF USE_LIKELIHOOD THEN
             StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes c codes)
         ELSE
-            failwith likelihood_error
+            failwith MlStaticCS.likelihood_error
         END
     | Nonadd8 c ->
           Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes c codes)
@@ -3480,7 +3486,7 @@ let rec filter_character_codes_complement codes = function
         IFDEF USE_LIKELIHOOD THEN
           Some  (StaticMl (do_filter MlStaticCS.cardinal MlStaticCS.f_codes_comp c codes))
         ELSE
-          failwith likelihood_error
+          failwith MlStaticCS.likelihood_error
         END
     | Nonadd8 c ->
           Some (Nonadd8 (do_filter NonaddCS8.cardinal NonaddCS8.f_codes_comp c codes))
@@ -3616,7 +3622,7 @@ let rec internal_n_chars acc (chars : cs list) =
                     IFDEF USE_LIKELIHOOD THEN
                         MlStaticCS.cardinal r.preliminary
                     ELSE
-                        failwith likelihood_error
+                        failwith MlStaticCS.likelihood_error
                     END
                 | Nonadd8 r -> NonaddCS8.cardinal r.preliminary
                 | Nonadd16 r -> NonaddCS16.cardinal r.preliminary
@@ -3787,7 +3793,7 @@ END
                 IFDEF USE_LIKELIHOOD THEN
                     StaticMlU { ch = cs.preliminary; u_weight = u1.u_weight; }
                 ELSE
-                    failwith likelihood_error
+                    failwith MlStaticCS.likelihood_error
                 END
     
             | _ -> failwith "Node.Union.union"
@@ -3879,7 +3885,7 @@ END
                     (* Do nothing special *)
                     (StaticMlU { ch = c.preliminary; u_weight = c.weight }) :: acc
                 ELSE
-                    failwith likelihood_error
+                    failwith MlStaticCS.likelihood_error
                 END
             | Set _ -> failwith "Node.Union.leaf TODO"
         in
@@ -3954,7 +3960,7 @@ END
             IFDEF USE_LIKELIHOOD THEN
                 MlStaticCS.compare_data a.ch b.ch
             ELSE
-                failwith likelihood_error
+                failwith MlStaticCS.likelihood_error
             END
         | (AddU a), (AddU b) ->
                 AddCS.compare_data a.ch b.ch

@@ -673,5 +673,9 @@ let compare_data a b = compare_chars a.chars b.chars
 let compare a b = MlModel.compare a.model b.model
 
 ELSE
+
+let likelihood_error = 
+    "Likelihood not enabled: download different binary or contact mailing list" 
+
 type t = unit
 END

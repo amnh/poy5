@@ -155,7 +155,8 @@ let copy_chrom_map s_ch d_ch =
 * into a set of chromosome arrays *)
 let leaf_sequences (a : t) = 
     match a with 
-    | MlCS {MlDynamicCS.seq = a} | SeqCS a -> 
+    | MlCS a -> MlDynamicCS.leaf_sequences a
+    | SeqCS a -> 
             let map = ref IntMap.empty in
             for i = (SeqCS.cardinal a) - 1 downto 0 do
                 map := IntMap.add a.SeqCS.codes.(i)

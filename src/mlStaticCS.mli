@@ -205,4 +205,8 @@ val extract_states : t -> (float * int * MlModel.chars) list
 
 val get_codes : t -> int array
 
+ELSE
+
+val likelihood_error : string
+
 END
