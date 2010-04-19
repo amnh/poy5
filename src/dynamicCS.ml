@@ -395,7 +395,7 @@ let to_string a =
 
 
 let name_string a = match a with 
-    | MlCS _ -> "Dynamic Likelihood"
+    | MlCS t -> MlDynamicCS.name_string t
     | SeqCS _ -> "Sequence"
     | BreakinvCS _ -> "Break Inversion"
     | ChromCS _ -> "Chromosome"

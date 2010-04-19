@@ -4314,7 +4314,7 @@ let total_cost_of_type t n =
         | Dynamic x, t -> 
                 (match x.preliminary, t with
                 | DynamicCS.MlCS _, `Ml -> 
-                        acc +. (x.cost)
+                        acc +. (x.cost *. x.weight)
                 | DynamicCS.SeqCS _, `Seq ->
                         acc +. (x.sum_cost *. x.weight)
                 | DynamicCS.BreakinvCS _, `Breakinv -> 

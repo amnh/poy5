@@ -20,18 +20,23 @@ let debug_printf format = if debug then Printf.printf format else ()
 
 
 (*---- basic function set for gathering data of the module *)
-let alph t       = t.seq.SeqCS.alph
-let get_cm t     = t.seq.SeqCS.heuristic.SeqCS.c2
-let code t       = t.seq.SeqCS.code
-let to_string t  = failwith_todo "to_string"
-let cardinal t   = SeqCS.cardinal t.seq
-let encoding e t = SeqCS.encoding e t.seq
+let alph t        = t.seq.SeqCS.alph
+let get_cm t      = t.seq.SeqCS.heuristic.SeqCS.c2
+let code t        = t.seq.SeqCS.code
+let to_string t   = failwith_todo "to_string"
+let cardinal t    = SeqCS.cardinal t.seq
+let encoding e t  = SeqCS.encoding e t.seq
+let name_string t = match t.ia with 
+                  | Some _ -> "Dynamic Likelihood (with ia)"
+                  | None   -> "Dynamic Likelihood (w/out ia)"
 
 let total_cost t = match t.ia with
     | Some x -> MlStaticCS.median_cost x
-    | None   -> (*Printf.printf "No Implied Alignment Found\n%!";*)
-                t.seq.SeqCS.total_cost
-                (* failwith "MlDynamicCS.total_cost; Needs Implied Alignments" *)
+(*    | None when debug ->
+        Status.user_message Status.Warning 
+            "MlDynamicCS.total_cost; no implied alignment found";
+        t.seq.SeqCS.total_cost *)
+    | None   -> t.seq.SeqCS.total_cost
 
 let get_codes t  = t.seq.SeqCS.codes
 
@@ -117,15 +122,15 @@ let median code a b t1 t2 =
            ia = None; 
     }
 
-and median_3 p n c1 c2 = 
-    assert( 0 = MlModel.compare n.model c1.model);
-    assert( 0 = MlModel.compare n.model c2.model);
-    assert( 0 = MlModel.compare n.model p.model);
-    { 
-        seq = SeqCS.median_3 p.seq n.seq c1.seq c2.seq;
-      model = n.model;
-         ia = None; 
-    }
+and median_3 p n c1 c2 = n
+(*    assert( 0 = MlModel.compare n.model c1.model);*)
+(*    assert( 0 = MlModel.compare n.model c2.model);*)
+(*    assert( 0 = MlModel.compare n.model p.model );*)
+(*    { *)
+(*        seq = SeqCS.median_3 p.seq n.seq c1.seq c2.seq;*)
+(*      model = n.model;*)
+(*         ia = None; *)
+(*    }*)
 
 
 (*---- distance functions; all for Sequence characters. *)

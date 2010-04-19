@@ -351,27 +351,31 @@ module F : Ptree.Tree_Operations
             match three_root.AllDirNode.unadjusted with
             | [root] ->
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
-                    (List.fold_left 
-                    (fun acc y ->
-                        acc +. 
-                        (Node.total_cost_of_type y root)) 0. Node.not_to_single),
-                    three_root, root_edge
+                    let cost = 
+                        List.fold_left 
+                            (fun acc y -> acc +. (Node.total_cost_of_type y root)) 
+                            (0.0)
+                            (Node.not_to_single)
+                    in
+                    cost, three_root, root_edge
             | _ -> failwith "What?"
         in 
         (* Other characters have their cost computed by adding up the length of
          * all of the branches. single_characters_cost is exactly that. *)
         let distance a b acc =
             let nda =
-                (List.hd ((Ptree.get_node_data a
-                new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
-            and ndb = (List.hd ((Ptree.get_node_data b
-            new_tree).AllDirNode.adjusted)).AllDirNode.lazy_node
+                let node = (Ptree.get_node_data a new_tree).AllDirNode.adjusted in
+                (List.hd node).AllDirNode.lazy_node
+            and ndb = 
+                let node = (Ptree.get_node_data b new_tree).AllDirNode.adjusted in
+                (List.hd node).AllDirNode.lazy_node
             in
             if debug_cost_fn then
-            Printf.printf "calc distance of node.%d and %d\n" a b;
+                Printf.printf "calc distance of node.%d and %d\n" a b;
             let dist = 
-                Node.distance_of_type Node.has_to_single 0.
-                (AllDirNode.force_val nda) (AllDirNode.force_val ndb)
+                Node.distance_of_type (Node.has_to_single) 0.0
+                                      (AllDirNode.force_val nda)
+                                      (AllDirNode.force_val ndb)
             in
             dist +. acc
         in
@@ -1483,7 +1487,7 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ThreeD _) -> ptree
         in
         if debug_uppass_fn then Printf.printf "UPPASS ends. \n%!";
-        tree --> apply_implied_alignments --> update_branches
+        tree --> apply_implied_alignments
 
     let rec clear_subtree v p ptree = 
         if debug_clear_subtree then
@@ -1998,8 +2002,7 @@ module F : Ptree.Tree_Operations
                 in
                 (* We move recursively up on and b calculating their final 
                 * states *)
-                let rec uppass grandparent_code parent_code parent_final vertex
-                acc =
+                let rec uppass grandparent_code parent_code parent_final vertex acc =
                     let my_data = Ptree.get_node_data vertex ptree in
                     match Ptree.get_node vertex acc with
                     | (Tree.Interior _) as nd ->
@@ -2007,28 +2010,27 @@ module F : Ptree.Tree_Operations
                             let nda = Ptree.get_node_data a ptree
                             and ndb = Ptree.get_node_data b ptree in
                             let my_data =
-                                AllDirNode.AllDirF.final_states grandparent_code 
-                                parent_final my_data nda ndb 
+                                AllDirNode.AllDirF.final_states grandparent_code
+                                                    parent_final my_data nda ndb
                             in
                             acc
-                            --> Ptree.add_node_data vertex my_data 
-                            --> uppass (Some parent_code) vertex my_data a 
-                            --> uppass (Some parent_code) vertex my_data b
+                                --> Ptree.add_node_data vertex my_data 
+                                --> uppass (Some parent_code) vertex my_data a 
+                                --> uppass (Some parent_code) vertex my_data b
                     | Tree.Leaf _ ->
                             let my_data = 
                                 AllDirNode.AllDirF.final_states grandparent_code 
-                                parent_final my_data my_data my_data 
+                                            parent_final my_data my_data my_data 
                             in
                             Ptree.add_node_data vertex my_data acc
                     | Tree.Single _ -> acc
                 in
                 ptree --> uppass None a (root_data a) b 
-                --> uppass None b (root_data b) a
+                      --> uppass None b (root_data b) a
             with
             | Failure "Single vertex" -> ptree
         in
-        IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) 
-        ptree
+        IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) ptree
     
     (** [create_branch_table table ptree] 
      * Creates a hashtable with all the branch data. The key is the pair of
