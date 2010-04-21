@@ -631,20 +631,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     IFDEF USE_LIKELIHOOD THEN
                         let t1, t2 =
                             let t1,t2 = match t1,t2 with
-                                | Some (t1), Some (t2) when code <= 0 ->
-(*                                    Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
-(*                                        code anode.taxon_code bnode.taxon_code *)
-(*                                        (t1/.2.0) (t2/.2.0);*)
-                                    (t1/.2.0,t1/.2.0)
-                                | Some (t1), Some (t2) ->
-(*                                     Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
-(*                                        code anode.taxon_code bnode.taxon_code t1 t2;*)
-                                    (t1,t2)
-                                | _ -> 
-                                    let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-(*                                    Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
-(*                                        code anode.taxon_code bnode.taxon_code t1 t2;*)
-                                    t1,t2
+                                | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
+                                | Some (t1), Some (t2) -> (t1,t2)
+                                | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
                             in
                             if anode.min_child_code < bnode.min_child_code 
                                 then t1, t2
@@ -2095,13 +2084,12 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
         and lnadd16code = group_in_weights nadd16weights lnadd16code
         and lnadd32code = group_in_weights nadd32weights lnadd32code
         and lstaticmlcode = 
-            (* set garbage collector frequency; multiplier = 4 *)
             let () = 
                 IFDEF USE_LIKELIHOOD THEN
+                    (* set garbage collector frequency; multiplier = 4 *)
+                    let calc_total m t = m * ((8 * t) - 5) in
                     MlStaticCS.gc_alloc_max 
-                        ((fun m t -> m * ((8 * t) - 5))
-                            4
-                            (!data).Data.number_of_taxa)
+                        (calc_total 4 (!data).Data.number_of_taxa)
                 ELSE
                     ()
                 END
@@ -2128,21 +2116,18 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                             then Alphabet.size p_x.Nexus.File.st_alph
                             else (Alphabet.size p_x.Nexus.File.st_alph) - 1
                     in
-                    classify alph_len true all !data
+                    classify alph_len do_classify all !data
                 | [] -> assert false
             (* convert characters and group them by weight *)
             and lk_group_weights weights chars = 
                 chars --> set_of_list --> group_in_weights weights
             in
             (* group sets, model then compress columns *)
-            let grps = 
-                static_ml
-                    --> group_by_sets
-                    --> List.map group_ml_by_model
-                    --> List.flatten
-                    --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
-            in
-            grps
+            static_ml
+                --> group_by_sets
+                --> List.map group_ml_by_model
+                --> List.flatten
+                --> List.map (fun x -> lk_group_weights (lk_classify_weights x) x)
 
         and lsankcode = List.map (fun x -> cg (), x) lsankcode in
 
@@ -2783,7 +2768,6 @@ let load_data ?(silent=true) ?(classify=true) data =
             All_sets.IntegerMap.fold (fun _ _ acc -> acc + 1)
             data.Data.taxon_codes 0 
         in
-(*        Printf.printf "TAXONS: %d\n%!" ntaxa;*)
         let st, finalize = 
             if not silent then
                 let status = 
