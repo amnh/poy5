@@ -465,26 +465,24 @@ let of_parser spec weights characters =
     let computed_model = match spec.Nexus.File.st_type with
         | Nexus.File.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
-    let (a_size,a_gap) = 
-        let alph = Alphabet.to_sequential spec.Nexus.File.st_alph in
+    let (a_size,a_gap,u_gap) = 
+        let alph = Alphabet.to_sequential computed_model.MlModel.alph in
         match computed_model.MlModel.spec.MlModel.use_gap with
-        | true -> Alphabet.size alph, (-1)
-        | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
+        | true -> Alphabet.size alph, Alphabet.get_gap alph, true
+        | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph, false
     in
     (* loop to create array for each character *)
     let loop_ (states,code) = match states with 
         | None -> Array.make a_size 1.0
         | Some s -> 
-            let lst = match s with
-                | `List s -> s
-                | `Bits s -> BitSet.to_list s
-            in
-            if List.mem a_gap lst then
+            let lst = Nexus.File.static_state_to_list s in
+            if (not u_gap) && (List.mem a_gap lst) then
                 Array.make a_size 1.0 
-            else
-                let pl = List.fold_right set_in lst (list_of a_size 0.0) in
-                assert( a_size = List.length pl);
-                Array.of_list pl
+            else begin
+                list_of a_size 0.0
+                    --> List.fold_right set_in lst
+                    --> Array.of_list
+            end
     in
     (* convert character array to abstract type --redo *)
     let aa_chars = Array.map loop_ characters in (* create initial arrays *)
@@ -503,13 +501,10 @@ let of_parser spec weights characters =
     let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
-(*    print_barray3with1 ba_chars weights;*)
-    let loglike = loglikelihood lk_chars
-                                weights
-                                computed_model.MlModel.pi_0
-                                computed_model.MlModel.prob
-                                pinvar
+    let loglike = loglikelihood lk_chars weights computed_model.MlModel.pi_0
+                                computed_model.MlModel.prob pinvar
     in
+    (* print_barray3with1 ba_chars weights; *)
     assert( loglike >= 0.0 );
     {    mle  = loglike;
        model  = computed_model;

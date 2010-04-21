@@ -119,7 +119,7 @@ let check_level alph =
 let list_to_a ?(orientation=false) lst gap all kind =
     let a_size = List.length lst in
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
-        All_sets.StringMap.add a b s2c,
+        All_sets.StringMap.add (String.uppercase a) b s2c,
         (if All_sets.IntegerMap.mem b c2s then c2s
         else All_sets.IntegerMap.add b a c2s),
         (All_sets.IntegerMap.add b c cmp),
@@ -132,6 +132,7 @@ let list_to_a ?(orientation=false) lst gap all kind =
     in
     let s2c, c2s, cmp, cnt = List.fold_left add empty lst in
     let gap_code = 
+        let gap = String.uppercase gap in
         try All_sets.StringMap.find gap s2c with
         | Not_found as err ->
                 List.iter (fun (x, _, _) -> 
@@ -327,10 +328,10 @@ let get_level a = a.level
 
 let to_list a =
     let res =
-        All_sets.StringMap.fold (
-            fun a b acc -> 
+        All_sets.IntegerMap.fold (
+            fun b a acc -> 
                 (a, b) :: acc
-            ) a.string_to_code 
+            ) a.code_to_string 
         []
     in
     List.sort (fun (_, a) (_, b) -> a - b) res
