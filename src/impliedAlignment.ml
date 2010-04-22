@@ -1707,7 +1707,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                   | Some ((`Edge (a, b)), the_root) -> a, b, the_root
                   | _ -> failwith "no root?"
               in
-              Printf.printf "Traversing self:%d, other:%d, root:%d\n%!" self other root;
               let x, y =
                   if calculate_median then begin
                         let a, b = 
