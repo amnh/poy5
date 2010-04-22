@@ -58,9 +58,8 @@ type ias = {
 
 (* t is the presentation of a dynamic set (DynamicCS) in order to create implied
    alignments.
-   Note: sequences : ias_arr Codes.t where 
-   isa_arr is an array of ias in the case of annotated chromosomes (ach ias
-   presents a locus)
+   Note: 'sequences : ias_arr Codes.t' where isa_arr is an array of ias in the
+   case of annotated chromosomes (ach ias presents a locus)
 *)
 type t = {
     sequences : ias array Codes.t;
@@ -568,11 +567,15 @@ let ancestor_sequence prealigned calculate_median all_minus_gap
     ancestor calculate_median `Seq prealigned all_minus_gap
     a_seq b_seq acode bcode cm alpha achld bchld) a_ls b_ls
 
-let ancestor_likelihood prealigned calculate_median all_minus_gap 
-        acode bcode achld bchld a_ls b_ls cm alpha chrom_pam =
-    Array_ops.map_2 (fun a_seq b_seq ->
-    ancestor calculate_median `Ml prealigned all_minus_gap
-    a_seq b_seq acode bcode cm alpha achld bchld) a_ls b_ls
+let ancestor_likelihood prealigned calculate_median
+                        all_minus_gap acode bcode achld bchld a_ls b_ls cm
+                        alpha chrom_pam =
+    Array_ops.map_2
+        (fun a_seq b_seq ->
+            ancestor calculate_median `Ml prealigned all_minus_gap
+                     a_seq b_seq acode bcode cm alpha achld bchld)
+        a_ls 
+        b_ls
 
 (* [ancestor_chrom prealigned calculate_median all_minus_gap acode bcode 
 *  achld bchld a b cm alpha chrom_pam] merges the implied alignments of two clades and 
@@ -1219,9 +1222,8 @@ type matrix_class =
     * the cost of an indel block to deal with affine. *)
 
 let present_absent_alph = 
-    Alphabet.list_to_a 
-    [("present", 1, None); ("absent", 2, None)] 
-    "absent" None Alphabet.Sequential
+    Alphabet.list_to_a [("present", 1, None); ("absent", 2, None)] 
+                       "absent" None Alphabet.Sequential
 
 (* A function that analyzes a cost matrix, likelihood model, and an alphabet
  * and generates a pair of functions f and g, such that f converts 
@@ -1582,16 +1584,13 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
     (** return (taxon_id, character_ls) list (of taxa) * (final ias for each
         character set) list (of characters) *)
     let of_tree_handle all_minus_gap cg handle ptree =
-        let calculate_median = false
         (* We turn this off because `Normal and `Exact would produce the wrong
-        * implied alignment when using affine gap costs 
-            match !Methods.cost with
-            | `Normal | `Exact -> true
-            | `Iterative -> false *)
-        in
+         * implied alignment when using affine gap costs *)
+        let calculate_median = false in
         let get_dynamic_data = 
-            if calculate_median then Node.get_dynamic_preliminary 
-            else Node.get_dynamic_adjusted 
+            if calculate_median 
+                then Node.get_dynamic_preliminary 
+                else Node.get_dynamic_adjusted 
         in
         let vertices = 
             try
@@ -1661,7 +1660,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             in
             let data = convert_data taxon_id data in
             let did = Status.get_achieved st in
-          
             Status.full_report ~adv:(did + 1) st;
             data
         in
@@ -1682,31 +1680,21 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     let homs = Codes.find u y.sequences in
                     let ancestor = 
                         ancestor_f calculate_median all_minus_gap
-                        x.cannonic_code y.cannonic_code x.children y.children 
-                        v homs x.c2 x.alpha x.chrom_pam;
+                                   x.cannonic_code y.cannonic_code x.children
+                                   y.children v homs x.c2 x.alpha x.chrom_pam;
                     in
                     Codes.add u ancestor acc) x.sequences Codes.empty
             in
             let rec ancestor_builder hx hy =
                 { hx with 
-                cannonic_code = min hx.cannonic_code hy.cannonic_code;
-                children = `Set [hx.children; hy.children];
-                sequences = t_ancestor hx hy} 
+                    cannonic_code = min hx.cannonic_code hy.cannonic_code;
+                    children = `Set [hx.children; hy.children];
+                    sequences = t_ancestor hx hy; } 
             in
-
-
-            
             let unionresult = AssocList.union ac bc in
-
             let map2result = List.map2 ancestor_builder a b in
-            
             unionresult, map2result
-                (*
-            AssocList.union ac bc, List.map2 ancestor_builder a b
-                *)
-            
-            in 
-        
+        in 
         match Tree.get_node handle ptree.Ptree.tree with
         | Tree.Single self -> 
                 let a, b = convert_node None ptree () self ([], []) in
@@ -1719,13 +1707,14 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                   | Some ((`Edge (a, b)), the_root) -> a, b, the_root
                   | _ -> failwith "no root?"
               in
+              Printf.printf "Traversing self:%d, other:%d, root:%d\n%!" self other root;
               let x, y =
                   if calculate_median then begin
                         let a, b = 
                             Ptree.post_order_node_with_edge_visit 
-                            (convert_node None ptree) join_2_nodes 
-                            (Tree.Edge (self, other)) ptree
-                            (AssocList.empty, [])
+                                (convert_node None ptree) join_2_nodes 
+                                (Tree.Edge (self, other)) ptree
+                                (AssocList.empty, [])
                         in 
                         let  a' = 
                             let new_ptree = 
@@ -1733,23 +1722,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 and other_data = Ptree.get_node_data other ptree
                                 in
                                 let single =
-                                    Node.to_single (Some root)
+                                    Node.to_single  (Some root)
                                                     (Some self) other_data
                                                     (Some other) self_data
-                                                   (IntSet.empty, IntSet.empty)
-                                    (*
-                                    Node.to_single
-                                    (Some root) (Some self) 
-                                    other_data (Some other) self_data 
-                                    *)
+                                                    (IntSet.empty, IntSet.empty)
                                 in
                                 Ptree.add_node_data self single ptree
                             in
                             convert_node (Some other) new_ptree () self ([], []) 
                         in
                         let a = join_2_nodes () () a a' in
-                        let tmp = join_2_nodes () () a b in
-                        tmp
+                        join_2_nodes () () a b
                   end 
                   else 
                         (* We will do a different tree traversal, converting each
@@ -2466,7 +2449,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         (* combine the trees *)
         let trees = List.fold_left (fun a (_,_,t) -> t @ a) [] encodings in
         let results = (new_encodings,filecontents,trees) in
-        (* print_contents_of_parser_compatible results;*)
         results
 
 
@@ -2521,6 +2503,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             if remove_non_informative then update_ia_encodings res
             else res
         in
+        (* print_contents_of_parser_compatible res;*)
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
@@ -2642,7 +2625,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         in
         let d = Data.add_multiple_static_parsed_file data all_to_add in
         let d = Data.sync_dynamic_to_static_model_branches ~src:tree.Ptree.data ~dest:d in
-        let d = Data.remove_active_present_encodings d in
+        let d = Data.remove_absent_present_encodings d in
         if ignore then Data.process_ignore_characters false d (`Names names)
         else d
 

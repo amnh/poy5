@@ -30,6 +30,7 @@ module IntMap = All_sets.IntegerMap
 let ( --> ) a b = b a
 let output_error = Status.user_message Status.Error
 let output_warning = Status.user_message Status.Warning
+let output_info = Status.user_message Status.Information
 let failwithf format = Printf.ksprintf failwith format
 
 let debug_kolmo = false
@@ -2368,19 +2369,16 @@ let code_character code data =
     Hashtbl.find data.character_codes code
 
 let get_sequence_tcm seqcode data = 
-    let chars = data.character_specs in
-    try
-        match Hashtbl.find chars seqcode with
-        | Dynamic dspec -> dspec.tcm2d
+    try match Hashtbl.find data.character_specs seqcode with
+        | Dynamic dspec    -> dspec.tcm2d
         | Kolmogorov dspec -> dspec.dhs.tcm2d
         | _ -> failwith "Data.get_sequence_tcm: Not a dynamic character"
-    with
-    | Not_found as err ->
-            let name = code_character seqcode data in
-            let msg = "Could not find the code " ^ string_of_int seqcode ^ 
-            " with name " ^ StatusCommon.escape name in
-            Status.user_message Status.Error msg;
-            raise err
+    with | Not_found as err ->
+        let name = code_character seqcode data in
+        let msg = "Could not find the code " ^ string_of_int seqcode ^ 
+                  " with name " ^ StatusCommon.escape name in
+        Status.user_message Status.Error msg;
+        raise err
 
 let get_sequence_alphabet seqcode data = 
     let chars = data.character_specs in
@@ -5210,9 +5208,23 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
     in
     { dest with character_specs = char_specs; }
 
-let remove_active_present_encodings data = 
+    
+(* remove the absent/present columns in the parsed data, and modify the previous
+ * column (the column the active/present column is adding data to), and modify
+ * it to a gap for likelihood. This is only for likelihood characters. The
+ * active/present columns in other characters are used for an additional cost to
+ * that column, combined with the weight parameter. *)
+let remove_absent_present_encodings data = 
     let is_likelihood = function
-        | Nexus.File.STLikelihood _ -> true | _ -> false in
+        | Nexus.File.STLikelihood _ -> true | _ -> false
+    (* transform a character to a gap *)
+    and apply_gap_to_cs tc cc spec state = match spec,state with
+        | Static sspec, (Stat (code,data),specified) ->
+            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
+            (Stat (code, Some (`List [gap])),specified)
+        | _, _ -> failwith "Data.remove_absent_present_encodings failure"
+    in
+    (* test if we are using likelihood somewhere *)
     let test_using_likelihood data = 
         let ret = ref false in
         Hashtbl.iter
@@ -5231,14 +5243,43 @@ let remove_active_present_encodings data =
                 All_sets.IntSetMap.add key i acc)
             map 
             All_sets.IntSetMap.empty
+    (* apply the absent/present encoding column to the previous column *)
+    and apply_absent_encoding specification characters code = 
+        let is_present tcode code state spec = match spec,state with
+            | Static sspec, (Stat (code,Some data),specified) ->
+                let data_list = Nexus.File.static_state_to_list data
+                and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+                List.mem present data_list
+            | Static sspec, (Stat (code,None),specified) -> true
+            | _,_ -> false
+        in
+        Hashtbl.iter
+            (fun t_code t_state_tbl ->
+                let lkstate = Hashtbl.find t_state_tbl (code-1)
+                and apstate = Hashtbl.find t_state_tbl code
+                and lkspec  = Hashtbl.find specification (code-1)
+                and apspec  = Hashtbl.find specification code in
+                if is_present t_code code apstate apspec then begin
+                    let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
+                    Hashtbl.replace t_state_tbl (code-1) nstate;
+                    Hashtbl.remove t_state_tbl code
+                end else () )
+            characters;
+        Hashtbl.remove specification code
     in
     if test_using_likelihood data then begin
-        let copy_spec = Hashtbl.copy data.character_specs in
+        let copy_spec = Hashtbl.copy data.character_specs
+        and copy_char =
+            let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
+            Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
+                         data.taxon_characters;
+            n
+        in
         let map = Hashtbl.fold
             (fun k v acc -> match v with
                 | Static {Nexus.File.st_type = st_type;}
                     when not (is_likelihood st_type) ->
-                        let () = Hashtbl.remove copy_spec k in
+                        apply_absent_encoding copy_spec copy_char k;
                         IntMap.remove k acc
                 | Dynamic _    | Set 
                 | Kolmogorov _ | Static _ -> acc)
@@ -5246,6 +5287,7 @@ let remove_active_present_encodings data =
             data.dynamic_static_codes
         in
         { data with character_specs = copy_spec;
+                    taxon_characters = copy_char;
                     dynamic_static_codes = map;
                     static_dynamic_codes = reverse map; }
     end else begin

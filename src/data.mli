@@ -605,7 +605,7 @@ val convert_static_to_dynamic_branches : src:d -> dest:d -> d
 val sync_dynamic_to_static_model_branches : src:d -> dest:d -> d
 val sync_static_to_dynamic_model_branches : src:d -> dest:d -> d
 
-val remove_active_present_encodings : d -> d
+val remove_absent_present_encodings : d -> d
 
 val randomize_taxon_codes : Methods.terminal_transform -> d -> d * (int, int) Hashtbl.t
 
