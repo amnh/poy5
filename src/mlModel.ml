@@ -615,7 +615,16 @@ let create alph lk_spec =
         let p = match lk_spec.base_priors with 
             | ConstantPi p | Estimated p | Given p -> p in
         assert(a_size = Array.length p);
-        assert( 1.0 =. (Array.fold_left (fun a b -> a +. b) 0.0 p) );
+        let () = 
+            let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
+            if 1.0 =. sum then ()
+                else begin
+                    debug_printf "Priors (%f): [" sum;
+                    Array.iter (debug_printf "|%f") p;
+                    debug_printf "%s%!" "|]\n";
+                    failwith "Priors do not sum to 1.0"
+                end
+        in
         p
     in
 

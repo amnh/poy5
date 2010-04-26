@@ -2296,6 +2296,7 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
         | Some x -> [x]
 
     let partitioned_join sets max_distance side ptree = 
+        Printf.printf "Starting Partitioned Join\n%!";
         let edges =
             match sets with
             | `Sets sets ->
