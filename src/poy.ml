@@ -62,7 +62,7 @@ let () =
 let debug_pass_errors = false
 
 let () =
-    Random.self_init ();
+    Random.init seed;
     let out = Status.user_message Status.Information in
     let rephrase str = Str.global_replace (Str.regexp " +") "@ " str in
     out "";
