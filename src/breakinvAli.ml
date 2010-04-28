@@ -425,7 +425,6 @@ let create_breakinv_test =
                     else (Random.int (gap_cost - 1)) + 1 
             done;
         done;
-        Random.self_init ();
         let num_tax = 22 in 
         let seqfile = open_out "taxa.bk" in 
         for t = 0 to num_tax - 1 do
