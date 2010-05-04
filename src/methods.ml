@@ -270,6 +270,8 @@ type report = [
     | `Consensus of (string option * float option)
     | `GraphicConsensus of (string option * float option)
     | `FasWinClad of string option
+    | `Model of string option
+    | `Script of string option * string list
     | `SequenceStats of (string option * characters)
     | `Ci of (string option * characters option)
     | `Ri of (string option * characters option)

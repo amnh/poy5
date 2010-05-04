@@ -380,6 +380,8 @@ let dependency_relations (init : Methods.script) =
                 | `Ri (filename, _)
                 | `CompareSequences (filename, _, _, _)
                 | `FasWinClad filename
+                | `Model filename
+                | `Script (filename,_)
                 | `Dataset filename
                 | `Nodes filename
                 | `TerminalsFiles filename
@@ -1721,6 +1723,10 @@ let script_to_string (init : Methods.script) =
                         sequences@]"
                 | `FasWinClad _ -> 
                         "@[report the phastwinclad file@]"
+                | `Model _ -> 
+                        "@[report the likelihood model@]"
+                | `Script _ -> 
+                        "@[report the script being run@]"
                 | `Dataset _ ->
                         "@[report the current data under analysis@]"
                 | `Xslt _ ->
@@ -1986,6 +1992,8 @@ let is_master_only (init : Methods.script) =
     | `Ri _
     | `CompareSequences _
     | `FasWinClad _ 
+    | `Model _
+    | `Script _
     | `ExplainScript _
     | `PrintWDir 
     | `Memory _ 

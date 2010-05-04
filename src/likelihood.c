@@ -775,7 +775,8 @@ compose_sym(double* P,const double* U,const double* D,const float t,int n,double
 
     alpha = 1; beta = 0; _tran = 'T'; ntran = 'N';
     memcpy(P, D, n*n*sizeof(double) );
-    apply_exp(P,n,n,t); //exp(D*t); along diagonal only
+    if( t >= 0.0 )
+        apply_exp(P,n,n,t); //exp(D*t); along diagonal only
     //calculates: C = op(A)*op(B)*a + C*b
     dgemm_(&ntran,&ntran,        //format, op(A), op(B)
             &n, &n, &n, &alpha,  //rows A, cols B, cols A, multiplier of (A*B)
@@ -820,7 +821,8 @@ compose_gtr(double* P, const double* U, const double* D, const double* Ui,
     alpha = 1; beta = 0; ntran = 'N';
 
     memcpy(P,D,n*n*sizeof(double));
-    apply_exp(P,n,n,t);
+    if( t >= 0.0 )
+        apply_exp(P,n,n,t);
     //S is U*exp(D)...
     dgemm_(&ntran,&ntran,&n,&n,&n,&alpha,Ui,&n,P,&n,&beta,tmp,&n);
     //P becomes U*expD*Ui... done --note: VL = inv(VR)
