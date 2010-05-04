@@ -5206,7 +5206,28 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
     in
     { dest with character_specs = char_specs; }
 
-    
+let get_likelihood_model data chars = 
+    let get_model x = match Hashtbl.find data.character_specs x with
+        | Static dat ->
+            begin match dat.Nexus.File.st_type with
+                | Nexus.File.STLikelihood model -> model
+                | _ -> failwith "unsupported static character"
+            end
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+            | Some x -> x
+            | None -> failwith "inconsistent dynamic likelihood state"
+            end
+        | _ -> failwith "unsupported dynamic character"
+    in
+    match List.map get_model chars with
+    | h :: t ->
+        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+            h
+        else failwith "Inconsistent Model over characters"
+    | [] ->
+        failwith "No Characters found"
+
 (* remove the absent/present columns in the parsed data, and modify the previous
  * column (the column the active/present column is adding data to), and modify
  * it to a gap for likelihood. This is only for likelihood characters. The

@@ -25,7 +25,7 @@ module IntSetMap = All_sets.IntSetMap
 
 let debug_profile_memory    = false
 let debug_node_fn           = false
-let debug_model_fn          = false
+let debug_model_fn          = true
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
 let debug_join_fn           = false
@@ -884,7 +884,7 @@ module F : Ptree.Tree_Operations
             current_snapshot 
                 (Printf.sprintf "AllDirChar.adjust_node %d" mine_k);
             if debug_adjust_fn then
-                info_user_message "AllDirCahr.adjust_node, on mine=%d with c1=%d,c2=%d p=%d" 
+                info_user_message "AllDirChar.adjust_node, on mine=%d with c1=%d,c2=%d p=%d" 
                                         mine_k ch1_k ch2_k parent_k;
             let gnd x = Ptree.get_node_data x ptree in
             let mine,modified =
@@ -1218,29 +1218,6 @@ module F : Ptree.Tree_Operations
         if using_likelihood `Static ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
-    (* get current model *)
-    let get_current_model data chars = 
-        let get_model x = match Hashtbl.find data.Data.character_specs x with
-            | Data.Static dat ->
-                begin match dat.Nexus.File.st_type with
-                    | Nexus.File.STLikelihood model -> model
-                    | _ -> failwith "unsupported static character"
-                end
-            | Data.Dynamic s when s.Data.state = `Ml ->
-                begin match s.Data.lk_model with
-                | Some x -> x
-                | None -> failwith "inconsistent dynamic likelihood state"
-                end
-            | _ -> failwith "unsupported dynamic character"
-        in
-        match List.map get_model chars with
-        | h :: t ->
-            if List.fold_left (fun acc x -> acc && (x = h)) true t then
-                h
-            else failwith "Inconsistent Model over characters"
-        | [] ->
-            failwith "No Characters found"
-
     (* ----------------- *)
     (* function to adjust the likelihood model of a tree using BFGS --quasi
      * newtons method. Function requires three directions. *)
@@ -1267,7 +1244,7 @@ module F : Ptree.Tree_Operations
             ntree,ncost
         and get_some = function | Some x -> x | None -> raise Not_found in
         (* compose above functions to initiate adjustments *)
-        let current_model = get_current_model tree.Ptree.data chars
+        let current_model = Data.get_likelihood_model tree.Ptree.data chars
         and current_cost = Ptree.get_cost `Adjusted tree in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_model current_model with
@@ -1282,9 +1259,9 @@ module F : Ptree.Tree_Operations
                 results
             | None -> (tree,current_cost)
         in
-        if debug_model_fn then
-            info_user_message "\t Iterated Model to %f" best_cost;
-        let current_model = get_current_model best_tree.Ptree.data chars in
+(*        if debug_model_fn then*)
+(*            info_user_message "\t Iterated Model to %f" best_cost;*)
+        let current_model = Data.get_likelihood_model best_tree.Ptree.data chars in
         let best_tree, best_cost = 
             match MlModel.get_update_function_for_alpha current_model with
             | None      -> best_tree,best_cost
@@ -1297,8 +1274,8 @@ module F : Ptree.Tree_Operations
                 in
                 snd results
         in
-        if debug_model_fn then
-            info_user_message "\t Iterated Alpha to %f" best_cost;
+(*        if debug_model_fn then*)
+(*            info_user_message "\t Iterated Alpha to %f" best_cost;*)
         if best_cost < current_cost then best_tree else tree
 
     let adjust_fn ?(epsilon=1.0e-4) ?(max_iter=20) node_man tree = 
@@ -1347,16 +1324,30 @@ module F : Ptree.Tree_Operations
                 let do_branches =
                     (match node_man#branches with | Some [] -> false | _ -> true)
                         && (tree.Ptree.data.Data.iterate_branches)
-                in
-                adjust_ (node_man#model) do_branches (node_man#branches) None tree
+                and do_model = node_man#model in
+                if not (do_model || do_branches) then tree
+                else begin
+                    let n_tree = adjust_ do_model do_branches 
+                                         node_man#branches None tree in
+                    info_user_message
+                        "Optimized Likelihood Parameters from %f to %f"
+                            (Ptree.get_cost `Adjusted tree)
+                            (Ptree.get_cost `Adjusted n_tree);
+                    n_tree
+                end
             | None ->
                 if debug_model_fn then
                     warning_user_message "No Iteration Manager; using current default";
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)
                 | `Iterative (`ThreeD  iterations) -> 
-                    adjust_ true (tree.Ptree.data.Data.iterate_branches) 
-                            None iterations tree
+                    let n_tree = adjust_ true (tree.Ptree.data.Data.iterate_branches) 
+                                         None iterations tree in
+                    info_user_message
+                        "Optimized Likelihood Parameters from %f to %f"
+                            (Ptree.get_cost `Adjusted tree)
+                            (Ptree.get_cost `Adjusted n_tree);
+                    n_tree
                 | _ -> tree
         end else begin
             match !Methods.cost with
