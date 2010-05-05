@@ -492,15 +492,13 @@ val synonyms_to_formatter : d -> Xml.xml
 
 val to_formatter : Xml.attributes -> d -> Xml.xml 
 
-val get_code_from_characters_restricted :
-    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | 
-        `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] ->
-             d -> characters -> int list
+type classes = 
+    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | `AllLikelihood
+    | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
-val get_code_from_characters_restricted_comp :
-    [ `Dynamic |  `NonAdditive | `Likelihood |
-        `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] ->
-             d -> bool_characters -> int list
+val get_code_from_characters_restricted : classes -> d -> characters -> int list
+
+val get_code_from_characters_restricted_comp : classes -> d -> bool_characters -> int list 
 
 val transform_dynamic :
     Methods.dynamic_char_transform ->
@@ -558,6 +556,8 @@ val set_dyna_data : 'a seq_t array -> 'a dyna_data
 val get_recost : dyna_pam_t -> int
 val get_locus_indel_cost : dyna_pam_t -> int * int
 
+
+val get_likelihood_model : d -> int list -> MlModel.model
 val apply_on_static_chars : d -> int list -> Nexus.File.st_type -> d
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a

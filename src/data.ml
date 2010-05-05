@@ -592,8 +592,10 @@ let convert_static_to_dynamic_branches ~src ~dest =
 
 let remove_bl force data =
     if (not force) && not data.iterate_branches then data
-    else { data with branches = None;
+    else begin
+        { data with branches = None;
                      iterate_branches = true; }
+    end
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
 
@@ -1275,37 +1277,33 @@ let repack_codes data =
             with
             | Not_found -> ()
         in
-        let root_at = 
-            match data.root_at with
+        let root_at = match data.root_at with
             | None -> None
             | Some x when x = used_code -> Some available_code
             | x -> x
         in
-        { data with taxon_codes = taxon_codes; taxon_names = taxon_names;
-        root_at = root_at }
+        { data with taxon_codes = taxon_codes; 
+                    taxon_names = taxon_names;
+                    root_at = root_at }
     in
     let recode_character data used_code available_code =
         let () = 
-            try 
-                let name = Hashtbl.find data.character_codes used_code in
+            try let name = Hashtbl.find data.character_codes used_code in
                 Hashtbl.remove data.character_names name;
                 Hashtbl.remove data.character_codes used_code;
                 Hashtbl.replace data.character_codes available_code name;
                 Hashtbl.replace data.character_names name available_code;
-            with
-            | Not_found -> ()
+            with | Not_found -> ()
         in
         let () = 
-            try 
-                let spec = Hashtbl.find data.character_specs used_code in
+            try let spec = Hashtbl.find data.character_specs used_code in
                 Hashtbl.replace data.character_specs available_code spec;
                 Hashtbl.remove data.character_specs used_code;
-            with
-            | Not_found -> ()
+            with | Not_found -> ()
         in
-        Hashtbl.iter (fun code chars ->
-                try 
-                    let char = Hashtbl.find chars used_code in
+        Hashtbl.iter 
+            (fun code chars ->
+                try let char = Hashtbl.find chars used_code in
                     Hashtbl.remove chars used_code;
                     Hashtbl.replace chars available_code 
                     (match char with
@@ -1313,21 +1311,20 @@ let repack_codes data =
                             ((Dyna (available_code, d)), x)
                     | (Stat (_, d)), x ->
                             ((Stat (available_code, d)), x));
-                with
-                | Not_found -> ())
-        data.taxon_characters;
-        data
+                with | Not_found -> ())
+            data.taxon_characters;
+            data
     in
     let data = 
         let check data code = 
             All_sets.IntegerMap.mem code data.taxon_codes
         in
         process_available recode_taxon check data greatest_taxa_code
-        available_taxa_codes 
+                            available_taxa_codes 
     in
     let check data code = Hashtbl.mem data.character_codes code in
     process_available recode_character check data greatest_char_code 
-    available_char_codes
+                        available_char_codes
 
 
 let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotated alphabet 
@@ -3402,6 +3399,10 @@ let select_random_sublist fraction lst =
     Array_ops.randomize arr;
     Array.to_list (Array.sub arr 0 n )
 
+type classes = 
+    [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | `AllLikelihood
+    | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
+
 let rec get_code_from_name data name_ls = 
   let code_ls = List.fold_right 
       ~f:(fun name acc -> 
@@ -3488,6 +3489,9 @@ and get_code_from_characters_restricted kind (data : d) (chs : characters) =
         | `Kolmogorov -> data.kolmogorov
         | `AllDynamic -> data.kolmogorov @ data.dynamics
         | `Likelihood -> data.static_ml
+        | `AllLikelihood -> 
+            (get_code_from_characters_restricted `Likelihood data chs) @
+            (get_code_from_characters_restricted `DynamicLikelihood data chs)
         | `AllStatic -> 
                         data.non_additive_1 @
                         data.non_additive_8 @
@@ -5168,6 +5172,31 @@ let has_dynamic_likelihood d =
         match Hashtbl.find d.character_specs hd with
         | Dynamic spec when spec.state = `Ml -> true
         | _                                  -> false
+
+let get_likelihood_model data chars = 
+    let get_model x = match Hashtbl.find data.character_specs x with
+        | Static dat ->
+            begin match dat.Nexus.File.st_type with
+                | Nexus.File.STLikelihood model -> model
+                | _ -> failwith "unsupported static character"
+            end
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+            | Some x -> x
+            | None -> failwith "inconsistent dynamic likelihood state"
+            end
+        | _ -> failwith "unsupported characters"
+    in
+    match List.map get_model chars with
+    | h :: t ->
+        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+            h
+        else failwith "Inconsistent Model over characters"
+    | [] ->
+        failwith "No Characters found"
+
+
+
 
 (* [sync_model_branches copy translate src dest] sync the data from the src to
  * destination. Copy defines if the data returned is a copy, or if the
