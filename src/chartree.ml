@@ -1407,7 +1407,6 @@ let root_costs tree =
 
 let dump_tree printer h tree = ()
 
-
 module TreeOps = struct
     type a = Node.node_data
     type b = Node.node_data
@@ -1434,4 +1433,5 @@ module TreeOps = struct
     
     let verify_downpass _ _ = true 
     let dump_tree = dump_tree
+    let tree_size _ = 0.0
 end

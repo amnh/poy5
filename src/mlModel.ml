@@ -475,10 +475,14 @@ let model_to_cm model t =
     res
 
 (* print output in our nexus format or Phyml output *)
-let output_model output nexus model = 
+let output_model f_name n_taxa t_cost t_size output nexus model = 
     let printf format = Printf.ksprintf output format in
     if nexus then ()
     else begin
+        printf "\nSequence Filename:\t\t%s\n" f_name;
+        printf "\nNumber of taxa:\t\t%d\n" n_taxa;
+        printf "\nTree Size:\t\t%f\n" t_size;
+        printf "\nLog-Likelihood:\t\t%f\n" (~-.t_cost);
         printf "\nDiscrete gamma model :";
         let () = match model.spec.site_variation with
             | Some Constant
