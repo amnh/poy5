@@ -161,6 +161,9 @@ external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
 
+val  m_meanrate :
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    float array -> unit
 (** models to be used outside likelihood if necessary **)
 val m_gtr   : float array -> float array -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
