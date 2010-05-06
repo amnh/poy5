@@ -389,7 +389,7 @@ let read_floatmatrix file =
     let f = Pervasives.open_in file in
     let mat = read_loop (explode) f in
     let _ = Pervasives.close_in f in 
-    mat
+    List.filter (function | [] -> false | _ -> true) mat
 
 let open_in close_it opener fn = 
     StatusCommon.Files.flush ();

@@ -1,3 +1,6 @@
+
+let (-->) a b = b a
+
 let main () = 
     if not (3 = Array.length Sys.argv) && not (2 = Array.length Sys.argv) then
         failwith "Usage: ./lk <matrixfile> <t>"
@@ -8,7 +11,7 @@ let main () =
         in
         (* process read_floatmatrix output *)
         let priors,rate_matrix = match data with
-            | hd::([])::tl | hd::tl ->
+            | hd::tl ->
                 let pi = Array.of_list hd
                 and ms = Array.of_list (List.map Array.of_list tl) in
                 (pi,ms)
@@ -17,7 +20,9 @@ let main () =
         (* create the matrix; and multiply through by priors *)
         let subst_matrix = 
             let alpha_size = Array.length priors in
-            let subst = MlModel.m_file priors rate_matrix alpha_size in
+            let subst = try MlModel.m_file priors rate_matrix alpha_size
+                        with | _ -> failwith "Matrix size and Priors are inconsistent"
+            in
             for i = 0 to alpha_size-1 do
                 for j = (i+1) to alpha_size - 1 do
                     subst.{i,j} <- subst.{i,j} *. priors.(j);
