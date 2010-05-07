@@ -334,6 +334,8 @@ type reporta = [
     | `Ri of old_identifiers option
     | `CompareSequences of (bool * old_identifiers * old_identifiers)
     | `FasWinClad
+    | `Model
+    | `Script of string list
     | `ExplainScript of string
     | `Consensus of float option
     | `GraphicConsensus of float option
@@ -478,6 +480,9 @@ let modify_acc acc c = function
     | [] -> acc
     | files -> (`Other (files, c)) :: acc
 
+let console_script = ref [] 
+let add_command_to_console_script str : string = 
+    console_script := str :: !console_script; str
 
 let iter_default =  `MaxCount 20, `JoinDelta
 
@@ -967,6 +972,10 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`CompareSequences (file, a, b, c)) :: acc, file
     | `FasWinClad ->
             (`FasWinClad (file)) :: acc, file
+    | `Model ->
+            (`Model (file)) :: acc, file
+    | `Script lst ->
+            (`Script (file,lst)) :: acc, file
     | `ExplainScript script ->
             (`ExplainScript (script, file)) :: acc, file
     | `Clades -> 
@@ -1675,6 +1684,8 @@ let create_expr () =
                     | Some x -> Some (float_of_string x)) ] | 
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
+                [ LIDENT "lkmodel" -> `Model ] | 
+                [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
                     `SequenceStats ch ] |
                 [ LIDENT "ci"; ":"; ch = old_identifiers -> `Ci (Some ch) ] |
@@ -2414,11 +2425,10 @@ and simplify_directory dir =
 and of_parsed optimize lst =
     let cur_directory = Sys.getcwd () in
     let res =
-        lst
-        --> transform_all_commands
-        --> List.map (process_commands false)
-        --> List.flatten
-        --> do_analysis optimize
+        lst --> transform_all_commands
+            --> List.map (process_commands false)
+            --> List.flatten
+            --> do_analysis optimize
     in
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;
@@ -2428,12 +2438,12 @@ and of_stream optimize str =
     let cur_directory = Sys.getcwd () in
     let expr = create_expr () in
     let res = 
-        str 
-        --> Gram.parse expr (Loc.mk "<stream>")
-        --> transform_all_commands
-        --> List.map (process_commands false)
-        --> List.flatten
-        --> do_analysis optimize
+        str (* --> add_command_to_console_script *)
+            --> Gram.parse expr (Loc.mk "<stream>")
+            --> transform_all_commands
+            --> List.map (process_commands false)
+            --> List.flatten
+            --> do_analysis optimize
     in
     let cur_directory = simplify_directory cur_directory in
     Sys.chdir cur_directory;

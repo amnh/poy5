@@ -212,6 +212,8 @@ END
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
+val output_model : (string -> unit) -> bool -> model -> unit
+
 val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
 
 (** [brents_method ?i ?e o f] uses brents method of parabolic interpolation to

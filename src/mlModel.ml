@@ -130,6 +130,8 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+
+
 IFDEF USE_LIKELIHOOD THEN
 
 (* a gentler compare that excludes the parameters of the model itself *)
@@ -187,7 +189,8 @@ external diagonalize_sym: (* U D *) FMatrix.m ->
     unit = "likelihood_CAML_diagonalize_sym"
 
 (* compose matrices -- for testing purposes, as this composition is
- * usually done on the C side exclusively *)
+ * usually done on the C side exclusively. If the time is less then zero, the
+ * instantaneious rate matrix will be returned instead (which is just UDUi). *)
 external compose_gtr: (* U D Ui t *) FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -379,12 +382,14 @@ let m_file pi_ f_rr a_size =
         assert(a_size = Array.length f_rr.(r));
         let diag = ref 0.0 in
         for c = 0 to (a_size-1) do
-            if (c <> r) then 
-                (diag := !diag +. f_rr.(r).(c); srm.{r,c} <- f_rr.(r).(c);)
+            if (c <> r) then begin 
+                diag := !diag +. f_rr.(r).(c); 
+                srm.{r,c} <- f_rr.(r).(c);
+            end
         done;
         srm.{r,r} <- ~-. !diag;
     done;
-    m_meanrate srm pi_; (* TODO: should this be done if given? *)
+    m_meanrate srm pi_;
     srm
 
 
@@ -470,6 +475,86 @@ let model_to_cm model t =
     let llst = Array.to_list (Array.map Array.to_list input) in
     let res = Cost_matrix.Two_D.of_list llst model.alph_s in
     res
+
+(* print output in our nexus format or Phyml output *)
+let output_model output nexus model = 
+    let printf format = Printf.ksprintf output format in
+    if nexus then ()
+    else begin
+        printf "\nDiscrete gamma model :";
+        let () = match model.spec.site_variation with
+            | Some Constant
+            | None -> printf "\tNo\n"
+            | Some (Gamma (cats,param)) ->
+                printf ("\tYes\n\t- Number of categories: \t%d\n"^^
+                        "\t- Gamma Shape Parameter:\t%.4f\n") cats param
+            | Some (Theta (cats,param,inv)) ->
+                printf ("\tYes\n\t- Number of categories: \t%d\n"^^
+                        "\t- Gamma Shape Parameter:\t%.4f\n") cats param;
+                printf ("\t- Proportion of invariant:\t%.4f") inv
+        in
+        printf "\nPriors / Base frequencies :\n";
+        let () = match model.spec.base_priors with
+            | Estimated x | Given x
+            | ConstantPi x ->
+                List.iter
+                    (fun (s,i) ->
+                        (* this expection handling avoids gaps when they are not
+                         * enabled in the alphabet as an additional character *)
+                        try printf "\t- f(%s)= %.5f\n" s x.(i) with _ -> ())
+                    (Alphabet.to_list model.alph);
+        in
+        printf "\nModel Parameters :";
+        let () = match model.spec.substitution with
+            | JC69  -> printf "\tJC69\n"
+            | F81   -> printf "\tF81\n"
+            | K2P x -> printf "\tK2P\n\t- Transition/transversion ratio:\t%.5f\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | F84 x -> printf "\tF84\n\t- Transition/transversion ratio:\t%.5f\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | HKY85 x->printf "\tF84\n\t- Transition/transversion ratio:\t%.5f\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | TN93 x -> failwith "nothing right now"
+            | GTR x -> printf "\tGTR\n\t- Rate Parameters : \n";
+                let get_str i = Alphabet.match_code i model.alph
+                and convert r c = (c + (r * (model.alph_s-1)) - ((r*(r+1))/2)) - 1 in
+                let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
+                for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
+                    printf "\t  %s <-> %s\t%.5f\n" (get_str i) (get_str j) ray.(convert i j)
+                done; done;
+            | File (ray,name) ->
+                printf "\tFile:%s\n" name;
+                let mat = compose model 0.0 in
+                printf "\t[";
+                for i = 0 to model.alph_s - 1 do
+                    printf "%s---------" (Alphabet.match_code i model.alph)
+                done;
+                printf "]\n\t";
+                for i = 0 to model.alph_s - 1 do 
+                    for j = 0 to model.alph_s - 1 do
+                        printf "%.5f\t" mat.{i,j}
+                    done; 
+                    print_newline ()
+                done;
+        in
+        printf "\nInstantaneous rate matrix :\n";
+        let () = 
+            let mat = compose model ~-.1.0 in
+            printf "\t[";
+            for i = 0 to model.alph_s - 1 do
+                printf "%s---------" (Alphabet.match_code i model.alph)
+            done;
+            printf "]";
+            for i = 0 to model.alph_s - 1 do 
+                printf "\n\t";
+                for j = 0 to model.alph_s - 1 do
+                    printf "%8.5f  " mat.{i,j}
+                done; 
+            done;
+        in 
+        print_newline ()
+    end
+
 
 (* ------------------------------------------------ *)
 (* CONVERSION/MODEL CREATION FUNCTIONS             *)
@@ -615,7 +700,16 @@ let create alph lk_spec =
         let p = match lk_spec.base_priors with 
             | ConstantPi p | Estimated p | Given p -> p in
         assert(a_size = Array.length p);
-        assert( 1.0 =. (Array.fold_left (fun a b -> a +. b) 0.0 p) );
+        let () = 
+            let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
+            if 1.0 =. sum then ()
+                else begin
+                    debug_printf "Priors (%f): [" sum;
+                    Array.iter (debug_printf "|%f") p;
+                    debug_printf "%s%!" "|]\n";
+                    failwith "Priors do not sum to 1.0"
+                end
+        in
         p
     in
 

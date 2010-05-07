@@ -773,15 +773,15 @@ module Make  (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) : S w
             method branches = match b_list with
                 | Some [] -> b_list (* not iterating anything *)
                 | Some x -> 
-                    Printf.printf "Iterating Edges: ";
-                    List.iter (fun (Tree.Edge (a,b)) ->
-                                    Printf.printf "%d -- %d, " a b) x;
-                    print_newline ();
+(*                    Printf.printf "Iterating Edges: ";*)
+(*                    List.iter (fun (Tree.Edge (a,b)) ->*)
+(*                                    Printf.printf "%d -- %d, " a b) x;*)
+(*                    print_newline ();*)
                     let copy = x in
                     b_list <- Some [];
                     Some copy
                 | None -> 
-                    Printf.printf "Iterating Edges: All\n%!";
+(*                    Printf.printf "Iterating Edges: All\n%!";*)
                     None
 
             method to_string =

@@ -567,6 +567,8 @@ val set_likelihood : d -> Methods.ml_spec    -> d
 
 val to_faswincladfile : d -> string option -> unit
 
+val get_likelihood_model : d -> int list -> MlModel.model 
+
 val report_taxon_file_cross_reference : 
     bool_characters option -> d -> string option -> unit
 

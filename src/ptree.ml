@@ -1343,9 +1343,9 @@ let search (passit:bool) (searcher, name) (search : ('a,'b) search_mgr) : ('a, '
     | Methods.TimedOut when not passit -> 
             Status.finished status;
             search
-    | err ->
-            Status.finished status;
-            raise err
+(*    | err ->*)
+(*            Status.finished status;*)
+(*            raise err*)
 
 (* This function will not find the local optimum, it will return as soon as a
 * better tree is found. *)

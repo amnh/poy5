@@ -560,6 +560,7 @@ let convert_dynamic_to_static_branches ~src ~dest =
 (* the converse of the above function *)
 let convert_static_to_dynamic_branches ~src ~dest = 
     let add_data ctbl ntbl : unit = 
+      try
         All_sets.IntSetMap.iter
             (fun set new_code ->
                 let new_name = Hashtbl.find dest.character_codes new_code
@@ -570,6 +571,8 @@ let convert_static_to_dynamic_branches ~src ~dest =
                 let lengths = Hashtbl.find ctbl old_name in
                 Hashtbl.add ntbl new_name lengths)
             src.static_dynamic_codes
+      with | _ -> 
+          failwith "Could not convert characters!"
     in
     match src.branches with
     | Some branches ->
@@ -593,6 +596,7 @@ let convert_static_to_dynamic_branches ~src ~dest =
 let remove_bl force data =
     if (not force) && not data.iterate_branches then data
     else begin
+        Printf.printf "Clearing the Branches\n%!";
         { data with branches = None;
                      iterate_branches = true; }
     end
@@ -3740,8 +3744,6 @@ let compute_priors data chars u_gap =
         let adder char_code =
             let (cs, _) = Hashtbl.find taxon_chars char_code in
             match cs with
-            | Stat (_, None) ->
-                when_no_data_is_loaded priors inverse size
             | Dyna (_, dyna_data ) ->
                 let list_of_packed d =
                     let rec loop_ c i d = match d land 1 with
@@ -3758,26 +3760,26 @@ let compute_priors data chars u_gap =
                         for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
                             let lst = list_of_packed (Sequence.get x.seq i) in
                             if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
-                                (* No gaps are allowed
-                                   when_no_data_is_loaded priors inverse size *)
                                 assert false
                             else
                                 let inv = 1.0 /. (float_of_int (List.length lst)) in
                                 List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                         done)
                     dyna_data.seq_arr
+            | Stat (_, None) ->
+                when_no_data_is_loaded priors inverse size
             | Stat (_, (Some lst)) -> 
-                    let lst = match lst with
-                        | `List x -> x
-                        | `Bits x -> BitSet.to_list x
-                    in
-                    if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
-                        when_no_data_is_loaded priors inverse size
-                    else begin
-                        incr counter;
-                        let inverse = 1. /. (float_of_int (List.length lst)) in
-                        List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
-                    end
+                let lst = match lst with
+                    | `List x -> x
+                    | `Bits x -> BitSet.to_list x
+                in
+                if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
+                    when_no_data_is_loaded priors inverse size
+                else begin
+                    incr counter;
+                    let inverse = 1. /. (float_of_int (List.length lst)) in
+                    List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
+                end
         in
         List.iter adder chars;
         longest := max !total !longest;
@@ -3785,7 +3787,13 @@ let compute_priors data chars u_gap =
     in
     Hashtbl.iter taxon_adder data.taxon_characters;
     let counter = float_of_int !counter
-    and gcounter = float_of_int !gap_counter in
+    and gcounter = float_of_int !gap_counter
+    and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
+    (*
+        Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
+        Array.iter (Printf.printf "|%f") priors;
+        Printf.printf "|]\n%!";
+    *)
     let final_priors = 
         if u_gap then begin
             let total_added_gaps = 
@@ -3797,7 +3805,7 @@ let compute_priors data chars u_gap =
             and weight  = gcounter /. (float_of_int size) in
             Array.map (fun x -> (x -. weight) /. counter) priors
         end else begin
-            Array.map (fun x -> x /. counter) priors
+            Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
     final_priors
@@ -3901,21 +3909,15 @@ IFDEF USE_LIKELIHOOD THEN
         let model =
             let alph_size,alph = verify_alphabet data chars in
             let alph_size = if u_gap then alph_size else alph_size - 1 in
-            let base_priors =
-                match base_priors with
+            let base_priors = match base_priors with
                 | `Estimate -> 
-                        let base_p = compute_priors data chars u_gap in
-                        MlModel.Estimated (base_p)
+                    let base_p = compute_priors data chars u_gap in
+                    MlModel.Estimated (base_p)
                 | `Constant ->
-                        let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
-                        MlModel.ConstantPi (base_p)
+                    let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
+                    MlModel.ConstantPi (base_p)
                 | `Given arr -> 
-                        let arr = Array.of_list arr in
-                        if alph_size = Array.length arr then
-                            MlModel.Given arr
-                        else 
-                            failwith 
-                            "Inconsistent alphabet size and prior vector size"
+                    MlModel.Given (Array.of_list arr)
             and site_variation = 
                 match site_variation with
                 | None -> Some MlModel.Constant 
@@ -5237,7 +5239,28 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
     in
     { dest with character_specs = char_specs; }
 
-    
+let get_likelihood_model data chars = 
+    let get_model x = match Hashtbl.find data.character_specs x with
+        | Static dat ->
+            begin match dat.Nexus.File.st_type with
+                | Nexus.File.STLikelihood model -> model
+                | _ -> failwith "unsupported static character"
+            end
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+            | Some x -> x
+            | None -> failwith "inconsistent dynamic likelihood state"
+            end
+        | _ -> failwith "unsupported dynamic character"
+    in
+    match List.map get_model chars with
+    | h :: t ->
+        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+            h
+        else failwith "Inconsistent Model over characters"
+    | [] ->
+        failwith "No Characters found"
+
 (* remove the absent/present columns in the parsed data, and modify the previous
  * column (the column the active/present column is adding data to), and modify
  * it to a gap for likelihood. This is only for likelihood characters. The

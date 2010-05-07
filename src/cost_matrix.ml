@@ -33,6 +33,8 @@ type cost_model =
 external init : unit -> unit = "cm_CAML_initialize"
 
 let debug = false
+
+let print_metric_issues = false
 (*let uselevel = false (* don't forget to set "uselevel" inside alphabet.ml
 and sequence.ml *)
 *)
@@ -905,9 +907,8 @@ module Two_D = struct
                 res := !res && (l.(i).(j) >= 0);
             done;
         done;
-        if (!res) then ()
-        else
-            Printf.printf " not positive \n%!";
+        if !res || not print_metric_issues then () 
+        else Printf.printf " not positive \n%!";
         !res
 
     let list_to_matrix l w =
@@ -929,9 +930,8 @@ module Two_D = struct
                 res := !res && (l.(i).(j) = l.(j).(i))
             done;
         done;
-        if (!res) then ()
-        else
-            Printf.printf " not symmetric \n%!";
+        if !res || not print_metric_issues then () 
+        else Printf.printf " not symmetric \n%!";
         !res
 
     let is_identity l =
@@ -939,12 +939,11 @@ module Two_D = struct
         and res = ref true in
         for i = 0 to h - 1 do
             res := !res && (0 = l.(i).(i));
-            if ( 0 <> l.(i).(i)) then
+            if ( 0 <> l.(i).(i)) && print_metric_issues then
                 Printf.printf "not identity: %d; " i;
         done;
-        if(!res) then ()
-        else
-            Printf.printf " not identity \n%!";
+        if !res || not print_metric_issues then () 
+        else Printf.printf " not identity \n%!";
         !res
 
     let is_triangle_inequality l =
@@ -957,22 +956,19 @@ module Two_D = struct
                 done;
             done;
         done;
-        if (!res) then () 
-        else 
-            Printf.printf " not triangle inequality !\n%!"
-            ;
+        if !res || not print_metric_issues then () 
+        else Printf.printf " not triangle inequality !\n%!";
         !res
 
     let input_is_metric l w = 
         let arr = list_to_matrix l w in
         let res =
-        is_positive arr && 
-        is_symmetric arr && 
-        is_triangle_inequality arr &&
-        is_identity arr
+            is_positive arr && 
+            is_symmetric arr && 
+            is_triangle_inequality arr &&
+            is_identity arr
         in
-        if (res) then
-            ()
+        if (res) || not print_metric_issues then ()
         else
            begin
                for i = 0 to w - 1 do
@@ -982,8 +978,7 @@ module Two_D = struct
                  done;
                  print_newline();
                done;
-           end
-           ;
+           end;
         res 
 
     let fill_cost_matrix ?(use_comb=true) ?(level = 0) l a_sz all_elements =

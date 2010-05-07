@@ -4323,6 +4323,20 @@ END
                     let script = PoyCommand.of_file false script in
                     Analyzer.explain_tree filename script;
                     run
+            | `Model filename ->
+                let fo = match filename with
+                    | Some fn-> let chan = open_out fn in
+                                (fun x -> output_string chan x)
+                    | None   -> output_string stdout
+                and chars =
+                    let chars = `Some (Data.get_chars_codes_comp run.data `All) in
+                    Data.get_code_from_characters_restricted `Likelihood run.data chars
+                in
+                let model = Data.get_likelihood_model run.data chars in
+                let () = MlModel.output_model fo false model in
+                run
+            | `Script (filename,script) -> 
+                run
             | `FasWinClad filename -> 
                 Data.to_faswincladfile run.data filename;
                 run
