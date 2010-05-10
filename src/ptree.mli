@@ -187,14 +187,14 @@ module type Tree_Operations =
     val downpass : (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
-    val to_formatter :  
-        Xml.attributes -> (a, b) p_tree -> Xml.xml 
+    val to_formatter :  Xml.attributes -> (a, b) p_tree -> Xml.xml 
 
     val branch_table : (a,b) p_tree -> 
             ((int * int),[ `Single of float | `Name]) Hashtbl.t
     (** [root_costs t] returns all possible roots in a tree (eg. every edge)
     * and the respective tree cost associated with it. *)
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
+    val tree_size : (a, b) p_tree -> float
     val unadjust : (a, b) p_tree -> (a, b) p_tree
 
     (* verification functions - expensive *)

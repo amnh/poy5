@@ -211,32 +211,6 @@ external gamma_rates: float -> float -> int ->
 (* ------------------------------------------------ *)
 (* MODEL CALCULATION FUNCTIONS                      *)
 
-let read_file file =
-    (* explode a string around a character;filtering empty results *)
-    let explode str ch =
-        let rec expl s i l =
-            if String.contains_from s i ch then
-                let spac = String.index_from s i ch in
-                let word = String.sub s i (spac-i) in
-                expl s (spac+1) (word::l)
-            else
-                let final = String.sub s i ((String.length s)-i) in
-                final::l
-        in
-        List.filter (fun x-> if x = "" then false else true)
-                    (List.rev (expl str 0 []))
-    in
-    (* read a channel line by line and applying f into a list *)
-    let rec read_loop f chan =
-        try let line = FileStream.Pervasives.input_line chan in
-            (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
-        with e -> []
-    in
-    let f = FileStream.Pervasives.open_in file in
-    let mat = read_loop (explode) f in
-    let _ = FileStream.Pervasives.close_in f in 
-    mat
-
 (* divide a matrix by the mean rate so it will equal 1 *)
 let m_meanrate srm pi_ =
     let mr = ref 0.0 and a_size = Bigarray.Array2.dim1 srm in
@@ -477,10 +451,14 @@ let model_to_cm model t =
     res
 
 (* print output in our nexus format or Phyml output *)
-let output_model output nexus model = 
+let output_model f_name n_taxa t_cost t_size output nexus model = 
     let printf format = Printf.ksprintf output format in
     if nexus then ()
     else begin
+        printf "\nSequence Filename:\t\t%s\n" f_name;
+        printf "\nNumber of taxa:\t\t%d\n" n_taxa;
+        printf "\nTree Size:\t\t%f\n" t_size;
+        printf "\nLog-Likelihood:\t\t%f\n" (~-.t_cost);
         printf "\nDiscrete gamma model :";
         let () = match model.spec.site_variation with
             | Some Constant
@@ -607,8 +585,8 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         | "GIVEN"-> (match file with
             | Some name ->
                 iterate_model := false;    
-                (`Local name)
-                    --> read_file
+                name
+                    --> FileStream.read_floatmatrix
                     --> List.map (Array.of_list)
                     --> Array.of_list
                     --> (fun x -> File (x,name))

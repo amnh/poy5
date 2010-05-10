@@ -4332,8 +4332,15 @@ END
                     let chars = `Some (Data.get_chars_codes_comp run.data `All) in
                     Data.get_code_from_characters_restricted `Likelihood run.data chars
                 in
-                let model = Data.get_likelihood_model run.data chars in
-                let () = MlModel.output_model fo false model in
+                List.iter
+                    (fun t ->
+                        let model  = Data.get_likelihood_model t.Ptree.data chars
+                        and cost   = Ptree.get_cost `Adjusted t
+                        and length = TreeOps.tree_size t
+                        and name   = t.Ptree.data.Data.current_fs_file 
+                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                        MlModel.output_model name ntaxa cost length fo false model)
+                    (Sexpr.to_list run.trees);
                 run
             | `Script (filename,script) -> 
                 run

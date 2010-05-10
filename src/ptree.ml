@@ -219,6 +219,7 @@ module type Tree_Operations =
                 ((int * int),[ `Single of float | `Name]) Hashtbl.t
 
         val root_costs : (a, b) p_tree -> (Tree.edge * float) list
+        val tree_size : (a, b) p_tree -> float
         val unadjust : (a, b) p_tree -> (a, b) p_tree
 
         (* verifiction functions *)

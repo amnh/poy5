@@ -365,6 +365,32 @@ let filename = function
 
 let do_broadcast = ref true
 
+let read_floatmatrix file =
+    (* explode a string around a character;filtering empty results *)
+    let explode str ch =
+        let rec expl s i l =
+            if String.contains_from s i ch then
+                let spac = String.index_from s i ch in
+                let word = String.sub s i (spac-i) in
+                expl s (spac+1) (word::l)
+            else
+                let final = String.sub s i ((String.length s)-i) in
+                final::l
+        in
+        List.filter (fun x-> if x = "" then false else true)
+                    (List.rev (expl str 0 []))
+    in
+    (* read a channel line by line and applying f into a list *)
+    let rec read_loop f chan =
+        try let line = Pervasives.input_line chan in
+            (List.map (float_of_string) (f line ' ') ) :: read_loop f chan
+        with e -> []
+    in
+    let f = Pervasives.open_in file in
+    let mat = read_loop (explode) f in
+    let _ = Pervasives.close_in f in 
+    List.filter (function | [] -> false | _ -> true) mat
+
 let open_in close_it opener fn = 
     StatusCommon.Files.flush ();
     if close_it then begin

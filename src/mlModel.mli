@@ -161,6 +161,9 @@ external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t =
         "gamma_CAML_rates"
 
+val  m_meanrate :
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    float array -> unit
 (** models to be used outside likelihood if necessary **)
 val m_gtr   : float array -> float array -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
@@ -212,7 +215,8 @@ END
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
-val output_model : (string -> unit) -> bool -> model -> unit
+val output_model : string -> int -> float -> float -> 
+                        (string -> unit) -> bool -> model -> unit
 
 val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
 
