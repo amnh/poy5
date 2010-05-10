@@ -1257,10 +1257,9 @@ let reroot_at_outgroup run =
         match data.Data.root_at with
         | None -> ptree
         | Some outgroup ->
-               try
-                   let nbr = Ptree.get_parent outgroup ptree in
+               try let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
-                       TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
+                       TreeOps.reroot_fn None true (Tree.Edge (outgroup, nbr)) ptree in
                    let ptree = TreeOps.incremental_uppass ptree update in
                    ptree
                with _ -> ptree
@@ -2001,49 +2000,43 @@ let get_trees_for_support support_class run =
         | Some (iterations, fs) ->
                 match x with
                 | `Individual ->
-                        Sexpr.map 
+                    Sexpr.map 
                         (fun tree ->
                             Ptree.supports 
-                            (fun x -> Data.code_taxon x run.data)
-                            0
-                            (float_of_int iterations)
-                            tree.Ptree.tree
-                            fs)
+                                (fun x -> Data.code_taxon x run.data)
+                                0 (float_of_int iterations) tree.Ptree.tree fs)
                         run.trees
                 | `InputFile x ->
-                        let trees = Tree.Parse.of_file (`Local x) in
-                        Sexpr.of_list
+                    let trees = Tree.Parse.of_file (`Local x) in
+                    Sexpr.of_list
                         (List.map 
-                        (fun tree ->
-                            Ptree.support_of_input
-                            (fun x -> Data.code_taxon x run.data)
-                            0
-                            (float_of_int iterations)
-                            tree
-                            run.data
-                            fs)
-                        trees)
+                            (fun tree ->
+                                Ptree.support_of_input
+                                    (fun x -> Data.code_taxon x run.data)
+                                    0 (float_of_int iterations) tree run.data fs)
+                            trees)
                 | `Consensus ->
-                        `Single 
+                    `Single 
                         (Ptree.preprocessed_consensus 
-                        (fun code -> Data.code_taxon code run.data) 
-                        (iterations / 2)
-                        iterations
-                        fs)
+                            (fun code -> Data.code_taxon code run.data) 
+                            (iterations / 2)
+                            iterations
+                            fs)
     in
     match support_class with
     | `Bremer (Some input_files) ->
-                S.bremer_of_input_file_but_trust_input_cost 
+            S.bremer_of_input_file_but_trust_input_cost 
                 (match run.data.Data.root_at with
-                | Some x -> x | None -> failwith "no root?")
+                    | Some x -> x | None -> failwith "no root?")
                 (fun x -> Data.code_taxon x run.data)
                 run.data
                 input_files
                 run.trees, 
-                "Bremer"
+            "Bremer"
     | `Bremer None ->
             Sexpr.map (S.support_to_string_tree run.data)
-            run.bremer_support, "Bremer"
+                      run.bremer_support, 
+            "Bremer"
     | `Jackknife x ->
             let res = do_support run.jackknife_support x in
             res, "Jackknife"
@@ -4597,8 +4590,16 @@ END
 (*                        Status.user_message Status.Error msg;*)
 (*                        run)*)
             | `Root where ->
-              { run with data =
-                      { run.data with Data.root_at = where } }
+                let tres = 
+                    Sexpr.map
+                        (fun t -> 
+                            {t with
+                                Ptree.data = {t.Ptree.data with 
+                                                Data.root_at = where;}})
+                        run.trees
+                in
+                { run with  data = { run.data with Data.root_at = where };
+                            trees = tres; }
             | `RootName name ->
                     if All_sets.StringMap.mem name run.data.Data.taxon_names then
                         folder run 

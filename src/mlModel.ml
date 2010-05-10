@@ -356,8 +356,10 @@ let m_file pi_ f_rr a_size =
         assert(a_size = Array.length f_rr.(r));
         let diag = ref 0.0 in
         for c = 0 to (a_size-1) do
-            if (c <> r) then 
-                (diag := !diag +. f_rr.(r).(c); srm.{r,c} <- f_rr.(r).(c);)
+            if (c <> r) then begin 
+                diag := !diag +. f_rr.(r).(c); 
+                srm.{r,c} <- f_rr.(r).(c);
+            end
         done;
         srm.{r,r} <- ~-. !diag;
     done;
