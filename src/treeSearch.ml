@@ -130,28 +130,30 @@ let sets_of_parser data tree =
     fst (process (Tree.Parse.strip_tree tree) All_sets.IntSet.empty)
 
 let sets meth data trees = 
-    match meth with
-    | `Partition options ->
-        (match 
-            List.fold_left (fun acc x -> 
-                match x with
+    let process_constraints options = 
+        List.fold_left 
+            (fun acc x -> match x with
                 | `ConstraintFile file -> Some file
-                | _ -> acc) None options
-        with
-        | None -> sets_of_consensus trees
-        | Some filename ->
-            try match Tree.Parse.of_file filename with
-            | [[tree]] -> lazy (sets_of_parser data tree)
-            | _ -> 
+                | _ -> acc) 
+            None options
+    in
+    match meth with
+    | `Partition options -> 
+        begin match process_constraints options with
+            | None -> sets_of_consensus trees
+            | Some filename ->
+                try match Tree.Parse.of_file filename with
+                | [[tree]] -> lazy (sets_of_parser data tree)
+                | _ -> 
                     Status.user_message Status.Error
                     ("To@ use@ constraint@ files@ you@ must@ provide@ a@ " ^
                     "single@ tree,@ not@ more,@ no@ forests@ are@ allowed.");
                     failwith "Illegal input file"
-            with
-            | err ->
-                    Status.user_message Status.Error
-                    "Error@ reading@ constraint@ file";
-                    raise err)
+                with
+                   | err -> Status.user_message Status.Error
+                                "Error@ reading@ constraint@ file";
+                            raise err
+        end
     | _ -> lazy (All_sets.IntSet.empty)
 
 let search_time_and_trees_considered a b = 

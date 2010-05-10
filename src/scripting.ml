@@ -4331,10 +4331,7 @@ END
                     Analyzer.explain_tree filename script;
                     run
             | `Model filename ->
-                let fo = match filename with
-                    | Some fn-> let chan = open_out fn in
-                                (fun x -> output_string chan x)
-                    | None   -> output_string stdout
+                let fo = Status.user_message (Status.Output (filename, false, []))
                 and chars =
                     let chars = `Some (Data.get_chars_codes_comp run.data `All) in
                     Data.get_code_from_characters_restricted `Likelihood run.data chars

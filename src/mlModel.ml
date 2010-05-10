@@ -453,23 +453,23 @@ let output_model f_name n_taxa t_cost t_size output nexus model =
     let printf format = Printf.ksprintf output format in
     if nexus then ()
     else begin
-        printf "\nSequence Filename:\t\t%s\n" f_name;
-        printf "\nNumber of taxa:\t\t%d\n" n_taxa;
-        printf "\nTree Size:\t\t%f\n" t_size;
-        printf "\nLog-Likelihood:\t\t%f\n" (~-.t_cost);
-        printf "\nDiscrete gamma model :";
+        printf "@[<hov 0>Sequence Filename: %s@]@\n" f_name;
+        printf "@[<hov 0>Number of taxa: %d@]@\n" n_taxa;
+        printf "@[<hov 0>Tree Size: %f@]@\n" t_size;
+        printf "@[<hov 0>Log-Likelihood: %f@]@\n" (~-.t_cost);
+        printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
             | Some Constant
-            | None -> printf "\tNo\n"
+            | None -> printf "No@]@\n"
             | Some (Gamma (cats,param)) ->
-                printf ("\tYes\n\t- Number of categories: \t%d\n"^^
-                        "\t- Gamma Shape Parameter:\t%.4f\n") cats param
+                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param
             | Some (Theta (cats,param,inv)) ->
-                printf ("\tYes\n\t- Number of categories: \t%d\n"^^
-                        "\t- Gamma Shape Parameter:\t%.4f\n") cats param;
-                printf ("\t- Proportion of invariant:\t%.4f") inv
+                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param;
+                printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
         in
-        printf "\nPriors / Base frequencies :\n";
+        printf "@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
             | Estimated x | Given x
             | ConstantPi x ->
@@ -477,58 +477,58 @@ let output_model f_name n_taxa t_cost t_size output nexus model =
                     (fun (s,i) ->
                         (* this expection handling avoids gaps when they are not
                          * enabled in the alphabet as an additional character *)
-                        try printf "\t- f(%s)= %.5f\n" s x.(i) with _ -> ())
+                        try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
                     (Alphabet.to_list model.alph);
         in
-        printf "\nModel Parameters :";
+        printf "@[Model Parameters: ";
         let () = match model.spec.substitution with
-            | JC69  -> printf "\tJC69\n"
-            | F81   -> printf "\tF81\n"
-            | K2P x -> printf "\tK2P\n\t- Transition/transversion ratio:\t%.5f\n"
+            | JC69  -> printf "JC69@]@\n"
+            | F81   -> printf "F81@]@\n"
+            | K2P x -> printf "K2P@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
                         (match x with Some x -> x | None -> default_tstv)
-            | F84 x -> printf "\tF84\n\t- Transition/transversion ratio:\t%.5f\n"
+            | F84 x -> printf "F84@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
                         (match x with Some x -> x | None -> default_tstv)
-            | HKY85 x->printf "\tF84\n\t- Transition/transversion ratio:\t%.5f\n"
+            | HKY85 x->printf "F84@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n"
                         (match x with Some x -> x | None -> default_tstv)
             | TN93 x -> failwith "nothing right now"
-            | GTR x -> printf "\tGTR\n\t- Rate Parameters : \n";
+            | GTR x -> printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
                 let get_str i = Alphabet.match_code i model.alph
                 and convert r c = (c + (r * (model.alph_s-1)) - ((r*(r+1))/2)) - 1 in
                 let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
                 for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
-                    printf "\t  %s <-> %s\t%.5f\n" (get_str i) (get_str j) ray.(convert i j)
+                    printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) (get_str j) ray.(convert i j)
                 done; done;
             | File (ray,name) ->
-                printf "\tFile:%s\n" name;
+                printf "File:%s@]@\n" name;
                 let mat = compose model 0.0 in
-                printf "\t[";
+                printf "@[<hov 1>[";
                 for i = 0 to model.alph_s - 1 do
                     printf "%s---------" (Alphabet.match_code i model.alph)
                 done;
-                printf "]\n\t";
+                printf "]@]@\n";
                 for i = 0 to model.alph_s - 1 do 
                     for j = 0 to model.alph_s - 1 do
                         printf "%.5f\t" mat.{i,j}
                     done; 
-                    print_newline ()
+                    printf "@\n";
                 done;
         in
-        printf "\nInstantaneous rate matrix :\n";
+        printf "@[Instantaneous rate matrix:@]@\n";
         let () = 
             let mat = compose model ~-.1.0 in
-            printf "\t[";
+            printf "@[<hov 1>[";
             for i = 0 to model.alph_s - 1 do
                 printf "%s---------" (Alphabet.match_code i model.alph)
             done;
             printf "]";
             for i = 0 to model.alph_s - 1 do 
-                printf "\n\t";
+                printf "@]@\n@[<hov 1>";
                 for j = 0 to model.alph_s - 1 do
                     printf "%8.5f  " mat.{i,j}
                 done; 
             done;
         in 
-        print_newline ()
+        printf "@]@\n"
     end
 
 
