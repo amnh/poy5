@@ -1163,7 +1163,7 @@ module F : Ptree.Tree_Operations
         if do_roots then refresh_roots false ptree else ptree
 
     let clear_internals force t = t
-        {t with Ptree.data = Data.remove_bl force t.Ptree.data; }
+(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; }*)
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1451,6 +1451,8 @@ module F : Ptree.Tree_Operations
             loop_ 0 (Ptree.get_cost `Adjusted tree) tree
         (* function to create a static tree from dynamic tree *)
         and create_static_tree ptree = 
+            let old_verbosity = Status.get_verbosity () in
+            Status.set_verbosity `None;
             let data,nodes = 
                 let ptree = update_branches ptree in
                 ptree
@@ -1459,6 +1461,7 @@ module F : Ptree.Tree_Operations
                     --> Data.categorize
                     --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
             in
+            Status.set_verbosity old_verbosity;
             let node_data = 
                 List.fold_left
                     (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
@@ -1494,20 +1497,10 @@ module F : Ptree.Tree_Operations
             { ntree with Ptree.component_root = roots; }
         in
         (* compose above functions: create a static tree then combine w/ dynamic *)
-        if (using_likelihood `Dynamic tree)
-            then begin
-                let old_verbosity = Status.get_verbosity () in
-                Status.set_verbosity `None;
-                let tree = 
-                    if not optimize then combine tree (create_static_tree tree)
-                    else optimize_apply_implied_alignments nmgr tree
-                in
-                Status.set_verbosity old_verbosity;
-                tree
-            end else begin
-                tree
-            end
-
+        match using_likelihood `Dynamic tree, optimize with
+            | true, false -> combine tree (create_static_tree tree)
+            | true, true  -> optimize_apply_implied_alignments nmgr tree
+            | false, _    -> tree
 
     let uppass ptree = 
         if debug_uppass_fn then Printf.printf "UPPASS begin: \n%!";

@@ -560,19 +560,18 @@ let convert_dynamic_to_static_branches ~src ~dest =
 (* the converse of the above function *)
 let convert_static_to_dynamic_branches ~src ~dest = 
     let add_data ctbl ntbl : unit = 
-      try
         All_sets.IntSetMap.iter
             (fun set new_code ->
-                let new_name = Hashtbl.find dest.character_codes new_code
-                and old_name = 
-                    let rep_code = All_sets.Integers.min_elt set in
-                    Hashtbl.find src.character_codes rep_code
-                in
-                let lengths = Hashtbl.find ctbl old_name in
-                Hashtbl.add ntbl new_name lengths)
+                try
+                    let new_name = Hashtbl.find dest.character_codes new_code
+                    and old_name = 
+                        let rep_code = All_sets.Integers.min_elt set in
+                        Hashtbl.find src.character_codes rep_code
+                    in
+                    let lengths = Hashtbl.find ctbl old_name in
+                    Hashtbl.add ntbl new_name lengths
+                with | _ -> ())
             src.static_dynamic_codes
-      with | _ -> 
-          failwith "Could not convert characters!"
     in
     match src.branches with
     | Some branches ->

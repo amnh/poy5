@@ -497,22 +497,19 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let t1, t2 =
                 let t1,t2 = match t1,t2 with
                     | Some (t1), Some (t2) when code <= 0 -> 
-(*                        Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
-(*                            code anode.taxon_code bnode.taxon_code (t1/.2.0) (t2/.2.0);*)
                         (t1/.2.0,t2/.2.0)
                     | Some (t1), Some (t2) ->
-(*                         Printf.printf "\t%d (%d,%d) using (%f,%f)\n%!" *)
-(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
                         (t1,t2)
                     | _ -> 
                         let t1,t2 = 
                             MlStaticCS.estimate_time ca.preliminary cb.preliminary
                         in
-(*                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
-(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
+                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" 
+                            code anode.taxon_code bnode.taxon_code t1 t2;
                         (t1,t2)
                 in
-                t1,t2
+                if anode.min_child_code < bnode.min_child_code then t1, t2
+                else t2, t1
             in 
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
@@ -523,10 +520,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     "Calculating %d with %f(%d) and %f(%d) = %f"
                     code t1 anode.taxon_code t2 bnode.taxon_code n_cost
             else ();
-            let t1,t2 =
-                if anode.min_child_code < bnode.min_child_code then t1, t2
-                else t2, t1
-            in
             let res =
                 {
                     preliminary = median;
@@ -629,15 +622,17 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let median, ((t1,t2) as time) = match ca.preliminary, cb.preliminary with
                 | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
                     IFDEF USE_LIKELIHOOD THEN
-                        let t1, t2 =
-                            let t1,t2 = match t1,t2 with
-                                | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
-                                | Some (t1), Some (t2) -> (t1,t2)
-                                | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
-                            in
-                            if anode.min_child_code < bnode.min_child_code 
-                                then t1, t2
-                                else t2, t1
+                        let t1, t2 = match t1,t2 with
+                            | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
+                            | Some (t1), Some (t2) ->
+                                if anode.min_child_code < bnode.min_child_code 
+                                    then t1, t2 else t2, t1
+                            | _ ->
+                                let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
+                                Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" 
+                                    code anode.taxon_code bnode.taxon_code t1 t2;
+                                if anode.min_child_code < bnode.min_child_code 
+                                    then t1,t2 else t2,t1
                         in 
                         if debug then 
                             info_user_message
@@ -1114,14 +1109,6 @@ let combine anode bnode =
 
 let median ?branches code old a b =
     let convert_2_lst chars tbl =
-(*        let values_match code_ray tbl = |+ array is guarentreed to be > 0 +|*)
-(*            let value = Hashtbl.find tbl (code_ray.(0)) in*)
-(*            Array.fold_left *)
-(*                (fun acc x -> *)
-(*                    acc && (value = (Hashtbl.find tbl x)))*)
-(*                true*)
-(*                code_ray*)
-(*        in*)
         List.map
             (fun x -> match x with
                 | Dynamic z -> IFDEF USE_LIKELIHOOD THEN
@@ -1129,13 +1116,11 @@ let median ?branches code old a b =
                     | DynamicCS.MlCS zdat ->
                         (match tbl with
                          | Some x ->
-                            let x = try Hashtbl.find x chars.taxon_code
-                                    with | Not_found ->
-                                        failwithf "Cannot find taxon_code %d" chars.taxon_code;
-                            in
-                            let codes = MlDynamicCS.get_codes zdat in
-(*                            assert( ((Array.length codes) > 0) && (values_match codes x));*)
-                            Some (Hashtbl.find x codes.(0))
+                            begin try
+                                let x = Hashtbl.find x chars.taxon_code in
+                                let codes = MlDynamicCS.get_codes zdat in
+                                Some (Hashtbl.find x codes.(0))
+                            with | Not_found -> None end
                          | None -> None)
                     | _ -> None
                     end
@@ -1145,24 +1130,11 @@ let median ?branches code old a b =
                 | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
                     (match tbl with
                     | Some x ->
-                        let x =
-                            try Hashtbl.find x chars.taxon_code
-                            with | Not_found ->
-                                failwithf "Cannot find taxon_code %d" chars.taxon_code;
-                        in
-                        let codes = MlStaticCS.get_codes z.preliminary in
-(*                        assert(((Array.length codes) > 0) && (values_match codes x));*)
-                        begin
-                            try Some (Hashtbl.find x codes.(0))
-                            with | Not_found -> None
-(*                                Printf.printf "Cannot find %d; of: " codes.(0);*)
-(*                                Array.iter (Printf.printf "%d, ") codes;*)
-(*                                print_newline ();*)
-(*                                Printf.printf "Found: ";*)
-(*                                Hashtbl.iter (fun k v -> Printf.printf "%d, " k) x;*)
-(*                                print_newline ();*)
-(*                                failwith "Not_found"*)
-                        end
+                        begin try
+                            let x = Hashtbl.find x chars.taxon_code in
+                            let codes = MlStaticCS.get_codes z.preliminary in
+                            Some (Hashtbl.find x codes.(0))
+                        with | Not_found -> None end
                     | None -> None)
                     ELSE
                         None
@@ -2880,6 +2852,17 @@ let estimate_time a b =
             ELSE
                 None
             END
+        | Dynamic a, Dynamic p ->
+            IFDEF USE_LIKELIHOOD THEN
+                begin match a.preliminary, p.preliminary with
+                    | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
+                        let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
+                        Some (t1+.t2)
+                    | _ -> None
+                end
+            ELSE
+                None
+            END
         | _, _ -> None
     in
     map2 (estimate_) a.characters b.characters
@@ -2888,6 +2871,21 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
     if debug_treebuild then
          Printf.printf "node.ml cs_to_single => %!";
     match parent_cs, mine with
+       | Dynamic parent, Dynamic mine ->
+          let root_pre = match root with
+          | Some (Dynamic root) -> Some root.preliminary
+          | _ -> None
+          in 
+          if debug_treebuild then
+               Printf.printf "call DynamicCS.to_single => annchromCS.to_single \n%!";
+          let prev_cost, cost, res = 
+              DynamicCS.to_single pre_ref_code 
+                    root_pre parent.preliminary mine.preliminary 
+          in
+          Dynamic {preliminary = res; final = res; 
+                   cost = (mine.weight *.  cost);
+                   sum_cost = (mine.weight *. cost);
+                   weight = mine.weight; time = mine.time}
     (* | StaticMl cb, StaticMl ca -> 
         IFDEF USE_LIKELIHOOD THEN
             (match root with
@@ -2905,25 +2903,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
             )
         ELSE
             failwith MlStaticCS.likelihood_error
-        END *)
-    | Dynamic parent, Dynamic mine ->
-            (* Do we need this only for dynamic characters? I will first get it
-            * going here only *)
-          let root_pre = match root with
-          | Some (Dynamic root) -> Some root.preliminary
-          | _ -> None
-          in 
-          if debug_treebuild then
-               Printf.printf "call DynamicCS.to_single => annchromCS.to_single \n%!";
-          let prev_cost, cost, res = 
-              DynamicCS.to_single pre_ref_code 
-                    root_pre parent.preliminary mine.preliminary 
-          in
-          Dynamic {preliminary = res; final = res; 
-                   cost = (mine.weight *.  cost);
-                   sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = mine.time}
-          (*
+        END
     | Kolmo parent, Kolmo mine ->
              Do we need this only for dynamic characters? I will first get it
             * going here only 
