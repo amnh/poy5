@@ -504,8 +504,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         let t1,t2 = 
                             MlStaticCS.estimate_time ca.preliminary cb.preliminary
                         in
-                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" 
-                            code anode.taxon_code bnode.taxon_code t1 t2;
+(*                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
+(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
                         (t1,t2)
                 in
                 if anode.min_child_code < bnode.min_child_code then t1, t2
@@ -629,8 +629,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                     then t1, t2 else t2, t1
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" 
-                                    code anode.taxon_code bnode.taxon_code t1 t2;
+(*                                Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
+(*                                    code anode.taxon_code bnode.taxon_code t1 t2;*)
                                 if anode.min_child_code < bnode.min_child_code 
                                     then t1,t2 else t2,t1
                         in 
