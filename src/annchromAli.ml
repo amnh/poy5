@@ -1016,25 +1016,22 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 *)
-    let cost1,recost1,alied_code1_arr,alied_code1m_arr = get_alied_code_arr 
+    let _, _, alied_code1_arr,alied_code1m_arr = get_alied_code_arr 
     code1_arr codem_arr seq1_arr seqm_arr c2 ali_pam cost1_mat gen_gap_code in
-    let editing_cost1 = cost1 - recost1 in
 (*    let _, _, alied_code2_arr, alied_code2m_arr = 
         GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code2_arr codem_arr cost2_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 *)
-    let cost2,recost2, alied_code2_arr,alied_code2m_arr = get_alied_code_arr 
+    let _, _, alied_code2_arr,alied_code2m_arr = get_alied_code_arr 
     code2_arr codem_arr seq2_arr seqm_arr c2 ali_pam cost2_mat gen_gap_code in
-    let editing_cost2 = cost2 - recost2 in
 (*    let _, _, alied_code3_arr, alied_code3m_arr = 
         GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code3_arr codem_arr cost3_mat
             gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
     in 
 *)   
-    let cost3,recost3, alied_code3_arr,alied_code3m_arr = get_alied_code_arr 
+    let _,_, alied_code3_arr,alied_code3m_arr = get_alied_code_arr 
     code3_arr codem_arr seq3_arr seqm_arr c2 ali_pam cost3_mat gen_gap_code in
-    let editing_cost3 = cost3 - recost3 in
 (* get common alied loci out of three input chromosome and the old median2.*)
     let common1 = ref [] and common2 = ref [] 
     and common3 = ref [] and common_med = ref [] in
@@ -1150,8 +1147,8 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
     end
     else old_total_cost, mine
     in
-    let mine3 = {mine with seq_arr = seq_arr} in 
-  (*  let cost1, recost1 = cmp_cost ch1 mine3 c2 alpha annchrom_pam in 
+    (*let mine3 = {mine with seq_arr = seq_arr} in 
+    let cost1, recost1 = cmp_cost ch1 mine3 c2 alpha annchrom_pam in 
     let cost2, recost2 = cmp_cost ch2 mine3 c2 alpha annchrom_pam in 
     let cost3, recost3 = cmp_cost ch3 mine3 c2 alpha annchrom_pam in 
     let total_cost3 = cost1 + cost2 + cost3 in *)
