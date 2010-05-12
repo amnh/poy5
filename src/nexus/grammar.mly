@@ -428,7 +428,7 @@ model_block:
     | SEMICOLON { [] }
     ;
 
-prior_options:
+priors_options:
     | pairs_list_float  { P.Given_Priors $1 }
     | IDENT SEMICOLON   { P.Other_Priors $1 }
     ;
