@@ -25,6 +25,10 @@ let debug_exclude   = false
 let debug_sets      = false
 let debug_set_cost  = false
 let debug_treebuild = false
+let debug_tosingle = false
+
+let likelihood_error = 
+    "Likelihood not enabled: download different binary or contact mailing list" 
 
 let (-->) b a = a b
 
@@ -1108,6 +1112,7 @@ let combine anode bnode =
         characters = List.map2 combine_ anode.characters bnode.characters; }
 
 let median ?branches code old a b =
+    if  debug_treebuild then Printf.printf "\n node.ml median\n%!";
     let convert_2_lst chars tbl =
         List.map
             (fun x -> match x with
@@ -1177,7 +1182,7 @@ let median ?branches code old a b =
     let node_cost = get_characters_cost new_characters in
     let total_cost = calc_total_cost a b node_cost in
     if debug_treebuild then
-         info_user_message"end of mapx in node.ml ...tottal_cost=%f\n" total_cost;
+         info_user_message "end of mapx in node.ml ...total_cost=%f\n" total_cost;
     let num_child_edges, num_height = new_node_stats a b in
     let exclude_info = excludes_median a b in
     let excluded = has_excluded exclude_info in
@@ -1199,6 +1204,7 @@ let median ?branches code old a b =
             cost_mode = a.cost_mode;
         }
     in
+    if debug_treebuild then Printf.printf "end of node.ml median\n%!";
     results
 
 (** [get_times_between nd child_code] returns a list of times between [nd] and
@@ -1289,7 +1295,7 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
      if debug_treebuild then
-         Printf.printf "end of mapX in node.ml ...tottal_cost=%f\n\n%!" total_cost;
+         Printf.printf "end of median_w_times, node.ml ...tottal_cost=%f\n\n%!" total_cost;
     { 
         characters = new_characters;
         total_cost =
@@ -2868,8 +2874,7 @@ let estimate_time a b =
     map2 (estimate_) a.characters b.characters
 
 let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
-    if debug_treebuild then
-         Printf.printf "node.ml cs_to_single => %!";
+    if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
     match parent_cs, mine with
        | Dynamic parent, Dynamic mine ->
           let root_pre = match root with
@@ -2926,6 +2931,8 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
+    if debug_tosingle then
+    Printf.printf "Node.ml to_single \n%!";
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc
@@ -2933,11 +2940,12 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
     match root with
     | Some root ->
         let root_char_opt = List.map (fun c -> Some c) root.characters in
-         if debug_treebuild then
-             Printf.printf "node.ml to_single, begin map3 with cs_to_single --> \n%!";
+         if debug_tosingle then
+             Printf.printf "begin map3 with cs_to_single, maplen = %d --> \n%!"
+             (List.length parent.characters);
         let chars = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) )
                         root_char_opt parent.characters mine.characters in
-         if debug_treebuild then
+         if debug_tosingle then
              Printf.printf "end of map3 in node.ml to_single \n%!";
         let root_cost = get_characters_cost chars in
         { root with 
