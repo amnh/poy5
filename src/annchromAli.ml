@@ -1094,7 +1094,13 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
         let ori_arr2 = to_ori_arr (Array.of_list alied_code2m_common) in
         let ori_arr3 = to_ori_arr (Array.of_list alied_code3m_common) in
         (*get ready to call grappa/mgr median solver*)
-        let delimiter_lstlst = [[];[];[]] in (*we don't have multi-chromosome here*)
+        (*this should be all empty list, but there is some bug with single 
+        * chromosome in mgr on the c side, while multichromosome works fine,
+        * just let it be like this, until I fix whatever is wrong in mgr*)
+        let delimiter_lstlst = [
+            [Array.length ori_arr1];
+            [Array.length ori_arr2];
+            [Array.length ori_arr3]] in 
         let circular = ali_pam.circular in 
         let medsov = ali_pam.median_solver in
         let ori_med3arr,_ = UtlGrappa.inv_med medsov ori_arr1 ori_arr2 ori_arr3
