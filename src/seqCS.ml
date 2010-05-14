@@ -1798,11 +1798,7 @@ let to_string a =
     Array_ops.fold_right_2 builder "" a.codes a.characters 
 
 let of_array spec sc code taxon =
-    let c3 = 
-        match spec.Data.tcm3d with
-        | `Normal3d x -> x
-        | `Empty3d -> Cost_matrix.Three_D.default
-    in
+    let c3 = spec.Data.tcm3d in
     let heur = make_default_heuristic ~c3 spec.Data.tcm2d in
     let create_item (x, _) =
         match spec.Data.initial_assignment, x with

@@ -719,13 +719,14 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             let treed = Data.get_tcm3d data character 
             and tcmfile = Data.get_tcmfile data character in
             let alph = Data.get_alphabet data character in
+            let weight = Data.get_weight character data in
             let data = Data.process_ignore_characters false data (`Names [name]) in
             let new_data = 
                 List.map (fun (seqs, taxon) ->
                     ([[seqs]], Data.code_taxon taxon data)) sequences
             in
-            Data.process_parsed_sequences false tcmfile tcm treed `DO false
-                                          alph name `Seq data new_data 
+            Data.process_parsed_sequences false weight tcmfile tcm treed `DO
+                                          false alph name `Seq data new_data
         in
         root 
             --> Node.get_sequences None

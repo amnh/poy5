@@ -1434,12 +1434,13 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 List.fold_left 
-                (fun d f -> Data.process_molecular_file "tcm:(1,2)"
-                Cost_matrix.Two_D.default 
-                (`Normal3d Cost_matrix.Three_D.default)
-                annotated Alphabet.nucleotides 
-                mode  is_prealigned `Seq d f) 
-                data files
+                    (fun d f -> 
+                        Data.process_molecular_file
+                                (Data.Substitution_Indel (1,2))
+                                Cost_matrix.Two_D.default
+                                Cost_matrix.Three_D.default annotated
+                                Alphabet.nucleotides mode is_prealigned `Seq d f)
+                    data files
         | `Chromosome files ->
 (** read chromosome data from files each chromosome is 
 * presented simply as a long plain nucleotide sequences *)
@@ -1449,12 +1450,14 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
                 in
-                List.fold_left (fun d f ->
-                    Data.process_molecular_file "tcm:(1,2)"
-                    Cost_matrix.Two_D.default 
-                    (`Normal3d Cost_matrix.Three_D.default)
-                    annotated Alphabet.nucleotides `DO false `Chromosome d f) 
-                data files
+                List.fold_left 
+                    (fun d f ->
+                        Data.process_molecular_file
+                                (Data.Substitution_Indel (1,2))
+                                Cost_matrix.Two_D.default 
+                                Cost_matrix.Three_D.default annotated
+                                Alphabet.nucleotides `DO false `Chromosome d f)
+                    data files
         | `Genome files -> 
 (** read genome data from files each genome is 
 * presented as a sequence of chromosomes separated by @ signs *)
@@ -1464,12 +1467,15 @@ let load_data (meth : Methods.input) data nodes =
                     (fun acc x -> Data.add_file acc [Data.Characters] x)
                     data files
                 in
-                let data = List.fold_left (fun d f ->
-                    Data.process_molecular_file "tcm:(1,2)"
-                    Cost_matrix.Two_D.default 
-                    (`Normal3d Cost_matrix.Three_D.default)
-                    annotated Alphabet.nucleotides `DO false `Genome d f) 
-                data files
+                let data =
+                    List.fold_left
+                        (fun d f ->
+                            Data.process_molecular_file
+                                    (Data.Substitution_Indel (1,2))
+                                    Cost_matrix.Two_D.default 
+                                    Cost_matrix.Three_D.default annotated
+                                    Alphabet.nucleotides `DO false `Genome d f)
+                        data files
                 in 
                 data
         | `Aminoacids files ->
@@ -1482,13 +1488,13 @@ let load_data (meth : Methods.input) data nodes =
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
                 List.fold_left 
-                (fun d f -> 
-                    Data.process_molecular_file 
-                    "tcm:(1,2)" Cost_matrix.Two_D.default_aminoacids
-                    (`Normal3d (Lazy.force
-                    Cost_matrix.Three_D.default_aminoacids))
-                    annotated Alphabet.aminoacids `DO is_prealigned `Seq d f) 
-                data files
+                    (fun d f -> 
+                        Data.process_molecular_file 
+                                    (Data.Substitution_Indel (1,2))
+                                    Cost_matrix.Two_D.default_aminoacids
+                                    (Lazy.force Cost_matrix.Three_D.default_aminoacids)
+                                    annotated Alphabet.aminoacids `DO is_prealigned `Seq d f)
+                    data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
                 let data = Data.add_file data [Data.Characters] seq in
                 let orientation = 
@@ -1497,31 +1503,35 @@ let load_data (meth : Methods.input) data nodes =
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
-                let alphabet, twod, threed =
-                    Alphabet.of_file alph orientation init3D in
+                let alphabet, (twod,matrix), threed =
+                    Alphabet.of_file alph orientation init3D
+                in
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
                 let tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
-                tcmfile twod (`Normal3d threed) annotated alphabet `DO 
-                is_prealigned `Seq data seq 
+                        (Data.Input_file (tcmfile,matrix))
+                        twod threed annotated alphabet `DO
+                        is_prealigned `Seq data seq 
         | `Breakinv (seq, alph, read_options) ->
-(** read breakinv data from files each breakinv is 
-* presented as a sequence of general alphabets *)
+                (** read breakinv data from files each breakinv is 
+                 * presented as a sequence of general alphabets *)
                 let data = Data.add_file data [Data.Characters] seq in
-                let orientation = (List.mem (`Orientation true) read_options) 
-                in
+                let orientation = (List.mem (`Orientation true) read_options) in
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
-                let alphabet, twod, threed =
+                let alphabet, (twod,matrix), threed =
                     Alphabet.of_file alph orientation init3D 
                 and tcmfile = FileStream.filename alph in
-                Data.process_molecular_file tcmfile twod (`Normal3d threed)
-                annotated alphabet `DO is_prealigned `Breakinv data seq
+                Data.process_molecular_file 
+                        (Data.Input_file (tcmfile,matrix))
+                        twod threed annotated alphabet `DO
+                        is_prealigned `Breakinv data seq
         | `ComplexTerminals files ->
                 List.fold_left Data.process_complex_terminals data 
                 (explode_filenames files)
+
     and annotated_reader data (meth : Methods.input) =
         match meth with
         | `AnnotatedFiles files ->
@@ -4865,9 +4875,9 @@ module DNA = struct
         let of_file file = 
             let ch = new FileStream.file_reader (`Local file) in
             try 
-                let res = 
-                    Cost_matrix.Two_D.of_channel ~orientation:false
-                    ~use_comb:true 31 ch
+                let res, _  = 
+                    Cost_matrix.Two_D.of_channel 
+                        ~orientation:false ~use_comb:true 31 ch
                 in
                 ch#close_in;
                 res

@@ -798,26 +798,21 @@ let of_file fn orientation init3D =
         if orientation then alph, false
         else explote alph level size, true
     in
-    let tcm = 
-        try
-            let all_elements = -1 (* we don't allow ambiguities here *) in
-            if do_comb then
-                Cost_matrix.Two_D.of_channel 
+    let tcm, matrix = 
+        let all_elements = -1 (* we don't allow ambiguities here *) in
+        if do_comb then
+            Cost_matrix.Two_D.of_channel 
                 ~orientation:orientation ~level:level all_elements file 
-            else
-                Cost_matrix.Two_D.of_channel_nocomb
+        else
+            Cost_matrix.Two_D.of_channel_nocomb
                 ~orientation all_elements file
-        with
-        | Failure "No Alphabet" -> 
-                assert false 
     in
-    let tcm3 = 
-        match init3D with
+    let tcm3 = match init3D with
         | true -> Cost_matrix.Three_D.of_two_dim tcm
         | false  ->  Cost_matrix.Three_D.default 
     in 
     file#close_in;
-    alph, tcm, tcm3
+    alph, (tcm,matrix), tcm3
 
 (*    code_to_string : string All_sets.IntegerMap.t;    *)
 (* vim: set et sw=4 tw=80: *)

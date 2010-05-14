@@ -52,6 +52,7 @@ let report_error text b e =
 %token <string> DATACSTREE
 %token <string> QUOTED
 %token <string> SINGLEQUOTED
+%token <string> SLASH
 %token <string> DATATYPE
 %token <string> DEFTYPE
 %token <string> DIAGONAL
@@ -72,6 +73,7 @@ let report_error text b e =
 %token <string> FREQUENCY
 %token <string> GAP
 %token <string> GAPMODE
+%token <string> GAPOPENING
 %token <string> GENETICCODE
 %token <string> GIF
 %token <string> INDIVIDUALS
@@ -80,6 +82,7 @@ let report_error text b e =
 %token <string> ITEMS
 %token <string> JPEG
 %token <string> LABELS
+%token <string> LINK
 %token <string> LIKELIHOOD
 %token <string> LOWER
 %token <string> MAM
@@ -136,8 +139,10 @@ let report_error text b e =
 %token <string> TAXLABELS
 %token <string> TAXPARTITION
 %token <string> TAXSET
+%token <string> TCM
 %token <string> TEXT
 %token <string> TIFF
+%token <string> TITLE
 %token <string> TOKENS
 %token <string> TRANSLATE
 %token <string> TRANSPOSE
@@ -180,27 +185,27 @@ header:
     | NEXUS { () }
     ;
 block:
-    | BEGIN TAXA SEMICOLON taxa ENDNEXUS SEMICOLON  
-        { P.Taxa $4 }
-    | BEGIN TAXA SEMICOLON IDENT error ENDNEXUS SEMICOLON 
-        { if $4 = "TITLE" then !P.print_error mesquite_error;
-            raise Parsing.Parse_error }
-    | BEGIN CHARACTERS SEMICOLON characters ENDNEXUS SEMICOLON 
-        { P.Characters $4 }
-    | BEGIN DATA SEMICOLON characters ENDNEXUS SEMICOLON
-        { P.Characters $4 }
-    | BEGIN UNALIGNED SEMICOLON unaligned ENDNEXUS SEMICOLON
-        { P.Unaligned $4 }
-    | BEGIN TREES SEMICOLON optional_translate tree_list ENDNEXUS SEMICOLON
-        { P.Trees ($4,$5) }
-    | BEGIN NOTES SEMICOLON notes ENDNEXUS SEMICOLON 
-        { P.Notes $4 }
-    | BEGIN DISTANCES SEMICOLON distances ENDNEXUS SEMICOLON 
-        { P.Distances $4 }
-    | BEGIN ASSUMPTIONS SEMICOLON assumptions ENDNEXUS SEMICOLON
-        { P.Assumptions $4 }
-    | BEGIN SETS SEMICOLON sets_block ENDNEXUS SEMICOLON
-        { P.Sets $4 }
+    | BEGIN TAXA SEMICOLON mesquite_broken taxa ENDNEXUS SEMICOLON  
+        { P.Taxa $5 }
+    | BEGIN CHARACTERS SEMICOLON mesquite_broken characters ENDNEXUS SEMICOLON 
+        { P.Characters $5 }
+    | BEGIN DATA SEMICOLON mesquite_broken characters ENDNEXUS SEMICOLON
+        { P.Characters $5 }
+    | BEGIN UNALIGNED SEMICOLON mesquite_broken unaligned ENDNEXUS SEMICOLON
+        { P.Unaligned $5 }
+    | BEGIN TREES SEMICOLON mesquite_broken optional_translate tree_list ENDNEXUS SEMICOLON
+        { P.Trees ($5,$6) }
+    | BEGIN NOTES SEMICOLON mesquite_broken notes ENDNEXUS SEMICOLON 
+        { P.Notes $5 }
+    | BEGIN DISTANCES SEMICOLON mesquite_broken distances ENDNEXUS SEMICOLON 
+        { P.Distances $5 }
+    | BEGIN ASSUMPTIONS SEMICOLON mesquite_broken assumptions ENDNEXUS SEMICOLON
+        { P.Assumptions $5 }
+    | BEGIN SETS SEMICOLON mesquite_broken sets_block ENDNEXUS SEMICOLON
+        { P.Sets $5 }
+    | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
+        { P.Poy $4 }
+    /* error states */
     | BEGIN IDENT error ENDNEXUS SEMICOLON
         { P.Error $2 }
     | BEGIN TAXA SEMICOLON error ENDNEXUS SEMICOLON  
@@ -213,9 +218,17 @@ block:
         { P.Error $2 }
     | BEGIN SETS SEMICOLON error ENDNEXUS SEMICOLON
         { P.Error $2 }
-    | BEGIN POY SEMICOLON poy_block ENDNEXUS SEMICOLON
-        { P.Poy $4 }
     ;
+
+mesquite_broken:
+    | mesquite_broken_items mesquite_broken { $1 :: $2  }
+    |                                       { []        }
+    ;
+mesquite_broken_items:
+    | TITLE any_thing_minus_end SEMICOLON { () }
+    | LINK  any_thing_minus_end EQUAL any_thing_minus_end SEMICOLON { () }
+    ;
+
 assumptions:
     | assumption_items assumptions { $1 :: $2 }
     | { [] }
@@ -232,11 +245,46 @@ assumption_items:
         raise Parsing.Parse_error }
     ;
 
-sets_block:
-    | CHARSET IDENT EQUAL characterset_list SEMICOLON sets_block { ($2, $4) :: $6 }
-    | CHARSET IDENT EQUAL characterset_list SEMICOLON { ($2,$4) :: [] }
-    | any_thing_minus_end sets_block { $2 }
+set_in_block:
+    | CHARSET nexus_word optional_lparent optional_standard_or_vector optional_rparent EQUAL characterset_list 
+        { $2, P.CharacterSet $7     }
+    | STATESET nexus_word optional_lparent optional_standard_or_vector optional_rparent EQUAL characterset_list 
+        { $2, P.StateSet $7         }
+    | TAXSET nexus_word optional_lparent optional_standard_or_vector optional_rparent EQUAL characterset_list 
+        { $2, P.TaxonSet $7         } 
+    | TREESET nexus_word optional_lparent optional_standard_or_vector optional_rparent EQUAL characterset_list 
+        { $2, P.TreeSet $7          }
+    | CHARPARTITION nexus_word partition_contents
+        { $2, P.CharPartition $3    }
+    | TAXPARTITION nexus_word partition_contents
+        { $2, P.TaxPartition $3     }
+    | TREEPARTITION nexus_word partition_contents
+        { $2, P.TreePartition $3    }
     ;
+
+optional_lparent:
+    | LPARENT  { () }
+    | { () }
+    ;
+optional_rparent:
+    | RPARENT { () }
+    | { () }
+    ;
+partition_contents:
+    | do_token EQUAL standard_type_set          { P.Standard $3 }
+    | do_token STANDARD EQUAL standard_type_set { P.Standard $4 }
+    | do_token VECTOR EQUAL vector_type_set     { P.Vector $4   }
+    ;
+sets_block:
+    | set_in_block SEMICOLON sets_block { $1 :: $3 }
+    | set_in_block SEMICOLON { [$1] }
+    ;
+optional_standard_or_vector:
+    | STANDARD { Some $1 }
+    | VECTOR   { Some $1 }
+    | { None }
+    ;
+
 optional_assumption_options:
     | OPTIONS deftype polytcount gapmode SEMICOLON { ($2, $3, $4) }
     ;
@@ -282,16 +330,22 @@ number_and_char:
 optional_type_set:
     | TYPESET optional_set_for_assumptions { $2 }
     ;
+
 optional_wtset:
     | WTSET optional_set_for_assumptions { $2 }
     ;
+
 do_token:
-    | NOTOKENS { false }
-    | TOKENS { true }
-    | { false }
+    | NOTOKENS  { false }
+    | TOKENS    { true  }
+    |           { false }
+    ;
+
 do_star:
-    | STAR { false }
-    | { true }
+    | STAR { true }
+    |      { false }
+    ;
+
 optional_set_for_assumptions:
     | do_star IDENT do_token EQUAL standard_type_set SEMICOLON 
         { ($1, $2, $3, P.Standard $5) }
@@ -300,6 +354,7 @@ optional_set_for_assumptions:
     | do_star IDENT VECTOR do_token EQUAL vector_type_set SEMICOLON 
         { ($1, $2, $4,P.Vector $6) }
     ;
+
 standard_type_set_item:
     | INTEGER COLON characterset_list { P.Code ($1, $3) }
     | FLOAT COLON characterset_list   { P.Code ($1, $3) }
@@ -308,14 +363,21 @@ standard_type_set_item:
 standard_type_set:
     | standard_type_set_item COMMA standard_type_set { ($1 :: $3) }
     | standard_type_set_item { [$1] }
+    |                        { []   }
     ;
 vector_type_set:
-    | INTEGER vector_type_set { ($1 :: $2) }
-    | INTEGER { [$1] }
+    | INTEGER vector_type_set { ($1 :: $2)  }
+    |                         { []          }
     ;
 optional_exset:
-    | EXSET optional_set_for_assumptions { $2 }
+    | EXSET do_star nexus_word EQUAL characterset_list SEMICOLON 
+        { ($2, $3, P.STDStandard $5) }
+    | EXSET do_star nexus_word STANDARD EQUAL characterset_list SEMICOLON 
+        { ($2, $3, P.STDStandard $6) }
+    | EXSET do_star nexus_word VECTOR EQUAL vector_type_set SEMICOLON 
+        { ($2, $3, P.STDVector $6)   }
     ;
+
 optional_ancstates:
     | ANCSTATES optional_set_for_assumptions { $2 }
     ;
@@ -340,19 +402,19 @@ optional_text:
     | { None }
     ;
 optional_picture:
-    | PICTURE optional_set_pair_list optional_pictureformat optional_encode SOURCE EQUAL source 
-    DATA SEMICOLON { Some ($2, $3, $4, $7, $8) }
-    | { None } 
+    | PICTURE optional_set_pair_list optional_pictureformat optional_encode SOURCE EQUAL source DATA SEMICOLON 
+        { Some ($2, $3, $4, $7, $8) }
+    |   { None } 
     ;
 optional_set_pair_list:
     | set_pair optional_set_pair_list { $1 :: $2 }
     | { [] }
     ;
 set_pair:
-    | TAXON EQUAL characterset     { P.TaxonSet $3 }
-    | CHARACTER EQUAL characterset { P.CharacterSet $3 }
-    | STATE EQUAL characterset      { P.StateSet $3 }
-    | TREE EQUAL characterset        { P.TreeSet $3 }
+    | TAXON EQUAL characterset_list     { P.TaxonSet $3     }
+    | CHARACTER EQUAL characterset_list { P.CharacterSet $3 }
+    | STATE EQUAL characterset_list     { P.StateSet $3     }
+    | TREE EQUAL characterset_list      { P.TreeSet $3      }
     ;
 source:
     | INLINE    {P.Inline }
@@ -398,8 +460,13 @@ poy_block:
     | CHARACTERBRANCH TREES EQUAL names NAMES EQUAL characterset_list SEMICOLON
                   MAP pairs_list_float SEMICOLON poy_block
         { P.CharacterBranch ($4, $7, $10) :: $12}
-
     | LIKELIHOOD model_block poy_block { P.Likelihood $2 :: $3 }
+    | GAPOPENING do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
+        { (P.GapOpening ($2, $3, $5)) :: $7 }
+    | WTSET do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
+        { (P.DynamicWeight ($2, $3, $5)) :: $7 }
+    | TCM do_star nexus_word EQUAL standard_type_set SEMICOLON poy_block
+        { (P.Tcm ($2, $3, $5)) :: $7 }
     | { [] }
     ;
 model_block:
@@ -480,6 +547,10 @@ optional_charlabels:
     | CHARLABELS taxonlist SEMICOLON    { $2 }
     |                                   { [] }
     ;
+charstatelables:
+    | INTEGER nexus_word BACKSLASH taxonlist COMMA charstatelables { ($1, $2, $4) :: $6 }
+    | INTEGER nexus_word BACKSLASH taxonlist { [] }
+    ;
 optional_charstatelabels:
     | CHARSTATELABELS charstatelables SEMICOLON { $2 }
     |                                           { [] }
@@ -558,12 +629,12 @@ triangle_format:
     | BOTH { P.Both }
     ;
 datatype:
-    | STANDARD { P.DStandard }
-    | DNA { P.Dna }
-    | RNA { P.Rna }
-    | NUCLEOTIDE { P.Nucleotide }
-    | PROTEIN { P.Protein }
-    | CONTINUOUS { P.Continuous }
+    | STANDARD      { P.DStandard   }
+    | DNA           { P.Dna         }
+    | RNA           { P.Rna         }
+    | NUCLEOTIDE    { P.Nucleotide  }
+    | PROTEIN       { P.Protein     }
+    | CONTINUOUS    { P.Continuous  }
     ;
 symbol:
     | IDENT { $1 }
@@ -571,54 +642,95 @@ symbol:
     | CHAR  { Char.escaped $1 }
     ;
 symbol_list:
-    | symbol symbol_list { $1 :: $2 }
-    |       { [] }
+    | symbol symbol_list    { $1 :: $2  }
+    |                       { []        }
     ;
 symbol_pair:
     | symbol EQUAL symbol {($1, [$3])}
     | symbol EQUAL LPARENT symbol_list RPARENT { ($1, $4) }
     ;
 item:
-    | MIN { P.Min }
-    | MAX { P.Max }
-    | MEDIAN  { P.Median }
-    | AVERAGE { P.Average }
-    | VARIANCE { P.Variance }
-    | STDERROR { P.Stderror }
-    | SAMPLESIZE { P.SampleSize }
-    | STATES     { P.States }
+    | MIN           { P.Min         }
+    | MAX           { P.Max         }
+    | MEDIAN        { P.Median      }
+    | AVERAGE       { P.Average     }
+    | VARIANCE      { P.Variance    }
+    | STDERROR      { P.Stderror    }
+    | SAMPLESIZE    { P.SampleSize  }
+    | STATES        { P.States      }
     ;
 states_format:
-    | STATESPRESENT { P.StatesPresent }
-    | INDIVIDUALS   { P.Individuals }
-    | COUNT         { P.Count }
-    | FREQUENCY     { P.Frequency }
+    | STATESPRESENT { P.StatesPresent   }
+    | INDIVIDUALS   { P.Individuals     }
+    | COUNT         { P.Count           }
+    | FREQUENCY     { P.Frequency       }
     ;
 optional_taxa_dimensions:
-    | NTAX EQUAL INTEGER { Some $3 }
-    |               { None }
+    | NTAX EQUAL INTEGER    { Some $3   }
+    |                       { None      }
     ;
 taxa:
     | DIMENSIONS NTAX EQUAL INTEGER SEMICOLON TAXLABELS taxonlist SEMICOLON 
         { ($4, $7) }
     ;
+nexus_word :
+    | IDENT         { $1 }
+    | SINGLEQUOTED  { $1 }
+    | DNA           { $1 }
+    | RNA           { $1 }
+    ;
 taxonlist:
-    | IDENT taxonlist   { $1 :: $2 }
-    | SINGLEQUOTED taxonlist { $1 :: $2 }
-    |                   { [] }
+    | nexus_word taxonlist      { $1 :: $2  }
+    |                           { []        }
     ;
 characterset_list:
     | characterset characterset_list { $1 :: $2 }
-    | characterset      { [$1] }
+    | characterset                   { [$1]     }
     ;
 characterset:
-    | INTEGER DASH CHAR    { P.Range ($1, None) }
-    | INTEGER DASH INTEGER { P.Range ($1, Some $3) }
-    | INTEGER              { P.Single ($1) }
-    | IDENT                { P.CharSet $1 }
+    | INTEGER DASH CHAR optional_step       { P.Range ($1, None, $4) }
+    | INTEGER DASH INTEGER optional_step    { P.Range ($1, Some $3, $4) }
+    | INTEGER              { P.Single $1 }
+    | IDENT                { P.Name $1 }
     | SINGLEQUOTED         { P.Name $1 }
     | CHAR                 { P.Name (String.make 1 $1) }
+    | DNA                  { P.Name "DNA" }
+    | RNA                  { P.Name "RNA" }
+    | PROTEIN              { P.Name "PROTEIN" }
     ;
+optional_step:
+    | SLASH INTEGER { int_of_string $2 }
+    |               { 1 }
+
+/* -------------------------------------------------------------------------- */
+/* Entry of the Tree Parser                                                   */
+tree:
+    | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
+    ;
+single_tree:
+    | IDENT optional_length optional_comment { P.Leaf ($1, ($2, $3)) }
+    | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
+                            { P.Node ($2, $4, ($5, $6)) }
+    ;
+single_tree_list:
+    | single_tree COMMA single_tree_list { $1 :: $3 }
+    | single_tree { [$1] }
+    ;
+optional_length:
+    | COLON INTEGER { Some (float_of_string $2) }
+    | COLON FLOAT { Some (float_of_string $2) }
+    | { None }
+    ;
+optional_comment:
+    | LBRACKET IDENT RBRACKET { Some $2 }
+    | { None }
+    ;
+optional_label:
+    | IDENT     { Some $1 }
+    | { None }
+    ;
+
+/* -------------------------------------------------------------------------- */
 any_thing_minus_end:
     | TAXA  { () }
     | DATA  { () }
@@ -646,7 +758,6 @@ any_thing_minus_end:
     | CONTINUOUS { () }
     | COUNT { () }
     | CSTREE { () }
-    | DATACSTREE { () }
     | QUOTED { () }
     | DATATYPE { () }
     | DEFTYPE { () }
@@ -748,31 +859,5 @@ any_thing_minus_end:
     | DASH { () }
     | LPARENT { () }
     | RPARENT { () }
-    ;
-
-/* Entry of the Tree Parser */
-tree:
-    | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
-    ;
-single_tree:
-    | IDENT optional_length optional_comment { P.Leaf ($1, ($2, $3)) }
-    | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
-                            { P.Node ($2, $4, ($5, $6)) }
-    ;
-single_tree_list:
-    | single_tree COMMA single_tree_list { $1 :: $3 }
-    | single_tree { [$1] }
-    ;
-optional_length:
-    | COLON INTEGER { Some (float_of_string $2) }
-    | COLON FLOAT { Some (float_of_string $2) }
-    | { None }
-    ;
-optional_comment:
-    | LBRACKET IDENT RBRACKET { Some $2 }
-    | { None }
-    ;
-optional_label:
-    | IDENT     { Some $1 }
-    | { None }
+    | SINGLEQUOTED { () }
     ;

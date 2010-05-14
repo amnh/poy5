@@ -118,6 +118,13 @@ type dyna_pam_t = {
 }
 type clip = Clip | NoClip
 
+type tcm_definition = 
+    | Substitution_Indel of (int * int)
+    | Input_file of (string * (int list list))
+    | Substitution_Indel_GapOpening of (int * int * int)
+    | Input_file_GapOpening of (string * (int list list) * int)
+    | Level of int
+
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
     | `AutoPartitioned of (clip * int * (int,  ((int * int) list)) Hashtbl.t)
@@ -127,18 +134,13 @@ type dyna_initial_assgn = [
             (Sequence.s array) * 
             ((int, int) Hashtbl.t))  ]
 
-type costmatrix_3d = [
-    | `Normal3d of Cost_matrix.Three_D.m
-    | `Empty3d  ]
-
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
-    tcm : string;
-    fo : string;
+    tcm : tcm_definition;
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
-    tcm3d : costmatrix_3d;
+    tcm3d : Cost_matrix.Three_D.m; 
     lk_model : MlModel.model option;
     alph : Alphabet.a;
     state : dyna_state_t;
@@ -424,12 +426,12 @@ val get_weight : int -> d -> float
 val get_weights : d -> (int * float) list
 
 val process_parsed_sequences : 
-    bool -> string -> Cost_matrix.Two_D.m -> costmatrix_3d ->
+    bool -> float -> tcm_definition -> Cost_matrix.Two_D.m -> Cost_matrix.Three_D.m ->
         dyna_initial_assgn -> bool -> Alphabet.a -> string -> dyna_state_t ->
             d -> (Sequence.s list list list * Parser.E.taxon) list -> d
 
-val process_molecular_file : string -> Cost_matrix.Two_D.m ->
-    costmatrix_3d -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
+val process_molecular_file : tcm_definition -> Cost_matrix.Two_D.m ->
+    Cost_matrix.Three_D.m -> bool -> Alphabet.a -> dyna_initial_assgn-> bool -> 
         dyna_state_t -> d -> FileStream.f -> d
 
 val add_static_file : ?report:bool -> [`Hennig | `Nexus] -> d -> FileStream.f -> d
@@ -461,8 +463,8 @@ val remove_taxa_to_ignore : d -> d
 val get_sequence_tcm : int -> d -> Cost_matrix.Two_D.m
 
 val get_tcm2d : d -> int -> Cost_matrix.Two_D.m 
-val get_tcm3d : d -> int -> costmatrix_3d 
-val get_tcmfile : d -> int -> string
+val get_tcm3d : d -> int -> Cost_matrix.Three_D.m
+val get_tcmfile : d -> int -> tcm_definition
 
 val get_sequence_alphabet : int -> d -> Alphabet.a
 

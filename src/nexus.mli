@@ -28,7 +28,7 @@ module P : sig
         | Tokens of bool 
 
     type charset = 
-        | Range of (string * string option)
+        | Range of (string * string option * int)
         | Single of string
         | Name of string
         | CharSet of string
@@ -51,11 +51,23 @@ module P : sig
         unal : string;
     }
 
+    type standard_item = 
+         Code of (string * charset list) | IName of (string * charset list) 
+
+    type standard_list = 
+        | STDVector of string list | STDStandard of charset list
+
+    type set_type = 
+        | Standard of standard_item list | Vector of string list 
+
     type set_pair =  
-        | TaxonSet of charset 
-        | CharacterSet of charset 
-        | StateSet of charset 
-        | TreeSet of charset 
+        | TaxonSet of charset list
+        | CharacterSet of charset list
+        | StateSet of charset list
+        | TreeSet of charset list
+        | CharPartition of set_type
+        | TaxPartition of set_type
+        | TreePartition of set_type
 
     type source =  Inline | File | Resource 
 
@@ -67,10 +79,6 @@ module P : sig
 
     type user_type =  StepMatrix of (string * string list) | CSTree of string 
 
-    type standard_item = 
-         Code of (string * charset list) | IName of (string * charset list) 
-    type set_type =  Standard of standard_item list | Vector of string list 
-
     type assumption_set = (bool * string * bool * set_type)
 
     type assumption_items = 
@@ -78,7 +86,7 @@ module P : sig
         | UserType of (string * user_type)
         | TypeDef of assumption_set
         | WeightDef of assumption_set
-        | ExcludeSet of assumption_set
+        | ExcludeSet of (bool * string * standard_list)
         | AncestralDef of assumption_set
 
     type likelihood_model = 
@@ -97,9 +105,12 @@ module P : sig
     type poy_data =          (* trees , characters, (nodes , length) *)
         | CharacterBranch of string list * charset list * (string * float) list
         | Likelihood of likelihood_model list
+        | Tcm of (bool * string * standard_item list)
+        | GapOpening of (bool * string * standard_item list)
+        | DynamicWeight of (bool * string * standard_item list)
 
     type block = 
-         Taxa of (string * string list) 
+        | Taxa of (string * string list) 
         | Characters of char_data 
         | Distances of ((bool * string * string) option * format_options list * string list * string)
         | Ignore of string
@@ -109,7 +120,7 @@ module P : sig
         pictureformat option * pictureencoding option * source * string) option) 
         | Assumptions of assumption_items list 
         | Error of string
-        | Sets of (string * charset list) list
+        | Sets of (string * set_pair) list
         | Poy of poy_data list
 
     type tree_i = 
@@ -176,11 +187,17 @@ module File : sig
         taxa : string option array;
         characters : static_spec array;
         matrix : static_state array array;
-        csets : (string, string list) Hashtbl.t;
+        csets : (string, P.charset list) Hashtbl.t;
+        unaligned : (float * int option * (string * int array array) option * 
+                        Alphabet.a * (Sequence.s list list list * taxon) list) list;
         trees : (string option * Tree.Parse.tree_types list) list;
-        unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+        assumptions : (string, string array * float array array) Hashtbl.t;
     }
+
+    val get_character_names : 
+            static_spec array -> 
+                (string, P.charset list) Hashtbl.t -> P.charset -> string list
 
     val empty_parsed : unit -> nexus
 

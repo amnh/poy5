@@ -1016,8 +1016,15 @@ module Two_D = struct
         if debug then Printf.printf "cost_matrix of_channel\n";
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
-        | l ->
-                let w = calculate_alphabet_size l in
+        |  l -> let w = calculate_alphabet_size l in
+                let _,matrix_list = 
+                    List.fold_right 
+                        (fun item (cnt, acc ) -> match acc with
+                            | [] -> assert false
+                            | (h :: t) when cnt = 0 -> (w, ([item] :: acc))
+                            | (h :: t) -> (cnt - 1, ((item :: h) :: t)))
+                        l (w, [[]])
+                in
                 let w, l =
                     if w = all_elements && (not use_comb) then
                         (* We must add a placeholder for the all elements item
@@ -1051,8 +1058,8 @@ module Two_D = struct
                           done; 
                           let l2 = List.rev !l2 in 
                           fill_cost_matrix ~use_comb:use_comb l2 w2 all_elements
-                in  
-                m;;
+                in
+                m, matrix_list;;
 
     let of_list ?(use_comb=true) ?(level=0) l all_elements =
         (* This function assumes that the list is a square matrix, list of
@@ -1079,8 +1086,7 @@ module Two_D = struct
             if (level <= 1) then
                 fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz ~-1 
             else if (level>ori_sz) then
-                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz
-                (~-1) 
+                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz ~-1
             else
                 fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz ~-1
         in

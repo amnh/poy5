@@ -191,6 +191,6 @@ module Lexer : sig
 
 end
 
-val of_file : FileStream.f -> bool -> bool -> a * Cost_matrix.Two_D.m *
-    Cost_matrix.Three_D.m
+val of_file : FileStream.f -> bool -> bool ->
+                a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
 

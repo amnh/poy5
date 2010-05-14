@@ -161,18 +161,20 @@ type dyna_initial_assgn = [
             (Sequence.s array) * 
             ((int, int) Hashtbl.t))  ]
 
-type costmatrix_3d = [
-    | `Normal3d of Cost_matrix.Three_D.m
-    | `Empty3d  ]
+type tcm_definition = 
+    | Substitution_Indel of (int * int)
+    | Input_file of (string * (int list list))
+    | Substitution_Indel_GapOpening of (int * int * int)
+    | Input_file_GapOpening of (string * (int list list) * int)
+    | Level of int
 
 type dynamic_hom_spec = {
     filename : string;
     fs : string;
-    tcm : string;
-    fo : string;
+    tcm : tcm_definition;
     initial_assignment : dyna_initial_assgn;
     tcm2d : Cost_matrix.Two_D.m;
-    tcm3d : costmatrix_3d; (*Cost_matrix.Three_D.m;*)
+    tcm3d : Cost_matrix.Three_D.m;
     lk_model : MlModel.model option;
     alph : Alphabet.a;
     state : dyna_state_t;
@@ -1200,13 +1202,14 @@ let add_static_character_spec data (code, spec) =
 
 let report_static_input file f_out =
     let characters = Array.length f_out.Nexus.File.characters 
+    and unaligned = List.length f_out.Nexus.File.unaligned
+    and tree = List.length f_out.Nexus.File.trees 
     and taxa = Array.length f_out.Nexus.File.taxa in
     let msg =
-        "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^ 
-        string_of_int characters 
-        ^ "@ static@ homology@ characters,@ " ^ string_of_int 
-        (List.length unaligned) ^ " unaligned@ sequences,@ and@ " ^
-        string_of_int (List.length tree) ^ "@ trees,@ containing@ " ^ 
+        "@[The@ file@ " ^ StatusCommon.escape file ^ "@ defines@ " ^
+        string_of_int characters ^ "@ static@ homology@ characters,@ " ^
+        string_of_int unaligned ^ " unaligned@ sequences,@ and@ " ^
+        string_of_int tree ^ "@ trees,@ containing@ " ^ 
         string_of_int taxa ^ "@ taxa.@]"
     in
     Status.user_message Status.Information msg
@@ -1332,9 +1335,8 @@ let repack_codes data =
                         available_char_codes
 
 
-let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotated alphabet 
-    file dyna_state data (res : (Sequence.s list list list *
-    All_sets.StringMap.key) list)  =
+let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
+                             annotated alphabet file dyna_state data res =
     let data = duplicate data in
     let res = 
         (* Place a single sequence together with its taxon *)
@@ -1352,17 +1354,17 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
             Array.of_list lst 
         in
         let num_taxa = Array.length arr in
-        let loci = Array.fold_left 
-            ~f:(fun max_loci loci_arr -> 
-                 max max_loci (Array.length loci_arr)
-            ) ~init:0 arr 
+        let loci =
+            Array.fold_left 
+                ~f:(fun max_loci loci_arr -> 
+                     max max_loci (Array.length loci_arr))
+                ~init:0 arr 
         in
         (* Check for errors *)
         (* we are going to deal with multichromosome genomes, each of them could
         * have different number chromosomes, this error check must be
         * modified*)
-        (*
-        (if (annotated = false) && (dyna_state != `Genome) then 
+        (* (if (annotated = false) && (dyna_state != `Genome) then 
             match Array.length arr with
             | 0 -> ()
             | n ->
@@ -1381,8 +1383,7 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
                                ); 
                            failwith ("Inconsistent input file " ^  file);  
                    end) arr
-        );
-        *)
+        ); *)
         let res = ref [] in
         for j = loci - 1 downto 0 do 
             let loci = ref [] in
@@ -1427,7 +1428,6 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
             filename = file;
             fs = data.current_fs_file;
             tcm = tcmfile;
-            fo = "0";
             initial_assignment = default_mode;
             tcm2d = tcm;
             tcm3d = tcm3;
@@ -1435,8 +1435,8 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
             alph = alphabet;
             state = dyna_state;
             pam = dyna_pam_default;
-            weight = 1.0;
-        } in
+            weight = weight; } 
+        in
         Hashtbl.replace data.character_specs chcode (Dynamic dspec);
         Hashtbl.replace data.character_names file chcode;
         Hashtbl.replace data.character_codes chcode file;
@@ -1456,7 +1456,7 @@ let process_parsed_sequences is_prealigned tcmfile tcm tcm3 default_mode annotat
             let seqa = 
                 let makeone seqa = {seq=seqa; code = -1} in
                 match dyna_state with 
-                | `Seq when not is_prealigned -> Array.map makeone seq
+                | `Seq when not prealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
             in 
@@ -1714,33 +1714,70 @@ let gen_add_static_parsed_file do_duplicate data file
     in
     (* Now time to add the molecular sequences *)
     let data = 
-        let single_sequence_adder data (alphabet, sequences) =
-            let size = 
-                Alphabet.distinct_size (Alphabet.to_sequential alphabet) 
-            in
+        let single_sequence_adder data 
+            ((weight, gap_open, tcm, alph, seq) :
+                (float * int option * (string * int array array) option * 
+                  Alphabet.a * (Sequence.s list list list * string) list)) =
+
+            let size = Alphabet.distinct_size (Alphabet.to_sequential alph) in
             let all_elements =
-                if alphabet = Alphabet.nucleotides then 31
-                else if alphabet = Alphabet.aminoacids then 21
+                if alph = Alphabet.nucleotides then 31
+                else if alph = Alphabet.aminoacids then 21
                 else (-1)
             in
-            let tcm = 
-                Cost_matrix.Two_D.of_transformations_and_gaps (size < 7)
-                size 1 2 all_elements
+            let tcm, name =
+                let tcm,name = match tcm with
+                    | None ->
+                        Cost_matrix.Two_D.of_transformations_and_gaps 
+                                (size < 7) size 1 2 all_elements,
+                        (Substitution_Indel (1,2))
+                    | Some (name,matrix) ->
+                        let size = Array.length matrix in
+                        assert( size > 0 );
+                        let lst = Array.map Array.to_list matrix in
+                        let lst = Array.to_list lst in
+                        let use_comb = size < 7 in
+                        Cost_matrix.Two_D.of_list ~use_comb lst 
+                                    (if use_comb then (1 lsl size) - 1 else size),
+                        (Input_file (name,lst))
+                in
+                match gap_open with
+                | None -> tcm, name
+                | Some v ->
+                    Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
+                    let name = match name with
+                        | Substitution_Indel (a,b) -> 
+                            Substitution_Indel_GapOpening (a,b,v)
+                        | Input_file (name,lst) ->
+                            Input_file_GapOpening (name,lst,v)
+                        | _ -> assert( false )
+                    in
+                    tcm, name
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences false "tcm:(1,2)" tcm (`Normal3d tcm3d) 
-                                     `DO false alphabet file `Seq data sequences
+            process_parsed_sequences false weight name tcm tcm3d `DO false
+                                     alph file `Seq data seq
         in
         List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.File.unaligned
     in
-    let () = (* create `character --> setname` table *)
+    let cnsets,csets = (* create `character <--> setname` tables *)
+        let character_nsets = create_ht () in
+        let character_sets = create_ht () in
         Hashtbl.iter 
-            (fun set_name char_names ->
+            (fun set_name set_specs ->
                 List.iter
-                    (fun name ->
-                        Hashtbl.add data.character_nsets name set_name)
-                    char_names)
-            file_out.Nexus.File.csets
+                    (fun set_spec ->
+                        let cnames = 
+                            Nexus.File.get_character_names 
+                                file_out.Nexus.File.characters
+                                file_out.Nexus.File.csets set_spec
+                        in
+                        Hashtbl.add character_sets set_name cnames;
+                        List.iter (fun name -> Hashtbl.add character_nsets name set_name)
+                                  cnames)
+                    set_specs)
+            file_out.Nexus.File.csets;
+        (character_nsets,character_sets)
     in
     (* create set for branches *)
     let tbl,found =
@@ -1753,7 +1790,8 @@ let gen_add_static_parsed_file do_duplicate data file
     Status.finished st;
     new_codes,
         {data with 
-            character_sets = file_out.Nexus.File.csets;
+            character_sets = csets;
+            character_nsets = cnsets;
             branches = tbl;
             iterate_branches = (not found); }
 
@@ -1962,20 +2000,18 @@ let aux_process_molecular_file tcmfile tcm tcm3 alphabet processor builder dyna_
             data
     end
 
-let process_molecular_file tcmfile tcm tcm3 annotated alphabet 
-mode is_prealigned dyna_state data file =
+let process_molecular_file tcmfile tcm tcm3 annotated alphabet
+                            mode is_prealigned dyna_state data file =
     let data =
         aux_process_molecular_file 
-        tcmfile tcm tcm3 alphabet
-        (fun alph parsed -> 
-            process_parsed_sequences is_prealigned tcmfile tcm tcm3 mode annotated 
-            alph (FileStream.filename file) dyna_state data parsed)
-        (fun x -> 
-            if not is_prealigned then FileContents.AlphSeq x
-            else FileContents.Prealigned_Alphabet x) 
-        dyna_state 
-        data
-        file
+            tcmfile tcm tcm3 alphabet
+            (fun alph parsed -> 
+                process_parsed_sequences is_prealigned 1.0 tcmfile tcm tcm3 mode annotated 
+                alph (FileStream.filename file) dyna_state data parsed)
+            (fun x -> 
+                if not is_prealigned then FileContents.AlphSeq x
+                else FileContents.Prealigned_Alphabet x) 
+            dyna_state data file
     in
     data
 
@@ -2209,6 +2245,19 @@ let report_terminals_files filename taxon_files ignored_taxa =
     All_sets.StringMap.iter print_file files;
     fo "@]@]%!"
 
+let tcm_definition_to_string = function
+    | Substitution_Indel_GapOpening (a, b, _)
+    | Substitution_Indel (a, b) -> 
+            "tcm:(" ^ string_of_int a ^ "," ^ string_of_int b ^ ")"
+    | Input_file_GapOpening (name, _, _) 
+    | Input_file (name, _) -> "'" ^ name ^ "'"
+
+let gap_opening_to_string = function
+    | Input_file _ 
+    | Substitution_Indel _ ->  "0"
+    | Substitution_Indel_GapOpening (_, _, v)
+    | Input_file_GapOpening (_, _, v)  -> string_of_int v
+
 (* This function will output in channel [ch] what was recorded in the
 * [data]. This will have to be changed to XML. *)
 let to_channel ch data = 
@@ -2236,7 +2285,7 @@ let to_channel ch data =
                 output_string ch ", ";
                 output_string ch dspec.fs;
                 output_string ch ", ";
-                output_string ch dspec.tcm;
+                output_string ch (tcm_definition_to_string dspec.tcm);
                 output_string ch "\n"
         | _ -> ()
     in
@@ -2566,8 +2615,8 @@ let character_spec_to_formatter enc : Xml.xml =
             (RXML -[T.molecular]
                 ([T.name] = [`String dspec.filename])
                 ([T.initial_assignment] = [initial])
-                ([T.tcm] = [`String dspec.tcm])
-                ([T.gap_opening] = [`String dspec.fo])
+                ([T.tcm] = [`String (tcm_definition_to_string dspec.tcm)])
+                ([T.gap_opening] = [`String (gap_opening_to_string dspec.tcm)])
                 ([Xml.Characters.weight] = [`Float dspec.weight])
                 ([pam_spec_to_formatter dspec.state dspec.pam])
                 { single Alphabet.to_formatter dspec.alph } --)
@@ -3303,7 +3352,8 @@ let convert_dyna_spec data chcode spec transform_meth =
             | _, `Change_Dyn_Pam _ -> ()
             | _, _ -> failwith "Illegal character transformation requested"
         in
-        (match transform_meth with
+        (match transform_meth with (*
+        TODO ANDRES
         | `Seq_to_Kolmogorov model ->
                 let a, b = 
                     match model with
@@ -3374,7 +3424,7 @@ let convert_dyna_spec data chcode spec transform_meth =
                     tcm2d = tcm;
                     pam = pam;} 
                 in
-                Kolmogorov { dhs = dspec; ks = ks }, data
+                Kolmogorov { dhs = dspec; ks = ks }, data *)
         | transform_meth ->
             let (old_dynpam:dyna_pam_t) = dspec.pam in
             let (al, c2), pam = 
@@ -4299,7 +4349,7 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
                         with Not_found -> seqs) 
                     data.taxon_codes []
             in                   
-            process_parsed_sequences false tcmfile tcm tcm3d `DO false 
+            process_parsed_sequences false 1.0 tcmfile tcm tcm3d `DO false 
                                      alph char_name `Seq data seqs)
         ~init:data tran_code_ls 
     in 
@@ -4443,17 +4493,17 @@ let compute_fixed_states data code =
     taxon_codes) })
 
 
-
-let assign_tcm_to_characters data chars tcmfile foname tcm newalph do_3d =
+let assign_tcm_to_characters data chars foname tcm =
     (* Get the character codes and filter those that are of the sequence class.
     * This allows simpler specifications by the users, for example, even though
     * morphological characters are loaded, an (all, create_tcm:(1,1)) will
     * operate properly in all the characters that are valid in the context. *)
     let per_size = Hashtbl.create 97 in
     let data = duplicate data in
-    let chars = get_chars_codes_comp data chars in
-    let chars = List.filter (fun x -> (List.exists (fun y -> x = y)
-    data.dynamics) ) chars in
+    let chars = 
+        List.filter (fun x -> (List.exists (fun y -> x = y) data.dynamics))
+                    (get_chars_codes_comp data chars)
+    in
     let chars_specs =
         List.fold_left 
         ~f:(fun acc x -> 
@@ -4464,71 +4514,54 @@ let assign_tcm_to_characters data chars tcmfile foname tcm newalph do_3d =
         ) 
         ~init:[] chars
     in
+    let ref_tcmfile = ref None in
     let new_charspecs = 
         List.map 
-        (function ((Dynamic dspec), code) ->
-            let tcmfile = 
-                match tcmfile with
-                | None -> dspec.tcm
-                | Some x -> x
-            and fo =
-                match tcmfile, foname with
-                | None, None -> dspec.fo
-                | Some x, None -> "0"
-                | Some _, Some x 
-                | None, Some x -> x
-            and newalph =
-                match newalph with
-                | None -> dspec.alph
-                | Some a -> a
-            in
-            let tcm, tcm3 =
-                if Hashtbl.mem per_size dspec.alph then 
-                    Hashtbl.find per_size dspec.alph
-                else 
-                    let all_elements = 
-                        if dspec.alph = Alphabet.nucleotides then 31
-                        else if dspec.alph = Alphabet.aminoacids then 21
-                        else (-1)
-                    in
-                    let tcm = tcm all_elements in
-                    let newtcm3d =
-                        match do_3d with
-                        |true -> 
-                                (`Normal3d (Cost_matrix.Three_D.of_two_dim tcm))
-                        |false -> `Empty3d
-                    in
-                    tcm, newtcm3d
-            in
-            (Dynamic { dspec with tcm = tcmfile; fo = fo; tcm2d = tcm; tcm3d =
-                tcm3; alph = newalph }), 
-            code
-            | _, code -> raise (Invalid_Character code)) chars_specs
+            (function ((Dynamic dspec), code) ->
+                let tcm, tcm3, tcmfile =
+                    if Hashtbl.mem per_size dspec.alph then 
+                        Hashtbl.find per_size dspec.alph
+                    else 
+                        let all_elements = 
+                            if dspec.alph = Alphabet.nucleotides then 31
+                            else if dspec.alph = Alphabet.aminoacids then 21
+                            else (-1)
+                        in
+                        let tcm, tcmfile = tcm all_elements in
+                        ref_tcmfile := Some tcmfile;
+                        tcm, (Cost_matrix.Three_D.of_two_dim tcm), tcmfile
+                in
+                (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3 }), 
+                code
+                | _, code -> raise (Invalid_Character code))
+            chars_specs
     in
     let files = 
-        match tcmfile with
-        | Some tcmfile ->
-                if List.exists (fun (x, _) -> x = tcmfile) data.files then data.files
+        match !ref_tcmfile with
+        | Some (Input_file_GapOpening (tcmfile, _, _)) 
+        | Some (Input_file (tcmfile, _)) -> 
+                if List.exists (function (x, _) -> x = tcmfile) data.files 
+                then data.files
                 else (tcmfile, [CostMatrix]) :: data.files 
-        | None -> data.files
+        | _ -> data.files
     in
     List.iter ~f:(fun (spec, code) -> 
-        Hashtbl.replace data.character_specs code spec) 
-    new_charspecs;
-    List.iter ~f:(fun (spec, code) ->
-        if is_fs data code then compute_fixed_states data code) new_charspecs;
+                    Hashtbl.replace data.character_specs code spec)
+              new_charspecs;
+    List.iter ~f:(fun (spec, code) -> 
+                    if is_fs data code then compute_fixed_states data code)
+              new_charspecs;
     { data with files = files }
 
 
 let assign_tcm_to_characters_from_file data chars file =
-    let tcm, file =
-        match file with
-        | None -> (fun x -> Cost_matrix.Two_D.default), Some "tcm:(1,2)"
+    let tcm = match file with
+        | None   -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
         | Some f -> 
-                Cost_matrix.Two_D.of_file f, 
-                Some (FileStream.filename f)
+            (fun x -> let tcm,mat = Cost_matrix.Two_D.of_file f x in
+                      tcm, Input_file ((FileStream.filename f), mat))
     in
-    assign_tcm_to_characters data chars file None tcm None true
+    assign_tcm_to_characters data chars None tcm
 
 let classify_characters_by_alphabet_size data chars =
     let is_dynamic_character x = 
@@ -4563,99 +4596,116 @@ let classify_characters_by_alphabet_size data chars =
     --> classify_by_size
 
 let assign_transformation_gaps data chars transformation gaps = 
-    let name = 
-        ("tcm:(" ^ string_of_int transformation ^ 
-        "," ^ string_of_int gaps ^ ")")
-    in
     let alphabet_sizes = classify_characters_by_alphabet_size data chars in
-    List.fold_left ~f:(fun data (size, chars) ->
-        let size = size in
-        let tcm = 
-            Cost_matrix.Two_D.of_transformations_and_gaps (size < 7) size
-            transformation gaps 
-        in
-        assign_tcm_to_characters data chars (Some name) None tcm None true) ~init:data alphabet_sizes
+    List.fold_left 
+        ~f:(fun data (size, chars) ->
+            let size = size in
+            let tcm = 
+                (fun x -> 
+                    Cost_matrix.Two_D.of_transformations_and_gaps 
+                                    (size < 7) size transformation gaps x, 
+                    (Substitution_Indel (transformation, gaps)))
+            in
+            assign_tcm_to_characters data chars None tcm)
+        ~init:data alphabet_sizes
 
 let codes_with_same_tcm codes data =
-    (* This function assumes that the codes have already been filtered by class
-    * *)
-    let rec assign_matching acc ((code : int), tcm, alph) =
+    (* This function assumes that the codes have already been filtered by class *)
+    let rec assign_matching acc ((code : int), tcm, alph, tcmfile) =
         match acc with
-        | (codes, assgn, alph) :: tl when tcm == assgn ->
-                ((code :: codes), assgn, alph) :: tl
+        | (codes, assgn, alph,tcmfile) :: tl when tcm == assgn ->
+                ((code :: codes), assgn, alph, tcmfile) :: tl
         | hd :: tl ->
-                hd :: (assign_matching tl (code, tcm, alph))
-        | [] -> [([code], tcm, alph)]
+                hd :: (assign_matching tl (code, tcm, alph, tcmfile))
+        | [] -> [([code], tcm, alph, tcmfile)]
     in
     let codes = 
         List.map 
-        ~f:(fun x -> x, get_tcm2d data x, get_alphabet data x) codes in
+            ~f:(fun x -> x, get_tcm2d data x, get_alphabet data x,get_tcmfile data x)
+            codes
+    in
     List.fold_left ~f:assign_matching ~init:[] codes
 
 
 let assign_level data chars level =
-    let name = ("level:("^ string_of_int level ^ ")") in
-    let codes = get_chars_codes_comp data chars in
-    let codes = codes_with_same_tcm codes data in
-    let codes = List.map (fun (a, b, alph) ->
-        let b,alph =
-            if ( Alphabet.nucleotides = alph ) || ( Alphabet.dna = alph ) || (
-                Alphabet.aminoacids = alph ) 
-                then b,alph
-            else
-                let oldlevel = Cost_matrix.Two_D.get_level b in
-                let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
-                let combnum =
-                    if level > 1 then
-                        Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                        ori_sz level
-                    else
-                        ori_sz
-                in
-                if combnum<=0 then begin
-                    Printf.printf "Alphabet size based on new level is too big. NO change will be applied.\n%!" ;
-                    b,alph
-                end
+    let codes = get_chars_codes_comp data chars
+    and name = Level level in
+    let codes =
+        List.map 
+            (fun (a, b, alph, tcmfile) ->
+            let b =
+                if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph)
+                                         || (Alphabet.aminoacids = alph) then
+                    b
                 else
-                    begin
-                    Printf.printf "Assign new level=%d, combination number = %d\n%!" level combnum;
-                    let b = Cost_matrix.Two_D.clone b in
-                    let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
-                    let newalph =  Alphabet.create_alph_by_level alph level
-                    oldlevel in 
-                    b,newalph
+                    let oldlevel = Cost_matrix.Two_D.get_level b in
+                    let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
+                    let combnum =
+                        if level > 1 then
+                            Cost_matrix.Two_D.calc_number_of_combinations_by_level
+                            ori_sz level
+                        else
+                            ori_sz
+                    in
+                    if combnum <= 0 then begin
+                        output_info ("The alphabet size based on the new level is"^
+                                     " too large. I will NOT apply any changes.\n%!");
+                        b
+                    end else begin
+                        let b = Cost_matrix.Two_D.clone b in
+                        let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
+                        let newalph = Alphabet.create_alph_by_level alph level oldlevel in 
+                        b
                     end
-        in
-        (true, a), (fun _ -> b), (Some alph)
-        ) codes
+                in
+                (true, a),(fun _ -> b,name))
+            (codes_with_same_tcm codes data)
     in
-    List.fold_left ~f:(
-        fun acc (a, b, alph) ->
-            let do_3d = 
-                match alph with
-                | Some x ->
-                    if ( Alphabet.dna = x ) then true
-                    else false
-                | _ -> false
-            in
-            assign_tcm_to_characters acc (`Some a) (Some name) 
-            (Some (string_of_int level)) b alph do_3d
-        ) ~init:data codes
-    
+    List.fold_left 
+        ~f:(fun acc (a, tcm) -> assign_tcm_to_characters acc (`Some a) None tcm)
+        ~init:data codes
+
+let make_affine cost_model tcmfile = match tcmfile with
+    | Substitution_Indel (a, b) ->
+            (match cost_model with
+            | Cost_matrix.No_Alignment
+            | Cost_matrix.Linnear
+            | Cost_matrix.Affine 0 -> tcmfile
+            | Cost_matrix.Affine x -> Substitution_Indel_GapOpening (a, b, x))
+    | Input_file (a, b) ->
+            (match cost_model with
+            | Cost_matrix.No_Alignment
+            | Cost_matrix.Linnear
+            | Cost_matrix.Affine 0 -> tcmfile
+            | Cost_matrix.Affine x -> Input_file_GapOpening (a, b, x))
+    | Substitution_Indel_GapOpening (a, b, _) ->
+            (match cost_model with
+            | Cost_matrix.No_Alignment
+            | Cost_matrix.Linnear
+            | Cost_matrix.Affine 0 -> Substitution_Indel (a ,b)
+            | Cost_matrix.Affine x -> Substitution_Indel_GapOpening (a, b, x))
+    | Input_file_GapOpening (a, b, _) ->
+            (match cost_model with
+            | Cost_matrix.No_Alignment
+            | Cost_matrix.Linnear
+            | Cost_matrix.Affine 0 -> tcmfile
+            | Cost_matrix.Affine x -> Input_file_GapOpening (a, b, x))
 
 let rec assign_affine_gap_cost data chars cost =
     let codes = get_chars_codes_comp data chars in
-    let codes = codes_with_same_tcm codes data in
-    let codes = List.map (fun (a, b, alph) -> 
-        let b = 
-            if Alphabet.nucleotides = alph then
-                let b = Cost_matrix.Two_D.clone b in
-                let () = Cost_matrix.Two_D.set_affine b cost in
-                b
-            else 
-                b
-        in
-        (true, a), (fun _ -> b),alph) codes
+    let codes = 
+        List.map 
+            (fun (a, b, alph, tcmfile) -> 
+                let b =
+                    if Alphabet.nucleotides = alph then
+                        let b = Cost_matrix.Two_D.clone b in
+                        let () = Cost_matrix.Two_D.set_affine b cost in
+                        b
+                    else 
+                        b
+                in 
+                (true, a), (fun _ -> b, make_affine cost tcmfile))
+            (codes_with_same_tcm codes data)
     in
     let cost = 
         match cost with
@@ -4663,15 +4713,10 @@ let rec assign_affine_gap_cost data chars cost =
         | Cost_matrix.No_Alignment -> "0"
         | Cost_matrix.Affine x -> string_of_int x
     in
-    List.fold_left ~f:(
-        fun acc (a, b,alph) ->
-            let do_3d = 
-                if Alphabet.dna = alph then true
-                else false
-            in
-            assign_tcm_to_characters acc (`Some a) None 
-            (Some cost) b None do_3d
-        ) ~init:data codes
+    List.fold_left 
+        ~f:(fun acc (a, b) ->
+            assign_tcm_to_characters acc (`Some a) (Some cost) b)
+        ~init:data codes
 
 let rec assign_prep_tail filler data chars filit =
     match filit with
@@ -4686,13 +4731,18 @@ let rec assign_prep_tail filler data chars filit =
                 get_code_from_characters_restricted_comp `AllDynamic data chars
             in
             let codes = codes_with_same_tcm codes data in
-            let codes = List.map (fun (a, b, _) -> 
-                let b = Cost_matrix.Two_D.clone b in
-                filler arr b;
-                (true, a), (fun _ -> b)) codes
+            let codes =
+                List.map
+                    (fun (a, b, _,tcmfile) -> 
+                        let b = Cost_matrix.Two_D.clone b in
+                        let () = filler arr b in
+                        (true, a), (fun _ -> b,tcmfile))
+                    codes
             in
-            List.fold_left ~f:(fun acc (a, b) ->
-                assign_tcm_to_characters acc (`Some a) None None b None true) ~init:data codes
+            List.fold_left 
+                ~f:(fun acc (a, b) ->
+                    assign_tcm_to_characters acc (`Some a) None b) 
+                ~init:data codes
 
 let assign_prepend data chars filit =
     assign_prep_tail Cost_matrix.Two_D.fill_prepend data chars filit
@@ -6085,10 +6135,11 @@ let guess_class_and_add_file annotated is_prealigned data filename =
             | Parser.Files.Is_XML| Parser.Files.Is_NewSeq->
                     let data = add_file [Characters] in
                     file_type_message "input@ sequences";
-                    process_molecular_file "tcm:(1,2)" 
-                    Cost_matrix.Two_D.default 
-                    (`Normal3d (Cost_matrix.Three_D.default)) 
-                    annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
+                    process_molecular_file (Substitution_Indel (1,2))
+                                           Cost_matrix.Two_D.default 
+                                           Cost_matrix.Three_D.default
+                                           annotated Alphabet.nucleotides `DO
+                                           is_prealigned `Seq data filename
             | Parser.Files.Is_Phylip->
                     file_type_message "phylip";
                     let fo = Phylip.of_file filename in
@@ -6104,10 +6155,8 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     file_type_message "dpread file";
                     let parsed = Parser.OldHennig.of_file filename in
                     let fn = FileStream.filename filename in
-                    let converted = 
-                        Parser.OldHennig.to_new_parser fn None parsed
-                    in
-                    add_static_parsed_file data fn converted
+                    let conv = Parser.OldHennig.to_new_parser fn None parsed in
+                    add_static_parsed_file data fn conv
             | Parser.Files.Is_Fixed_States_Dictionary->
                     let data = add_file [] in
                     file_type_message "Fixed@ States@ Dictionary";
@@ -6124,15 +6173,13 @@ let guess_class_and_add_file annotated is_prealigned data filename =
                     file_type_message "Nexus@ File";
                     add_static_file `Nexus data filename 
             | Parser.Files.Is_Unknown->
-                    let data = 
-                        add_file [Characters; Trees; CostMatrix] 
-                    in
+                    let data = add_file [Characters; Trees; CostMatrix] in
                     file_type_message "input@ sequences@ (default)";
-                    process_molecular_file 
-                    "tcm:(1,2)"
-                    Cost_matrix.Two_D.default 
-                    (`Normal3d Cost_matrix.Three_D.default)
-                    annotated Alphabet.nucleotides `DO is_prealigned `Seq data filename
+                    process_molecular_file (Substitution_Indel (1,2))
+                                            Cost_matrix.Two_D.default 
+                                            Cost_matrix.Three_D.default
+                                            annotated Alphabet.nucleotides
+                                            `DO is_prealigned `Seq data filename
             | Parser.Files.Is_ComplexTerminals->
                     let data = add_file [Characters] in
                     file_type_message "Complex@ terminals@ definition@ file";

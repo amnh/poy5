@@ -140,10 +140,12 @@ type nexus = {
     taxa : string option array;
     characters : static_spec array;
     matrix : static_state array array;
-    csets : (string , string list) Hashtbl.t;
+    csets : (string, P.charset list) Hashtbl.t;
+    unaligned : (float * int option * (string * int array array) option * 
+                    Alphabet.a * (Sequence.s list list list * taxon) list) list;
     trees : (string option * Tree.Parse.tree_types list) list;
-    unaligned : (Alphabet.a * (Sequence.s list list list * taxon) list) list;
     branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
+    assumptions : (string, string array * float array array) Hashtbl.t;
 }
 
 let empty_parsed () = {
@@ -152,9 +154,10 @@ let empty_parsed () = {
     characters = [||];
     matrix = [||];
     csets = Hashtbl.create 27;
-    trees = [];
     unaligned = [];
+    trees = [];
     branches = Hashtbl.create 27;
+    assumptions = Hashtbl.create 27;
 }
 
 let get_something find filter default form =
@@ -373,81 +376,101 @@ let find_position error comparator vector =
     | Exit -> !pos
 
 let find_character chars name =
-    let error = Printf.ksprintf (fun x -> x) "Character (%s) not found" name in
+    let error = Printf.sprintf "Character (%s) not found" name in
     find_position error (fun x -> name = x.st_name) chars
 
-let rec apply_on_character_set characters setnames f x =
+let rec general_apply_on_character_set find set_table characters f x =
     let last = (Array.length characters) - 1 in
     match x with
-    | P.Range (a, b) ->
+    | P.Range (a, b, step) ->
             let a = int_of_string a
             and b = 
                 match b with
                 | None -> last
                 | Some b ->  int_of_string b 
             in
-            for i = a to b do
-                f i;
-            done
-    | P.Single v ->
-            f (int_of_string v);
+            let rec loop i = 
+                if i > b then ()
+                else begin 
+                    f (i - 1);
+                    loop (i + step);
+                end;
+            in
+            loop a
+    | P.Single v  -> f (int_of_string v);
     | P.Name name ->
-            let up_name = String.uppercase name in
-            if "ALL" = up_name then
-                apply_on_character_set characters setnames f
-                    (P.Range ("0", None))
-            else if "." = up_name then
-                f last
-            else
-                f (find_character characters name)
-    | P.CharSet name ->
-            let up_name = String.uppercase name in
+            if Hashtbl.mem set_table (String.uppercase name) then
+                List.iter 
+                    (general_apply_on_character_set find set_table characters f)
+                    (Hashtbl.find set_table (String.uppercase name))
+            else begin
+                let up_name = String.uppercase name in
+                if "ALL" = up_name then
+                    general_apply_on_character_set find set_table characters f 
+                        (P.Range ("1", (Some (string_of_int last)), 1))
+                else if "." = up_name then f (last - 1)
+                else f (find characters name)
+            end
+    | P.CharSet name -> failwith "Lets not do this again..."
+        (*  let up_name = String.uppercase name in
             let names =
                 try Hashtbl.find setnames up_name
                 with | Not_found -> 
                     let all_keys = String.concat ", " 
                                     (Hashtbl.fold (fun k v a -> k::a)
                                                   setnames
-                                                  []
-                                    )
+                                                  [])
                     in
                     Printf.kprintf failwith "Character set (%s) undefined in %s" name all_keys
             in
             List.iter
                 (fun x -> 
                     apply_on_character_set
-                        characters setnames f (P.Name x)) names
+                        characters setnames f (P.Name x)) names *)
+
+let apply_on_character_set = general_apply_on_character_set find_character
+
+let apply_on_unaligned_set = general_apply_on_character_set
+                                (fun _ _ -> failwith "UNALIGNED blocks can't have a name")
+                                (Hashtbl.create 1)
 
 (* get the character names for different set types *)
-let get_character_names chars sets = function
-    | P.Range (lo,hi) ->
+let rec get_character_names chars sets : P.charset -> string list = function
+    | P.Range (lo,hi,step) ->
         let a = int_of_string lo
         and b = match hi with
             | None -> (Array.length chars) - 1
             | Some b -> int_of_string b
         in
-        List.map
-            (fun x -> x.st_name)
-            (Array.to_list (Array.sub chars a b))
+        let rec loop acc i = 
+            if i > b then acc
+            else loop (chars.(i-1).st_name :: acc) (i + step)
+        in
+        loop [] a
     | P.Name name ->
-        chars.(find_character chars name).st_name :: []
+        begin try chars.(find_character chars name).st_name :: []
+        with | _ -> 
+            List.flatten
+                (List.map (get_character_names chars sets) (Hashtbl.find sets name))
+        end
     | P.Single num ->
         chars.(int_of_string num).st_name :: []
-    | P.CharSet name ->
-        try Hashtbl.find sets (String.uppercase name)
-        with | Not_found -> []
+    | P.CharSet name -> failwith "does not exist"
+(*        try Hashtbl.find sets (String.uppercase name)*)
+(*        with | Not_found -> []*)
 
 let find_taxon taxa name =
-    try 
-        find_position "Taxon not found" (function None -> false | Some x -> name = x) taxa
-    with
-    | Failure "Taxon not found" ->
-            let pos = 
-                find_position "Taxon not found" (function None -> true |
-                Some _ -> false) taxa 
-            in
-            taxa.(pos) <- Some name;
-            pos
+    try find_position "Taxon not found" 
+                      (function None -> false | Some x -> name = x)
+                      taxa
+    with | Failure "Taxon not found" ->
+        let pos = 
+            find_position "Taxon not found" 
+                          (function None -> true | Some _ -> false)
+                          taxa 
+        in
+        taxa.(pos) <- Some name;
+        pos
 
 let update_labels_as_alphabet chars start =
     for i = start to (Array.length chars) - 1 do
@@ -871,10 +894,10 @@ let add_prealigned_characters file chars (acc:nexus) =
         * want *)
         match chars.P.char_eliminate with
         | None -> ()
-        | Some x -> apply_on_character_set characters acc.csets 
-                        (fun i -> 
-                            characters.(i) <- { characters.(i) with st_eliminate = true }
-                        ) x
+        | Some x -> 
+            apply_on_character_set acc.csets acc.characters
+                (fun i -> characters.(i) <- { characters.(i) with st_eliminate = true })
+                x
     in
     { acc with 
         characters = characters; matrix = matrix }
@@ -923,21 +946,45 @@ let create_cost_type x =
             ("POY@ does@ not@ support@ the@ " ^
             x ^ "@ character@ type@ requested.")
 
-let produce_cost_type_function (labels, cost_matrix) character =
-    let len = Array.length labels in
-    let permutation_array =
-        let labels = Array.init len (fun x ->
-            Alphabet.match_base labels.(x) character.st_alph, x) in
-        Array.sort (fun (a, _) (b, _) -> a - b) labels;
-        Array.map (fun (_, b) -> b) labels
-    in
-    let cost_matrix = 
-        Array.init len (fun x ->
-            Array.init len (fun y ->
-                int_of_float 
-                cost_matrix.(permutation_array.(x)).(permutation_array.(y))))
-    in 
-    { character with st_type = STSankoff cost_matrix }
+let table_of_sankoff_matrices = Hashtbl.create 97
+let generate_substitution_table extend_to_alphabet_size 
+                                ((labels, cost_matrix) as input) alphabet =
+    if Hashtbl.mem table_of_sankoff_matrices input then 
+        Hashtbl.find table_of_sankoff_matrices input
+    else begin
+        let resulting_cost_matrix = 
+            if not extend_to_alphabet_size then 
+                Array.map (Array.map int_of_float) cost_matrix
+            else
+            let len = Array.length labels in
+            let permutation_array =
+                let labels = Array.init len (fun x ->
+                    Alphabet.match_base labels.(x) alphabet, x) in
+                Array.sort (fun (a, _) (b, _) -> a - b) labels;
+                Array.map fst labels
+            in
+            let maximum = 1 + (Array.fold_left max (-1) permutation_array) in
+            let resulting_cost_matrix = 
+                Array.make_matrix maximum maximum (max_int / 4) in
+            for i = 0 to len - 1 do
+                for j = 0 to len - 1 do
+                   resulting_cost_matrix.(permutation_array.(i)).(permutation_array.(j))
+                   <- int_of_float cost_matrix.(i).(j);
+                done;
+            done;
+            for i = 0 to maximum - 1 do
+                resulting_cost_matrix.(i).(i) <- 0
+            done;
+            resulting_cost_matrix
+        in
+        Hashtbl.add table_of_sankoff_matrices input 
+            resulting_cost_matrix;
+        resulting_cost_matrix
+    end
+
+let produce_cost_type_function input character =
+    let cm = generate_substitution_table true input character.st_alph in
+    { character with st_type = STSankoff cm }
 
 let update_assumptions cost_table (acc:nexus) item = 
     match item with
@@ -1030,11 +1077,12 @@ let update_assumptions cost_table (acc:nexus) item =
                 | P.Standard items ->
                         let process_item = function
                             | P.Code (v, who) ->
-                                    let weight = float_of_string v in
-                                    List.iter (apply_on_character_set
-                                    acc.characters acc.csets (set_item weight))
-                                              who 
-                        | P.IName _ ->
+                                let weight = float_of_string v in
+                                List.iter 
+                                    (apply_on_character_set acc.csets acc.characters
+                                                            (set_item weight))
+                                    who 
+                            | P.IName _ ->
                                     failwith "Unexpected name"
                         in
                         List.iter process_item items
@@ -1068,11 +1116,13 @@ let update_assumptions cost_table (acc:nexus) item =
             let _ =
                 match set with
                 | P.Standard items ->
-                        let process_item = function
-                            | P.Code (v, who)
-                            | P.IName (v, who) ->
-                                    List.iter (apply_on_character_set 
-                                    acc.characters acc.csets (set_typedef v)) who
+                    let process_item = function
+                        | P.Code (v, who)
+                        | P.IName (v, who) ->
+                            List.iter 
+                                (apply_on_character_set acc.csets acc.characters 
+                                                        (set_typedef v))
+                                who
                         in
                         List.iter process_item items
                 | P.Vector items ->
@@ -1123,6 +1173,151 @@ let generate_parser_friendly (translations:(string*string) list)
     let tree = Tree.Parse.post_process (translate_branch tree,"") in
     (Some name, [tree])
 
+
+let apply_gap_opening character_set acc = 
+        let unaligned = Array.of_list (List.rev acc.unaligned) in
+        let assign_gap_opening v pos =
+            let (w, _, x, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (w, (Some v), x , y , z)
+        in
+        List.iter 
+            (function 
+                | P.Code (gap_opening, who) ->
+                    let gap_opening = truncate (float_of_string gap_opening) in
+                    List.iter (apply_on_unaligned_set unaligned 
+                                    (assign_gap_opening gap_opening))
+                              who
+                | P.IName (_, _) ->
+                    failwith "GAPOPENING must be an integer value")
+            character_set;
+        let unaligned = List.rev (Array.to_list unaligned) in
+        { acc with unaligned = unaligned; }
+
+
+let apply_weight character_set acc = 
+        let unaligned = Array.of_list (List.rev acc.unaligned) in
+        let assign_weight weight pos =
+            let (_, w, x, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (weight, w, x, y, z)
+        in
+        List.iter 
+            (function 
+                | P.Code (weight, who) ->
+                    let weight = float_of_string weight in
+                    List.iter (apply_on_unaligned_set unaligned 
+                                    (assign_weight weight))
+                              who
+                | P.IName (matrix, who) ->
+                    failwith ("WTSET in the POY block must assign numbers"^
+                              "to the gap opening parameter"))
+            character_set;
+        let unaligned = List.rev (Array.to_list unaligned) in
+        { acc with unaligned = unaligned }
+
+
+let apply_tcm character_set acc = 
+        let unaligned = Array.of_list (List.rev acc.unaligned) in
+        let assign_tcm name v pos =
+            let (w, x, _, y, z) = unaligned.(pos) in
+            let v = generate_substitution_table false v y in
+            unaligned.(pos) <- (w, x , (Some (name, v)), y , z)
+        in
+        List.iter 
+            (function 
+                | P.Code (_, _) ->
+                    failwith ("TCM must assign a matrix defined in the "^
+                              "ASSUMPTIONS block, not a code.");
+                | P.IName (matrix, who) ->
+                    if Hashtbl.mem acc.assumptions matrix then 
+                        let table = Hashtbl.find acc.assumptions matrix in
+                        List.iter (apply_on_unaligned_set unaligned 
+                                        (assign_tcm matrix table))
+                                  who
+                    else
+                        failwith ("TCM must assign a matrix defined in the"^
+                                  "ASSUMPTIONS block. I couldn't find the "^
+                                  " table " ^ matrix))
+            character_set;
+        let unaligned = List.rev (Array.to_list unaligned) in
+        { acc with unaligned = unaligned }
+
+
+let add_branch_data (trees,chars,bls) acc =
+    let current = acc.branches in
+    (* small function to create/return a table in a table *)
+    let const = 27 in
+    let get_create_tbl main_tbl name =
+        try Hashtbl.find main_tbl name 
+        with | Not_found ->
+            let t = Hashtbl.create const in
+            Hashtbl.add main_tbl name t; t
+    in
+    (* get all the names *)
+    let chars = 
+        List.flatten
+            (List.map
+                (get_character_names acc.characters acc.csets)
+                chars)
+    in
+    (* add each name to the table *)
+    List.iter
+        (fun tree_name ->
+            let tree_name = String.uppercase tree_name in
+            let tree_tbl = get_create_tbl current tree_name in
+            List.iter
+                (fun char_name -> (* do not uppercase, since
+                    * it's generated from the actual names *)
+                    List.iter 
+                        (fun (node_name,length) ->
+                            let node_name = String.uppercase node_name in
+                            let node_tbl = get_create_tbl tree_tbl node_name in
+                            Hashtbl.replace node_tbl char_name length)
+                        bls)
+                chars)
+        trees;
+    acc
+
+
+let apply_likelihood_model params acc = 
+    let proc_model (((name,((kind,site,alpha,invar) as var),
+                        param,lst,gap,file) as model), chars) = function
+        | P.Model name -> ((name,var,param,lst,gap,file),chars)
+        | P.Parameters param -> ((name,var,param,lst,gap,file),chars)
+        | P.Chars chars -> (model,chars)
+        | P.Given_Priors lst -> ((name,var,param,lst,gap,file),chars)
+        | P.GapMode gap -> ((name,var,param,lst,gap,file),chars)
+        | P.Variation kind -> 
+                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+        | P.Variation_Sites site ->
+                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+        | P.Variation_Alpha alpha ->
+                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+        | P.Variation_Invar invar ->
+                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+        | P.Files name -> let file = Some name in
+                ((name,var,param,lst,gap,file),chars)
+        | P.Other_Priors str -> failwith "not implemented yet"
+    in
+    let str_spec,characters_to_modify =
+        List.fold_left proc_model (MlModel.empty_str_spec,[]) params
+    in
+    (* how should the alphabet be obtained? *)
+    let m =
+        STLikelihood 
+            (str_spec --> MlModel.convert_string_spec
+                      --> MlModel.create acc.characters.(0).st_alph)
+    in
+    (* apply spec to each character *)
+    List.iter 
+        (apply_on_character_set 
+            acc.csets
+            acc.characters
+            (fun i -> 
+                acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
+          characters_to_modify;
+    acc
+
+
 let process_parsed file (acc:nexus) parsed : nexus =
     match parsed with
     | P.Taxa (number, taxa_list) ->
@@ -1139,9 +1334,12 @@ let process_parsed file (acc:nexus) parsed : nexus =
     | P.Ignore _ -> acc
     | P.Error block ->
             Status.user_message Status.Error
-            ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
-            StatusCommon.escape block ^ ". I@ will@ ignore@ the@ block@ and@ " ^
-            "continue@ with@ the@ rest@ of@ the@ file.");
+                ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
+                 StatusCommon.escape block ^ ". I@ have@ rules@ to@ parse@ " ^
+                 "this@ kind@ of@ block@ but@ something@ is@ wrong@ " ^
+                 "with@ it.@ I@ will@ ignore@ the@ block@ and@ " ^
+                 "continue@ with@ the@ rest@ of@ the@ file,@ but@ I@ " ^
+                 "advice@ you@ to@ verify@ the@ cause@ of@ the@ error.");
             acc
     | P.Assumptions lst ->
             let table = Hashtbl.create 37 in
@@ -1172,109 +1370,43 @@ let process_parsed file (acc:nexus) parsed : nexus =
                         failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with unaligned = (alph,res) :: acc.unaligned }
-    | P.Sets data ->
-            List.iter (* for each CharSet tag *)
-                (fun (name,cs_lst) ->
-                    let name = String.uppercase name in
-                    List.iter (fun x -> (* and charset inside *)
-                        apply_on_character_set 
-                            acc.characters
-                            acc.csets 
-                            (fun x -> (* add/append to hash *)
-                                let n_name = acc.characters.(x).st_name in
-                                if Hashtbl.mem acc.csets name then
-                                    Hashtbl.replace acc.csets name
-                                        (n_name :: (Hashtbl.find acc.csets name))
-                                else
-                                    Hashtbl.add acc.csets name (n_name::[]))
-                            x)
-                        cs_lst)
-                data;
+            { acc with unaligned = (1.,None,None,alph,res) :: acc.unaligned }
+    | P.Sets data -> 
+            List.iter (fun (name, set) ->
+                match set with
+                | P.CharacterSet set ->
+                        (try 
+                            let _ = find_character acc.characters name in
+                            failwith 
+                            ("Illegal character set name: " ^ name ^ 
+                            " already exists as a character.")
+                        with
+                        | _ -> (* This is the normal path *)
+                                let prepend acc item = item :: acc in
+                                let set = List.fold_left prepend [] set in
+                                Hashtbl.add acc.csets (String.uppercase name) set)
+                | _ -> Status.user_message Status.Warning
+                        ("I will ignore the set " ^ name ^ 
+                         " defined in the NEXUS file.")) data;
             acc
     | P.Poy block ->
-        Status.user_message Status.Information "Processing POY Block";
-        (* CHARACTERBRANCH tag:: adds data to the table of 
-         *                       trees -> chars -> branch lengths *)
-        let add_data (trees,chars,bls) current =
-            (* small function to create/return a table in a table *)
-            let const = 27 in
-            let get_create_tbl main_tbl name =
-                try Hashtbl.find main_tbl name 
-                with | Not_found ->
-                    let t = Hashtbl.create const in
-                    Hashtbl.add main_tbl name t; t
-            in
-            (* get all the names *)
-            let chars = List.flatten
-                            (List.map
-                                (get_character_names acc.characters acc.csets)
-                                chars
-                            ) in
-            (* add each name to the table *)
-            List.iter
-                (fun tree_name ->
-                    let tree_name = String.uppercase tree_name in
-                    let tree_tbl = get_create_tbl current tree_name in
-                    List.iter
-                        (fun char_name -> (* do not uppercase, since
-                            * it's generated from the actual names *)
-                            List.iter 
-                                (fun (node_name,length) ->
-                                    let node_name = String.uppercase node_name in
-                                    let node_tbl = get_create_tbl tree_tbl node_name in
-                                    Hashtbl.replace node_tbl char_name length
-                                ) bls
-                        ) chars
-                ) trees
-        in
-
-        (* LIKELIHOOD tag:: process model and characters *)
-        let proc_model (((name,((kind,site,alpha,invar) as var),
-                            param,lst,gap,file) as model), chars) = function
-            | P.Model name -> ((name,var,param,lst,gap,file),chars)
-            | P.Parameters param -> ((name,var,param,lst,gap,file),chars)
-            | P.Chars chars -> (model,chars)
-            | P.Given_Priors lst -> ((name,var,param,lst,gap,file),chars)
-            | P.GapMode gap -> ((name,var,param,lst,gap,file),chars)
-            | P.Variation kind -> 
-                    ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
-            | P.Variation_Sites site ->
-                    ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
-            | P.Variation_Alpha alpha ->
-                    ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
-            | P.Variation_Invar invar ->
-                    ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
-            | P.Files name -> let file = Some name in
-                    ((name,var,param,lst,gap,file),chars)
-            | P.Other_Priors str -> failwith "not implemented yet"
-        in
-        (* POY block :: process all commands*)
-        List.iter
-            (fun x -> match x with
-             | P.CharacterBranch (trees,chars,bls) ->
-                add_data (trees,chars,bls) acc.branches
-             | P.Likelihood params ->
-                let str_spec,characters_to_modify =
-                    List.fold_left proc_model 
-                                   (MlModel.empty_str_spec,[])
-                                   params
-                in
-                (* how should the alphabet be obtained? *)
-                let m = 
-                    str_spec --> MlModel.convert_string_spec
-                             --> MlModel.create acc.characters.(0).st_alph
-                             --> (fun x -> STLikelihood x)
-                in
-                (* apply spec to each character *)
-                List.iter (apply_on_character_set 
-                            acc.characters
-                            acc.csets
-                            (fun i -> 
-                                acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
-                      characters_to_modify
-            ) block;
-        acc
+        List.fold_left
+            (fun acc -> function
+                | P.CharacterBranch (trees,chars,bls) ->
+                    add_branch_data (trees,chars,bls) acc
+                | P.GapOpening (true, name, character_set) ->
+                    apply_gap_opening character_set acc
+                | P.DynamicWeight (true, name, character_set) ->
+                    apply_weight character_set acc
+                | P.Tcm (true, name, character_set) ->
+                    apply_tcm character_set acc
+                | P.Likelihood params ->
+                    apply_likelihood_model params acc
+                | P.DynamicWeight (false, _ , _ )
+                | P.Tcm (false, _ , _ )
+                | P.GapOpening (false, _ , _ ) -> acc)
+            acc
+            block
     | _ -> acc
 
 let of_channel ch file =

@@ -90,12 +90,13 @@ module Two_D : sig
     the processed data. Raise an Illegal_Cm_Format if the format can't be
     parsed. *)
     val of_channel: ?orientation:bool -> ?use_comb:bool -> ?level:int -> int ->
-        FileStream.greader -> m 
+        FileStream.greader -> m * int list list
 
     (** [of_channel_nocomb file] parse the file containing a cost matrix and
         returns the processed data, but without calculating combinations. Raise an
         Illegal_Cm_Format if the format can't be parsed. *)
-    val of_channel_nocomb: ?orientation:bool -> int -> FileStream.greader -> m
+    val of_channel_nocomb: 
+        ?orientation:bool -> int -> FileStream.greader -> m * int list list
 
     (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
@@ -202,47 +203,36 @@ module Two_D : sig
 
     (*
     * [calc_number_of_combinations_by_level a_sz level] returns the number of
-    * combinations based on alphabet size:a_sz and level value:level
-    *)
+    * combinations based on alphabet size:a_sz and level value:level *)
     val calc_number_of_combinations_by_level: int -> int -> int 
 
 
-    (*
-    * [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
-    * combination code that contains gap
-    *)
+    (* [calc_num_of_comb_with_gap ori_a_sz level] returns the number of
+     * combination code that contains gap *)
     val calc_num_of_comb_with_gap : int -> int -> int
     
-    (*
-    * [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
-    * combination code if the code contains gap code. for example, if gap is
-    * "-", then input [a-] will get [a]  
-    * *)
+    (* [gap_filter_for_combcode combcode level ori_a_sz], get rid of "gap" in a
+     * combination code if the code contains gap code. for example, if gap is
+     * "-", then input [a-] will get [a] *)
     val gap_filter_for_combcode : int -> m -> int
 
-    (*
-    * [comblist_to_combcode lst m], returns the combination code given a
-    * combiantion codelist.
-    * This function should be more efficent if we use Bigarray -- add Bigarray
-    * later.
-    * *)
+    (* [comblist_to_combcode lst m], returns the combination code given a
+     * combiantion codelist.
+     * This function should be more efficent if we use Bigarray -- add Bigarray
+     * later. *)
     val comblist_to_combcode: int list  -> m -> int
 
-    (*
-    * [combcode_to_comblist code m], returns combination codelist given a
-    * combination code
-    * *)
+    (* [combcode_to_comblist code m], returns combination codelist given a
+     * combination code *)
     val combcode_to_comblist: int -> m -> int list
 
-    (*
-    * [clear_duplication_in_list lst] clears up the duplicate element in the
-    * given list
-    * *)
+    (* [clear_duplication_in_list lst] clears up the duplicate element in the
+     * given list *)
     val clear_duplication_in_list: int list -> int list
 
     (* [print_intlist list] prints out the int list, for debug....*)
     val print_intlist: int list -> unit
-    val of_file : ?use_comb:bool -> FileStream.f -> int -> m
+    val of_file : ?use_comb:bool -> FileStream.f -> int -> m * int list list
     val fm_of_file: FileStream.f -> float list list
 end
 
