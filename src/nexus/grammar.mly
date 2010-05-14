@@ -449,7 +449,7 @@ optional_translate:
     ;
 tree_list:
     | optional_tree_prequel DATA SEMICOLON tree_list { $2 :: $4 }
-    | optional_tree_prequel DATA SEMICOLON { [$2] }
+    | { [] }
     ;
 optional_tree_prequel:
     | TREE do_star optional_label EQUAL {$3}
