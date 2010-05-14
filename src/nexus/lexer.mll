@@ -58,6 +58,7 @@
         ("JPEG", fun x -> JPEG x);
         ("LABELS", fun x -> LABELS x);
         ("LIKELIHOOD", fun x -> LIKELIHOOD x);
+        ("LINK", fun x -> LINK x);
         ("LOWER", fun x -> LOWER x); 
         ("MAM", fun x -> MAM x);
         ("MAP", fun x -> MAP x);                (* used in POY block *)
@@ -115,6 +116,7 @@
         ("TAXPARTITION", fun x -> TAXPARTITION x);
         ("TAXSET", fun x -> TAXSET x);
         ("TEXT", fun x -> TEXT x);
+        ("TITLE", fun x -> TITLE x);
         ("TIFF", fun x -> TIFF x);
         ("TOKENS", fun x -> TOKENS x);
         ("TRANSLATE", fun x -> TRANSLATE x);
@@ -184,6 +186,7 @@ and token = parse
     | [ '=' ]           { EQUAL }
     | [ ',' ]           { COMMA }
     | [ '/' ]           { BACKSLASH }
+    | [ '\\']           { SLASH }
     | [ '-' ]           { DASH }
     | [ '(' ]           { LPARENT }
     | [ ')' ]           { RPARENT }

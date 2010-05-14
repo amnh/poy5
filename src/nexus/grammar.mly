@@ -52,7 +52,6 @@ let report_error text b e =
 %token <string> DATACSTREE
 %token <string> QUOTED
 %token <string> SINGLEQUOTED
-%token <string> SLASH
 %token <string> DATATYPE
 %token <string> DEFTYPE
 %token <string> DIAGONAL
@@ -165,7 +164,7 @@ let report_error text b e =
 %token <string> YEAST
 %token <string> EIDENT
 %token NEXUS SEMICOLON EQUAL COMMA QUOTE BACKSLASH DASH LPARENT RPARENT STAR
-COLON LBRACKET RBRACKET
+COLON LBRACKET RBRACKET SLASH
 %token <string> IDENT
 %token <string> FLOAT
 %token <string> INTEGER
