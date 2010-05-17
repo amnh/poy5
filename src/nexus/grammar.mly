@@ -769,5 +769,6 @@ optional_comment:
     ;
 optional_label:
     | IDENT     { Some $1 }
-    | { None }
+    | FLOAT     { None    }
+    |           { None    }
     ;
