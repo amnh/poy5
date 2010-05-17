@@ -498,26 +498,23 @@ let rec cs_median code anode bnode prev t1 t2 a b =
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
-            let t1, t2 =
-                let t1,t2 = match t1,t2 with
-                    | Some (t1), Some (t2) when code <= 0 -> 
+            let t1, t2 = match t1,t2 with
+                | Some (t1), Some (t2) when code <= 0 -> 
                         (t1/.2.0,t2/.2.0)
-                    | Some (t1), Some (t2) ->
+                | Some (t1), Some (t2) ->
                         (t1,t2)
-                    | _ -> 
-                        let t1,t2 = 
-                            MlStaticCS.estimate_time ca.preliminary cb.preliminary
-                        in
-(*                        Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
-(*                            code anode.taxon_code bnode.taxon_code t1 t2;*)
-                        (t1,t2)
-                in
-                if anode.min_child_code < bnode.min_child_code then t1, t2
-                else t2, t1
+                | _ -> 
+                    let t1,t2 = 
+                        MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                    (t1,t2)
             in 
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
                                   t1 t2 anode.taxon_code bnode.taxon_code in
+            let t1,t2 = 
+                if anode.min_child_code < bnode.min_child_code then t1, t2
+                else t2, t1
+            in
             let n_cost = MlStaticCS.root_cost median in
             if debug then 
                 info_user_message
@@ -631,21 +628,21 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                             | Some (t1), Some (t2) ->
                                 if anode.min_child_code < bnode.min_child_code 
                                     then t1, t2 else t2, t1
-                            | _ ->
-                                let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-(*                                Printf.printf "\t%d (%d,%d) estimated (%f,%f)\n%!" *)
-(*                                    code anode.taxon_code bnode.taxon_code t1 t2;*)
-                                if anode.min_child_code < bnode.min_child_code 
-                                    then t1,t2 else t2,t1
+                            | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
                         in 
                         if debug then 
                             info_user_message
                                 "Calculating %d with %f(%d) and %f(%d)"
                                 code t1 anode.taxon_code t2 bnode.taxon_code
                         else ();
-                        DynamicCS.median code ca.preliminary cb.preliminary
-                                            (Some t1) (Some t2), 
-                        (Some t1,Some t2)
+                        let t1,t2 = 
+                            if anode.min_child_code < bnode.min_child_code 
+                            then t1,t2 else t2,t1
+                        and median = 
+                            DynamicCS.median code ca.preliminary cb.preliminary
+                                            (Some t1) (Some t2)
+                        in
+                        median,(Some t1,Some t2)
                     ELSE
                         failwith MlStaticCS.likelihood_error
                     END
