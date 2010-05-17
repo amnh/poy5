@@ -142,7 +142,9 @@ let list_to_a ?(orientation=false) lst gap all kind =
                 raise err
     and all_code = 
         match all with
-        | Some all -> Some (All_sets.StringMap.find all s2c)
+        | Some all ->
+                Some (All_sets.StringMap.find 
+                (String.uppercase all) s2c)
         | None -> None
     in
 
@@ -699,6 +701,7 @@ let rec explote alph level ori_sz=
                         if codet <= code then acc else item) h t
                 | [] -> assert false
             in
+            Printf.printf "all_repr = %s\n%!" all_repr;
             let return_alpha = list_to_a ~orientation:alph.orientation new_alphabet
             gap_repr (Some all_repr) Extended_Bit_Flags in
             let return_alpha =
