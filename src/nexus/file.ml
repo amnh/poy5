@@ -1235,7 +1235,7 @@ let process_parsed file (acc:nexus) parsed : nexus =
             | P.Model name -> ((name,var,param,lst,gap,file),chars)
             | P.Parameters param -> ((name,var,param,lst,gap,file),chars)
             | P.Chars chars -> (model,chars)
-            | P.Priors lst -> ((name,var,param,lst,gap,file),chars)
+            | P.Given_Priors lst -> ((name,var,param,lst,gap,file),chars)
             | P.GapMode gap -> ((name,var,param,lst,gap,file),chars)
             | P.Variation kind -> 
                     ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
@@ -1247,6 +1247,7 @@ let process_parsed file (acc:nexus) parsed : nexus =
                     ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
             | P.Files name -> let file = Some name in
                     ((name,var,param,lst,gap,file),chars)
+            | P.Other_Priors str -> failwith "not implemented yet"
         in
         (* POY block :: process all commands*)
         List.iter

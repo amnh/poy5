@@ -152,7 +152,7 @@ rule raw = parse
 and inquotes = parse
       [^ '"']+['"'] as d     { QUOTED d }
 and insinglequotes = parse 
-      [ ^ '\'']+['\''] as d  { SINGLEQUOTED d }
+      ([ ^ '\'']+ as d)['\''] { SINGLEQUOTED d }
 and comment = parse
       [ ^ ']' '[']      { comment lexbuf }
     | [ '[']            { incr comment_depth; comment lexbuf }
@@ -191,7 +191,7 @@ and token = parse
     | [ '[' ]           { incr comment_depth; comment lexbuf }
     | ['0'-'9']+ ['.'] ['0'-'9']* (['e' 'E'] ['-' '+']? ['0'-'9']+)? as i { FLOAT i }
     | ['0'-'9']+ as i   { INTEGER i }
-    | [ '\''][^ '\'']*['\''] as i { IDENT i }
+    | ['\'']([ '\''][^ '\'']* as i)['\''] { IDENT i }
     | [^ ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ] as i            { CHAR i }
     | eof               { raise Eof }
 and tree_tokens = parse

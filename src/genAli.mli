@@ -23,6 +23,14 @@
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 type dyna_state_t = Data.dyna_state_t
 
+(* [cmp_recost_simple seq1 seq2 ali_pam.re_meth ali_pam.circular ]
+ * will return the breakpoint or inversion distance of seq1 and seq2.
+ * It's like function [cmp_recost state seq1 seq2 reseq2 ...] when reseq2=seq2 
+* *)
+val cmp_recost_simple : int array -> int array ->
+  [< `Locus_Breakpoint of int | `Locus_Inversion of int ] -> int -> bool -> int
+
+
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
 * the rearrangement distance between two sequence [seq1] and [seq2] *)
 
@@ -103,6 +111,16 @@ val create_gen_ali :
   Alphabet.a ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> bool -> int * (int * int) * Sequence.s * Sequence.s
+
+val create_gen_ali_code_simple :
+    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
+    int array ->
+    int array ->
+    int array ->
+    int array array -> 
+    int -> int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+    int -> int -> bool ->
+    int * (int * int) * int array * int array
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
 *        re_meth max_swap_med circular] creates the general 

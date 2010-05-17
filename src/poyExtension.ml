@@ -612,6 +612,7 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`GraphicConsensus $handle_optional x$>> ] | 
                 [ LIDENT "clades" -> <:expr<`Clades>> ] |
                 [ LIDENT "phastwinclad" -> <:expr<`FasWinClad>> ] | 
+                [ LIDENT "nexus" -> <:expr<`Nexus>> ] | 
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
                     <:expr<`SequenceStats $ch$>> ] |
                 [ LIDENT "ci"; x = OPT optional_old_identifiers -> <:expr<`Ci

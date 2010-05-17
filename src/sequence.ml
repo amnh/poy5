@@ -906,6 +906,8 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
+    (*    Printf.printf "Sequence.Align.align_2 \n%!";
+        printseqcode s1; printseqcode s2; *)
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
@@ -914,6 +916,7 @@ module Align = struct
             | _ ->
                     let tc = cost_2 s1 s2 c m in   
                     let s1p, s2p = create_edited_2 s1 s2 m c in   
+                 (*   Printf.printf "editing cost = %d\n%!" tc;*)
                     s1p, s2p, tc   
         in 
         match first_gap with
@@ -2125,6 +2128,12 @@ let printDNA seq =
 * sequence of  [len] gaps *)
 let create_gap_seq ?(gap=Alphabet.gap) len = 
     init (fun _ -> gap) len
+
+let is_gap_seq ?(gap=Alphabet.gap) seq =
+    let num_gap = count gap 0 seq in
+    let len = length seq in
+    if ( num_gap <> len ) then 0
+    else 1
 
 (** [cmp_num_all_DNA] returns number of
 * codes in [seq] which do not include gap *)

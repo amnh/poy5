@@ -334,6 +334,7 @@ type reporta = [
     | `Ri of old_identifiers option
     | `CompareSequences of (bool * old_identifiers * old_identifiers)
     | `FasWinClad
+    | `Nexus
     | `Model
     | `Script of string list
     | `ExplainScript of string
@@ -972,6 +973,8 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             (`CompareSequences (file, a, b, c)) :: acc, file
     | `FasWinClad ->
             (`FasWinClad (file)) :: acc, file
+    | `Nexus ->
+            (`Nexus (file)) :: acc, file
     | `Model ->
             (`Model (file)) :: acc, file
     | `Script lst ->
@@ -1684,6 +1687,7 @@ let create_expr () =
                     | Some x -> Some (float_of_string x)) ] | 
                 [ LIDENT "clades" -> `Clades ] |
                 [ LIDENT "phastwinclad" -> `FasWinClad ] | 
+                [ LIDENT "nexus" -> `Nexus ] | 
                 [ LIDENT "lkmodel" -> `Model ] | 
                 [ LIDENT "script" -> `Script (!console_script) ] |
                 [ LIDENT "seq_stats"; ":"; ch = old_identifiers ->
@@ -2037,6 +2041,7 @@ let create_expr () =
             [
                 [ LIDENT "_cost" -> `Cost ] |
                 [ LIDENT "hennig" -> `HennigStyle ] |
+                [ LIDENT "nexus" -> `NexusStyle ] |
                 [ LIDENT "total" -> `Total ] |
                 [ LIDENT "newick" -> `Newick ] |
                 [ LIDENT "branches" -> `Branches ] | 

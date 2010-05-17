@@ -47,14 +47,32 @@ let from_ori_arr arr =
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
 
+(* [cmp_recost_simple seq1 seq2] is similar to [cmp_recost], except it only take
+* two sequence seq1 and seq2 as input, no 'reseq2' *)
+let cmp_recost_simple seq1 seq2 re_meth circular orientation =
+    let res = 
+        match re_meth with 
+        | `Locus_Inversion cost -> 
+            (UtlGrappa.cmp_inversion_dis seq1 seq2 circular) * cost  
+        | `Locus_Breakpoint cost ->       
+            (UtlGrappa.cmp_oriented_breakpoint_dis seq1 seq2 circular) * cost
+            (* cmp_breakpoint_dis seq1 seq2 circular *)
+    in
+    (*debug msg 
+    Printf.printf "cmp_recost_simple on seq1/seq2 =\n%!";
+    Utl.printIntArr seq1;
+    Utl.printIntArr seq2;
+    Printf.printf "res = %d\n%!" res;
+    debug msg*)
+    res
+ 
+
+
 (** [cmp_recost state seq1 seq2 reseq2 re_meth circular] returns
 * the rearrangement distance between two sequence [seq1] and [seq2] *)
 let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation = 
     let seq1, seq2, reseq2 = match orientation with
     | true -> to_ori_arr seq1, to_ori_arr seq2, to_ori_arr reseq2 
-            (*(Array.map get_orientated_code seq1),
-                    (Array.map get_orientated_code seq2),
-                    (Array.map get_orientated_code reseq2)*)
     | false -> seq1, seq2, reseq2
     in
     if Array.length seq2 = 0 then 0, 0
@@ -71,12 +89,13 @@ let cmp_recost state seq1 seq2 reseq2 re_meth circular orientation =
             | _ -> 0
         in 
         let recost2  = 
-            match re_meth with 
+            let seq2, reseq2 =  Utl.get_common seq2 reseq2 equal_orientation in
+            (match re_meth with 
             | `Locus_Inversion cost -> 
                   (UtlGrappa.cmp_inversion_dis seq2 reseq2 circular) * cost  
-            | `Locus_Breakpoint cost -> begin               
+            | `Locus_Breakpoint cost -> 
                   (UtlGrappa.cmp_oriented_breakpoint_dis seq2 reseq2 circular) * cost   
-            end;
+            )
         in  
         (* debug msg 
             Printf.printf "cmp_recost: [%!";
@@ -109,13 +128,18 @@ let cmp_cost state code1_arr code2_arr recode2_arr
     in 
    (editing_cost + recost1 + recost2), (recost1, recost2), alied_code1_arr, alied_recode2_arr
 
-
-
 (** [find_wagner_ali state seq1 seq2 gen_cost_mat gap re_meth circular]
  * returns rearranged sequence [reseq2] of sequence [seq2] using stepwise addition method 
  * such that the total cost is minimum where 
  * total cost = editing cost ([seq1], [reseq2]) + rearrangement cost ([seq2], [reseq2]) *)
 let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth circular orientation =
+    (*debug msg
+    Printf.printf "find_wagner_ali seq1/seq2=[%!"; 
+    Array.iter (Printf.printf "%d,") seq1;
+    Printf.printf "][%!";
+    Array.iter (Printf.printf "%d,") seq2;
+    Printf.printf "]\n%!";
+    debug msg*)
     let rec add (best_wagner_seq2_arr : int array array) added_seq2_ls rem_seq2_ls =
         match rem_seq2_ls with
         | [] -> best_wagner_seq2_arr
@@ -129,11 +153,13 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
                   in
                   wagner_seq2_ls := (partial_seq2, cost)::!wagner_seq2_ls;
               in 
+              
               let num_w = Array.length best_wagner_seq2_arr in  
               let len2 = Array.length best_wagner_seq2_arr.(0) in
               for w = 0 to num_w - 1 do                     
                   for pos = 0 to len2 do
-                      let partial_seq2 = Utl.insert best_wagner_seq2_arr.(w) pos code2 in 
+                      let partial_seq2 = 
+                          Utl.insert best_wagner_seq2_arr.(w) pos code2 in 
                       update partial_seq2;
                        if (state = `Annotated) && (code2 mod 2 = 1) then begin
                             let partial_seq2 = 
@@ -152,9 +178,21 @@ let find_wagner_ali (kept_wag : int) state seq1 seq2 gen_cost_mat gap re_meth ci
                             w2
                         )  
               in
+    (*debug msg
+              Printf.printf "best_w_arr = \n%!";
+              Array.iter (fun x -> 
+                  Printf.printf "[%!"; 
+                  Array.iter (Printf.printf "%d,%!") x; 
+              Printf.printf "] %!")best_w_arr;
+    debug msg*)
               add best_w_arr added_seq2_ls tl
     in
-    let wagner_seq2_arr = add [|[||]|] [] (Array.to_list seq2) in  
+    let wagner_seq2_arr = add [|[||]|] [] (Array.to_list seq2) in 
+    (*debug msg
+    Printf.printf "result is [:%!";
+    Array.iter (Printf.printf "%d ") wagner_seq2_arr.(0);
+    Printf.printf "]\n%!";
+    debug msg*)
     wagner_seq2_arr.(0)
 
 
@@ -376,7 +414,6 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
         |`Siepel ->
             ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3
             delimiter_lstlst circular)
-
     in
     let arr_med3 = from_ori_arr ori_arr_med3 in
     let comarr1 = from_ori_arr comoriarr1 in
@@ -387,54 +424,31 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     in
     (* debug msg 
     Printf.printf "GenAli.ml: delimiters :\n%!";
-    Array.iter (Printf.printf "%d,") delimiter_arr;
-    Printf.printf "\n%!";
-    Printf.printf "~~ cost1 between [%!"; 
-    Array.iter (Printf.printf "%d,") arr1; 
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) arr_med3;
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) comarr1;
+    Array.iter (Printf.printf "%d,") delimiter_arr; Printf.printf "\n%!";
+    Printf.printf "cost1 between [%!";  Array.iter (Printf.printf "%d,") arr1; 
+    Printf.printf " ] and [ %!";  Array.iter (Printf.printf "%d," ) arr_med3;
+    Printf.printf " ] and [ %!";  Array.iter (Printf.printf "%d," ) comarr1;
     Printf.printf " ] is %d\n%!" totalcost1;
     debug msg *)
     let totalcost2, (recost21,recost22), alied_arr21, alied_arr22 =
         cmp_cost `Breakinv arr2 arr_med3 comarr2 gen_cost_mat gapcode re_meth circular orientation
     in
-    (* debug msg
-    Printf.printf "~~ cost2 between [%!"; 
-    Array.iter (Printf.printf "%d,") arr2; 
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) arr_med3;
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) comarr2;
-    Printf.printf " ] is %d\n%!" totalcost2;
-     debug msg *)
     let totalcost3, (recost31,recost32), alied_arr31, alied_arr32 =
         cmp_cost `Breakinv arr3 arr_med3 comarr3 gen_cost_mat gapcode re_meth circular orientation
     in
-    (* debug msg
-    Printf.printf "~~ cost3 between [%!"; 
-    Array.iter (Printf.printf "%d,") arr3; 
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) arr_med3;
-    Printf.printf " ] and [ %!";
-    Array.iter (Printf.printf "%d," ) comarr3;
-    Printf.printf " ] is %d\n%!" totalcost3;
-    debug msg*)
     (Sequence.of_array arr_med3), (Array.to_list delimiter_arr),
     totalcost1,totalcost2,totalcost3,  
     recost11+recost12,recost21+recost22,recost31+recost32,
     alied_arr11,alied_arr21,alied_arr31,
     alied_arr12,alied_arr22,alied_arr32
 
-
-(** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
-*        re_meth max_swap_med circular] creates the general 
-* alignment between [seq1] and [seq2] with minimum total cost
-* where total cost = editing cost + rearrangement cost *)
-let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array) 
-        (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular orientation =
-
+(* [create_gen_ali_code_simple] is similar to [create_gen_ali_code], 
+* except that the rearrange of code2_arr (which is called 'seq2' in
+* [create_gen_ali_code]) is being passed, not created by [find_wagner_ali] *)    
+let create_gen_ali_code_simple 
+state (code1_arr:int array) (code2_arr: int array) (code2_arr_reg: int array)
+gen_cost_mat gen_gap_code kept_wag re_meth swap_med circular orientation
+=
     let size = Array.length gen_cost_mat in 
     let gen_cost_mat = Array.init (size - 1) 
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
@@ -442,16 +456,57 @@ let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array)
     let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
     let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
     Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
+    (*debug msg 
+    Printf.printf "create_gen_ali_code_simple , call cmp_cost with code1/code2/code2_reg=\n%!";
+    Utl.printIntArr code1_arr;
+    Utl.printIntArr code2_arr;
+    Utl.printIntArr code2_arr_reg;
+    debug msg *)
+    (* NOTE: since we assign each loci a unique int, 
+    *  there is no common code between code1_arr and code2_arr, 
+    *  the rc1 will always be 0, rc2 will be the rearrange cost we need*)
+    let total_cost, recost, alied_arr1, alied_arr2 =  
+        cmp_cost state code1_arr code2_arr code2_arr_reg gen_cost_mat gen_gap_code re_meth circular orientation
+    in 
+    (*debug msg 
+    let rc1,rc2 = recost in
+    Printf.printf "total_cost=%d(%d/%d), alied_arr1/alied_arr2 = \n%!"  total_cost rc1 rc2;
+    Utl.printIntArr alied_arr1; Utl.printIntArr alied_arr2; 
+    debug msg*)
+    total_cost, recost, alied_arr1, alied_arr2
 
+
+(** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
+*        re_meth max_swap_med circular] creates the general 
+* alignment between [seq1] and [seq2] with minimum total cost
+* where total cost = editing cost + rearrangement cost *)
+let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array) 
+        (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular orientation =   
+(*debug msg
+    Printf.printf "create_gen_ali_code, seq1 and seq2 = \n%!"; 
+    Utl.printIntArr seq1; Utl.printIntArr seq2;
+    Printf.printf "check matrix \n%!";
+    Array.iter (fun code1 ->
+        Array.iter (fun code2 ->
+               Printf.printf "%4i" gen_cost_mat.(code1).(code2); )seq2;
+        Printf.printf "%4i" gen_cost_mat.(code1).(gen_gap_code);
+        Printf.printf "\n%!"; )seq1;
+    Array.iter (fun code2 -> Printf.printf "%4i" gen_cost_mat.(code2).(gen_gap_code);
+    )seq2; Printf.printf "\n%!";
+debug msg*)
+    let size = Array.length gen_cost_mat in 
+    let gen_cost_mat = Array.init (size - 1) 
+        (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
+    in 
+    let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
+    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
+    Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
     let wag_seq2 = find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat 
         gen_gap_code re_meth circular orientation
     in 
-
     let init_cost, recost, alied_seq1, alied_seq2 =  
         cmp_cost state seq1 seq2 wag_seq2 gen_cost_mat gen_gap_code re_meth circular orientation
     in 
-
-
     let _, best_seq2 = 
         match max_swap_med with 
         | 0 -> init_cost, wag_seq2
@@ -459,9 +514,6 @@ let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array)
               multi_swap_locus state seq1 seq2 wag_seq2 init_cost  
                   gen_cost_mat gen_gap_code re_meth max_swap_med circular orientation 0  
     in   
-    
-
-
     let final_cost, recost, alied_seq1, alied_seq2 =   
         cmp_cost state seq1 seq2 best_seq2 gen_cost_mat 
             gen_gap_code re_meth circular orientation

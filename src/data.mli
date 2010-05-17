@@ -566,6 +566,7 @@ val set_parsimony  : d -> Methods.characters -> d
 val set_likelihood : d -> Methods.ml_spec    -> d 
 
 val to_faswincladfile : d -> string option -> unit
+val to_nexus : d -> string option -> unit
 
 val get_likelihood_model : d -> int list -> MlModel.model 
 

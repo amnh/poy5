@@ -67,6 +67,11 @@ val printDNA : s -> unit
 * sequence of  [len] gaps *)
 val create_gap_seq : ?gap:int -> int -> s
 
+(** [is_gap_seq gap seq] returns 1 if seq is all gaps, or you can call it
+* "indel", returns 0 if not
+* *)
+val is_gap_seq : ?gap:int -> s -> int
+
 (** [cmp_num_all_DNA] returns number of
 * codes in [seq] which do not include gap *)
 val cmp_num_all_DNA : s -> int

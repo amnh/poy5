@@ -503,7 +503,7 @@ let empty () =
 let copy_taxon_characters tc = 
     let new_tc = create_ht () in
     Hashtbl.iter (fun code othertbl ->
-        Hashtbl.add new_tc code (Hashtbl.copy othertbl)) tc;
+        Hashtbl.replace new_tc code (Hashtbl.copy othertbl)) tc;
     new_tc
 
 let duplicate data = 
@@ -1194,7 +1194,7 @@ let get_taxon_characters data tcode =
 let add_static_character_spec data (code, spec) =
     if not spec.Nexus.File.st_eliminate then begin
         Hashtbl.replace data.character_specs code (Static spec);
-        Hashtbl.add data.character_names spec.Nexus.File.st_name code;
+        Hashtbl.replace data.character_names spec.Nexus.File.st_name code;
         Hashtbl.replace data.character_codes code spec.Nexus.File.st_name;
     end else ()
 
@@ -1652,9 +1652,13 @@ let gen_add_static_parsed_file do_duplicate data file
                     end;
                     (column + 1)
                 in
-                let _ = Array.fold_left ~f:add_character 
+                if Array.length (file_out.Nexus.File.matrix) > 0 then
+                    let _ : int = 
+                        Array.fold_left ~f:add_character 
                                         ~init:0
-                                        file_out.Nexus.File.matrix.(row) in
+                                        file_out.Nexus.File.matrix.(row)
+                    in ()
+                else ();
                 Hashtbl.replace data.taxon_characters tcode tl;
                 let did = Status.get_achieved st in
                 Status.full_report ~adv:(did + 1) st;
@@ -1719,7 +1723,7 @@ let gen_add_static_parsed_file do_duplicate data file
             in
             let tcm = 
                 Cost_matrix.Two_D.of_transformations_and_gaps (size < 7)
-                size 1 1 all_elements
+                size 1 2 all_elements
             in
             let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
             process_parsed_sequences false "tcm:(1,2)" tcm (`Normal3d tcm3d) 
@@ -4094,9 +4098,10 @@ let transform_dynamic (meth: Methods.dynamic_char_transform) data =
     let new_taxon_chs = 
         let new_tbl = create_ht () in
         Hashtbl.iter 
-        (fun code ch_ls -> 
-            let new_ls = convert_dyna_taxon_data !data ch_ls tran_code_ls meth in
-            Hashtbl.add new_tbl code new_ls) !data.taxon_characters;
+            (fun code ch_ls -> 
+                let new_ls = convert_dyna_taxon_data !data ch_ls tran_code_ls meth in
+                Hashtbl.replace new_tbl code new_ls) 
+            !data.taxon_characters;
         new_tbl
     in 
     {!data with taxon_characters = new_taxon_chs}
@@ -4334,7 +4339,7 @@ let auto_partition mode data code =
             let res = Hashtbl.create 1667 in
             let size = 1 + (List.length h) in
             List.iter 
-                (fun (code, part) -> Hashtbl.add res code part)
+                (fun (code, part) -> Hashtbl.replace res code part)
                 partitions;
             Hashtbl.replace data.character_specs code 
             (Dynamic { dhs with 
@@ -4382,15 +4387,15 @@ let compute_fixed_states data code =
                     b initial_sequences.(x) dhs.tcm2d
                     Matrix.default
                 in
-                Hashtbl.add taxon_sequences taxa.(y) b;
-                Hashtbl.add taxon_sequences taxa.(x) a;
+                Hashtbl.replace taxon_sequences taxa.(y) b;
+                Hashtbl.replace taxon_sequences taxa.(x) a;
                 if not (Hashtbl.mem sequences_taxon b) then begin
-                    Hashtbl.add sequences_taxon b !states;
+                    Hashtbl.replace sequences_taxon b !states;
                     incr states;
                 end;
                 if not (Hashtbl.mem sequences_taxon a) then
                     begin
-                    Hashtbl.add sequences_taxon a !states;
+                    Hashtbl.replace sequences_taxon a !states;
                     incr states;
                 end;
                 (* We also add medians 
@@ -4429,7 +4434,7 @@ let compute_fixed_states data code =
     done;
     let taxon_codes = Hashtbl.create 97 in
     Hashtbl.iter (fun code seq ->
-        Hashtbl.add taxon_codes code (Hashtbl.find
+        Hashtbl.replace taxon_codes code (Hashtbl.find
         sequences_taxon seq)) taxon_sequences;
     Hashtbl.replace data.character_specs code (Dynamic { dhs
     with initial_assignment = `FS (distances, sequences,
@@ -4722,6 +4727,363 @@ let get_pam data c =
     | Kolmogorov dspec -> dspec.dhs.pam
     | _ -> failwith "Data.get_alphabet"
 
+let all_of_static data = 
+    List.sort ~cmp:( - )
+    (Hashtbl.fold (fun c s acc ->
+        match s with
+        | Static _ -> c :: acc
+        | _ -> acc) data.character_specs [])
+
+let state_to_string ambig_open ambig_close sep code t =
+    match t with
+    | None -> "?@?"
+    | Some lst ->
+            let lst =
+                match lst with
+                | `List lst -> lst
+                | `Bits lst -> BitSet.to_list lst 
+            in
+            match lst with
+            | [] -> "-@?"
+            | [item] -> 
+                    (string_of_int item) ^ "@?" 
+            | lst ->
+                    let lst = List.sort ~cmp:( - ) lst in
+                    ambig_open ^ String.concat sep 
+                    (List.map string_of_int lst) ^ ambig_close ^ "@?"
+
+let static_character_to_string sep ambig_open ambig_close fo charset code =
+    let () =
+        try
+            match Hashtbl.find charset code with
+            | (_, `Unknown) -> fo ("?@?")
+            | (spec, _) ->
+                    match spec with
+                    | Stat (_, t) -> 
+                            fo (state_to_string ambig_open ambig_close sep code t)
+                    | Dyna _ -> assert false
+        with
+        | Not_found -> 
+                fo ("?@?")
+    in
+    fo sep
+
+let output_character_types fo output_format data all_of_static =
+    (* We first output the non additive character types *)
+    if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@."
+    else ();
+    let output_element name position tcm =
+        let output_matrix m = 
+            let buffer = Buffer.create 100 in
+            Buffer.add_string buffer "@[<v 0>";
+            Array.iter (fun x ->
+                Buffer.add_string buffer "@[<h>";
+                Array.iter (fun y -> 
+                    let to_add = 
+                        if y > max_int / 8 && output_format = `Nexus then "i" 
+                        else (string_of_int y) 
+                    in
+                    Buffer.add_string buffer to_add;
+                    Buffer.add_string buffer " ") x; 
+                Buffer.add_string buffer "@]@.") m;
+            Buffer.add_string buffer ";@.@]";
+            (Buffer.contents buffer);
+        in
+        let output_codes m =
+            let buffer = Buffer.create 100 in
+            Buffer.add_string buffer "@[<h>";
+            Array.iteri 
+                (fun pos _ -> 
+                    Buffer.add_string buffer (string_of_int pos);
+                    Buffer.add_string buffer " ")
+                m.(0);
+            Buffer.add_string buffer "@]@.";
+            Buffer.contents buffer;
+        in
+        let codes = output_codes tcm in
+        let matrix = output_matrix tcm in
+        if output_format = `Hennig then
+            "@[<v 0>costs [ " ^ string_of_int position ^ " $" ^
+            string_of_int (Array.length tcm) ^ "@." ^ codes ^ matrix
+        else begin
+            fo ("@[USERTYPE " ^ name ^ " STEPMATRIX =" ^ 
+                string_of_int (Array.length tcm) ^ "@." ^ codes ^ matrix);
+            ""
+        end
+    in
+    let fixit int = if output_format = `Hennig then int else int + 1 in
+    let output_range x = 
+        match x with
+        | `Single min -> 
+            string_of_int (fixit min)
+        | `Pair (min, max) ->
+            (string_of_int (fixit min)) ^
+            (if output_format = `Hennig then "." else "-") ^
+            (string_of_int (fixit max))
+    in
+    let table_of_matrices = Hashtbl.create 97 in
+    let get_name_of_matrix suggested_name matrix =
+        if Hashtbl.mem table_of_matrices matrix then
+            Some (Hashtbl.find table_of_matrices matrix)
+        else begin
+            Hashtbl.add table_of_matrices matrix suggested_name;
+            None
+        end
+    in
+    let print_type is_last cnt 
+        (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
+        match x with
+        | None -> ""
+        | Some (range, Nexus.File.STUnordered) ->
+                if output_format = `Hennig then begin
+                    "@[<v 0>cc - " ^ output_range range ^ ";@]@."
+                end else begin
+                    "UNORD: " ^ output_range range ^
+                    (if not is_last then ", " else "")
+                end
+        | Some (range, Nexus.File.STOrdered) ->
+                if output_format = `Hennig then begin
+                    "@[<v 0>cc + " ^ output_range range ^ ";@]@."
+                end else begin
+                    "ORD: " ^ output_range range ^
+                    (if not is_last then ", " else "")
+                end
+        | Some ((`Single min) as range, Nexus.File.STSankoff matrix) ->
+                let name, element = 
+                    let name = "MATRIX" ^ string_of_int min in
+                    match get_name_of_matrix name matrix, output_format with
+                    | None, _            ->  name, output_element name min matrix
+                    | Some nname,`Hennig -> nname, output_element name min matrix
+                    | Some nname,`Nexus  -> nname, ""
+                in
+                if output_format = `Hennig then element
+                else "@[" ^ name ^ ":" ^ output_range range ^
+                     (if not is_last then ", " else "") ^ "@]@."
+        | Some (((`Pair (min, max)) as range), Nexus.File.STSankoff matrix) ->
+                if output_format = `Hennig then
+                    let rec output acc i = 
+                        if i > max then acc
+                        else 
+                            let next = 
+                                output_element ("MATRIX" ^ string_of_int i) i matrix
+                            in
+                            output (acc ^ next) (i + 1)
+                    in
+                    output "" min
+                else
+                    let name = "MATRIX" ^ string_of_int min in
+                    let res = output_element name min matrix in
+                    res ^ "@[" ^ name ^ ":" ^ output_range range ^
+                    (if not is_last then ", " else "") ^ "@]@."
+    in
+    fo "@[<v 0>";
+    let acc, last, cnt =
+        List.fold_left 
+            ~f:(fun (acc, previous, cnt) code ->
+                let spec = 
+                    match Hashtbl.find data.character_specs code with
+                    | Static x -> x.Nexus.File.st_type
+                    | _ -> assert false
+                in
+                match previous with
+                | None -> (acc, Some ((`Single cnt), spec), cnt + 1)
+                | Some ((`Single min), spec') ->
+                    if spec' = spec then begin
+                        (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                    end else begin
+                        let acc = acc ^ (print_type false cnt previous) in
+                        (acc, Some ((`Single cnt), spec), cnt + 1)
+                    end
+                | Some ((`Pair (min, max)), spec') ->
+                    if spec' = spec then begin
+                        (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                    end else begin
+                        let acc = acc ^ print_type false cnt previous in
+                        (acc, Some ((`Single cnt), spec), cnt + 1)
+                    end)
+            ~init:("",None, 0)
+            all_of_static
+    in
+    let acc = acc ^ print_type true cnt last in
+    if output_format = `Nexus then fo ("@[<h>TYPESET * POY = ");
+    fo acc;
+    if output_format = `Nexus then fo ";@]@.";
+    fo "@]";
+    let reweight_command, weight_separator = 
+        if output_format = `Hennig then "ccode /", " "
+        else "", ": "
+    in
+    let pos = ref ~-1 in
+    let output_weights code = 
+        incr pos;
+        match Hashtbl.find data.character_specs code with
+        | Static enc ->
+                let weight = enc.Nexus.File.st_weight in 
+                if weight = 1. then ""
+                else 
+                    ("@[<v 0>" ^ reweight_command ^
+                    string_of_int (truncate weight) ^
+                    weight_separator ^ 
+                    string_of_int (fixit !pos) ^ "@]")
+        | _ -> failwith "Sequence characters are not supported in fastwinclad"
+    in
+    let weights = List.map ~f:output_weights all_of_static in
+    let weights = List.filter ~f:((<>) "") weights in
+    let weights = 
+        String.concat (if output_format = `Nexus then ", " else ";@.")
+                      weights
+    in
+    let weights = if output_format = `Hennig then weights ^ ";@." else weights in
+    if output_format = `Nexus then fo "@[<h>WTSET * WEIGHT = " else ();
+    fo weights;
+    if output_format = `Nexus then fo ";@]@[END;@]@." else ()
+
+let output_character_names fo output_format data all_of_static =
+    let character_begining, state_names_beginning, character_separator,
+    name_enclosing, to_add  = 
+        match output_format with
+        | `Hennig -> "{", " ", ";", "", 0
+        | `Nexus -> " ", " / ", ",", "'", 1
+    in
+    let output_name position code =
+        let name = Hashtbl.find data.character_codes code in
+        if (output_format = `Nexus) && position > 0 then fo character_separator;
+        fo ("@[<h>" ^ character_begining ^ string_of_int (position + to_add)^ " " ^
+        name_enclosing ^ name ^ name_enclosing ^ state_names_beginning);
+        let labels = 
+            let string_labels, number_labels = 
+                match Hashtbl.find data.character_specs code with
+                | Dynamic _ | Set -> assert false
+                | Static spec ->
+                    match spec.Nexus.File.st_labels with
+                    | [] -> 
+                        (get_alphabet data code)
+                            --> Alphabet.to_list
+                            --> List.sort ~cmp:(fun (_,a) (_,b) -> a -b)
+                            --> List.map ~f:fst
+                            --> List.partition 
+                                    ~f:(fun x -> try ignore (int_of_string x); false
+                                                 with _ -> true)
+                    | lst -> lst, []
+            in
+            string_labels @ number_labels
+        in
+        List.iter ~f:(fun x -> fo "@[<h>"; fo name_enclosing; fo x; fo
+        name_enclosing; fo "@]"; fo " ") labels;
+        if output_format = `Hennig then fo character_separator;
+        fo "@]@.";
+        position + 1
+    in
+    (* The misterious commands for old programs *)
+    match output_format with
+    | `Hennig ->
+            fo "@[<v 0>proc /;@.#@.";
+            fo "$@.";
+            fo ";@.";
+            fo "@[<v 0>cn ";
+            let _ = List.fold_left ~f:output_name ~init:0 all_of_static in
+            fo ";@]@]@."
+    | `Nexus ->
+            fo "@[CHARSTATELABELS@.";
+            let _ = List.fold_left ~f:output_name ~init:0 all_of_static in
+            fo ";@]@."
+
+let to_nexus data filename = 
+    let all_of_static =  all_of_static data in
+    let fo = Status.user_message (Status.Output (filename, false, [])) in
+    let output_nexus_header () = fo "#NEXUS@."
+    and output_taxa_block () =
+        fo "@[BEGIN TAXA;@]@.";
+        fo "@[DIMENSIONS NTAX=";
+        fo (string_of_int data.number_of_taxa);
+        fo ";@]@.@[TAXLABELS ";
+        for i = 1 to data.number_of_taxa do 
+            let name = All_sets.IntegerMap.find i data.taxon_codes in
+            fo name;
+            fo " ";
+        done;
+        fo ";@]@.END;@."
+    in
+    let output_characters_blocks () =
+        let output_taxa_sequences alph character_code =
+            Hashtbl.iter (fun code characters ->
+                let name = All_sets.IntegerMap.find code data.taxon_codes in
+                if Hashtbl.mem characters character_code then
+                    match Hashtbl.find characters character_code with
+                    | _, `Unknown -> ()
+                    | Dyna (code, data), `Specified ->
+                            assert (code = character_code);
+                            fo "@[";
+                            fo name; 
+                            fo " ";
+                            Array.iter (fun x -> 
+                                let seq = Sequence.to_string x.seq alph in
+                                fo seq) data.seq_arr;
+                            fo "@]@."
+                    | _ -> assert false
+                else ()) data.taxon_characters 
+        in
+        let output_dynamic_homology character_code = 
+            match Hashtbl.find data.character_specs character_code with
+            | Static _ | Set -> assert false
+            | Dynamic spec -> (* We are OK *)
+                    fo "@[BEGIN UNALIGNED;@]@.";
+                    let alphabet, symbols = 
+                        if spec.alph == Alphabet.nucleotides then 
+                            "NUCLEOTIDE", []
+                        else if spec.alph == Alphabet.aminoacids then 
+                            "PROTEIN", []
+                        else 
+                            "STANDARD", 
+                            List.map fst (Alphabet.to_list spec.alph)
+                    in
+                    fo "@[FORMAT DATATYPE=";
+                    fo alphabet;
+                    fo "@]@.";
+                    let () = match symbols with
+                    | [] -> ()
+                    | lst -> 
+                            fo "@[SYMBOLS=\"";
+                            List.iter (fun x ->
+                                fo x; fo " ") lst;
+                            fo "\"@]@."
+                    in
+                    fo ";@.";
+                    fo "@[MATRIX@.";
+                    output_taxa_sequences spec.alph character_code;
+                    fo ";@]@.@[END;@]@."
+        in
+        (* Now the static homology characters, in one big matrix *)
+        let number_of_static_characters = List.length all_of_static in
+        if 0 < number_of_static_characters then begin
+            fo "@[BEGIN CHARACTERS;@]@.";
+            fo "@[DIMENSIONS NCHAR=";
+            fo (string_of_int number_of_static_characters);
+            fo ";@]@.";
+            fo "@[FORMAT@.";
+            fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V\"";
+            fo ";@]";
+            output_character_names fo `Nexus data all_of_static;
+            fo "@[MATRIX@.";
+            All_sets.IntegerMap.iter (fun code name ->
+                let specs = Hashtbl.find data.taxon_characters code in
+                fo "@[";
+                fo name;
+                fo " ";
+                List.iter (fun character_code ->
+                    static_character_to_string " " "(" ")" fo specs character_code)
+                all_of_static;
+                fo "@]@.") data.taxon_codes;
+            fo ";@]@.@[END;@]@.";
+            output_character_types fo `Nexus data all_of_static;
+        end;
+        (* We print the dynamic homology characters first *)
+        List.iter output_dynamic_homology data.dynamics
+    in
+    output_nexus_header ();
+    output_taxa_block ();
+    output_characters_blocks ()
+
 let to_faswincladfile data filename =
     let has_sankoff =
         match data.sankoff with
@@ -4729,14 +5091,8 @@ let to_faswincladfile data filename =
         | _ -> true
     in
     let fo = Status.user_message (Status.Output (filename, false, [])) in
-    let all_of_all = 
-        List.sort ~cmp:( - )
-        (Hashtbl.fold (fun c s acc ->
-            match s with
-            | Static _ -> c :: acc
-            | _ -> acc) data.character_specs [])
-    in
-    let number_of_characters = List.length all_of_all in
+    let all_of_static = all_of_static data in
+    let number_of_characters = List.length all_of_static in
     let number_of_taxa = 
         Hashtbl.fold (fun _ _ x -> x + 1) data.taxon_characters 0 
     in
@@ -4744,49 +5100,16 @@ let to_faswincladfile data filename =
         if has_sankoff then " "
         else "" 
     in
-    let state_to_string code t =
-        match t with
-        | None -> "?@?"
-        | Some lst ->
-                let lst =
-                    match lst with
-                    | `List lst -> lst
-                    | `Bits lst -> BitSet.to_list lst 
-                in
-                match lst with
-                | [] -> "-@?"
-                | [item] -> (string_of_int item) ^ "@?" 
-                | lst ->
-                        let lst = List.sort ~cmp:( - ) lst in
-                        "[" ^ String.concat sep 
-                        (List.map string_of_int lst) ^ "]@?"
-    in
-    let produce_character fo taxon charset code =
-        let _ =
-            try
-                match Hashtbl.find charset code with
-                | (_, `Unknown) -> fo "?@?"
-                | (spec, _) ->
-                        match spec with
-                        | Stat (_, t) -> 
-                                fo (state_to_string code t)
-                        | Dyna _ -> 
-                                failwith 
-                                "Fastwinclad files do not support sequences"
-            with
-            | Not_found -> fo "?@?"
-        in
-        fo sep
-    in
     let output_taxon tid name = 
         if All_sets.Strings.mem name data.ignore_taxa_set then
             ()
         else begin
             fo name;
             fo " ";
-            let _ =
+            let () =
                 let charset = get_taxon_characters data tid in
-                List.iter (produce_character fo tid charset) all_of_all
+                List.iter (static_character_to_string sep "[" "]" fo charset)
+                all_of_static
             in
             fo "@.@?";
         end
@@ -4803,129 +5126,11 @@ let to_faswincladfile data filename =
         fo (string_of_int number_of_taxa);
         fo "@]@.@?";
     in
-    let output_weights (acc, pos) code = 
-        match Hashtbl.find data.character_specs code with
-        | Static enc ->
-                let weight = enc.Nexus.File.st_weight in 
-                if weight = 1. then (acc, pos + 1)
-                else (acc ^ "@[<v 0>ccode /" ^ string_of_int (truncate weight) ^ " " ^ 
-                string_of_int pos ^ ";@]@.", pos + 1)
-        | _ -> failwith "Sequence characters are not supported in phastwinclad"
-    in
-    let weights, _ = 
-        List.fold_left ~f:output_weights ~init:("@[<v 0>", 0) all_of_all 
-    in
-    let weights = weights ^ "@]@." in
-    let output_character_types () =
-        (* We first output the non additive character types *)
-        let output_element position tcm =
-            let output_matrix m = 
-                Array.iter (fun x ->
-                    (Array.iter (fun y -> 
-                        fo (string_of_int y);
-                        fo " ") x; fo "@.")) m;
-                        fo ";@]@."
-            in
-            let output_codes m =
-                Array.iteri (fun pos _ -> 
-                    fo (string_of_int pos);
-                    fo " ") m.(0);
-                fo "@."
-            in
-            fo ("@[<v 0>costs [ " ^ string_of_int position ^ " $" ^
-            string_of_int (Array.length tcm) ^ "@.");
-            output_codes tcm;
-            output_matrix tcm;
-        in
-        let output_range x = 
-            match x with
-            | `Single min -> fo (string_of_int min)
-            | `Pair (min, max) ->
-                    fo (string_of_int min);
-                    fo ".";
-                    fo (string_of_int max)
-        in
-        let print_type (x : (([`Pair of (int * int) | `Single of int]) *
-        Nexus.File.st_type) option)  = 
-            match x with
-            | None -> ()
-            | Some (range, Nexus.File.STUnordered) ->
-                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
-            | Some (range, Nexus.File.STOrdered) ->
-                    fo "@[<v 0>cc + "; output_range range; fo ";@]@."
-            | Some ((`Single min), Nexus.File.STSankoff matrix) ->
-                    output_element min matrix
-            | Some ((`Pair (min, max)), Nexus.File.STSankoff matrix) ->
-                    for i = min to max do 
-                        output_element i matrix
-                    done;
-            | Some (range, Nexus.File.STLikelihood _) -> 
-                    fo "@[<v 0>cc - "; output_range range; fo ";@]@."
-                    (* failwith "Hennig files do not support likelihood characters" *)
-        in
-        fo "@[<v 0>";
-        let last, _ =
-            List.fold_left ~f:(fun (previous, cnt) code ->
-                let spec = 
-                    match Hashtbl.find data.character_specs code with
-                    | Static x -> x.Nexus.File.st_type
-                    | _ -> assert false
-                in
-                match previous with
-                | None -> (Some ((`Single cnt), spec)), cnt + 1
-                | Some ((`Single min), spec') ->
-                        if spec' = spec then begin
-                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
-                        end else begin
-                            print_type previous;
-                            (Some ((`Single cnt), spec)), cnt + 1
-                        end;
-                | Some ((`Pair (min, max)), spec') ->
-                        if spec' = spec then begin
-                            (Some ((`Pair (min, cnt)), spec)), cnt + 1
-                        end else begin
-                            print_type previous;
-                            (Some ((`Single cnt), spec)), cnt + 1
-                        end;) ~init:(None, 0) all_of_all
-        in
-        print_type last;
-        fo "@]"
-    in
-    let output_character_names () =
-        let output_name position code =
-            let name = Hashtbl.find data.character_codes code in
-            fo ("@[{" ^ string_of_int position ^ " " ^ name ^ " ");
-            let labels = 
-                match Hashtbl.find data.character_specs code with
-                | Dynamic _
-                | Set  
-                | Kolmogorov _ -> assert false
-                | Static spec ->
-                        match spec.Nexus.File.st_labels with
-                        | [] ->
-                                (Alphabet.to_list (get_alphabet data code))
-                                --> List.sort ~cmp:(fun (_, a) (_, b) -> a - b)
-                                --> List.map ~f:fst
-                        | lst -> lst
-            in
-            List.iter ~f:(fun x -> fo x; fo " ") labels;
-            fo ";@]@.";
-            position + 1
-        in
-        (* The misterious commands for old programs *)
-        fo "@[<v 0>#@.";
-        fo "$@.";
-        fo ";@.";
-        fo "@[<v 0>cn ";
-        let _ = List.fold_left ~f:output_name ~init:0 all_of_all in
-        fo ";@]@]@."
-    in
     fo "@[<v 0>";
     output_header ();
     output_all_taxa ();
-    output_character_types ();
-    fo weights;
-    output_character_names ();
+    output_character_types fo `Hennig data all_of_static;
+    output_character_names fo `Hennig data all_of_static;
     fo "@.";
     fo "@]@?"
 
@@ -5362,7 +5567,7 @@ let change_taxon_codes reorder_function data =
         reorder_function chars;
         let htbl = Hashtbl.create 1667 in
         for i = 0 to (Array.length chars_org) - 1 do
-            Hashtbl.add htbl chars_org.(i) chars.(i);
+            Hashtbl.replace htbl chars_org.(i) chars.(i);
         done;
         htbl
     in
@@ -5383,7 +5588,7 @@ let change_taxon_codes reorder_function data =
     and taxon_characters =
         let res = Hashtbl.create 1667 in
         Hashtbl.iter (fun old_code contents ->
-            Hashtbl.add res (find htbl old_code) contents)
+            Hashtbl.replace res (find htbl old_code) contents)
         data.taxon_characters;
         res
     in

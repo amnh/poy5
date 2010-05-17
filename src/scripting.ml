@@ -1563,16 +1563,13 @@ let process_input run (meth : Methods.input) =
     let d, nodes = load_data meth run.data run.nodes in
     let run = { run with data = d; nodes = nodes } in
     (* check whether this read any trees *)
-    if [] = d.Data.trees then update_trees_to_data false false run
-    else
-        let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
-        let trees = List.map (fun (x, _, id) -> x) run.data.Data.trees in
-        let trees = Build.prebuilt trees (run.data, run.nodes) in
-        let trees = Sexpr.to_list trees in
-        let total_trees = (Sexpr.to_list run.trees) @ trees in
-        let total_trees = Sexpr.of_list total_trees in
-        let d = { d with Data.trees = [] } in
-        { run with trees = total_trees; data = d }
+    let run = update_trees_to_data false false run in
+    let () = List.iter (Data.verify_trees run.data) run.data.Data.trees in
+    let trees = List.map (fun (x, _, _) -> x) run.data.Data.trees in
+    let trees = Build.prebuilt trees (run.data, run.nodes) in
+    let total_trees = Sexpr.union trees run.trees in
+    let d = { d with Data.trees = [] } in
+    { run with trees = total_trees; data = d }
 
 let temporary_transform run meth =
     let run1 = process_transform run meth in
@@ -4340,6 +4337,9 @@ END
                     (Sexpr.to_list run.trees);
                 run
             | `Script (filename,script) -> 
+                run
+            | `Nexus filename ->
+                Data.to_nexus run.data filename;
                 run
             | `FasWinClad filename -> 
                 Data.to_faswincladfile run.data filename;

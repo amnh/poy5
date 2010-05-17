@@ -87,7 +87,8 @@ module P : sig
         | Variation_Sites of string
         | Variation_Alpha of string
         | Variation_Invar of string
-        | Priors of (string * float) list
+        | Given_Priors of (string * float) list
+        | Other_Priors of string 
         | Chars of charset list
         | Parameters of float list
         | GapMode of bool

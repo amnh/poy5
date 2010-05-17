@@ -252,8 +252,6 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
         Array.iter (Printf.printf "%d,%!") arr;
         Printf.printf "],%!";
     in
-     debug message *)
-    (*debug message 
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
      debug message *)
@@ -273,20 +271,21 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     assert( (List.length delimiters_lstlst) = 3 );
     let deli1 = List.hd delimiters_lstlst 
     and deli2 = List.nth delimiters_lstlst 1
-    and deli3 = List.nth delimiters_lstlst 2
-    in
+    and deli3 = List.nth delimiters_lstlst 2 in
     let deliX = Array.of_list deli1 
     and deliY = Array.of_list deli2
     and deliZ = Array.of_list deli3 in
     let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
-    (* debug msg 
+    (* debug msg  
    (*  Printf.printf "standardize input seq: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ; *)
-     Printf.printf "num_deli = %d,%d,%d,deli array =  %!" num_deliX num_deliY
-     num_deliZ;
-    print_intarr deliX; print_intarr deliY; print_intarr deliZ;
+     Printf.printf "circular = %d, num_deli = %d,%d,%d,deli array = \n%!" 
+     circular num_deliX num_deliY num_deliZ;
+     if num_deliX >1 then  print_intarr deliX; 
+     if num_deliY >1 then  print_intarr deliY; 
+     if num_deliZ >1 then  print_intarr deliZ;
      debug msg *)
     (* if number of deli is 1, it is a single chromosome, no need to pass
     * delimiters array *)
@@ -346,7 +345,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     (* debug msg  
      Printf.printf "output seqcode = %!"; print_intarr resarr;
      print_newline();
-     debug msg*)
+    debug msg*)
     resarr,deli_arr
 
 

@@ -413,8 +413,8 @@ model_block:
             { (P.Variation_Invar $3) :: $5 }
     | ALPHA EQUAL FLOAT SEMICOLON model_block
             { (P.Variation_Alpha $3) :: $5 }
-    | PRIORS EQUAL pairs_list_float model_block
-            { (P.Priors $3) :: $4 }
+    | PRIORS EQUAL priors_options model_block
+            { $3 :: $4 }
     | CHARSET EQUAL characterset_list SEMICOLON model_block
             { (P.Chars $3) :: $5 }
     | PARAMETERS EQUAL float_list model_block
@@ -426,6 +426,11 @@ model_block:
     | GAP EQUAL CHARACTER SEMICOLON model_block
             { (P.GapMode true) :: $5 }
     | SEMICOLON { [] }
+    ;
+
+priors_options:
+    | pairs_list_float  { P.Given_Priors $1 }
+    | IDENT SEMICOLON   { P.Other_Priors $1 }
     ;
 
 float_list:

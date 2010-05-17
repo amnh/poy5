@@ -106,7 +106,8 @@ type likelihood_model =
     | Variation_Sites of string
     | Variation_Alpha of string
     | Variation_Invar of string
-    | Priors of (string * float) list
+    | Given_Priors of (string * float) list
+    | Other_Priors of string 
     | Chars of charset list
     | Parameters of float list
     | GapMode of bool
@@ -117,7 +118,7 @@ type poy_data =          (* trees , characters, (nodes , length) *)
     | Likelihood of likelihood_model list
 
 type block = 
-     Taxa of (string * string list) 
+    | Taxa of (string * string list) 
     | Characters of char_data 
     | Distances of ((bool * string * string) option * format_options list * string list * string)
     | Ignore of string
