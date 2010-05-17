@@ -1068,35 +1068,35 @@ let update_assumptions cost_table (acc:nexus) item =
             in
             ()
     | P.WeightDef (has_star, name, has_token, set) ->
-            let set_item weight x =
-                acc.characters.(x) <- 
-                    { acc.characters.(x) with st_weight = weight }
-            in
-            let _ =
-                match set with
+            if not has_star then ()
+            else begin
+                let set_item weight x =
+                    let x = x - 1 in
+                    acc.characters.(x) <- 
+                            { acc.characters.(x) with st_weight = weight }
+                in
+                let _ = match set with
                 | P.Standard items ->
-                        let process_item = function
-                            | P.Code (v, who) ->
-                                let weight = float_of_string v in
-                                List.iter 
-                                    (apply_on_character_set acc.csets acc.characters
-                                                            (set_item weight))
-                                    who 
-                            | P.IName _ ->
-                                    failwith "Unexpected name"
-                        in
-                        List.iter process_item items
+                    let process_item = function
+                        | P.Code (v, who) ->
+                            let weight = float_of_string v in
+                            List.iter 
+                                (apply_on_character_set acc.csets acc.characters 
+                                    (set_item weight))
+                                who 
+                        | P.IName _ -> failwith "Unexpected name"
+                    in
+                    List.iter process_item items
                 | P.Vector items ->
-                        let _ =
-                            List.fold_left 
-                            (fun pos x ->
-                                set_item (float_of_string x) pos; 
-                                pos + 1)
+                    let _ =
+                        List.fold_left 
+                            (fun pos x -> set_item (float_of_string x) pos;pos+1)
                             0 items
-                        in 
-                        ()
-            in
-            ()
+                    in 
+                    ()
+                in
+                ()
+            end
     | P.TypeDef (has_star, name, has_token, set) ->
             let set_typedef clas x =
                 let clas = String.uppercase clas in

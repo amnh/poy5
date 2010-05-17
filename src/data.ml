@@ -166,7 +166,7 @@ type tcm_definition =
     | Input_file of (string * (int list list))
     | Substitution_Indel_GapOpening of (int * int * int)
     | Input_file_GapOpening of (string * (int list list) * int)
-    | Level of int
+    | Level of (tcm_definition * int)
 
 type dynamic_hom_spec = {
     filename : string;
@@ -182,9 +182,7 @@ type dynamic_hom_spec = {
     weight : float;
 }
 
-type distr =
-    | MaxLength of int
-                        (* Any of the distributions with a maximum length *)
+type distr = | MaxLength of int (* Any of the distributions with a maximum length *)
 
 type affine_f = {
     selfp : float;
@@ -2245,18 +2243,20 @@ let report_terminals_files filename taxon_files ignored_taxa =
     All_sets.StringMap.iter print_file files;
     fo "@]@]%!"
 
-let tcm_definition_to_string = function
+let rec tcm_definition_to_string = function
     | Substitution_Indel_GapOpening (a, b, _)
     | Substitution_Indel (a, b) -> 
             "tcm:(" ^ string_of_int a ^ "," ^ string_of_int b ^ ")"
     | Input_file_GapOpening (name, _, _) 
     | Input_file (name, _) -> "'" ^ name ^ "'"
+    | Level (def,_) -> tcm_definition_to_string def
 
-let gap_opening_to_string = function
+let rec gap_opening_to_string = function
     | Input_file _ 
     | Substitution_Indel _ ->  "0"
     | Substitution_Indel_GapOpening (_, _, v)
     | Input_file_GapOpening (_, _, v)  -> string_of_int v
+    | Level (def,_) -> tcm_definition_to_string def
 
 (* This function will output in channel [ch] what was recorded in the
 * [data]. This will have to be changed to XML. *)
@@ -4628,11 +4628,15 @@ let codes_with_same_tcm codes data =
 
 
 let assign_level data chars level =
-    let codes = get_chars_codes_comp data chars
-    and name = Level level in
+    let make_level level = function
+        | Level (otcm,_) -> Level (otcm,level)
+        | x -> Level (x, level)
+    in
+    let codes = get_chars_codes_comp data chars in
     let codes =
         List.map 
-            (fun (a, b, alph, tcmfile) ->
+          (fun (a, b, alph, tcmfile) ->
+            let name = make_level level tcmfile in
             let b =
                 if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph)
                                          || (Alphabet.aminoacids = alph) then
@@ -4665,7 +4669,7 @@ let assign_level data chars level =
         ~f:(fun acc (a, tcm) -> assign_tcm_to_characters acc (`Some a) None tcm)
         ~init:data codes
 
-let make_affine cost_model tcmfile = match tcmfile with
+let rec make_affine cost_model tcmfile = match tcmfile with
     | Substitution_Indel (a, b) ->
             (match cost_model with
             | Cost_matrix.No_Alignment
@@ -4690,6 +4694,8 @@ let make_affine cost_model tcmfile = match tcmfile with
             | Cost_matrix.Linnear
             | Cost_matrix.Affine 0 -> tcmfile
             | Cost_matrix.Affine x -> Input_file_GapOpening (a, b, x))
+    | Level (inner,n) -> 
+            Level (make_affine cost_model inner,n)
 
 let rec assign_affine_gap_cost data chars cost =
     let codes = get_chars_codes_comp data chars in
@@ -4820,6 +4826,105 @@ let static_character_to_string sep ambig_open ambig_close fo charset code =
     in
     fo sep
 
+let make_tcm_name a b = 
+    "TCM" ^ string_of_int a ^ "_" ^ string_of_int b
+
+let make_name name =
+    if name.[0] = '\'' then name 
+    else "'" ^ name ^ "'" 
+
+let create_name_and_matrix_for_nexus tcm alph =
+    let create_array a b = 
+        let alph = Alphabet.to_sequential alph in
+        let size = Alphabet.size alph in
+        Array.init size (fun y ->
+            Array.init size (fun x ->
+                if x = y then 0
+                else if x = (size - 1) || y = (size - 1) then b
+                else a))
+    in
+    let rec entry tcm = match tcm with
+        | Substitution_Indel (a, b) -> 
+            make_tcm_name a b, create_array a b
+        | Substitution_Indel_GapOpening (a, b, _) -> 
+            make_tcm_name a b, create_array a b
+        | Input_file (name, mtx) ->
+            make_name name, Array.of_list (List.map Array.of_list mtx)
+        | Input_file_GapOpening (name, mtx, _) ->
+            make_name name, Array.of_list (List.map Array.of_list mtx)
+        | Level (d,_) -> entry d
+    in
+    entry tcm
+
+let output_poy_nexus_block fo data dynamics =
+    if 0 < List.length dynamics then begin
+        fo "@[BEGIN POY;@]@.";
+        let dynamics = Array.of_list dynamics in
+        let go = Buffer.create 1000 
+        and weights = Buffer.create 1000
+        and tcm = Buffer.create 1000 in
+        Buffer.add_string go "@[GAPOPENING * POYGENERATED = ";
+        Buffer.add_string tcm "@[TCM * POYGENERATED = ";
+        Buffer.add_string weights "@[WTSET * POYWEIGH = ";
+        let len = (Array.length dynamics) - 1 in
+        let add_ab pos posstr a b =
+            Buffer.add_string tcm (make_tcm_name a b);
+            Buffer.add_string tcm ":";
+            Buffer.add_string tcm posstr;
+            if pos < len then Buffer.add_string tcm ","
+            else Buffer.add_string tcm ";@.@]"
+        in
+        let add_name pos posstr name =
+            Buffer.add_string tcm (make_name name);
+            Buffer.add_string tcm ":";
+            Buffer.add_string tcm posstr;
+            if pos < len then Buffer.add_string tcm ","
+            else Buffer.add_string tcm ";@.@]"
+        in
+        let add_go pos posstr x =
+            Buffer.add_string go (string_of_int x);
+            Buffer.add_string go ":";
+            Buffer.add_string go posstr;
+            if pos < len then Buffer.add_string go ","
+            else Buffer.add_string go ";@.@]";
+        in
+        let add_weight pos posstr x =
+            Buffer.add_string weights (string_of_float x);
+            Buffer.add_string weights ":";
+            Buffer.add_string weights posstr;
+            if pos < len then Buffer.add_string weights ","
+            else Buffer.add_string weights ";@.@]";
+        in
+        let add_data pos code = 
+            let posstr = string_of_int (pos + 1) in
+            let weight = get_weight code data in
+            add_weight pos posstr weight;
+            let rec add_ = function
+                | Substitution_Indel (a, b) -> 
+                    add_ab pos posstr a b;
+                    add_go pos posstr 0;
+                | Input_file (name, _) -> 
+                    add_name pos posstr name;
+                    add_go pos posstr 0;
+                | Substitution_Indel_GapOpening (a, b, x) ->
+                    add_ab pos posstr a b;
+                    add_go pos posstr x;
+                | Input_file_GapOpening (name, _, x) ->
+                    add_name pos posstr name;
+                    add_go pos posstr x
+                    (* TODO: lyn, this needs to be looked at
+                | Level (d,_) -> add_data d *)
+            in
+            add_ (get_tcmfile data code)
+        in
+        Array.iteri add_data dynamics;
+        fo (Buffer.contents tcm);
+        fo (Buffer.contents go);
+        fo (Buffer.contents weights);
+        fo "END;@.@]"
+    end else ()
+
+
 let output_character_types fo output_format data all_of_static =
     (* We first output the non additive character types *)
     if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@."
@@ -4886,6 +4991,7 @@ let output_character_types fo output_format data all_of_static =
         (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
         match x with
         | None -> ""
+        | Some (range, Nexus.File.STLikelihood _) ->
         | Some (range, Nexus.File.STUnordered) ->
                 if output_format = `Hennig then begin
                     "@[<v 0>cc - " ^ output_range range ^ ";@]@."
@@ -5141,6 +5247,7 @@ let to_nexus data filename =
                 fo "@]@.") terminals_sorted;
             fo ";@]@.@[END;@]@.";
             output_character_types fo `Nexus data all_of_static;
+            output_poy_nexus_block fo data data.dynamics;
         end;
         (* We print the dynamic homology characters first *)
         List.iter output_dynamic_homology data.dynamics

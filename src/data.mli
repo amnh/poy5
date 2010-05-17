@@ -123,7 +123,7 @@ type tcm_definition =
     | Input_file of (string * (int list list))
     | Substitution_Indel_GapOpening of (int * int * int)
     | Input_file_GapOpening of (string * (int list list) * int)
-    | Level of int
+    | Level of (tcm_definition * int)
 
 type dyna_initial_assgn = [ 
     | `Partitioned of clip
