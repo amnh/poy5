@@ -701,7 +701,6 @@ let rec explote alph level ori_sz=
                         if codet <= code then acc else item) h t
                 | [] -> assert false
             in
-            Printf.printf "all_repr = %s\n%!" all_repr;
             let return_alpha = list_to_a ~orientation:alph.orientation new_alphabet
             gap_repr (Some all_repr) Extended_Bit_Flags in
             let return_alpha =
