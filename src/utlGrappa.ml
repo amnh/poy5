@@ -241,8 +241,6 @@ let find_better_capping (genomeX : int array) (genomeY : int array) (delimiterX:
     debug msg*)
     resarr,deli_arr
 
-
-
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
@@ -254,7 +252,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     in
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
-     debug message *)
+    debug message*) 
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     let num_gen = Array.length genomeX in 
