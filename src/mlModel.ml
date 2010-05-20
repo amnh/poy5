@@ -476,8 +476,9 @@ let output_model output nexus model set =
                 printf ";@]@]";
             | None -> ()
         in
+        if model.spec.use_gap then printf "[@gap = character;@]";
         printf ";@]@."
-    end else (* hennig *) begin
+    end else (* phylip *) begin
         printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
             | Some Constant
