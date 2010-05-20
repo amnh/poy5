@@ -1094,7 +1094,6 @@ void better_capping (int * g1, int * g2, int num_genes, int * in_deli1, int * in
 void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli3, int num_deli1, int num_deli2, int num_deli3, int SIZE_ALPHA, int CIRCULAR, struct genome_struct * g_med)
 {  
     mgr_distmem_t * dist_mem = &distmem_mgrmed;
-   // mgr_distmem_t * dist_mem_cap = &distmem_capgraph;
     int i,j;
     int NumGenomes = 3;
     int circular;// = CIRCULAR;
@@ -1322,7 +1321,10 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
         g_med->deli_num =  real_deli_num;//max_num_deli;
     }
     else
+    {
         copy_genes((Genomes.genome_list)->genes,g_med->genes,num_genes);
+        g_med -> deli_num = 0 ;
+    }
 
     // free memory for the number of rearrangements
     //free(nbreag);

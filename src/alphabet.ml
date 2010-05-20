@@ -142,7 +142,9 @@ let list_to_a ?(orientation=false) lst gap all kind =
                 raise err
     and all_code = 
         match all with
-        | Some all -> Some (All_sets.StringMap.find all s2c)
+        | Some all ->
+                Some (All_sets.StringMap.find 
+                (String.uppercase all) s2c)
         | None -> None
     in
 

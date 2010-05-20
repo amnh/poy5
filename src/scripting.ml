@@ -1497,7 +1497,7 @@ let load_data (meth : Methods.input) data nodes =
                     data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
                 let data = Data.add_file data [Data.Characters] seq in
-                let orientation = 
+                let orientation =
                     (List.mem (`Orientation true) read_options) 
                 in
                 let init3D = (List.mem (`Init3D true) read_options) in

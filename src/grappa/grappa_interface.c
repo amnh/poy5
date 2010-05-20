@@ -39,6 +39,7 @@ int DOBRANCH;
 
 struct genome_arr_t
 {
+    int magic_number;
     struct genome_struct *genome_ptr;
     int num_genome;
     int num_gene;
@@ -65,15 +66,18 @@ free_mem_4_all ()
 }
 
 void grappa_CAML_genome_arr_free (value c_genome_arr) {
-    //printf("Start of genone_arr_CAML_free\n"); fflush(stdout); 
     struct genome_arr_t *genome_arr;
     struct genome_struct *genome;
     int i;
     genome_arr = (struct genome_arr_t *) Data_custom_val (c_genome_arr);
-
+    assert(GRAPPA_MAGIC_NUMBER == genome_arr->magic_number);
+ //   fprintf(stdout, "Start of genone_arr_CAML_free, num_genome=%d, addr=%p; ",
+//            genome_arr->num_genome,genome_arr); 
+    fflush(stdout);
     for (i = 0 ; i < genome_arr->num_genome; i++){
        genome = genome_arr->genome_ptr + i;
-        if (genome != (struct genome_struct *) NULL) {            
+       assert(GRAPPA_MAGIC_NUMBER == genome->magic_number);
+        if (genome != (struct genome_struct *) NULL) {
             if(genome->genes != (int*) NULL) 
                 free (genome->genes);
             else 
@@ -91,8 +95,9 @@ void grappa_CAML_genome_arr_free (value c_genome_arr) {
                         try to free emty delimiters\n");
         }
     }
+    assert(GRAPPA_MAGIC_NUMBER == genome_arr->magic_number);
     free (genome_arr->genome_ptr); 
-    //printf("End of genone_arr_CAML_free\n"); fflush(stdout); 
+  // fprintf(stdout, "End of free\n"); fflush(stdout); 
     return;
 }
 
@@ -109,7 +114,7 @@ static struct custom_operations genomeOps = {
 static struct custom_operations genomeArrOps = {
     "http://www.amnh.org/poy/genome/grappa.0.1",
     &grappa_CAML_genome_arr_free, 
-//    custom_finalize_default,
+ //   custom_finalize_default,
     custom_compare_default,
     custom_hash_default,
     custom_serialize_default,
@@ -195,11 +200,14 @@ value grappa_CAML_get_one_genome(value c_genome_arr, value c_index) {
     char *gnamePtr;             
     char parent[32];
 */
-    
+     
+    genome->magic_number = (genome_arr->genome_ptr + index)->magic_number; 
+    assert( GRAPPA_MAGIC_NUMBER == genome->magic_number);
     genome->genes = (genome_arr->genome_ptr + index)->genes;
     genome->delimiters = (genome_arr->genome_ptr + index)->delimiters;
     genome->deli_num = (genome_arr->genome_ptr + index)->deli_num;
     genome->gnamePtr = (genome_arr->genome_ptr)->gnamePtr;
+    //encoding is not initialized, why?
     genome->encoding = (genome_arr->genome_ptr + index)->encoding;   
     //strcpy(genome->parent, (genome_arr->genome_ptr + index)->parent);
     
@@ -307,21 +315,23 @@ value grappa_CAML_better_capping (value c_gene1, value c_gene2, value num_genes)
     (struct genome_struct *) malloc (1*sizeof (struct genome_struct) );
     if ( out_genome_list == ( struct genome_struct * ) NULL )
         failwith ("ERROR: genome_list in grappa_CAML_better_capping is NULL" );
-    out_genome_list[0].gnamePtr =
-            ( char * ) malloc ( MAX_NAME * sizeof ( char ) );
+    out_genome_list[0].gnamePtr =( char * ) malloc ( MAX_NAME * sizeof ( char ) );
     sprintf (out_genome_list[0].gnamePtr, "%i", 0);
     if ( out_genome_list[0].gnamePtr == ( char * ) NULL )
-            failwith( "ERROR: gname of genome_list in grappa_CAML_better_capping is NULL" );
+        failwith( "ERROR: gname of genome_list in grappa_CAML_better_capping is NULL" );
     out_genome_list[0].genes =( int * ) malloc ( NUM_GENES * sizeof ( int ) );
     out_genome_list[0].delimiters = (int *) malloc (NUM_GENES * sizeof (int) );
-
+    out_genome_list[0].magic_number = GRAPPA_MAGIC_NUMBER;
+    out_genome_list[0].encoding = NULL; //we don't need encoding and gnamePtr;
     better_capping (g1->genes,g2->genes,NUM_GENES,g1->delimiters,g2->delimiters,g1->deli_num,g2->deli_num,out_genome_list);
-
     struct genome_arr_t *out_genome_arr;
     CAMLlocal1 (c_genome_arr);
     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
     out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
+//    fprintf(stdout, "better capping , genome list addr=%p\n",out_genome_arr);
+    out_genome_arr->magic_number = GRAPPA_MAGIC_NUMBER;
     out_genome_arr->genome_ptr = out_genome_list;    
+    assert(GRAPPA_MAGIC_NUMBER == out_genome_list[0].magic_number);
     out_genome_arr->num_genome = 1;
     out_genome_arr->num_gene = NUM_GENES;
     CAMLreturn(c_genome_arr); 
@@ -372,11 +382,12 @@ grappa_CAML_inv_med
     };
     out_genome_list[0].genes =( int * ) malloc ( NUM_GENES * sizeof ( int ) );
     out_genome_list[0].delimiters = (int *) malloc (NUM_GENES * sizeof (int) );
-
+    out_genome_list[0].magic_number = GRAPPA_MAGIC_NUMBER; 
+    out_genome_list[0].encoding = NULL;
     if (old_max_num_genes >= NUM_GENES) {}
     else
     {
-        free_mem_4_all ();
+        //free_mem_4_all ();
         ini_mem_4_all (NUM_GENES);
         free_mem_4_invdist (&INVDIST_MEM);
         ini_mem_4_invdist (NUM_GENES);
@@ -494,7 +505,12 @@ grappa_CAML_inv_med
         }
         else
         {
-            out_genome_list = g1;
+            memcpy (out_genome_list->genes, g1->genes, NUM_GENES); 
+            memcpy (out_genome_list->delimiters, g1->delimiters, NUM_GENES); 
+            out_genome_list->deli_num = g1->deli_num;
+            out_genome_list->genome_num = g1->genome_num;
+            
+            //out_genome_list = g1;
         }
 
     }
@@ -516,7 +532,10 @@ grappa_CAML_inv_med
     CAMLlocal1 (c_genome_arr);
     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 1000000);
     out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
-    out_genome_arr->genome_ptr = out_genome_list;    
+//    fprintf(stdout, "inv_med , genome list addr=%p\n",out_genome_arr);
+    out_genome_arr->magic_number = GRAPPA_MAGIC_NUMBER;
+    out_genome_arr->genome_ptr = out_genome_list;  
+    assert( GRAPPA_MAGIC_NUMBER == out_genome_list[0].magic_number);
     out_genome_arr->num_genome = 1;
     out_genome_arr->num_gene = NUM_GENES;
     CAMLreturn(c_genome_arr); 
@@ -533,7 +552,29 @@ grappa_CAML_inv_med_bytecode (value * argv, int argn){
 
 
 
-/*****************************************************************/
+value grappa_CAML_create_empty_genome(value numgene)
+{
+    struct genome_struct *new_genome;
+    CAMLparam1(numgene);
+    CAMLlocal1(res);
+    int Numgene = Int_val(numgene);
+    int len_genes = Numgene * sizeof ( int );
+    int len_delimiters = len_genes;
+    int len_gname = MAX_NAME * sizeof ( char );
+    res = alloc_custom(&genomeArrOps, 
+            sizeof(struct genome_struct)+len_genes+len_delimiters+len_gname,
+            1, 10000);
+    struct genome_struct * genome_p = 
+        (struct genome_struct*) Data_custom_val (res);
+    if(genome_p == NULL) failwith ("Memory allocation ERROR in grappa_interface.c");
+    genome_p -> genes = (int*) (genome_p + 1);
+    genome_p -> delimiters = (int * )( genome_p -> genes + len_genes);
+    genome_p -> gnamePtr =(char *)(genome_p -> delimiters + len_delimiters);
+    genome_p -> encoding = NULL;
+    CAMLreturn(res);
+}
+
+
 value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
 {
     int Numgenome, Numgene, i;
@@ -543,7 +584,6 @@ value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
     
     Numgenome = Int_val(numgenome);
     Numgene = Int_val(numgene);
-  /************/
 
     genome_list =
         ( struct genome_struct * ) malloc ( Numgenome *
@@ -553,7 +593,7 @@ value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
 
     for ( i = 0; i < Numgenome; i++ )
     {
-         genome_list[i].gnamePtr =
+        genome_list[i].gnamePtr =
             ( char * ) malloc ( MAX_NAME * sizeof ( char ) );
         sprintf (genome_list[i].gnamePtr, "%i", i);
         if ( genome_list[i].gnamePtr == ( char * ) NULL )
@@ -565,11 +605,15 @@ value grappa_CAML_create_empty_genome_arr(value numgenome, value numgene)
         genome_list[i].delimiters =
             (int *) malloc (Numgene * sizeof (int) );
         genome_list[i].deli_num = 0;
+        genome_list[i].magic_number = GRAPPA_MAGIC_NUMBER;
+        genome_list[i].encoding = NULL;
     }
 
     CAMLlocal1 (c_genome_arr);
     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 10000);
     genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);
+//    fprintf(stdout, "create empty genome list, addr=%p\n",genome_arr);
+    genome_arr->magic_number = GRAPPA_MAGIC_NUMBER;
     genome_arr->genome_ptr = genome_list;    
     genome_arr->num_genome = Numgenome;
     genome_arr->num_gene = Numgene;
@@ -586,6 +630,7 @@ value grappa_CAML_set (value set_what, value c_genome_arr, value c_genome_no, va
     genome_no = Int_val (c_genome_no);
     set_seq = Int_val(set_what);
     index = Int_val (c_index);
+    assert(GRAPPA_MAGIC_NUMBER == (genome_arr->genome_ptr + genome_no)->magic_number);
     if (1==set_seq) // seq genes
     {
     gene_no = Int_val (c_gene_no);

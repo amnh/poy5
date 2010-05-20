@@ -16,6 +16,7 @@
 #define INLINE
 #endif
 
+#define GRAPPA_MAGIC_NUMBER 9873123
 #define INVDISTEXE "invdist"
 #define DISTMATEXE "distmat"
 
@@ -109,13 +110,14 @@ struct qNode
 
 struct genome_struct
 {
-    int *genes;
-    int genome_num;
-    int *delimiters;
+    int magic_number;
     int deli_num;
+    int genome_num;
+    char parent[32];
+    int *genes;
+    int *delimiters;
     char *encoding;
     char *gnamePtr; /* Used to copy the gname when adding genomes to the tree */
-    char parent[32];
 };
 
 struct adj_struct

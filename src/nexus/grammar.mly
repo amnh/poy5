@@ -707,9 +707,10 @@ tree:
     | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | IDENT optional_length optional_comment { P.Leaf ($1, ($2, $3)) }
+    | IDENT optional_length optional_comment
+        { P.Leaf ($1, ($2, $3))         }
     | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
-                            { P.Node ($2, $4, ($5, $6)) }
+        { P.Node ($2, $4, ($5, $6))     }
     ;
 single_tree_list:
     | single_tree COMMA single_tree_list { $1 :: $3 }
@@ -717,16 +718,17 @@ single_tree_list:
     ;
 optional_length:
     | COLON INTEGER { Some (float_of_string $2) }
-    | COLON FLOAT { Some (float_of_string $2) }
-    | { None }
+    | COLON FLOAT   { Some (float_of_string $2) }
+    |               { None                      }
     ;
 optional_comment:
     | LBRACKET IDENT RBRACKET { Some $2 }
-    | { None }
+    |                         { None    }
     ;
 optional_label:
-    | IDENT     { Some $1 }
-    | { None }
+    | IDENT     { Some $1   }
+    | FLOAT     { None      }
+    |           { None      }
     ;
 
 /* -------------------------------------------------------------------------- */

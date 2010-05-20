@@ -55,6 +55,7 @@ type annchrom_t = {
 (** [annchromPam_t] is data structure to 
 * contains parameters used to align two annotated chromosomes *)
 type annchromPam_t = {
+  median_solver : Data.median_solver_t;
   re_meth : Data.re_meth_t;
   keep_median : int;
   circular : int;

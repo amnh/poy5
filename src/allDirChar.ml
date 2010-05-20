@@ -1308,14 +1308,14 @@ module F : Ptree.Tree_Operations
             in
             (* ensures that we modify the branch lengths once --if we do *)
             let first_cost = Ptree.get_cost `Adjusted first_tree in
-            if do_branches then begin
-                let btree = adjust_tree iterations branches None first_tree in
+            if do_model then begin
+                let btree = model_fn first_tree in
                 let bcost = Ptree.get_cost `Adjusted btree in
                 if debug_model_fn then
-                    info_user_message "Step 0; Iterated Branches %f --> %f" first_cost bcost;
-                loop_m 1 (Ptree.get_cost `Adjusted btree) btree
+                    info_user_message "Step 0; Iterated Model %f --> %f" first_cost bcost;
+                loop_bl 1 (Ptree.get_cost `Adjusted btree) btree
             end else begin
-                loop_m 0 first_cost first_tree
+                loop_bl 0 first_cost first_tree
             end
         in
         if using_likelihood `Static tree then begin

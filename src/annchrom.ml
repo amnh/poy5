@@ -25,6 +25,8 @@ let fprintf = Printf.fprintf
 
 type annchrom_t = AnnchromAli.annchrom_t
 
+let debug = false
+
 (** [meds_t] is a data structure for a list of  medians 
 * between two annotated chromosomes. 
 * Rearrangements are allowed *)
@@ -95,6 +97,7 @@ let update_approx_mat meds1 meds2 =
  * a list of medians z_ij with the same cost c_ij. 
  * Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
+    if debug then  Printf.printf "annchrom.ml find_meds2\n%!";
     let find_exact () = 
         let best_meds = List.fold_left  
             (fun best_meds med1 -> 
@@ -104,8 +107,7 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                               AnnchromAli.find_med2_ls med1 med2 meds1.cost_mat
                                   meds1.alpha meds1.annchrom_pam 
                           in  
-    
-                        if cost < best_meds.total_cost then 
+                          if cost < best_meds.total_cost then 
                             { best_meds with med_ls = med_ls; total_cost = cost;
                                   total_recost = recost}
                         else best_meds                      
@@ -115,26 +117,23 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                                 
         best_meds
     in 
-
-
+    if debug then 
+    Printf.printf "end of annchrom.ml find_meds2\n%!";
     match meds1.annchrom_pam.Data.approx with 
     | Some approx ->
           if approx then begin 
               update_approx_mat meds1 meds2;
-
               let med1 = List.hd meds1.med_ls in  
               let med2 = List.hd meds2.med_ls in  
               let code2 = meds2.code in
-
               let med12 = AnnchromAli.find_approx_med2 med1 med2
                   meds1.approx_med_arr.(code2) 
               in 
               {meds1 with med_ls = [med12]; 
                    total_cost = meds1.approx_cost_arr.(code2);
-                   total_recost = meds1.approx_recost_arr.(code2)}
-                   
-          end else find_exact ()
-
+                   total_recost = meds1.approx_recost_arr.(code2)}           
+          end 
+        else find_exact ()
     | None -> find_exact ()
 
 
@@ -159,6 +158,7 @@ let find_meds3 (medsp: meds_t) (meds1: meds_t) (meds2: meds_t) =
  * a list of medians z_ij with the same cost c_ij. 
  * returns c*_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =    
+    if debug then Printf.printf "cmp_min_pair_cost\n%!";
     let min_cost, min_recost = List.fold_left 
         (fun (min_cost, min_recost) med1 -> 
                 List.fold_left 
@@ -181,6 +181,7 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
  * a list of medians z_ij with the same cost c_ij. 
  * returns c*_ij = max (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =    
+    if debug then Printf.printf "cmp_max_pair_cost \n%!";
     let max_cost, max_recost = List.fold_left 
         (fun (max_cost, max_recost) med1 -> 
                 List.fold_left 
@@ -219,6 +220,7 @@ let compare (meds1 : meds_t) (meds2 : meds_t) =
 * the current median [mine] of three medians [ch1],
 * [ch2], and [parent] using three dimentional alignments*)
 let readjust_3d ch1 ch2 mine c2 c3 parent = 
+    if debug then Printf.printf "annchrom.ml readjust_3d\n%!";
     let alpha = mine.alpha in 
     let annchrom_pam = mine.annchrom_pam in 
 

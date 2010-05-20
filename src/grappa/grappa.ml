@@ -102,6 +102,8 @@ let inversions a b c d = List.rev (c_inversions a b c d)
 
 external c_create_empty_genome_arr : int -> int -> genome_arr = "grappa_CAML_create_empty_genome_arr"
 
+external c_create_emtpy_genome : int -> genome = "grappa_CAML_create_empty_genome"
+
 external c_set : int -> genome_arr -> int -> int -> int -> unit = "grappa_CAML_set"
 
 let genomes arr = 
