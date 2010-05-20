@@ -27,6 +27,8 @@ type static_spec = {
     st_observed_used : (int, int) Hashtbl.t option;
 }
 
+type static_state = [ `Bits of BitSet.t | `List of int list ] option
+
 let static_state_to_list x =
     match x with
     | `List x -> x
@@ -61,8 +63,6 @@ let spec_of_alph alphabet filename name =
         st_used_observed = None;
         st_observed_used = None;
     }
-
-type static_state = [ `Bits of BitSet.t | `List of int list ] option
 
 let st_type_to_string = function
     | STOrdered -> "Additive"
@@ -1123,17 +1123,15 @@ let update_assumptions cost_table (acc:nexus) item =
                                 (apply_on_character_set acc.csets acc.characters 
                                                         (set_typedef v))
                                 who
-                        in
-                        List.iter process_item items
+                    in
+                    List.iter process_item items
                 | P.Vector items ->
-                        let _ = 
-                            List.fold_left 
-                            (fun pos x ->
-                                set_typedef x pos;
-                                pos + 1) 
+                    let _ = 
+                        List.fold_left 
+                            (fun pos x -> set_typedef x pos; pos + 1) 
                             0 items
-                        in
-                        ()
+                    in
+                    ()
             in
             ()
     | _ -> ()
@@ -1149,20 +1147,16 @@ let generate_parser_friendly (translations:(string*string) list)
                              ((name,tree):P.tree) : string option *
                              Tree.Parse.tree_types list =
     let rec process_name name =
-        try 
-            process_name (List.assoc name translations)
-        with
-        | Not_found -> 
-                try 
-                    match taxa.(find_taxon taxa name) with
+        try process_name (List.assoc name translations)
+        with | Not_found -> 
+            try match taxa.(find_taxon taxa name) with
+                | None -> name
+                | Some x -> x
+            with | _ ->
+                try match taxa.(int_of_string name) with
                     | None -> name
                     | Some x -> x
-                with
-                | _ -> try match taxa.(int_of_string name) with
-                        | None -> name
-                        | Some x -> x
-                        with
-                        | _ -> name
+                with | _ -> name
     in
     let rec translate_branch = function
         | P.Leaf (name, d) -> 

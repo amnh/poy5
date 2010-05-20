@@ -4348,9 +4348,11 @@ END
                         let model  = Data.get_likelihood_model t.Ptree.data chars
                         and cost   = Ptree.get_cost `Adjusted t
                         and length = TreeOps.tree_size t
-                        and name   = t.Ptree.data.Data.current_fs_file 
                         and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                        MlModel.output_model name ntaxa cost length fo false model)
+                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
+                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                        MlModel.output_model fo `Hennig model None)
                     (Sexpr.to_list run.trees);
                 run
             | `Script (filename,script) -> 
@@ -4365,8 +4367,7 @@ END
                 PTS.output_consensus run.data run.trees filename v false;
                 run
             | `GraphicConsensus (filename, v) ->
-                PTS.output_consensus run.data run.trees filename v
-                true;
+                PTS.output_consensus run.data run.trees filename v true;
                 run
             | `History size ->
                 Status.resize_history size;
@@ -4535,11 +4536,17 @@ END
                     Status.user_message fo "@]\n%!";
                     run
             | `Trees (ic, filename) ->
+                    let rec remove_style acc = function
+                        | [] -> acc
+                        | `NexusStyle :: tl 
+                        | `HennigStyle :: tl-> remove_style acc tl
+                        | hd :: tl -> remove_style (hd::acc) tl
+                    in
                     let ic = 
                         if check_suffix filename nexus_extensions then
-                            [`NexusStyle]
+                            `NexusStyle :: (remove_style [] ic)
                         else if check_suffix filename hennig_extensions then
-                            [`HennigStyle]
+                            `HennigStyle :: (remove_style [] ic)
                         else ic
                     in
                     PTS.report_trees ic filename run.data run.trees;

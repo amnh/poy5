@@ -1953,14 +1953,6 @@ let classify size doit chars data =
     if doit then Some (classify size chars data)
     else None
 
-module OrderedML = struct
-    (* we could choose model or spec, but spec can use Pervasives.compare *)
-    type t = MlModel.spec 
-    let compare a b = Pervasives.compare a b
-end
-module MLModelMap = Map.Make (OrderedML)
-
-
 type ms = All_sets.Integers.t
 
 let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms) 
@@ -2012,24 +2004,16 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                 [] res
         in
         let group_ml_by_model lst =
-            let set_codes = 
-                List.fold_left (fun acc code ->
-                    match Hashtbl.find (!data).Data.character_specs code with
-                    | Data.Static spec ->
-                            let lkspec = match spec.Nexus.File.st_type with
-                                | Nexus.File.STLikelihood x -> x.MlModel.spec
-                                | _ -> assert false
-                            in
-                           (try
-                                let old = MLModelMap.find lkspec acc in
-                                MLModelMap.add lkspec (code::old) acc
-                            with | Not_found ->
-                                MLModelMap.add lkspec ([code]) acc
-                           )
-                    | _ -> assert false)
-                MLModelMap.empty lst
+            let get_function code = 
+                match Hashtbl.find (!data).Data.character_specs code with
+                | Data.Static spec ->
+                    begin match spec.Nexus.File.st_type with
+                    | Nexus.File.STLikelihood x -> x.MlModel.spec
+                    | _ -> assert false
+                    end
+                | _ -> assert false
             in
-            MLModelMap.fold (fun k elm acc -> elm::acc) set_codes []
+            MlModel.categorize_by_model lst get_function
 
         and group_by_sets lst = 
             let curr = Hashtbl.create 1667 in

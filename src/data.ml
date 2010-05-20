@@ -202,8 +202,8 @@ type basic_kolmo_spec = {
     event_prob : float;         (** Probability of an event *)
     tm : float list list;       (** The transformation cost matrix *)
     be : arr;                   (** Base encodings, and insertion in tips *)
-    simplebe : float array;              (** The original encoding cost *)
-    simplebed : float array;            (** The deletion cost in the tips *)
+    simplebe : float array;     (** The original encoding cost *)
+    simplebed : float array;    (** The deletion cost in the tips *)
     ins : float;                (** Insertion encoding cost *)
     del : float;                (** Deletion encoding cost *)
     sub : float;                (** Substitution encoding cost *)
@@ -213,9 +213,8 @@ type basic_kolmo_spec = {
     root_cost : float;          (** Extra cost incurred by each root *)
     branch_cost : float;        (** Extra cost incurred by each branch *)
     leaf_cost : float;          (** Extra cost incurred by marking a leaf *)
-    end_cost : float;           (** Extra cost of ending the compuations and
-    producing the output *)
-    mo : model;                (** The model *)
+    end_cost : float;           (** Extra cost of ending the compuations and producing the output *)
+    mo : model;                 (** The model *)
 }
 
 type aux_kolmo_spec = {
@@ -3462,6 +3461,42 @@ type classes =
     [ `Dynamic |  `NonAdditive | `Likelihood | `DynamicLikelihood | `AllLikelihood
     | `Additive | `Sankoff | `Kolmogorov | `AllStatic | `AllDynamic ] 
 
+let has_likelihood d = 
+    match d.static_ml with
+    | [] -> false
+    | _  -> true
+
+let has_dynamic_likelihood d = 
+    match d.dynamics with
+    | []      -> false
+    | hd :: _ ->
+        match Hashtbl.find d.character_specs hd with
+        | Dynamic spec when spec.state = `Ml -> true
+        | _                                  -> false
+
+let get_likelihood_model data chars = 
+    let get_model x = match Hashtbl.find data.character_specs x with
+        | Static dat ->
+            begin match dat.Nexus.File.st_type with
+                | Nexus.File.STLikelihood model -> model
+                | _ -> failwith "unsupported static character"
+            end
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+            | Some x -> x
+            | None -> failwith "inconsistent dynamic likelihood state"
+            end
+        | _ -> failwith "unsupported characters"
+    in
+    match List.map get_model chars with
+    | h :: t ->
+        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+            h
+        else failwith "Inconsistent Model over characters"
+    | [] ->
+        failwith "No Characters found"
+
+
 let rec get_code_from_name data name_ls = 
   let code_ls = List.fold_right 
       ~f:(fun name acc -> 
@@ -4792,37 +4827,32 @@ let all_of_static data =
         | Static _ -> c :: acc
         | _ -> acc) data.character_specs [])
 
-let state_to_string ambig_open ambig_close sep code t =
+let state_to_string ambig_open ambig_close sep a resolve code t =
+    let f =
+        if resolve
+            then (fun x -> Alphabet.match_code x a)
+            else string_of_int
+    in
     match t with
     | None -> "?@?"
     | Some lst ->
-            let lst =
-                match lst with
-                | `List lst -> lst
-                | `Bits lst -> BitSet.to_list lst 
-            in
-            match lst with
-            | [] -> "-@?"
-            | [item] -> 
-                    (string_of_int item) ^ "@?" 
-            | lst ->
-                    let lst = List.sort ~cmp:( - ) lst in
-                    ambig_open ^ String.concat sep 
-                    (List.map string_of_int lst) ^ ambig_close ^ "@?"
+        match Nexus.File.static_state_to_list lst with
+        | []     -> "-@?"
+        | [item] -> (f item) ^ "@?" 
+        | lst    -> let lst = List.sort ~cmp:( - ) lst in
+                    ambig_open ^ String.concat sep (List.map f lst) ^ ambig_close ^ "@?"
 
-let static_character_to_string sep ambig_open ambig_close fo charset code =
+let static_character_to_string sep ambig_open ambig_close fo resolve alph charset code =
     let () =
-        try
-            match Hashtbl.find charset code with
+        try match Hashtbl.find charset code with
             | (_, `Unknown) -> fo ("?@?")
             | (spec, _) ->
-                    match spec with
-                    | Stat (_, t) -> 
-                            fo (state_to_string ambig_open ambig_close sep code t)
-                    | Dyna _ -> assert false
+                match spec with
+                | Stat (_, t) -> 
+                    fo (state_to_string ambig_open ambig_close sep alph resolve code t)
+                | Dyna _ -> assert false
         with
-        | Not_found -> 
-                fo ("?@?")
+        | Not_found -> fo ("?@?")
     in
     fo sep
 
@@ -4856,10 +4886,121 @@ let create_name_and_matrix_for_nexus tcm alph =
     in
     entry tcm
 
-let output_poy_nexus_block fo data dynamics =
-    if 0 < List.length dynamics then begin
+let output_range format x =
+    let fixit int = if format = `Hennig then int else int + 1 in
+    match x with
+    | `Single min -> string_of_int (fixit min)
+    | `Pair (min, max) -> 
+        (string_of_int (fixit min)) ^
+        (if format = `Hennig then "." else "-") ^
+        (string_of_int (fixit max))
+
+let create_set_data_pairs (fo : string -> unit) data =
+    let output_character_sets (fo : string -> unit) output_format data n all_static : unit = 
+        (* create sets *)
+        let print_type is_last cnt 
+            (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
+            match x with
+            | None -> ""
+            | Some (range, Nexus.File.STLikelihood _) ->
+                output_range output_format range ^ (if not is_last then ", " else "")
+            | _ -> ""
+        in
+        let acc, last, cnt =
+            List.fold_left 
+                ~f:(fun (acc, previous, cnt) code ->
+                    let spec = 
+                        match Hashtbl.find data.character_specs code with
+                        | Static x -> x.Nexus.File.st_type
+                        | _ -> assert false
+                    in
+                    match previous with
+                    | None -> (acc, Some ((`Single cnt), spec), cnt + 1)
+                    | Some ((`Single min), spec') ->
+                        if spec' = spec then begin
+                            (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                        end else begin
+                            let acc = acc ^ (print_type false cnt previous) in
+                            (acc, Some ((`Single cnt), spec), cnt + 1)
+                        end
+                    | Some ((`Pair (min, max)), spec') ->
+                        if spec' = spec then begin
+                            (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                        end else begin
+                            let acc = acc ^ print_type false cnt previous in
+                            (acc, Some ((`Single cnt), spec), cnt + 1)
+                        end)
+                ~init:("",None, 0)
+                all_static
+        in
+        let acc = acc ^ print_type true cnt last in
+        fo ("@[charset poy_lk"^(string_of_int n)^" = ");
+        fo acc;
+        fo "@]@."
+    in
+    (* create categories for likelihood *)
+    let cat_likelihood lk_chars =
+        let get_function code = 
+            match Hashtbl.find data.character_specs code with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                | Nexus.File.STLikelihood x -> x.MlModel.spec
+                | _ -> assert false
+                end
+            | _ -> assert false
+        in
+        MlModel.categorize_by_model lk_chars get_function
+    in
+    (* first lets categorize all the data *)
+    let categorize data =
+        let rec remove_empty acc = function
+            | []     -> acc
+            | []::tl -> remove_empty acc tl
+            | hd::tl -> remove_empty (hd::acc) tl
+        in
+        let all = cat_likelihood data.static_ml in
+        remove_empty [] all
+    (* associate data to each category; right now associated with likelihood *)
+    and add_data charset = match charset with
+        | [] -> failwith "Data.create_set_data_pairs; Empty Category"
+        | hd::_ -> 
+            begin match Hashtbl.find data.character_specs hd with
+                | Static spec -> 
+                    begin match spec.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood m -> (charset, Some m)
+                        | Nexus.File.STOrdered 
+                        | Nexus.File.STUnordered 
+                        | Nexus.File.STSankoff _ -> (charset, None)
+                    end
+                | Kolmogorov _ 
+                | Dynamic _ 
+                | Set -> (charset, None)
+            end
+    in
+    let set_pairs = List.map ~f:add_data (categorize data) in
+    fo "@[BEGIN SETS;@.";
+    let set_pairs = 
+        let count = ref 0 in
+        List.map
+            ~f:(fun (s,m) ->
+                output_character_sets fo `Nexus data (!count) s;
+                let res = ("poy_lk"^(string_of_int !count),m) in
+                incr count;
+                res)
+            set_pairs
+    in
+    fo ";@]@.END;@]@.";
+    set_pairs
+
+let output_poy_nexus_block (fo : string -> unit) data : unit =
+    let output_nexus_model (n,m) = match m with
+        | Some m -> MlModel.output_model fo `Nexus m (Some [n])
+        | None   -> ()
+    in
+    let model_sets = create_set_data_pairs fo data in
+    if 0 < List.length data.dynamics then begin
         fo "@[BEGIN POY;@]@.";
-        let dynamics = Array.of_list dynamics in
+        let dynamics = Array.of_list data.dynamics in
         let go = Buffer.create 1000 
         and weights = Buffer.create 1000
         and tcm = Buffer.create 1000 in
@@ -4921,14 +5062,18 @@ let output_poy_nexus_block fo data dynamics =
         fo (Buffer.contents tcm);
         fo (Buffer.contents go);
         fo (Buffer.contents weights);
+        List.iter output_nexus_model model_sets;
+        fo "END;@.@]";
+        ()
+    end else begin
+        fo "@[BEGIN POY;@]@.";
+        List.iter output_nexus_model model_sets;
         fo "END;@.@]"
-    end else ()
+    end
 
-
-let output_character_types fo output_format data all_of_static =
+let output_character_types fo output_format resolve_a data all_of_static =
     (* We first output the non additive character types *)
-    if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@."
-    else ();
+    if output_format = `Nexus then fo "@[BEGIN ASSUMPTIONS;@]@." else ();
     let output_element name position tcm =
         let output_matrix m = 
             let buffer = Buffer.create 100 in
@@ -4969,15 +5114,6 @@ let output_character_types fo output_format data all_of_static =
         end
     in
     let fixit int = if output_format = `Hennig then int else int + 1 in
-    let output_range x = 
-        match x with
-        | `Single min -> 
-            string_of_int (fixit min)
-        | `Pair (min, max) ->
-            (string_of_int (fixit min)) ^
-            (if output_format = `Hennig then "." else "-") ^
-            (string_of_int (fixit max))
-    in
     let table_of_matrices = Hashtbl.create 97 in
     let get_name_of_matrix suggested_name matrix =
         if Hashtbl.mem table_of_matrices matrix then
@@ -4991,19 +5127,19 @@ let output_character_types fo output_format data all_of_static =
         (x : (([`Pair of (int * int) | `Single of int]) * Nexus.File.st_type) option) = 
         match x with
         | None -> ""
-        | Some (range, Nexus.File.STLikelihood _) ->
+        | Some (range, Nexus.File.STLikelihood _)
         | Some (range, Nexus.File.STUnordered) ->
                 if output_format = `Hennig then begin
-                    "@[<v 0>cc - " ^ output_range range ^ ";@]@."
+                    "@[<v 0>cc - " ^ output_range output_format range ^ ";@]@."
                 end else begin
-                    "UNORD: " ^ output_range range ^
+                    "UNORD: " ^ output_range output_format range ^
                     (if not is_last then ", " else "")
                 end
         | Some (range, Nexus.File.STOrdered) ->
                 if output_format = `Hennig then begin
-                    "@[<v 0>cc + " ^ output_range range ^ ";@]@."
+                    "@[<v 0>cc + " ^ output_range output_format range ^ ";@]@."
                 end else begin
-                    "ORD: " ^ output_range range ^
+                    "ORD: " ^ output_range output_format range ^
                     (if not is_last then ", " else "")
                 end
         | Some ((`Single min) as range, Nexus.File.STSankoff matrix) ->
@@ -5015,7 +5151,7 @@ let output_character_types fo output_format data all_of_static =
                     | Some nname,`Nexus  -> nname, ""
                 in
                 if output_format = `Hennig then element
-                else "@[" ^ name ^ ":" ^ output_range range ^
+                else "@[" ^ name ^ ":" ^ output_range output_format range ^
                      (if not is_last then ", " else "") ^ "@]@."
         | Some (((`Pair (min, max)) as range), Nexus.File.STSankoff matrix) ->
                 if output_format = `Hennig then
@@ -5031,7 +5167,7 @@ let output_character_types fo output_format data all_of_static =
                 else
                     let name = "MATRIX" ^ string_of_int min in
                     let res = output_element name min matrix in
-                    res ^ "@[" ^ name ^ ":" ^ output_range range ^
+                    res ^ "@[" ^ name ^ ":" ^ output_range output_format range ^
                     (if not is_last then ", " else "") ^ "@]@."
     in
     fo "@[<v 0>";
@@ -5096,7 +5232,8 @@ let output_character_types fo output_format data all_of_static =
     fo weights;
     if output_format = `Nexus then fo ";@]@[END;@]@." else ()
 
-let output_character_names fo output_format data all_of_static =
+
+let output_character_names fo output_format resolve_a data all_of_static =
     let character_begining, state_names_beginning, character_separator,
     name_enclosing, to_add  = 
         match output_format with
@@ -5115,10 +5252,14 @@ let output_character_names fo output_format data all_of_static =
                 | Static spec ->
                     match spec.Nexus.File.st_labels with
                     | [] -> 
+                        let f = 
+                            if resolve_a then fst
+                            else (fun x -> string_of_int (snd x))
+                        in
                         (get_alphabet data code)
                             --> Alphabet.to_list
-                            --> List.sort ~cmp:(fun (_,a) (_,b) -> a -b)
-                            --> List.map ~f:fst
+                            --> List.sort ~cmp:(fun (_,a) (_,b) -> a - b)
+                            --> List.map ~f:f
                             --> List.partition 
                                     ~f:(fun x -> try ignore (int_of_string x); false
                                                  with _ -> true)
@@ -5132,7 +5273,7 @@ let output_character_names fo output_format data all_of_static =
         fo "@]@.";
         position + 1
     in
-    (* The misterious commands for old programs *)
+    (* The mysterious commands for old programs *)
     match output_format with
     | `Hennig ->
             fo "@[<v 0>proc /;@.#@.";
@@ -5147,6 +5288,7 @@ let output_character_names fo output_format data all_of_static =
             fo ";@]@."
 
 let to_nexus data filename = 
+    let resolve_a = true in
     let all_of_static =  all_of_static data in
     let terminals_not_ignored = 
         All_sets.IntegerMap.fold (fun code name acc ->
@@ -5169,27 +5311,27 @@ let to_nexus data filename =
         List.iter (fun (i, name) -> fo name; fo " ";) terminals_sorted;
         fo ";@]@.END;@."
     in
-    let output_characters_blocks () =
+    let output_characters_blocks () : unit =
         let output_taxa_sequences alph character_code =
-            Hashtbl.iter (fun code characters ->
-                if not (All_sets.IntegerMap.mem code terminals_not_ignored) then
-                    ()
+            Hashtbl.iter 
+              (fun code characters ->
+                if not (All_sets.IntegerMap.mem code terminals_not_ignored) then 
+                        ()
                 else
                     let name = All_sets.IntegerMap.find code data.taxon_codes in
                     if Hashtbl.mem characters character_code then
                         match Hashtbl.find characters character_code with
                         | _, `Unknown -> ()
                         | Dyna (code, data), `Specified ->
-                                assert (code = character_code);
-                                fo "@[";
-                                fo name; 
-                                fo " ";
-                                Array.iter (fun x -> 
-                                    let seq = Sequence.to_string x.seq alph in
-                                    fo seq) data.seq_arr;
-                                fo "@]@."
+                            assert (code = character_code);
+                            fo "@["; fo name; fo " ";
+                            Array.iter
+                                (fun x -> fo (Sequence.to_string x.seq alph))
+                                data.seq_arr;
+                            fo "@]@."
                         | _ -> assert false
-                    else ()) data.taxon_characters
+                    else ())
+                data.taxon_characters
         in
         let output_dynamic_homology character_code = 
             match Hashtbl.find data.character_specs character_code with
@@ -5202,6 +5344,8 @@ let to_nexus data filename =
                     let alphabet, symbols = 
                         if spec.alph == Alphabet.nucleotides then 
                             "NUCLEOTIDE", []
+                        else if spec.alph == Alphabet.dna then 
+                            "DNA",[]
                         else if spec.alph == Alphabet.aminoacids then 
                             "PROTEIN", []
                         else 
@@ -5212,17 +5356,67 @@ let to_nexus data filename =
                     fo alphabet;
                     fo "@]@.";
                     let () = match symbols with
-                    | [] -> ()
-                    | lst -> 
-                            fo "@[SYMBOLS=\"";
-                            List.iter (fun x ->
-                                fo x; fo " ") lst;
-                            fo "\"@]@."
+                        | [] -> ()
+                        | lst -> fo "@[SYMBOLS=\"";
+                                 List.iter (fun x -> fo x; fo " ") lst;
+                                 fo "\"@]@."
                     in
                     fo ";@.";
                     fo "@[MATRIX@.";
                     output_taxa_sequences spec.alph character_code;
                     fo ";@]@.@[END;@]@."
+        in
+        let output_likelihood_symbols fo data codes =
+            let alph,inc_gap = 
+                let rep,_ = List.hd (List.tl codes) in
+                try match Hashtbl.find data.character_specs rep with
+                    | Static x -> 
+                        let inc_gap = match x.Nexus.File.st_type with
+                            | Nexus.File.STLikelihood m ->
+                                m.MlModel.spec.MlModel.use_gap
+                            | _ -> failwith "Impossible"
+                        in
+                        x.Nexus.File.st_alph,inc_gap
+                    | _ -> failwith "Impossible"
+                with | _ ->
+                    Printf.printf "Codes: ";
+                    Hashtbl.iter (fun c _ -> Printf.printf "%d, " c) data.character_specs;
+                    print_newline ();
+                    failwithf "Cannot find code %d" rep
+            in
+            let name, symbols =
+                let filter_gap lst =
+                    if inc_gap then lst
+                    else 
+                        let g = Alphabet.get_gap alph in
+                        List.filter (fun (a,b) -> not (b = g)) lst
+                in
+                (**) if alph = Alphabet.nucleotides then "NUCLEOTIDE", []
+                else if alph = Alphabet.dna         then "DNA",        []
+                else if alph = Alphabet.aminoacids  then "PROTEIN",    []
+                else let f = 
+                        if resolve_a 
+                            then fst
+                            else (fun x -> string_of_int (snd x) )
+                     in
+                     "STANDARD", List.map f (filter_gap (Alphabet.to_list alph))
+            in
+            fo "@[FORMAT DATATYPE="; fo name;
+            fo " GAP=";
+            let () =
+                if resolve_a then
+                    fo (Alphabet.match_code (Alphabet.get_gap alph) alph)
+                else
+                    fo (string_of_int (Alphabet.get_gap alph))
+            in
+            let () = match symbols with
+                | [] -> ()
+                | lst -> 
+                    fo " @[SYMBOLS=\"";
+                    List.iter (fun x -> fo x; fo " ") lst;
+                    fo "\"@]@."
+            in
+            fo "@]@."
         in
         (* Now the static homology characters, in one big matrix *)
         let number_of_static_characters = List.length all_of_static in
@@ -5231,26 +5425,38 @@ let to_nexus data filename =
             fo "@[DIMENSIONS NCHAR=";
             fo (string_of_int number_of_static_characters);
             fo ";@]@.";
-            fo "@[FORMAT@.";
-            fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L M N O P Q R S T U V\"";
+            let () = 
+                if has_likelihood data then
+                    output_likelihood_symbols fo data terminals_sorted
+                else begin
+                    fo "@[FORMAT@.";
+                    fo "SYMBOLS=\"0 1 2 3 4 5 6 7 8 9 A B C D E F G H I J K L";
+                    fo " M N O P Q R S T U V\""
+                end
+            in
             fo ";@]";
-            output_character_names fo `Nexus data all_of_static;
+            output_character_names fo `Nexus resolve_a data all_of_static;
             fo "@[MATRIX@.";
-            List.iter (fun (code, name) ->
-                let specs = Hashtbl.find data.taxon_characters code in
-                fo "@[";
-                fo name;
-                fo " ";
-                List.iter (fun character_code ->
-                    static_character_to_string " " "(" ")" fo specs character_code)
-                all_of_static;
-                fo "@]@.") terminals_sorted;
+            List.iter 
+                (fun (code, name) ->
+                    let specs = Hashtbl.find data.taxon_characters code in
+                    fo "@["; fo name; fo " ";
+                    List.iter 
+                        (fun character_code ->
+                            let a = get_alphabet data character_code in
+                            let sep = if resolve_a then "" else " " in
+                            static_character_to_string 
+                                sep "(" ")" fo resolve_a a specs character_code)
+                        all_of_static;
+                    fo "@]@.")
+                terminals_sorted;
             fo ";@]@.@[END;@]@.";
-            output_character_types fo `Nexus data all_of_static;
-            output_poy_nexus_block fo data data.dynamics;
+            output_character_types fo `Nexus resolve_a data all_of_static
         end;
         (* We print the dynamic homology characters first *)
-        List.iter output_dynamic_homology data.dynamics
+        List.iter output_dynamic_homology data.dynamics;
+        let () = output_poy_nexus_block fo data in
+        ()
     in
     output_nexus_header ();
     output_taxa_block ();
@@ -5280,8 +5486,11 @@ let to_faswincladfile data filename =
             fo " ";
             let () =
                 let charset = get_taxon_characters data tid in
-                List.iter (static_character_to_string sep "[" "]" fo charset)
-                all_of_static
+                List.iter 
+                    (fun cc ->
+                        let a = get_alphabet data cc in
+                        static_character_to_string sep "[" "]" fo false a charset cc)
+                    all_of_static
             in
             fo "@.@?";
         end
@@ -5301,8 +5510,8 @@ let to_faswincladfile data filename =
     fo "@[<v 0>";
     output_header ();
     output_all_taxa ();
-    output_character_types fo `Hennig data all_of_static;
-    output_character_names fo `Hennig data all_of_static;
+    output_character_types fo `Hennig false data all_of_static;
+    output_character_names fo `Hennig false data all_of_static;
     fo "@.";
     fo "@]@?"
 
@@ -5537,42 +5746,6 @@ let has_dynamic d =
     match d.dynamics, d.kolmogorov with
     | [], [] -> false
     | _      -> true
-
-let has_likelihood d = 
-    match d.static_ml with
-    | [] -> false
-    | _  -> true
-
-let has_dynamic_likelihood d = 
-    match d.dynamics with
-    | []      -> false
-    | hd :: _ ->
-        match Hashtbl.find d.character_specs hd with
-        | Dynamic spec when spec.state = `Ml -> true
-        | _                                  -> false
-
-let get_likelihood_model data chars = 
-    let get_model x = match Hashtbl.find data.character_specs x with
-        | Static dat ->
-            begin match dat.Nexus.File.st_type with
-                | Nexus.File.STLikelihood model -> model
-                | _ -> failwith "unsupported static character"
-            end
-        | Dynamic s when s.state = `Ml ->
-            begin match s.lk_model with
-            | Some x -> x
-            | None -> failwith "inconsistent dynamic likelihood state"
-            end
-        | _ -> failwith "unsupported characters"
-    in
-    match List.map get_model chars with
-    | h :: t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else failwith "Inconsistent Model over characters"
-    | [] ->
-        failwith "No Characters found"
-
 
 
 

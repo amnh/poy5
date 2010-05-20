@@ -130,91 +130,28 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+module OrderedML = struct
+    (* we could choose model or spec, but spec can use Pervasives.compare *)
+    type t = spec 
+    let compare a b = Pervasives.compare a b
+end
+module MlModelMap = Map.Make (OrderedML)
 
+let categorize_by_model codes get_fun =
+    let set_codes =
+        List.fold_left
+            (fun acc code ->
+                let spec = get_fun code in
+                try let old = MlModelMap.find spec acc in
+                    MlModelMap.add spec (code::old) acc
+                with | Not_found ->
+                    MlModelMap.add spec ([code]) acc)
+            MlModelMap.empty
+            codes
+    in
+    MlModelMap.fold (fun _ e a -> e :: a) set_codes []
 
 IFDEF USE_LIKELIHOOD THEN
-
-let output_model f_name n_taxa t_cost t_size output nexus model = 
-    let printf format = Printf.ksprintf output format in
-    if nexus then ()
-    else begin
-        printf "@[<hov 0>Sequence Filename: %s@]@\n" f_name;
-        printf "@[<hov 0>Number of taxa: %d@]@\n" n_taxa;
-        printf "@[<hov 0>Tree Size: %f@]@\n" t_size;
-        printf "@[<hov 0>Log-Likelihood: %f@]@\n" (~-.t_cost);
-        printf "@[<hov 0>Discrete gamma model: ";
-        let () = match model.spec.site_variation with
-            | Some Constant
-            | None -> printf "No@]@\n"
-            | Some (Gamma (cats,param)) ->
-                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]"^^
-                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param
-            | Some (Theta (cats,param,inv)) ->
-                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]"^^
-                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param;
-                printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
-        in
-        printf "@[<hov 0>Priors / Base frequencies:@]@\n";
-        let () = match model.spec.base_priors with
-            | Estimated x | Given x
-            | ConstantPi x ->
-                List.iter
-                    (fun (s,i) ->
-                        (* this expection handling avoids gaps when they are not
-                         * enabled in the alphabet as an additional character *)
-                        try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
-                    (Alphabet.to_list model.alph);
-        in
-        printf "@[Model Parameters: ";
-        let () = match model.spec.substitution with
-            | JC69  -> printf "JC69@]@\n"
-            | F81   -> printf "F81@]@\n"
-            | K2P x -> printf "K2P@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | F84 x -> printf "F84@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | HKY85 x->printf "F84@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n"
-                        (match x with Some x -> x | None -> default_tstv)
-            | TN93 x -> failwith "nothing right now"
-            | GTR x -> printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
-                let get_str i = Alphabet.match_code i model.alph
-                and convert r c = (c + (r * (model.alph_s-1)) - ((r*(r+1))/2)) - 1 in
-                let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
-                for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
-                    printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) (get_str j) ray.(convert i j)
-                done; done;
-            | File (ray,name) ->
-                printf "File:%s@]@\n" name;
-                let mat = compose model 0.0 in
-                printf "@[<hov 1>[";
-                for i = 0 to model.alph_s - 1 do
-                    printf "%s---------" (Alphabet.match_code i model.alph)
-                done;
-                printf "]@]@\n";
-                for i = 0 to model.alph_s - 1 do 
-                    for j = 0 to model.alph_s - 1 do
-                        printf "%.5f\t" mat.{i,j}
-                    done; 
-                    printf "@\n";
-                done;
-        in
-        printf "@[Instantaneous rate matrix:@]@\n";
-        let () = 
-            let mat = compose model ~-.1.0 in
-            printf "@[<hov 1>[";
-            for i = 0 to model.alph_s - 1 do
-                printf "%s---------" (Alphabet.match_code i model.alph)
-            done;
-            printf "]";
-            for i = 0 to model.alph_s - 1 do 
-                printf "@]@\n@[<hov 1>";
-                for j = 0 to model.alph_s - 1 do
-                    printf "%8.5f  " mat.{i,j}
-                done; 
-            done;
-        in 
-        printf "@]@\n"
-    end
 
 (* a gentler compare that excludes the parameters of the model itself *)
 let compare a b = 
@@ -478,6 +415,143 @@ let compose model t = match model.ui with
     | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
     | None    -> compose_sym FMatrix.scratch_space model.u model.d t
 
+let output_model output nexus model set = 
+    let printf format = Printf.ksprintf output format in
+    if nexus = `Nexus then begin
+        printf "@[Likelihood@.";
+        let () = match model.spec.substitution with
+            | JC69   -> printf "@[Model = JC69;@]@\n";
+            | F81    -> printf "@[Model = F81;@]";
+            | K2P None -> printf "@[Model = K2P;@]";
+            | K2P (Some x) -> printf "@[Model = K2P;@]";
+                        printf "@[Parameters = %f;@]" x
+            | F84 None -> printf "@[Model = F84;@]";
+            | F84 (Some x) -> printf "@[Model = F84;@]";
+                        printf "@[Parameters = %f;@]" x
+            | HKY85 None -> printf "@[Model = HKY85;@]";
+            | HKY85 (Some x) -> printf "@[Model = HKY85;@]";
+                        printf "@[Parameters = %f;@]" x
+            | TN93 None -> printf "@[Model = TN93;@]";
+            | TN93 (Some (a,b)) -> printf "@[Model = TN93;@]";
+                        printf "@[Parameters = %f %f;@]" a b
+            | GTR None -> printf "@[Model = GTR;@]"
+            | GTR (Some xs) -> printf "@[Model = GTR;@]";
+                        printf "@[Parameters = ";
+                        Array.iter (printf "%f ") xs;
+                        printf ";@]"
+            | File (_,str) -> 
+                        printf "@[Model = File:%s;@]" str
+        in
+        let () = match model.spec.base_priors with
+            | Estimated x | Given x | ConstantPi x ->
+                let first = ref true in
+                printf "@[Priors =";
+                List.iter
+                    (fun (s,i) -> 
+                        try if !first then begin
+                            printf "@[%s %.5f" s x.(i); first := false
+                        end else
+                            printf ",@]@[%s %.5f" s x.(i) 
+                        with _ -> ())
+                    (Alphabet.to_list model.alph);
+                printf ";@]@]"
+        in
+        let () = match model.spec.site_variation with
+            | Some Constant | None -> ()
+            | Some (Gamma (c, p)) ->
+                printf "@[Variation = gamma;@]@[alpha = %.5f@]@[sites = %d;@]" p c
+            | Some (Theta (c, p, i)) ->
+                printf ("@[Variation = gamma;@]@[alpha = %.5f@]@[sites = %d;@]"
+                        ^^"@[percent = %.5f;@]") p c i
+        in
+        let () = match set with
+            | Some namelist ->
+                let first = ref true in
+                printf "@[CharSet = ";
+                List.iter
+                    (fun s -> 
+                        if !first then begin printf "@[%s" s; first := false
+                        end else printf ",@]@[%s" s)
+                    namelist;
+                printf ";@]@]";
+            | None -> ()
+        in
+        printf ";@]@."
+    end else (* hennig *) begin
+        printf "@[<hov 0>Discrete gamma model: ";
+        let () = match model.spec.site_variation with
+            | Some Constant
+            | None -> printf "No@]@\n"
+            | Some (Gamma (cats,param)) ->
+                printf ("Yes@]@\n@[<hov 1>- Number of categories: %d@]"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param
+            | Some (Theta (cats,param,inv)) ->
+                printf ("Yes@]@\n[@<hov 1>- Number of categories: %d@]"^^
+                        "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param;
+                printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
+        in
+        printf "@[<hov 0>Priors / Base frequencies:@]@\n";
+        let () = match model.spec.base_priors with
+            | Estimated x | Given x
+            | ConstantPi x ->
+                List.iter
+                    (fun (s,i) ->
+                        (* this expection handling avoids gaps when they are not
+                         * enabled in the alphabet as an additional character *)
+                        try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
+                    (Alphabet.to_list model.alph);
+        in
+        printf "@[Model Parameters: ";
+        let () = match model.spec.substitution with
+            | JC69  -> printf "JC69@]@\n"
+            | F81   -> printf "F81@]@\n"
+            | K2P x -> printf "K2P@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | F84 x -> printf "F84@]@\n@[<hov 1>- Transition/transversion ratio: %.5f@]@\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | HKY85 x->printf "HKY85@]@\n@[<hov 1>- Transition/transversion ratio:%.5f@]@\n"
+                        (match x with Some x -> x | None -> default_tstv)
+            | TN93 x -> failwith "nothing right now"
+            | GTR x -> printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
+                let get_str i = Alphabet.match_code i model.alph
+                and convert r c = (c + (r * (model.alph_s-1)) - ((r*(r+1))/2)) - 1 in
+                let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
+                for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
+                    printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) (get_str j) ray.(convert i j)
+                done; done;
+            | File (ray,name) ->
+                printf "File:%s@]@\n" name;
+                let mat = compose model 0.0 in
+                printf "@[<hov 1>[";
+                for i = 0 to model.alph_s - 1 do
+                    printf "%s---------" (Alphabet.match_code i model.alph)
+                done;
+                printf "]@]@\n";
+                for i = 0 to model.alph_s - 1 do 
+                    for j = 0 to model.alph_s - 1 do
+                        printf "%.5f\t" mat.{i,j}
+                    done; 
+                    printf "@\n";
+                done;
+        in
+        printf "@[Instantaneous rate matrix:@]@\n";
+        let () = 
+            let mat = compose model ~-.1.0 in
+            printf "@[<hov 1>[";
+            for i = 0 to model.alph_s - 1 do
+                printf "%s---------" (Alphabet.match_code i model.alph)
+            done;
+            printf "]";
+            for i = 0 to model.alph_s - 1 do 
+                printf "@]@\n@[<hov 1>";
+                for j = 0 to model.alph_s - 1 do
+                    printf "%8.5f  " mat.{i,j}
+                done; 
+            done;
+        in 
+        printf "@]@\n"
+    end
+
 let compose_model sub_mat t = 
     let a_size = Bigarray.Array2.dim1 sub_mat in
     let (u_,d_,ui_) = 
@@ -647,7 +721,7 @@ let create alph lk_spec =
   IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size,a_gap) = match lk_spec.use_gap with
-        | true -> Alphabet.size alph, ~-1
+        | true  -> Alphabet.size alph, ~-1
         | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph
     in
     (* set up all the probability and rates *)
@@ -680,7 +754,11 @@ let create alph lk_spec =
     let priors =
         let p = match lk_spec.base_priors with 
             | ConstantPi p | Estimated p | Given p -> p in
-        assert(a_size = Array.length p);
+        if not (a_size = Array.length p) then begin
+            Printf.printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
+            Alphabet.print alph;
+            assert false
+        end else ();
         let () = 
             let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
             if 1.0 =. sum then ()
