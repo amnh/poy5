@@ -4829,8 +4829,10 @@ let all_of_static data =
 
 let state_to_string ambig_open ambig_close sep a resolve code t =
     let f =
+        let a = Alphabet.to_sequential a in
         if resolve
-            then (fun x -> Alphabet.match_code x a)
+            then (fun x -> try Alphabet.match_code x a 
+                           with | e -> Alphabet.print a; raise e)
             else string_of_int
     in
     match t with
@@ -5386,10 +5388,8 @@ let to_nexus data filename =
             in
             let name, symbols =
                 let filter_gap lst =
-                    if inc_gap then lst
-                    else 
-                        let g = Alphabet.get_gap alph in
-                        List.filter (fun (a,b) -> not (b = g)) lst
+                    let g = Alphabet.get_gap alph in
+                    List.filter (fun (a,b) -> not (b = g)) lst
                 in
                 (**) if alph = Alphabet.nucleotides then "NUCLEOTIDE", []
                 else if alph = Alphabet.dna         then "DNA",        []

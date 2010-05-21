@@ -33,8 +33,7 @@ type search_results = {
 }
 
 (* Before we begin, set the correct error printing functions in the parsers *)
-let () = 
-    Nexus.P.print_error := Status.user_message Status.Error
+let () = Nexus.P.print_error := Status.user_message Status.Error
 
 (* We define a few functions to deal with the search results type *)
 let empty_search_results = {
@@ -4343,22 +4342,30 @@ END
                     let chars = `Some (Data.get_chars_codes_comp run.data `All) in
                     Data.get_code_from_characters_restricted `Likelihood run.data chars
                 in
-                List.iter
-                    (fun t ->
-                        let model  = Data.get_likelihood_model t.Ptree.data chars
-                        and cost   = Ptree.get_cost `Adjusted t
-                        and length = TreeOps.tree_size t
-                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
-                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                        MlModel.output_model fo `Hennig model None)
+(*                if style = `Phyml then begin*)
+                    List.iter
+                        (fun t ->
+                            let model  = Data.get_likelihood_model t.Ptree.data chars
+                            and cost   = Ptree.get_cost `Adjusted t
+                            and length = TreeOps.tree_size t
+                            and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                            fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
+                            fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                            fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                            MlModel.output_model fo `Hennig model None)
                     (Sexpr.to_list run.trees);
+(*                end else begin*)
+(*                    Data.output_poy_nexus_likelihood fo t.data*)
+(*                end;*)
                 run
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                Data.to_nexus run.data filename;
+                let data = match Sexpr.to_list run.trees with
+                    | x::tl -> x.Ptree.data
+                    | []    -> run.data
+                in
+                Data.to_nexus data filename;
                 run
             | `FasWinClad filename -> 
                 Data.to_faswincladfile run.data filename;
