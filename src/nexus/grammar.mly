@@ -516,7 +516,9 @@ pairs_list:
     ;
 pairs_list_float:
     | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
-    | IDENT FLOAT SEMICOLON { [($1,(float_of_string $2))] }
+    | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
+    | DASH  FLOAT SEMICOLON { [("-",(float_of_string $2))] }
+    | DASH  FLOAT SEMICOLON { [("-",(float_of_string $2))] }
     ;
 characters:
     | DIMENSIONS optional_taxa_dimensions NCHAR EQUAL INTEGER SEMICOLON 
@@ -699,7 +701,7 @@ characterset:
     ;
 optional_step:
     | SLASH INTEGER { int_of_string $2 }
-    |               { 1 }
+    |               { 1                }
 
 /* -------------------------------------------------------------------------- */
 /* Entry of the Tree Parser                                                   */
@@ -707,14 +709,14 @@ tree:
     | do_star IDENT EQUAL single_tree EOF { ($2,$4) }
     ;
 single_tree:
-    | IDENT optional_length optional_comment
+    | nexus_word optional_length optional_comment
         { P.Leaf ($1, ($2, $3))         }
     | LPARENT single_tree_list RPARENT optional_label optional_length optional_comment
         { P.Node ($2, $4, ($5, $6))     }
     ;
 single_tree_list:
     | single_tree COMMA single_tree_list { $1 :: $3 }
-    | single_tree { [$1] }
+    | single_tree                        { [$1]     }   
     ;
 optional_length:
     | COLON INTEGER { Some (float_of_string $2) }
@@ -726,9 +728,9 @@ optional_comment:
     |                         { None    }
     ;
 optional_label:
-    | IDENT     { Some $1   }
-    | FLOAT     { None      }
-    |           { None      }
+    | nexus_word { Some $1   }
+    | FLOAT      { None      } /* this is for phylip trees w/ (x,y)0.90:0.019 */
+    |            { None      }
     ;
 
 /* -------------------------------------------------------------------------- */

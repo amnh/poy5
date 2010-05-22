@@ -188,8 +188,11 @@ module File : sig
         characters : static_spec array;
         matrix : static_state array array;
         csets : (string, P.charset list) Hashtbl.t;
-        unaligned : (float * int option * (string * int array array) option * 
-                        Alphabet.a * (Sequence.s list list list * taxon) list) list;
+        unaligned : 
+            (float * int option * (string * int array array) option * 
+             Alphabet.a * MlModel.model option * 
+             (Sequence.s list list list * taxon) list)
+            list;
         trees : (string option * Tree.Parse.tree_types list) list;
         branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
         assumptions : (string, string array * float array array) Hashtbl.t;

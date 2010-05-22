@@ -150,9 +150,9 @@
 }
 
 rule raw = parse
-     [^ ';']* as d      { DATA d }
+     [^ ';']* as d            { DATA d         }
 and inquotes = parse
-      [^ '"']+['"'] as d     { QUOTED d }
+      ([^ '"']+ as d)['"']    { QUOTED d       }
 and insinglequotes = parse 
       ([ ^ '\'']+ as d)['\''] { SINGLEQUOTED d }
 and comment = parse
@@ -179,8 +179,8 @@ and token = parse
             | x -> (Hashtbl.find keyword_table string) id
         with
         | Not_found -> IDENT id }
-    | [ '"' ]           { inquotes lexbuf }
     | [ '\'']           { insinglequotes lexbuf }
+    | [ '"' ]           { inquotes lexbuf }
     | [ ';' ]           { SEMICOLON }
     | [ ':' ]           { COLON }
     | [ '=' ]           { EQUAL }
@@ -200,6 +200,8 @@ and token = parse
 and tree_tokens = parse
      [ ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ] { tree_tokens lexbuf }
     | [ '*' ] { STAR }
+    | [ '\'']           { insinglequotes lexbuf }
+    | [ '"' ]           { inquotes lexbuf }
     | [ '=' ] { EQUAL }
     | [ ',' ] { COMMA }
     | [ ':' ] { COLON }
@@ -210,6 +212,6 @@ and tree_tokens = parse
     | [ ']' ] { RBRACKET }
     | ['0'-'9']+ ['.'] ['0'-'9']* (['e' 'E'] ['-' '+']? ['0'-'9']+)? as i { FLOAT i }
     | ['0'-'9']+ as i { INTEGER i }
-    | [^ '(' ')' '[' ']' ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012' ';' ':' ',' ]+ as i
-        { IDENT i }
+    | [^ '\'' '"' '(' ')' '[' ']' ' ' '\009' '\010' '\011' '\015' '\014' '\013' '\012'
+         ';' ':' ',' ]+ as i { IDENT i }
     | eof           { EOF }

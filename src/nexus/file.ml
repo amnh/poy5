@@ -142,7 +142,9 @@ type nexus = {
     matrix : static_state array array;
     csets : (string, P.charset list) Hashtbl.t;
     unaligned : (float * int option * (string * int array array) option * 
-                    Alphabet.a * (Sequence.s list list list * taxon) list) list;
+                 Alphabet.a * MlModel.model option *
+                 (Sequence.s list list list * taxon) list)
+                list;
     trees : (string option * Tree.Parse.tree_types list) list;
     branches : (string, (string, (string , float) Hashtbl.t) Hashtbl.t) Hashtbl.t;
     assumptions : (string, string array * float array array) Hashtbl.t;
@@ -490,6 +492,10 @@ let update_labels_as_alphabet chars start =
     ()
 
 let uninterleave for_fasta data = 
+    let remove_quotes str = 
+        let r = Str.string_match (Str.regexp "['\"]\\(.*?\\)['\"]") str 0 in
+        if r then Str.matched_group 1 str else str
+    in
     (* The data is a string right now, but I suppose this is not really
     * convenient as we set a hard constraint on the size of the input. We
     * have to change this for a stream, but that will also require changes
@@ -506,6 +512,7 @@ let uninterleave for_fasta data =
         in
         match line with
         | taxon :: sequence ->
+                let taxon = remove_quotes taxon in
                 let adder buf x = 
                     Buffer.add_string buf x; 
                     Buffer.add_string buf " "
@@ -1169,10 +1176,10 @@ let generate_parser_friendly (translations:(string*string) list)
 
 
 let apply_gap_opening character_set acc = 
-        let unaligned = Array.of_list (List.rev acc.unaligned) in
+        let unaligned = Array.of_list (List.rev (acc.unaligned)) in
         let assign_gap_opening v pos =
-            let (w, _, x, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (w, (Some v), x , y , z)
+            let (w, _, x, m, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (w, (Some v), x, m , y , z)
         in
         List.iter 
             (function 
@@ -1191,8 +1198,8 @@ let apply_gap_opening character_set acc =
 let apply_weight character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_weight weight pos =
-            let (_, w, x, y, z) = unaligned.(pos) in
-            unaligned.(pos) <- (weight, w, x, y, z)
+            let (_, w, x, m, y, z) = unaligned.(pos) in
+            unaligned.(pos) <- (weight, w, x, m, y, z)
         in
         List.iter 
             (function 
@@ -1206,15 +1213,15 @@ let apply_weight character_set acc =
                               "to the gap opening parameter"))
             character_set;
         let unaligned = List.rev (Array.to_list unaligned) in
-        { acc with unaligned = unaligned }
+        { acc with unaligned = unaligned; }
 
 
 let apply_tcm character_set acc = 
         let unaligned = Array.of_list (List.rev acc.unaligned) in
         let assign_tcm name v pos =
-            let (w, x, _, y, z) = unaligned.(pos) in
+            let (w, x, _, y, m, z) = unaligned.(pos) in
             let v = generate_substitution_table false v y in
-            unaligned.(pos) <- (w, x , (Some (name, v)), y , z)
+            unaligned.(pos) <- (w, x , (Some (name, v)), y , m , z)
         in
         List.iter 
             (function 
@@ -1233,7 +1240,7 @@ let apply_tcm character_set acc =
                                   " table " ^ matrix))
             character_set;
         let unaligned = List.rev (Array.to_list unaligned) in
-        { acc with unaligned = unaligned }
+        { acc with unaligned = unaligned; }
 
 
 let add_branch_data (trees,chars,bls) acc =
@@ -1295,22 +1302,32 @@ let apply_likelihood_model params acc =
     let str_spec,characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params
     in
-    (* how should the alphabet be obtained? *)
-    let m =
-        STLikelihood 
-            (str_spec --> MlModel.convert_string_spec
-                      --> MlModel.create acc.characters.(0).st_alph)
-    in
     (* apply spec to each character *)
-    List.iter 
-        (apply_on_character_set 
-            acc.csets
-            acc.characters
-            (fun i -> 
-                acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
-          characters_to_modify;
-    acc
-
+    match characters_to_modify with
+        | [] -> (* all characters -- and unaligned *)
+            let un = 
+                List.map
+                    (fun (f,i,oth,a,_,data) ->
+                        let m = (str_spec --> MlModel.convert_string_spec
+                                          --> MlModel.create a) in
+                        (f,i,oth,a,Some m,data))
+                    acc.unaligned
+            in
+            { acc with unaligned = un; }
+        | xs ->
+            let m = 
+                STLikelihood
+                    (str_spec --> MlModel.convert_string_spec
+                              --> MlModel.create acc.characters.(0).st_alph)
+            in
+            List.iter 
+                (apply_on_character_set 
+                    acc.csets
+                    acc.characters
+                    (fun i -> 
+                        acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
+                    xs;
+            acc
 
 let process_parsed file (acc:nexus) parsed : nexus =
     match parsed with
@@ -1364,7 +1381,7 @@ let process_parsed file (acc:nexus) parsed : nexus =
                         failwith "POY can't handle continuous types"
             in
             let res = Fasta.of_string (FileContents.AlphSeq alph) unal in
-            { acc with unaligned = (1.,None,None,alph,res) :: acc.unaligned }
+            { acc with unaligned = (1.,None,None,alph,None,res) :: acc.unaligned;};
     | P.Sets data -> 
             List.iter (fun (name, set) ->
                 match set with
