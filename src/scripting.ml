@@ -3530,7 +3530,7 @@ END
         end
     end
 
-let rec folder (run : r) meth = 
+let rec folder (run : r) meth =
     check_ft_queue run;
     match meth with
     (* The following methods are only used by the parallel execution *)
@@ -3937,7 +3937,11 @@ END
                 let trees = 
                     build_initial run.trees run.data run.nodes meth
                 in
-                { run with trees = trees }
+                let newrun =
+                    { run with  data = { run.data with Data.root_at = None };
+                            trees = trees; }
+                in
+                newrun
             | trans ->
                 let run = temporary_transforms trans run in
                 let run_and_untransform (run, untransforms) =
@@ -4139,7 +4143,7 @@ END
             script
     | #Methods.report as meth ->
             (* Update the trees to reflect the rooting we want *)
-            let run = reroot_at_outgroup run in
+            let run = reroot_at_outgroup run in 
             match meth with
             | `SequenceStats (filename, ch) ->
                     let arr = 
@@ -4430,16 +4434,17 @@ ELSE
 END
                     in
                     run
-            | `Diagnosis filename ->                                    
+            | `Diagnosis filename ->
                     let trees = 
                         (* This would be used to rediagnose the tree to the
                          * data, but since the data is in the tree are
                          * consistent, and we are not changing the data, this is
                          * fine. *)
-                        (* let classify = false in
-                           let run = update_trees_to_data ~classify false true run in*)
+                      (*  let classify = false in
+                        let run = update_trees_to_data ~classify false true run
+                        in *)
                         Sexpr.map (TreeOps.to_formatter []) run.trees  
-                    in 
+                    in
                     Status.user_message (Status.Output (filename, false, [])) "@[";
                     Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
                     (* Flush the formatter *)
