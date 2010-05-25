@@ -478,7 +478,7 @@ let output_model output nexus model set =
         in
         printf ";@]@."
     end else (* hennig *) begin
-        printf "@[<hov 0>Discrete gamma model: ";
+        printf "@[@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
             | Some Constant
             | None -> printf "No@]@\n"
@@ -490,7 +490,8 @@ let output_model output nexus model set =
                         "@[<hov 1>- Gamma Shape Parameter: %.4f@]") cats param;
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
         in
-        printf "@[<hov 0>Priors / Base frequencies:@]@\n";
+        printf "@]";
+        printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
             | Estimated x | Given x
             | ConstantPi x ->
@@ -501,7 +502,8 @@ let output_model output nexus model set =
                         try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
                     (Alphabet.to_list model.alph);
         in
-        printf "@[Model Parameters: ";
+        printf "@]";
+        printf "@[@[Model Parameters: ";
         let () = match model.spec.substitution with
             | JC69  -> printf "JC69@]@\n"
             | F81   -> printf "F81@]@\n"
@@ -534,7 +536,8 @@ let output_model output nexus model set =
                     printf "@\n";
                 done;
         in
-        printf "@[Instantaneous rate matrix:@]@\n";
+        printf "@]";
+        printf "@[@[Instantaneous rate matrix:@]@\n";
         let () = 
             let mat = compose model ~-.1.0 in
             printf "@[<hov 1>[";
@@ -549,7 +552,7 @@ let output_model output nexus model set =
                 done; 
             done;
         in 
-        printf "@]@\n"
+        printf "@]@\n@]"
     end
 
 let compose_model sub_mat t = 
