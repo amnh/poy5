@@ -20,6 +20,7 @@
 let () = SadmanOutput.register "AnnchromAli" "$Revision: 911 $"
 
 let debug = false
+let debug_to_single = false
 
 (** The implementation of funtions to calculate the cost, 
 * alignments and medians between annotated chromosomes 
@@ -753,6 +754,7 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         let len1 = Array.length seq1_arr and len2 = Array.length seq2_arr in
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
         if (len1 <> len2) then begin
+            if debug then Printf.printf "len1 != len2, call old function\n%!";
             GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
@@ -1380,7 +1382,7 @@ let seqcode_to_seq chrom1 chrom2 code1_arr code2_arr alied_code1_arr alied_code2
 (** [to_single_root root other_code c2] returns the single
 * state sequence for the [root] *)
 let to_single_root root other_code c2 =
-    if debug then Printf.printf "annchromAli.to_single_root\n%!";
+    if debug_to_single then Printf.printf "annchromAli.to_single_root\n%!";
     match (root.ref_code1 = -1) && (root.ref_code2 = -1) with
     | true -> Array.map (fun s -> s.seq) root.seq_arr
     | false ->   
@@ -1388,9 +1390,12 @@ let to_single_root root other_code c2 =
           let map = 
               Array.map 
                   (fun m ->
-                    let child_alied_seq, other_alied_seq =  m.alied_seq1, m.alied_seq2 in 
-                       (*Printf.printf "At root, alied_seq1/alied_seq2 =\n";
-                       printSeq child_alied_seq; printSeq other_alied_seq;*)
+                    let child_alied_seq, other_alied_seq =  m.alied_seq1,
+                    m.alied_seq2 in
+                    if debug_to_single then begin  
+                       Printf.printf "alied_seq1/alied_seq2 =\n";
+                       printSeq child_alied_seq; printSeq other_alied_seq; 
+                    end;
                        let single_seq, _ = Sequence.closest_alied_seq
                            other_alied_seq child_alied_seq c2 
                        in 
@@ -1406,7 +1411,11 @@ let to_single_root root other_code c2 =
                       in                       
                       let ungap_alied_med = Sequence.of_array 
                       (Array.of_list ungap_alied_med) 
-                      in    
+                      in   
+                      if debug_to_single then begin
+                          Printf.printf "res seq is :%!";
+                          printSeq ungap_alied_med;
+                      end;
                       ungap_alied_med
                  ) root.seq_arr
           in 
@@ -1554,16 +1563,12 @@ let change_to_single med single_seq_arr c2 =
                             end 
                          ) m.alied_med
                 end else Sequence.get_single_seq m.alied_med c2
-             in 
-
+             in
              {m with alied_med = single_alied_med;
-                  seq = (Sequence.delete_gap single_alied_med) }
+                     seq = (Sequence.delete_gap single_alied_med) }
         ) med.seq_arr
     in 
     {med with seq_arr = new_seq_arr}
-
-
-
 
 let to_formater med alph = 
     let seq_str_arr = 
