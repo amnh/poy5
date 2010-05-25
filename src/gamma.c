@@ -17,8 +17,8 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 \* USA                                                                        */
 #include <stdio.h>
-#include <stdlib.h> //malloc, calloc, srand, RAND_MAX
-#include <string.h> //memcpy, memset
+#include <stdlib.h> /* malloc, calloc, srand, RAND_MAX */
+#include <string.h> /* memcpy, memset */
 #include <assert.h>
 
 #include "config.h"
@@ -39,15 +39,14 @@
 
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
-
-/* -- check that the sum of the mean == 1.0 +/- EPSILON */
-//#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; }\
-                            if( SUM/(double)n > 1.0+EPSILON ){ \
-                                failwith("Incorrect Mean of Gamma Rates"); }
-
-#define CHECK_MEAN(a,n); int Z;double SUM;for(Z=0,SUM=0;Z<n;Z++){ SUM += a[Z]; } if( SUM/(double)n > 1.0+EPSILON ){ printf("Mean of Rates Error :: %f\n",SUM/(double)n); }
-
-//#define CHECK_MEAN(a,b);
+void CHECK_MEAN(double*a, int n){
+    int Z;
+    double SUM;
+    for( Z=0,SUM=0; Z<n; Z++){ SUM += a[Z]; }
+    if( SUM/(double)n > 1.0+EPSILON ){
+        failwith("Incorrect Mean of Gamma Rates"); 
+    }
+}
 
 //------------------------------------------------------------
 //  SPECIAL FUNCTIONS -- 
