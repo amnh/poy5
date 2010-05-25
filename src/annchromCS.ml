@@ -323,13 +323,10 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                   let cost, recost, map = 
                       match state with
                       | `String "Preliminary" ->
-                              Printf.printf "Preliminary\n%!";
                             AnnchromAli.create_map parent_med med.AnnchromAli.ref_code  
                       | `String "Final" ->
-                              Printf.printf "Final\n%!";
                             AnnchromAli.create_map med parent_med.AnnchromAli.ref_code   
                       | `String "Single" ->
-                              Printf.printf "Single\n%!";
                             let cost, recost, med_ls = AnnchromAli.find_med2_ls med
                                 parent_med t.c2 t.alph t.annchrom_pam in 
                             let med = List.hd med_ls in 

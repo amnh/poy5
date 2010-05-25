@@ -569,8 +569,6 @@ module F : Ptree.Tree_Operations
             | Some ((`Edge (a, b)) as edge, rootg) ->
                     if debug_uppass_fn then 
                           Printf.printf "root_median is (%d,%d)\n%!" a b;
-                    Printf.printf "root median is\
-                    (%d,%d),generate_root_and_assign_it\n%!" a b ;
                     let ptree, root, readjusted = 
                         generate_root_and_assign_it rootg edge ptree 
                     in
