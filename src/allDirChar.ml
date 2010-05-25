@@ -370,12 +370,15 @@ module F : Ptree.Tree_Operations
                 (List.hd node).AllDirNode.lazy_node
             in
             if debug_cost_fn then
-                Printf.printf "calc distance of node.%d and %d\n" a b;
+            info_user_message "calc distance of node.%d and %d : " a b;
             let dist = 
                 Node.distance_of_type (Node.has_to_single) 0.0
                                       (AllDirNode.force_val nda)
                                       (AllDirNode.force_val ndb)
             in
+            if debug_cost_fn then
+            info_user_message "distance of node.%d and %d = %f(acc=%f) " 
+            a b dist acc;
             dist +. acc
         in
         let single_characters_cost =  
@@ -388,7 +391,7 @@ module F : Ptree.Tree_Operations
                     new_tree.Ptree.tree 
                     (~-. (distance b a 0.0))
         in
-        if debug_cost_fn then begin
+        if debug_cost_fn then begin 
             info_user_message "Single Character Cost: %f" single_characters_cost;
             info_user_message "Other Character Cost: %f" not_single_character_cost;
             info_user_message "Root Cost: %f" (AllDirNode.AllDirF.root_cost root);
@@ -555,7 +558,6 @@ module F : Ptree.Tree_Operations
                     }]
                 in
                 let readjusted = { rootg with AllDirNode.adjusted = rooti} in
-
                 let ptree = Ptree.assign_root_to_connected_component 
                         handle (Some (edge, readjusted)) 
                         (Node.Standard.tree_cost None root) None ptree
@@ -566,7 +568,7 @@ module F : Ptree.Tree_Operations
             match comp.Ptree.root_median with
             | Some ((`Edge (a, b)) as edge, rootg) ->
                     if debug_uppass_fn then 
-                          Printf.printf "root_median is (%d,%d)\n%!" a b; 
+                          Printf.printf "root_median is (%d,%d)\n%!" a b;
                     let ptree, root, readjusted = 
                         generate_root_and_assign_it rootg edge ptree 
                     in
@@ -907,7 +909,7 @@ module F : Ptree.Tree_Operations
                 end
     (* adjust root --for likelihood; after completion of iteration, we also need
      * to iterate the final edge, the root, of the tree. *)
-        and adjust_root (changed,affected,ptree) c2c handle a b : adjust_acc = 
+        and adjust_root (changed,affected,ptree) c2c handle a b : adjust_acc =
             if debug_adjust_fn then
                     info_user_message "Adjusting root with %d,%d then None" a b;
             (* find edge root, create otherwise, and iterate *)
@@ -1511,7 +1513,7 @@ module F : Ptree.Tree_Operations
             | `Normal -> 
                 ptree --> pick_best_root
                       --> assign_single true
-                      --> apply_implied_alignments None false
+                      --> apply_implied_alignments None false 
             | `Iterative (`ApproxD _)
             | `Iterative (`ThreeD _) ->
                 apply_implied_alignments None true ptree

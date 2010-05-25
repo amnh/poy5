@@ -492,7 +492,6 @@ let annchrom_to_formater ((tag, attr, cont) : Xml.xml) =
         let recost = get_recost attr in 
         let chrom_ref = get_ref_code attr in
         let map = get_map attr in 
-
         let cont = match cont with 
         | #Xml.structured as cont -> 
                 let cont = Xml.eagerly_compute cont in
@@ -501,7 +500,6 @@ let annchrom_to_formater ((tag, attr, cont) : Xml.xml) =
                 | [] -> `Empty)
         | _ -> cont
         in 
-
         match cont with
         | #Xml.unstructured as v ->
                 let v = `Fun (fun () -> StatusCommon.escape
@@ -591,7 +589,8 @@ let forest_to_formater st ((tag, attr, cont) as v) =
     match cont with
     | #Xml.structured ->
             let rec do_nodes ((tag, _, cont) as x) =
-                if tag = Xml.Nodes.node then node_to_formater st x
+                if tag = Xml.Nodes.node then 
+                    node_to_formater st x
                 else 
                     match cont with
                     | #Xml.structured as v -> 

@@ -2913,7 +2913,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
     if debug_tosingle then
-    Printf.printf "Node.ml to_single \n%!";
+    Printf.printf "Node.ml to_single at Node.%d; %!" mine.taxon_code;
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc

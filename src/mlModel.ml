@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
-let epsilon = 0.000001
+let epsilon = 0.00001
 let (=.) a b = abs_float (a-.b) < epsilon
 let (>=.) a b = abs_float (a-.b) > ~-.epsilon
 let (-->) b a = a b
@@ -476,9 +476,10 @@ let output_model output nexus model set =
                 printf ";@]@]";
             | None -> ()
         in
+        if model.spec.use_gap then printf "@[gap = character;@]";
         printf ";@]@."
-    end else (* hennig *) begin
-        printf "@[@[<hov 0>Discrete gamma model: ";
+    end else (* phylip *) begin
+        printf "@[<hov 0>Discrete gamma model: ";
         let () = match model.spec.site_variation with
             | Some Constant
             | None -> printf "No@]@\n"
@@ -758,8 +759,7 @@ let create alph lk_spec =
         let p = match lk_spec.base_priors with 
             | ConstantPi p | Estimated p | Given p -> p in
         if not (a_size = Array.length p) then begin
-            Printf.printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
-            Alphabet.print alph;
+            debug_printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
             assert false
         end else ();
         let () = 

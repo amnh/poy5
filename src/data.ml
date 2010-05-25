@@ -1,5 +1,3 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
-(* Copyright (C) 2007  Andr�s Var�n, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -1009,9 +1007,9 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
             stop_if_not_all_terminals_in_tree map
             (All_sets.StringMap.find taxon data.synonyms)
         else 
-            if All_sets.StringMap.mem taxon map then 
+            if All_sets.StringMap.mem taxon map then begin
                 All_sets.StringMap.remove taxon map
-            else 
+            end else 
                 let msg = 
                     ("input@ tree@ " ^ string_of_int position ^ 
                     (if "" <> file then "@ of@ file@ " ^ esc_file else "") ^
@@ -1199,7 +1197,7 @@ let add_static_character_spec data (code, spec) =
 
 let report_static_input file f_out =
     let characters = Array.length f_out.Nexus.File.characters 
-    and unaligned = List.length f_out.Nexus.File.unaligned
+    and unaligned = List.length (f_out.Nexus.File.unaligned)
     and tree = List.length f_out.Nexus.File.trees 
     and taxa = Array.length f_out.Nexus.File.taxa in
     let msg =
@@ -1333,7 +1331,8 @@ let repack_codes data =
 
 
 let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
-                             annotated alphabet file dyna_state data res =
+                             annotated alphabet file dyna_state data res
+                             lk_model =
     let data = duplicate data in
     let res = 
         (* Place a single sequence together with its taxon *)
@@ -1428,7 +1427,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             initial_assignment = default_mode;
             tcm2d = tcm;
             tcm3d = tcm3;
-            lk_model = None;
+            lk_model = lk_model;
             alph = alphabet;
             state = dyna_state;
             pam = dyna_pam_default;
@@ -1453,6 +1452,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
             let seqa = 
                 let makeone seqa = {seq=seqa; code = -1} in
                 match dyna_state with 
+                | `Ml  when not prealigned -> Array.map makeone seq 
                 | `Seq when not prealigned -> Array.map makeone seq
                 | _ -> Array.map (fun x -> x --> 
                         Sequence.del_first_char --> makeone) seq 
@@ -1712,18 +1712,25 @@ let gen_add_static_parsed_file do_duplicate data file
     (* Now time to add the molecular sequences *)
     let data = 
         let single_sequence_adder data 
-            ((weight, gap_open, tcm, alph, seq) :
+            ((weight, gap_open, tcm, alph,lk_model, seq) :
                 (float * int option * (string * int array array) option * 
-                  Alphabet.a * (Sequence.s list list list * string) list)) =
-
+                  Alphabet.a * MlModel.model option * 
+                    (Sequence.s list list list * string) list)) =
             let size = Alphabet.distinct_size (Alphabet.to_sequential alph) in
             let all_elements =
                 if alph = Alphabet.nucleotides then 31
                 else if alph = Alphabet.aminoacids then 21
                 else (-1)
             in
-            let tcm, name =
-                let tcm,name = match tcm with
+            match lk_model with
+            | Some _ ->
+                process_parsed_sequences 
+                    false weight (Substitution_Indel (1,2))
+                    Cost_matrix.Two_D.default Cost_matrix.Three_D.default
+                    `DO false alph file `Ml data seq lk_model
+            | None -> 
+                let tcm, name =
+                    let tcm,name = match tcm with
                     | None ->
                         Cost_matrix.Two_D.of_transformations_and_gaps 
                                 (size < 7) size 1 2 all_elements,
@@ -1737,25 +1744,25 @@ let gen_add_static_parsed_file do_duplicate data file
                         Cost_matrix.Two_D.of_list ~use_comb lst 
                                     (if use_comb then (1 lsl size) - 1 else size),
                         (Input_file (name,lst))
-                in
-                match gap_open with
-                | None -> tcm, name
-                | Some v ->
-                    Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
-                    let name = match name with
-                        | Substitution_Indel (a,b) -> 
-                            Substitution_Indel_GapOpening (a,b,v)
-                        | Input_file (name,lst) ->
-                            Input_file_GapOpening (name,lst,v)
-                        | _ -> assert( false )
                     in
-                    tcm, name
-            in
-            let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
-            process_parsed_sequences false weight name tcm tcm3d `DO false
-                                     alph file `Seq data seq
+                    match gap_open with
+                    | None -> tcm, name
+                    | Some v ->
+                        Cost_matrix.Two_D.set_affine tcm (Cost_matrix.Affine v);
+                        let name = match name with
+                            | Substitution_Indel (a,b) -> 
+                                Substitution_Indel_GapOpening (a,b,v)
+                            | Input_file (name,lst) ->
+                                Input_file_GapOpening (name,lst,v)
+                            | _ -> assert( false )
+                        in
+                        tcm, name
+                in
+                let tcm3d = Cost_matrix.Three_D.of_two_dim tcm in
+                process_parsed_sequences false weight name tcm tcm3d `DO false
+                                         alph file `Seq data seq None
         in
-        List.fold_left ~f:single_sequence_adder ~init:data file_out.Nexus.File.unaligned
+        List.fold_left ~f:(single_sequence_adder) ~init:data file_out.Nexus.File.unaligned
     in
     let cnsets,csets = (* create `character <--> setname` tables *)
         let character_nsets = create_ht () in
@@ -2004,7 +2011,7 @@ let process_molecular_file tcmfile tcm tcm3 annotated alphabet
             tcmfile tcm tcm3 alphabet
             (fun alph parsed -> 
                 process_parsed_sequences is_prealigned 1.0 tcmfile tcm tcm3 mode annotated 
-                alph (FileStream.filename file) dyna_state data parsed)
+                                alph (FileStream.filename file) dyna_state data parsed None)
             (fun x -> 
                 if not is_prealigned then FileContents.AlphSeq x
                 else FileContents.Prealigned_Alphabet x) 
@@ -3845,8 +3852,8 @@ let compute_priors data chars u_gap =
                 in
                 Array.iter
                     (fun x ->
-                        total := (Sequence.length x.seq) + !total;
-                        counter := (Sequence.length x.seq) + !counter;
+                        total := (Sequence.length x.seq) - 1 + !total;
+                        counter := (Sequence.length x.seq) - 1 + !counter;
                         for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
                             let lst = list_of_packed (Sequence.get x.seq i) in
                             if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
@@ -3879,17 +3886,16 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter
     and gcounter = float_of_int !gap_counter
     and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
-    (*
-        Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
-        Array.iter (Printf.printf "|%f") priors;
-        Printf.printf "|]\n%!";
-    *)
+(*    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;*)
+(*    Array.iter (Printf.printf "|%f") priors;*)
+(*    Printf.printf "|]\n%!";*)
     let final_priors = 
         if u_gap then begin
             let total_added_gaps = 
                 float_of_int
-                    (List.fold_left ~f:(fun acc x -> (x - !longest) + acc) ~init:0 !lengths)
+                    (List.fold_left ~f:(fun acc x -> (!longest - x) + acc) ~init:0 !lengths)
             in
+(*            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;*)
             priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
             let counter = counter -. gcounter +. total_added_gaps;
             and weight  = gcounter /. (float_of_int size) in
@@ -3898,6 +3904,10 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
+    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
+(*    Printf.printf "Final Priors (%f): [" sum;*)
+(*    Array.iter (Printf.printf "|%f") final_priors;*)
+(*    Printf.printf "|]\n%!";*)
     final_priors
 
 
@@ -4385,7 +4395,7 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
                     data.taxon_codes []
             in                   
             process_parsed_sequences false 1.0 tcmfile tcm tcm3d `DO false 
-                                     alph char_name `Seq data seqs)
+                                     alph char_name `Seq data seqs None)
         ~init:data tran_code_ls 
     in 
     categorize data
@@ -4829,8 +4839,10 @@ let all_of_static data =
 
 let state_to_string ambig_open ambig_close sep a resolve code t =
     let f =
+        let a = Alphabet.to_sequential a in
         if resolve
-            then (fun x -> Alphabet.match_code x a)
+            then (fun x -> try Alphabet.match_code x a 
+                           with | e -> Alphabet.print a; raise e)
             else string_of_int
     in
     match t with
@@ -4909,27 +4921,30 @@ let create_set_data_pairs (fo : string -> unit) data =
         let acc, last, cnt =
             List.fold_left 
                 ~f:(fun (acc, previous, cnt) code ->
-                    let spec = 
-                        match Hashtbl.find data.character_specs code with
-                        | Static x -> x.Nexus.File.st_type
-                        | _ -> assert false
-                    in
-                    match previous with
-                    | None -> (acc, Some ((`Single cnt), spec), cnt + 1)
-                    | Some ((`Single min), spec') ->
-                        if spec' = spec then begin
-                            (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
-                        end else begin
+                    match Hashtbl.find data.character_specs code with
+                        | Static x -> 
+                            let spec = x.Nexus.File.st_type in
+                            begin match previous with
+                            | None -> (acc, Some ((`Single cnt), spec), cnt + 1)
+                            | Some ((`Single min), spec') ->
+                                if spec' = spec then begin
+                                    (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                                end else begin
+                                    let acc = acc ^ (print_type false cnt previous) in
+                                    (acc, Some ((`Single cnt), spec), cnt + 1)
+                                end
+                            | Some ((`Pair (min, max)), spec') ->
+                                if spec' = spec then begin
+                                    (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
+                                end else begin
+                                    let acc = acc ^ print_type false cnt previous in
+                                    (acc, Some ((`Single cnt), spec), cnt + 1)
+                                end
+                            end
+                        | Dynamic spec -> 
                             let acc = acc ^ (print_type false cnt previous) in
-                            (acc, Some ((`Single cnt), spec), cnt + 1)
-                        end
-                    | Some ((`Pair (min, max)), spec') ->
-                        if spec' = spec then begin
-                            (acc, Some ((`Pair (min, cnt)), spec), cnt + 1)
-                        end else begin
-                            let acc = acc ^ print_type false cnt previous in
-                            (acc, Some ((`Single cnt), spec), cnt + 1)
-                        end)
+                            (acc, None, cnt + 1)
+                        | _ -> assert false)
                 ~init:("",None, 0)
                 all_static
         in
@@ -4947,6 +4962,11 @@ let create_set_data_pairs (fo : string -> unit) data =
                 | Nexus.File.STLikelihood x -> x.MlModel.spec
                 | _ -> assert false
                 end
+            | Dynamic ({state = s} as x) when s = `Ml ->
+                begin match x.lk_model with
+                | Some m -> m.MlModel.spec
+                | _ -> assert false
+                end
             | _ -> assert false
         in
         MlModel.categorize_by_model lk_chars get_function
@@ -4957,9 +4977,14 @@ let create_set_data_pairs (fo : string -> unit) data =
             | []     -> acc
             | []::tl -> remove_empty acc tl
             | hd::tl -> remove_empty (hd::acc) tl
+        and remove_nonlikelihood elm =
+            match Hashtbl.find data.character_specs elm with
+            | Dynamic s -> s.state = `Ml
+            | _         -> false
         in
-        let all = cat_likelihood data.static_ml in
-        remove_empty [] all
+        let dyna = List.filter remove_nonlikelihood data.dynamics in
+        let stat = cat_likelihood data.static_ml in
+        remove_empty (List.map ~f:(fun x -> [x]) dyna) stat
     (* associate data to each category; right now associated with likelihood *)
     and add_data charset = match charset with
         | [] -> failwith "Data.create_set_data_pairs; Empty Category"
@@ -4967,38 +4992,42 @@ let create_set_data_pairs (fo : string -> unit) data =
             begin match Hashtbl.find data.character_specs hd with
                 | Static spec -> 
                     begin match spec.Nexus.File.st_type with
-                        | Nexus.File.STLikelihood m -> (charset, Some m)
+                        | Nexus.File.STLikelihood m -> (`Static charset, Some m)
                         | Nexus.File.STOrdered 
                         | Nexus.File.STUnordered 
-                        | Nexus.File.STSankoff _ -> (charset, None)
+                        | Nexus.File.STSankoff _ -> (`Other charset, None)
                     end
+                | Dynamic x -> (`Dynamic charset,x.lk_model)
                 | Kolmogorov _ 
-                | Dynamic _ 
-                | Set -> (charset, None)
+                | Set -> (`Other charset, None)
             end
     in
     let set_pairs = List.map ~f:add_data (categorize data) in
     fo "@[BEGIN SETS;@.";
+    let count = ref 0 in
     let set_pairs = 
-        let count = ref 0 in
         List.map
-            ~f:(fun (s,m) ->
-                output_character_sets fo `Nexus data (!count) s;
-                let res = ("poy_lk"^(string_of_int !count),m) in
-                incr count;
-                res)
+            ~f:(fun (s,m) -> match s with
+                | `Static s ->
+                    output_character_sets fo `Nexus data (!count) s;
+                    let res = (`Static ("poy_lk"^(string_of_int !count)),m) in
+                    incr count;
+                    res
+                | `Dynamic _ -> (`Dynamic "",m)
+                | `Other _   -> (`Other "",m))
             set_pairs
     in
-    fo ";@]@.END;@]@.";
+    if !count > 0 then fo ";@]@.END;@]@." else fo "END;@]@.";
     set_pairs
 
 let output_poy_nexus_block (fo : string -> unit) data : unit =
-    let output_nexus_model (n,m) = match m with
-        | Some m -> MlModel.output_model fo `Nexus m (Some [n])
-        | None   -> ()
+    let output_nexus_model = function
+        | `Static  n,Some m -> MlModel.output_model fo `Nexus m (Some [n])
+        | `Dynamic n,Some m -> MlModel.output_model fo `Nexus m None
+        | _   -> ()
     in
     let model_sets = create_set_data_pairs fo data in
-    if 0 < List.length data.dynamics then begin
+    if 0 < List.length data.dynamics && 0 = (List.length model_sets) then begin
         fo "@[BEGIN POY;@]@.";
         let dynamics = Array.of_list data.dynamics in
         let go = Buffer.create 1000 
@@ -5062,7 +5091,6 @@ let output_poy_nexus_block (fo : string -> unit) data : unit =
         fo (Buffer.contents tcm);
         fo (Buffer.contents go);
         fo (Buffer.contents weights);
-        List.iter output_nexus_model model_sets;
         fo "END;@.@]";
         ()
     end else begin
@@ -5386,10 +5414,8 @@ let to_nexus data filename =
             in
             let name, symbols =
                 let filter_gap lst =
-                    if inc_gap then lst
-                    else 
-                        let g = Alphabet.get_gap alph in
-                        List.filter (fun (a,b) -> not (b = g)) lst
+                    let g = Alphabet.get_gap alph in
+                    List.filter (fun (a,b) -> not (b = g)) lst
                 in
                 (**) if alph = Alphabet.nucleotides then "NUCLEOTIDE", []
                 else if alph = Alphabet.dna         then "DNA",        []

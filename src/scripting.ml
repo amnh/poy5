@@ -33,8 +33,7 @@ type search_results = {
 }
 
 (* Before we begin, set the correct error printing functions in the parsers *)
-let () = 
-    Nexus.P.print_error := Status.user_message Status.Error
+let () = Nexus.P.print_error := Status.user_message Status.Error
 
 (* We define a few functions to deal with the search results type *)
 let empty_search_results = {
@@ -3531,7 +3530,7 @@ END
         end
     end
 
-let rec folder (run : r) meth = 
+let rec folder (run : r) meth =
     check_ft_queue run;
     match meth with
     (* The following methods are only used by the parallel execution *)
@@ -3938,7 +3937,11 @@ END
                 let trees = 
                     build_initial run.trees run.data run.nodes meth
                 in
-                { run with trees = trees }
+                let newrun =
+                    { run with  data = { run.data with Data.root_at = None };
+                            trees = trees; }
+                in
+                newrun
             | trans ->
                 let run = temporary_transforms trans run in
                 let run_and_untransform (run, untransforms) =
@@ -4140,7 +4143,7 @@ END
             script
     | #Methods.report as meth ->
             (* Update the trees to reflect the rooting we want *)
-            let run = reroot_at_outgroup run in
+            let run = reroot_at_outgroup run in 
             match meth with
             | `SequenceStats (filename, ch) ->
                     let arr = 
@@ -4343,22 +4346,30 @@ END
                     let chars = `Some (Data.get_chars_codes_comp run.data `All) in
                     Data.get_code_from_characters_restricted `Likelihood run.data chars
                 in
-                List.iter
-                    (fun t ->
-                        let model  = Data.get_likelihood_model t.Ptree.data chars
-                        and cost   = Ptree.get_cost `Adjusted t
-                        and length = TreeOps.tree_size t
-                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
-                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                        MlModel.output_model fo `Hennig model None)
+(*                if style = `Phyml then begin*)
+                    List.iter
+                        (fun t ->
+                            let model  = Data.get_likelihood_model t.Ptree.data chars
+                            and cost   = Ptree.get_cost `Adjusted t
+                            and length = TreeOps.tree_size t
+                            and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                            fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
+                            fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                            fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                            MlModel.output_model fo `Hennig model None)
                     (Sexpr.to_list run.trees);
+(*                end else begin*)
+(*                    Data.output_poy_nexus_likelihood fo t.data*)
+(*                end;*)
                 run
             | `Script (filename,script) -> 
                 run
             | `Nexus filename ->
-                Data.to_nexus run.data filename;
+                let data = match Sexpr.to_list run.trees with
+                    | x::tl -> x.Ptree.data
+                    | []    -> run.data
+                in
+                Data.to_nexus data filename;
                 run
             | `FasWinClad filename -> 
                 Data.to_faswincladfile run.data filename;
@@ -4423,16 +4434,17 @@ ELSE
 END
                     in
                     run
-            | `Diagnosis filename ->                                    
+            | `Diagnosis filename ->
                     let trees = 
                         (* This would be used to rediagnose the tree to the
                          * data, but since the data is in the tree are
                          * consistent, and we are not changing the data, this is
                          * fine. *)
-                        (* let classify = false in
-                           let run = update_trees_to_data ~classify false true run in*)
+                      (*  let classify = false in
+                        let run = update_trees_to_data ~classify false true run
+                        in *)
                         Sexpr.map (TreeOps.to_formatter []) run.trees  
-                    in 
+                    in
                     Status.user_message (Status.Output (filename, false, [])) "@[";
                     Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
                     (* Flush the formatter *)
