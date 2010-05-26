@@ -516,8 +516,8 @@ pairs_list:
     ;
 pairs_list_float:
     | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
-    | IDENT FLOAT COMMA pairs_list_float { ($1,(float_of_string $2)) :: $4 }
-    | DASH  FLOAT SEMICOLON { [("-",(float_of_string $2))] }
+    | DASH  FLOAT COMMA pairs_list_float { ("-",(float_of_string $2)) :: $4 }
+    | IDENT FLOAT SEMICOLON { [($1,(float_of_string $2))] }
     | DASH  FLOAT SEMICOLON { [("-",(float_of_string $2))] }
     ;
 characters:
