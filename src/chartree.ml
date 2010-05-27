@@ -1381,7 +1381,6 @@ let to_formatter atr tree : Xml.xml =
     let data = 
         List.map 
         (fun handle_id -> 
-
              let handle_formatter = handle_to_formatter (pre_ref_codes, fi_ref_codes)
                  [] tree handle_id in 
              let root = Ptree.get_component_root handle_id tree in 
