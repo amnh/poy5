@@ -3938,7 +3938,8 @@ END
                     build_initial run.trees run.data run.nodes meth
                 in
                 let newrun =
-                    { run with  data = { run.data with Data.root_at = None };
+                    { run with  
+                    data = { run.data with Data.root_at = None };
                             trees = trees; }
                 in
                 newrun
@@ -4443,6 +4444,8 @@ END
                       (*  let classify = false in
                         let run = update_trees_to_data ~classify false true run
                         in *)
+                      (*TreeOps.to_formatter will call function "to_formatter"
+                      * in allDirChar.ml*)
                         Sexpr.map (TreeOps.to_formatter []) run.trees  
                     in
                     Status.user_message (Status.Output (filename, false, [])) "@[";
