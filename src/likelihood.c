@@ -45,8 +45,10 @@
 
 //CONSTANTS
 #define EPSILON      1e-10   // error for numerical calculations
-#define MAX_ITER     100     // number of iterations for brents method
+#define MAX_ITER     500     // number of iterations for brents method
 #define BL_MIN       1e-8    // minimum branch length 
+#define BL_MAX       100     // maximum branch length
+#define BRENT_TOL    1e-4    // tolerance parameter for brents method
 
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
@@ -1345,18 +1347,18 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
-    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
     double *PA,*PB,*TMP;
     double r,q,p,d,e,tol,tmp;
 
     size = data_c1->c_len * data_c1->stride * data_c1->rates;
-    /* register temp space and matrices --1 vectors, 3 matrices */
-    expand_matrix( space, (1*size) + (3*data_c1->stride*data_c1->stride) );
+    /* register temp space and matrices --1 vector, 3 matrices */
+    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
     PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
     PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
     TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
     (temp.vs)           = &temp_;
-    (temp.vs)->lv_s     = register_section( space, size, 1 );
+    (temp.vs)->lv_s     = register_section( space, size, 0 );
     (temp.vs)->stride   = data_c1->stride;
     (temp.vs)->c_len    = data_c1->c_len;
     (temp.vs)->invar    = data_c1->invar;
@@ -1366,9 +1368,9 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     e = d = 0;
     /* initial bracket */
     x  = *b_tc1;
-    fx = *b_mle;
+    fx = fi = *b_mle;
     a = MAX( BL_MIN, x / 10.0 );
-    b = x * 10.0;
+    b = MIN( BL_MAX, x * 10.0 );
     single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
     fa = temp.ll;
     single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
@@ -1377,7 +1379,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     /* bracket a region; a and b become the bracket with temp */
     iter = 0;
     while( iter <= MAX_ITER ){
-/*        printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
+        /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
         /* bracketed */
         if( (fa > fx) && (fx < fb)){
             break;
@@ -1404,19 +1406,17 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         ++iter;
     }
 
-/*    if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
-/*    printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
-
+    /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
+    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
     /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
-    v =w = x;
-    fv=fw= fx;
+    v=w=x;
+    fv=fw=fx;
     while( (iter <= MAX_ITER) && (1 == bracketed)){
         xm = 0.5 * (a + b);
-        tol = 1.0e-6 * fabs(x) + EPSILON;
+        tol = BRENT_TOL * fabs(x) + EPSILON;
         /* determine convergence; x contains best score */
-        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){
-            break;
-        }
+        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){ break; }
+
         /* construct parabolic fit */
         if(fabs(e) > tol){
             r = (x-w) * (fx-fv);
@@ -1429,11 +1429,11 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             e = d; 
             /* determine acceptability of fit; else do golden section search */
             if((fabs(p) >= fabs(0.5*q*tmp)) || (p <= q*(a-x)) || (p >= q*(b-x))){
-/*                printf("\tGolden Section\n");*/
+                /* printf("\tGolden Section\n");*/
                 e = (x >= xm) ? (a-x) : (b-x);
                 d = golden * e;
             } else {
-/*                printf("\tParabolic Fit\n");*/
+                /* printf("\tParabolic Fit\n");*/
                 d = p / q;
                 u = x + d;
                 if( (u-a < 2.0*tol) || (b-u < 2.0*tol) ){
@@ -1442,7 +1442,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             }
             /* golden section search */
         } else {
-/*            printf("\tGolden Section\n");*/
+            /* printf("\tGolden Section\n");*/
             e = (x >= xm) ? (a-x) : (b-x);
             d = golden * e;
         }
@@ -1450,7 +1450,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
         single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
         fu = temp.ll;
-/*        printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
         /* move variables around for next motion */
         if( fu <= fx ){
             if( u >= x ){ a = x; } else { b = x; }
@@ -1467,8 +1467,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         }
         ++iter;
     }
-/*    if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
-
+    /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
     memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
     *b_tc1 = x;
     *b_mle = fx;
@@ -1482,30 +1481,30 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
-    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
     double *PA,*PB,*TMP;
     double r,q,p,d,e,tol,tmp;
 
     size = data_c1->c_len * data_c1->stride * data_c1->rates;
-    /* register temp space and matrices --1 vectors, 3 matrices */
-    expand_matrix( space, (1*size) + (3*data_c1->stride*data_c1->stride) );
+    /* register temp space and matrices --1 vector, 3 matrices */
+    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
     PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
     PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
     TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
     (temp.vs)           = &temp_;
-    (temp.vs)->lv_s     = register_section( space, size, 1 );
+    (temp.vs)->lv_s     = register_section( space, size, 0 );
     (temp.vs)->stride   = data_c1->stride;
     (temp.vs)->c_len    = data_c1->c_len;
     (temp.vs)->invar    = data_c1->invar;
     (temp.vs)->lv_invar = data_c1->lv_invar;
     (temp.vs)->rates    = data_c1->rates;
 
-    e = d = 0;
+    e = d = 0.0;
     /* initial bracket */
     x = *b_tc1;
-    fx = *b_mle;
-    a = MAX( BL_MIN, x / 10.0 );
-    b = x * 10.0;
+    fx = fi = *b_mle;
+    a = MAX( BL_MIN, x / 100.0 );
+    b = MIN( BL_MAX, x * 10.0 );
     single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
     fa = temp.ll;
     single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
@@ -1514,7 +1513,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
     /* bracket a region; a and b become the bracket with temp */
     iter = 0;
     while( iter <= MAX_ITER ){
-/*        printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
+    /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
         /* bracketed */
         if( (fa > fx) && (fx < fb)){
             break;
@@ -1541,19 +1540,17 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         ++iter;
     }
 
-/*    if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
-/*    printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
-
+    /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
+    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
     /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
-    v =w = x;
-    fv=fw= fx;
+    v=w=x;
+    fv=fw=fx;
     while( (iter <= MAX_ITER) && (1 == bracketed)){
         xm = 0.5 * (a + b);
-        tol = 1.0e-6 * fabs(x) + EPSILON;
+        tol = BRENT_TOL * fabs(x) + EPSILON;
         /* determine convergence; x contains best score */
-        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){
-            break;
-        }
+        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){ break; }
+
         /* construct parabolic fit */
         if(fabs(e) > tol){
             r = (x-w) * (fx-fv);
@@ -1566,11 +1563,11 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             e = d; 
             /* determine acceptability of fit; else do golden section search */
             if((fabs(p) >= fabs(0.5*q*tmp)) || (p <= q*(a-x)) || (p >= q*(b-x))){
-/*                printf("\tGolden Section\n");*/
+                /* printf("\tGolden Section\n");*/
                 e = (x >= xm) ? (a-x) : (b-x);
                 d = golden * e;
             } else {
-/*                printf("\tParabolic Fit\n");*/
+                /* printf("\tParabolic Fit\n");*/
                 d = p / q;
                 u = x + d;
                 if( (u-a < 2.0*tol) || (b-u < 2.0*tol) ){
@@ -1579,7 +1576,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             }
             /* golden section search */
         } else {
-/*            printf("\tGolden Section\n");*/
+            /* printf("\tGolden Section\n");*/
             e = (x >= xm) ? (a-x) : (b-x);
             d = golden * e;
         }
@@ -1587,7 +1584,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
         single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
         fu = temp.ll;
-/*        printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
         /* move variables around for next motion */
         if( fu <= fx ){
             if( u >= x ){ a = x; } else { b = x; }
@@ -1604,8 +1601,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         }
         ++iter;
     }
-/*    if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
-
+    /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
     memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
     *b_tc1 = x;
     *b_mle = fx;
