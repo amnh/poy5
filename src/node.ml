@@ -26,6 +26,7 @@ let debug_sets      = false
 let debug_set_cost  = false
 let debug_treebuild = false
 let debug_tosingle = false
+let debug_to_formatter = false
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
@@ -3208,7 +3209,9 @@ let cmp_node_recost node_data =
                    ) 0. node_data.characters
 
 (* Compute total recost of the subtree rooted by this NODE *)
-let cmp_subtree_recost node_data = 
+let cmp_subtree_recost node_data =
+    if debug_to_formatter then
+    Printf.printf "node.ml cmp_subtree_recost:%!";
     List.fold_left 
         (fun subtree_recost cs -> 
              match cs with 
@@ -3216,6 +3219,9 @@ let cmp_subtree_recost node_data =
                let res = subtree_recost +. (DynamicCS.subtree_recost
                      dyn.preliminary) 
                in
+               if debug_to_formatter then
+               Printf.printf "res = %f + %f \n%!"  subtree_recost
+               (DynamicCS.subtree_recost dyn.preliminary);
                res
              | _ -> subtree_recost
         ) 0. node_data.characters
@@ -3289,25 +3295,29 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         acc d (node_data, node_single) node_id (child1_id,  child1_node_data)
         (child2_id,  child2_node_data) (parent_node_data_opt : (node_data *
         node_data) option) : Xml.xml =
-
     let get_node_name id =  
         try Data.code_taxon id d with 
         | Not_found -> string_of_int id 
     in
     let child1_name = get_node_name child1_id in 
     let child2_name = get_node_name child2_id in 
-
     let node_name =
         match parent_node_data_opt with  
         | None -> "root"
         | _ -> get_node_name node_id
     in 
+    if debug_to_formatter then
+    Printf.printf "node.ml to_formatter_subtree, get child1/child2 recost \n %!";
     let child1_recost = cmp_subtree_recost child1_node_data in 
     let child2_recost = cmp_subtree_recost child2_node_data in 
+    let node_recost = (cmp_node_recost node_data) in
     let subtree_recost = 
         child1_recost +. 
         child2_recost +. 
-        (cmp_node_recost node_data) in 
+        node_recost in 
+    if debug_to_formatter then
+    Printf.printf "%f + %f + %f => %f (total_cost = %f)\n%!" 
+    child1_recost child2_recost node_recost subtree_recost node_data.total_cost;
     let module T = Xml.Nodes in
     let attr : Xml.attributes = 
         (AXML
