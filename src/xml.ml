@@ -296,6 +296,12 @@ let remove_non_alpha_numeric str =
     Str.global_replace (Str.regexp " ") "_"
     (Str.global_replace (Str.regexp "[^0-9a-zA-Z]") "_" str)
 
+let get_float unstr = 
+    match unstr with
+    | `Float x -> x
+    | `Int x -> x
+    | _ -> failwith "get float/int only, in xml.ml"
+
 let value_to_string = function
     | `Bool x -> string_of_bool x
     | `IntTuple (a, b) -> string_of_int a ^ "," ^ string_of_int b
