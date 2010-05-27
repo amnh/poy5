@@ -45,13 +45,17 @@
 
 //CONSTANTS
 #define EPSILON      1e-10   // error for numerical calculations
-#define MAX_ITER     10000   // number of iterations for numerical calculations
+#define MAX_ITER     500     // number of iterations for brents method
 #define BL_MIN       1e-8    // minimum branch length 
+#define BL_MAX       100     // maximum branch length
+#define BRENT_TOL    1e-4    // tolerance parameter for brents method
 
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
 #define MAX(a,b) (a >= b)?a:b
 #define MIN(a,b) (a <= b)?a:b
+#define SHIFT(a,b,c,d) (a)=(b);(b)=(c);(c)=(d)
+#define SIGN(a,b) (b>0)?fabs(a):-fabs(a)
 
 /* ~CHECK_ZEROES    -- verify array is all zeroes with EPSILON error */
 /*                     used to ensure no imaginary roots when diagonalizing */
@@ -971,7 +975,8 @@ loglikelihood_invar( const mll* l, const double *pi )
 double loglikelihood( const mll* l, const double* ws, const double* pi, 
                                 const double* prob, const double pinvar )
 {
-    //printarrayf(l->lv_s, l->rates * l->c_len * l->stride);
+    /* printarrayf(l->lv_s, l->rates * l->c_len * l->stride); */
+    /* printf("%d -- %d -- %d\n",l->rates,l->c_len,l->stride); */
 #ifdef KAHANSUMMATION
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
@@ -1331,322 +1336,275 @@ void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,
     simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent );
 }
 #define golden (2.0/(sqrt(5.0)+1))
-#define golden_exterior_l(b,c) ((b.time - (c.time * golden)) / (1 - golden))
-#define golden_exterior_r(a,b) (a.time + ((b.time - a.time) / golden))
+#define golden_exterior_l(b,c) ((b - (c * golden)) / (1 - golden))
+#define golden_exterior_r(a,b) (a + ((b - a) / golden))
 
 void
-readjust_brents_sym(mat *space,const double* U,const double* D,const mll* a,
-        const mll* b,mll* c,double* b_ta,const double b_tb,double* b_mle, const double* ws,
-        const double* rates, const double *prob, const int g_n,const double* pi,
-        const double pinvar)
+readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_c1,
+        const mll* data_c2,mll* data_p,double* b_tc1,const double b_tc2,double* b_mle,
+        const double* ws,const double* rates,const double *prob,const int g_n,
+        const double* pi,const double pinvar)
 {
-    /* variables */
-    ptr left, right, middle, best, temp, temp_ptr;
-    mll left_,right_,middle_,best_,temp_;
-    double *PA,*PB,*TMP,ttime1,ttime2,deno,numr;
-    int max_iter,size,bracketed;
-    max_iter = MAX_ITER;
+    int iter,size,bracketed;
+    ptr temp; mll temp_;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
+    double *PA,*PB,*TMP;
+    double r,q,p,d,e,tol,tmp;
 
-    size = a->c_len * a->stride * a->rates; //size of the entire array
-    /* register temp space and matrices --5 vectors, 3 matrices */
-    expand_matrix( space, (5 * size) + (3 * a->stride * a->stride ) );
-    PA = register_section(space, a->stride*a->stride, 0);
-    PB = register_section(space, a->stride*a->stride, 0);
-    TMP = register_section(space, a->stride*a->stride, 0);
-    /* set up the 'points' --TODO: use C as best */
-    best.vs = &best_; middle.vs = &middle_; left.vs = &left_;
-    right.vs = &right_; temp.vs = &temp_;
-    /* register space */
-    (best.vs)->lv_s = register_section(space,size,0);
-    (middle.vs)->lv_s = register_section(space,size,0);
-    (left.vs)->lv_s = register_section(space,size,0);
-    (right.vs)->lv_s = register_section(space,size,0);
-    (temp.vs)->lv_s = register_section(space,size,0);
-    /* set lengths of vectors in new likelihood structures */
-    (best.vs)->rates = (middle.vs)->rates = a->rates;
-    (left.vs)->rates = (right.vs)->rates = (temp.vs)->rates = a->rates;
-    (best.vs)->c_len = (middle.vs)->c_len = a->c_len;
-    (left.vs)->c_len = (right.vs)->c_len = (temp.vs)->c_len = a->c_len;
-    (best.vs)->stride = (middle.vs)->stride = a->stride;
-    (left.vs)->stride = (right.vs)->stride = (temp.vs)->stride = a->stride;
-    /* invar doesn't change, set all pointers to the same space TEST */
-    (best.vs)->invar = (middle.vs)->invar = a->invar;
-    (left.vs)->invar = (right.vs)->invar = (temp.vs)->invar = a->invar;
-    (best.vs)->lv_invar = (middle.vs)->lv_invar = a->lv_invar;
-    (left.vs)->lv_invar = (right.vs)->lv_invar = (temp.vs)->lv_invar = a->lv_invar;
-    // set up best vectors
-    memcpy( (best.vs)->lv_s, c->lv_s, size * sizeof(double) );
-    memcpy( (middle.vs)->lv_s, c->lv_s, size * sizeof(double) );
+    size = data_c1->c_len * data_c1->stride * data_c1->rates;
+    /* register temp space and matrices --1 vector, 3 matrices */
+    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
+    PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
+    PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
+    TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
+    (temp.vs)           = &temp_;
+    (temp.vs)->lv_s     = register_section( space, size, 0 );
+    (temp.vs)->stride   = data_c1->stride;
+    (temp.vs)->c_len    = data_c1->c_len;
+    (temp.vs)->invar    = data_c1->invar;
+    (temp.vs)->lv_invar = data_c1->lv_invar;
+    (temp.vs)->rates    = data_c1->rates;
 
-    /* set initial times and constants for bracketing */
-    best.time = *b_ta;
-    middle.time = *b_ta;
-    left.time = MAX( BL_MIN, middle.time / 10.0 );
-    right.time = middle.time * 10.0;
-    best.ll = *b_mle;
-    middle.ll = *b_mle;
-    /* if middle = left, then perturbate */
-    if (EPSILON >= fabs (left.time - middle.time)){
-        left.time   = 0.005;
-        middle.time = 0.050;
-        right.time  = 0.500;
-        single_sym(&middle,PA,PB,U,D,a,b,middle.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    }
-    // fill in initial data of new points
-    single_sym(&left,PA,PB,U,D,a,b,left.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    single_sym(&right,PA,PB,U,D,a,b,right.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    /* bracket minimum */
-    bracketed = 1; // true, since we are going to expect the best
-    while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
-        if (left.ll < middle.ll && middle.ll < right.ll){
-            // minimum is to the LEFT, new point < left
-            temp_ptr = right;
-            right = middle;
-            middle = left;
-            left = temp_ptr;
-            ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
-            assert ( ttime1 <= middle.time );
-            single_sym(&left,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-        } else if ( left.ll > middle.ll && middle.ll > right.ll) {
-            // decreasing,  move all points up (middle,right,new)
-            temp_ptr = left;
-            left = middle;
-            middle = right;
-            right = temp_ptr;
-            ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
-            assert( ttime1 >= middle.time );
-            single_sym(&right,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-        } else if ( left.ll == middle.ll && middle.ll == right.ll ){
-            bracketed = 0;
+    e = d = 0;
+    /* initial bracket */
+    x  = *b_tc1;
+    fx = fi = *b_mle;
+    a = MAX( BL_MIN, x / 10.0 );
+    b = MIN( BL_MAX, x * 10.0 );
+    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    fa = temp.ll;
+    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    fb = temp.ll;
+    bracketed = 1;
+    /* bracket a region; a and b become the bracket with temp */
+    iter = 0;
+    while( iter <= MAX_ITER ){
+        /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
+        /* bracketed */
+        if( (fa > fx) && (fx < fb)){
             break;
+        /* increasing; move left: (new,left,middle) */
+        } else if (fa < fx && fx < fb){
+            b = x; fb = fx;
+            x = a; fx = fa;
+            a = MAX( BL_MIN, golden_exterior_l( x,b ) );
+            assert ( a <= x );
+            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            fa = temp.ll;
+        /* decreasing; move right: (middle,right,new) */
+        } else if( fa > fx && fx > fb ){ 
+            a = x; fa = fx;
+            x = b; fx = fb;
+            b = MAX (BL_MIN, golden_exterior_r( a, x ) );
+            assert ( b >= x );
+            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            fb = temp.ll;
+        /* convergence or curvature issue */
         } else {
-            //printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
-            //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
-            bracketed = 0;
-            break;
+            bracketed = 0; break;
         }
+        ++iter;
     }
-    //assert( left.time <= middle.time && middle.time <= right.time );
-    //printf ("BRACKETED region: %f(%f),\t%f(%f),\t%f(%f)\n",
-    //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
 
-    /* parabolic interpolation */
-    while( bracketed && ((max_iter--) > 0 ) &&
-                      (fabs (middle.time - left.time) > EPSILON) &&
-                      (fabs (right.time - middle.time) > EPSILON) ){
-        /* calculate absissca */
-        ttime1 = (middle.time - left.time) * (middle.ll - right.ll);
-        ttime2 = (middle.time - right.time) * (middle.ll - left.ll);
-        numr = (ttime1 * (middle.time - left.time)) - (ttime2 * (middle.time - right.time));
-        deno = (ttime1 - ttime2) * 2.0;
-        if (deno < 0.0){ //points are colinear
-            numr = -numr;
-            deno = -deno;
-        }
-        if (deno <= EPSILON){
-            break;
-        }
-        // ttime1 is the next time to try 
-        ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
-        single_sym(&temp,PA,PB,U,D,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-        // choose best
-        if (best.ll > temp.ll){
-            best.ll = temp.ll;
-            best.time = temp.time;
-            memcpy( (best.vs)->lv_s, (temp.vs)->lv_s, size * sizeof(double) );
-        }
-        // reorder points
-        if(left.time < temp.time && temp.time < middle.time){ //left new middle
-            temp_ptr = right;
-            right = middle;
-            middle = temp;
-            temp = temp_ptr;
-        } else if (temp.time < left.time){ //new left middle
-            temp_ptr = right;
-            right = middle;
-            middle = left;
-            left = temp;
-            temp = temp_ptr;
-        } else if (middle.time < temp.time && temp.time < right.time){ //middle new right
-            temp_ptr = left;
-            left = middle;
-            middle = temp;
-            temp = temp_ptr;
-        } else if (right.time < temp.time){ //middle right new
-            temp_ptr = left;
-            left = middle;
-            middle = right;
-            right = temp;
-            temp = temp_ptr;
-        } else if (EPSILON >= fabs(left.time - temp.time)){
-            //printf ("converging to branch length minimum(%f): %f",temp.time,temp.ll);
-            break;
+    /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
+    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
+    /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
+    v=w=x;
+    fv=fw=fx;
+    while( (iter <= MAX_ITER) && (1 == bracketed)){
+        xm = 0.5 * (a + b);
+        tol = BRENT_TOL * fabs(x) + EPSILON;
+        /* determine convergence; x contains best score */
+        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){ break; }
+
+        /* construct parabolic fit */
+        if(fabs(e) > tol){
+            r = (x-w) * (fx-fv);
+            q = (x-v) * (fx-fw);
+            p = (x-v)*q-(x-w)*r;
+            q = 2.0*(q-r);
+            if( q > 0.0){ p = -p; }
+            q = fabs(q);
+            tmp = e;
+            e = d; 
+            /* determine acceptability of fit; else do golden section search */
+            if((fabs(p) >= fabs(0.5*q*tmp)) || (p <= q*(a-x)) || (p >= q*(b-x))){
+                /* printf("\tGolden Section\n");*/
+                e = (x >= xm) ? (a-x) : (b-x);
+                d = golden * e;
+            } else {
+                /* printf("\tParabolic Fit\n");*/
+                d = p / q;
+                u = x + d;
+                if( (u-a < 2.0*tol) || (b-u < 2.0*tol) ){
+                    d = SIGN(tol,xm-x);
+                }
+            }
+            /* golden section search */
         } else {
-            //printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
-            //reorder(&left,&middle,&right);
-            break;
+            /* printf("\tGolden Section\n");*/
+            e = (x >= xm) ? (a-x) : (b-x);
+            d = golden * e;
         }
+        /* function evaluation; replace data in u. */
+        u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
+        single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+        fu = temp.ll;
+        /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /* move variables around for next motion */
+        if( fu <= fx ){
+            if( u >= x ){ a = x; } else { b = x; }
+            SHIFT(v,w,x,u);
+            SHIFT(fv,fw,fx,fu);
+        } else {
+            if( u < x ){ a = u; } else { b = u; }
+            if( (fu <= fw) || (w == x) ){
+                v=w; fv=fw;
+                w=u; fw=fu;
+            } else if( (fu <= fv) || (v == x) || (v==w) ){
+                v=u; fv=fu;
+            }
+        }
+        ++iter;
     }
-    memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
-    *b_ta = best.time;
-    *b_mle= best.ll;
+    /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
+    memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
+    *b_tc1 = x;
+    *b_mle = fx;
 }
 
 void
-readjust_brents_gtr(mat * space,const double* U,const double* D,const double* Ui,
-        const mll* a, const mll* b, mll* c,double* b_ta,const double b_tb,double* b_mle,
-        const double* ws, const double *rates,const double *prob,const int g_n,
-        const double* pi,const double pinvar)
+readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* Ui,
+        const mll* data_c1,const mll* data_c2,mll* data_p,double* b_tc1,const double b_tc2,
+        double* b_mle,const double* ws,const double *rates,const double *prob,
+        const int g_n,const double* pi,const double pinvar)
 {
-    /* variables */
-    ptr left, right, middle, best, temp, temp_ptr;
-    mll left_,right_,middle_,best_,temp_;
-    double *PA,*PB,*TMP,ttime1,ttime2,deno,numr;
-    int max_iter,size,bracketed;
-    max_iter = MAX_ITER;
+    int iter,size,bracketed;
+    ptr temp; mll temp_;
+    double x,w,v,u,fx,fw,fv,fu,xm,a,b,fa,fb,fi;
+    double *PA,*PB,*TMP;
+    double r,q,p,d,e,tol,tmp;
 
-    size = a->c_len * a->stride * a->rates; //size of the entire array
-    /* register temp space and matrices --5 vectors, 3 matrices */
-    expand_matrix( space, (5 * size) + (3 * a->stride * a->stride ) );
-    PA = register_section(space, a->stride*a->stride, 0);
-    PB = register_section(space, a->stride*a->stride, 0);
-    TMP = register_section(space, a->stride*a->stride, 0);
-    /* set up the 'points' --TODO: use C as best */
-    best.vs = &best_; middle.vs = &middle_; left.vs = &left_;
-    right.vs = &right_; temp.vs = &temp_;
-    /* register space */
-    (best.vs)->lv_s = register_section(space,size,0);
-    (middle.vs)->lv_s = register_section(space,size,0);
-    (left.vs)->lv_s = register_section(space,size,0);
-    (right.vs)->lv_s = register_section(space,size,0);
-    (temp.vs)->lv_s = register_section(space,size,0);
-    /* set lengths of vectors in new likelihood structures */
-    (best.vs)->rates = (middle.vs)->rates = a->rates;
-    (left.vs)->rates = (right.vs)->rates = (temp.vs)->rates = a->rates;
-    (best.vs)->c_len = (middle.vs)->c_len = a->c_len;
-    (left.vs)->c_len = (right.vs)->c_len = (temp.vs)->c_len = a->c_len;
-    (best.vs)->stride = (middle.vs)->stride = a->stride;
-    (left.vs)->stride = (right.vs)->stride = (temp.vs)->stride = a->stride;
-    /* invar doesn't change, set all pointers to the same space TEST */
-    (best.vs)->invar = (middle.vs)->invar = a->invar;
-    (left.vs)->invar = (right.vs)->invar = (temp.vs)->invar = a->invar;
-    (best.vs)->lv_invar = (middle.vs)->lv_invar = a->lv_invar;
-    (left.vs)->lv_invar = (right.vs)->lv_invar = (temp.vs)->lv_invar = a->lv_invar;
-    // set up best vectors
-    memcpy( (best.vs)->lv_s, c->lv_s, size * sizeof(double) );
-    memcpy( (middle.vs)->lv_s, c->lv_s, size * sizeof(double) );
+    size = data_c1->c_len * data_c1->stride * data_c1->rates;
+    /* register temp space and matrices --1 vector, 3 matrices */
+    expand_matrix( space, (size) + (3*data_c1->stride*data_c1->stride) );
+    PA  = register_section(space, data_c1->stride*data_c1->stride, 0);
+    PB  = register_section(space, data_c1->stride*data_c1->stride, 0);
+    TMP = register_section(space, data_c1->stride*data_c1->stride, 0);
+    (temp.vs)           = &temp_;
+    (temp.vs)->lv_s     = register_section( space, size, 0 );
+    (temp.vs)->stride   = data_c1->stride;
+    (temp.vs)->c_len    = data_c1->c_len;
+    (temp.vs)->invar    = data_c1->invar;
+    (temp.vs)->lv_invar = data_c1->lv_invar;
+    (temp.vs)->rates    = data_c1->rates;
 
-    /* set initial times and constants for bracketing */
-    best.time = *b_ta;
-    middle.time = *b_ta;
-    left.time = MAX( BL_MIN, middle.time / 10.0 );
-    right.time = middle.time * 10.0;
-    best.ll = *b_mle;
-    middle.ll = *b_mle;
-    /* if middle = left, then perturbate */
-    if (EPSILON >= fabs (left.time - middle.time)){
-        left.time   = 0.005;
-        middle.time = 0.050;
-        right.time  = 0.500;
-        single_gtr(&middle,PA,PB,U,D,Ui,a,b,middle.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    }
-    // fill in initial data of new points
-    single_gtr(&left,PA,PB,U,D,Ui,a,b,left.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    single_gtr(&right,PA,PB,U,D,Ui,a,b,right.time,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-    /* bracket minimum */
-    bracketed = 1; // true, since we are going to expect the best
-    while( (max_iter-- != 0) && !(left.ll >= middle.ll && middle.ll <= right.ll)){
-        if (left.ll < middle.ll && middle.ll < right.ll){
-            // minimum is to the LEFT, new point < left
-            temp_ptr = right;
-            right = middle;
-            middle = left;
-            left = temp_ptr;
-            ttime1 = MAX (BL_MIN, golden_exterior_l( middle,right ) );
-            assert ( ttime1 <= middle.time );
-            single_gtr(&left,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-        } else if ( left.ll > middle.ll && middle.ll > right.ll) {
-            // decreasing,  move all points up (middle,right,new)
-            temp_ptr = left;
-            left = middle;
-            middle = right;
-            right = temp_ptr;
-            ttime1 = MAX (BL_MIN, golden_exterior_r( left, middle ) );
-            assert( ttime1 >= middle.time );
-            single_gtr(&right,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
+    e = d = 0.0;
+    /* initial bracket */
+    x = *b_tc1;
+    fx = fi = *b_mle;
+    a = MAX( BL_MIN, x / 100.0 );
+    b = MIN( BL_MAX, x * 10.0 );
+    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    fa = temp.ll;
+    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    fb = temp.ll;
+    bracketed = 1;
+    /* bracket a region; a and b become the bracket with temp */
+    iter = 0;
+    while( iter <= MAX_ITER ){
+    /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
+        /* bracketed */
+        if( (fa > fx) && (fx < fb)){
+            break;
+        /* increasing; move left: (new,left,middle) */
+        } else if (fa < fx && fx < fb){
+            b = x; fb = fx;
+            x = a; fx = fa;
+            a = MAX( BL_MIN, golden_exterior_l( x,b ) );
+            assert ( a <= x );
+            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            fa = temp.ll;
+        /* decreasing; move right: (middle,right,new) */
+        } else if( fa > fx && fx > fb ){ 
+            a = x; fa = fx;
+            x = b; fx = fb;
+            b = MAX (BL_MIN, golden_exterior_r( a, x ) );
+            assert ( b >= x );
+            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            fb = temp.ll;
+        /* convergence or curvature issue */
         } else {
-            //printf ("WARNING: region curvature issue: %f(%f),\t%f(%f),\t%f(%f)\n",
-            //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
-            bracketed = 0;
-            break;
+            bracketed = 0; break;
         }
+        ++iter;
     }
-    //assert( left.time <= middle.time && middle.time <= right.time );
-    //printf ("BRACKETED region: %f(%f),\t%f(%f),\t%f(%f)\n",
-    //        left.time,left.ll,middle.time,middle.ll,right.time,right.ll);
 
-    /* parabolic interpolation */
-    while( bracketed && ((max_iter--) > 0 ) &&
-                      (fabs (middle.time - left.time) > EPSILON) &&
-                      (fabs (right.time - middle.time) > EPSILON) ){
-        /* calculate absissca */
-        ttime1 = (middle.time - left.time) * (middle.ll - right.ll);
-        ttime2 = (middle.time - right.time) * (middle.ll - left.ll);
-        numr = (ttime1 * (middle.time - left.time)) - (ttime2 * (middle.time - right.time));
-        deno = (ttime1 - ttime2) * 2.0;
-        if (deno < 0.0){ //points are colinear
-            numr = -numr;
-            deno = -deno;
-        }
-        if (deno <= EPSILON){
-            break;
-        }
-        // ttime1 is the next time to try 
-        ttime1 = MAX( middle.time - (numr/deno), BL_MIN);
-        single_gtr(&temp,PA,PB,U,D,Ui,a,b,ttime1,b_tb,ws,rates,prob,pi,g_n,pinvar,TMP);
-        // choose best
-        if (best.ll > temp.ll){
-            best.ll = temp.ll;
-            best.time = temp.time;
-            memcpy( (best.vs)->lv_s, (temp.vs)->lv_s, size * sizeof(double) );
-        }
-        // reorder points
-        if(left.time < temp.time && temp.time < middle.time){ //left new middle
-            temp_ptr = right;
-            right = middle;
-            middle = temp;
-            temp = temp_ptr;
-        } else if (temp.time < left.time){ //new left middle
-            temp_ptr = right;
-            right = middle;
-            middle = left;
-            left = temp;
-            temp = temp_ptr;
-        } else if (middle.time < temp.time && temp.time < right.time){ //middle new right
-            temp_ptr = left;
-            left = middle;
-            middle = temp;
-            temp = temp_ptr;
-        } else if (right.time < temp.time){ //middle right new
-            temp_ptr = left;
-            left = middle;
-            middle = right;
-            right = temp;
-            temp = temp_ptr;
-        } else if (EPSILON >= fabs(left.time - temp.time)){
-            //printf ("converging to branch length minimum(%f): %f",temp.time,temp.ll);
-            break;
+    /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
+    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
+    /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
+    v=w=x;
+    fv=fw=fx;
+    while( (iter <= MAX_ITER) && (1 == bracketed)){
+        xm = 0.5 * (a + b);
+        tol = BRENT_TOL * fabs(x) + EPSILON;
+        /* determine convergence; x contains best score */
+        if( fabs(x - xm) <= ((2.0*tol) - 0.5 * (b - a)) ){ break; }
+
+        /* construct parabolic fit */
+        if(fabs(e) > tol){
+            r = (x-w) * (fx-fv);
+            q = (x-v) * (fx-fw);
+            p = (x-v)*q-(x-w)*r;
+            q = 2.0*(q-r);
+            if( q > 0.0){ p = -p; }
+            q = fabs(q);
+            tmp = e;
+            e = d; 
+            /* determine acceptability of fit; else do golden section search */
+            if((fabs(p) >= fabs(0.5*q*tmp)) || (p <= q*(a-x)) || (p >= q*(b-x))){
+                /* printf("\tGolden Section\n");*/
+                e = (x >= xm) ? (a-x) : (b-x);
+                d = golden * e;
+            } else {
+                /* printf("\tParabolic Fit\n");*/
+                d = p / q;
+                u = x + d;
+                if( (u-a < 2.0*tol) || (b-u < 2.0*tol) ){
+                    d = SIGN(tol,xm-x);
+                }
+            }
+            /* golden section search */
         } else {
-            //printf ("Ordering points incorrect: %f,%f,%f\n",left.time,middle.time,right.time);
-            //reorder(&left,&middle,&right);
-            break;
+            /* printf("\tGolden Section\n");*/
+            e = (x >= xm) ? (a-x) : (b-x);
+            d = golden * e;
         }
+        /* function evaluation; replace data in u. */
+        u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
+        single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+        fu = temp.ll;
+        /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /* move variables around for next motion */
+        if( fu <= fx ){
+            if( u >= x ){ a = x; } else { b = x; }
+            SHIFT(v,w,x,u);
+            SHIFT(fv,fw,fx,fu);
+        } else {
+            if( u < x ){ a = u; } else { b = u; }
+            if( (fu <= fw) || (w == x) ){
+                v=w; fv=fw;
+                w=u; fw=fu;
+            } else if( (fu <= fv) || (v == x) || (v==w) ){
+                v=u; fv=fu;
+            }
+        }
+        ++iter;
     }
-    memcpy( c->lv_s, (best.vs)->lv_s, size * sizeof(double));
-    *b_ta = best.time;
-    *b_mle= best.ll;
-
-
+    /* if( iter >= MAX_ITER ){ printf("\tHIT MAX COUNT IN BRENT!\n"); }*/
+    memcpy( data_p->lv_s, (temp.vs)->lv_s, size * sizeof(double));
+    *b_tc1 = x;
+    *b_mle = fx;
 }
 
 //-----------------------------------------------------------------------------
