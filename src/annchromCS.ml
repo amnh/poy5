@@ -158,6 +158,7 @@ let distance (a : t) (b : t)  =
         (AnnchromAli.to_formater (List.hd  meda.Annchrom.med_ls) a.alph) 
         (AnnchromAli.to_formater (List.hd medb.Annchrom.med_ls) b.alph);
         let cost, recost = Annchrom.cmp_min_pair_cost meda medb in 
+        if debug_distance then Printf.printf "is %d/%d\n%!" cost recost;
         acc_cost + cost, acc_recost + recost
     in
     let cost, _ = IntMap.fold single_distance a.meds (0, 0) in 

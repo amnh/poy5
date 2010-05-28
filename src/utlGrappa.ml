@@ -241,6 +241,23 @@ let find_better_capping (genomeX : int array) (genomeY : int array) (delimiterX:
     debug msg*)
     resarr,deli_arr
 
+let is_identical arr1 arr2 arr3 =
+    let len1 = Array.length arr1 and len2 = Array.length arr2 
+    and len3 = Array.length arr3 in
+    if ((len1<>len2)||(len2<>len3)) then
+        0
+    else
+        let sign = ref 1 in 
+        let idx = ref (len1-1) in
+        while (!sign = 1)&&( !idx > 0) do
+            sign := 
+                if (arr1.(!idx) = arr2.(!idx))&& (arr3.(!idx) = arr2.(!idx)) then 1
+                else 0 ;
+            idx := !idx -1 ;
+        done;
+        !sign
+
+
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
@@ -253,6 +270,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     Printf.printf "inv_med ,input seqcodes: %!";
     print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
     debug message*) 
+
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     let num_gen = Array.length genomeX in 
@@ -276,9 +294,12 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
+    
+    if ( (is_identical genomeX genomeY genomeZ)=1 ) && ( (is_identical deliX
+    deliY deliZ)=1 ) then
+        genomeX, deliX
+    else begin
     (* debug msg  
-   (*  Printf.printf "standardize input seq: %!";
-    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ; *)
      Printf.printf "circular = %d, num_deli = %d,%d,%d,deli array = \n%!" 
      circular num_deliX num_deliY num_deliZ;
      if num_deliX >1 then  print_intarr deliX; 
@@ -296,7 +317,6 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     for index = 0 to num_deliZ - 1 do
         Grappa.c_set set_delimiters genome_arr 2 index deliZ.(index);
     done;
-       
     let g0 = Grappa.c_get_one_genome genome_arr 0 in
     let g1 = Grappa.c_get_one_genome genome_arr 1 in 
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
@@ -332,7 +352,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
                 Grappa.get_delimiter_arr gmed delinum
         | _ -> [||]
     in
-    (* debug msg 
+    (* debug msg  
      Printf.printf "output ori seqcode = %!"; print_intarr med3arr;
      print_newline();
      Printf.printf "delinum=%d,delimiters = %!" delinum; 
@@ -345,7 +365,7 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
      print_newline();
     debug msg*)
     resarr,deli_arr
-
+    end
 
 (** [cmp_breakpoint_dis genomeX genomeY circular] computes
  * the breakpoint distance between two given gene orders 

@@ -34,6 +34,8 @@ let debug_cost_fn           = false
 let debug_uppass_fn         = false
 let debug_downpass_fn       = false
 let debug_single_assignment = false
+let debug_diagnosis_recost = false
+
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
@@ -2125,8 +2127,12 @@ module F : Ptree.Tree_Operations
 
     let to_formatter (atr : Xml.attributes)  
             (tree : (a, b) Ptree.p_tree) : Xml.xml =
+        if debug_diagnosis_recost then
+        Printf.printf "alldirchar.to_formatter \n%!"; 
         let data = tree.Ptree.data in
         let tree = assign_final_states tree in
+        (*assign_final_states will call median3, what if we did not set
+        * iterative to exact? *)
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
 (*
         Utl.printIntSet pre_ref_codes;
@@ -2182,12 +2188,14 @@ module F : Ptree.Tree_Operations
             let recost, contents, attr =
                 match r.Ptree.root_median with
                 | Some ((`Edge (a, b)), root) -> 
-                     (*   Printf.printf "root median at (%d,%d) : %!" a b;*)
+                        if debug_diagnosis_recost then
+                        Printf.printf "root median at (%d,%d) : %!" a b;
                         let recost = 
                             let root = get_unadjusted (-1) root in
                             (Node.cmp_subtree_recost root) +. recost 
                         in
-                       (* Printf.printf "recost = %f \n%!" recost;*)
+                        if debug_diagnosis_recost then
+                        Printf.printf "[ recost = %f ] \n%!" recost;
                         (* We override the root now to continue using the single
                         * assignment of the handle *)
                         let sroot, sa = 
@@ -2231,8 +2239,9 @@ module F : Ptree.Tree_Operations
                 (0., [])
         in
         let cost = Ptree.get_cost `Adjusted tree in
-        (*Printf.printf "ALLDIRCHAR.TO_FORMATTER: recost = %f, cost = %f \n%!"
-        recost cost; *)
+        if debug_diagnosis_recost then
+        Printf.printf "alldirchar.to_formatter: recost = %f, cost = %f \n%!"
+        recost cost; 
         (RXML -[Xml.Trees.forest] 
             ([Xml.Trees.recost] = [`Float recost])
             ([Xml.Trees.cost] = [`Float cost])

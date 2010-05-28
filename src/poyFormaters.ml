@@ -413,7 +413,7 @@ let breakinv_to_formater ((tag, attr, cont) : Xml.xml) =
     if tag = Xml.Characters.breakinv then begin
         let name, cclass, cost = get_name_class_and_cost attr in
         let breakinv_ref = `String "-" in 
-        let recost = get_recost attr in 
+        let recost = get_recost attr in
         let map = breakinv_ref in
         let cont = match cont with 
         | #Xml.structured as cont -> 
@@ -542,20 +542,21 @@ let node_character_to_formater ((tag, _, _) as v) =
     else if tag = Xml.Characters.likelihood then likelihood_to_formater v
     else raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
 
-let node_to_formater st ((tag, attr, cont) : Xml.xml) =
+let node_to_formater st ((tag, attr, cont) : Xml.xml) (*cost recost*) =
     let assoc x y = Xml.value_to_string (List.assoc x y) in
     if tag = Xml.Nodes.node then begin
         let name = assoc Xml.Characters.name attr 
         and child1_name = assoc Xml.Nodes.child1_name attr
         and child2_name = assoc Xml.Nodes.child2_name attr in
-        let cost =
+     (*  we gonna get cost and recost out of the lst 
+     *   let cost =
             try assoc Xml.Characters.cost attr with 
             Not_found -> " "
         in
         let recost =
             try assoc Xml.Characters.recost attr with 
             Not_found -> " "
-        in
+        in *) 
         let lst = 
             match cont with
             | #Xml.structured as x -> 
@@ -564,20 +565,26 @@ let node_to_formater st ((tag, attr, cont) : Xml.xml) =
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
         let lst = List.map node_character_to_formater lst in
+        let singleClass = List.nth lst 2 in
+        let recost2 = Xml.value_to_string singleClass.(3) in
+        let cost2 =  Xml.value_to_string singleClass.(2) in
+     (*   cost := !cost +. (float_of_string cost2) ;
+        recost := !recost +. (float_of_string recost2); *)
         let lst = [|"@{<u>Characters@}"; "@{<u>Class@}"; 
         "@{<u>Cost@}"; "@{<u>Rearrangement Cost@}"; 
         "@{<u>Chrom Ref@}"; "@{<u>Median Map@}"; 
         "@{<u>States@}"|] :: (List.map (Array.map Xml.value_to_string) lst)
         in
         Status.user_message st ("@\n@\n@[<v 0>@{<b>" ^ name ^ "@}@\n");
-        Status.user_message st ("@[<v 0>@{<u>Cost " ^ cost ^ "@}@\n");
-        Status.user_message st ("@[<v 0>@{<u>Rearrangement cost " ^ recost ^ "@}@\n");
+        Status.user_message st ("@[<v 0>@{<u>Cost " ^ (
+        cost2) ^ "@}@\n");
+        Status.user_message st ("@[<v 0>@{<u>Rearrangement cost "
+        ^(recost2) ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Children: " ^ child1_name ^
         " " ^ child2_name ^ "@}@\n");
         Status.output_table st (Array.of_list lst);
         Status.user_message st ("@\n");
         Status.user_message st "@]@]";
-
     end else raise (Illegal_formater "node_to_formater")
 
 let forest_to_formater st ((tag, attr, cont) as v) =
@@ -585,19 +592,24 @@ let forest_to_formater st ((tag, attr, cont) as v) =
         try Xml.value_to_string (List.assoc x y) with Not_found -> " " 
     in
     let cost = find Xml.Characters.cost attr in
-    let recost = find Xml.Characters.recost attr in
+    let recost = find Xml.Characters.recost attr in 
     match cont with
     | #Xml.structured ->
+           (* let cost2 = ref 0.0 and recost2 = ref 0.0 in *)
             let rec do_nodes ((tag, _, cont) as x) =
                 if tag = Xml.Nodes.node then 
-                    node_to_formater st x
-                else 
+                    node_to_formater st x (* cost2 recost2 *)
+                else (*what's else part here doing?*) 
                     match cont with
                     | #Xml.structured as v -> 
                             let v = Xml.eagerly_compute v in
                             Sexpr.leaf_iter do_nodes v
                     | _ -> ()
             in
+      (*
+            let cost,recost = 
+                (string_of_float !cost), (string_of_float !recost) in
+      *)
             Status.user_message st ("@[<v 4>@{<b>Tree@}@\n@{<u>Tree cost: @}");
             Status.user_message st (cost ^ "@\n");
             Status.user_message st ("@{<u>Tree rearrangement cost: @}");

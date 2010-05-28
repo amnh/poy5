@@ -1139,7 +1139,7 @@ let pick_code_for_root code data =
     | Some previous -> 
             (* We must check if the terminal still is valid! If not we replace
             * it. *)
-            if Hashtbl.mem data.taxon_characters previous then 
+            if Hashtbl.mem data.taxon_characters previous then
                 data 
             else { data with root_at = Some code }
 
@@ -1282,7 +1282,8 @@ let repack_codes data =
         in
         let root_at = match data.root_at with
             | None -> None
-            | Some x when x = used_code -> Some available_code
+            | Some x when x = used_code -> 
+                    Some available_code
             | x -> x
         in
         { data with taxon_codes = taxon_codes; 

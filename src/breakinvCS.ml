@@ -25,6 +25,8 @@ let () = SadmanOutput.register "BreakinvCS" "$Revision: 1616 $"
 exception Illegal_Arguments
 let () = SadmanOutput.register "Breakinv Character" "$Revision: 803 $"
 
+let debug = false
+
 let fprintf = Printf.fprintf
 
 module IntMap = All_sets.IntegerMap
@@ -129,7 +131,7 @@ let median2 (a : t) (b : t) =
         IntMap.fold median a.meds (empty, empty, empty, 0, 0)
     in
 
-    let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in 
+    let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in
     { a with meds = medab_map; costs = new_costs; recosts = new_recosts;
           total_cost = float_of_int total_cost; 
           total_recost = float_of_int total_recost;
@@ -143,10 +145,7 @@ let median3 p n c1 c2 =
         let med1= IntMap.find code c1.meds in 
         let med2 = IntMap.find code c2.meds in
         let medp12 = 
-        (*    if median_choice_code=0 then *)
                Breakinv.find_meds3 medp med1 med2 
-         (*   else 
-               Breakinv.find_meds3_albert medp med1 med2   *)
         in
         (*debug msg
         let tmp_breakinv_t = (List.hd medp12.Breakinv.med_ls) in
@@ -221,7 +220,8 @@ let single_to_multi single_t =
             let len = List.length medst_lst in
             (* length of medst_lst maybe shorter than maplist,that's why we cannot use
             * map2 here *)
-            Printf.printf "bkinvCS.ml single_to_multi, medianNUM=%d,code=%d,maxlen = %d,len=%d\n%!" medlen code maxlen len;
+            if debug then
+                Printf.printf "bkinvCS.ml single_to_multi,medianNUM=%d,code=%d,maxlen = %d,len=%d\n%!" medlen code maxlen len;
             for j = 0 to len-1 do
                 let add_medst = List.nth medst_lst j in
                 let add_to_map = List.nth maplst j in
@@ -285,8 +285,9 @@ let readjust to_adjust modified ch1 ch2 parent mine =
     in
     let tc = float_of_int total_cost in
     let subtree_recost = tc +. ch1.subtree_recost +. ch2.subtree_recost in
-    (*Printf.printf "ADJUST.... subtree_recost = %f+%f+%f = %f \n%!" 
-    ch1.subtree_recost ch2.subtree_recost tc subtree_recost; *)
+    if debug then
+        Printf.printf "ADJUST.... subtree_recost = %f+%f+%f = %f \n%!" 
+    ch1.subtree_recost ch2.subtree_recost tc subtree_recost; 
     modified,
     tc,
     { mine with meds = meds; costs = costs; total_cost = tc; subtree_recost =
