@@ -170,6 +170,8 @@ COLON LBRACKET RBRACKET SLASH
 %token <string> INTEGER
 %start tree
 %type <P.tree> tree
+%start trees
+%type <P.tree list> trees
 %start header
 %type <unit> header
 %start block
@@ -732,6 +734,11 @@ optional_label:
     | FLOAT      { None      } /* this is for phylip trees w/ (x,y)0.90:0.019 */
     |            { None      }
     ;
+
+trees:
+    | do_star IDENT EQUAL single_tree SEMICOLON trees {($2,$4)::$6}
+    | do_star single_tree SEMICOLON trees             {("",$2)::$4}
+    | EOF                                             { [] }
 
 /* -------------------------------------------------------------------------- */
 any_thing_minus_end:

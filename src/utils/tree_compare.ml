@@ -10,10 +10,29 @@ let read_tree filename =
     List.map (fun ts -> List.map (fun t -> (filename,t)) ts) 
              (Tree.Parse.of_channel (open_in filename))
 
+let read_tree_nexus filename : (string option * Tree.Parse.tree_types) list =
+    let trees : Nexus.P.tree list = 
+        filename --> open_in
+                 --> Lexing.from_channel
+                 --> Nexus.Grammar.trees Nexus.Lexer.tree_tokens
+    in
+    let parsed = 
+        List.map (Nexus.File.generate_parser_friendly [] [| None |]) trees
+    in
+    List.map
+        (fun (n,xs) -> match xs with 
+            | [x] -> (n,x) 
+            | _ -> failwith "nope")
+        parsed
+
 let load_trees lst = 
-    lst --> List.map read_tree
-        --> List.flatten --> List.flatten
-        --> List.map (fun (f,t) -> (f,Tree.Parse.cannonic_order t))
+    lst --> List.map read_tree_nexus
+        --> List.flatten
+        --> List.map (fun (n,t) -> (n,Tree.Parse.cannonic_order t))
+
+(*    lst --> List.map read_tree*)
+(*        --> List.flatten --> List.flatten*)
+(*        --> List.map (fun (f,t) -> (f,Tree.Parse.cannonic_order t))*)
  
 let create_partitions tbl tree =
     let rec union_lst acc = function
@@ -125,8 +144,9 @@ let matrix_destructive_map upper matrix func =
     ()
 
 let print_matrix row_leads matrix = 
+    let get_opt_str = function | Some x -> x | None -> "none" in
     for i = 0 to (Array.length matrix) - 1 do
-        Printf.printf "%s--\t" (fst row_leads.(i));
+        Printf.printf "%s--\t" (get_opt_str (fst row_leads.(i)));
         for j = 0 to (Array.length matrix.(i) -1) do
             Printf.printf "%d\t" matrix.(i).(j)
         done;

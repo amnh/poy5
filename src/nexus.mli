@@ -136,6 +136,7 @@ end
 module Grammar : sig
     type token
     val tree : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.tree
+    val trees : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.tree list
     val header : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> unit
     val block : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> P.block
     val symbol_pair : 
@@ -236,6 +237,11 @@ module File : sig
     val of_channel : in_channel -> string -> nexus
 
     val generate_alphabet : string list -> string -> Alphabet.a
+
+    val generate_parser_friendly :
+            (string*string) list -> string option array -> P.tree ->
+                string option * Tree.Parse.tree_types list
+
 
     val spec_of_alph : Alphabet.a -> string -> string -> static_spec
     val fill_observed : 
