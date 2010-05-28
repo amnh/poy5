@@ -35,6 +35,7 @@ let create_partitions tbl tree =
             traversal (fun x -> fst x) (fun _ -> None) t
  
 let compare_branches table partitions_one partitions_two =
+    let modified = ref 0 in
     List.iter
         (fun (set,b) ->
             let (_,y) =
@@ -42,14 +43,18 @@ let compare_branches table partitions_one partitions_two =
                           partitions_two
             in
             let b_len = match b with | Some x -> x | None -> 0.0 
-            and y_len = match b with | Some x -> x | None -> 0.0 in
-            Printf.printf "\t%s\t%s  (%f)\t" 
-                (match b with | Some x -> string_of_float x | None -> "none\t")
-                (match y with | Some x -> string_of_float x | None -> "none\t")
-                (abs_float (b_len -. y_len));
-            print_set set;
-            print_newline () )
-        partitions_one
+            and y_len = match y with | Some x -> x | None -> 0.0 in
+            if (abs_float (b_len -. y_len)) >= 1.0e-2 then begin
+                    Printf.printf "\t%s\t%s  (%f)\t" 
+                        (match b with | Some x -> string_of_float x | None -> "none\t")
+                        (match y with | Some x -> string_of_float x | None -> "none\t") 
+                        (abs_float (b_len -. y_len));
+                    print_set set;
+                    print_newline ();
+                    incr modified
+            end)
+        partitions_one;
+    if !modified = 0 then Printf.printf "\tSame branch lengths\n%!"
 
 let compare_trees taxon_tbl t1 t2 = 
     let partitions_one = create_partitions taxon_tbl t1
@@ -70,7 +75,7 @@ let compare_trees taxon_tbl t1 t2 =
     in
 
     if s = a then begin
-        Printf.printf "\ttrees are the same; comparing branches\n%!";
+        Printf.printf "\tSame topology\n%!";
         compare_branches taxon_tbl partitions_one partitions_two
     end else
         Printf.printf "\tOf %d partitions, %d are the same\n%!" a s
@@ -87,6 +92,9 @@ let create_taxon_table tree =
     in
     res
 
+let print_table tbl = 
+    Hashtbl.iter (fun a b -> Printf.printf "\t%d -- %s\n%!" b a) tbl
+
 let () = match Array.to_list Sys.argv with
     | []     -> failwith  "no arguments?"
     | hd::[] -> failwithf "usage: %s <treefile1> <treefile2> ..." hd
@@ -94,9 +102,11 @@ let () = match Array.to_list Sys.argv with
         begin match load_trees tl with
             | []        -> failwith "No trees loaded; require at least two"
             | hd::[]    -> failwith "One tree loaded; require at least two"
-            | hd::rest  ->
-                Printf.printf "Comparing first tree with %d trees\n" (List.length rest);
+            | (hd::rest as all) ->
                 let table = create_taxon_table hd in
+                Printf.printf "Table of taxon codes:\n";
+                print_table table;
+                Printf.printf "Comparing first tree with %d trees\n" (List.length rest);
                 List.iter (compare_trees table hd) rest
         end
 
