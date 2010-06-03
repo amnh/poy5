@@ -308,12 +308,18 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                  (* create delimiter for the new median *)
                  (* just pick the better one from its two parents, for now *)
                  (* then we do "find better capping" after this*)
+                 let len1 = List.length med1.delimiter_lst 
+                 and len2 =  List.length med2.delimiter_lst in
                  let med_seq, newdelimiters =
                      match med1.delimiter_lst,med2.delimiter_lst with
                      | h1::t1, h2::t2 -> 
-                         let chosen_parent,newdelimiters = 
+                         if (len1=1)&&(len2=1) then
+                             med_seq, [Sequence.length med_seq]
+                         else begin
+                            let chosen_parent,newdelimiters = 
                              pick_delimiters med1 med2 med_seq in
                             better_capping chosen_parent.seq med_seq newdelimiters 
+                         end
                      | [] , [] -> med_seq, []
                      | _ -> 
                              failwith "uncompatible delimiters from two parents' medians"
