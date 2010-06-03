@@ -25,6 +25,7 @@ let () = SadmanOutput.register "GenAli" "$Revision: 1616 $"
 let fprintf = Printf.fprintf;;
 type dyna_state_t = Data.dyna_state_t
 
+
 (** [oritentation code] returns the direction of the 
 * character [code]. Characters whose codes are even numbers are
 * considered as negative characters, otherwise postive *)
@@ -46,6 +47,17 @@ let from_ori_arr arr =
         )
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2) 
+
+let equal_content arr1 arr2 =
+    if (Array.length arr1)=(Array.length arr2) then begin
+        let oriarr1 = to_ori_arr (arr1)
+        and oriarr2 = to_ori_arr (arr2) in
+        let common_ori_arr1,common_ori_arr2 = Utl.get_common oriarr1 oriarr2
+        equal_orientation in
+        if (Array.length common_ori_arr1)=(Array.length arr1) then true
+        else false
+    end
+    else false
 
 (* [cmp_recost_simple seq1 seq2] is similar to [cmp_recost], except it only take
 * two sequence seq1 and seq2 as input, no 'reseq2' *)
@@ -261,37 +273,360 @@ let rec multi_swap_locus state seq1 seq2 best_seq2 best_cost
                 re_meth max_swap_med circular orientation (num_done_swap + 1)
     end 
 
+(* I add these function for annotated chromosome, it should work for
+* other data type too, but we need to verify that.*)
+type matched_loci_array = {
+        cost : int;
+        size : int;
+        marked_matrix : int array array  ; (* 1 means not-available, 0 is ok *)
+        cost_array : (int * int * int) array ; (* ( index i, index j, cost) *)
+        matched_loci_list : (int * int * int) list ;(* (index i, index j, cost)*)
+}
+
+let mark_matrix (in_matrix:int array array) indexi indexj =
+    Array.mapi (fun idi arr ->
+        Array.mapi ( fun idj item ->
+            if (idi = indexi) then 1
+            else if (idj = indexj) then 1
+            else item
+        )arr
+    )in_matrix
+
+let make_new_mark_matrix in_matrix indexi indexj =
+    let lefttopi, lefttopj = 
+        match (indexi mod 2),(indexj mod 2) with
+        | 1,1 -> indexi, indexj
+        | 1,0 -> indexi, indexj-1
+        | 0,1 -> indexi-1, indexj
+        | 0,0 -> indexi-1, indexj-1
+        | _,_ -> failwith ("what? besides 0 and 1, you find different result\
+        for (x mod 2)?\n")
+    in
+    let mm = mark_matrix in_matrix lefttopi lefttopj in
+    let mm = mark_matrix mm lefttopi (lefttopj+1) in
+    let mm = mark_matrix mm (lefttopi+1) lefttopj in
+    let mm = mark_matrix mm (lefttopi+1) (lefttopj+1) in
+    mm
+
+let array_filter_nth in_array index =
+    let len = Array.length in_array in
+    assert(index>=0); assert(index<len);
+    let arra = 
+        if (index=0) then [||]
+        else Array.sub in_array 0 index 
+    in
+    let arrb = 
+    if (index+1 < len) then Array.sub in_array (index+1) (len-index-1)
+    else [||] 
+    in
+    Array.append arra arrb 
+    
+let get_best_n (in_list:matched_loci_array list) size =
+    assert(size < List.length in_list);
+    let (in_array:matched_loci_array array) = Array.of_list in_list in
+    Array.sort (fun item1 item2 ->
+        let cost1 = item1.cost and cost2 = item2.cost in
+        compare cost1 cost2
+    ) in_array ;
+    let out_array = Array.sub in_array 0 size in
+    Array.to_list out_array
+
+(* this function takes the result cost matrix from 
+*  function [create_pure_gen_cost_mat] as in_cost_mat, the 2D matrix cost_mat
+*  (which is also named 'c2' in other function). 
+*  get the part of matrix we need as out_cost_mat, also get a sorted cost array out of it. *)
+let make_cost_matrix_and_array in_cost_mat seq1_arr seq2_arr code1_arr code2_arr  
+=    
+ (*   let len1 = Array.length seq1_arr and len2 = Array.length seq2_arr in
+    let len1 = 2*len1 + 1 and len2 = 2*len2 + 1 in  *)
+    (* we don't consider indel sequence in the match *)
+    let seq1_codearr = Array.mapi (fun idx item -> item,2*idx+1) seq1_arr
+    and seq2_codearr = Array.mapi (fun idx item -> item,2*idx+1) seq2_arr
+    in
+    let lst1 = (List.sort compare (Array.to_list code1_arr)) 
+    and lst2 = (List.sort compare (Array.to_list code2_arr)) in
+    let start1 = List.hd lst1 and start2 = List.hd lst2 in
+    let end1 = List.nth lst1 ((List.length lst1)-1)
+    and end2 = List.nth lst2 ((List.length lst2)-1)  in
+    let len1 = 
+        if (end1 mod 2)=0 then end1+2 else end1+3
+    and len2 =
+        if (end2 mod 2)=0 then end2+2 else end2+3
+    in
+    (*debug msg
+    Printf.printf "make cost matrix and array, code1_arr/code2_arr = \n %!";
+    Utl.printIntArr code1_arr; Utl.printIntArr code2_arr; 
+    Printf.printf "start1/end1, start2/end2 = %d/%d, %d/%d\n%!"
+    start1 end1 start2 end2;
+    debug msg*)
+    let cost_list = ref [] in
+    let out_cost_mat = 
+        Array.make_matrix len1 len2 Utl.large_int in
+    (* the first column and line of above matrix will not be used *)
+    Array.iter(fun code1 ->
+        Array.iter (fun code2 ->
+            let i = if (code1 mod 2)<>0 then code1
+            else (code1-1) in
+            let j = if (code2 mod 2)<>0 then code2
+            else (code2-1) in
+            let cost = in_cost_mat.(i).(j) in
+            out_cost_mat.(i).(j) <- cost;
+            cost_list := (i,j,cost) :: !cost_list;
+            let cost = in_cost_mat.(i+1).(j) in
+            out_cost_mat.(i+1).(j) <- cost;
+            cost_list := (i+1,j,cost) :: !cost_list;
+            let cost = in_cost_mat.(i).(j+1) in
+            out_cost_mat.(i).(j+1) <- cost;
+            cost_list := (i,j+1,cost) :: !cost_list;
+            let cost = in_cost_mat.(i+1).(j+1) in
+            out_cost_mat.(i+1).(j+1) <- cost;
+            cost_list := (i+1,j+1,cost) :: !cost_list;
+        ) code2_arr;
+    )code1_arr;
+    let cost_array = Array.of_list ( 
+        List.sort (fun (_,_,cost1) (_,_,cost2) -> compare cost1 cost2
+        ) !cost_list )
+    in
+(*debug msg 
+    Printf.printf "check in cost matrix:\n%!";
+    Utl.printIntMat in_cost_mat;
+    Printf.printf "check out_cost_matrix:\n%!";
+    Utl.printIntMat out_cost_mat;
+    Printf.printf "check cost array:\n%!";
+    Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
+    ) cost_array;   Printf.printf "\n\n%!";
+ debug msg*)
+    seq1_codearr, seq2_codearr, out_cost_mat, cost_array
+
+(* heuristic function to match pair of input loci arrays.
+*  h_size is the heuristic size -- the number of best choice we keep in each
+*  round. *)
+let match_pair_heuristic full_cost_array cost_matrix marked_matrix size1 size2 h_size =
+    let candidate_list = ref [] in
+    let cost_array = full_cost_array in
+    for x = 0 to (h_size-1) do
+        let (indexi, indexj, costij) = cost_array.(x) in
+        let costarr_left = array_filter_nth cost_array x in
+        let (init_match: matched_loci_array) = {
+            cost = costij; 
+            size = 1;
+            matched_loci_list = [(indexi, indexj, costij)];
+            marked_matrix = make_new_mark_matrix marked_matrix indexi indexj ;
+            cost_array = costarr_left;
+        } in
+        candidate_list := init_match :: (!candidate_list) ;
+    done;
+    let size = if (size1>size2) then size2 else size1 in
+    for y = 2 to size do 
+        let current_list = ref [] in
+        let (tmp_list:matched_loci_array list) = (!candidate_list) in
+        List.iter (fun (item:matched_loci_array) ->
+            let base_size = item.size and base_cost = item.cost in
+            let matched_list = item.matched_loci_list in
+            let marked_matrix = item.marked_matrix in
+            let cost_array = item.cost_array in
+(*debug msg
+            Printf.printf "check matched_list:\n%!";
+            List.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
+            ) matched_list; Printf.printf "\n%!";
+            Printf.printf "check cost array:\n%!";
+            Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
+            ) cost_array; Printf.printf "\n%!";
+            Printf.printf "check marked matrix:\n%!";  Utl.printIntMat marked_matrix;
+debug msg*)
+            let picked = ref 0 and left_len = ref (Array.length cost_array)  
+            and z = ref 0 in
+            while ( (!picked < h_size)&&(!z < !left_len)&&(!left_len >0) ) do
+                let (indexi, indexj, costij) =  cost_array.(!z) in
+                let costarr_left = array_filter_nth cost_array !z in
+                if (indexi >= Array.length(marked_matrix) ) then
+                Printf.printf "idi=%d > Array.sizei=%d\n%!" 
+                indexi (Array.length marked_matrix);
+                if (indexj >= Array.length(marked_matrix.(indexi))) then
+                    Printf.printf "idj=%d > Array.sizej=%d\n%!" indexj 
+                    ( Array.length marked_matrix.(indexi));
+                if ( marked_matrix.(indexi).(indexj) = 0 ) then begin
+                    let new_matched_list = (indexi, indexj, costij) :: matched_list in
+                    let new_marked_matrix = make_new_mark_matrix marked_matrix indexi indexj
+                    in
+                    let new_match_item = {
+                        cost=costij+base_cost;
+                        size = base_size +1;
+                        matched_loci_list = new_matched_list;
+                        marked_matrix = new_marked_matrix;
+                        cost_array = costarr_left;
+                    } in
+                    current_list := new_match_item :: (!current_list) ;
+                    picked := !picked + 1;
+                end
+                else ();
+                left_len := Array.length costarr_left; 
+                z := !z +1;
+            done;
+        ) tmp_list ;
+        candidate_list := get_best_n !current_list h_size ;
+    done;
+    !candidate_list
+
+(* match arr1=[i1,i2,i3...] with arr2=[j1,j2,j3....], try to get a lower sum of 
+*  all cost(i,j), i=i1,i2.., j=j1,j2... 
+*  we don't consider adding indel(all gaps sequence) here, call algn function in
+*  sequence.ml to take care of that.
+*  *)
+let match_pair arr1 arr2 cost_matrix cost_array =
+    (* heuristic size: how many different match we keep at every step*)
+    let heuristic_size = 2 in 
+    let sizex = Array.length cost_matrix in
+    let sizey = Array.length cost_matrix.(0) in
+    let size1 = Array.length arr1 
+    and size2 = Array.length arr2 in
+    let marked_matrix = Array.make_matrix sizex sizey 0 in
+    let (res_list:matched_loci_array list) = 
+        match_pair_heuristic cost_array cost_matrix marked_matrix size1 size2 heuristic_size in
+    let best = List.hd res_list in
+    let matched_cost = best.cost in
+    let matched_list = best.matched_loci_list in
+    let matched_array = Array.of_list matched_list in
+    (*debug msg
+    Printf.printf "match_pair : %!" ;
+    Utl.printIntArr arr1; Utl.printIntArr arr2;
+    Array.iter (fun (idx1,idx2,cost) -> 
+        Printf.printf "(%d,%d,c=%d) " idx1 idx2 cost
+    ) matched_array;
+    print_newline();
+     debug msg *)
+    (* this works when len(arr2)>=len(arr1), what if arr1 is longer than arr2? *)
+    let new_arr2 = Array.map (fun item ->
+        let pos = 
+           Utl.find_index matched_array item 
+           (fun looking_item (indexi,_,_) ->
+            compare looking_item indexi
+           ) 
+        in
+        if (pos<0) then
+                let neg_item = 
+                    if ( (item mod 2)=1 ) then item +1 else item - 1
+                in
+                let neg_pos = Utl.find_index matched_array neg_item 
+                (fun looking_item (indexi,_,_) ->  compare looking_item indexi)
+                in
+                assert(neg_pos>=0);
+                let _,ori_code,_ = matched_array.(neg_pos) in
+                if ( (ori_code mod 2)=1 ) then ori_code+1 else ori_code-1
+         else
+                let _,ori_code,_ =  matched_array.(pos) in
+                ori_code
+    ) arr1 in
+    
+    (*debug msg
+    Printf.printf "match pair with arr1/arr2=\n%!";
+    Utl.printIntArr arr1; Utl.printIntArr arr2;
+    Printf.printf "matched array is [\n%!";
+    Array.iter (fun (idx1,idx2,cost) -> 
+        Printf.printf "(%d,%d,c=%d) " idx1 idx2 cost
+    ) matched_array;
+    Printf.printf "]\n new_arr1 = [%!"; Utl.printIntArr new_arr1; Printf.printf "]\n%!"; 
+    debug msg*)
+    new_arr2, matched_cost
+
+(* both [create_gen_ali_code_simple] and [create_gen_ali_code] are for
+* chromosomes, like annotated chromosome. the input code1_arr and code1_arr are
+* the array of loci {each loci is a sequence},
+* while in [create_gen_ali] , input seq1/seq2 are sequences *)
+(* [create_gen_ali_code_simple] is similar to [create_gen_ali_code], 
+* except that the rearrange of code2_arr (which is called 'seq2' in
+* [create_gen_ali_code]) is being passed, not created by [find_wagner_ali] *)    
+let create_gen_ali_code_simple 
+state (code1_arr:int array) (code2_arr: int array) (code2_arr_reg: int array)
+gen_cost_mat gen_gap_code re_meth circular orientation
+=
+    let size = Array.length gen_cost_mat in 
+    let gen_cost_mat = Array.init (size - 1) 
+        (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
+    in 
+    let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
+    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
+    Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
+    (*debug msg 
+    Printf.printf "create_gen_ali_code_simple , call cmp_cost with code1/code2/code2_reg=\n%!";
+    Utl.printIntArr code1_arr;
+    Utl.printIntArr code2_arr;
+    Utl.printIntArr code2_arr_reg;
+    debug msg *)
+    (* NOTE: since we assign each loci a unique int, 
+    *  there is no common code between code1_arr and code2_arr, 
+    *  the rc1 will always be 0, rc2 will be the rearrange cost we need*)
+    let total_cost, recost, alied_arr1, alied_arr2 =  
+        cmp_cost state code1_arr code2_arr code2_arr_reg gen_cost_mat gen_gap_code re_meth circular orientation
+    in 
+    (*debug msg 
+    let rc1,rc2 = recost in
+    Printf.printf "total_cost=%d(%d/%d), alied_arr1/alied_arr2 = \n%!"  total_cost rc1 rc2;
+    Utl.printIntArr alied_arr1; Utl.printIntArr alied_arr2; 
+    debug msg*)
+    total_cost, recost, alied_arr1, alied_arr2
 
 
 
-(** [create_gen_ali state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
+(* [get_alied_code_arr] take {code1_arr codem_arr seq1_arr seqm_arr} as input,
+*  create the cost matrix and cost array for function [match_pair], which will 
+*  give us a rearranged array of codem_arr -- codem_arr_reg, )
+*  then we can call [create_gen_ali_code_simple] to get the editing cost between 
+*  code1_arr and codem_arr, the rearrange cost between codem_arr and
+*  codem_arr_reg, and also the alied code array. *)
+let get_alied_code_arr state code1_arr codem_arr seq1_arr seqm_arr c2 
+cost1_mat gen_gap_code re_meth circular orientation  = 
+    assert( (Array.length code1_arr)=(Array.length codem_arr) );
+    let codem_arr_min = List.hd (List.sort compare (Array.to_list codem_arr)) in
+    let seq1_codearr, seqm1_codearr, cost_mat, cost_array = 
+        make_cost_matrix_and_array cost1_mat seq1_arr seqm_arr code1_arr codem_arr 
+    in
+    (*
+    let ori_code1_arr = Array.map (fun (seq, code) -> code) seq1_codearr in
+    let ori_codem_arr = Array.map (fun (seq, code) -> code) seqm1_codearr in
+    *)
+    let matched_codem_arr, _ = 
+        match_pair code1_arr codem_arr cost_mat cost_array in
+    let matched_codem_arr = Array.map (fun item ->
+        if (item mod 2)=0 then item-1 else item )matched_codem_arr in
+    let codem_arr_reg = Array.map 
+    (fun code -> codem_arr_min - 1 + code) matched_codem_arr in 
+    let total_cost, (rc1,rc2), alied_code1, alied_code1m = 
+        create_gen_ali_code_simple state code1_arr codem_arr codem_arr_reg cost1_mat
+        gen_gap_code re_meth circular orientation
+    in 
+  (*
+    assert(rc1 = 0 ); (* there is no common code between code1_arr and
+    codem_arr, so rc1 should be 0 *)
+  *)
+    (*debug msg
+    Printf.printf "code2_arr_reg = %!";
+    Utl.printIntArr codem_arr_reg;
+    let editing_cost = total_cost - rc2 in 
+    Printf.printf "editing_cost(rc1/rc2) = %d(%d/%d),new alied_code1/alied_code2 = \n" 
+    editing_cost rc1 rc2;
+    Utl.printIntArr alied_code1; Utl.printIntArr alied_code1m;
+    debug msg*)
+    total_cost, (rc1,rc2), alied_code1, alied_code1m
+
+
+
+(** [create_gen_ali_vinh state seq1 seq1 gen_cost_mat alpha re_meth max_swap_med circular]
 * creates the general alignment between [seq1] and [seq2] with minimum total cost 
 * where total cost = editing cost + rearrangement cost *)
-let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
-        (gen_cost_mat : Cost_matrix.Two_D.m) alpha re_meth 
+let create_gen_ali_vinh kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
+        (gen_cost_mat : Cost_matrix.Two_D.m) pure_gen_cost_mat alpha re_meth 
         max_swap_med circular orientation =
-(*debug msg  
-    Printf.printf " create_gen_ali: seq1/seq2=\n%!";
-    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
-  debug msg*)
     let gap = Alphabet.get_gap alpha in 
     let seq1 = Sequence.to_array seq1 in 
     let seq2 = Sequence.to_array seq2 in
-    let equal_content =
-        let oriarr1 = to_ori_arr (seq1)
-        and oriarr2 = to_ori_arr (seq2) in
-        let common_ori_arr1,common_ori_arr2 = Utl.get_common oriarr1 oriarr2
-        equal_orientation in
-        if (Array.length common_ori_arr1)=(Array.length seq1) then true
-        else false
-    in
     let wag_seq2 = 
-        match equal_content with
-        | false ->
+        match (equal_content seq1 seq2) with
+        | false ->                
         find_wagner_ali kept_wag state seq1 seq2 gen_cost_mat gap re_meth circular orientation
         | true -> seq2
     in 
- (*  debug msg 
+    (*  debug msg 
        Printf.printf "wag_seq2= [ %!"; 
       Array.iter (Printf.printf "%d,") wag_seq2; Printf.printf " ] \n%!"; 
    debug msg*)
@@ -303,7 +638,7 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
         | 0 -> init_cost, wag_seq2
         | _ ->
              (
-                match equal_content with
+                match (equal_content seq1 seq2) with
                 |true -> init_cost, seq2
                 |false ->
                         multi_swap_locus state seq1 seq2 wag_seq2 init_cost  
@@ -321,12 +656,49 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
        final_cost recost1 recost2;
     Sequence.printseqcode alied_seq1; Sequence.printseqcode alied_seq2;
  debug msg*)
-
-    match equal_content with
+    match (equal_content seq1 seq2) with
     | true ->
           recost1, (recost1,recost2), alied_seq1,alied_seq2
     | false ->
            final_cost, (recost1,recost2), alied_seq1, alied_seq2  
+
+
+let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
+        (gen_cost_mat : Cost_matrix.Two_D.m) pure_gen_cost_mat alpha re_meth 
+        max_swap_med circular orientation =
+  (*debug msg  
+    Printf.printf "\n GenAli.ml create_gen_ali: seq1/seq2=\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+  (*  Printf.printf "check cost matrix:\n%!";
+    Array.iter(fun arr -> Utl.printIntArr arr) pure_gen_cost_mat; *)
+ debug msg*)
+  let arr1 = Sequence.to_array seq1 in 
+  let arr2 = Sequence.to_array seq2 in
+  match (equal_content arr1 arr2) with
+  | true ->
+    let gapcode = Alphabet.get_gap alpha in 
+       let seq1arr = Array.mapi (fun idx item ->
+        Sequence.subseq seq1 idx 1
+    ) arr1 in
+    let seq2arr = Array.mapi (fun idx item ->
+        Sequence.subseq seq2 idx 1
+    ) arr2 in
+    let tc, (rc1,rc2), alied_code1, alied_code2 = 
+        get_alied_code_arr state arr1 arr2 seq1arr seq2arr gen_cost_mat
+        pure_gen_cost_mat gapcode re_meth circular orientation
+    in
+    (*debug msg
+    Printf.printf "tc=%d,rc=%d/%d, alied1/alied2 = \n%!" tc rc1 rc2;
+    Utl.printIntArr alied_code1;  Utl.printIntArr alied_code2; 
+    debug msg*)
+    let alied_seq1 = Sequence.of_array alied_code1 in
+    let alied_seq2 = Sequence.of_array alied_code2 in
+    tc, (rc1,rc2), alied_seq1, alied_seq2
+  | false ->    
+    create_gen_ali_vinh kept_wag state seq1 seq2 gen_cost_mat pure_gen_cost_mat alpha re_meth max_swap_med circular orientation
+
+
+
 
 (* Note: seqXX here is result sequence of alignment before. 
 *  when seq21 and seq22 are different, we need to rearrange seq11 and seq12, so
@@ -441,39 +813,6 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     recost11+recost12,recost21+recost22,recost31+recost32,
     alied_arr11,alied_arr21,alied_arr31,
     alied_arr12,alied_arr22,alied_arr32
-
-(* [create_gen_ali_code_simple] is similar to [create_gen_ali_code], 
-* except that the rearrange of code2_arr (which is called 'seq2' in
-* [create_gen_ali_code]) is being passed, not created by [find_wagner_ali] *)    
-let create_gen_ali_code_simple 
-state (code1_arr:int array) (code2_arr: int array) (code2_arr_reg: int array)
-gen_cost_mat gen_gap_code kept_wag re_meth swap_med circular orientation
-=
-    let size = Array.length gen_cost_mat in 
-    let gen_cost_mat = Array.init (size - 1) 
-        (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
-    in 
-    let gen_cost_ls = List.map (fun arr -> Array.to_list arr) (Array.to_list gen_cost_mat) in       
-    let gen_cost_mat = Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls (-1) in
-    Cost_matrix.Two_D.set_gap gen_cost_mat gen_gap_code; 
-    (*debug msg 
-    Printf.printf "create_gen_ali_code_simple , call cmp_cost with code1/code2/code2_reg=\n%!";
-    Utl.printIntArr code1_arr;
-    Utl.printIntArr code2_arr;
-    Utl.printIntArr code2_arr_reg;
-    debug msg *)
-    (* NOTE: since we assign each loci a unique int, 
-    *  there is no common code between code1_arr and code2_arr, 
-    *  the rc1 will always be 0, rc2 will be the rearrange cost we need*)
-    let total_cost, recost, alied_arr1, alied_arr2 =  
-        cmp_cost state code1_arr code2_arr code2_arr_reg gen_cost_mat gen_gap_code re_meth circular orientation
-    in 
-    (*debug msg 
-    let rc1,rc2 = recost in
-    Printf.printf "total_cost=%d(%d/%d), alied_arr1/alied_arr2 = \n%!"  total_cost rc1 rc2;
-    Utl.printIntArr alied_arr1; Utl.printIntArr alied_arr2; 
-    debug msg*)
-    total_cost, recost, alied_arr1, alied_arr2
 
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
