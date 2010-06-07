@@ -180,11 +180,13 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         match ali_pam.symmetric with
         | true ->
                 let cost12, (recost12a,recost12b), _, _ =
-                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med1.seq
+                  med2.seq gen_cost_mat pure_gen_cost_mat 
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
               let cost21, (recost21a,recost21b), _, _ = 
-                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
+                  GenAli.create_gen_ali ali_pam.kept_wag `Breakinv med2.seq
+                  med1.seq gen_cost_mat pure_gen_cost_mat
                       alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in 
               if cost12 <= cost21 then cost12, (recost12a,recost12b)
@@ -192,10 +194,12 @@ let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
         | false ->
               let cost, recost, _, _ = 
                   if Sequence.compare med1.seq med2.seq < 0 then                       
-                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq
+                      med2.seq gen_cost_mat pure_gen_cost_mat 
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
                   else 
-                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med2.seq med1.seq gen_cost_mat 
+                      GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med2.seq
+                      med1.seq gen_cost_mat pure_gen_cost_mat
                           alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation
               in      
               cost , recost
@@ -271,11 +275,11 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
         Printf.printf "]\n%!"
     in
      debug msg *)
-    (* debug msg  
+    (* debug msg 
     Printf.printf "find_simple_med2_ls in breakinvAli.ml,med1/med2.seq = :\n";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
-    Printf.printf " delimiter list = \n%!";
-    print_intlist med1.delimiter_lst; print_intlist med2.delimiter_lst;
+   (* Printf.printf " delimiter list = \n%!";
+    Utl.printIntArr med1.delimiter_lst; Utl.printIntArr med2.delimiter_lst; *)
      debug msg *)
     let len1 = Sequence.length med1.seq in 
     let len2 = Sequence.length med2.seq in
@@ -284,7 +288,8 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
     else if len2 < 1 then 0, (0, 0), [med1] 
     else begin        
         let total_cost, (recost1, recost2), alied_gen_seq1, alied_gen_seq2 = 
-            GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq gen_cost_mat 
+            GenAli.create_gen_ali  ali_pam.kept_wag `Breakinv med1.seq med2.seq
+            gen_cost_mat pure_gen_cost_mat 
                 alpha ali_pam.re_meth ali_pam.swap_med ali_pam.circular orientation 
         in 
         let re_seq2 =
@@ -308,19 +313,25 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
                  (* create delimiter for the new median *)
                  (* just pick the better one from its two parents, for now *)
                  (* then we do "find better capping" after this*)
+                 let len1 = List.length med1.delimiter_lst 
+                 and len2 =  List.length med2.delimiter_lst in
                  let med_seq, newdelimiters =
                      match med1.delimiter_lst,med2.delimiter_lst with
                      | h1::t1, h2::t2 -> 
-                         let chosen_parent,newdelimiters = 
+                         if (len1=1)&&(len2=1) then
+                             med_seq, [Sequence.length med_seq]
+                         else begin
+                            let chosen_parent,newdelimiters = 
                              pick_delimiters med1 med2 med_seq in
                             better_capping chosen_parent.seq med_seq newdelimiters 
+                         end
                      | [] , [] -> med_seq, []
                      | _ -> 
                              failwith "uncompatible delimiters from two parents' medians"
                  in
-                 (* debug msg 
+                 (* debug msg
                  Printf.printf "seqcode with better capping:\n%!";
-                 Sequence.printseqcode med_seq; print_intlist newdelimiters; 
+                 Sequence.printseqcode med_seq; Utl.printIntArr newdelimiters; 
                  debug msg *)
                  let newrefcode =  Utl.get_new_chrom_ref_code () in
                  let med = 
@@ -372,16 +383,18 @@ let find_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
     | true ->
           let cost12, recost12, med12_ls = find_simple_med2_ls med1 med2
               gen_cost_mat pure_gen_cost_mat alpha ali_pam in
+    (*
           let cost21, recost21, med21_ls = find_simple_med2_ls med2 med1
               gen_cost_mat pure_gen_cost_mat alpha ali_pam in
           if cost12 <= cost21 then 
-              begin
-                  cost12, recost12, med12_ls
-              end
-          else begin 
+    *)
+               cost12, recost12, med12_ls
+    (*
+           else begin 
               let med12_ls = List.map swap_med med21_ls in 
               cost21, recost21, med12_ls
           end 
+    *)
     | false ->
           let med1, med2, swaped = 
               match Sequence.compare med1.seq med2.seq < 0 with 

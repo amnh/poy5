@@ -326,15 +326,12 @@ let create_pure_gen_cost_mat_3 seq1_arr seq2_arr seq3_arr seqm_arr c2 ali_pam =
         let _, _, cost, _ = Sequence.align2 seq1 seq2 c2 in 
         cost_mat.(code1).(code2) <- cost;
         cost_mat.(code2).(code1) <- cost;
-
         let _, _, cost, _ = Sequence.align2 seq1 com_seq2 c2 in 
         cost_mat.(code1).(code2 + 1) <- cost;
         cost_mat.(code2 + 1).(code1) <- cost;
-
         let _, _, cost, _ = Sequence.align2 com_seq1 seq2 c2 in 
         cost_mat.(code1 + 1).(code2) <- cost;
         cost_mat.(code2).(code1 + 1) <- cost;
-
         let _, _, cost, _ = Sequence.align2 com_seq1 com_seq2 c2 in 
         cost_mat.(code1 + 1).(code2 + 1) <- cost;
         cost_mat.(code2 + 1).(code1 + 1) <- cost;
@@ -635,8 +632,9 @@ cost1_mat gen_gap_code =
     let codem_arr_reg = Array.map 
     (fun code -> codem_arr_min - 1 + code) matched_codem_arr in 
     let total_cost, (rc1,rc2), alied_code1, alied_code1m = 
-        GenAli.create_gen_ali_code_simple `Annotated code1_arr codem_arr codem_arr_reg cost1_mat
-        gen_gap_code ali_pam.kept_wag ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
+        GenAli.create_gen_ali_code_simple `Annotated code1_arr codem_arr
+        codem_arr_reg cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular
+        true
     in 
     assert(rc1 = 0 ); (* there is no common code between code1_arr and
     codem_arr, so rc1 should be 0 *)
@@ -696,7 +694,7 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
     let total_cost, (rc1,rc2), alied_code1, alied_code2 = 
         GenAli.create_gen_ali_code_simple `Annotated code1_arr code2_arr
         code2_arr_reg pure_gen_cost_mat
-        gen_gap_code ali_pam.kept_wag ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
+        gen_gap_code ali_pam.re_meth ali_pam.circular true
     in 
     total_cost, rc2  
 
@@ -766,7 +764,6 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
                 get_alied_code_arr  code1_arr code2_arr seq1_arr seq2_arr 
                 cost_mat ali_pam pure_gen_cost_mat gen_gap_code in
             total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr
-        
         in
         (*debug msg  
          Printf.printf " cost(recost1,recost2) = %d(%d,%d)\n code_arr1/2 and alied_code_arr1/2 =\n" total_cost recost1 recost2;

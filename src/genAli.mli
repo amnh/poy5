@@ -108,6 +108,7 @@ val create_gen_ali :
   Sequence.s ->
   Sequence.s ->
   Cost_matrix.Two_D.m ->
+  int array array ->
   Alphabet.a ->
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> bool -> int * (int * int) * Sequence.s * Sequence.s
@@ -118,8 +119,9 @@ val create_gen_ali_code_simple :
     int array ->
     int array ->
     int array array -> 
-    int -> int -> [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-    int -> int -> bool ->
+    int -> 
+    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+    int -> bool ->
     int * (int * int) * int array * int array
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
