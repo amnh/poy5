@@ -131,6 +131,9 @@ type model = {
 }
 
 let replace_priors model array = 
+    Printf.printf "Replacing Priors\n\t%!";
+    Array.iter (fun x -> Printf.printf "%f, " x) array;
+    print_newline ();
     {model with
         spec = {model.spec with base_priors = Estimated array};
         pi_0 = ba_of_array1 array; }

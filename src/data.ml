@@ -524,9 +524,7 @@ let duplicate data =
  * branches. *)
 let convert_dynamic_to_static_branches ~src ~dest = 
     let add_data desttbl char_name dat =
-        let c_code =
-            Hashtbl.find src.character_names char_name
-        in
+        let c_code =Hashtbl.find src.character_names char_name in
         if IntMap.mem c_code dest.dynamic_static_codes then
             List.iter
                 (fun c ->
@@ -559,15 +557,13 @@ let convert_static_to_dynamic_branches ~src ~dest =
     let add_data ctbl ntbl : unit = 
         All_sets.IntSetMap.iter
             (fun set new_code ->
-                try
-                    let new_name = Hashtbl.find dest.character_codes new_code
-                    and old_name = 
-                        let rep_code = All_sets.Integers.min_elt set in
-                        Hashtbl.find src.character_codes rep_code
-                    in
-                    let lengths = Hashtbl.find ctbl old_name in
-                    Hashtbl.add ntbl new_name lengths
-                with | _ -> ())
+                let new_name = Hashtbl.find dest.character_codes new_code
+                and old_name = 
+                    let rep_code = All_sets.Integers.choose set in
+                    Hashtbl.find src.character_codes rep_code
+                in
+                let lengths = Hashtbl.find ctbl old_name in
+                Hashtbl.add ntbl new_name lengths)
             src.static_dynamic_codes
     in
     match src.branches with
@@ -612,7 +608,27 @@ let get_locus_indel_cost user_pams =
     | None -> failwith "The locus indel cost is not specified"
     | Some c -> c
 
-
+let get_likelihood_model data chars = 
+    let get_model x = match Hashtbl.find data.character_specs x with
+        | Static dat ->
+            begin match dat.Nexus.File.st_type with
+                | Nexus.File.STLikelihood model -> model
+                | _ -> failwith "unsupported static character"
+            end
+        | Dynamic s when s.state = `Ml ->
+            begin match s.lk_model with
+                | Some x -> x
+                | None   -> failwith "inconsistent dynamic likelihood state"
+            end
+        | _ -> failwith "unsupported characters"
+    in
+    match List.map get_model chars with
+    | h::t ->
+        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
+            h
+        else failwith "Inconsistent Model over characters"
+    | []   ->
+        failwith "No Characters found"
 
 (*
 let set_sequence_defaults seq_alph data = 
@@ -703,6 +719,26 @@ let print (data : d) =
                         end else ())
                     code_tbl)
             set
+   and print_models chars = 
+        let get_function code = 
+            match Hashtbl.find data.character_specs code with
+            | Static spec ->
+                begin match spec.Nexus.File.st_type with
+                | Nexus.File.STLikelihood x -> x.MlModel.spec
+                | _ -> assert false
+                end
+            | Dynamic ({state = s} as x) when s = `Ml ->
+                begin match x.lk_model with
+                | Some m -> m.MlModel.spec
+                | _ -> assert false
+                end
+            | _ -> assert false
+        in
+        List.iter
+            (fun x -> 
+                let m = get_likelihood_model data x in
+                MlModel.output_model (print_string) `Nexus m None)
+            (MlModel.categorize_by_model chars get_function)
     and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
         Printf.fprintf stdout "Key: %i, name: %s " code name; 
@@ -723,7 +759,15 @@ let print (data : d) =
                | Nexus.File.STSankoff m -> Printf.fprintf stdout "Sankoff")
         | _ -> Printf.fprintf stdout "Not Dynamic");
         print_newline ()
-    in 
+    and print_intset_codes intset i =
+        Printf.printf "(";
+        All_sets.Integers.iter (Printf.printf "%d, ") intset;
+        Printf.printf ") : %d\n%!" i;
+    and print_int_intlist i list =
+        Printf.printf "%d: " i;
+        List.iter (Printf.printf "%d, ") list;
+        print_newline ()
+    in
     let print_character_codes key bind =
         Printf.printf "[%d,%s],%!" key bind;
     in
@@ -733,12 +777,18 @@ let print (data : d) =
     Hashtbl.iter print_taxon data.taxon_characters;
     Printf.printf "\n check character_specs:\n%!";
     Hashtbl.iter print_specs data.character_specs;
+    Printf.printf "\n check models:\n%!";
+    print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
         | Some databranches -> 
             Printf.printf "\n check branches:\n%!";
             Hashtbl.iter print_branches databranches
         | None -> ()
     in
+    Printf.printf "\n Check Dynamic->Static Codes\n%!";
+    IntMap.iter print_int_intlist data.dynamic_static_codes;
+    Printf.printf "\n Check Static->Dynamic Codes\n%!";
+    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
 
@@ -3482,29 +3532,6 @@ let has_dynamic_likelihood d =
         | Dynamic spec when spec.state = `Ml -> true
         | _                                  -> false
 
-let get_likelihood_model data chars = 
-    let get_model x = match Hashtbl.find data.character_specs x with
-        | Static dat ->
-            begin match dat.Nexus.File.st_type with
-                | Nexus.File.STLikelihood model -> model
-                | _ -> failwith "unsupported static character"
-            end
-        | Dynamic s when s.state = `Ml ->
-            begin match s.lk_model with
-            | Some x -> x
-            | None -> failwith "inconsistent dynamic likelihood state"
-            end
-        | _ -> failwith "unsupported characters"
-    in
-    match List.map get_model chars with
-    | h :: t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else failwith "Inconsistent Model over characters"
-    | [] ->
-        failwith "No Characters found"
-
-
 let rec get_code_from_name data name_ls = 
   let code_ls = List.fold_right 
       ~f:(fun name acc -> 
@@ -3887,16 +3914,16 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter
     and gcounter = float_of_int !gap_counter
     and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
-(*    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;*)
-(*    Array.iter (Printf.printf "|%f") priors;*)
-(*    Printf.printf "|]\n%!";*)
+    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
+    Array.iter (Printf.printf "|%f") priors;
+    Printf.printf "|]\n%!";
     let final_priors = 
         if u_gap then begin
             let total_added_gaps = 
                 float_of_int
                     (List.fold_left ~f:(fun acc x -> (!longest - x) + acc) ~init:0 !lengths)
             in
-(*            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;*)
+            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;
             priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
             let counter = counter -. gcounter +. total_added_gaps;
             and weight  = gcounter /. (float_of_int size) in
@@ -3905,10 +3932,10 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
-(*    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in*)
-(*    Printf.printf "Final Priors (%f): [" sum;*)
-(*    Array.iter (Printf.printf "|%f") final_priors;*)
-(*    Printf.printf "|]\n%!";*)
+    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
+    Printf.printf "Final Priors (%f): [" sum;
+    Array.iter (Printf.printf "|%f") final_priors;
+    Printf.printf "|]\n%!";
     final_priors
 
 
@@ -3934,20 +3961,25 @@ let apply_likelihood_model_on_char_table replace data table codes model =
     if replace then begin
         (* replace only likelihood characters in set of codes *)
         List.iter
-            (fun code -> match Hashtbl.find table code with
-            | Static x when (is_likelihood x.Nexus.File.st_type) -> 
-                Hashtbl.replace table code
-                    (Static {x with Nexus.File.st_type = model_enc; })
-            | Dynamic ({state = state} as x) when state = `Ml ->
-                let () = match !model_opt with
-                    | None -> 
-                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
-                    | Some _ -> ()
-                in
-                Hashtbl.replace table code
-                    (Dynamic {x with state = `Ml;
+            (fun code -> try match Hashtbl.find table code with
+                | Static x when (is_likelihood x.Nexus.File.st_type) -> 
+                    Hashtbl.replace table code
+                        (Static {x with Nexus.File.st_type = model_enc; })
+                | Dynamic ({state = state} as x) when state = `Ml ->
+                    let () = match !model_opt with
+                        | None -> 
+                            model_opt := Some (MlModel.add_gap_to_model priors_ model)
+                        | Some _ -> ()
+                    in
+                    Hashtbl.replace table code
+                        (Dynamic {x with state = `Ml;
                                      lk_model = !model_opt;})
-            | _ -> ())
+                | _ -> ()
+            with | Not_found -> begin
+                Printf.printf "Spec Codes:\t";
+                Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) table;
+                print_newline ();
+                failwithf "Cannot find code %d in character_specs" code end)
             codes
     end else begin
         (* replace all characters in the set of codes *)
@@ -5890,7 +5922,7 @@ let remove_absent_present_encodings data =
             (Stat (code, Some (`List [gap])),specified)
         | _, _ -> failwith "Data.remove_absent_present_encodings failure"
     in
-    (* test if we are using likelihood somewhere *)
+    (* test if we are using STATIC likelihood somewhere *)
     let test_using_likelihood data = 
         let ret = ref false in
         Hashtbl.iter
@@ -5910,7 +5942,7 @@ let remove_absent_present_encodings data =
             map 
             All_sets.IntSetMap.empty
     (* apply the absent/present encoding column to the previous column *)
-    and apply_absent_encoding specification characters code = 
+    and apply_absent_encoding specs chars names codes code = 
         let is_present tcode code state spec = match spec,state with
             | Static sspec, (Stat (code,Some data),specified) ->
                 let data_list = Nexus.File.static_state_to_list data
@@ -5923,37 +5955,48 @@ let remove_absent_present_encodings data =
             (fun t_code t_state_tbl ->
                 let lkstate = Hashtbl.find t_state_tbl (code-1)
                 and apstate = Hashtbl.find t_state_tbl code
-                and lkspec  = Hashtbl.find specification (code-1)
-                and apspec  = Hashtbl.find specification code in
+                and lkspec  = Hashtbl.find specs (code-1)
+                and apspec  = Hashtbl.find specs code in
                 if is_present t_code code apstate apspec then begin
                     let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
                     Hashtbl.replace t_state_tbl (code-1) nstate;
                     Hashtbl.remove t_state_tbl code
-                end else () )
-            characters;
-        Hashtbl.remove specification code
+                end else ())
+            chars;
+        let name = Hashtbl.find codes code in
+        Hashtbl.remove names name;
+        Hashtbl.remove codes code;
+        Hashtbl.remove specs code
     in
     if test_using_likelihood data then begin
         let copy_spec = Hashtbl.copy data.character_specs
+        and copy_names= Hashtbl.copy data.character_names
+        and copy_codes= Hashtbl.copy data.character_codes
         and copy_char =
             let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
             Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
                          data.taxon_characters;
             n
         in
-        let map = Hashtbl.fold
-            (fun k v acc -> match v with
-                | Static {Nexus.File.st_type = st_type;}
-                    when not (is_likelihood st_type) ->
-                        apply_absent_encoding copy_spec copy_char k;
-                        IntMap.remove k acc
-                | Dynamic _    | Set 
-                | Kolmogorov _ | Static _ -> acc)
-            copy_spec
-            data.dynamic_static_codes
+        let map = 
+            Hashtbl.fold
+                (fun k v acc -> match v with
+                    | Static {Nexus.File.st_type = st_type;}
+                        when not (is_likelihood st_type) ->
+                            apply_absent_encoding copy_spec copy_char copy_names copy_codes k;
+                            IntMap.map 
+                                (fun x -> 
+                                    List.filter (fun y -> not (y = k)) x)
+                                acc
+                    | Dynamic _    | Set 
+                    | Kolmogorov _ | Static _ -> acc)
+                copy_spec
+                data.dynamic_static_codes
         in
-        { data with character_specs = copy_spec;
-                    taxon_characters = copy_char;
+        { data with character_specs      = copy_spec;
+                    taxon_characters     = copy_char;
+                    character_names      = copy_names;
+                    character_codes      = copy_codes;
                     dynamic_static_codes = map;
                     static_dynamic_codes = reverse map; }
     end else begin

@@ -34,7 +34,7 @@ let debug_cost_fn           = false
 let debug_uppass_fn         = false
 let debug_downpass_fn       = false
 let debug_single_assignment = false
-let debug_diagnosis_recost = false
+let debug_diagnosis_recost  = false
 
 
 let current_snapshot x = 
@@ -144,7 +144,7 @@ module F : Ptree.Tree_Operations
                             in
                             let () = Hashtbl.replace ret_table node_id tbl in
                             true
-                        with | Not_found -> (false or acc) )
+                        with | Not_found -> (false or acc))
                     false
                     partitions
                 in
@@ -1125,7 +1125,7 @@ module F : Ptree.Tree_Operations
                     ptree
             | (Tree.Interior (_, par, a, b)) as v ->
                     let a,b = Tree.other_two_nbrs prev v in
-                    if debug_branch_fn then
+                    if debug_downpass_fn then
                         info_user_message 
                             "Adding Vertex %d post Order: (%d,%d) and %d%!" 
                                             code a b prev;

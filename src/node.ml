@@ -21,11 +21,13 @@ let () = SadmanOutput.register "Node" "$Revision: 2871 $"
 let infinity = float_of_int max_int
 
 let debug           = false
+(* print a msg if we perform jk distance instead of given BL *)
+let debug_bl        = false
 let debug_exclude   = false
 let debug_sets      = false
 let debug_set_cost  = false
 let debug_treebuild = false
-let debug_tosingle = false
+let debug_tosingle  = false
 let debug_to_formatter = false
 
 let likelihood_error = 
@@ -505,6 +507,8 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 | Some (t1), Some (t2) ->
                         (t1,t2)
                 | _ -> 
+                    if debug_bl then
+                        Printf.printf "estimating BL\n%!";
                     let t1,t2 = 
                         MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                     (t1,t2)
@@ -626,10 +630,13 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     IFDEF USE_LIKELIHOOD THEN
                         let t1, t2 = match t1,t2 with
                             | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
-                            | Some (t1), Some (t2) ->
-                                if anode.min_child_code < bnode.min_child_code 
-                                    then t1, t2 else t2, t1
-                            | _ -> MlDynamicCS.estimate_time ca_pre cb_pre
+                            | Some (t1), Some (t2) -> t1,t2
+(*                                if anode.min_child_code < bnode.min_child_code *)
+(*                                    then t1, t2 else t2, t1*)
+                            | _ ->
+                                if debug_bl then
+                                    Printf.printf "estimating BL\n%!";
+                                MlDynamicCS.estimate_time ca_pre cb_pre
                         in 
                         if debug then 
                             info_user_message
@@ -771,7 +778,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
              * probably needs to be estimated. *)
             let t1,t2 = match pm.time with 
                     | Some x,Some y -> x,y
-                    | None, None ->
+                    | None, None -> 
+                        if debug_bl then
+                            Printf.printf "estimating BL\n%!";
                         MlStaticCS.estimate_time am.preliminary bm.preliminary
                     | _ -> failwith "something happened"
             in
@@ -2835,6 +2844,8 @@ let estimate_time a b =
     let estimate_ ca cb = match ca,cb with
         | StaticMl ca, StaticMl cb -> 
             IFDEF USE_LIKELIHOOD THEN
+                if debug_bl then
+                    Printf.printf "estimating BL\n%!";
                 let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                 Some (t1+.t2)
             ELSE
@@ -2844,6 +2855,8 @@ let estimate_time a b =
             IFDEF USE_LIKELIHOOD THEN
                 begin match a.preliminary, p.preliminary with
                     | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
+                        if debug_bl then
+                            Printf.printf "estimating BL\n%!";
                         let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                         Some (t1+.t2)
                     | _ -> None
@@ -2958,7 +2971,10 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             IFDEF USE_LIKELIHOOD THEN
                 let t1,t2 = match mine.time with 
                     | Some x,Some y -> x,y
-                    | _ -> MlStaticCS.estimate_time c1.preliminary c2.preliminary
+                    | _ -> 
+                        if debug_bl then
+                            Printf.printf "estimating BL\n%!";
+                        MlStaticCS.estimate_time c1.preliminary c2.preliminary
                 in
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
@@ -2977,7 +2993,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             END
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
                 let m, prev_cost, cost, res =
-                    DynamicCS.readjust mode to_adjust !modified c1.preliminary c2.preliminary parent.preliminary mine.preliminary
+                    DynamicCS.readjust mode to_adjust !modified c1.preliminary
+                                        c2.preliminary parent.preliminary mine.preliminary
                 in
                 modified := m;
                 let cost = mine.weight *. cost in
