@@ -394,6 +394,8 @@ let make_new_mark_matrix in_matrix indexi indexj =
         | 1,0 -> indexi, indexj-1
         | 0,1 -> indexi-1, indexj
         | 0,0 -> indexi-1, indexj-1
+        | _,_ -> failwith ("what? besides 0 and 1, you find different result\
+            for (x mod 2)?\n")
     in
     let mm = mark_matrix in_matrix lefttopi lefttopj in
     let mm = mark_matrix mm lefttopi (lefttopj+1) in
@@ -1010,33 +1012,18 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
     Printf.printf "old_total_cost=%d+%d+%d=%d\n%!" cost1 cost2 cost3 old_total_cost;
     Printf.printf "alied_code1/code1m => \n%!";
     debug msg*)
-(*    let _, _, alied_code1_arr, alied_code1m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr codem_arr cost1_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
-    in 
-*)
     let _, _, alied_code1_arr,alied_code1m_arr = get_alied_code_arr 
     code1_arr codem_arr seq1_arr seqm_arr c2 ali_pam cost1_mat gen_gap_code in
-(*    let _, _, alied_code2_arr, alied_code2m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code2_arr codem_arr cost2_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
-    in 
-*)
     let _, _, alied_code2_arr,alied_code2m_arr = get_alied_code_arr 
     code2_arr codem_arr seq2_arr seqm_arr c2 ali_pam cost2_mat gen_gap_code in
-(*    let _, _, alied_code3_arr, alied_code3m_arr = 
-        GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code3_arr codem_arr cost3_mat
-            gen_gap_code ali_pam.re_meth ali_pam.swap_med ali_pam.circular true
-    in 
-*)   
     let _,_, alied_code3_arr,alied_code3m_arr = get_alied_code_arr 
     code3_arr codem_arr seq3_arr seqm_arr c2 ali_pam cost3_mat gen_gap_code in
 (* get common alied loci out of three input chromosome and the old median2.*)
     let common1 = ref [] and common2 = ref [] 
     and common3 = ref [] and common_med = ref [] in
-    let seq_arr = Array.mapi 
+    Array.iteri 
         (fun ith seqt -> 
-             let seqm = seqt.seq in 
+             (* let seqm = seqt.seq in *) 
              let codem = codem_arr.(ith) in 
              let comp v1 v2 = (v1 + 1) / 2 -  (v2 + 1) / 2 in
              let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
@@ -1046,9 +1033,6 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
                  match index with 
                  | -1 -> Sequence.get_empty_seq (), Utl.large_int
                  | _ -> seq_arr.(index).seq , index
-                       (*  if((alied_codem mod 2)= 1) then 
-                             seq_arr.(index).seq ,index+1 
-                         else seq_arr.(index).seq, (0-index-1) *)
              in 
              let seq1,idx1 = get_seq ch1.seq_arr code1_arr alied_code1_arr
                  alied_code1m_arr 
@@ -1060,18 +1044,17 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
                  alied_code3m_arr 
              in 
              if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
-                 (Sequence.length seq3 = 0) then {seqt with seq = seqm}
+                 (Sequence.length seq3 = 0) then () (* {seqt with seq = seqm} *)
              else begin
                  common1 := idx1 :: !common1;
                  common2 := idx2 :: !common2;
                  common3 := idx3 :: !common3;
                  common_med := ith :: !common_med;
-                 let _, median_seq, _ = Sequence.Align.readjust_3d
+                 (* let _, median_seq, _ = Sequence.Align.readjust_3d
                      ~first_gap:false seq1 seq2 seqm c2 c3 seq3 in
-                 {seqt with seq = median_seq}
+                 {seqt with seq = median_seq} *)
              end               
-        ) mine.seq_arr
-    in
+        ) mine.seq_arr;
     let common1,common2,common3,common_idxlst = 
         (List.rev !common1),(List.rev !common2), 
         (List.rev !common3),(List.rev !common_med) in
