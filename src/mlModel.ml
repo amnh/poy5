@@ -587,9 +587,9 @@ let barray_to_matrix bray =
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
     and create sigma matrix i j = 
-        ~- (int_of_float (sigma*.(log matrix.(i).(j))))
+        ~- (int_of_float (sigma*.(log (model.pi_0.{i}*.matrix.(i).(j)))))
     and matrix = 
-        barray_to_matrix (match model.ui with 
+        barray_to_matrix (match model.ui with
         | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
         | None    -> compose_sym FMatrix.scratch_space model.u model.d t)
     and imatrix = Array.make_matrix model.alph_s model.alph_s 0 in

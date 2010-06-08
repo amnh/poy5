@@ -771,12 +771,12 @@ let print (data : d) =
     let print_character_codes key bind =
         Printf.printf "[%d,%s],%!" key bind;
     in
-    Printf.printf "\n check character_codes: \n%!";
-    Hashtbl.iter print_character_codes data.character_codes;
-    Printf.printf "\n check taxon_characters:\n %!";
-    Hashtbl.iter print_taxon data.taxon_characters;
-    Printf.printf "\n check character_specs:\n%!";
-    Hashtbl.iter print_specs data.character_specs;
+(*    Printf.printf "\n check character_codes: \n%!";*)
+(*    Hashtbl.iter print_character_codes data.character_codes;*)
+(*    Printf.printf "\n check taxon_characters:\n %!";*)
+(*    Hashtbl.iter print_taxon data.taxon_characters;*)
+(*    Printf.printf "\n check character_specs:\n%!";*)
+(*    Hashtbl.iter print_specs data.character_specs;*)
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
@@ -785,10 +785,10 @@ let print (data : d) =
             Hashtbl.iter print_branches databranches
         | None -> ()
     in
-    Printf.printf "\n Check Dynamic->Static Codes\n%!";
-    IntMap.iter print_int_intlist data.dynamic_static_codes;
-    Printf.printf "\n Check Static->Dynamic Codes\n%!";
-    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
+(*    Printf.printf "\n Check Dynamic->Static Codes\n%!";*)
+(*    IntMap.iter print_int_intlist data.dynamic_static_codes;*)
+(*    Printf.printf "\n Check Static->Dynamic Codes\n%!";*)
+(*    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;*)
     print_newline ()
 
 
@@ -3914,16 +3914,16 @@ let compute_priors data chars u_gap =
     let counter = float_of_int !counter
     and gcounter = float_of_int !gap_counter
     and gap_contribution = (float_of_int !gap_counter) /. (float_of_int size) in
-    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;
-    Array.iter (Printf.printf "|%f") priors;
-    Printf.printf "|]\n%!";
+(*    Printf.printf "Computed Priors of %.1f char + %.1f gaps: " counter gcounter;*)
+(*    Array.iter (Printf.printf "|%f") priors;*)
+(*    Printf.printf "|]\n%!";*)
     let final_priors = 
         if u_gap then begin
             let total_added_gaps = 
                 float_of_int
                     (List.fold_left ~f:(fun acc x -> (!longest - x) + acc) ~init:0 !lengths)
             in
-            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;
+(*            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;*)
             priors.(gap_char) <- priors.(gap_char) +. total_added_gaps;
             let counter = counter -. gcounter +. total_added_gaps;
             and weight  = gcounter /. (float_of_int size) in
@@ -3932,10 +3932,10 @@ let compute_priors data chars u_gap =
             Array.map (fun x ->(x -. gap_contribution) /. counter) priors
         end
     in
-    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in
-    Printf.printf "Final Priors (%f): [" sum;
-    Array.iter (Printf.printf "|%f") final_priors;
-    Printf.printf "|]\n%!";
+(*    let sum = Array.fold_left ~f:(fun a x -> a +. x) ~init:0.0 final_priors in*)
+(*    Printf.printf "Final Priors (%f): [" sum;*)
+(*    Array.iter (Printf.printf "|%f") final_priors;*)
+(*    Printf.printf "|]\n%!";*)
     final_priors
 
 
@@ -3961,7 +3961,7 @@ let apply_likelihood_model_on_char_table replace data table codes model =
     if replace then begin
         (* replace only likelihood characters in set of codes *)
         List.iter
-            (fun code -> try match Hashtbl.find table code with
+            (fun code -> match Hashtbl.find table code with
                 | Static x when (is_likelihood x.Nexus.File.st_type) -> 
                     Hashtbl.replace table code
                         (Static {x with Nexus.File.st_type = model_enc; })
@@ -3974,12 +3974,7 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     Hashtbl.replace table code
                         (Dynamic {x with state = `Ml;
                                      lk_model = !model_opt;})
-                | _ -> ()
-            with | Not_found -> begin
-                Printf.printf "Spec Codes:\t";
-                Hashtbl.iter (fun k _ -> Printf.printf "%d, " k) table;
-                print_newline ();
-                failwithf "Cannot find code %d in character_specs" code end)
+                | _ -> ())
             codes
     end else begin
         (* replace all characters in the set of codes *)
@@ -4006,40 +4001,49 @@ let apply_likelihood_model_on_char_table replace data table codes model =
 
 let update_priors data charcodes use_gap = 
     let data = {data with character_specs = Hashtbl.copy data.character_specs; } in
-    let new_priors = compute_priors data charcodes use_gap
+    let new_priors,change =
+        let current = get_likelihood_model data charcodes in
+        match current.MlModel.spec.MlModel.base_priors with
+        | MlModel.Estimated _ -> compute_priors data charcodes use_gap, true
+        | MlModel.Given x
+        | MlModel.ConstantPi x  -> x,false
     and model_s = ref None and model_d = ref None in
-    List.iter
-        (fun code -> 
-            match Hashtbl.find data.character_specs code,!model_s,!model_d with
-            | Static x, Some model,_ ->
-                Hashtbl.replace data.character_specs code
-                    (Static {x with Nexus.File.st_type = model})
-            | Static x, None, _ -> 
-                let get_likelihood y = match y.Nexus.File.st_type with 
-                    | Nexus.File.STLikelihood x -> x
-                    | _ -> assert false
-                in
-                let model =
-                    Nexus.File.STLikelihood
-                        (MlModel.replace_priors (get_likelihood x) new_priors)
-                in
-                model_s := Some model;
-                Hashtbl.replace data.character_specs code
-                    (Static {x with Nexus.File.st_type = model; })
-            | Dynamic x,_,((Some model) as m) ->
-                Hashtbl.replace data.character_specs code
-                    (Dynamic {x with state = `Ml; lk_model = m;})
-            | Dynamic x,_,None ->
-                let get_likelihood = function
-                    | Some m -> m
-                    | None -> assert false
-                in
-                let model = MlModel.replace_priors (get_likelihood x.lk_model) new_priors in
-                model_d := Some model;
-                Hashtbl.replace data.character_specs code
-                    (Dynamic {x with state = `Ml; lk_model = !model_d;}))
-        charcodes;
-    data
+    if change then begin
+        List.iter
+            (fun code -> 
+                match Hashtbl.find data.character_specs code,!model_s,!model_d with
+                | Static x, Some model,_ ->
+                    Hashtbl.replace data.character_specs code
+                        (Static {x with Nexus.File.st_type = model})
+                | Static x, None, _ -> 
+                    let get_lk_model y = match y.Nexus.File.st_type with 
+                        | Nexus.File.STLikelihood x -> x
+                        | _ -> assert false
+                    in
+                    let model =
+                        Nexus.File.STLikelihood
+                            (MlModel.replace_priors (get_lk_model x) new_priors)
+                    in
+                    model_s := Some model;
+                    Hashtbl.replace data.character_specs code
+                        (Static {x with Nexus.File.st_type = model; })
+                | Dynamic x,_,((Some model) as m) ->
+                    Hashtbl.replace data.character_specs code
+                        (Dynamic {x with state = `Ml; lk_model = m;})
+                | Dynamic x,_,None ->
+                    let get_lk_model = function
+                        | Some m -> m
+                        | None -> assert false
+                    in
+                    let model = MlModel.replace_priors (get_lk_model x.lk_model) new_priors in
+                    model_d := Some model;
+                    Hashtbl.replace data.character_specs code
+                        (Dynamic {x with state = `Ml; lk_model = !model_d;}))
+            charcodes;
+        data
+    end else begin
+        data
+    end
 
 
 let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) = 
@@ -5884,28 +5888,6 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
         spec
     in
     { dest with character_specs = char_specs; }
-
-let get_likelihood_model data chars = 
-    let get_model x = match Hashtbl.find data.character_specs x with
-        | Static dat ->
-            begin match dat.Nexus.File.st_type with
-                | Nexus.File.STLikelihood model -> model
-                | _ -> failwith "unsupported static character"
-            end
-        | Dynamic s when s.state = `Ml ->
-            begin match s.lk_model with
-            | Some x -> x
-            | None -> failwith "inconsistent dynamic likelihood state"
-            end
-        | _ -> failwith "unsupported dynamic character"
-    in
-    match List.map get_model chars with
-    | h :: t ->
-        if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-            h
-        else failwith "Inconsistent Model over characters"
-    | [] ->
-        failwith "No Characters found"
 
 (* remove the absent/present columns in the parsed data, and modify the previous
  * column (the column the active/present column is adding data to), and modify
