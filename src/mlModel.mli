@@ -104,6 +104,10 @@ type chars = [ `List of int list | `Packed of int ]
 (* categorize a list of values into a list list of values; usually codes *)
 val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
 
+(* replace the priors in the model; used in dynamic likelihood to reestimate
+ * when an implied alignment is performed *)
+val replace_priors : model -> float array -> model 
+
 (** [convert_string_spec] convert a string spec from nexus and other formats to
  * the basic specification in for a likelihood model *)
 val convert_string_spec : string_spec -> spec

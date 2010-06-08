@@ -130,6 +130,11 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+let replace_priors model array = 
+    {model with
+        spec = {model.spec with base_priors = Estimated array};
+        pi_0 = ba_of_array1 array; }
+
 module OrderedML = struct
     (* we could choose model or spec, but spec can use Pervasives.compare *)
     type t = spec 
@@ -577,8 +582,10 @@ let barray_to_matrix bray =
 
 (* integerized converstion and composition of a model and branch lenghth *)
 let integerized_model ?(sigma=4) model t =
-    let sigma = 10.0 ** (float_of_int sigma) in
-    let matrix = 
+    let sigma = 10.0 ** (float_of_int sigma)
+    and create sigma matrix i j = 
+        ~- (int_of_float (sigma*.(log matrix.(i).(j))))
+    and matrix = 
         barray_to_matrix (match model.ui with 
         | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
         | None    -> compose_sym FMatrix.scratch_space model.u model.d t)
@@ -590,7 +597,7 @@ let integerized_model ?(sigma=4) model t =
             (* diagonal of matrix must = 0 *)
             if i = j 
                 then imatrix.(i).(j) <- 0
-                else imatrix.(i).(j) <- ~- (int_of_float (sigma *. (log matrix.(i).(j) ) ) )
+                else imatrix.(i).(j) <- create sigma matrix i j
         done;
     done;
     imatrix
@@ -603,7 +610,7 @@ END
 
 (* create a cost matrix from a model *)
 let model_to_cm model t =
-    let input = 
+    let input =
         IFDEF USE_LIKELIHOOD THEN 
             integerized_model model t
         ELSE

@@ -1463,6 +1463,7 @@ module F : Ptree.Tree_Operations
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
                     --> Data.categorize
+                    --> (fun x -> Data.update_priors x (x.Data.static_ml) true)
                     --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
             in
             Status.set_verbosity old_verbosity;

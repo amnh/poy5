@@ -564,6 +564,8 @@ val apply_on_static_chars : d -> int list -> Nexus.File.st_type -> d
 val apply_likelihood_model_on_chars : d -> int list -> MlModel.model -> d
 val verify_alphabet : d -> int list -> int * Alphabet.a
 
+val update_priors : d -> int list -> bool -> d
+
 val set_parsimony  : d -> Methods.characters -> d 
 val set_likelihood : d -> Methods.ml_spec    -> d 
 

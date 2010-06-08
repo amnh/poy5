@@ -3972,6 +3972,44 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         codes
     end
 
+let update_priors data charcodes use_gap = 
+    let data = {data with character_specs = Hashtbl.copy data.character_specs; } in
+    let new_priors = compute_priors data charcodes use_gap
+    and model_s = ref None and model_d = ref None in
+    List.iter
+        (fun code -> 
+            match Hashtbl.find data.character_specs code,!model_s,!model_d with
+            | Static x, Some model,_ ->
+                Hashtbl.replace data.character_specs code
+                    (Static {x with Nexus.File.st_type = model})
+            | Static x, None, _ -> 
+                let get_likelihood y = match y.Nexus.File.st_type with 
+                    | Nexus.File.STLikelihood x -> x
+                    | _ -> assert false
+                in
+                let model =
+                    Nexus.File.STLikelihood
+                        (MlModel.replace_priors (get_likelihood x) new_priors)
+                in
+                model_s := Some model;
+                Hashtbl.replace data.character_specs code
+                    (Static {x with Nexus.File.st_type = model; })
+            | Dynamic x,_,((Some model) as m) ->
+                Hashtbl.replace data.character_specs code
+                    (Dynamic {x with state = `Ml; lk_model = m;})
+            | Dynamic x,_,None ->
+                let get_likelihood = function
+                    | Some m -> m
+                    | None -> assert false
+                in
+                let model = MlModel.replace_priors (get_likelihood x.lk_model) new_priors in
+                model_d := Some model;
+                Hashtbl.replace data.character_specs code
+                    (Dynamic {x with state = `Ml; lk_model = !model_d;}))
+        charcodes;
+    data
+
+
 let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) = 
     let new_specs = Hashtbl.copy data.character_specs in
     apply_likelihood_model_on_char_table false data new_specs char_codes model;
