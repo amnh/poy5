@@ -696,6 +696,12 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
     let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
          create_pure_gen_cost_mat seq1_arr seq2_arr c2 ali_pam  
     in
+    let tc,rc,alied_code1,alied_code2 =
+        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr c2
+        pure_gen_cost_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
+    in  
+    tc, rc
+    (*
     let code2_arr_min = List.hd (List.sort compare (Array.to_list code2_arr)) in
     let seq1_codearr, seq2_codearr, cost_mat_simple, cost_array = 
         make_cost_matrix_and_array 
@@ -713,6 +719,7 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
         gen_gap_code ali_pam.re_meth ali_pam.circular true
     in 
     total_cost, rc2  
+    *)
 
 
 
