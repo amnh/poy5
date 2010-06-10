@@ -113,6 +113,18 @@ val create_gen_ali :
   [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
   int -> int -> bool -> int * (int * int) * Sequence.s * Sequence.s
 
+val create_gen_ali_new :  
+    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
+    int array ->
+    int array ->
+    Cost_matrix.Two_D.m ->
+    int array array -> 
+    int ->
+    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+    int -> 
+    bool ->
+    int * int * int array * int array
+
 val create_gen_ali_code_simple :
     [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
     int array ->

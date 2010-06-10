@@ -618,10 +618,11 @@ let match_pair arr1 arr2 cost_matrix cost_array =
 let get_alied_code_arr code1_arr codem_arr seq1_arr seqm_arr c2 ali_pam
 cost1_mat gen_gap_code = 
     (*debug msg
-    Printf.printf "get_alied_code_arr :\n%!";
+    Printf.printf "get_alied_code_arr, gapcode=%d :\n%!" gen_gap_code;
     Printf.printf "seq1 arr = \n%!"; Array.iter printSeq seq1_arr;
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
+  (*
     let codem_arr_min = List.hd (List.sort compare (Array.to_list codem_arr)) in
     let seq1_codearr, seqm1_codearr, cost_mat, cost_array = 
         make_cost_matrix_and_array cost1_mat 
@@ -629,7 +630,19 @@ cost1_mat gen_gap_code =
         c2 ali_pam.locus_indel_cost in
     let ori_code1_arr = Array.map (fun (seq, code) -> code) seq1_codearr in
     let ori_codem_arr = Array.map (fun (seq, code) -> code) seqm1_codearr in
-    let matched_codem_arr, _ = 
+  *)
+    let tc,rc,alied_code1,alied_codem =
+        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr c2
+        cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
+    in   
+    (*debug msg
+    Printf.printf "tc/rc= %d/%d, alied_code1,alied_codem = \n%!" tc rc;
+    Utl.printIntArr alied_code1; 
+    Utl.printIntArr alied_codem; 
+    debug msg*)
+    tc, rc, alied_code1,alied_codem
+ (*
+ * let matched_codem_arr, _ = 
         match_pair ori_code1_arr ori_codem_arr cost_mat cost_array in
     let codem_arr_reg = Array.map 
     (fun code -> codem_arr_min - 1 + code) matched_codem_arr in 
@@ -640,13 +653,14 @@ cost1_mat gen_gap_code =
     in 
     assert(rc1 = 0 ); (* there is no common code between code1_arr and
     codem_arr, so rc1 should be 0 *)
-    (*debug msg 
+    (*debug msg *)
     let editing_cost = total_cost - rc2 in 
     Printf.printf "editing_cost = %d(%d/%d),new alied_code1/alied_code2 = \n" 
     editing_cost rc1 rc2;
     Utl.printIntArr alied_code1; Utl.printIntArr alied_code1m;
-    debug msg*)
+    (*debug msg*)
     total_cost, rc2, alied_code1, alied_code1m
+ *)
 
 
 

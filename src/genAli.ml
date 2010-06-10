@@ -26,6 +26,14 @@ let fprintf = Printf.fprintf;;
 type dyna_state_t = Data.dyna_state_t
 
 
+let sanity_check arr size =
+    let mark_arr = Array.make size 0 in
+    Array.iter (fun x ->
+        if (x<size) then
+        mark_arr.(x) <- mark_arr.(x)+1
+    ) arr;
+    Array.fold_left (fun sign x -> if (x>1) then (sign+1) else sign ) 0 mark_arr
+
 (** [oritentation code] returns the direction of the 
 * character [code]. Characters whose codes are even numbers are
 * considered as negative characters, otherwise postive *)
@@ -377,32 +385,10 @@ let get_best_n (in_list:matched_loci_array list) size =
 (* this function takes the result cost matrix from 
 *  function [create_pure_gen_cost_mat] as in_cost_mat. 
 *  get the part of matrix we need as out_cost_mat, also get a sorted cost array out of it. *)
-let make_cost_matrix_and_array in_cost_mat seq1_arr seq2_arr code1_arr code2_arr
+let make_cost_matrix_and_array in_cost_mat code1_arr code2_arr
 gapcode re_meth
 =    
     (* we will consider gap(indel) in the match *)
-  (*  let in_cost_mat = 
-        match re_meth with 
-        | `Locus_Inversion recost ->  
-                let sizei = Array.length in_cost_mat in
-                Array.mapi (fun idxi arr ->
-                    let sizej = Array.length arr in
-                    if (idxi>0)&&(idxi<sizei-1) then 
-                        Array.mapi (fun idxj cost ->
-                        if ((idxi mod 2)=1) then
-                            if (idxj>0)&&((idxj mod 2)=0)&&(arr.(idxj-1) = cost) 
-                               then cost + recost
-                               else cost
-                        else if (idxj>0)&&(idxj<sizej-1)&&
-                        ((idxj mod 2)=1)&&(arr.(idxj+1) = cost) 
-                               then cost + recost
-                               else cost
-
-                        ) arr
-                    else arr
-                    )in_cost_mat 
-        | `Locus_Breakpoint recost -> in_cost_mat
-    in*)
     let lst1 = (List.sort compare (Array.to_list code1_arr)) 
     and lst2 = (List.sort compare (Array.to_list code2_arr)) in
     let end1 = List.nth lst1 ((List.length lst1)-1)
@@ -461,8 +447,6 @@ gapcode re_meth
 (*debug msg 
     Printf.printf "check in cost matrix:\n%!";
     Utl.printIntMat in_cost_mat;
-(*    Printf.printf "check out_cost_matrix:\n%!";
-    Utl.printIntMat out_cost_mat; *)
     Printf.printf "check cost array:\n%!";
     Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
     ) cost_array;   Printf.printf "\n\n%!";
@@ -505,10 +489,13 @@ gapcode =
             base_left1 base_left2 gapcode;
             List.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
             ) matched_list; Printf.printf "\n%!";
-            Printf.printf "check cost array:\n%!";
-            Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
+(*            Printf.printf "check cost array:\n%!";
+            Array.iter (fun (id1,id2,cost) ->  
+                Printf.printf "(%d,%d,%d) " id1 id2 cost;
             ) cost_array; Printf.printf "\n%!";
-            Printf.printf "check marked matrix:\n%!";  Utl.printIntMat marked_matrix;
+*)
+ (*       Printf.printf "check marked matrix:\n%!";  Utl.printIntMat
+ *       marked_matrix;*)
 debug msg*)
             if( (base_left1>0)||(base_left2>0) ) then begin
                 let picked = ref 0 and left_len = ref (Array.length cost_array)  
@@ -602,7 +589,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
     ) matched_list in
     (*debug msg
     Printf.printf "match pair with arr1/arr2=\n%!";
-    Utl.printIntArr arr1; Utl.printIntArr arr2;
+ (*   Utl.printIntArr arr1; Utl.printIntArr arr2;*)
     Printf.printf "matched list is [%!";
     List.iter (fun (idx1,idx2) -> 
         Printf.printf "(%d,%d) " idx1 idx2 
@@ -655,18 +642,15 @@ gen_cost_mat gen_gap_code re_meth circular orientation
 *  then we can call [create_gen_ali_code_simple] to get the editing cost between 
 *  code1_arr and codem_arr, the rearrange cost between codem_arr and
 *  codem_arr_reg, and also the alied code array. *)
-let create_gen_ali_new state code1_arr codem_arr seq1_arr seqm_arr c2 
-cost_matrix alpha re_meth circular orientation  = 
-    let gapcode = Alphabet.get_gap alpha in 
+let create_gen_ali_new state code1_arr codem_arr c2 
+cost_matrix gapcode re_meth circular orientation  = 
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
     let cost_mat, cost_array = 
-        make_cost_matrix_and_array cost_matrix seq1_arr seqm_arr code1_arr
-        codem_arr gapcode re_meth
+        make_cost_matrix_and_array cost_matrix code1_arr codem_arr gapcode re_meth
     in
     let matched_list, matched_cost = 
         match_pair code1_arr codem_arr cost_array sizex sizey gapcode in
-    
     let matched_array = Array.of_list matched_list in
     let nongap_matched_lst = ref [] in
     let alied_code1_lst = ref [] and alied_codem_lst = ref [] in
@@ -759,27 +743,20 @@ let create_gen_ali_vinh kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
 let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         (gen_cost_mat : Cost_matrix.Two_D.m) pure_gen_cost_mat alpha re_meth 
         max_swap_med circular orientation =
-  (*debug msg  
-    Printf.printf "\n GenAli.ml create_gen_ali: seq1/seq2=\n%!";
+    let gapcode = Alphabet.get_gap alpha in
+  (*debug msg 
+    Printf.printf "\n GenAli.ml create_gen_ali: gapcode=%d,seq1/seq2=\n%!"
+    gapcode ;
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
   (*  Printf.printf "check cost matrix:\n%!";
     Array.iter(fun arr -> Utl.printIntArr arr) pure_gen_cost_mat; *)
   debug msg*)
   let arr1 = Sequence.to_array seq1 in 
   let arr2 = Sequence.to_array seq2 in
- (*
-  match (equal_content arr1 arr2) with
-  | true ->
-          *)
-    let seq1arr = Array.mapi (fun idx item ->
-        Sequence.subseq seq1 idx 1
-    ) arr1 in
-    let seq2arr = Array.mapi (fun idx item ->
-        Sequence.subseq seq2 idx 1
-    ) arr2 in
+    let gapcode = Alphabet.get_gap alpha in 
     let tc, rc, alied_code1, alied_code2 = 
-        create_gen_ali_new state arr1 arr2 seq1arr seq2arr gen_cost_mat
-        pure_gen_cost_mat alpha re_meth circular orientation
+        create_gen_ali_new state arr1 arr2 gen_cost_mat
+        pure_gen_cost_mat gapcode re_meth circular orientation
     in
     (*debug msg
     Printf.printf "tc=%d,rc=%d, alied1/alied2 = \n%!" tc rc;
@@ -788,12 +765,6 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
     let alied_seq1 = Sequence.of_array alied_code1 in
     let alied_seq2 = Sequence.of_array alied_code2 in
     tc, (0,rc), alied_seq1, alied_seq2
-    (*
-  | false ->    
-    create_gen_ali_vinh kept_wag state seq1 seq2 gen_cost_mat pure_gen_cost_mat alpha re_meth max_swap_med circular orientation
-    *)
-
-
 
 
 (* Note: seqXX here is result sequence of alignment before. 
