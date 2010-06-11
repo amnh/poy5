@@ -249,10 +249,6 @@ let create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam =
     * *)
     let seq1_arr = Array.mapi (fun ith seq -> seq, (ith * 2 + 1) ) seq1_arr in 
     let len1 = Array.length seq1_arr in 
-(*
-* inilen = 1+(len1-1)*2=2len1-1; inilen+2, inilen+4, ......, inilen+len2*2=
-    2len1-1+2len2
-*)
     let seq2_arr = Array.mapi 
         (fun ith seq -> seq, (ith * 2 + 1 + len1 * 2) ) seq2_arr 
     in 
@@ -618,7 +614,9 @@ let match_pair arr1 arr2 cost_matrix cost_array =
 let get_alied_code_arr code1_arr codem_arr seq1_arr seqm_arr c2 ali_pam
 cost1_mat gen_gap_code = 
     (*debug msg
-    Printf.printf "get_alied_code_arr, gapcode=%d :\n%!" gen_gap_code;
+    let gap_op, gap_ex = ali_pam.locus_indel_cost in
+    Printf.printf "get_alied_code_arr, gapcode=%d, locus_indel:(%d,%d) :\n%!" 
+    gen_gap_code gap_op gap_ex;
     Printf.printf "seq1 arr = \n%!"; Array.iter printSeq seq1_arr;
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
@@ -683,7 +681,7 @@ let cmp_simple_cost (chrom1: annchrom_t) (chrom2 : annchrom_t)
                 pure_gen_cost_mat gen_gap_code  
                 ali_pam.re_meth ali_pam.swap_med 
                 ali_pam.circular true
-        in
+        in 
         total_cost, (recost1 + recost2)    
     end 
 
@@ -727,31 +725,18 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
 * compute the minimum cost from annotated chromosome [chrom1]
 * to annotated chromosome [chrom2], and from [chrom2] to [chrom1] *)
 let cmp_cost chrom1 chrom2 cost_mat alpha annchrom_pam =
-    let seq1_arr, _ = split chrom1 in  
-    let seq2_arr, _ = split chrom2 in
-    let len1 = Array.length seq1_arr and len2 = Array.length seq2_arr in
     let ali_pam = get_annchrom_pam annchrom_pam in     
     match ali_pam.symmetric with
         | true ->
           let cost12,cost21 =
-             if (len1<>len2) then
-              cmp_simple_cost chrom1 chrom2 cost_mat alpha ali_pam,
-              cmp_simple_cost chrom2 chrom1 cost_mat alpha ali_pam 
-            else
                 cmp_cost2 chrom1 chrom2 cost_mat alpha annchrom_pam,
                 cmp_cost2 chrom2 chrom1 cost_mat alpha annchrom_pam
           in
           min cost12 cost21
         | false ->
           if compare chrom1 chrom2 < 0 then
-              if (len1<>len2) then
-                  cmp_simple_cost chrom1 chrom2 cost_mat alpha ali_pam
-              else
                   cmp_cost2 chrom1 chrom2 cost_mat alpha annchrom_pam
           else 
-              if (len1<>len2) then
-                  cmp_simple_cost chrom2 chrom1 cost_mat alpha ali_pam
-              else
                   cmp_cost2 chrom2 chrom1 cost_mat alpha annchrom_pam
                
 (** [find_simple_med2_ls chrom1 chrom2 cost_mat alpha ali_pam]
@@ -772,18 +757,9 @@ let find_simple_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
         let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
             create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam  
         in
-        let len1 = Array.length seq1_arr and len2 = Array.length seq2_arr in
         let total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr = 
-        if (len1 <> len2) then begin
-            if debug then Printf.printf "len1 != len2, call old function\n%!";
-            GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
-                pure_gen_cost_mat gen_gap_code  
-                ali_pam.re_meth ali_pam.swap_med 
-                ali_pam.circular  true
-        end
-        else         
-            let recost1 = 0 in
-            let total_cost, recost2, alied_code1_arr,alied_code2_arr = 
+        let recost1 = 0 in
+        let total_cost, recost2, alied_code1_arr,alied_code2_arr = 
                 get_alied_code_arr  code1_arr code2_arr seq1_arr seq2_arr 
                 cost_mat ali_pam pure_gen_cost_mat gen_gap_code in
             total_cost, (recost1, recost2), alied_code1_arr, alied_code2_arr
@@ -956,10 +932,10 @@ let find_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
               else ali_pam
           in 
            if debug then 
-          Printf.printf "cost12 = %d, call ... to get cost21 => " cost12;
+          Printf.printf "cost12 = %d;  call find_simple_med2_ls to get cost21 : " cost12;
            let cost21, recost21, med21_ls = find_simple_med2_ls chrom2 chrom1
               cost_mat alpha ali_pam in 
-           if debug then  Printf.printf "cost21 = %d \n" cost21;
+           if debug then  Printf.printf "cost21 = %d \n\n" cost21;
           if cost12 <= cost21 then cost12, recost12, med12_ls
           else begin 
               let med12_ls = List.map swap_med med21_ls in 
@@ -1290,17 +1266,7 @@ let get_alied_seq_code parent_chrom child_chrom c2 annchrom_pam =
     let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
             create_pure_gen_cost_mat seq1_code seq2_code c2 ali_pam  
     in
-    let len1 = Array.length seq1_code and len2 = Array.length seq2_code in
-    if (len1<>len2) then
-       let _, (_,_), ali_seq1_code, ali_seq2_code = 
-         GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
-                pure_gen_cost_mat gen_gap_code  
-                ali_pam.re_meth ali_pam.swap_med 
-                ali_pam.circular true
-       in
-       (code1_arr, code2_arr, ali_seq1_code,ali_seq2_code)
-    else
-       let _, _, alied_code1_arr,alied_code2_arr = 
+    let _, _, alied_code1_arr,alied_code2_arr = 
          get_alied_code_arr code1_arr code2_arr seq1_code seq2_code 
                 c2 ali_pam pure_gen_cost_mat gen_gap_code in
        (code1_arr, code2_arr,  alied_code1_arr,alied_code2_arr)
