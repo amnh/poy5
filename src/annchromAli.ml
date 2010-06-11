@@ -606,11 +606,8 @@ let match_pair arr1 arr2 cost_matrix cost_array =
     new_arr2, matched_cost
 
 (* [get_alied_code_arr] take {code1_arr codem_arr seq1_arr seqm_arr} as input,
-*  create the cost matrix and cost array for function [match_pair], which will 
-*  give us a rearranged array of codem_arr -- codem_arr_reg, )
-*  then we can call [create_gen_ali_code_simple] to get the editing cost between 
-*  code1_arr and codem_arr, the rearrange cost between codem_arr and
-*  codem_arr_reg, and also the alied code array. *)
+*  call [create_gen_ali_new] to get the editing cost and rearrangement cost, 
+*  and also the alied code array. *)
 let get_alied_code_arr code1_arr codem_arr seq1_arr seqm_arr c2 ali_pam
 cost1_mat gen_gap_code = 
     (*debug msg
@@ -620,15 +617,6 @@ cost1_mat gen_gap_code =
     Printf.printf "seq1 arr = \n%!"; Array.iter printSeq seq1_arr;
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
-  (*
-    let codem_arr_min = List.hd (List.sort compare (Array.to_list codem_arr)) in
-    let seq1_codearr, seqm1_codearr, cost_mat, cost_array = 
-        make_cost_matrix_and_array cost1_mat 
-        seq1_arr seqm_arr code1_arr codem_arr 
-        c2 ali_pam.locus_indel_cost in
-    let ori_code1_arr = Array.map (fun (seq, code) -> code) seq1_codearr in
-    let ori_codem_arr = Array.map (fun (seq, code) -> code) seqm1_codearr in
-  *)
     let tc,rc,alied_code1,alied_codem =
         GenAli.create_gen_ali_new `Annotated code1_arr codem_arr c2
         cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
@@ -639,51 +627,6 @@ cost1_mat gen_gap_code =
     Utl.printIntArr alied_codem; 
     debug msg*)
     tc, rc, alied_code1,alied_codem
- (*
- * let matched_codem_arr, _ = 
-        match_pair ori_code1_arr ori_codem_arr cost_mat cost_array in
-    let codem_arr_reg = Array.map 
-    (fun code -> codem_arr_min - 1 + code) matched_codem_arr in 
-    let total_cost, (rc1,rc2), alied_code1, alied_code1m = 
-        GenAli.create_gen_ali_code_simple `Annotated code1_arr codem_arr
-        codem_arr_reg cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular
-        true
-    in 
-    assert(rc1 = 0 ); (* there is no common code between code1_arr and
-    codem_arr, so rc1 should be 0 *)
-    (*debug msg *)
-    let editing_cost = total_cost - rc2 in 
-    Printf.printf "editing_cost = %d(%d/%d),new alied_code1/alied_code2 = \n" 
-    editing_cost rc1 rc2;
-    Utl.printIntArr alied_code1; Utl.printIntArr alied_code1m;
-    (*debug msg*)
-    total_cost, rc2, alied_code1, alied_code1m
- *)
-
-
-
-(** [cmp_simple_cost chrom1 chrom2 cost_mat alpha ali_pam]
-* computes the cost between annotated chromosome [chrom1]
-* and annotated chromosome [chrom2] allowing rearrangements *)
-let cmp_simple_cost (chrom1: annchrom_t) (chrom2 : annchrom_t) 
-        cost_mat alpha ali_pam =
-    let chrom_len1 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom1.seq_arr in     
-    let chrom_len2 = Array.fold_left (fun len s -> len + Sequence.length s.seq) 0 chrom2.seq_arr in 
-    if (chrom_len1 < 2) || (chrom_len2 < 2) then 0, 0
-    else begin
-        let seq1_arr, _ = split chrom1 in  
-        let seq2_arr, _ = split chrom2 in  
-        let pure_gen_cost_mat, code1_arr, code2_arr, gen_gap_code = 
-            create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam  
-        in
-        let total_cost, (recost1, recost2), _, _ = 
-            GenAli.create_gen_ali_code ali_pam.kept_wag `Annotated code1_arr code2_arr 
-                pure_gen_cost_mat gen_gap_code  
-                ali_pam.re_meth ali_pam.swap_med 
-                ali_pam.circular true
-        in 
-        total_cost, (recost1 + recost2)    
-    end 
 
 (* [cmp_cost2] is similar to [cmp_cost], but we won't do any change to the
 * input chromosome, unlike [cmp_cost]*)
@@ -699,25 +642,6 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
         pure_gen_cost_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in  
     tc, rc
-    (*
-    let code2_arr_min = List.hd (List.sort compare (Array.to_list code2_arr)) in
-    let seq1_codearr, seq2_codearr, cost_mat_simple, cost_array = 
-        make_cost_matrix_and_array 
-        pure_gen_cost_mat seq1_arr seq2_arr code1_arr code2_arr
-        c2 ali_pam.locus_indel_cost in
-    let ori_code1_arr = Array.map (fun (seq, code) -> code) seq1_codearr in
-    let ori_code2_arr = Array.map (fun (seq, code) -> code) seq2_codearr in
-    let matched_code2_arr, _ = 
-        match_pair ori_code1_arr ori_code2_arr cost_mat_simple cost_array in
-    let code2_arr_reg = Array.map 
-    (fun code -> code2_arr_min - 1 + code) matched_code2_arr in 
-    let total_cost, (rc1,rc2), alied_code1, alied_code2 = 
-        GenAli.create_gen_ali_code_simple `Annotated code1_arr code2_arr
-        code2_arr_reg pure_gen_cost_mat
-        gen_gap_code ali_pam.re_meth ali_pam.circular true
-    in 
-    total_cost, rc2  
-    *)
 
 
 

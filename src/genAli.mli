@@ -125,16 +125,6 @@ val create_gen_ali_new :
     bool ->
     int * int * int array * int array
 
-val create_gen_ali_code_simple :
-    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
-    int array ->
-    int array ->
-    int array ->
-    int array array -> 
-    int -> 
-    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-    int -> bool ->
-    int * (int * int) * int array * int array
 
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
 *        re_meth max_swap_med circular] creates the general 
