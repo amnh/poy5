@@ -445,8 +445,7 @@ gapcode re_meth
         ) !cost_list )
     in
 (*debug msg 
-    Printf.printf "check in cost matrix:\n%!";
-    Utl.printIntMat in_cost_mat;
+  (*  Printf.printf "check in cost matrix:\n%!"; Utl.printIntMat in_cost_mat;*)
     Printf.printf "check cost array:\n%!";
     Array.iter (fun (id1,id2,cost) ->  Printf.printf "(%d,%d,%d) " id1 id2 cost;
     ) cost_array;   Printf.printf "\n\n%!";
@@ -472,7 +471,7 @@ gapcode =
             marked_matrix = make_new_mark_matrix marked_matrix indexi indexj gapcode;
             cost_array = costarr_left;
         } in
-        candidate_list := init_match :: (!candidate_list) ;
+        candidate_list := (!candidate_list) @ [init_match] ;
     done;
     let somethingleft = ref 1 in
     while ( !somethingleft = 1 ) do
@@ -497,7 +496,11 @@ gapcode =
  (*       Printf.printf "check marked matrix:\n%!";  Utl.printIntMat
  *       marked_matrix;*)
 debug msg*)
-            if( (base_left1>0)||(base_left2>0) ) then begin
+            if( (base_left1=0)&&(base_left2=0) ) then begin
+                current_list := !current_list @ [item];
+                somethingleft := 0
+            end 
+            else begin
                 let picked = ref 0 and left_len = ref (Array.length cost_array)  
                 and z = ref 0 in
                 while ( (!picked < h_size)&&(!z < !left_len)&&(!left_len >0) ) do
@@ -527,20 +530,21 @@ debug msg*)
                             marked_matrix = new_marked_matrix;
                             cost_array = costarr_left;
                         } in
-                        current_list := new_match_item :: (!current_list) ;
+                        current_list := (!current_list) @ [new_match_item];
                         picked := !picked + 1;
                     end else ();
                     left_len := Array.length costarr_left; 
                     z := !z +1;
                 done;
             end 
-            else
-                somethingleft := 0
             ;
         ) tmp_list ;
         candidate_list := 
-            if (!somethingleft = 1) then get_best_n !current_list h_size 
-            else tmp_list ;
+            (*if (!somethingleft = 1) then *)
+            if ((List.length !current_list)>0) then 
+                get_best_n !current_list h_size 
+            else
+                tmp_list ;
     done;
     !candidate_list
 
@@ -800,18 +804,18 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
 * where total cost = editing cost + rearrangement cost *)
 let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array) 
         (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular orientation =   
-(*debug msg
+(*debug msg*)
     Printf.printf "create_gen_ali_code, seq1 and seq2 = \n%!"; 
     Utl.printIntArr seq1; Utl.printIntArr seq2;
     Printf.printf "check matrix \n%!";
     Array.iter (fun code1 ->
         Array.iter (fun code2 ->
-               Printf.printf "%4i" gen_cost_mat.(code1).(code2); )seq2;
-        Printf.printf "%4i" gen_cost_mat.(code1).(gen_gap_code);
+               Printf.printf "%10i" gen_cost_mat.(code1).(code2); )seq2;
+        Printf.printf "%10i" gen_cost_mat.(code1).(gen_gap_code);
         Printf.printf "\n%!"; )seq1;
-    Array.iter (fun code2 -> Printf.printf "%4i" gen_cost_mat.(code2).(gen_gap_code);
+    Array.iter (fun code2 -> Printf.printf "%10i" gen_cost_mat.(code2).(gen_gap_code);
     )seq2; Printf.printf "\n%!";
-debug msg*)
+(*debug msg*)
     let size = Array.length gen_cost_mat in 
     let gen_cost_mat = Array.init (size - 1) 
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
