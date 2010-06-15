@@ -41,16 +41,25 @@ and ba_of_array2 x = Bigarray.Array2.of_array Bigarray.float64 Bigarray.c_layout
 let create_ba1 x     = Bigarray.Array1.create Bigarray.float64 Bigarray.c_layout x
 and create_ba2 x y   = Bigarray.Array2.create Bigarray.float64 Bigarray.c_layout x y
 
+let barray_to_array2 bray =  
+    let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
+    let r = Array.make_matrix a b 0.0 in
+    for i = 0 to a-1 do for j = 0 to b-1 do
+        r.(i).(j) <- bray.{i,j};
+    done; done; r
+
 let print_barray1 a = 
     for i = 0 to (Bigarray.Array1.dim a)-1 do 
         Printf.printf "%2.10f\t" a.{i};
     done; Printf.printf "\n"; ()
+
 and print_barray2 a = 
     for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
             Printf.printf "%2.10f\t" a.{i,j};
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
+
 and pp_farray xs =
     (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
 
@@ -129,14 +138,6 @@ type model = {
     d     : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t;
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
-
-let replace_priors model array = 
-    Printf.printf "Replacing Priors\n\t%!";
-    Array.iter (fun x -> Printf.printf "%f, " x) array;
-    print_newline ();
-    {model with
-        spec = {model.spec with base_priors = Estimated array};
-        pi_0 = ba_of_array1 array; }
 
 module OrderedML = struct
     (* we could choose model or spec, but spec can use Pervasives.compare *)
@@ -576,20 +577,13 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
-let barray_to_matrix bray =  
-    let a = Bigarray.Array2.dim1 bray and b = Bigarray.Array2.dim2 bray in
-    let r = Array.make_matrix a b 0.0 in
-    for i = 0 to a-1 do for j = 0 to b-1 do
-        r.(i).(j) <- bray.{i,j};
-    done; done; r
-
 (* integerized converstion and composition of a model and branch lenghth *)
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
     and create sigma matrix i j = 
         ~- (int_of_float (sigma*.(log (model.pi_0.{i}*.matrix.(i).(j)))))
     and matrix = 
-        barray_to_matrix (match model.ui with
+        barray_to_array2 (match model.ui with
         | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
         | None    -> compose_sym FMatrix.scratch_space model.u model.d t)
     and imatrix = Array.make_matrix model.alph_s model.alph_s 0 in
@@ -784,7 +778,6 @@ let create alph lk_spec =
         in
         p
     in
-
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
     let sym, sub_mat, subst_model = match lk_spec.substitution with
         | JC69  -> true,  m_jc69 priors 1.0 a_size, JC69
@@ -830,6 +823,12 @@ let create alph lk_spec =
   ELSE
     failwith likelihood_not_enabled
   END
+
+let replace_priors model array = 
+(*    Printf.printf "Replacing Priors\n\t%!";*)
+(*    Array.iter (fun x -> Printf.printf "%f, " x) array;*)
+(*    print_newline ();*)
+    create model.alph {model.spec with base_priors = Estimated array}
 
 let add_gap_to_model compute_priors model = 
     Status.user_message Status.Warning dyno_likelihood_warning;

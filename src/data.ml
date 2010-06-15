@@ -771,12 +771,12 @@ let print (data : d) =
     let print_character_codes key bind =
         Printf.printf "[%d,%s],%!" key bind;
     in
-(*    Printf.printf "\n check character_codes: \n%!";*)
-(*    Hashtbl.iter print_character_codes data.character_codes;*)
-(*    Printf.printf "\n check taxon_characters:\n %!";*)
-(*    Hashtbl.iter print_taxon data.taxon_characters;*)
-(*    Printf.printf "\n check character_specs:\n%!";*)
-(*    Hashtbl.iter print_specs data.character_specs;*)
+    Printf.printf "\n check character_codes: \n%!";
+    Hashtbl.iter print_character_codes data.character_codes;
+    Printf.printf "\n check taxon_characters:\n %!";
+    Hashtbl.iter print_taxon data.taxon_characters;
+    Printf.printf "\n check character_specs:\n%!";
+    Hashtbl.iter print_specs data.character_specs;
     Printf.printf "\n check models:\n%!";
     print_models (data.dynamics @ data.static_ml);
     let () = match data.branches with
@@ -785,10 +785,10 @@ let print (data : d) =
             Hashtbl.iter print_branches databranches
         | None -> ()
     in
-(*    Printf.printf "\n Check Dynamic->Static Codes\n%!";*)
-(*    IntMap.iter print_int_intlist data.dynamic_static_codes;*)
-(*    Printf.printf "\n Check Static->Dynamic Codes\n%!";*)
-(*    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;*)
+    Printf.printf "\n Check Dynamic->Static Codes\n%!";
+    IntMap.iter print_int_intlist data.dynamic_static_codes;
+    Printf.printf "\n Check Static->Dynamic Codes\n%!";
+    All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
 
