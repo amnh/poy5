@@ -309,31 +309,21 @@ let rec create_global_map (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat ali_p
     let pos_seed_ls, neg_seed_ls =
         Seed.determine_seed seq1 seq2 ali_pam `BothDir
     in 
-
     let pos_block_ls = Block.find_local_block pos_seed_ls ali_pam in
     let neg_block_ls = Block.find_local_block neg_seed_ls ali_pam in
-
-
     List.iter (fun block -> Block.invert block ali_pam.ChromPam.min_pos2 ali_pam.ChromPam.max_pos2) neg_block_ls;     
     let all_b_ls = pos_block_ls @ neg_block_ls in 
     let all_b_ls = List.filter 
         (fun b -> Block.max_len b >= ali_pam.ChromPam.sig_block_len) all_b_ls
     in 
-    
-    
     let sep_b_ls = Block.select_separated_block all_b_ls ali_pam in  
-
     Block.create_alied_block_ls sep_b_ls ali_pam seq1 seq2 cost_mat;
-        
     let block_pam = Block.blockPam_default in
     let con_sep_b_ls = Block.connect_consecutive_block 
         sep_b_ls block_pam seq1 seq2 cost_mat ali_pam 
     in
-    
     let sig_map_ls, subseq1_ls, subseq2_ls = 
         Block.create_subseq_id `Alied con_sep_b_ls ali_pam in   
-
-
     List.iter (fun b ->
                    let alied_seq1 = deref b.Block.alied_seq1 in
                    let alied_seq2 = deref b.Block.alied_seq2 in
@@ -580,12 +570,9 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
         close_out seqfile;  
         print_endline "End of printing seq12";  
     end;   
-
-
     let seq1 = med1.seq and seq2 = med2.seq in    
     let len1 = Sequence.length seq1 in
     let len2 = Sequence.length seq2 in 
-
     if (len1 < 2) or (len2 < 2) then 0, 0
     else begin
         let ali_pam = {ali_pam with  
@@ -595,14 +582,10 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
                            ChromPam.max_pos2 = len2 - 1; 
                       } 
         in  
-        
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in  
-
         let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
         in     
-
-
         total_cost, (recost1 + recost2)
     end  
 
@@ -616,17 +599,10 @@ let cmp_cost med1 med2 cost_mat chrom_pams state =
         let len1 = Sequence.length med1.seq in 
         let len2 = Sequence.length med2.seq in 
         fprintf stdout "Cmp_cost with lens %i %i: " len1 len2;
-        flush stdout;
-        let seqfile = open_out "seq12_cost" in 
-        fprintf seqfile ">seq1\n";  
-        Sequence.print seqfile med1.seq Alphabet.nucleotides;  
-        fprintf seqfile "\n";  
-
-        fprintf seqfile ">seq2\n";  
+        (* Sequence.print seqfile med1.seq Alphabet.nucleotides;  
         Sequence.print seqfile med2.seq Alphabet.nucleotides;  
-        close_out seqfile;  
-        print_endline "End of printing seq12";  
-    end;   
+        print_endline "End of printing seq12";  *)
+    end;    
     let ali_pam = ChromPam.get_chrom_pam chrom_pams in 
     let ali_pam = match state with 
     | `Genome -> {ali_pam with ChromPam.negative = false}
@@ -656,21 +632,15 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         let len1 = Sequence.length med1.seq in 
         let len2 = Sequence.length med2.seq in 
         fprintf stdout "Find median list with lens: %i %i" len1 len2; print_newline ();
-        let seqfile = open_out "seq12" in
-        fprintf seqfile ">seq1\n";
-        Sequence.print seqfile med1.seq Alphabet.nucleotides;
-        fprintf seqfile "\n";
-
-        fprintf seqfile ">seq2\n";
-
-        Sequence.print seqfile med2.seq Alphabet.nucleotides;
-        close_out seqfile;
+        Printf.printf "[%!";
+        Sequence.print stdout med1.seq Alphabet.nucleotides;
+        Printf.printf "] [%!";
+        Sequence.print stdout med2.seq Alphabet.nucleotides;
+        Printf.printf "]\n%!"
     end;
-
     let seq1 = med1.seq and seq2 = med2.seq in    
     let len1 = Sequence.length seq1 in
     let len2 = Sequence.length seq2 in 
-
     let ali_pam = {ali_pam with 
                        ChromPam.min_pos1 = 0;
                        ChromPam.max_pos1 = len1 - 1;
@@ -678,7 +648,6 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                        ChromPam.max_pos2 = len2 - 1;
                   }
     in 
-    
     if (len1 < 2) then begin
         let med = {seq = Sequence.clone seq2; 
                    ref_code = Utl.get_new_chrom_ref_code (); 
@@ -702,13 +671,10 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         0, 0, [med]
     end else begin
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
-
-
         let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
         in
-
         let re_gen_seq2 = Utl.filterArray (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
 
@@ -720,8 +686,6 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                 (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
             else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
         in 
-
-
         let med_ls = List.fold_right
             (fun (order_arr, recost1, recost2) med_ls ->
                  let med = 
@@ -736,7 +700,9 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
 (*
        List.iter Block.print global_map; 
         fprintf stdout "Total_cost, recost: %i %i\n" total_cost recost; flush stdout;
-*)  
+*) 
+if debug then
+    Printf.printf "total_cost = %d, rc = %d\n%!" total_cost recost;
       total_cost, recost, med_ls
     end 
 
