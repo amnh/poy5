@@ -34,7 +34,7 @@ external init : unit -> unit = "cm_CAML_initialize"
 
 let debug = false
 
-let print_metric_issues = false
+let print_metric_issues = true
 (*let uselevel = false (* don't forget to set "uselevel" inside alphabet.ml
 and sequence.ml *)
 *)
@@ -229,6 +229,17 @@ module Two_D = struct
                 Pervasives.output_string ch " ";
             done;
             Pervasives.output_string ch "\n";
+        done;;
+
+    (* output [m] to [ch] with (non-extended) alphabet size [a] *)
+    let output_constrained ch a m = 
+        for i = 0 to a - 1 do
+            let i = n_to_the_powers_of_m 2 i in
+            for j = 0 to a - 1 do
+                let j = n_to_the_powers_of_m 2 j in
+                Printf.fprintf ch "%05d " (cost i j m);
+            done;
+            print_newline ();
         done;;
 
     let rec store_input_list_in_cost_matrix_some_combinations m l elt1 elt2 a_sz =
@@ -1001,9 +1012,8 @@ module Two_D = struct
                 else
                     fill_best_cost_and_median_for_all_combinations m a_sz 
             else
-                let _ = 
-                    Status.user_message Status.Warning 
-                    "You@ are@ loading@ a@ non-metric@ TCM"
+                let () = 
+                    Status.user_message Status.Warning "You@ are@ loading@ a@ non-metric@ TCM"
                 in
                 fill_best_cost_and_median_for_all_combinations_bitwise m a_sz
         else

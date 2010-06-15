@@ -1604,8 +1604,19 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let st = 
             Status.create "test: Implied Alignments" vertices "vertices calculated"
         in
-        let convert_data taxon_id data =
-            (*Printf.printf "in convert_data, the taxon id is %d, " taxon_id;*)
+        let apply_likelihood_cm_from_edge tree (a,b) tlst : t list = match a with 
+            | Some a ->
+                let elst =
+                    (* we must create a node first to avoid accessing an unknown
+                     * structure as defined by the functor. *)
+                    Node.get_dynamic_preliminary None
+                        (Edge.to_node (~-1) (a,b) 
+                            (Ptree.get_edge_data (Tree.Edge (a,b)) tree))
+                in
+                List.map2 (fun e t -> {t with c2 = DynamicCS.c2 e}) elst tlst
+            | None -> tlst
+        in
+        let convert_data tree parent self taxon_id data =
             let data = 
                 List.map 
                 (fun dyn ->
@@ -1613,15 +1624,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     let state = DynamicCS.state dyn in 
                     let new_sequences = 
                         Codes.fold 
-                        (fun code seq_arr acc ->
-                            let ias_arr = 
-                                Array.map 
-                                (fun seq -> create_ias state seq taxon_id cg) 
-                                seq_arr
-                            in 
-                            Codes.add code ias_arr acc
-                        ) sequences Codes.empty  
-                    in                                   
+                            (fun code seq_arr acc ->
+                                let ias_arr = 
+                                    Array.map 
+                                        (fun seq -> create_ias state seq taxon_id cg)
+                                        seq_arr
+                                in 
+                                Codes.add code ias_arr acc) 
+                            sequences Codes.empty  
+                    in      
                     {sequences = new_sequences;   
                      c2 = DynamicCS.c2 dyn;   
                      chrom_pam = DynamicCS.chrom_pam dyn;  
@@ -1629,13 +1640,18 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                      alpha = DynamicCS.alpha dyn;
                      code = DynamicCS.code dyn; 
                      cannonic_code = taxon_id;
-                     children = `Single taxon_id}
-                 ) 
-                 data  
+                     children = `Single taxon_id})
+                 data
             in
-            AssocList.singleton (taxon_id, data), data
+            let data = 
+                if Node.using_likelihood `Dynamic (Ptree.get_node_data self ptree) then
+                    apply_likelihood_cm_from_edge tree (parent,self) data
+                else
+                    data
+            in
+            AssocList.singleton (taxon_id,data), data
         in
-        let convert_node parent ptree _ id _ =
+        let convert_node parent ptree _ id _ : AssocList.t * t list =
             let data = Ptree.get_node_data id ptree in
             let taxon_id = Node.taxon_code data in
             let data =
@@ -1651,14 +1667,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     * pick the dynamic adjusted *)
                     let pre = Node.get_dynamic_preliminary par data
                     and adj = Node.get_dynamic_adjusted par data in
-                    List.map2 (fun pre adj ->
-                        if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre)
-                        then
-                            adj
-                        else pre) pre adj
+                    List.map2 
+                        (fun pre adj ->
+                            if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre) then
+                                adj
+                            else pre)
+                        pre adj
                 else get_dynamic_data par data
             in
-            let data = convert_data taxon_id data in
+            let data = convert_data ptree parent id taxon_id data in
             let did = Status.get_achieved st in
             Status.full_report ~adv:(did + 1) st;
             data
@@ -1676,14 +1693,16 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     | `Genome ->  ancestor_genome true 
                 in
                 Codes.fold 
-                (fun u v acc ->
-                    let homs = Codes.find u y.sequences in
-                    let ancestor = 
-                        ancestor_f calculate_median all_minus_gap
-                                   x.cannonic_code y.cannonic_code x.children
-                                   y.children v homs x.c2 x.alpha x.chrom_pam;
-                    in
-                    Codes.add u ancestor acc) x.sequences Codes.empty
+                    (fun u v acc ->
+                        let homs = Codes.find u y.sequences in
+                        let ancestor = 
+                            ancestor_f calculate_median all_minus_gap
+                                       x.cannonic_code y.cannonic_code x.children
+                                       y.children v homs x.c2 x.alpha x.chrom_pam;
+                        in
+                        Codes.add u ancestor acc)
+                    x.sequences
+                    Codes.empty
             in
             let rec ancestor_builder hx hy =
                 { hx with 
@@ -1732,77 +1751,53 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         in
                         let a = join_2_nodes () () a a' in
                         join_2_nodes () () a b
-                  end 
-                  else 
+                  end else begin
                         (* We will do a different tree traversal, converting each
                         interior vertex as we move down the tree starting with the
                         actual root *)
                         let rec tree_traverser parent_ia parent_code my_code =
-                        (*Printf.printf "\n in tree_traverser. mycode= %d, %!"
-                        * my_code;*)
                             let my_ia =
                                 let my_ia = 
                                     convert_node parent_code ptree () my_code
                                     ([], [])
                                 in
-                                (*let _ = 
-                                match Ptree.get_node my_code ptree with
-                                | Tree.Interior (aa,bb,cc,dd) ->
-                                        Printf.printf " is interior node =
-                                             (%d, %d, %d, %d) %!" aa bb cc dd
-                                | Tree.Leaf (aa,bb) ->
-                                        Printf.printf " is leaf node = (%d,%d) %!"
-                                        aa bb
-                                | Tree.Single _-> Printf.printf " is single node %!"
-                                in*)
                                 match Ptree.get_node my_code ptree with
                                 | (Tree.Interior _) as n -> 
-                                        let parent_code = 
-                                            match parent_code with
-                                            | Some parent_code -> parent_code
-                                            | None -> assert false
-                                        in
-                                        let a, b = Tree.other_two_nbrs parent_code n in
-                                        let my_ia = 
-                                            tree_traverser my_ia (Some my_code) a 
-                                        in
-                                        tree_traverser my_ia (Some my_code) b 
+                                    let parent_code = match parent_code with
+                                        | Some parent_code -> parent_code
+                                        | None -> assert false
+                                    in
+                                    let a, b = Tree.other_two_nbrs parent_code n in
+                                    let my_ia = tree_traverser my_ia (Some my_code) a in
+                                    tree_traverser my_ia (Some my_code) b 
                                 | _ -> my_ia
                             in
                             join_2_nodes () () parent_ia my_ia
                         in
+                        (* Printf.printf "Traversal starting at %d\n" self; *)
                         match Ptree.get_node self ptree with
                         | Tree.Interior (_, a, b, c) ->
-                               (* Printf.printf "tree.interior: (%d, %d, %d, %d) \n %!" self a
-                                b c;*)
-                                let myd = Ptree.get_node_data  self ptree in
+                                let myd = Ptree.get_node_data self ptree in
+                                let selfopt = Some self and otheropt = Some other in
                                 let my_ia = 
-                                    convert_data self
-                                    (get_dynamic_data (Some other) myd)
+                                    convert_data ptree otheropt self self 
+                                        (get_dynamic_data otheropt myd)
                                 in
-                                let self = Some self in
-                                (*Printf.printf "\n traverser directionA NO.%d
-                                * %! \n" a;*)
-                                let my_ia = tree_traverser my_ia self a in
-                                (*Printf.printf "\n traverser directionB NO.%d
-                                * %! \n" b;*)
-                                let my_ia = tree_traverser my_ia self b in
-                                (*Printf.printf "\n traverser directionC NO.%d
-                                * %! \n" c;*)
-                                tree_traverser my_ia self c
+                                let my_ia = tree_traverser my_ia selfopt a in
+                                let my_ia = tree_traverser my_ia selfopt b in
+                                tree_traverser my_ia selfopt c
                         | Tree.Leaf (_, b) ->
-                                (*Printf.printf "tree.leaf: %d, %!" self;*)
                                 let myd = Ptree.get_node_data self ptree in
                                 let my_ia = 
-                                    convert_data self (get_dynamic_data (Some b) myd)
+                                    convert_data ptree (Some b) self self 
+                                        (get_dynamic_data (Some b) myd)
                                 in
-                                (*Printf.printf "traverser NO.b %! \n";*)
                                 tree_traverser my_ia (Some self) b
                         | Tree.Single _ ->
-                                (*Printf.printf "single tree\n %!";*)
                                 let data = Ptree.get_node_data self ptree in
-                                convert_data (Node.taxon_code data) 
-                                (get_dynamic_data None data)
+                                convert_data ptree None self self
+                                        (get_dynamic_data None data)
+                     end 
               in
               let _ = Status.finished st in
               let cleanedup = 

@@ -100,6 +100,7 @@ module Two_D : sig
 
     (** [print ma] prints the matrix ma with alphabet size a in stdout. *)
     val output : out_channel -> m -> unit
+    val output_constrained : out_channel -> int -> m -> unit
 
     (** {2 Setting Values} *)
 
