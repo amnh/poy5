@@ -339,17 +339,25 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
-let normalize ray = 
-    let last_val = ray.((Array.length ray) - 1) in
-    Array.map (fun i -> i /. last_val) ray
+(* normalize against two characters that are not gaps; unless its the only choice *)
+let normalize spec ray =
+    (* let convert (r,c) = 
+        let r,c = min r c,max r c and l = length of alpha
+        c + (l*r) - l - 1 - (((r+1)*r)/2)
+     in *)
+    let normalize_factor =
+        if spec.use_gap
+            then ray.((Array.length ray) - 3)
+            else ray.((Array.length ray) - 1) 
+    in
+    Array.map (fun i -> i /. normalize_factor) ray
 
 (* val gtr :: ANY ALPHABET size
    pi_ == n; co_ == ((n-1)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
     if ((a_size*(a_size-1))/2) <> Array.length co_ then begin
-        failwithf "Length of GTR insufficient against alphabet: %d != %d\n" 
-                    (Array.length co_) a_size;
+        failwithf "Length of GTR parameters is insufficient for alphabet";
     end;
     (* last element of GTR = 1.0 *)
     let last = co_.( (Array.length co_) - 1) in
@@ -800,7 +808,7 @@ let create alph lk_spec =
             false, m_tn93 priors ts tv 1.0 a_size, lk_spec.substitution
         | GTR c ->
             let c = match c with 
-                | Some xs -> normalize xs
+                | Some xs -> normalize lk_spec xs
                 | None    -> default_gtr a_size
             in
             false, m_gtr priors c a_size, (GTR (Some c))
@@ -1079,7 +1087,7 @@ and update_f84 old_model new_value =
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_gtr old_model new_values =  
-    let normalized_values = normalize new_values in
+    let normalized_values = normalize old_model.spec new_values in
     let subst_spec = { old_model.spec with substitution = GTR (Some normalized_values) }
     and priors = match old_model.spec.base_priors with
                  | ConstantPi x | Estimated x | Given x -> x in
