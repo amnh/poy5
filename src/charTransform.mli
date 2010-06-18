@@ -36,7 +36,7 @@ module type S = sig
         Data.d -> tree Sexpr.t -> Methods.perturb_method -> tree Sexpr.t
 
     val replace_nodes : a list -> tree -> tree
-    val replace_nodes_data : a list -> Data.d -> tree -> tree
+    val replace_nodes_data : Data.d -> tree -> tree
 
     (** [substitute_nodes nodes tree] replaces the nodes in tree with the nodes with
         the same taxon code from the list *)
