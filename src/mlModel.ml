@@ -624,6 +624,7 @@ END
 
 (* create a cost matrix from a model *)
 let model_to_cm model t =
+    let t = max epsilon t in
     let input =
         IFDEF USE_LIKELIHOOD THEN 
             integerized_model model t
