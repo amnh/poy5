@@ -340,17 +340,26 @@ let m_f84 pi_ gamma kappa a_size =
     m_tn93 pi_ alpha beta gamma a_size 
 
 (* normalize against two characters that are not gaps; unless its the only choice *)
-let normalize spec ray =
-    (* let convert (r,c) = 
-        let r,c = min r c,max r c and l = length of alpha
-        c + (l*r) - l - 1 - (((r+1)*r)/2)
-     in *)
+let normalize ?(m=epsilon) spec ray =
+    (*  let l = Array.length (get_priors spec.base_priors) in
+        let convert_rc_to_i l (r,c) = 
+            let r,c = min r c,max r c in
+            c + (l*r) - l - 1 - (((r+1)*r)/2)
+        and convert_i_to_rc l i = 
+            let rec convert_ r v =
+                let sub = l - r - 1 in
+                if v < sub then (r-1,l+(v-sub)-1)
+                else convert_ (r+1) (v-sub)
+            in
+            convert_ 0 i
+        in
+    *)
     let normalize_factor =
         if spec.use_gap
-            then ray.((Array.length ray) - 3)
-            else ray.((Array.length ray) - 1) 
+            then max m ray.((Array.length ray) - 3)
+            else max m ray.((Array.length ray) - 1) 
     in
-    Array.map (fun i -> i /. normalize_factor) ray
+    Array.map (fun i -> max m (i /. normalize_factor)) ray
 
 (* val gtr :: ANY ALPHABET size
    pi_ == n; co_ == ((n-1)*n)/2
@@ -733,7 +742,7 @@ let verify_rates probs rates =
     p1 && p2
 
 (* create a model based on a specification and an alphabet *)
-let create alph lk_spec = 
+let create ?(min_prior=epsilon) alph lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size,a_gap) = match lk_spec.use_gap with
@@ -769,21 +778,17 @@ let create alph lk_spec =
     (* extract the prior probability *)
     let priors =
         let p = match lk_spec.base_priors with 
-            | ConstantPi p | Estimated p | Given p -> p in
+            | ConstantPi p | Estimated p | Given p -> 
+                let p = Array.map (fun i -> max min_prior i) p in
+                let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
+                if sum =. 1.0 
+                    then p
+                    else Array.map (fun i -> i /. sum) p
+        in
         if not (a_size = Array.length p) then begin
             debug_printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
-            assert false
-        end else ();
-        let () = 
-            let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
-            if 1.0 =. sum then ()
-                else begin
-                    debug_printf "Priors (%f): [" sum;
-                    Array.iter (debug_printf "|%f") p;
-                    debug_printf "%s%!" "|]\n";
-                    failwith "Priors do not sum to 1.0"
-                end
-        in
+            failwith "MlModel.create: Priors don't match alphabet"
+        end;
         p
     in
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
@@ -857,9 +862,27 @@ let add_gap_to_model compute_priors model =
             failwith ("I cannot transform the specified characters to"^
                       " dynamic likelihood characters; the given rate"^
                       " matrix requires gap transformation rates.")
-        (* ignore supplied transitions; these could have been applied by the
-         * optimization functions; we don't know if they were given *)
-        | GTR _ -> GTR None
+        | GTR (Some xs) ->
+            let convert_i_to_rc l i = 
+                let rec convert_ r v =
+                    let sub = l - r - 1 in
+                    if v < sub then (r,l+(v-sub))
+                    else convert_ (r+1) (v-sub)
+                in
+                convert_ 0 i
+            and convert_rc_to_i l (r,c) = 
+                let r,c = (min r c)+1,(max r c)+1 in
+                c + (l*r) - l - 1 - (((r+1)*r)/2)
+            in
+            let ngtr = 
+                Array.init 
+                    (((size-1)*size)/2)
+                    (fun i -> 
+                        let r,c = convert_i_to_rc size i in
+                        if c = size - 1 then 0.01
+                        else xs.(convert_rc_to_i (size-1) (r,c)))
+            in
+            GTR (Some ngtr)
     in
     let new_spec = {model.spec with base_priors = priors; 
                                         use_gap = true;
