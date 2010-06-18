@@ -737,7 +737,9 @@ let print (data : d) =
         List.iter
             (fun x -> 
                 let m = get_likelihood_model data x in
-                MlModel.output_model (print_string) `Nexus m None)
+                Printf.printf "%d:" (List.hd x);
+                MlModel.output_model (print_string) `Nexus m None;
+                print_newline ())
             (MlModel.categorize_by_model chars get_function)
     and print_specs (code : int) (spec : specs) = 
         let name = Hashtbl.find data.character_codes code in 
@@ -791,11 +793,6 @@ let print (data : d) =
     All_sets.IntSetMap.iter print_intset_codes data.static_dynamic_codes;
     print_newline ()
 
-
-    (*
-let annotated_sequences bool data =
-    { data with use_annotated_sequences = bool }
-    *)
 
 let get_weight c data = 
     match Hashtbl.find data.character_specs c with
@@ -3967,6 +3964,8 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                         (Static {x with Nexus.File.st_type = model_enc; })
                 | Dynamic ({state = state} as x) when state = `Ml ->
                     let () = match !model_opt with
+                        | None when model.MlModel.spec.MlModel.use_gap ->
+                            model_opt := Some model
                         | None -> 
                             model_opt := Some (MlModel.add_gap_to_model priors_ model)
                         | Some _ -> ()
@@ -3980,16 +3979,15 @@ let apply_likelihood_model_on_char_table replace data table codes model =
         (* replace all characters in the set of codes *)
         List.iter
             (fun code -> match Hashtbl.find table code with
-            | Static x -> 
+            | Static x ->
                 Hashtbl.replace table code
                     (Static {x with Nexus.File.st_type = model_enc; })
             | Dynamic x ->
                 let () = match !model_opt with
+                    | None when model.MlModel.spec.MlModel.use_gap ->
+                        model_opt := Some model
                     | None -> 
-                        if model.MlModel.spec.MlModel.use_gap 
-                            then model_opt := Some model
-                            else model_opt :=
-                                Some (MlModel.add_gap_to_model priors_ model)
+                        model_opt := Some (MlModel.add_gap_to_model priors_ model)
                     | Some _ -> ()
                 in
                 Hashtbl.replace table code
@@ -5862,12 +5860,14 @@ let sync_dynamic_to_static_model_branches ~src ~dest =
         All_sets.IntegerMap.iter
             (fun src_c dest_cs -> match get_model_opt src src_c with
                 | Some x ->
-                    apply_likelihood_model_on_char_table true dest spec dest_cs x
+                    apply_likelihood_model_on_char_table false dest spec dest_cs x;
+                    Hashtbl.remove spec src_c
                 | None -> ())
             dest.dynamic_static_codes;
         spec
     in
-    { dest with character_specs = char_specs; }
+    let r = categorize { dest with character_specs = char_specs; } in
+    r
 
 (* converse of above function *)
 let sync_static_to_dynamic_model_branches ~src ~dest = 
@@ -5882,12 +5882,14 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
             (fun src_cs dest_c -> 
                 match get_model_from_set src src_cs with
                 | Some x ->
-                    apply_likelihood_model_on_char_table true dest spec [dest_c] x
+                    apply_likelihood_model_on_char_table false dest spec [dest_c] x;
+                    All_sets.Integers.iter (fun x -> Hashtbl.remove spec x) src_cs
                 | None -> ())
             src.static_dynamic_codes;
         spec
     in
-    { dest with character_specs = char_specs; }
+    let r = categorize { dest with character_specs = char_specs; } in
+    r
 
 (* remove the absent/present columns in the parsed data, and modify the previous
  * column (the column the active/present column is adding data to), and modify
