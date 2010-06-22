@@ -1258,8 +1258,10 @@ let graph_function ?(steps=10000) filename lower upper f =
     ()
 
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
+  (*-- ensure value falls between range; if using one *)
+    let minmax value = max (min v_max value) v_min in
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
   (*-- approximation of equality; based on epsilon above *)
@@ -1269,7 +1271,7 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e
   (*-- auxillary functions to bracket a region *)
     let rec create_initial_three_and_bracket (o,(_,fo) as o') =
         let rec create_scaled (v,_) s = 
-            let vs = max (v *.s) v_min in let fvs = f vs in
+            let vs = minmax (v *. s) in let fvs = f vs in
             debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
             (vs,fvs)
         and push_left a b c = (create_scaled a 0.5),a,b
@@ -1337,8 +1339,8 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e
             (* the ONLY function evalution for each iteration *)
             let u = 
                 if (abs_float d) >= tol1
-                    then max v_min (x+.d)
-                    else max v_min (x+.(sign tol1 d))
+                    then minmax (x+.d)
+                    else minmax (x+.(sign tol1 d))
             in
             let fu = f u in
             let u',fu = (u,fu), snd fu in

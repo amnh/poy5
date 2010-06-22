@@ -233,7 +233,7 @@ val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
  * control the number of iterations and tolerance, respectively. [o] is a pair
  * of floating point numbers, essentially, representing a point *)
 val brents_method :
-    ?max_iter:int -> ?v_min:float -> ?tol:float -> ?epsilon:float 
+    ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
         -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
