@@ -399,7 +399,7 @@ let rec general_apply_on_character_set find set_table characters f x =
                 end;
             in
             loop a
-    | P.Single v  -> f (int_of_string v);
+    | P.Single v  -> f ((int_of_string v) - 1);
     | P.Name name ->
             if Hashtbl.mem set_table (String.uppercase name) then
                 List.iter 
@@ -413,22 +413,6 @@ let rec general_apply_on_character_set find set_table characters f x =
                 else if "." = up_name then f (last - 1)
                 else f (find characters name)
             end
-    | P.CharSet name -> failwith "Lets not do this again..."
-        (*  let up_name = String.uppercase name in
-            let names =
-                try Hashtbl.find setnames up_name
-                with | Not_found -> 
-                    let all_keys = String.concat ", " 
-                                    (Hashtbl.fold (fun k v a -> k::a)
-                                                  setnames
-                                                  [])
-                    in
-                    Printf.kprintf failwith "Character set (%s) undefined in %s" name all_keys
-            in
-            List.iter
-                (fun x -> 
-                    apply_on_character_set
-                        characters setnames f (P.Name x)) names *)
 
 let apply_on_character_set = general_apply_on_character_set find_character
 
@@ -460,10 +444,7 @@ let rec get_character_names chars sets : P.charset -> string list = function
                 failwith (Printf.sprintf "Cannot find character set %s of sets" name)
         end
     | P.Single num ->
-        chars.(int_of_string num).st_name :: []
-    | P.CharSet name -> failwith "does not exist"
-(*        try Hashtbl.find sets (String.uppercase name)*)
-(*        with | Not_found -> []*)
+        chars.((int_of_string num) - 1).st_name :: []
 
 let find_taxon taxa name =
     try find_position "Taxon not found" 

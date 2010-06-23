@@ -31,7 +31,6 @@ module P : sig
         | Range of (string * string option * int)
         | Single of string
         | Name of string
-        | CharSet of string
 
     type char_data = {
         char_taxon_dimensions : string option;
