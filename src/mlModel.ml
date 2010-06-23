@@ -651,32 +651,32 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
             (match param with
             | [] -> JC69
             | _ -> failwith "Parameters don't match model")
-        | "F81" -> 
+        | "F81" ->
             iterate_model := false;
             (match param with
             | [] -> F81
             | _ -> failwith "Parameters don't match model")
         | "K80" | "K2P" -> (match param with
-            | ratio::[] -> 
-                iterate_model := false;    
+            | ratio::[] ->
+                iterate_model := false;
                 K2P (Some ratio)
             | []        -> K2P None
             | _ -> failwith "Parameters don't match model")
         | "F84" -> (match param with
             | ratio::[] ->
-                iterate_model := false;    
+                iterate_model := false;
                 F84 (Some ratio)
             | []        -> F84 None
             | _ -> failwith "Parameters don't match model")
         | "HKY" | "HKY85" -> (match param with
             | ratio::[] ->
-                iterate_model := false;    
+                iterate_model := false;
                 HKY85 (Some ratio)
             | []        -> HKY85 None
             | _ -> failwith "Parameters don't match model")
         | "TN93" -> (match param with
             | ts::tv::[] ->
-                iterate_model := false;    
+                iterate_model := false;
                 TN93 (Some (ts,tv))
             | []         -> TN93 None
             | _ -> failwith "Parameters don't match model")
@@ -1275,9 +1275,15 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5)
             debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
             (vs,fvs)
         and push_left a b c = (create_scaled a 0.5),a,b
-        and push_right a b c = b,c,(create_scaled c 1.5)
+        and push_right a b c = b,c,(create_scaled c 2.0)
         and bracket_region ((l,(_,fl)) as low) ((m,(_,fm)) as med) ((h,(_,fh)) as hi) =
-            if l =. h then (low,med,hi) (* converged, but brent will return this anyway *)
+            if l =. h then (low,med,hi)       (* converged *)
+            else if fl =. fm && fm =. fh then (* converged; flat  *)
+                begin
+                debug_printf ("Cannot bracket flat region for brents method;"^^
+                              "[%f,%f] [%f,%f] [%f,%f]\n%!") l fl m fm h fh;
+                (low,med,hi)
+                end
             else if fl <= fm && fm <= fh then (* increasing *)
                 let a,b,c = push_left low med hi in bracket_region a b c
             else if fl >= fm && fm >= fh then (* decreasing *)
@@ -1344,7 +1350,7 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5)
             in
             let fu = f u in
             let u',fu = (u,fu), snd fu in
-            debug_printf "\tCalculated [%f,%f] in Brent\n%!" u fu;
+            debug_printf "\tCalculated [%f,%.11f] in Brent\n%!" u fu;
             (* what to do with results for next iteration *)
             if fu <= fx then begin
                 let a,b = if u >= x then x,b else a,x in
