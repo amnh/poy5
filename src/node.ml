@@ -2877,7 +2877,7 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           | _ -> None
           in 
           if debug_treebuild then
-               Printf.printf "call DynamicCS.to_single => annchromCS.to_single \n%!";
+               Printf.printf "call DynamicCS.to_single  \n%!";
           let prev_cost, cost, res = 
               DynamicCS.to_single pre_ref_code 
                     root_pre parent.preliminary mine.preliminary 
