@@ -25,6 +25,8 @@
 type string_spec = string * (string * string * string * string)
                           * float list * ( string * float ) list * bool * string option
 
+val epsilon : float
+
 val empty_str_spec : string_spec
 
 val likelihood_not_enabled : string
@@ -113,7 +115,7 @@ val replace_priors : model -> float array -> model
 val convert_string_spec : string_spec -> spec
 
 (** [create_lk_model s] create the model for likelihood from parser *)
-val create : Alphabet.a -> spec -> model
+val create : ?min_prior:float -> Alphabet.a -> spec -> model
 
 (** [enable_gaps f m] a function to add gaps to the model; this is used to
  * ensure that dynamic characters have gaps as a character during transforms.
@@ -231,7 +233,7 @@ val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
  * control the number of iterations and tolerance, respectively. [o] is a pair
  * of floating point numbers, essentially, representing a point *)
 val brents_method :
-    ?max_iter:int -> ?v_min:float -> ?tol:float -> ?epsilon:float 
+    ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
         -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the

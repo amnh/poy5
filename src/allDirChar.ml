@@ -2118,8 +2118,7 @@ module F : Ptree.Tree_Operations
     let branch_table ptree =
         let trees_table = Hashtbl.create 13 in
         let create_branch_table handle () = 
-            let single_node prev curr =
-(*                Printf.printf "Adding BL for %d -- %d\n%!" prev curr;*)
+            let rec single_node prev curr =
                 let pair = (min curr prev, max curr prev) in
                 let dat = AllDirNode.AllDirF.get_times_between 
                             (Ptree.get_node_data curr ptree)
@@ -2134,19 +2133,23 @@ module F : Ptree.Tree_Operations
                         | None -> ()
                     ) dat in
                 ()
-            in
-            let a,b =
-                match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                | Some ((`Edge (a,b)),_) -> a,b
-                | None | Some _ -> raise Not_found
-            in
-            let (),() =
+            and traversal a b = 
                 Ptree.post_order_node_with_edge_visit
                     (fun prev curr _ -> single_node prev curr)
                     (fun prev curr _ _ -> single_node prev curr)
                     (Tree.Edge (a,b))
                     ptree
                     ()
+            in
+            let (),() =
+                try match (Ptree.get_component_root handle ptree).Ptree.root_median with
+                    | Some ((`Edge (a,b)),_) -> traversal a b
+                    | None | Some _ -> raise Not_found
+                with | Not_found -> 
+                    match Ptree.get_node handle ptree with
+                    | Tree.Leaf (a,b)
+                    | Tree.Interior (a,b,_,_) -> traversal a b
+                    | Tree.Single _ -> (),()
             in
             ()
         in

@@ -1,8 +1,8 @@
 let convert_ file =
-    let taxa_char_lengths = Str.regexp "\\(^[0-9]+\\)[\\t ]+\\([0-9]+\\)"
-    and name_sequence = Str.regexp " *\\([a-zA-Z0-9]+\\)[\\t ]+\\([a-zA-Z?-]+\\)+"
+    let taxa_char_lengths = Str.regexp "\\(^[0-9]+\\)[\t ]+\\([0-9]+\\)"
+    and name_sequence = Str.regexp " *\\([a-zA-Z0-9]+\\)[\t ]+\\([a-zA-Z?-]+\\)+"
     and continued_seq = Str.regexp " *\\([a-ZA-Z?-]+\\)"
-    and reset_order = Str.regexp " +" in
+    and reset_order = Str.regexp "[\t ]*" in
 
     let ch, file = FileStream.channel_n_filename file
     and index = ref 0 in
@@ -27,12 +27,14 @@ let convert_ file =
             if Str.string_match name_sequence line 0 then
                 begin
                     taxa_array.(!index) <- (Str.matched_group 1 line);
-                    Buffer.add_string sequence_array.(!index) (Str.matched_group 2 line);
+                    let added_data = (Str.matched_group 2 line) in
+                    Buffer.add_string sequence_array.(!index) added_data;
                     index := (!index + 1) mod num_taxa_int;
                 end
             else if Str.string_match continued_seq line 0 then
                 begin
-                    Buffer.add_string sequence_array.(!index) (Str.matched_group 1 line);
+                    let added_data = (Str.matched_group 1 line) in
+                    Buffer.add_string sequence_array.(!index) added_data;
                     index := (!index + 1) mod num_taxa_int;
                 end
             else if Str.string_match reset_order line 0 then
@@ -87,9 +89,10 @@ let (-->) a b = b a
 let of_file (file : FileStream.f) = 
     let tax_array, seq_array = convert_ file
     and file = match file with | `Local x | `Remote x -> x in
+
     let final_taxa_array = Array.map (fun x -> Some x) tax_array
     and nchars = Buffer.length seq_array.(0) 
-    and ntaxas = Array.length seq_array in
+    and ntaxas = Array.length tax_array in
     let alphabet =
         let observed = 
             Array.fold_left
@@ -136,6 +139,7 @@ let of_file (file : FileStream.f) =
                 add_elms acc values)
             [] seq
     in
+    Printf.printf "Making array of %d characters\n%!" nchars;
     let final_chars_array = 
         Array.init nchars 
             (fun i-> {Nexus.File.st_filesource = file;
@@ -156,5 +160,5 @@ let of_file (file : FileStream.f) =
     in
     { Nexus.File.empty_parsed () with
       Nexus.File.taxa = final_taxa_array;
-         matrix = final_seq_matrix; 
-         characters = final_chars_array; }
+               matrix = final_seq_matrix; 
+           characters = final_chars_array; }

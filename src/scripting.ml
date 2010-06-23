@@ -1613,7 +1613,7 @@ let temporary_transforms meths run =
                                  ~src:o_tree.Ptree.data
                                 ~dest:run.data
                     in
-                    CT.replace_nodes_data run.nodes data o_tree)
+                    CT.replace_nodes_data data o_tree)
                 myrun.trees
         in
         { run with trees = trees; }

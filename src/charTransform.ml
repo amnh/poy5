@@ -52,7 +52,7 @@ module type S = sig
 
     val replace_nodes : a list -> tree -> tree
 
-    val replace_nodes_data : a list -> Data.d -> tree -> tree
+    val replace_nodes_data : Data.d -> tree -> tree
 
     (** [substitute_nodes nodes tree] replaces the nodes in tree with the nodes with
         the same taxon code from the list *)
@@ -407,11 +407,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         transform_tree filter tree
 
-    let replace_nodes_data nodes data tree = 
+    let replace_nodes_data data tree = 
+        let data,nodes = Node.load_data ~silent:true ~classify:false data in
         let filter node = 
-            List.find (fun x -> Node.taxon_code x = Node.taxon_code node) nodes 
+            List.find (fun x -> Node.taxon_code x = Node.taxon_code node) nodes
         in
-        transform_tree filter {tree with Ptree.data = data}
+        transform_tree filter {tree with Ptree.data = data; }
 
     let unsupported_character_messages = function
         | `Assign_Transformation_Cost_Matrix (_, _) ->

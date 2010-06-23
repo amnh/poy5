@@ -339,17 +339,34 @@ let m_f84 pi_ gamma kappa a_size =
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size 
 
-let normalize ray = 
-    let last_val = ray.((Array.length ray) - 1) in
-    Array.map (fun i -> i /. last_val) ray
+(* normalize against two characters that are not gaps; unless its the only choice *)
+let normalize ?(m=epsilon) spec ray =
+    (*  let l = Array.length (get_priors spec.base_priors) in
+        let convert_rc_to_i l (r,c) = 
+            let r,c = min r c,max r c in
+            c + (l*r) - l - 1 - (((r+1)*r)/2)
+        and convert_i_to_rc l i = 
+            let rec convert_ r v =
+                let sub = l - r - 1 in
+                if v < sub then (r-1,l+(v-sub)-1)
+                else convert_ (r+1) (v-sub)
+            in
+            convert_ 0 i
+        in
+    *)
+    let normalize_factor =
+        if spec.use_gap
+            then max m ray.((Array.length ray) - 3)
+            else max m ray.((Array.length ray) - 1) 
+    in
+    Array.map (fun i -> max m (i /. normalize_factor)) ray
 
 (* val gtr :: ANY ALPHABET size
    pi_ == n; co_ == ((n-1)*n)/2
    form of lower packed storage mode, excluding diagonal, *)
 let m_gtr pi_ co_ a_size =
     if ((a_size*(a_size-1))/2) <> Array.length co_ then begin
-        failwithf "Length of GTR insufficient against alphabet: %d != %d\n" 
-                    (Array.length co_) a_size;
+        failwithf "Length of GTR parameters is insufficient for alphabet";
     end;
     (* last element of GTR = 1.0 *)
     let last = co_.( (Array.length co_) - 1) in
@@ -607,6 +624,7 @@ END
 
 (* create a cost matrix from a model *)
 let model_to_cm model t =
+    let t = max epsilon t in
     let input =
         IFDEF USE_LIKELIHOOD THEN 
             integerized_model model t
@@ -725,7 +743,7 @@ let verify_rates probs rates =
     p1 && p2
 
 (* create a model based on a specification and an alphabet *)
-let create alph lk_spec = 
+let create ?(min_prior=epsilon) alph lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size,a_gap) = match lk_spec.use_gap with
@@ -761,21 +779,17 @@ let create alph lk_spec =
     (* extract the prior probability *)
     let priors =
         let p = match lk_spec.base_priors with 
-            | ConstantPi p | Estimated p | Given p -> p in
+            | ConstantPi p | Estimated p | Given p -> 
+                let p = Array.map (fun i -> max min_prior i) p in
+                let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
+                if sum =. 1.0 
+                    then p
+                    else Array.map (fun i -> i /. sum) p
+        in
         if not (a_size = Array.length p) then begin
             debug_printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
-            assert false
-        end else ();
-        let () = 
-            let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
-            if 1.0 =. sum then ()
-                else begin
-                    debug_printf "Priors (%f): [" sum;
-                    Array.iter (debug_printf "|%f") p;
-                    debug_printf "%s%!" "|]\n";
-                    failwith "Priors do not sum to 1.0"
-                end
-        in
+            failwith "MlModel.create: Priors don't match alphabet"
+        end;
         p
     in
     (*  get the substitution rate matrix and set sym variable and to_formatter vars *)
@@ -800,7 +814,7 @@ let create alph lk_spec =
             false, m_tn93 priors ts tv 1.0 a_size, lk_spec.substitution
         | GTR c ->
             let c = match c with 
-                | Some xs -> normalize xs
+                | Some xs -> normalize lk_spec xs
                 | None    -> default_gtr a_size
             in
             false, m_gtr priors c a_size, (GTR (Some c))
@@ -849,9 +863,27 @@ let add_gap_to_model compute_priors model =
             failwith ("I cannot transform the specified characters to"^
                       " dynamic likelihood characters; the given rate"^
                       " matrix requires gap transformation rates.")
-        (* ignore supplied transitions; these could have been applied by the
-         * optimization functions; we don't know if they were given *)
-        | GTR _ -> GTR None
+        | GTR (Some xs) ->
+            let convert_i_to_rc l i = 
+                let rec convert_ r v =
+                    let sub = l - r - 1 in
+                    if v < sub then (r,l+(v-sub))
+                    else convert_ (r+1) (v-sub)
+                in
+                convert_ 0 i
+            and convert_rc_to_i l (r,c) = 
+                let r,c = (min r c)+1,(max r c)+1 in
+                c + (l*r) - l - 1 - (((r+1)*r)/2)
+            in
+            let ngtr = 
+                Array.init 
+                    (((size-1)*size)/2)
+                    (fun i -> 
+                        let r,c = convert_i_to_rc size i in
+                        if c = size - 1 then 0.01
+                        else xs.(convert_rc_to_i (size-1) (r,c)))
+            in
+            GTR (Some ngtr)
     in
     let new_spec = {model.spec with base_priors = priors; 
                                         use_gap = true;
@@ -1079,7 +1111,7 @@ and update_f84 old_model new_value =
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_gtr old_model new_values =  
-    let normalized_values = normalize new_values in
+    let normalized_values = normalize old_model.spec new_values in
     let subst_spec = { old_model.spec with substitution = GTR (Some normalized_values) }
     and priors = match old_model.spec.base_priors with
                  | ConstantPi x | Estimated x | Given x -> x in
@@ -1226,8 +1258,10 @@ let graph_function ?(steps=10000) filename lower upper f =
     ()
 
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
+  (*-- ensure value falls between range; if using one *)
+    let minmax value = max (min v_max value) v_min in
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
   (*-- approximation of equality; based on epsilon above *)
@@ -1237,7 +1271,7 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e
   (*-- auxillary functions to bracket a region *)
     let rec create_initial_three_and_bracket (o,(_,fo) as o') =
         let rec create_scaled (v,_) s = 
-            let vs = max (v *.s) v_min in let fvs = f vs in
+            let vs = minmax (v *. s) in let fvs = f vs in
             debug_printf "Calculated [%f,%f] in Brent\n%!" vs (snd fvs);
             (vs,fvs)
         and push_left a b c = (create_scaled a 0.5),a,b
@@ -1305,8 +1339,8 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(tol=3.0e-5) ?(epsilon=1.0e
             (* the ONLY function evalution for each iteration *)
             let u = 
                 if (abs_float d) >= tol1
-                    then max v_min (x+.d)
-                    else max v_min (x+.(sign tol1 d))
+                    then minmax (x+.d)
+                    else minmax (x+.(sign tol1 d))
             in
             let fu = f u in
             let u',fu = (u,fu), snd fu in

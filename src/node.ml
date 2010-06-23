@@ -631,18 +631,14 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                         let t1, t2 = match t1,t2 with
                             | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
                             | Some (t1), Some (t2) -> t1,t2
-(*                                if anode.min_child_code < bnode.min_child_code *)
-(*                                    then t1, t2 else t2, t1*)
                             | _ ->
-                                if debug_bl then
-                                    Printf.printf "estimating BL\n%!";
+                                if debug_bl then Printf.printf "estimating BL\n%!";
                                 MlDynamicCS.estimate_time ca_pre cb_pre
                         in 
                         if debug then 
                             info_user_message
                                 "Calculating %d with %f(%d) and %f(%d)"
-                                code t1 anode.taxon_code t2 bnode.taxon_code
-                        else ();
+                                code t1 anode.taxon_code t2 bnode.taxon_code;
                         let t1,t2 = 
                             if anode.min_child_code < bnode.min_child_code 
                             then t1,t2 else t2,t1
@@ -2740,8 +2736,7 @@ let load_data ?(silent=true) ?(classify=true) data =
         let st, finalize = 
             if not silent then
                 let status = 
-                    Status.create "Loading terminals" (Some ntaxa)
-                    "terminals loaded" 
+                    Status.create "Loading terminals" (Some ntaxa) "terminals loaded" 
                 in
                 let cnt = ref 0 in
                 (fun () -> 
@@ -2753,7 +2748,7 @@ let load_data ?(silent=true) ?(classify=true) data =
         in
         let res = 
             All_sets.IntegerMap.fold 
-                (fun x _ acc -> 
+                (fun x _ acc ->
                     let res = generate_taxon x acc in st (); res)
                 data.Data.taxon_codes []
         in

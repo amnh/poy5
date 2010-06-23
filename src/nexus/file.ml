@@ -451,9 +451,13 @@ let rec get_character_names chars sets : P.charset -> string list = function
         loop [] a
     | P.Name name ->
         begin try chars.(find_character chars name).st_name :: []
-        with | _ -> 
-            List.flatten
-                (List.map (get_character_names chars sets) (Hashtbl.find sets name))
+        with | _ ->
+            try
+                let name = String.uppercase name in
+                List.flatten
+                    (List.map (get_character_names chars sets) (Hashtbl.find sets name))
+            with | _ -> 
+                failwith (Printf.sprintf "Cannot find character set %s of sets" name)
         end
     | P.Single num ->
         chars.(int_of_string num).st_name :: []
