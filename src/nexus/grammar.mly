@@ -475,6 +475,8 @@ model_block:
             { (P.Model $3) :: $5 }
     | VARIATION EQUAL IDENT SEMICOLON model_block
             { (P.Variation $3) :: $5 }
+    | VARIATION EQUAL NONE SEMICOLON model_block
+            { (P.Variation "none") :: $5 }
     | SITES EQUAL INTEGER SEMICOLON model_block
             { (P.Variation_Sites $3) :: $5 }
     | PERCENT EQUAL FLOAT SEMICOLON model_block
@@ -528,16 +530,19 @@ characters:
      optional_charstatelabels optional_charlabels optional_statelabels 
      DATA SEMICOLON 
      { 
-         { P.char_taxon_dimensions = $2;
-         P.char_char_dimensions = $5;
-         P.char_format = $7;
-         P.char_eliminate = $8;
-         P.char_taxlabels = $9;
-         P.char_statelabels = $10;
-         P.char_charlabels = $11;
-         P.char_charstates = $12;
-         P.chars = $13;}
+         {
+             P.char_taxon_dimensions = $2;
+             P.char_char_dimensions = $5;
+             P.char_format = $7;
+             P.char_eliminate = $8;
+             P.char_taxlabels = $9;
+             P.char_statelabels = $10;
+             P.char_charlabels = $11;
+             P.char_charstates = $12;
+             P.chars = $13;
+        }
      }
+     ;
 unaligned:
     | optional_unaligned_dimensions optional_format DATA SEMICOLON
         { { P.unal_taxon_dimensions = $1; unal_format = $2; unal = $3 } }
@@ -550,25 +555,23 @@ optional_charlabels:
     | CHARLABELS taxonlist SEMICOLON    { $2 }
     |                                   { [] }
     ;
-charstatelables:
-    | INTEGER nexus_word BACKSLASH taxonlist COMMA charstatelables { ($1, $2, $4) :: $6 }
-    | INTEGER nexus_word BACKSLASH taxonlist { [] }
+
+charstatelabels:
+    | INTEGER nexus_word BACKSLASH taxonlist COMMA charstatelabels { ($1, $2, $4) :: $6 }
+    | SEMICOLON                                                    { []                 }
     ;
 optional_charstatelabels:
-    | CHARSTATELABELS charstatelables SEMICOLON { $2 }
-    |                                           { [] }
-    ;
-charstatelables:
-    | INTEGER IDENT BACKSLASH taxonlist COMMA charstatelables { ($1, $2, $4) :: $6 }
-    | INTEGER IDENT BACKSLASH taxonlist { [] }
+    | CHARSTATELABELS charstatelabels { $2 }
+    |                                 { [] }
     ;
 optional_statelabels:
     | STATELABELS statelabels SEMICOLON { $2 }
-    |                           { [] }
+    |                                   { [] }
     ;
+
 statelabels:
     | INTEGER taxonlist COMMA statelabels { ($1, $2) :: $4 }
-    |                                       { [] }
+    |                                     { []             }
     ;
 optional_taxlabels:
     | TAXLABELS taxonlist SEMICOLON { $2 }
