@@ -110,8 +110,11 @@ module F : Ptree.Tree_Operations
                 --> List.fold_left insert_function All_sets.IntSetMap.empty
                 --> Hashtbl.add treebranches name
         in
+        let new_ptree = 
         {ptree with
             Ptree.data = {ptree.Ptree.data with Data.branches = Some treebranches;}}
+        in
+        new_ptree
 
     (* process tree data to find branch lengths *)
     let hashdoublefind tree partitions : (int,(int,float) Hashtbl.t) Hashtbl.t option =
@@ -875,6 +878,21 @@ module F : Ptree.Tree_Operations
      *  - ptree     : the tree to adjust *)
     type adjust_acc = bool * IntSet.t option IntMap.t * phylogeny
     let adjust_tree max_count branches nodes ptree =
+        if debug_diagnosis_recost then begin
+        Printf.printf "begin adjust_tree\n%!";
+        let tmpfun tree handle =
+                    let r = Ptree.get_component_root handle tree in
+                    match r.Ptree.root_median with
+                    | Some ((`Edge (a, b)), root) -> 
+                        let recost = 
+                            let root = get_unadjusted (-1) root in
+                            (Node.cmp_subtree_recost root)  
+                        in
+                        Printf.printf "root(%d,%d), recost here is %f\n%!" a b recost
+                    | _ -> Printf.printf "not what we want\n%!";
+        in
+        IntSet.iter (tmpfun ptree) (Ptree.get_handles ptree);
+        end;
         let mode = match !Methods.cost with
             | `Iterative x -> x
             | _ when using_likelihood `Either ptree -> `ThreeD None
@@ -1067,18 +1085,25 @@ module F : Ptree.Tree_Operations
                     and bd = Ptree.get_node_data b ptree in
                     let root = 
                         let n = AllDirNode.AllDirF.median None None ad bd in
+                        let newn =
                         AllDirNode.AllDirF.to_single (Some n) None ad None bd sets
+                        in
+                        newn
                     in
+                    let ptree1 =
                     ptree
                         --> Ptree.assign_root_to_connected_component handle
                                 (Some (edge, root))
                                 (check_cost ptree handle None)
                                 None
+                    in
+                    ptree1
                         --> refresh_all_edges true None true None
                 | Some _ -> ptree
             end
         in
         let newtree = adjust_until_nothing_changes max_count ptree in   
+        
         let ptree = IntSet.fold (set_handle_n_root_n_cost)
                                 (ptree.Ptree.tree.Tree.handles)
                                 (newtree)
@@ -1357,7 +1382,7 @@ module F : Ptree.Tree_Operations
         end else begin
             match !Methods.cost with
             | `Iterative (`ApproxD iterations)
-            | `Iterative (`ThreeD  iterations) -> adjust_tree iterations None None tree
+            | `Iterative (`ThreeD  iterations) ->  adjust_tree iterations None None tree
             | _ -> tree
         end
 
@@ -1370,17 +1395,24 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> internal_downpass true ptree
-            | `Iterative (`ApproxD iterations)
+            | `Iterative (`ApproxD iterations) ->
+                  ptree --> clear_internals false
+                        --> internal_downpass true
+                        --> pick_best_root
+                        --> assign_single true
+                        --> adjust_fn None
             | `Iterative (`ThreeD  iterations) ->
+                    (*why ThreeD and ApproxD follow the same downpass?*)
                 ptree   --> clear_internals false
                         --> internal_downpass true
                         --> pick_best_root
                         --> assign_single true
                         --> adjust_fn None
+
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
-        update_branches res
+        update_branches res 
 
 
     (* the IA module, and a function to call character filter functions *)

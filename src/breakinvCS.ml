@@ -108,7 +108,7 @@ let median2 (a : t) (b : t) =
         let medb : meds_t = IntMap.find code b.meds in
         let medab = Breakinv.find_meds2 meda medb in
         (*debug msg
-        Printf.printf "meda is : %!";
+        Printf.printf "MEDIAN2, meda is : %!";
         List.iter (fun x -> Sequence.printseqcode x.BreakinvAli.seq)
         meda.Breakinv.med_ls;
         Printf.printf "medb is : %!";
@@ -130,7 +130,6 @@ let median2 (a : t) (b : t) =
     let medab_map, new_costs, new_recosts, total_cost, total_recost = 
         IntMap.fold median a.meds (empty, empty, empty, 0, 0)
     in
-
     let subtree_recost = a.subtree_recost +. b.subtree_recost +. (float_of_int total_recost) in
     { a with meds = medab_map; costs = new_costs; recosts = new_recosts;
           total_cost = float_of_int total_cost; 
@@ -284,14 +283,16 @@ let readjust to_adjust modified ch1 ch2 parent mine =
         IntMap.fold adjusted parent.meds (modified, empty, empty, 0)
     in
     let tc = float_of_int total_cost in
-    let subtree_recost = tc +. ch1.subtree_recost +. ch2.subtree_recost in
+    let subtree_recost =  tc +. ch1.subtree_recost +. ch2.subtree_recost in
+    
     if debug then
         Printf.printf "ADJUST.... subtree_recost = %f+%f+%f = %f \n%!" 
     ch1.subtree_recost ch2.subtree_recost tc subtree_recost; 
+    
     modified,
     tc,
-    { mine with meds = meds; costs = costs; total_cost = tc; subtree_recost =
-        subtree_recost; }
+    { mine with meds = meds; costs = costs; total_cost = tc; 
+       subtree_recost = subtree_recost; }
 
 (** [distance a b] returns total distance between 
 * two breakinv character sets [a] and [b] *)
@@ -467,7 +468,8 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
 * the single states of breakinv character set [mine] *) 
 let to_single ref_codes (root : t option) single_parent mine = 
     let previous_total_cost = mine.total_cost in 
-    let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost) =
+    let median code med (acc_meds, acc_costs, acc_recosts, acc_total_cost,
+    acc_total_recost) =
         let amed = List.hd med.Breakinv.med_ls in
         let parent_med = IntMap.find code single_parent.meds in 
         let aparent_med = List.hd parent_med.Breakinv.med_ls in
@@ -482,21 +484,31 @@ let to_single ref_codes (root : t option) single_parent mine =
         let single_med = {med with Breakinv.med_ls = [amed]} in 
         let new_single = IntMap.add code single_med acc_meds in
         let new_costs = IntMap.add code (float_of_int cost) acc_costs in 
-        let new_recosts = IntMap.add code (float_of_int (recost1 + recost2) ) acc_recosts in 
-        new_single, new_costs, new_recosts, (acc_total_cost + cost)
+        let new_recosts = IntMap.add code (float_of_int (recost1 + recost2) ) acc_recosts in
+        let new_total_recost = acc_total_recost + recost1 + recost2 in
+        new_single, new_costs, new_recosts, (acc_total_cost + cost),
+        new_total_recost
     in  
-    let meds, costs,  recosts, total_cost = 
+    let meds, costs,  recosts, total_cost, total_recost = 
         match root with
         | Some root ->
-              IntMap.fold median root.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
+              IntMap.fold median root.meds (IntMap.empty, IntMap.empty,
+              IntMap.empty, 0, 0)
         | None ->
-              IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
-    in 
+              IntMap.fold median mine.meds (IntMap.empty, IntMap.empty,
+              IntMap.empty, 0, 0)
+    in
+    let subtree_recost = 
+        match root with 
+        | Some root -> root.subtree_recost
+        | None -> mine.subtree_recost 
+    in
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;
          recosts = recosts;
-         total_cost = float_of_int total_cost}
+         total_cost = float_of_int total_cost;
+         subtree_recost = subtree_recost}
    
 
 
