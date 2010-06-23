@@ -665,8 +665,6 @@ let to_single ref_codes root parent mine =
               ChromCS.to_single ref_codes root parent mine 
           in
           prev_cost, new_cost, ChromCS median          
-
-
     | BreakinvCS parent, BreakinvCS mine ->
           let root = match root with 
           | Some (BreakinvCS root) -> Some root
@@ -676,8 +674,6 @@ let to_single ref_codes root parent mine =
               BreakinvCS.to_single ref_codes root parent mine 
           in
           prev_cost, new_cost, BreakinvCS median          
-
-
     | AnnchromCS parent, AnnchromCS mine ->
           let root = match root with 
           | Some (AnnchromCS root) -> Some root
@@ -687,7 +683,6 @@ let to_single ref_codes root parent mine =
               AnnchromCS.to_single ref_codes root parent mine 
           in
           prev_cost, new_cost, AnnchromCS median          
-
     | GenomeCS parent, GenomeCS mine ->
           let root = match root with 
           | Some (GenomeCS root) -> Some root
@@ -698,7 +693,6 @@ let to_single ref_codes root parent mine =
           in
           prev_cost, new_cost, GenomeCS median          
     | _, mine ->
-
             let cst = total_cost mine in
             cst, cst, mine
 
