@@ -468,14 +468,20 @@ let to_single ref_codes (root : t option) single_parent mine =
               IntMap.fold median root.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
         | None ->
               IntMap.fold median mine.meds (IntMap.empty, IntMap.empty, IntMap.empty, 0)
-    in 
+    in
+    let subtree_recost = 
+        match root with 
+        | Some root -> root.subtree_recost
+        | None -> mine.subtree_recost 
+    in
     if debug then
     Printf.printf "<-- end of annchromCS.ml to_single\n %!";
     previous_total_cost, float_of_int total_cost, 
     {mine with meds = meds; 
          costs = costs;
          recosts = recosts;
-         total_cost = float_of_int total_cost}
+         total_cost = float_of_int total_cost;
+         subtree_recost = subtree_recost }
 
 
 (** [copy_chrom_map s_ch d_ch] copies the chromosome
