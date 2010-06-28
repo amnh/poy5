@@ -4342,26 +4342,23 @@ END
                     Analyzer.explain_tree filename script;
                     run
             | `Model filename ->
-                let fo = Status.user_message (Status.Output (filename, false, []))
-                and chars =
-                    let chars = `Some (Data.get_chars_codes_comp run.data `All) in
-                    Data.get_code_from_characters_restricted `Likelihood run.data chars
-                in
-(*                if style = `Phyml then begin*)
-                    List.iter
-                        (fun t ->
-                            let model  = Data.get_likelihood_model t.Ptree.data chars
-                            and cost   = Ptree.get_cost `Adjusted t
-                            and length = TreeOps.tree_size t
-                            and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                            fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
-                            fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                            fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                            MlModel.output_model fo `Hennig model None)
+                let fo = Status.user_message (Status.Output (filename, false, [])) in
+                List.iter
+                    (fun t ->
+                        let cs = Data.get_chars_codes_comp t.Ptree.data `All in
+                        let chars = 
+                            Data.get_code_from_characters_restricted 
+                                        `AllLikelihood t.Ptree.data (`Some cs)
+                        in
+                        let model  = Data.get_likelihood_model t.Ptree.data chars
+                        and cost   = Ptree.get_cost `Adjusted t
+                        and length = TreeOps.tree_size t
+                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
+                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                        MlModel.output_model fo `Hennig model None)
                     (Sexpr.to_list run.trees);
-(*                end else begin*)
-(*                    Data.output_poy_nexus_likelihood fo t.data*)
-(*                end;*)
                 run
             | `Script (filename,script) -> 
                 run
