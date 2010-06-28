@@ -1995,24 +1995,22 @@ module F : Ptree.Tree_Operations
         let clade_data = 
             match !Methods.cost with
             | `Iterative (`ThreeD _) ->
-                    (match jxn2 with
-                    | Tree.Single_Jxn h -> (* forcer (Clade clade_data) *)
-                        forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree))
+                (match jxn2 with
+                    | Tree.Single_Jxn h -> forcer (Clade clade_data)
+                        (* forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree))*)
                     | Tree.Edge_Jxn (h, n) ->
-                            let (Tree.Edge (h, n)) = 
-                                Tree.normalize_edge 
-                                (Tree.Edge (h, n)) tree.Ptree.tree
-                            in
-                            forcer (Edge (h, n)))
+                        let (Tree.Edge (h, n)) = 
+                                Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
+                        in
+                        forcer (Edge (h, n)))
             | _ -> forcer (Clade clade_data)
         in
         match jxn1 with
         | Tree.Single_Jxn h ->
                 let d = 
                     Node.Standard.distance 0.
-                    (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h)
-                    tree)))
-                    clade_data
+                        (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree)))
+                        clade_data
                 in
                 Ptree.Cost d
         | Tree.Edge_Jxn (h, n) ->
@@ -2020,8 +2018,7 @@ module F : Ptree.Tree_Operations
                     Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                 in
                 let ndata = forcer (Edge (h, n)) in
-                let d = Node.Standard.distance 0. clade_data ndata in
-                Ptree.Cost d
+                Ptree.Cost (Node.Standard.distance 0. clade_data ndata)
 
     let cost_fn n_mgr a b c d e =
         let cost = match !Methods.cost with
@@ -2032,14 +2029,16 @@ module F : Ptree.Tree_Operations
             | `Iterative `ThreeD _
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
-            | `Normal ->
-                (match cost_fn a b c d e with 
-                      | Ptree.Cost x -> Ptree.Cost (abs_float x)
-                      | x -> x)
+            | `Normal -> cost_fn a b c d e 
+(*            | `Normal ->*)
+(*                (match cost_fn a b c d e with *)
+(*                      | Ptree.Cost x -> Ptree.Cost (abs_float x)*)
+(*                      | x -> x)*)
             | `Exhaustive_Strong ->
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
-                Ptree.Cost (abs_float (((Ptree.get_cost `Adjusted nt) -.  pc)))
+                Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
+(*                Ptree.Cost (abs_float (((Ptree.get_cost `Adjusted nt) -.  pc)))*)
         in
         update_node_manager e (`Cost) n_mgr;
         cost
