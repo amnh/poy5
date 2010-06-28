@@ -32,14 +32,6 @@ let fprintf = Printf.fprintf
  * For example: [genomeX] = (5, -3, 2) and [genomeY] = (-2, 3, 5)
  * [sta_X] = (1, 2, 3) and [sta_Y] = (-3, -2, 1 *)
 let standardize genomeX genomeY =
-(*  debug msg
-    let print_intarr arr = 
-        Printf.printf "[%!";
-        Array.iter (Printf.printf "%d,%!") arr;
-        Printf.printf "],%!";
-    in
-    Printf.printf "standardize,input :%! ";
-    print_intarr genomeX; print_intarr genomeY; *)
     let max_index = Array.fold_left 
         (fun max_gene gene -> max max_gene (abs gene) ) (-1) genomeX 
     in 
@@ -54,20 +46,18 @@ let standardize genomeX genomeY =
     let sta_genomeY = Array.init num_gene 
         (fun idx ->
             if ( genomeY.(idx) > max_index )||( genomeY.(idx) < -max_index )
-            then
+            then begin
                 Array.iteri (fun a arr ->
                     Printf.printf "[%d]=%d,%!" a arr
-            ) genomeY
-                ;
+            ) genomeY;
+            failwith ("invalid gene code in genomeY, function standardize in
+    utlGrappa.ml ");
+            end;
              match genomeY.(idx) > 0 with 
              | true -> index_arr.(genomeY.(idx)) 
              | false -> -index_arr.(-genomeY.(idx)) 
         )
     in  
-  (*  debug msg 
-    Printf.printf "end of standardize, output : %!";
-    print_intarr sta_genomeX; print_intarr sta_genomeY;
-    Printf.printf "\n%!"; *)
     sta_genomeX, sta_genomeY
 
 let standardize3 (genomeX:int array) (genomeY:int array) (genomeZ:int array) = 
