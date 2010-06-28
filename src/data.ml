@@ -698,11 +698,39 @@ let print (data : d) =
                        Array.iter (fun seq -> 
                                        Printf.fprintf stdout "%d:" seq.code;
                                        Sequence.print stdout seq.seq Alphabet.nucleotides;
-                                       Printf.fprintf stdout " | "
-                                 ) dyna_data.seq_arr;
-                       print_newline ();
-                 | _ -> ()
-            ) ch_ls;
+                                       Printf.fprintf stdout " | ")
+                                  dyna_data.seq_arr;
+                 | Stat (code, None), _ ->
+                       let a = match Hashtbl.find data.character_specs code with
+                            | Static x -> x.Nexus.File.st_alph
+                            | _ -> failwith "Nope"
+                       in
+                       Printf.fprintf stdout "[%d]%s |" code
+                            (Alphabet.match_code (Alphabet.get_gap a) a)
+                 | Stat (code, (Some stuff)), _ ->
+                       let a =
+                           try match Hashtbl.find data.character_specs code with
+                                | Static x -> x.Nexus.File.st_alph
+                                | _ -> failwith "Nope"
+                            with | _ -> failwithf "Couldn't find %d in specs" code
+                       in
+                       begin match Nexus.File.static_state_to_list stuff with 
+                            | []  -> 
+                                Printf.fprintf stdout "[%d]%s |" code
+                                        (Alphabet.match_code (Alphabet.get_gap a) a)
+                            | [x] -> 
+                                Printf.fprintf stdout "[%d]%s |" code
+                                        (Alphabet.match_code x a)
+                            | xs  ->
+                                Printf.fprintf stdout "[%d](" code;
+                                List.iter 
+                                    ~f:(fun x -> Printf.fprintf stdout "%s" 
+                                                (Alphabet.match_code x a))
+                                    xs;
+                                Printf.fprintf stdout ")"
+                       end)
+            ch_ls;
+            print_newline ()
     and print_branches tree_name set = 
         Printf.printf "Tree: [%s]\n" tree_name;
         All_sets.IntSetMap.iter
@@ -5900,7 +5928,7 @@ let remove_absent_present_encodings data =
     let is_likelihood = function
         | Nexus.File.STLikelihood _ -> true | _ -> false
     (* transform a character to a gap *)
-    and apply_gap_to_cs tc cc spec state = match spec,state with
+    and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
         | Static sspec, (Stat (code,data),specified) ->
             let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
             (Stat (code, Some (`List [gap])),specified)
@@ -5926,15 +5954,26 @@ let remove_absent_present_encodings data =
             map 
             All_sets.IntSetMap.empty
     (* apply the absent/present encoding column to the previous column *)
-    and apply_absent_encoding specs chars names codes code = 
-        let is_present tcode code state spec = match spec,state with
-            | Static sspec, (Stat (code,Some data),specified) ->
-                let data_list = Nexus.File.static_state_to_list data
-                and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
-                List.mem present data_list
-            | Static sspec, (Stat (code,None),specified) -> true
-            | _,_ -> false
-        in
+    and is_present tcode code state spec = match spec,state with
+        | Static sspec, (Stat (code,Some data),_) ->
+            let data_list = Nexus.File.static_state_to_list data
+            and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            List.mem present data_list
+        | Static sspec, (Stat (code,None),_) ->
+            let present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            true
+        | _,_ -> failwith "Incorrect Match1"
+    and is_absent tcode code state spec = match spec,state with
+        | Static sspec, (Stat (code,Some data),_) ->
+            let data_list = Nexus.File.static_state_to_list data
+            and present = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            List.mem present data_list
+        | Static sspec, (Stat (code,None),_) ->
+            let present = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            false
+        | _,_ -> failwith "Incorrect Match2"
+    in
+    let apply_absent_encoding specs chars names codes code = 
         Hashtbl.iter
             (fun t_code t_state_tbl ->
                 let lkstate = Hashtbl.find t_state_tbl (code-1)
@@ -5944,8 +5983,11 @@ let remove_absent_present_encodings data =
                 if is_present t_code code apstate apspec then begin
                     let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
                     Hashtbl.replace t_state_tbl (code-1) nstate;
+                    Hashtbl.remove t_state_tbl code;
+                end else begin
+                    assert(is_absent t_code code apstate apspec);
                     Hashtbl.remove t_state_tbl code
-                end else ())
+                end)
             chars;
         let name = Hashtbl.find codes code in
         Hashtbl.remove names name;
