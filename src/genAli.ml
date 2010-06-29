@@ -566,7 +566,6 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
     let best = List.hd res_list in
     let matched_cost = best.cost in
     let matched_list = best.matched_loci_list in
-    let code1_arr,codem_arr = arr1, arr2 in
     let matched_list = List.map (fun (code1,codem,_) ->  code1, codem
     ) matched_list in
     (*debug msg
@@ -588,7 +587,8 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 * cost_array for the function "match_pair", which will give us a match, or you
 * can call it alignment between codes in the two input array, also the editing
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
-let create_gen_ali_new state code1_arr codem_arr c2 
+let create_gen_ali_new state code1_arr codem_arr c2 (*we don't need c2 in this
+function , remove it later*) 
 cost_matrix gapcode re_meth circular orientation  = 
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
@@ -645,7 +645,7 @@ cost_matrix gapcode re_meth circular orientation  =
     let codem_matched_with_nongap = Array.map ( fun (_ ,codem) -> codem ) 
     (Array.of_list nongap_matched_lst) in
     let arr1, arr2 = to_ori_arr codem_matched_with_nongap,
-    to_ori_arr codem_arr in 
+    to_ori_arr codem_arr in
     let recost =  
         cmp_recost_simple arr1 arr2 re_meth circular orientation in
     let editingcost = matched_cost in
@@ -661,13 +661,13 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
         (gen_cost_mat : Cost_matrix.Two_D.m) pure_gen_cost_mat alpha re_meth 
         max_swap_med circular orientation =
     let gapcode = Alphabet.get_gap alpha in
-  (*debug msg 
+  (* debug msg 
     Printf.printf "\n GenAli.ml create_gen_ali: gapcode=%d,seq1/seq2=\n%!"
     gapcode ;
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
   (*  Printf.printf "check cost matrix:\n%!";
     Array.iter(fun arr -> Utl.printIntArr arr) pure_gen_cost_mat; *)
-  debug msg*)
+   debug msg *)
     let arr1 = Sequence.to_array seq1 in 
     let arr2 = Sequence.to_array seq2 in
     let tc, rc, alied_code1, alied_code2 = 

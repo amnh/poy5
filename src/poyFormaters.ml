@@ -548,18 +548,18 @@ let node_to_formater st ((tag, attr, cont) : Xml.xml) (*cost recost*) =
         let name = assoc Xml.Characters.name attr 
         and child1_name = assoc Xml.Nodes.child1_name attr
         and child2_name = assoc Xml.Nodes.child2_name attr in
-     (*  we gonna get cost and recost out of the lst 
-     *   let cost =
+     (*  we gonna get cost and recost out of the lst *)
+     (*   let cost =
             try assoc Xml.Characters.cost attr with 
             Not_found -> " "
         in
         let recost =
             try assoc Xml.Characters.recost attr with 
             Not_found -> " "
-        in *) 
+        in *)
         let lst = 
             match cont with
-            | #Xml.structured as x -> 
+            | #Xml.structured as x ->
                     let x = Xml.eagerly_compute x in
                     Sexpr.to_list x
             | _ -> raise (Illegal_formater "node_to_formater 2")
