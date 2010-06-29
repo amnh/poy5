@@ -75,7 +75,7 @@ let transform_matrix (inmat : int array array) invcost =
     Array.mapi (fun i arri ->
         if (i>=1)&&(i<=sizei-2) then  
             Array.mapi ( fun j cost ->
-                if (j>=1)&&(j<sizej-2) then
+                if (j>=1)&&(j<=sizej-2) then
                     if (isodd i)&&(isodd j) then cost
                     else if (iseven i)&&(iseven j) then cost+2*invcost
                     else cost+invcost
