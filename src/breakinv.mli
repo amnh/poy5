@@ -103,4 +103,4 @@ val update_medst : meds_t -> Sequence.s -> int list -> meds_t
 
 val single_to_multi : meds_t -> meds_t list
 
-
+val transform_matrix : int array array -> int -> int array array

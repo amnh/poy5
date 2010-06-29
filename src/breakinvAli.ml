@@ -168,7 +168,7 @@ let get_recost user_pams =
 * the total cost = editing cost + rearrangement cost *)
 let cmp_cost med1 med2 gen_cost_mat pure_gen_cost_mat alpha breakinv_pam =
 (*debug msg 
-    Printf.printf "cmp_cost: %!"; 
+    Printf.printf "breakinvAli.cmp_cost: %!"; 
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
  debug msg*)
     let ali_pam = get_breakinv_pam breakinv_pam in     
@@ -275,7 +275,7 @@ let find_simple_med2_ls med1 med2 gen_cost_mat pure_gen_cost_mat alpha ali_pam =
         Printf.printf "]\n%!"
     in
      debug msg *)
-    (* debug msg 
+    (* debug msg  
     Printf.printf "find_simple_med2_ls in breakinvAli.ml,med1/med2.seq = :\n";
     Sequence.printseqcode med1.seq; Sequence.printseqcode med2.seq;
    (* Printf.printf " delimiter list = \n%!";

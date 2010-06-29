@@ -405,11 +405,21 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                     0, 0
             | Some parent -> begin
                   let parent_med_ls = IntMap.find code parent.meds in
+                  let breakinv_pam = parent_med_ls.Breakinv.breakinv_pam in
                   let gen_cost_mat = parent_med_ls.Breakinv.gen_cost_mat in
                   let pure_gen_cost_mat =
-                      parent_med_ls.Breakinv.pure_gen_cost_mat in
+                      parent_med_ls.Breakinv.pure_gen_cost_mat in    
+                  let pure_gen_cost_mat =
+                      match breakinv_pam.Data.re_meth with
+                      | Some re_meth ->
+                      (match re_meth with
+                         | `Locus_Breakpoint c -> pure_gen_cost_mat
+                         | `Locus_Inversion invc -> 
+                            Breakinv.transform_matrix pure_gen_cost_mat invc
+                      )
+                      | None -> pure_gen_cost_mat
+                  in
                   let alpha = parent_med_ls.Breakinv.alpha in
-                  let breakinv_pam = parent_med_ls.Breakinv.breakinv_pam in
                   let parent_med = List.find 
                       (fun med -> 
                            IntSet.mem med.BreakinvAli.ref_code ref_codes 
@@ -477,9 +487,21 @@ let to_single ref_codes (root : t option) single_parent mine =
             match root with 
             | Some root -> 0,(0, 0) 
             | None ->
+                 let bkpam = med.Breakinv.breakinv_pam in
+                 let pure_gen_cost_mat =
+                      match bkpam.Data.re_meth with
+                      | Some re_meth ->
+                      (match re_meth with
+                         | `Locus_Breakpoint _ -> med.Breakinv.pure_gen_cost_mat
+                         | `Locus_Inversion invc -> 
+                            Breakinv.transform_matrix med.Breakinv.pure_gen_cost_mat invc
+                      )
+                      | None -> med.Breakinv.pure_gen_cost_mat
+                  in
                   BreakinvAli.cmp_cost amed aparent_med 
-                      med.Breakinv.gen_cost_mat med.Breakinv.pure_gen_cost_mat med.Breakinv.alpha
-                      med.Breakinv.breakinv_pam
+                      med.Breakinv.gen_cost_mat pure_gen_cost_mat
+                      med.Breakinv.alpha bkpam
+                      
         in 
         let single_med = {med with Breakinv.med_ls = [amed]} in 
         let new_single = IntMap.add code single_med acc_meds in
