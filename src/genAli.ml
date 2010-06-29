@@ -587,8 +587,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 * cost_array for the function "match_pair", which will give us a match, or you
 * can call it alignment between codes in the two input array, also the editing
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
-let create_gen_ali_new state code1_arr codem_arr c2 (*we don't need c2 in this
-function , remove it later*) 
+let create_gen_ali_new state code1_arr codem_arr 
 cost_matrix gapcode re_meth circular orientation  = 
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
@@ -658,8 +657,7 @@ cost_matrix gapcode re_meth circular orientation  =
 
 
 let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
-        (gen_cost_mat : Cost_matrix.Two_D.m) pure_gen_cost_mat alpha re_meth 
-        max_swap_med circular orientation =
+        pure_gen_cost_mat alpha re_meth max_swap_med circular orientation =
     let gapcode = Alphabet.get_gap alpha in
   (* debug msg 
     Printf.printf "\n GenAli.ml create_gen_ali: gapcode=%d,seq1/seq2=\n%!"
@@ -667,11 +665,11 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
   (*  Printf.printf "check cost matrix:\n%!";
     Array.iter(fun arr -> Utl.printIntArr arr) pure_gen_cost_mat; *)
-   debug msg *)
+    debug msg *)
     let arr1 = Sequence.to_array seq1 in 
     let arr2 = Sequence.to_array seq2 in
     let tc, rc, alied_code1, alied_code2 = 
-        create_gen_ali_new state arr1 arr2 gen_cost_mat
+        create_gen_ali_new state arr1 arr2 
         pure_gen_cost_mat gapcode re_meth circular orientation
     in
     (*debug msg

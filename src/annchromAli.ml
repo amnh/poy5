@@ -618,7 +618,7 @@ cost1_mat gen_gap_code =
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
     let tc,rc,alied_code1,alied_codem =
-        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr c2
+        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr 
         cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in   
     (*debug msg
@@ -638,7 +638,7 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
          create_pure_gen_cost_mat seq1_arr seq2_arr c2 ali_pam  
     in
     let tc,rc,alied_code1,alied_code2 =
-        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr c2
+        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr 
         pure_gen_cost_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in  
     tc, rc
