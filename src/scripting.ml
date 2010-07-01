@@ -316,6 +316,8 @@ module type S = sig
     val get_console_run : unit -> r
 
     val update_trees_to_data : ?classify:bool -> bool -> bool -> r -> r
+    
+    val rediagnose_trees : ?classify:bool -> bool -> r -> r
 
     val set_console_run : r -> unit
 
@@ -1314,6 +1316,48 @@ ELSE
 END
    *)
 
+(* this function differs from update_trees_to_data in that we do not modify the
+ * data of the trees, or update the data to the tree (if load_data is false).
+ * This is done when cost modes and other settings have been changed, and does
+ * not affect the data or how the data is created. *) 
+let rediagnose_trees ?(classify=true) load_data run = 
+    let replacer nodes nd = 
+        let code = Node.taxon_code nd in
+        try All_sets.IntegerMap.find code nodes with
+        | Not_found as err-> 
+                Status.user_message Status.Error 
+                ("Couldn't find code " ^ string_of_int code);
+                raise err
+    and create_node_set ns = 
+        List.fold_left
+            (fun acc x -> 
+                All_sets.IntegerMap.add (Node.taxon_code x) x acc)
+            All_sets.IntegerMap.empty ns
+    in
+    let doit st tree = 
+        let data, nodes = 
+            if load_data then 
+                let d,n = Node.load_data ~classify tree.Ptree.data in
+                (d, create_node_set n)
+            else 
+                (tree.Ptree.data, tree.Ptree.node_data)
+        in
+        let tree = { tree with Ptree.node_data = nodes; data = data; } in
+        let res = CT.transform_tree (replacer nodes) tree in
+        let ach = Status.get_achieved st in
+        let () = Status.full_report ~adv:(ach + 1) st in
+        res
+    in
+    (* start it up... *)
+    let len = (Sexpr.length run.trees) + (Sexpr.length run.stored_trees) in
+    if len > 0 then
+        let st = Status.create "Diagnosis"  (Some len) "Recalculating trees" in
+        let trees = Sexpr.map (doit st) run.trees in
+        let stored = Sexpr.map (doit st) run.stored_trees in
+        Status.finished st;
+        { run with trees = trees; stored_trees = stored }
+    else 
+        run
 
 let update_trees_to_data ?(classify=true) force load_data run =
     let classify = (not (Data.has_dynamic run.data)) && classify in
@@ -2879,13 +2923,13 @@ let rec process_application run item =
                     (match meth with
                     | `Iterative _ ->
                         let () = Methods.cost := meth in
-                        process_application run `ReDiagnose
+                        process_application run `ReDiagnoseTrees
                     | _ -> 
                             let () = Methods.cost := meth in
                             run)
                 | `Iterative _ -> 
                         let () = Methods.cost := meth in
-                        process_application run `ReDiagnose
+                        process_application run `ReDiagnoseTrees
             else run
     | `Exit -> exit 0
     | `Version ->
@@ -2917,6 +2961,7 @@ let rec process_application run item =
     | `Redraw -> Status.redraw_screen (); run
     | `SetSeed v -> process_random_seed_set run v
     | `ReDiagnose -> update_trees_to_data true true run
+    | `ReDiagnoseTrees -> rediagnose_trees true run
     | `Help item -> HelpIndex.help item; run
     | `Wipe -> empty ()
     | `Echo (s, c) ->

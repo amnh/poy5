@@ -278,6 +278,8 @@ val get_console_run : unit -> r
 
 val update_trees_to_data : ?classify:bool -> bool -> bool -> r -> r
 
+val rediagnose_trees : ?classify:bool -> bool -> r -> r
+
 val set_console_run : r -> unit
 
     module PhyloTree : sig
