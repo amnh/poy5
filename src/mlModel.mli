@@ -110,6 +110,9 @@ val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
  * when an implied alignment is performed *)
 val replace_priors : model -> float array -> model 
 
+(* compare two sets of priors to see if they are the same *)
+val compare_priors : model -> model -> bool
+
 (** [convert_string_spec] convert a string spec from nexus and other formats to
  * the basic specification in for a likelihood model *)
 val convert_string_spec : string_spec -> spec
@@ -224,7 +227,7 @@ END
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
-val output_model : (string -> unit) -> [`Nexus | `Hennig] -> model -> string list option -> unit
+val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> string list option -> unit
 
 val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
 

@@ -150,15 +150,32 @@ let categorize_by_model codes get_fun =
     let set_codes =
         List.fold_left
             (fun acc code ->
-                let spec = get_fun code in
-                try let old = MlModelMap.find spec acc in
-                    MlModelMap.add spec (code::old) acc
-                with | Not_found ->
-                    MlModelMap.add spec ([code]) acc)
+                try let spec = get_fun code in
+                    try let old = MlModelMap.find spec acc in
+                        MlModelMap.add spec (code::old) acc
+                    with | Not_found ->
+                        MlModelMap.add spec ([code]) acc
+                with | _ -> acc)
             MlModelMap.empty
             codes
     in
     MlModelMap.fold (fun _ e a -> e :: a) set_codes []
+
+let compare_priors a b =
+    let a_pri = match a.spec.base_priors with 
+        | ConstantPi x | Estimated x | Given x -> x
+    and b_pri = match b.spec.base_priors with
+        | ConstantPi x | Estimated x | Given x -> x
+    and results = ref true in
+    if a.alph_s = b.alph_s then begin
+        for i = 0 to a.alph_s - 1 do
+            results := !results && (a_pri.(i) =. b_pri.(i));
+        done;
+        !results
+    end else begin
+        false
+    end    
+
 
 IFDEF USE_LIKELIHOOD THEN
 
@@ -184,22 +201,14 @@ let compare a b =
         | Some Constant, None | None, Some Constant -> 0
         | _,_ -> ~-1
     and g_compare = if a.spec.use_gap = b.spec.use_gap then 0 else ~-1
-    and p_compare = 
-        let a_pri = match a.spec.base_priors with 
-            | ConstantPi x | Estimated x | Given x -> x
-        and b_pri = match b.spec.base_priors with
-            | ConstantPi x | Estimated x | Given x -> x
-        and results = ref 0 in
-        if a.alph_s = b.alph_s then begin
-            for i = 0 to a.alph_s - 1 do
-                if not (a_pri.(i) =. b_pri.(i)) then results := ~-1
-            done;
-            !results
-        end else begin
-            ~-1
-        end    
-    in
+    and p_compare = if compare_priors a b then 0 else ~-1 in
     (* just knowing that they are different is enough *)
+    if debug then begin
+        Printf.printf "Models : %b\n%!" (m_compare >= 0);
+        Printf.printf "Rate   : %b\n%!" (v_compare >= 0);
+        Printf.printf "Use Gap: %b\n%!" (g_compare >= 0);
+        Printf.printf "Priors : %b\n%!" (p_compare >= 0);
+    end;
     m_compare + v_compare + g_compare + p_compare
     
 (* ------------------------------------------------ *)
@@ -839,9 +848,11 @@ let create ?(min_prior=epsilon) alph lk_spec =
   END
 
 let replace_priors model array = 
-(*    Printf.printf "Replacing Priors\n\t%!";*)
-(*    Array.iter (fun x -> Printf.printf "%f, " x) array;*)
-(*    print_newline ();*)
+    if debug then begin
+        Printf.printf "Replacing Priors\n\t%!";
+        Array.iter (fun x -> Printf.printf "%f, " x) array;
+        print_newline ();
+    end;
     create model.alph {model.spec with base_priors = Estimated array}
 
 let add_gap_to_model compute_priors model = 

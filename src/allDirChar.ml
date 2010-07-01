@@ -159,6 +159,54 @@ module F : Ptree.Tree_Operations
                 error_user_message "Couldn't find tree name %s" t_name;
             None
 
+    (** [create_branch_table table ptree] 
+     * Creates a hashtable with all the branch data. The key is the pair of
+     * nodes lengths and the value is either a single length or a list of
+     * branch lengths in the case of multiple character sets. *)
+    let branch_table ptree =
+        let trees_table = Hashtbl.create 13 in
+        let create_branch_table handle () = 
+            let rec single_node prev curr =
+                let pair = (min curr prev, max curr prev) in
+                let dat = AllDirNode.AllDirF.get_times_between 
+                            (Ptree.get_node_data curr ptree)
+                            (Ptree.get_node_data prev ptree) in
+                let name_it x = match dat with | [_] -> `Single x 
+                                               | []  -> failwith "No character Sets"
+                                               | _   -> `Name
+                in
+                let () = List.iter
+                    (fun (code,length) -> match length with
+                        | Some length -> Hashtbl.add trees_table pair (name_it length)
+                        | None -> ()
+                    ) dat in
+                ()
+            and traversal a b = 
+                Ptree.post_order_node_with_edge_visit
+                    (fun prev curr _ -> single_node prev curr)
+                    (fun prev curr _ _ -> single_node prev curr)
+                    (Tree.Edge (a,b))
+                    ptree
+                    ()
+            in
+            let (),() =
+                try match (Ptree.get_component_root handle ptree).Ptree.root_median with
+                    | Some ((`Edge (a,b)),_) -> traversal a b
+                    | None | Some _ -> raise Not_found
+                with | Not_found -> 
+                    match Ptree.get_node handle ptree with
+                    | Tree.Leaf (a,b)
+                    | Tree.Interior (a,b,_,_) -> traversal a b
+                    | Tree.Single _ -> (),()
+            in
+            ()
+        in
+        let () = IntSet.fold
+                    (create_branch_table)
+                    (Ptree.get_handles ptree)
+                    ()
+        in
+        trees_table
 
     (* check if the ptree has likelihood characters by it's data; obviously this
      * means that data must be up to date --an invariant that we hold. The old
@@ -1191,6 +1239,17 @@ module F : Ptree.Tree_Operations
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots false ptree else ptree
 
+    let create_nexus_tree filename ptree = 
+        let trees = 
+            Ptree.build_trees (ptree.Ptree.tree)
+                (fun x -> Data.code_taxon x ptree.Ptree.data)
+                (fun _ _ -> false)
+                (Some (branch_table ptree))
+                ""
+        in
+        Data.to_nexus ptree.Ptree.data filename;
+        List.iter (Tree.Parse.print_tree filename) trees
+
     let clear_internals force t = t
 (*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; }*)
 
@@ -1467,12 +1526,12 @@ module F : Ptree.Tree_Operations
                     combine dyn_tree ostatic
                 else begin
                     let ostatic = update_branches ostatic in
-                    let data, nodes = 
+                    let data, nodes =
                         Data.sync_static_to_dynamic_model_branches
                             ~src:ostatic.Ptree.data ~dest:dyn_tree.Ptree.data
                         --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
                     in
-                    let node_data = 
+                    let node_data =
                         List.fold_left
                             (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
                             IntMap.empty
@@ -1485,17 +1544,42 @@ module F : Ptree.Tree_Operations
                 end
             in
             loop_ 0 (Ptree.get_cost `Adjusted tree) tree
+        and stabilize_priors ?(iter_max=10) i dyn_tree =
+            let data =
+                dyn_tree
+                    --> IA.to_static_homologies true filter_characters true
+                                                false `AllDynamic dyn_tree.Ptree.data
+                    --> (fun x -> Data.update_priors x (x.Data.static_ml) true)
+            in
+            if (MlModel.compare_priors
+                    (Data.get_likelihood_model dyn_tree.Ptree.data dyn_tree.Ptree.data.Data.dynamics)
+                    (Data.get_likelihood_model data data.Data.static_ml)) || (i = iter_max) then
+                (dyn_tree,i)
+            else
+                let d,n =
+                    let d = Data.sync_static_to_dynamic_model_branches ~src:data
+                                ~dest:dyn_tree.Ptree.data
+                    in
+                    AllDirNode.AllDirF.load_data ~silent:true ~classify:false d
+                in
+                let n = 
+                    List.fold_left
+                        (fun acc x -> IntMap.add (AllDirNode.AllDirF.taxon_code x) x acc)
+                        IntMap.empty n
+                in
+                { dyn_tree with Ptree.data = d;
+                                Ptree.node_data = n; }
+                    --> internal_downpass true
+                    --> stabilize_priors (i+1)
         (* function to create a static tree from dynamic tree *)
         and create_static_tree ptree = 
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
             let data,nodes = 
-                let ptree = update_branches ptree in
                 ptree
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
-                    --> Data.categorize
-                    --> (fun x -> Data.update_priors x (x.Data.static_ml) true)
+                    (* --> (fun x -> Data.update_priors x (x.Data.static_ml) true)*)
                     --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
             in
             Status.set_verbosity old_verbosity;
@@ -1505,8 +1589,10 @@ module F : Ptree.Tree_Operations
                     IntMap.empty
                     nodes
             in
-            internal_downpass true {tree with Ptree.data = data;
-                                              Ptree.node_data = node_data; }
+            let t = internal_downpass true {tree with Ptree.data = data;
+                                                 Ptree.node_data = node_data; }
+            in
+            t
         (* combine two trees by codes *)
         and combine dtree stree =
             let combine_nodes code x = 
@@ -1533,9 +1619,18 @@ module F : Ptree.Tree_Operations
             in
             { ntree with Ptree.component_root = roots; }
         in
+        let stabilize_priors tree = (* wrapper for function *)
+            let old_verbosity = Status.get_verbosity () in
+            Status.set_verbosity `None;
+            let tree,_ = stabilize_priors 0 tree in
+            Status.set_verbosity old_verbosity;
+            tree
+        in
         (* compose above functions: create a static tree then combine w/ dynamic *)
         match using_likelihood `Dynamic tree, optimize with
-            | true, false -> combine tree (create_static_tree tree)
+            | true, false ->
+                let tree = stabilize_priors tree in
+                combine tree (create_static_tree tree)
             | true, true  -> optimize_apply_implied_alignments nmgr tree
             | false, _    -> tree
 
@@ -2109,55 +2204,6 @@ module F : Ptree.Tree_Operations
             | Failure "Single vertex" -> ptree
         in
         IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) ptree
-    
-    (** [create_branch_table table ptree] 
-     * Creates a hashtable with all the branch data. The key is the pair of
-     * nodes lengths and the value is either a single length or a list of
-     * branch lengths in the case of multiple character sets. *)
-    let branch_table ptree =
-        let trees_table = Hashtbl.create 13 in
-        let create_branch_table handle () = 
-            let rec single_node prev curr =
-                let pair = (min curr prev, max curr prev) in
-                let dat = AllDirNode.AllDirF.get_times_between 
-                            (Ptree.get_node_data curr ptree)
-                            (Ptree.get_node_data prev ptree) in
-                let name_it x = match dat with | [_] -> `Single x 
-                                               | []  -> failwith "No character Sets"
-                                               | _   -> `Name
-                in
-                let () = List.iter
-                    (fun (code,length) -> match length with
-                        | Some length -> Hashtbl.add trees_table pair (name_it length)
-                        | None -> ()
-                    ) dat in
-                ()
-            and traversal a b = 
-                Ptree.post_order_node_with_edge_visit
-                    (fun prev curr _ -> single_node prev curr)
-                    (fun prev curr _ _ -> single_node prev curr)
-                    (Tree.Edge (a,b))
-                    ptree
-                    ()
-            in
-            let (),() =
-                try match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                    | Some ((`Edge (a,b)),_) -> traversal a b
-                    | None | Some _ -> raise Not_found
-                with | Not_found -> 
-                    match Ptree.get_node handle ptree with
-                    | Tree.Leaf (a,b)
-                    | Tree.Interior (a,b,_,_) -> traversal a b
-                    | Tree.Single _ -> (),()
-            in
-            ()
-        in
-        let () = IntSet.fold
-                    (create_branch_table)
-                    (Ptree.get_handles ptree)
-                    ()
-        in
-        trees_table
 
 
     let to_formatter (atr : Xml.attributes)  
