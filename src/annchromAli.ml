@@ -239,7 +239,8 @@ let split chrom =
     let code_arr = Array.map (fun s -> s.seq_ref_code) chrom.seq_arr in  
     seq_arr, code_arr 
 
-
+let get_neg_code code = 
+    if ( (code mod 2)=1 ) then code + 1 else code - 1
 
 (** [create_pure_gen_cost_mat seq1_arr seq2_arr cost_mat ali_pam]
 * returns a cost matrix between segments of [seq1_arr] and segments of [seq2_arr] *)
@@ -618,7 +619,7 @@ cost1_mat gen_gap_code =
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
     let tc,rc,alied_code1,alied_codem =
-        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr c2
+        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr 
         cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in   
     (*debug msg
@@ -638,7 +639,7 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
          create_pure_gen_cost_mat seq1_arr seq2_arr c2 ali_pam  
     in
     let tc,rc,alied_code1,alied_code2 =
-        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr c2
+        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr 
         pure_gen_cost_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in  
     tc, rc
@@ -886,14 +887,18 @@ let find_med2_ls (chrom1: annchrom_t) (chrom2 : annchrom_t)
           cost, recost, med_ls
 
 (* format the input list for grappa/mgr input 
-* for example, input list is [5;0;2;7] , output list will be [3;1;2;4]
+* for example, input list is [5;0;2;7] , output list will be [3;1;-2;4]
 * *)
 let to_ori_list (lst:int list) =
     List.map (fun x ->
-        List.fold_left (fun acc item -> 
+        let tmp =
+          List.fold_left (fun acc item -> 
             if x<item then acc
             else acc+1
-        ) 0 lst
+          ) 0 lst
+        in
+        if (x mod 2)=0 then (0 - tmp)
+        else tmp
     ) lst
     
 (* get the original sequence array out of input arr .
@@ -944,7 +949,6 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
     and common3 = ref [] and common_med = ref [] in
     Array.iteri 
         (fun ith seqt -> 
-             (* let seqm = seqt.seq in *) 
              let codem = codem_arr.(ith) in 
              let comp v1 v2 = (v1 + 1) / 2 -  (v2 + 1) / 2 in
              let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
@@ -965,61 +969,63 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
                  alied_code3m_arr 
              in 
              if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
-                 (Sequence.length seq3 = 0) then () (* {seqt with seq = seqm} *)
+                 (Sequence.length seq3 = 0) then () 
              else begin
                  common1 := idx1 :: !common1;
                  common2 := idx2 :: !common2;
                  common3 := idx3 :: !common3;
                  common_med := ith :: !common_med;
-                 (* let _, median_seq, _ = Sequence.Align.readjust_3d
-                     ~first_gap:false seq1 seq2 seqm c2 c3 seq3 in
-                 {seqt with seq = median_seq} *)
              end               
         ) mine.seq_arr;
     let common1,common2,common3,common_idxlst = 
         (List.rev !common1),(List.rev !common2), 
         (List.rev !common3),(List.rev !common_med) in
-    let alied_code1m_common = Array_ops.fold_righti (fun pos code acc ->
-        if (List.mem pos common1) then code::acc
-        else acc;
-    ) [] alied_code1m_arr in 
-    let alied_code2m_common = Array_ops.fold_righti (fun pos code acc ->
-        if (List.mem pos common2) then code::acc
-        else acc;
-    ) [] alied_code2m_arr in 
-    let alied_code3m_common = Array_ops.fold_righti (fun pos code acc ->
-        if (List.mem pos common3) then code::acc
-        else acc;
-    ) [] alied_code3m_arr in 
     let new_total_cost, new_mine = 
-    if(List.length common_idxlst)>1 then begin
-        let ori_arr1 = to_ori_arr (Array.of_list alied_code1m_common) in
-        let ori_arr2 = to_ori_arr (Array.of_list alied_code2m_common) in
-        let ori_arr3 = to_ori_arr (Array.of_list alied_code3m_common) in
+    if(List.length common_idxlst)>2 then begin
+        let alied_code1m_common = Array_ops.fold_righti (fun pos code acc ->
+            if (List.mem pos common1) then code::acc else acc;
+        ) [] alied_code1m_arr in 
+        let alied_code2m_common = Array_ops.fold_righti (fun pos code acc ->
+            if (List.mem pos common2) then code::acc else acc;
+        ) [] alied_code2m_arr in 
+        let alied_code3m_common = Array_ops.fold_righti (fun pos code acc ->
+            if (List.mem pos common3) then code::acc else acc;
+        ) [] alied_code3m_arr in
+        let ori_arr1 = Array.of_list (to_ori_list (alied_code1m_common)) in
+        let ori_arr2 = Array.of_list (to_ori_list (alied_code2m_common)) in
+        let ori_arr3 = Array.of_list (to_ori_list (alied_code3m_common)) in
         (*get ready to call grappa/mgr median solver*)
         (*this should be all empty list, but there is some bug with single 
         * chromosome in mgr on the c side, while multichromosome works fine,
         * just let it be like this, until I fix whatever is wrong in mgr*)
         let delimiter_lstlst = [
-            [Array.length ori_arr1];
-            [Array.length ori_arr2];
-            [Array.length ori_arr3]] in 
+            [Array.length ori_arr1];[Array.length ori_arr2];[Array.length ori_arr3]]
+        in 
         let circular = ali_pam.circular in 
         let medsov = ali_pam.median_solver in
         let ori_med3arr,_ = UtlGrappa.inv_med medsov ori_arr1 ori_arr2 ori_arr3
                 delimiter_lstlst circular
         in
-        let med3_seqt_arr =  Array.map (fun nth -> 
-            if (nth>0) then 
-                let idx = List.nth common_idxlst (nth-1) in
-                mine.seq_arr.(idx)
-            else 
-                let idx = List.nth common_idxlst (abs(nth) -1) in
-                let old_seq = mine.seq_arr.(idx).seq in
-                let reverse_seq = 
-                    Sequence.complement_chrom Alphabet.nucleotides old_seq in
-                { mine.seq_arr.(idx) with seq = reverse_seq }
+        let sorted_alied_code1m_common = List.sort compare alied_code1m_common in
+        let med3arr = Array.map (fun nth -> 
+            if(nth>0) then
+                    let res = List.nth sorted_alied_code1m_common (nth-1) in
+                    if (res mod 2)<>0 then res else res-1
+                else
+                    let res = List.nth sorted_alied_code1m_common (abs(nth)-1) in
+                    if (res mod 2)<>0 then res+1 else res
         ) ori_med3arr in
+        let med3_seqt_arr =  Array.map (fun code ->
+            let idx = Utl.find_index codem_arr code compare in
+            if (idx>=0) then mine.seq_arr.(idx)
+            else 
+                let negidx = Utl.find_index codem_arr (get_neg_code code) compare in
+                assert(negidx>=0);
+                let seq = mine.seq_arr.(negidx).seq in
+                let reverse_seq = 
+                    Sequence.complement_chrom Alphabet.nucleotides seq in
+                { mine.seq_arr.(negidx) with seq = reverse_seq }
+        ) med3arr in
         let common_idxarr = Array.of_list common_idxlst in
         let new_seqarr = Array.mapi (fun idx seqt ->
             let found_idx = Utl.find_index common_idxarr idx compare in
@@ -1027,22 +1033,6 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
             else seqt
         ) mine.seq_arr in
         let update_mine = {mine with seq_arr = new_seqarr } in
-    (*    let recost1 = 
-            GenAli.cmp_recost_simple ori_arr1 ori_med3arr ali_pam.re_meth
-            ali_pam.circular true
-        in 
-        let recost2 = 
-            GenAli.cmp_recost_simple ori_arr2 ori_med3arr ali_pam.re_meth
-            ali_pam.circular true
-        in
-        let recost3 = 
-            GenAli.cmp_recost_simple ori_arr3 ori_med3arr ali_pam.re_meth
-            ali_pam.circular true
-        in
-        let cost1 = editing_cost1 + recost1  
-        and cost2 = editing_cost2 + recost2
-        and cost3 = editing_cost3 + recost3 in
-        let new_total_cost = cost1 + cost2 + cost3 in *)
         let cost1,_ = cmp_cost2 ch1 update_mine c2 alpha annchrom_pam in
         let cost2,_ = cmp_cost2 ch2 update_mine c2 alpha annchrom_pam in
         let cost3,_ = cmp_cost2 ch3 update_mine c2 alpha annchrom_pam in
@@ -1056,11 +1046,6 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
     end
     else old_total_cost, mine
     in
-    (*let mine3 = {mine with seq_arr = seq_arr} in 
-    let cost1, recost1 = cmp_cost ch1 mine3 c2 alpha annchrom_pam in 
-    let cost2, recost2 = cmp_cost ch2 mine3 c2 alpha annchrom_pam in 
-    let cost3, recost3 = cmp_cost ch3 mine3 c2 alpha annchrom_pam in 
-    let total_cost3 = cost1 + cost2 + cost3 in *)
     if old_total_cost > new_total_cost then new_total_cost, new_mine
     else old_total_cost, mine
 

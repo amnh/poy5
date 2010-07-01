@@ -64,6 +64,26 @@ let rec keep chrom_pam med_ls =
           if  keep_median >= List.length med_ls then med_ls
           else Utl.get_k_random_elem med_ls keep_median
 
+let transform_matrix (inmat : int array array) invcost =
+    let sizei = Array.length inmat 
+    and sizej = Array.length inmat.(0) in
+    let isodd x = if (x mod 2)<>0 then true else false in
+    let iseven x = if (x mod 2)=0 then true else false in
+    (* the first line and column of inmat is not being used. 
+    *  the last line and column of inmat is for gap, no need 
+    *  to modify cost there*)
+    Array.mapi (fun i arri ->
+        if (i>=1)&&(i<=sizei-2) then  
+            Array.mapi ( fun j cost ->
+                if (j>=1)&&(j<=sizej-2) then
+                    if (isodd i)&&(isodd j) then cost
+                    else if (iseven i)&&(iseven j) then cost+2*invcost
+                    else cost+invcost
+                else cost
+            ) arri
+        else arri
+    ) inmat
+
 (** [find_meds2 meds1 meds2] returns a list of 
 * breakinv character medians created for two lists of medians 
 * [meds1=(x1,...,xk)] and [meds2=(y1,...,yt)]
@@ -71,12 +91,21 @@ let rec keep chrom_pam med_ls =
 * a list of medians z_ij with the same cost c_ij. 
 * Find z*_ij = minargv(z_ij )(c_ij) *)
 let find_meds2 (meds1 : meds_t) (meds2 : meds_t) = 
-    let update med1 med2 (best_meds : meds_t) :
-            meds_t = 
+    let update med1 med2 (best_meds : meds_t) : meds_t =
+        let bkpam = meds1.breakinv_pam in
+        let pure_gen_cost_mat =
+            match bkpam.Data.re_meth with
+            | Some re_meth ->
+                (match re_meth with
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Inversion invc -> 
+                    transform_matrix meds1.pure_gen_cost_mat invc
+                )
+            | None -> meds1.pure_gen_cost_mat
+        in
         let cost, (recost1, recost2), med_ls =   
             BreakinvAli.find_med2_ls med1 med2 meds1.gen_cost_mat  
-                meds1.pure_gen_cost_mat  
-                meds1.alpha meds1.breakinv_pam   
+                pure_gen_cost_mat meds1.alpha bkpam   
         in   
         if cost < best_meds.total_cost then   
             {best_meds with  
@@ -114,14 +143,25 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
  * a list of medians z_ij with the same cost c_ij. 
  * Find c*_ij = min (c_ij) *)
 let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
+    let bkpam = meds1.breakinv_pam in
+    let pure_gen_cost_mat =
+            match bkpam.Data.re_meth with
+            | Some re_meth ->
+                (match re_meth with
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Inversion invc -> 
+                    transform_matrix meds1.pure_gen_cost_mat invc
+                )
+            | None -> meds1.pure_gen_cost_mat
+    in
     let min_cost, min_recost = List.fold_left 
         (fun (min_cost, min_recost) med1 -> 
                 List.fold_left 
                     (fun (min_cost2, min_recost2) med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
                                 meds1.gen_cost_mat 
-                                meds1.pure_gen_cost_mat 
-                                meds1.alpha meds1.breakinv_pam 
+                                pure_gen_cost_mat 
+                                meds1.alpha bkpam 
                          in  
                          if  min_cost2 > cost then cost, (recost1 + recost2)
                          else min_cost2, min_recost2
@@ -137,13 +177,24 @@ let cmp_min_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
  * a list of medians z_ij with the same cost c_ij. 
  * Find c*_ij = min (c_ij) *)
 let cmp_max_pair_cost (meds1 : meds_t) (meds2 : meds_t) =
+    let bkpam = meds1.breakinv_pam in
+    let pure_gen_cost_mat =
+            match bkpam.Data.re_meth with
+            | Some re_meth ->
+                (match re_meth with
+                | `Locus_Breakpoint c -> meds1.pure_gen_cost_mat
+                | `Locus_Inversion invc -> 
+                    transform_matrix meds1.pure_gen_cost_mat invc
+                )
+            | None -> meds1.pure_gen_cost_mat
+    in
     let max_cost, max_recost = List.fold_left 
         (fun (max_cost, max_recost) med1 -> 
                 List.fold_left 
                     (fun (max_cost2, max_recost2)  med2 -> 
                          let cost, (recost1, recost2) = BreakinvAli.cmp_cost med1 med2
-                             meds1.gen_cost_mat  meds1.pure_gen_cost_mat  
-                             meds1.alpha meds1.breakinv_pam  in  
+                             meds1.gen_cost_mat pure_gen_cost_mat  
+                             meds1.alpha bkpam  in  
                          if max_cost2 < cost then cost, (recost1 + recost2)
                          else max_cost2, max_recost2
 

@@ -93,6 +93,7 @@ let de_standardize3 ori_arr standar_arr arrsize =
     let res_arr = Array.init arrsize 
     ( fun idx ->  
         let tmp = standar_arr.(idx) in
+        assert(tmp<>0);
         if (tmp>0) then ori_arr.(tmp-1) 
         else - ori_arr.((abs tmp)-1)
     ) in
@@ -252,15 +253,9 @@ let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
     (* debug message 
-    let print_intarr arr = 
-        Printf.printf "[%!";
-        Array.iter (Printf.printf "%d,%!") arr;
-        Printf.printf "],%!";
-    in
     Printf.printf "inv_med ,input seqcodes: %!";
-    print_intarr genomeX; print_intarr genomeY; print_intarr genomeZ;
+    Utl.printIntArr genomeX; Utl.printIntArr genomeY; Utl.printIntArr genomeZ;
     debug message*) 
-
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     let num_gen = Array.length genomeX in 
@@ -292,9 +287,9 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     (* debug msg  
      Printf.printf "circular = %d, num_deli = %d,%d,%d,deli array = \n%!" 
      circular num_deliX num_deliY num_deliZ;
-     if num_deliX >1 then  print_intarr deliX; 
-     if num_deliY >1 then  print_intarr deliY; 
-     if num_deliZ >1 then  print_intarr deliZ;
+     if num_deliX >=1 then  Utl.printIntArr deliX; 
+     if num_deliY >=1 then  Utl.printIntArr deliY; 
+     if num_deliZ >=1 then  Utl.printIntArr deliZ;
      debug msg *)
     (* if number of deli is 1, it is a single chromosome, no need to pass
     * delimiters array *)
@@ -342,18 +337,18 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
                 Grappa.get_delimiter_arr gmed delinum
         | _ -> [||]
     in
-    (* debug msg  
-     Printf.printf "output ori seqcode = %!"; print_intarr med3arr;
+    (* debug msg   
+     Printf.printf "output ori seqcode = %!"; Utl.printIntArr med3arr;
      print_newline();
      Printf.printf "delinum=%d,delimiters = %!" delinum; 
-     print_intarr deli_arr;
+     Utl.printIntArr deli_arr;
      print_newline();
       debug msg*)
     let resarr = de_standardize3 ori_genomeX med3arr num_gen in
     (* debug msg  
      Printf.printf "output seqcode = %!"; print_intarr resarr;
      print_newline();
-    debug msg*)
+    debug msg *)
     resarr,deli_arr
     end
 
