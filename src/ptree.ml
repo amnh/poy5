@@ -803,6 +803,124 @@ let choose_leaf tree =
     | Some v -> v
     | None -> failwith "A tree with no leafs?"
 
+(** [build_trees tree]
+    @param tree the ptree which is being converted into a Tree.Parse.t
+    @param str_gen is a function that generates a string for each vertex in the
+    tree
+    @param collapse is a function that check weather or not a branch can be
+    collapsed.
+    @return the ptree in the form of a Tree.Parse.t *)
+let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
+    let sortthem a b ao bo data ad bd =
+        match String.compare ao bo with
+        | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
+        | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
+    in
+    let get_children = function
+        | Tree.Parse.Leafp _ as x -> [x]
+        | Tree.Parse.Nodep (lst, _) -> lst
+    in
+    (* create an empty table if none is passed *)
+    let branches = match branches with Some x -> x | None -> Hashtbl.create 1 in
+    let str_gen root id parent_option = 
+        let oth =
+            try begin
+                match parent_option with
+                | None -> raise Not_found
+                | Some par -> 
+                    let pair = min id par,max id par in
+                    match Hashtbl.find branches pair with
+                        | `Single length ->
+                            Some (if root then length /. 2.0 else length), None
+                        | `Name -> None,Some (string_of_int id)
+            end with | Not_found -> None,None 
+        and dat = try str_gen id with | Not_found -> "" in
+        dat,oth
+    in
+    let rec rec_down root node prev_node =
+        match node with
+        | Tree.Leaf (self, parent) -> 
+              let data = str_gen root self (Some parent) in
+              Tree.Parse.Leafp data, 0, (fst data)
+        | Tree.Interior (our_id, _, _, _) ->
+              let (ch1, ch2) = 
+                  assert (prev_node <> Tree.get_id node);
+                  Tree.other_two_nbrs prev_node node in
+              let a, ad, ao = 
+                  try rec_down false (Tree.get_node ch1 tree) our_id with
+                    | Not_found as err -> 
+                            Status.user_message Status.Error "5";
+                            raise err
+              in
+              let b, bd, bo = 
+                  try rec_down false (Tree.get_node ch2 tree) our_id with
+                    | Not_found as err -> 
+                            Status.user_message Status.Error "6";
+                            raise err
+              in
+              let a =
+                  if collapse our_id ch1 then 
+                      get_children a
+                  else [a]
+              and b =
+                  if collapse our_id ch2 then 
+                      get_children b
+                  else [b]
+              in
+              let data = str_gen root our_id (Some prev_node) in
+
+              if bd > ad then
+                  Tree.Parse.Nodep (a @ b, data), bd + 1, bo
+                (* if equal then sort children alphabetically *)
+              else if bd = ad then sortthem a b ao bo data ad bd 
+              else Tree.Parse.Nodep (b @ a, data), ad + 1, ao
+        | Tree.Single _ -> failwith "Unexpected single"
+    in
+    let map : Tree.Parse.tree_types list =
+        List.map
+        (fun handle ->
+            let tree = 
+                (** need to split the root BL **)
+             match Tree.get_node handle tree with
+             | Tree.Leaf (self, parent) ->
+                   let acc, _, _ = rec_down true (Tree.get_node parent
+                                           tree) handle in
+                   let str = str_gen true self (Some parent) in 
+                   [(Tree.Parse.Leafp str); acc]
+             | Tree.Interior (self, par_id, ch1, ch2) ->
+                   let par = Tree.get_node par_id tree in
+                   let ch1 = Tree.get_node ch1 tree in
+                   let ch2 = Tree.get_node ch2 tree in
+                   let acc, accd, acco = rec_down true par handle in
+                   let acc1, acc1d, acc1o = rec_down false ch1 handle in
+                   let acc2, acc2d, acc2o = rec_down false ch2 handle in
+                   let data = str_gen true self (Some par_id) in
+                   if acc2d > acc1d then
+                       if acc1d > accd then
+                           [Tree.Parse.Nodep ([acc; acc1], data); acc2]
+                       else 
+                           [Tree.Parse.Nodep ([acc1; acc], data); acc2]
+                   else if acc1d > accd then
+                       if acc2d > accd then 
+                           [Tree.Parse.Nodep ([acc; acc2], data); acc1]
+                       else 
+                           [Tree.Parse.Nodep ([acc2; acc], data); acc1]
+                   else 
+                       if acc2d > acc1d then
+                           [Tree.Parse.Nodep ([acc1;acc2], data); acc]
+                       else 
+                           [Tree.Parse.Nodep ([acc2;acc1], data); acc]
+             | Tree.Single self -> [(Tree.Parse.Leafp (str_gen true self None))]
+             in Tree.Parse.post_process 
+                    ( Tree.Parse.Nodep (tree,("",(None,None))),root )
+            ) (* ^ there is going to have to be something in that "" *)
+            (All_sets.Integers.elements (Tree.get_handles tree))
+    in
+    map
+
+
+
+
 (** Functor to allow for SPR/TBR searches over phylogenetics trees of 
     different types of characters. *)
 module Search (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) 
@@ -1807,125 +1925,7 @@ let convert_to tree (data, nd_data_lst) =
         (add_node_data (Node.taxon_code nd) nd ptree) in
     (List.fold_left data_adder pt nd_data_lst)
 
-(** [build_trees tree]
-    @param tree the ptree which is being converted into a Tree.Parse.t
-    @param str_gen is a function that generates a string for each vertex in the
-    tree
-    @param collapse is a function that check weather or not a branch can be
-    collapsed.
-    @return the ptree in the form of a Tree.Parse.t *)
-let build_trees (tree : Tree.u_tree) str_gen collapse branches (root:string) =
-    let sortthem a b ao bo data ad bd =
-        match String.compare ao bo with
-        | 0 | 1 -> Tree.Parse.Nodep (b @ a, data), bd + 1, bo
-        | _ -> Tree.Parse.Nodep (a @ b, data), bd + 1, ao
-    in
-    let get_children = function
-        | Tree.Parse.Leafp _ as x -> [x]
-        | Tree.Parse.Nodep (lst, _) -> lst
-    in
-
-    (* create an empty table if none is passed *)
-    let branches = match branches with Some x -> x | None -> Hashtbl.create 1 in
-
-    let str_gen root id parent_option = 
-        let oth =
-            try begin
-                match parent_option with
-                | None -> raise Not_found
-                | Some par -> 
-                    let pair = min id par,max id par in
-                    match Hashtbl.find branches pair with
-                        | `Single length ->
-                            Some (if root then length /. 2.0 else length), None
-                        | `Name -> None,Some (string_of_int id)
-            end with | Not_found -> None,None 
-        and dat = try str_gen id with | Not_found -> "" in
-        dat,oth
-    in
-
-    let rec rec_down root node prev_node =
-        match node with
-        | Tree.Leaf (self, parent) -> 
-              let data = str_gen root self (Some parent) in
-              Tree.Parse.Leafp data, 0, (fst data)
-        | Tree.Interior (our_id, _, _, _) ->
-              let (ch1, ch2) = 
-                  assert (prev_node <> Tree.get_id node);
-                  Tree.other_two_nbrs prev_node node in
-              let a, ad, ao = 
-                  try rec_down false (Tree.get_node ch1 tree) our_id with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "5";
-                            raise err
-              in
-              let b, bd, bo = 
-                  try rec_down false (Tree.get_node ch2 tree) our_id with
-                    | Not_found as err -> 
-                            Status.user_message Status.Error "6";
-                            raise err
-              in
-              let a =
-                  if collapse our_id ch1 then 
-                      get_children a
-                  else [a]
-              and b =
-                  if collapse our_id ch2 then 
-                      get_children b
-                  else [b]
-              in
-              let data = str_gen root our_id (Some prev_node) in
-
-              if bd > ad then
-                  Tree.Parse.Nodep (a @ b, data), bd + 1, bo
-                (* if equal then sort children alphabetically *)
-              else if bd = ad then sortthem a b ao bo data ad bd 
-              else Tree.Parse.Nodep (b @ a, data), ad + 1, ao
-        | Tree.Single _ -> failwith "Unexpected single"
-    in
-    
-    let map : Tree.Parse.tree_types list =
-        List.map
-        (fun handle ->
-            let tree = 
-                (** need to split the root BL **)
-             match Tree.get_node handle tree with
-             | Tree.Leaf (self, parent) ->
-                   let acc, _, _ = rec_down true (Tree.get_node parent
-                                           tree) handle in
-                   let str = str_gen true self (Some parent) in 
-                   [(Tree.Parse.Leafp str); acc]
-             | Tree.Interior (self, par_id, ch1, ch2) ->
-                   let par = Tree.get_node par_id tree in
-                   let ch1 = Tree.get_node ch1 tree in
-                   let ch2 = Tree.get_node ch2 tree in
-                   let acc, accd, acco = rec_down true par handle in
-                   let acc1, acc1d, acc1o = rec_down false ch1 handle in
-                   let acc2, acc2d, acc2o = rec_down false ch2 handle in
-                   let data = str_gen true self (Some par_id) in
-                   if acc2d > acc1d then
-                       if acc1d > accd then
-                           [Tree.Parse.Nodep ([acc; acc1], data); acc2]
-                       else 
-                           [Tree.Parse.Nodep ([acc1; acc], data); acc2]
-                   else if acc1d > accd then
-                       if acc2d > accd then 
-                           [Tree.Parse.Nodep ([acc; acc2], data); acc1]
-                       else 
-                           [Tree.Parse.Nodep ([acc2; acc], data); acc1]
-                   else 
-                       if acc2d > acc1d then
-                           [Tree.Parse.Nodep ([acc1;acc2], data); acc]
-                       else 
-                           [Tree.Parse.Nodep ([acc2;acc1], data); acc]
-             | Tree.Single self -> [(Tree.Parse.Leafp (str_gen true self None))]
-             in Tree.Parse.post_process 
-                    ( Tree.Parse.Nodep (tree,("",(None,None))),root )
-            ) (* ^ there is going to have to be something in that "" *)
-            (All_sets.Integers.elements (Tree.get_handles tree))
-    in
-    map
-
+    let build_trees = build_trees
 
     (** [build_tree tree]
         @param tree the ptree being converted into a Tree.Parse.t

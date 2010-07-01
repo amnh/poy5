@@ -315,7 +315,7 @@ module Parse : sig
         | Characters of ((string * string option) t)
 
     (** [print_tree t] prints a tree **)
-    val print_tree : tree_types -> unit
+    val print_tree : string option -> tree_types -> unit
 
     (** [of_string x] given a string x of a tree in the form (a (b c)), returns
     * its representation as an internal t type. If an error occurs, an

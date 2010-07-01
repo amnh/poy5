@@ -516,16 +516,16 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let median = 
                 MlStaticCS.median ca.preliminary cb.preliminary
                                   t1 t2 anode.taxon_code bnode.taxon_code in
-            let t1,t2 = 
-                if anode.min_child_code < bnode.min_child_code then t1, t2
-                else t2, t1
-            in
             let n_cost = MlStaticCS.root_cost median in
             if debug then 
                 info_user_message
                     "Calculating %d with %f(%d) and %f(%d) = %f"
                     code t1 anode.taxon_code t2 bnode.taxon_code n_cost
             else ();
+            let t1,t2 = 
+                if anode.min_child_code < bnode.min_child_code then t1, t2
+                else t2, t1
+            in
             let res =
                 {
                     preliminary = median;
@@ -2662,8 +2662,6 @@ let transform_multi_chromosome ( nodes : node_data list ) =
     else 
         nodes
     
-
-
 let load_data ?(silent=true) ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
@@ -2676,8 +2674,7 @@ let load_data ?(silent=true) ?(classify=true) data =
         All_sets.Integers.empty lst
     in
     let is_mem =
-        (* We check for informative characters among all the terminals in data
-        * *)
+        (* We check for informative characters among all the terminals in data *)
         if classify then 
             (* We need to verify if the character is
             potentially informative or not *)

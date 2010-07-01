@@ -1653,20 +1653,46 @@ module Parse = struct
         | Branches of (string * float option) t
         | Characters of (string * string option) t
 
-    let print_tree t = 
-        let rec n_spaces n = if n = 0 then "" else (n_spaces (n-1))^"\t" in
-        let rec print_nodes printer depth = function
-            | Leafp dat -> Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat)
-            | Nodep (lst,dat) -> 
-                    Printf.printf "%s%s\n%!" (n_spaces depth) (printer dat);
-                    List.iter (print_nodes printer (depth+1)) lst
-        and ident = fun x -> x
-        and get_some f = function | Some x -> f x | None -> "None" in
+    let print_tree (output:string option) (t:tree_types) : unit = 
+        let c = match output with
+            | Some x -> open_out x
+            | None   -> stdout
+        in
+        let rec interior f t : unit = match t with
+            | []     -> ()
+            | hd::[] -> f hd
+            | hd::tl -> f hd; output_string c ","; interior f tl
+        in
+        let rec print_ n_to_string l_to_string t : unit = match t with
+            | Leafp d     -> l_to_string d
+            | Nodep (n,d) ->
+                output_string c "(";
+                interior (print_ n_to_string l_to_string) n;
+                output_string c ")";
+                n_to_string d;
+                ()
+        in
         match t with
-            | Flat t -> print_nodes ident 0 t
-            | Annotated (t,a) -> print_nodes ident 0 (Nodep ([t],a))
-            | Branches t -> print_nodes (fun (x,l) -> x^"["^(get_some (string_of_float) l)^"]") 0 t
-            | Characters t -> print_nodes (fun (x,y) -> x^"["^(get_some (ident) y)^"]") 0 t
+            | Flat t | Annotated (t,_) ->
+                print_ (fun _ -> ()) (fun x -> output_string c x) t
+            | Branches t -> 
+                print_ 
+                    (fun (_,d) -> 
+                        match d with | Some x -> Printf.fprintf c ":%f" x 
+                                     | None   -> ())
+                    (fun (n,d) -> 
+                        match d with | Some x -> Printf.fprintf c "%s:%f" n x 
+                                     | None   -> ())
+                    t
+            | Characters t ->
+                print_ 
+                    (fun (_,d) -> 
+                        match d with | Some x -> Printf.fprintf c ":%s" x 
+                                     | None   -> ())
+                    (fun (n,d) -> 
+                        match d with | Some x -> Printf.fprintf c "%s:%s" n x 
+                                     | None   -> Printf.fprintf c "%s" n)
+                    t
 
     exception Trailing_characters
 
