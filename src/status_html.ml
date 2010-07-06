@@ -308,6 +308,7 @@ let user_message ty t =
 
 let user_message c msg = 
     match !verbosity,c with
+    |    _ , Output _
     |    _ , Error ->  user_message c msg
     | `None, _ -> ()
     |    _ , _ ->  user_message c msg
