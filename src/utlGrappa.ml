@@ -232,22 +232,6 @@ let find_better_capping (genomeX : int array) (genomeY : int array) (delimiterX:
     debug msg*)
     resarr,deli_arr
 
-let is_identical arr1 arr2 arr3 =
-    let len1 = Array.length arr1 and len2 = Array.length arr2 
-    and len3 = Array.length arr3 in
-    if ((len1<>len2)||(len2<>len3)) then
-        0
-    else
-        let sign = ref 1 in 
-        let idx = ref (len1-1) in
-        while (!sign = 1)&&( !idx > 0) do
-            sign := 
-                if (arr1.(!idx) = arr2.(!idx))&& (arr3.(!idx) = arr2.(!idx)) then 1
-                else 0 ;
-            idx := !idx -1 ;
-        done;
-        !sign
-
 
 let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
@@ -279,11 +263,6 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let num_deliX = Array.length deliX
     and num_deliY = Array.length deliY
     and num_deliZ = Array.length deliZ in
-    
-    if ( (is_identical genomeX genomeY genomeZ)=1 ) && ( (is_identical deliX
-    deliY deliZ)=1 ) then
-        genomeX, deliX
-    else begin
     (* debug msg  
      Printf.printf "circular = %d, num_deli = %d,%d,%d,deli array = \n%!" 
      circular num_deliX num_deliY num_deliZ;
@@ -346,11 +325,10 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
       debug msg*)
     let resarr = de_standardize3 ori_genomeX med3arr num_gen in
     (* debug msg  
-     Printf.printf "output seqcode = %!"; print_intarr resarr;
+     Printf.printf "output seqcode = %!"; Utl.printIntArr resarr;
      print_newline();
     debug msg *)
     resarr,deli_arr
-    end
 
 (** [cmp_breakpoint_dis genomeX genomeY circular] computes
  * the breakpoint distance between two given gene orders 
