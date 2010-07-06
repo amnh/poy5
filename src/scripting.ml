@@ -4436,6 +4436,31 @@ END
                     in
                     run
             | `Diagnosis filename ->
+    (*
+    * For brief report -- the four lines has 
+    * node name, 
+    * Cost, 
+    * Rearrangement cost, Children : children name. 
+    * unadjusted node_data is being used. (see function "get_unadjusted" in allDirChar).
+    * "Cost" is the node_data.total_cost, if the node is not a root (if the node 
+    * is the root, it will report 0 in Cost). 
+    * "Recost" is the sum of two subtree_cost from its children, and the cost
+    * between its two children (median2 function take care of this).
+    * Note, both "Cost" and "Recost" do not include cost between current node
+    * and its parent, which means the cost we see in detailed report of this
+    * node is not included.
+    * For detailed node data report -- 
+    * "haracters        Class        Cost        Rearrangement Cost .. blablabla" 
+    * followed by brief report, has actual gene contents print out.
+    * Preliminary and final are from unadjusted node_data. (see function "get_unadjusted"
+    * in allDirChar.ml, node_data contains preliminary and final -- that's from type `a r in
+* node.ml ). 
+    * Single is from adjusted node_data (funtion "get_single" in allDirChar.ml). Single is the preliminary of that node_data.
+    * function "cs_to_formatter" is "delayed" in detailed node data report. 
+    * it won't be forced untill PoyFormater calls "Xml.eagerly_compute".
+    * Note, function "get_single" and "ge_unadjusted" in allDirChar
+    * are together looks like this "let get_single, get_unadjusted = blablabla...."
+    *)
                     let trees = 
                         (* This would be used to rediagnose the tree to the
                          * data, but since the data is in the tree are
