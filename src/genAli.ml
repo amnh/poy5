@@ -587,7 +587,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 * cost_array for the function "match_pair", which will give us a match, or you
 * can call it alignment between codes in the two input array, also the editing
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
-let create_gen_ali_new state code1_arr codem_arr 
+let create_gen_ali_new code1_arr codem_arr 
 cost_matrix gapcode re_meth circular orientation  = 
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
@@ -653,9 +653,6 @@ cost_matrix gapcode re_meth circular orientation  =
     editingcost+recost, recost, alied_code1, alied_codem
 
 
-  
-
-
 let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s) 
         pure_gen_cost_mat alpha re_meth max_swap_med circular orientation =
     let gapcode = Alphabet.get_gap alpha in
@@ -669,7 +666,7 @@ let create_gen_ali kept_wag state (seq1 : Sequence.s) (seq2 : Sequence.s)
     let arr1 = Sequence.to_array seq1 in 
     let arr2 = Sequence.to_array seq2 in
     let tc, rc, alied_code1, alied_code2 = 
-        create_gen_ali_new state arr1 arr2 
+        create_gen_ali_new arr1 arr2 
         pure_gen_cost_mat gapcode re_meth circular orientation
     in
     (*debug msg
@@ -733,28 +730,48 @@ let re_align seq11 seq12 seq21 seq22 gapcode =
         if len1>=len2 then seq11,new_seq,seq12
         else new_seq,seq21,seq22
 
-let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
-    Sequence.s) (seq3 : Sequence.s) (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
-    (* debug msg 
-    Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
-    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
-    Sequence.printseqcode seq3;
-    Printf.printf "delimiters lst =\n%!";
-    List.iter (fun lst -> 
-        Printf.printf "[%!"; 
-        List.iter (Printf.printf "%d,") lst; 
-        Printf.printf "];%!") delimiter_lstlst;
-    Printf.printf "\n%!";
-     debug msg *)
+
+let create_gen_ali3_by_medsov_codearr medsov kept_wag arr1 arr2 arr3 (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
     let gapcode = Alphabet.get_gap alpha in
-    let arr1 = Sequence.to_array seq1
-    and arr2 = Sequence.to_array seq2 
-    and arr3 = Sequence.to_array seq3 in
     let oriarr1 = to_ori_arr (arr1)
     and oriarr2 = to_ori_arr (arr2) 
     and oriarr3 = to_ori_arr (arr3) in
     let comoriarr1,comoriarr2,comoriarr3 = Utl.get_common3 oriarr1 oriarr2 oriarr3 equal_orientation in
+    let deli1 = List.hd delimiter_lstlst 
+    and deli2 = List.nth delimiter_lstlst 1
+    and deli3 = List.nth delimiter_lstlst 2 in
+    let deliX = Array.of_list deli1 
+    and deliY = Array.of_list deli2
+    and deliZ = Array.of_list deli3 in
     let ori_arr_med3,delimiter_arr =
+       (*if ( (is_identical3 comoriarr1 comoriarr2 comoriarr3)=1 ) && ( (is_identical3 deliX
+        deliY deliZ)=1 ) then
+           comoriarr1, deliX
+        else 
+        if ((is_identical2 comoriarr1 comoriarr2)&&(is_identical2 deliX deliY)) then
+        begin
+            let pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat
+            gen_cost_mat in
+            let _,_,res =   
+            create_gen_ali_new comoriarr1 comoriarr3 pure_gen_cost_mat 
+            gapcode re_meth circular orientation
+        end
+        else
+       *)
+       let is_identical3 = Array_ops.is_identical3 
+       and is_identical2 = Array_ops.is_identical2 in
+       if ( (is_identical3 comoriarr1 comoriarr2 comoriarr3)=1 ) && ( (is_identical3 deliX
+        deliY deliZ)=1 ) then comoriarr1, deliX
+        else if(((is_identical2 comoriarr1 comoriarr2)=1)&&((is_identical2 deliX
+        deliY)=1))
+        then comoriarr1, deliX
+        else if (((is_identical2 comoriarr1 comoriarr3)=1)&&((is_identical2
+        deliX deliZ)=1))
+        then comoriarr1, deliX
+        else if (((is_identical2 comoriarr3 comoriarr2)=1)&&((is_identical2
+        deliZ deliY)=1))
+        then comoriarr2, deliY
+        else
         match medsov with
         |`Vinh ->
                 failwith "Vinh median solver is not in grappa"
@@ -775,14 +792,6 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     let totalcost1, (recost11,recost12), alied_arr11,alied_arr12  =
         cmp_cost `Breakinv arr1 arr_med3 comarr1 gen_cost_mat gapcode re_meth circular orientation
     in
-    (* debug msg 
-    Printf.printf "GenAli.ml: delimiters :\n%!";
-    Array.iter (Printf.printf "%d,") delimiter_arr; Printf.printf "\n%!";
-    Printf.printf "cost1 between [%!";  Array.iter (Printf.printf "%d,") arr1; 
-    Printf.printf " ] and [ %!";  Array.iter (Printf.printf "%d," ) arr_med3;
-    Printf.printf " ] and [ %!";  Array.iter (Printf.printf "%d," ) comarr1;
-    Printf.printf " ] is %d\n%!" totalcost1;
-    debug msg *)
     let totalcost2, (recost21,recost22), alied_arr21, alied_arr22 =
         cmp_cost `Breakinv arr2 arr_med3 comarr2 gen_cost_mat gapcode re_meth circular orientation
     in
@@ -796,6 +805,27 @@ let create_gen_ali3_by_medsov medsov kept_wag (seq1 : Sequence.s) (seq2 :
     alied_arr12,alied_arr22,alied_arr32
 
 
+
+
+let create_gen_ali3_by_medsov_seqarr medsov kept_wag (seq1 : Sequence.s) (seq2 :
+    Sequence.s) (seq3 : Sequence.s) (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
+    (* debug msg *)
+    Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
+    Sequence.printseqcode seq1; Sequence.printseqcode seq2;
+    Sequence.printseqcode seq3;
+    Printf.printf "delimiters lst =\n%!";
+    List.iter (fun lst -> 
+        Printf.printf "[%!"; 
+        List.iter (Printf.printf "%d,") lst; 
+        Printf.printf "];%!") delimiter_lstlst;
+    Printf.printf "\n%!";
+   (*  debug msg *)
+    let arr1 = Sequence.to_array seq1
+    and arr2 = Sequence.to_array seq2 
+    and arr3 = Sequence.to_array seq3 in
+    create_gen_ali3_by_medsov_codearr medsov kept_wag arr1 arr2 arr3
+    delimiter_lstlst gen_cost_mat alpha re_meth  max_swap_med circular orientation sym
+   
 (** [create_gen_ali_code state seq1 seq2 gen_cost_mat gen_gap_code 
 *        re_meth max_swap_med circular] creates the general 
 * alignment between [seq1] and [seq2] with minimum total cost
