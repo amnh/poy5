@@ -105,6 +105,9 @@ val readjust_3d :
 * [med] into string format *) 
 val to_string : annchrom_t -> Alphabet.a -> string
 
+(* print out data inside meds_t *)
+val print : meds_t -> unit
+
 (** [get_active_ref_code meds] return active reference codes
 * of annotated chromosome medians [meds] *)
 val get_active_ref_code : meds_t -> int * int * int
