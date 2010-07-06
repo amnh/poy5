@@ -809,7 +809,7 @@ let create_gen_ali3_by_medsov_codearr medsov kept_wag arr1 arr2 arr3 (delimiter_
 
 let create_gen_ali3_by_medsov_seqarr medsov kept_wag (seq1 : Sequence.s) (seq2 :
     Sequence.s) (seq3 : Sequence.s) (delimiter_lstlst : int list list) (gen_cost_mat: Cost_matrix.Two_D.m) alpha re_meth  max_swap_med circular orientation sym =
-    (* debug msg *)
+    (* debug msg 
     Printf.printf "create_gen_ali3_by_medsov, seq1,seq2,seq3=\n%!";
     Sequence.printseqcode seq1; Sequence.printseqcode seq2;
     Sequence.printseqcode seq3;
@@ -819,7 +819,7 @@ let create_gen_ali3_by_medsov_seqarr medsov kept_wag (seq1 : Sequence.s) (seq2 :
         List.iter (Printf.printf "%d,") lst; 
         Printf.printf "];%!") delimiter_lstlst;
     Printf.printf "\n%!";
-   (*  debug msg *)
+     debug msg *)
     let arr1 = Sequence.to_array seq1
     and arr2 = Sequence.to_array seq2 
     and arr3 = Sequence.to_array seq3 in
@@ -832,7 +832,7 @@ let create_gen_ali3_by_medsov_seqarr medsov kept_wag (seq1 : Sequence.s) (seq2 :
 * where total cost = editing cost + rearrangement cost *)
 let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array) 
         (gen_cost_mat : int array array) gen_gap_code re_meth max_swap_med circular orientation =   
-(*debug msg*)
+(*debug msg
     Printf.printf "create_gen_ali_code, seq1 and seq2 = \n%!"; 
     Utl.printIntArr seq1; Utl.printIntArr seq2;
     Printf.printf "check matrix \n%!";
@@ -843,7 +843,7 @@ let create_gen_ali_code kept_wag state (seq1 : int array) (seq2 : int array)
         Printf.printf "\n%!"; )seq1;
     Array.iter (fun code2 -> Printf.printf "%10i" gen_cost_mat.(code2).(gen_gap_code);
     )seq2; Printf.printf "\n%!";
-(*debug msg*)
+debug msg*)
     let size = Array.length gen_cost_mat in 
     let gen_cost_mat = Array.init (size - 1) 
         (fun i -> Array.init (size - 1) (fun j -> gen_cost_mat.(i + 1).(j + 1))) 
