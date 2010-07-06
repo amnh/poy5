@@ -619,7 +619,7 @@ cost1_mat gen_gap_code =
     Printf.printf "seqm arr = \n%!"; Array.iter printSeq seqm_arr;   
     debug msg*)
     let tc,rc,alied_code1,alied_codem =
-        GenAli.create_gen_ali_new `Annotated code1_arr codem_arr 
+        GenAli.create_gen_ali_new code1_arr codem_arr 
         cost1_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in   
     (*debug msg
@@ -639,7 +639,7 @@ let cmp_cost2 (chrom1: annchrom_t) (chrom2 : annchrom_t)  c2 alpha annchrom_pam 
          create_pure_gen_cost_mat seq1_arr seq2_arr c2 ali_pam  
     in
     let tc,rc,alied_code1,alied_code2 =
-        GenAli.create_gen_ali_new `Annotated code1_arr code2_arr 
+        GenAli.create_gen_ali_new code1_arr code2_arr 
         pure_gen_cost_mat gen_gap_code ali_pam.re_meth ali_pam.circular true 
     in  
     tc, rc
@@ -912,6 +912,45 @@ let to_ori_arr arr =
 
 let equal_orientation code1 code2 = compare (abs code1) (abs code2)
 
+let get_common_codelst_from_alied_seq 
+mine_seqarr ch1_seqarr ch2_seqarr ch3_seqarr 
+codem_arr 
+code1_arr alied_code1_arr alied_code1m_arr 
+code2_arr alied_code2_arr alied_code2m_arr 
+code3_arr alied_code3_arr alied_code3m_arr =
+    let common1 = ref [] and common2 = ref [] 
+    and common3 = ref [] and common_med = ref [] in
+    Array.iteri 
+        (fun ith seqt -> 
+             let codem = codem_arr.(ith) in 
+             let comp v1 v2 = (v1 + 1) / 2 -  (v2 + 1) / 2 in
+             let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
+                 let indexm = Utl.find_index alied_codem_arr codem comp in
+                 let code = alied_code_arr.(indexm) in 
+                 let index = Utl.find_index code_arr code comp in
+                 match index with 
+                 | -1 -> Sequence.get_empty_seq (), Utl.large_int
+                 | _ -> seq_arr.(index).seq , index
+             in 
+             let seq1,idx1 = get_seq ch1_seqarr code1_arr alied_code1_arr
+                 alied_code1m_arr 
+             in 
+             let seq2,idx2 = get_seq ch2_seqarr code2_arr alied_code2_arr
+                 alied_code2m_arr 
+             in 
+             let seq3,idx3 = get_seq ch3_seqarr code3_arr alied_code3_arr
+                 alied_code3m_arr 
+             in 
+             if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
+                 (Sequence.length seq3 = 0) then () 
+             else begin
+                 common1 := idx1 :: !common1;
+                 common2 := idx2 :: !common2;
+                 common3 := idx3 :: !common3;
+                 common_med := ith :: !common_med;
+             end               
+        ) mine_seqarr;
+    (List.rev !common1),(List.rev !common2),(List.rev !common3),(List.rev !common_med)
 
 (** [find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam]
 * finds the median of annotated chromosome [ch1], [ch2],
@@ -945,41 +984,14 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
     let _,_, alied_code3_arr,alied_code3m_arr = get_alied_code_arr 
     code3_arr codem_arr seq3_arr seqm_arr c2 ali_pam cost3_mat gen_gap_code in
 (* get common alied loci out of three input chromosome and the old median2.*)
-    let common1 = ref [] and common2 = ref [] 
-    and common3 = ref [] and common_med = ref [] in
-    Array.iteri 
-        (fun ith seqt -> 
-             let codem = codem_arr.(ith) in 
-             let comp v1 v2 = (v1 + 1) / 2 -  (v2 + 1) / 2 in
-             let get_seq seq_arr code_arr alied_code_arr alied_codem_arr  = 
-                 let indexm = Utl.find_index alied_codem_arr codem comp in
-                 let code = alied_code_arr.(indexm) in 
-                 let index = Utl.find_index code_arr code comp in
-                 match index with 
-                 | -1 -> Sequence.get_empty_seq (), Utl.large_int
-                 | _ -> seq_arr.(index).seq , index
-             in 
-             let seq1,idx1 = get_seq ch1.seq_arr code1_arr alied_code1_arr
-                 alied_code1m_arr 
-             in 
-             let seq2,idx2 = get_seq ch2.seq_arr code2_arr alied_code2_arr
-                 alied_code2m_arr 
-             in 
-             let seq3,idx3 = get_seq ch3.seq_arr code3_arr alied_code3_arr
-                 alied_code3m_arr 
-             in 
-             if (Sequence.length seq1 = 0) ||  (Sequence.length seq2 = 0) ||
-                 (Sequence.length seq3 = 0) then () 
-             else begin
-                 common1 := idx1 :: !common1;
-                 common2 := idx2 :: !common2;
-                 common3 := idx3 :: !common3;
-                 common_med := ith :: !common_med;
-             end               
-        ) mine.seq_arr;
     let common1,common2,common3,common_idxlst = 
-        (List.rev !common1),(List.rev !common2), 
-        (List.rev !common3),(List.rev !common_med) in
+        get_common_codelst_from_alied_seq 
+        mine.seq_arr ch1.seq_arr ch2.seq_arr ch3.seq_arr 
+        codem_arr 
+        code1_arr alied_code1_arr alied_code1m_arr
+        code2_arr alied_code2_arr alied_code2m_arr
+        code3_arr alied_code3_arr alied_code3m_arr
+    in
     let new_total_cost, new_mine = 
     if(List.length common_idxlst)>2 then begin
         let alied_code1m_common = Array_ops.fold_righti (fun pos code acc ->
@@ -1003,7 +1015,28 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
         in 
         let circular = ali_pam.circular in 
         let medsov = ali_pam.median_solver in
-        let ori_med3arr,_ = UtlGrappa.inv_med medsov ori_arr1 ori_arr2 ori_arr3
+   (*     let kept_wag = ali_pam.kept_wag in
+        let re_meth = ali_pam.re_meth in
+        let swap_med = ali_pam.swap_med in
+        let orientation = true in
+        let sym = ali_pam.symmetric in
+        let ori_med3arr = GenAli.create_gen_ali3_by_medsov_codearr
+        medsov kept_wag ori_arr1 ori_arr2 ori_arr3 delimiter_lstlst 
+        alpha re_meth swap_med circular orientation sym in
+   *)
+        let is_identical3 = Array_ops.is_identical3 
+        and is_identical2 = Array_ops.is_identical2 in
+        let ori_med3arr,_ = 
+            if ( (is_identical3 ori_arr1 ori_arr2 ori_arr3)=1) then
+                ori_arr1,[||] 
+            else if ((is_identical2 ori_arr1 ori_arr2)=1) then
+                ori_arr1,[||]
+            else if ((is_identical2 ori_arr2 ori_arr3)=1) then
+                ori_arr2, [||]
+            else if ((is_identical2 ori_arr1 ori_arr3)=1) then
+                ori_arr3, [||]
+            else
+                UtlGrappa.inv_med medsov ori_arr1 ori_arr2 ori_arr3
                 delimiter_lstlst circular
         in
         let sorted_alied_code1m_common = List.sort compare alied_code1m_common in
