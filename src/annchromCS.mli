@@ -80,6 +80,9 @@ type t = {
   code : int;
 }
 val cardinal : t -> int
+
+val print : t -> unit
+
 val of_array :
   Data.dynamic_hom_spec ->
     (Sequence.s Data.dyna_data * IntMap.key) array -> int -> int -> int -> t
