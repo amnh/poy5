@@ -558,6 +558,7 @@ optional_charlabels:
 
 charstatelabels:
     | INTEGER nexus_word BACKSLASH taxonlist COMMA charstatelabels { ($1, $2, $4) :: $6 }
+    | INTEGER nexus_word BACKSLASH taxonlist SEMICOLON             { ($1, $2, $4) :: [] }
     | SEMICOLON                                                    { []                 }
     ;
 optional_charstatelabels:
@@ -571,6 +572,7 @@ optional_statelabels:
 
 statelabels:
     | INTEGER taxonlist COMMA statelabels { ($1, $2) :: $4 }
+    | INTEGER taxonlist                   { ($1, $2) :: [] }
     |                                     { []             }
     ;
 optional_taxlabels:
