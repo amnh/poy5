@@ -517,6 +517,16 @@ let duplicate data =
             | None -> None;
     }
 
+(* recreate static_dynamic codes from dynamic_static map *)
+let reverse_dynamic_static_codes map = 
+    All_sets.IntegerMap.fold
+        (fun i lst acc ->
+            let key = List.fold_right ~f:All_sets.Integers.add
+                                      ~init:All_sets.Integers.empty lst in
+            All_sets.IntSetMap.add key i acc)
+        map 
+        All_sets.IntSetMap.empty
+
 (* [convert_dynamic_to_static_branches src dest] Use the static_dynamic_codes
  * map from destination, and the branches structure from source. This behavior
  * is used after an implied alignment applies the dynamic_static_codes map to
@@ -797,8 +807,7 @@ let print (data : d) =
         Printf.printf "%d: " i;
         List.iter (Printf.printf "%d, ") list;
         print_newline ()
-    in
-    let print_character_codes key bind =
+    and print_character_codes key bind =
         Printf.printf "[%d,%s],%!" key bind;
     in
     Printf.printf "\n check character_codes: \n%!";
@@ -837,8 +846,7 @@ let rec aux_add_synonym stack data (a, b) =
     (* We need to check if [a] already has an assigned synonym *)
     if (a = b) then begin
         let msg = String.concat " to " (a :: (List.rev (b :: stack))) in
-        Status.user_message Status.Warning 
-        ("I'm ignoring the self-synonym " ^ msg);
+        Status.user_message Status.Warning ("I'm ignoring the self-synonym "^msg);
         data
     end else if All_sets.StringMap.mem a data.synonyms then begin
         (* Hum ... so we do have a synonym, we need now to check if [(a, b)]
@@ -1392,7 +1400,15 @@ let repack_codes data =
                             ((Stat (available_code, d)), x));
                 with | Not_found -> ())
             data.taxon_characters;
-            data
+        let dyn_stat_codes =
+            All_sets.IntegerMap.map
+                (fun lst ->
+                    let tl = List.filter (fun x -> not (x = used_code)) lst in
+                    available_code :: tl)
+                data.dynamic_static_codes
+        in
+        {data with dynamic_static_codes = dyn_stat_codes;
+                   static_dynamic_codes = reverse_dynamic_static_codes dyn_stat_codes; }
     in
     let data = 
         let check data code = 
@@ -1907,17 +1923,8 @@ let add_multiple_static_parsed_file data list =
             ~init:(data,data.dynamic_static_codes)
             list
     in
-    let reverse = 
-        All_sets.IntegerMap.fold
-            (fun i lst acc ->
-                let key = List.fold_right ~f:All_sets.Integers.add
-                                          ~init:All_sets.Integers.empty lst in
-                All_sets.IntSetMap.add key i acc)
-            map 
-            All_sets.IntSetMap.empty
-    in
     { data with dynamic_static_codes = map;
-                static_dynamic_codes = reverse; }
+                static_dynamic_codes = reverse_dynamic_static_codes map; }
 
 
 let add_static_file ?(report = true) style data (file : FileStream.f) = 
@@ -5944,15 +5951,6 @@ let remove_absent_present_encodings data =
                 | _ -> ())
             data.character_specs;
         !ret
-    (* recreate static_dynamic codes from dynamic_static map *)
-    and reverse map = 
-        All_sets.IntegerMap.fold
-            (fun i lst acc ->
-                let key = List.fold_right ~f:All_sets.Integers.add
-                                          ~init:All_sets.Integers.empty lst in
-                All_sets.IntSetMap.add key i acc)
-            map 
-            All_sets.IntSetMap.empty
     (* apply the absent/present encoding column to the previous column *)
     and is_present tcode code state spec = match spec,state with
         | Static sspec, (Stat (code,Some data),_) ->
@@ -6024,7 +6022,7 @@ let remove_absent_present_encodings data =
                     character_names      = copy_names;
                     character_codes      = copy_codes;
                     dynamic_static_codes = map;
-                    static_dynamic_codes = reverse map; }
+                    static_dynamic_codes = reverse_dynamic_static_codes map; }
     end else begin
         data
     end

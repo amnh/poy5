@@ -545,6 +545,14 @@ val set_component_cost :
     float -> float option -> 'a root_node -> 
         int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 
+val build_trees: Tree.u_tree -> 
+    (int -> string) -> 
+        (int -> int -> bool) -> 
+            ((int * int),[ `Name | `Single of float ]) Hashtbl.t option ->
+                string -> Tree.Parse.tree_types list
+
+
+
 val wipe_costs : ('a, 'b) p_tree -> ('a, 'b) p_tree 
 
 val move_cost_n_root : int -> int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
