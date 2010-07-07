@@ -239,7 +239,13 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     (* debug message 
     Printf.printf "inv_med ,input seqcodes: %!";
     Utl.printIntArr genomeX; Utl.printIntArr genomeY; Utl.printIntArr genomeZ;
-    debug message*) 
+    debug message*)
+    let is_identical2 = Array_ops.is_identical2 in
+    if ( ( (is_identical2 genomeX genomeY)=1 ) 
+    || ( (is_identical2 genomeX genomeZ)=1 )
+    || ( (is_identical2 genomeZ genomeY)=1 )
+    ) then
+        failwith ("we are not expecting same input arrays in grappa median solver");
     let ori_genomeX = genomeX in
     let genomeX, genomeY, genomeZ = standardize3 genomeX genomeY genomeZ in
     let num_gen = Array.length genomeX in 
