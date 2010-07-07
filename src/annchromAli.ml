@@ -956,6 +956,7 @@ code3_arr alied_code3_arr alied_code3m_arr =
 * finds the median of annotated chromosome [ch1], [ch2],
 * and [ch3] based on the current median [mine] *) 
 let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
+
     let ali_pam = get_annchrom_pam annchrom_pam in 
     let seq1_arr, _ = split ch1 in   let seq2_arr, _ = split ch2 in 
     let seq3_arr, _ = split ch3 in   let seqm_arr, _ = split mine in
@@ -1015,15 +1016,6 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
         in 
         let circular = ali_pam.circular in 
         let medsov = ali_pam.median_solver in
-   (*     let kept_wag = ali_pam.kept_wag in
-        let re_meth = ali_pam.re_meth in
-        let swap_med = ali_pam.swap_med in
-        let orientation = true in
-        let sym = ali_pam.symmetric in
-        let ori_med3arr = GenAli.create_gen_ali3_by_medsov_codearr
-        medsov kept_wag ori_arr1 ori_arr2 ori_arr3 delimiter_lstlst 
-        alpha re_meth swap_med circular orientation sym in
-   *)
         let is_identical3 = Array_ops.is_identical3 
         and is_identical2 = Array_ops.is_identical2 in
         let ori_med3arr,_ = 
