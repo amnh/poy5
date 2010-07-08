@@ -69,4 +69,10 @@ val fold_right_4 : ('a -> 'b -> 'c -> 'd -> 'e -> 'a) -> 'a -> 'b array -> 'c ar
 val fold_righti : (int -> 'a -> 'b -> 'b) -> 'b -> 'a array -> 'b
 
 val split : int -> 'a array -> 'a array array
+
+(** [is_identical2 arr1 arr2] returns 0 if arr1 and arr2 are not the same, 1 if
+    * they are the same.*)
+val is_identical2 : int array -> int array -> int
+
+val is_identical3 : int array -> int array -> int array -> int
 (* vim:sw=4 et tw=80 : *)

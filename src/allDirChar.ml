@@ -34,7 +34,7 @@ let debug_cost_fn           = false
 let debug_uppass_fn         = false
 let debug_downpass_fn       = false
 let debug_single_assignment = false
-let debug_diagnosis_recost  = false
+let debug_diagnosis         = false
 
 
 let current_snapshot x = 
@@ -926,21 +926,6 @@ module F : Ptree.Tree_Operations
      *  - ptree     : the tree to adjust *)
     type adjust_acc = bool * IntSet.t option IntMap.t * phylogeny
     let adjust_tree max_count branches nodes ptree =
-        if debug_diagnosis_recost then begin
-        Printf.printf "begin adjust_tree\n%!";
-        let tmpfun tree handle =
-                    let r = Ptree.get_component_root handle tree in
-                    match r.Ptree.root_median with
-                    | Some ((`Edge (a, b)), root) -> 
-                        let recost = 
-                            let root = get_unadjusted (-1) root in
-                            (Node.cmp_subtree_recost root)  
-                        in
-                        Printf.printf "root(%d,%d), recost here is %f\n%!" a b recost
-                    | _ -> Printf.printf "not what we want\n%!";
-        in
-        IntSet.iter (tmpfun ptree) (Ptree.get_handles ptree);
-        end;
         let mode = match !Methods.cost with
             | `Iterative x -> x
             | _ when using_likelihood `Either ptree -> `ThreeD None
@@ -2220,8 +2205,8 @@ module F : Ptree.Tree_Operations
 
     let to_formatter (atr : Xml.attributes)  
             (tree : (a, b) Ptree.p_tree) : Xml.xml =
-        if debug_diagnosis_recost then
-        Printf.printf "alldirchar.to_formatter \n%!"; 
+        if debug_diagnosis then
+        Printf.printf "AllDirChar.to_formatter \n%!"; 
         let data = tree.Ptree.data in
         let tree = assign_final_states tree in
         (*assign_final_states will call median3, what if we did not set
@@ -2240,8 +2225,13 @@ module F : Ptree.Tree_Operations
         (* Now we are ready to process the contents of the tree *)
         let rec subtree_to_formatter (pre, fi) cur par 
                 ((node_parent, single_parent) as tmp2) : Xml.xml =
+            if debug_diagnosis then
+                Printf.printf "alldirchar.subtree_to_formatter, \
+                current node is %d, parent is %d\n%!" cur par;
             match Ptree.get_node cur tree with
-            | (Tree.Interior _) as nd ->
+            | (Tree.Interior (me,nbr1,nbr2,nbr3)) as nd ->
+                    if debug_diagnosis then
+                    Printf.printf "Is an interior (%d,%d,%d,%d) => \n%!" me nbr1 nbr2 nbr3;
                     let cur_data = Ptree.get_node_data cur tree in
                     let ch1, ch2 = Ptree.other_two_nbrs par nd in
                     let ch1d, ch1u, ch1s = get_simplified cur ch1 
@@ -2259,16 +2249,17 @@ module F : Ptree.Tree_Operations
                         -[Xml.Trees.tree] 
                             {single mine} { single ch1 } 
                             { single ch2 } --) : Xml.xml)
-            | (Tree.Leaf (_, par)) ->
+            | (Tree.Leaf (me, par)) ->
+                    if debug_diagnosis then Printf.printf "Is a leaf (%d,%d) => %!" me par;
                     let node_data = Ptree.get_node_data cur tree in
-                    
                     let nodest = 
                         Node.to_formatter_single
                         (pre, fi) [] data 
                         (splitter par node_data) cur (Some tmp2)
                     in
                     (RXML -[Xml.Trees.tree] { single nodest }--)
-            | (Tree.Single _) ->
+            | (Tree.Single me) ->
+                    if debug_diagnosis then Printf.printf "Is a single: %d => %!" me;
                     let node_data = Ptree.get_node_data cur tree in
                     let nodest = 
                         Node.to_formatter_single
@@ -2281,14 +2272,12 @@ module F : Ptree.Tree_Operations
             let recost, contents, attr =
                 match r.Ptree.root_median with
                 | Some ((`Edge (a, b)), root) -> 
-                        if debug_diagnosis_recost then
+                        if debug_diagnosis then
                         Printf.printf "root median at (%d,%d) : %!" a b;
                         let recost = 
                             let root = get_unadjusted (-1) root in
                             (Node.cmp_subtree_recost root) +. recost 
                         in
-                        if debug_diagnosis_recost then
-                        Printf.printf "[ recost = %f ] \n%!" recost;
                         (* We override the root now to continue using the single
                         * assignment of the handle *)
                         let sroot, sa = 
@@ -2332,7 +2321,7 @@ module F : Ptree.Tree_Operations
                 (0., [])
         in
         let cost = Ptree.get_cost `Adjusted tree in
-        if debug_diagnosis_recost then
+        if debug_diagnosis then
         Printf.printf "alldirchar.to_formatter: recost = %f, cost = %f \n%!"
         recost cost; 
         (RXML -[Xml.Trees.forest] 

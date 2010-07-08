@@ -223,23 +223,17 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
     if debug then Printf.printf "annchrom.ml readjust_3d\n%!";
     let alpha = mine.alpha in 
     let annchrom_pam = mine.annchrom_pam in 
-
     let ach1 = List.hd ch1.med_ls in 
     let ach2 = List.hd ch2.med_ls in
     let amine = List.hd mine.med_ls in
     let aparent = List.hd parent.med_ls in
-    
     let cost1, _  = cmp_min_pair_cost ch1 mine in
     let cost2, _  = cmp_min_pair_cost ch2 mine in
     let costp, _ = cmp_min_pair_cost parent mine in
     let old_cost = cost1 + cost2 + costp in 
-
-
-
     let cost, adjust_med = AnnchromAli.find_med3 ach1 ach2 aparent amine c2 c3 alpha
         annchrom_pam in 
     let adjust_med = {mine with med_ls = [adjust_med]} in 
-
     if old_cost <= cost then  old_cost, mine, false
     else cost, adjust_med, true
 
@@ -255,7 +249,14 @@ let to_string (med : annchrom_t) alpha =
     in  
     String.concat " | " (Array.to_list seq_arr)
 
-
+let print (data : meds_t) =
+    Printf.printf "( num_med = %d; total_cost = %d; total_recost = %d; code=%d)\n%!"
+    data.num_med data.total_cost data.total_recost data.code;
+    let alpha = data.alpha in
+    List.iter (fun item ->
+        Printf.printf "( %s ) \n%!" (to_string item alpha);
+    ) data.med_ls
+    
 
 (** [get_active_ref_code meds] returns active reference codes
 * of annotated chromosome medians [meds] *)

@@ -549,14 +549,14 @@ let node_to_formater st ((tag, attr, cont) : Xml.xml) (*cost recost*) =
         and child1_name = assoc Xml.Nodes.child1_name attr
         and child2_name = assoc Xml.Nodes.child2_name attr in
      (*  we gonna get cost and recost out of the lst *)
-     (*   let cost =
+        let cost =
             try assoc Xml.Characters.cost attr with 
             Not_found -> " "
         in
         let recost =
             try assoc Xml.Characters.recost attr with 
             Not_found -> " "
-        in *)
+        in 
         let lst = 
             match cont with
             | #Xml.structured as x ->
@@ -565,9 +565,9 @@ let node_to_formater st ((tag, attr, cont) : Xml.xml) (*cost recost*) =
             | _ -> raise (Illegal_formater "node_to_formater 2")
         in
         let lst = List.map node_character_to_formater lst in
-        let singleClass = List.nth lst 2 in
-        let recost2 = Xml.value_to_string singleClass.(3) in
-        let cost2 =  Xml.value_to_string singleClass.(2) in
+        (*let singleClass = List.nth lst 2 in
+         let recost2 = Xml.value_to_string singleClass.(3) in
+        let cost2 =  Xml.value_to_string singleClass.(2) in *)
      (*   cost := !cost +. (float_of_string cost2) ;
         recost := !recost +. (float_of_string recost2); *)
         let lst = [|"@{<u>Characters@}"; "@{<u>Class@}"; 
@@ -577,9 +577,9 @@ let node_to_formater st ((tag, attr, cont) : Xml.xml) (*cost recost*) =
         in
         Status.user_message st ("@\n@\n@[<v 0>@{<b>" ^ name ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Cost " ^ (
-        cost2) ^ "@}@\n");
+        cost) ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Rearrangement cost "
-        ^(recost2) ^ "@}@\n");
+        ^(recost) ^ "@}@\n");
         Status.user_message st ("@[<v 0>@{<u>Children: " ^ child1_name ^
         " " ^ child2_name ^ "@}@\n");
         Status.output_table st (Array.of_list lst);

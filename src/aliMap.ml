@@ -169,16 +169,9 @@ let create_general_ali state global_map seq1 seq2 cost_mat ali_pam =
              id 
         ) (Array.of_list subseq2_ls) 
     in 
-    (*let swap_med = ali_pam.ChromPam.swap_med in 
-    let kept_wag = ali_pam.ChromPam.kept_wag in*)
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
-        GenAli.create_gen_ali_new state gen_seq1 gen_seq2 gen_cost_mat gen_gap_code 
+        GenAli.create_gen_ali_new gen_seq1 gen_seq2 gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false
-(*
-        GenAli.create_gen_ali_code         
-        kept_wag
-        state gen_seq1 gen_seq2 gen_cost_mat gen_gap_code 
-        ali_pam.ChromPam.re_meth swap_med ali_pam.ChromPam.circular false *)
     in   
     let recost = (0,rc) in
     subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, 

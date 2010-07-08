@@ -113,7 +113,6 @@ val create_gen_ali :
   int -> int -> bool -> int * (int * int) * Sequence.s * Sequence.s
 
 val create_gen_ali_new :  
-    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
     int array ->
     int array ->
     int array array -> 
@@ -153,22 +152,8 @@ val create_gen_ali3 :
     Alphabet.a ->
     [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
     'a -> int -> bool -> bool -> Sequence.s * int * int * int
-(*
-val create_gen_ali3_siepel :
-    int ->
-    [> `Annotated | `Breakinv | `Chromosome | `Genome ] ->
-    Sequence.s ->
-    Sequence.s ->
-    Sequence.s ->
-    int array array ->
-    Alphabet.a ->
-    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
-    'a -> int -> bool -> bool -> 
-        Sequence.s * int * int * int * int * int * int 
-        * int array * int array * int array * int array * int array * int array
-*)
 
-val create_gen_ali3_by_medsov :
+val create_gen_ali3_by_medsov_seqarr :
     Data.median_solver_t ->
     int ->
     Sequence.s ->
@@ -176,7 +161,21 @@ val create_gen_ali3_by_medsov :
     Sequence.s ->
     int list list ->
     Cost_matrix.Two_D.m ->
-  (*  int array array -> *)
+    Alphabet.a ->
+    [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
+    'a -> int -> bool -> bool -> 
+        Sequence.s * int list * int * int * int * int * int * int 
+        * int array * int array * int array * int array * int array * int array
+
+
+val create_gen_ali3_by_medsov_codearr :
+    Data.median_solver_t ->
+    int ->
+    int array ->
+    int array ->
+    int array ->
+    int list list ->
+    Cost_matrix.Two_D.m ->
     Alphabet.a ->
     [< `Locus_Breakpoint of int | `Locus_Inversion of int ] ->
     'a -> int -> bool -> bool -> 

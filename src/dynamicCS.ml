@@ -134,8 +134,8 @@ let code (a : t) =
 
 let print dyn = 
     match dyn with
-    | ChromCS ch ->
-          ChromCS.print ch
+    | ChromCS ch -> ChromCS.print ch
+    | AnnchromCS ch -> AnnchromCS.print ch 
     | _ -> print_endline "Do not print non-chromosome characters"
 
 (** [copy_chrom_map s_ch d_ch] copies the choromosome map
