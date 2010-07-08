@@ -459,6 +459,48 @@ let farray_to_int32 x =
                     else v)
             0
             x)
+let list_of_packed d =
+    let rec loop_ c i d = match d land 1 with
+        | 0 when d = 0 -> c
+        | 0  -> loop_ c (i+1) (d lsr 1)
+        | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+        | _  -> assert( false );
+    in loop_ [] 0 d
+
+let of_parser_simple seq model =
+    let load_characters alph ss = 
+        let alph = Alphabet.to_sequential alph in
+        let gap  = Alphabet.get_gap alph
+        and size = 
+            if model.MlModel.spec.MlModel.use_gap 
+                then Alphabet.size alph
+                else (Alphabet.size alph) - 1
+        in
+        let loop_ x =
+            let elm = Alphabet.match_base x alph in
+            if gap = elm then
+                Array.make size 1.0 
+            else begin
+                list_of size 0.0 --> set_in elm --> Array.of_list
+            end
+        in
+        ss  --> List.map loop_
+            --> Array.of_list
+            --> Array.create 1
+            --> Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
+    in
+    let nchar = List.length seq in
+    let chars = load_characters model.MlModel.alph seq in
+    let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
+                                         (Array.create nchar 1.0) in
+    let schar = bigarray_s chars None in
+    let loglk = loglikelihood schar wghts model.MlModel.pi_0
+                              model.MlModel.prob (~-.1.0) in
+    {   mle = loglk;
+      model = model;
+      codes = Array.init nchar (fun i -> i);
+    weights = wghts;
+      chars = schar; }
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec weights characters =
@@ -634,6 +676,10 @@ let median_cost ta = ta.mle (*
     loglikelihood ta.chars ta.model.pi_0 ta.model.prob pinvar *)
 let root_cost t = t.mle
 let to_string _ = "MLStaticCS"
+let print a = print_barray3 (fst (s_bigarray a.chars));
+              MlModel.output_model print_string `Nexus a.model None;
+              Printf.printf "\nLikelihood: %f\n%!" (a.mle)
+
 let cardinal ta = Array.length ta.codes
 let union prev ch1 ch2 = prev
 

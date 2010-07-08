@@ -111,6 +111,8 @@ external register : unit -> unit = "likelihood_CAML_register"
 (** A string representation of the character set, used only for debugging purposes *)
 val to_string : t -> string
 
+val print : t -> unit
+
 (** [median a b at bt]
 * computes the median between [a] and [b] with branch lengths [at] and [bt] *)
 val median : t -> t -> float -> float -> int -> int -> t
@@ -123,7 +125,6 @@ val median_cost : t -> float
 * computes whatever heuristic values will be assigned to [Node.final] in
 * a vertex, for the vertex [nn] with parent [pn] and children [c1] and [c2]. *)
 val median_3 : t -> t -> t -> t -> t
-
 
 val print_barray1 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t -> unit
 val print_barray2 : (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t -> unit
@@ -188,6 +189,8 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->
 (*  [spec] -> [weights] -> [characters: ([states]*[code]) array] -> t *)
 val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * int) array) -> t
 
+val of_parser_simple : string list -> MlModel.model -> t
+
 (* The extra cost incurred by the root of the tree. *)
 val root_cost : t -> float
 
@@ -200,8 +203,6 @@ val to_formatter : Xml.attributes -> t -> float option * float option ->
                         Data.d -> Xml.xml Sexpr.t list
 
 val extract_states : t -> (float * int * MlModel.chars) list 
-
-
 
 val get_codes : t -> int array
 
