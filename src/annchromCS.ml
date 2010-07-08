@@ -50,6 +50,18 @@ type t = {
 
 let cardinal x = IntMap.fold (fun _ _ x -> x + 1) x.meds 0
 
+let print (data : t) = 
+    let printf = Printf.printf in
+    printf "[ total_cost = %f; total_recost = %f; subtree_recost = %f ]\n%!"
+    data.total_cost data.total_recost data.subtree_recost;
+    IntMap.iter ( fun key item ->
+        printf "[ key:%d\n%!" key;
+        Annchrom.print item;
+        printf "] \n%!";
+    ) data.meds
+
+let printmedlist alpha x = Printf.printf "%s \n%!" (Annchrom.to_string x alpha) 
+
 (** [of_array spec arr chcode tcode num_taxa] 
 * creates an annotated chromosome set
 * from an array of sequences [arr] *)

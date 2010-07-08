@@ -362,6 +362,8 @@ let empty cost_mode = {
 }
 
 let print nd = 
+    Printf.printf "{ taxon_code = %d, total_cost = %f, node_cost = %f \n%!"
+    nd.taxon_code nd.total_cost nd.node_cost;
     List.iter 
         (fun a_cs ->
              match a_cs with
@@ -371,7 +373,8 @@ let print nd =
                    print_endline "Final state";
                    DynamicCS.print a_dyn.final
              | _ -> print_endline "Do not print non-dynamic characters"
-        ) nd.characters
+        ) nd.characters;
+    Printf.printf " }\n%!"
     
 let to_string {characters=chs; total_cost=cost; taxon_code=tax_code} =
     ("[[NODE tax_code=" ^ string_of_int tax_code
@@ -3251,11 +3254,17 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
                 (Some ((List.nth a.characters item), (List.nth b.characters
                 item)))
     in
+    if debug_to_formatter then begin
+    Printf.printf "to_formatter_single on node %s\n%!" node_name ;
+    print node_data; print node_single;
+    end;
     let children =
         `Delayed (fun () ->
             `Set (fst (List.fold_left 
         (fun (acc, item) cs ->
             let parent_data = get_parent item in
+            if debug_to_formatter then 
+            Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
              let res = 
                  cs_to_formatter 
                  (pre_ref_codes, fi_ref_codes) d cs parent_data 
@@ -3315,8 +3324,11 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         | None -> "root"
         | _ -> get_node_name node_id
     in 
-    if debug_to_formatter then
-    Printf.printf "node.ml to_formatter_subtree, get child1/child2 recost \n %!";
+    if debug_to_formatter then begin
+    Printf.printf "node.ml to_formatter_subtree, node name : %s, child1 is %s, child2 is %s\n%!" node_name child1_name child2_name;
+    print node_data;
+    print node_single;
+    end;
     let child1_recost = cmp_subtree_recost child1_node_data in 
     let child2_recost = cmp_subtree_recost child2_node_data in 
     let node_recost = (cmp_node_recost node_data) in
@@ -3325,14 +3337,15 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         child2_recost +. 
         node_recost in 
     if debug_to_formatter then
-    Printf.printf "%f + %f + %f => %f (total_cost = %f)\n%!" 
-    child1_recost child2_recost node_recost subtree_recost node_data.total_cost;
+    Printf.printf "%f + %f + %f => subtree_recost=%f \n%!" 
+    child1_recost child2_recost node_recost subtree_recost;
     let module T = Xml.Nodes in
     let attr : Xml.attributes = 
         (AXML
             ([T.cost] =
                  [match parent_node_data_opt with 
-                  | None -> `Float 0.
+                  | None -> `Float 0. (*that's why in diagnosis, the "Cost"
+                  under "root" is 0, while "Rearrangement cost" is not*)
                   | _ -> `Float node_data.total_cost])
             ([T.recost] = [`Float subtree_recost])
             ([T.node_cost] = [`Float subtree_recost])
@@ -3357,6 +3370,9 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
                          Some (pn, pnsingle)
                  | _ -> None
              in  
+             if debug_to_formatter then 
+             Printf.printf "Delayed function in to_formatter_subtree on node.%s"
+             node_name;
              let res = cs_to_formatter (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
              (res @ acc), (idx + 1)) ([], 0) 
              (List.map2 (fun a b -> a, b) node_data.characters 

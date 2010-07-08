@@ -427,6 +427,11 @@ grappa_CAML_inv_med
                     NUM_GENES, &num_cond,
                     cond3mem_p->pred1, cond3mem_p->pred2, 
                     cond3mem_p->picked, cond3mem_p->decode );
+        //when 3 input array are the same num_cond = 0
+        //when 2 out of 3 input array are the same, num_cond could be 0
+        //either way, median solver in grappa/mgr will crush.
+        //either way, median3 solver will not be called from genAli.ml.
+        //I add the if (num_cond>0) else... here just in case.
         if (num_cond>0)
         {
             gen[0] = cond3mem_p->con_g1;
@@ -505,19 +510,23 @@ grappa_CAML_inv_med
         }
         else
         {
-            memcpy (out_genome_list->genes, g1->genes, NUM_GENES); 
-            memcpy (out_genome_list->delimiters, g1->delimiters, NUM_GENES); 
+             int x=0;
+             for(x=0;x<NUM_GENES;x++)  
+             {
+                 out_genome_list->genes[x] = g1->genes[x];
+                 out_genome_list->delimiters[x] = g1->delimiters[x];
+             }
+         //   memcpy (out_genome_list->genes, g1->genes, NUM_GENES); 
+         //   memcpy (out_genome_list->delimiters, g1->delimiters, NUM_GENES); 
             out_genome_list->deli_num = g1->deli_num;
             out_genome_list->genome_num = g1->genome_num;
-            
-            //out_genome_list = g1;
         }
-
     }
     else// MEDIAN_SOLVER == 7, MGR median solver
     {
          mgr_med (g1->genes,g2->genes,g3->genes,g1->delimiters,g2->delimiters,g3->delimiters,g1->deli_num,g2->deli_num,g3->deli_num, NUM_GENES,CIRCULAR,out_genome_list);
-  /* debug msg
+    }
+/* debug msg
          fprintf(stdout,"out_genome_list = [");
          int xx=0; 
          for(xx=0;xx<NUM_GENES;xx++)
@@ -527,8 +536,7 @@ grappa_CAML_inv_med
              fprintf(stdout,"%d",out_genome_list->delimiters[xx]);
          fprintf(stdout,"]\n");
          fflush(stdout);
-        debug msg */
-    }
+ debug msg */
     CAMLlocal1 (c_genome_arr);
     c_genome_arr = alloc_custom(&genomeArrOps, sizeof(struct genome_arr_t), 1, 1000000);
     out_genome_arr = (struct genome_arr_t *) Data_custom_val(c_genome_arr);

@@ -277,7 +277,7 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
         | _ ->
             if debug then Printf.printf "Grappa median solver\n%!";
             let adjust_seq,delimiter_lst,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
-                GenAli.create_gen_ali3_by_medsov 
+                GenAli.create_gen_ali3_by_medsov_seqarr 
                 ali_pam.BreakinvAli.median_solver
                 ali_pam.BreakinvAli.kept_wag
                 seq1 seq2 seq3 

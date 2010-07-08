@@ -197,4 +197,35 @@ let fold_righti f init ray =
     done;
     !acc
 
+let is_identical2 arr1 arr2 =
+    let len1 = Array.length arr1 and len2 = Array.length arr2 in
+    if (len1<>len2) then 0
+    else 
+        let sign = ref 1 in 
+        let idx = ref (len1-1) in
+        while (!sign = 1)&&( !idx > 0) do
+            sign := 
+                if (arr1.(!idx) = arr2.(!idx)) then 1
+                else 0 ;
+            idx := !idx -1 ;
+        done;
+        !sign
+
+let is_identical3 arr1 arr2 arr3 =
+    let len1 = Array.length arr1 and len2 = Array.length arr2 
+    and len3 = Array.length arr3 in
+    if ((len1<>len2)||(len2<>len3)) then
+        0
+    else
+        let sign = ref 1 in 
+        let idx = ref (len1-1) in
+        while (!sign = 1)&&( !idx > 0) do
+            sign := 
+                if (arr1.(!idx) = arr2.(!idx))&& (arr3.(!idx) = arr2.(!idx)) then 1
+                else 0 ;
+            idx := !idx -1 ;
+        done;
+        !sign
+
+
 (* vim: set sw=4 ts=4 et tw=80 : *)
