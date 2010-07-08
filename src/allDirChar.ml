@@ -1228,7 +1228,7 @@ module F : Ptree.Tree_Operations
     let create_nexus : (string -> phylogeny -> unit) =
         let nexi = ref 0 in
         (fun basename ptree ->
-            let filename = Printf.sprintf "%s_%02d_%s.nex" !nexi basename in
+            let filename = Printf.sprintf "%02d_%s.nex" !nexi basename in
             let trees = 
                 Ptree.build_trees (ptree.Ptree.tree)
                     (fun x -> Data.code_taxon x ptree.Ptree.data)
@@ -1239,7 +1239,6 @@ module F : Ptree.Tree_Operations
             info_user_message "Nexus Tag: %s" filename;
             incr nexi;
             let () = Data.to_nexus ptree.Ptree.data (Some filename) in
-            let fout = open_out filename in
             let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
             ())
 
