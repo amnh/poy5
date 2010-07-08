@@ -894,6 +894,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     let rec transform_tree_characters (trees,data,nodes) meth =
         match meth with
         | `EstLikelihood ((chars,a,b,c,d) as x) ->
+            let () = Methods.cost := `Iterative (`ThreeD None) in
             let trees = Sexpr.fold_left
                 (fun tsexp t -> 
                     let chars = 
@@ -991,6 +992,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 end
         | `UseParsimony chars ->
             IFDEF USE_LIKELIHOOD THEN
+                let () = Methods.cost := `Normal in
                 Node.load_data (Data.set_parsimony data chars)
             ELSE
                 Status.user_message Status.Information "No characters have been transformed";
@@ -998,6 +1000,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             END
         | `UseLikelihood x ->
             IFDEF USE_LIKELIHOOD THEN
+                let () = Methods.cost := `Iterative (`ThreeD None) in
                 Node.load_data (Data.set_likelihood data x)
             ELSE
                 Status.user_message Status.Warning
