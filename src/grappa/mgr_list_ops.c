@@ -217,6 +217,8 @@ void list_reag_insert2(list_listreag *in_list,
         failwith("ERROR: list_reag_insert2 does not take NULL in_list");
     int maxsize = in_list->max_size;
     int listsize = in_list->list_size;
+ //   fprintf (stdout, "max size = %d, listsize = %d \n%!",maxsize,listsize);
+ //   fflush(stdout);
     if(listsize<maxsize)
     {
         list_reag *the_list = NULL;
@@ -236,11 +238,46 @@ void list_reag_insert2(list_listreag *in_list,
 		for (i=0; i<nb_spec; i++) {
 			the_list->changes[i] = changes[i];
 		}
-      //  fprintf(stdout,"insert to reaglist, %d,%d,%d,%d; ",spec,optype,start,end);
-      //  fflush(stdout);
+    //    fprintf(stdout,"insert to reaglist, %d,%d,%d,%d; ",spec,optype,start,end);
+    //    fflush(stdout);
     }
-    else
-        failwith("ABORT: reaglist is full, list_reag_insert2, mgr_list_ops.c");
+    else { failwith ("mgr_list_ops.c, list_reag_insert2, fail again?"); }
+ //   fprintf(stdout, "listsize now is %d\n",in_list->list_size); fflush(stdout);
+    if (in_list->list_size == maxsize) 
+    {
+        in_list->list_size = (int)(maxsize/2);
+/*        fprintf (stdout, "reaglist is full, create a bigger one, oldsize=%d\n",in_list->max_size);
+        fflush(stdout);
+        int oldsize = in_list->max_size;
+        int newsize = oldsize+100;
+        list_reag * tmp_p;
+        tmp_p = (list_reag *) ckalloc (oldsize*sizeof (list_reag));
+         int i;
+         for(i=0;i<oldsize;i++)
+        {    
+          (tmp_p[i]).changes = (int *) malloc (nb_spec*sizeof(int));
+         }
+
+        //list_listreag * tmp_p = &tmp;
+        //init_list_listreag_memory(&tmp, nb_spec, oldsize);
+        //list_reag * tmp_p_reaglist = tmp_p -> reaglist;
+        memcpy(tmp_p, in_list->reaglist, oldsize);
+        for (i=0;i<oldsize;i++)
+            memcpy(tmp_p[i].changes, (in_list->reaglist[i]).changes, oldsize);
+        free_list_listreag_memory (in_list);
+        init_list_listreag_memory(in_list, nb_spec, newsize);
+        memcpy(in_list->reaglist, tmp_p, oldsize);
+        for (i=0;i<oldsize;i++)
+            memcpy((in_list->reaglist[i]).changes, tmp_p[i].changes, oldsize);
+        in_list->list_size = oldsize;
+        //free_list_listreag_memory (tmp_p);
+        for(i=0;i<oldsize;i++)
+    {    
+      free ( (tmp_p[i]).changes ) ;
+    }
+    free( tmp_p );
+*/
+    }
 }
 
 void free_list_listreag_memory (list_listreag *the_list)
