@@ -34,7 +34,6 @@ external init : unit -> unit = "cm_CAML_initialize"
 
 let debug = false
 
-let print_metric_issues = true
 (*let uselevel = false (* don't forget to set "uselevel" inside alphabet.ml
 and sequence.ml *)
 *)
@@ -661,7 +660,7 @@ module Two_D = struct
                 (fun item ->
                     if gap <> item && (0 <> (gap land item)) then
                         gap
-                    else item)
+                    else item);;
 
     let xor a b =
         ((a || b) && (not (a && b)));;
@@ -918,7 +917,7 @@ module Two_D = struct
                 res := !res && (l.(i).(j) >= 0);
             done;
         done;
-        if !res || not print_metric_issues then () 
+        if !res then () 
         else Printf.printf " not positive \n%!";
         !res
 
@@ -941,7 +940,7 @@ module Two_D = struct
                 res := !res && (l.(i).(j) = l.(j).(i))
             done;
         done;
-        if !res || not print_metric_issues then () 
+        if !res then () 
         else Printf.printf " not symmetric \n%!";
         !res
 
@@ -950,10 +949,10 @@ module Two_D = struct
         and res = ref true in
         for i = 0 to h - 1 do
             res := !res && (0 = l.(i).(i));
-            if ( 0 <> l.(i).(i)) && print_metric_issues then
+            if ( 0 <> l.(i).(i)) then
                 Printf.printf "not identity: %d; " i;
         done;
-        if !res || not print_metric_issues then () 
+        if !res then () 
         else Printf.printf " not identity \n%!";
         !res
 
@@ -967,7 +966,7 @@ module Two_D = struct
                 done;
             done;
         done;
-        if !res || not print_metric_issues then () 
+        if !res then () 
         else Printf.printf " not triangle inequality !\n%!";
         !res
 
@@ -979,7 +978,7 @@ module Two_D = struct
             is_triangle_inequality arr &&
             is_identity arr
         in
-        if (res) || not print_metric_issues then ()
+        if (res) then ()
         else
            begin
                for i = 0 to w - 1 do
@@ -992,7 +991,8 @@ module Two_D = struct
            end;
         res 
 
-    let fill_cost_matrix ?(use_comb=true) ?(level = 0) l a_sz all_elements =
+    let fill_cost_matrix ?(use_comb=true) ?(level = 0) ?(suppress=false) 
+                            l a_sz all_elements =
         let num_comb = calc_number_of_combinations_by_level a_sz level in
         let num_withgap = calc_num_of_comb_with_gap a_sz level in
         let m = 
@@ -1005,7 +1005,7 @@ module Two_D = struct
         in 
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         if use_comb then
-            if input_is_metric l a_sz then
+            if suppress || (input_is_metric l a_sz) then
                 let () = set_metric m in
                 if uselevel then
                     fill_best_cost_and_median_for_some_combinations m a_sz level 
@@ -1071,12 +1071,12 @@ module Two_D = struct
                 in
                 m, matrix_list;;
 
-    let of_list ?(use_comb=true) ?(level=0) l all_elements =
+    let of_list ?(use_comb=true) ?(level=0) ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
         let w = List.length l in
         let l = List.flatten l in
-        fill_cost_matrix ~use_comb:use_comb ~level:level l w all_elements
+        fill_cost_matrix ~use_comb:use_comb ~level:level ~suppress l w all_elements
 
     let of_channel_nocomb ?(orientation=false) ch =
         if debug then Printf.printf "cost_matrix.ml of_channel_nocomb\n %!";

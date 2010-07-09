@@ -606,8 +606,11 @@ let compose_model sub_mat t =
 (* integerized converstion and composition of a model and branch lenghth *)
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
-    and create sigma matrix i j = 
-        ~- (int_of_float (sigma*.(log (model.pi_0.{i}*.matrix.(i).(j)))))
+    and create = match model.spec.substitution with
+        | JC69 | K2P _ ->
+            (fun s m i j -> ~-(int_of_float (s *.(log m.(i).(j)))))
+        | _ ->
+            (fun s m i j -> ~-(int_of_float (s *.(log (model.pi_0.{i} *. m.(i).(j))))))
     and matrix = 
         barray_to_array2 (match model.ui with
         | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
@@ -617,10 +620,7 @@ let integerized_model ?(sigma=4) model t =
     assert( model.alph_s = Array.length matrix.(0));
     for i = 0 to (Array.length matrix) - 1 do
         for j = 0 to (Array.length matrix.(0)) - 1 do
-            (* diagonal of matrix must = 0 *)
-            if i = j 
-                then imatrix.(i).(j) <- 0
-                else imatrix.(i).(j) <- create sigma matrix i j
+            imatrix.(i).(j) <- create sigma matrix i j
         done;
     done;
     imatrix
@@ -642,7 +642,7 @@ let model_to_cm model t =
         END
     in
     let llst = Array.to_list (Array.map Array.to_list input) in
-    let res = Cost_matrix.Two_D.of_list llst model.alph_s in
+    let res = Cost_matrix.Two_D.of_list ~suppress:true llst model.alph_s in
     res
 
 (* print output in our nexus format or Phyml output *)

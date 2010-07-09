@@ -1,3 +1,5 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
 (* This program is free software; you can redistribute it and/or modify       *)
@@ -693,8 +695,6 @@ let get_empty_seq alph =
 
 
 let print (data : d) = 
-    Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
-    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
     let print_taxon (key : int) (ch_ls : (int, cs) Hashtbl.t) = 
         let len = Hashtbl.fold (fun _ _ acc -> acc + 1) ch_ls 0 in
         let  taxa_name = All_sets.IntegerMap.find key data.taxon_codes in  
@@ -810,6 +810,8 @@ let print (data : d) =
     and print_character_codes key bind =
         Printf.printf "[%d,%s],%!" key bind;
     in
+    Printf.fprintf stdout "Number of sequences: %i\n" (List.length data.dynamics);
+    List.iter (Printf.fprintf stdout "%i ") data.dynamics; print_newline ();
     Printf.printf "\n check character_codes: \n%!";
     Hashtbl.iter print_character_codes data.character_codes;
     Printf.printf "\n check taxon_characters:\n %!";
@@ -2468,7 +2470,7 @@ let categorize data =
                      kolmogorov = [];
                      static_ml = [];
                } in                         
-    let data = repack_codes data in
+(*    let data = repack_codes data in*)
     let categorizer code spec data =
         match spec with
         | Static enc -> (* Process static characters *)
@@ -5964,10 +5966,11 @@ let remove_absent_present_encodings data =
     and is_absent tcode code state spec = match spec,state with
         | Static sspec, (Stat (code,Some data),_) ->
             let data_list = Nexus.File.static_state_to_list data
-            and present = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
-            List.mem present data_list
-        | Static sspec, (Stat (code,None),_) ->
-            let present = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            and absent = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            List.mem absent data_list
+        | Static sspec, (Stat (code,None),_) -> 
+            (* do the lookup anyway to ensure it exists *)
+            let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
             false
         | _,_ -> failwith "Incorrect Match2"
     in

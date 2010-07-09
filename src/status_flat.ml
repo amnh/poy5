@@ -228,6 +228,7 @@ let full_report ?msg ?adv st =
 
 let user_message c msg = 
     match !verbosity,c with
+    |    _ , Output _
     |    _ , Error -> single_user_message c msg
     | `None, _     -> ()
     |    _ , _     -> single_user_message c msg

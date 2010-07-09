@@ -1224,19 +1224,26 @@ module F : Ptree.Tree_Operations
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots false ptree else ptree
 
-    let create_nexus_tree filename ptree = 
-        let trees = 
-            Ptree.build_trees (ptree.Ptree.tree)
-                (fun x -> Data.code_taxon x ptree.Ptree.data)
-                (fun _ _ -> false)
-                (Some (branch_table ptree))
-                ""
-        in
-        Data.to_nexus ptree.Ptree.data filename;
-        List.iter (Tree.Parse.print_tree filename) trees
+    (* debugging function for output of nexus files in iteration loops *)
+    let create_nexus : (string -> phylogeny -> unit) =
+        let nexi = ref 0 in
+        (fun basename ptree ->
+            let filename = Printf.sprintf "%02d_%s.nex" !nexi basename in
+            let trees = 
+                Ptree.build_trees (ptree.Ptree.tree)
+                    (fun x -> Data.code_taxon x ptree.Ptree.data)
+                    (fun _ _ -> false)
+                    (Some (branch_table ptree))
+                    ""
+            in
+            info_user_message "Nexus Tag: %s" filename;
+            incr nexi;
+            let () = Data.to_nexus ptree.Ptree.data (Some filename) in
+            let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
+            ())
 
     let clear_internals force t = t
-(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; }*)
+(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1497,7 +1504,7 @@ module F : Ptree.Tree_Operations
              *      PreReq: Downpass of tree *) 
             let rec loop_ iter prev_adjusted dyn_tree = 
                 (* create_implied alignment / static tree *)
-                let static = create_static_tree dyn_tree in
+                let static = create_static_tree true dyn_tree in
                 let s_cost = Ptree.get_cost `Adjusted static in
                 (* optimize *)
                 let ostatic = adjust_fn ~epsilon nmgr static in
@@ -1557,14 +1564,16 @@ module F : Ptree.Tree_Operations
                     --> internal_downpass true
                     --> stabilize_priors (i+1)
         (* function to create a static tree from dynamic tree *)
-        and create_static_tree ptree = 
+        and create_static_tree update_priors ptree = 
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
             let data,nodes = 
                 ptree
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
-                    (* --> (fun x -> Data.update_priors x (x.Data.static_ml) true)*)
+                    --> (fun x -> 
+                            if update_priors then Data.update_priors x x.Data.static_ml true
+                            else x)
                     --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
             in
             Status.set_verbosity old_verbosity;
@@ -1615,8 +1624,10 @@ module F : Ptree.Tree_Operations
         match using_likelihood `Dynamic tree, optimize with
             | true, false ->
                 let tree = stabilize_priors tree in
-                combine tree (create_static_tree tree)
-            | true, true  -> optimize_apply_implied_alignments nmgr tree
+                combine tree (create_static_tree false tree)
+            | true, true  ->
+                let tree = optimize_apply_implied_alignments nmgr tree in
+                tree
             | false, _    -> tree
 
     let uppass ptree = 

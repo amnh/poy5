@@ -1654,44 +1654,42 @@ module Parse = struct
         | Characters of (string * string option) t
 
     let print_tree (output:string option) (t:tree_types) : unit = 
-        let c = match output with
-            | Some x -> open_out x
-            | None   -> stdout
-        in
+        let c = Status.user_message (Status.Output (output, false, [])) in
+        let fprint_out format = Printf.ksprintf c format in
         let rec interior f t : unit = match t with
             | []     -> ()
             | hd::[] -> f hd
-            | hd::tl -> f hd; output_string c ","; interior f tl
+            | hd::tl -> f hd; fprint_out ","; interior f tl
         in
         let rec print_ n_to_string l_to_string t : unit = match t with
             | Leafp d     -> l_to_string d
             | Nodep (n,d) ->
-                output_string c "(";
+                fprint_out "(";
                 interior (print_ n_to_string l_to_string) n;
-                output_string c ")";
+                fprint_out ")";
                 n_to_string d;
                 ()
         in
         match t with
             | Flat t | Annotated (t,_) ->
-                print_ (fun _ -> ()) (fun x -> output_string c x) t
+                print_ (fun _ -> ()) (fun x -> fprint_out "%s" x) t
             | Branches t -> 
                 print_ 
                     (fun (_,d) -> 
-                        match d with | Some x -> Printf.fprintf c ":%f" x 
+                        match d with | Some x -> fprint_out ":%f" x 
                                      | None   -> ())
                     (fun (n,d) -> 
-                        match d with | Some x -> Printf.fprintf c "%s:%f" n x 
+                        match d with | Some x -> fprint_out "%s:%f" n x 
                                      | None   -> ())
                     t
             | Characters t ->
                 print_ 
                     (fun (_,d) -> 
-                        match d with | Some x -> Printf.fprintf c ":%s" x 
+                        match d with | Some x -> fprint_out ":%s" x 
                                      | None   -> ())
                     (fun (n,d) -> 
-                        match d with | Some x -> Printf.fprintf c "%s:%s" n x 
-                                     | None   -> Printf.fprintf c "%s" n)
+                        match d with | Some x -> fprint_out "%s:%s" n x 
+                                     | None   -> fprint_out "%s" n)
                     t
 
     exception Trailing_characters

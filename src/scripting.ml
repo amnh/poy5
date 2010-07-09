@@ -339,6 +339,8 @@ module type S = sig
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
         val downpass : phylogeny -> phylogeny
+        val branch_table : phylogeny -> 
+                ((int * int),[ `Single of float | `Name]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
@@ -4840,6 +4842,7 @@ let set_console_run r = console_run_val := r
             a
         let downpass = TreeOps.downpass
         let uppass = TreeOps.uppass
+        let branch_table = TreeOps.branch_table
 
         let of_string str data nodes =
             let tree = List.map (fun x -> None,x) (Tree.Parse.of_string str) in

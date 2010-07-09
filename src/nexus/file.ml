@@ -447,17 +447,21 @@ let rec get_character_names chars sets : P.charset -> string list = function
         chars.((int_of_string num) - 1).st_name :: []
 
 let find_taxon taxa name =
-    try find_position "Taxon not found" 
-                      (function None -> false | Some x -> name = x)
-                      taxa
-    with | Failure "Taxon not found" ->
-        let pos = 
-            find_position "Taxon not found" 
-                          (function None -> true | Some _ -> false)
-                          taxa 
-        in
-        taxa.(pos) <- Some name;
-        pos
+    let error = Printf.sprintf "Taxon (%s) not found" name in
+    try find_position error (function None -> false | Some x -> name = x) taxa
+    with | Failure _ -> 
+        try
+            let pos = 
+                find_position error (function None -> true | Some _ -> false) taxa 
+            in
+            taxa.(pos) <- Some name;
+            pos
+        with | x -> 
+            Array.iter (fun x -> Printf.printf "%s, "
+                            (match x with | None -> "none" | Some x -> x))
+                       taxa;
+            print_newline ();
+            raise x
 
 let update_labels_as_alphabet chars start =
     for i = start to (Array.length chars) - 1 do
@@ -752,12 +756,9 @@ characters get_row_number assign_item data =
     let rec taxon_processor x position =
         match x with
         | None -> (* We are gathering the taxon name first *)
-            begin try
-                let x = (* the taxon position *)
-                    let name = get_name stream in
-                    get_row_number name 
-                in 
-                let _ =
+            begin try (* the taxon position *)
+                let x = get_row_number (get_name stream) in 
+                let () =
                     match !first_taxon with
                     | (-1) -> first_taxon := x
                     | _ -> ()
@@ -769,15 +770,15 @@ characters get_row_number assign_item data =
             | End_of_file -> ()
             end
         | Some x' ->
-                if position = n_chars then taxon_processor None 0
-                else begin
-                    let state = 
-                        process_position parsers.(position) 
-                        characters.(position) stream position None
-                    in
-                    assign_item x' position state;
-                    taxon_processor x (position + 1)
-                end
+            if position = n_chars then taxon_processor None 0
+            else begin
+                let state = 
+                    process_position parsers.(position) 
+                    characters.(position) stream position None
+                in
+                assign_item x' position state;
+                taxon_processor x (position + 1)
+            end
     in
     taxon_processor None 0;
     (* Time to check what is being used on each column, update the
@@ -847,11 +848,13 @@ let add_prealigned_characters file chars (acc:nexus) =
     let () =
         (* The next thing we do, is that we update states and labels
         * together *)
-        List.iter (fun (position, name, labels) ->
-            let position = (int_of_string position) - 1 in
-            characters.(position) <-
-                { characters.(position) with st_labels = labels;
-                st_name = name }) 
+        List.iter 
+            (fun (position, name, labels) ->
+                let position = (int_of_string position) - 1 in
+                characters.(position) <-
+                    { characters.(position) with 
+                        st_labels = labels;
+                        st_name = name })
         chars.P.char_statelabels
     in
     let () =
@@ -865,13 +868,16 @@ let add_prealigned_characters file chars (acc:nexus) =
         let data =
             if get_interleaved form then uninterleave false chars
             else chars
+        and remove_quotes str = 
+            let r = Str.string_match (Str.regexp "['\"]\\(.*?\\)['\"]") str 0 in
+            if r then Str.matched_group 1 str else str
         in
         let get_row_number, assign_item =
             if get_transposed form then
                 (fun name -> find_character characters name),
                 (fun x y v -> matrix.(y).(x) <- v)
             else
-                (fun name -> find_taxon taxa name),
+                (fun name -> find_taxon taxa (remove_quotes name)),
                 (fun x y v -> 
                     try matrix.(x).(y) <- v with
                     | err ->
@@ -882,8 +888,7 @@ let add_prealigned_characters file chars (acc:nexus) =
         get_row_number assign_item data
     in
     let () =
-        (* Time to eliminate the characters that the person doesn't really
-        * want *)
+        (* Eliminate the characters that the person doesn't really want *)
         match chars.P.char_eliminate with
         | None -> ()
         | Some x -> 
@@ -1429,8 +1434,6 @@ let of_channel ch file =
         assert (tlen >= mlen);
         let taxa = Array.init tlen (fun x -> a.taxa.(tlen - x - 1)) 
         and matrix = Array.init mlen (fun x -> a.matrix.(mlen - x - 1)) in
-        {a with 
-            taxa = taxa;
-            matrix = matrix}
+        { a with taxa = taxa; matrix = matrix; }
     in
     ret

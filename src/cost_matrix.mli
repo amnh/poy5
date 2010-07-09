@@ -69,7 +69,8 @@ module Two_D : sig
 
     (** [of_list a] creates a fresh transformation cost matrix with the values
     * contained in the squared matrix [a]. *)
-    val of_list : ?use_comb:bool -> ?level:int -> int list list -> int -> m
+    val of_list : ?use_comb:bool -> ?level:int -> ?suppress:bool -> 
+                    int list list -> int -> m
 
     (** [of_transformations_and_gaps uc as t g] creates a fresh two dimensional
     * transformation cost matrix for an alphabet of size [as], with
