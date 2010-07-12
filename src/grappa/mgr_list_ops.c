@@ -35,6 +35,8 @@
 #include "mgr_list_ops.h"
 
 #include <caml/fail.h>
+#include <time.h>
+
 
 list_edge *RemoveItem_edge(list_edge *the_list) {
     list_edge *temp;
@@ -209,21 +211,11 @@ void list_reag_copy (list_listreag *in_list, int source, int destination, int si
     }
 }
 
-void list_reag_insert2(list_listreag *in_list, 
-        int spec, int optype, int start, int end, int sc1, int sc2, 
-        int merge_with, int reduction, int *changes, int nb_spec) 
+void insert_to_no_n (list_listreag *in_list, int no, int spec, int optype, int start, int end, int sc1, int sc2, int merge_with, int reduction, int *changes, int nb_spec, int new_listsize)
 {
-    if ( (in_list == NULL)||(in_list == (list_listreag*) NULL) ) 
-        failwith("ERROR: list_reag_insert2 does not take NULL in_list");
-    int maxsize = in_list->max_size;
-    int listsize = in_list->list_size;
- //   fprintf (stdout, "max size = %d, listsize = %d \n%!",maxsize,listsize);
- //   fflush(stdout);
-    if(listsize<maxsize)
-    {
         list_reag *the_list = NULL;
-        the_list = &(in_list->reaglist[listsize]);
-        in_list->list_size ++;
+        the_list = &(in_list->reaglist[no]);
+        in_list->list_size = new_listsize;
 		the_list->next = NULL; //no longer need the next pointer, init it to NULL.
         the_list->spec=spec;
 		the_list->optype=optype;
@@ -238,45 +230,31 @@ void list_reag_insert2(list_listreag *in_list,
 		for (i=0; i<nb_spec; i++) {
 			the_list->changes[i] = changes[i];
 		}
-    //    fprintf(stdout,"insert to reaglist, %d,%d,%d,%d; ",spec,optype,start,end);
-    //    fflush(stdout);
-    }
-    else { failwith ("mgr_list_ops.c, list_reag_insert2, fail again?"); }
- //   fprintf(stdout, "listsize now is %d\n",in_list->list_size); fflush(stdout);
-    if (in_list->list_size == maxsize) 
-    {
-        in_list->list_size = (int)(maxsize/2);
-/*        fprintf (stdout, "reaglist is full, create a bigger one, oldsize=%d\n",in_list->max_size);
-        fflush(stdout);
-        int oldsize = in_list->max_size;
-        int newsize = oldsize+100;
-        list_reag * tmp_p;
-        tmp_p = (list_reag *) ckalloc (oldsize*sizeof (list_reag));
-         int i;
-         for(i=0;i<oldsize;i++)
-        {    
-          (tmp_p[i]).changes = (int *) malloc (nb_spec*sizeof(int));
-         }
 
-        //list_listreag * tmp_p = &tmp;
-        //init_list_listreag_memory(&tmp, nb_spec, oldsize);
-        //list_reag * tmp_p_reaglist = tmp_p -> reaglist;
-        memcpy(tmp_p, in_list->reaglist, oldsize);
-        for (i=0;i<oldsize;i++)
-            memcpy(tmp_p[i].changes, (in_list->reaglist[i]).changes, oldsize);
-        free_list_listreag_memory (in_list);
-        init_list_listreag_memory(in_list, nb_spec, newsize);
-        memcpy(in_list->reaglist, tmp_p, oldsize);
-        for (i=0;i<oldsize;i++)
-            memcpy((in_list->reaglist[i]).changes, tmp_p[i].changes, oldsize);
-        in_list->list_size = oldsize;
-        //free_list_listreag_memory (tmp_p);
-        for(i=0;i<oldsize;i++)
-    {    
-      free ( (tmp_p[i]).changes ) ;
+}
+
+void list_reag_insert2(list_listreag *in_list, 
+        int spec, int optype, int start, int end, int sc1, int sc2, 
+        int merge_with, int reduction, int *changes, int nb_spec) 
+{
+    if ( (in_list == NULL)||(in_list == (list_listreag*) NULL) ) 
+        failwith("ERROR: list_reag_insert2 does not take NULL in_list");
+    int maxsize = in_list->max_size;
+    int listsize = in_list->list_size;
+ //   fprintf (stdout, "max size = %d, listsize = %d \n%!",maxsize,listsize);  fflush(stdout);
+    if(listsize<maxsize)
+    {
+        insert_to_no_n (in_list, listsize, spec, optype, start, end, sc1, sc2,
+                merge_with, reduction, changes, nb_spec, listsize+1);
+    //    fprintf(stdout,"insert to reaglist, %d,%d,%d,%d;\n ",spec,optype,start,end); fflush(stdout);
     }
-    free( tmp_p );
-*/
+    else 
+    {
+        srand (time(NULL));
+        int randnum = rand()%100;
+ //       fprintf(stdout, "replace NO.%d in list\n",randnum); fflush(stdout);
+        insert_to_no_n (in_list, randnum, spec, optype, start, end, sc1, sc2,
+                merge_with, reduction, changes, nb_spec,listsize);
     }
 }
 
