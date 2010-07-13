@@ -43,6 +43,8 @@ status.ml
 *.aln
 *.ss
 *.fas
+*.nex
+*.nexus
 *.fasta
 *.annot
 doc/version.tex
