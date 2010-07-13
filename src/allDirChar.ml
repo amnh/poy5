@@ -527,6 +527,27 @@ module F : Ptree.Tree_Operations
         in
         pre_codes
 
+    (* debugging function for output of nexus files in iteration loops *)
+    let create_nexus : (string -> phylogeny -> unit) =
+        let nexi = ref 0 and base = "chel_2" in
+        (fun basename ptree ->
+            let filename = Printf.sprintf "%s_%02d_%s.nex" base !nexi basename in
+            let trees = 
+                Ptree.build_trees (ptree.Ptree.tree)
+                    (fun x -> Data.code_taxon x ptree.Ptree.data)
+                    (fun _ _ -> false)
+                    (Some (branch_table ptree))
+                    ""
+            in
+            info_user_message "Nexus Tag: %s" filename;
+            incr nexi;
+            let () = Data.to_nexus ptree.Ptree.data (Some filename) in
+            let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
+            ())
+
+    let clear_internals force t = t
+(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
+
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
     let assign_single keep_three ptree = 
@@ -1080,8 +1101,15 @@ module F : Ptree.Tree_Operations
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
-                    if using_likelihood `Either ptree
+                    if using_likelihood `Static ptree
                         then begin
+                            List.fold_left
+                                (adjust_reroot_loop affected)
+                                (true,none_affected,ptree)
+                                (all_edges)
+                    end else if using_likelihood `Dynamic ptree
+                        then begin
+                            Printf.printf "DYNAMIC LIKELIHOOD ALIGNMENT\n";
                             List.fold_left
                                 (adjust_reroot_loop affected)
                                 (true,none_affected,ptree)
@@ -1118,30 +1146,24 @@ module F : Ptree.Tree_Operations
                     and bd = Ptree.get_node_data b ptree in
                     let root = 
                         let n = AllDirNode.AllDirF.median None None ad bd in
-                        let newn =
                         AllDirNode.AllDirF.to_single (Some n) None ad None bd sets
-                        in
-                        newn
                     in
                     let ptree1 =
-                    ptree
-                        --> Ptree.assign_root_to_connected_component handle
-                                (Some (edge, root))
-                                (check_cost ptree handle None)
-                                None
+                        Ptree.assign_root_to_connected_component 
+                                handle (Some (edge, root)) 
+                                (check_cost ptree handle None) None ptree
                     in
-                    ptree1
-                        --> refresh_all_edges true None true None
+                    refresh_all_edges true None true None ptree1
                 | Some _ -> ptree
             end
         in
         let newtree = adjust_until_nothing_changes max_count ptree in   
-        
         let ptree = IntSet.fold (set_handle_n_root_n_cost)
                                 (ptree.Ptree.tree.Tree.handles)
                                 (newtree)
         in
         ptree
+
     (* ------------------------------------------------------------------------ *)
 
     let verify_downpass x ptree : bool =
@@ -1223,27 +1245,6 @@ module F : Ptree.Tree_Operations
         in
         let ptree = refresh_all_edges false None true None ptree in
         if do_roots then refresh_roots false ptree else ptree
-
-    (* debugging function for output of nexus files in iteration loops *)
-    let create_nexus : (string -> phylogeny -> unit) =
-        let nexi = ref 0 in
-        (fun basename ptree ->
-            let filename = Printf.sprintf "%02d_%s.nex" !nexi basename in
-            let trees = 
-                Ptree.build_trees (ptree.Ptree.tree)
-                    (fun x -> Data.code_taxon x ptree.Ptree.data)
-                    (fun _ _ -> false)
-                    (Some (branch_table ptree))
-                    ""
-            in
-            info_user_message "Nexus Tag: %s" filename;
-            incr nexi;
-            let () = Data.to_nexus ptree.Ptree.data (Some filename) in
-            let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
-            ())
-
-    let clear_internals force t = t
-(*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1424,16 +1425,23 @@ module F : Ptree.Tree_Operations
                 | `Iterative (`ThreeD  iterations) -> 
                     let n_tree = adjust_ true (tree.Ptree.data.Data.iterate_branches) 
                                          None iterations tree in
-                    info_user_message
-                        "Optimized Likelihood Parameters from %f to %f"
-                            (Ptree.get_cost `Adjusted tree)
-                            (Ptree.get_cost `Adjusted n_tree);
+                    if debug_model_fn then
+                        info_user_message
+                            "Optimized Likelihood Parameters from %f to %f"
+                                (Ptree.get_cost `Adjusted tree)
+                                (Ptree.get_cost `Adjusted n_tree);
                     n_tree
                 | _ -> tree
         end else begin
             match !Methods.cost with
             | `Iterative (`ApproxD iterations)
-            | `Iterative (`ThreeD  iterations) ->  adjust_tree iterations None None tree
+            | `Iterative (`ThreeD  iterations) ->
+                let first_cost = Ptree.get_cost `Adjusted tree in   
+                let tree = adjust_tree iterations None None tree in
+                if debug_model_fn then
+                    info_user_message "Step 0; Iterated Branches %f --> %f"
+                        first_cost (Ptree.get_cost `Adjusted tree);
+                tree
             | _ -> tree
         end
 
@@ -1446,20 +1454,13 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> internal_downpass true ptree
+            | `Iterative (`ThreeD  iterations)
             | `Iterative (`ApproxD iterations) ->
                   ptree --> clear_internals false
                         --> internal_downpass true
                         --> pick_best_root
                         --> assign_single true
                         --> adjust_fn None
-            | `Iterative (`ThreeD  iterations) ->
-                    (*why ThreeD and ApproxD follow the same downpass?*)
-                ptree   --> clear_internals false
-                        --> internal_downpass true
-                        --> pick_best_root
-                        --> assign_single true
-                        --> adjust_fn None
-
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
@@ -1510,7 +1511,8 @@ module F : Ptree.Tree_Operations
                 let ostatic = adjust_fn ~epsilon nmgr static in
                 let o_cost = Ptree.get_cost `Adjusted ostatic in
                 if debug_model_fn then
-                    info_user_message "Dynamic Likelihood Iterated: %f --> %f\n%!" s_cost o_cost;
+                    info_user_message 
+                        "Dynamic Likelihood Iterated(%d): %f --> %f\n%!" iter s_cost o_cost;
                 (* compare improvement of optimizations; and of previous iteration *)
                 if (iter >= max_iter) || (o_cost +. epsilon > s_cost) then
                     combine dyn_tree ostatic
@@ -1529,9 +1531,10 @@ module F : Ptree.Tree_Operations
                             IntMap.empty
                             nodes
                     in
-                    {dyn_tree with Ptree.data = data;
-                                   Ptree.node_data = node_data; }
+                    { dyn_tree with Ptree.data      = data;
+                                    Ptree.node_data = node_data; }
                         --> internal_downpass true
+                        --> adjust_fn None
                         --> loop_ (iter+1) o_cost
                 end
             in
@@ -1567,13 +1570,13 @@ module F : Ptree.Tree_Operations
         and create_static_tree update_priors ptree = 
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
-            let data,nodes = 
+            let data,nodes =
+                let ptree = update_branches ptree in
                 ptree
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
                     --> (fun x -> 
-                            if update_priors then Data.update_priors x x.Data.static_ml true
-                            else x)
+                            if update_priors then Data.update_priors x x.Data.static_ml true else x)
                     --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
             in
             Status.set_verbosity old_verbosity;
