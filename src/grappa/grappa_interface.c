@@ -416,6 +416,22 @@ grappa_CAML_inv_med
         }
     }*/
 
+    /* debug msg
+         fprintf(stdout,"in gene list = [");
+         int x=0; 
+         for(x=0;x<NUM_GENES;x++)
+             fprintf(stdout,"%d,",g1->genes[x]);
+         fprintf(stdout,"]; \n");
+         for(x=0;x<NUM_GENES;x++)
+             fprintf(stdout,"%d,",g2->genes[x]);
+         fprintf(stdout,"]; \n");
+         for(x=0;x<NUM_GENES;x++)
+             fprintf(stdout,"%d,",g3->genes[x]);
+         fprintf(stdout,"]; \n");
+
+         fflush(stdout);
+    debug msg */
+
     if(MEDIAN_SOLVER<7)
     {
         condense3 ( g1->genes,
