@@ -214,6 +214,7 @@ let alph _ = failwith MlStaticCS.likelihood_error
 let total_cost _ = failwith MlStaticCS.likelihood_error
 let get_cm _ = failwith MlStaticCS.likelihood_error
 let code _ = failwith MlStaticCS.likelihood_error
+let get_codes _ = failwith MlStaticCS.likelihood_error
 let combine _ _ = failwith MlStaticCS.likelihood_error
 let make _ _ = failwith MlStaticCS.likelihood_error
 let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
