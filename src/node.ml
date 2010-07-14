@@ -631,25 +631,30 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let median, ((t1,t2) as time) = match ca.preliminary, cb.preliminary with
                 | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
                     IFDEF USE_LIKELIHOOD THEN
-                        let t1, t2 = match t1,t2 with
-                            | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0)
-                            | Some (t1), Some (t2) -> t1,t2
+                        let t1, t2, opt = match t1,t2 with
+                            | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0,false)
+                            | Some (t1), Some (t2) -> t1,t2,false
                             | _ ->
                                 if debug_bl then Printf.printf "estimating BL\n%!";
-                                MlDynamicCS.estimate_time ca_pre cb_pre
+                                let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
+                                (t1,t2,true)
                         in 
                         if debug then 
                             info_user_message
                                 "Calculating %d with %f(%d) and %f(%d)"
                                 code t1 anode.taxon_code t2 bnode.taxon_code;
+                        let median,t1,t2 = 
+                            if opt then
+                                MlDynamicCS.median_i code ca_pre cb_pre t1 t2
+                            else
+                                MlDynamicCS.median code ca_pre cb_pre 
+                                                    (Some t1) (Some t2),t1,t2
+                        in
                         let t1,t2 = 
                             if anode.min_child_code < bnode.min_child_code 
                             then t1,t2 else t2,t1
-                        and median = 
-                            DynamicCS.median code ca.preliminary cb.preliminary
-                                            (Some t1) (Some t2)
                         in
-                        median,(Some t1,Some t2)
+                        (DynamicCS.MlCS median),(Some t1,Some t2)
                     ELSE
                         failwith MlStaticCS.likelihood_error
                     END
@@ -770,37 +775,53 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
     let rec ei_map p a b pa = match p,a,b with
         | (StaticMl pm)::ptl, (StaticMl am)::atl,(StaticMl bm)::btl ->
             let modf = ref All_sets.Integers.empty in
-
-            (**
-             * Since iteration is only done on the internal nodes, we can't have
-             * an iterator on a leaf -- so both times must be 'None' and
-             * probably needs to be estimated. *)
             let t1,t2 = match pm.time with 
                     | Some x,Some y -> x,y
                     | None, None -> 
-                        if debug_bl then
-                            Printf.printf "estimating BL\n%!";
+                        if debug_bl then Printf.printf "estimating BL\n%!";
                         MlStaticCS.estimate_time am.preliminary bm.preliminary
-                    | _ -> failwith "something happened"
+                    | _ -> failwith "something happened terribly wrong"
             in
             (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
-            let t1,t2 =
-                if root_e
-                    then (t2 +. t1),0.0
-                    else t1,t2
+            let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
+            let _,pcost,cost,(t1,t2),res = 
+                MlStaticCS.readjust None !modf am.preliminary bm.preliminary
+                                    pm.preliminary t1 t2 
             in
-            let mine,pcost,cost,(t1,t2),res = 
-                MlStaticCS.readjust None !modf am.preliminary
-                                               bm.preliminary
-                                               pm.preliminary
-                                    t1 t2 in
             let mine = StaticMl 
                 { pm with  preliminary = res; final = res;
                            cost = cost; sum_cost = cost;
                            time = Some t1, Some t2;
                 }
             in
-            ei_map ptl atl btl (mine::pa) 
+            ei_map ptl atl btl (mine::pa)
+        (* dynamic characters modify based on their integerized approx *)
+        | ((Dynamic pm) as pml)::ptl, (Dynamic am)::atl,(Dynamic bm)::btl ->
+            begin match am.preliminary, bm.preliminary with
+                | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
+                    let modf = ref All_sets.Integers.empty in
+                    let t1,t2 = match pm.time with 
+                        | Some x,Some y -> x,y
+                        | None, None -> 
+                            if debug_bl then Printf.printf "estimating BL\n%!";
+                            MlDynamicCS.estimate_time c1_pre c2_pre
+                        | _ -> failwith "something happened terribly wrong"
+                    in
+                    (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
+                    let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
+                    let m,pcost,cost,(t1,t2),res = 
+                        DynamicCS.readjust_lk (`ThreeD None) None !modf
+                            am.preliminary bm.preliminary pm.preliminary t1 t2
+                    in
+                    let mine = Dynamic 
+                        { pm with  preliminary = res; final = res;
+                                   cost = cost; sum_cost = cost;
+                                   time = Some t1, Some t2; }
+                    in
+                    ei_map ptl atl btl (mine::pa)
+                | _,_ ->
+                    ei_map ptl atl btl (pml::pa)
+            end
         (* ignore non-likelihood characters *)
         (* | Nonadd8 | Nonadd16 | Nonadd32 | Add | Sank | Dynamic | Kolmo | Set *)
         | pml::ptl,aml::atl,bml::btl -> ei_map ptl atl btl (pml::pa)
@@ -2922,7 +2943,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
     if debug_tosingle then
-    Printf.printf "Node.ml to_single at Node.%d; %!" mine.taxon_code;
+        Printf.printf "Node.ml to_single at Node.%d; %!" mine.taxon_code;
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc
@@ -2967,8 +2988,7 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 let t1,t2 = match mine.time with 
                     | Some x,Some y -> x,y
                     | _ -> 
-                        if debug_bl then
-                            Printf.printf "estimating BL\n%!";
+                        if debug_bl then Printf.printf "estimating BL\n%!";
                         MlStaticCS.estimate_time c1.preliminary c2.preliminary
                 in
                 let m, prev_cost, cost, (t1,t2), res = 
@@ -2987,18 +3007,44 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 failwith MlStaticCS.likelihood_error
             END
         | Dynamic c1, Dynamic c2, Dynamic parent, Dynamic mine ->
-                let m, prev_cost, cost, res =
-                    DynamicCS.readjust mode to_adjust !modified c1.preliminary
-                                        c2.preliminary parent.preliminary mine.preliminary
-                in
-                modified := m;
-                let cost = mine.weight *. cost in
-                Dynamic { mine with
-                          preliminary = res; final = res; 
-                          cost = cost;
-                          sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
-                          time=None,None;
+            begin match c1.preliminary,c2.preliminary with
+                | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
+                  IFDEF USE_LIKELIHOOD THEN
+                    let t1,t2 = match mine.time with 
+                        | Some x,Some y -> x,y
+                        | _  -> if debug_bl then Printf.printf "estimating BL\n%!";
+                                MlDynamicCS.estimate_time c1_pre c2_pre
+                    in
+                    let m,p_cost,n_cost,(t1,t2),res =
+                        DynamicCS.readjust_lk mode to_adjust !modified
+                            c1.preliminary c2.preliminary mine.preliminary t1 t2
+                    in
+                    modified := m;
+                    let cost = mine.weight *. n_cost in
+                    Dynamic
+                        { mine with
+                            preliminary = res; final = res;
+                            cost=cost; sum_cost=cost;
+                            time = Some t1, Some t2;
                         }
+                  ELSE
+                    failwith MlStaticCS.likelihood_error
+                  END
+                | _ -> 
+                    let m, prev_cost, cost, res = 
+                        DynamicCS.readjust mode to_adjust !modified c1.preliminary
+                                c2.preliminary parent.preliminary mine.preliminary
+                    in
+                    modified := m;
+                    let cost = mine.weight *. cost in
+                    Dynamic
+                        { mine with
+                            preliminary = res; final = res; 
+                            cost = cost;
+                            sum_cost = c1.sum_cost +. c2.sum_cost +. cost;
+                            time=None,None;
+                        }
+            end
         | _ -> mine
     in
     if mine.total_cost = infinity then mine, !modified
@@ -3223,7 +3269,7 @@ let cmp_node_recost node_data =
 (* Compute total recost of the subtree rooted by this NODE *)
 let cmp_subtree_recost node_data =
     if debug_to_formatter then
-    Printf.printf "node.ml cmp_subtree_recost:%!";
+        Printf.printf "node.ml cmp_subtree_recost:%!";
     List.fold_left 
         (fun subtree_recost cs -> 
              match cs with 
@@ -3232,7 +3278,7 @@ let cmp_subtree_recost node_data =
                      dyn.preliminary) 
                in
                if debug_to_formatter then
-               Printf.printf "res = %f + %f \n%!"  subtree_recost
+                    Printf.printf "res = %f + %f \n%!"  subtree_recost
                (DynamicCS.subtree_recost dyn.preliminary);
                res
              | _ -> subtree_recost
@@ -3255,7 +3301,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
                 item)))
     in
     if debug_to_formatter then begin
-    Printf.printf "to_formatter_single on node %s\n%!" node_name ;
+        Printf.printf "to_formatter_single on node %s\n%!" node_name ;
     print node_data; print node_single;
     end;
     let children =
@@ -3264,7 +3310,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
         (fun (acc, item) cs ->
             let parent_data = get_parent item in
             if debug_to_formatter then 
-            Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
+                Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
              let res = 
                  cs_to_formatter 
                  (pre_ref_codes, fi_ref_codes) d cs parent_data 
@@ -3325,7 +3371,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         | _ -> get_node_name node_id
     in 
     if debug_to_formatter then begin
-    Printf.printf "node.ml to_formatter_subtree, node name : %s, child1 is %s, child2 is %s\n%!" node_name child1_name child2_name;
+        Printf.printf "node.ml to_formatter_subtree, node name : %s, child1 is %s, child2 is %s\n%!" node_name child1_name child2_name;
     print node_data;
     print node_single;
     end;
@@ -3337,7 +3383,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         child2_recost +. 
         node_recost in 
     if debug_to_formatter then
-    Printf.printf "%f + %f + %f => subtree_recost=%f \n%!" 
+        Printf.printf "%f + %f + %f => subtree_recost=%f \n%!" 
     child1_recost child2_recost node_recost subtree_recost;
     let module T = Xml.Nodes in
     let attr : Xml.attributes = 
@@ -3371,7 +3417,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
                  | _ -> None
              in  
              if debug_to_formatter then 
-             Printf.printf "Delayed function in to_formatter_subtree on node.%s"
+                Printf.printf "Delayed function in to_formatter_subtree on node.%s"
              node_name;
              let res = cs_to_formatter (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
              (res @ acc), (idx + 1)) ([], 0) 

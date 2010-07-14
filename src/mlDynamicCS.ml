@@ -53,10 +53,6 @@ let name_string t = match t.ia with
 
 let total_cost t = match t.ia with
     | Some x -> MlStaticCS.median_cost x
-(*    | None when debug ->
-        Status.user_message Status.Warning 
-            "MlDynamicCS.total_cost; no implied alignment found";
-        t.seq.SeqCS.total_cost *)
     | None   -> t.seq.SeqCS.total_cost
 
 let get_codes t  = t.seq.SeqCS.codes
@@ -92,15 +88,15 @@ let to_formatter attr t par_opt bl d = match t.ia with
 
 (*---- special functions for likelihood in a dynamic context *)
 let min_bl = MlStaticCS.minimum_bl ()
-let estimate_time a b = 
+let estimate_time a b =
     (* set up the IA functor *)
-    let is_transition one two = 
+    let is_transition one two =
         let atran =
             try match Alphabet.complement one b.model.MlModel.alph with
                 | None -> false
                 | Some x -> true
             with | _ -> false
-        and btran = 
+        and btran =
             try match Alphabet.complement two a.model.MlModel.alph with
                 | None -> false
                 | Some x -> true
@@ -116,10 +112,10 @@ let estimate_time a b =
     and gaps = ref 0 (* the number of characters aligned with gaps *)
     and othr = ref 0 (* other aligned characters --transversions *) in
 
-    Array.iter (fun triple_array -> 
-    Array.iter (fun (align_a,align_b,_) -> 
+    Array.iter (fun triple_array ->
+        Array.iter (fun (align_a,align_b,_) ->
             for n = 0 to (Sequence.length align_a) - 1 do
-                let achar = Sequence.get align_a n 
+                let achar = Sequence.get align_a n
                 and bchar = Sequence.get align_b n in
                 if achar = bchar then incr same
                 else if achar = gchar then incr gaps
@@ -128,7 +124,7 @@ let estimate_time a b =
                 else incr othr
             done;)
         triple_array)
-        aligned_triples;
+    aligned_triples;
 
     let total = (!same + !tran + !gaps + !othr) in
     (* below, similar to mlStatic estimate_time function *)
@@ -155,13 +151,32 @@ let median code a b t1 t2 =
             SeqCS.make_default_heuristic (MlModel.model_to_cm a.model (t1+.t2))
         | _,_ -> failwith "branches not specified by caller"
     in
-    let aseq = {a.seq with SeqCS.heuristic = heur_cm; }
-    and bseq = {b.seq with SeqCS.heuristic = heur_cm; } in
+    let aseq = { a.seq with SeqCS.heuristic = heur_cm; }
+    and bseq = { b.seq with SeqCS.heuristic = heur_cm; } in
     {
           seq = SeqCS.median code aseq bseq;
         model = a.model;
            ia = None; 
     }
+
+let readjust c1 c2 mine t1 t2 = 
+    let internal_loop (t:float) : t * float = 
+        let d = median (code mine) c1 c2 (Some t) (Some t2) in
+        (d,total_cost d)
+    in
+    let nt,(nmine,ncost) = 
+        MlModel.brents_method (t1,(mine,total_cost mine)) internal_loop
+    in
+    (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
+
+let median_i code a b (t1:float) (t2:float) : t * float * float =
+    let start = t1+.t2 in
+    let _,_,_,(nt,_),nmine = 
+        readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
+    in
+    let half_time = nt /. 2.0 in
+    Printf.printf "Optimized Branch of %d from %f --> %f\n%!" code start nt;
+    nmine, half_time, nt -. half_time
 
 and median_3 p n c1 c2 = n
 (*    assert( 0 = MlModel.compare n.model c1.model);*)
@@ -191,25 +206,31 @@ let f_codes_comp s c =
 let make s m = { seq = s; model = m; ia = None };
 
 ELSE
+
+(* empty required functions when likelihood is not enabled *)
 type t = unit
 
-let alph _          = failwith MlStaticCS.likelihood_error
-let total_cost _    = failwith MlStaticCS.likelihood_error
-let get_cm _        = failwith MlStaticCS.likelihood_error
-let code _          = failwith MlStaticCS.likelihood_error
-let combine _ _     = failwith MlStaticCS.likelihood_error
-let make _ _        = failwith MlStaticCS.likelihood_error
-let median _ _ _ _ _= failwith MlStaticCS.likelihood_error
-let median_3 _ _ _ _= failwith MlStaticCS.likelihood_error
-let distance _ _ _  = failwith MlStaticCS.likelihood_error
-let to_string _     = failwith MlStaticCS.likelihood_error
-let name_string _   = failwith MlStaticCS.likelihood_error
-let dist_2 _ _ _ _  = failwith MlStaticCS.likelihood_error
-let f_codes _ _     = failwith MlStaticCS.likelihood_error
-let f_codes_comp _ _= failwith MlStaticCS.likelihood_error
+let alph _ = failwith MlStaticCS.likelihood_error
+let total_cost _ = failwith MlStaticCS.likelihood_error
+let get_cm _ = failwith MlStaticCS.likelihood_error
+let code _ = failwith MlStaticCS.likelihood_error
+let get_codes _ = failwith MlStaticCS.likelihood_error
+let combine _ _ = failwith MlStaticCS.likelihood_error
+let make _ _ = failwith MlStaticCS.likelihood_error
+let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+let median_i _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+let median_3 _ _ _ _ = failwith MlStaticCS.likelihood_error
+let readjust _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+let distance _ _ _ = failwith MlStaticCS.likelihood_error
+let to_string _ = failwith MlStaticCS.likelihood_error
+let name_string _ = failwith MlStaticCS.likelihood_error
+let dist_2 _ _ _ _ = failwith MlStaticCS.likelihood_error
+let f_codes _ _ = failwith MlStaticCS.likelihood_error
+let f_codes_comp _ _ = failwith MlStaticCS.likelihood_error
 let tabu_distance _ = failwith MlStaticCS.likelihood_error
-let cardinal _      = failwith MlStaticCS.likelihood_error
-let encoding _ _    = failwith MlStaticCS.likelihood_error
-let leaf_sequences _= failwith MlStaticCS.likelihood_error
+let cardinal _ = failwith MlStaticCS.likelihood_error
+let encoding _ _ = failwith MlStaticCS.likelihood_error
+let leaf_sequences _ = failwith MlStaticCS.likelihood_error
 let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+
 ENDIF

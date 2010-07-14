@@ -638,6 +638,25 @@ let readjust mode to_adjust modified ch1 ch2 parent mine =
             let prev_cost = total_cost mine in
             modified, prev_cost, prev_cost, mine
 
+(* readjust the likelihood characters; has the additional branch length
+ * arguments included *)
+let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
+     match ch1, ch2, mine with
+    | MlCS ch1, MlCS ch2, MlCS mine ->
+        let m,pc,nc,ts,res = MlDynamicCS.readjust ch1 ch2 mine t1 t2 in
+        if m then (modified,pc,nc,(t1,t2),(MlCS mine))
+        else begin
+            let x = 
+                Array.fold_right
+                    (fun c s -> All_sets.Integers.add c s) 
+                    (MlDynamicCS.get_codes mine)
+                    (All_sets.Integers.empty)
+            in
+            (x, pc, nc, ts, (MlCS res))
+        end
+     | _,_,_ -> assert false
+
+
 (** [to_single ?is_root pre_ref_code alied_map p n] returns a node that contains per character a single state
  * which is closest to [p] among those available in [n]. Useful for tree length
  * verification. is_root optional paramter indicates that if n is root. The
