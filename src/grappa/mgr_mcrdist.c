@@ -81,9 +81,11 @@ void buildG_grey(int num_genes, int num_chromosomes, mgr_distmem_t *distmem,
   fprintf(stdout,"buildG_grey: num_genes: %3d  num_chromosomes: %3d\n",
 	  num_genes, num_chromosomes);
 #endif
-//  G->distmem = distmem; //why here? where do we init G->distmem now?
+  G->distmem = distmem; 
+  //why assign G->distmem here? so we assign G->size here too, 
+  //how about num_components? 
+  //we assign components_good in classify_cycle_path of mgr_graph_edit.c
   size = G->size = 2*num_genes+2;
-
 
   greyEdges  = distmem->greyEdges;
   invperm    = distmem->done;
