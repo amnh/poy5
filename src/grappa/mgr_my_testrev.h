@@ -85,7 +85,7 @@ int isBP(int g, char *breakpoints);
 
 cbounds_t  cb_build_list_reag; //mgr_my_testrev.c, "build_list_reag"
 
-int build_list_reag(list_listreag * in_list,//list_reag **a_list, 
+int build_list_reag(list_reag **a_list, //list_listreag * in_list,
         G_struct *Genomes , int nb_spec, int spec_left,
 					int reversals,      // TRUE if we want to include reversals
 					int transloc, 	// TRUE if we want to include translocations

@@ -288,9 +288,6 @@ void classify_cycle_path(graph_t *G,
   }
   fprintf(stdout, "\n"); fflush(stdout);
 */
-
-
-
   greyEdges  = distmem->greyEdges;
 
   done       = distmem->done;

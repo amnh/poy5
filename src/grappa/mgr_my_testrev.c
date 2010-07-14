@@ -482,10 +482,9 @@ int isBP(int g, char *breakpoints)
 /*****************************************************************************/
 /*   	      The variable 'output_coded' was removed from the function      */
 /*	      Because the format of the output is not relevant here	     */
-	      
-//hit
-int build_list_reag(list_listreag * in_list,//list_reag **a_list,
-        G_struct *Genomes , int nb_spec, int spec_left,
+
+
+int build_list_reag(list_reag **a_list, G_struct *Genomes , int nb_spec, int spec_left,
 					int reversals,            // TRUE if we want to include reverals
 					int transloc, 	// TRUE if we want to include translocations
 					int fusion,
@@ -499,50 +498,70 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 					int last_genomenb,/* the last genome in which we did a rearrangement, we want to alternate
 					                  how we start the list */
 					int pair1, int pair2,  //usually both -1 but use them if we want to inforce a merge
-					int verbose
-                    )
+					int verbose)
 {
- //   fprintf(stdout, "build_list_reag,last_genomenb=%d,check nb_chromo:%d,%d,%d\n",last_genomenb,Genomes->nb_chromo[0],Genomes->nb_chromo[1],Genomes->nb_chromo[2]);
-    int tmp1, tmp2;
+   if(verbose) { fprintf(stdout, "build list reag, num_spec = %d, rev_size = %d, last_genomenb = %d (%d,%d,%d,%d)\n", nb_spec, rev_size, last_genomenb, reversals, transloc, fusion, fission);
+   fflush(stdout);}
     struct mgr_genome_struct *genome_list = Genomes->genome_list;
     //	int *dist_mat = Genomes->dist_mat;		  /* GB: the matrix with the pairwise distances */
-    struct mgr_genome_struct * trial_genome; // struct mgr_genome_struct trial_genome;
-    //list_reag *the_list = NULL;
-    //the_list = *a_list; 
-    list_listreag * the_list = in_list;
+    struct mgr_genome_struct trial_genome;
+    list_reag *the_list = NULL;
     int score_list = 0;
 	int *changes; // the changes associated with a particular rearrangement
+
+    /* GB: The following are not necessary since we use genomes directly
+
+        (no need to add caps anymore)
+        mgr_distmem_t distmem;
+    structmgr_genome_struct current_genome;
+    structmgr_genome_struct Dest_genome, *dest_genome=&Dest_genome;
+    */
+
     int optype;
+
     //	int num_bkpt;
+
     int foundany_i;      /* has a reversal been found for this start? */
     int i,j;
     /* GB: d is remove because we use dist_mat in Genomes
         int d;*/
     int lowcap;
+
     int c1,c2;           /* chromosomes being examined */
     int sc1, sc2;        /* signed versions, in case need to flip them */
     int f1;              /* is chromo c1 flipped? */
+
     int s1=0,e1=0,s2=0,e2=0;  /* start & end of chromosomes being examined */
     int s1i, e1i;        /* start/end of interior, dropping caps if multichrom */
     int s2_orig=0, e2_orig=0;  /* original start/end of c2, in case it's moved */
     int move_c2;         /* boolean, indicating if c2 is moved to abut c1 */
+	
 	/* GB: new for heuristic 5 and to look for reversals of fixed size */
 	int start_j, end_j;
 	int first_loop = TRUE;
+	
+
     /* FUNCTIONALITY MOVED to init_isBP_array */
     /* test at breakpoints only, or test at all locations? */
     /*  int testbp = TRUE;  */
     /*  int testbp = FALSE; */
-//    cbounds_t  cb;        /* structure with chromosome boundaries */
-//	cb.cNum = NULL;	cb.cBound = NULL;
+
+    cbounds_t cb;        /* structure with chromosome boundaries */
+//	cb.cNum = NULL;
+//	cb.cBound = NULL;
+
     tryrevparams_t tryrevparams;
+
     char *breakpoints;    /* bit array of genes that are breakpoints */
+
     //int *successors;     /* array of successors in final genome */
+
     // GB not necessary anymore, we garantee that genomes have an extra null chromo
     /* we pad the genomes with a null chromosome to allow fissions */
     //  int num_genes_p = num_genes + 1;                /* # genes, incl. pad */
     //  int num_chromosomes_p = num_chromosomes + 1;    /* # chromos, incl. pad */
     //  int num_chromosomes_nn;                      /* # nonnull chromos in g1 */
+
     // GB
     int genomenb;
     int gindex1;		// the index of the current g1 in the array
@@ -551,8 +570,505 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
     int total_reduction; // when we try a rearrangement, this is the
 								// total reduction of the distances
 	
-//	cb.cNum = (int *) NULL;
-//	cb.cBound = (int *) NULL;
+	cb.cNum = (int *) NULL;
+	cb.cBound = (int *) NULL;
+
+	changes = (int *)e_malloc(nb_spec*sizeof(int), "changes in my_tesrev.c");
+	
+    // GB: this is the equivalent of init_scenario_mem in testrev.c
+    
+    alloc_simple_genome(genome_list[0].num_g, &trial_genome);
+
+    // GB: allocate memory for breakpoints, the initialization is done for each genome later
+
+    init_isBP_mem(genome_list[0].num_g, genome_list[0].num_chr,
+                  &breakpoints);
+	
+	// computes the closest pair of genomes
+//	find_closest_pair(Genomes, &pair1, &pair2, nb_spec);
+
+//	fprintf(stdout, "reduction type: %d %d %d\n", reduction_type, nb_spec, spec_left);
+//	special_print_genomes2(stdout, Genomes, nb_spec);
+	//fprintf(stdout, "only look for rearrangements in closest pair: %d %d\n", pair1, pair2);
+
+	// GB first compute the pairwise distances
+	//compute_dist_mat(Genomes, nb_spec, num_genes, num_chromosomes, distmem);
+
+	while (first_loop == TRUE || (the_list == NULL && rev_size >= 0 && rev_size <= Genomes->max_chromo_size)) {
+		//fprintf(stdout, "in while loop, rev_size == %d\n", rev_size);
+		first_loop = FALSE; 
+		/* in most case we will only do this loop once, except when we are looking for reversals
+		of a fixed size and we want to increase that size */
+		// GB we now want to loop over all possible g1 and pick g2 to be any other genome
+		for (genomenb = 0; genomenb<nb_spec; genomenb++) {
+			if (rev_size < 0) {
+				gindex1 = (last_genomenb+genomenb)%nb_spec; // we alternate the genome we look at first
+															// we actually start from the last_genomenb
+															// because it's a FirstInLastOut queue 
+			}
+			else {
+				// if rev_size >= 0 we will exit as soon as we find something good
+				// so don't start with last_genomenb
+				gindex1 = (last_genomenb+genomenb+1)%nb_spec;
+			}
+			if (pair1==-1 || gindex1 == pair1 || gindex1 == pair2) {
+				if (Genomes->same_as[gindex1] == -1 && (optimize==FALSE || gindex1 == 3)) { // otherwise the genome has been merged already
+				
+				//   if (Genomes->same_as[gindex1] == -1) { // otherwise the genome has been merged already
+				
+				
+				//fprintf(stdout, "last_genomenb %d so now gindex1 %d\n", last_genomenb, gindex1);
+				
+				/*		if (gindex1 == 0) // GB the second genome can be anything but gindex1
+				gindex2 = 1;
+				else gindex2 = 0;
+				*/		
+				// initialization from old procedure
+				s1=e1=s2=e2=0;
+				s2_orig=e2_orig=0;
+				// GB: Fonctionnality now is isBP
+				//compute_successor(num_genes, &genome_list[gindex2], &successors);
+				//  reformat_caps(&genome_list[gindex1], num_genes, num_chromosomes);
+				//  reformat_caps(&genome_list[gindex2], num_genes, num_chromosomes);
+				if (genome_list[gindex1].num_chr > 0) {
+					/* get the chromosome boundaries */
+					init_cbounds(genome_list[gindex1].num_g,
+								 genome_list[gindex1].num_chr,
+								 &genome_list[gindex1],
+								 &cb);
+				}
+				/* initialize breakpoint array */
+				/* functionality separated out and changed from init_scenario_mem above */
+				//		init_isBP_mem(num_genes,num_chromosomes,
+				//			&breakpoints);
+				init_isBP_array(genome_list[gindex1].num_g,
+								genome_list[gindex1].num_chr, nb_spec,
+								Genomes, gindex1,
+								breakpoints);
+				/* the lowest cap number */
+				lowcap = genome_list[gindex1].num_g - 2*genome_list[gindex1].num_chr + 1; 
+				/* initialize parameters used for every distance trial */
+				tryrevparams.trial_genome = &trial_genome;
+				// probably don't need next line anymore
+				//tryrevparams.dest_genome = &genome_list[gindex2];
+				tryrevparams.num_genes = genome_list[gindex1].num_g;
+				tryrevparams.num_chromosomes = genome_list[gindex1].num_chr;
+				tryrevparams.distmem = distmem;
+				/* categorize by operation type */
+				/************************************************************************/
+				/*               Test all 1 chromo operations                           */
+				/************************************************************************/
+				/* start and end of the first null chromosome;
+				used in fission operations */
+				if (genome_list[gindex1].num_chr>0) {
+					s2 = cb.cBound[Genomes->nb_chromo[gindex1]+1 -1];
+					e2 = cb.cBound[Genomes->nb_chromo[gindex1]+1] -1;
+				}
+				for (c1 = 1; c1 <= Genomes->nb_chromo[gindex1]; c1++) {
+					/* start & end of chromosome */
+					if (genome_list[gindex1].num_chr > 0) {
+						s1 = cb.cBound[c1-1];
+						e1 = cb.cBound[c1]-1;
+					} else {
+						s1 = 0;
+						e1 = genome_list[gindex1].num_g-1;
+					}
+					/**************/
+					/*  fissions  */
+					/**************/
+					if (fission) {
+						if (genome_list[gindex1].num_chr>0) {
+							/* for fissions, need to use padded # genes, chromos */
+							//tryrevparams.num_genes = num_genes_p;
+							//tryrevparams.num_chromosomes = num_chromosomes_p; 
+							//tryrevparams.num_genes = num_genes;
+							//tryrevparams.num_chromosomes = num_chromosomes; 
+							foundany_i = FALSE; 
+							for (i=s1+2; i<e1 ; i++)  {
+								/* test the fission starting just before position i */
+								if (!isBP(genome_list[gindex1].genes[i], breakpoints))
+									continue;
+								copy_and_reverse_genes(genome_list[gindex1].genes, trial_genome.genes, i,s2, genome_list[gindex1].num_g);
+								//i,s2, num_genes_p);
+								total_reduction = try_good_operation(CFIS, Genomes,nb_spec,spec_left,gindex1,&tryrevparams, 
+																	 &merge_with, reduction_type, changes, pair1, pair2);
+								if (total_reduction >= reduction_type) {														score_list+=total_reduction;
+								//	fprintf(stdout, "socre_list += %d", score_list);fflush(stdout);
+                                    if (!only_size) 
+										the_list = list_reag_insert(the_list, gindex1, CFIS, 
+																	i, s2, 0, 0, merge_with, total_reduction, changes, nb_spec);
+									//print_genome_multichrom(&trial_genome,
+									//			      num_genes_p, num_chromosomes_p);
+								}
+					}   
+				}
+			}
+					
+					
+					/************************/
+					/*  internal reversals  */
+					/************************/
+					if (reversals) {
+						
+						/* for reversals, need to use unpadded # genes, chromos */
+						//tryrevparams.num_genes = num_genes;
+						//tryrevparams.num_chromosomes = num_chromosomes;
+						
+						/* determine start/end of interior of chromosome, by
+						removing caps if multichromosomal */
+						if (genome_list[gindex1].num_chr==0) {
+							s1i = s1; e1i = e1;
+						} else {
+							s1i = s1+1; e1i = e1-1;
+						}
+						
+						for (i=s1i ; i <= e1i ; i++) {
+							foundany_i = FALSE;
+							
+							/* only start at breakpoints */
+							
+							if (!isBP(genome_list[gindex1].genes[i], breakpoints))
+								continue;
+							
+							// for heuristic 5, only look for reversals of size rev_size and stop when you see one
+							// we don't even look for longer ones
+	
+							if (rev_size >= 0) {
+								if (i+rev_size <= e1i) {
+									// if this reversal is legal
+									start_j = end_j = i+rev_size;
+								}
+								else {
+									start_j = 1;
+									end_j = 0;
+								}
+							}
+							else {
+								start_j = i;
+								end_j =e1i;
+							}
+							
+							for (j=start_j ; j<=end_j ; j++) {
+								//					for (j=i ; j<=e1i ; j++) {
+								
+								if (i == s1i && j == e1i && genome_list[gindex1].num_chr>0)
+									continue; /* no chromosome flips in multichromosomal mode */
+								
+								/* only end at breakpoints */
+								if (!isBP(-genome_list[gindex1].genes[j], breakpoints))
+									continue;
+								
+								copy_and_reverse_genes(genome_list[gindex1].genes,
+													   trial_genome.genes,
+													   i,j, genome_list[gindex1].num_g);
+								
+								total_reduction = try_good_operation(CREV, Genomes, nb_spec, spec_left,gindex1,&tryrevparams, 
+																	 &merge_with, reduction_type, changes, pair1, pair2);
+								
+								if (total_reduction >= reduction_type) {
+									score_list+=total_reduction;
+									//fprintf(stdout, "socre_list += %d", score_list);
+                                    //fflush(stdout);
+                                    if (!only_size) 
+										the_list = list_reag_insert(the_list, gindex1, CREV,
+																	i, j, 0, 0, merge_with, total_reduction, changes, nb_spec);
+									
+									// for heuristic 5, if rev_size is positive, stop when you a good reversal
+									if (rev_size >= 0) {
+										// we want to exit
+										//j = e1i+1;
+										i = e1i+1;
+										c1 = Genomes->nb_chromo[gindex1]+1;
+										genomenb = nb_spec;
+										
+									}
+									//print_genome_multichrom(&trial_genome, num_genes, num_chromosomes);
+								}
+								
+								
+								} /* end for j (ending point within chromosome) */
+							}
+					
+				
+
+						}     /* end for i (starting point within chromosome) */
+			
+			
+					}  /* end for c1 */
+  
+  
+  
+  
+  /************************************************************************/
+  /*               Test all 2 chromo operations                           */
+  /************************************************************************/
+  
+  if (genome_list[gindex1].num_chr>0) {
+	  
+	  
+	  /* for fusions and translocations, need to use unpadded # genes, chromos */
+	  //tryrevparams.num_genes = num_genes;
+	  //tryrevparams.num_chromosomes = num_chromosomes;
+	  
+	  for (c1=1 ; c1 < Genomes->nb_chromo[gindex1] ; c1++) {
+		  for (f1=0 ; f1<=1 ; f1++) { /* do we flip chromo c1 or not? */
+			  /* start & end of chromosome */
+			  s1 = cb.cBound[c1-1];
+			  e1 = cb.cBound[c1]-1;
+			  
+			  
+			  if (f1) {
+				  /* when we flip this chromosome, we will never be looking
+				  at any earlier chromosomes again, so there is no
+				  need to restore it later */
+				  
+				  reverse_in_place_genes(genome_list[gindex1].genes, s1,e1);
+			  }
+			  
+			  
+			  for (c2=c1+1 ; c2 <= Genomes->nb_chromo[gindex1] ; c2++) {
+				  
+				  //printf("chromos: %d %d\n", c1, c2);
+				  
+				  /* identify chromosomes involved */
+				  /* - indicates chromo is flipped */
+				  sc1 = f1 ? -c1 : c1;
+				  sc2 = c2;
+				  
+				  /* start & end of chromosome, pointing at caps */
+				  s2 = cb.cBound[c2-1];
+				  e2 = cb.cBound[c2]-1;
+				  
+				  /* speedup: move chromo c2 to just after c1 */
+				  move_c2 = (e1+1 < s2);
+				  if (move_c2) {
+					  s2_orig = s2;
+					  e2_orig = e2;
+					  
+					  /* from:  xxx 1 A 2 yyy 3 B 4 zzz */
+					  /* to:    xxx 1 A 2 -4 -B -3 -yyy zzz */
+					  reverse_in_place_genes(genome_list[gindex1].genes,
+											 e1+1,e2);
+					  
+					  /* new location */
+					  s2 = e1+1;
+					  e2 = s2+(e2_orig-s2_orig);
+					  
+					  /* indicate chromo2 was flipped */
+					  sc2 = -sc2;
+				  }
+				  
+				  
+				  
+				  
+				  
+				  
+				  /*******************************/
+				  /*  fusions & translocations   */
+				  /*******************************/
+				  
+				  if (fusion || transloc) {
+					  for (i=s1+1 ; i <= e1 ; i++) {
+						  foundany_i = FALSE;
+						  
+						  /* only start at breakpoints */
+						  if (!isBP(genome_list[gindex1].genes[i], breakpoints))
+							  continue;
+						  
+						  for (j=s2 ; j<e2 ; j++) {
+							  
+							  /* must take a nonnull portion of at least one chromosome;
+							  otherwise it's just a cap flip */
+							  if (i==e1 && j==s2)
+								  continue;
+							  
+							  /* also disallow exchanging both chromos */
+							  if (i==s1+1 && j==e2-1)
+								  continue;
+							  
+							  /* only end at breakpoints */
+							  if (!isBP(-genome_list[gindex1].genes[j], breakpoints))
+								  continue;
+							  
+							  
+							  copy_and_reverse_genes(genome_list[gindex1].genes,
+													 trial_genome.genes,
+													 i,j, 
+													 genome_list[gindex1].num_g);
+							  
+							  optype = CTRA;
+							  /* due to the null bug, if the above gave a fusion, the
+								  caps must be reformatted for things to work correctly */
+							  if ((i == s1+1 && j == s2) ||    /* fusion -chrom1 chrom2 */
+								  (i == e1   && j == e2-1)) {  /* fusion chrom1 -chrom2 */
+								  optype = CFUS;
+								  reformat_caps(&trial_genome,
+												genome_list[gindex1].num_g,
+												genome_list[gindex1].num_chr);
+							  }
+							  if ((optype == CTRA && transloc) || (optype == CFUS && fusion)) {
+								  
+								  total_reduction = try_good_operation(optype, Genomes,nb_spec,spec_left,gindex1,&tryrevparams, 
+																	   &merge_with, reduction_type, changes, pair1, pair2);
+								  
+								  if (total_reduction>=reduction_type) {
+									  score_list+=total_reduction;
+									  //fprintf(stdout, "socre_list += %d", score_list);fflush(stdout);
+                                      if (!only_size)  {
+										  
+										  //print_genome_multichrom(&genome_list[gindex], num_genes, num_chromosomes);
+										  //fprintf(stdout, "i %d j %d sc1 %d sc2 %d\n", i, j, sc1, sc2);
+										  if (move_c2)
+											  the_list = list_reag_insert(the_list, gindex1, optype,
+																		  i, j + (s2_orig-s2), sc1, sc2, merge_with, total_reduction, changes, nb_spec);
+										  else
+											  the_list = list_reag_insert(the_list, gindex1, optype,
+																		  i, j, sc1, sc2, merge_with, total_reduction, changes, nb_spec);
+										  //print_genome_multichrom(&trial_genome, num_genes, num_chromosomes);
+									  }
+									  
+								  }
+							  }
+						  } /* end for j (ending point within chromosome c2) */
+						  
+					  } /* end for i (starting point within chromosome c1) */
+				  }
+				  
+				  /* if moved c2 for speed, move it back */
+				  if (move_c2) {
+					  /* from:  xxx 1 A 2 -4 -B -3 -yyy zzz */
+					  /* to:    xxx 1 A 2 yyy 3 B 4 zzz */
+					  reverse_in_place_genes(genome_list[gindex1].genes,
+											 e1+1,e2_orig);
+					  
+				  }
+				  
+			  } /* end: c2 */
+	if (f1) {
+		/* acually better to put them back... GB */
+		
+		reverse_in_place_genes(genome_list[gindex1].genes, s1,e1);
+	}
+		  } /* end: f1 */
+	  } /* end: c1 */
+    
+	
+  } /* end: if (num_chromosomes>0) */
+  
+  /* clean up memory */
+  
+  if (genome_list[gindex1].num_chr>0) {
+	  
+	  free_cbounds(&cb);
+	  //  free_simple_genome(dest_genome);
+  }
+  
+		} /* else gindex1 is not same_as -1 */
+		
+  } /* GB end: gindex1 */
+
+} // if pair1 or pair2
+
+ if (rev_size >= 0) {
+	 if (the_list == NULL) {
+		 // couldn't find a good reversal of size rev_size, try increasing it
+		 rev_size++;
+		 //fprintf(stdout, "rev_size is now %d\n", rev_size);
+	 }
+	 else {
+		 if (verbose) {
+			 fprintf(stdout, "found a reversal of size %d\n", rev_size);
+		 }
+	 }
+ }
+
+  } /* GB end: while */
+
+  clean_isBP_mem(breakpoints);
+  free(trial_genome.genes);
+  free(changes);
+  
+  /********************************************************/
+  
+  /* print summary */
+  //print_tryops_counts(&tryrevparams);
+
+  
+  *a_list = the_list;
+  if(verbose) {fprintf(stdout, "return score list = %d\n", score_list); fflush(stdout);}
+  return score_list;
+  
+}			   			    
+ 
+
+
+
+/*
+int build_list_reag(list_listreag * in_list,//list_reag **a_list,
+        G_struct *Genomes , int nb_spec, int spec_left,
+					int reversals,            // TRUE if we want to include reverals
+					int transloc, 	// TRUE if we want to include translocations
+					int fusion,
+					int fission, 	// TRUE if we want to include fusions and fissions
+					mgr_distmem_t *distmem,
+					int only_size, 			// don't build the list, just return it's size
+					int optimize,   // we are optimizing the median
+					int reduction_type,	// we only accept rearrangements reducing the total distance by at least
+					* this amount ( = spec_left-1 for good rearrangements)
+					int rev_size,  // for heurisitic 5, only look for reversal of this size
+					int last_genomenb,//the last genome in which we did a rearrangement, want to alternate how we start the list 
+					int pair1, int pair2,  //usually both -1 but use them if we want to inforce a merge
+					int verbose
+                    )
+{
+   // fprintf(stdout, "build_list_reag,last_genomenb=%d,check nb_chromo:%d,%d,%d\n",last_genomenb,Genomes->nb_chromo[0],Genomes->nb_chromo[1],Genomes->nb_chromo[2]);
+    int tmp1, tmp2;
+    struct mgr_genome_struct *genome_list = Genomes->genome_list;
+    //	int *dist_mat = Genomes->dist_mat;		  // GB: the matrix with the pairwise distances 
+    struct mgr_genome_struct * trial_genome; // struct mgr_genome_struct trial_genome;
+    //list_reag *the_list = NULL;
+    //the_list = *a_list; 
+    list_listreag * the_list = in_list;
+    int score_list = 0;
+	int *changes; // the changes associated with a particular rearrangement
+    int optype;
+    //	int num_bkpt;
+    int foundany_i;      // has a reversal been found for this start? 
+    int i,j;
+    // GB: d is remove because we use dist_mat in Genomes
+        int d;
+    int lowcap;
+    int c1,c2;           // chromosomes being examined 
+    int sc1, sc2;        // signed versions, in case need to flip them 
+    int f1;              // is chromo c1 flipped? 
+    int s1=0,e1=0,s2=0,e2=0;  // start & end of chromosomes being examined 
+    int s1i, e1i;        // start/end of interior, dropping caps if multichrom 
+    int s2_orig=0, e2_orig=0;  // original start/end of c2, in case it's moved 
+    int move_c2;         // boolean, indicating if c2 is moved to abut c1 
+	// GB: new for heuristic 5 and to look for reversals of fixed size 
+	int start_j, end_j;
+	int first_loop = TRUE;
+// FUNCTIONALITY MOVED to init_isBP_array 
+    // test at breakpoints only, or test at all locations? 
+    //  int testbp = TRUE;  
+    //  int testbp = FALSE; 
+//    cbounds_t  cb;        // structure with chromosome boundaries 
+//	cb.cNum = NULL;	cb.cBound = NULL;
+    tryrevparams_t tryrevparams;
+    char *breakpoints;    // bit array of genes that are breakpoints 
+    //int *successors;     // array of successors in final genome 
+    // GB not necessary anymore, we garantee that genomes have an extra null chromo
+    // we pad the genomes with a null chromosome to allow fissions 
+    //  int num_genes_p = num_genes + 1;                // # genes, incl. pad 
+    //  int num_chromosomes_p = num_chromosomes + 1;    // # chromos, incl. pad 
+    //  int num_chromosomes_nn;                      // # nonnull chromos in g1 
+    // GB
+    int genomenb;
+    int gindex1;		// the index of the current g1 in the array
+                  //	int gindex2;		// the index of the current g2 in the array
+    int merge_with;		// if current rearrangement implies a merge
+    int total_reduction; // when we try a rearrangement, this is the
+								// total reduction of the distances
 
     cbounds_t * cb = &cb_build_list_reag;
     //move this out later
@@ -568,7 +1084,7 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
         fflush(stdout);}
         alloc_simple_genome(genome_list[0].num_g, trial_genome);
     }
-    
+    else {}
     
     // GB: allocate memory for breakpoints, the initialization is done for each genome later
     Breakpoint_array * bkarr = &bkarr_build_list_reag;
@@ -580,26 +1096,19 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
         bkarr->array =  (char *) e_malloc((num_g/4 + 1) * sizeof(char),
 									  "breakpoints");
     }
-    else {}
+    else { //since all gene array have the same size, we don't need to worry about (bkarr-?num_genes =?= num_).  
+    }
     breakpoints = (bkarr->array);
-
-    //init_isBP_mem(genome_list[0].num_g, genome_list[0].num_chr, &breakpoints);
-	// computes the closest pair of genomes
-//	find_closest_pair(Genomes, &pair1, &pair2, nb_spec);
-//	special_print_genomes2(stdout, Genomes, nb_spec);
-	//fprintf(stdout, "only look for rearrangements in closest pair: %d %d\n", pair1, pair2);
-
+   
 	// GB first compute the pairwise distances
 	//compute_dist_mat(Genomes, nb_spec, num_genes, num_chromosomes, distmem);
  //   fprintf(stdout, "start while loop\n"); fflush(stdout);
-	while (first_loop == TRUE || ( (the_list->list_size == 0)/*the_list == NULL*/ 
+	while (first_loop == TRUE || ( (the_list->list_size == 0)//the_list == NULL 
                 && rev_size >= 0 && rev_size <= Genomes->max_chromo_size)) {
-        //	fprintf(stdout, "in while loop, rev_size == %d\n", rev_size);
+     //   	fprintf(stdout, "in while loop, rev_size == %d\n", rev_size);
 		first_loop = FALSE; 
-		/* in most case we will only do this loop once, except when we are looking for reversals of a fixed size and we want to increase that size */
+		// in most case we will only do this loop once, except when we are looking for reversals of a fixed size and we want to increase that size 
 		// GB we now want to loop over all possible g1 and pick g2 to be any other genome
-         
-                    
 		for (genomenb = 0; genomenb<nb_spec; genomenb++) {
 			if (rev_size < 0) {
 				gindex1 = (last_genomenb+genomenb)%nb_spec; 
@@ -626,7 +1135,7 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 				//  reformat_caps(&genome_list[gindex1], num_genes, num_chromosomes);
 				//  reformat_caps(&genome_list[gindex2], num_genes, num_chromosomes);
 				if (genome_list[gindex1].num_chr > 0) {
-					/* get the chromosome boundaries */
+					// get the chromosome boundaries 
                     if((cb->cNum==NULL)||(cb->cBound==NULL))
                     {
                         if(verbose) {
@@ -643,17 +1152,17 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 								 &genome_list[gindex1],
 								 cb);
 				}
-				/* initialize breakpoint array */
-				/* functionality separated out and changed from init_scenario_mem above */
+				// initialize breakpoint array 
+				// functionality separated out and changed from init_scenario_mem above 
 				//		init_isBP_mem(num_genes,num_chromosomes,
 				//			&breakpoints);
 				init_isBP_array(genome_list[gindex1].num_g,
 								genome_list[gindex1].num_chr, nb_spec,
 								Genomes, gindex1,
 								breakpoints);
-				/* the lowest cap number */
+				// the lowest cap number 
 				lowcap = genome_list[gindex1].num_g - 2*genome_list[gindex1].num_chr + 1; 
-				/* initialize parameters used for every distance trial */
+				// initialize parameters used for every distance trial 
 				tryrevparams.trial_genome = &trial_genome_build_list_reag;//trial_genome;
                 tryrevparams.dest_genome = NULL;
 				// probably don't need next line anymore
@@ -661,12 +1170,9 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 				tryrevparams.num_genes = genome_list[gindex1].num_g;
 				tryrevparams.num_chromosomes = genome_list[gindex1].num_chr;
 				tryrevparams.distmem = distmem;
-				/* categorize by operation type */
-				/************************************************************************/
-				/*               Test all 1 chromo operations                           */
-				/************************************************************************/
-				/* start and end of the first null chromosome;
-				used in fission operations */
+				// categorize by operation type 
+				//               Test all 1 chromo operations                           
+				// start and end of the first null chromosome;	used in fission operations 
 				if (genome_list[gindex1].num_chr>0) {
                     s2 = cb->cBound[Genomes->nb_chromo[gindex1]+1 -1];
 					e2 = cb->cBound[Genomes->nb_chromo[gindex1]+1] -1;
@@ -675,7 +1181,7 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
               //          Genomes->nb_chromo[gindex1]);
                 fflush(stdout);
 				for (c1 = 1; c1 <= Genomes->nb_chromo[gindex1]; c1++) {
-					/* start & end of chromosome */
+					// start & end of chromosome 
 					if (genome_list[gindex1].num_chr > 0) {
 						s1 = cb->cBound[c1-1];
 						e1 = cb->cBound[c1]-1;
@@ -683,19 +1189,14 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 						s1 = 0;
 						e1 = genome_list[gindex1].num_g-1;
 					}
-					/**************/
-					/*  fissions  */
-					/**************/
 					if (fission) {
 						if (genome_list[gindex1].num_chr>0) {
-							/* for fissions, need to use padded # genes, chromos */
 							//tryrevparams.num_genes = num_genes_p;
 							//tryrevparams.num_chromosomes = num_chromosomes_p; 
 							//tryrevparams.num_genes = num_genes;
 							//tryrevparams.num_chromosomes = num_chromosomes; 
 							foundany_i = FALSE; 
 							for (i=s1+2; i<e1 ; i++)  {
-								/* test the fission starting just before position i */
 								if (!isBP(genome_list[gindex1].genes[i], breakpoints))
 									continue;
 								copy_and_reverse_genes
@@ -708,18 +1209,11 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 									score_list+=total_reduction;
 									if (!only_size)
                                     {
-                                   /*   the_list = list_reag_insert
-                                          (the_list, gindex1, CFIS, 
-										 i, s2, 0, 0, merge_with, total_reduction,
-                                         changes, nb_spec); 
-                                         */
-                                       list_reag_insert2
+                                        list_reag_insert2
                                           (the_list, gindex1, CFIS, 
 										 i, s2, 0, 0, merge_with, total_reduction,
                                          changes, nb_spec);
-                                     /*   fprintf(stdout, "%d>=%d,reaglist size++ = %d\n",
-                                                total_reduction, reduction_type,the_list->list_size);
-                                        fflush(stdout); */
+                                   //     fprintf(stdout, "fission, %d>=%d,reaglist size++ = %d\n",total_reduction, reduction_type,the_list->list_size); fflush(stdout); 
                                     }
 									//print_genome_multichrom(&trial_genome,
 									//	num_genes_p, num_chromosomes_p);
@@ -727,15 +1221,9 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                             }//for (i=s1+2; i<e1 ; i++)   
                         }//if (genome_list[gindex1].num_chr>0)
                     }//if (fission)
-					/************************/
-					/*  internal reversals  */
-					/************************/
 					if (reversals) {
-						/* for reversals, need to use unpadded # genes, chromos */
 						//tryrevparams.num_genes = num_genes;
 						//tryrevparams.num_chromosomes = num_chromosomes;
-						/* determine start/end of interior of chromosome, by
-						removing caps if multichromosomal */
 						if (genome_list[gindex1].num_chr==0) {
 							s1i = s1; e1i = e1;
 						} else {
@@ -744,7 +1232,6 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                     //    fprintf(stdout, "for i=%d, i< %d, i++ \n",s1i, e1i); fflush(stdout);
 						for (i=s1i ; i <= e1i ; i++) {
 							foundany_i = FALSE;
-							/* only start at breakpoints */
 							if (!isBP(genome_list[gindex1].genes[i], breakpoints))
 								continue;
 							// for heuristic 5, only look for reversals of size rev_size and stop when you see one
@@ -762,8 +1249,7 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                         //    fflush(stdout);
 							for (j=start_j ; j<=end_j ; j++) {
 								if (i == s1i && j == e1i && genome_list[gindex1].num_chr>0)
-									continue; /* no chromosome flips in multichromosomal mode */
-								/* only end at breakpoints */
+									continue; 
 								if (!isBP(-genome_list[gindex1].genes[j], breakpoints))
 									continue;
                                  copy_and_reverse_genes(genome_list[gindex1].genes,
@@ -776,16 +1262,10 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 									score_list+=total_reduction;
 									if (!only_size)
                                     {
-                                    /*	the_list = list_reag_insert
-                                            (the_list, gindex1, CREV,i, j, 0, 0,
-                                             merge_with, total_reduction, changes, nb_spec);
-                                        */
-                                        list_reag_insert2
+                                      list_reag_insert2
                                           (the_list, gindex1, CREV,i, j, 0, 0,
                                              merge_with, total_reduction, changes, nb_spec) ;
-                                       /* fprintf(stdout, "%d>=%d,reaglist size++ = %d\n",
-                                                total_reduction, reduction_type,
-                                                the_list->list_size); fflush(stdout);*/
+                                    //    fprintf(stdout, "interal rev, %d>=%d,reaglist size++ = %d\n",total_reduction, reduction_type, the_list->list_size); fflush(stdout);
                                     }
 									// for heuristic 5, if rev_size is positive, stop when you a good reversal
 									if (rev_size >= 0) {
@@ -797,76 +1277,48 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
 									}
 									//print_genome_multichrom(&trial_genome, num_genes, num_chromosomes);
 								}
-							} /* end for j (ending point within chromosome) */
+							} // end for j (ending point within chromosome) 
 						}//end of for (i=s1i ; i <= e1i ; i++)
 					} //end of if (reversals)     
-				}  /* end for c1 */
+				}  // end for c1 
                 //end of for (c1 = 1; c1 <= Genomes->nb_chromo[gindex1]; c1++) Test all 1 chromo operations
-                /************************************************************************/
-                /*               Test all 2 chromo operations                           */
-                /************************************************************************/
                 if (genome_list[gindex1].num_chr>0) {
-                  /* for fusions and translocations, need to use unpadded # genes, chromos */
-                  //tryrevparams.num_genes = num_genes;
-                  //tryrevparams.num_chromosomes = num_chromosomes;
-              //    fprintf(stdout, "Test all 2 chromo oper, for c1=1, c1 < %d, c1 ++ \n",
-               //           Genomes->nb_chromo[gindex1]); fflush(stdout);
                   for (c1=1 ; c1 < Genomes->nb_chromo[gindex1] ; c1++) {
                   //    fprintf(stdout, "for f1 = 0 to 1\n"); fflush(stdout);
-                      for (f1=0 ; f1<=1 ; f1++) { /* do we flip chromo c1 or not? */
-                          /* start & end of chromosome */
+                      for (f1=0 ; f1<=1 ; f1++) { // do we flip chromo c1 or not? 
                           s1 = cb->cBound[c1-1];
                           e1 = cb->cBound[c1]-1;
                           if (f1) {
-                              /* when we flip this chromosome, we will never be looking
-                              at any earlier chromosomes again, so there is no
-                              need to restore it later */
                               reverse_in_place_genes(genome_list[gindex1].genes, s1,e1);
                           }
                           for (c2=c1+1 ; c2 <= Genomes->nb_chromo[gindex1] ; c2++) {
                               //printf("chromos: %d %d\n", c1, c2);
-                              /* identify chromosomes involved */
-                              /* - indicates chromo is flipped */
                               sc1 = f1 ? -c1 : c1;
                               sc2 = c2;
-                              /* start & end of chromosome, pointing at caps */
                               s2 = cb->cBound[c2-1];
                               e2 = cb->cBound[c2]-1;
-                              /* speedup: move chromo c2 to just after c1 */
                               move_c2 = (e1+1 < s2);
                               if (move_c2) {
                                   s2_orig = s2;
                                   e2_orig = e2;
-                                  /* from:  xxx 1 A 2 yyy 3 B 4 zzz */
-                                  /* to:    xxx 1 A 2 -4 -B -3 -yyy zzz */
                                   reverse_in_place_genes(genome_list[gindex1].genes,
                                                          e1+1,e2);
-                                  /* new location */
                                   s2 = e1+1;
                                   e2 = s2+(e2_orig-s2_orig);
-                                  /* indicate chromo2 was flipped */
                                   sc2 = -sc2;
                               }
-                              /*******************************/
-                              /*  fusions & translocations   */
-                              /*******************************/
                               if (fusion || transloc) {
                               //    fprintf(stdout, "for i=%d,i<=%d,i++\n", s1+1, e1); fflush(stdout);
                                   for (i=s1+1 ; i <= e1 ; i++) {
                                       foundany_i = FALSE;
-                                      /* only start at breakpoints */
                                       if (!isBP(genome_list[gindex1].genes[i], breakpoints))
                                           continue;
                                  //     fprintf(stdout, "for j=%d, j<%d, j++\n",s2,e2); fflush(stdout);
                                       for (j=s2 ; j<e2 ; j++) {
-                                          /* must take a nonnull portion of at least one chromosome;
-                                          otherwise it's just a cap flip */
                                           if (i==e1 && j==s2)
                                               continue;
-                                          /* also disallow exchanging both chromos */
                                           if (i==s1+1 && j==e2-1)
                                               continue;
-                                          /* only end at breakpoints */
                                           if (!isBP(-genome_list[gindex1].genes[j], breakpoints))
                                               continue;
                                           copy_and_reverse_genes(genome_list[gindex1].genes,
@@ -874,10 +1326,8 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                                                                  i,j, 
                                                                  genome_list[gindex1].num_g);
                                           optype = CTRA;
-                                          /* due to the null bug, if the above gave a fusion, the
-                                              caps must be reformatted for things to work correctly */
-                                          if ((i == s1+1 && j == s2) ||    /* fusion -chrom1 chrom2 */
-                                              (i == e1   && j == e2-1)) {  /* fusion chrom1 -chrom2 */
+                                          if ((i == s1+1 && j == s2) ||   
+                                              (i == e1   && j == e2-1)) {  
                                               optype = CFUS;
                                               reformat_caps(trial_genome,
                                                             genome_list[gindex1].num_g,
@@ -894,52 +1344,45 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                                                       //fprintf(stdout, "i %d j %d sc1 %d sc2 %d\n", i, j, sc1, sc2);
                                                       if (move_c2)    
                                                       {
-                                                        /*  the_list = list_reag_insert(the_list, gindex1, optype,
-                                                                    i, j + (s2_orig-s2), sc1, sc2, merge_with, 
-                                                                    total_reduction, changes, nb_spec); */
-                                                          list_reag_insert2(the_list, gindex1, optype,
+                                                        list_reag_insert2(the_list, gindex1, optype,
                                                                     i, j + (s2_orig-s2), sc1, sc2, merge_with, 
                                                                     total_reduction, changes, nb_spec);
                                                       }
                                                       else
                                                       {
-                                                        /*  the_list = list_reag_insert(the_list, gindex1, optype,
-                                                                                      i, j, sc1, sc2, merge_with,
-                                                                                      total_reduction, changes, nb_spec);*/
+                                                        
                                                           list_reag_insert2(the_list, gindex1, optype,
                                                                                       i, j, sc1, sc2, merge_with,
                                                                                       total_reduction, changes, nb_spec);
-                                                          /* fprintf(stdout, "%d>=%d,reaglist size++ = %d\n",
-                                                           total_reduction, reduction_type,
-                                                           the_list->list_size); fflush(stdout);*/
+                                                          
                                                       }
+                                                      //fprintf (stdout, "fusions & translocations \n");
+                                                      fflush(stdout);
                                                       //print_genome_multichrom(&trial_genome, num_genes, num_chromosomes);
                                                   }
                                               }
                                           }
-                                      } /* end for j (ending point within chromosome c2) */
-                                  } /* end for i (starting point within chromosome c1) */
+                                      } // end for j (ending point within chromosome c2) 
+                                  } // end for i (starting point within chromosome c1) 
                               }//end of if (fusion || transloc)
-                              /* if moved c2 for speed, move it back */
+                              // if moved c2 for speed, move it back 
                               if (move_c2) {
-                                  /* from:  xxx 1 A 2 -4 -B -3 -yyy zzz */
-                                  /* to:    xxx 1 A 2 yyy 3 B 4 zzz */
                                   reverse_in_place_genes(genome_list[gindex1].genes, e1+1,e2_orig);
                               }
-                          } /* end: c2 */ //end of  for (c2=c1+1 ;....)
-                          if (f1) {/* acually better to put them back... GB */
+                          }  //end of  for (c2=c1+1 ;....)
+                          if (f1) {// acually better to put them back... GB 
                             reverse_in_place_genes(genome_list[gindex1].genes, s1,e1);
                           }
-                      } /* end: f1 */// end of for (f1=0 ; f1<=1 ; f1++) 
-                  } /* end: c1 */ // end of for (c1=1 ; c1 < ....)
-              } /* end: if (num_chromosomes>0) */ 
+                      } // end: f1 // end of for (f1=0 ; f1<=1 ; f1++) 
+                  } // end: c1  // end of for (c1=1 ; c1 < ....)
+              } // end: if (num_chromosomes>0) 
               //end of if (genome_list[gindex1].num_chr>0), Test all 2 chromo operations 
-              /* clean up memory */
+              // clean up memory 
               if (genome_list[gindex1].num_chr>0) {
                   //free_cbounds(&cb);
                   //  free_simple_genome(dest_genome);
               }
-          } /* else gindex1 is not same_as -1 */
+          } // else gindex1 is not same_as -1 
           //end of if (Genomes->same_as[gindex1] == -1 && (optimize==FALSE || gindex1 == 3))
        }  
        //end of if (pair1==-1 || gindex1 == pair1 || gindex1 == pair2)
@@ -958,19 +1401,19 @@ int build_list_reag(list_listreag * in_list,//list_reag **a_list,
                }
          }
      }//end of if (rev_size >= 0)
-  } /* GB end: while */
+  } // GB end: while 
      //fprintf(stdout, "end of while loop\n"); fflush(stdout);
   //end of while (first_loop == TRUE || (the_list == NULL .....)
 //  clean_isBP_mem(breakpoints);
 //  free(trial_genome.genes);
   free(changes);
-  /********************************************************/
-  /* print summary */
+  
   //print_tryops_counts(&tryrevparams);
  // *a_list = the_list;
   return score_list;
 }			   			    
  
+*/
 
 /* try an operation
    return previous distance - new distance */   
@@ -1000,28 +1443,15 @@ int try_good_operation(int optype, G_struct *Genomes, int nb_spec, int spec_left
 //	fprintf(stdout,"try good operation, gindex1=%d,nb_spec=%d; ",gindex1,nb_spec); 
 	 *merge_with = -1;
 	 total_reduction = 0;
-	 
     	 for (i=0; i<nb_spec; i++) {
 	 	 if (i!=gindex1 && Genomes->same_as[i]==-1) {
 	 	 	 p->dest_genome = &genome_list[i];
 			 dist = dist_mat[gindex1*nb_spec+i];
 			 //a_reduction = my_try_operation(optype, dist, p);
- /*            if(-1 == sanity_check(p->dest_genome, 301))
-             {
-                 failwith("ERROR: check p->dest failed");
-             }
-             if(-1 == sanity_check(p->trial_genome,301))
-             {
-                 failwith("ERROR: check p->trial failed");
-             }
-*/
-			 int d2 = mcdist_noncircular(p->trial_genome, p->dest_genome,
+ 			 int d2 = mcdist_noncircular(p->trial_genome, p->dest_genome,
 			  p->num_genes, p->num_chromosomes,
 			  p->distmem, NULL);
              a_reduction = dist - d2;
-
-
-
 			 if (a_reduction != 1) { // this pairwise distance is not reduced 
 //				  printf("reduction type %d spec_left-1 %d\n", reduction_type, spec_left-1);
 				  
@@ -1030,10 +1460,8 @@ int try_good_operation(int optype, G_struct *Genomes, int nb_spec, int spec_left
 						
 				  return 0; 
 				 }
-				 
 				 if (pair1 != -1 && ((gindex1==pair1 && i==pair2) || (gindex1==pair2 && i==pair1))) {
 					 //we want to merge pair1 and pair2, this rearrangement doesn't do that...
-					 
 					 return 0;
 				 }
 			 } else { // the pairwise distance is reduced
@@ -1046,13 +1474,11 @@ int try_good_operation(int optype, G_struct *Genomes, int nb_spec, int spec_left
 			 }
 			 total_reduction+=a_reduction;
 			 changes[i] = a_reduction;
-			 
 	 	 }	 
 		 else {
 			 changes[i] = 0;
 		 }
 	 }
-
 	 return total_reduction;
 }
 	 
