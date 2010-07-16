@@ -1271,22 +1271,22 @@ let add_branch_data (trees,chars,bls) acc =
 
 let apply_likelihood_model params acc = 
     let proc_model (((name,((kind,site,alpha,invar) as var),
-                        param,lst,gap,file) as model), chars) = function
-        | P.Model name -> ((name,var,param,lst,gap,file),chars)
-        | P.Parameters param -> ((name,var,param,lst,gap,file),chars)
+                        param,lst,gap,cst,file) as model), chars) = function
+        | P.Model name -> ((name,var,param,lst,gap,cst,file),chars)
+        | P.Parameters param -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Chars chars -> (model,chars)
-        | P.Given_Priors lst -> ((name,var,param,lst,gap,file),chars)
-        | P.GapMode gap -> ((name,var,param,lst,gap,file),chars)
+        | P.Given_Priors lst -> ((name,var,param,lst,gap,cst,file),chars)
+        | P.GapMode gap -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Variation kind -> 
-                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Variation_Sites site ->
-                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Variation_Alpha alpha ->
-                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Variation_Invar invar ->
-                ((name,(kind,site,alpha,invar),param,lst,gap,file),chars)
+                ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Files name -> let file = Some name in
-                ((name,var,param,lst,gap,file),chars)
+                ((name,var,param,lst,gap,cst,file),chars)
         | P.Other_Priors str -> failwith "not implemented yet"
     in
     let str_spec,characters_to_modify =

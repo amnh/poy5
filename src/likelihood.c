@@ -153,16 +153,21 @@ void printarrayi( const int* a, const int n )
         printf("[%d] ", a[i]);
     putchar('\n');
 }
+/* print out a vector */
+void debug( const mll* a )
+{
+    printf("DEBUG:\n\tR: %d\tN: %d\tL: %d\n",
+                a->rates,a->stride,a->c_len);
+    printmatrixf(a->lv_s,a->stride,a->c_len*a->rates);
+    if(!(0 == a->lv_invar)){
+        printarrayi(a->lv_invar,a->c_len);
+    }
+    putchar('\n');
+}
 /* print out a caml value */
 void CAML_debug( value s )
 {
-    mll* a;
-    a = ML_val( s );
-    printf("DEBUG:\n\tR: %d\tN: %d\n\tL: %d\n",
-                a->rates,a->stride,a->c_len);
-    printmatrixf(a->lv_s,a->stride,a->c_len*a->rates);
-    printarrayi(a->lv_invar,a->c_len);
-    putchar('\n');
+    debug( ML_val( s ) );
 }
 /** creates a random substituation rate matrix
  * each row sums to 0 on diagonal elements */
@@ -884,6 +889,42 @@ median_h( const double* P, const double* l, const int c_start, double* tmp, cons
     }
 } */
 
+
+/* modifys the vector contained in l to the maximum value;
+void maximums (mll* l,const double* pi )
+{
+    int i, r, c, b_i, ri,ci;
+    double b_v;
+
+    ri = l->c_len * l->stride;
+    for(c = 0; c < l->c_len;++c){
+        b_v = 0.0;
+        b_i = -1;
+        for(r = 0; r < l->rates; ++r){
+            ci = (r * ri) + (c * l->stride);
+            for( i = 0; i < l->stride;++i ){
+                if( fabs((l->lv_s[ci+i]) - b_v) < EPSILON){
+                    if( pi[i] > pi[b_i] ){
+                        b_v = l->lv_s[ci+i];
+                        b_i = i;
+                    } else if (pi[i] == pi[b_i]){
+                    }
+                } else if( l->lv_s[ci+i] > b_v ){
+                    b_v = l->lv_s[ci+i];
+                    b_i = i;
+                }
+            }
+        }
+        assert( (-1 < b_i) && (l->stride > b_i) ); 
+        for( r=0;r < l->rates; ++r ){
+            ci = (r * ri) + (c * l->stride);
+            for( i=0; i < l->stride; ++i )
+                l->lv_s[ci+i] = (b_i == i)?1.0:0.0;
+        }
+    }
+} */
+
+
 /* calculates the likelihood for the invariant site class */
 double
 loglikelihood_site_invar(const mll* l,const double* pi,const int i)
@@ -964,6 +1005,23 @@ loglikelihood_invar( const mll* l, const double *pi )
     return ret;
 }
 
+double
+logMPL_site( const mll* l, const double weight, const double* pi,
+                    const double* prob, const int i )
+{
+    int r, j, c;
+    double max_v;
+    max_v = -1.0;
+    for(r=0; r < l->rates;++r){
+        c = (r * (l->stride * l->c_len)) + (l->stride * i);
+        for(j=0; j < l->stride; ++j){
+            max_v = MAX (l->lv_s[c+j] * prob[r] * pi[i], max_v);
+        }
+    }
+    assert( max_v > 0.0 );
+    return ( log(MAX(max_v,1e-300)) * weight );
+}
+
 /** [loglikelihood ml p prob %]
  * returns loglikelihood of a character set. |p| = l->stride
  *                                           |prob| = l->rates
@@ -972,7 +1030,7 @@ loglikelihood_invar( const mll* l, const double *pi )
  * uses Kahan Summation to reduce floating point addition error. reduces error
  * of a summation to 2e
  */
-double loglikelihood( const mll* l, const double* ws, const double* pi, 
+double logMALlikelihood( const mll* l, const double* ws, const double* pi, 
                                 const double* prob, const double pinvar )
 {
     /* printarrayf(l->lv_s, l->rates * l->c_len * l->stride); */
@@ -995,25 +1053,52 @@ double loglikelihood( const mll* l, const double* ws, const double* pi,
     int i; double ret;
     ret = 0.0;
     for(i=0;i<l->c_len;i++)
-        ret += loglikelihood_site(l,pi,prob,pinvar,i);
+        ret += loglikelihood_site(l,ws[i],pi,prob,pinvar,i);
     return ( -ret );
 #endif
 }
 
-/* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
-value likelihood_CAML_loglikelihood(value s, value w, value pi, value prob, value pinvar)
+double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
 {
-    CAMLparam3( s, pi, prob );
+    int i;
+    double ret;
+    ret = 0.0;
+    for(i=0;i<l->c_len;i++)
+        ret += logMPL_site(l,ws[i],pi,prob,i);
+    return ( -ret );
+}
+
+double
+loglikelihood( const mll* l,const double* ws,const double* pi,const double* prob,
+                const double pinvar, const int mpl)
+{
+    if( 0 == mpl ){
+        return logMALlikelihood( l, ws, pi, prob, pinvar );
+    } else {
+        return logMPLlikelihood( l, ws, pi, prob );
+    }
+}
+
+/* [likelihoood_CAML_loglikelihood s p] wrapper for loglikelihood */
+value
+likelihood_CAML_loglikelihood_wrapped(value s,value w,value pi,value prob,value pinvar,value mpl)
+{
+    CAMLparam5( s, w, pi, prob, pinvar);
+    CAMLxparam1( mpl );
     CAMLlocal1( mle );
     double ll;
-    ll = loglikelihood( ML_val(s),
-                        (double*) Data_bigarray_val(w),
-                        (double*) Data_bigarray_val(pi),
-                        (double*) Data_bigarray_val(prob),
-                        Double_val( pinvar )
-                      );
+    ll = loglikelihood( ML_val(s), (double*) Data_bigarray_val(w),
+                (double*) Data_bigarray_val(pi), (double*) Data_bigarray_val(prob),
+                Double_val( pinvar ), Int_val(mpl));
     mle = caml_copy_double( ll );
     CAMLreturn( mle );
+}
+
+value
+likelihood_CAML_loglikelihood( value * argv, int argn )
+{
+    return likelihood_CAML_loglikelihood_wrapped
+        (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5]);
 }
 
 
@@ -1043,7 +1128,7 @@ inline __m128d dotproduct2x1(__m128d a, __m128d b, __m128d pa, __m128d pb){
  * [tmp1] is size of alphabet.
  */
 void
-median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
+median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
                 mll* cmll, const int rate_idx )
 {
 #ifdef __SSE3__
@@ -1134,6 +1219,28 @@ median_charset(const double* Pa,const double* Pb, const mll* amll,const mll* bml
             cmll->lv_s[len+j] = MAX((tmp2[j]*tmp1[j]),0);
     } */
 }
+void
+median_MPL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
+                 mll* cmll, const int rate_idx )
+{
+    int i, j, k, c_start, p_start;
+    double tmp2, tmp1;
+    c_start = rate_idx * amll->stride * amll->c_len;
+    for(i=0; i < amll->c_len; ++i){
+        p_start = 0;
+        for(j=0; j < amll->stride; ++j){
+            tmp1 = tmp2 = 0.0;
+            for(k=0; k < amll->stride; ++k){
+                /** NOTICE; the only change here is the MAX from += **/
+                tmp1 = MAX (tmp1, Pa[p_start+k] * amll->lv_s[c_start+k]);
+                tmp2 = MAX (tmp2, Pb[p_start+k] * bmll->lv_s[c_start+k]);
+            }
+            cmll->lv_s[c_start+j] = MAX( tmp1 * tmp2, 0.0 );
+            p_start += amll->stride;
+        }
+        c_start += amll->stride;
+    }
+}
 
 void 
 median_invar(const mll* a, const mll* b, mll* c){
@@ -1143,13 +1250,25 @@ median_invar(const mll* a, const mll* b, mll* c){
         c->lv_invar[i] = (a->lv_invar[i]) & (b->lv_invar[i]);
 }
 
-value likelihood_CAML_median_wrapped_sym
+void
+median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
+        mll* cmll, const int mpl,const int rate_idx)
+{
+    if(0 == mpl){
+        median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
+    } else {
+        median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
+    }
+}
+
+value
+likelihood_CAML_median_wrapped_sym
     (value tmp,value U,value D,value ta,value tb,value ml_a,value ml_b,
-        value rates,value probs)
+        value rates,value probs,value mpl)
 {
     /* ocaml macros */
     CAMLparam5( tmp,U,D,ta,tb );
-    CAMLxparam4( ml_a,ml_b,rates,probs );
+    CAMLxparam5( ml_a,ml_b,rates,probs,mpl );
     CAMLlocal1( ml_c );
     /* all variables */
     double cta,ctb,*c_U,*c_D,*PA,*PB,*tmp1,*g_rs,*p_rs;
@@ -1204,7 +1323,7 @@ value likelihood_CAML_median_wrapped_sym
     for(i=0;i<num_rates;++i){
         compose_sym( PA, c_U, c_D, cta*g_rs[i], a->stride, tmp1 );
         compose_sym( PB, c_U, c_D, ctb*g_rs[i], b->stride, tmp1 );
-        median_charset( PA, PB, a, b, c, i );
+        median( PA, PB, a, b, c, Int_val(mpl), i );
     }
     if(a->invar == 1){
         c->lv_invar = (int*) malloc ( c->c_len * sizeof(int));
@@ -1220,11 +1339,12 @@ value likelihood_CAML_median_wrapped_sym
 
 value likelihood_CAML_median_wrapped_gtr
     (value tmp,value U,value D,value Ui,value ta,value tb,value ml_a,value ml_b,
-        value rates,value probs)
+        value rates,value probs,value mpl)
 {
     /* ocaml macros */
     CAMLparam5( tmp,U,D,Ui,ta );
     CAMLxparam5( tb,ml_a,ml_b,rates,probs );
+    CAMLxparam1( mpl );
     CAMLlocal1( ml_c );
     /* declare variables */
     double cta,ctb,*c_U,*c_D,*c_Ui,*PA,*PB,*tmp1,*g_rs,*p_rs;
@@ -1274,7 +1394,7 @@ value likelihood_CAML_median_wrapped_gtr
     for(i=0;i<num_rates;++i){
         compose_gtr( PA, c_U, c_D, c_Ui, cta*g_rs[i], a->stride, tmp1);
         compose_gtr( PB, c_U, c_D, c_Ui, ctb*g_rs[i], b->stride, tmp1);
-        median_charset( PA, PB, a,b,c, i);
+        median( PA, PB, a,b,c, Int_val(mpl), i);
     }
     if(a->invar == 1){
         c->lv_invar = (int*) malloc( c->c_len * sizeof(int));
@@ -1292,48 +1412,52 @@ value likelihood_CAML_median_wrapped_gtr
 value likelihood_CAML_median_sym(value * argv, int argn)
 {
     return likelihood_CAML_median_wrapped_sym
-        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],argv[8] ); 
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
+          argv[8],argv[9] ); 
 }
 
 /* [likelihood_CAML_median_gtr ...] argument wrapper for median_gtr */
 value likelihood_CAML_median_gtr(value * argv, int argn)
 {
     return likelihood_CAML_median_wrapped_gtr
-        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],argv[8],argv[9] );
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
+          argv[8],argv[9],argv[10] );
 }
 
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-void single_sym(ptr *simp,double *PA,double *PB,const double *U,const double *D,const mll *a,
-    const mll *b,const double time_a,const double time_b,const double *ws,const double *gam,
-    const double* prob, const double *pi,const int g_n,double percent,double *tmp)
-{
+void single_sym(ptr *simp, double *PA, double *PB, const double *U, const double *D,
+    const mll *a, const mll *b, const double time_a, const double time_b,
+    const double *ws, const double *gam, const double* prob, const double *pi, 
+    const int g_n, const double percent, const int mpl, double *tmp)
+{ 
     int i;
     simp->time = time_a;
     for(i=0;i<g_n;++i){
         compose_sym( PA, U, D, time_a*gam[i], a->stride, tmp );
         compose_sym( PB, U, D, time_b*gam[i], b->stride, tmp );
-        median_charset( PA, PB, a, b, simp->vs, i );
+        median( PA, PB, a, b, simp->vs, mpl, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
-    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent );
+    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent, mpl );
 }
-void single_gtr(ptr *simp,double *PA,double *PB,const double *U,const double *D,const double *Ui,
-    const mll *a,const mll *b,const double time_a,const double time_b,const double* ws,
-    const double* gam, const double *prob,const double *pi,const int g_n,double percent,double *tmp)
+void single_gtr(ptr *simp, double *PA, double *PB, const double *U, const double *D,
+    const double *Ui, const mll *a, const mll *b, const double time_a, 
+    const double time_b, const double* ws, const double* gam, const double *prob,
+    const double *pi, const int g_n, const double percent, const int mpl, double *tmp)
 {
     int i;
     simp->time = time_a;
     for(i=0;i<g_n;++i){
         compose_gtr( PA, U, D, Ui, time_a*gam[i], a->stride, tmp );
         compose_gtr( PB, U, D, Ui, time_b*gam[i], b->stride, tmp );
-        median_charset( PA, PB, a, b, simp->vs, i );
+        median( PA, PB, a, b, simp->vs, mpl, i );
     }
     /* invar isn't iterated
      * if(a->invar == 1) median_invar( a,b,simp->vs ); */
-    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent );
+    simp->ll = loglikelihood( simp->vs, ws, pi, prob, percent, mpl );
 }
 #define golden (2.0/(sqrt(5.0)+1))
 #define golden_exterior_l(b,c) ((b - (c * golden)) / (1 - golden))
@@ -1343,7 +1467,7 @@ void
 readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_c1,
         const mll* data_c2,mll* data_p,double* b_tc1,const double b_tc2,double* b_mle,
         const double* ws,const double* rates,const double *prob,const int g_n,
-        const double* pi,const double pinvar)
+        const double* pi,const double pinvar, const int mpl)
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
@@ -1371,9 +1495,9 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     fx = fi = *b_mle;
     a = MAX( BL_MIN, x / 10.0 );
     b = MIN( BL_MAX, x * 10.0 );
-    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
     fa = temp.ll;
-    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
     fb = temp.ll;
     bracketed = 1;
     /* bracket a region; a and b become the bracket with temp */
@@ -1389,7 +1513,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             x = a; fx = fa;
             a = MAX( BL_MIN, golden_exterior_l( x,b ) );
             assert ( a <= x );
-            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fa = temp.ll;
         /* decreasing; move right: (middle,right,new) */
         } else if( fa > fx && fx > fb ){ 
@@ -1397,7 +1521,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
             x = b; fx = fb;
             b = MAX (BL_MIN, golden_exterior_r( a, x ) );
             assert ( b >= x );
-            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fb = temp.ll;
         /* convergence or curvature issue */
         } else {
@@ -1448,7 +1572,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         }
         /* function evaluation; replace data in u. */
         u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
-        single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+        single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
         /* move variables around for next motion */
@@ -1477,7 +1601,7 @@ void
 readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* Ui,
         const mll* data_c1,const mll* data_c2,mll* data_p,double* b_tc1,const double b_tc2,
         double* b_mle,const double* ws,const double *rates,const double *prob,
-        const int g_n,const double* pi,const double pinvar)
+        const int g_n,const double* pi,const double pinvar,const int mpl)
 {
     int iter,size,bracketed;
     ptr temp; mll temp_;
@@ -1505,9 +1629,9 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
     fx = fi = *b_mle;
     a = MAX( BL_MIN, x / 100.0 );
     b = MIN( BL_MAX, x * 10.0 );
-    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
     fa = temp.ll;
-    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+    single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,b,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
     fb = temp.ll;
     bracketed = 1;
     /* bracket a region; a and b become the bracket with temp */
@@ -1523,7 +1647,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             x = a; fx = fa;
             a = MAX( BL_MIN, golden_exterior_l( x,b ) );
             assert ( a <= x );
-            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fa = temp.ll;
         /* decreasing; move right: (middle,right,new) */
         } else if( fa > fx && fx > fb ){ 
@@ -1531,7 +1655,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
             x = b; fx = fb;
             b = MAX (BL_MIN, golden_exterior_r( a, x ) );
             assert ( b >= x );
-            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+            single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,a,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
             fb = temp.ll;
         /* convergence or curvature issue */
         } else {
@@ -1582,7 +1706,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
         }
         /* function evaluation; replace data in u. */
         u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
-        single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,TMP);
+        single_gtr(&temp,PA,PB,Um,D,Ui,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
         /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
         /* move variables around for next motion */
@@ -1612,7 +1736,7 @@ readjust_brents_gtr(mat * space,const double* Um,const double* D,const double* U
 value
 likelihood_CAML_readjust_gtr_wrapped
     (value tmp,value U,value D,value Ui,value A,value B,value C,value ta,value tb,
-        value pinv, value ws, value g,value p,value pis,value ll)
+        value pinv, value ws, value g,value p,value pis,value ll,value mpl)
 {   
     /* ocaml macros */
     CAMLparam5(U,D,Ui,A,B);
@@ -1640,7 +1764,8 @@ likelihood_CAML_readjust_gtr_wrapped
             Data_bigarray_val(p),
             Bigarray_val( g )->dim[0],
             Data_bigarray_val(pis),
-            Double_val( pinv )
+            Double_val( pinv ),
+            Int_val(mpl)
     );
     //printf("E:%f\t\t%f\n",cta,likelihood);
     /* construct tuple / freespace */
@@ -1653,7 +1778,7 @@ likelihood_CAML_readjust_gtr_wrapped
 value
 likelihood_CAML_readjust_sym_wrapped
     (value tmp,value U,value D,value A,value B,value C,value ta,value tb,
-        value pinv,value ws,value g,value p,value pis,value ll)
+        value pinv,value ws,value g,value p,value pis,value ll,value mpl)
 {
     /* ocaml macros for GC */
     CAMLparam5(U,D,ll,A,B);
@@ -1679,7 +1804,8 @@ likelihood_CAML_readjust_sym_wrapped
             Data_bigarray_val( p ),
             Bigarray_val( g )->dim[0],
             Data_bigarray_val( pis ),
-            Double_val( pinv )
+            Double_val( pinv ),
+            Int_val(mpl)
     );
     //printf("\tE:%f\t%f\t%f\n",cta,Double_val(tb),likelihood);
     /* construct tuple / free space */
@@ -1696,14 +1822,15 @@ likelihood_CAML_readjust_gtr(value * argv, int argn)
 {
     return likelihood_CAML_readjust_gtr_wrapped
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
-         argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14]);
+         argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14],argv[15]);
 }
 value
 likelihood_CAML_readjust_sym(value * argv, int argn)
 {
     return likelihood_CAML_readjust_sym_wrapped
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],
-         argv[7],argv[8],argv[9],argv[10],argv[11],argv[12],argv[13]);
+         argv[7],argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14]);
 }
+
 
 #endif /* USE_LIKELIHOOD */

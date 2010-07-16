@@ -51,7 +51,7 @@ external median_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s -> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s =
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
          "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
 external median_sym: (* median sym U D ta tb a b r p -> output_c *)
     FMatrix.m ->
@@ -59,7 +59,7 @@ external median_sym: (* median sym U D ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s-> s ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
           "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym"
 external readjust_sym: (* readjust_sym U D a b c ta tb %i r p pi ll -> ll*branch *)
     FMatrix.m ->
@@ -70,7 +70,7 @@ external readjust_sym: (* readjust_sym U D a b c ta tb %i r p pi ll -> ll*branch
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float = 
+    float -> int -> float*float = 
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*branch *)
     FMatrix.m ->
@@ -82,7 +82,7 @@ external readjust_gtr:(* readjust_sym U D Ui a b c ta tb %i r p pi ll -> ll*bran
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float = 
+    float -> int -> float*float = 
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
@@ -93,7 +93,8 @@ external loglikelihood: (* vector, weight, priors, probabilities, and %invar -> 
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
       -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t
-      -> float -> float = "likelihood_CAML_loglikelihood"
+      -> float -> int -> float =
+          "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
 external filter: s -> int array -> s = "likelihood_CAML_filter"
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
@@ -415,14 +416,18 @@ let median an bn t1 t2 acode bcode =
                 median_sym FMatrix.scratch_space 
                     am.MlModel.u am.MlModel.d t1 t2 an.chars bn.chars 
                     am.MlModel.rate am.MlModel.prob
+                    (MlModel.get_costfn_code am)
             | Some ui -> 
                 median_gtr FMatrix.scratch_space 
                     am.MlModel.u am.MlModel.d ui t1 t2 an.chars bn.chars
                     am.MlModel.rate am.MlModel.prob
+                    (MlModel.get_costfn_code am)
         in
         let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
         let loglike = 
-            loglikelihood n_chars an.weights an.model.MlModel.pi_0 an.model.MlModel.prob pinvar
+            loglikelihood n_chars an.weights an.model.MlModel.pi_0 
+                          an.model.MlModel.prob pinvar
+                          (MlModel.get_costfn_code an.model)
         in
         assert( loglike >= 0.0 );
         { an with
@@ -494,8 +499,11 @@ let of_parser_simple seq model =
     let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
                                          (Array.create nchar 1.0) in
     let schar = bigarray_s chars None in
-    let loglk = loglikelihood schar wghts model.MlModel.pi_0
-                              model.MlModel.prob (~-.1.0) in
+    let loglk = 
+        loglikelihood schar wghts model.MlModel.pi_0
+                      model.MlModel.prob (~-.1.0)
+                      (MlModel.get_costfn_code model)
+    in
     {   mle = loglk;
       model = model;
       codes = Array.init nchar (fun i -> i);
@@ -543,8 +551,10 @@ let of_parser spec weights characters =
     let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
-    let loglike = loglikelihood lk_chars weights computed_model.MlModel.pi_0
-                                computed_model.MlModel.prob pinvar
+    let loglike = 
+        loglikelihood lk_chars weights computed_model.MlModel.pi_0
+                      computed_model.MlModel.prob pinvar
+                      (MlModel.get_costfn_code computed_model)
     in
     (* print_barray3with1 ba_chars weights; *)
     assert( loglike >= 0.0 );
@@ -615,14 +625,15 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                 readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
                              c1.chars c2.chars new_mine.chars c_t1 c_t2 pinv
                              c1.weights model.MlModel.rate model.MlModel.prob
-                             model.MlModel.pi_0 new_mine.mle
+                             model.MlModel.pi_0 new_mine.mle (MlModel.get_costfn_code model)
+
             | Some ui ->
                 readjust_gtr FMatrix.scratch_space model.MlModel.u
                              model.MlModel.d ui c1.chars c2.chars new_mine.chars
                              c_t1 c_t2 pinv c1.weights model.MlModel.rate
                              model.MlModel.prob model.MlModel.pi_0 new_mine.mle
-        and ntb = c_t2
-        in
+                             (MlModel.get_costfn_code model)
+        and ntb = c_t2 in
         (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
         if nta =. c_t1 then
             (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)

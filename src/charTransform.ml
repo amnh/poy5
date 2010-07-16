@@ -742,7 +742,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
     (* estimate a likelihood model from non-addative characters as defined in
      * chars, over branches. Classify all transitions and count base frequencies
      * of leaves for priors, then construct the model. *)
-    let estimate_likelihood_model p_tree branches alphabet (chars,subst,variation,_,gap) =
+    let estimate_likelihood_model p_tree branches alphabet (chars,cost,subst,variation,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
         let gap = match gap with `GapAsCharacter x -> x in
         let is_leaf ptree code = match Ptree.get_node code ptree with
@@ -761,7 +761,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         in
         (All_sets.FullTupleMap.empty,All_sets.IntegerMap.empty)
             --> l_traversal branches classify_branch p_tree
-            --> MlModel.spec_from_classification alphabet gap subst variation
+            --> MlModel.spec_from_classification alphabet gap subst variation cost
             --> MlModel.create alphabet
       ELSE
         failwith MlModel.likelihood_not_enabled
@@ -893,7 +893,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let rec transform_tree_characters (trees,data,nodes) meth =
         match meth with
-        | `EstLikelihood ((chars,a,b,c,d) as x) ->
+        | `EstLikelihood ((chars,(a:[`MPL | `MAL]),b,c,d,e) as x) ->
             let () = Methods.cost := `Iterative (`ThreeD None) in
             let trees = Sexpr.fold_left
                 (fun tsexp t -> 
@@ -907,7 +907,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     in
                     let bs = Tree.get_edges_tree t.Ptree.tree in
                     let ndata, nodes =
-                        (chars_,a,b,c,d) 
+                        (chars_,a,b,c,d,e) 
                             --> estimate_likelihood_model t bs alpha
                             --> (fun xm -> Nexus.File.STLikelihood xm)
                             --> Data.apply_on_static_chars t.Ptree.data chars
