@@ -179,8 +179,8 @@ external s_bigarray:
     "likelihood_CAML_StoBigarray"
 external bigarray_s: 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t ->
-    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option -> s =
-    "likelihood_CAML_BigarraytoS"
+    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option ->
+        int -> s = "likelihood_CAML_BigarraytoS"
 
 (* ------------------------------------------------------
  *  A pure ocaml implementation of the median functions
@@ -406,7 +406,8 @@ let median an bn t1 t2 acode bcode =
                            Some (Bigarray.Array1.of_array Bigarray.int32
                                                           Bigarray.c_layout
                                                           faa_i)
-                        | None -> None);
+                        | None -> None)
+                    (MlModel.get_costfn_code an.model);
             mle = loglike;
         }
     end else
@@ -498,7 +499,7 @@ let of_parser_simple seq model =
     let chars = load_characters model.MlModel.alph seq in
     let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
                                          (Array.create nchar 1.0) in
-    let schar = bigarray_s chars None in
+    let schar = bigarray_s chars None  (MlModel.get_costfn_code model) in
     let loglk = 
         loglikelihood schar wghts model.MlModel.pi_0
                       model.MlModel.prob (~-.1.0)
@@ -545,8 +546,10 @@ let of_parser spec weights characters =
             Bigarray.Array1.of_array Bigarray.int32 Bigarray.c_layout
     in
     let lk_chars = match computed_model.MlModel.invar with
-                | Some _ -> bigarray_s ba_chars (Some aa_chars)
-                | None   -> bigarray_s ba_chars None
+        | Some _ -> bigarray_s ba_chars (Some aa_chars) 
+                        (MlModel.get_costfn_code computed_model)
+        | None   -> bigarray_s ba_chars None
+                        (MlModel.get_costfn_code computed_model)
     in
     let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
     and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in

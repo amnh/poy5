@@ -50,6 +50,15 @@
 #define BL_MAX       100     // maximum branch length
 #define BRENT_TOL    1e-4    // tolerance parameter for brents method
 
+#define NEGINF       log(0)
+#define INF          1/0
+#define TRUE         1
+#define FALSE        0
+
+/* Cost Fn Mode Codes */
+#define MPLCOST      1
+#define MALCOST      0
+
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
 #define MAX(a,b) (a >= b)?a:b
@@ -392,12 +401,12 @@ value likelihood_CAML_StoBigarray( value s, value p )
 }
 
 /*  convert bigarray.array2 * bigarray.array1 to struct ml */
-value likelihood_CAML_BigarraytoS( value A, value B )
+value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
 {
     CAMLparam2( A,B );
     CAMLlocal1( lk ); //the abstract type
     double *lkvec,*l_stuff;
-    int *i_stuff,*invar,len;
+    int *i_stuff,*invar,len,i;
     mll* ret;
 
     //basic data
@@ -412,6 +421,12 @@ value likelihood_CAML_BigarraytoS( value A, value B )
     lk_malloc(lkvec, ret->rates * ret->c_len * ret->stride * sizeof(double));
     memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = lkvec;
+
+    if( 1 == Int_val(mpl) ){
+        for( i = 0; i < (ret->rates*ret->c_len*ret->stride); ++i){
+            ret->lv_s[i] = (ret->lv_s[i] >= 1.0 )?0.0:NEGINF;
+        }
+    }
 
     //check if we have invar, then allocate new and copy
     if( Val_none == B ){
@@ -1011,15 +1026,14 @@ logMPL_site( const mll* l, const double weight, const double* pi,
 {
     int r, j, c;
     double max_v;
-    max_v = -1.0;
+    max_v = NEGINF;
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
-            max_v = MAX (l->lv_s[c+j] * prob[r] * pi[i], max_v);
+            max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
     }
-    assert( max_v > 0.0 );
-    return ( log(MAX(max_v,1e-300)) * weight );
+    return ( max_v + log(weight) );
 }
 
 /** [loglikelihood ml p prob %]
@@ -1033,8 +1047,6 @@ logMPL_site( const mll* l, const double weight, const double* pi,
 double logMALlikelihood( const mll* l, const double* ws, const double* pi, 
                                 const double* prob, const double pinvar )
 {
-    /* printarrayf(l->lv_s, l->rates * l->c_len * l->stride); */
-    /* printf("%d -- %d -- %d\n",l->rates,l->c_len,l->stride); */
 #ifdef KAHANSUMMATION
     int i; 
     double ret_s,ret_c,ret_y,ret_t;
@@ -1060,12 +1072,28 @@ double logMALlikelihood( const mll* l, const double* ws, const double* pi,
 
 double logMPLlikelihood( const mll* l,const double* ws,const double* pi,const double* prob)
 {
+#ifdef KAHANSUMMATION
+    int i; 
+    double ret_s,ret_c,ret_y,ret_t;
+
+    ret_s = logMPL_site(l,ws[0],pi,prob,0);
+    ret_c = 0.0;
+    for(i = 1;i<l->c_len; i++)
+    {
+        ret_y = (logMPL_site(l,ws[i],pi,prob,i)) - ret_c;
+        ret_t = ret_s + ret_y;
+        ret_c = (ret_t - ret_s) - ret_y;
+        ret_s = ret_t;
+    }
+    return ( -ret_s );
+#else
     int i;
     double ret;
     ret = 0.0;
     for(i=0;i<l->c_len;i++)
         ret += logMPL_site(l,ws[i],pi,prob,i);
     return ( -ret );
+#endif
 }
 
 double
@@ -1229,13 +1257,12 @@ median_MPL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
     for(i=0; i < amll->c_len; ++i){
         p_start = 0;
         for(j=0; j < amll->stride; ++j){
-            tmp1 = tmp2 = 0.0;
+            tmp1 = tmp2 = NEGINF;
             for(k=0; k < amll->stride; ++k){
-                /** NOTICE; the only change here is the MAX from += **/
-                tmp1 = MAX (tmp1, Pa[p_start+k] * amll->lv_s[c_start+k]);
-                tmp2 = MAX (tmp2, Pb[p_start+k] * bmll->lv_s[c_start+k]);
+                tmp1 = MAX (tmp1, log(Pa[p_start+k]) + amll->lv_s[c_start+k]);
+                tmp2 = MAX (tmp2, log(Pb[p_start+k]) + bmll->lv_s[c_start+k]);
             }
-            cmll->lv_s[c_start+j] = MAX( tmp1 * tmp2, 0.0 );
+            cmll->lv_s[c_start+j] = tmp1 + tmp2;
             p_start += amll->stride;
         }
         c_start += amll->stride;
@@ -1254,10 +1281,12 @@ void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         mll* cmll, const int mpl,const int rate_idx)
 {
-    if(0 == mpl){
+    if(MALCOST == mpl){
         median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
-    } else {
+    } else if( MPLCOST == mpl ){
         median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
+    } else {
+        assert( FALSE );
     }
 }
 

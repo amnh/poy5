@@ -28,8 +28,8 @@ external s_bigarray:
     "likelihood_CAML_StoBigarray"
 external bigarray_s: 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t ->
-    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option -> s =
-    "likelihood_CAML_BigarraytoS"
+    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option ->
+        int -> s = "likelihood_CAML_BigarraytoS"
 
 (** [median_*** pi U D [Ui] at bt achars bchars rates probs] -> cchars
  * calculate the median of two nodes with character sets [achars] and [bchars]
