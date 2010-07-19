@@ -144,11 +144,17 @@ int diagonalize_gtr( mat *space, double* A, double* D, double* Ui, int n );
 //calculates the half median 
 //void median_h( const double* P, const double* l,const int c, double* nl, const int a);
 //calculates median of two character sets, [a] and [b] into [c]
-void median_charset( const double* Pa, const double* Pb, const struct ml* a,
+void median_MAL( const double* Pa, const double* Pb, const struct ml* a,
+                        const struct ml* b, struct ml* c, const int rate_idx );
+void median_MPL( const double* Pa, const double* Pb, const struct ml* a,
                         const struct ml* b, struct ml* c, const int rate_idx );
 //loglikelihood of a median with priors [p], probabilities [prob] and percent
 //invariant sites, [pinvar] and character set [l]
-double loglikelihood( const struct ml *l, const double* ws, const double* pi, const double* prob, const double pinvar );
+double logMALlikelihood( const struct ml *l, const double* ws, const double* pi, 
+                        const double* prob, const double pinvar );
+double logMPLlikelihood( const struct ml *l, const double* ws, const double* pi, 
+                        const double* prob );
+
 
 /**
  * functions on character sets

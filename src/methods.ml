@@ -191,9 +191,10 @@ type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
 type ml_priors = [ `Estimate | `Given of float list | `Constant ]
 type ml_gap = [`GapAsCharacter of bool ]
-
+type ml_costfn = [`MAL | `MPL ] 
 type ml_spec = 
-    (characters * ml_substitution * ml_site_variation option * ml_priors * ml_gap)
+    (characters * ml_costfn * ml_substitution * ml_site_variation option
+        * ml_priors * ml_gap)
 
 type char_transform = [
     | dynamic_char_transform
@@ -215,9 +216,7 @@ type char_transform = [
     | level 
 ]
 
-type tree_transform = [
-    | `EstLikelihood of ml_spec
-]
+type tree_transform = [ | `EstLikelihood of ml_spec ]
 
 type transform = [
     | char_transform

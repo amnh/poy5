@@ -64,10 +64,11 @@ and pp_farray xs =
     (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
 
 (* type to help the parsing of specification data *)
-type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list * bool * string option
+type string_spec = string * (string * string * string * string )
+                          * float list * ( string * float ) list * bool * string
+                          * string option
 
-let empty_str_spec = ("",("","","",""),[],[],false,None)
+let empty_str_spec = ("",("","","",""),[],[],false,"",None)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -120,6 +121,7 @@ type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
+    cost_fn : [ `MPL | `MAL ];
     use_gap : bool;
     iterate_model : bool;
     iterate_alpha : bool;
@@ -145,6 +147,8 @@ module OrderedML = struct
     let compare a b = Pervasives.compare a b
 end
 module MlModelMap = Map.Make (OrderedML)
+
+let get_costfn_code a = match a.spec.cost_fn with | `MPL -> 1 | `MAL -> 0
 
 let categorize_by_model codes get_fun =
     let set_codes =
@@ -179,7 +183,8 @@ let compare_priors a b =
 
 IFDEF USE_LIKELIHOOD THEN
 
-(* a gentler compare that excludes the parameters of the model itself *)
+(* a gentler compare that excludes the parameters of the model itself
+    Not to be used for a total ordering *)
 let compare a b = 
     let m_compare = match a.spec.substitution,b.spec.substitution with
         | JC69 , JC69 | F81 , F81 -> 0
@@ -192,6 +197,8 @@ let compare a b =
         | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
+    and c_compare = match a.spec.cost_fn, b.spec.cost_fn with
+        | `MPL,`MPL | `MAL, `MAL -> 0 | _ -> ~- 1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
         | Some (Gamma (i,a)), Some (Gamma (ix,ax)) ->
                 if i = ix && a = ax then 0 else ~-1
@@ -209,7 +216,7 @@ let compare a b =
         Printf.printf "Use Gap: %b\n%!" (g_compare >= 0);
         Printf.printf "Priors : %b\n%!" (p_compare >= 0);
     end;
-    m_compare + v_compare + g_compare + p_compare
+    m_compare + v_compare + g_compare + p_compare + c_compare
     
 (* ------------------------------------------------ *)
 (* EXTERNAL FUNCTIONS -- maintained in likelihood.c *)
@@ -650,7 +657,7 @@ let model_to_cm model t =
 (* CONVERSION/MODEL CREATION FUNCTIONS             *)
 
 (* convert a string spec to a specification, used in Parser for nexus *)
-let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):string_spec) =
+let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file):string_spec) =
   IFDEF USE_LIKELIHOOD THEN
     let iterate_model = ref true in
     let iterate_alpha = ref true in
@@ -706,6 +713,10 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         (* ERROR *)
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
+    and cost_fn = match String.uppercase cost with
+        | "MPL" -> `MPL
+        | "MAL" -> `MAL
+        | _     -> `MAL
     and variation = match String.uppercase var with
         | "GAMMA" ->
             let alpha = try let res = float_of_string alpha in
@@ -732,6 +743,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,file):str
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
         use_gap = gap;
+        cost_fn = cost_fn;
         iterate_model = !iterate_model;
         iterate_alpha = !iterate_alpha; }
   ELSE
@@ -964,7 +976,7 @@ let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
     List.fold_left2 mk_transitions acc seq1 seq2
 
 (* Develop a model from a classification --created above *)
-let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp_map,pis) =
+let spec_from_classification alph gap kind rates costfn (comp_map,pis) =
     let tuple_sum = 
         All_sets.FullTupleMap.fold (fun k v a -> a +. v) comp_map 0.0 in
     let f_priors = 
@@ -1084,6 +1096,7 @@ let spec_from_classification alph gap (kind:Methods.ml_substitution) rates (comp
         substitution = m;
         site_variation = v;
         base_priors = Estimated (Array.of_list f_priors);
+        cost_fn = costfn;
         use_gap = gap;
         iterate_model = true;
         iterate_alpha = true;

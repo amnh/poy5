@@ -23,7 +23,8 @@
  * the type follows: 
  *      modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list * bool * string option
+                          * float list * ( string * float ) list * bool * string
+                          * string option
 
 val epsilon : float
 
@@ -68,6 +69,7 @@ type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
+    cost_fn : [`MPL | `MAL ];
     use_gap : bool;
     iterate_model : bool;
     iterate_alpha : bool;
@@ -102,6 +104,9 @@ type model = {
 
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
+
+(* code for costfn for c-side *)
+val get_costfn_code : model -> int
 
 (* categorize a list of values into a list list of values; usually codes *)
 val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
@@ -204,8 +209,8 @@ val classify_seq_pairs :
             (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
 
 val spec_from_classification :
-    Alphabet.a -> bool -> Methods.ml_substitution -> Methods.ml_site_variation option ->
-        (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
+    Alphabet.a -> bool -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
+        [`MAL | `MPL] -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 
 (** [compse m t] compose a matrix with the time *)
 val compose : model -> float -> 

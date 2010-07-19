@@ -2470,7 +2470,7 @@ let categorize data =
                      kolmogorov = [];
                      static_ml = [];
                } in                         
-(*    let data = repack_codes data in*)
+    let data = repack_codes data in
     let categorizer code spec data =
         match spec with
         | Static enc -> (* Process static characters *)
@@ -4106,8 +4106,7 @@ END
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data
-    ((chars,substitution,site_variation,base_priors,use_gap):Methods.ml_spec) =
+let set_likelihood data ((chars,cst,subst,site_variation,base_priors,use_gap):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
     match get_chars_codes_comp data chars with
     | [] -> data
@@ -4145,8 +4144,7 @@ IFDEF USE_LIKELIHOOD THEN
                                         MlModel.default_invar)
                         in
                         Some (MlModel.Theta (w,y,p)))
-            and substitution = 
-                match substitution with
+            and substitution = match subst with
                 | `JC69 ->
                     i_model := false;    
                     MlModel.JC69
@@ -4239,6 +4237,7 @@ IFDEF USE_LIKELIHOOD THEN
                             base_priors = base_priors;
                             iterate_model = !i_model;
                             iterate_alpha = !i_alpha;
+                            cost_fn = cst;
                             use_gap = use_gap; }
             in
             MlModel.create alph lk_spec

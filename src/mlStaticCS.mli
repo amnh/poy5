@@ -41,14 +41,14 @@ external median_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s -> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
      "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
 external median_sym: FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s-> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> s = 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
      "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym" 
 (** [readjust_*** U D [Ui] a b c at bt %inv rates probs priors ll] -> at*bt*ll
  * readjusts the branch lengths for the children of [c], [a] and [b], with
@@ -64,7 +64,7 @@ external readjust_sym: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float =
+    float -> int -> float*float =
         "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
 external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -75,7 +75,7 @@ external readjust_gtr: FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> float*float =
+    float -> int -> float*float =
         "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
 
 (** [loglikelihood s w pi prob %invar] -> float : calculates the mle of a character set *) 
@@ -83,7 +83,8 @@ external loglikelihood:
     s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
          (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
          (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-        float -> float = "likelihood_CAML_loglikelihood"
+        float -> int -> float = 
+          "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
 (** [filter s as] -> s
  * filters s with indexes of as and returns new character set, *)
 external filter: s -> int array -> s = "likelihood_CAML_filter"

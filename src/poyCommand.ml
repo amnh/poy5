@@ -118,12 +118,12 @@ type transform_method = [
     | `AlphabeticTerminals
     | `Prealigned_Transform
     | `EstLikelihood of 
-        ( Methods.ml_substitution * Methods.ml_site_variation option *
-          Methods.ml_priors * Methods.ml_gap )
+        ( Methods.ml_costfn * Methods.ml_substitution * 
+          Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `UseParsimony
     | `UseLikelihood of 
-        ( Methods.ml_substitution * Methods.ml_site_variation option *
-          Methods.ml_priors * Methods.ml_gap )
+        ( Methods.ml_costfn * Methods.ml_substitution * 
+          Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of int
     | `Tcm of string
     | `Gap of (int * int)
@@ -432,11 +432,11 @@ let transform_transform acc (id, x) =
             | `RandomizedTerminals -> `RandomizedTerminals :: acc
             | `AlphabeticTerminals -> `AlphabeticTerminals :: acc
             | `Prealigned_Transform -> (`Prealigned_Transform id) :: acc
-            | `EstLikelihood (a, b, c, d) ->
-                    (`EstLikelihood (id, a, b, c, d)) :: acc
+            | `EstLikelihood (a, b, c, d, e) ->
+                    (`EstLikelihood (id, a, b, c, d, e)) :: acc
             | `UseParsimony -> (`UseParsimony id) :: acc
-            | `UseLikelihood (a, b, c, d) ->
-                    (`UseLikelihood (id, a, b, c, d)) :: acc
+            | `UseLikelihood (a, b, c, d, e) ->
+                    (`UseLikelihood (id, a, b, c, d, e)) :: acc
             | `Level (l) -> (`Assign_Level (l,id))::acc
             | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
             | `Gap (a, b) -> 
@@ -1331,6 +1331,10 @@ let create_expr () =
                     | None -> `GapAsCharacter false
                     | Some x -> `GapAsCharacter x ]
             ];
+        ml_costfn:
+            [
+                [",";"mal" -> `MAL] | [",";"mpl" -> `MPL]
+            ];
         partitioned_mode:
             [   
                 [ LIDENT "clip" -> `Clip ] |
@@ -1340,23 +1344,27 @@ let create_expr () =
             [
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
-                        let z =
-                            match z with
+                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
+                        let z = match z with
                             | None -> `GapAsCharacter false
                             | Some x -> x
+                        and v = match v with
+                            | None -> `MAL
+                            | Some x -> `MPL
                         in
-                        `EstLikelihood (w, x, y, z) ] |
+                        `EstLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; right_parenthesis ->
-                        let z =
-                            match z with
+                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
+                        let z = match z with
                             | None -> `GapAsCharacter false
                             | Some x -> x
+                        and v = match v with
+                            | None -> `MAL
+                            | Some x -> `MPL
                         in
-                        `UseLikelihood (w, x, y, z) ] |
+                        `UseLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
