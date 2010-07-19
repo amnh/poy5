@@ -403,19 +403,6 @@ grappa_CAML_inv_med
         mgr_ini_mem(NUM_GENES); 
         //3 times of original gene size is the worst case for multi-chromosome.
     }
-   /* if ((g1->deli_num>0)||(g2->deli_num>0)||(g3->deli_num>0)) 
-    {
-    //if we are dealing with multichromosome, in the worst case, each loci is a singlechromosome ($a$b$c$....), we will need 3 times of memory-size.
-        multichromosome = 1;
-        if(old_max_num_genes <3*NUM_GENES)
-        {
-            fprintf(stdout,"expand memory for multichromosome, old_size = %d < 3*%d\n",old_max_num_genes, NUM_GENES);
-            fflush(stdout);
-             free_mem_4_mgr();
-             mgr_ini_mem(3*NUM_GENES,0);
-        }
-    }*/
-
     /* debug msg
          fprintf(stdout,"in gene list = [");
          int x=0; 
@@ -431,7 +418,6 @@ grappa_CAML_inv_med
 
          fflush(stdout);
     debug msg */
-
     if(MEDIAN_SOLVER<7)
     {
         condense3 ( g1->genes,

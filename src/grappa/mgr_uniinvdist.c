@@ -175,10 +175,10 @@ int invdist_noncircular_G(struct mgr_genome_struct *g1,
 	       distmem);
   buildG_grey(num_genes, 0 /* num_chromosomes */,
 	      distmem, G);
-
+ 
   classify_cycle_path(G, pcounts_G);
-  c = pcounts_G->num_cycles;
 
+  c = pcounts_G->num_cycles;
   form_connected_components(G);
   classify_connected_components(G);
   calc_num_hurdles_and_fortress(G, C_U, &hurdles_G);

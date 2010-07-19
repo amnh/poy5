@@ -13,7 +13,126 @@
 //#include "mgr_write_data.h"
 
 
-
+int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
+					int *spec_left,
+					int reversals,      // TRUE if we want to include reversals
+					int transloc, 	// TRUE if we want to include translocations
+					int fusion,
+					int fission, // TRUE if we want to include fusions and fissions
+					mgr_distmem_t *distmem, treemem_t *treemem,
+					int *reduction_type,
+					int *last_genomenb, int heuristic,
+					int verbose, int pair1, int pair2, // usually both equal to -1 but if we want to merge two nodes,
+					// we use pair1 pair2 to indicate which node need to be merged
+					struct mgr_genome_struct *old_genome) 
+{
+    struct mgr_genome_struct *genome_list = Genomes->genome_list;
+    list_reag *the_list = NULL, *temp_list = NULL;
+    int score_list, total_dist, found_something = FALSE;
+	int did_merge;
+    /*
+	if (heuristic != 0) {
+		if (heuristic == 1) {
+			return carry_best_reag_h1(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission,
+										distmem, treemem, reduction_type, last_genomenb,
+										verbose, pair1, pair2, old_genome);
+		}
+		else {
+			if (heuristic == 2) {
+				return carry_best_reag_h2(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission,
+										  distmem, treemem, reduction_type, last_genomenb,
+										  verbose, pair1, pair2, old_genome);
+			}
+		}
+	}
+	else */{
+		// Regular case without heuristic
+	    // first compute current total distance
+		total_dist = find_total_dist(Genomes, nb_spec, distmem);
+		if (total_dist == 0)
+			return FALSE;
+        // build the list of good rearrangements
+		score_list = build_list_reag(&the_list, Genomes, nb_spec, *spec_left,
+									 reversals, transloc, fusion, fission,
+									 distmem, FALSE, // FALSE because we want the list, not just it's size
+									 FALSE, *reduction_type, -1, // we look for all rearrangements
+									 *last_genomenb, pair1, pair2, verbose);
+		if (verbose) {
+			fprintf(stdout,"\ntotal distance: %d and score_list %d (-%d), spec_left %d\n",
+					total_dist, score_list, *reduction_type, *spec_left);
+			fflush(stdout);
+		}
+		if (verbose) {
+			//print_list_reag(the_list, nb_spec);
+			print_dist_mat(Genomes, nb_spec);
+			fflush(stdout);
+		}
+		if (the_list != NULL) { // we did find a good rearrangement
+			int max_reduction=-1, new_reduction;
+			int max_index = -1, the_index=1;
+			temp_list=the_list;
+			while (temp_list!=NULL) {
+				list_reag *new_list = NULL;
+				// carry-on the rearrangement with chromo flip if necessary
+				copy_genes(genome_list[temp_list->spec].genes, old_genome->genes, genome_list[temp_list->spec].num_g);
+				carry_on_reag(temp_list, Genomes, nb_spec, 
+							  spec_left, &did_merge, distmem);
+				new_reduction = build_list_reag(&new_list, Genomes, nb_spec, *spec_left,
+												TRUE, (genome_list[0].num_chr>0)?TRUE:FALSE,
+												(genome_list[0].num_chr>0)?TRUE:FALSE,(genome_list[0].num_chr>0)?TRUE:FALSE,
+													/* because we want to know the total number of
+													* potential rearragements */
+												distmem, TRUE, // TRUE because we only want size
+												FALSE, *reduction_type, -1, temp_list->spec, pair1, pair2, verbose);
+				if (new_reduction>max_reduction) {
+					//this one is better
+                    if (verbose)
+                    { fprintf(stdout, "%d>%d, max_index <-- %d;\n", new_reduction, max_reduction, the_index); fflush(stdout); }
+                    max_reduction = new_reduction;
+					max_index = the_index;
+				}
+				// in any case undo last reversals to check for others...
+				copy_genes(old_genome->genes, Genomes->genome_list[temp_list->spec].genes,  Genomes->genome_list[temp_list->spec].num_g);
+				undo_reag(temp_list, Genomes, nb_spec, spec_left, did_merge, distmem);
+				the_index++;
+				temp_list=temp_list->next;
+			}
+			if (max_index!=-1) { // we found the best rearrangement
+				int i;
+				temp_list = the_list;
+            // we go back to the best reversal we found
+				for (i=1;i<max_index;i++) {
+					temp_list=(*temp_list).next;
+				}
+				if (verbose) {
+					print_one_reag(temp_list, Genomes, nb_spec, old_genome);
+fprintf(stdout, "best rev found on NO.%d, print out genoems:\n", max_index); fflush(stdout);
+				}
+				carry_on_reag(temp_list, Genomes, nb_spec,							
+							  spec_left, &did_merge, distmem);
+				if (verbose) {
+					special_print_genomes2(stdout, Genomes, nb_spec);
+				}
+				nbreag[temp_list->spec]++;
+				*last_genomenb = temp_list->spec;
+				found_something = TRUE ;
+				//potentially update max_chromo_size
+				find_max_chromo_size(Genomes, nb_spec,cb_max_chromo_size);
+				if (temp_list->merge_with != -1) {// there was a merge and we need to update tree
+					update_for_merge(Genomes, nbreag, distmem, treemem, temp_list->spec,
+									 temp_list->merge_with, nb_spec, *spec_left, verbose, cb_max_chromo_size);
+					if (*reduction_type>*spec_left-1) {
+			        // there was a merge, need to update
+						*reduction_type = *spec_left-1;
+					}
+				}
+			}
+		}
+	}
+	erase_list_reag(the_list);
+	return found_something;
+}
+/*
 //[1.3.1] from rearrange.c
 int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					int *spec_left,
@@ -29,7 +148,7 @@ int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					struct mgr_genome_struct *old_genome) 
 {
 if (verbose) {
-    fprintf(stdout,"mgr.c carry best reag,\n "); fflush(stdout); }
+    fprintf(stdout,"\nmgr.c carry best reag,\n "); fflush(stdout); }
     struct mgr_genome_struct *genome_list = Genomes->genome_list;
     //list_reag *the_list = NULL;
     int score_list, total_dist, found_something = FALSE;
@@ -44,31 +163,27 @@ if (verbose) {
 		if (verbose) {
             fprintf(stdout, "init list_carry_best_reag \n"); fflush(stdout); }
        init_list_listreag_memory(the_list, nb_spec, 100);
-    } else {}
+    } else { the_list->list_size=0; }
     if((new_list==NULL)||(new_list->reaglist == NULL))
     {
 		if (verbose) {
          fprintf(stdout, "init list_carry_best_reag2 \n"); fflush(stdout); }
        init_list_listreag_memory(new_list, nb_spec, 100);
-    } else {}
+    } else {new_list->list_size=0; }
 
-/* let's consider heuristic issue later   		
+// let's consider heuristic issue later   		
 	if (heuristic != 0) {
 		if (heuristic == 1) {
-			return carry_best_reag_h1(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission,
-										distmem, treemem, reduction_type, last_genomenb,
-										verbose, pair1, pair2, old_genome);
+			return carry_best_reag_h1(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission, distmem, treemem, reduction_type, last_genomenb, verbose, pair1, pair2, old_genome);
 		}
 		else {
 			if (heuristic == 2) {
-				return carry_best_reag_h2(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission,
-										  distmem, treemem, reduction_type, last_genomenb,
-										  verbose, pair1, pair2, old_genome);
+				return carry_best_reag_h2(Genomes, nbreag, nb_spec, spec_left, reversals, transloc, fusion, fission, distmem, treemem, reduction_type, last_genomenb, verbose, pair1, pair2, old_genome);
 			}
 		}
 	}
 	else
-    */
+
     {
 		// Regular case without heuristic
 	    // first compute current total distance
@@ -83,46 +198,40 @@ if (verbose) {
 									 distmem, FALSE, // FALSE because we want the list, not just it's size
 									 FALSE, *reduction_type, -1, // we look for all rearrangements
 									 *last_genomenb, pair1, pair2, verbose);
-
 		if (verbose) {
-			fprintf(stdout,"\ntotal distance: %d and score_list %d (-%d), spec_left %d\n",
+			fprintf(stdout,"total distance: %d and score_list %d (-%d), spec_left %d\n",
 					total_dist, score_list, *reduction_type, *spec_left);
-			fflush(stdout);
-		}
-		if (verbose) {
+            print_dist_mat(Genomes, nb_spec);
 			//print_list_reag(the_list, nb_spec);
-			print_dist_mat(Genomes, nb_spec);
 			fflush(stdout);
 		}
 		if (the_list->list_size >0 ) {// we did find a good rearrangement
-            //(the_list != NULL) { // we did find a good rearrangement
 			int max_reduction=-1, new_reduction;
 			int max_index = -1, the_index=1;
             int idx=0;
-			//temp_list=the_list; 
-			//while (temp_list!=NULL) {
 		   if (verbose) {
             fprintf(stdout,"result of build_list_reag,list_size=%d,start for loop \n",
                     the_list->list_size); fflush(stdout);}
             for(idx=0;idx<the_list->list_size;idx++) {
                 temp_list = &(the_list->reaglist[idx]);
-				// list_reag *new_list = NULL; 
-                //this is a bug, memory belongs to new_list is never freed.
 				// carry-on the rearrangement with chromo flip if necessary
 				copy_genes(genome_list[temp_list->spec].genes, old_genome->genes, genome_list[temp_list->spec].num_g);
 				carry_on_reag(temp_list, Genomes, nb_spec, 
 							  spec_left, &did_merge, distmem);
+                new_list->list_size = 0;
 				new_reduction = build_list_reag(new_list, Genomes, nb_spec, *spec_left,
 												TRUE, (genome_list[0].num_chr>0)?TRUE:FALSE,
 												(genome_list[0].num_chr>0)?TRUE:FALSE,
                                                 (genome_list[0].num_chr>0)?TRUE:FALSE,
-												/* because we want to know the total number of
-												* potential rearragements */
-												distmem, TRUE, // TRUE because we only want size
+												// because we want to know the total number ofpotential rearragements 
+												distmem, TRUE, 
+                                                // TRUE because we only want size
 												FALSE, *reduction_type, -1, temp_list->spec,
                                                 pair1, pair2, verbose);
 				if (new_reduction>max_reduction) {
 					//this one is better
+                    if (verbose) {
+                       fprintf(stdout, "%d>%d, max_index <-- %d;\n", new_reduction, max_reduction, the_index); fflush(stdout); }
 					max_reduction = new_reduction;
 					max_index = the_index;
 				}
@@ -131,14 +240,17 @@ if (verbose) {
                         Genomes->genome_list[temp_list->spec].num_g);
 				undo_reag(temp_list, Genomes, nb_spec, spec_left, did_merge, distmem);
 				the_index++;
-				//temp_list=temp_list->next;
 			}
 			if (max_index!=-1) { // we found the best rearrangement
 				int i;
-			    //temp_list = the_list;
                 // we go back to the best reversal we found
-                temp_list = &(the_list->reaglist[max_index-1]);
-			    /*	for (i=1;i<max_index;i++) { temp_list=(*temp_list).next;} */
+                if (verbose) { 
+                    fprintf(stdout, "best reversal we found is NO.%d\n", max_index-1);
+                    fflush(stdout); 
+                    print_one_reag(temp_list, Genomes, nb_spec, old_genome);
+                    special_print_genomes2(stdout, Genomes, nb_spec);
+                }
+                temp_list = &(the_list->reaglist[max_index-1]); //max_index starts at 1
 				carry_on_reag(temp_list, Genomes, nb_spec,							
 							  spec_left, &did_merge, distmem);
 				nbreag[temp_list->spec]++;
@@ -163,9 +275,8 @@ if (verbose) {
     fprintf(stdout, "end of carry best reag\n"); fflush(stdout); }
 	return found_something;
 }
+*/
 
-//[1.3.2.1] from rearrange.c 
-//NOTE: this function is recursive
 int find_k_reag(list_reag **a_list, G_struct *Genomes,
 				int depth, int nb_spec, int *spec_left, int reduction_type,
 				int *last_genomenb, mgr_distmem_t *distmem, int *list_score,
@@ -185,9 +296,8 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 	total_distance = find_total_dist(Genomes, nb_spec, distmem) ;
 
 #if 0
-	fprintf(outfile,"in find %d reag (reduction %d)\n", depth, reduction_type);
+	fprintf(stdout,"in find %d reag (reduction %d)\n", depth, reduction_type);
 #endif
-	
 	potential_merge = FALSE;
 	for (j=0;j<nb_spec;j++) {
 		for (k=0;k<nb_spec;k++) {
@@ -196,22 +306,12 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 			}
 		}
 	}
-	
 	if (total_distance>0) {
 
 		// allocate memory for the genomes we use to try various rearragements
 		alloc_simple_genome(genome_list[0].num_g, &old_genome);
 		
-        list_listreag reaglist;
-        list_listreag * the_list = NULL;
-        the_list = &reaglist;
-        if((the_list==NULL)||(the_list->reaglist == NULL))
-        {
-		if (verbose) {
-            fprintf(stdout, "init listreag in find_k_reag \n"); fflush(stdout); }
-            init_list_listreag_memory(the_list, nb_spec, 100);
-        } else {}
-		*list_score = build_list_reag(the_list, Genomes, nb_spec, *spec_left,
+		*list_score = build_list_reag(&the_list, Genomes, nb_spec, *spec_left,
 									  reversal, transloc, fusion, fission, 
 									  distmem, FALSE, // FALSE because we want the list, not just it's size	
 									  FALSE, reduction_type, -1, *last_genomenb, pair1, pair2, verbose);
@@ -219,23 +319,15 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 	
 #if 0
 		if (depth == 2) {
-			fprintf(outfile, "list score is %d\n", *list_score);
+			fprintf(stdout, "list score is %d\n", *list_score);
 			print_list_reag(the_list, nb_spec);
 		}
 #endif
 		
-    //if (the_list != NULL) { // we did find at least one rearrangement
-    if (the_list->list_size > 0) { // we did find at least one rearrangement
-	   //temp_list=the_list;
-        int idx = 0;   
-		if (verbose) {
-        fprintf(stdout,"the_list->list_size = %d, start while loop:\n",the_list->list_size);} 
-        fflush(stdout);
-		//while (temp_list!=NULL) {
-		while (idx<the_list->list_size) {
-		    if (verbose) {
-            fprintf(stdout, "idx=%d,",idx);fflush(stdout); }
-            temp_list = &(the_list->reaglist[idx]);
+    if (the_list != NULL) { // we did find at least one rearrangement
+	
+		temp_list=the_list;
+		while (temp_list!=NULL) {
 			list_reag *new_list = NULL;
 	
 #if 0
@@ -245,18 +337,22 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 #endif
 		
 #if 0
-			fprintf(outfile,"checking in %d type %d (%d %d) (%d %d)\n",
+			fprintf(stdout,"checking in %d type %d (%d %d) (%d %d)\n",
 					(*temp_list).spec, (*temp_list).optype,
 					genome_list[temp_list->spec].genes[(*temp_list).start], 
 					genome_list[temp_list->spec].genes[(*temp_list).end],  
 					(*temp_list).sc1, (*temp_list).sc2);
 #endif
+
+
+			
 			// carry-on the rearrangement
 			copy_genes(genome_list[temp_list->spec].genes, old_genome.genes, genome_list[temp_list->spec].num_g);
 			/*if (depth==2) {
 				old_dist_mouse = (Genomes->dist_mat)[(temp_list->spec)*nb_spec + 2]; // TEMPORARY: old distance with mouse
 			}*/
 			carry_on_reag(temp_list, Genomes, nb_spec, spec_left, &did_merge, distmem);
+	
 			next_distance = find_total_dist(Genomes, nb_spec, distmem) ;
 			if (depth>1) { //new distance is the distance possible after the current move
 				new_distance = find_k_reag(&new_list, Genomes, depth-1,
@@ -269,23 +365,25 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 			else {
 				new_distance = next_distance;
 			}
+	
 #if 0
-			fprintf(outfile, "next_distance %d new_distance %d, did_merge %d\n", next_distance, new_distance, did_merge);
+			fprintf(stdout, "next_distance %d new_distance %d, did_merge %d\n", next_distance, new_distance, did_merge);
 #endif
+
 			if (new_distance<min_distance || 
 				((new_distance==min_distance) && ((next_distance<next_best_distance) || (*list_score>best_list_score)))) { 
 				// distance is better or the first step is better than previous best
+
 #if 0
-					fprintf(outfile, "this is a new best (min_dist %d, list_score %d)\n", 
-                            new_distance, *list_score);
+					fprintf(stdout, "this is a new best (min_dist %d, list_score %d)\n", new_distance, *list_score);
 #endif
+
 				if (min_distance == MAXINT) {
 					// it's the first one
-					best_reag = list_reag_insert
-                        (best_reag, temp_list->spec, temp_list->optype, 
-						temp_list->start, temp_list->end,
-						temp_list->sc1, temp_list->sc2, temp_list->merge_with,
-						temp_list->reduction, temp_list->changes, nb_spec);
+					best_reag = list_reag_insert(best_reag, temp_list->spec, temp_list->optype, 
+												 temp_list->start, temp_list->end,
+												 temp_list->sc1, temp_list->sc2, temp_list->merge_with,
+												 temp_list->reduction, temp_list->changes, nb_spec);
 				}
 				else { // we erase previous best
 					best_reag->spec = temp_list->spec;
@@ -309,46 +407,46 @@ int find_k_reag(list_reag **a_list, G_struct *Genomes,
 				next_best_distance = next_distance;
 				min_distance = new_distance;
 				best_list_score = *list_score;
-			}// if (new_distance<min_distance....
+			}
 			else {
 				erase_list_reag(new_list);
-			}//end of if (new_distance<min_distance.....
+			}
+			//}
+	  
 			// in any case undo last reversals to check for others...
 			copy_genes(old_genome.genes, Genomes->genome_list[temp_list->spec].genes, Genomes->genome_list[temp_list->spec].num_g);
 			undo_reag(temp_list, Genomes, nb_spec, spec_left, did_merge, distmem);
 			
-			idx ++;//temp_list=temp_list->next;	
-			
-            if (best_reag != NULL && reduction_type == 0 && new_distance<total_distance &&
+			temp_list=temp_list->next;	
+			if (best_reag != NULL && reduction_type == 0 && new_distance<total_distance &&
 				potential_merge == FALSE && depth == 1) {
-				idx=the_list->list_size;//temp_list = NULL; 
-                // shortcut, at depth one, take any rearrangement reducing the distance
+				temp_list = NULL; // shortcut, at depth one, take any rearrangement reducing the distance
 			}
-		}//end of 	while (idx<the_list->list_size) ...
-		if (verbose) fprintf(stdout, "end of while \n");
-    }//end of if (the_list->list_size > 0)
-     free_list_listreag_memory(the_list);//erase_list_reag(the_list);	
+		}
+		
+    }
+    erase_list_reag(the_list);	
     
     *a_list = best_reag;
 
     free_simple_genome(&old_genome);
     
-	}//	if (total_distance>0)  
-    else {
+	} else {
 		min_distance = 0;
 		*a_list = NULL;
-	}//  end of if (total_distance>0) 
+	}
   
 #if 0
-fprintf(outfile,"leaving find %d reag (min_distance %d)\n", depth, min_distance);
+fprintf(stdout,"leaving find %d reag (min_distance %d)\n", depth, min_distance);
 #endif
   
-//fflush(outfile);
+fflush(stdout);
   
 return min_distance;
 }
 
 
+/*
 int find_k_reag_withmem(list_listreag * the_list, //list_reag **a_list,
                 G_struct *Genomes,
 				int depth, int nb_spec, int *spec_left, int reduction_type,
@@ -369,12 +467,10 @@ int find_k_reag_withmem(list_listreag * the_list, //list_reag **a_list,
 	int did_merge, potential_merge;
 	int i, j, k;
 	total_distance = find_total_dist(Genomes, nb_spec, distmem) ;
-	
 	if (verbose) {
-    fprintf(stdout,"\nin find %d reag (reduction %d),list start at:%d\n",
+    fprintf(stdout,"find %d reag (reduction %d),list start at:%d\n",
             depth, reduction_type,start_list_size);
     fflush(stdout); }
-	
     potential_merge = FALSE;
 	for (j=0;j<nb_spec;j++) {
 		for (k=0;k<nb_spec;k++) {
@@ -466,8 +562,7 @@ int find_k_reag_withmem(list_listreag * the_list, //list_reag **a_list,
                 fflush(stdout);}
                 idx=idx_after_build_list_reag; //cut the while loop
 			}
-		    if (verbose) 
-                fprintf(stdout, "end of while, list_size = %d\n",the_list->list_size);
+		    //if (verbose) fprintf(stdout, "end of while, list_size = %d\n",the_list->list_size);
            }//end of while(idx<idx_after_build_list_reag) 	
         }//end of if(idx_after_build_list_reag > start_list_size)  
        ///what to do with min_distance? = total_distance?
@@ -478,9 +573,8 @@ int find_k_reag_withmem(list_listreag * the_list, //list_reag **a_list,
 	}//end of if (total_distance>0)
     return min_distance;
 }
+*/
 
-
-//[1.3.2] from rearrange.c
 int do_k_reag(G_struct *Genomes,
 			  int depth, int *nbreag,
 			  int nb_spec, int *spec_left,					
@@ -489,50 +583,31 @@ int do_k_reag(G_struct *Genomes,
 			  int pair1, int pair2, //usually both equal to -1 but if we want to merge, use them...
 			  struct mgr_genome_struct *old_genome) 
 {
-  list_listreag *the_list = NULL;
-  //list_reag *the_list = NULL;
-  
-  list_reag *tmp_reag = NULL;
+  list_reag *the_list = NULL;
   int total, new_total;
   int found_something = FALSE;
   int did_merge;
   int num_chromosomes = Genomes->genome_list[0].num_chr;
-  
-  
   if (verbose) {
 	  fprintf(stdout,"in do %d reag (spec_left %d)\n", depth, *spec_left);
   }
   total = find_total_dist(Genomes, nb_spec, distmem) ;
-  
-  the_list = &list_do_k_reag;
-  if((the_list==NULL)||(the_list->reaglist == NULL))
-  {
-  if (verbose) {
-       fprintf(stdout, "init list_do_k_reag \n"); fflush(stdout); }
-       init_list_listreag_memory(the_list, nb_spec, 100);
-  } else {}
-
   if (total>0) {
     int list_score=0;
 
     // look for rearrangements (rev/transloc only) reducing the distance by at least 1 
 
-	  new_total = find_k_reag_withmem(the_list, Genomes, depth,		 
-	 // new_total = find_k_reag(&the_list, Genomes, depth,		 
+	  new_total = find_k_reag(&the_list, Genomes, depth,		 
 							  nb_spec, spec_left, 1, last_genomenb,
 							  distmem, &list_score,
 							  TRUE, (num_chromosomes>0)?TRUE:FALSE, FALSE, FALSE,
 							  pair1, pair2, verbose);
-
     // look for any rearrangements reducing the distance by at least 1
 	  if (total-new_total<3 && num_chromosomes>0) {  // not good enough
-		  //erase_list_reag(the_list);
-          the_list->list_size = 0;
+		  erase_list_reag(the_list);
 		  if (verbose)
 			  fprintf(stdout, "look including fusion/fission\n");
-		  new_total = find_k_reag_withmem(the_list, 
-		  //new_total = find_k_reag(&the_list, 
-                                  Genomes, depth,		 
+		  new_total = find_k_reag(&the_list, Genomes, depth,		 
 								  nb_spec, spec_left, 1, last_genomenb,
 								  distmem, &list_score,
 								  TRUE, (num_chromosomes>0)?TRUE:FALSE, 
@@ -543,16 +618,14 @@ int do_k_reag(G_struct *Genomes,
 	  
     
     // otherwise consider any rearrangements not making situation worst
-     if(the_list->list_size==0) {
-     //if (the_list==NULL) {
-    //  new_total = find_k_reag(&the_list,
-      new_total = find_k_reag_withmem(the_list,
-              Genomes, depth, nb_spec, spec_left, 0, last_genomenb,
-			  distmem, &list_score,
-			  TRUE, (num_chromosomes>0)?TRUE:FALSE, 
-			  (num_chromosomes>0)?TRUE:FALSE, 
-			  (num_chromosomes>0)?TRUE:FALSE,
-			  pair1, pair2, verbose);
+    if (the_list==NULL) {
+      new_total = find_k_reag(&the_list, Genomes, depth,
+							  nb_spec, spec_left, 0, last_genomenb,
+							  distmem, &list_score,
+							  TRUE, (num_chromosomes>0)?TRUE:FALSE, 
+							  (num_chromosomes>0)?TRUE:FALSE, 
+							  (num_chromosomes>0)?TRUE:FALSE,
+							  pair1, pair2, verbose);
 	}
 	
 	  
@@ -563,42 +636,34 @@ int do_k_reag(G_struct *Genomes,
 	  }
 #endif
 
+//	if (total-new_total>=0) {
     if (total-new_total>0) {
       
-		tmp_reag = &(the_list->reaglist[0]); 
-		if(the_list->list_size>0) {
-        //if (the_list!=NULL) {
+		if (the_list!=NULL) {
 			if (verbose)
-				print_one_reag(tmp_reag,
-                               //the_list, 
-                        Genomes, nb_spec, old_genome);
+				print_one_reag(the_list, Genomes, nb_spec, old_genome);
 			
-			carry_on_reag(tmp_reag,
-                          //the_list, 
-                    Genomes, nb_spec, spec_left, &did_merge, distmem);
+			
+			carry_on_reag(the_list, Genomes, nb_spec,  
+						  spec_left, &did_merge, distmem);
 
 			if (verbose) {
 				special_print_genomes2(stdout, Genomes, nb_spec);
 			}
 			
-			//if (the_list->merge_with != -1) /* there was a merge and we need to update tree */
-			if (tmp_reag->merge_with != -1) /* there was a merge and we need to update tree */
-				update_for_merge(Genomes, nbreag, distmem, treemem, 
-                        //the_list->spec, the_list->merge_with,
-                        tmp_reag->spec, tmp_reag->merge_with,
-								 nb_spec, *spec_left, verbose,cb_max_chromo_size);
-			
-			nbreag[tmp_reag->spec]++; 
-            //nbreag[the_list->spec]++;
-
-			*last_genomenb = tmp_reag->spec;
-			//*last_genomenb = the_list->spec; 
+			if (the_list->merge_with != -1) /* there was a merge and we need to update tree */
+	//			update_for_merge(Genomes, nbreag, distmem, treemem, the_list->spec, the_list->merge_with, nb_spec, *spec_left, verbose);
+		update_for_merge(Genomes, nbreag, distmem, treemem, 
+                        the_list->spec, the_list->merge_with,
+								 nb_spec, *spec_left, verbose,cb_max_chromo_size);	
+			nbreag[the_list->spec]++;
+			*last_genomenb = the_list->spec; 
 			found_something = TRUE ;
 		}
 	}    
 	
 	  
-//erase_list_reag(the_list);
+erase_list_reag(the_list);
 	}
 	
 #ifdef DEBUGM
@@ -608,6 +673,101 @@ int do_k_reag(G_struct *Genomes,
   return found_something;
 }
 
+/*
+//[1.3.2] from rearrange.c
+int do_k_reag(G_struct *Genomes,
+			  int depth, int *nbreag,
+			  int nb_spec, int *spec_left,					
+			  mgr_distmem_t *distmem, treemem_t *treemem, 
+			  int *last_genomenb, int verbose,
+			  int pair1, int pair2, //usually both equal to -1 but if we want to merge, use them...
+			  struct mgr_genome_struct *old_genome) 
+{
+  list_listreag *the_list = NULL;
+  list_reag *tmp_reag = NULL;
+  int total, new_total;
+  int found_something = FALSE;
+  int did_merge;
+  int num_chromosomes = Genomes->genome_list[0].num_chr;
+  total = find_total_dist(Genomes, nb_spec, distmem) ;
+  if (verbose) {
+	  fprintf(stdout,"Do depth=%d reag, old_total=%d\n", depth, totoal);
+      fflush(stdout);
+  }
+  the_list = &list_do_k_reag;
+  if((the_list==NULL)||(the_list->reaglist == NULL))
+  {
+  if (verbose) {
+       fprintf(stdout, "init list_do_k_reag \n"); fflush(stdout); }
+       init_list_listreag_memory(the_list, nb_spec, 100);
+  } else 
+  {
+      the_list->list_size = 0;
+  }
+  if (total>0) {
+    int list_score=0;
+    // look for rearrangements (rev/transloc only) reducing the distance by at least 1 
+	  new_total = find_k_reag_withmem(the_list, Genomes, depth,		 
+							  nb_spec, spec_left, 1, last_genomenb,
+							  distmem, &list_score,
+							  TRUE, (num_chromosomes>0)?TRUE:FALSE, FALSE, FALSE,
+							  pair1, pair2, verbose);
+    // look for any rearrangements reducing the distance by at least 1
+	  if (total-new_total<3 && num_chromosomes>0) {  // not good enough
+          the_list->list_size = 0;
+		  if (verbose)
+			  fprintf(stdout, "look including fusion/fission\n");
+		  new_total = find_k_reag_withmem(the_list, 
+                                  Genomes, depth,		 
+								  nb_spec, spec_left, 1, last_genomenb,
+								  distmem, &list_score,
+								  TRUE, (num_chromosomes>0)?TRUE:FALSE, 
+								  (num_chromosomes>0)?TRUE:FALSE, (num_chromosomes>0)?TRUE:FALSE,
+								  pair1, pair2, verbose);
+	  } 
+    // otherwise consider any rearrangements not making situation worse
+     if(the_list->list_size==0) {
+      new_total = find_k_reag_withmem(the_list,
+              Genomes, depth, nb_spec, spec_left, 0, last_genomenb,
+			  distmem, &list_score,
+			  TRUE, (num_chromosomes>0)?TRUE:FALSE, 
+			  (num_chromosomes>0)?TRUE:FALSE, 
+			  (num_chromosomes>0)?TRUE:FALSE,
+			  pair1, pair2, verbose);
+	}
+#if 0
+	  if (verbose) {
+		  print_list_reag(the_list, nb_spec);
+		  fprintf(stdout,"total was %d and now is %d\n", total, new_total);
+	  }
+#endif
+    if (total-new_total>0) {
+		tmp_reag = &(the_list->reaglist[0]); 
+		if(the_list->list_size>0) {
+			if (verbose)
+				print_one_reag(tmp_reag,Genomes, nb_spec, old_genome);
+			    carry_on_reag(tmp_reag,
+                    Genomes, nb_spec, spec_left, &did_merge, distmem);
+			if (verbose) {
+				special_print_genomes2(stdout, Genomes, nb_spec);
+			}
+			if (tmp_reag->merge_with != -1) // there was a merge and we need to update tree
+				update_for_merge(Genomes, nbreag, distmem, treemem, 
+                        //the_list->spec, the_list->merge_with,
+                        tmp_reag->spec, tmp_reag->merge_with,
+								 nb_spec, *spec_left, verbose,cb_max_chromo_size);
+			nbreag[tmp_reag->spec]++; 
+			*last_genomenb = tmp_reag->spec;
+			found_something = TRUE ;
+		}
+	}    
+}
+#ifdef DEBUGM
+  fprintf(stdout,"leaving do_k_reag\n");	
+#endif
+  return found_something;
+}
+*/
 
 
 //[1.3]from rearrange.c
@@ -622,13 +782,15 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
   struct mgr_genome_struct old_genome;
   // allocate memory for the genomes we use to try various rearragements
   alloc_simple_genome(Genomes->genome_list[0].num_g, &old_genome);
+  if (verbose)
+  { fprintf(stdout, "solve with good reag, start ...\n"); fflush(stdout); }
   while (found_something == TRUE &&
 		 find_total_dist(Genomes, nb_spec, distmem)!=0) {
     reduction_type = *spec_left-1;
     // start with reversals
 	if (verbose) 
 	{
-		fprintf(stdout,"solve with good reag, look for a reversal\n");		
+		fprintf(stdout,"look for a reversal, reduction_type = %d\n", reduction_type);		
 		fflush(stdout);
 	}
     found_something = carry_best_reag(Genomes , nbreag, nb_spec,
@@ -677,15 +839,12 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
 										  pair1, pair2,
 										  &old_genome);
     }
-		 
     while (found_something == FALSE && reduction_type>0) {
-
       // can't find a good rearrangement, need to relax condition
 		reduction_type--;
 		if (verbose)
         {
-			fprintf(stdout,"look for a reduction of %d\n", reduction_type);		
-			fflush(stdout);
+            fprintf(stdout,"reduction_type -- = %d\n", reduction_type); fflush(stdout);
 		}
 		if (reduction_type==0) {
       	  // do a depth 2 search to find next rearrangement
@@ -695,8 +854,8 @@ void solve_with_good_reag(G_struct *Genomes, int *nbreag,
 						  &old_genome) == TRUE) {	    
 				found_something = TRUE;
 			} else {
-				fprintf(stdout, "couldn't find depth 2 rearrangement in solve_with_good_reag\n");
-	      //exit(-1);
+                if (verbose)
+				fprintf(stdout, "couldn't find depth 2 rearrangement in solve_with_good_reag\n"); //exit(-1);
 			}
 		} else {
       // start with reversals
@@ -1103,7 +1262,7 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
     int num_chromosomes;
     int genome_type=GLINEAR;
     if (CIRCULAR) genome_type = GCIRCULAR; 
-    if((num_deli1>=1)||(num_deli2>=1)||(num_deli3>=1))
+    if((num_deli1>1)||(num_deli2>1)||(num_deli3>1))
     {
         genome_type = GMULTI;
     }
@@ -1233,8 +1392,7 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
     }
 /* debug msg 
     int ii,jj;
-    //struct mgr_genome_struct *
-     //   tmplist= Genomes_copy.genome_list;
+    struct mgr_genome_struct * tmplist= Genomes.genome_list;
     tmplist = Genomes.genome_list;
     for(ii=0;ii<4;ii++)
     {
@@ -1326,13 +1484,9 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
         g_med -> deli_num = 0 ;
     }
 
-    // free memory for the number of rearrangements
-    //free(nbreag);
     // free memory for phylogeny
     free_treemem(&treemem);
-   
-   // mcdist_freemem(&dist_mem);
-    // free preancestors
+// free preancestors
     if (verbose) {
         free_G_struct(&Preancestors, nb_spec);
     }
@@ -1364,6 +1518,7 @@ int solve_triplet (G_struct *Genomes, int *nbreag, int *perfect_triplet, int red
 
 	while (current_total_dist!=0 && found_something == TRUE) {
      	  	/* start with all good rearrangements */
+        if(verbose) fprintf(stdout, "try solve with good reag :\n");
 		solve_with_good_reag(Genomes, nbreag, 
 							 nb_spec, spec_left,
 							 distmem, treemem, heuristic, -1, -1, verbose);
@@ -1381,6 +1536,8 @@ int solve_triplet (G_struct *Genomes, int *nbreag, int *perfect_triplet, int red
 		}
 		if (current_total_dist != 0) {
 			*perfect_triplet = FALSE;
+            if(verbose) 
+            {fprintf (stdout, "Do a depth %d search \n", depth); fflush(stdout);}
         	  // do a depth k search to find next rearrangement
 			if (do_k_reag(Genomes, depth, nbreag,
 						  nb_spec, spec_left, distmem, treemem, 
@@ -1391,7 +1548,9 @@ int solve_triplet (G_struct *Genomes, int *nbreag, int *perfect_triplet, int red
 				found_something = TRUE;
 			} else {
 				if (depth < 3) {
-					fprintf(stdout,"we are increasing depth of search to %d\n", ++depth);
+					if(verbose) 
+                    {fprintf(stdout,"we are increasing depth of search to %d\n", ++depth);
+                    fflush(stdout); }
 					if (do_k_reag(Genomes, depth, nbreag, 
 								  nb_spec, spec_left, distmem, treemem, 
 								  &last_genomenb, verbose, -1, -1,

@@ -744,20 +744,6 @@ let create_gen_ali3_by_medsov_codearr medsov kept_wag arr1 arr2 arr3 (delimiter_
     and deliY = Array.of_list deli2
     and deliZ = Array.of_list deli3 in
     let ori_arr_med3,delimiter_arr =
-       (*if ( (is_identical3 comoriarr1 comoriarr2 comoriarr3)=1 ) && ( (is_identical3 deliX
-        deliY deliZ)=1 ) then
-           comoriarr1, deliX
-        else 
-        if ((is_identical2 comoriarr1 comoriarr2)&&(is_identical2 deliX deliY)) then
-        begin
-            let pure_gen_cost_mat = Cost_matrix.Two_D.get_pure_cost_mat
-            gen_cost_mat in
-            let _,_,res =   
-            create_gen_ali_new comoriarr1 comoriarr3 pure_gen_cost_mat 
-            gapcode re_meth circular orientation
-        end
-        else
-       *)
        let is_identical3 = Array_ops.is_identical3 
        and is_identical2 = Array_ops.is_identical2 in
        if ( (is_identical3 comoriarr1 comoriarr2 comoriarr3)=1 ) && ( (is_identical3 deliX
