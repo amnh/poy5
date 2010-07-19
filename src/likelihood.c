@@ -55,6 +55,10 @@
 #define TRUE         1
 #define FALSE        0
 
+/* Cost Fn Mode Codes */
+#define MPLCOST      1
+#define MALCOST      0
+
 #define KAHANSUMMATION       /* reduce error in sum over likelihood vector? */
  
 #define MAX(a,b) (a >= b)?a:b
@@ -418,7 +422,7 @@ value likelihood_CAML_BigarraytoS( value A, value B, value mpl )
     memcpy( lkvec, l_stuff, ret->rates * ret->c_len * ret->stride * sizeof(double));
     ret->lv_s = lkvec;
 
-    if( 0 != Int_val(mpl) ){
+    if( 1 == Int_val(mpl) ){
         for( i = 0; i < (ret->rates*ret->c_len*ret->stride); ++i){
             ret->lv_s[i] = (ret->lv_s[i] >= 1.0 )?0.0:NEGINF;
         }
@@ -1277,10 +1281,12 @@ void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         mll* cmll, const int mpl,const int rate_idx)
 {
-    if(0 == mpl){
+    if(MALCOST == mpl){
         median_MAL( PA, PB, amll, bmll, cmll, rate_idx );
-    } else {
+    } else if( MPLCOST == mpl ){
         median_MPL( PA, PB, amll, bmll, cmll, rate_idx );
+    } else {
+        assert( FALSE );
     }
 }
 
