@@ -1109,7 +1109,6 @@ module F : Ptree.Tree_Operations
                                 (all_edges)
                     end else if using_likelihood `Dynamic ptree
                         then begin
-                            Printf.printf "DYNAMIC LIKELIHOOD ALIGNMENT\n";
                             List.fold_left
                                 (adjust_reroot_loop affected)
                                 (true,none_affected,ptree)

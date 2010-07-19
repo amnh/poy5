@@ -175,7 +175,8 @@ let median_i code a b (t1:float) (t2:float) : t * float * float =
         readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
     in
     let half_time = nt /. 2.0 in
-    Printf.printf "Optimized Branch of %d from %f --> %f\n%!" code start nt;
+    if debug then
+        Printf.printf "Optimized Branch of %d from %f --> %f\n%!" code start nt;
     nmine, half_time, nt -. half_time
 
 and median_3 p n c1 c2 = n
