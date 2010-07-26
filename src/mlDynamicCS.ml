@@ -148,7 +148,9 @@ let median code a b t1 t2 =
     assert( 0 = MlModel.compare a.model b.model);
     let heur_cm = match t1,t2 with
         | Some t1,Some t2 -> 
-            SeqCS.make_default_heuristic (MlModel.model_to_cm a.model (t1+.t2))
+            SeqCS.make_default_heuristic 
+                ~c3:(Cost_matrix.Three_D.default)
+                (MlModel.model_to_cm a.model (t1+.t2))
         | _,_ -> failwith "branches not specified by caller"
     in
     let aseq = { a.seq with SeqCS.heuristic = heur_cm; }

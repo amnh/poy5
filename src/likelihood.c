@@ -547,7 +547,7 @@ void scale_VL( const double *VR, double *VL, const int n)
  * output is in VL.
  */
 int
-mk_inverse(mat *space,double *VL, const double *D, const double *VR, int n, double *tmp)
+mk_inverse(mat *space,double *VL, const double *VR, int n)
 {
     //LU factorization and inverse via DGETRF and DGETRI
     int i,lwork,*pivot;
@@ -758,7 +758,7 @@ int diagonalize_gtr(mat *space, double* A, double* D, double* Ui, int n)
         CHECK_ZEROES(wi,lwork,n);
         if( 0 == info ) {
             mk_diag(D,n);
-            mk_inverse(space, U, D, Ui, n, wi); /* wi is extra */
+            mk_inverse(space, U, Ui, n);
         } else if ( info < 0 ){
             failwith ("dgeev_ argument failed");
         } else {
