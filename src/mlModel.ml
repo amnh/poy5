@@ -141,6 +141,14 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+let jc69_5 = { substitution = JC69; site_variation= None;
+               iterate_alpha=true;iterate_model=true;use_gap=true;cost_fn=`MAL;
+               base_priors = ConstantPi [| 0.2;0.2;0.2;0.2;0.2 |];  }
+
+and jc69_4 = { substitution = JC69; site_variation= None;
+               iterate_alpha=true;iterate_model=true;use_gap=true;cost_fn=`MAL;
+               base_priors = ConstantPi [| 0.25;0.25;0.25;0.25; |]; }
+
 module OrderedML = struct
     (* we could choose model or spec, but spec can use Pervasives.compare *)
     type t = spec 
@@ -498,6 +506,10 @@ let output_model output nexus model set =
                     (Alphabet.to_list model.alph);
                 printf ";@]@]"
         in
+        let () = match model.spec.cost_fn with
+            | `MPL -> printf "@[Cost = mpl;@]";
+            | `MAL -> printf "@[Cost = mal;@]"; 
+        in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
             | Some (Gamma (c, p)) ->
@@ -534,6 +546,10 @@ let output_model output nexus model set =
                 printf ("@[<hov 1>- Proportion of invariant: %.4f@]") inv
         in
         printf "@]";
+        let () = match model.spec.cost_fn with
+            | `MPL -> printf "@[<hov 1>Cost mode: mpl;@]\n";
+            | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
+        in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
             | Estimated x | Given x
@@ -1282,7 +1298,7 @@ let graph_function ?(steps=10000) filename lower upper f =
     ()
 
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=500) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- ensure value falls between range; if using one *)
     let minmax value = max (min v_max value) v_min in
@@ -1314,8 +1330,14 @@ let brents_method ?(max_iter=10000) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5)
                 let a,b,c = push_right low med hi in bracket_region a b c
             else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
             else begin (* bracketed a maximum... wut? *)
-                failwithf "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]"
-                            l fl m fm h fh
+                debug_printf 
+                    "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]" l fl m fm h fh;
+                (* let us do something gracefully, push ourselves to the minimum
+                 * on the left or right, and continue with the algorithm;
+                 * priority pushes ourselves to smaller branches. *)
+                if fl <= fh 
+                    then let a,b,c = push_left  low med hi in bracket_region a b c
+                    else let a,b,c = push_right low med hi in bracket_region a b c
             end
         in
         debug_printf "Trying to bracket around %f,%f\n%!" o fo;

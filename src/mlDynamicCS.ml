@@ -34,7 +34,7 @@ type t =
 
 
 (*---- non-external helper functions *)
-let debug = true
+let debug = false
 let failwith_todo func = 
     failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
 let debug_printf format = if debug then Printf.printf format else ()

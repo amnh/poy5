@@ -102,6 +102,9 @@ type model = {
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
 
+val jc69_5 : spec
+val jc69_4 : spec
+
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
 

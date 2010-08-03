@@ -1362,7 +1362,7 @@ let create_expr () =
                             | Some x -> x
                         and v = match v with
                             | None -> `MAL
-                            | Some x -> `MPL
+                            | Some x -> x
                         in
                         `UseLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
