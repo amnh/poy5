@@ -95,14 +95,13 @@ value Val_some( value v )
 /** memory allocation and verification; posix memalign returns 0 on success */
 #define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
 
-
 /** MAC alloc functions automatically align data for SSE and MMX type functions **/
 #if defined( __APPLE__ )
-	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y);x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #elif defined( __SSE3__ )
-	#define lk_malloc(x,y); if(0!=posix_memalign((void*)&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y);if(0!=posix_memalign((void*)&x,16,y)){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #else
-	#define lk_malloc(x,y); x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
+	#define lk_malloc(x,y);x=(double*)malloc(y);if(0==x){printf("LK:failed on %d",__LINE__);failwith("I cannot allocate more memory.");}
 #endif
 //------------------------------------------------------------------------------
 /** 
@@ -614,14 +613,14 @@ double proportion( const mll* a, const mll* b)
         maxa = maxb = 0;
         s = t = 0;
         for(j=0;j<a->stride;j++){
-            if (a->lv_s[k+j] > maxa){ maxa = a-> lv_s[k+j]; }
-            if (b->lv_s[k+j] > maxb){ maxb = b-> lv_s[k+j]; }
+            if (a->lv_s[k+j] > maxa){ maxa = a->lv_s[k+j]; }
+            if (b->lv_s[k+j] > maxb){ maxb = b->lv_s[k+j]; }
         }
         for(j=0;j<a->stride;j++,k++){
             if(a->lv_s[k] == maxa && b->lv_s[k] == maxb){ s++; t+=2; }
-            else if (a->lv_s[k] == maxa || b->lv_s[k] == maxb){ t++; }
+            else if (a->lv_s[k] >= maxa || b->lv_s[k] >= maxb){ t++; }
         }
-        prop += (2*s)/t;
+        prop += (t > 0) ? ((2*s)/t) : 0;
     }
     prop = prop / (a->c_len*a->rates);
     return prop;
@@ -1033,7 +1032,15 @@ logMPL_site( const mll* l, const double weight, const double* pi,
             max_v = MAX (l->lv_s[c+j] + log(pi[j]), max_v);
         }
     }
-    return ( max_v + log(weight) );
+    if( max_v == NEGINF ){
+        printf("%d: ",i);
+        for(j=0; j < l->stride; ++j){
+            printf("[%f] ",l->lv_s[c+j] + log(pi[j]));
+        }
+        printf("\n");
+    }
+    max_v= max_v + log(weight);
+    return max_v;
 }
 
 /** [loglikelihood ml p prob %]
@@ -1277,6 +1284,12 @@ median_invar(const mll* a, const mll* b, mll* c){
         c->lv_invar[i] = (a->lv_invar[i]) & (b->lv_invar[i]);
 }
 
+
+#ifdef _WIN32
+__inline
+#else
+inline
+#endif
 void
 median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
         mll* cmll, const int mpl,const int rate_idx)
@@ -1291,25 +1304,21 @@ median(const double* PA, const double* PB, const mll* amll, const mll* bmll,
 }
 
 value
-likelihood_CAML_median_wrapped_sym
-    (value tmp,value U,value D,value ta,value tb,value ml_a,value ml_b,
-        value rates,value probs,value mpl)
+likelihood_CAML_median2_wrapped_sym( value tmp, value U, value D, value ta,
+        value tb, value ml_a, value ml_b, value rates, value mpl)
 {
     /* ocaml macros */
-    CAMLparam5( tmp,U,D,ta,tb );
-    CAMLxparam5( ml_a,ml_b,rates,probs,mpl );
+    CAMLparam5( tmp, U, D, ta, tb );
+    CAMLxparam4( ml_a, ml_b, rates, mpl );
     CAMLlocal1( ml_c );
     /* all variables */
-    double cta,ctb,*c_U,*c_D,*PA,*PB,*tmp1,*g_rs,*p_rs;
+    double cta,ctb,*c_U,*c_D,*PA,*PB,*tmp1,*g_rs;
     mll *a,*b,*c;
     mat *space;
     int num_rates,num_probs,i;
-    /* probabilities/rates */
+    /* rates */
     num_rates = Bigarray_val(rates)->dim[0];
-    num_probs = Bigarray_val(probs)->dim[0];
-    assert( num_rates == num_probs );
     g_rs = (double*) Data_bigarray_val( rates );
-    p_rs = (double*) Data_bigarray_val( probs );
     /* diagonalized transition matrix */
     c_U = (double*) Data_bigarray_val( U );
     c_D = (double*) Data_bigarray_val( D );
@@ -1366,26 +1375,22 @@ likelihood_CAML_median_wrapped_sym
     CAMLreturn(ml_c);
 }
 
-value likelihood_CAML_median_wrapped_gtr
-    (value tmp,value U,value D,value Ui,value ta,value tb,value ml_a,value ml_b,
-        value rates,value probs,value mpl)
+value likelihood_CAML_median2_wrapped_gtr( value tmp, value U, value D, value Ui,
+        value ta, value tb, value ml_a, value ml_b, value rates, value mpl)
 {
     /* ocaml macros */
     CAMLparam5( tmp,U,D,Ui,ta );
-    CAMLxparam5( tb,ml_a,ml_b,rates,probs );
+    CAMLxparam5( tb,ml_a,ml_b,rates,mpl );
     CAMLxparam1( mpl );
     CAMLlocal1( ml_c );
     /* declare variables */
-    double cta,ctb,*c_U,*c_D,*c_Ui,*PA,*PB,*tmp1,*g_rs,*p_rs;
+    double cta,ctb,*c_U,*c_D,*c_Ui,*PA,*PB,*tmp1,*g_rs;
     mll *a,*b,*c;
     mat *space;
-    int num_rates,num_probs,i;
+    int num_rates,i;
     /* rates and probability vectors */
     num_rates = Bigarray_val(rates)->dim[0];
-    num_probs = Bigarray_val(probs)->dim[0];
-    assert( num_rates == num_probs );
     g_rs= (double*) Data_bigarray_val(rates);
-    p_rs= (double*) Data_bigarray_val(probs);
     /* diagonalized transition matrix */
     c_U = (double*) Data_bigarray_val( U );
     c_D = (double*) Data_bigarray_val( D );
@@ -1438,21 +1443,382 @@ value likelihood_CAML_median_wrapped_gtr
 }
 
 /* [likelihood_CAML_median_sym ,,,] argument wrapper for median_sym */
-value likelihood_CAML_median_sym(value * argv, int argn)
+value likelihood_CAML_median2_sym(value * argv, int argn)
 {
-    return likelihood_CAML_median_wrapped_sym
-        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
-          argv[8],argv[9] ); 
+    return likelihood_CAML_median2_wrapped_sym
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],argv[8] );
 }
 
 /* [likelihood_CAML_median_gtr ...] argument wrapper for median_gtr */
-value likelihood_CAML_median_gtr(value * argv, int argn)
+value likelihood_CAML_median2_gtr(value * argv, int argn)
 {
-    return likelihood_CAML_median_wrapped_gtr
+    return likelihood_CAML_median2_wrapped_gtr
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],argv[8],argv[9] );
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+void
+median3_MPL( const double* PA, const double* PB, const double* PC, 
+             const mll* amll, const mll* bmll, const mll* cmll,
+             mll* dmll, int rate_idx )
+{
+    int i, j, k, c_start, p_start;
+    double tmp2, tmp1, tmp3;
+    c_start = rate_idx * amll->stride * amll->c_len;
+    for(i=0; i < amll->c_len; ++i){
+        p_start = 0;
+        for(j=0; j < amll->stride; ++j){
+            tmp1 = tmp2 = tmp3 = NEGINF;
+            for(k=0; k < amll->stride; ++k){
+                tmp1 = MAX (tmp1, log(PA[p_start+k]) + amll->lv_s[c_start+k]);
+                tmp2 = MAX (tmp2, log(PB[p_start+k]) + bmll->lv_s[c_start+k]);
+                tmp3 = MAX (tmp3, log(PC[p_start+k]) + cmll->lv_s[c_start+k]);
+            }
+            dmll->lv_s[c_start+j] = tmp1 + tmp2 + tmp3;
+            p_start += amll->stride;
+        }
+        c_start += amll->stride;
+    }
+}
+
+#ifdef _WIN32
+__inline
+#else
+inline
+#endif
+void
+median3( const double* PA, const double* PB, const double* PC, 
+             const mll* amll, const mll* bmll, const mll* cmll,
+             mll* dmll, int mpl, int rate_idx )
+{
+    if( MPLCOST == mpl ){
+        median3_MPL( PA,PB,PC,amll,bmll,cmll,dmll,rate_idx );
+    } else if( MALCOST == mpl ){
+        assert( FALSE );
+    } else {
+        assert( FALSE );
+    }
+}
+
+void
+median_3_sym(mat* space,const double* U,const double* D, const mll* amll,
+        const mll* bmll, const mll* cmll, const double bl_a, const double bl_b, 
+        const double bl_c, mll* dmll, const double* rates, const int num_rates,
+        const int mpl)
+{
+    int i;
+    double *PA, *PB, *PC, *TMP;
+
+    /* allocate D */
+    dmll->stride = amll->stride;
+    dmll->c_len  = amll->c_len;
+    dmll->rates  = amll->rates;
+    dmll->invar = amll->invar;
+    lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
+
+    /* determine space requirements */
+    expand_matrix(space, 4 * (amll->stride * amll->stride) );
+    PA = register_section( space, bmll->stride * bmll->stride, 1);
+    PB = register_section( space, bmll->stride * bmll->stride, 1);
+    PC = register_section( space, bmll->stride * bmll->stride, 1);
+    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    
+    /* center of median three */
+    for(i=0;i<num_rates;++i){
+        compose_sym( PA, U, D, bl_a * rates[i], amll->stride, TMP);
+        compose_sym( PB, U, D, bl_b * rates[i], amll->stride, TMP);
+        compose_sym( PC, U, D, bl_c * rates[i], amll->stride, TMP);
+        median3( PA, PB, PC, amll,bmll,cmll,dmll, mpl, i );
+    }
+    if( amll->invar == 1 ){
+        dmll->lv_invar = (int*) malloc(dmll->c_len * sizeof(int));
+        CHECK_MEM(dmll->lv_invar);
+        //median3_invar(amll,bmll,cmll,dmll);
+    }
+    free_all( space );
+}
+
+void
+median_3_gtr(mat* space,const double* U,const double* D, const double *Ui,
+        const mll* amll, const mll* bmll, const mll* cmll, const double bl_a,
+        const double bl_b, const double bl_c, mll* dmll, const double* rates,
+        const int num_rates, const int mpl)
+{
+    int i;
+    double *PA, *PB, *PC, *TMP;
+
+    /* allocate D */
+    dmll->stride = amll->stride;
+    dmll->c_len  = amll->c_len;
+    dmll->rates  = amll->rates;
+    dmll->invar = amll->invar;
+    lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
+
+    /* determine space requirements */
+    expand_matrix(space, 4 * (amll->stride * amll->stride) );
+    PA = register_section( space, bmll->stride * bmll->stride, 1);
+    PB = register_section( space, bmll->stride * bmll->stride, 1);
+    PC = register_section( space, bmll->stride * bmll->stride, 1);
+    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    
+    /* center of median three */
+    for(i=0;i<num_rates;++i){
+        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->stride, TMP);
+        compose_gtr( PB, U, D, Ui, bl_b * rates[i], amll->stride, TMP);
+        compose_gtr( PC, U, D, Ui, bl_c * rates[i], amll->stride, TMP);
+        median3( PA, PB, PC, amll,bmll,cmll,dmll, mpl, i );
+    }
+    if( amll->invar == 1 ){
+        dmll->lv_invar = (int*) malloc(dmll->c_len * sizeof(int));
+        CHECK_MEM(dmll->lv_invar);
+        //median3_invar(amll,bmll,cmll,dmll);
+    }
+    free_all( space );
+}
+
+value
+likelihood_CAML_median3_wrapped_gtr( value tmp, value U, value D, value Ui, value ta,
+        value tb, value tc, value mlla, value mllb, value mllc, value rates, value mpl)
+{
+    CAMLparam5(tmp,U,D,ta,tb);
+    CAMLxparam5(tc,mlla,mllb,mllc,rates);
+    CAMLxparam1(mpl);
+    CAMLlocal2( res, ml_d );
+    double cta,ctb,ctc,llk;
+    int n_rates;
+
+    n_rates = Bigarray_val(rates)->dim[0];
+    mll *d;
+    d = (mll*) malloc( sizeof(mll) ); CHECK_MEM(d);
+    cta = Double_val( ta );
+    ctb = Double_val( tb );
+    ctc = Double_val( tc );
+
+    median_3_gtr( FM_val(tmp), Data_bigarray_val(U), Data_bigarray_val(D), 
+            Data_bigarray_val(Ui), ML_val(mlla), ML_val(mllb), ML_val(mllc),
+            cta, ctb, ctc, d, Data_bigarray_val(rates), n_rates, Int_val(mpl) );
+
+    ml_d = caml_alloc_custom(&likelihood_custom_operations,sizeof(mll*),1,CAML_ALLOC);
+    ML_val( ml_d ) = d;
+    CAMLreturn(ml_d);
+}
+
+value 
+likelihood_CAML_median3_gtr(value * argv, int argn)
+{
+    return likelihood_CAML_median3_wrapped_gtr
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
+          argv[8],argv[9],argv[10],argv[11] );
+}
+
+
+value
+likelihood_CAML_median3_wrapped_sym( value tmp, value U, value D, value ta,
+        value tb, value tc, value mlla, value mllb, value mllc, value rates, value mpl)
+{
+    CAMLparam5(tmp,U,D,ta,tb);
+    CAMLxparam5(tc,mlla,mllb,mllc,rates);
+    CAMLxparam1(mpl);
+    CAMLlocal2( res, ml_d );
+    double cta,ctb,ctc,llk;
+    int n_rates;
+
+    n_rates = Bigarray_val(rates)->dim[0];
+    mll *d;
+    d = (mll*) malloc( sizeof(mll) ); CHECK_MEM(d);
+    cta = Double_val( ta );
+    ctb = Double_val( tb );
+    ctc = Double_val( tc );
+
+    median_3_sym( FM_val(tmp), Data_bigarray_val(U), Data_bigarray_val(D), 
+            ML_val(mlla), ML_val(mllb), ML_val(mllc), cta, ctb, ctc,
+            d, Data_bigarray_val(rates), n_rates, Int_val(mpl) );
+
+    ml_d = caml_alloc_custom(&likelihood_custom_operations,sizeof(mll*),1,CAML_ALLOC);
+    ML_val( ml_d ) = d;
+    CAMLreturn(ml_d);
+}
+
+value 
+likelihood_CAML_median3_sym(value * argv, int argn)
+{
+    return likelihood_CAML_median3_wrapped_sym
         ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],
           argv[8],argv[9],argv[10] );
 }
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+void
+median1_MPL(const double* PA,const mll* amll,const mll* bmll,mll* dmll,int rate_idx)
+{
+    int i, j, k, c_start, p_start;
+    double tmp;
+    c_start = rate_idx * amll->stride * amll->c_len;
+    for(i=0; i < amll->c_len; ++i){
+        p_start = 0;
+        for(j=0; j < amll->stride; ++j){
+            tmp = NEGINF;
+            for(k=0; k < amll->stride; ++k){
+                tmp = MAX (tmp, log(PA[p_start+k]) + amll->lv_s[c_start+k]);
+            }
+            dmll->lv_s[c_start+j] = tmp + bmll->lv_s[c_start+j];
+            p_start += amll->stride;
+        }
+        c_start += amll->stride;
+    }
+}
+
+#ifdef _WIN32
+__inline
+#else
+inline
+#endif
+void
+median1( const double* PA, const mll* amll, const mll* bmll, 
+             mll* dmll, int mpl, int rate_idx )
+{
+    if( MPLCOST == mpl ){
+        median1_MPL( PA,amll,bmll,dmll,rate_idx );
+    } else if( MALCOST == mpl ){
+        assert( FALSE );
+    } else {
+        assert( FALSE );
+    }
+}
+
+
+void
+median_1_sym(mat* space, const double* U, const double* D, const mll* amll,
+        const mll* bmll, const double bl_a, mll* dmll, const double* rates,
+        const int num_rates, const int mpl)
+{
+    int i;
+    double *PA, *PB, *PC, *TMP;
+
+    /* allocate D */
+    dmll->stride = amll->stride;
+    dmll->c_len  = amll->c_len;
+    dmll->rates  = amll->rates;
+    dmll->invar = amll->invar;
+    lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
+
+    /* determine space requirements */
+    expand_matrix(space, 4 * (amll->stride * amll->stride) );
+    PA = register_section( space, bmll->stride * bmll->stride, 1);
+    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    
+    /* center of median three */
+    for(i=0;i<num_rates;++i){
+        compose_sym( PA, U, D, bl_a * rates[i], amll->stride, TMP);
+        median1( PA, amll, bmll, dmll, mpl, i );
+    }
+    if( amll->invar == 1 ){
+        dmll->lv_invar = (int*) malloc(dmll->c_len * sizeof(int));
+        CHECK_MEM(dmll->lv_invar);
+        //median1_invar(amll,bmll,dmll);
+    }
+    free_all( space );
+}
+
+void
+median_1_gtr(mat* space, const double* U, const double* D, const double* Ui,
+        const mll* amll, const mll* bmll, const double bl_a, mll* dmll,
+        const double* rates, const int num_rates, const int mpl)
+{
+    int i;
+    double *PA, *PB, *PC, *TMP;
+
+    /* allocate D */
+    dmll->stride = amll->stride;
+    dmll->c_len  = amll->c_len;
+    dmll->rates  = amll->rates;
+    dmll->invar = amll->invar;
+    lk_malloc( dmll->lv_s, dmll->c_len * dmll->stride * dmll->rates * sizeof(double));
+
+    /* determine space requirements */
+    expand_matrix(space, 4 * (amll->stride * amll->stride) );
+    PA = register_section( space, bmll->stride * bmll->stride, 1);
+    TMP= register_section( space, bmll->stride * bmll->stride, 1);
+    
+    /* center of median three */
+    for(i=0;i<num_rates;++i){
+        compose_gtr( PA, U, D, Ui, bl_a * rates[i], amll->stride, TMP);
+        median1( PA, amll,bmll,dmll, mpl, i );
+    }
+    if( amll->invar == 1 ){
+        dmll->lv_invar = (int*) malloc(dmll->c_len * sizeof(int));
+        CHECK_MEM(dmll->lv_invar);
+        //median1_invar(amll,bmll,dmll);
+    }
+    free_all( space );
+}
+
+
+value
+likelihood_CAML_median1_wrapped_gtr( value tmp, value U, value D, value Ui, value ta,
+        value mlla, value mllb, value rates, value mpl)
+{
+    CAMLparam5(tmp,U,D,Ui,ta);
+    CAMLxparam4(mlla,mllb,rates,mpl);
+    CAMLlocal2( res, ml_d );
+    double cta,llk;
+    int n_rates;
+
+    n_rates = Bigarray_val(rates)->dim[0];
+    mll *d;
+    d = (mll*) malloc( sizeof(mll) ); CHECK_MEM(d);
+    cta = Double_val( ta );
+
+    median_1_gtr( FM_val(tmp), Data_bigarray_val(U), Data_bigarray_val(D), 
+            Data_bigarray_val(Ui), ML_val(mlla), ML_val(mllb),
+            cta, d, Data_bigarray_val(rates), n_rates, Int_val(mpl) );
+
+    ml_d = caml_alloc_custom(&likelihood_custom_operations,sizeof(mll*),1,CAML_ALLOC);
+    ML_val( ml_d ) = d;
+    CAMLreturn(ml_d);
+}
+
+value 
+likelihood_CAML_median1_gtr(value * argv, int argn)
+{
+    return likelihood_CAML_median1_wrapped_gtr
+        (argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7],argv[8]);
+}
+
+
+value
+likelihood_CAML_median1_wrapped_sym( value tmp, value U, value D, value ta,
+        value mlla, value mllb, value rates, value mpl)
+{
+    CAMLparam5(tmp,U,D,ta,mlla);
+    CAMLxparam3(mllb,rates,mpl);
+    CAMLlocal2( res, ml_d );
+    double cta,llk;
+    int n_rates;
+
+    n_rates = Bigarray_val(rates)->dim[0];
+    mll *d;
+    d = (mll*) malloc( sizeof(mll) ); CHECK_MEM(d);
+    cta = Double_val( ta );
+
+    median_1_sym( FM_val(tmp), Data_bigarray_val(U), Data_bigarray_val(D), 
+            ML_val(mlla), ML_val(mllb), cta, d, Data_bigarray_val(rates), 
+            n_rates, Int_val(mpl) );
+
+    ml_d = caml_alloc_custom(&likelihood_custom_operations,sizeof(mll*),1,CAML_ALLOC);
+    ML_val( ml_d ) = d;
+    CAMLreturn(ml_d);
+}
+
+value 
+likelihood_CAML_median1_sym(value * argv, int argn)
+{
+    return likelihood_CAML_median1_wrapped_sym
+        ( argv[0],argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],argv[7] );
+}
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
@@ -1532,7 +1898,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     /* bracket a region; a and b become the bracket with temp */
     iter = 0;
     while( iter <= MAX_ITER ){
-        /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb);*/
+        /* printf("Bracketing: %f(%f)\t%f(%f)\t%f(%f)\n",a,fa,x,fx,b,fb); */
         /* bracketed */
         if( (fa > fx) && (fx < fb)){
             break;
@@ -1560,7 +1926,7 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
     }
 
     /* if( iter >= MAX_ITER ){ printf("HIT MAX COUNT IN BRENT w/ BRACKETING!\n"); }*/
-    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb);*/
+    /* printf("Bracketed(%d): %f(%f)\t%f(%f)\t%f(%f)\n",bracketed,a,fa,x,fx,b,fb); */
     /* we have a bracketed region; (a < b < c) && (fa > fb < fc) */
     v=w=x;
     fv=fw=fx;
@@ -1603,14 +1969,14 @@ readjust_brents_sym(mat *space,const double* Um,const double* D,const mll* data_
         u = (fabs(d) >= tol) ? MAX( BL_MIN, (x+d) ) : MAX( BL_MIN, (x+SIGN(tol,d)) );
         single_sym(&temp,PA,PB,Um,D,data_c1,data_c2,u,b_tc2,ws,rates,prob,pi,g_n,pinvar,mpl,TMP);
         fu = temp.ll;
-        /* printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb);*/
+        /** printf("\tIteration(%d): %f(%f)\t[%f(%f)]\t%f(%f)\n",iter,a,fa,u,fu,b,fb); **/
         /* move variables around for next motion */
         if( fu <= fx ){
-            if( u >= x ){ a = x; } else { b = x; }
+            if( u >= x ){ a = x; fa = fx; } else { b = x; fb = fx; }
             SHIFT(v,w,x,u);
             SHIFT(fv,fw,fx,fu);
         } else {
-            if( u < x ){ a = u; } else { b = u; }
+            if( u < x ){ a = u; fa = fu; } else { b = u; fb = fu; }
             if( (fu <= fw) || (w == x) ){
                 v=w; fv=fw;
                 w=u; fw=fu;
@@ -1860,6 +2226,5 @@ likelihood_CAML_readjust_sym(value * argv, int argn)
         (argv[0], argv[1],argv[2],argv[3],argv[4],argv[5],argv[6],
          argv[7],argv[8],argv[9],argv[10],argv[11],argv[12],argv[13],argv[14]);
 }
-
 
 #endif /* USE_LIKELIHOOD */
