@@ -167,7 +167,7 @@ let readjust c1 c2 mine t1 t2 =
         (d,total_cost d)
     in
     let nt,(nmine,ncost) = 
-        MlModel.brents_method (t1,(mine,total_cost mine)) internal_loop
+        Numerical.brents_method (t1,(mine,total_cost mine)) internal_loop
     in
     (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
 

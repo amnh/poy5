@@ -1332,7 +1332,7 @@ module F : Ptree.Tree_Operations
                 let tree = update_branches tree in
                 let params = MlModel.get_current_parameters_for_model current_model in
                 let _,results = (* fst is vector of results *)
-                    MlModel.bfgs_method (f_likelihood func tree chars current_model)
+                    Numerical.bfgs_method (f_likelihood func tree chars current_model)
                                         (get_some params)
                                         (tree,current_cost)
                 in
@@ -1349,7 +1349,7 @@ module F : Ptree.Tree_Operations
                 let best_tree = update_branches best_tree in
                 let current_a = MlModel.get_current_parameters_for_alpha current_model in
                 let results = 
-                    MlModel.brents_method ((get_some current_a),(best_tree,best_cost))
+                    Numerical.brents_method ((get_some current_a),(best_tree,best_cost))
                                           (f_likelihood func best_tree chars current_model)
                 in
                 snd results

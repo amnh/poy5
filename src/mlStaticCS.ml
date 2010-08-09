@@ -271,104 +271,6 @@ let median_fmat a_vec b_vec a_mat b_mat =
 let median_invar ain bin = 
     Array.init (Array.length ain) (fun x -> Int32.logand ain.(x) bin.(x) )
 
-(** --- SEARCH METHODS --- **)
-
-(* search by brent's method *)
-exception Colinear
-let decr x = decr x; !x (* get and decrement, because it makes more sense *)
-let golden_middle a b = 
-    let a,b = if a < b then a,b else b,a in
-    a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0))
-let golden_exterior a b = (* when fb < fa *)
-    a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0))
-let abscissa (a,fa) (b,fb) (c,fc) =
-    let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
-    and denom = ((b-.a)*.(fb-.fc)) -. ((b-.c)*.(fb-.fa)) in
-    if denom = 0.0 then raise Colinear
-    else b -. (0.5 *. (numer /. denom))
-
-(* function and braketed area and error *)
-let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon = 
-    let iter = ref 1000 in
-    (* order three pairs of values *)
-    let order_tuples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
-        if a1 < b1 then
-           if b1 < c1 then (a,b,c)
-           else if a1 < c1 then (a,c,b)
-           else (c,a,b)
-        else begin
-           if a1 < c1 then (b,a,c)
-           else if c1 < b1 then (c,b,a)
-           else (b,a,c)
-        end
-    (* best of three *)
-    and best_of ((_,x) as x') ((_,y) as y') = if x <= y then x' else y' in
-    (* parabolic interpolation -- main iteration in interpolation *)
-    let rec parabolic_interp ((best_t,best_l) as best) a fa b fb c fc : float * float = 
-        assert( a > 0.0 && b > 0.0 && c > 0.0 );
-        if ((abs_float (fb -. fa)) <= epsilon) or 
-           ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
-        else
-            try
-                let x = abscissa (a,fa) (b,fb) (c,fc) in let fx = f x in
-                if fx =. fb || x =. b || x <= epsilon then best
-                else begin
-                    let best = best_of best (x,fx) in
-                    if a < x && x < b then parabolic_interp best a fa x fx b fb
-                    else if x < a then parabolic_interp best x fx a fa b fb
-                    else if b < x && x < c then parabolic_interp best b fb x fx c fc
-                    else if c < x then parabolic_interp best b fb c fc x fx
-                    else failwith "shouldn't happen"
-                end
-            with | Colinear -> brent_decision best a fa b fb c fc
-    (* golden section search -- not used since we can guarantee bracket *)
-    and golden_ratio ((best_t,best_l) as best) a af b bf c cf  =
-        assert( a > 0.0 && b > 0.0 && c > 0.0 );
-        let best,(a,fa),(nb,nfb),(c,fc) = 
-            if (abs_float (c-.b)) > (abs_float (b-.a)) then
-                let other = golden_middle b c in let other = (other,f other) in
-                let best = best_of best other in
-                best,(b,bf),other,(c,cf)
-            else 
-                let other = golden_middle a b in let other = (other,f other) in
-                let best = best_of best other in
-                best,(a,af),other,(b,bf)
-        in
-        if bf =. nfb or (decr iter) = 0 then best
-        else brent_decision best a fa nb nfb c fc
-    (* brent exponential search, when points are colinear or monotonic *)
-    and brent_exp ((best_t,best_l) as best) a fa b fb c fc : float * float =
-        assert (fc < fa ); (* since we estimate "past" c *)
-        let n = match golden_exterior a c with
-            | x when x <= 0.0 -> epsilon
-            | x -> x 
-        in
-        let other = n,f n in
-        brent_decision (best_of best other) b fb c fc n (snd other)
-    (* decide what to do -- parabolic interpotion or expansion of range *) 
-    and brent_decision best lower fl middle fm upper fu : float * float =
-        let (lower,fl),(middle,fm),(upper,fu) = 
-            order_tuples (lower,fl) (middle,fm) (upper,fu) in
-        if lower =. upper then best
-        else if fl <= fm && fm <= fu then (* monotonically increasing *)
-            brent_exp best upper fu middle fm lower fl
-        else if fl >= fm && fm >= fu then (* monotonically decreasing *)
-            brent_exp best lower fl middle fm upper fu
-        else if fm <= fl && fm <= fu then (* minimum between *)
-            parabolic_interp best lower fl middle fm upper fu
-        else 
-            golden_ratio best lower fl middle fm upper fu
-    in
-    (* set up variables.. order arguments,find golden middle and evaluate... *)
-    assert( lower != upper );
-    let middle = golden_middle lower upper in
-    let fl = f lower and fm = f middle and fu = f upper in
-    let best = best_of orig (best_of (lower,fl) (best_of (middle,fm) (upper,fu))) in
-    let ((t,ll) as x) = brent_decision best lower fl middle fm upper fu in
-    Printf.printf "Iterated: %d\tImprovement: %f\tBranch: %f -> %f\n%!"
-                  (1000 - !iter) (orig_ll -. ll) orig_bl t;
-    x
-
 (**
  * converts the stored variables into float array/matrices and computes mle
 *)
@@ -407,14 +309,14 @@ let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) =
     close_out out_chan;
     ()
 
-(**
- * converts the stored variables into float array/matrices and adjusts branches *)
+(** converts the stored variables into float array/matrices and adjusts branches *)
 let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
     let dist = t1 +. t2 in
-    let median_2 t1 t2 = let _,_,ll = ocaml_median a b 0 0 t1 t2 in ll in
-    let t,ll = brents_method (dist,b_ll)
-                             (fun x -> let half = x /. 2.0 in median_2 half half)
-                             (dist /. 10.0) (dist *. 1.5) epsilon
+    let median_2 t1 t2 = let x,_,ll = ocaml_median a b 0 0 t1 t2 in (x,ll) in
+    let t,(_,ll) = 
+        Numerical.brents_method 
+            (dist,(median_2 t1 t2))
+            (fun x -> let half = x /. 2.0 in median_2 half half)
     in
     let new_halves = t /. 2.0 in
     new_halves,new_halves,ll

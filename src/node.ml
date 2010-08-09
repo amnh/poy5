@@ -820,7 +820,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
                     let (v,(dv,fv)) = 
-                        MlModel.brents_method (t1+.t2,fstart) calculate_single
+                        Numerical.brents_method (t1+.t2,fstart) calculate_single
                     in
                     { pm with preliminary = dv; final = dv;
                               cost = fv; sum_cost = fv;
