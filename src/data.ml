@@ -1430,8 +1430,7 @@ let process_parsed_sequences prealigned weight tcmfile tcm tcm3 default_mode
     let data = duplicate data in
     let res = 
         (* Place a single sequence together with its taxon *)
-        (* This spot removes all the chromosome information comming from one
-        * file *)
+        (* This spot removes all the chromosome information comming from one file *)
         let res = List.map (fun (res3, b) -> (List.flatten res3),b) res in 
         let tmp = 
             List.map (fun (res2, b) -> 
