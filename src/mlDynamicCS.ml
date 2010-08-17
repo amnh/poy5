@@ -34,7 +34,7 @@ type t =
 
 
 (*---- non-external helper functions *)
-let debug = true
+let debug = false
 let failwith_todo func = 
     failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
 let debug_printf format = if debug then Printf.printf format else ()
@@ -167,7 +167,7 @@ let readjust c1 c2 mine t1 t2 =
         (d,total_cost d)
     in
     let nt,(nmine,ncost) = 
-        MlModel.brents_method (t1,(mine,total_cost mine)) internal_loop
+        Numerical.brents_method (t1,(mine,total_cost mine)) internal_loop
     in
     (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
 

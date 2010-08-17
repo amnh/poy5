@@ -22,7 +22,6 @@ let () = SadmanOutput.register "Chartree" "$Revision: 2871 $"
 
 
 (** chartree.ml *)
-
 type 'a p_tree = (Node.node_data, 'a) Ptree.p_tree
 
 type incremental = [
@@ -50,11 +49,7 @@ let check_assertion_two_nbrs a b c =
         false
 
 module IntSet = All_sets.Integers
-
 let fprintf = Printf.fprintf 
-
-(** This is an operator that allows for chaining;  see how it's used in tree.ml
-*)
 let (-->) a b = b a
 
 let tree_iter fn {Ptree.tree=tree} =

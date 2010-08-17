@@ -504,30 +504,36 @@ let rec cs_median code anode bnode prev t1 t2 a b =
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
+            let min_bl = MlStaticCS.minimum_bl () in
             let t1, t2 = match t1,t2 with
-                | Some (t1), Some (t2) when code <= 0 -> 
-                        (t1/.2.0,t2/.2.0)
-                | Some (t1), Some (t2) ->
-                        (t1,t2)
-                | _ -> 
-                    if debug_bl then
-                        Printf.printf "estimating BL\n%!";
-                    let t1,t2 = 
-                        MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                    (t1,t2)
+                | Some (t1), Some (t2) when code <= 0 ->
+                    ( max min_bl (t1/.2.0), max min_bl (t2/.2.0) )
+                | Some (t1), Some (t2) -> 
+                    (max min_bl t1, max min_bl t2)
+                | _ -> if debug_bl then Printf.printf "estimating BL\n%!";
+                       let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                       (t1,t2)
             in 
-            let median = 
-                MlStaticCS.median ca.preliminary cb.preliminary
-                                  t1 t2 anode.taxon_code bnode.taxon_code in
+            let model = MlStaticCS.get_model ca.preliminary in
+            let median = begin match model .MlModel.spec.MlModel.cost_fn with
+                | `MPL when code > 0 -> 
+                    MlStaticCS.median2 ca.preliminary cb.preliminary
+                                       t1 t2 anode.taxon_code bnode.taxon_code
+                | `MAL -> 
+                    MlStaticCS.median2 ca.preliminary cb.preliminary
+                                       t1 t2 anode.taxon_code bnode.taxon_code
+               | `MPL -> assert( code <= 0 );
+                     MlStaticCS.median1 ca.preliminary cb.preliminary (t1+.t2)
+                end
+            in
             let n_cost = MlStaticCS.root_cost median in
             if debug then 
                 info_user_message
                     "Calculating %d with %f(%d) and %f(%d) = %f"
-                    code t1 anode.taxon_code t2 bnode.taxon_code n_cost
-            else ();
+                    code t1 anode.taxon_code t2 bnode.taxon_code n_cost;
             let t1,t2 = 
-                if anode.min_child_code < bnode.min_child_code then t1, t2
-                else t2, t1
+                if anode.min_child_code < bnode.min_child_code then (t1, t2)
+                else (t2, t1)
             in
             let res =
                 {
@@ -631,13 +637,16 @@ let rec cs_median code anode bnode prev t1 t2 a b =
             let median, ((t1,t2) as time) = match ca.preliminary, cb.preliminary with
                 | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
                     IFDEF USE_LIKELIHOOD THEN
+                        let min_bl = MlStaticCS.minimum_bl () in
                         let t1, t2, opt = match t1,t2 with
-                            | Some (t1), Some (t2) when code <= 0 -> (t1/.2.0,t1/.2.0,false)
-                            | Some (t1), Some (t2) -> t1,t2,false
+                            | Some (t1), Some (t2) when code <= 0 ->
+                                (max min_bl (t1/.2.0), max min_bl (t2/.2.0), false)
+                            | Some (t1), Some (t2) -> 
+                                (max min_bl t1, max min_bl t2, false)
                             | _ ->
                                 if debug_bl then Printf.printf "estimating BL\n%!";
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
-                                (t1,t2,true)
+                                (t1, t2, true)
                         in 
                         if debug then 
                             info_user_message
@@ -774,34 +783,59 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
      * the character set [p] as parent, and [a], [b] as children. *)
     let rec ei_map p a b pa = match p,a,b with
         | (StaticMl pm)::ptl, (StaticMl am)::atl,(StaticMl bm)::btl ->
-            let modf = ref All_sets.Integers.empty in
-            let t1,t2 = match pm.time with 
-                    | Some x,Some y -> x,y
-                    | None, None -> 
-                        if debug_bl then Printf.printf "estimating BL\n%!";
-                        MlStaticCS.estimate_time am.preliminary bm.preliminary
-                    | _ -> failwith "something happened terribly wrong"
+            let model = MlStaticCS.get_model am.preliminary in
+            let min_bl = MlStaticCS.minimum_bl () in
+            let mine = begin match  model.MlModel.spec.MlModel.cost_fn with
+
+                (* MAL has full C functionality *)
+                | `MAL -> 
+                    let modf = ref All_sets.Integers.empty in
+                    let t1,t2 = match pm.time with 
+                        | Some x,Some y -> ( max min_bl x, max min_bl y )
+                        | None, None -> 
+                            if debug_bl then Printf.printf "estimating BL\n%!";
+                            MlStaticCS.estimate_time am.preliminary bm.preliminary
+                        | _ -> failwith "something happened terribly wrong"
+                    in
+                    let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
+                    let _,pcost,cost,(t1,t2),res = 
+                        MlStaticCS.readjust None !modf am.preliminary bm.preliminary
+                                            pm.preliminary t1 t2 
+                    in
+                    { pm with  preliminary = res; final = res;
+                               cost = cost; sum_cost = cost;
+                               time = Some t1, Some t2; }
+                | _ -> pm
+                (* calculate the median1 for MPL with OCAML Brents *)
+                | `MPL ->
+                    let calculate_single t = 
+                        let m = MlStaticCS.median1 am.preliminary bm.preliminary t in
+                        (m,MlStaticCS.root_cost m)
+                    and t1,t2 = match pm.time with 
+                        | Some x,Some y -> ( max min_bl x, max min_bl y )
+                        | None, None -> 
+                            if debug_bl then Printf.printf "estimating BL\n%!";
+                            MlStaticCS.estimate_time am.preliminary bm.preliminary
+                        | _ -> failwith "something happened terribly wrong"
+                    in
+                    let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
+                    let (v,(dv,fv)) = 
+                        Numerical.brents_method (t1+.t2,fstart) calculate_single
+                    in
+                    { pm with preliminary = dv; final = dv;
+                              cost = fv; sum_cost = fv;
+                              time = Some (v/.2.0), Some (v/.2.0); }
+                end
             in
-            (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
-            let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
-            let _,pcost,cost,(t1,t2),res = 
-                MlStaticCS.readjust None !modf am.preliminary bm.preliminary
-                                    pm.preliminary t1 t2 
-            in
-            let mine = StaticMl 
-                { pm with  preliminary = res; final = res;
-                           cost = cost; sum_cost = cost;
-                           time = Some t1, Some t2;
-                }
-            in
-            ei_map ptl atl btl (mine::pa)
+            ei_map ptl atl btl ((StaticMl mine)::pa)
         (* dynamic characters modify based on their integerized approx *)
         | ((Dynamic pm) as pml)::ptl, (Dynamic am)::atl,(Dynamic bm)::btl ->
             begin match am.preliminary, bm.preliminary with
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
+                    let min_bl = MlStaticCS.minimum_bl () in
                     let modf = ref All_sets.Integers.empty in
                     let t1,t2 = match pm.time with 
-                        | Some x,Some y -> x,y
+                        | Some x,Some y -> ( max min_bl x, max min_bl y )
                         | None, None -> 
                             if debug_bl then Printf.printf "estimating BL\n%!";
                             MlDynamicCS.estimate_time c1_pre c2_pre
@@ -1174,39 +1208,25 @@ let median ?branches code old a b =
                 | _ -> None)
             chars.characters
     in
-
     (* the code is negative if we are calculating on an edge *)
-    let code = 
-        match code with
+    let code = match code with
         | Some code -> code
-        | None -> 
-                decr median_counter;
-                !median_counter
+        | None -> decr median_counter; !median_counter
     in
-
     let brancha = convert_2_lst a branches
     and branchb = convert_2_lst b branches in
     let new_characters =
         match old with
         | None -> 
-            if debug_treebuild then
-               info_user_message "node.ml median begin of map4\n";
-            map4 (cs_median code a b None)
-                brancha
-                branchb
-                a.characters
-                b.characters
+            if debug_treebuild then info_user_message "node.ml median begin of map4\n";
+            map4 (cs_median code a b None) brancha branchb 
+                 a.characters b.characters
         | Some c ->
-            if debug_treebuild then
-                info_user_message "node.ml median begin of map5\n";
-            map5 (fun x -> cs_median code a b (Some x))
-                c.characters
-                brancha
-                branchb
-                a.characters
-                b.characters
+            if debug_treebuild then info_user_message "node.ml median begin of map5\n";
+            map5 (fun x -> cs_median code a b (Some x)) c.characters
+                 brancha branchb a.characters b.characters
     in
-    let node_cost = get_characters_cost new_characters in
+    let node_cost  = get_characters_cost new_characters in
     let total_cost = calc_total_cost a b node_cost in
     if debug_treebuild then
          info_user_message "end of mapx in node.ml ...total_cost=%f\n" total_cost;
@@ -1216,10 +1236,7 @@ let median ?branches code old a b =
     let results = 
         { 
             characters = new_characters;
-            total_cost =
-                if excluded
-                then infinity
-                else total_cost;
+            total_cost = if excluded then infinity else total_cost;
             node_cost = node_cost;
             taxon_code = code;
             min_child_code = min a.min_child_code b.min_child_code;
@@ -2860,8 +2877,7 @@ let estimate_time a b =
     let estimate_ ca cb = match ca,cb with
         | StaticMl ca, StaticMl cb -> 
             IFDEF USE_LIKELIHOOD THEN
-                if debug_bl then
-                    Printf.printf "estimating BL\n%!";
+                if debug_bl then Printf.printf "estimating BL\n%!";
                 let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                 Some (t1+.t2)
             ELSE
@@ -2871,8 +2887,7 @@ let estimate_time a b =
             IFDEF USE_LIKELIHOOD THEN
                 begin match a.preliminary, p.preliminary with
                     | DynamicCS.MlCS ca_pre, DynamicCS.MlCS cb_pre ->
-                        if debug_bl then
-                            Printf.printf "estimating BL\n%!";
+                        if debug_bl then Printf.printf "estimating BL\n%!";
                         let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                         Some (t1+.t2)
                     | _ -> None
@@ -2985,8 +3000,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
         match c1, c2, parent, mine with 
         | StaticMl c1, StaticMl c2, StaticMl parent, StaticMl mine -> 
             IFDEF USE_LIKELIHOOD THEN
+                let min_bl = MlStaticCS.minimum_bl () in
                 let t1,t2 = match mine.time with 
-                    | Some x,Some y -> x,y
+                    | Some x,Some y -> max min_bl x,max min_bl y
                     | _ -> 
                         if debug_bl then Printf.printf "estimating BL\n%!";
                         MlStaticCS.estimate_time c1.preliminary c2.preliminary
@@ -3010,8 +3026,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             begin match c1.preliminary,c2.preliminary with
                 | DynamicCS.MlCS c1_pre, DynamicCS.MlCS c2_pre ->
                   IFDEF USE_LIKELIHOOD THEN
+                    let min_bl = MlStaticCS.minimum_bl () in
                     let t1,t2 = match mine.time with 
-                        | Some x,Some y -> x,y
+                        | Some x,Some y -> max min_bl x,max min_bl y
                         | _  -> if debug_bl then Printf.printf "estimating BL\n%!";
                                 MlDynamicCS.estimate_time c1_pre c2_pre
                     in

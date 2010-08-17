@@ -69,6 +69,7 @@ NodeSig
 NonaddCS16
 NonaddCS32
 NonaddCS8
+Numerical
 Parser
 Phylip
 Phylo

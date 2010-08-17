@@ -44,23 +44,54 @@ type t = {
     chars   : s;
 }
 
-external median_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+external median1_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+    FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> s -> s -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
+         "likelihood_CAML_median1_gtr" "likelihood_CAML_median1_wrapped_gtr" 
+external median1_sym: (* median sym U D ta tb a b r p -> output_c *)
+    FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> s-> s ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
+          "likelihood_CAML_median1_sym" "likelihood_CAML_median1_wrapped_sym"
+
+external median2_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s -> s -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
-         "likelihood_CAML_median_gtr" "likelihood_CAML_median_wrapped_gtr" 
-external median_sym: (* median sym U D ta tb a b r p -> output_c *)
+         "likelihood_CAML_median2_gtr" "likelihood_CAML_median2_wrapped_gtr" 
+external median2_sym: (* median sym U D ta tb a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
      float -> float -> s-> s ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
-          "likelihood_CAML_median_sym" "likelihood_CAML_median_wrapped_sym"
+          "likelihood_CAML_median2_sym" "likelihood_CAML_median2_wrapped_sym"
+
+external median3_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+    FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> float -> s -> s -> s -> 
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
+         "likelihood_CAML_median3_gtr" "likelihood_CAML_median3_wrapped_gtr" 
+external median3_sym: (* median sym U D ta tb a b r p -> output_c *)
+    FMatrix.m ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+     float -> float -> float -> s-> s -> s ->
+    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
+          "likelihood_CAML_median3_sym" "likelihood_CAML_median3_wrapped_sym"
+
 external readjust_sym: (* readjust_sym U D a b c ta tb %i r p pi ll -> ll*branch *)
     FMatrix.m ->
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
@@ -143,6 +174,8 @@ let pp_fopt chan v =
 
 let get_codes a = a.codes
 
+let get_model a = a.model
+
 (* ------------------------------------------------------------------------- *)
 (* conversion/utility functions *)
 
@@ -181,6 +214,17 @@ external bigarray_s:
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t ->
     ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option ->
         int -> s = "likelihood_CAML_BigarraytoS"
+
+(* ------------------------------------------------------------------------- *)
+(* basic functions for interfacing with mlStatic module *)
+let root_cost t = t.mle
+let to_string _ = "MLStaticCS"
+let print a = print_barray3 (fst (s_bigarray a.chars));
+              MlModel.output_model print_string `Nexus a.model None;
+              Printf.printf "\nLikelihood: %f\n%!" (a.mle)
+
+let cardinal ta = Array.length ta.codes
+let union prev ch1 ch2 = prev
 
 (* ------------------------------------------------------
  *  A pure ocaml implementation of the median functions
@@ -227,104 +271,6 @@ let median_fmat a_vec b_vec a_mat b_mat =
 let median_invar ain bin = 
     Array.init (Array.length ain) (fun x -> Int32.logand ain.(x) bin.(x) )
 
-(** --- SEARCH METHODS --- **)
-
-(* search by brent's method *)
-exception Colinear
-let decr x = decr x; !x (* get and decrement, because it makes more sense *)
-let golden_middle a b = 
-    let a,b = if a < b then a,b else b,a in
-    a +. ((b -. a) *. 2.0 /. (1.0 +. sqrt 5.0))
-let golden_exterior a b = (* when fb < fa *)
-    a +. ((b -. a) *. 2.0 /. ((sqrt 5.0) -. 1.0))
-let abscissa (a,fa) (b,fb) (c,fc) =
-    let numer = ((b-.a)*.(b-.a)*.(fb-.fc)) -. ((b-.c)*.(b-.c)*.(fb-.fa))
-    and denom = ((b-.a)*.(fb-.fc)) -. ((b-.c)*.(fb-.fa)) in
-    if denom = 0.0 then raise Colinear
-    else b -. (0.5 *. (numer /. denom))
-
-(* function and braketed area and error *)
-let brents_method ((orig_bl,orig_ll) as orig) f lower upper epsilon = 
-    let iter = ref 1000 in
-    (* order three pairs of values *)
-    let order_tuples ((a1,_) as a) ((b1,_) as b) ((c1,_) as c) =
-        if a1 < b1 then
-           if b1 < c1 then (a,b,c)
-           else if a1 < c1 then (a,c,b)
-           else (c,a,b)
-        else begin
-           if a1 < c1 then (b,a,c)
-           else if c1 < b1 then (c,b,a)
-           else (b,a,c)
-        end
-    (* best of three *)
-    and best_of ((_,x) as x') ((_,y) as y') = if x <= y then x' else y' in
-    (* parabolic interpolation -- main iteration in interpolation *)
-    let rec parabolic_interp ((best_t,best_l) as best) a fa b fb c fc : float * float = 
-        assert( a > 0.0 && b > 0.0 && c > 0.0 );
-        if ((abs_float (fb -. fa)) <= epsilon) or 
-           ((abs_float (fc -. fa)) <= epsilon) or (decr iter) = 0 then best
-        else
-            try
-                let x = abscissa (a,fa) (b,fb) (c,fc) in let fx = f x in
-                if fx =. fb || x =. b || x <= epsilon then best
-                else begin
-                    let best = best_of best (x,fx) in
-                    if a < x && x < b then parabolic_interp best a fa x fx b fb
-                    else if x < a then parabolic_interp best x fx a fa b fb
-                    else if b < x && x < c then parabolic_interp best b fb x fx c fc
-                    else if c < x then parabolic_interp best b fb c fc x fx
-                    else failwith "shouldn't happen"
-                end
-            with | Colinear -> brent_decision best a fa b fb c fc
-    (* golden section search -- not used since we can guarantee bracket *)
-    and golden_ratio ((best_t,best_l) as best) a af b bf c cf  =
-        assert( a > 0.0 && b > 0.0 && c > 0.0 );
-        let best,(a,fa),(nb,nfb),(c,fc) = 
-            if (abs_float (c-.b)) > (abs_float (b-.a)) then
-                let other = golden_middle b c in let other = (other,f other) in
-                let best = best_of best other in
-                best,(b,bf),other,(c,cf)
-            else 
-                let other = golden_middle a b in let other = (other,f other) in
-                let best = best_of best other in
-                best,(a,af),other,(b,bf)
-        in
-        if bf =. nfb or (decr iter) = 0 then best
-        else brent_decision best a fa nb nfb c fc
-    (* brent exponential search, when points are colinear or monotonic *)
-    and brent_exp ((best_t,best_l) as best) a fa b fb c fc : float * float =
-        assert (fc < fa ); (* since we estimate "past" c *)
-        let n = match golden_exterior a c with
-            | x when x <= 0.0 -> epsilon
-            | x -> x 
-        in
-        let other = n,f n in
-        brent_decision (best_of best other) b fb c fc n (snd other)
-    (* decide what to do -- parabolic interpotion or expansion of range *) 
-    and brent_decision best lower fl middle fm upper fu : float * float =
-        let (lower,fl),(middle,fm),(upper,fu) = 
-            order_tuples (lower,fl) (middle,fm) (upper,fu) in
-        if lower =. upper then best
-        else if fl <= fm && fm <= fu then (* monotonically increasing *)
-            brent_exp best upper fu middle fm lower fl
-        else if fl >= fm && fm >= fu then (* monotonically decreasing *)
-            brent_exp best lower fl middle fm upper fu
-        else if fm <= fl && fm <= fu then (* minimum between *)
-            parabolic_interp best lower fl middle fm upper fu
-        else 
-            golden_ratio best lower fl middle fm upper fu
-    in
-    (* set up variables.. order arguments,find golden middle and evaluate... *)
-    assert( lower != upper );
-    let middle = golden_middle lower upper in
-    let fl = f lower and fm = f middle and fu = f upper in
-    let best = best_of orig (best_of (lower,fl) (best_of (middle,fm) (upper,fu))) in
-    let ((t,ll) as x) = brent_decision best lower fl middle fm upper fu in
-    Printf.printf "Iterated: %d\tImprovement: %f\tBranch: %f -> %f\n%!"
-                  (1000 - !iter) (orig_ll -. ll) orig_bl t;
-    x
-
 (**
  * converts the stored variables into float array/matrices and computes mle
 *)
@@ -363,14 +309,14 @@ let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) =
     close_out out_chan;
     ()
 
-(**
- * converts the stored variables into float array/matrices and adjusts branches *)
+(** converts the stored variables into float array/matrices and adjusts branches *)
 let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
     let dist = t1 +. t2 in
-    let median_2 t1 t2 = let _,_,ll = ocaml_median a b 0 0 t1 t2 in ll in
-    let t,ll = brents_method (dist,b_ll)
-                             (fun x -> let half = x /. 2.0 in median_2 half half)
-                             (dist /. 10.0) (dist *. 1.5) epsilon
+    let median_2 t1 t2 = let x,_,ll = ocaml_median a b 0 0 t1 t2 in (x,ll) in
+    let t,(_,ll) = 
+        Numerical.brents_method 
+            (dist,(median_2 t1 t2))
+            (fun x -> let half = x /. 2.0 in median_2 half half)
     in
     let new_halves = t /. 2.0 in
     new_halves,new_halves,ll
@@ -392,37 +338,35 @@ let estimate_time a b =
 
 (* [median] calculate the new new node between [an] and [bn] with
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
-let median an bn t1 t2 acode bcode =
-    if pure_ocaml then begin
-        let faa,faa_i,loglike = ocaml_median an bn acode bcode t1 t2 in
-        { an with
-            chars = 
-                bigarray_s 
-                    (Bigarray.Array3.of_array Bigarray.float64
-                                              Bigarray.c_layout
-                                              faa)
-                    (match faa_i with
-                        | Some faa_i -> 
-                           Some (Bigarray.Array1.of_array Bigarray.int32
-                                                          Bigarray.c_layout
-                                                          faa_i)
-                        | None -> None)
-                    (MlModel.get_costfn_code an.model);
-            mle = loglike;
-        }
-    end else
+let median2 an bn t1 t2 acode bcode =
+(*    if pure_ocaml then begin*)
+(*        let faa,faa_i,loglike = ocaml_median an bn acode bcode t1 t2 in*)
+(*        { an with*)
+(*            chars = *)
+(*                bigarray_s *)
+(*                    (Bigarray.Array3.of_array Bigarray.float64*)
+(*                                              Bigarray.c_layout*)
+(*                                              faa)*)
+(*                    (match faa_i with*)
+(*                        | Some faa_i -> *)
+(*                           Some (Bigarray.Array1.of_array Bigarray.int32*)
+(*                                                          Bigarray.c_layout*)
+(*                                                          faa_i)*)
+(*                        | None -> None)*)
+(*                    (MlModel.get_costfn_code an.model);*)
+(*            mle = loglike;*)
+(*        }*)
+(*    end else*)
         let am = an.model in
         let n_chars = match am.MlModel.ui with
             | None -> 
-                median_sym FMatrix.scratch_space 
+                median2_sym FMatrix.scratch_space 
                     am.MlModel.u am.MlModel.d t1 t2 an.chars bn.chars 
-                    am.MlModel.rate am.MlModel.prob
-                    (MlModel.get_costfn_code am)
+                    am.MlModel.rate (MlModel.get_costfn_code am)
             | Some ui -> 
-                median_gtr FMatrix.scratch_space 
+                median2_gtr FMatrix.scratch_space 
                     am.MlModel.u am.MlModel.d ui t1 t2 an.chars bn.chars
-                    am.MlModel.rate am.MlModel.prob
-                    (MlModel.get_costfn_code am)
+                    am.MlModel.rate (MlModel.get_costfn_code am)
         in
         let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
         let loglike = 
@@ -435,6 +379,51 @@ let median an bn t1 t2 acode bcode =
             chars = n_chars;
             mle = loglike; 
         }
+
+let median1 an bn t1 = 
+    let am = an.model in
+    let n_chars = match am.MlModel.ui with
+        | None -> 
+            median1_sym FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d t1 an.chars bn.chars 
+                am.MlModel.rate (MlModel.get_costfn_code am)
+        | Some ui -> 
+            median1_gtr FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d ui t1 an.chars bn.chars
+                am.MlModel.rate (MlModel.get_costfn_code am)
+    in
+    let pinvar = match am.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    let loglike = 
+        loglikelihood n_chars an.weights am.MlModel.pi_0 
+                      am.MlModel.prob pinvar (MlModel.get_costfn_code am)
+    in
+    assert( loglike >= 0.0 );
+    { an with chars = n_chars; mle = loglike; }
+
+let median3 an bn cn t1 t2 t3 =
+    let am = an.model in
+    let n_chars = match am.MlModel.ui with
+        | None -> 
+            median3_sym FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d t1 t2 t3 an.chars bn.chars 
+                cn.chars am.MlModel.rate (MlModel.get_costfn_code am)
+        | Some ui -> 
+            median3_gtr FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d ui t1 t2 t3 an.chars bn.chars
+                cn.chars am.MlModel.rate (MlModel.get_costfn_code am)
+    in
+    let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    let loglike = 
+        loglikelihood n_chars an.weights an.model.MlModel.pi_0 
+                      an.model.MlModel.prob pinvar
+                      (MlModel.get_costfn_code an.model)
+    in
+    assert( loglike >= 0.0 );
+    { an with
+        chars = n_chars;
+        mle = loglike; 
+    }
+
 
 (* of_parser stuff *)
 let rec list_of n x =
@@ -484,7 +473,7 @@ let of_parser_simple seq model =
         in
         let loop_ x =
             let elm = Alphabet.match_base x alph in
-            if gap = elm then
+            if gap = elm && not (model.MlModel.spec.MlModel.use_gap) then
                 Array.make size 1.0 
             else begin
                 list_of size 0.0 --> set_in elm --> Array.of_list
@@ -673,29 +662,21 @@ let extract_states a_node =
     !result
 
 let distance a_node b_node t1 t2 = (* codes don't matter here *)
-    let t = median a_node b_node t1 t2 0 0 in t.mle
+    let t = median2 a_node b_node t1 t2 0 0 in t.mle
 
 (* insert a node between two *)
 (* (c, b) -> (c,(a),b)  *)
 let dist_2 n a b nt at bt xt= 
-    let x = median a b at bt 0 0 in
+    let x = median2 a b at bt 0 0 in
     let tt = 0.5 in (* estimate time here *)
-    let y = median x n tt nt 0 0 in
+    let y = median2 x n tt nt 0 0 in
     y.mle
 
 let median_3 p x c1 c2  =  x
-let reroot_median a b at bt = median a b at bt 0 0
+let reroot_median a b at bt = median2 a b at bt 0 0
 let median_cost ta = ta.mle (*
     let pinvar = match ta.model.invar with | Some x -> x | None -> ~-.1.0 in
     loglikelihood ta.chars ta.model.pi_0 ta.model.prob pinvar *)
-let root_cost t = t.mle
-let to_string _ = "MLStaticCS"
-let print a = print_barray3 (fst (s_bigarray a.chars));
-              MlModel.output_model print_string `Nexus a.model None;
-              Printf.printf "\nLikelihood: %f\n%!" (a.mle)
-
-let cardinal ta = Array.length ta.codes
-let union prev ch1 ch2 = prev
 
 let f_codes t codes = 
     let loopi_ i c = match (All_sets.Integers.exists (fun x -> x = c) codes) with
