@@ -1570,7 +1570,6 @@ module F : Ptree.Tree_Operations
             let data,nodes =
                 let ptree = update_branches ptree in
                 ptree
-                    --> print_component_roots "Before IA"
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic ptree.Ptree.data
                     --> (fun x -> 
