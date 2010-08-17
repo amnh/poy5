@@ -810,18 +810,15 @@ module DOS = struct
             let ba = seq_to_bitset gap tmpa (Raw a.sequence)
             and bb = seq_to_bitset gap tmpb (Raw b.sequence) 
             and bm = seq_to_bitset gap seqmwg (Raw seqm) in
-            if(tmpa = bitset_to_seq gap ba) then ()
-            else  
-            check_seq tmpa ba;
-            if(tmpb = bitset_to_seq gap bb) then ()
-            else 
-            check_seq tmpb bb;
-            if (seqmwg = bitset_to_seq gap bm) then ()
-            else 
-            check_seq seqmwg bm;
-            assert (tmpa = bitset_to_seq gap ba);
-            assert (tmpb = bitset_to_seq gap bb);
-            assert (seqmwg = bitset_to_seq gap bm);
+(*            if(tmpa = bitset_to_seq gap ba) then ()*)
+(*                else check_seq tmpa ba;*)
+(*            if(tmpb = bitset_to_seq gap bb) then ()*)
+(*                else check_seq tmpb bb;*)
+(*            if (seqmwg = bitset_to_seq gap bm) then ()*)
+(*                else check_seq seqmwg bm;*)
+(*            assert (tmpa = bitset_to_seq gap ba);*)
+(*            assert (tmpb = bitset_to_seq gap bb);*)
+(*            assert (seqmwg = bitset_to_seq gap bm);*)
             { sequence = seqm; aligned_children = (ba, bb, bm); costs = rescost;
             position = 0; delimiters = a.delimiters}, tmpcost
 

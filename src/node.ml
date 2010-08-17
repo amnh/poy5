@@ -805,7 +805,7 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     { pm with  preliminary = res; final = res;
                                cost = cost; sum_cost = cost;
                                time = Some t1, Some t2; }
-                | _ -> pm
+
                 (* calculate the median1 for MPL with OCAML Brents *)
                 | `MPL ->
                     let calculate_single t = 

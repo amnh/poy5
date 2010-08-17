@@ -271,9 +271,7 @@ let median_fmat a_vec b_vec a_mat b_mat =
 let median_invar ain bin = 
     Array.init (Array.length ain) (fun x -> Int32.logand ain.(x) bin.(x) )
 
-(**
- * converts the stored variables into float array/matrices and computes mle
-*)
+(* converts the stored variables into float array/matrices and computes mle *)
 let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
     let make_matrix model t = MlModel.compose model t --> barray_matrix in
     (* convert abstract types to C types *)

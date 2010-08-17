@@ -25,8 +25,7 @@ IFDEF USE_LIKELIHOOD THEN
 (* The process of constructing this record is as follows,
     -- Downpass/Uppass to determine seq alignments
     -- Implied Alignment of sequence data
-    -- Downpass/Uppass of Implied Alignment data using likelihood criteria
-*)
+    -- Downpass/Uppass of Implied Alignment data using likelihood criteria *)
 type t =
     {     seq : SeqCS.t; 
         model : MlModel.model;
@@ -47,7 +46,7 @@ let code t        = t.seq.SeqCS.code
 let to_string t   = failwith_todo "to_string"
 let cardinal t    = SeqCS.cardinal t.seq
 let encoding e t  = SeqCS.encoding e t.seq
-let name_string t = match t.ia with 
+let name_string t = match t.ia with
                   | Some _ -> "Dynamic Likelihood (with ia)"
                   | None   -> "Dynamic Likelihood (w/out ia)"
 
@@ -142,6 +141,30 @@ let estimate_time a b =
 (*        !same !tran !gaps !othr total proportion nt2;*)
     (nt,nt)
 
+let remove_ambiguities dyn =
+    let gap = Alphabet.get_gap (alph dyn) in
+    let rec remove_low_order_bits x = match x land (x-1) with
+        | 0 -> x
+        | x -> remove_low_order_bits x
+    and remove_low_order_bits_from_seq seq =
+        for n = 0 to (Sequence.length seq) - 1 do
+            let sstate = Sequence.get seq n in
+            let ret = match sstate with
+                | x when x = gap -> sstate
+                | x -> remove_low_order_bits x
+            in
+            Sequence.set seq n ret
+        done
+    in
+    All_sets.IntegerMap.iter
+        (fun k v -> 
+            Array.iter
+                (fun v -> match v with
+                    | `DO v | `Last v | `First v ->
+                            remove_low_order_bits_from_seq v)
+                v)
+        (leaf_sequences dyn);
+    dyn
 
 (*---- median functions *)
 let median code a b t1 t2 =
@@ -155,11 +178,12 @@ let median code a b t1 t2 =
     in
     let aseq = { a.seq with SeqCS.heuristic = heur_cm; }
     and bseq = { b.seq with SeqCS.heuristic = heur_cm; } in
-    {
+    remove_ambiguities
+        {
           seq = SeqCS.median code aseq bseq;
         model = a.model;
            ia = None; 
-    }
+        }
 
 let readjust c1 c2 mine t1 t2 = 
     let internal_loop (t:float) : t * float = 

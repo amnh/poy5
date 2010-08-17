@@ -29,13 +29,9 @@
 #include <caml/bigarray.h>
 #include <caml/fail.h>
 
-#define STEP 1e-4     //for numerical integration
 #define EPSILON 3e-7  //error for numerical calculations
-#define ITER 100      //MAX iterations
-#define FABMIN 1e-30  //floating point absolute value min  
-
-#define max(a,b) (a >= b)?a:b
-#define min(a,b) (a <= b)?a:b
+#define ITER    100   //MAX iterations
+#define FABMIN  1e-30 //floating point absolute value min  
 
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
