@@ -621,7 +621,7 @@ double proportion( const mll* a, const mll* b)
             if(a->lv_s[k] == maxa && b->lv_s[k] == maxb){ s++; t+=2; }
             else if (a->lv_s[k] == maxa || b->lv_s[k] == maxb){ t++; }
         }
-        prop += (2*s)/t;
+        prop += (t > 0) ? ((2*s)/t) : (0);
     }
     prop = prop / (a->c_len*a->rates);
     return prop;
