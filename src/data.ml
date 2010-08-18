@@ -571,7 +571,7 @@ let convert_static_to_dynamic_branches ~src ~dest =
             (fun set new_code ->
                 let new_name = Hashtbl.find dest.character_codes new_code
                 and old_name = 
-                    let rep_code = All_sets.Integers.choose set in
+                    let rep_code = All_sets.Integers.max_elt set in
                     Hashtbl.find src.character_codes rep_code
                 in
                 let lengths = Hashtbl.find ctbl old_name in
