@@ -19,8 +19,7 @@
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
 IFDEF USE_LIKELIHOOD THEN
-let pure_ocaml   = false    (* ONLY use pure ocaml version *)
-let graph_output = false    (* graph all medians in %d--%d format *)
+let failwithf format = Printf.ksprintf failwith format
 
 (** caml links to garbage collection for deserialization **)
 external register : unit -> unit = "likelihood_CAML_register"
@@ -226,99 +225,6 @@ let print a = print_barray3 (fst (s_bigarray a.chars));
 let cardinal ta = Array.length ta.codes
 let union prev ch1 ch2 = prev
 
-(* ------------------------------------------------------
- *  A pure ocaml implementation of the median functions
-*)
-let array_map2 f a1 a2 =
-    let x = Array.make (Array.length a1) (f a1.(0) a2.(0)) in
-        for i = 1 to ((Array.length a1)-1) do
-            x.(i) <- f a1.(i) a2.(i)
-        done; x
-
-(* sum of product of two vectors *)
-let dot_product v1 v2 = 
-    let r = array_map2 ( *. ) v1 v2 in
-    let res = Array.fold_right (+.) r 0.0 in
-    res
-
-(* negative log liklihood *)
-let mle a priors probs =
-    let total = ref 0.0 in
-    Array.iteri
-        (fun i _ ->
-            let res x = -. log (dot_product x priors) in
-            let curr = Array.fold_right (+.) (Array.map res a.(i)) 0.0 in
-            total := !total +. (probs.(i) *. curr)
-        )
-        a;
-    !total
-
-(* calculate a new nodes mle and prob_vectors *)
-let median_char p_1 p_2 a b = 
-    (* calculates one element of the probability vector *)
-    let median_element a b p1 p2 x = 
-        let x1 = Array.get p1 x and x2 = Array.get p2 x in
-        let right_sum = dot_product a x1 and lefts_sum = dot_product b x2 in
-        lefts_sum *. right_sum
-    in
-    let curried_c = median_element a b p_1 p_2 in
-    let npv = Array.init (Array.length a) curried_c in
-    npv
-
-let median_fmat a_vec b_vec a_mat b_mat =
-    array_map2 (median_char a_mat b_mat) a_vec b_vec
-
-let median_invar ain bin = 
-    Array.init (Array.length ain) (fun x -> Int32.logand ain.(x) bin.(x) )
-
-(* converts the stored variables into float array/matrices and computes mle *)
-let ocaml_median (a:t) (b:t) (acode:int) (bcode:int) (t1:float) (t2:float) =
-    let make_matrix model t = MlModel.compose model t --> barray_matrix in
-    (* convert abstract types to C types *)
-    let ach,ain = s_bigarray a.chars and bch,bin = s_bigarray b.chars in
-    (* convert to ocaml primatives *)
-    let ach = barray_3matrix ach and bch = barray_3matrix bch 
-    and ain = match ain with | Some x -> Some (ba2array x) | None -> None 
-    and bin = match bin with | Some x -> Some (ba2array x) | None -> None 
-    and pi_ = ba2array (a.model.MlModel.pi_0)
-    and prob= ba2array (a.model.MlModel.prob) in
-    let root =
-        Array.mapi
-            (fun i _ -> 
-                median_fmat ach.(i) bch.(i) 
-                            (make_matrix a.model (t1 *. a.model.MlModel.rate.{i}))
-                            (make_matrix b.model (t2 *. b.model.MlModel.rate.{i})) )
-            ach (* arbitrary, as long as it's the same length *)
-    and rooti = match ain,bin with
-        | Some x, Some y -> Some (median_invar x y)
-        | None, None -> None
-        | _ -> failwith "Inconsistency"
-    in
-    root,rooti,mle root pi_ prob
-
-let ocaml_graph (a:t) (b:t) (min:float) (max:float) (step:float) (f:string) = 
-    let stepval xref = xref := !xref +. step;!xref
-    and time = ref (min -. step) and out_chan = open_out f in
-    while (stepval time) < max do
-        let c_time = !time /. 2.0 in
-        let _,_,ll = ocaml_median a b 0 0 c_time c_time in
-        Printf.fprintf out_chan "%f\t%f\n" !time ll;
-    done;
-    close_out out_chan;
-    ()
-
-(** converts the stored variables into float array/matrices and adjusts branches *)
-let ocaml_readjust (a:t) (b:t) (t1:float) (t2:float) (b_ll:float) : float * float * float =
-    let dist = t1 +. t2 in
-    let median_2 t1 t2 = let x,_,ll = ocaml_median a b 0 0 t1 t2 in (x,ll) in
-    let t,(_,ll) = 
-        Numerical.brents_method 
-            (dist,(median_2 t1 t2))
-            (fun x -> let half = x /. 2.0 in median_2 half half)
-    in
-    let new_halves = t /. 2.0 in
-    new_halves,new_halves,ll
-
 (* ------------------------------------------------------------------------- *)
 (* initial estimation functions --jc69 *)
 let min_bl = minimum_bl ()
@@ -337,24 +243,6 @@ let estimate_time a b =
 (* [median] calculate the new new node between [an] and [bn] with
  * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
 let median2 an bn t1 t2 acode bcode =
-(*    if pure_ocaml then begin*)
-(*        let faa,faa_i,loglike = ocaml_median an bn acode bcode t1 t2 in*)
-(*        { an with*)
-(*            chars = *)
-(*                bigarray_s *)
-(*                    (Bigarray.Array3.of_array Bigarray.float64*)
-(*                                              Bigarray.c_layout*)
-(*                                              faa)*)
-(*                    (match faa_i with*)
-(*                        | Some faa_i -> *)
-(*                           Some (Bigarray.Array1.of_array Bigarray.int32*)
-(*                                                          Bigarray.c_layout*)
-(*                                                          faa_i)*)
-(*                        | None -> None)*)
-(*                    (MlModel.get_costfn_code an.model);*)
-(*            mle = loglike;*)
-(*        }*)
-(*    end else*)
         let am = an.model in
         let n_chars = match am.MlModel.ui with
             | None -> 
@@ -372,7 +260,11 @@ let median2 an bn t1 t2 acode bcode =
                           an.model.MlModel.prob pinvar
                           (MlModel.get_costfn_code an.model)
         in
-        assert( loglike >= 0.0 );
+        let () = 
+            if loglike < 0.0 then
+                failwithf "Negative loglikelihood between (%d,%d) with (%f,%f)"
+                            acode bcode t1 t2 
+        in
         { an with
             chars = n_chars;
             mle = loglike; 
@@ -464,18 +356,15 @@ let of_parser_simple seq model =
     let load_characters alph ss = 
         let alph = Alphabet.to_sequential alph in
         let gap  = Alphabet.get_gap alph
-        and size = 
-            if model.MlModel.spec.MlModel.use_gap 
-                then Alphabet.size alph
-                else (Alphabet.size alph) - 1
+        and size,ugap = match model.MlModel.spec.MlModel.use_gap with
+            | `Missing -> (Alphabet.size alph) - 1,false
+            | `Independent | `Coupled _ -> Alphabet.size alph,true
         in
         let loop_ x =
             let elm = Alphabet.match_base x alph in
-            if gap = elm && not (model.MlModel.spec.MlModel.use_gap) then
-                Array.make size 1.0 
-            else begin
-                list_of size 0.0 --> set_in elm --> Array.of_list
-            end
+            if gap = elm && not ugap 
+                then Array.make size 1.0 
+                else list_of size 0.0 --> set_in elm --> Array.of_list
         in
         ss  --> List.map loop_
             --> Array.of_list
@@ -506,8 +395,8 @@ let of_parser spec weights characters =
     let (a_size,a_gap,u_gap) = 
         let alph = Alphabet.to_sequential computed_model.MlModel.alph in
         match computed_model.MlModel.spec.MlModel.use_gap with
-        | true -> Alphabet.size alph, Alphabet.get_gap alph, true
-        | false -> (Alphabet.size alph) - 1, Alphabet.get_gap alph, false
+        | `Missing-> (Alphabet.size alph)-1,Alphabet.get_gap alph,false
+        | `Independent | `Coupled _ -> Alphabet.size alph,Alphabet.get_gap alph,true
     in
     (* loop to create array for each character *)
     let loop_ (states,code) = match states with 
@@ -599,39 +488,32 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
 
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
-    if pure_ocaml then begin
-        let t1,t2,ll = ocaml_readjust c1 c2 c_t1 c_t2 mine.mle in
-        let x = Array.fold_right 
-                (fun c s -> All_sets.Integers.add c s) mine.codes x in
-        (x,mine.mle,ll,(t1,t2), {mine with mle = ll; } )
-    end else begin
-        (* copy characters to a new set *)
-        let new_mine = {mine with chars = copy mine.chars} in
-        let model = c1.model in
-        let pinv  = match model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-        (* Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle; *)
-        let (nta,nl) = match model.MlModel.ui with
-            | None ->
-                readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
-                             c1.chars c2.chars new_mine.chars c_t1 c_t2 pinv
-                             c1.weights model.MlModel.rate model.MlModel.prob
-                             model.MlModel.pi_0 new_mine.mle (MlModel.get_costfn_code model)
+    (* copy characters to a new set *)
+    let new_mine = {mine with chars = copy mine.chars} in
+    let model = c1.model in
+    let pinv  = match model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    (* Printf.printf "S: %f\t%f\t%f\n%!" c_t1 c_t2 new_mine.mle; *)
+    let (nta,nl) = match model.MlModel.ui with
+        | None ->
+            readjust_sym FMatrix.scratch_space model.MlModel.u model.MlModel.d 
+                         c1.chars c2.chars new_mine.chars c_t1 c_t2 pinv
+                         c1.weights model.MlModel.rate model.MlModel.prob
+                         model.MlModel.pi_0 new_mine.mle (MlModel.get_costfn_code model)
 
-            | Some ui ->
-                readjust_gtr FMatrix.scratch_space model.MlModel.u
-                             model.MlModel.d ui c1.chars c2.chars new_mine.chars
-                             c_t1 c_t2 pinv c1.weights model.MlModel.rate
-                             model.MlModel.prob model.MlModel.pi_0 new_mine.mle
-                             (MlModel.get_costfn_code model)
-        and ntb = c_t2 in
-        (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
-        if nta =. c_t1 then
-            (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
-        else
-            let x = Array.fold_right (* bottle neck? *)
-                    (fun c s -> All_sets.Integers.add c s) new_mine.codes x in
-            (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
-    end
+        | Some ui ->
+            readjust_gtr FMatrix.scratch_space model.MlModel.u
+                         model.MlModel.d ui c1.chars c2.chars new_mine.chars
+                         c_t1 c_t2 pinv c1.weights model.MlModel.rate
+                         model.MlModel.prob model.MlModel.pi_0 new_mine.mle
+                         (MlModel.get_costfn_code model)
+    and ntb = c_t2 in
+    (* Printf.printf "E: %f\t%f\t%f\n%!" nta ntb nl; *)
+    if nta =. c_t1 then
+        (x,new_mine.mle,new_mine.mle,(c_t1,c_t2),new_mine)
+    else
+        let x = Array.fold_right (* bottle neck? *)
+                (fun c s -> All_sets.Integers.add c s) new_mine.codes x in
+        (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
 
 (* extract maximum state from all the characters *)
 let extract_states a_node =

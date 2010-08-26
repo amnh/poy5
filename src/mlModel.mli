@@ -23,7 +23,8 @@
  * the type follows: 
  *      modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list * bool * string
+                          * float list * ( string * float ) list
+                          * (string * float option) * string
                           * string option
 
 val epsilon : float
@@ -64,13 +65,15 @@ type priors =
     | Given      of float array
     | ConstantPi of float array
 
+type gap_properties = [ `Missing | `Independent | `Coupled of float ]
+
 (** [spec] the specification of the model. *)
 type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
     cost_fn : [`MPL | `MAL ];
-    use_gap : bool;
+    use_gap : gap_properties;
     iterate_model : bool;
     iterate_alpha : bool;
 }
@@ -178,19 +181,19 @@ val  m_meanrate :
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     float array -> unit
 (** models to be used outside likelihood if necessary **)
-val m_gtr   : float array -> float array -> int ->
+val m_gtr   : float array -> float array -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f84   : float array -> float -> float -> int ->
+val m_f84   : float array -> float -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_hky85 : float array -> float -> int ->
+val m_hky85 : float array -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f81   : float array -> float -> int -> 
+val m_f81   : float array -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_tn93  : float array -> float -> float -> float -> int -> 
+val m_tn93  : float array -> float -> float -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_k2p   : float array -> float -> float -> int -> 
+val m_k2p   : float array -> float -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_jc69  : float array -> float -> int -> 
+val m_jc69  : float array -> float -> int -> (int * float) option -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 val m_file  : float array -> float array array -> int -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
@@ -205,7 +208,7 @@ val classify_seq_pairs :
             (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t)
 
 val spec_from_classification :
-    Alphabet.a -> bool -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
+    Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
         [`MAL | `MPL] -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 
 (** [compse m t] compose a matrix with the time *)

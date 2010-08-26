@@ -3999,12 +3999,12 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                     Hashtbl.replace table code
                         (Static {x with Nexus.File.st_type = model_enc; })
                 | Dynamic ({state = state} as x) when state = `Ml ->
-                    let () = match !model_opt with
-                        | None when model.MlModel.spec.MlModel.use_gap ->
+                    let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                        | None,`Independent | None,`Coupled _ ->
                             model_opt := Some model
-                        | None -> 
+                        | None,`Missing -> 
                             model_opt := Some (MlModel.add_gap_to_model priors_ model)
-                        | Some _ -> ()
+                        | Some _,_ -> ()
                     in
                     Hashtbl.replace table code
                         (Dynamic {x with state = `Ml;
@@ -4019,12 +4019,12 @@ let apply_likelihood_model_on_char_table replace data table codes model =
                 Hashtbl.replace table code
                     (Static {x with Nexus.File.st_type = model_enc; })
             | Dynamic x ->
-                let () = match !model_opt with
-                    | None when model.MlModel.spec.MlModel.use_gap ->
+                let () = match !model_opt,model.MlModel.spec.MlModel.use_gap with
+                    | None,`Independent | None,`Coupled _ ->
                         model_opt := Some model
-                    | None -> 
+                    | None, `Missing -> 
                         model_opt := Some (MlModel.add_gap_to_model priors_ model)
-                    | Some _ -> ()
+                    | Some _,_ -> ()
                 in
                 Hashtbl.replace table code
                     (Dynamic {x with state = `Ml;
@@ -4111,7 +4111,8 @@ IFDEF USE_LIKELIHOOD THEN
     | [] -> data
     | chars ->
         let data = duplicate data in
-        let u_gap = match use_gap with | `GapAsCharacter a -> a in
+        let u_gap = match use_gap with 
+            | `Independent | `Coupled _ -> true | `Missing -> false in
         let i_alpha = ref true and i_model = ref true in
         (* We get the characters and filter them out to have only static types *)
         let model =
@@ -4227,9 +4228,6 @@ IFDEF USE_LIKELIHOOD THEN
                         MlModel.File (matrix,str)
                     else
                         failwith "I@ don't@ like@ your@ input@ file."
-            and use_gap =
-                match use_gap with
-                | `GapAsCharacter x -> x
             in
             let lk_spec = { MlModel.substitution = substitution;
                             site_variation = site_variation;

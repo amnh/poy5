@@ -744,7 +744,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
      * of leaves for priors, then construct the model. *)
     let estimate_likelihood_model p_tree branches alphabet (chars,cost,subst,variation,_,gap) =
       IFDEF USE_LIKELIHOOD THEN
-        let gap = match gap with `GapAsCharacter x -> x in
         let is_leaf ptree code = match Ptree.get_node code ptree with
             | Tree.Leaf _     -> true
             | Tree.Interior _ -> false

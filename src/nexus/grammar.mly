@@ -491,10 +491,8 @@ model_block:
             { (P.Parameters $3) :: $4 }
     | FILE EQUAL QUOTED SEMICOLON model_block
             { (P.Files $3) :: $5 }
-    | GAP EQUAL MISSING SEMICOLON model_block
-            { (P.GapMode false) :: $5 }
-    | GAP EQUAL CHARACTER SEMICOLON model_block
-            { (P.GapMode true) :: $5 }
+    | GAP EQUAL IDENT SEMICOLON model_block
+            { (P.GapMode $3) :: $5 }
     | SEMICOLON { [] }
     ;
 

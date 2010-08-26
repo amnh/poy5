@@ -392,7 +392,7 @@ let calc_total_cost c1 c2 c_cost =
         assert (c1.cost_mode = c2.cost_mode);
         match c1.cost_mode with
         | `Likelihood -> c_cost
-        | `Parsimony -> c_cost +. c1.total_cost +. c2.total_cost
+        | `Parsimony  -> c_cost +. c1.total_cost +. c2.total_cost
     in
     res
 
@@ -2104,23 +2104,19 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
             let set_of_list =
                 List.fold_left (fun a v -> All_sets.Integers.add v a)
                                 All_sets.Integers.empty
-            and gap_as_character x = match x.Nexus.File.st_type with
-                | Nexus.File.STLikelihood s -> s.MlModel.spec.MlModel.use_gap
-                | _ -> assert false
             in
             (* create map of weight classes *)
             let lk_classify_weights = function
                 | (x::xs) as all ->
                     (* already characterized by group and model, so = alph *)
                     let alph_len =
-                        let p_x = 
-                            match Hashtbl.find (!data).Data.character_specs x with
+                         let x = match Hashtbl.find (!data).Data.character_specs x with
                             | Data.Static x -> x 
                             | _ -> assert false
                         in
-                        if gap_as_character p_x
-                            then Alphabet.size p_x.Nexus.File.st_alph
-                            else (Alphabet.size p_x.Nexus.File.st_alph) - 1
+                        match x.Nexus.File.st_type with
+                        | Nexus.File.STLikelihood s -> s.MlModel.alph_s
+                        | _ -> assert false
                     in
                     classify alph_len do_classify all !data
                 | [] -> assert false

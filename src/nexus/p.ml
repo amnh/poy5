@@ -117,7 +117,7 @@ type likelihood_model =
     | Other_Priors of string 
     | Chars of charset list
     | Parameters of float list
-    | GapMode of bool
+    | GapMode of string
     | Files of string
 
 type poy_data =  

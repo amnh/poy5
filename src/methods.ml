@@ -190,7 +190,7 @@ type ml_substitution = [
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
 type ml_priors = [ `Estimate | `Given of float list | `Constant ]
-type ml_gap = [`GapAsCharacter of bool ]
+type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 type ml_costfn = [`MAL | `MPL ] 
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option

@@ -1289,13 +1289,13 @@ let create_expr () =
                 [ "jc69" -> `JC69 ] |
                 [ "f81" -> `F81 ] |
                 (* values of these types get checked later *)
-                [ "f84"; x = OPT ml_floatlist -> `F84 x ] |
-                [ "k80"; x = OPT ml_floatlist -> `K2P x ] |
-                [ "k2p"; x = OPT ml_floatlist -> `K2P x ] |
-                [ "hky"; x = OPT ml_floatlist -> `HKY85 x ] |
+                [ "f84";   x = OPT ml_floatlist -> `F84   x ] |
+                [ "k80";   x = OPT ml_floatlist -> `K2P   x ] |
+                [ "k2p";   x = OPT ml_floatlist -> `K2P   x ] |
+                [ "hky";   x = OPT ml_floatlist -> `HKY85 x ] |
                 [ "hky85"; x = OPT ml_floatlist -> `HKY85 x ] |
-                [ "tn93"; x = OPT ml_floatlist -> `TN93 x ] |
-                [ "gtr"; x = OPT ml_floatlist -> `GTR x ] |
+                [ "tn93";  x = OPT ml_floatlist -> `TN93  x ] |
+                [ "gtr";   x = OPT ml_floatlist -> `GTR   x ] |
                 [ "file"; ":"; x = STRING -> `File x ]
             ];
         site_properties:
@@ -1324,12 +1324,15 @@ let create_expr () =
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
                     right_parenthesis -> `Given x ]
             ];
+        ml_gap_options :
+            [ [ LIDENT "dumb" -> `Missing ] |
+              [ LIDENT "independent" -> `Independent] |
+              [ LIDENT "coupled" -> `Coupled 0.1 ] |
+              [x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
             [
-                [",";"gap"; x =  OPT optional_boolean ->
-                    match x with 
-                    | None -> `GapAsCharacter false
-                    | Some x -> `GapAsCharacter x ]
+                [",";"gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
+                    match x with | Some x -> x | None -> `Independent ]
             ];
         ml_costfn:
             [
@@ -1345,25 +1348,15 @@ let create_expr () =
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with
-                            | None -> `GapAsCharacter false
-                            | Some x -> x
-                        and v = match v with
-                            | None -> `MAL
-                            | Some x -> `MPL
-                        in
-                        `EstLikelihood (v,w, x, y, z) ] |
+                        let z = match z with | None   -> `Missing | Some x -> x
+                        and v = match v with | None   -> `MAL | Some x -> x in
+                        `EstLikelihood (v, w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
                     w = ml_substitution; ","; x = ml_site_variation; ",";
                     y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with
-                            | None -> `GapAsCharacter false
-                            | Some x -> x
-                        and v = match v with
-                            | None -> `MAL
-                            | Some x -> x
-                        in
+                        let z = match z with | None   -> `Missing | Some x -> x
+                        and v = match v with | None   -> `MAL | Some x -> x in
                         `UseLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
