@@ -33,7 +33,7 @@ let report_error text b e =
 %token <string> BINHEX
 %token <string> BOTH
 %token <string> CHANGESET
-%token <char> CHAR
+%token <char>   CHAR
 %token <string> CHARACTER
 %token <string> CHARACTERBRANCH
 %token <string> CHARACTERS
@@ -46,7 +46,9 @@ let report_error text b e =
 %token <string> CODONS
 %token <string> CONDONPOSSET
 %token <string> CONTINUOUS
+%token <string> COST
 %token <string> COUNT
+%token <string> COUPLED
 %token <string> CSTREE
 %token <string> DATA
 %token <string> DATACSTREE
@@ -473,10 +475,12 @@ poy_block:
 model_block:
     | MODEL EQUAL IDENT SEMICOLON model_block
             { (P.Model $3) :: $5 }
-    | VARIATION EQUAL IDENT SEMICOLON model_block
-            { (P.Variation $3) :: $5 }
     | VARIATION EQUAL NONE SEMICOLON model_block
             { (P.Variation "none") :: $5 }
+    | VARIATION EQUAL IDENT SEMICOLON model_block
+            { (P.Variation $3) :: $5 }
+    | COST EQUAL IDENT SEMICOLON model_block
+            { (P.Cost_Mode $3) :: $5 }
     | SITES EQUAL INTEGER SEMICOLON model_block
             { (P.Variation_Sites $3) :: $5 }
     | PERCENT EQUAL FLOAT SEMICOLON model_block
@@ -491,8 +495,10 @@ model_block:
             { (P.Parameters $3) :: $4 }
     | FILE EQUAL QUOTED SEMICOLON model_block
             { (P.Files $3) :: $5 }
+    | GAP EQUAL COUPLED COLON FLOAT SEMICOLON model_block
+            { (P.GapMode ($3,(Some (float_of_string $5)))) :: $7 }
     | GAP EQUAL IDENT SEMICOLON model_block
-            { (P.GapMode $3) :: $5 }
+            { (P.GapMode ($3,None)) :: $5 }
     | SEMICOLON { [] }
     ;
 

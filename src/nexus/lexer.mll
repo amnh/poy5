@@ -24,7 +24,9 @@
 (*        ("CODONS", fun x -> CODONS x); we can't handle the codons block *)
         ("CONDONPOSSET", fun x -> CONDONPOSSET x);
         ("CONTINUOUS", fun x -> CONTINUOUS x);
+        ("COST", fun x -> COST x);
         ("COUNT", fun x -> COUNT x);
+        ("COUPLED", fun x -> COUPLED x);
         ("CSTREE", fun x -> CSTREE x);
         ("DATA", fun x -> DATA x);
         ("DATATYPE", fun x -> DATATYPE x);

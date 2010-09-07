@@ -96,9 +96,10 @@ module P : sig
         | Variation_Invar of string
         | Given_Priors of (string * float) list
         | Other_Priors of string 
+        | Cost_Mode of string
         | Chars of charset list
         | Parameters of float list
-        | GapMode of string
+        | Gap_Mode of (string * float option)
         | Files of string
 
     type poy_data =          (* trees , characters, (nodes , length) *)
