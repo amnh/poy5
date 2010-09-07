@@ -263,7 +263,7 @@ void classify_cycle_path(graph_t *G,
   int *Bcap, *Gcap;
 
   int i;
-  int j;
+  //int j;
   int next;
 
   int rightmost; /* the rightmost vertex in a cycle/path */

@@ -444,7 +444,7 @@ cm_CAML_comb2list_to_bigarr (value cm){
     CAMLparam1(cm);
     CAMLlocal1(res);
     int * stuff;
-    double * newstuff;
+    //double * newstuff;
     int w; int h;
     long dims[2];
     cmt c;

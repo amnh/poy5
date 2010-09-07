@@ -264,7 +264,7 @@ value grappa_CAML_get_gene_bigarr (value in_genome,value num_gene)
 value grappa_CAML_cmp_inv_dis(value c_gene1, value c_gene2, 
 				      value c_num_gen, value c_circular) {
     CAMLparam4(c_gene1, c_gene2, c_num_gen, c_circular); 
-    int num_gene, distance, circ, num_chromosome;
+    int num_gene, distance, circ/*, num_chromosome*/;
     struct genome_struct *g1, *g2;
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
@@ -354,7 +354,7 @@ grappa_CAML_inv_med
     int NUM_GENES;
     int num_cond;
     int old_max_num_genes;
-    int multichromosome=0;
+    //int multichromosome=0;
     MEDIAN_SOLVER = Int_val(medsov);
     g1 = (struct genome_struct *) Data_custom_val (c_gene1);
     g2 = (struct genome_struct *) Data_custom_val (c_gene2);
@@ -564,7 +564,7 @@ grappa_CAML_inv_med_bytecode (value * argv, int argn){
 
 value grappa_CAML_create_empty_genome(value numgene)
 {
-    struct genome_struct *new_genome;
+    //struct genome_struct *new_genome;
     CAMLparam1(numgene);
     CAMLlocal1(res);
     int Numgene = Int_val(numgene);
@@ -669,8 +669,8 @@ grappa_CAML_inversions (value genes1, value genes2,
     CAMLparam4(genes1, genes2, c_num_genes, dist);
     CAMLlocal3(resulttmp, result, r);
     List intermediate_reversals_list;
-    int num_genes, i, j, inv_dist;
-    struct genome_arr_t *genes1_arr, *genes2_arr;
+    int num_genes, i, /*j,*/ inv_dist;
+    //struct genome_arr_t *genes1_arr, *genes2_arr;
     struct genome_struct *permutation, *origin;
     int *temp_genes;
     Reversal *rev; Reversal revrev;

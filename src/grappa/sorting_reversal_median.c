@@ -506,7 +506,7 @@ free_median_memory ( )
 void 
 ini_mem_4_siepel (int ngenes)
 {
-    int minm = 0; int maxm = ( ngenes + 1 ) * 2;
+    //int minm = 0; int maxm = ( ngenes + 1 ) * 2;
     local_mem_p = new_median_memory(ngenes, 0, ( ngenes + 1 ) * 2);
     SIEPEL_MEM = * local_mem_p;
    // free_median_memory ( mem, ngenes );

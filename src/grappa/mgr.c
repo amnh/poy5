@@ -11,7 +11,7 @@
 #include "mgr_genome_ops.h"
 #include <caml/fail.h>
 //#include "mgr_write_data.h"
-
+#include "mgr_mcrdist.h"
 
 int carry_best_reag(G_struct *Genomes , int *nbreag, int nb_spec,
 					int *spec_left,
@@ -1235,10 +1235,10 @@ void better_capping (int * g1, int * g2, int num_genes, int * in_deli1, int * in
     multi_to_single (mgr_genome_list_cap[1].genes, g2, in_deli2, num_genes, num_deli2, max_num_deli);
     num_genes = num_genes + max_num_deli * 2 ;
 
-    int num_chromosomes = max_num_deli;
+    //int num_chromosomes = max_num_deli;
     tmplist = mgr_genome_list_cap;
-    int dis = mcdist_capgraph 
-        (tmplist, tmplist++, num_genes, num_chromosomes, dist_mem_cap,NULL);
+    //int dis = mcdist_capgraph 
+       // (tmplist, tmplist++, num_genes, num_chromosomes, dist_mem_cap,NULL);
     for(i=0;i<num_genes;i++)
     {
         mgr_genome_list_cap[2].genes[i] = dist_mem_cap->cappedp2[i];
@@ -1254,8 +1254,8 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
 {  
     mgr_distmem_t * dist_mem = &distmem_mgrmed;
     int i,j;
-    int NumGenomes = 3;
-    int circular;// = CIRCULAR;
+    //int NumGenomes = 3;
+    //int circular;// = CIRCULAR;
     int nb_spec=3;
     int num_genes;
     int size_alpha = SIZE_ALPHA;
@@ -1267,8 +1267,8 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
         genome_type = GMULTI;
     }
     int condensing = FALSE;
-    int optimize = FALSE;
-	int alternatives = FALSE;
+    //int optimize = FALSE;
+	//int alternatives = FALSE;
     int verbose = FALSE;
     int depth=2;/* depth of the search when running out of good rearrangements */
     int heuristic = 0; // -H: heuristic to speed up triplet resolution
@@ -1276,8 +1276,8 @@ void mgr_med (int * g1, int * g2, int * g3, int * deli1, int * deli2, int * deli
     treemem_t treemem;	/* the tree itself */
     int spec_left;		/* number of genomes left to be put in the tree */
   //  int *nbreag = NULL;/* number of rearrangements that were carried in each genome */
-    int total_weight;	/* total weight of the tree */
-    double avg_nb_rev=0;
+    //int total_weight;	/* total weight of the tree */
+    //double avg_nb_rev=0;
     int max_num_deli = 0;
     if (genome_type == GMULTI) { // multichromosomal distance
     // we've assume that we have the maximum number of chromosomes

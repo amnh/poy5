@@ -60,3 +60,5 @@ void check_list_edge(G_struct *Genomes, list_edge *the_edge_list, mgr_distmem_t 
 
 
 void compute_Rscore(list_reag *the_list, G_struct *Genomes);
+
+void free_list_listreag_memory (list_listreag *the_list);

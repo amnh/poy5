@@ -43,7 +43,7 @@ push ( List * q,  ElementUnion v )
         }
         else
         {
-            fprintf ( stderr, "ERROR: Exceeded list capacity,list's right idx=%d, left idx=%d.\n" );
+            fprintf ( stderr, "ERROR: Exceeded list capacity,list's right idx=%d, left idx=%d.\n",q->ridx,q->lidx );
             assert ( 0 );
         }
     }
@@ -167,7 +167,7 @@ clear_list ( List * l )
 void
 list_delete ( List * l, int idx )
 {
-    int i;
+    int i=0;
     if ( idx >= list_size ( l ) )
         return;
      (l->array)[l->lidx + i - 1] = (l->array)[l->lidx + i];
@@ -180,7 +180,7 @@ int
 list_contains ( List * l, ElementUnion* ptr )
 {
     int i;
-    ElementUnion * res; List * browse_lst;
+    //ElementUnion * res; List * browse_lst;
     switch ( l->dtype)
     {
         case IntData:

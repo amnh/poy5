@@ -193,7 +193,7 @@ find_circular_identity ( int *perm, int *id, int ngenes )
 int
 check_repeat ( int *arr, int size)
 {
-    int i; int j; int k;
+    int i; int j; 
     int tmparr[64];
     int sign = 0;
     for(i=0;i<64;i++) tmparr[i] = 0;

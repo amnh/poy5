@@ -556,8 +556,8 @@ void remove_null_chromos (struct mgr_genome_struct *genome_list, int nb_spec,
 					  int *num_genes, int *num_chromosomes, int alpha_size, 
                       int max_num_deli) 
 {
-	int i, j, old_num_genes, k;
-	int *new_genes;
+	int /*i, j,*/ old_num_genes/*, k*/;
+	//int *new_genes;
 	//	fprintf(stdout,"num_genes =%d,num_chromosomes=%d,alpha_size=%d,max_num_deli=%d\n",
     //            (*num_genes),(*num_chromosomes),alpha_size,max_num_deli);
     //    fflush(stdout);
@@ -609,8 +609,8 @@ void find_max_chromo_size(G_struct *Genomes, int nb_spec,cbounds_t * cb) {
 	if (genome_list[0].num_chr > 0) {
 
 		for (gindex = 0; gindex<nb_spec; gindex++) {
-            int num_genes = genome_list[gindex].num_g;
-            int num_chromosomes =  genome_list[gindex].num_chr;
+            //int num_genes = genome_list[gindex].num_g;
+            //int num_chromosomes =  genome_list[gindex].num_chr;
  //           cbounds_t cb;
  //           init_cbounds(num_genes,num_chromosomes, &genome_list[gindex], &cb);
     //        fprintf(stdout,"find max chromo size, gindex=%d \n",gindex);

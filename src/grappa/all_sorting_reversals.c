@@ -1553,7 +1553,7 @@ new_nhurdles_plus_nfortresses ( int ccidx, Reversal * rev,
 
     int new_nhurdles = 0, new_nfortresses = 0;
     ConnectedComponent *cc;
-    List *l; List ll;
+    //List *l; List ll;
 
     cc = &mem->conn_comp[ccidx];
     clear_list ( mem->V );
