@@ -22,7 +22,6 @@
 #include <assert.h>
 
 #include "config.h"
-#ifdef USE_LIKELIHOOD   
 #include <math.h>   //log,exp
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -440,5 +439,3 @@ value gamma_CAML_rates( value a, value b, value c )
     rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
     CAMLreturn( rates );
 }
-//------------------------------------------------------------------------------
-#endif /* USE_LIKELIHOOD */

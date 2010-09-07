@@ -766,9 +766,9 @@ END
 
 (* create a cost matrix from a model *)
 let model_to_cm model t =
-    let t = max epsilon t in
     let input =
         IFDEF USE_LIKELIHOOD THEN 
+            let t = max epsilon t in
             integerized_model model t
         ELSE
             failwith likelihood_not_enabled
@@ -1452,11 +1452,10 @@ let graph_function ?(steps=10000) filename lower upper f =
 (* this assumes that the spec is consistent with the model itself, the returned
  * update function ensures this consistency *)
 and get_update_function_for_model model =
+  IFDEF USE_LIKELIHOOD THEN
     let split_array ray = 
         ray.((Array.length ray)-1),
-        Array.init ((Array.length ray)-1) (fun i -> ray.(i))
-    in
-  IFDEF USE_LIKELIHOOD THEN
+        Array.init ((Array.length ray)-1) (fun i -> ray.(i)) in
     if model.spec.iterate_model then begin
         match model.spec.substitution,model.spec.use_gap with
             | JC69,`Coupled _   -> Some (fun y x -> update_jc69 y (`Coupled x.(0)))
