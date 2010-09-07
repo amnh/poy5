@@ -4401,7 +4401,7 @@ END
                         and cost   = Ptree.get_cost `Adjusted t
                         and length = TreeOps.tree_size t
                         and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"%d@]@\n");
+                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
                         fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
                         fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
                         MlModel.output_model fo `Hennig model None)

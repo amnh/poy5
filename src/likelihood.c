@@ -1025,7 +1025,7 @@ logMPL_site( const mll* l, const double weight, const double* pi,
 {
     int r, j, c;
     double max_v;
-    max_v = NEGINF;
+    max_v = c = NEGINF; /* placeholder for C; to avoid compiler warnings */
     for(r=0; r < l->rates;++r){
         c = (r * (l->stride * l->c_len)) + (l->stride * i);
         for(j=0; j < l->stride; ++j){
@@ -1315,7 +1315,7 @@ likelihood_CAML_median2_wrapped_sym( value tmp, value U, value D, value ta,
     double cta,ctb,*c_U,*c_D,*PA,*PB,*tmp1,*g_rs;
     mll *a,*b,*c;
     mat *space;
-    int num_rates,num_probs,i;
+    int num_rates,i;
     /* rates */
     num_rates = Bigarray_val(rates)->dim[0];
     g_rs = (double*) Data_bigarray_val( rates );
@@ -1586,7 +1586,7 @@ likelihood_CAML_median3_wrapped_gtr( value tmp, value U, value D, value Ui, valu
     CAMLxparam5(tc,mlla,mllb,mllc,rates);
     CAMLxparam1(mpl);
     CAMLlocal2( res, ml_d );
-    double cta,ctb,ctc,llk;
+    double cta,ctb,ctc;
     int n_rates;
 
     n_rates = Bigarray_val(rates)->dim[0];
@@ -1622,7 +1622,7 @@ likelihood_CAML_median3_wrapped_sym( value tmp, value U, value D, value ta,
     CAMLxparam5(tc,mlla,mllb,mllc,rates);
     CAMLxparam1(mpl);
     CAMLlocal2( res, ml_d );
-    double cta,ctb,ctc,llk;
+    double cta,ctb,ctc;
     int n_rates;
 
     n_rates = Bigarray_val(rates)->dim[0];
@@ -1696,7 +1696,7 @@ median_1_sym(mat* space, const double* U, const double* D, const mll* amll,
         const int num_rates, const int mpl)
 {
     int i;
-    double *PA, *PB, *PC, *TMP;
+    double *PA, *TMP;
 
     /* allocate D */
     dmll->stride = amll->stride;
@@ -1729,7 +1729,7 @@ median_1_gtr(mat* space, const double* U, const double* D, const double* Ui,
         const double* rates, const int num_rates, const int mpl)
 {
     int i;
-    double *PA, *PB, *PC, *TMP;
+    double *PA, *TMP;
 
     /* allocate D */
     dmll->stride = amll->stride;
@@ -1764,7 +1764,7 @@ likelihood_CAML_median1_wrapped_gtr( value tmp, value U, value D, value Ui, valu
     CAMLparam5(tmp,U,D,Ui,ta);
     CAMLxparam4(mlla,mllb,rates,mpl);
     CAMLlocal2( res, ml_d );
-    double cta,llk;
+    double cta;
     int n_rates;
 
     n_rates = Bigarray_val(rates)->dim[0];
@@ -1796,7 +1796,7 @@ likelihood_CAML_median1_wrapped_sym( value tmp, value U, value D, value ta,
     CAMLparam5(tmp,U,D,ta,mlla);
     CAMLxparam3(mllb,rates,mpl);
     CAMLlocal2( res, ml_d );
-    double cta,llk;
+    double cta;
     int n_rates;
 
     n_rates = Bigarray_val(rates)->dim[0];

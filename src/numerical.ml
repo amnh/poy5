@@ -36,7 +36,7 @@ external gamma_rates: float -> float -> int ->
         "gamma_CAML_rates"
 
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=500) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=150) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- ensure value falls between range; if using one *)
     let minmax value = max (min v_max value) v_min in
@@ -69,7 +69,7 @@ let brents_method ?(max_iter=500) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?
             else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
             else begin (* bracketed a maximum... wut? *)
                 debug_printf 
-                    "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]" l fl m fm h fh;
+                    "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]\n" l fl m fm h fh;
                 (* let us do something gracefully, push ourselves to the minimum
                  * on the left or right, and continue with the algorithm;
                  * priority pushes ourselves to smaller branches. *)

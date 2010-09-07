@@ -682,7 +682,7 @@ let output_model output nexus model set =
                             printf "@[<hov 1>%s <-> %s - %.5f@]@\n" (get_str i) 
                                     (get_str j) ray.(convert (model.alph_s-1) i j)
                         done; done;
-                        printf "@[<hov 1>%s <-> * - %.5f@]@\n" 
+                        printf "@[<hov 1>%s <-> N - %.5f@]@\n" 
                             (get_str (Alphabet.get_gap model.alph)) x
                     | `Missing | `Independent ->
                         for i = 0 to model.alph_s - 1 do for j = i+1 to model.alph_s - 1 do
