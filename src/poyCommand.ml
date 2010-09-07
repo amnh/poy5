@@ -1325,7 +1325,7 @@ let create_expr () =
                     right_parenthesis -> `Given x ]
             ];
         ml_gap_options :
-            [ [ LIDENT "dumb" -> `Missing ] |
+            [ [ LIDENT "missing" -> `Missing ] |
               [ LIDENT "independent" -> `Independent] |
               [ LIDENT "coupled" -> `Coupled 0.1 ] |
               [x = integer_or_float -> `Coupled (float_of_string x) ] ];
