@@ -32,7 +32,7 @@ let debug_join_fn           = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
 let debug_uppass_fn         = false
-let debug_downpass_fn       = false
+let debug_downpass_fn       = true
 let debug_single_assignment = false
 let debug_diagnosis         = false
 
@@ -530,7 +530,7 @@ module F : Ptree.Tree_Operations
     let create_nexus : (string -> phylogeny -> unit) =
         let nexi = ref 0 and base = "chel_2" in
         (fun basename ptree ->
-            let filename = Printf.sprintf "%s_%02d_%s.nex" base !nexi basename in
+            let filename = Printf.sprintf "%02d_%s_%s.nex" !nexi base basename in
             let trees = 
                 Ptree.build_trees (ptree.Ptree.tree)
                     (fun x -> Data.code_taxon x ptree.Ptree.data)
@@ -1490,15 +1490,15 @@ module F : Ptree.Tree_Operations
     * cost information is in the implied alignment tree. *)
     let apply_implied_alignments nmgr optimize tree = 
         (* loop to control optimizations *)
-        let rec optimize_apply_implied_alignments ?(epsilon=1.0e-4) ?(max_iter=10) nmgr tree = 
+        let rec optimize_implied_alignments ?(epsilon=1.0e-4) ?(max_iter=10) pi nmgr tree = 
             (* this loop optimizes the dynamic likelihood characters by optimizing
              * the implied alignments likelihood model, then reapplying to a new
              * alignment. If the optimization of the static characters does not
              * improve the score, then the function returns.
              *      PreReq: Downpass of tree *) 
-            let rec loop_ iter prev_adjusted dyn_tree = 
+            let rec loop_ best iter prev_adjusted dyn_tree = 
                 (* create_implied alignment / static tree *)
-                let static = create_static_tree true dyn_tree in
+                let static = create_static_tree pi dyn_tree in
                 let s_cost = Ptree.get_cost `Adjusted static in
                 (* optimize *)
                 let ostatic = adjust_fn ~epsilon nmgr static in
@@ -1507,12 +1507,13 @@ module F : Ptree.Tree_Operations
                     info_user_message 
                         "Dynamic Likelihood Iterated(%d): %f --> %f\n%!" iter s_cost o_cost;
                 (* compare improvement of optimizations; and of previous iteration *)
+                let best = best_tree best ostatic in
                 if (iter >= max_iter) || (o_cost +. epsilon > s_cost) then
-                    combine dyn_tree ostatic
+                    combine dyn_tree best
                 else if abs_float (prev_adjusted -. o_cost) < epsilon then
-                    combine dyn_tree ostatic
+                    combine dyn_tree best
                 else begin
-                    let ostatic = update_branches ostatic in
+                    let ostatic  = update_branches ostatic in
                     let data, nodes =
                         Data.sync_static_to_dynamic_model_branches
                             ~src:ostatic.Ptree.data ~dest:dyn_tree.Ptree.data
@@ -1528,10 +1529,15 @@ module F : Ptree.Tree_Operations
                                     Ptree.node_data = node_data; }
                         --> internal_downpass true
                         --> adjust_fn None
-                        --> loop_ (iter+1) o_cost
+                        --> loop_ best (iter+1) o_cost
                 end
             in
-            loop_ 0 (Ptree.get_cost `Adjusted tree) tree
+            loop_ tree 0 (Ptree.get_cost `Adjusted tree) tree
+        (* return the best of two trees *)
+        and best_tree tree1 tree2 = 
+            if (Ptree.get_cost `Adjusted tree1) < (Ptree.get_cost `Adjusted tree2)
+                then tree1 
+                else tree2
         (* compare priors for function below *)
         and compare_priors data_dyn data_stat = 
             MlModel.compare_priors
@@ -1539,20 +1545,19 @@ module F : Ptree.Tree_Operations
                 (Data.get_likelihood_model data_stat data_stat.Data.static_ml)
         (* A function to optimize the priors until they settle *)
         and stabilize_priors ?(iter_max=10) i dyn_tree =
-            let data =
+            let d =
                 dyn_tree
                     --> IA.to_static_homologies true filter_characters true
                                                 false `AllDynamic dyn_tree.Ptree.data
                     --> (fun x -> Data.update_priors x (x.Data.static_ml) true)
             in
-            if (compare_priors (dyn_tree.Ptree.data) data) || (i = iter_max) then
+            if (compare_priors (dyn_tree.Ptree.data) d) || (i = iter_max) then
                 (dyn_tree,i)
             else
                 let d,n =
-                    let d = Data.sync_static_to_dynamic_model_branches ~src:data
-                                ~dest:dyn_tree.Ptree.data
-                    in
-                    AllDirNode.AllDirF.load_data ~silent:true ~classify:false d
+                    Data.sync_static_to_dynamic_model_branches ~src:d
+                                            ~dest:dyn_tree.Ptree.data
+                      --> AllDirNode.AllDirF.load_data ~silent:true ~classify:false
                 in
                 let n = 
                     List.fold_left
@@ -1563,6 +1568,38 @@ module F : Ptree.Tree_Operations
                                 Ptree.node_data = n; }
                     --> internal_downpass true
                     --> stabilize_priors (i+1)
+        and optimize_priors dyn_tree = 
+            let rec update_m gap_prior model : MlModel.model =
+                let narray = (* apply new gap parameter/ normalize vector *)
+                    let gap_char = Alphabet.get_gap (model.MlModel.alph) in
+                    let old = match model.MlModel.spec.MlModel.base_priors with
+                        | MlModel.Estimated x | MlModel.Given x | MlModel.ConstantPi x -> x
+                    in
+                    let sum,_ =
+                        Array.fold_left 
+                            (fun (a,i) x -> if i = gap_char then (a,i+1) else (a +. x,i+1)) 
+                            (0.0,0) (old) in
+                    let narray = 
+                        Array.map (fun x -> x *. (1.0 -. gap_prior) /. sum) (old) in
+                    old.( gap_char ) <- gap_prior;
+                    narray
+                in
+                MlModel.replace_priors model narray
+            and update_d data gap_prior = 
+                data.Data.dynamics
+                    --> Data.get_likelihood_model data
+                    --> update_m gap_prior
+                    --> Data.apply_likelihood_model_on_chars data data.Data.dynamics
+            and optimize_f tree gap_prior = 
+                let tree = create_static_tree false 
+                                {tree with Ptree.data = update_d tree.Ptree.data gap_prior}
+                in
+                let cost = Ptree.get_cost `Adjusted tree in
+                (tree,cost)
+            in
+            let pi_g,(_,c) = Numerical.brents_method ?v_max:(Some 1.00)
+                                (0.10,optimize_f dyn_tree 0.10) (optimize_f dyn_tree) in
+            {dyn_tree with Ptree.data = update_d dyn_tree.Ptree.data pi_g; } 
         (* function to create a static tree from dynamic tree *)
         and create_static_tree update_priors ptree = 
             let old_verbosity = Status.get_verbosity () in
@@ -1618,6 +1655,12 @@ module F : Ptree.Tree_Operations
             let tree,_ = stabilize_priors 0 tree in
             Status.set_verbosity old_verbosity;
             tree
+        and optimize_priors tree = 
+            let old_verbosity = Status.get_verbosity () in
+            Status.set_verbosity `None;
+            let tree = optimize_priors tree in
+            Status.set_verbosity old_verbosity;
+            tree
         in
         (* compose above functions: create a static tree then combine w/ dynamic *)
         match using_likelihood `Dynamic tree, optimize with
@@ -1625,8 +1668,12 @@ module F : Ptree.Tree_Operations
                 let tree = stabilize_priors tree in
                 combine tree (create_static_tree false tree)
             | true, true  ->
+                tree --> optimize_priors
+                     --> optimize_implied_alignments false nmgr
+                (*
                 let tree = optimize_apply_implied_alignments nmgr tree in
                 tree
+                *)
             | false, _    -> tree
 
     let uppass ptree = 
