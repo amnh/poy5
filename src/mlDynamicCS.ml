@@ -142,29 +142,30 @@ let estimate_time a b =
     (nt,nt)
 
 let remove_ambiguities dyn =
-    let gap = Alphabet.get_gap (alph dyn) in
-    let rec remove_low_order_bits x = match x land (x-1) with
-        | 0 -> x
-        | x -> remove_low_order_bits x
-    and remove_low_order_bits_from_seq seq =
-        for n = 0 to (Sequence.length seq) - 1 do
-            let sstate = Sequence.get seq n in
-            let ret = match sstate with
-                | x when x = gap -> sstate
-                | x -> remove_low_order_bits x
-            in
-            Sequence.set seq n ret
-        done
-    in
-    All_sets.IntegerMap.iter
-        (fun k v -> 
-            Array.iter
-                (fun v -> match v with
-                    | `DO v | `Last v | `First v ->
-                            remove_low_order_bits_from_seq v)
-                v)
-        (leaf_sequences dyn);
-    dyn
+        let gap = Alphabet.get_gap (alph dyn) in
+        let rec remove_low_order_bits x = match x land (x-1) with
+            | 0 -> x
+            | x -> remove_low_order_bits x
+        and remove_low_order_bits_from_seq seq =
+            for n = 0 to (Sequence.length seq) - 1 do
+                let sstate = Sequence.get seq n in
+                let ret = match sstate with
+                    | x when x = gap -> sstate
+                    | x -> remove_low_order_bits x
+                in
+                Sequence.set seq n ret
+            done
+        in
+        if dyn.model.MlModel.spec.MlModel.cost_fn = `MPL && false then
+            All_sets.IntegerMap.iter
+                (fun k v -> 
+                    Array.iter
+                        (fun v -> match v with
+                            | `DO v | `Last v | `First v ->
+                                    remove_low_order_bits_from_seq v)
+                        v)
+                (leaf_sequences dyn);
+        dyn
 
 (*---- median functions *)
 let median code a b t1 t2 =
@@ -173,7 +174,7 @@ let median code a b t1 t2 =
         | Some t1,Some t2 -> 
             SeqCS.make_default_heuristic 
                 ~c3:(Cost_matrix.Three_D.default)
-                (MlModel.model_to_cm a.model (t1+.t2))
+                    (MlModel.model_to_cm a.model (t1+.t2))
         | _,_ -> failwith "branches not specified by caller"
     in
     let aseq = { a.seq with SeqCS.heuristic = heur_cm; }

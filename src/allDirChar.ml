@@ -32,7 +32,7 @@ let debug_join_fn           = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
 let debug_uppass_fn         = false
-let debug_downpass_fn       = true
+let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
 
