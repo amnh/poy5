@@ -1309,8 +1309,9 @@ module F : Ptree.Tree_Operations
         (* function for processing a model and applying to a tree --inner loop *)
         let f_likelihood f tree chars current_model new_values =
             let ntree =
-                Nexus.File.STLikelihood (f current_model new_values)
-                    --> Data.apply_on_static_chars tree.Ptree.data chars
+                new_values
+                    --> f current_model
+                    --> Data.apply_likelihood_model_on_chars tree.Ptree.data chars
                     --> AllDirNode.AllDirF.load_data
                     --> (fun (x,y) -> substitute_nodes y {tree with Ptree.data = x})
             in

@@ -908,8 +908,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                     let ndata, nodes =
                         (chars_,a,b,c,d,e) 
                             --> estimate_likelihood_model t bs alpha
-                            --> (fun xm -> Nexus.File.STLikelihood xm)
-                            --> Data.apply_on_static_chars t.Ptree.data chars
+                            --> Data.apply_likelihood_model_on_chars t.Ptree.data chars
                             --> Node.load_data
                     in
                     let ntree = substitute_nodes nodes {t with Ptree.data = ndata} in

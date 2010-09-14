@@ -3972,17 +3972,6 @@ let compute_priors data chars u_gap =
     final_priors
 
 
-(* apply a type to a set of STATIC characters in data *)
-let apply_on_static_chars data chars st_type = 
-    let new_specs = Hashtbl.copy data.character_specs in
-    List.iter 
-        (fun code -> 
-            match Hashtbl.find new_specs code with
-            | Static x -> 
-                Hashtbl.replace new_specs code (Static { x with Nexus.File.st_type = st_type})
-            | _ -> failwith "Illegal conversion") chars;
-    { data with character_specs = new_specs } --> categorize
-
 (* this is the only function that applies a likelihood model to a set of
  * characters. it ensures that the dynamic characters have gap as an additional
  * state *)
@@ -4089,15 +4078,27 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
  * the likelihood model specified in [lk] *)
 let set_parsimony data chars = 
 IFDEF USE_LIKELIHOOD THEN
-    let chars = 
-        let chars = `Some (get_chars_codes_comp data chars) in
-        get_code_from_characters_restricted `AllStatic data chars
+    (* apply a type to a set of STATIC characters in data *)
+    let transform_chars data chars = 
+        let new_specs = Hashtbl.copy data.character_specs in
+        List.iter 
+            (fun code -> 
+                match Hashtbl.find new_specs code with
+                | Static x -> 
+                    Hashtbl.replace new_specs code 
+                        (Static { x with Nexus.File.st_type = Nexus.File.STUnordered})
+                | Dynamic x ->
+                    Hashtbl.replace new_specs code 
+                        (Dynamic {x with lk_model = None; state = `Seq;}))
+            chars;
+        new_specs
     in
+    let chars = get_chars_codes_comp data chars in
     match chars with
-    | [] -> data
-    | chars ->
-        let data = duplicate data in
-        apply_on_static_chars data chars (Nexus.File.STUnordered)
+        | [] -> data (* no characters selected; do not duplicate data *)
+        | chars -> 
+            let new_specs = transform_chars data chars in
+            { data with character_specs = new_specs } --> categorize
 ELSE
     data
 END
@@ -4240,7 +4241,6 @@ IFDEF USE_LIKELIHOOD THEN
             MlModel.create alph lk_spec
         in
         (* We rebuild the specification of all the characters, and categorize them *)
-        (* apply_on_static_chars data chars (Nexus.File.STLikelihood model)*)
         apply_likelihood_model_on_chars data chars model
 ELSE
     failwith "Likelihood not enabled: download different binary or contact mailing list" 
@@ -6486,7 +6486,7 @@ let get_model code data =
             | _ -> failwith "Data.get_model")
     | _ -> failwith "Data.get_model 2"
 
-(* We define a function that adds the min possible cost to the  *)
+(* We define a function that adds the min possible cost to the tree *)
 let apply_on_static ordered unordered sankoff likelihood char data =
     let process_code acc code =
         match Hashtbl.find data.character_specs code with
