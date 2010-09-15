@@ -4230,6 +4230,13 @@ IFDEF USE_LIKELIHOOD THEN
                     else
                         failwith "I@ don't@ like@ your@ input@ file."
             in
+            let use_gap = 
+                let gtr = match substitution with | MlModel.GTR _ -> true | _ -> false in
+                match use_gap with
+                | `Independent when not gtr -> `Coupled MlModel.default_gap_r
+                | `Coupled _ when not gtr   -> `Independent
+                | x -> x
+            in
             let lk_spec = { MlModel.substitution = substitution;
                             site_variation = site_variation;
                             base_priors = base_priors;

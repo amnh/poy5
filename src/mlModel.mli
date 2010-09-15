@@ -137,10 +137,11 @@ val create : ?min_prior:float -> Alphabet.a -> spec -> model
  * priors, and they need to be computed again *)
 val add_gap_to_model : (unit -> float array) -> model -> model
 
-val default_tstv : float
-val default_gtr : int -> float array
+val default_tstv  : float
+val default_gtr   : int -> float array
 val default_alpha : bool -> float
 val default_invar : float
+val default_gap_r : float
 
 IFDEF USE_LIKELIHOOD THEN
 

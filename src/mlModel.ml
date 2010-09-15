@@ -843,14 +843,6 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | _     -> `MAL
-    and gap_info = 
-        match String.uppercase (fst gap),snd gap with
-        | "COUPLED", Some x -> `Coupled x
-        | "COUPLED", None   -> `Coupled default_gap_r
-        | "INDEPENDENT", _  -> `Independent
-        | "MISSING",_       -> `Missing
-        | "",_              -> `Missing
-        | _,_               -> failwith "Invalid gap property"
     and variation = match String.uppercase var with
         | "GAMMA" ->
             let alpha = try let res = float_of_string alpha in
@@ -873,6 +865,19 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
             Constant
         | _ -> failwith "Unrecognized variation method"
     and priors = List.map snd priors in
+    let gap_info =
+        let gtr = match submatrix with | GTR _ -> true | _ -> false in
+        match String.uppercase (fst gap),snd gap with
+        | "COUPLED", Some x when gtr -> `Coupled x
+        | "COUPLED", None   when gtr -> `Coupled default_gap_r
+        | "INDEPENDENT", _  when gtr -> `Independent
+        | "INDEPENDENT", None   -> `Coupled default_gap_r
+        | "INDEPENDENT", Some x -> `Coupled x
+        | "COUPLED", _  -> `Independent
+        | "MISSING",_   -> `Missing
+        | "",_          -> `Missing
+        | _,_           -> failwith "Invalid gap property"
+    in
     {   substitution = submatrix;
         site_variation = Some variation;
         base_priors = Given (Array.of_list priors);
