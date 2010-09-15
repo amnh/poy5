@@ -1676,10 +1676,10 @@ module Parse = struct
             | Branches t -> 
                 print_ 
                     (fun (_,d) -> 
-                        match d with | Some x -> fprint_out ":%f" x 
+                        match d with | Some x -> fprint_out ":%g" x 
                                      | None   -> ())
                     (fun (n,d) -> 
-                        match d with | Some x -> fprint_out "%s:%f" n x 
+                        match d with | Some x -> fprint_out "%s:%g" n x 
                                      | None   -> ())
                     t
             | Characters t ->

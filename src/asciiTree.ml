@@ -340,14 +340,14 @@ let for_formatter ?(separator = " ") split_lines newick leafsonly t =
                     "" t
     | Tree.Parse.Branches t ->
             (generator (fun (x,y) -> match y with
-                        | Some y -> Printf.ksprintf (fun x->x) "%s:%f" x y
+                        | Some y -> Printf.ksprintf (fun x->x) "%s:%g" x y
                         | None   -> x)
                       (fun (x,y) -> 
                         if x = "" || leafsonly then match y with
-                            | Some y -> Printf.sprintf ":%f" y
+                            | Some y -> Printf.sprintf ":%g" y
                             | None -> ""
                         else match y with
-                            | Some y -> Printf.sprintf "[%s]:%f" x y
+                            | Some y -> Printf.sprintf "[%s]:%g" x y
                             | None -> "[" ^ x ^ "]" )
             )
                       "" t
