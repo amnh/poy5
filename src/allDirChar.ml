@@ -1402,13 +1402,13 @@ module F : Ptree.Tree_Operations
                 and do_model = node_man#model in
                 if not (do_model || do_branches) then tree
                 else begin
-(*                    info_user_message "Optimizing Likelihood Parameters";*)
                     let n_tree = adjust_ do_model do_branches 
                                          node_man#branches None tree in
-                    info_user_message
-                        "Optimized Likelihood Params: %f to %f"
-                        (Ptree.get_cost `Adjusted tree)
-                        (Ptree.get_cost `Adjusted n_tree);
+                    if debug_model_fn then
+                        info_user_message
+                            "Optimized Likelihood Params: %f to %f"
+                            (Ptree.get_cost `Adjusted tree)
+                            (Ptree.get_cost `Adjusted n_tree);
                     n_tree
                 end
             | None ->
@@ -1417,13 +1417,13 @@ module F : Ptree.Tree_Operations
                 match !Methods.cost with
                 | `Iterative (`ApproxD iterations)
                 | `Iterative (`ThreeD  iterations) -> 
-(*                    info_user_message "Optimizing Likelihood Parameters";*)
                     let n_tree = adjust_ true (tree.Ptree.data.Data.iterate_branches) 
                                          None iterations tree in
-                    info_user_message
-                        "Optimized Likelihood Params: %f to %f"
-                        (Ptree.get_cost `Adjusted tree)
-                        (Ptree.get_cost `Adjusted n_tree);
+                    if debug_model_fn then
+                        info_user_message
+                            "Optimized Likelihood Params: %f to %f"
+                            (Ptree.get_cost `Adjusted tree)
+                            (Ptree.get_cost `Adjusted n_tree);
                     n_tree
                 | _ -> tree
         end else begin
