@@ -219,6 +219,9 @@ val readjust : All_sets.Integers.t option -> All_sets.Integers.t ->
 (*  [spec] -> [weights] -> [characters: ([states]*[code]) array] -> t *)
 val of_parser : Nexus.File.static_spec -> float array -> ((Nexus.File.static_state * int) array) -> t
 
+(** [of_parser_simple chars model] A simple parser, generates the type [t] from
+ * a list of character states, and a previously created model. Normal usage for
+ * toplevel interaction and prototyping new code. *)
 val of_parser_simple : string list -> MlModel.model -> t
 
 (* The extra cost incurred by the root of the tree. *)
