@@ -5369,7 +5369,17 @@ echo "${ECHO_T}yes" >&6; }
             ;;
         esac
         ;;
-    3.11.*)
+    3.\(0*\)|\(10\).*)
+    { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+    { { echo "$as_me:$LINENO: error: POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)
+See \`config.log' for more details." >&5
+echo "$as_me: error: POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+    ;;
+
+    *)
         NATIVEDYNLINK="dynlink.cmxa"
         { echo "$as_me:$LINENO: checking if OCaml supports dynamic linking in this architecture" >&5
 echo $ECHO_N "checking if OCaml supports dynamic linking in this architecture... $ECHO_C" >&6; }
@@ -5384,15 +5394,7 @@ echo "${ECHO_T}yes" >&6; }
 echo "${ECHO_T}no" >&6; }
             USE_NATIVEDYNLINK="true"
         fi
-	    rm -f str.cmxs*;;
-    *)
-    { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-    { { echo "$as_me:$LINENO: error: POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)
-See \`config.log' for more details." >&5
-echo "$as_me: error: POY requires OCaml version 3.10.2 or later to compile.  Please upgrade to the latest version. (You can get it from http://www.ocaml.org and follow their compilation instructions. It's really easy.)
-See \`config.log' for more details." >&2;}
-   { (exit 1); exit 1; }; }
+	    rm -f str.cmxs*
     ;;
 esac
 
