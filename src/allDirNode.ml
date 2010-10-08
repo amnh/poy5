@@ -19,7 +19,7 @@
 
 let () = SadmanOutput.register "AllDirNode" "$Revision: 1616 $"
 
-let eager = false
+let eager        = false
 let uppass_debug = false
 
 type exclude = Node.exclude
@@ -129,7 +129,7 @@ let not_with code n =
     assert (0 <> List.length n);
     match List.filter (has_code code) n with
     | [x] -> x
-    | x -> raise Not_found
+    | x   -> raise Not_found
 
 (* grabs a node in the direction with children c1 and c2 --Internal Nodes only *)
 let with_both c1 c2 n = 
@@ -418,7 +418,7 @@ module OneDirF :
 end
 
 let q_print n = 
-    let taxon_code n = match n.unadjusted with
+    let taxon_code n = match n.unadjusted @ n.adjusted with
         | h :: _ -> h.code
         | [] -> failwith "AllDirNode.taxon_code"
     in
@@ -487,7 +487,7 @@ type nad8 = Node.Standard.nad8 = struct
             code = f n.code;
             dir = 
                 match n.dir with
-                | None -> Printf.printf "\t Making None with %d -> %d\n%!" n.code (f n.code);None
+                | None        -> None
                 | Some (a, b) -> Some (f a, f b);
         }
 
@@ -1207,7 +1207,10 @@ let create_root ?branches a aa ab b ba bb opt =
 let create_root_w_times (adjusted:bool) left right =
     let get_dir parc x =
         let refresh_from = if adjusted then x.adjusted else x.unadjusted in
-        force_val (not_with parc refresh_from).lazy_node
+        try force_val (not_with parc refresh_from).lazy_node
+        with Not_found ->
+            q_print left; q_print right;
+            raise Not_found 
 
     and get_a_dir child x = 
         let refresh_from = if adjusted then x.adjusted else x.unadjusted in
@@ -1217,7 +1220,7 @@ let create_root_w_times (adjusted:bool) left right =
         |  x  -> force_val (either_with child x).lazy_node
     in
     lazy_from_fun
-        (fun () -> 
+        (fun () ->
             let l_code = AllDirF.taxon_code left
             and r_code = AllDirF.taxon_code right in
                 

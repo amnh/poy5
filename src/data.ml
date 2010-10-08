@@ -505,6 +505,17 @@ let copy_taxon_characters tc =
         Hashtbl.replace new_tc code (Hashtbl.copy othertbl)) tc;
     new_tc
 
+let copy_branches = function
+    | Some branches ->
+        let tbl = Hashtbl.create (Hashtbl.length branches) in
+        Hashtbl.iter
+            (fun k v_map ->
+                let n_map = All_sets.IntSetMap.map (fun v -> Hashtbl.copy v) v_map in
+                Hashtbl.add tbl k n_map) 
+            branches;
+        Some tbl
+    | None   -> None
+
 let duplicate data = 
     { data with
         character_code_gen = ref !(data.character_code_gen);
@@ -514,9 +525,7 @@ let duplicate data =
         character_specs = Hashtbl.copy data.character_specs;
         character_sets  = Hashtbl.copy data.character_sets;
         character_nsets = Hashtbl.copy data.character_nsets;
-        branches = match data.branches with
-            | Some branches -> Some (Hashtbl.copy branches)
-            | None -> None;
+        branches = copy_branches data.branches;
     }
 
 (* recreate static_dynamic codes from dynamic_static map *)
@@ -566,17 +575,23 @@ let convert_dynamic_to_static_branches ~src ~dest =
 
 (* the converse of the above function *)
 let convert_static_to_dynamic_branches ~src ~dest = 
-    let add_data ctbl ntbl : unit = 
+    let add_data ctbl ntbl = 
         All_sets.IntSetMap.iter
             (fun set new_code ->
                 let new_name = Hashtbl.find dest.character_codes new_code
-                and old_name = 
+                and old_name,rep_code = 
                     let rep_code = All_sets.Integers.max_elt set in
-                    Hashtbl.find src.character_codes rep_code
+                    Hashtbl.find src.character_codes rep_code,rep_code
                 in
-                let lengths = Hashtbl.find ctbl old_name in
+                let lengths = 
+                    try Hashtbl.find ctbl old_name
+                    with | Not_found -> 
+                        failwithf "Could not find old_name:%s; new_code:%d new_name:%s; rep_code:%d"
+                                    old_name new_code new_name rep_code
+                in
                 Hashtbl.add ntbl new_name lengths)
-            src.static_dynamic_codes
+            src.static_dynamic_codes;
+        ntbl
     in
     match src.branches with
     | Some branches ->
@@ -586,8 +601,7 @@ let convert_static_to_dynamic_branches ~src ~dest =
                 let results = 
                     All_sets.IntSetMap.fold
                         (fun partition lengths intset -> 
-                            let ntbl = Hashtbl.create 1 in 
-                            add_data lengths ntbl;
+                            let ntbl = add_data lengths (Hashtbl.create 17) in
                             All_sets.IntSetMap.add partition ntbl intset)
                         map
                         All_sets.IntSetMap.empty
@@ -602,7 +616,7 @@ let remove_bl force data =
     else begin
         Printf.printf "Clearing the Branches\n%!";
         { data with branches = None;
-                     iterate_branches = true; }
+                    iterate_branches = true; }
     end
 
 let set_dyna_data seq_arr  = {seq_arr = seq_arr}
@@ -1109,12 +1123,12 @@ let verify_trees data (((name,tree), file, position) : parsed_trees) =
     let leafs = List.fold_left ~f:leafs ~init:[] tree in
     let _ =
         warn_if_repeated_and_choose_uniquely leafs 
-        ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
+            ("input@ tree@ " ^ string_of_int position ^ "@ of@ file@ ") file
     in
     let res = 
-        List.fold_left ~f:(stop_if_not_all_terminals_in_tree )
-        ~init:data.taxon_names
-        leafs
+        List.fold_left ~f:(stop_if_not_all_terminals_in_tree)
+                       ~init:data.taxon_names
+                        leafs
     in
     if All_sets.StringMap.is_empty res then ()
     else 
@@ -5906,14 +5920,13 @@ let sync_dynamic_to_static_model_branches ~src ~dest =
             dest.dynamic_static_codes;
         spec
     in
-    let r = categorize { dest with character_specs = char_specs; } in
-    r
+    categorize { dest with character_specs = char_specs; }
 
 (* converse of above function *)
 let sync_static_to_dynamic_model_branches ~src ~dest = 
     (* confirm a set is consistent and return model *)
     let get_model_from_set data codes = 
-        get_model_opt data (All_sets.Integers.min_elt codes)
+        get_model_opt data (All_sets.Integers.choose codes)
     in
     let dest = convert_static_to_dynamic_branches src dest in
     let char_specs = 
@@ -5928,8 +5941,7 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
             src.static_dynamic_codes;
         spec
     in
-    let r = categorize { dest with character_specs = char_specs; } in
-    r
+    categorize { dest with character_specs = char_specs; }
 
 (* remove the absent/present columns in the parsed data, and modify the previous
  * column (the column the active/present column is adding data to), and modify
@@ -5963,7 +5975,7 @@ let remove_absent_present_encodings data =
             and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
             List.mem present data_list
         | Static sspec, (Stat (code,None),_) ->
-            let present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            let _ = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
             true
         | _,_ -> failwith "Incorrect Match1"
     and is_absent tcode code state spec = match spec,state with
@@ -5976,8 +5988,16 @@ let remove_absent_present_encodings data =
             let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
             false
         | _,_ -> failwith "Incorrect Match2"
+    and branch_remove branch name = match branch with 
+        | Some branch ->
+            Hashtbl.iter
+                (fun name v_set ->
+                    All_sets.IntSetMap.iter 
+                        (fun _ tbl -> Hashtbl.remove tbl name) (v_set) )
+                branch
+        | None -> ()
     in
-    let apply_absent_encoding specs chars names codes code = 
+    let apply_absent_encoding branch specs chars names codes code = 
         Hashtbl.iter
             (fun t_code t_state_tbl ->
                 let lkstate = Hashtbl.find t_state_tbl (code-1)
@@ -5996,12 +6016,14 @@ let remove_absent_present_encodings data =
         let name = Hashtbl.find codes code in
         Hashtbl.remove names name;
         Hashtbl.remove codes code;
-        Hashtbl.remove specs code
+        Hashtbl.remove specs code;
+        branch_remove branch name
     in
     if test_using_likelihood data then begin
-        let copy_spec = Hashtbl.copy data.character_specs
-        and copy_names= Hashtbl.copy data.character_names
-        and copy_codes= Hashtbl.copy data.character_codes
+        let copy_spec   = Hashtbl.copy data.character_specs
+        and copy_names  = Hashtbl.copy data.character_names
+        and copy_codes  = Hashtbl.copy data.character_codes
+        and copy_branch = copy_branches data.branches 
         and copy_char =
             let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
             Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
@@ -6013,10 +6035,9 @@ let remove_absent_present_encodings data =
                 (fun k v acc -> match v with
                     | Static {Nexus.File.st_type = st_type;}
                         when not (is_likelihood st_type) ->
-                            apply_absent_encoding copy_spec copy_char copy_names copy_codes k;
+                            apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
                             IntMap.map 
-                                (fun x -> 
-                                    List.filter (fun y -> not (y = k)) x)
+                                (fun x -> List.filter (fun y -> not (y = k)) x)
                                 acc
                     | Dynamic _    | Set 
                     | Kolmogorov _ | Static _ -> acc)
@@ -6028,6 +6049,7 @@ let remove_absent_present_encodings data =
                     character_names      = copy_names;
                     character_codes      = copy_codes;
                     dynamic_static_codes = map;
+                    branches             = copy_branch;
                     static_dynamic_codes = reverse_dynamic_static_codes map; }
     end else begin
         data

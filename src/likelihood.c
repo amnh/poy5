@@ -1381,7 +1381,6 @@ value likelihood_CAML_median2_wrapped_gtr( value tmp, value U, value D, value Ui
     /* ocaml macros */
     CAMLparam5( tmp,U,D,Ui,ta );
     CAMLxparam5( tb,ml_a,ml_b,rates,mpl );
-    CAMLxparam1( mpl );
     CAMLlocal1( ml_c );
     /* declare variables */
     double cta,ctb,*c_U,*c_D,*c_Ui,*PA,*PB,*tmp1,*g_rs;
