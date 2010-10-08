@@ -1161,6 +1161,18 @@ let transform_search items =
             else default_search
     | _ -> failwith "Forgot to update the list of options of search?"
 
+let process_likelihood_commands lst = 
+    let process (cost,model,vari,prior,gaps) = function
+        | `ML_cost   x -> (x,    model, vari, prior, gaps)
+        | `ML_subst  x -> (cost, x,     vari, prior, gaps)
+        | `ML_vars   x -> (cost, model, x,    prior, gaps)
+        | `ML_prior  x -> (cost, model, vari, x,     gaps)
+        | `ML_gaps   x -> (cost, model, vari, prior, x   )
+    in
+    List.fold_left (process) 
+        (`MPL,`GTR None,None,`Estimate,`Missing)
+        lst
+
 let transform_stdsearch items = 
     `StandardSearch 
         (List.fold_left
@@ -1343,20 +1355,24 @@ let create_expr () =
                 [ LIDENT "clip" -> `Clip ] |
                 [ LIDENT "noclip" -> `NoClip ]
             ];
+        ml_properties:
+            [
+                [ x = ml_substitution   -> `ML_subst x] |
+                [ x = ml_site_variation -> `ML_vars  x] |
+                [ x = ml_priors         -> `ML_prior x] |
+                [ x = ml_gaps           -> `ML_gaps  x] |
+                [ x = ml_costfn         -> `ML_cost  x]
+            ];
         transform_method:
             [
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
-                    w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with | None   -> `Missing | Some x -> x
-                        and v = match v with | None   -> `MAL | Some x -> x in
+                    lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
+                        let v,w,x,y,z = process_likelihood_commands lst in
                         `EstLikelihood (v, w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
-                    w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with | None   -> `Missing | Some x -> x
-                        and v = match v with | None   -> `MAL | Some x -> x in
+                    lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
+                        let v,w,x,y,z = process_likelihood_commands lst in
                         `UseLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
