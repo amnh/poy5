@@ -1325,14 +1325,13 @@ let create_expr () =
                 [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x;y] -> Some (x,y) | None -> None
                         | _ -> failwith "Improper Theta Argument" in
-                        Some (`Theta (int_of_string x, d)) ] |
-                [ "none" -> None ]
+                        Some (`Theta (int_of_string x, d)) ]
             ];
         ml_priors:
             [ 
-                [ "estimate" -> `Estimate ] |
-                [ "constant" -> `Constant ] | 
-                [ "given"; ":"; left_parenthesis; 
+                [ LIDENT "estimate" -> `Estimate ] |
+                [ LIDENT "constant" -> `Constant ] | 
+                [ LIDENT "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
                     right_parenthesis -> `Given x ]
             ];
@@ -1343,12 +1342,12 @@ let create_expr () =
               [x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
             [
-                [",";"gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
+                ["gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
                     match x with | Some x -> x | None -> `Independent ]
             ];
         ml_costfn:
             [
-                [",";"mal" -> `MAL] | [",";"mpl" -> `MPL]
+                ["mal" -> `MAL] | ["mpl" -> `MPL]
             ];
         partitioned_mode:
             [   
