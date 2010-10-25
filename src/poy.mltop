@@ -20,6 +20,7 @@ Build
 BuildNumber
 CharTransform
 CharacSpec
+CharacterScripting
 Chartree
 Chrom
 ChromAli
@@ -37,6 +38,7 @@ Fasta
 FileStream
 FingerPrint
 FMatrix
+FloatSequence
 GenAli
 Genome
 GenomeAli
@@ -48,6 +50,8 @@ Heap
 Help
 HelpIndex
 Hennig
+HennigLexer
+HennigParser
 ImpliedAlignment
 IncList
 IntSpec
@@ -55,6 +59,7 @@ Kolmo
 KolmoCS
 KolmoGrammar
 KolmoExtension
+Latex
 Lz
 Matrix
 MemProfiler
@@ -64,6 +69,8 @@ MlDynamicCS
 MlStaticCS
 Mst
 Nexus
+NexusLexer
+NexusParser
 Node
 NodeSig
 NonaddCS16
