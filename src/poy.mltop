@@ -20,14 +20,13 @@ Build
 BuildNumber
 CharTransform
 CharacSpec
-CharacterScripting
 Chartree
 Chrom
 ChromAli
 ChromCS
 ChromPam
-CommandLexer
 CompileFlags
+CommandLexer
 Cost_matrix
 Data
 Diagnosis
@@ -50,8 +49,6 @@ Heap
 Help
 HelpIndex
 Hennig
-HennigLexer
-HennigParser
 ImpliedAlignment
 IncList
 IntSpec
@@ -69,8 +66,6 @@ MlDynamicCS
 MlStaticCS
 Mst
 Nexus
-NexusLexer
-NexusParser
 Node
 NodeSig
 NonaddCS16
