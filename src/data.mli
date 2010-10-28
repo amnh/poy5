@@ -600,7 +600,7 @@ val make_partitioned : [`Clip | `NoClip] -> bool_characters -> d -> d
 
 val has_dynamic : d -> bool 
 val has_likelihood: d -> bool 
-val has_dynamic_likelihood: d -> bool
+val type_of_dynamic_likelihood: d -> Methods.ml_costfn option
 
 (* functions on translating data from static to dynamic *)
 val convert_dynamic_to_static_branches : src:d -> dest:d -> d

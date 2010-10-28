@@ -94,7 +94,7 @@ type node_data = {
     num_otus : int;                (** How many OTUs are a child of this node *)
     exclude_sets : All_sets.Integers.t list;
     exclude_info : exclude;
-    cost_mode : [ `Likelihood | `Parsimony ];
+    cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood ];
     (** This allows us to count how many taxa from a set are children of the
         given node *)
 }
@@ -224,13 +224,13 @@ type other_n = node_data
 
 val merge : node_data -> node_data -> node_data
 
-val empty : [`Parsimony | `Likelihood] -> node_data
+val empty : [`Parsimony | `Likelihood | `SumLikelihood ] -> node_data
 
 (** [total_cost_of_type t n] extracts the sum of the total cost of the node [n]
  * for all the characters of the type [t], as listed below *)
 val total_cost_of_type : to_single -> node_data -> float
 
-val get_cost_mode : node_data -> [ `Likelihood | `Parsimony ]
+val get_cost_mode : node_data -> [ `Likelihood | `Parsimony | `SumLikelihood ]
 
 val to_string : node_data -> string
 val print : node_data -> unit

@@ -3571,13 +3571,16 @@ let has_likelihood d =
     | [] -> false
     | _  -> true
 
-let has_dynamic_likelihood d = 
-    match d.dynamics with
-    | []      -> false
+let type_of_dynamic_likelihood d = match d.dynamics with
+    | []      -> None
     | hd :: _ ->
         match Hashtbl.find d.character_specs hd with
-        | Dynamic spec when spec.state = `Ml -> true
-        | _                                  -> false
+        | Dynamic spec when spec.state = `Ml ->
+            begin match spec.lk_model with
+                | Some s -> Some s.MlModel.spec.MlModel.cost_fn 
+                | None   -> assert false
+            end
+        | _ -> None
 
 let rec get_code_from_name data name_ls = 
   let code_ls = List.fold_right 

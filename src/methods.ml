@@ -187,11 +187,18 @@ type ml_substitution = [
     | `File of string
 ]
 
+
+type ml_costfn = [ `MAL     (* maximum average likelihood *)
+                 | `MPL     (* most parsimonious likelihood *)
+                 | `ILK     (* dynamic alignment with integerized matrix *)
+                 | `FLK     (* dynamic alignment with floating-point matrix *)
+                 | `BLK     (* both of above; used for testing *)
+                 ] 
+
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
 type ml_priors = [ `Estimate | `Given of float list | `Constant ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
-type ml_costfn = [`MAL | `MPL ] 
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)

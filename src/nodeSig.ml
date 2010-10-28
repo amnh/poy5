@@ -71,7 +71,7 @@ module type S = sig
     val apply_time : bool -> n -> n -> n
 
     (** [using_likelihood x] -> bool, if all chracters are likelihood **)
-    val using_likelihood : [`Static | `Dynamic | `Either] -> n -> bool
+    val using_likelihood : [`Static | `Integer | `Dynamic | `Either] -> n -> bool
 
     (** [estimate_time left right] estimates the time between left and right **)
     val estimate_time : n -> n -> float option list

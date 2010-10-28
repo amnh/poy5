@@ -892,7 +892,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
 
     let rec transform_tree_characters (trees,data,nodes) meth =
         match meth with
-        | `EstLikelihood ((chars,(a:[`MPL | `MAL]),b,c,d,e) as x) ->
+        | `EstLikelihood ((chars,(a:Methods.ml_costfn),b,c,d,e) as x) ->
             let () = Methods.cost := `Iterative (`ThreeD None) in
             let trees = Sexpr.fold_left
                 (fun tsexp t -> 

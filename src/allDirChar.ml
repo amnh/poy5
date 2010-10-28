@@ -36,7 +36,6 @@ let debug_downpass_fn       = false
 let debug_single_assignment = false
 let debug_diagnosis         = false
 
-
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
     else ()
@@ -62,13 +61,13 @@ module F : Ptree.Tree_Operations
     
     let force_node x = AllDirNode.force_val x.AllDirNode.lazy_node
 
-    let error_user_message format = 
+    let error_user_message format =
         Printf.ksprintf (Status.user_message Status.Error) format
-    let info_user_message format = 
+    let info_user_message format =
         Printf.ksprintf (Status.user_message Status.Information) format
-    let warning_user_message format = 
+    let warning_user_message format =
         Printf.ksprintf (Status.user_message Status.Warning) format
-    let failwithf format = 
+    let failwithf format =
         Printf.ksprintf (failwith) format
 
     (* process tree data to find branch lengths *)
@@ -157,11 +156,7 @@ module F : Ptree.Tree_Operations
             in
             ()
         in
-        let () = IntSet.fold
-                    (create_branch_table)
-                    (Ptree.get_handles ptree)
-                    ()
-        in
+        IntSet.fold (create_branch_table) (Ptree.get_handles ptree) ();
         trees_table
 
     (* check if the ptree has likelihood characters by it's data; obviously this
@@ -169,20 +164,18 @@ module F : Ptree.Tree_Operations
      * version of this function, that checks the ptree is left below for
      * posterity. *)
     let rec using_likelihood types ptree =
-        let tree_test = 
-            IntSet.fold
-                (fun k acc ->
-                    acc || (AllDirNode.AllDirF.using_likelihood 
-                                types (Ptree.get_node_data k ptree)))
-                (Ptree.get_handles ptree)
-                false
-        and data_test = match types with
+        let data_test = match types with
             | `Static   -> Data.has_likelihood ptree.Ptree.data
-            | `Dynamic  -> Data.has_dynamic_likelihood ptree.Ptree.data
+            | `Dynamic | `Integer -> 
+                begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
+                    | Some (`ILK) when types = `Integer -> true
+                    | Some (`FLK) when types = `Integer -> false
+                    | None   -> false
+                    | Some _ -> true
+                end
             | `Either   -> (using_likelihood `Static ptree ) || 
                            (using_likelihood `Dynamic ptree)
         in 
-        assert( data_test = tree_test );
         data_test
 
 
@@ -323,10 +316,11 @@ module F : Ptree.Tree_Operations
                 let nnode = AllDirNode.force_val node in
                 let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
                 let node = { AllDirNode.unadjusted = [node]; adjusted = [node] } in
+                let cost = Node.Standard.tree_cost None nnode in
                 { 
                     Ptree.root_median = Some ((`Edge (a, b)), node);
-                    component_cost = Node.Standard.tree_cost None nnode;
-                    adjusted_component_cost = Node.Standard.tree_cost None nnode;
+                    component_cost = cost; 
+                    adjusted_component_cost = cost;
                 }
             with | Not_found -> failwithf "Could not find edge data (%d,%d)" a b
         in
@@ -339,10 +333,11 @@ module F : Ptree.Tree_Operations
                 make_internal a b ptree
         | Tree.Single _ ->
                 let root = Ptree.get_node_data a ptree in
+                let cost = AllDirNode.AllDirF.tree_cost None root in
                 { 
                     Ptree.root_median = Some ((`Single a), root);
-                    component_cost = AllDirNode.AllDirF.tree_cost None root;
-                    adjusted_component_cost = AllDirNode.AllDirF.tree_cost None root;
+                    component_cost = cost;
+                    adjusted_component_cost = cost;
                 }
 
 
@@ -424,26 +419,23 @@ module F : Ptree.Tree_Operations
                 (List.hd node).AllDirNode.lazy_node
             in
             if debug_cost_fn then
-            info_user_message "calc distance of node.%d and %d : " a b;
+                info_user_message "calc distance of node.%d and %d : " a b;
             let dist = 
                 Node.distance_of_type (Node.has_to_single) 0.0
                                       (AllDirNode.force_val nda)
                                       (AllDirNode.force_val ndb)
             in
             if debug_cost_fn then
-            info_user_message "distance of node.%d and %d = %f(acc=%f) " 
-            a b dist acc;
+                info_user_message "distance of node.%d and %d = %f(acc=%f) " a b dist acc;
             dist +. acc
         in
         let single_characters_cost =  
             match root_edge with
-            | `Single _ -> 0.0
+            | `Single _    -> 0.0
             | `Edge (a, b) ->
-                    Tree.post_order_node_with_edge_visit_simple 
-                    distance
-                    (Tree.Edge (a, b))
-                    new_tree.Ptree.tree 
-                    (~-. (distance b a 0.0))
+                Tree.post_order_node_with_edge_visit_simple 
+                    distance (Tree.Edge (a, b))
+                    new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
         if debug_cost_fn then begin 
             info_user_message "Single Character Cost: %f" single_characters_cost;
@@ -1099,7 +1091,13 @@ module F : Ptree.Tree_Operations
                                 (adjust_reroot_loop affected)
                                 (true,none_affected,ptree)
                                 (all_edges)
-                    end else if using_likelihood `Dynamic ptree
+                    end else if using_likelihood `Dynamic ptree 
+                        then begin
+                            List.fold_left
+                                (adjust_reroot_loop affected)
+                                (true,none_affected,ptree)
+                                (all_edges)
+                    end else if using_likelihood `Integer ptree
                         then begin
                             List.fold_left
                                 (adjust_reroot_loop affected)
@@ -1121,12 +1119,11 @@ module F : Ptree.Tree_Operations
                     else iterator (count - 1) new_cost new_affected new_ptree
             in
             let initial_cost = check_cost_all_handles ptree in
-            iterator max_count initial_cost 
-                               first_affected
-                               ptree
+            iterator max_count initial_cost first_affected ptree
         in
         let set_handle_n_root_n_cost handle ptree =
-            if using_likelihood `Either ptree then ptree 
+            if using_likelihood `Static ptree then ptree 
+            else if using_likelihood `Integer ptree then ptree 
             else begin
                 let comp_root = Ptree.get_component_root handle ptree in
                 match comp_root.Ptree.root_median with
@@ -1287,7 +1284,8 @@ module F : Ptree.Tree_Operations
         List.fold_left process ptree edgesnhandles 
 
     let pick_best_root ptree =
-        if using_likelihood `Either ptree then ptree
+        if using_likelihood `Integer ptree then ptree
+        else if using_likelihood `Static ptree then ptree
         else general_pick_best_root blindly_trust_downpass ptree
 
     (* ----------------- *)
@@ -1302,7 +1300,7 @@ module F : Ptree.Tree_Operations
         (* get all characters to iterate *)
         and chars =
             let chars = `Some (Data.get_chars_codes_comp tree.Ptree.data `All) in
-            Data.get_code_from_characters_restricted `Likelihood tree.Ptree.data chars
+            Data.get_code_from_characters_restricted `AllLikelihood tree.Ptree.data chars
         in
         (* function for processing a model and applying to a tree --inner loop *)
         let f_likelihood f tree chars current_model new_values =
@@ -1391,7 +1389,7 @@ module F : Ptree.Tree_Operations
                 loop_bl 0 first_cost first_tree
             end
         in
-        if using_likelihood `Static tree then begin
+        if (using_likelihood `Static tree) || (using_likelihood `Dynamic tree) then begin
             match node_man with
             | Some node_man -> 
                 let do_branches =
@@ -1453,6 +1451,7 @@ module F : Ptree.Tree_Operations
                         --> pick_best_root
                         --> assign_single true
                         --> adjust_fn None
+                        --> pick_best_root
         in
         current_snapshot "AllDirChar.downpass b";
         if debug_downpass_fn then info_user_message "Downpass Ends\n%!";
@@ -1662,17 +1661,13 @@ module F : Ptree.Tree_Operations
             tree
         in
         (* compose above functions: create a static tree then combine w/ dynamic *)
-        match using_likelihood `Dynamic tree, optimize with
+        match using_likelihood `Integer tree, optimize with
             | true, false ->
                 let tree = stabilize_priors tree in
                 combine tree (create_static_tree false tree)
             | true, true  ->
                 tree --> optimize_priors
                      --> optimize_implied_alignments false nmgr
-                (*
-                let tree = optimize_apply_implied_alignments nmgr tree in
-                tree
-                *)
             | false, _    -> tree
 
     let uppass ptree = 
@@ -2066,6 +2061,7 @@ module F : Ptree.Tree_Operations
                    tree --> pick_best_root
                         --> assign_single true 
                         --> adjust_fn n_mgr
+                        --> pick_best_root
                         --> apply_implied_alignments n_mgr true
                         --> update_branches
                 in
