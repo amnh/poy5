@@ -174,7 +174,7 @@ let create_local_connection (seed_ls : seed_t list) (ali_pam : pairChromPam_t) =
     let back_arr = Array.make num_seed (-1) in 
     
     
-    let rearranged_len = ali_pam.ChromPam.rearranged_len in 
+    let rearranged_len = ChromPam.get_min_rearrangement_len ali_pam in 
     for seed_no = 0 to num_seed - 2 do
             
         let donor_seed = sorted_end_seed_arr.(seed_no) in
@@ -248,7 +248,7 @@ let connect (sta2 : int) (sta1_ls : int list)
     (evolving_seed_ls : incList_t) (ali_pam : pairChromPam_t) 
     (code1_arr : int array) (code2_arr : int array) = 
     
-    let k = ali_pam.ChromPam.k in 
+    let k = ChromPam.get_min_seed_len ali_pam in 
     let max_gap = ali_pam.ChromPam.max_gap in 
 
     let rec chain_insert (sta1 : int) 
@@ -340,8 +340,7 @@ let determine_pos_seed (suf_tree : sufTree_t) (chrom2 : Sequence.s) ali_pam =
     let code2_arr = Sequence.to_array chrom2 in 
     let code2_arr = Array.map (fun code -> code land 15) code2_arr in
 
-    let k = ali_pam.ChromPam.k in 
-        
+    let k = ChromPam.get_min_seed_len ali_pam in         
     let seed_ls = ref [] in 
     let root = suf_tree.SufTree.root in 
     
@@ -430,7 +429,7 @@ let determine_seed (chrom1 : Sequence.s) (chrom2 : Sequence.s)
     let code1_arr = Array.map (fun code -> code land 15) code1_arr in 
 
     let k_mer_tree = SufTree.create_k_mer_tree code1_arr 
-        ali_pam.ChromPam.k in     
+        (ChromPam.get_min_seed_len ali_pam) in     
     
     let pos_seed_ls = 
         match direction with        

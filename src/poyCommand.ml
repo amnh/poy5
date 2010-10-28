@@ -61,7 +61,11 @@ type identifiers = [
 
 
 type chromosome_args = [
-    | `Median_Solver of Methods.median_solver_chosen
+    | `Median_Solver of Methods.median_solver_chosen (*median solver from
+    grappa,mgr and the oldest one: vinh*)
+
+    | `Annotate_Tool of Methods.annotate_tool (*annotated tool = mauve or default*)
+
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
     | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
     | `Circular of bool (** indicate if the chromosome is circular or not *)
@@ -80,7 +84,7 @@ type chromosome_args = [
     
     (** The cost of a breakpoint happing between two chromosome *)
     | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
-
+(*
 (**  the minimum length of a block which will be considered
 * as a homologous block *)    
     | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
@@ -91,7 +95,7 @@ type chromosome_args = [
 
 (** the minimum length of a segment which is considered as a basic seed *)
     | `Seed_Len of int
-
+*)
     (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
 
@@ -1486,6 +1490,13 @@ let create_expr () =
                 [ LIDENT "caprara" -> `Albert      ] |
                 [ LIDENT "vinh" -> `Vinh     ]
             ];
+        annotate_param:
+            [
+                [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
+                -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
+                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
+                -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
+            ];
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
@@ -1498,6 +1509,11 @@ let create_expr () =
                     | `Siepel -> `Median_Solver `Siepel                     
                     | `Albert -> `Median_Solver `Albert 
                     | `Vinh -> `Median_Solver `Vinh
+                ]|
+                [ LIDENT "annotate"; ":"; left_parenthesis;
+                   c = annotate_param; 
+                   right_parenthesis
+                   -> `Annotate_Tool c
                 ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
@@ -1517,12 +1533,14 @@ let create_expr () =
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
                 [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
                       `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                [ LIDENT "min_loci_len"; ":"; c = INT -> 
+                (*
+                [ LIDENT "min_loci_len"; ":"; c = INT ->  100
                       `Sig_Block_Len (int_of_string c) ] | 
-                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 
+                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 100 
                       `Rearranged_Len (int_of_string c) ] | 
-                [ LIDENT "min_seed_length"; ":"; c = INT -> 
+                [ LIDENT "min_seed_length"; ":"; c = INT -> 9
                       `Seed_Len (int_of_string c) ] | 
+                *)
                 [ LIDENT "median"; ":"; c = INT ->
                       `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 

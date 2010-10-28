@@ -44,17 +44,19 @@ type direction_t = [ `BothDir | `Negative | `Positive ]
 
 type re_meth_t = Data.re_meth_t
 
+type annotate_tool_t = Data.annotate_tool_t
+
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
-    k                       : int;  (** min basic seed length *)
-    sig_k                   : int;  (** min significant seed length *)
-    sig_block_len           : int;  (** min signification block length *)
     max_gap                 : int; (** max distance between two basic seeds *)
-
+    sig_k                   : int;  (** min significant seed length *)
+    (*
+    k                       : int;  (** min basic seed length *)
+    sig_block_len           : int;  (** min signification block length *)
     (** It's believed that no rearrangments or reversions happened 
         within a segment whose length < unbreaked_len *)
     rearranged_len           : int;
-
+    *)
     (** Align the subsequence (min_pos1->max_pos1) of chromosome 1 to the
         subsequence (min_pos2->max_pos2) of chromosome 2. This information is
         reserved for devide-conquer techniques *)
@@ -104,7 +106,10 @@ type chromPairAliPam_t = {
     (** maximum length of sequences aligned by 3D-alignment *)
     max_3d_len : int;
     detected_3d_len : int;
+
     kept_wag : int;
+
+    annotate_tool : annotate_tool_t;
 }
 
 val chromPairAliPam_default : chromPairAliPam_t
@@ -112,3 +117,12 @@ val get_chrom_pam : Data.dyna_pam_t -> chromPairAliPam_t
 val cloneChromPairPam : chromPairAliPam_t -> chromPairAliPam_t
 val print_pair_ali_pam : chromPairAliPam_t -> unit
 val locus_indel_cost_default : int * int
+
+val get_min_seed_len : chromPairAliPam_t -> int 
+val get_min_rearrangement_len : chromPairAliPam_t -> int 
+val get_min_loci_len : chromPairAliPam_t -> int 
+
+val get_min_lcb_ratio : chromPairAliPam_t -> float
+val get_min_seed_num : chromPairAliPam_t -> int
+val get_min_bk_penalty : chromPairAliPam_t -> int
+

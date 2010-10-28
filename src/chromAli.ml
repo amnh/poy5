@@ -103,6 +103,10 @@ let get_recost user_pams =
             | `Locus_Breakpoint c -> c
             | `Locus_Inversion c -> c
 
+let use_mauve_annotator user_pams =
+    match user_pams.ChromPam.annotate_tool with
+    | `Mauve (_,_,_)  ->  true
+    | `Default (_,_,_) -> false
 
 
 (** [clone_seg s] return a fresh clone of segment [s] *)
@@ -314,7 +318,7 @@ let rec create_global_map (seq1 : Sequence.s) (seq2 : Sequence.s) cost_mat ali_p
     List.iter (fun block -> Block.invert block ali_pam.ChromPam.min_pos2 ali_pam.ChromPam.max_pos2) neg_block_ls;     
     let all_b_ls = pos_block_ls @ neg_block_ls in 
     let all_b_ls = List.filter 
-        (fun b -> Block.max_len b >= ali_pam.ChromPam.sig_block_len) all_b_ls
+        (fun b -> Block.max_len b >= (ChromPam.get_min_loci_len ali_pam)) all_b_ls
     in 
     let sep_b_ls = Block.select_separated_block all_b_ls ali_pam in  
     Block.create_alied_block_ls sep_b_ls ali_pam seq1 seq2 cost_mat;
@@ -365,8 +369,79 @@ let check_chrom_map seq1 seq2 chrom_map =
         end
     done
 
-        
-   
+(*we pick one of it's children as median, just for now. fix state later? *)      
+let create_median_mauve (seq1, chrom1_id) (seq2, chrom2_id) full_code_lstlst
+gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,recost2) cost_mat ali_pam =
+    let debug = false in
+    if debug then Printf.printf "create median mauve : \n%!";
+    let get_range full_code_lstlst in_code in_seqNO = 
+        let res = ref (-1,-1) in
+        List.iter (fun (code,(left,right)) ->
+            if (code=in_code) then res := (left,right)
+        ) (List.nth full_code_lstlst in_seqNO);
+        !res
+    in
+    let submed_ls,medlen,chrom_map = 
+        List.fold_left2 (fun (acc_seq,acc_len,acc_chrommap) code1 code2 ->
+        let left1,right1 = get_range full_code_lstlst code1 0 
+        and left2,right2 = get_range full_code_lstlst code2 1
+        in
+        if debug then
+            Printf.printf "work on code1=%d,code2=%d, left/right1=%d,%d;left/right2=%d,%d\n%!" code1 code2 left1 right1 left2 right2;
+        let subseq1,first_indel = 
+            if (right1<>(-1)) then 
+                Sequence.sub seq1 left1 (right1-left1+1), false
+            else (*what if right2=left2=-1? it's ok,second_indel will be true*)
+                Sequence.create_gap_seq (right2-left2+1), true
+        in
+        let subseq2,second_indel =
+            if (right2<>(-1)) then
+                Sequence.sub seq2 left2 (right2-left2+1), false
+            else
+                Sequence.create_gap_seq (right1-left1+1), true
+        in
+        (*the default is BothSeq for approx, why? *)
+        match first_indel,second_indel with
+        | true,true -> 
+                acc_seq,acc_len,acc_chrommap
+        | _ ->
+            let ali_or_del_cost,subseq1,subseq2 = alignment_matrix.(code1).(code2) in
+            let newseq,_ = (*we already have the cost from alignment_matrix*) 
+                Sequence.create_median_seq ~approx:`First subseq1 subseq2 cost_mat in
+            if debug then Printf.printf "ali_or_del_cost = %d\n %!" ali_or_del_cost; 
+            let med_len = Sequence.cmp_num_not_gap newseq in 
+            let sta, en, acc_len = 
+                    match med_len with
+                    | 0 -> -1, -1, acc_len
+                    | _ -> acc_len + 1, acc_len + med_len, acc_len + med_len
+            in  
+            let newmap = 
+            {    
+             sta=sta; en = en; alied_med = newseq;
+             cost = ali_or_del_cost;
+             sta1 = left1; en1 = right1; alied_seq1 = subseq1; dir1 = `Positive;             
+             sta2 = left2; en2 = right2; alied_seq2 = subseq2; dir2 = `Positive
+            }
+            in
+            acc_seq@[newseq],acc_len,acc_chrommap@[newmap]
+    ) ([],-1,[]) alied_gen_seq1 alied_gen_seq2 
+    in
+    let seq = Sequence.delete_gap (Sequence.concat submed_ls) in 
+    let ref_code = Utl.get_new_chrom_ref_code() in 
+    assert((Sequence.length seq)<> 0) ;
+    {seq = seq; 
+     ref_code = ref_code;
+     ref_code1 = chrom1_id;
+     ref_code2 = chrom2_id;
+     chrom_map = chrom_map;
+     cost1 = total_cost - recost2;
+     cost2 = total_cost - recost1;
+     recost1 = recost1;
+     recost2 = recost2;
+    }
+
+
+
 
 (** [create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, chrom2_id) global_map 
 *                  ali_mat alied_gen_seq1 alied_gen_seq2 (order2_arr, total_cost, recost1, recost2) 
@@ -375,15 +450,11 @@ let check_chrom_map seq1 seq2 chrom_map =
 let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, chrom2_id) global_map 
         ali_mat alied_gen_seq1 alied_gen_seq2 
         (order2_arr, total_cost, recost1, recost2) cost_mat ali_pam = 
-
     let approx = ali_pam.ChromPam.approx in
-
     let locus_indel_cost = ali_pam.ChromPam.locus_indel_cost in 
-    
     let adder (submed_ls, nascent_len, chrom_map) ali_pos  = 
         let gen_code1 = alied_gen_seq1.(ali_pos) in 
         let gen_code2 = alied_gen_seq2.(ali_pos) in 
-
         match gen_code1 = gen_gap_code, gen_code2 = gen_gap_code with
         | true, true -> submed_ls, nascent_len, chrom_map
         | true, _ -> 
@@ -396,13 +467,11 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
               let subseq1 = Sequence.create_gap_seq len2 in 
               let subseq2 = Sequence.sub seq2 sta2 len2 in
               let submed, _ = Sequence.create_median_seq ~approx:approx subseq1 subseq2 cost_mat in
-
               let med_len = Sequence.cmp_num_not_gap submed in
               let sta, en, nascent_len = match med_len with
               | 0 -> -1, -1, nascent_len
               | _ -> nascent_len + 1, nascent_len + med_len, nascent_len + med_len
               in  
-
               let map = {sta=sta; en = en; alied_med = submed;
                          cost = Sequence.cmp_gap_cost locus_indel_cost subseq2;
                          sta1 = -1; en1 = -1; alied_seq1 = subseq1; dir1 = `Positive;                         
@@ -410,19 +479,15 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
                         }
               in 
               List.append submed_ls [submed], nascent_len, List.append chrom_map [map]
-
         | _, true ->
               let subseq1 = List.find 
                   (fun sq -> sq.Subseq.id = gen_code1) subseq1_ls in
-
               let sta1 = subseq1.Subseq.sta in
               let en1 = subseq1.Subseq.en in 
               let len1 = en1 - sta1 + 1 in
-
               let subseq1 = Sequence.sub seq1 sta1 len1 in
               let subseq2 = Sequence.create_gap_seq len1 in 
               let submed, _ = Sequence.create_median_seq ~approx:approx subseq1 subseq2 cost_mat in
-
               let med_len = Sequence.cmp_num_not_gap submed in 
               let sta, en, new_nascent_len = match med_len with
               | 0 -> -1, -1, nascent_len
@@ -435,68 +500,51 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
                         }
               in 
               List.append submed_ls [submed], new_nascent_len, List.append chrom_map [map]
-                  
-
-
         | _, _ -> 
               let block_opt = Block.find_block global_map gen_code1 gen_code2 in 
               match block_opt with
               | Some b -> 
                     let submed, cost = Block.create_median ~approx:approx b cost_mat in
                     let med_len = Sequence.cmp_num_not_gap submed in 
-
                     let sta, en, nascent_len = match med_len with
                     | 0 -> -1, -1, nascent_len
                     | _ -> nascent_len + 1, nascent_len + med_len, nascent_len + med_len
-                    in  
-                    
+                    in     
                     let map = {sta=sta; en = en; alied_med = submed;
                                cost = cost;
                                sta1 = b.Block.sta1; en1 = b.Block.en1; 
-                               alied_seq1 = deref b.Block.alied_seq1; dir1 = `Positive;                         
-
+                               alied_seq1 = deref b.Block.alied_seq1; dir1 = `Positive;     
                                sta2 = b.Block.sta2; en2 = b.Block.en2; 
                                alied_seq2 = deref b.Block.alied_seq2; dir2 = b.Block.direction;
                               }
                     in 
                     List.append submed_ls [submed], nascent_len, List.append chrom_map [map]
-
-
               | None -> 
                     let alied_seq1, alied_seq2 = ali_mat.(gen_code1).(gen_code2) in 
-                    
                     let subseq1 = List.find  
                         (fun sq -> sq.Subseq.id = gen_code1) subseq1_ls 
                     in
                     let subseq2 = List.find  
                         (fun sq -> sq.Subseq.id = gen_code2) subseq2_ls 
                     in
-
                     let submed, cost = Sequence.create_median_seq 
                         ~approx:approx alied_seq1 alied_seq2 cost_mat 
                     in 
-
-
                     let med_len = Sequence.cmp_num_not_gap submed in 
                     let sta, en, nascent_len = match med_len with
                     | 0 -> -1, -1, nascent_len
                     | _ -> nascent_len + 1, nascent_len + med_len, nascent_len + med_len 
                     in  
-
                     let map = {sta=sta; en = en; alied_med = submed;
                                cost = cost;
                                sta1 = subseq1.Subseq.sta; en1 = subseq1.Subseq.en; 
-                               alied_seq1 = alied_seq1; dir1 = `Positive;                         
-
+                               alied_seq1 = alied_seq1; dir1 = `Positive;                    
                                sta2 = subseq2.Subseq.sta; en2 = subseq2.Subseq.en; 
-                               alied_seq2 = alied_seq2; dir2 = `Positive;                         
+                               alied_seq2 = alied_seq2; dir2 = `Positive;                    
                               }
                     in 
                     List.append submed_ls [submed], nascent_len, List.append chrom_map [map]
     in
-    
-
-
     let create_ali_order order_arr alied_gen_seq =
         let ali_len = Array.length alied_gen_seq  in 
         let rec collect pos_ls pos = 
@@ -504,9 +552,7 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
             if (pos + 1 < ali_len) && (alied_gen_seq.(pos + 1) = gen_gap_code) then 
                 collect new_pos_ls (pos + 1)
             else new_pos_ls
-    
         in
-    
         let rec travel pos pos_ls = 
             match pos = Array.length order_arr with
             | true -> List.rev pos_ls
@@ -516,7 +562,6 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
                   let new_pos_ls = collect pos_ls index in
                   travel (pos + 1) new_pos_ls
         in
-    
         let sta_ls = 
             match alied_gen_seq.(0)= gen_gap_code with
             | true -> collect [] 0
@@ -525,19 +570,14 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
         let ali_order_ls = travel 0 sta_ls in     
         ali_order_ls
     in
-    
     let ali_order_ls : int list= create_ali_order order2_arr alied_gen_seq2 in 
-    
     let submed_ls, med_len, chrom_map = List.fold_left adder ([], -1, [])  ali_order_ls  in
     if (List.length chrom_map = 0) then begin
         failwith "Chrom_map length is Zero";
     end;
-    
     let seq = Sequence.delete_gap (Sequence.concat submed_ls) in 
     let ref_code = Utl.get_new_chrom_ref_code() in 
-
     (if Sequence.length seq = 0 then  failwith "Sequence length is Zero");
-
     {seq = seq; ref_code = ref_code;
      ref_code1 = chrom1_id;
      ref_code2 = chrom2_id;
@@ -564,7 +604,6 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
         fprintf seqfile ">seq1\n";  
         Sequence.print seqfile med1.seq Alphabet.nucleotides;  
         fprintf seqfile "\n";  
-
         fprintf seqfile ">seq2\n";  
         Sequence.print seqfile med2.seq Alphabet.nucleotides;  
         close_out seqfile;  
@@ -582,10 +621,27 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
                            ChromPam.max_pos2 = len2 - 1; 
                       } 
         in  
-        let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in  
+        (*let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in  
         let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
-        in     
+        in
+        *)
+        let total_cost, recost1, recost2 =
+            match (use_mauve_annotator ali_pam) with
+            | true ->
+                if debug then Printf.printf "cmp_simple_cost,call mauve annotater \n%!";
+                let _,_,_, _, _, total_cost, (recost1, recost2) =
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam
+                in
+                total_cost,recost1,recost2
+            | false ->
+                if debug then Printf.printf "cmp_simple_cost,call default annotater \n%!";
+                let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in
+                let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
+                AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
+                in
+                total_cost,recost1,recost2
+        in
         total_cost, (recost1 + recost2)
     end  
 
@@ -659,7 +715,8 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                   } 
         in 
         0, 0, [med]
-    end  else if len2 < 2 then begin 
+    end  
+    else if len2 < 2 then begin 
         let med = {seq = Sequence.clone seq1; 
                    ref_code = Utl.get_new_chrom_ref_code (); 
                    ref_code1 = med1.ref_code;
@@ -669,15 +726,49 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                    cost2 = 0; recost2 = 0;                  
                   } in 
         0, 0, [med]
-    end else begin
+    end 
+    else 
+        let total_cost,recost,med_ls =
+        match (use_mauve_annotator ali_pam) with
+        | true ->
+        if debug then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
+        let full_code_lstlst,gen_gap_code,alignment_matrix, alied_code1_lst,
+            alied_code2_lst, total_cost, (_, recost) =
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam
+        in
+        let alied_gen_seq2 = Array.of_list alied_code2_lst in
+        let re_gen_seq2 = Utl.filterArray 
+        (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
+        let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
+        let all_order_ls = 
+            if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
+            else 
+            if (Utl.isEqualArr gen_seq2 re_gen_seq2 compare) ||
+                (ali_pam.ChromPam.keep_median = 1) || 
+                (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
+            else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
+        in
+        total_cost,
+        recost,
+        List.fold_right
+            (fun (order_arr, recost1, recost2) med_ls ->
+                 let med = 
+                     create_median_mauve (seq1, med1.ref_code) (seq2, med2.ref_code)
+                     full_code_lstlst gen_gap_code alied_code1_lst alied_code2_lst 
+                     alignment_matrix (total_cost,0,recost) cost_mat ali_pam
+                 in
+                 med::med_ls
+            ) all_order_ls []
+        | false ->
+        if debug then Printf.printf "find_simple_med2_ls,call default annotater\n%!";
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
         let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 
             AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam 
         in
-        let re_gen_seq2 = Utl.filterArray (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
+        let re_gen_seq2 = Utl.filterArray 
+        (fun code2 -> code2 != gen_gap_code) alied_gen_seq2 in 
         let gen_seq2 = UtlGrappa.get_ordered_permutation re_gen_seq2 in 
-
         let all_order_ls = 
             if ali_pam.ChromPam.approx = `Second then [(gen_seq2, recost, 0)]
             else 
@@ -686,25 +777,25 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                 (ali_pam.ChromPam.approx = `First) then [(re_gen_seq2, 0, recost)]
             else [(re_gen_seq2, 0, recost); (gen_seq2, recost, 0)]
         in 
-        let med_ls = List.fold_right
+        total_cost,
+        recost,
+        List.fold_right
             (fun (order_arr, recost1, recost2) med_ls ->
                  let med = 
                      create_median subseq1_ls subseq2_ls gen_gap_code
-                         (seq1, med1.ref_code) (seq2, med2.ref_code) global_map
-                         ali_mat alied_gen_seq1 alied_gen_seq2 
-                         (order_arr, total_cost, recost1, recost2) cost_mat ali_pam
+                     (seq1, med1.ref_code) (seq2, med2.ref_code) global_map
+                     ali_mat alied_gen_seq1 alied_gen_seq2 
+                     (order_arr, total_cost, recost1, recost2) cost_mat ali_pam
                  in
                  med::med_ls
             ) all_order_ls []
-        in
+    in
+    if debug then Printf.printf "total_cost = %d, rc = %d\n%!" total_cost recost;  
 (*
        List.iter Block.print global_map; 
         fprintf stdout "Total_cost, recost: %i %i\n" total_cost recost; flush stdout;
 *) 
-if debug then
-    Printf.printf "total_cost = %d, rc = %d\n%!" total_cost recost;
-      total_cost, recost, med_ls
-    end 
+    total_cost, recost, med_ls
 
 
 

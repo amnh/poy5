@@ -44,18 +44,21 @@ type direction_t = [`Positive | `Negative | `BothDir]
 
 type re_meth_t = Data.re_meth_t
 
+type annotate_tool_t = Data.annotate_tool_t
 
 (** Parameters used to align two chromosomes *)
 type chromPairAliPam_t = {
-    k                       : int;  (** min basic seed length *)
-    sig_k                   : int;  (** min significant seed length *)
-    sig_block_len           : int;  (** min signification block length *)
     max_gap                 : int; (** max distance between two basic seeds *)
+    sig_k                   : int;  (** min significant seed length 
+    what is this?*)
+(*
+    k                       : int;  (** min basic seed length *)
+    sig_block_len           : int;  (** min signification block length *)
 
     (** It's believed that no rearrangments or reversions happened 
         within a segment whose length < unbreaked_len *)
     rearranged_len           : int;
-
+*)
     (** Align the subsequence (min_pos1->max_pos1) of chromosome 1 to the
         subsequence (min_pos2->max_pos2) of chromosome 2. This information is
         reserved for devide-conquer techniques *)
@@ -107,6 +110,8 @@ type chromPairAliPam_t = {
     detected_3d_len : int;
 
     kept_wag : int;
+
+    annotate_tool : annotate_tool_t;
 }
 
 let locus_indel_cost_default = (10, 100)
@@ -114,11 +119,11 @@ let locus_indel_cost_default = (10, 100)
 let chromPairAliPam_default = {
     min_pos1 = -1; max_pos1 = -1; 
     min_pos2 = -1; max_pos2 = -1; 
-    k = 9;  
     max_gap = 10; 
     sig_k = 12;
+    (*k = 9;  
     sig_block_len = 100;
-    rearranged_len = 100;
+    rearranged_len = 100; *)
     
     gap_opening_cost = 200;
     gap_ext_cost = 10;
@@ -144,16 +149,13 @@ let chromPairAliPam_default = {
     max_3d_len = max_int;
     detected_3d_len = 200;
     kept_wag = 1;
+
+    annotate_tool = `Default (100,100,9)
 }
 
 
 let get_chrom_pam user_chrom_pam =   
     let chrom_pam = chromPairAliPam_default  in
-    let chrom_pam = 
-        match user_chrom_pam.Data.seed_len with 
-        | None -> failwith "Do not have default value for seed_len"
-        | Some k -> {chrom_pam with k = k}
-    in 
 
     let chrom_pam = 
         match user_chrom_pam.Data.re_meth with
@@ -184,20 +186,23 @@ let get_chrom_pam user_chrom_pam =
         | None -> chrom_pam
         | Some swap_med -> {chrom_pam with swap_med = swap_med}
     in 
-
+(*
+    let chrom_pam = 
+        match user_chrom_pam.Data.seed_len with 
+        | None -> failwith "Do not have default value for seed_len"
+        | Some k -> {chrom_pam with k = k}
+    in 
     let chrom_pam = 
         match user_chrom_pam.Data.sig_block_len with
         | None -> chrom_pam
         | Some sig_block_len -> {chrom_pam with sig_block_len = sig_block_len}
     in 
-
-
     let chrom_pam = 
         match user_chrom_pam.Data.rearranged_len with
         | None -> chrom_pam
         | Some rearranged_len -> {chrom_pam with rearranged_len = rearranged_len}
     in 
-
+*)
 
     let chrom_pam = 
         match user_chrom_pam.Data.approx with
@@ -239,18 +244,22 @@ let get_chrom_pam user_chrom_pam =
         | Some max_kept_wag -> {chrom_pam with kept_wag = max_kept_wag}
     in 
 
+    let chrom_pam =
+        match user_chrom_pam.Data.annotate_tool with
+        | None -> chrom_pam
+        | Some annotate_tool -> {chrom_pam with annotate_tool = annotate_tool}
+    in
+
     chrom_pam
     
 
 
 let cloneChromPairPam (donor : chromPairAliPam_t) = {
-    k = donor.k;
     max_gap = donor.max_gap;
-    sig_block_len = donor.sig_block_len;
     sig_k = donor.sig_k;
-    rearranged_len = donor.rearranged_len;
-
-    
+    (*sig_block_len = donor.sig_block_len;
+    k = donor.k;
+    rearranged_len = donor.rearranged_len; *)
     min_pos1 = donor.min_pos1;
     min_pos2 = donor.min_pos2;
     max_pos1 = donor.max_pos1;
@@ -279,6 +288,8 @@ let cloneChromPairPam (donor : chromPairAliPam_t) = {
     detected_3d_len = donor.detected_3d_len;
     kept_wag = donor.kept_wag;
 
+    annotate_tool = donor.annotate_tool;
+
 }
 
 
@@ -290,7 +301,7 @@ let print_pair_ali_pam (pair_ali_pam : chromPairAliPam_t) =
     print stdout "(%i, %i) <-> (%i, %i) \n" pair_ali_pam.min_pos1
         pair_ali_pam.max_pos1 pair_ali_pam.min_pos2 pair_ali_pam.max_pos2;
 
-    print stdout "k: %i\n" pair_ali_pam.k;
+    (*print stdout "k: %i\n" pair_ali_pam.k;*)
 
     print stdout "max_gap: %i\n" pair_ali_pam.max_gap;
 
@@ -303,3 +314,43 @@ let print_pair_ali_pam (pair_ali_pam : chromPairAliPam_t) =
         pair_ali_pam.max_pos2 (pair_ali_pam.max_pos2 - pair_ali_pam.min_pos2 + 1);
 
 	print_endline "=================================="
+
+
+let get_min_seed_len pam =
+    match pam.annotate_tool with
+    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
+            min_seed_length
+
+let get_min_loci_len pam =
+    match pam.annotate_tool with
+    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
+            min_loci_len
+
+let get_min_rearrangement_len pam =
+    match pam.annotate_tool with
+    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
+            min_rearrangement_len
+
+let get_min_seed_num pam = 
+    match pam.annotate_tool with
+    | `Mauve (min_lcb_ratio,min_seed_num,bk_penalty) -> min_seed_num
+    | `Default (_,_,_) ->
+            failwith "Default annotator does not have this"
+
+let get_min_lcb_ratio pam =
+    match pam.annotate_tool with
+    | `Mauve (min_lcb_ratio,min_seed_num,bk_penalty) ->  min_lcb_ratio
+    | `Default (_,_,_) ->
+            failwith "Default annotator does not have this"
+
+let get_min_bk_penalty pam =
+    match pam.annotate_tool with
+    | `Mauve (min_lcb_ratio,min_seed_num,min_bk_penalty) -> min_bk_penalty
+    | `Default (_,_,_) ->
+            failwith "Default annotator does not have this"
+
+
+
