@@ -192,7 +192,7 @@ let matrix_map f mat =
     output_matrix
 (* line search along a specified direction *)
 (* Numerical Recipes in C : 9.7            *)
-let line_search ?(epsilon=1.0e-7) ?(alf=1.0e-4) f point fpoint gradient maxstep direction =
+let line_search ?(epsilon=1.0e-7) f point fpoint gradient maxstep direction =
     let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x in
     (* set up some globals for the function to avoid tons of arguments *)
     let n = Array.length point and origfpoint = get_score fpoint in
