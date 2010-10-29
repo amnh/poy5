@@ -58,7 +58,8 @@ type t = | Integerized of t_integerized
 (*         | DynamicMAL*)
 
 (*---- non-external helper functions *)
-let debug = false
+let debug  = false
+let debug_est = true
 let verify = false
 let (-->) a b = b a
 let (=.) ?(epsilon=10e-6) a b = (abs_float (a-.b)) < epsilon
@@ -72,7 +73,7 @@ let get_cm t = match t with
     | Integerized t -> t.seq.SeqCS.heuristic.SeqCS.c2
     | FPAlign t     -> failwith_todo "get_cm (FPAlign)"
 
-let to_string t   = failwith_todo "to_string"
+let to_string t = failwith_todo "to_string"
 
 let alph t = match t with
     | FPAlign t     -> t.fmodel.MlModel.alph
@@ -86,8 +87,8 @@ let cardinal t = match t with
     | FPAlign t     -> Array.length t.codes
     | Integerized t -> SeqCS.cardinal t.seq
 
-let encoding e t  = match t with
-    | FPAlign t     -> 
+let encoding e t = match t with
+    | FPAlign t -> 
         Array.fold_left
             (fun acc x -> 
                 Sequence.encoding (e) (FloatSequence.FloatAlign.seq_of_s x))
@@ -131,8 +132,9 @@ let s_of_seq seq : FloatSequence.FloatAlign.s array =
         --> Array.concat
         --> Array.map FloatSequence.FloatAlign.s_of_seq
 
-let leaf_sequences t = 
-    let leaf_sequences {seq = a} = 
+let leaf_sequences t = match t with
+    | Integerized t ->
+        let a = t.seq in
         let map = ref All_sets.IntegerMap.empty in
         for i = (SeqCS.cardinal a) - 1 downto 0 do
             map := All_sets.IntegerMap.add a.SeqCS.codes.(i)
@@ -152,11 +154,14 @@ let leaf_sequences t =
                 !map
         done;
         !map
-    in
-    match t with
-    | Integerized t -> leaf_sequences t
-    | FPAlign t     -> failwith "MlDynamicCS.leaf_sequences (FPAlign) not used"
-
+    | FPAlign t ->
+        Array_ops.fold_right_2
+            (fun acc x y ->
+                let y = [| `DO (FloatSequence.FloatAlign.seq_of_s y) |] in
+                All_sets.IntegerMap.add x y acc)
+            (All_sets.IntegerMap.empty)
+            (t.codes)
+            (t.ss)
 
 (*---- to formatter, and printing functions *)
 let to_formatter attr t par_opt bl d = match t with
@@ -170,34 +175,51 @@ let to_formatter attr t par_opt bl d = match t with
 (*---- special functions for likelihood in a dynamic context *)
 let min_bl = MlStaticCS.minimum_bl ()
 let estimate_time a b =
-    let is_transition one two =
-        let atran =
-            try match Alphabet.complement one (alph b) with
-                | None   -> false
-                | Some x -> true
-            with | _     -> false
-        and btran =
-            try match Alphabet.complement two (alph a) with
-                | None   -> false
-                | Some x -> true
-            with | _     -> false
-        in
-        atran || btran
+(*    let is_transition one two =*)
+(*        let atran =*)
+(*            try match Alphabet.complement one (alph b) with*)
+(*                | None   -> false*)
+(*                | Some x -> true*)
+(*            with | _     -> false*)
+(*        and btran =*)
+(*            try match Alphabet.complement two (alph a) with*)
+(*                | None   -> false*)
+(*                | Some x -> true*)
+(*            with | _     -> false*)
+(*        in*)
+(*        atran || btran*)
+(*    in*)
+    let rec count_bits n =
+        if n = 0 then 0 else 1 + (count_bits (n land (n-1)))
     in
-    let same = ref 0 (* the number of aligned columns *)
-    and tran = ref 0 (* the number of transitions aligned *)
-    and gaps = ref 0 (* the number of characters aligned with gaps *)
-    and othr = ref 0 (* other aligned characters --transversions *) in
-    let gchar = Alphabet.get_gap (alph a) in
+    let same = ref 0.0 (* the number of aligned columns *)
+    and tran = ref 0.0 (* the number of transitions aligned *)
+    and gaps = ref 0.0 (* the number of characters aligned with gaps *)
+    and othr = ref 0.0 (* other aligned characters --transversions *)
+    and incr r s = r := !r +. s in
+    let gchar = Alphabet.get_gap (Alphabet.explote (alph a) 1 0) in
     let align_s_distance align_a align_b =
         for n = 0 to (Sequence.length align_a) - 1 do
             let achar = Sequence.get align_a n
             and bchar = Sequence.get align_b n in
-            if achar = bchar then incr same
-            else if achar = gchar then incr gaps
-            else if bchar = gchar then incr gaps
-            else if is_transition achar bchar then incr tran
-            else incr othr
+            (* a_tot and b_tot are the number of set bits in each character, the
+             * total of set columns in each become the total minus the aligned
+             * states (s_tot). *)
+            let a_tot = count_bits achar
+            and b_tot = count_bits bchar
+            and s_tot = count_bits (achar land bchar land (lnot gchar)) in
+            let t_tot = float_of_int ((a_tot + b_tot) - s_tot) in
+            (* incr gap if necessary *)
+            if ((gchar land achar) > 0) then incr gaps (1.0/.t_tot);
+            if ((gchar land achar) > 0) then incr gaps (1.0/.t_tot);
+            incr same ((float_of_int s_tot) /. t_tot);
+            let m_tot =
+                let m = if ((gchar land achar) > 0) then 1 else 0 in
+                let m = if ((gchar land bchar) > 0) then m+1 else m in
+                let m = t_tot -. (float_of_int (s_tot+m)) in
+                if m < 0.0 then 0.0 else m
+            in
+            incr othr (m_tot /. t_tot)
         done;
         ()
     in
@@ -225,20 +247,21 @@ let estimate_time a b =
         (* must be consistent *)
         | _ , _ -> failwith "MlDynamicCS.estimate_time; inconsistent procedures"
     in
-    let total = (!same + !tran + !gaps + !othr) in
+    let total = (!same +. !tran +. !gaps +. !othr) in
     (* below, similar to mlStatic estimate_time function *)
-    let proportion = (float_of_int !same) /. (float_of_int total) in
+    let proportion = (!same) /. (total) in
     let p = match (1.0 -. proportion) with
         | x when x < 0.75 -> x
         | x -> 0.70
     in
     let nt2 = ~-. 0.75 *. (log (1.0 -. (p *. 4.0 /. 3.0))) in
     let nt = if nt2 <= min_bl then min_bl else nt2 /. 2.0 in
-(*    Printf.printf*)
-(*        ("Aligned      : %d\nTransitions  : %d\nAligned Gaps : %d\n"^^*)
-(*         "Transversions: %d\nTotals       : %d\nProportion   : %f\n\n"^^*)
-(*         "Distance     : %f\n\n%!")*)
-(*        !same !tran !gaps !othr total proportion nt2;*)
+    if debug_est then
+        Printf.printf
+            ("Aligned      : %f\nTransitions  : %f\nGaps         : %f\n"^^
+             "Transversions: %f\nTotals       : %f\nProportion   : %f\n\n"^^
+             "Distance     : %f\n\n%!")
+            !same !tran !gaps !othr total proportion nt2;
     (nt,nt)
 
 (* Verify Cost; only used for FPAlign *)
@@ -347,7 +370,7 @@ let median_i code a b (t1:float) (t2:float) : t * float * float =
         readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
     in
     let half_time = nt /. 2.0 in
-    if debug then
+    if debug_est then
         Printf.printf "Optimized Branch of %d from %f --> %f\n%!" code start nt;
     nmine, half_time, nt -. half_time
 
@@ -405,10 +428,10 @@ let f_codes s c = match s with
         FPAlign { s with ss = seqs; codes = codes; }
 
 let f_codes_comp s c = match s with
-    | Integerized s -> 
+    | Integerized s ->
         Integerized { s with seq = SeqCS.f_codes_comp s.seq c; ia = None; }
     | FPAlign s ->
-        let codes,seqs = 
+        let codes,seqs =
             array_filter (fun x -> not (All_sets.Integers.mem x c)) s.codes s.ss
         in
         FPAlign { s with ss = seqs; codes = codes; }
@@ -416,11 +439,17 @@ let f_codes_comp s c = match s with
 
 (*---- make an initial leaf node; still requires IA. *)
 let make s m = match m.MlModel.spec.MlModel.cost_fn with
-    | `ILK -> 
-        Integerized { seq = s; imodel= m; ia = None; }
-    | `FLK -> 
-        FPAlign { ss = s_of_seq s; codes = s.SeqCS.codes; 
-                  fmodel = m; code = s.SeqCS.code; cost = 0.0; }
+    | `ILK -> Integerized { seq = s; imodel= m; ia = None; }
+    | `FLK ->
+        let data = s_of_seq s in
+        assert( (Array.length data) = (Array.length s.SeqCS.codes) );
+        FPAlign {
+                    ss = data;
+                 codes = s.SeqCS.codes;
+                fmodel = m;
+                  code = s.SeqCS.code;
+                  cost = 0.0;   }
+
     | _ -> failwith "not done yet"
 
 ELSE
