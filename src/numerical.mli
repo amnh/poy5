@@ -33,9 +33,9 @@ val brents_method :
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
  * gradient [g] and direction [d] of function [f] by point [p], attempting the
- * longest step with maximum [s] *)
+ * longest step, of maximum distance [s] *)
 val line_search : 
-    ?epsilon:float -> ?alf:float -> (float array -> 'a * float) -> float array -> 
+    ?epsilon:float -> (float array -> 'a * float) -> float array -> 
         'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
 
 (* [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian

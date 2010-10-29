@@ -222,7 +222,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        cost_mode : [ `Likelihood | `Parsimony ];
+        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -391,8 +391,9 @@ let calc_total_cost c1 c2 c_cost =
     let res = 
         assert (c1.cost_mode = c2.cost_mode);
         match c1.cost_mode with
-        | `Likelihood -> c_cost
-        | `Parsimony  -> c_cost +. c1.total_cost +. c2.total_cost
+        | `Likelihood    -> c_cost
+        | `Parsimony     -> c_cost +. c1.total_cost +. c2.total_cost
+        | `SumLikelihood -> c_cost +. c1.total_cost +. c2.total_cost
     in
     res
 
@@ -439,9 +440,10 @@ let using_likelihood types x =
         END
     in
     match types with
-    | `Static   -> x
-    | `Dynamic  -> y
-    | `Either   -> x || y
+        | `Integer  -> y
+        | `Static   -> x
+        | `Dynamic  -> y
+        | `Either   -> x || y
 
 let float_close ?(epsilon=0.001) a b =
     let diff = a -. b in
@@ -496,11 +498,7 @@ let extract_states alph data in_codes node =
     List.flatten (List.map extract_states_cs node.characters)
 
 (* calculate the median between two nodes *)
-let rec cs_median code anode bnode prev t1 t2 a b =
-    if  debug_treebuild then
-        Printf.printf "node.ml cs_median on node %d and node %d :\n%!"
-        anode.taxon_code bnode.taxon_code;
-    match a, b with
+let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
     | StaticMl ca, StaticMl cb ->
         IFDEF USE_LIKELIHOOD THEN
             assert (ca.weight = cb.weight);
@@ -522,8 +520,9 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                 | `MAL -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
                                        t1 t2 anode.taxon_code bnode.taxon_code
-               | `MPL -> assert( code <= 0 );
+                | `MPL -> assert( code <= 0 );
                     MlStaticCS.median1 ca.preliminary cb.preliminary (t1+.t2)
+                | _ -> assert false; (* all others are dynamic cost fns *)
                 end
             in
             let n_cost = MlStaticCS.root_cost median in
@@ -540,7 +539,7 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                     preliminary = median;
                     final = median;
                     cost = n_cost *. ca.weight;
-                    sum_cost = n_cost;
+                    sum_cost = n_cost +. ca.sum_cost +. cb.sum_cost;
                     time = Some t1,Some t2;
                     weight = ca.weight;
                 }
@@ -648,10 +647,6 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
                                 (t1, t2, true)
                         in 
-                        if debug then 
-                            info_user_message
-                                "Calculating %d with %f(%d) and %f(%d)"
-                                code t1 anode.taxon_code t2 bnode.taxon_code;
                         let median,t1,t2 = 
                             if opt then
                                 MlDynamicCS.median_i code ca_pre cb_pre t1 t2
@@ -659,11 +654,17 @@ let rec cs_median code anode bnode prev t1 t2 a b =
                                 MlDynamicCS.median code ca_pre cb_pre 
                                                     (Some t1) (Some t2),t1,t2
                         in
+                        let res = DynamicCS.MlCS median in
+                        let cst = DynamicCS.total_cost res in
+                        if debug then 
+                            info_user_message
+                                "Calculating %d with %f(%d) and %f(%d) = %f"
+                                code t1 anode.taxon_code t2 bnode.taxon_code cst;
                         let t1,t2 = 
                             if anode.min_child_code < bnode.min_child_code 
                             then t1,t2 else t2,t1
                         in
-                        (DynamicCS.MlCS median),(Some t1,Some t2)
+                        (res,(Some t1,Some t2))
                     ELSE
                         failwith MlStaticCS.likelihood_error
                     END
@@ -804,7 +805,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                                             pm.preliminary t1 t2 
                     in
                     { pm with  preliminary = res; final = res;
-                               cost = cost; sum_cost = cost;
+                               cost = cost;
+                               sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                time = Some t1, Some t2; }
 
                 (* calculate the median1 for MPL with OCAML Brents *)
@@ -825,8 +827,12 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                         Numerical.brents_method (t1+.t2,fstart) calculate_single
                     in
                     { pm with preliminary = dv; final = dv;
-                              cost = fv; sum_cost = fv;
+                              cost = fv; 
+                              sum_cost = fv +. bm.sum_cost +. am.sum_cost;
                               time = Some (v/.2.0), Some (v/.2.0); }
+
+                | _ -> assert false (* all other methods are dynamic *)
+
                 end
             in
             ei_map ptl atl btl ((StaticMl mine)::pa)
@@ -852,7 +858,8 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     in
                     let mine = Dynamic 
                         { pm with  preliminary = res; final = res;
-                                   cost = cost; sum_cost = cost;
+                                   cost = cost;
+                                   sum_cost = cost +. bm.sum_cost +. am.sum_cost;
                                    time = Some t1, Some t2; }
                     in
                     ei_map ptl atl btl (mine::pa)
@@ -2466,8 +2473,7 @@ let structure_into_sets data (nodes : node_data list) =
               let css, _ = List.split (List.map (group nid new_sid) list) in
               (cs_list_to_set new_sid meth css, name) 
     in
-    let cost_mode = 
-        match nodes with
+    let cost_mode = match nodes with
         | h :: tl ->
             List.iter (fun x -> assert(h.cost_mode = x.cost_mode)) tl;
             h.cost_mode
@@ -2741,13 +2747,21 @@ let load_data ?(silent=true) ?(classify=true) data =
         and static_ml = List.filter is_mem data.Data.static_ml
         and dynamics = List.filter is_mem data.Data.dynamics in
 
-        let has_dynamic = 
+        let has_dynamic_mpl,has_dynamic_mal,has_dynamic_aln = 
             List.fold_left
-                (fun acc code -> 
+                (fun ((mpl,mal,aln) as acc) code -> 
                     match Hashtbl.find data.Data.character_specs code with
-                    | Data.Dynamic {Data.state = state} when state = `Ml -> true
+                    | Data.Dynamic ({Data.state = state} as s) when state = `Ml  ->
+                        begin match s.Data.lk_model with
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal ,aln
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `ILK -> mpl ,mal ,true 
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
+                            | Some m when m.MlModel.spec.MlModel.cost_fn = `BLK -> mpl ,mal ,true 
+                            | _ -> assert false (* above pattern should be exhaustive *)
+                        end
                     | _ -> acc)
-                (false)
+                (false,false,false)
                 (dynamics)
         in
         current_snapshot "start nonadd set2";
@@ -2756,9 +2770,12 @@ let load_data ?(silent=true) ?(classify=true) data =
         and n32 = make_set_of_list n32
         and n33 = make_set_of_list n33
         and add = make_set_of_list add in
-        let cost_mode = match static_ml, has_dynamic with
-            | [], false -> `Parsimony
-            |  _,_      -> `Likelihood
+        let cost_mode = match static_ml with
+            | _::_                    -> `Likelihood
+            | [] when has_dynamic_mpl -> `Likelihood
+            | [] when has_dynamic_mal -> `Likelihood
+            | [] when has_dynamic_aln -> `SumLikelihood
+            | _                       -> `Parsimony
         in
         current_snapshot "end nonadd set2";
         let r = 
@@ -2909,8 +2926,6 @@ let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mi
           | Some (Dynamic root) -> Some root.preliminary
           | _ -> None
           in 
-          if debug_treebuild then
-               Printf.printf "call DynamicCS.to_single  \n%!";
           let prev_cost, cost, res = 
               DynamicCS.to_single pre_ref_code 
                     root_pre parent.preliminary mine.preliminary 
@@ -2964,6 +2979,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc
+        | `SumLikelihood -> newc
     in
     match root with
     | Some root ->
@@ -3019,7 +3035,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 StaticMl 
                     { mine with 
                         preliminary=res;final=res;
-                        cost=cost;sum_cost=cost;
+                        cost=cost;
+                        sum_cost=cost +. c1.sum_cost +. c2.sum_cost;
                         time = Some t1, Some t2;
                     }
             ELSE
@@ -3045,7 +3062,8 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     Dynamic
                         { mine with
                             preliminary = res; final = res;
-                            cost=cost; sum_cost=cost;
+                            cost=cost; 
+                            sum_cost= cost +. c1.sum_cost +.  c2.sum_cost;
                             time = Some t1, Some t2;
                         }
                   ELSE
@@ -4374,8 +4392,10 @@ let total_cost_of_type t n =
         | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
         | Dynamic x, t -> 
                 (match x.preliminary, t with
-                | DynamicCS.MlCS _, `Ml -> 
+                | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood -> 
                         acc +. (x.cost *. x.weight)
+                | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
+                        acc +. (x.sum_cost *. x.weight)
                 | DynamicCS.SeqCS _, `Seq ->
                         acc +. (x.sum_cost *. x.weight)
                 | DynamicCS.BreakinvCS _, `Breakinv -> 

@@ -61,11 +61,8 @@ type identifiers = [
 
 
 type chromosome_args = [
-    | `Median_Solver of Methods.median_solver_chosen (*median solver from
-    grappa,mgr and the oldest one: vinh*)
-
+    | `Median_Solver of Methods.median_solver_chosen
     | `Annotate_Tool of Methods.annotate_tool (*annotated tool = mauve or default*)
-
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
     | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
     | `Circular of bool (** indicate if the chromosome is circular or not *)
@@ -1341,7 +1338,8 @@ let create_expr () =
             ];
         ml_costfn:
             [
-                ["mal" -> `MAL] | ["mpl" -> `MPL]
+                ["mal" -> `MAL] | ["mpl" -> `MPL] |
+                ["flk" -> `FLK] | ["ilk" -> `ILK] | ["blk" -> `BLK]
             ];
         partitioned_mode:
             [   
@@ -1482,6 +1480,7 @@ let create_expr () =
                 [ LIDENT "caprara" -> `Albert      ] |
                 [ LIDENT "vinh" -> `Vinh     ]
             ];
+
         annotate_param:
             [
                 [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 

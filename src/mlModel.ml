@@ -120,7 +120,7 @@ type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
-    cost_fn : [ `MPL | `MAL ];
+    cost_fn : Methods.ml_costfn;
     use_gap : gap_properties;
     iterate_model : bool;
     iterate_alpha : bool;
@@ -155,7 +155,12 @@ module OrderedML = struct
 end
 module MlModelMap = Map.Make (OrderedML)
 
-let get_costfn_code a = match a.spec.cost_fn with | `MPL -> 1 | `MAL -> 0
+let get_costfn_code a = match a.spec.cost_fn with 
+    | `MPL -> 1 
+    | `MAL -> 0 
+    | `FLK -> ~-1 (* should not call C functions; yet *)
+    | `ILK -> ~-1 (* should not call C functions *)
+    | `BLK -> ~-1 (* should not call C functions *)
 
 let categorize_by_model codes get_fun =
     let set_codes =
@@ -204,8 +209,7 @@ let compare a b =
         | TN93 _,  TN93 _ | GTR _, GTR _ -> 0
         | File (_,x), File (_,y) when x = y -> 0
         | _,_ -> ~-1
-    and c_compare = match a.spec.cost_fn, b.spec.cost_fn with
-        | `MPL,`MPL | `MAL, `MAL -> 0 | _ -> ~- 1
+    and c_compare = if a.spec.cost_fn = b.spec.cost_fn then 0 else ~-1
     and v_compare = match a.spec.site_variation,b.spec.site_variation with
         | Some (Gamma (i,a)), Some (Gamma (ix,ax)) ->
                 if i = ix && a = ax then 0 else ~-1
@@ -597,6 +601,9 @@ let output_model output nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[Cost = mpl;@]";
             | `MAL -> printf "@[Cost = mal;@]"; 
+            | `ILK -> printf "@[Cost = ilk;@]";
+            | `FLK -> printf "@[Cost = flk;@]";
+            | `BLK -> printf "@[Cost = blk;@]";
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -645,6 +652,9 @@ let output_model output nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 1>Cost mode: mpl;@]\n";
             | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
+            | `ILK -> printf "@[<hov 1>Cost mode: ilk;@]\n"; 
+            | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
+            | `BLK -> printf "@[<hov 1>Cost mode: blk;@]\n"; 
         in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
@@ -850,7 +860,14 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
     and cost_fn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
-        | _     -> `MAL
+        | "FLK" -> `FLK
+        | "ILK" -> `ILK
+        | "BLK" -> `BLK
+        | ""    -> `MPL (* unmentioned default *)
+        | x     -> 
+            Status.user_message Status.Warning
+                ("I don't know "^x^" as a cost mode for likelihood. I am defaulting to MPL.");
+            `MAL
     and variation = match String.uppercase var with
         | "GAMMA" ->
             let alpha = try let res = float_of_string alpha in

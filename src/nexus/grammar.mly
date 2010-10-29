@@ -497,6 +497,8 @@ model_block:
             { (P.Files $3) :: $5 }
     | GAP EQUAL COUPLED COLON FLOAT SEMICOLON model_block
             { (P.Gap_Mode ($3,(Some (float_of_string $5)))) :: $7 }
+    | GAP EQUAL COUPLED SEMICOLON model_block
+            { (P.Gap_Mode ($3,None)) :: $5 }
     | GAP EQUAL MISSING SEMICOLON model_block
             { (P.Gap_Mode ($3,None)) :: $5 }
     | GAP EQUAL IDENT SEMICOLON model_block
