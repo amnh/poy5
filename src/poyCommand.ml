@@ -84,18 +84,7 @@ type chromosome_args = [
     
     (** The cost of a breakpoint happing between two chromosome *)
     | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
-(*
-(**  the minimum length of a block which will be considered
-* as a homologous block *)    
-    | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
 
-    (** It's believed that no rearrangments or reversions happened 
-        within a segment whose length < rearranged_len *)
-    | `Rearranged_Len of int 
-
-(** the minimum length of a segment which is considered as a basic seed *)
-    | `Seed_Len of int
-*)
     (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
 
@@ -1435,9 +1424,12 @@ let create_expr () =
 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] | 
-
-                [ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
-                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
+                [ LIDENT "chromosome"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
+                [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
+                        [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
+                (*[ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | *)
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
@@ -1497,6 +1489,19 @@ let create_expr () =
                 [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
                 -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
             ];
+        genome_argument:
+            [
+                [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
+                      `Chrom_Breakpoint (int_of_string c) ]  |
+                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
+                [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
+                ","; e = integer_or_float; right_parenthesis ->
+                      `Chrom_Indel_Cost ( (int_of_string o), 
+                      int_of_float ((float_of_string e) *. 100.0) ) ] | 
+                [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
+                      `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] |
+                [ LIDENT "median"; ":"; c = INT -> `Keep_Median (int_of_string c) ] 
+            ];
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
@@ -1511,39 +1516,19 @@ let create_expr () =
                     | `Vinh -> `Median_Solver `Vinh
                 ]|
                 [ LIDENT "annotate"; ":"; left_parenthesis;
-                   c = annotate_param; 
-                   right_parenthesis
+                   c = annotate_param; right_parenthesis
                    -> `Annotate_Tool c
                 ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 
                       `Locus_Breakpoint (int_of_string c) ]  |
-                [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
-                      `Chrom_Breakpoint (int_of_string c) ]  |
-                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
-
                 [ LIDENT "locus_indel"; ":"; left_parenthesis; o = INT; 
                     ","; e = integer_or_float; right_parenthesis ->
                       `Locus_Indel_Cost ( (int_of_string o), 
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
-                [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
-                ","; e = integer_or_float; right_parenthesis ->
-                      `Chrom_Indel_Cost ( (int_of_string o), 
-                      int_of_float ((float_of_string e) *. 100.0) ) ] | 
-                [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
-                      `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                (*
-                [ LIDENT "min_loci_len"; ":"; c = INT ->  100
-                      `Sig_Block_Len (int_of_string c) ] | 
-                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 100 
-                      `Rearranged_Len (int_of_string c) ] | 
-                [ LIDENT "min_seed_length"; ":"; c = INT -> 9
-                      `Seed_Len (int_of_string c) ] | 
-                *)
-                [ LIDENT "median"; ":"; c = INT ->
-                      `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 
+                [ LIDENT "median"; ":"; c = INT -> `Keep_Median (int_of_string c) ] |
                 [ LIDENT "med_approx"; ":"; ans = boolean -> `Approx ans] |
                 [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
                 [ LIDENT "max_3d_len"; ":"; l = INT -> 
