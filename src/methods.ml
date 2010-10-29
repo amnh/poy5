@@ -132,9 +132,6 @@ type chromosome_pam_t = [
     | `Circular of bool
     | `Locus_Indel_Cost of (int * int)
     | `Chrom_Indel_Cost of (int * int)
-   (* | `Sig_Block_Len of int 
-    | `Seed_Len of int
-    | `Rearranged_Len of int  *)
     | `Chrom_Hom of int
     | `Keep_Median of int
     | `SwapMed of int
