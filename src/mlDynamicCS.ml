@@ -256,7 +256,7 @@ let estimate_time a b =
     in
     let nt2 = ~-. 0.75 *. (log (1.0 -. (p *. 4.0 /. 3.0))) in
     let nt = if nt2 <= min_bl then min_bl else nt2 /. 2.0 in
-    if debug_est then
+    if debug then
         Printf.printf
             ("Aligned      : %f\nTransitions  : %f\nGaps         : %f\n"^^
              "Transversions: %f\nTotals       : %f\nProportion   : %f\n\n"^^
