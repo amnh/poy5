@@ -1536,12 +1536,15 @@ module F : Ptree.Tree_Operations
             if (Ptree.get_cost `Adjusted tree1) < (Ptree.get_cost `Adjusted tree2)
                 then tree1 
                 else tree2
-        (* compare priors for function below *)
+        (* compare priors for function below; Not used
         and compare_priors data_dyn data_stat = 
             MlModel.compare_priors
                 (Data.get_likelihood_model data_dyn data_dyn.Data.dynamics)
-                (Data.get_likelihood_model data_stat data_stat.Data.static_ml)
-        (* A function to optimize the priors until they settle *)
+                (Data.get_likelihood_model data_stat data_stat.Data.static_ml) *)
+        (* A function to optimize the priors until they settle.
+         *  This is not used because it doesn't take into account cost when
+         *  optimizing, or that they do not change; which could maximize gap
+         *  prior in cases. Rather, optimize_priors, below, should be used
         and stabilize_priors ?(iter_max=10) i dyn_tree =
             let d =
                 dyn_tree
@@ -1565,7 +1568,7 @@ module F : Ptree.Tree_Operations
                 { dyn_tree with Ptree.data = d;
                                 Ptree.node_data = n; }
                     --> internal_downpass true
-                    --> stabilize_priors (i+1)
+                    --> stabilize_priors (i+1) *)
         and optimize_priors dyn_tree = 
             let rec update_m gap_prior model : MlModel.model =
                 let narray = (* apply new gap parameter/ normalize vector *)
@@ -1647,13 +1650,14 @@ module F : Ptree.Tree_Operations
             in
             { ntree with Ptree.component_root = roots; }
         in
+        (* Deprecated; see above
         let stabilize_priors tree = (* wrapper for function *)
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
             let tree,_ = stabilize_priors 0 tree in
             Status.set_verbosity old_verbosity;
-            tree
-        and optimize_priors tree = 
+            tree *)
+        let optimize_priors tree = 
             let old_verbosity = Status.get_verbosity () in
             Status.set_verbosity `None;
             let tree = optimize_priors tree in
@@ -1663,7 +1667,6 @@ module F : Ptree.Tree_Operations
         (* compose above functions: create a static tree then combine w/ dynamic *)
         match using_likelihood `Integer tree, optimize with
             | true, false ->
-                let tree = stabilize_priors tree in
                 combine tree (create_static_tree false tree)
             | true, true  ->
                 tree --> optimize_priors

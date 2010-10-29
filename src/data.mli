@@ -59,14 +59,17 @@ type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
 type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
 `ChainedLK | `SimpleLK ]
 
+type annotate_tool_t = [ `Mauve of (float*int*int) | `Default of (int*int*int) ]
 
 type dyna_pam_t = {
     median_solver: median_solver_t option; 
 
+    annotate_tool: annotate_tool_t option;
+ (*   
     (* The minimum length of a perfect match to start
      * the detection of a homologous segment between a pair of chromosomes *)
     seed_len : int option;  
-
+ *)
     (** Cost parameters of rearrangement function which is either
     * breakpoint distance or inversion distance *)
     re_meth : re_meth_t option;
@@ -86,7 +89,7 @@ type dyna_pam_t = {
 
      (** The cost of a breakpoint happing between two chromosome *)
     chrom_breakpoint : int option;
-
+(*
 (**  the minimum length of a block which will be 
 * considered as a homologous block *)
     sig_block_len : int option;
@@ -94,7 +97,7 @@ type dyna_pam_t = {
     (** It's believed that no rearrangments or reversions happened 
         within a segment whose length < unbreaked_len *)
     rearranged_len : int option;
-
+*)
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int option; 
     

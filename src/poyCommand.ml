@@ -62,6 +62,7 @@ type identifiers = [
 
 type chromosome_args = [
     | `Median_Solver of Methods.median_solver_chosen
+    | `Annotate_Tool of Methods.annotate_tool (*annotated tool = mauve or default*)
     | `Locus_Inversion of int (** the cost of a locus inversion operation inside a chromosome *)
     | `Locus_Breakpoint of int (* the cost of a locus breakpoint operation inside a chromosome *)
     | `Circular of bool (** indicate if the chromosome is circular or not *)
@@ -80,17 +81,6 @@ type chromosome_args = [
     
     (** The cost of a breakpoint happing between two chromosome *)
     | `Chrom_Breakpoint of int (* Breakpoint cost between loci of two different chromosomes *)
-
-(**  the minimum length of a block which will be considered
-* as a homologous block *)    
-    | `Sig_Block_Len of int (* A conserved block length must be greater than Sig_Block_Len *)
-
-    (** It's believed that no rearrangments or reversions happened 
-        within a segment whose length < rearranged_len *)
-    | `Rearranged_Len of int 
-
-(** the minimum length of a segment which is considered as a basic seed *)
-    | `Seed_Len of int
 
     (** The maximum number of medians at one node kept during the search*)
     | `Keep_Median of int 
@@ -1161,6 +1151,19 @@ let transform_search items =
             else default_search
     | _ -> failwith "Forgot to update the list of options of search?"
 
+let process_likelihood_commands lst = 
+    let process (cost,model,vari,prior,gaps) = function
+        | `ML_cost   x -> (x,    model, vari, prior, gaps)
+        | `ML_subst  x -> (cost, x,     vari, prior, gaps)
+        | `ML_vars   x -> (cost, model, x,    prior, gaps)
+        | `ML_prior  x -> (cost, model, vari, x,     gaps)
+        | `ML_gaps   x -> (cost, model, vari, prior, x   )
+    in
+    List.fold_left 
+        (process) 
+        (`MAL,`GTR None,None,`Estimate,`Missing)
+        (lst)
+
 let transform_stdsearch items = 
     `StandardSearch 
         (List.fold_left
@@ -1313,14 +1316,13 @@ let create_expr () =
                 [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x;y] -> Some (x,y) | None -> None
                         | _ -> failwith "Improper Theta Argument" in
-                        Some (`Theta (int_of_string x, d)) ] |
-                [ "none" -> None ]
+                        Some (`Theta (int_of_string x, d)) ]
             ];
         ml_priors:
             [ 
-                [ "estimate" -> `Estimate ] |
-                [ "constant" -> `Constant ] | 
-                [ "given"; ":"; left_parenthesis; 
+                [ LIDENT "estimate" -> `Estimate ] |
+                [ LIDENT "constant" -> `Constant ] | 
+                [ LIDENT "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
                     right_parenthesis -> `Given x ]
             ];
@@ -1331,33 +1333,37 @@ let create_expr () =
               [x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
             [
-                [",";"gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
+                ["gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
                     match x with | Some x -> x | None -> `Independent ]
             ];
         ml_costfn:
             [
-                [",";"mal" -> `MAL] | [",";"mpl" -> `MPL] |
-                [",";"flk" -> `FLK] | [",";"ilk" -> `ILK] | [",";"blk" -> `BLK]
+                ["mal" -> `MAL] | ["mpl" -> `MPL] |
+                ["flk" -> `FLK] | ["ilk" -> `ILK] | ["blk" -> `BLK]
             ];
         partitioned_mode:
             [   
                 [ LIDENT "clip" -> `Clip ] |
                 [ LIDENT "noclip" -> `NoClip ]
             ];
+        ml_properties:
+            [
+                [ x = ml_substitution   -> `ML_subst x] |
+                [ x = ml_site_variation -> `ML_vars  x] |
+                [ x = ml_priors         -> `ML_prior x] |
+                [ x = ml_gaps           -> `ML_gaps  x] |
+                [ x = ml_costfn         -> `ML_cost  x]
+            ];
         transform_method:
             [
                 [ LIDENT "elikelihood"; ":"; left_parenthesis;
-                    w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with | None   -> `Missing | Some x -> x
-                        and v = match v with | None   -> `MAL | Some x -> x in
+                    lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
+                        let v,w,x,y,z = process_likelihood_commands lst in
                         `EstLikelihood (v, w, x, y, z) ] |
                 [ LIDENT "parsimony" -> `UseParsimony ] |
                 [ LIDENT "likelihood"; ":"; left_parenthesis;
-                    w = ml_substitution; ","; x = ml_site_variation; ",";
-                    y = ml_priors; z = OPT ml_gaps; v = OPT ml_costfn; right_parenthesis ->
-                        let z = match z with | None   -> `Missing | Some x -> x
-                        and v = match v with | None   -> `MAL | Some x -> x in
+                    lst = LIST1 [x = ml_properties -> x] SEP ","; right_parenthesis ->
+                        let v,w,x,y,z = process_likelihood_commands lst in
                         `UseLikelihood (v,w, x, y, z) ] |
                 [ LIDENT "prealigned" -> `Prealigned_Transform ] |
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
@@ -1471,6 +1477,15 @@ let create_expr () =
                 [ LIDENT "caprara" -> `Albert      ] |
                 [ LIDENT "vinh" -> `Vinh     ]
             ];
+
+        annotate_param:
+            [
+                [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
+                -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
+                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
+                -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
+            ];
+
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
@@ -1483,6 +1498,11 @@ let create_expr () =
                     | `Siepel -> `Median_Solver `Siepel                     
                     | `Albert -> `Median_Solver `Albert 
                     | `Vinh -> `Median_Solver `Vinh
+                ]|
+                [ LIDENT "annotate"; ":"; left_parenthesis;
+                   c = annotate_param; 
+                   right_parenthesis
+                   -> `Annotate_Tool c
                 ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
@@ -1502,12 +1522,6 @@ let create_expr () =
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
                 [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
                       `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                [ LIDENT "min_loci_len"; ":"; c = INT -> 
-                      `Sig_Block_Len (int_of_string c) ] | 
-                [ LIDENT "min_rearrangement_len"; ":"; c = INT -> 
-                      `Rearranged_Len (int_of_string c) ] | 
-                [ LIDENT "min_seed_length"; ":"; c = INT -> 
-                      `Seed_Len (int_of_string c) ] | 
                 [ LIDENT "median"; ":"; c = INT ->
                       `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 

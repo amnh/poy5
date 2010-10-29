@@ -44,6 +44,16 @@ val create_gen_cost_mat :
   ChromPam.chromPairAliPam_t ->
   int array array * (Sequence.s * Sequence.s) array array
 
+
+val create_general_ali_mauve :
+    Sequence.s ->
+    Sequence.s ->
+    Cost_matrix.Two_D.m ->
+    Block.pairChromPam_t -> 
+        (int * (int * int)) list list * int * (int * Sequence.s * Sequence.s) array array * 
+        int list * int list * int * (int*int)
+
+
 (** [create_general_ali state global_map seq1 seq2 cost_mat ali_pam] 
  * returns the alignement between [seq1] and [seq2] allowing rearrangements *)    
   val create_general_ali :

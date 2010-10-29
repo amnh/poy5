@@ -23,6 +23,14 @@
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 type dyna_state_t = Data.dyna_state_t
 
+val to_ori_code : int -> int
+
+val from_ori_code : int -> int
+
+val from_ori_arr : int array -> int array
+
+val to_ori_arr : int array -> int array
+
 (* [cmp_recost_simple seq1 seq2 ali_pam.re_meth ali_pam.circular ]
  * will return the breakpoint or inversion distance of seq1 and seq2.
  * It's like function [cmp_recost state seq1 seq2 reseq2 ...] when reseq2=seq2 

@@ -3579,7 +3579,7 @@ END
 
 let rec folder (run : r) meth =
     check_ft_queue run;
-    match meth with
+    let res = match meth with
     (* The following methods are only used by the parallel execution *)
     | `Barrier -> (* Wait for synchronization with every other process *)
 IFDEF USEPARALLEL THEN
@@ -4735,6 +4735,9 @@ END
                         in
                         let () = Status.user_message Status.Error msg in
                         run
+    in
+    StatusCommon.Files.flush (); (* flush all open files *)
+    res
               
 
 let deal_with_error output_file run tmp err =

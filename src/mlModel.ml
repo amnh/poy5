@@ -557,6 +557,7 @@ let compose model t = match model.ui with
 
 let output_model output nexus model set = 
     let printf format = Printf.ksprintf output format in
+    let gtr_mod = ref false in
     if nexus = `Nexus then begin
         printf "@[Likelihood@.";
         let () = match model.spec.substitution with
@@ -578,7 +579,8 @@ let output_model output nexus model set =
             | GTR (Some xs) -> printf "@[Model = GTR;@]";
                         printf "@[Parameters = ";
                         Array.iter (printf "%f ") xs;
-                        printf ";@]"
+                        printf ";@]";
+                        gtr_mod := true
             | File (_,str) -> 
                         printf "@[Model = File:%s;@]" str
         in
@@ -612,6 +614,9 @@ let output_model output nexus model set =
                         ^^"@[percent = %.5f;@]") p c i
         in
         let () = match model.spec.use_gap with
+            (* the meaning of independent/coupled switch under gtr *)
+            | `Independent when !gtr_mod -> printf "@[gap = coupled;@]"
+            | `Coupled x   when !gtr_mod -> printf "@[gap = independent;@]"
             | `Independent -> printf "@[gap = independent;@]"
             | `Coupled x   -> printf "@[gap = coupled:%f;@]" x
             | `Missing     -> printf "@[gap = missing;@]"
@@ -651,11 +656,6 @@ let output_model output nexus model set =
             | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
             | `BLK -> printf "@[<hov 1>Cost mode: blk;@]\n"; 
         in
-        let () = match model.spec.use_gap with
-            | `Independent -> printf "@[<hov 1>Gap property: independent;@]@\n"
-            | `Coupled x   -> printf "@[<hov 1>Gap property: coupled, Ratio: %f;@]@\n" x
-            | `Missing     -> printf "@[<hov 1>Gap property: missing;@]@\n"
-        in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
             | Estimated x | Given x
@@ -682,7 +682,8 @@ let output_model output nexus model set =
                             default_tstv default_tstv
             | TN93 (Some (a,b)) -> 
                 printf "tn93@]@\n@[<hov 1>- transition/transversion ratio:%.5f/%.5f@]@\n" a b 
-            | GTR x -> printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
+            | GTR x -> gtr_mod := true;
+                printf "GTR@]@\n@[<hov 1>- Rate Parameters: @]@\n";
                 let get_str i = Alphabet.match_code i model.alph
                 and convert s r c = (c + (r * (s-1)) - ((r*(r+1))/2)) - 1 in
                 let ray = match x with | Some x -> x | None -> default_gtr model.alph_s in
@@ -714,6 +715,13 @@ let output_model output nexus model set =
                     done; 
                     printf "@\n";
                 done;
+        in
+        let () = match model.spec.use_gap with
+            | `Independent when !gtr_mod -> printf "@[<hov 1>Gap property: coupled;@]"
+            | `Coupled x   when !gtr_mod -> printf "@[<hov 1>Gap property: independent;@]"
+            | `Independent -> printf "@[<hov 1>Gap property: independent;@]@\n"
+            | `Coupled x   -> printf "@[<hov 1>Gap property: coupled, Ratio: %f;@]@\n" x
+            | `Missing     -> printf "@[<hov 1>Gap property: missing;@]@\n"
         in
         printf "@]";
         printf "@[@[Instantaneous rate matrix:@]@\n";

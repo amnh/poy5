@@ -684,10 +684,10 @@ cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
          fprintf(stderr,"Cannot allocate the map of combination code to combination codelist, with size=%d\n",comb2list_size);
     res->median = (SEQT *) calloc (size * sizeof(SEQT), 1);
     if (res->median == NULL)
-        fprintf(stderr,"Cannot allocate cost matrix with size=%d\n",size*sizeof(SEQT));
+        fprintf(stderr,"Cannot allocate cost matrix with size=%ld\n",(size*sizeof(SEQT)));
     res->cost = (int *) calloc (size * sizeof(int), 1);
     if (res->cost == NULL)
-        fprintf(stderr,"Cannot allocate median matrix with size=%d\n",size*sizeof(int));
+        fprintf(stderr,"Cannot allocate median matrix with size=%ld\n",(size*sizeof(int)));
     if ((res->cost == NULL) || (res->median == NULL) || (res->comblist_2_combcode==NULL) || (res->comblist_2_combcode == NULL)) {
         free (res->comblist_2_combcode);
         free (res->combcode_2_comblist);
