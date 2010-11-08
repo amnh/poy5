@@ -366,12 +366,13 @@ let readjust c1 c2 mine t1 t2 =
 
 let median_i code a b (t1:float) (t2:float) : t * float * float =
     let start = t1+.t2 in
-    let _,_,_,(nt,_),nmine = 
+    let _,_,ncost,(nt,_),nmine = 
         readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
     in
     let half_time = nt /. 2.0 in
     if debug_est then
-        Printf.printf "Optimized Branch of %d from %f --> %f\n%!" code start nt;
+        Printf.printf "Optimized Branch of %d from %f --> %f: %f\n%!" 
+                        code start nt ncost;
     nmine, half_time, nt -. half_time
 
 and median_3 p n c1 c2 = n
@@ -463,7 +464,7 @@ let get_cm _ = failwith MlStaticCS.likelihood_error
 let code _ = failwith MlStaticCS.likelihood_error
 let get_codes _ = failwith MlStaticCS.likelihood_error
 let combine _ _ = failwith MlStaticCS.likelihood_error
-let make _ _ _ = failwith MlStaticCS.likelihood_error
+let make _ _ = failwith MlStaticCS.likelihood_error
 let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_i _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_3 _ _ _ _ = failwith MlStaticCS.likelihood_error
