@@ -178,23 +178,6 @@ let get_chrom_pam user_chrom_pam =
         | None -> chrom_pam
         | Some swap_med -> {chrom_pam with swap_med = swap_med}
     in 
-(*
-    let chrom_pam = 
-        match user_chrom_pam.Data.seed_len with 
-        | None -> failwith "Do not have default value for seed_len"
-        | Some k -> {chrom_pam with k = k}
-    in 
-    let chrom_pam = 
-        match user_chrom_pam.Data.sig_block_len with
-        | None -> chrom_pam
-        | Some sig_block_len -> {chrom_pam with sig_block_len = sig_block_len}
-    in 
-    let chrom_pam = 
-        match user_chrom_pam.Data.rearranged_len with
-        | None -> chrom_pam
-        | Some rearranged_len -> {chrom_pam with rearranged_len = rearranged_len}
-    in 
-*)
 
     let chrom_pam = 
         match user_chrom_pam.Data.approx with

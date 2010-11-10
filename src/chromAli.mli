@@ -126,7 +126,8 @@ val cmp_cost :
 * and between [med2] and [med1] *) 
 val find_med2_ls :
   med_t ->
-  med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> int * int * med_t list
+  med_t -> Cost_matrix.Two_D.m -> Data.dyna_pam_t -> string option ->
+      int * int * med_t list
 
 
 

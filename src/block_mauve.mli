@@ -49,6 +49,7 @@ type lcb = {
                   the range*)
     ratio : float; (* [score/length] of seq in this lcb*)
     ref_code : int; (*just a code for bk/rearr purpose*)
+    avg_range_len : int; (*average length from range_lst*)
 }
 
 

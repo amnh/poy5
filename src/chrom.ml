@@ -89,7 +89,8 @@ let update_approx_mat meds1 meds2 =
     let med2 = List.hd meds2.med_ls in  
     let code2 = meds2.code in
     (if meds1.approx_cost_arr.(code2) = max_int then begin 
-        let cost, recost, med2_ls = ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam in  
+        let cost, recost, med2_ls = 
+            ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam None in  
         meds1.approx_med_arr.(code2) <- List.hd med2_ls;
         meds1.approx_cost_arr.(code2) <- cost; 
         meds1.approx_recost_arr.(code2) <- recost; 
@@ -166,8 +167,8 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                  List.fold_left  
                      (fun best_meds med2 -> 
                           let cost, recost, med_ls =
-                              ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam in  
-    
+                              ChromAli.find_med2_ls med1 med2 meds1.c2
+                              meds1.chrom_pam None in  
                         if cost < best_meds.total_cost then 
                             { best_meds with med_ls = med_ls; total_cost = cost;
                                   total_recost = recost}

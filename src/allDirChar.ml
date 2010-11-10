@@ -2337,7 +2337,7 @@ module F : Ptree.Tree_Operations
         in
         let cost = Ptree.get_cost `Adjusted tree in
         if debug_diagnosis then
-            Printf.printf "alldirchar.to_formatter: recost = %f, cost = %f \n%!"
+            Printf.printf "end of alldirchar.to_formatter: recost = %f, cost = %f \n%!"
         recost cost; 
         (RXML -[Xml.Trees.forest] 
             ([Xml.Trees.recost] = [`Float recost])

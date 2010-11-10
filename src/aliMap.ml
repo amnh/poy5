@@ -119,16 +119,63 @@ let create_gen_cost_mat subseq1_ls subseq2_ls global_map gen_gap_code
         ) del_subseq1_ls;
     gen_cost_mat, ali_mat
 
+let get_seqlst_for_mauve in_seq =
+    let totallen = Sequence.length in_seq in
+    let iteration = totallen/80 in
+    let reslst = ref [] in
+    for i=0 to iteration do
+        let startpos = i*80 in 
+        let seqlen = 
+            if (startpos+80)<totallen then 80
+            else (totallen-startpos) in
+        reslst := !reslst@[(Sequence.subseq in_seq startpos seqlen)]
+    done;
+    !reslst
 
-let create_general_ali_mauve seq1 seq2 cost_mat ali_pam =
+let get_range_with_code code1 code2 full_code_lstlst gen_gap_code =
+    let left1,right1 = 
+        List.fold_left (fun acc (codex,(left,right)) ->
+        if code1=codex then (left,right)
+        else acc ) (-1,-1) (List.hd full_code_lstlst)
+    in
+    let left2,right2 = 
+        List.fold_left (fun acc (codey,(left,right)) ->
+        if code2=codey then (left,right)
+        else acc ) (-1,-1) (List.nth full_code_lstlst 1)
+    in
+    if (code1=gen_gap_code)&&(code2<>gen_gap_code) then
+        left2,right2,left2,right2
+    else if (code2=gen_gap_code)&&(code1<>gen_gap_code) then
+        left1,right1,left1,right1
+    else if (code1<>gen_gap_code)&&(code2<>gen_gap_code) then
+        left1,right1,left2,right2
+    else
+        failwith "aliMap.get_range_with_code, \
+        we have indel match up with indel, something is wrong"
+
+let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile =
     let debug = false and debug2 = false in
     let min_seed_num = ChromPam.get_min_seed_num ali_pam
     and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam
     in
+    let _ = match outputtofile with 
+    | Some filename -> 
+        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
+        let oc = open_out filename in
+        fprintf oc "#FormatVersion Mauve1\n";
+        fprintf oc "#Sequence1File	blabla.in\n";
+        fprintf oc "#Sequence1Entry	1\n";
+        fprintf oc "#Sequence1Format	FastA\n";
+        fprintf oc "#Sequence2File	blabla.in\n";
+        fprintf oc "#Sequence2Entry	2\n";
+        fprintf oc "#Sequence2Format	FastA\n";
+        close_out oc;
+    | None -> () 
+    in
     if debug then 
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
-        min lcb ratio = %f, min seed num = %d, min bk penalty = %d\n%!"
+         min lcb ratio = %f, min seed num = %d, min bk penalty = %d\n%!"
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_seed_num min_bk_penalty;
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
@@ -139,8 +186,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam =
         Hashtbl.iter (fun key record ->
         Block_mauve.print_lcb record
         ) lcb_tbl;
-        Printf.printf "lcbs is \n%!";
-        Block_mauve.print_lcblst lcbs;
+        (* Printf.printf "lcbs is \n%!";  Block_mauve.print_lcblst lcbs;*)
         Printf.printf "original code list is \n%!";
         Block_mauve.print_int_lstlst code_list;
     end;
@@ -203,7 +249,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam =
                 set_cost code2 code1 0; 
                 (*Note: we only set cost(code1,code2) to 0 to make sure
                 code1 is alied to code2 later in "GenAli.create_gen_ali_new",
-                the real alignment cost is kept by ali_mat, then pass to
+                the real alignment cost is kept in ali_mat, then pass to
                 function create_median_mauve in chromAli.ml.*)
                 set_cost code1 gen_gap_code block_gap_cost; 
                 set_cost gen_gap_code code1 block_gap_cost;
@@ -266,6 +312,45 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam =
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
         GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false
+    in
+    if debug then begin
+        Printf.printf "alied code1/code2 arr =\n%!";
+        Utl.printIntArr alied_gen_seq1; 
+        Utl.printIntArr alied_gen_seq2; 
+    end;
+    let _ = match outputtofile with 
+    | Some filename ->
+        List.iter2 ( fun alied_code1 alied_code2 ->
+        let ori_code1 = GenAli.to_ori_code alied_code1 
+        and ori_code2 = GenAli.to_ori_code (alied_code2 - len_lst1*2) in
+        let cost,alied_seq1,alied_seq2 = 
+            ali_mat.(alied_code1).(alied_code2)
+        in
+        let dir1 = if ori_code1>0 then "+" else "-"
+        and dir2 = if ori_code2>0 then "+" else "-"
+        in
+        let left1,right1,left2,right2 = 
+            get_range_with_code alied_code1 alied_code2 full_code_lstlst gen_gap_code
+        in
+        assert(left1>=0); assert(left2>=0);
+        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
+        let oc = open_out filename in
+        fprintf oc "> 1:%d-%d %s bla.in,c=%d\n" (left1+1) (right1+1) dir1 cost;
+        let seqlst1 = get_seqlst_for_mauve alied_seq1 in
+        let seqlst2 = get_seqlst_for_mauve alied_seq2 in
+        List.iter (fun seq1 -> 
+            Sequence.print oc seq1 Alphabet.nucleotides;
+            fprintf oc "\n";
+        ) seqlst1;
+        fprintf oc "> 2:%d-%d %s bla.in,c=%d\n" (left2+1) (right2+1) dir2 cost;
+        List.iter (fun seq2 ->
+            Sequence.print oc seq2 Alphabet.nucleotides;
+            fprintf oc "\n";
+        ) seqlst2;
+        fprintf oc "=\n";
+        close_out oc;
+        ) (Array.to_list alied_gen_seq1) (Array.to_list alied_gen_seq2);
+    | None -> ()
     in
     if debug then begin
         Printf.printf "mauve ali res : cost=%d(+%d),rc=%d,alied_gen_seq1/2 = %!" 
