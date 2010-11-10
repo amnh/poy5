@@ -13,6 +13,7 @@ Array_ops
 AsciiTree
 BitSet
 Block
+Block_mauve
 Breakinv
 BreakinvAli
 BreakinvCS
