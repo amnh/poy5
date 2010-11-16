@@ -57,10 +57,10 @@ type t = | Integerized of t_integerized
 (*         | DynamicMPL*)
 (*         | DynamicMAL*)
 
-(*---- non-external helper functions *)
-let debug  = false
-let debug_est = true
-let verify = false
+(*---- non-external helper functions/settings *)
+let debug     = false
+let debug_est = false
+let verify    = false
 let (-->) a b = b a
 let (=.) ?(epsilon=10e-6) a b = (abs_float (a-.b)) < epsilon
 let failwith_todo func = failwith ("Your lazy developer needs to write: MlDynamicCS."^func)
@@ -453,9 +453,50 @@ let make s m = match m.MlModel.spec.MlModel.cost_fn with
 
     | _ -> failwith "not done yet"
 
+let prior a = 
+    let prior_of_seq alph priors (acc:float) sequence =
+        Sequence.fold_right
+            (fun acc i -> 
+                let states = MlModel.list_of_packed i in
+                let length = float_of_int (List.length states) in
+                let c_pi = 
+                    List.fold_left
+                        (fun acc i -> acc +. (priors.{i} /. length))
+                        (0.0)
+                        (states)
+                in
+                c_pi *. acc)
+            (acc)
+            (sequence)
+    in
+    match a with
+    | Integerized a ->
+        let f = prior_of_seq a.imodel.MlModel.alph a.imodel.MlModel.pi_0 in
+        Array.fold_left
+            (fun acc data -> match data with
+                | SeqCS.Heuristic_Selection x -> f acc x.SeqCS.DOS.sequence
+                | SeqCS.Partitioned x ->
+                    Array.fold_left
+                        (fun acc -> function
+                            | SeqCS.PartitionedDOS.DO x
+                            | SeqCS.PartitionedDOS.First x
+                            | SeqCS.PartitionedDOS.Last x ->
+                                f acc x.SeqCS.DOS.sequence)
+                        (acc) (x)
+                | SeqCS.Relaxed_Lifted (x,_) ->
+                    Array.fold_left f acc x.SeqCS.RL.sequence_table)
+            (0.0) (a.seq.SeqCS.characters);
+    | FPAlign a ->
+        Array.fold_left
+            (fun acc i ->
+                prior_of_seq a.fmodel.MlModel.alph a.fmodel.MlModel.pi_0
+                             acc (FloatSequence.FloatAlign.seq_of_s i))
+            (0.0) 
+            (a.ss)
+
 ELSE
 
-(* empty required functions when likelihood is not enabled *)
+(* empty; required functions when likelihood is not enabled *)
 type t = unit
 
 let alph _ = failwith MlStaticCS.likelihood_error
@@ -480,5 +521,6 @@ let cardinal _ = failwith MlStaticCS.likelihood_error
 let encoding _ _ = failwith MlStaticCS.likelihood_error
 let leaf_sequences _ = failwith MlStaticCS.likelihood_error
 let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
+let prior _ = failwith MlStaticCS.likelihood_error
 
 ENDIF
