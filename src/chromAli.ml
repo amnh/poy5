@@ -595,6 +595,7 @@ let create_median subseq1_ls subseq2_ls gen_gap_code (seq1, chrom1_id) (seq2, ch
 * the cost between sequence [med1] and sequence [med2]. 
 * Rearrangement operations are allowed *)
 let cmp_simple_cost med1 med2 cost_mat ali_pam = 
+    let debug2 = false in
     if debug = true then begin
         let len1 = Sequence.length med1.seq in 
         let len2 = Sequence.length med2.seq in 
@@ -621,21 +622,16 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
                            ChromPam.max_pos2 = len2 - 1; 
                       } 
         in  
-        (*let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in  
-        let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
-            AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
-        in
-        *)
         let total_cost, recost1, recost2 =
             match (use_mauve_annotator ali_pam) with
             | true ->
-                if debug then Printf.printf "cmp_simple_cost,call mauve annotater \n%!";
-                let _,_,_, _, _, total_cost, (recost1, recost2) =
-                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam
+                if debug2 then Printf.printf "cmp_simple_cost,call mauve annotater \n%!";
+                let _,_,_,_,_, total_cost, (recost1, recost2) =
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam None
                 in
                 total_cost,recost1,recost2
             | false ->
-                if debug then Printf.printf "cmp_simple_cost,call default annotater \n%!";
+                if debug2 then Printf.printf "cmp_simple_cost,call default annotater \n%!";
                 let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in
                 let _, _, _, _, _, _, _, total_cost, (recost1, recost2) =
                 AliMap.create_general_ali `Chromosome global_map seq1 seq2 cost_mat ali_pam
@@ -683,7 +679,9 @@ let cmp_cost med1 med2 cost_mat chrom_pams state =
 (** [find_simple_med2_ls med1 med2d cost_mat ali_pam] finds 
 * the median list between chromosome [med1] and chromosome [med2]. 
 * Rearrangements are allowed *)
-let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
+let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam 
+(outputtofile :string option) =
+    let debug2 = false in
     if debug = true then begin
         let len1 = Sequence.length med1.seq in 
         let len2 = Sequence.length med2.seq in 
@@ -731,10 +729,11 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
         let total_cost,recost,med_ls =
         match (use_mauve_annotator ali_pam) with
         | true ->
-        if debug then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
+        if debug2 then Printf.printf "find_simple_med2_ls,call mauve annotater \n%!";
+        (*base_code+2 is the start code for non-lcb block*)
         let full_code_lstlst,gen_gap_code,alignment_matrix, alied_code1_lst,
             alied_code2_lst, total_cost, (_, recost) =
-                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile
         in
         let alied_gen_seq2 = Array.of_list alied_code2_lst in
         let re_gen_seq2 = Utl.filterArray 
@@ -760,7 +759,7 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
                  med::med_ls
             ) all_order_ls []
         | false ->
-        if debug then Printf.printf "find_simple_med2_ls,call default annotater\n%!";
+        if debug2 then Printf.printf "find_simple_med2_ls,call default annotater\n%!";
         let global_map, _, _ = create_global_map seq1 seq2 cost_mat ali_pam in 
         let subseq1_ls, subseq2_ls, gen_gap_code, global_map, ali_mat, alied_gen_seq1,
             alied_gen_seq2, total_cost, (_, recost)  = 
@@ -802,23 +801,23 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam =
 (** [find_med2_ls med1 med2 cost_mat user_chrom_pam] find the
 * median list whose cost is minimum cost between [med1] and [med2]
 * and between [med2] and [med1] *) 
-let find_med2_ls (med1 : med_t) (med2 : med_t) cost_mat user_chrom_pam = 
+let find_med2_ls (med1 : med_t) (med2 : med_t) cost_mat user_chrom_pam outputtofile = 
     let ali_pam = ChromPam.get_chrom_pam user_chrom_pam in 
     match ali_pam.ChromPam.symmetric with
     | true ->
-          let cost12, recost12, med12_ls = find_simple_med2_ls med1 med2 cost_mat ali_pam in 
-          
+          let cost12, recost12, med12_ls = find_simple_med2_ls med1 med2
+          cost_mat ali_pam outputtofile in 
           let ali_pam = 
               if ali_pam.ChromPam.approx = `First then {ali_pam with ChromPam.approx = `Second}
               else ali_pam
           in 
-          let cost21, recost21, med21_ls = find_simple_med2_ls med2 med1 cost_mat ali_pam in 
+          let cost21, recost21, med21_ls = find_simple_med2_ls med2 med1
+          cost_mat ali_pam None in 
           if cost12 <= cost21 then cost12, recost12, med12_ls
           else begin 
               let med12_ls = List.map swap_med med21_ls in 
               cost21, recost21, med12_ls
           end 
-
     | false ->
           let med1, med2, ali_pam, swaped = 
               match Sequence.compare med1.seq med2.seq < 0 with 
@@ -830,8 +829,8 @@ let find_med2_ls (med1 : med_t) (med2 : med_t) cost_mat user_chrom_pam =
                     in 
                     med2, med1, ali_pam, true
           in 
-
-          let cost, recost, med_ls = find_simple_med2_ls med1 med2 cost_mat ali_pam in
+          let cost, recost, med_ls = find_simple_med2_ls med1 med2 cost_mat
+          ali_pam outputtofile in
           let med_ls = 
               match swaped with
               | false -> med_ls
@@ -858,9 +857,9 @@ let find_approx_med2 (med1 : med_t) (med2 : med_t) (med12 : med_t) =
 * is the current median of [ch1], [ch2] and [ch3] *) 
 let find_med3 ch1 ch2 ch3 mine c2 c3 pam = 
     let ali_pam = ChromPam.get_chrom_pam pam in 
-    let _, _, med1m_ls = find_med2_ls ch1 mine c2 pam in
-    let _, _, med2m_ls = find_med2_ls ch2 mine c2 pam in
-    let _, _, med3m_ls = find_med2_ls ch3 mine c2 pam in
+    let _, _, med1m_ls = find_med2_ls ch1 mine c2 pam None in
+    let _, _, med2m_ls = find_med2_ls ch2 mine c2 pam None in
+    let _, _, med3m_ls = find_med2_ls ch3 mine c2 pam None in
 
     let med1m = List.hd med1m_ls in 
     let med2m = List.hd med2m_ls in 

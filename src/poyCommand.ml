@@ -1422,9 +1422,12 @@ let create_expr () =
 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
                         [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] | 
-
-                [ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
-                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | 
+                [ LIDENT "chromosome"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
+                [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
+                        [ x = genome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
+                (*[ LIDENT "dynamic_pam"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] | *)
                 [ LIDENT "chrom_to_seq" -> `ChromToSeq [] ] |
                 [ LIDENT "breakinv_to_custom" -> `BreakinvToSeq [] ] |
                 [ LIDENT "kolmogorov"; y = OPT optional_kolmogorov_parameters ->
@@ -1485,7 +1488,19 @@ let create_expr () =
                 [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
                 -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
             ];
-
+        genome_argument:
+            [
+                [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
+                      `Chrom_Breakpoint (int_of_string c) ]  |
+                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
+                [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
+                ","; e = integer_or_float; right_parenthesis ->
+                      `Chrom_Indel_Cost ( (int_of_string o), 
+                      int_of_float ((float_of_string e) *. 100.0) ) ] | 
+                [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
+                      `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] |
+                [ LIDENT "median"; ":"; c = INT -> `Keep_Median (int_of_string c) ] 
+            ];
         chromosome_argument:
             [
                 [ LIDENT "median_solver"; ":"; c = median_solvers ->
@@ -1500,31 +1515,19 @@ let create_expr () =
                     | `Vinh -> `Median_Solver `Vinh
                 ]|
                 [ LIDENT "annotate"; ":"; left_parenthesis;
-                   c = annotate_param; 
-                   right_parenthesis
+                   c = annotate_param; right_parenthesis
                    -> `Annotate_Tool c
                 ]|
                 [ LIDENT "locus_inversion"; ":"; c = INT -> 
                       `Locus_Inversion (int_of_string c) ]  |
                 [ LIDENT "locus_breakpoint"; ":"; c = INT -> 
                       `Locus_Breakpoint (int_of_string c) ]  |
-                [ LIDENT "chrom_breakpoint"; ":"; c = INT -> 
-                      `Chrom_Breakpoint (int_of_string c) ]  |
-                [ LIDENT "circular"; ":"; e = boolean -> `Circular e] |
-
                 [ LIDENT "locus_indel"; ":"; left_parenthesis; o = INT; 
                     ","; e = integer_or_float; right_parenthesis ->
                       `Locus_Indel_Cost ( (int_of_string o), 
                       int_of_float ((float_of_string e) *. 100.0) ) ] | 
-                [ LIDENT "chrom_indel"; ":"; left_parenthesis; o = INT; 
-                ","; e = integer_or_float; right_parenthesis ->
-                      `Chrom_Indel_Cost ( (int_of_string o), 
-                      int_of_float ((float_of_string e) *. 100.0) ) ] | 
-                [ LIDENT "chrom_hom"; ":"; c = FLOAT -> 
-                      `Chrom_Hom (int_of_float ((float_of_string c) *. 100.)) ] | 
-                [ LIDENT "median"; ":"; c = INT ->
-                      `Keep_Median (int_of_string c) ] |
                 [ LIDENT "swap_med"; ":"; iters = INT -> `SwapMed (int_of_string iters) ] | 
+                [ LIDENT "median"; ":"; c = INT -> `Keep_Median (int_of_string c) ] |
                 [ LIDENT "med_approx"; ":"; ans = boolean -> `Approx ans] |
                 [ LIDENT "symmetric"; ":"; ans = boolean -> `Symmetric ans] |
                 [ LIDENT "max_3d_len"; ":"; l = INT -> 

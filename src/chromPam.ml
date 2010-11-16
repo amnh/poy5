@@ -51,14 +51,6 @@ type chromPairAliPam_t = {
     max_gap                 : int; (** max distance between two basic seeds *)
     sig_k                   : int;  (** min significant seed length 
     what is this?*)
-(*
-    k                       : int;  (** min basic seed length *)
-    sig_block_len           : int;  (** min signification block length *)
-
-    (** It's believed that no rearrangments or reversions happened 
-        within a segment whose length < unbreaked_len *)
-    rearranged_len           : int;
-*)
     (** Align the subsequence (min_pos1->max_pos1) of chromosome 1 to the
         subsequence (min_pos2->max_pos2) of chromosome 2. This information is
         reserved for devide-conquer techniques *)
@@ -186,23 +178,6 @@ let get_chrom_pam user_chrom_pam =
         | None -> chrom_pam
         | Some swap_med -> {chrom_pam with swap_med = swap_med}
     in 
-(*
-    let chrom_pam = 
-        match user_chrom_pam.Data.seed_len with 
-        | None -> failwith "Do not have default value for seed_len"
-        | Some k -> {chrom_pam with k = k}
-    in 
-    let chrom_pam = 
-        match user_chrom_pam.Data.sig_block_len with
-        | None -> chrom_pam
-        | Some sig_block_len -> {chrom_pam with sig_block_len = sig_block_len}
-    in 
-    let chrom_pam = 
-        match user_chrom_pam.Data.rearranged_len with
-        | None -> chrom_pam
-        | Some rearranged_len -> {chrom_pam with rearranged_len = rearranged_len}
-    in 
-*)
 
     let chrom_pam = 
         match user_chrom_pam.Data.approx with

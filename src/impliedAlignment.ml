@@ -609,7 +609,7 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
     let med_a = ChromAli.create_med (Sequence.Clip.extract_s seq_a) in 
     let med_b = ChromAli.create_med (Sequence.Clip.extract_s seq_b) in 
     let chrom_pam = {chrom_pam with Data.approx = Some true} in 
-    let _, _, med_ls = ChromAli.find_med2_ls med_a med_b cm chrom_pam in 
+    let _, _, med_ls = ChromAli.find_med2_ls med_a med_b cm chrom_pam None in 
     let med = List.hd med_ls in 
 
     let ordera_arr = Array.of_list (List.rev a.order) in 

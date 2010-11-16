@@ -64,9 +64,9 @@ let init_med (seq : Sequence.s) c2 chrom_pam tcode num_taxa =
         total_cost = 0; 
         total_recost = 0;
         c2 = c2;
-        approx_med_arr = (Array.make !max_taxa_id med);
-        approx_cost_arr = (Array.make !max_taxa_id max_int);
-        approx_recost_arr = (Array.make !max_taxa_id max_int);
+        approx_med_arr = (Array.make (!max_taxa_id+1) med);
+        approx_cost_arr = (Array.make (!max_taxa_id+1) max_int);
+        approx_recost_arr = (Array.make (!max_taxa_id+1) max_int);
         code = tcode;
 
         chrom_pam = chrom_pam 
@@ -89,7 +89,8 @@ let update_approx_mat meds1 meds2 =
     let med2 = List.hd meds2.med_ls in  
     let code2 = meds2.code in
     (if meds1.approx_cost_arr.(code2) = max_int then begin 
-        let cost, recost, med2_ls = ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam in  
+        let cost, recost, med2_ls = 
+            ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam None in  
         meds1.approx_med_arr.(code2) <- List.hd med2_ls;
         meds1.approx_cost_arr.(code2) <- cost; 
         meds1.approx_recost_arr.(code2) <- recost; 
@@ -166,8 +167,8 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                  List.fold_left  
                      (fun best_meds med2 -> 
                           let cost, recost, med_ls =
-                              ChromAli.find_med2_ls med1 med2 meds1.c2 meds1.chrom_pam in  
-    
+                              ChromAli.find_med2_ls med1 med2 meds1.c2
+                              meds1.chrom_pam None in  
                         if cost < best_meds.total_cost then 
                             { best_meds with med_ls = med_ls; total_cost = cost;
                                   total_recost = recost}
@@ -175,29 +176,22 @@ let find_meds2 (meds1 : meds_t) (meds2 : meds_t) =
                      ) best_meds meds2.med_ls
             ) {meds1 with med_ls = []; total_cost = max_int} meds1.med_ls
         in 
-                                
         best_meds
     in 
-
-
     match meds1.chrom_pam.Data.approx with 
     | Some approx ->
           if approx then begin 
               update_approx_mat meds1 meds2;
-
               let med1 = List.hd meds1.med_ls in  
               let med2 = List.hd meds2.med_ls in  
               let code2 = meds2.code in
-
               let med12 = ChromAli.find_approx_med2 med1 med2
                   meds1.approx_med_arr.(code2) 
               in 
               {meds1 with med_ls = [med12]; 
                    total_cost = meds1.approx_cost_arr.(code2);
                    total_recost = meds1.approx_recost_arr.(code2)}
-                   
           end else find_exact ()
-
     | None -> find_exact ()
       
 

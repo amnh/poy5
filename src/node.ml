@@ -3198,7 +3198,7 @@ let get_active_ref_code node_data =
 
         ) (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) node_data.characters 
 
-let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d 
+let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) d 
     (cs , cs_single) (parent_cs : (cs * cs) option) : Xml.xml Sexpr.t list = 
     match cs,  parent_cs, cs_single with
     | Nonadd8 cs, _, _ -> begin
@@ -3261,15 +3261,15 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
     | Dynamic cs, _, Dynamic cs_single -> begin
         match parent_cs with 
         | None ->
-            DynamicCS.to_formatter pre_ref_codes pre cs.preliminary None cs.time d
-          @ DynamicCS.to_formatter fi_ref_codes fin cs.final None cs.time  d
-          @ DynamicCS.to_formatter pre_ref_codes sing cs_single.preliminary None cs.time d
+            DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary None cs.time d
+          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time  d
+          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary None cs.time d
         | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
-            DynamicCS.to_formatter pre_ref_codes pre cs.preliminary
+            DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary
                 (Some parent_cs.preliminary) cs.time d
-          @ DynamicCS.to_formatter fi_ref_codes fin cs.final 
+          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final 
                 (Some parent_cs.final) cs.time d
-          @ DynamicCS.to_formatter pre_ref_codes sing cs_single.preliminary 
+          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary 
                 (Some parent_cs_single.preliminary) cs.time d
           | _ -> failwith "Fucking up with Dynamic at cs_to_formatter in node.ml"
       end 
@@ -3283,7 +3283,7 @@ let rec cs_to_formatter (pre_ref_codes, fi_ref_codes) d
           let sub a = 
               (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
               * error, though I can't see where ... *)
-              (cs_to_formatter (pre_ref_codes, fi_ref_codes) d a None) 
+              (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None) 
           in
           let sub : (Xml.xml Sexpr.t list) = List.map2 (fun a b -> `Set
           (sub (a, b))) x.final.set x_single.final.set in
@@ -3349,10 +3349,11 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
         (fun (acc, item) cs ->
             let parent_data = get_parent item in
             if debug_to_formatter then 
-                Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
+                Printf.printf "Delayed function of to_formatter_single on node %s\n%!" 
+                node_name;
              let res = 
                  cs_to_formatter 
-                 (pre_ref_codes, fi_ref_codes) d cs parent_data 
+                 (Some node_name) (pre_ref_codes, fi_ref_codes) d cs parent_data  
             in 
              res @ acc, item + 1
         ) ([], 0) 
@@ -3458,7 +3459,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
              if debug_to_formatter then 
                 Printf.printf "Delayed function in to_formatter_subtree on node.%s"
              node_name;
-             let res = cs_to_formatter (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
+             let res = cs_to_formatter None (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
              (res @ acc), (idx + 1)) ([], 0) 
              (List.map2 (fun a b -> a, b) node_data.characters 
              node_single.characters))))

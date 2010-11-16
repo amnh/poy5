@@ -294,7 +294,7 @@ let compare_data a b =
 (** [to_formatter ref_codes attr t parent_t d] returns
 * the map between  chromosme character set [t] and 
 * its parents [parent_t] in the Tag.output format *)
-let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list = 
+let to_formatter (node_name:string option) ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list = 
     let _, state = List.hd attr in   
     let output_chrom code med acc =
         let med = 
@@ -323,9 +323,16 @@ let to_formatter ref_codes attr t (parent_t : t option) d : Xml.xml Sexpr.t list
                             ChromAli.create_map parent_med med.ChromAli.ref_code  
                       | `String "Final" ->
                             ChromAli.create_map med parent_med.ChromAli.ref_code   
-                      | _ ->                        
-                            let cost, recost, med_ls = ChromAli.find_med2_ls med
-                                parent_med t.c2 t.chrom_pam 
+                      | _ ->      
+                            let filename = 
+                                match node_name with 
+                                | Some x -> 
+                                        Some ("out_for_mauve_"^x^".alignment")
+                                | None -> None
+                            in
+                            let cost, recost, med_ls = 
+                                ChromAli.find_med2_ls 
+                                med parent_med t.c2 t.chrom_pam filename
                             in 
                             let med = List.hd med_ls in                             
                             let map = ChromAli.create_single_map med in 

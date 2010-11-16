@@ -2775,11 +2775,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Locus_Indel_Cost c -> {dyna_pam with locus_indel_cost = Some c}
         | `Chrom_Indel_Cost c -> {dyna_pam with chrom_indel_cost = Some c}
         | `Chrom_Hom c -> {dyna_pam with chrom_hom = Some c}
-        (*
-        | `Sig_Block_Len c -> {dyna_pam with sig_block_len = Some c}
-        | `Rearranged_Len c -> {dyna_pam with rearranged_len = Some c}
-        | `Seed_Len c -> {dyna_pam with seed_len = Some c}
-        *)
         | `Keep_Median c -> 
                 {dyna_pam with keep_median = Some c}
         | `SwapMed c -> {dyna_pam with swap_med = Some c}    
