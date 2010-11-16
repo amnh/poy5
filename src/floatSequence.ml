@@ -23,9 +23,11 @@ module type A = sig
     type s = Sequence.s
 
     val get_mem : s -> s -> floatmem
+    val create_mem : int -> int -> floatmem
     val s_of_seq: Sequence.s -> s 
     val seq_of_s: Sequence.s -> s
 
+    (* 2d operations *)
     val cost_2 : ?debug:bool -> ?deltaw:int -> s -> s -> MlModel.model -> float -> floatmem -> float
     val verify_cost_2 : float -> s -> s -> MlModel.model -> float -> floatmem -> float
     val c_cost_2 : s -> s -> MlModel.model -> float -> floatmem -> int -> float
@@ -34,14 +36,17 @@ module type A = sig
     val median_2 : s -> s -> MlModel.model -> float -> floatmem -> s
     val median_2_cost : s -> s -> MlModel.model -> float -> floatmem -> float * s
     val full_median_2 : s -> s -> MlModel.model -> float -> floatmem -> s
+
+    (* 3d operations *)
     val closest : s -> s -> MlModel.model -> float -> floatmem -> s * float
     val readjust : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
 
     (* delete these later *)
-    val print_mem : floatmem -> unit
-    val print_s   : s -> unit
-    val clear_mem : floatmem -> unit
-    val print_cm  : MlModel.model -> float -> unit
+    val gen_all_2       : s -> s -> MlModel.model -> float -> floatmem -> s * s * float * s
+    val print_mem       : floatmem -> unit
+    val print_s         : s -> unit
+    val clear_mem       : floatmem -> unit
+    val print_cm        : MlModel.model -> float -> unit
 
 end 
 
@@ -116,7 +121,6 @@ module FloatAlign : A = struct
                 create_mem ((Sequence.length a)) ((Sequence.length b))
             else 
                 x
-
 
     (** minimum of three *)
     let min3 a b c = min a (min b c)
@@ -464,6 +468,19 @@ module FloatAlign : A = struct
             let se2,se1 = alignments mem s2 s1 model in
             se2,se1,cost
 
+    let gen_all_2 s1 s2 model t mem =
+        let gen_all_2 s1 s2 = 
+            let cost  = ukkonen_align_2 mem s1 s2 model t in
+            let med   = backtrace mem s1 s2 in
+            let s1,s2 = alignments mem s1 s2 model in
+            s1,s2,cost,med
+        in
+        if Sequence.length s1 <= Sequence.length s2 then 
+            gen_all_2 s1 s2
+        else 
+            let s2,s1,cost,m = gen_all_2 s2 s1 in
+            s1,s2,cost,m
+
     let algn s1 s2 model t mem : float * s =
         let s1,s2 = 
             if Sequence.length s1 <= Sequence.length s2 then s1,s2 else s2,s1 in
@@ -543,15 +560,43 @@ module FloatAlign : A = struct
 
 end
 
-let test () =
+
+(* Testing cost/alignment of a tree in many directions to verify cost functions;
+ *          1       4
+ *           \5___6/    
+ *           /     \
+ *          2       3   
+ *
+ * Cost 5 -- 6 : 28.255781 * Cost 5 -- 1 : 33.457824 * Cost 5 -- 2 : 30.027906
+ * Cost 4 -- 6 : 29.588534 * Cost 3 -- 6 : 34.186454 *)
+let test_all_roots () = 
     let model= MlModel.create Alphabet.dna (MlModel.jc69_5) in
-    let seq1 = FloatAlign.s_of_seq (sequence_of_string "-TCGTTAAAAGCCTTATAG" Alphabet.dna)
-    and seq2 = FloatAlign.s_of_seq (sequence_of_string "-TTTGGAGGGCTTCAAGA" Alphabet.dna) 
-    and seq3 = FloatAlign.s_of_seq (sequence_of_string "-TTAATGCTTCAA" Alphabet.dna) in
-    let mem  = FloatAlign.get_mem seq1 seq2 in
-    let cost,medn,_ = FloatAlign.readjust seq1 seq2 seq3 model 0.1 0.1 0.1 mem in
-    FloatAlign.print_s seq1; print_newline ();
-    FloatAlign.print_s seq2; print_newline ();
-    FloatAlign.print_s seq3; print_newline ();
-    FloatAlign.print_s medn; print_newline ();
+    let seq1 = FloatAlign.s_of_seq (sequence_of_string "-ACTATTA"   Alphabet.dna)
+    and seq2 = FloatAlign.s_of_seq (sequence_of_string "-ACTCCTTA"  Alphabet.dna) 
+    and seq3 = FloatAlign.s_of_seq (sequence_of_string "-CTATTA"    Alphabet.dna)
+    and seq4 = FloatAlign.s_of_seq (sequence_of_string "-TACCATTA"  Alphabet.dna) in
+    let mem  = FloatAlign.create_mem 20 20 in 
+    (* root at 5 -- 6 *)
+    let ed1,ed2,cs12,seq5 = FloatAlign.gen_all_2 seq1 seq2 model 0.2 mem in
+    let ed3,ed4,cs34,seq6 = FloatAlign.gen_all_2 seq3 seq4 model 0.2 mem in
+    let ed5,ed6,cs56,seqR1= FloatAlign.gen_all_2 seq5 seq6 model 0.2 mem in
+    Printf.printf "Cost 5 -- 6 : %f\n" (cs12+.cs34+.cs56);
+    (* root at 1 -- 5 *)
+    let ed2,ed6,cs26,seq5 = FloatAlign.gen_all_2 seq2 seq6 model 0.3 mem in
+    let ed1,ed5,cs15,seqR2= FloatAlign.gen_all_2 seq1 seq5 model 0.1 mem in
+    Printf.printf "Cost 5 -- 1 : %f\n" (cs34+.cs26+.cs15);
+    (* root at 2 -- 5 *)
+    let ed1,ed6,cs16,seq5 = FloatAlign.gen_all_2 seq1 seq6 model 0.3 mem in
+    let ed2,ed5,cs25,seqR3= FloatAlign.gen_all_2 seq2 seq5 model 0.1 mem in
+    Printf.printf "Cost 5 -- 2 : %f\n" (cs16+.cs34+.cs25);
+    (* root at 6 -- 4 *)
+    let ed1,ed2,cs12,seq5 = FloatAlign.gen_all_2 seq1 seq2 model 0.2 mem in
+    let ed3,ed5,cs35,seq6 = FloatAlign.gen_all_2 seq3 seq5 model 0.3 mem in
+    let ed4,ed6,cs46,seqR4= FloatAlign.gen_all_2 seq4 seq6 model 0.1 mem in
+    Printf.printf "Cost 4 -- 6 : %f\n" (cs12+.cs35+.cs46);
+    (* root at 6 -- 3 *)
+    let ed4,ed5,cs45,seq6 = FloatAlign.gen_all_2 seq4 seq5 model 0.3 mem in
+    let ed3,ed6,cs36,seqR5= FloatAlign.gen_all_2 seq3 seq6 model 0.1 mem in
+    Printf.printf "Cost 3 -- 6 : %f\n" (cs12+.cs36+.cs45);
     ()
+
