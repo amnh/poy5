@@ -463,6 +463,7 @@ module F : Ptree.Tree_Operations
             let () = Status.user_message Status.Error c in
             false
 
+            
     let get_pre_active_ref_code ptree = 
         let rec get_subtree parent current acc_pre_codes = 
             let pre_codes = 
@@ -488,7 +489,6 @@ module F : Ptree.Tree_Operations
             in 
             IntSet.union pre_codes acc_pre_codes
         in
-
         (* Now we define a function that can assign single sequences to the
         * connected component of a handle *)
         let get_handle handle pre_codes =
@@ -520,6 +520,7 @@ module F : Ptree.Tree_Operations
         in
         pre_codes
 
+
     (* debugging function for output of nexus files in iteration loops *)
     let create_nexus : (string -> phylogeny -> unit) =
         let nexi = ref 0 and base = "chel_2" in
@@ -538,8 +539,10 @@ module F : Ptree.Tree_Operations
             let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
             ())
 
+    
     let clear_internals force t = t
 (*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
+
 
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
@@ -660,7 +663,8 @@ module F : Ptree.Tree_Operations
 
 
     let unadjust ptree = ptree
-    
+ 
+
     (** Performs much of the node functions after a downpass is completed.
      * Essentially the uppass; this function fills in other directions of all the
      * nodes; their roots, and transfer branch lengths or other data. This
@@ -1124,6 +1128,7 @@ module F : Ptree.Tree_Operations
         let set_handle_n_root_n_cost handle ptree =
             if using_likelihood `Static ptree then ptree 
             else if using_likelihood `Integer ptree then ptree 
+            else if using_likelihood `Dynamic ptree then ptree 
             else begin
                 let comp_root = Ptree.get_component_root handle ptree in
                 match comp_root.Ptree.root_median with
@@ -1145,10 +1150,11 @@ module F : Ptree.Tree_Operations
                 | Some _ -> ptree
             end
         in
-        let newtree = adjust_until_nothing_changes max_count ptree in   
-        let ptree = IntSet.fold (set_handle_n_root_n_cost)
-                                (ptree.Ptree.tree.Tree.handles)
-                                (newtree)
+        let newtree = adjust_until_nothing_changes max_count ptree in
+        let ptree = 
+            IntSet.fold (set_handle_n_root_n_cost)
+                        (ptree.Ptree.tree.Tree.handles)
+                        (newtree)
         in
         ptree
 
@@ -1674,7 +1680,7 @@ module F : Ptree.Tree_Operations
             | false, _    -> tree
 
     let uppass ptree = 
-        if debug_uppass_fn then info_user_message "UPPASS begin: \n%!";
+        if debug_uppass_fn then info_user_message "UPPASS begin:%!";
         let tree = match !Methods.cost with
             | `Exhaustive_Strong
             | `Exhaustive_Weak
@@ -1687,7 +1693,7 @@ module F : Ptree.Tree_Operations
             | `Iterative (`ThreeD _) ->
                 apply_implied_alignments None true ptree
         in
-        if debug_uppass_fn then info_user_message "UPPASS ends. \n%!";
+        if debug_uppass_fn then info_user_message "UPPASS ends.%!";
         tree
 
     let rec clear_subtree v p ptree = 
