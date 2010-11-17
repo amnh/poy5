@@ -162,8 +162,14 @@ let cmp_inversion_dis_multichrom (genomeX :int array) (genomeY : int array)
  * Compute the inversion distance between [genomeX] and [genomeY] using GRAPPA functions
  * For example: [genomeX] = (-6, 1, 5), [genomeY] = (-5, 1, 6) *)
 let cmp_inversion_dis (genomeX : int array) (genomeY : int array) circular  =
+    let debug = false in
     let set_seq = 1 in 
     let sta_genomeX, sta_genomeY = standardize genomeX genomeY in
+    if debug then begin
+    Printf.printf "sta arr1,arr2 = \n%!";
+    Utl.printIntArr sta_genomeX;
+    Utl.printIntArr sta_genomeY;
+    end;
     let num_gen = Array.length genomeX in  
     let genome_arr = Grappa.c_create_empty_genome_arr 2 num_gen in  
     for index = 0 to num_gen - 1 do

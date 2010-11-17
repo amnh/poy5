@@ -72,7 +72,7 @@ type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
-    cost_fn : [`MPL | `MAL ];
+    cost_fn : Methods.ml_costfn;
     use_gap : gap_properties;
     iterate_model : bool;
     iterate_alpha : bool;
@@ -110,6 +110,8 @@ val jc69_4 : spec
 
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
+
+val list_of_packed : int -> int list
 
 (* code for costfn for c-side *)
 val get_costfn_code : model -> int
@@ -210,7 +212,7 @@ val classify_seq_pairs :
 
 val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
-        [`MAL | `MPL] -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
+        Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 
 (** [compse m t] compose a matrix with the time *)
 val compose : model -> float -> 

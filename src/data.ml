@@ -70,12 +70,13 @@ type re_meth_t = [ `Locus_Breakpoint of int |
 type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
 `ChainedLK | `SimpleLK ]
 
+type annotate_tool_t = [ `Mauve of (float*int*int) | `Default of (int*int*int) ]
 
 type dyna_pam_t = {
 
     median_solver: median_solver_t option; 
 
-    seed_len : int option; (** the minimum length of a segment which is considered as a basic seed *)
+    annotate_tool: annotate_tool_t option;
 
     (** Cost parameters of rearrangement function which is either
     * breakpoint distance or inversion distance *)
@@ -98,7 +99,7 @@ type dyna_pam_t = {
 
     (** The cost of a breakpoint happing between two chromosome *)
     chrom_breakpoint : int option;
-
+(*
     (**  the minimum length of a block which will be considered
     * as a homologous block *)
     sig_block_len : int option;
@@ -106,7 +107,9 @@ type dyna_pam_t = {
     (** It's believed that no rearrangments or reversions happened 
         within a segment whose length < rearranged_len *)
     rearranged_len : int option;
-
+    
+    seed_len : int option; (** the minimum length of a segment which is considered as a basic seed *)
+*)
     (** The maximum number of medians at one node kept during the search*)
     keep_median : int option;
 
@@ -133,15 +136,16 @@ type dyna_pam_t = {
 * used to create the median between two chromosomes or genomes *)
 let dyna_pam_default ={
     median_solver = Some `Albert;
-    seed_len = Some 9;
+    annotate_tool = Some (`Default (100,100,9));
     re_meth = Some (`Locus_Breakpoint 10);
     circular = Some 0;
     locus_indel_cost = Some (10, 100);
     chrom_indel_cost = Some (10, 100);
     chrom_hom = Some 200;
     chrom_breakpoint = Some 100;
-    sig_block_len = Some 100;
+    (*sig_block_len = Some 100;
     rearranged_len = Some 100;
+    seed_len = Some 9;*)
     keep_median = Some 1;
     swap_med = Some 1;
     approx = Some false;
@@ -2679,15 +2683,15 @@ let pam_spec_to_formatter (state : dyna_state_t) pam =
 
             (AXML
             ([T.clas] = [clas]) 
-            ([T.seed_len] = [handle_int pam.seed_len]) 
+            (*([T.seed_len] = [handle_int pam.seed_len]) *)
             ([T.re_meth] = [handle_re_meth pam.re_meth])
             ([T.circular] = [handle_int pam.circular])
             ([T.locus_indel_cost] = [locus_indel_str])
             ([T.chrom_indel_cost] = [chrom_indel_str])
             ([T.chrom_hom] = [handle_int pam.chrom_hom])
             ([T.chrom_breakpoint] = [handle_int pam.chrom_breakpoint])
-            ([T.sig_block_len] = [handle_int pam.sig_block_len])
-            ([T.rearranged_len] = [handle_int pam.rearranged_len])
+            (*([T.sig_block_len] = [handle_int pam.sig_block_len])
+            ([T.rearranged_len] = [handle_int pam.rearranged_len])*)
             ([T.keep_median] = [handle_int pam.keep_median])
             ([T.swap_med] = [handle_int pam.swap_med])
             ([T.approx] = [handle_bool pam.approx])
@@ -2760,6 +2764,8 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
     ~f:(fun dyna_pam pam ->
         match pam with
         | `Median_Solver c -> {dyna_pam with median_solver = Some c}
+        | `Annotate_Tool c -> {dyna_pam with annotate_tool = Some c}
+        (*| `Min_LCB_Ratio c -> {dyna_pam with min_lcb_ratio = Some c}*)
         | `Locus_Inversion c -> {dyna_pam with re_meth = Some (`Locus_Inversion c)}
         | `Locus_Breakpoint c -> {dyna_pam with re_meth = Some (`Locus_Breakpoint c)}
         | `Chrom_Breakpoint c -> {dyna_pam with chrom_breakpoint = Some c}
@@ -2769,9 +2775,6 @@ let set_dyna_pam dyna_pam_ls old_dynpam =
         | `Locus_Indel_Cost c -> {dyna_pam with locus_indel_cost = Some c}
         | `Chrom_Indel_Cost c -> {dyna_pam with chrom_indel_cost = Some c}
         | `Chrom_Hom c -> {dyna_pam with chrom_hom = Some c}
-        | `Sig_Block_Len c -> {dyna_pam with sig_block_len = Some c}
-        | `Rearranged_Len c -> {dyna_pam with rearranged_len = Some c}
-        | `Seed_Len c -> {dyna_pam with seed_len = Some c}
         | `Keep_Median c -> 
                 {dyna_pam with keep_median = Some c}
         | `SwapMed c -> {dyna_pam with swap_med = Some c}    
@@ -3571,13 +3574,16 @@ let has_likelihood d =
     | [] -> false
     | _  -> true
 
-let has_dynamic_likelihood d = 
-    match d.dynamics with
-    | []      -> false
+let type_of_dynamic_likelihood d = match d.dynamics with
+    | []      -> None
     | hd :: _ ->
         match Hashtbl.find d.character_specs hd with
-        | Dynamic spec when spec.state = `Ml -> true
-        | _                                  -> false
+        | Dynamic spec when spec.state = `Ml ->
+            begin match spec.lk_model with
+                | Some s -> Some s.MlModel.spec.MlModel.cost_fn 
+                | None   -> assert false
+            end
+        | _ -> None
 
 let rec get_code_from_name data name_ls = 
   let code_ls = List.fold_right 

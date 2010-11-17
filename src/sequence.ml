@@ -2390,6 +2390,7 @@ let create_median_gap seq ?(start_pos=(-1)) ?(end_pos=(-1)) cost_mat =
 (** [create_median_seq approx alied_seq1 alied_seq2 cost_mat]
 * returns the median sequence between aligned sequence [alied_seq1] 
 * and aligned sequence [alied_seq2] *)
+(* Note : this only works for two non-indel alied sequence.*)
 let create_median_seq ?(approx=`BothSeq) alied_seq1 alied_seq2 cost_mat =
     let len = length alied_seq1 in 
     let get_median_code pos = 
@@ -2401,14 +2402,12 @@ let create_median_seq ?(approx=`BothSeq) alied_seq1 alied_seq2 cost_mat =
         | `BothSeq ->              
               Cost_matrix.Two_D.median code1 code2 cost_mat
     in
-
     let median = init (fun pos -> get_median_code pos) len in
-
-
     let cost = ref 0 in 
     for p = 0 to len - 1 do 
         let code1 = get alied_seq1 p in 
         let code2 = get alied_seq2 p in         
+        (*this cost is wrong if one of input seq is a gap seq*)
         cost := !cost + (Cost_matrix.Two_D.cost code1 code2 cost_mat)
     done;
     median, !cost

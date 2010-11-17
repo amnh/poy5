@@ -13,6 +13,7 @@ Array_ops
 AsciiTree
 BitSet
 Block
+Block_mauve
 Breakinv
 BreakinvAli
 BreakinvCS
@@ -25,8 +26,8 @@ Chrom
 ChromAli
 ChromCS
 ChromPam
-CommandLexer
 CompileFlags
+CommandLexer
 Cost_matrix
 Data
 Diagnosis
@@ -37,6 +38,7 @@ Fasta
 FileStream
 FingerPrint
 FMatrix
+FloatSequence
 GenAli
 Genome
 GenomeAli

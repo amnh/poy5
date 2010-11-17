@@ -23,19 +23,23 @@
 external gamma_rates: float -> float -> int -> 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t = "gamma_CAML_rates"
 
-(** [brents_method ?i ?e o f] uses brents method of parabolic interpolation to
- * find the local minimum near [o] of the function [f]. [i] and [e] are used to
- * control the number of iterations and tolerance, respectively. [o] is a pair
- * of floating point numbers, essentially, representing a point *)
+(** [brents_method ?i ?min ?max ?tol ?e o f] -> n 
+ * Uses brents method, a combination of parabolic interpolation and golden
+ * section search, to find the local minimum near [o] of the function [f],
+ * bounded by [min] and [max]. [i] and [tol] are used to control the number
+ * of iterations, tolerance, respectively. [o] is a pair of floating point
+ * numbers, with additional data, representing a point.
+ *
+ * Numerical Recipes in C; 10.2 *)
 val brents_method :
     ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
         -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
 
 (* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
  * gradient [g] and direction [d] of function [f] by point [p], attempting the
- * longest step with maximum [s] *)
+ * longest step, of maximum distance [s] *)
 val line_search : 
-    ?epsilon:float -> ?alf:float -> (float array -> 'a * float) -> float array -> 
+    ?epsilon:float -> (float array -> 'a * float) -> float array -> 
         'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
 
 (* [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian

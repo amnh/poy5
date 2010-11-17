@@ -122,6 +122,8 @@ type transform_cost_matrix = [
 type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
 `Siepel | `Albert | `Vinh  ]
 
+type annotate_tool = [ `Mauve of (float*int*int) | `Default of (int*int*int) ]
+
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [
     | `Locus_Inversion of int
@@ -130,10 +132,7 @@ type chromosome_pam_t = [
     | `Circular of bool
     | `Locus_Indel_Cost of (int * int)
     | `Chrom_Indel_Cost of (int * int)
-    | `Sig_Block_Len of int 
-    | `Rearranged_Len of int 
     | `Chrom_Hom of int
-    | `Seed_Len of int
     | `Keep_Median of int
     | `SwapMed of int
     | `Approx of bool 
@@ -141,6 +140,7 @@ type chromosome_pam_t = [
     | `Max_3D_Len of int
     | `Max_kept_wag of int
     | `Median_Solver of median_solver_chosen
+    | `Annotate_Tool of annotate_tool
 ]
 
 
@@ -187,11 +187,18 @@ type ml_substitution = [
     | `File of string
 ]
 
+
+type ml_costfn = [ `MAL     (* maximum average likelihood *)
+                 | `MPL     (* most parsimonious likelihood *)
+                 | `ILK     (* dynamic alignment with integerized matrix *)
+                 | `FLK     (* dynamic alignment with floating-point matrix *)
+                 | `BLK     (* both of above; used for testing *)
+                 ] 
+
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
 type ml_priors = [ `Estimate | `Given of float list | `Constant ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
-type ml_costfn = [`MAL | `MPL ] 
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option
         * ml_priors * ml_gap)

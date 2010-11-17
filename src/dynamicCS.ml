@@ -467,7 +467,7 @@ let rec compare_union a b =
 
 (** [to_formatter ref_codes attr t parent_t] returns
 * dynamic character set [t] into Tag.output format *) 
-let to_formatter ref_codes attr t parent_t bl d : Xml.xml Sexpr.t list = 
+let to_formatter (node_name:string option) ref_codes attr t parent_t bl d : Xml.xml Sexpr.t list = 
     match t,parent_t with 
     | MlCS t, None ->
             MlDynamicCS.to_formatter attr t None bl d
@@ -478,9 +478,9 @@ let to_formatter ref_codes attr t parent_t bl d : Xml.xml Sexpr.t list =
     | SeqCS t, Some (SeqCS parent_t) ->
             SeqCS.to_formatter attr t (Some parent_t) d
     | ChromCS t, None ->
-            ChromCS.to_formatter ref_codes attr t None d
+            ChromCS.to_formatter node_name ref_codes attr t None d
     | ChromCS t, Some (ChromCS parent_t) ->
-            ChromCS.to_formatter ref_codes attr t (Some parent_t) d
+            ChromCS.to_formatter node_name ref_codes attr t (Some parent_t) d
     | AnnchromCS t, None ->
             AnnchromCS.to_formatter ref_codes attr t None d
     | AnnchromCS t, Some (AnnchromCS parent_t) ->

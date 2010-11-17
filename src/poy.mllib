@@ -13,6 +13,7 @@ Array_ops
 AsciiTree
 BitSet
 Block
+Block_mauve
 Breakinv
 BreakinvAli
 BreakinvCS
@@ -34,8 +35,11 @@ Diagnosis
 DynamicCS
 Edge
 Enum
+Fasta
 FileStream
 FingerPrint
+FMatrix
+FloatSequence
 GenAli
 Genome
 GenomeAli
@@ -52,13 +56,17 @@ HennigParser
 ImpliedAlignment
 IncList
 IntSpec
+Kolmo
 KolmoCS
+KolmoGrammar
 KolmoExtension
 Latex
 Lz
 Matrix
 MemProfiler
 Methods
+MlModel
+MlDynamicCS
 MlStaticCS
 Mst
 Nexus
@@ -69,7 +77,9 @@ NodeSig
 NonaddCS16
 NonaddCS32
 NonaddCS8
+Numerical
 Parser
+Phylo
 Phylo
 PoyCommand
 PoyExtension

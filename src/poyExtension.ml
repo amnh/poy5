@@ -810,6 +810,15 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "siepel" -> <:expr<$str:"`Siepel"$>>  ] |                
                 [ LIDENT "vinh" -> <:expr<$str:"`Vinh"$>> ]
             ];
+        annotate_param:
+            [
+                [ LIDENT "default"; ","; x = flex_integer; ","; 
+                y = flex_integer; ","; z = flex_integer
+                -> <:expr<`Annotate_Tool (`Default ($x$,$y$,$z$))>> ] |
+                [ LIDENT "mauve"; ","; x = flex_float; ","; y = flex_integer;
+                ","; z = flex_integer 
+                -> <:expr<`Annotate_Tool (`Mauve ($x$,$y$,$z$)) >> ]
+            ];
         chromosome_argument:
             [
                 [ LIDENT "locus_inversion"; ":"; c = flex_integer -> 
@@ -829,12 +838,6 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                       100.0) )>> ] | 
                 [ LIDENT "chrom_hom"; ":"; c = flex_float -> 
                       <:expr<`Chrom_Hom (int_of_float ($c$ *. 100.))>> ] | 
-                [ LIDENT "min_block_len"; ":"; c = flex_integer -> 
-                      <:expr<`Sig_Block_Len $c$>> ] | 
-                [ LIDENT "min_rearrangement_len"; ":"; c = flex_integer -> 
-                      <:expr<`Rearranged_Len $c$ >>] | 
-                [ LIDENT "min_seed_length"; ":"; c = flex_integer -> 
-                      <:expr<`Seed_Len $c$>> ] | 
                 [ LIDENT "median"; ":"; c = flex_integer ->
                       <:expr<`Keep_Median $c$>> ] |
                 [ LIDENT "swap_med"; ":"; iters = flex_integer ->
@@ -848,7 +851,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                     <:expr<`Max_kept_wag $l$>> ] |
                 [  LIDENT "median_solver"; ":"; c = median_solvers ->
                      <:expr<`Median_Solver $c$>> 
-                                   ]
+                ]|
+                [ LIDENT "annotate"; ":"; left_parenthesis;
+                   c = annotate_param; right_parenthesis -> c                ]
             ];
         calculate_support:
             [

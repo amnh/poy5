@@ -25,7 +25,8 @@ let () = SadmanOutput.register "GenAli" "$Revision: 1616 $"
 let fprintf = Printf.fprintf;;
 type dyna_state_t = Data.dyna_state_t
 
-
+(*this is a snity check, make sure each code shows up once, and only once in arr
+* takes time/space to do this, only for debug purpose*)
 let sanity_check arr size =
     let mark_arr = Array.make size 0 in
     Array.iter (fun x ->
@@ -40,6 +41,15 @@ let sanity_check arr size =
 let get_orientated_code code = 
     if code mod 2 = 0 then -(code / 2)
     else (code + 1) /2
+
+let to_ori_code code =
+    assert(code<>0);
+    if( code mod 2 == 0) then -(code/2)  else (code+1)/2 
+
+let from_ori_code code =
+    assert(code<>0);
+    if (code<0) then (abs code)*2
+    else (code*2-1)
 
 let to_ori_arr arr =
     Array.init (Array.length arr) (fun index->
@@ -556,7 +566,8 @@ let get_neg_code code =
 *  sequence.ml to take care of that.
 *  *)
 let match_pair arr1 arr2 cost_array sizex sizey gapcode =
-    (* heuristic size: how many different match we keep at every step*)
+    let debug = false in
+    (* heuristic size: how many different matches we will keep at every step*)
     let heuristic_size = 2 in 
     let size1 = Array.length arr1 
     and size2 = Array.length arr2 in
@@ -568,7 +579,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
     let matched_list = best.matched_loci_list in
     let matched_list = List.map (fun (code1,codem,_) ->  code1, codem
     ) matched_list in
-    (*debug msg
+    if debug then begin
     Printf.printf "match pair with arr1/arr2=\n%!";
     Utl.printIntArr arr1; Utl.printIntArr arr2;
     Printf.printf "editng cost =%d, matched list is [%!" matched_cost;
@@ -576,7 +587,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
         Printf.printf "(%d,%d) " idx1 idx2 
     ) matched_list;
     Printf.printf "]\n  %!"; 
-    debug msg*)
+    end;
     matched_list, 
     matched_cost
 
@@ -589,6 +600,7 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
 let create_gen_ali_new code1_arr codem_arr 
 cost_matrix gapcode re_meth circular orientation  = 
+let debug = false in
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
     let cost_mat, cost_array = 
@@ -596,51 +608,59 @@ cost_matrix gapcode re_meth circular orientation  =
     in
     let matched_list, matched_cost = 
         match_pair code1_arr codem_arr cost_array sizex sizey gapcode in
+    if debug then begin
+        Printf.printf "create gen ali new with two arr :\n%!";
+        Utl.printIntArr code1_arr; Utl.printIntArr codem_arr;
+    end;
     let matched_array = Array.of_list matched_list in
-    let nongap_matched_lst = ref [] in
-    let alied_code1_lst = ref [] and alied_codem_lst = ref [] in
-    Array.iter (fun item ->
+    let alied_code1_lst,alied_codem_lst,nongap_matched_lst = 
+    Array.fold_left (fun (alied_code1_lst,alied_codem_lst,nongap_matched_lst) item ->
         let trypos = 
                 Utl.find_index matched_array item 
                 (fun looking_item (indexi,_) -> compare looking_item indexi ) 
         in
         if (trypos<0) then begin 
-                let neg_item = get_neg_code item in
-                alied_code1_lst := !alied_code1_lst @ [item];
-                let pos = 
-                    Utl.find_index matched_array neg_item
-                    (fun looking_item (indexi,_) -> compare looking_item indexi)
-                in
-                assert(pos>=0);
-                let _,matched_item =  matched_array.(pos) in
-                let neg_matched_item = 
-                    if (matched_item = gapcode) then gapcode 
-                    else  get_neg_code matched_item in
-                alied_codem_lst := !alied_codem_lst @ [neg_matched_item];
-                if (neg_matched_item<gapcode) then
-                 nongap_matched_lst :=
-                  (item,neg_matched_item)::(!nongap_matched_lst)
+            let neg_item = get_neg_code item in
+            let pos = 
+                Utl.find_index matched_array neg_item
+                (fun looking_item (indexi,_) -> compare looking_item indexi)
+            in
+            assert(pos>=0);
+            let _,matched_item =  matched_array.(pos) in
+            let neg_matched_item = 
+                if (matched_item = gapcode) then gapcode 
+                else  get_neg_code matched_item in
+            if (neg_matched_item<gapcode) then
+                alied_codem_lst@[item],
+                alied_codem_lst@[neg_matched_item],
+                nongap_matched_lst@[(item,neg_matched_item)]
+            else
+                alied_codem_lst@[item],
+                alied_codem_lst@[neg_matched_item],
+                nongap_matched_lst
         end
         else begin
-                alied_code1_lst := !alied_code1_lst @ [item];
-                let _,matched_item =  matched_array.(trypos) in
-                alied_codem_lst := !alied_codem_lst @ [matched_item];
-                if (matched_item<gapcode) then
-                 nongap_matched_lst :=
-                  (item,matched_item)::(!nongap_matched_lst)
+            let _,matched_item =  matched_array.(trypos) in
+            if (matched_item<gapcode) then
+                alied_code1_lst @ [item],
+                alied_codem_lst @ [matched_item],
+                nongap_matched_lst@[(item,matched_item)]
+            else
+                alied_code1_lst @ [item],
+                alied_codem_lst @ [matched_item],
+                nongap_matched_lst
         end;
-    ) code1_arr;
-    Array.iteri (fun idx codem ->
-        if (List.mem codem !alied_codem_lst)||
-        (List.mem (get_neg_code codem) !alied_codem_lst)  then ()
-        else begin 
-            alied_code1_lst := !alied_code1_lst @ [gapcode];
-            alied_codem_lst := !alied_codem_lst @ [codem];
-        end
-    )codem_arr;
-    let alied_code1_lst = !alied_code1_lst 
-    and alied_codem_lst = !alied_codem_lst in
-    let nongap_matched_lst = List.rev !nongap_matched_lst in
+    ) ([],[],[]) code1_arr 
+    in
+    let alied_code1_lst,alied_codem_lst = 
+        Array.fold_left (fun (alied_code1_lst,alied_codem_lst) codem ->
+        if (List.mem codem alied_codem_lst)||
+        (List.mem (get_neg_code codem) alied_codem_lst)  then 
+            alied_code1_lst,alied_codem_lst
+        else  
+            alied_code1_lst @ [gapcode],alied_codem_lst @ [codem]
+    ) (alied_code1_lst,alied_codem_lst) codem_arr
+    in
     let codem_matched_with_nongap = Array.map ( fun (_ ,codem) -> codem ) 
     (Array.of_list nongap_matched_lst) in
     let arr1, arr2 = to_ori_arr codem_matched_with_nongap,
