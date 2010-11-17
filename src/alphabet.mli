@@ -49,6 +49,9 @@ type a
 
 (** {2 Alphabets} *)
 
+(** [present_absent] contains binary data; used to calculate costs of indels *)
+val present_absent : a
+
 (** [dna] contains codes for A, G, C, and T *)
 val dna : a
 

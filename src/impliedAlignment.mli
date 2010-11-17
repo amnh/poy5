@@ -73,14 +73,10 @@ type cg = (unit -> int)
 (** Creates a fresh code generation functions *)
 val code_generator : unit -> cg
 
-(** alphabet used to represnet present/absent characters **)
-val present_absent_alph : Alphabet.a
-
 (** [create_ias status s cg] creates a fresh sequence representation for implied
  * alignments of sequence [s] using the code generation function [cg].  
  * state indicate the type of sequence, i.e., Sequence, Chromosome, Annotated,
- * Genome, Breakinv....
- *)
+ * Genome, Breakinv....  *)
 val create_ias : dyna_state_t -> Sequence.Clip.s -> int -> cg -> ias
 
 exception IsSankoff

@@ -157,6 +157,14 @@ let list_to_a ?(orientation=false) lst gap all kind =
       size = a_size; 
       kind = kind; complement = cmp; orientation = orientation }
 
+(* used to calculate costs of gaps *)
+let present_absent =
+    list_to_a 
+    [   
+        ("present", 1, None); 
+        ("absent", 2, None)
+    ] "absent" None Sequential
+
 (* The alphabet limited to the four bases *)
 let dna =
     let all = adenine lor citosine lor guanine lor timine lor gap in
