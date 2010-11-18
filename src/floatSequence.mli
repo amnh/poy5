@@ -17,69 +17,49 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** minor helper functions for testing *)
 val to_char_list : string -> char list
 val sequence_of_string : string -> Alphabet.a -> Sequence.s
 
-module FloatAlign : sig
+(** Sequence alignment module for two or three sequences. *)
+module type A = sig
 
     type floatmem
     type s
 
-    val get_mem : s -> s -> floatmem
-    val create_mem : int -> int -> floatmem
-    val s_of_seq: Sequence.s -> s 
-    val seq_of_s: s -> Sequence.s
+    (* auxiliary functions *)
+    val get_mem     : s -> s -> floatmem
+    val create_mem  : int -> int -> floatmem
+    val s_of_seq    : Sequence.s -> s 
+    val seq_of_s    : s -> Sequence.s
+    val print_mem   : floatmem -> unit
+    val print_s     : s -> unit
+    val clear_mem   : floatmem -> unit
+    val print_cm    : MlModel.model -> float -> unit
 
-    val cost_2          : ?debug:bool -> ?deltaw:int -> s -> s -> MlModel.model -> float -> floatmem -> float
-    val verify_cost_2   : float -> s -> s -> MlModel.model -> float -> floatmem -> float
-    val c_cost_2        : s -> s -> MlModel.model -> float -> floatmem -> int -> float
-    val create_edited_2 : s -> s -> MlModel.model -> float -> floatmem -> s * s
-    val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float -> floatmem -> s * s * float
-    val median_2        : s -> s -> MlModel.model -> float -> floatmem -> s
-    val median_2_cost   : s -> s -> MlModel.model -> float -> floatmem -> float * s
-    val full_median_2   : s -> s -> MlModel.model -> float -> floatmem -> s
-    val closest         : s -> s -> MlModel.model -> float -> floatmem -> s * float
-    val readjust        : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
+    (* 2d operations *)
+    val cost_2 : ?debug:bool -> ?deltaw:int -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
+    val verify_cost_2 : float -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
+    val c_cost_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> int -> float
+    val create_edited_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s
+    val align_2 : ?first_gap:bool -> s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float
+    val median_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s
+    val median_2_cost : s -> s -> MlModel.model -> float -> float -> floatmem -> float * s
+    val full_median_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s
+    val gen_all_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float * s
 
-    (* delete these later *)
-    val gen_all_2       : s -> s -> MlModel.model -> float -> floatmem -> s * s * float * s
-    val print_mem       : floatmem -> unit
-    val print_s         : s -> unit
-    val clear_mem       : floatmem -> unit
-    val print_cm        : MlModel.model -> float -> unit
+    (* (pseudo) 3d operations *)
+    val closest  : s -> s -> MlModel.model -> float -> float -> floatmem -> s * float
+    val readjust : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
 
-end
+    (* function for testing externally *)
+    val test : unit -> unit
 
-(*
-module MPLAlign : sig
+end 
 
-    type floatmem
-    type s
+module FloatAlign : A
 
-    val get_mem : s -> s -> floatmem
-    val create_mem : int -> int -> floatmem
-    val s_of_seq: Sequence.s -> s 
-    val seq_of_s: s -> Sequence.s
+module MPLAlign : A
 
-    val cost_2          : ?debug:bool -> ?deltaw:int -> s -> s -> MlModel.model -> float -> floatmem -> float
-    val verify_cost_2   : float -> s -> s -> MlModel.model -> float -> floatmem -> float
-    val c_cost_2        : s -> s -> MlModel.model -> float -> floatmem -> int -> float
-    val create_edited_2 : s -> s -> MlModel.model -> float -> floatmem -> s * s
-    val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float -> floatmem -> s * s * float
-    val median_2        : s -> s -> MlModel.model -> float -> floatmem -> s
-    val median_2_cost   : s -> s -> MlModel.model -> float -> floatmem -> float * s
-    val full_median_2   : s -> s -> MlModel.model -> float -> floatmem -> s
-    val closest         : s -> s -> MlModel.model -> float -> floatmem -> s * float
-    val readjust        : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
-
-    (* delete these later *)
-    val gen_all_2       : s -> s -> MlModel.model -> float -> floatmem -> s * s * float * s
-    val print_mem       : floatmem -> unit
-    val print_s         : s -> unit
-    val clear_mem       : floatmem -> unit
-    val print_cm        : MlModel.model -> float -> unit
-
-end
-*)
-
-val test_all_roots : unit -> unit
+(* module MALAlign : A *)
+(* module FSAlign : A *)

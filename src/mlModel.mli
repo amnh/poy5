@@ -112,6 +112,7 @@ val jc69_4 : spec
 type chars = [ `List of int list | `Packed of int ]
 
 val list_of_packed : int -> int list
+val packed_of_list : int list -> int
 
 (* code for costfn for c-side *)
 val get_costfn_code : model -> int
