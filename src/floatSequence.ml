@@ -16,6 +16,12 @@ let sequence_of_string seq alph =
         --> Array.of_list
         --> Sequence.of_array
 
+
+(* Debug variables/ combinators *)
+let (-->) a b = b a
+let debug_mem = false
+
+
 (** Sequence alignment module for two or three sequences. *)
 module type A = sig
 
@@ -251,11 +257,14 @@ module FloatAlign : A = struct
 
         (* function to wrap up the cost_fn and align cost. *)
         let get_cost i j addX addY : float * int = 
-            let cost  = (fst mem.(i).(j)) +. (cost_fn addX addY)
+            let icost = cost_fn addX addY in
+            let ocost = fst mem.(i).(j)
             and indel = fst (snd mem.(i).(j)) in
-            if cost < 0.0 then 
-                failwithf "Illegal access of (%d,%d)" i j;
-            cost,indel
+            if ocost < 0.0 then begin
+                print_mem mem;
+                failwithf "Illegal access of (%d,%d) = %f" i j ocost
+            end;
+            (icost+.ocost),indel
         in
 
         (* update a cell in the matrix by ALL its neighbors; This should only be
@@ -285,7 +294,7 @@ module FloatAlign : A = struct
             mem.(i).(j) <- m
 
         (* Same as above, but will not look at the node to the right (j-1) *)
-        and update_row i j = 
+        and update_row i j =
             let aln,at = get_cost (i-1) (j-1) (Sequence.get x i) (Sequence.get y j)
             and del,dt = get_cost (i-1) (j) gap (Sequence.get y j) in
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
@@ -381,7 +390,7 @@ module FloatAlign : A = struct
         and build_strip k =
             let b = barrier k in
             for i = 1 to (lenX-1) do
-                let j_min = max 1 (i - b)
+                let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
                 update_row i j_min;
                 for j = j_min+1 to j_max-1 do
@@ -409,6 +418,7 @@ module FloatAlign : A = struct
 
 (** Functions that implement the module Align **)
     let cost_2 ?(debug=false) ?deltaw s1 s2 model t1 t2 mem : float = 
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -420,6 +430,7 @@ module FloatAlign : A = struct
     let c_cost_2 s1 s2 model t1 t2 mem delta : float = failwith "FloatAlign.c_cost_2 not implemented"
 
     let full_median_2 s1 s2 model t1 t2 mem : s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -428,6 +439,7 @@ module FloatAlign : A = struct
         backtrace mem s1 s2
 
     let verify_cost_2 cost1 s1 s2 model t1 t2 mem : float =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -435,6 +447,7 @@ module FloatAlign : A = struct
         align_2 mem s1 s2 model t1 t2
 
     let create_edited_2 s1 s2 model t1 t2 mem : s * s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -443,6 +456,7 @@ module FloatAlign : A = struct
         alignments mem s1 s2 model
 
     let align_2 ?first_gap s1 s2 model t1 t2 mem : s*s*float = 
+        if debug_mem then clear_mem mem;
         if Sequence.length s1 <= Sequence.length s2 then 
             let cost = ukkonen_align_2 mem s1 s2 model t1 t2 in
             let se1,se2 = alignments mem s1 s2 model in
@@ -453,6 +467,7 @@ module FloatAlign : A = struct
             se2,se1,cost
 
     let gen_all_2 s1 s2 model t1 t2 mem =
+        if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
             let med   = backtrace mem s1 s2 in
@@ -466,6 +481,7 @@ module FloatAlign : A = struct
             s1,s2,cost,m
 
     let algn s1 s2 model t1 t2 mem : float * s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 
@@ -713,8 +729,9 @@ module MPLAlign : A = struct
                     (infinity,[])
                     xs
             in
-            if cst = infinity then failwith "returned infinite cost"
-                              else (cst, MlModel.packed_of_list states)
+            match classify_float cst with
+            | FP_infinite | FP_nan -> failwith "returned infinite cost"
+            | _                    -> cst, MlModel.packed_of_list states
 
     (** tester *)
     let test_mpl_matrix t1 t2 =
@@ -736,15 +753,13 @@ module MPLAlign : A = struct
         for i = 0 to (model.MlModel.alph_s)-1 do 
             for j = 0 to (model.MlModel.alph_s)-1 do 
                 let res = cst_fn (convert i) (convert j) in
-                Printf.printf "[%s] --> [%d]\t<-- [%s] = %f\n%!" 
-                    (Alphabet.match_code i model.MlModel.alph) (snd res)
+                Printf.printf "[%s] --> [%a]\t<-- [%s] = %f\n%!" 
+                    (Alphabet.match_code i model.MlModel.alph) 
+                    (pp_lst) (MlModel.list_of_packed (snd res))
                     (Alphabet.match_code j model.MlModel.alph) (fst res);
             done;
         done;
         ()
-
-    let test () = test_mpl_matrix 0.1 0.05
-
 
     (** [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
@@ -798,13 +813,12 @@ module MPLAlign : A = struct
 
     (** [backtrace men x y] find the median of x and y **)
     let backtrace mem x y = 
-        let get x i = Sequence.get x i
-        and union x y i j = (Sequence.get x i) lor (Sequence.get y j) in
+        let get x i = Sequence.get x i in
         let get_direction i j = mem.(i).(j) --> snd --> snd --> List.hd in
         let rec build_median acc i j = match get_direction i j with
-            | Align  _ -> build_median ((union x y i j)::acc) (i-1) (j-1)
-            | Delete _ -> build_median ((get x i)::acc) (i-1) j
-            | Insert _ -> build_median ((get y j)::acc) i (j-1)
+            | Align  s -> build_median (s::acc) (i-1) (j-1)
+            | Delete s -> build_median (s::acc) (i-1) j
+            | Insert s -> build_median (s::acc) i (j-1)
             | Root     -> Sequence.of_array (Array.of_list ((get x 0)::acc))
         in
         build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1)
@@ -839,11 +853,12 @@ module MPLAlign : A = struct
         (* function to wrap up the cost_fn and align cost. *)
         let get_cost i j addX addY : float * int * int = 
             let cost,states = cost_fn addX addY in
-            let cost  = (fst mem.(i).(j)) +. cost
+            let ocost = fst mem.(i).(j)
             and indel = fst (snd mem.(i).(j)) in
-            if cost < 0.0 then 
-                failwithf "Illegal access of (%d,%d)" i j;
-            cost,indel,states
+            if ocost < 0.0 then begin
+                failwithf "Illegal access of (%d,%d) = %f" i j ocost
+            end;
+            (cost+.ocost),indel,states
         in
 
         (* update a cell in the matrix by ALL its neighbors; This should only be
@@ -969,7 +984,7 @@ module MPLAlign : A = struct
         and build_strip k =
             let b = barrier k in
             for i = 1 to (lenX-1) do
-                let j_min = max 1 (i - b)
+                let j_min = max 1 (i - b - 1)
                 and j_max = min (lenY-1) (i+b+(lenY-lenX)) in
                 update_row i j_min;
                 for j = j_min+1 to j_max-1 do
@@ -997,6 +1012,7 @@ module MPLAlign : A = struct
 
 (** Functions that implement the module Align **)
     let cost_2 ?(debug=false) ?deltaw s1 s2 model t1 t2 mem : float = 
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -1008,6 +1024,7 @@ module MPLAlign : A = struct
     let c_cost_2 s1 s2 model t1 t2 mem delta : float = failwith "FloatAlign.c_cost_2 not implemented"
 
     let full_median_2 s1 s2 model t1 t2 mem : s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -1016,6 +1033,7 @@ module MPLAlign : A = struct
         backtrace mem s1 s2
 
     let verify_cost_2 cost1 s1 s2 model t1 t2 mem : float =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -1023,6 +1041,7 @@ module MPLAlign : A = struct
         align_2 mem s1 s2 model t1 t2
 
     let create_edited_2 s1 s2 model t1 t2 mem : s * s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
@@ -1031,6 +1050,7 @@ module MPLAlign : A = struct
         alignments mem s1 s2 model
 
     let align_2 ?first_gap s1 s2 model t1 t2 mem : s*s*float = 
+        if debug_mem then clear_mem mem;
         if Sequence.length s1 <= Sequence.length s2 then 
             let cost = ukkonen_align_2 mem s1 s2 model t1 t2 in
             let se1,se2 = alignments mem s1 s2 model in
@@ -1041,6 +1061,7 @@ module MPLAlign : A = struct
             se2,se1,cost
 
     let gen_all_2 s1 s2 model t1 t2 mem =
+        if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
             let med   = backtrace mem s1 s2 in
@@ -1054,6 +1075,7 @@ module MPLAlign : A = struct
             s1,s2,cost,m
 
     let algn s1 s2 model t1 t2 mem : float * s =
+        if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 
@@ -1132,5 +1154,37 @@ module MPLAlign : A = struct
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
+
+    let test () = 
+        let alphabet = Alphabet.dna in
+        let model= MlModel.create alphabet (MlModel.jc69_5) in
+        let seq1 = s_of_seq (sequence_of_string "-ACTATTA"  alphabet)
+        and seq2 = s_of_seq (sequence_of_string "-ACTCCTTA" alphabet)
+        and seq3 = s_of_seq (sequence_of_string "-CTATTA"   alphabet)
+        and seq4 = s_of_seq (sequence_of_string "-TACCATTA" alphabet) in
+        let mem  = create_mem 14 14 in 
+        (* root at 5 -- 6 *)
+        let ed1,ed2,cs12,seq5 = gen_all_2 seq1 seq2 model 0.1 0.1 mem in
+        let ed3,ed4,cs34,seq6 = gen_all_2 seq3 seq4 model 0.1 0.1 mem in
+        let ed5,ed6,cs56,seqR1= gen_all_2 seq5 seq6 model 0.1 0.1 mem in
+        Printf.printf "Cost 5 -- 6 : %f\n" (cs12+.cs34+.cs56);
+        (* root at 1 -- 5 *)
+        let ed2,ed6,cs26,seq5 = gen_all_2 seq2 seq6 model 0.1 0.2 mem in
+        let ed1,ed5,cs15,seqR2= gen_all_2 seq1 seq5 model 0.05 0.05 mem in
+        Printf.printf "Cost 5 -- 1 : %f\n" (cs34+.cs26+.cs15);
+        (* root at 2 -- 5 *)
+        let ed1,ed6,cs16,seq5 = gen_all_2 seq1 seq6 model 0.1 0.2 mem in
+        let ed2,ed5,cs25,seqR3= gen_all_2 seq2 seq5 model 0.05 0.05 mem in
+        Printf.printf "Cost 5 -- 2 : %f\n" (cs16+.cs34+.cs25);
+        (* root at 6 -- 4 *)
+        let ed1,ed2,cs12,seq5 = gen_all_2 seq1 seq2 model 0.1 0.1 mem in
+        let ed3,ed5,cs35,seq6 = gen_all_2 seq3 seq5 model 0.1 0.2 mem in
+        let ed4,ed6,cs46,seqR4= gen_all_2 seq4 seq6 model 0.05 0.05 mem in
+        Printf.printf "Cost 4 -- 6 : %f\n" (cs12+.cs35+.cs46);
+        (* root at 6 -- 3 *)
+        let ed4,ed5,cs45,seq6 = gen_all_2 seq4 seq5 model 0.1 0.2 mem in
+        let ed3,ed6,cs36,seqR5= gen_all_2 seq3 seq6 model 0.05 0.05 mem in
+        Printf.printf "Cost 3 -- 6 : %f\n" (cs12+.cs36+.cs45);
+        ()
 
 end
