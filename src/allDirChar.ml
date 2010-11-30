@@ -53,11 +53,8 @@ module F : Ptree.Tree_Operations
     type phylogeny = (a, b) Ptree.p_tree
 
     let (-->) a b = b a
-
-    let (=.) a b = 
-        match classify_float ( a -. b ) with
-        | FP_infinite | FP_nan | FP_normal -> false
-        | FP_subnormal | FP_zero -> true
+    let (>=.) a b = abs_float (a-.b) > ~-. Numerical.tolerance
+    let (=.) a b = abs_float (a-.b) < Numerical.tolerance
     
     let force_node x = AllDirNode.force_val x.AllDirNode.lazy_node
 
@@ -1355,7 +1352,7 @@ module F : Ptree.Tree_Operations
             info_user_message "\t Iterated Alpha to %f" best_cost;
         if best_cost < current_cost then best_tree else tree
 
-    let adjust_fn ?(epsilon=1.0e-4) ?(max_iter=20) node_man tree = 
+    let adjust_fn ?(max_iter=20) node_man tree = 
         (* adjust model and branches -- for likelihood *)
         let adjust_ do_model do_branches branches iterations first_tree = 
             (* iterate the model *)
@@ -1366,7 +1363,7 @@ module F : Ptree.Tree_Operations
                     let mcost = Ptree.get_cost `Adjusted mtree in
                     if debug_model_fn then
                         info_user_message "Step %d; Iterated Model %f --> %f" iter icost mcost;
-                    if (abs_float (icost -. mcost)) <= epsilon 
+                    if icost =. mcost
                         then mtree
                         else loop_bl (iter+1) mcost mtree
                 end
@@ -1378,7 +1375,7 @@ module F : Ptree.Tree_Operations
                     let bcost = Ptree.get_cost `Adjusted btree in
                     if debug_model_fn then
                         info_user_message "Step %d; Iterated Branches %f --> %f" iter icost bcost;
-                    if (abs_float (icost -. bcost)) <= epsilon 
+                    if icost =. bcost
                         then btree 
                         else loop_m (iter+1) bcost btree
                 end
@@ -1494,7 +1491,7 @@ module F : Ptree.Tree_Operations
     * cost information is in the implied alignment tree. *)
     let apply_implied_alignments nmgr optimize tree = 
         (* loop to control optimizations *)
-        let rec optimize_implied_alignments ?(epsilon=1.0e-4) ?(max_iter=10) pi nmgr tree = 
+        let rec optimize_implied_alignments ?(max_iter=10) pi nmgr tree = 
             (* this loop optimizes the dynamic likelihood characters by optimizing
              * the implied alignments likelihood model, then reapplying to a new
              * alignment. If the optimization of the static characters does not
@@ -1505,16 +1502,16 @@ module F : Ptree.Tree_Operations
                 let static = create_static_tree pi dyn_tree in
                 let s_cost = Ptree.get_cost `Adjusted static in
                 (* optimize *)
-                let ostatic = adjust_fn ~epsilon nmgr static in
+                let ostatic = adjust_fn nmgr static in
                 let o_cost = Ptree.get_cost `Adjusted ostatic in
                 if debug_model_fn then
                     info_user_message 
                         "Dynamic Likelihood Iterated(%d): %f --> %f\n%!" iter s_cost o_cost;
                 (* compare improvement of optimizations; and of previous iteration *)
                 let best = best_tree best ostatic in
-                if (iter >= max_iter) || (o_cost +. epsilon > s_cost) then
+                if (iter >= max_iter) || (o_cost >=. s_cost) then
                     combine dyn_tree best
-                else if abs_float (prev_adjusted -. o_cost) < epsilon then
+                else if  prev_adjusted =. o_cost then
                     combine dyn_tree best
                 else begin
                     let ostatic  = update_branches ostatic in

@@ -166,7 +166,7 @@ type ('a, 'b) join_fn =
 type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
 
 type ('a, 'b) adjust_fn = 
-    ?epsilon:(float) -> ?max_iter:(int) ->
+    ?max_iter:(int) ->
         ('a, 'b ) nodes_manager option ->
             ('a, 'b) p_tree -> ('a, 'b) p_tree
 

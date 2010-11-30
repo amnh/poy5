@@ -17,10 +17,24 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let epsilon = 0.00001
-let (=.) a b = abs_float (a-.b) < epsilon
-let (>=.) a b = abs_float (a-.b) > ~-.epsilon
+let tolerance = 1e-6
+let epsilon   = 1e-10
+let minimum   = tolerance *. 2.0
+
+let (=.) a b = abs_float (a-.b) < tolerance
 let (-->) b a = a b
+
+let is_zero x = match classify_float x with
+        | FP_zero | FP_subnormal -> true
+        | FP_infinite | FP_nan | FP_normal -> false
+and is_nan x = match classify_float x with
+        | FP_zero | FP_subnormal
+        | FP_infinite | FP_normal -> false
+        | FP_nan -> true
+and is_inf x = match classify_float x with
+        | FP_infinite -> true
+        | FP_nan | FP_zero | FP_subnormal | FP_normal -> false
+
 let failwithf format = Printf.ksprintf failwith format
 
 let debug = false
@@ -36,13 +50,14 @@ external gamma_rates: float -> float -> int ->
         "gamma_CAML_rates"
 
 (** GENERAL BRENTS METHOD **)
-let brents_method ?(max_iter=150) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?(epsilon=1.0e-10) ((v_orig,f_orig) as orig) f =
+let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
+                  ?(tol=tolerance) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
   (*-- ensure value falls between range; if using one *)
     let minmax value = max (min v_max value) v_min in
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
-  (*-- approximation of equality; based on epsilon above *)
+  (*-- approximation of equality; based on optional argument above *)
     let (=.) a b = (abs_float (a -. b)) < epsilon in
   (*-- a function that copies the sign of the second argument to the first *)
     let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
@@ -155,13 +170,13 @@ let brents_method ?(max_iter=150) ?(v_min=3.0e-7) ?(v_max=300.0) ?(tol=3.0e-5) ?
     res
 
 (* find the derivative of a single variable function *)
-let derivative_at_x ?(epsilon=3.0e-8) f x fx =
+let derivative_at_x ?(epsilon=epsilon) f x fx =
     let _,f_new = f (x +. epsilon) in
     (f_new -. fx) /. epsilon
 (* find the magnitude of a vector x_array *)
 let magnitude x_array = sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
 (* find the gradient of a multi-variant function at a point x_array *)
-let gradient_at_x ?(epsilon=3.0e-8) f_ x_array f_array : float array = 
+let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
     Array.mapi 
         (fun i i_val ->
@@ -190,9 +205,10 @@ let matrix_map f mat =
         output_matrix.(i).(j) <- f i j mat.(i).(j);
     done; done;
     output_matrix
+
 (* line search along a specified direction *)
 (* Numerical Recipes in C : 9.7            *)
-let line_search ?(epsilon=1.0e-7) f point fpoint gradient maxstep direction =
+let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x in
     (* set up some globals for the function to avoid tons of arguments *)
     let n = Array.length point and origfpoint = get_score fpoint in
@@ -265,7 +281,7 @@ let line_search ?(epsilon=1.0e-7) f point fpoint gradient maxstep direction =
 
 (** BFGS Algorithm                   **)
 (** Numerical Recipes in C : 10.7    **)
-let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5) f p fp =
+let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=tolerance) f p fp =
    let n = Array.length p and get_score x = snd x in
     (* test convergence of a point --that it equals the direction, essentially *)
     let converged_l direction test_array =
@@ -372,5 +388,4 @@ let bfgs_method ?(max_iter=200) ?(epsilon=3.0e-8) ?(mx_step=10.0) ?(g_tol=1.0e-5
     debug_printf "Performed BFGS:\n\t(%s,%f)\n\t\t--[%d]-->\n\t(%s,%f)\n%!" (pp_farray p)
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
-
 

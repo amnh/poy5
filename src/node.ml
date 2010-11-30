@@ -34,6 +34,7 @@ let likelihood_error =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
 let (-->) b a = a b
+let (=.) a b = abs_float (a-.b) < Numerical.tolerance
 
 let odebug = Status.user_message Status.Information
 let info_user_message format = 
@@ -445,10 +446,6 @@ let using_likelihood types x =
         | `Dynamic  -> y
         | `Either   -> x || y
 
-let float_close ?(epsilon=0.001) a b =
-    let diff = a -. b in
-    (abs_float diff) < epsilon
-
 (* extracts data on whole character set *)
 let extract_states alph data in_codes node =
     let alph = Alphabet.to_sequential alph in
@@ -595,7 +592,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                       cost = ca.weight *. cost } in
           Nonadd32 res
     | Add ca, Add cb -> 
-          assert (float_close ca.weight cb.weight);
+          assert (ca.weight =. cb.weight);
           let old = match prev with
           | Some Add old -> Some old.preliminary
           | None -> None

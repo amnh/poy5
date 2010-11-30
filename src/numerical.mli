@@ -17,6 +17,16 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
+(** These constants define the ending conditions for numerical functions, and
+ * provide a common baseline throughout the program for comparing floating point
+ * numbers.
+ *  Tolerance   - Tolerance of floating point calculations for convergence.
+ *  Epsilon     - Machine floating point precision.
+ *  Minimum     - minimum for numerical calculations (2.0 * tolerance). *)
+val tolerance : float
+val epsilon   : float
+val minimum   : float
+
 (** [gamma_rates alpha beta cats] -> rates
  * takes alpha, beta gamma parameters and number of categories to cut the gamma
  * function into, and returns the mean rates in those cuts of 1/cats parts. *)

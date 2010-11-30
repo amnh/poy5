@@ -27,8 +27,6 @@ type string_spec = string * (string * string * string * string)
                           * (string * float option) * string
                           * string option
 
-val epsilon : float
-
 val empty_str_spec : string_spec
 
 val likelihood_not_enabled : string

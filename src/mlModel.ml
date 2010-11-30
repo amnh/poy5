@@ -19,9 +19,7 @@
 
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
-let epsilon = 0.00001
-let (=.) a b = abs_float (a-.b) < epsilon
-let (>=.) a b = abs_float (a-.b) > ~-.epsilon
+let (=.) a b = abs_float (a-.b) < Numerical.tolerance
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
@@ -416,18 +414,18 @@ let m_f84 pi_ gamma kappa a_size gap_r =
     m_tn93 pi_ alpha beta gamma a_size gap_r
 
 (* normalize against two characters that are not gaps; unless its the only choice *)
-let normalize ?(m=epsilon) spec ray = match spec.use_gap with
+let normalize ?(m=Numerical.minimum) spec ray = match spec.use_gap with
     | `Independent -> 
         let normalize_factor = max m ray.((Array.length ray) - 3) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec, `Independent
     | `Coupled n ->
         let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec, `Coupled ( n/.normalize_factor )
     | `Missing ->
         let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec,`Missing
 
 (* val gtr :: ANY ALPHABET size
@@ -786,7 +784,7 @@ END
 let model_to_cm model t =
     let input =
         IFDEF USE_LIKELIHOOD THEN 
-            let t = max epsilon t in
+            let t = max Numerical.minimum t in
             integerized_model model t
         ELSE
             failwith likelihood_not_enabled
@@ -928,7 +926,7 @@ let verify_rates probs rates =
     p1 && p2
 
 (* create a model based on a specification and an alphabet *)
-let create ?(min_prior=epsilon) alph lk_spec = 
+let create ?(min_prior=Numerical.minimum) alph lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size) = match lk_spec.use_gap with
