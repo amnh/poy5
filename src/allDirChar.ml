@@ -2065,7 +2065,7 @@ module F : Ptree.Tree_Operations
             in
             (* assign the root and cost *)
             let check_cost = check_cost ptree handle (Some (n_root,`Edge (v,h))) in
-            info_user_message "join (%d,%d) cost: %f%!" v h check_cost;
+            (* info_user_message "join (%d,%d) cost: %f%!" v h check_cost; *)
             ptree 
                 --> Ptree.remove_root_of_component handle
                 --> Ptree.remove_root_of_component parent
