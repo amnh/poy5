@@ -1221,9 +1221,7 @@ type matrix_class =
     * need to be split), we pass a function to compute
     * the cost of an indel block to deal with affine. *)
 
-let present_absent_alph = 
-    Alphabet.list_to_a [("present", 1, None); ("absent", 2, None)] 
-                       "absent" None Alphabet.Sequential
+let present_absent_alph = Alphabet.present_absent
 
 (* A function that analyzes a cost matrix, likelihood model, and an alphabet
  * and generates a pair of functions f and g, such that f converts 
