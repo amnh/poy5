@@ -11,7 +11,9 @@ type m_i = {  (* the ith element M_i of a local mum *)
 type mum = { 
     seedNO : int; (*the # of seed that contruct this mum. start from
     only one seed, than extend*)
+    mumseq : int list;
     positions : m_i list;  (* the positions in sequence this mum shows up*)
+    mumkey : int;
     size : int; (* size of this mum, also the size of position list *)
     (* we don't extend seed with subset/superset for multi-sequence.
     left_superset : int list  ; (* seedNOlst of another mum*)
@@ -57,7 +59,7 @@ val create_lcb_tbl : int list list -> float -> int -> int ->
     (int list, lcb) Hashtbl.t * int list list list * int list list * 
     (int * int) list list
 
-val print_mum : int -> (int,mum) Hashtbl.t -> bool -> bool -> unit
+val print_mum : mum -> bool -> bool -> unit
 
 val print_lcb : lcb -> unit
 
