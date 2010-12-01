@@ -153,25 +153,11 @@ let get_range_with_code code1 code2 full_code_lstlst gen_gap_code =
         failwith "aliMap.get_range_with_code, \
         we have indel match up with indel, something is wrong"
 
-let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile =
+let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     let debug = false and debug2 = false in
     let min_seed_num = ChromPam.get_min_seed_num ali_pam
     and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam
-    in
-    let _ = match outputtofile with 
-    | Some filename -> 
-        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
-        let oc = open_out filename in
-        fprintf oc "#FormatVersion Mauve1\n";
-        fprintf oc "#Sequence1File	blabla.in\n";
-        fprintf oc "#Sequence1Entry	1\n";
-        fprintf oc "#Sequence1Format	FastA\n";
-        fprintf oc "#Sequence2File	blabla.in\n";
-        fprintf oc "#Sequence2Entry	2\n";
-        fprintf oc "#Sequence2Format	FastA\n";
-        close_out oc;
-    | None -> () 
     in
     if debug then 
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
@@ -320,36 +306,52 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile =
     end;
     let _ = match outputtofile with 
     | Some filename ->
-        List.iter2 ( fun alied_code1 alied_code2 ->
-        let ori_code1 = GenAli.to_ori_code alied_code1 
-        and ori_code2 = GenAli.to_ori_code (alied_code2 - len_lst1*2) in
-        let cost,alied_seq1,alied_seq2 = 
-            ali_mat.(alied_code1).(alied_code2)
+        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in
+        let oc = open_out filename in*)
+        let rewrite = match old_cost with
+        | Some oldcost -> 
+                if cost<oldcost then true else false
+        | None -> true 
         in
-        let dir1 = if ori_code1>0 then "+" else "-"
-        and dir2 = if ori_code2>0 then "+" else "-"
-        in
-        let left1,right1,left2,right2 = 
-            get_range_with_code alied_code1 alied_code2 full_code_lstlst gen_gap_code
-        in
-        assert(left1>=0); assert(left2>=0);
-        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
-        let oc = open_out filename in
-        fprintf oc "> 1:%d-%d %s bla.in,c=%d\n" (left1+1) (right1+1) dir1 cost;
-        let seqlst1 = get_seqlst_for_mauve alied_seq1 in
-        let seqlst2 = get_seqlst_for_mauve alied_seq2 in
-        List.iter (fun seq1 -> 
-            Sequence.print oc seq1 Alphabet.nucleotides;
-            fprintf oc "\n";
-        ) seqlst1;
-        fprintf oc "> 2:%d-%d %s bla.in,c=%d\n" (left2+1) (right2+1) dir2 cost;
-        List.iter (fun seq2 ->
-            Sequence.print oc seq2 Alphabet.nucleotides;
-            fprintf oc "\n";
-        ) seqlst2;
-        fprintf oc "=\n";
-        close_out oc;
-        ) (Array.to_list alied_gen_seq1) (Array.to_list alied_gen_seq2);
+        if rewrite then begin
+            let oc = open_out filename in
+            fprintf oc "#FormatVersion Mauve1\n";
+            fprintf oc "#Sequence1File	blabla.in\n";
+            fprintf oc "#Sequence1Entry	1\n";
+            fprintf oc "#Sequence1Format	FastA\n";
+            fprintf oc "#Sequence2File	blabla.in\n";
+            fprintf oc "#Sequence2Entry	2\n";
+            fprintf oc "#Sequence2Format	FastA\n";
+            List.iter2 ( fun alied_code1 alied_code2 ->
+            let ori_code1 = GenAli.to_ori_code alied_code1 
+            and ori_code2 = GenAli.to_ori_code (alied_code2 - len_lst1*2) in
+            let cost,alied_seq1,alied_seq2 = 
+                ali_mat.(alied_code1).(alied_code2)
+            in
+            let dir1 = if ori_code1>0 then "+" else "-"
+            and dir2 = if ori_code2>0 then "+" else "-"
+            in
+            let left1,right1,left2,right2 = 
+                get_range_with_code alied_code1 alied_code2 full_code_lstlst gen_gap_code
+            in
+            assert(left1>=0); assert(left2>=0);
+            (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
+            fprintf oc "> 1:%d-%d %s bla.in,c=%d\n" (left1+1) (right1+1) dir1 cost;
+            let seqlst1 = get_seqlst_for_mauve alied_seq1 in
+            let seqlst2 = get_seqlst_for_mauve alied_seq2 in
+            List.iter (fun seq1 -> 
+                Sequence.print oc seq1 Alphabet.nucleotides;
+                fprintf oc "\n";
+            ) seqlst1;
+            fprintf oc "> 2:%d-%d %s bla.in,c=%d\n" (left2+1) (right2+1) dir2 cost;
+            List.iter (fun seq2 ->
+                Sequence.print oc seq2 Alphabet.nucleotides;
+                fprintf oc "\n";
+            ) seqlst2;
+            fprintf oc "=\n";
+            ) (Array.to_list alied_gen_seq1) (Array.to_list alied_gen_seq2);
+            close_out oc;
+        end;
     | None -> ()
     in
     if debug then begin

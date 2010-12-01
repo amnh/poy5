@@ -50,7 +50,7 @@ val create_general_ali_mauve :
     Sequence.s ->
     Cost_matrix.Two_D.m ->
     Block.pairChromPam_t -> 
-        (string option)->
+        (string option) -> (int option) ->
         (int * (int * int)) list list * int *  
         (int * Sequence.s * Sequence.s) array array * 
         int list * int list * int * (int*int)
