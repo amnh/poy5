@@ -69,7 +69,7 @@ type m_i = {  (* the ith element M_i of a local mum *)
 type mum = {
     seedNO : int; (*the # of seed that contruct this mum. start from
     only one seed, than extend*)
-    mumseq : int list; (*subsequence of seq0*)
+    mumseq : int array; (*subsequence of seq0. NOTE: seq0*) 
     positions : m_i list;  (* the positions in sequence this mum shows up*)
     mumkey : int;
     size : int; (* size of this mum, also the size of position list *)
@@ -96,8 +96,8 @@ type mum = {
 }
 
 type b_tree = 
-    | Leaf of int list * mum
-    | Node of int list * b_tree * b_tree
+    | Leaf of int array * mum
+    | Node of int array * b_tree * b_tree
 
 type lcb = {
     seedNOlst : int list; (*each lcb is a list of mums*)
@@ -161,13 +161,17 @@ let print_int_list3 inlist =
 let print_int_lstlst3 inlstlst =
     List.iter (fun lst -> print_int_list3 lst) inlstlst
 
-let print_int_arr arr = 
+let print_int_arr2 arr = 
     Array.iteri (fun idx item -> Printf.printf "[%d]:%d,%!"  idx item) arr;
+    Printf.printf "\n%!"
+
+let print_int_arr arr =
+    Array.iter (fun item -> Printf.printf "%d,%!" item) arr;
     Printf.printf "\n%!"
 
 let print_int_matrix m =
     Array.iter (fun arr ->
-            print_int_arr arr ;
+            print_int_arr2 arr ;
     ) m
 
 let print_pos_list in_lst = 
@@ -210,7 +214,7 @@ let print_mum in_mum  print_neighborhood print_unextendable =
         Printf.printf "MUM# %d\n%!" in_mum.seedNO;
         Printf.printf " mumkey : %d\n%!" in_mum.mumkey;
         Printf.printf " mumseq = %!";
-        print_int_list in_mum.mumseq;
+        print_int_arr in_mum.mumseq;
         Printf.printf " size:%d ,\n" in_mum.size;
         Printf.printf " subsuming_pointer = %d ,%!" in_mum.subsuming_pointer; 
         Printf.printf " extendable = %d \n%!" in_mum.extendable;
@@ -254,11 +258,7 @@ let get_sub_seq seq leftend size =
      Array.to_list (Array.sub (Array.of_list seq) leftend size)
 
 let get_sub_seq2 seq leftend size = 
-    let res = ref [] in
-    for i=leftend to leftend+size-1 do
-        res := !res@[List.nth seq i]
-    done;
-    !res
+    Array.sub seq leftend size 
 
 (****************** function deal with sub_seq end ***********************)
 
@@ -282,7 +282,7 @@ let add_to_btree seedseq newmum old_bt =
                     left_bt,
                     new_right_bt)
         | Leaf (leafkey, leafmum) ->
-                assert (leafkey<>[]);
+                assert ((Array.length leafkey)>0);
                 let insert_dir = compare key leafkey in
                 if insert_dir=1 then (*key>leafkey*)
                     Node (key, 
@@ -314,7 +314,7 @@ let search_in_btree key bt = (*mumseq is the key inside b_tree*)
                 if (compare leafkey key)=0 then leafmum
                 else begin
                         Printf.printf "we are searching for :%!";
-                        print_int_list key;
+                        print_int_arr key;
                         Printf.printf "search failed, we reach\n:%!";
                         print_mum leafmum false true;
                     failwith "search reach a dead end in btree";
@@ -330,20 +330,20 @@ let remove_from_btree seedseq bt = (*key in b_tree is seedseq*)
                 if remove_dir=1 then (*key<middle_key*)
                     let new_left_child = remove_node left_bt key in
                     (match new_left_child with
-                    | Leaf ([],_) ->  right_bt
+                    | Leaf ([||],_) ->  right_bt
                     | x ->  
                             Node (middle_key,x,right_bt))
                 else 
                     let new_right_child = remove_node right_bt key in
                     (match new_right_child with
-                    | Leaf ([],_) -> left_bt
+                    | Leaf ([||],_) -> left_bt
                     | x -> 
                             Node (middle_key,left_bt, x))
         | Leaf (leafkey, leafmum) ->
-                if (compare leafkey key)=0 then  Leaf ([],leafmum)
+                if (compare leafkey key)=0 then  Leaf ([||],leafmum)
                 else begin
                     Printf.printf "we are searching for :%!";
-                        print_int_list key;
+                        print_int_arr key;
                         Printf.printf "search failed, we reach\n:%!";
                         print_mum leafmum false false;
                     failwith "remove node reach a dead end in btree"
@@ -357,7 +357,7 @@ let iter_b_tree bt debug f =
         | Node (middle_key, left_bt, right_bt) ->
                 if debug then begin
                     Printf.printf "{ mkey=%!";
-                    print_int_list middle_key;
+                    print_int_arr middle_key;
                     Printf.printf "\n ( %!";
                 end;
                 iter_sub_tree left_bt f;
@@ -454,7 +454,7 @@ let remove_mum_from_mumtbl mum2remove mum_tbl =
         let treekey = mum2remove.mumseq in
         let newbt = remove_from_btree treekey bt in
         match newbt with 
-        | Leaf ([],leafmum) ->
+        | Leaf ([||],leafmum) ->
                 Hashtbl.remove mum_tbl mumkey
         | _ -> Hashtbl.replace mum_tbl mumkey newbt
     
@@ -506,12 +506,10 @@ let update_lcb_ref_code lcb_tbl key refcode =
     Hashtbl.remove lcb_tbl key;
     Hashtbl.add lcb_tbl key {record with ref_code = refcode}
 
-let get_shortest_len seqlst =
-    let initlen = (List.length (List.hd seqlst)) in
-    List.fold_left (fun acc seq ->
-        let newlen = List.length seq in
-        if (newlen<acc) then newlen else acc
-    ) initlen seqlst
+let get_shorter_len seqarr =
+    let len0 = Array.length seqarr.(0) 
+    and len1 = Array.length seqarr.(1) in
+    if len0<len1 then len0 else len1
 
 (*return average of a int list, return float*)
 let get_avg_of_intlst in_lst =
@@ -580,15 +578,29 @@ let print_seed2postbl in_tbl =
     ) in_tbl
 
 
-let print_position2seedtbl position2seed_tbl = 
-    Hashtbl.iter (fun (seqNO,pos) record_lst ->
+let print_position2seedtbl position2seed_tbl somepos = 
+    let print_record record_lst seqNO pos= 
         Printf.printf "pos.(%d,%d) ==> " seqNO pos;
         List.iter (fun (seed,seed_weight,dir) ->
         Printf.printf "seed.#%d,weight=%d,dir=%d; %!" seed seed_weight dir;
         ) record_lst;
-        Printf.printf "\n%!";
-    ) position2seed_tbl;
-    Printf.printf "\n%!"
+        Printf.printf "\n%!"
+    in
+    (match somepos with
+    | Some (seqNO,pos) ->
+            if (Hashtbl.mem position2seed_tbl (seqNO,pos) ) then
+                let record_lst = 
+                    Hashtbl.find position2seed_tbl (seqNO,pos)
+                in
+                print_record record_lst seqNO pos
+            else
+                Printf.printf "there is no (%d,%d) in pos2seed tbl\n%!"
+                seqNO pos 
+    | None ->
+        Hashtbl.iter (fun (seqNO,pos) record_lst ->
+            print_record record_lst seqNO pos
+        ) position2seed_tbl;
+        Printf.printf "\n%!" )
 
 let print_seedNO2seqtbl in_tbl =
     Hashtbl.iter (fun seedNO seq ->
@@ -640,6 +652,12 @@ let rev_comp_chr x =
 let rev_comp_lst seqlst =
     List.map (fun x ->  rev_comp_chr x
     ) seqlst
+
+(*rev_comp_arr give us the reverse complement of seqarr*)
+let rev_comp_arr seqarr = 
+    let size = Array.length seqarr in
+    Array.mapi (fun idx x -> rev_comp_chr seqarr.(size-idx-1)) seqarr
+
 
 let mark_unextendable_seed2pos_tbl seedNO ext_type seed2pos_tbl =
     let debug = false in
@@ -886,35 +904,34 @@ let update_seed2pos_tbl seedNO new_pos_set new_mumseq seed2pos_tbl =
         | None -> oldposlst
     in
     Hashtbl.replace seed2pos_tbl seedNO 
-    (newposlst,new_mumseq,(List.length new_mumseq))
+    (newposlst,new_mumseq,(Array.length new_mumseq))
 (*************** function for seed2position table end *******************)
 
 let intlst2int inlst =
     List.fold_left (fun acc x -> acc*10+x ) 0 inlst
 
-let radix_sort inlst =
-    let get_idx x = 
+let radix_sort inarr =
+   (* let get_idx x = 
         if x=1 then 0 
         else if x=2 then 1
         else if x=4 then 2 
         else 3
     in
     let size_digits = 
-        let _,_,_,first_seq = List.hd inlst in
-        List.length first_seq in
+        let _,_,_,first_seq = inarr.(0) in
+        Array.length first_seq in
     Printf.printf "digits size is %d\n%!" size_digits;
-    let sort_by_digit inlst digit =
-        (*List.sort (fun (_,_,_,lst1) (_,_,_,lst2) ->
+    let sort_by_digit inarr digit =
+       (*List.sort (fun (_,_,_,lst1) (_,_,_,lst2) ->
             compare (List.nth lst1 digit) (List.nth lst2 digit)
         )inlst*)
         let count_arr = Array.make 4 0 in
-        let inlst = List.rev_map (fun (a,b,c,lst) ->
-            let x = List.nth lst digit in
+        let inarr = Array.map (fun (a,b,c,arr) ->
+            let x = arr.(digit) in
             let idx = get_idx x in
             count_arr.(idx) <- count_arr.(idx)+1;
-            (a,b,c,lst,idx)
-        ) inlst in
-        let inlst = List.rev inlst in
+            (a,b,c,arr,idx)
+        ) inarr in
         let index = ref 0 in
         let full_count_arr = Array.make 4 (0,0,0) in
         let _ = Array.fold_left ( fun pre_count count ->
@@ -922,28 +939,35 @@ let radix_sort inlst =
             index := !index +1;
             count+pre_count
         ) 0 count_arr in
-        let sorted_arr = Array.make (List.length inlst) (0,0,0,[]) in
-        List.iter (fun (a,b,c,lst,idx) ->
+        let sorted_arr = Array.make (Array.length inarr) (0,0,0,[||]) in(*waste
+       of space*)
+        Array.iter (fun (a,b,c,arr,idx) ->
             let total_num,hit_num,bigger_than = full_count_arr.(idx) in
             let index2 = bigger_than + hit_num in
-            sorted_arr.(index2) <- (a,b,c,lst) ;
+            sorted_arr.(index2) <- (a,b,c,arr) ;
             full_count_arr.(idx) <- (total_num,hit_num+1,bigger_than);
-        ) inlst;
-        Array.to_list sorted_arr
+        ) inarr;
+        sorted_arr
     in
-    let digit_lst = 
-        Array.to_list (Array.init size_digits (fun x->x))
-    in
-    List.fold_left (fun current_lstlst digit ->
-        sort_by_digit current_lstlst digit
-    ) inlst (List.rev digit_lst) 
+    let digit_arr = Array.init size_digits (fun x->size_digits-x-1) in
+    let sorted_arr = Array.fold_left (fun current_arrarr digit ->
+        sort_by_digit current_arrarr digit
+    ) inarr digit_arr in
+    Array.map (fun (a,b,c,arr) -> (a,b,c,Array.to_list arr)) sorted_arr
+    *)
+    Array.fast_sort (fun x y ->
+                let (_,_,_,lstx) = x and (_,_,_,lsty)=y in
+                compare lstx lsty ) inarr;
+    inarr
+    
+    
 
-let extend_seq ext_dir init_matchlst seedweight inseqlst =
+let extend_seq ext_dir init_matcharr seedweight inseqarr =
     let debug = false in
     if debug then Printf.printf "extend seq in dir=%d,seedW=%d\n%!" ext_dir
     seedweight;
     let new_seedweight = ref seedweight in
-    let posarr = Array.of_list init_matchlst in
+    let posarr = init_matcharr in
     let stillmatch = ref true in
     while !stillmatch do
         (*we modify posarr when we have a possible extension between current
@@ -959,8 +983,8 @@ let extend_seq ext_dir init_matchlst seedweight inseqlst =
             seqNO pos dir pre_chr pre_dir;
             if pre_chr<0 then (pre_chr,pre_dir) (*mismatch already happened*)
             else begin
-                let inseq = List.nth inseqlst seqNO in
-                let inseqlen = List.length inseq in
+                let inseq = inseqarr.(seqNO) in
+                let inseqlen = Array.length inseq in
                 let ext2right = if dir*ext_dir=1 then true else false in
                 let nexpos = 
                     if ext2right then !new_seedweight+pos
@@ -969,8 +993,8 @@ let extend_seq ext_dir init_matchlst seedweight inseqlst =
                 if debug then Printf.printf "nextpos=%d,%!" nexpos;
                 if nexpos>=0&&nexpos<inseqlen then begin
                     let next_chr = 
-                        if pre_chr=0||dir=pre_dir then List.nth inseq nexpos
-                        else rev_comp_chr (List.nth inseq nexpos)
+                        if pre_chr=0||dir=pre_dir then inseq.(nexpos)
+                        else rev_comp_chr inseq.(nexpos)
                     in
                     if debug then Printf.printf "chr=%d/%d\n%!" next_chr pre_chr;
                     if pre_chr=0(*the first item*)||next_chr=pre_chr then 
@@ -997,19 +1021,25 @@ let extend_seq ext_dir init_matchlst seedweight inseqlst =
     done;
     if debug then
         Printf.printf "end of extend_seq, new seedweight = %d\n%!" !new_seedweight;
-    Array.to_list posarr,
+    posarr,
     !new_seedweight
 
 
-let extend_seq_in_both_dir matchlst seedweight inseqlst = 
-    let extend_matchlst,new_seedweight = 
-        extend_seq 1 matchlst seedweight inseqlst in
-    extend_seq (-1) extend_matchlst new_seedweight inseqlst
+let extend_seq_in_both_dir matcharr seedweight inseqarr = 
+    let extend_matcharr,new_seedweight = 
+        extend_seq 1 matcharr seedweight inseqarr in
+    let res_matcharr,res_seedweight = 
+        extend_seq (-1) extend_matcharr new_seedweight inseqarr in
+    Array.sort (fun (seqNOx,_,_) (seqNOy,_,_) -> compare seqNOx seqNOy) res_matcharr;
+    res_matcharr,res_seedweight
 
-let add_seed_to_tbl init_acclst init_seedweight inseqlst input_seqlst_size
+(*[add_seed_to_tbl] add match we found during [find_SML] to
+* mum_tbl/seed2pos/pos2seed tbl. expend the match to both direction before
+* adding it. if the result of extension is already in those tbls, skip this one*)
+let add_seed_to_tbl init_accarr init_seedweight inseqarr input_seqlst_size
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let debug = false in
-    let poslst =  init_acclst in
+    let poslst =  Array.to_list init_accarr in
     let sign1 = match_at_most_once_in_each_seq2 poslst in
     let sign2 = match_at_least_once_in_every_seq2 poslst 
     input_seqlst_size  in
@@ -1019,35 +1049,60 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         else if (sign2=false)&&sign1 then 2
         else 2
     in
-    if ext_type=0||ext_type=1 then begin
-        let ext_poslst,ext_seedweight = 
-            extend_seq_in_both_dir init_acclst init_seedweight inseqlst in
-        let seqNO,pos,dir = List.find (fun item -> 
-            let seqNO,_,_ = item in
-            seqNO = 0 ) ext_poslst in 
-        let newsign = ref true in
+    if ext_type=0(*||ext_type=1 for now we only care about extendabl ones*) then begin
+        let ext_posarr,ext_seedweight = 
+            extend_seq_in_both_dir init_accarr init_seedweight inseqarr in
+        let seqNO,pos,dir = ext_posarr.(0) in 
+        assert (seqNO=0);
         let seedNO = get_a_seedNO () in
-        List.iter (fun (seqNO,pos,dir) -> 
-            if (Hashtbl.mem position2seed_tbl_left (seqNO,pos)) then 
-                newsign := false;
-            (*already have this seed match.  this happends when 
-            1.we have both seedseq and (rev seedseq)
-            in one sequence. since we append this sequence with its own
-            revseq, the same match will show up 2n(n>1) times.
-            2.after extension, we find out that we already have the match.*)
-            if !newsign then begin
+        let newsign,seed2remove_lst = 
+            Array.fold_left (fun (pre_sign,acclst) (seqNO,pos,dir) -> 
+            if pre_sign then begin
+                if (Hashtbl.mem position2seed_tbl_left (seqNO,pos)) then begin
+                    (*already have this seed match. this could happen when 
+                    1.we have both seedseq and (rev seedseq) in one sequence. 
+                    since we append this sequence with its own
+                    revseq, the same match will show up 2n(n>1) times.
+                    2.the extended subseq of other other is the same as this
+                    one, if this one is longer, get rid of others.*)
+                    let recordlst = Hashtbl.find position2seed_tbl_left (seqNO,pos) in
+                    let (oldseedNO,oldweight,_) = List.hd recordlst in
+                    if oldweight>=ext_seedweight then
+                        false,acclst
+                    else
+                        pre_sign,oldseedNO::acclst;
+                end
+                else
+                    pre_sign,acclst;
+            end
+            else
+                pre_sign,[]
+            ;
+        ) (true,[]) ext_posarr in
+        if seed2remove_lst<>[] then 
+            List.iter (fun seed2remove ->
+                let poslst,_,seedweight = Hashtbl.find seed2position_tbl seed2remove in
+                List.iter (fun (seqNO,pos,dir) ->
+                    Hashtbl.remove position2seed_tbl_left (seqNO,pos);
+                    Hashtbl.remove position2seed_tbl_right (seqNO,pos+seedweight-1);
+                ) poslst;
+                let mum2remove = get_mum_from_mumtbl seed2remove mum_tbl
+                seed2position_tbl in
+                remove_mum_from_mumtbl mum2remove mum_tbl;
+                Hashtbl.remove seed2position_tbl seed2remove;
+                return_a_seedNO seed2remove;
+            ) seed2remove_lst;
+        let ext_poslst = Array.to_list ext_posarr in
+        if newsign then begin
+            let mumseq = 
+            get_sub_seq2 inseqarr.(seqNO) pos ext_seedweight in
+            Hashtbl.add seed2position_tbl seedNO (ext_poslst,mumseq,ext_seedweight);
+            let key = get_mumkey_from_poslst ext_poslst in
+            let newpositions = List.map (fun (seqNO,pos,dir) ->
                 Hashtbl.add position2seed_tbl_left (seqNO,pos) 
                 [(seedNO,ext_seedweight,dir)];
                 Hashtbl.add position2seed_tbl_right (seqNO,(pos+ext_seedweight-1))
                 [(seedNO,ext_seedweight,dir)];
-            end;
-        ) ext_poslst;
-        if !newsign then begin
-            let mumseq = 
-            get_sub_seq2 (List.nth inseqlst seqNO) pos ext_seedweight in
-            Hashtbl.add seed2position_tbl seedNO (ext_poslst,mumseq,ext_seedweight);
-            let key = get_mumkey_from_poslst ext_poslst in
-            let newpositions = List.map (fun (seqNO,pos,dir) ->
                 let left_end = pos and right_end = pos + ext_seedweight - 1 in
                 {
                     sequence_NO = seqNO; 
@@ -1065,12 +1120,12 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                     size = mumsize;
                     neighborhood_lst = [];
                     subsuming_pointer = (-1);
-                    extendable = if (List.length ext_poslst)=2 then 0 else 1;
+                    extendable = if mumsize=2 then 0 else 1;
                     mumscore = 0;
                 } in
             if debug then begin
                 Printf.printf "add seed %d with mumkey %d,treekey = %!" seedNO key;
-                print_mum newmum false false;
+                print_mum newmum false true;
                 Printf.printf " to mum_tbl\n%!";
             end;
             let sign_newmum = add_mum_to_mumtbl newmum mum_tbl in
@@ -1081,65 +1136,13 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     end
 
 
-let find_SML inseqlst_w_idx seedweight inseqlst input_seqlst_size
+let find_SML patternarr init_seedweight  inseqarr input_seqlst_size
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl = 
-    let debug2 = false in
-    Printf.printf "flatten lstlst\n%!";
-    let inseqlst_w_idx = 
-        Array.of_list inseqlst_w_idx in
-    let inseqlst_w_idx =
-        Array.to_list (Array_ops.flatten_array inseqlst_w_idx) in
-    Printf.printf "call radix sort\n%!";
-    let sorted_lst = radix_sort inseqlst_w_idx in
-    Printf.printf "end of radix sort\n%!";
-    let pre_subseq = ref [] and pre_sign = ref 0 in
-    let sorted_lst = List.rev_map (fun (seqNO,pos,dir,(subseq:int list)) ->
-        if (compare !pre_subseq subseq)=0 then begin
-            pre_sign := !pre_sign+1;
-        end
-        else begin
-            pre_subseq := subseq;
-            pre_sign := 0;
-        end;
-        (!pre_sign,seqNO,pos,dir,subseq)
-    ) sorted_lst in
-    let sorted_lst = List.rev sorted_lst in
-    if debug2 then begin 
-        Printf.printf "sorted lst is:\n%!";
-        List.iter (fun (count,sequenceNO,pos,dir,subseqlst) ->
-        Printf.printf "%2i,%2i,%3i,%2i,[%!" count sequenceNO pos dir;
-        print_int_list subseqlst;
-        Printf.printf "]\n%!";
-        ) sorted_lst;
-    end;
-    let last_acclst = List.fold_left (fun acc item ->
-        let (sign,seqNO,pos,dir,subseq) = item in
-        let newacc =
-            if sign>0 then  acc@[(seqNO,pos,dir)] 
-            else [(seqNO,pos,dir)] in
-        if sign=0&&(List.length acc)>1 then 
-            add_seed_to_tbl acc seedweight inseqlst input_seqlst_size
-            position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl;
-        newacc
-    ) [] sorted_lst in
-    Printf.printf "add seed to tables\n%!";
-    (*add seed to pos2seed_tbl_left&seed2pos_tbl*)
-    if (List.length last_acclst)>1 then 
-        add_seed_to_tbl last_acclst seedweight inseqlst input_seqlst_size
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl
-        
-
-(*try to deal with huge data-set, remember to use ocaml64bits*)
-let scan_seqlst2 (inseqlst:int list list) patternarr mum_tbl
-position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
-    let input_seqlst_size = 2 in (*now we only have 2 input sequences*)
-    let init_seedweight = patternarr.((Array.length patternarr)-1) in
-    if debug then Printf.printf "scan_seqlst2, seedweight=%d\n%!" init_seedweight;
+    let debug = true and debug2 = false in
     if debug then 
         Printf.printf "get sequences with index and possible seed subseq\n%!";
     let inseqarr_w_idxarr =  Array.mapi (fun seqNO inseq->
-        let inseqarr = Array.of_list inseq in
-        let seqlen = Array.length inseqarr in
+        let seqlen = Array.length inseq in
         if debug then Printf.printf "seq len = %d\n%!" seqlen;
         let resarr =  
             Array.mapi (fun idx x ->
@@ -1147,15 +1150,15 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
                 if ( (idx+init_seedweight-1) < seqlen) then 
                      seqNO,idx,1,
                      Array.fold_right 
-                     (fun p acc -> inseqarr.(idx+p-1)::acc ) patternarr [] 
+                     (fun p acc -> inseq.(idx+p-1)::acc ) patternarr [] 
                 else 0,0,0,[]
             in
             if (idx mod 100000)=0 then
                 Printf.printf "reach idx=%d\n%!" idx;
             sequenceNO,pos,dir,subseqlst
-        ) inseqarr in
+        ) inseq in
         Array.sub resarr 0 (seqlen-init_seedweight+1)
-    ) (Array.of_list inseqlst)
+    ) inseqarr
     in
     if debug then 
         Printf.printf "append it with reverse complement of first sequence\n%!";
@@ -1164,20 +1167,67 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
         let rev_pos = pos in
         (sequenceNO,rev_pos,-1,rev_subseqlst)
     ) inseqarr_w_idxarr.(0) in
-    let inseqlst_w_idxarr_w_rev = (rev_seq_w_idx)::(Array.to_list
-    inseqarr_w_idxarr) in
+    if debug then Printf.printf "array append\n%!";
+    let inseqarr_w_idxarr_w_rev = 
+        Array.append (Array.append inseqarr_w_idxarr.(0) inseqarr_w_idxarr.(1)) rev_seq_w_idx
+    in
+    if debug then Printf.printf "call radix sort\n%!";
+    let sorted_arr = radix_sort inseqarr_w_idxarr_w_rev in
+    if debug then Printf.printf "end of radix sort\n%!";
+    let pre_subseq = ref [] and pre_sign = ref 0 in
+    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int list)) ->
+        if (compare !pre_subseq subseq)=0 then begin
+            pre_sign := !pre_sign+1;
+        end
+        else begin
+            pre_subseq := subseq;
+            pre_sign := 0;
+        end;
+        (!pre_sign,seqNO,pos,dir,subseq)
+    ) sorted_arr in
+    if debug2 then begin 
+        Printf.printf "sorted lst is:\n%!";
+        Array.iter (fun (count,sequenceNO,pos,dir,subseqlst) ->
+        Printf.printf "%2i,%2i,%3i,%2i,[%!" count sequenceNO pos dir;
+        print_int_list subseqlst;
+        Printf.printf "]\n%!";
+        ) sorted_arr;
+    end;
+    if debug then Printf.printf "add seed to tables\n%!";
+    let last_acclst = Array.fold_left (fun acc item ->
+        let (sign,seqNO,pos,dir,subseq) = item in
+        let newacc =
+            if sign>0 then  acc@[(seqNO,pos,dir)] 
+            else [(seqNO,pos,dir)] in
+        if sign=0&&(List.length acc)>1 then 
+            add_seed_to_tbl (Array.of_list acc) init_seedweight inseqarr input_seqlst_size
+            position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl;
+        newacc
+    ) [] sorted_arr in
+    if (List.length last_acclst)>1 then 
+        add_seed_to_tbl (Array.of_list last_acclst) init_seedweight inseqarr input_seqlst_size
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl
+        
+
+(*try to deal with huge data-set, remember to use ocaml64bits*)
+let scan_seqlst2 (inseqarr:int array array) patternarr mum_tbl
+position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
+    let input_seqarr_size = 2 in (*now we only have 2 input sequences*)
+    let init_seedweight = patternarr.((Array.length patternarr)-1) in
+    if debug then Printf.printf "scan_seqlst2, seedweight=%d\n%!" init_seedweight;
+    
     if debug then begin
         Printf.printf "find_SML with inseqlst_w_idx_w_rev \n%!";
-        find_SML inseqlst_w_idxarr_w_rev init_seedweight inseqlst input_seqlst_size
+        find_SML patternarr init_seedweight inseqarr input_seqarr_size
         position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl ; 
         Printf.printf "find_SML for reverse complement done\n%!";
     end;
-    let debug3 = false in
-    if debug3 then begin
+    let debug2 = false in
+    if debug2 then begin
         Printf.printf "check seed2pos tbl :\n%!";
         print_seed2postbl seed2position_tbl;
         Printf.printf "check pos2seed tbl :\n%!";
-        print_position2seedtbl position2seed_tbl_left;
+        print_position2seedtbl position2seed_tbl_left None;
     end;
     if debug then begin
         Printf.printf "end of scan_seq2 \n%!";
@@ -1186,111 +1236,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
 
 
 
-let scan_seqlst (inseqlst:int list list) patternarr 
-seq2seedNO_tbl seedNO2seq_tbl 
-position2seed_tbl_left position2seed_tbl_right 
-seed2position_tbl debug =
-    let inseqarr = Array.of_list (List.map (fun lst -> Array.of_list lst
-    ) inseqlst) in
-    let seedweight = patternarr.((Array.length patternarr)-1) in
-    if debug then Printf.printf "seed weight = %d\n" seedweight;
-    Array.iteri (
-        fun sequenceNO seq ->
-            let seqlen = Array.length seq in
-            if debug then Printf.printf "seed len = %d\n%!" seqlen;
-            Array.iteri (fun idx item ->
-            if ( (idx+seedweight-1) < seqlen) then begin
-                let subseqlst = Array.fold_right 
-                     (fun p acc -> seq.(idx+p-1)::acc) patternarr [] in
-                if (Hashtbl.mem seq2seedNO_tbl subseqlst) then begin
-                    let seedNO = Hashtbl.find seq2seedNO_tbl subseqlst in
-                    Hashtbl.add position2seed_tbl_left (sequenceNO,idx)
-                    [(seedNO,seedweight,1)]; (*1 is orientation*)
-                    let oldposlst,_,_ = 
-                        try (Hashtbl.find seed2position_tbl seedNO) with
-                        | Not_found -> failwith ("scan seq Not found 1")
-                    in
-                    Hashtbl.remove seed2position_tbl seedNO;
-                    Hashtbl.add seed2position_tbl seedNO
-                    (((sequenceNO,idx,1)::oldposlst),[],seedweight);
-                end
-                else
-                    begin
-                    let seedNO = get_a_seedNO () in
-                    Hashtbl.add seq2seedNO_tbl subseqlst seedNO;
-                    Hashtbl.add position2seed_tbl_left (sequenceNO,idx)
-                    [(seedNO,seedweight,1)];
-                    Hashtbl.add seed2position_tbl seedNO
-                    ([(sequenceNO,idx,1)],[],seedweight);
-                    end
-            end
-            else ()
-        ) seq
-    ) inseqarr;
-    if debug then Printf.printf "check the reverse complement\n%!";
-    let rev_inseqlst = (List.map (fun lst -> List.rev lst) inseqlst) in
-    let revseqarr = Array.of_list (List.map (fun lst -> Array.of_list lst
-    ) rev_inseqlst) in
-    Array.iteri (
-        fun sequenceNO revseq ->
-        let seqlen = Array.length revseq in
-        Array.iteri (
-            fun idx item ->
-                let realidx = seqlen-idx-1 in
-                if ( (idx+seedweight-1) < seqlen) then begin
-                    let subseqlst = Array.fold_right 
-                         (fun p acc -> revseq.(idx+p-1)::acc) patternarr [] in
-                    let rev_subseqlst = rev_comp_lst subseqlst in
-                    if (Hashtbl.mem seq2seedNO_tbl rev_subseqlst) then
-                        let new_seedNO = Hashtbl.find seq2seedNO_tbl rev_subseqlst in
-                        let old_record_lst = 
-                            Hashtbl.find position2seed_tbl_left
-                            (sequenceNO,(realidx-seedweight+1)) in
-                        assert((List.length old_record_lst)=1);
-                        let old_seedNO,seed_weight,dir = List.hd old_record_lst in 
-                        (*if our seed is not DNA-palindromic, old_seedNO = new_seedNO will never happen*)
-                        if (old_seedNO<>(-1))&&(old_seedNO<>new_seedNO) then begin 
-                            Hashtbl.remove seq2seedNO_tbl (List.rev subseqlst);
-                            let poslst,_,_ = try (Hashtbl.find seed2position_tbl
-                            old_seedNO) with |Not_found -> failwith ("scan seq, Not found 5") in
-                            List.iter (fun (seqNO,pos,_) ->
-                                Hashtbl.remove position2seed_tbl_left (seqNO,pos);
-                                Hashtbl.add position2seed_tbl_left (seqNO,pos)
-                                [(new_seedNO,seed_weight,(-1))];
-                                if (Hashtbl.mem seed2position_tbl new_seedNO) then
-                                begin
-                                let oldposlst,_,_ = 
-                                    Hashtbl.find seed2position_tbl (new_seedNO) in
-                                Hashtbl.remove seed2position_tbl new_seedNO;
-                                Hashtbl.add seed2position_tbl new_seedNO 
-                                (*to do: what if pos=0?*)
-                                (((seqNO,-pos,-1)::oldposlst),[],seedweight);
-                                end
-                                else Hashtbl.add seed2position_tbl new_seedNO 
-                                ([(seqNO,-pos,-1)],[],seedweight)
-                            ) poslst;
-                            Hashtbl.remove seed2position_tbl old_seedNO;
-                            return_a_seedNO old_seedNO;
-                        end
-                    else ();
-                end
-                else ()
-        ) revseq;
-    ) revseqarr;
-    Hashtbl.iter (fun (seqNO,pos) recordlist ->
-        Hashtbl.add position2seed_tbl_right (seqNO,(pos+seedweight-1)) recordlist;
-    )position2seed_tbl_left;
-    Hashtbl.iter (fun seedseq seedNO ->
-        Hashtbl.add seedNO2seq_tbl seedNO seedseq;
-    ) seq2seedNO_tbl;
-    if debug then print_seedNO2seqtbl seedNO2seq_tbl;
-    if debug then 
-        Printf.printf "end of scan sequence, return seedweight = %d \n%!" seedweight;
-    seedweight
-
-
-
-let build_seed_and_position_tbl inseqlst init_seedlen min_seednumber 
+let build_seed_and_position_tbl inseqarr init_seedlen min_seednumber 
 seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left pos2seed_tbl_right
 seed2pos_tbl mum_tbl debug
 =
@@ -1309,27 +1255,28 @@ seed2pos_tbl mum_tbl debug
         print_int_list (seedpattern); Printf.printf "\n%!";
     end;
     let patternarr = Array.of_list seedpattern in
-    let init_seed_number = scan_seqlst2 inseqlst patternarr  
+    let init_seed_number = scan_seqlst2 inseqarr patternarr  
         mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true in
     let seed_number = ref init_seed_number in
     while (!seed_number<min_seednumber)&&(!seed_len>5 ) do 
         seed_len := !seed_len - 2;
+        let seed_len = if !seed_len = 17 then 15 else !seed_len in
         let seedlst = 
-        try (Hashtbl.find palindromic_spaced_seed_tbl !seed_len)
+        try (Hashtbl.find palindromic_spaced_seed_tbl seed_len)
         with | Not_found -> failwith ("cannot find seed pattern 2")
         in
         let seedpattern = List.hd seedlst in
         Printf.printf "reduce seed weight, new seed pattern list = %!";
         print_int_list (seedpattern); Printf.printf "\n%!";
         let patternarr = Array.of_list seedpattern in
-        let new_seed_number = scan_seqlst2 inseqlst patternarr 
+        let new_seed_number = scan_seqlst2 inseqarr patternarr 
         mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true in
         seed_number := new_seed_number;
     done;
     if debug then begin
     (*Printf.printf "check position2seed tbl left and right\n%!";
-    print_position2seedtbl pos2seed_tbl_left;
-    print_position2seedtbl pos2seed_tbl_right;
+    print_position2seedtbl pos2seed_tbl_left None;
+    print_position2seedtbl pos2seed_tbl_right None;
     Printf.printf "check seed2position tbl :\n%!";
     print_seed2postbl seed2pos_tbl;
     Printf.printf "check seedNO2seq_tbl :\n%!";
@@ -1643,7 +1590,7 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
             let stop = ref 0 in
             (*"next to" also count as "overlap", we add it into neighborhood, too*)
             let pos = ref (i_left_end-d-1) in
-            while (!stop<>1)&&( (!pos) <= (i_right_end+d+1)) do
+            while (*(!pos>=0)&&*)(!stop<>1)&&( (!pos) <= (i_right_end+d+1)) do
                 if ((!pos<>i_left_end)&&(Hashtbl.mem pos_tbl_right (seqNO,!pos)))then begin
                     let record_list = Hashtbl.find pos_tbl_right (seqNO,!pos) in
                     List.iter (fun (j_seedNO,seed_weight,j_ori) ->
@@ -1671,7 +1618,6 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
                             assert(j_idx>=0);
                             let j_pos = List.nth j_mum.positions j_idx in
                             let j_left_end = j_pos.left_end in
-                            (*assert( (i_left_end-j_left_end)<>0 );it happens*)
                             let newneighbor =
                                 (seqNO,j_seedNO,i_ori,j_ori,i_left_end-j_left_end)
                             in
@@ -1804,9 +1750,9 @@ pos2seed_tbl_left pos2seed_tbl_right =
             in
             let new_imumseq = (*we only take subseq in seq0 as mumseq*)
                 if (seqNO=0)&&expand_to_left then
-                    (get_sub_seq2 jmumseq 0 (mi.left_end-mj.left_end))@imumseq
+                    Array.append (get_sub_seq2 jmumseq 0 (mi.left_end-mj.left_end)) imumseq
                 else if (seqNO=0)&&expand_to_right then
-                    imumseq@
+                    Array.append imumseq
                     (get_sub_seq2 jmumseq (mi.right_end-mj.left_end+1)
                     (mj.right_end-mi.right_end))
                 else imumseq
@@ -1871,8 +1817,8 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
             while ( !find_a_chain = 1 ) do
                 if debug then begin
                 Printf.printf "=== begin of while ===> check pos2seed tbl \n%!";
-                if debug2 then print_position2seedtbl pos2seed_tbl_left;
-                if debug2 then print_position2seedtbl pos2seed_tbl_right;
+                if debug2 then print_position2seedtbl pos2seed_tbl_left None;
+                if debug2 then print_position2seedtbl pos2seed_tbl_right None;
                 end; 
                 update_neighborhood i_seedNO mum_tbl seed2pos_tbl
                 pos2seed_tbl_left pos2seed_tbl_right false;
@@ -2060,10 +2006,12 @@ let get_diff in_lstlst1 in_lstlst2 seqlst =
 
 let build_local_mums2 mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right
  debug debug_neighborhood =
-     if debug then Printf.printf "build local mums2 start,seed num:%d\n%!"
+     if debug then Printf.printf "build local mums2 start,seed number=%d\n%!"
      (Hashtbl.length seed2pos_tbl);
+    if (Hashtbl.mem pos2seed_tbl_left (0,63)) then 
+       print_position2seedtbl pos2seed_tbl_left (Some (0,63)); 
     build_neighborhood mum_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl true(*debug_neighborhood*);
+    pos2seed_tbl_right seed2pos_tbl debug_neighborhood;
     if debug then begin
     Printf.printf "check mum tbl after build neighborhood, size=%d \
     (un-extendable included)\n%!" (Hashtbl.length mum_tbl);
@@ -2163,7 +2111,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
                             (mi.sequence_NO,mi.left_end,mi.orientation) ) ori_positions 
                         in
                         Hashtbl.add seed2pos_tbl seedNO (poslst,mum2add.mumseq,
-                        (List.length mum2add.mumseq));
+                        (Array.length mum2add.mumseq));
                         List.iter ( fun mi ->
                         let seqNO = mi.sequence_NO and ori = mi.orientation in
                         let left = mi.left_end and right = mi.right_end in
@@ -2360,22 +2308,22 @@ let get_score_from_2seq sequence1 sequence2 ori =
     let seq1,seq2 = 
         if ori=1 then sequence1,sequence2
         else 
-            List.rev (rev_comp_lst sequence1), sequence2
+            rev_comp_arr sequence1, sequence2
     in      
     if debug then begin
-    print_int_list seq1; print_int_list seq2;
+    print_int_arr seq1; print_int_arr seq2;
     end;
-    List.fold_left2 (fun acc x y -> 
+    Array_ops.fold_right_2 (fun acc x y -> 
         acc + hodx_matrix.(atgc_2_idx x).(atgc_2_idx y) 
-        ) 0 seq1 seq2
+    ) 0 seq1 seq2
         
 (* get_score returns score of mum, and yes this works for more than 2
 * input sequence, but we only care about lcbs between 2 sequences *)
-let get_mum_score old_seqlst mum =
+let get_mum_score old_seqarr mum =
     let poslst = mum.positions in
     let first_range = List.hd poslst in
     let first_seq = 
-        get_sub_seq (List.nth old_seqlst first_range.sequence_NO) 
+        get_sub_seq2 old_seqarr.(first_range.sequence_NO) 
         first_range.left_end (first_range.right_end-first_range.left_end+1) in
     let first_ori = first_range.orientation in
     let score,_,_ = 
@@ -2385,7 +2333,7 @@ let get_mum_score old_seqlst mum =
             lcbrange.right_end,lcbrange.orientation
         in
         let current_seq = 
-            get_sub_seq (List.nth old_seqlst seqNO) lend (rend-lend+1) in
+            get_sub_seq2 old_seqarr.(seqNO) lend (rend-lend+1) in
         let ori = if (current_ori=previous_ori) then 1 else (-1) in
         let score = get_score_from_2seq previous_seq current_seq ori in
         sum_score + score, current_seq, current_ori
@@ -2459,7 +2407,7 @@ removed."
 " The total score would be calculated as the sum of the individual MUM scores, minus
 (number of breakpoints)*(breakpoint penalty)". *)
 (*lcb_tbl is empty before this function*)
-let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl input_seqlst = 
+let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  = 
     let debug = false in
    (*fill in range of each lcb with mum_tbl*)
     let idx = ref (-1) in
@@ -2522,26 +2470,25 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl input_seqlst =
 
 (*[get_lcbs_range returns the range lst of current lcb, 
 * if special_case=true, we don't care the lcb weight.]*)
-let get_lcbs_range lcb_tbl old_seqlst special_case = 
-    let lcb_range_arr = Array.make (List.length old_seqlst) [] in
+let get_lcbs_range lcb_tbl old_seqarr special_case = 
+    let lcb_range_lst_arr = Array.make (Array.length old_seqarr) [] in
     let min_lcb_w = 
         if special_case then 0 else minimum_lcb_weight 
     in
     Hashtbl.iter (fun seedNOlst record ->
         if (List.length seedNOlst)>= min_lcb_w then
             List.iter (fun mi ->
-                let oldlst = lcb_range_arr.(mi.sequence_NO) in
+                let oldlst = lcb_range_lst_arr.(mi.sequence_NO) in
                 let newlst = (mi.left_end,mi.right_end)::oldlst in
-                lcb_range_arr.(mi.sequence_NO) <- newlst ;
+                lcb_range_lst_arr.(mi.sequence_NO) <- newlst ;
             ) record.range_lst;
     ) lcb_tbl;
-    let lcb_range_lst_lst = Array.to_list lcb_range_arr in
-    let lcb_range_lst_lst = (*sort the range by leftend*)
-        List.map (fun x -> 
+    let lcb_range_lst_arr = (*sort the range by leftend*)
+        Array.map (fun x -> 
             List.sort (fun (aleft,_) (bleft,_) -> compare aleft bleft) x
-        ) lcb_range_lst_lst
+        ) lcb_range_lst_arr
     in
-    lcb_range_lst_lst
+    Array.to_list lcb_range_lst_arr
 
 let get_lcb_key_by_range seqNO range lcb_tbl =
     let (leftend,rightend) = range in
@@ -2589,36 +2536,35 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 
 
     
-let get_seq_outside_lcbs old_seqlst lcb_tbl =
+let get_seq_outside_lcbs old_seqarr lcb_tbl =
     let debug = false in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
-    let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seqlst false in
+    let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seqarr false in
     if debug then print_lcbs_range lcb_range_lst_lst;
-    let seq_outside_lcb_lst = List.map2 (fun seq lcb_range ->
-        let seqarr = Array.of_list seq in
-        let seqlen = List.length seq in
+    let seq_outside_lcb_arr = Array_ops.map_2 (fun seq lcb_range ->
+        let seqlen = Array.length seq in
         let last_rightend,tmpseq = 
             List.fold_left (
-                fun (pre_rightend,subseq) (leftend,rightend) ->
+                fun (pre_rightend,accseq) (leftend,rightend) ->
                 assert(pre_rightend<=leftend);
                 let size = leftend-pre_rightend-1 in
-                let subarr =
+                let newsubseq =
                     if size>0 then
-                    Array.sub seqarr (pre_rightend+1) (leftend-pre_rightend-1) 
+                    Array.sub seq (pre_rightend+1) (leftend-pre_rightend-1) 
                     else [||]
                 in
-                rightend,subseq@(Array.to_list subarr)
-            ) (-1,[]) lcb_range 
+                rightend,Array.append accseq newsubseq
+            ) (-1,[||]) lcb_range 
         in
         let last_size = seqlen-1-last_rightend in
         let subend = 
             if last_size>0 then
-            Array.sub seqarr (last_rightend+1) (seqlen-1-last_rightend) 
+            Array.sub seq (last_rightend+1) (seqlen-1-last_rightend) 
             else [||]
         in
-        tmpseq@(Array.to_list subend)
-    ) old_seqlst lcb_range_lst_lst in
-    lcb_range_lst_lst, seq_outside_lcb_lst
+        Array.append tmpseq subend
+    ) old_seqarr (Array.of_list lcb_range_lst_lst) in
+    lcb_range_lst_lst, seq_outside_lcb_arr
     
 (*return true if lcb_record is a light weight lcb.*)    
 let is_light_weight_lcb lcb_record in_seq_size_lst =
@@ -2643,7 +2589,7 @@ let get_lcb_cov_rate lcb_tbl in_seq_size_lst =
     int_of_float (1000.0*.q_cov_rate) 
 
 (* LCB = local collinear blocks, works only for two sequences now *)
-let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seqlst in_seq_size_lst
+let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl  in_seq_size_lst
 special_case =
     let debug = false in
     if debug then Printf.printf "build LCBS \n %!";
@@ -2692,7 +2638,7 @@ special_case =
     (*new here*)
     let lcb_tbl = Hashtbl.create init_tb_size in
     if (sum_weight>0) then begin
-        update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl in_seqlst;
+        update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl ;
         let q_cov_rate = 
             get_lcb_cov_rate lcb_tbl in_seq_size_lst in
         if debug then 
@@ -2704,7 +2650,7 @@ special_case =
         lcbs,0,lcb_tbl
 
 
-let get_worst_lcb_from_light_lcbtbl light_lcb_tbl lcbs mum_tbl seed2pos_tbl in_seqlst
+let get_worst_lcb_from_light_lcbtbl light_lcb_tbl lcbs mum_tbl seed2pos_tbl
 in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_num debug =
     let lcb_to_remove = ref [] in
     let lcbs_after_remove = ref [[[]]] in
@@ -2739,8 +2685,7 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
         let new_seedNOlstlst = 
             List.map (fun lcblst -> List.flatten lcblst) new_lcbs in
         let new_lcbs, new_lcb_cov_rate,new_lcb_tbl = 
-            build_LCBs new_seedNOlstlst mum_tbl seed2pos_tbl in_seqlst
-            in_seq_size_lst false in
+            build_LCBs new_seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst false in
         (*new : remove this
         Hashtbl.clear tmp_tbl;
         update_lcbs_range_and_score new_lcbs mum_tbl tmp_tbl in_seqlst;*)
@@ -2772,8 +2717,7 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
 (*get_worst_lcb returns the lcb key so we can remove it to get a better score.
 * also returns the score if we remove the lcb, number of low W lcb left if we
 * remove the lcb*)
-let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst in_seqlst mum_tbl
-seed2pos_tbl =
+let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
     let debug = false in
     let total_num = Hashtbl.length lcb_tbl in
     let light_num = get_num_of_low_ratio_lcb lcb_tbl !minimum_lcb_ratio true in
@@ -2834,9 +2778,9 @@ seed2pos_tbl =
         let init_low_ratio_lcb_num = light_num in
         let higher_score,higher_cov_rate,lcb_to_remove,lcbs_after_remove,
         lcb_tbl_after_remove = 
-             get_worst_lcb_from_light_lcbtbl light_lcb_tbl lcbs mum_tbl
-            seed2pos_tbl in_seqlst in_seq_size_lst
-            bk_penalty total_mum_score !higher_score init_low_ratio_lcb_num
+            get_worst_lcb_from_light_lcbtbl light_lcb_tbl lcbs mum_tbl
+            seed2pos_tbl in_seq_size_lst bk_penalty total_mum_score 
+            !higher_score init_low_ratio_lcb_num
             false
         in
         if debug then begin
@@ -2891,7 +2835,7 @@ let remove_lcb_from_lcblstlst key_to_remove lcbs =
 * (W is weight, R is ratio)
 * the result lcb_tbl could still have low W lcbs, if remove them will create
 * high W low R lcb, we won't do it -- different from Mauve *)
-let remove_light_weight_lcbs lcbs lcb_tbl mum_tbl seed2pos_tbl old_seqlst in_seq_size_lst
+let remove_light_weight_lcbs lcbs lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums =
     let debug = false in
     let bk_penalty = get_break_point_penalty in_seq_size_lst num_of_mums in 
@@ -2932,7 +2876,7 @@ num_of_mums =
         !res_score !res_cov_rate;
         let seedNOlst_to_remove,score,cov_rate,light_lcb_left,lcbs_after_remove,lcb_tbl_after_remove = 
             get_worst_lcb !res_lcbs !res_lcb_tbl bk_penalty in_seq_size_lst
-            old_seqlst mum_tbl seed2pos_tbl in
+            mum_tbl seed2pos_tbl in
         if debug then begin
             Printf.printf "try to remove lcb : %!";
             print_int_list seedNOlst_to_remove; 
@@ -3031,14 +2975,16 @@ previous_k_lst =
                     Printf.printf "we have a new seedk : %d,kleft=%d,W=%d\n%!" 
                     k_seedNO k_left weight_reduce;
                 let k_mumkey = get_mumkey_from_milst k_milst in
-                Printf.printf "kmumkey = %d\n%!" k_mumkey;
-                print_int_list j_mumseq;
+                if debug then begin
+                    Printf.printf "kmumkey = %d\n%!" k_mumkey;
+                    print_int_arr j_mumseq;
+                end;
                 let start_pos = 
                     if trim_from_left then 0 
-                    else (List.length j_mumseq)-weight_reduce
+                    else (Array.length j_mumseq)-weight_reduce
                 in
                 let k_mumseq = get_sub_seq2 j_mumseq start_pos weight_reduce in  
-                print_int_list k_mumseq;
+                if debug then print_int_arr k_mumseq;
                 let new_kmum =  
                     {seedNO=k_seedNO; 
                     positions=k_milst; 
@@ -3302,10 +3248,10 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
         Printf.printf "end of resolve overlap mums, extendable mum = %d\n %!" !res;
     !res
     
-let update_score_for_each_mum mum_tbl in_seqlst = 
+let update_score_for_each_mum mum_tbl in_seqarr = 
     let update_mum_score record = 
         if (record.extendable = 0) then begin
-        let score = get_mum_score in_seqlst record in
+        let score = get_mum_score in_seqarr record in
         update_mum_to_mumtbl None {record with mumscore = score } mum_tbl false;
         end
     in
@@ -3336,7 +3282,7 @@ let search_inside_each_lcb lcbs input_seqlst mum_tbl min_weight =
                 try (Hashtbl.find lcb_tbl (seedNOlst,i)) with
                 |Not_found -> failwith "not found1 inside_each_lcb"
             in
-            let seqi = get_sub_seq (List.nth input_seqlst i) lefti (righti-lefti+1) in
+            let seqi = get_sub_seq2 (List.nth input_seqlst i) lefti (righti-lefti+1) in
             res_seqlst := seqi::!res_seqlst;
         done;
         let new_seq2seedNO_tbl = Hashtbl.create init_size in
@@ -3371,7 +3317,7 @@ let search_inside_each_lcb lcbs input_seqlst mum_tbl min_weight =
 (* search area outside existing lcb block. *)    
 let search_outside_lcbs inner_lcbs lcb_tbl mum_tbl
 pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
-in_seqlst in_seq_size_lst  =
+in_seqarr in_seq_size_lst  =
     let debug = true and debug2 = false in
     if debug then begin 
         Printf.printf "\n Start working on sequence outside lcbs, \
@@ -3379,16 +3325,16 @@ in_seqlst in_seq_size_lst  =
         if debug2 then Hashtbl.iter (fun key record -> print_lcb record ) lcb_tbl;
     end;
     (*this works even when the seq outside is shorter than seed's length*)
-    let lcb_range_lstlst, seq_outside_lcbs_lst = 
-        get_seq_outside_lcbs in_seqlst lcb_tbl in
-    let current_seq_size_lst = List.fold_right (fun seq acc ->
-        (List.length seq)::acc ) seq_outside_lcbs_lst [] 
+    let lcb_range_lstlst, seq_outside_lcbs_arr = 
+        get_seq_outside_lcbs in_seqarr lcb_tbl in
+    let current_seq_size_lst = Array.fold_right (fun seq acc ->
+        (Array.length seq)::acc ) seq_outside_lcbs_arr [] 
     in
     if debug then begin
         Printf.printf "current_seq_size_lst :%!";
         print_int_list current_seq_size_lst;
     end;
-    let shorted_seqlen = get_shortest_len seq_outside_lcbs_lst in
+    let shorted_seqlen = get_shorter_len seq_outside_lcbs_arr in
     let new_seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
     let new_seedlen = if (new_seedlen mod 2)=0 then new_seedlen+1 else new_seedlen in 
     let new_seedlen = if (new_seedlen<5) then 5 else new_seedlen in
@@ -3402,7 +3348,7 @@ in_seqlst in_seq_size_lst  =
     let new_seed2pos_tbl = Hashtbl.create init_tb_size in
     let new_mum_tbl = Hashtbl.create init_tb_size in
     let new_seedweight = 
-        build_seed_and_position_tbl seq_outside_lcbs_lst new_seedlen 
+        build_seed_and_position_tbl seq_outside_lcbs_arr new_seedlen 
         !minimum_seed_num new_seq2seedNO_tbl new_seedNO2seq_tbl 
         new_pos2seed_tbl_left new_pos2seed_tbl_right 
         new_seed2pos_tbl new_mum_tbl false in
@@ -3423,25 +3369,25 @@ in_seqlst in_seq_size_lst  =
         Printf.printf "\n ============= Resolve overlap mum: =============\n%!";
     let num_of_mums = resolve_overlap_mum res_mum_tbl (new_seedweight-1)
     res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl false false in
-    update_score_for_each_mum res_mum_tbl in_seqlst;
+    update_score_for_each_mum res_mum_tbl in_seqarr;
     (*get the new weight of lcbs*)
     let new_seedNOlstlst = 
         get_mum_lst_for_each_seq res_mum_tbl res_seed2pos_tbl res_pos2seed_tbl_left
-        (List.length in_seqlst) in_seq_size_lst in
+        (Array.length in_seqarr) in_seq_size_lst in
     if debug then begin
         Printf.printf "new seedNOlstlst is :\n%!";
         print_int_lstlst3  new_seedNOlstlst;
     end;
     let new_lcbs,new_covR,new_lcb_tbl = 
         build_LCBs new_seedNOlstlst res_mum_tbl res_seed2pos_tbl 
-        in_seqlst in_seq_size_lst false in
+         in_seq_size_lst false in
     if debug then 
         Printf.printf "end of searching outside lcbs, new covR = %d\n%!" new_covR;
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
 
 (*main function here*)
-let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
+let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
     minimum_seed_num := min_seed_num ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
@@ -3449,16 +3395,17 @@ let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
-    let in_seqlst_size = (List.length in_seqlst) in
-    let in_seq_size_lst = List.fold_right 
-    (fun seq acc -> (List.length seq)::acc ) in_seqlst [] 
+    let in_seqarr_size = 2 in
+    let in_seq_size_lst = Array.fold_right 
+    (fun seq acc -> (Array.length seq)::acc ) in_seqarr [] 
     in
-    let shorted_seqlen = get_shortest_len in_seqlst in
+    let shorted_seqlen = get_shorter_len in_seqarr in
     let seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
     let seedlen = if (seedlen mod 2)=0 then seedlen+1 else seedlen in 
     let seedlen = if (seedlen<5) then 5 else seedlen in
     let seedlen = if (seedlen=17) then 19 else seedlen in
-    if debug then Printf.printf "seedlen=%d\n%!" seedlen;
+    if debug then 
+        Printf.printf "\n block_mauave.create_lcb_tbl,seedlen=%d\n%!" seedlen;
     let init_size = init_tb_size in 
     let seq2seedNO_tbl = Hashtbl.create init_size in
     let seedNO2seq_tbl = Hashtbl.create init_size in
@@ -3470,29 +3417,30 @@ let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
     let pos2seed_tbl_right = Hashtbl.create init_size in
     let seed2pos_tbl = Hashtbl.create init_size in
     let mum_tbl = Hashtbl.create init_tb_size in
-    let seedweight = build_seed_and_position_tbl in_seqlst seedlen 
+    let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     !minimum_seed_num seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
     pos2seed_tbl_right seed2pos_tbl mum_tbl false in
     if debug then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
     build_local_mums2 mum_tbl seed2pos_tbl 
-    pos2seed_tbl_left pos2seed_tbl_right false false;
+    pos2seed_tbl_left pos2seed_tbl_right true false;
     if debug then
-        Printf.printf "++++++++ init seedweight=%d, end of building mum table\n%!" seedweight;
+        Printf.printf "++++++++ init seedweight=%d, end of building mum\
+        table\n%!" seedweight;
     let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
-    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false false in
-    update_score_for_each_mum mum_tbl in_seqlst;
+    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true false in
+    update_score_for_each_mum mum_tbl in_seqarr;
     if debug then
         Printf.printf "++++++++++ check mum table after resolve_overlap_mum +++++++ \n%!";
     if debug2 then print_mumtbl mum_tbl true;
     let seedNOlstlst = get_mum_lst_for_each_seq mum_tbl seed2pos_tbl 
-    pos2seed_tbl_left in_seqlst_size in_seq_size_lst in 
+    pos2seed_tbl_left in_seqarr_size in_seq_size_lst in 
     if debug then begin
         Printf.printf "init seedNOlstlst is :\n%!";
         print_int_lstlst3  seedNOlstlst;
     end;
     let init_lcbs,init_covR, init_lcb_tbl = 
-        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seqlst in_seq_size_lst
+        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
         false in
     if debug then Printf.printf "init lcb covR = %d\n%! " init_covR;
     (*init inner tbl*)
@@ -3529,7 +3477,7 @@ let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
             num_of_mums = 
             search_outside_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
             !inner_pos2seed_tbl_left !inner_pos2seed_tbl_right 
-            !inner_seed2pos_tbl in_seqlst in_seq_size_lst 
+            !inner_seed2pos_tbl in_seqarr in_seq_size_lst 
             in
             if (num_of_mums>0)&&(!inner_old_covR < inner_new_covR) then begin
                 if debug then
@@ -3559,7 +3507,7 @@ let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
             Printf.printf "\n --------  Outer loop, remove light lcbs ----- \n%!";
         let new_outer_lcbs, new_outer_covR, new_outer_lcb_tbl = 
             remove_light_weight_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
-            !inner_seed2pos_tbl in_seqlst in_seq_size_lst !current_num_of_mums in
+            !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums in
         (*we could still have low W lcb here -- if remove them will create high W
         * low R lcbs, "remove_light_weight_lcbs" won't do it, get rid of those
         * lcbs here
@@ -3653,7 +3601,7 @@ let create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty =
             Printf.printf "lcb list list is:%!";
             print_lcblst outer_lcbs;
         end;
-        let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seqlst false in
+        let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seqarr false in
         Printf.printf " LCB range lstlst %!";
             print_lcbs_range lcb_range_lstlst;
         let full_range_lstlst = 

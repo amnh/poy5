@@ -165,9 +165,9 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_seed_num min_bk_penalty;
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
-    let in_seqlst = [Array.to_list seq1arr;Array.to_list seq2arr] in
+    let in_seqarr = [|seq1arr;seq2arr|] in
     let lcb_tbl,lcbs,code_list,full_range_lstlst = 
-    Block_mauve.create_lcb_tbl in_seqlst min_lcb_ratio min_seed_num min_bk_penalty in
+    Block_mauve.create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty in
     if debug then begin
         Hashtbl.iter (fun key record ->
         Block_mauve.print_lcb record
