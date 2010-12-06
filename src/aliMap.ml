@@ -154,7 +154,7 @@ let get_range_with_code code1 code2 full_code_lstlst gen_gap_code =
         we have indel match up with indel, something is wrong"
 
 let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     let min_seed_num = ChromPam.get_min_seed_num ali_pam
     and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam

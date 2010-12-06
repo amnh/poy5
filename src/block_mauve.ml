@@ -911,26 +911,28 @@ let intlst2int inlst =
     List.fold_left (fun acc x -> acc*10+x ) 0 inlst
 
 let radix_sort inarr =
-   (* let get_idx x = 
+    let get_idx x = 
         if x=1 then 0 
         else if x=2 then 1
         else if x=4 then 2 
-        else 3
+        else if x=8 then 3
+        else failwith "radix sort, we only work on DNA sequences"
     in
     let size_digits = 
-        let _,_,_,first_seq = inarr.(0) in
+        let _,_,_,first_seq,_,_ = inarr.(0) in
         Array.length first_seq in
     Printf.printf "digits size is %d\n%!" size_digits;
     let sort_by_digit inarr digit =
        (*List.sort (fun (_,_,_,lst1) (_,_,_,lst2) ->
             compare (List.nth lst1 digit) (List.nth lst2 digit)
         )inlst*)
+       Printf.printf "sort by digit %d\n%!" digit;
         let count_arr = Array.make 4 0 in
-        let inarr = Array.map (fun (a,b,c,arr) ->
-            let x = arr.(digit) in
+        let inarr = Array.map (fun (seqNO,pos,dir,subseq,_,_) ->
+            let x = subseq.(digit) in
             let idx = get_idx x in
-            count_arr.(idx) <- count_arr.(idx)+1;
-            (a,b,c,arr,idx)
+            count_arr.(idx) <- count_arr.(idx)+1; 
+            (seqNO,pos,dir,subseq,idx,false)
         ) inarr in
         let index = ref 0 in
         let full_count_arr = Array.make 4 (0,0,0) in
@@ -939,26 +941,34 @@ let radix_sort inarr =
             index := !index +1;
             count+pre_count
         ) 0 count_arr in
-        let sorted_arr = Array.make (Array.length inarr) (0,0,0,[||]) in(*waste
-       of space*)
-        Array.iter (fun (a,b,c,arr,idx) ->
+        (*
+        let sorted_arr = Array.make (Array.length inarr) (0,0,0,[]) in *)
+        (*Array.iteri (fun  (a,b,c,lst,idx) ->*)
+        let index1 = ref 0 in
+        while !index1<(Array.length inarr) do
+            let (a,b,c,lst,idx,visited) = inarr.(!index1) in
+            if visited then index1 := !index1 +1
+            else begin
             let total_num,hit_num,bigger_than = full_count_arr.(idx) in
             let index2 = bigger_than + hit_num in
-            sorted_arr.(index2) <- (a,b,c,arr) ;
+            let old_record = inarr.(index2) in
+            inarr.(!index1) <- old_record;
+            inarr.(index2) <- (a,b,c,lst,idx,true);
+            assert(hit_num<total_num);
             full_count_arr.(idx) <- (total_num,hit_num+1,bigger_than);
-        ) inarr;
-        sorted_arr
+            end;
+        done;
+        inarr
     in
     let digit_arr = Array.init size_digits (fun x->size_digits-x-1) in
-    let sorted_arr = Array.fold_left (fun current_arrarr digit ->
+    Array.fold_left (fun current_arrarr digit ->
         sort_by_digit current_arrarr digit
-    ) inarr digit_arr in
-    Array.map (fun (a,b,c,arr) -> (a,b,c,Array.to_list arr)) sorted_arr
-    *)
+    ) inarr digit_arr 
+    (*
     Array.fast_sort (fun x y ->
                 let (_,_,_,lstx) = x and (_,_,_,lsty)=y in
                 compare lstx lsty ) inarr;
-    inarr
+    inarr*)
     
     
 
@@ -1155,17 +1165,18 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
             in
             if (idx mod 100000)=0 then
                 Printf.printf "reach idx=%d\n%!" idx;
-            sequenceNO,pos,dir,subseqlst
+            (*0,false are for function radix_sort later.*)
+            sequenceNO,pos,dir,Array.of_list subseqlst,0,false
         ) inseq in
         Array.sub resarr 0 (seqlen-init_seedweight+1)
     ) inseqarr
     in
     if debug then 
         Printf.printf "append it with reverse complement of first sequence\n%!";
-    let rev_seq_w_idx = Array.map (fun (sequenceNO,pos,_,subseqlst) ->
-        let rev_subseqlst = List.rev (rev_comp_lst subseqlst) in
+    let rev_seq_w_idx = Array.map (fun (sequenceNO,pos,dir,subseq,_,_) ->
+        let rev_subseq = rev_comp_arr subseq in
         let rev_pos = pos in
-        (sequenceNO,rev_pos,-1,rev_subseqlst)
+        (sequenceNO,rev_pos,-1,rev_subseq,0,false)
     ) inseqarr_w_idxarr.(0) in
     if debug then Printf.printf "array append\n%!";
     let inseqarr_w_idxarr_w_rev = 
@@ -1174,8 +1185,8 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     if debug then Printf.printf "call radix sort\n%!";
     let sorted_arr = radix_sort inseqarr_w_idxarr_w_rev in
     if debug then Printf.printf "end of radix sort\n%!";
-    let pre_subseq = ref [] and pre_sign = ref 0 in
-    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int list)) ->
+    let pre_subseq = ref [||] and pre_sign = ref 0 in
+    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int array),_,_) ->
         if (compare !pre_subseq subseq)=0 then begin
             pre_sign := !pre_sign+1;
         end
@@ -1187,9 +1198,9 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     ) sorted_arr in
     if debug2 then begin 
         Printf.printf "sorted lst is:\n%!";
-        Array.iter (fun (count,sequenceNO,pos,dir,subseqlst) ->
+        Array.iter (fun (count,sequenceNO,pos,dir,subseqarr) ->
         Printf.printf "%2i,%2i,%3i,%2i,[%!" count sequenceNO pos dir;
-        print_int_list subseqlst;
+        Utl.printIntArr subseqarr;
         Printf.printf "]\n%!";
         ) sorted_arr;
     end;
@@ -3443,6 +3454,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
         build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
         false in
     if debug then Printf.printf "init lcb covR = %d\n%! " init_covR;
+    (* sign of any improvement during following outer&inner while loops*)
+    let any_improvement = ref false in
     (*init inner tbl*)
     let inner_old_covR = ref init_covR in
     let inner_lcbs = ref init_lcbs in
@@ -3521,7 +3534,6 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
         ) new_outer_lcb_tbl;
         (*let new_outer_covR = Hashtbl.length new_outer_lcb_tbl in*)
         let new_outer_covR = get_lcb_cov_rate new_outer_lcb_tbl in_seq_size_lst in
-        (*let new_outer_weight = final_cov_rate in*)
         (* remove corresponding item in new_outer_lcbs*)
         let new_outer_lcbs = 
                 List.map (fun lcblst ->
@@ -3542,6 +3554,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
             if debug then 
                 Printf.printf "\n we have a new lcb cov = %d>old one=%d, \
             continue with outer loop again\n%!" new_outer_covR !outer_old_covR;
+            any_improvement := true;
             outer_sign := true;
             outer_old_covR := new_outer_covR;
             outer_lcbs := new_outer_lcbs;
@@ -3555,6 +3568,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
             get out of outer loop\n%!" !outer_old_covR new_outer_covR;
         end
     done; (*end of outer while loop*)
+    (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
+    * have the lcb from initial function, they are not qualified as well, remove
+    * them*)
+    if !any_improvement=false then
+        Hashtbl.clear !outer_lcb_tbl;
     if debug then
         Printf.printf "init_covR=%d,outer old covR = %d, outer_lcb_tbl len=%d\n%!"
         init_covR !outer_old_covR (Hashtbl.length !outer_lcb_tbl);
@@ -3592,7 +3610,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
     (* we do find some high W high R lcbs, return them to aliMap  *)
     else begin
         let outer_lcbs = !outer_lcbs in
-        let outer_lcb_tbl = !outer_lcb_tbl in
+        let outer_lcb_tbl =  !outer_lcb_tbl in
         if debug then begin
             Printf.printf "we do find some high W high R lcbs, return them to aliMap\n%!";
             Hashtbl.iter (fun key record ->
