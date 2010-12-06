@@ -110,7 +110,7 @@ type lcb = {
     avg_range_len : int; (*average of range length from range_lst *)
 }
 
-let minimum_cov_rate = 0.02
+let minimum_cov_rate = 0.02 (*to do : add this to poy command*)
 let minimum_seed_num = ref 10
 (*if the number of match we found is smaller than
     this, we should reduce the size of seedlen*)
@@ -919,7 +919,7 @@ let radix_sort inarr =
         else failwith "radix sort, we only work on DNA sequences"
     in
     let size_digits = 
-        let _,_,_,first_seq,_,_ = inarr.(0) in
+        let _,_,_,first_seq,_ = inarr.(0) in
         Array.length first_seq in
     Printf.printf "digits size is %d\n%!" size_digits;
     let sort_by_digit inarr digit =
@@ -928,12 +928,19 @@ let radix_sort inarr =
         )inlst*)
        Printf.printf "sort by digit %d\n%!" digit;
         let count_arr = Array.make 4 0 in
+        Array.iteri (fun i (seqNO,pos,dir,subseq,_) ->
+            let x = subseq.(digit) in
+            let idx = get_idx x in
+            count_arr.(idx) <- count_arr.(idx)+1; 
+            inarr.(i)<-(seqNO,pos,dir,subseq,idx);
+        ) inarr;
+        (*
         let inarr = Array.map (fun (seqNO,pos,dir,subseq,_,_) ->
             let x = subseq.(digit) in
             let idx = get_idx x in
             count_arr.(idx) <- count_arr.(idx)+1; 
             (seqNO,pos,dir,subseq,idx,false)
-        ) inarr in
+        ) inarr in*)
         let index = ref 0 in
         let full_count_arr = Array.make 4 (0,0,0) in
         let _ = Array.fold_left ( fun pre_count count ->
@@ -941,24 +948,19 @@ let radix_sort inarr =
             index := !index +1;
             count+pre_count
         ) 0 count_arr in
-        (*
-        let sorted_arr = Array.make (Array.length inarr) (0,0,0,[]) in *)
-        (*Array.iteri (fun  (a,b,c,lst,idx) ->*)
-        let index1 = ref 0 in
-        while !index1<(Array.length inarr) do
-            let (a,b,c,lst,idx,visited) = inarr.(!index1) in
-            if visited then index1 := !index1 +1
-            else begin
+        Array.iteri (fun i (count,_,pre_count) ->
+            Printf.printf "i=%d,count=%d,pre_count=%d\n"
+            i count pre_count;
+        ) full_count_arr;
+        let sorted_inarr = Array.make (Array.length inarr) (0,0,0,[||],0) in
+        Array.iteri (fun i (seqNO,pos,dir,arr,idx) ->
             let total_num,hit_num,bigger_than = full_count_arr.(idx) in
-            let index2 = bigger_than + hit_num in
-            let old_record = inarr.(index2) in
-            inarr.(!index1) <- old_record;
-            inarr.(index2) <- (a,b,c,lst,idx,true);
             assert(hit_num<total_num);
+            let index2 = bigger_than + hit_num in
+            sorted_inarr.(index2)<-(seqNO,pos,dir,arr,idx);
             full_count_arr.(idx) <- (total_num,hit_num+1,bigger_than);
-            end;
-        done;
-        inarr
+        )inarr;
+        sorted_inarr
     in
     let digit_arr = Array.init size_digits (fun x->size_digits-x-1) in
     Array.fold_left (fun current_arrarr digit ->
@@ -1166,17 +1168,17 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
             if (idx mod 100000)=0 then
                 Printf.printf "reach idx=%d\n%!" idx;
             (*0,false are for function radix_sort later.*)
-            sequenceNO,pos,dir,Array.of_list subseqlst,0,false
+            sequenceNO,pos,dir,Array.of_list subseqlst,0
         ) inseq in
         Array.sub resarr 0 (seqlen-init_seedweight+1)
     ) inseqarr
     in
     if debug then 
         Printf.printf "append it with reverse complement of first sequence\n%!";
-    let rev_seq_w_idx = Array.map (fun (sequenceNO,pos,dir,subseq,_,_) ->
+    let rev_seq_w_idx = Array.map (fun (sequenceNO,pos,dir,subseq,_) ->
         let rev_subseq = rev_comp_arr subseq in
         let rev_pos = pos in
-        (sequenceNO,rev_pos,-1,rev_subseq,0,false)
+        (sequenceNO,rev_pos,-1,rev_subseq,0)
     ) inseqarr_w_idxarr.(0) in
     if debug then Printf.printf "array append\n%!";
     let inseqarr_w_idxarr_w_rev = 
@@ -1186,7 +1188,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let sorted_arr = radix_sort inseqarr_w_idxarr_w_rev in
     if debug then Printf.printf "end of radix sort\n%!";
     let pre_subseq = ref [||] and pre_sign = ref 0 in
-    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int array),_,_) ->
+    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int array),_) ->
         if (compare !pre_subseq subseq)=0 then begin
             pre_sign := !pre_sign+1;
         end
@@ -1197,7 +1199,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         (!pre_sign,seqNO,pos,dir,subseq)
     ) sorted_arr in
     if debug2 then begin 
-        Printf.printf "sorted lst is:\n%!";
+        Printf.printf "sorted arr is:\n%!";
         Array.iter (fun (count,sequenceNO,pos,dir,subseqarr) ->
         Printf.printf "%2i,%2i,%3i,%2i,[%!" count sequenceNO pos dir;
         Utl.printIntArr subseqarr;
