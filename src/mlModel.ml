@@ -777,6 +777,7 @@ let integerized_model ?(sigma=4) model t =
 ELSE
 
     let output_model _ _ _ _ = ()
+    let compose _ _  = failwith "Please enable likelihood"
 
 END
 

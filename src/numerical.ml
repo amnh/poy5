@@ -24,6 +24,10 @@ let minimum   = tolerance *. 2.0
 let (=.) a b = abs_float (a-.b) < tolerance
 let (-->) b a = a b
 
+let debug = false
+let failwithf format = Printf.ksprintf failwith format
+let warning_message format = Printf.ksprintf (Status.user_message Status.Warning) format
+
 let is_zero x = match classify_float x with
         | FP_zero | FP_subnormal -> true
         | FP_infinite | FP_nan | FP_normal -> false
@@ -35,9 +39,6 @@ and is_inf x = match classify_float x with
         | FP_infinite -> true
         | FP_nan | FP_zero | FP_subnormal | FP_normal -> false
 
-let failwithf format = Printf.ksprintf failwith format
-
-let debug = false
 let debug_printf msg format = 
     Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
 
@@ -83,11 +84,10 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
                 let a,b,c = push_right low med hi in bracket_region a b c
             else if fm <= fl && fm <= fh then (* a bracket! *) (low,med,hi)
             else begin (* bracketed a maximum... wut? *)
-                debug_printf 
-                    "Cannot bracket a region for brents method; [%f,%f] [%f,%f] [%f,%f]\n" l fl m fm h fh;
                 (* let us do something gracefully, push ourselves to the minimum
                  * on the left or right, and continue with the algorithm;
                  * priority pushes ourselves to smaller branches. *)
+                warning_message "Numerical.brent; Cannot bracket a region.";
                 if fl <= fh 
                     then let a,b,c = push_left  low med hi in bracket_region a b c
                     else let a,b,c = push_right low med hi in bracket_region a b c
@@ -102,7 +102,9 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
         let xm = (a +. b) /. 2.0
         and tol1 = tol *. (abs_float x) +. epsilon in
         (* check ending conditions *)
-        if iters > max_iter then begin x'
+        if iters > max_iter then begin 
+            warning_message "Numerical.brent; hit max number of iterations.";
+            x'
         end else if (abs_float (x-.xm)) <= ((2.0 *. tol) -. (b -. a) /. 2.0) then x'
         else begin
             let d,e = 
@@ -277,6 +279,11 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* initialize and run... *)
     let direction, slope, minstep, step = setup_function point direction gradient in
     debug_printf "\tInitial LineSearch: %f, slope: %f\n" origfpoint slope;
+    (* this could happen if the delta for gradient is huge (ie, errors in rediagnose) 
+     * or some major instability in the tree/algorithm. The function will continue, 
+     * but this warning message should report that the results are * questionable   *)
+    if (abs_float slope) > 100000.0 then 
+        warning_message "Numerical.linesearch; Very large slope in optimization function.";
     main_ origfpoint slope direction step step minstep 
 
 (** BFGS Algorithm                   **)
@@ -366,7 +373,9 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
     let rec main_loop hessian f p fp step direction grad =
         incr iter;
         let np, nfp, direction, c = line_searcher f p fp grad step direction in
-        if c || (!iter > max_iter) then begin
+        if c then np,nfp 
+        else if (!iter > max_iter) then begin
+            warning_message "Numerical.bfgs; hit max number of iterations.";
             np,nfp
         end else begin
             let grad, dgrad, hgrad, c = gradient_update hessian grad f np (get_score nfp) in

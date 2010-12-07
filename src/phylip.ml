@@ -160,7 +160,6 @@ let of_file (file : FileStream.f) =
                 add_elms acc values)
             [] seq
     in
-    Printf.printf "Making array of %d characters\n%!" nchars;
     let final_chars_array = 
         Array.init nchars 
             (fun i-> {Nexus.File.st_filesource = file;

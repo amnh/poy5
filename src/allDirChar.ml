@@ -199,7 +199,7 @@ module F : Ptree.Tree_Operations
                 codestimes;
             table
         in
-        if using_likelihood `Dynamic ptree then begin
+        if using_likelihood `Either ptree then begin
             let name = match ptree.Ptree.tree.Tree.tree_name with
                 | Some x -> String.uppercase x | None -> ""
             and treebranches = Hashtbl.create 1
