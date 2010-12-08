@@ -32,6 +32,10 @@
 #define ITER    100   //MAX iterations
 #define FABMIN  1e-30 //floating point absolute value min  
 
+#ifndef M_PI
+#define M_PI    3.14159265358979323846264338327
+#endif
+
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
 void CHECK_MEAN(double*a, int n){
