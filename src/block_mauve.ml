@@ -110,10 +110,10 @@ type lcb = {
     avg_range_len : int; (*average of range length from range_lst *)
 }
 
-let minimum_cov_rate = 0.02 (*to do : add this to poy command*)
-let minimum_seed_num = ref 10
-(*if the number of match we found is smaller than
-    this, we should reduce the size of seedlen*)
+(*if the coverR = (length of subseq in lcb/total length of seq)*1000 of some lcb is low than this, it's a light-weight lcb*)
+let minimum_cover_ratio = ref 20
+(*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
+* than this*)
 let minimum_lcb_ratio = ref 30.0
 let min_break_point_penalty = ref 4000 
 
@@ -637,26 +637,26 @@ let find_index arr looking_item cmp_fun =
 let get_abs_lst in_lst =
     List.sort (fun x y -> compare x y) (List.map (fun x -> abs x) in_lst)
 
-let rev_comp_chr x = 
+let rev_comp_chr x pos = 
     if (x=1) then 2
     else if (x=2) then 1
     else if (x=4) then 8
     else if (x=8) then 4
     else 
         begin
-        Printf.printf "reverse complement with x = %d,%!" x;
-        failwith "we are dealing DNA sequence%!"
+        Printf.printf "reverse complement with x = %d,pos=%d%!" x pos;
+        failwith "we are dealing dna(a,t,g,c) sequence%!"
         end
 
 (*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
 let rev_comp_lst seqlst =
-    List.map (fun x ->  rev_comp_chr x
+    List.map (fun x ->  rev_comp_chr x (-1)
     ) seqlst
 
 (*rev_comp_arr give us the reverse complement of seqarr*)
 let rev_comp_arr seqarr = 
     let size = Array.length seqarr in
-    Array.mapi (fun idx x -> rev_comp_chr seqarr.(size-idx-1)) seqarr
+    Array.mapi (fun idx x -> rev_comp_chr seqarr.(size-idx-1) (size-idx-1)) seqarr
 
 
 let mark_unextendable_seed2pos_tbl seedNO ext_type seed2pos_tbl =
@@ -911,6 +911,7 @@ let intlst2int inlst =
     List.fold_left (fun acc x -> acc*10+x ) 0 inlst
 
 let radix_sort inarr =
+    let debug = false in
     let get_idx x = 
         if x=1 then 0 
         else if x=2 then 1
@@ -921,12 +922,12 @@ let radix_sort inarr =
     let size_digits = 
         let _,_,_,first_seq,_ = inarr.(0) in
         Array.length first_seq in
-    Printf.printf "digits size is %d\n%!" size_digits;
+    if debug then Printf.printf "digits size is %d\n%!" size_digits;
     let sort_by_digit inarr digit =
        (*List.sort (fun (_,_,_,lst1) (_,_,_,lst2) ->
             compare (List.nth lst1 digit) (List.nth lst2 digit)
         )inlst*)
-       Printf.printf "sort by digit %d\n%!" digit;
+       if debug then Printf.printf "sort by digit %d\n%!" digit;
         let count_arr = Array.make 4 0 in
         Array.iteri (fun i (seqNO,pos,dir,subseq,_) ->
             let x = subseq.(digit) in
@@ -934,13 +935,6 @@ let radix_sort inarr =
             count_arr.(idx) <- count_arr.(idx)+1; 
             inarr.(i)<-(seqNO,pos,dir,subseq,idx);
         ) inarr;
-        (*
-        let inarr = Array.map (fun (seqNO,pos,dir,subseq,_,_) ->
-            let x = subseq.(digit) in
-            let idx = get_idx x in
-            count_arr.(idx) <- count_arr.(idx)+1; 
-            (seqNO,pos,dir,subseq,idx,false)
-        ) inarr in*)
         let index = ref 0 in
         let full_count_arr = Array.make 4 (0,0,0) in
         let _ = Array.fold_left ( fun pre_count count ->
@@ -948,10 +942,6 @@ let radix_sort inarr =
             index := !index +1;
             count+pre_count
         ) 0 count_arr in
-        Array.iteri (fun i (count,_,pre_count) ->
-            Printf.printf "i=%d,count=%d,pre_count=%d\n"
-            i count pre_count;
-        ) full_count_arr;
         let sorted_inarr = Array.make (Array.length inarr) (0,0,0,[||],0) in
         Array.iteri (fun i (seqNO,pos,dir,arr,idx) ->
             let total_num,hit_num,bigger_than = full_count_arr.(idx) in
@@ -1006,7 +996,7 @@ let extend_seq ext_dir init_matcharr seedweight inseqarr =
                 if nexpos>=0&&nexpos<inseqlen then begin
                     let next_chr = 
                         if pre_chr=0||dir=pre_dir then inseq.(nexpos)
-                        else rev_comp_chr inseq.(nexpos)
+                        else rev_comp_chr inseq.(nexpos) nexpos
                     in
                     if debug then Printf.printf "chr=%d/%d\n%!" next_chr pre_chr;
                     if pre_chr=0(*the first item*)||next_chr=pre_chr then 
@@ -1062,30 +1052,50 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         else 2
     in
     if ext_type=0(*||ext_type=1 for now we only care about extendabl ones*) then begin
-        let ext_posarr,ext_seedweight = 
-            extend_seq_in_both_dir init_accarr init_seedweight inseqarr in
-        let seqNO,pos,dir = ext_posarr.(0) in 
-        assert (seqNO=0);
-        let seedNO = get_a_seedNO () in
-        let newsign,seed2remove_lst = 
-            Array.fold_left (fun (pre_sign,acclst) (seqNO,pos,dir) -> 
-            if pre_sign then begin
-                if (Hashtbl.mem position2seed_tbl_left (seqNO,pos)) then begin
+        let check_old_record position2seed_tbl (seqNO,pos) new_seedweight
+        pre_sign acclst newseedNO =
+            (*This is a shortcut: we only allow one extendable record start/end 
+            * from one position. *)
+            if (Hashtbl.mem position2seed_tbl (seqNO,pos)) then begin
                     (*already have this seed match. this could happen when 
                     1.we have both seedseq and (rev seedseq) in one sequence. 
                     since we append this sequence with its own
                     revseq, the same match will show up 2n(n>1) times.
                     2.the extended subseq of other other is the same as this
                     one, if this one is longer, get rid of others.*)
-                    let recordlst = Hashtbl.find position2seed_tbl_left (seqNO,pos) in
+                    let recordlst = Hashtbl.find position2seed_tbl (seqNO,pos) in
+                    assert((List.length recordlst)=1);
                     let (oldseedNO,oldweight,_) = List.hd recordlst in
-                    if oldweight>=ext_seedweight then
-                        false,acclst
-                    else
-                        pre_sign,oldseedNO::acclst;
+                    if oldweight>=new_seedweight then
+                        false,[]
+                    else begin
+                        if debug then 
+                        Printf.printf "newseed=%d,remove oldseed.%d(%d<%d)\n%!" 
+                        newseedNO oldseedNO oldweight new_seedweight;
+                        let newacclst = 
+                            if (List.mem oldseedNO acclst) then acclst
+                            else oldseedNO::acclst in
+                        pre_sign,newacclst;
+                    end;
                 end
                 else
                     pre_sign,acclst;
+        in
+        let ext_posarr,ext_seedweight = 
+            extend_seq_in_both_dir init_accarr init_seedweight inseqarr in
+        let seqNO,pos,dir = ext_posarr.(0) in 
+        assert (seqNO=0);
+        let seedNO = get_a_seedNO () in
+        let newsign,seed2remove_lst = 
+            Array.fold_left (fun (pre_sign,acclst) (ext_seqNO,ext_pos,ext_dir) -> 
+            if pre_sign then begin
+                let sign_left,acclst_left = check_old_record position2seed_tbl_left 
+                (ext_seqNO,ext_pos) ext_seedweight pre_sign acclst seedNO in
+                if sign_left then
+                 check_old_record position2seed_tbl_right (ext_seqNO,ext_pos+ext_seedweight-1) 
+                 ext_seedweight sign_left acclst_left seedNO
+                else
+                    false,[]
             end
             else
                 pre_sign,[]
@@ -1093,7 +1103,12 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         ) (true,[]) ext_posarr in
         if seed2remove_lst<>[] then 
             List.iter (fun seed2remove ->
-                let poslst,_,seedweight = Hashtbl.find seed2position_tbl seed2remove in
+                let poslst,_,seedweight = try (Hashtbl.find seed2position_tbl
+                seed2remove) with |Not_found -> 
+                    let _ = Printf.printf  "cannot find seed %d in seed2pos tbl"
+                    seed2remove in
+                    failwith "add to seed, not found in seed2pos tbl"
+                in
                 List.iter (fun (seqNO,pos,dir) ->
                     Hashtbl.remove position2seed_tbl_left (seqNO,pos);
                     Hashtbl.remove position2seed_tbl_right (seqNO,pos+seedweight-1);
@@ -1153,16 +1168,20 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let debug = true and debug2 = false in
     if debug then 
         Printf.printf "get sequences with index and possible seed subseq\n%!";
-    let inseqarr_w_idxarr =  Array.mapi (fun seqNO inseq->
+    let inseqarr_w_idxarr = Array.mapi (fun seqNO inseq->
         let seqlen = Array.length inseq in
         if debug then Printf.printf "seq len = %d\n%!" seqlen;
         let resarr =  
             Array.mapi (fun idx x ->
             let sequenceNO,pos,dir,subseqlst =
                 if ( (idx+init_seedweight-1) < seqlen) then 
-                     seqNO,idx,1,
+                    let subseq = 
                      Array.fold_right 
-                     (fun p acc -> inseq.(idx+p-1)::acc ) patternarr [] 
+                     (fun p acc ->
+                         let chr=inseq.(idx+p-1) in
+                         chr::acc ) patternarr [] 
+                    in
+                    seqNO,idx,1,subseq
                 else 0,0,0,[]
             in
             if (idx mod 100000)=0 then
@@ -1268,8 +1287,9 @@ seed2pos_tbl mum_tbl debug
         print_int_list (seedpattern); Printf.printf "\n%!";
     end;
     let patternarr = Array.of_list seedpattern in
-    let init_seed_number = scan_seqlst2 inseqarr patternarr  
+    let _ = scan_seqlst2 inseqarr patternarr  
         mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true in
+    (*
     let seed_number = ref init_seed_number in
     while (!seed_number<min_seednumber)&&(!seed_len>5 ) do 
         seed_len := !seed_len - 2;
@@ -1279,13 +1299,14 @@ seed2pos_tbl mum_tbl debug
         with | Not_found -> failwith ("cannot find seed pattern 2")
         in
         let seedpattern = List.hd seedlst in
-        Printf.printf "reduce seed weight, new seed pattern list = %!";
+        Printf.printf "reduce seed weight (%d<%d), new seed pattern list = %!"
+        !seed_number min_seednumber;
         print_int_list (seedpattern); Printf.printf "\n%!";
         let patternarr = Array.of_list seedpattern in
         let new_seed_number = scan_seqlst2 inseqarr patternarr 
         mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true in
         seed_number := new_seed_number;
-    done;
+    done;*)
     if debug then begin
     (*Printf.printf "check position2seed tbl left and right\n%!";
     print_position2seedtbl pos2seed_tbl_left None;
@@ -2021,8 +2042,6 @@ let build_local_mums2 mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right
  debug debug_neighborhood =
      if debug then Printf.printf "build local mums2 start,seed number=%d\n%!"
      (Hashtbl.length seed2pos_tbl);
-    if (Hashtbl.mem pos2seed_tbl_left (0,63)) then 
-       print_position2seedtbl pos2seed_tbl_left (Some (0,63)); 
     build_neighborhood mum_tbl pos2seed_tbl_left
     pos2seed_tbl_right seed2pos_tbl debug_neighborhood;
     if debug then begin
@@ -2362,16 +2381,30 @@ let get_sorted_lcb_by_ratio lcb_tbl =
     ) lcb_tbl;
     !lst
 
-let get_num_of_low_ratio_lcb lcb_tbl min_ratio check_weight =
+(*return true if lcb_record is a light weight lcb.*)    
+let is_light_weight_lcb lcb_record in_seq_size_lst =
+    (*if (List.length lcb_record.seedNOlst)<minimum_lcb_weight then
+        true   else false*)
+    let covR = (float_of_int  !minimum_cover_ratio) /. 1000. in
+    let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
+    if (lcb_record.avg_range_len < (int_of_float (avg_seq_len *. covR))) 
+    then true
+    else false
+
+(*[get_num_of_low_ratio_lcb] returns number of low lcb_ratio. is has_high_covR
+* is set to true, only cares about lcbs with high covR and low lcb_ratio*)
+let get_num_of_low_ratio_lcb lcb_tbl min_ratio in_seq_size_lst has_high_covR =
     let res = ref 0 in
     Hashtbl.iter (fun key record ->
-        let check1 =
+        (*let check_w =
             if (check_weight) then
                 if ((List.length key)>=minimum_lcb_weight) then true
                 else false
             else true
-        in
-        if (check1)&&(record.ratio < min_ratio) 
+        in*)
+        let check_c = 
+            is_light_weight_lcb record in_seq_size_lst in
+        if (check_c=false)&&(record.ratio < min_ratio) 
         then begin
             res:= !res +1;
         end;
@@ -2483,13 +2516,11 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
 
 (*[get_lcbs_range returns the range lst of current lcb, 
 * if special_case=true, we don't care the lcb weight.]*)
-let get_lcbs_range lcb_tbl old_seqarr special_case = 
-    let lcb_range_lst_arr = Array.make (Array.length old_seqarr) [] in
-    let min_lcb_w = 
-        if special_case then 0 else minimum_lcb_weight 
-    in
+let get_lcbs_range lcb_tbl in_seq_size_lst = 
+    let lcb_range_lst_arr = Array.make 2 [] in
     Hashtbl.iter (fun seedNOlst record ->
-        if (List.length seedNOlst)>= min_lcb_w then
+        (*if (List.length seedNOlst)>= min_lcb_w then*)
+        if (is_light_weight_lcb record in_seq_size_lst)=false then
             List.iter (fun mi ->
                 let oldlst = lcb_range_lst_arr.(mi.sequence_NO) in
                 let newlst = (mi.left_end,mi.right_end)::oldlst in
@@ -2549,10 +2580,10 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 
 
     
-let get_seq_outside_lcbs old_seqarr lcb_tbl =
+let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
     let debug = false in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
-    let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seqarr false in
+    let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in
     if debug then print_lcbs_range lcb_range_lst_lst;
     let seq_outside_lcb_arr = Array_ops.map_2 (fun seq lcb_range ->
         let seqlen = Array.length seq in
@@ -2579,22 +2610,17 @@ let get_seq_outside_lcbs old_seqarr lcb_tbl =
     ) old_seqarr (Array.of_list lcb_range_lst_lst) in
     lcb_range_lst_lst, seq_outside_lcb_arr
     
-(*return true if lcb_record is a light weight lcb.*)    
-let is_light_weight_lcb lcb_record in_seq_size_lst =
-    (*if (List.length lcb_record.seedNOlst)<minimum_lcb_weight then
-        true   else false*)
-    let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
-    if (lcb_record.avg_range_len < (int_of_float (avg_seq_len *. minimum_cov_rate))) 
-    then true
-    else false
 
 (*[get_lcb_cov_rate] return the cover rate of qualified lcb, but if we only have
 * one lcb in lcb_tbl, qualified or not, we get the cover rate of that lcb.*)    
 let get_lcb_cov_rate lcb_tbl in_seq_size_lst =
     let q_cov_len = ref 0 in
+    let min_R = !minimum_lcb_ratio in
+    let lcb_tbl_size = Hashtbl.length lcb_tbl in
     Hashtbl.iter (fun key lcb_record ->
-        if ((is_light_weight_lcb lcb_record in_seq_size_lst)=false)
-        || ((Hashtbl.length lcb_tbl)=1) (*we keep the last low W lcb*)
+        if (lcb_tbl_size=1) (*we keep the last low W lcb*) ||
+        (((is_light_weight_lcb lcb_record in_seq_size_lst)=false)
+        && (lcb_record.ratio>= min_R))
         then q_cov_len := !q_cov_len + lcb_record.avg_range_len
     ) lcb_tbl;
     let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
@@ -2604,11 +2630,10 @@ let get_lcb_cov_rate lcb_tbl in_seq_size_lst =
 (* LCB = local collinear blocks, works only for two sequences now *)
 let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl  in_seq_size_lst
 special_case =
-    let debug = false in
+    let debug = false and debug_bk_matrix = false in
     if debug then Printf.printf "build LCBS \n %!";
     let resmatrix = Array.of_list (List.map (fun lst -> Array.of_list lst)
     seedNOlstlst) in 
-    let debug_bk_matrix = false in
     let bkmatrix,_ = get_break_point_matrix resmatrix debug_bk_matrix in
     if debug_bk_matrix then print_int_matrix bkmatrix;
     let lcbs = Array.to_list (Array.mapi (fun i bkarr ->
@@ -2634,8 +2659,7 @@ special_case =
         List.iter (fun lcb -> print_int_list lcb ) seqlcbs;  Printf.printf "\n%!";
         ) lcbs;
     end;
-    if debug then Printf.printf "qualified lcbs now: %!";
-    let sum_weight =
+    (*let sum_weight =
         List.fold_left (fun sum record ->
         let len = List.length record in
         (*we don't know the ratio of lcb, so we cannot kick low R lcb out,
@@ -2647,20 +2671,20 @@ special_case =
         end
         else sum
         ) 0 (List.nth lcbs 1)
-    in
+    in*)
     (*new here*)
     let lcb_tbl = Hashtbl.create init_tb_size in
-    if (sum_weight>0) then begin
+    (*if (sum_weight>0) then begin*)
         update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl ;
         let q_cov_rate = 
             get_lcb_cov_rate lcb_tbl in_seq_size_lst in
         if debug then 
-            Printf.printf "cov_rate = %d,sum_weight=%d,end of building LCBs\n%!" 
-            q_cov_rate sum_weight;
+            Printf.printf "q_cov_rate = %d,end of building LCBs\n%!" 
+            q_cov_rate;
         lcbs,q_cov_rate,lcb_tbl
-    end
+    (*end
     else
-        lcbs,0,lcb_tbl
+        lcbs,0,lcb_tbl*)
 
 
 let get_worst_lcb_from_light_lcbtbl light_lcb_tbl lcbs mum_tbl seed2pos_tbl
@@ -2694,7 +2718,6 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
             Printf.printf " bk_number=%d,score will be %d-%d-%d=%d\n%!" 
             bk_number total_mum_score removed_lcb_score (bk_number*bk_penalty)
             new_score;
-    (*just a test -- the old way of scoring sucks, try some new one*)
         let new_seedNOlstlst = 
             List.map (fun lcblst -> List.flatten lcblst) new_lcbs in
         let new_lcbs, new_lcb_cov_rate,new_lcb_tbl = 
@@ -2702,11 +2725,8 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
         (*new : remove this
         Hashtbl.clear tmp_tbl;
         update_lcbs_range_and_score new_lcbs mum_tbl tmp_tbl in_seqlst;*)
-        (*let in_seq_size_lst = List.map (fun seq -> List.length seq) in_seqlst in
-        get_new_score tmp_tbl in_seq_size_lst; 
-        this is the test*)
         let num_low_ratio_lcb = get_num_of_low_ratio_lcb new_lcb_tbl
-        !minimum_lcb_ratio true in
+        !minimum_lcb_ratio in_seq_size_lst true in
         if debug then
             Printf.printf "num of low ratio lcb = %d should not increase\n%!" 
             num_low_ratio_lcb;
@@ -2733,7 +2753,8 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
 let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
     let debug = false in
     let total_num = Hashtbl.length lcb_tbl in
-    let light_num = get_num_of_low_ratio_lcb lcb_tbl !minimum_lcb_ratio true in
+    (*make sure we won't increase low ratio lcb.*)
+    let light_num = get_num_of_low_ratio_lcb lcb_tbl !minimum_lcb_ratio in_seq_size_lst true in
     let total_mum_score = ref 0 in
     Hashtbl.iter (fun seedNOlst record ->
             total_mum_score := !total_mum_score + record.score
@@ -2742,10 +2763,10 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
     let init_bk_num = List.length (List.hd lcbs) in
     let higher_score = ref (total_mum_score - init_bk_num*bk_penalty)  in
     if debug then begin
-            Printf.printf "\n<------get worst lcb, init_bk_num = %d,init_higher_score=%d;%!" 
-            init_bk_num !higher_score;
-            Printf.printf "total_mum_score = %d,%!" total_mum_score;
-            Printf.printf "init low ratio lcb num = %d/%d\n%!" light_num total_num;
+        Printf.printf "\n<------get worst lcb, init_bk_num = %d,init_higher_score=%d;%!" 
+        init_bk_num !higher_score;
+        Printf.printf "total_mum_score = %d,%!" total_mum_score;
+        Printf.printf "init low ratio lcb num = %d/%d\n%!" light_num total_num;
     end;
     let lcb_to_remove = ref [] in
     Hashtbl.iter (fun key record -> (*remove high W lcb with low ratio first*)
@@ -2766,7 +2787,7 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
         with |Not_found -> failwith "not found in get worst lcb" in
         let removed_lcb_score = lcb.score in
         if debug then begin
-            Printf.printf "remove high weight but low ratio lcb:%!"; 
+            Printf.printf "remove high W but low ratio lcb first:%!"; 
             print_lcb lcb;
         end;
         let seedNOlst = !lcb_to_remove in
@@ -2788,6 +2809,7 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
         new_lcbs,lcb_tbl_after_remove
     end
     else if (Hashtbl.length light_lcb_tbl)>1 then begin
+        if debug then Printf.printf "choose one from light_lcb_tbl 2 remove\n%!";
         let init_low_ratio_lcb_num = light_num in
         let higher_score,higher_cov_rate,lcb_to_remove,lcbs_after_remove,
         lcb_tbl_after_remove = 
@@ -2797,9 +2819,9 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
             false
         in
         if debug then begin
-            Printf.printf "++++== RESULT: remove lcb %!"; 
+            Printf.printf "RESULT: remove lcb %!"; 
             print_int_list lcb_to_remove;
-            Printf.printf " score after remove lcb = %d, cov rate = %d\n%!" 
+            Printf.printf "score after remove lcb = %d, cov rate = %d\n%!" 
             higher_score higher_cov_rate;
         end;
         let light_lcb_num = 
@@ -2856,14 +2878,16 @@ num_of_mums =
         Printf.printf "start to remove light weight lcbs, bk_penalty = %d,\
         inputlcbs is\n%!" bk_penalty;
         print_lcblst lcbs;
+        Printf.printf "qualified lcb are :\n%!";
     end;
     (*light_lcb_tbl is for low W and low R lcbs*)
     let light_lcb_tbl = Hashtbl.create init_tb_size in
     Hashtbl.iter (fun key record ->
-        if (is_light_weight_lcb record in_seq_size_lst)||(record.ratio< !minimum_lcb_ratio)
-        then 
+        if (is_light_weight_lcb record in_seq_size_lst)||
+        (record.ratio< !minimum_lcb_ratio)
+        then  
             Hashtbl.add light_lcb_tbl key record
-        else 
+        else  
             if debug then print_lcb record
     ) lcb_tbl;
     let total_mum_score = ref 0 in
@@ -2876,16 +2900,15 @@ num_of_mums =
     if debug then begin
         Printf.printf "init light weight lcb_tbl size = %d/(total size = %d) \n%!"
         (Hashtbl.length light_lcb_tbl) (Hashtbl.length lcb_tbl); 
-       (* print_int_list seedNOlst_to_remove; Printf.printf "\n%!";*)
     end;
     let res_score = ref init_score in
-    let res_cov_rate = ref 0 in
+    let res_cov_rate = ref (get_lcb_cov_rate lcb_tbl in_seq_size_lst) in
     let res_lcb_tbl = ref lcb_tbl in
     let res_lcbs = ref lcbs in
     let sign = ref ((Hashtbl.length light_lcb_tbl)>1) in
     while (!sign) do
         if debug then 
-        Printf.printf "current score=%d,cov_rate = %d\n %!" 
+        Printf.printf "\n current score=%d,cov_rate = %d\n %!" 
         !res_score !res_cov_rate;
         let seedNOlst_to_remove,score,cov_rate,light_lcb_left,lcbs_after_remove,lcb_tbl_after_remove = 
             get_worst_lcb !res_lcbs !res_lcb_tbl bk_penalty in_seq_size_lst
@@ -2902,14 +2925,14 @@ num_of_mums =
             sign := true; 
             res_lcb_tbl := Hashtbl.copy lcb_tbl_after_remove;
             res_lcbs := lcbs_after_remove;
-            (*if debug then begin
+            if debug then begin
                 Printf.printf "current lcbs is :%!";
                 print_lcblst !res_lcbs;
-            end; *)
+            end; 
             res_score := score;
             res_cov_rate := cov_rate;
             if debug then 
-                Printf.printf "new score >= old score (cov_r set to %d), continue with loop\n%!"
+                Printf.printf "new score >= old score (cov_R set to %d), continue with loop\n%!"
                 !res_cov_rate;
         end
         else begin
@@ -2918,11 +2941,6 @@ num_of_mums =
                 Printf.printf "no improvement in score,get out of loop\n%!";
         end;
     done; (* while(!sign) *)
-    (* let qualified_lcb_weight = ref 0 in
-    Hashtbl.iter (fun key record ->
-        let w = List.length key in
-        if w>=minimum_lcb_weight then qualified_lcb_weight := !qualified_lcb_weight + w
-    ) !res_lcb_tbl; *)
     if debug then 
         Printf.printf "end of remove_light_weight_lcbs,res_cov_rate = %d\n%!"
         !res_cov_rate;
@@ -3310,7 +3328,7 @@ let search_inside_each_lcb lcbs input_seqlst mum_tbl min_weight =
         let seedlen = if (seedlen<5) then 5 else seedlen in
         let seedlen = if (seedlen=17) then 19 else seedlen in
         let seedweight = build_seed_and_position_tbl lcb_seqlst seedlen 
-        !minimum_seed_num  new_seq2seedNO_tbl new_seedNO2seq_tbl 
+        !minimum_cover_ratio  new_seq2seedNO_tbl new_seedNO2seq_tbl 
         new_pos2seed_tbl_left new_pos2seed_tbl_right 
         new_seed2pos_tbl false in
         Printf.printf "; seedweight = %d\n%!" seedweight;
@@ -3339,7 +3357,7 @@ in_seqarr in_seq_size_lst  =
     end;
     (*this works even when the seq outside is shorter than seed's length*)
     let lcb_range_lstlst, seq_outside_lcbs_arr = 
-        get_seq_outside_lcbs in_seqarr lcb_tbl in
+        get_seq_outside_lcbs in_seqarr in_seq_size_lst lcb_tbl in
     let current_seq_size_lst = Array.fold_right (fun seq acc ->
         (Array.length seq)::acc ) seq_outside_lcbs_arr [] 
     in
@@ -3362,7 +3380,7 @@ in_seqarr in_seq_size_lst  =
     let new_mum_tbl = Hashtbl.create init_tb_size in
     let new_seedweight = 
         build_seed_and_position_tbl seq_outside_lcbs_arr new_seedlen 
-        !minimum_seed_num new_seq2seedNO_tbl new_seedNO2seq_tbl 
+        !minimum_cover_ratio new_seq2seedNO_tbl new_seedNO2seq_tbl 
         new_pos2seed_tbl_left new_pos2seed_tbl_right 
         new_seed2pos_tbl new_mum_tbl false in
     if debug then 
@@ -3395,13 +3413,13 @@ in_seqarr in_seq_size_lst  =
         build_LCBs new_seedNOlstlst res_mum_tbl res_seed2pos_tbl 
          in_seq_size_lst false in
     if debug then 
-        Printf.printf "end of searching outside lcbs, new covR = %d\n%!" new_covR;
+        Printf.printf " new covR = %d, end of searching outside lcbs,\n%!" new_covR;
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
 
 (*main function here*)
-let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
-    minimum_seed_num := min_seed_num ; 
+let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
+    minimum_cover_ratio := min_cover_ratio ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
     let debug = true and debug2 = false in
@@ -3431,7 +3449,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
     let seed2pos_tbl = Hashtbl.create init_size in
     let mum_tbl = Hashtbl.create init_tb_size in
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
-    !minimum_seed_num seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
+    !minimum_cover_ratio seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
     pos2seed_tbl_right seed2pos_tbl mum_tbl false in
     if debug then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
@@ -3467,12 +3485,12 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
     let inner_pos2seed_tbl_right = ref pos2seed_tbl_right in
     let inner_seed2pos_tbl = ref seed2pos_tbl in
     (*init outer tbl*)
-    let outer_old_covR = ref 0 in
+    let outer_old_covR = ref (!minimum_cover_ratio) in
     let outer_lcbs = ref init_lcbs in
     let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *)in
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
-    let outer_sign = ref (init_covR>0) in
+    let outer_sign = ref (init_covR<1000) in
     while (!outer_sign) do
         if debug then
         Printf.printf "\n begin of outer while, old_covR = %d\n%!" !outer_old_covR;
@@ -3511,11 +3529,9 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
             end
             else begin
                 inner_sign := false;
-                if debug then Printf.printf "no improve on lcb weight (%d<=%d) \
+                if debug then Printf.printf "no improve on lcb (%d<=%d) \
                 get out of inner loop\n%!" inner_new_covR !inner_old_covR ;
             end;
-            if debug then
-                Printf.printf "end of inner while, current_covR=%d\n%!" inner_new_covR;
         done; 
         (*end of inner while loop*)
         if debug then
@@ -3609,27 +3625,26 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_seed_num min_bk_penalty =
         let outer_lcbs = [[[1]];[[1]]] in
         outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst
     end
-    (* we do find some high W high R lcbs, return them to aliMap  *)
     else begin
         let outer_lcbs = !outer_lcbs in
         let outer_lcb_tbl =  !outer_lcb_tbl in
         if debug then begin
-            Printf.printf "we do find some high W high R lcbs, return them to aliMap\n%!";
-            Hashtbl.iter (fun key record ->
-             print_lcb record
-            ) outer_lcb_tbl;
+            Printf.printf 
+            "we do find some high W high R lcbs(or the last low RorW lcb), \
+            return them to aliMap\n%!";
+            Hashtbl.iter (fun key record -> print_lcb record) outer_lcb_tbl;
             Printf.printf "lcb list list is:%!";
             print_lcblst outer_lcbs;
         end;
-        let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seqarr false in
-        Printf.printf " LCB range lstlst %!";
+        let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seq_size_lst in
+        Printf.printf "LCB range lstlst %!";
             print_lcbs_range lcb_range_lstlst;
         let full_range_lstlst = 
             get_full_range_lstlst lcb_range_lstlst in_seq_size_lst in
         if debug then begin
-            Printf.printf " LCB range lstlst %!";
+            Printf.printf "LCB range lstlst %!";
             print_lcbs_range lcb_range_lstlst;
-            Printf.printf " the full range lstlst (includes non-LCB blocks %!";
+            Printf.printf "the full range lstlst (includes non-LCB blocks)%!";
             print_lcbs_range full_range_lstlst;
         end;
         let refcode = ref 1 in
