@@ -2519,7 +2519,6 @@ let update_lcbs_range_and_score lcbs mum_tbl seed2pos_tbl lcb_tbl  =
 let get_lcbs_range lcb_tbl in_seq_size_lst = 
     let lcb_range_lst_arr = Array.make 2 [] in
     Hashtbl.iter (fun seedNOlst record ->
-        (*if (List.length seedNOlst)>= min_lcb_w then*)
         if (is_light_weight_lcb record in_seq_size_lst)=false then
             List.iter (fun mi ->
                 let oldlst = lcb_range_lst_arr.(mi.sequence_NO) in
@@ -2581,7 +2580,7 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 
     
 let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
-    let debug = false in
+    let debug = true in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
     let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in
     if debug then print_lcbs_range lcb_range_lst_lst;
@@ -2625,7 +2624,10 @@ let get_lcb_cov_rate lcb_tbl in_seq_size_lst =
     ) lcb_tbl;
     let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
     let q_cov_rate = (float !q_cov_len)/.avg_seq_len in
-    int_of_float (1000.0*.q_cov_rate) 
+    let res = int_of_float (1000.0*.q_cov_rate) in
+    if (q_cov_rate>0.)&&res=0 then
+    Printf.printf "q_cov_rate=%f,%d\n%!" q_cov_rate res;
+    res
 
 (* LCB = local collinear blocks, works only for two sequences now *)
 let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl  in_seq_size_lst
@@ -2872,7 +2874,7 @@ let remove_lcb_from_lcblstlst key_to_remove lcbs =
 * high W low R lcb, we won't do it -- different from Mauve *)
 let remove_light_weight_lcbs lcbs lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums =
-    let debug = false in
+    let debug = true in
     let bk_penalty = get_break_point_penalty in_seq_size_lst num_of_mums in 
     if debug then begin
         Printf.printf "start to remove light weight lcbs, bk_penalty = %d,\
@@ -2937,8 +2939,20 @@ num_of_mums =
         end
         else begin
             sign := false;
+            if (seedNOlst_to_remove<>[])&&(light_lcb_left=1)&&(!res_score <= score)
+            then begin
+                if debug then Printf.printf "one lightW lcb left,%!";
+                res_lcb_tbl := Hashtbl.copy lcb_tbl_after_remove;
+                res_lcbs := lcbs_after_remove;
+                if debug then begin
+                    Printf.printf "current lcbs is :%!";
+                    print_lcblst !res_lcbs;
+                end; 
+                res_score := score;
+                res_cov_rate := cov_rate;
+            end;
             if debug then 
-                Printf.printf "no improvement in score,get out of loop\n%!";
+                Printf.printf ",get out of loop\n%!";
         end;
     done; (* while(!sign) *)
     if debug then 
@@ -3478,7 +3492,13 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let init_lcbs, init_covR, init_lcb_tbl = 
         remove_light_weight_lcbs init_lcbs init_lcb_tbl mum_tbl 
         seed2pos_tbl in_seq_size_lst init_num_mums in
-    if debug then Printf.printf "init lcb covR = %d\n%! " init_covR;
+    if debug then begin
+        Printf.printf "after remove light lcbs, we have :\n%!";
+        Hashtbl.iter (fun key record ->
+                print_lcb record 
+        ) init_lcb_tbl;
+        Printf.printf "init lcb covR = %d\n%! " init_covR;
+    end;
     (* sign of any improvement during following outer&inner while loops*)
     let any_improvement = ref false in
     (*init inner tbl*)
@@ -3495,7 +3515,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *)in
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
-    let outer_sign = ref (init_covR<1000) in
+    let outer_sign = 
+        ref ((init_covR<1000)&&(init_covR>= !minimum_cover_ratio)) in
     while (!outer_sign) do
         if debug then
         Printf.printf "\n begin of outer while, old_covR = %d\n%!" !outer_old_covR;
@@ -3594,15 +3615,25 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, they are not qualified as well, remove
     * them*)
+    let outer_lcb_tbl = !outer_lcb_tbl in
     if !any_improvement=false then
-        Hashtbl.clear !outer_lcb_tbl;
+        Hashtbl.clear outer_lcb_tbl;
     if debug then
         Printf.printf "init_covR=%d,outer old covR = %d, outer_lcb_tbl len=%d\n%!"
-        init_covR !outer_old_covR (Hashtbl.length !outer_lcb_tbl);
+        init_covR !outer_old_covR (Hashtbl.length outer_lcb_tbl);
+    if (Hashtbl.length outer_lcb_tbl)=1 then begin
+        let lightW = ref false in
+        Hashtbl.iter (fun key record ->
+            if (is_light_weight_lcb record in_seq_size_lst)
+                || record.ratio<(!minimum_lcb_ratio) then  lightW := true
+        ) outer_lcb_tbl;
+        if !lightW then  Hashtbl.clear outer_lcb_tbl;
+    end;
+
     (*if no qualified lcb are found, just make the whole sequence as one lcb*)
-    if (Hashtbl.length !outer_lcb_tbl)=0 then begin 
+    if (Hashtbl.length outer_lcb_tbl)=0 then begin 
         if debug then Printf.printf "we didn't find any qualified lcb\n%!";
-        (*let lcb_range_lstlst = get_lcbs_range !outer_lcb_tbl in_seqlst true in
+        (*let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seqlst true in
         print_lcbs_range lcb_range_lstlst;*)
         let code_list = [[1];[1]] in
         let range0 =  (0,(List.hd in_seq_size_lst)-1)
@@ -3624,7 +3655,6 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                 avg_range_len = 0;
             }
         in
-        let outer_lcb_tbl = !outer_lcb_tbl in
         Hashtbl.clear outer_lcb_tbl;(*not necessary,outer_lcb_tbl should be empty here*)
         Hashtbl.add outer_lcb_tbl [1] single_lcb;
         let outer_lcbs = [[[1]];[[1]]] in
@@ -3632,7 +3662,6 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     end
     else begin
         let outer_lcbs = !outer_lcbs in
-        let outer_lcb_tbl =  !outer_lcb_tbl in
         if debug then begin
             Printf.printf 
             "we do find some high W high R lcbs(or the last low RorW lcb), \
