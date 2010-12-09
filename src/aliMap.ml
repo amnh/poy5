@@ -155,13 +155,13 @@ let get_range_with_code code1 code2 full_code_lstlst gen_gap_code =
 
 let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     let debug = true and debug2 = false in
-    let min_cover_ratio = ChromPam.get_min_cover_ratio ali_pam
+    let min_cover_ratio:float = ChromPam.get_min_cover_ratio ali_pam
     and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam
     in
     if debug then 
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
-         min lcb ratio = %f, min cover R = %d, min bk penalty = %d\n%!"
+         min lcb ratio = %f, min cover R = %f, min bk penalty = %d\n%!"
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_cover_ratio min_bk_penalty;
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in

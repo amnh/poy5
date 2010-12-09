@@ -110,8 +110,8 @@ type lcb = {
     avg_range_len : int; (*average of range length from range_lst *)
 }
 
-(*if the coverR = (length of subseq in lcb/total length of seq)*1000 of some lcb is low than this, it's a light-weight lcb*)
-let minimum_cover_ratio = ref 20
+(*if the coverR = (length of subseq in lcb/total length of seq) of some lcb is low than this, it's a light-weight lcb*)
+let minimum_cover_ratio = ref 0.0020
 (*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
 * than this*)
 let minimum_lcb_ratio = ref 30.0
@@ -2385,7 +2385,7 @@ let get_sorted_lcb_by_ratio lcb_tbl =
 let is_light_weight_lcb lcb_record in_seq_size_lst =
     (*if (List.length lcb_record.seedNOlst)<minimum_lcb_weight then
         true   else false*)
-    let covR = (float_of_int  !minimum_cover_ratio) /. 1000. in
+    let covR = !minimum_cover_ratio in
     let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
     if (lcb_record.avg_range_len < (int_of_float (avg_seq_len *. covR))) 
     then true
@@ -2623,11 +2623,8 @@ let get_lcb_cov_rate lcb_tbl in_seq_size_lst =
         then q_cov_len := !q_cov_len + lcb_record.avg_range_len
     ) lcb_tbl;
     let avg_seq_len = get_avg_of_intlst in_seq_size_lst in
-    let q_cov_rate = (float !q_cov_len)/.avg_seq_len in
-    let res = int_of_float (1000.0*.q_cov_rate) in
-    if (q_cov_rate>0.)&&res=0 then
-    Printf.printf "q_cov_rate=%f,%d\n%!" q_cov_rate res;
-    res
+    (float !q_cov_len)/.avg_seq_len 
+    
 
 (* LCB = local collinear blocks, works only for two sequences now *)
 let build_LCBs seedNOlstlst mum_tbl seed2pos_tbl  in_seq_size_lst
@@ -2681,7 +2678,7 @@ special_case =
         let q_cov_rate = 
             get_lcb_cov_rate lcb_tbl in_seq_size_lst in
         if debug then 
-            Printf.printf "q_cov_rate = %d,end of building LCBs\n%!" 
+            Printf.printf "q_cov_rate = %f,end of building LCBs\n%!" 
             q_cov_rate;
         lcbs,q_cov_rate,lcb_tbl
     (*end
@@ -2694,7 +2691,7 @@ in_seq_size_lst bk_penalty total_mum_score init_higher_score init_low_ratio_lcb_
     let lcb_to_remove = ref [] in
     let lcbs_after_remove = ref [[[]]] in
     let higher_score = ref init_higher_score in
-    let lcb_cov_rate = ref 0 in
+    let lcb_cov_rate = ref 0. in
     let lcb_tbl_after_remove = ref (Hashtbl.create init_tb_size) in
     Hashtbl.iter (fun seedNOlst lcb ->
         let removed_lcb_score = lcb.score in
@@ -2823,7 +2820,7 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
         if debug then begin
             Printf.printf "RESULT: remove lcb %!"; 
             print_int_list lcb_to_remove;
-            Printf.printf "score after remove lcb = %d, cov rate = %d\n%!" 
+            Printf.printf "score after remove lcb is %d, cov rate = %f\n%!" 
             higher_score higher_cov_rate;
         end;
         let light_lcb_num = 
@@ -2836,7 +2833,7 @@ let get_worst_lcb lcbs lcb_tbl bk_penalty in_seq_size_lst mum_tbl seed2pos_tbl =
     end
     else
         (*in this case cov_rate does not matter, light_lcb_left does not matter*)
-        [],!higher_score, 0, 
+        [],!higher_score, 0., 
         1 (*1 to make sure lcb_tbl is update in outer function*), 
         lcbs, lcb_tbl
 
@@ -2910,7 +2907,7 @@ num_of_mums =
     let sign = ref ((Hashtbl.length light_lcb_tbl)>1) in
     while (!sign) do
         if debug then 
-        Printf.printf "\n current score=%d,cov_rate = %d\n %!" 
+        Printf.printf "\n current score=%d,cov_rate = %f\n %!" 
         !res_score !res_cov_rate;
         let seedNOlst_to_remove,score,cov_rate,light_lcb_left,lcbs_after_remove,lcb_tbl_after_remove = 
             get_worst_lcb !res_lcbs !res_lcb_tbl bk_penalty in_seq_size_lst
@@ -2918,7 +2915,7 @@ num_of_mums =
         if debug then begin
             Printf.printf "try to remove lcb : %!";
             print_int_list seedNOlst_to_remove; 
-            Printf.printf "new score will be %d/cov_rate=%d, light lcb left=%d\n%!" 
+            Printf.printf "new score will be %d,cov_rate=%f, light lcb left=%d\n%!" 
             score cov_rate light_lcb_left;
         end;
         (*mauve stops when there is only one light weight lcb left*)
@@ -2934,7 +2931,7 @@ num_of_mums =
             res_score := score;
             res_cov_rate := cov_rate;
             if debug then 
-                Printf.printf "new score >= old score (cov_R set to %d), continue with loop\n%!"
+                Printf.printf "new score >= old score (cov_R set to %f), continue with loop\n%!"
                 !res_cov_rate;
         end
         else begin
@@ -2956,7 +2953,7 @@ num_of_mums =
         end;
     done; (* while(!sign) *)
     if debug then 
-        Printf.printf "end of remove_light_weight_lcbs,res_cov_rate = %d\n%!"
+        Printf.printf "end of remove_light_weight_lcbs,res_cov_rate = %f\n%!"
         !res_cov_rate;
     !res_lcbs,!res_cov_rate, !res_lcb_tbl
     
@@ -3429,7 +3426,7 @@ in_seqarr in_seq_size_lst  =
         build_LCBs new_seedNOlstlst res_mum_tbl res_seed2pos_tbl 
          in_seq_size_lst false in
     if debug then 
-        Printf.printf " new covR = %d, end of searching outside lcbs,\n%!" new_covR;
+        Printf.printf " new covR = %f, end of searching outside lcbs,\n%!" new_covR;
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
 
@@ -3497,7 +3494,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         Hashtbl.iter (fun key record ->
                 print_lcb record 
         ) init_lcb_tbl;
-        Printf.printf "init lcb covR = %d\n%! " init_covR;
+        Printf.printf "init lcb covR = %f\n%! " init_covR;
     end;
     (* sign of any improvement during following outer&inner while loops*)
     let any_improvement = ref false in
@@ -3516,10 +3513,10 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
-        ref ((init_covR<1000)&&(init_covR>= !minimum_cover_ratio)) in
+        ref ((init_covR<1.)&&(init_covR>= !minimum_cover_ratio)) in
     while (!outer_sign) do
         if debug then
-        Printf.printf "\n begin of outer while, old_covR = %d\n%!" !outer_old_covR;
+        Printf.printf "\n begin of outer while, old_covR = %f\n%!" !outer_old_covR;
     (*****work on regions outside of lcbs******)
     (* we do need to update inner lcbs with the outer one, so we can work on new
     * range of subsequence, but inner_old_weight should remain the same, 
@@ -3540,7 +3537,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
             in
             if (num_of_mums>0)&&(!inner_old_covR < inner_new_covR) then begin
                 if debug then
-                    Printf.printf "we found better lcbs (%d>%d), update
+                    Printf.printf "we found better lcbs (%f>%f), update
                     num_of_mums from %d to %d,continue with inner loop\n%!" 
                     inner_new_covR !inner_old_covR !current_num_of_mums num_of_mums;
                 inner_sign := true;
@@ -3555,7 +3552,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
             end
             else begin
                 inner_sign := false;
-                if debug then Printf.printf "no improve on lcb (%d<=%d) \
+                if debug then Printf.printf "no improve on lcb (%f<=%f) \
                 get out of inner loop\n%!" inner_new_covR !inner_old_covR ;
             end;
         done; 
@@ -3586,7 +3583,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                 ) lcblst
                 ) new_outer_lcbs 
         in
-        if debug&&(new_outer_covR=0) then 
+        if debug&&(new_outer_covR=0.) then 
             Printf.printf "remove lcb did not give us any high W lcbs\n%!";
         if debug then begin
             Printf.printf "\n after remove light lcbs, we have :\n%!";
@@ -3596,7 +3593,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         end;
         if (!outer_old_covR < new_outer_covR) then begin
             if debug then 
-                Printf.printf "\n we have a new lcb cov = %d>old one=%d, \
+                Printf.printf "\n we have a new lcb cov = %f>old one=%f, \
             continue with outer loop again\n%!" new_outer_covR !outer_old_covR;
             any_improvement := true;
             outer_sign := true;
@@ -3608,7 +3605,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         else begin
             outer_sign := false;
             if debug then 
-            Printf.printf "\n no improve on lcb weight (%d>=%d),\
+            Printf.printf "\n no improve on lcb weight (%f>=%f),\
             get out of outer loop\n%!" !outer_old_covR new_outer_covR;
         end
     done; (*end of outer while loop*)
@@ -3619,7 +3616,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     if !any_improvement=false then
         Hashtbl.clear outer_lcb_tbl;
     if debug then
-        Printf.printf "init_covR=%d,outer old covR = %d, outer_lcb_tbl len=%d\n%!"
+        Printf.printf "init_covR=%f,outer old covR = %f, outer_lcb_tbl len=%d\n%!"
         init_covR !outer_old_covR (Hashtbl.length outer_lcb_tbl);
     if (Hashtbl.length outer_lcb_tbl)=1 then begin
         let lightW = ref false in

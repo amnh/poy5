@@ -1485,8 +1485,8 @@ let create_expr () =
             [
                 [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
                 -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
-                -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
+                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = FLOAT; ","; z = INT 
+                -> `Mauve (float_of_string x,float_of_string y, int_of_string z) ]
             ];
         genome_argument:
             [

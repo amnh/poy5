@@ -55,7 +55,7 @@ type lcb = {
 }
 
 
-val create_lcb_tbl : int array array -> float -> int -> int ->
+val create_lcb_tbl : int array array -> float -> float -> int ->
     (int list, lcb) Hashtbl.t * int list list list * int list list * 
     (int * int) list list
 
