@@ -161,7 +161,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     in
     if debug then 
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
-         min lcb ratio = %f, min seed num = %d, min bk penalty = %d\n%!"
+         min lcb ratio = %f, min cover R = %d, min bk penalty = %d\n%!"
     (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_cover_ratio min_bk_penalty;
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
