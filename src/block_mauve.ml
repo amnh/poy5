@@ -3368,6 +3368,8 @@ in_seqarr in_seq_size_lst  =
     let shorted_seqlen = get_shorter_len seq_outside_lcbs_arr in
     let new_seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
     let new_seedlen = if (new_seedlen mod 2)=0 then new_seedlen+1 else new_seedlen in 
+    let new_seedlen = 
+        if new_seedlen=17 then 15 else new_seedlen in
     let new_seedlen = if (new_seedlen<5) then 5 else new_seedlen in
     if debug then 
         Printf.printf "seedlen=%d,%!" new_seedlen;
@@ -3473,11 +3475,14 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let init_lcbs,init_covR, init_lcb_tbl = 
         build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
         false in
+    let init_lcbs, init_covR, init_lcb_tbl = 
+        remove_light_weight_lcbs init_lcbs init_lcb_tbl mum_tbl 
+        seed2pos_tbl in_seq_size_lst init_num_mums in
     if debug then Printf.printf "init lcb covR = %d\n%! " init_covR;
     (* sign of any improvement during following outer&inner while loops*)
     let any_improvement = ref false in
     (*init inner tbl*)
-    let inner_old_covR = ref init_covR in
+    let inner_old_covR = ref !minimum_cover_ratio in
     let inner_lcbs = ref init_lcbs in
     let inner_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* not necessary *)in
     let inner_mum_tbl = ref mum_tbl in
@@ -3485,7 +3490,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let inner_pos2seed_tbl_right = ref pos2seed_tbl_right in
     let inner_seed2pos_tbl = ref seed2pos_tbl in
     (*init outer tbl*)
-    let outer_old_covR = ref (!minimum_cover_ratio) in
+    let outer_old_covR = ref init_covR in
     let outer_lcbs = ref init_lcbs in
     let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *)in
     let outer_mum_tbl = ref mum_tbl in
