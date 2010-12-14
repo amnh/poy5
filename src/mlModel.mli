@@ -111,7 +111,7 @@ val jc69_4 : spec
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
 
-val list_of_packed : int -> int list
+val list_of_packed : ?zerobase:bool -> int -> int list
 val packed_of_list : int list -> int
 
 (* code for costfn for c-side *)
