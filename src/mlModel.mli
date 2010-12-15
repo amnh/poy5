@@ -27,8 +27,6 @@ type string_spec = string * (string * string * string * string)
                           * (string * float option) * string
                           * string option
 
-val epsilon : float
-
 val empty_str_spec : string_spec
 
 val likelihood_not_enabled : string
@@ -215,10 +213,6 @@ val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
         Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 
-(** [compse m t] compose a matrix with the time *)
-val compose : model -> float -> 
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-
 (** [diagonalize s m] diagonalize [m] *)
 val diagonalize :
     bool ->
@@ -232,6 +226,10 @@ val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Ar
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 END
+
+(** [compse m t] compose a matrix with the time *)
+val compose : model -> float -> 
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 

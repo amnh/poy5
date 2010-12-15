@@ -26,12 +26,7 @@ external register : unit -> unit = "likelihood_CAML_register"
 let () = register ()
 
 let (-->) a b = b a 
-
-let epsilon = 0.000001
-let (=.) a b = abs_float (a-.b) < epsilon (*
-        match classify_float ( a -. b ) with
-        | FP_subnormal | FP_zero -> true
-        | FP_infinite | FP_nan | FP_normal -> false *)
+let (=.) a b = abs_float (a-.b) < Numerical.epsilon 
 
 type s
 

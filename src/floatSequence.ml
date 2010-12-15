@@ -737,7 +737,7 @@ module MPLAlign : A = struct
      * In this cost function, an analogue to MPL, we assign the node to the
      * minimum cost of transforming each child to that node, across their
      * respective branch lengths. *)
-    let create_mpl_cost_fn ?(epsilon=1e-5) m t1 t2 =
+    let create_mpl_cost_fn ?(epsilon=Numerical.tolerance) m t1 t2 =
         let (=.) a b = (abs_float (a-.b)) < epsilon in
         let cost1,cost2 = 
             let mat1 = MlModel.compose m t1 and mat2 = MlModel.compose m t2 in
