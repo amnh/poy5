@@ -2930,7 +2930,6 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
             | Dynamic parentt, Dynamic minet ->
                 let root_pre,bl = match root with
                     | Some (Dynamic root) -> 
-                        Printf.printf "Doing a root here boss!\n%!";
                         begin match parentt.time with
                             | None,None     -> Some root.preliminary, None
                             | Some x,Some y -> Some root.preliminary, Some (x +. y)
@@ -2991,7 +2990,7 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
     in
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
-(*    if debug_tosingle then*)
+    if debug_tosingle then
         Printf.printf "Node.ml to_single at Node %d from %d%!" 
                         mine.taxon_code parent.taxon_code;
     let set_cost oldc newc = match mine.cost_mode with
