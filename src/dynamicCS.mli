@@ -155,10 +155,10 @@ val median : int -> t -> t -> float option -> float option -> t
  * Inactive codes are eliminated from diagnosis. 
  * If p is the handle, alied_map is the root containing the aligned map between p
  * and n for chromosome stuff, else alied_map is assigned by p *)
-val to_single : ChromCS.IntSet.t -> t option -> t -> t -> float * float * t
+val to_single : ChromCS.IntSet.t -> t option -> t -> t -> float option -> float * float * t
 
 (** [to_single_root n] is the same as [to_single n n]. *)
-val to_single_root : ChromCS.IntSet.t -> t -> float * float * t
+val to_single_root : ChromCS.IntSet.t -> t -> float option -> float * float * t
 
 (** get the sequences list out of each node, and return them as a list of list
 * Sequence.s 

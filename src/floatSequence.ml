@@ -173,19 +173,20 @@ module FloatAlign : A = struct
             if c > a then (a,[at]) else if c = a then (c,[at;ct]) else (c,[ct])
         end
 
+    let create_cost_matrix model t = 
+        let mat = MlModel.compose model t in
+        for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+            for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                mat.{i,j} <- ~-. (log mat.{i,j})
+            done;
+        done;
+        mat
+
 
     (* [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
      * branch length [t] *)
     let create_align_cost_fn m tx ty =
-        let cost_matrix =
-            let mat = MlModel.compose m (tx+.ty) in
-            for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
-                for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
-                    mat.{i,j} <- ~-. (log mat.{i,j})
-                done;
-            done;
-            mat
-        in
+        let cost_matrix = create_cost_matrix m (tx+.ty) in
         fun x_i y_i ->
             let fn (cst,n) x y =
                 try (cst +. cost_matrix.{x,y},n+1)
@@ -207,32 +208,38 @@ module FloatAlign : A = struct
     let get_cm m t1 t2 = (fun a b -> create_align_cost_fn m t1 t2 a b, a land b)
 
     (* p is single; m is not; find in m the least coast to p *)
-    let get_closest i gap cst_fn ~p ~m =
-        (* remove lowest order bit; to_single implies one bit set, thus 0 *)
-        if not ( 0 = (p land (p-1)) ) then begin
-            failwithf 
-                "FloatAlign.get_closest; Assignment of child from non-singlular parent at %d of %d"
-                i p
-        end;
-        let nm =
-            if m = gap || p = gap then m
-            else if (0 <> p land gap) && (0 <> m land gap) then gap
-            else m land (lnot gap)
-        in
-        assert( nm > 0 ); (* _some_ bit must be set *)
-        let state,_ = 
-            List.fold_left
-                (fun ((assn,cst) as acc) x ->
-                    let ncst = cst_fn p x in
-                    if ncst < cst then (x,ncst) else acc)
-                ((~-1),max_float)
-                (MlModel.list_of_packed ~zerobase:false nm)
-        in
-        let res = 1 lsl (state-1) in
-        if debug_aln then
-            Printf.printf "%d -- p:%02d m:%02d/%02d\t%a\t-(%d)->%02d\n" 
-                          i p m nm pp_ilst (MlModel.list_of_packed ~zerobase:false nm) state res;
-        res
+    let get_closest gap model t =
+        let cost_matrix = create_cost_matrix model t in
+        (fun ~i ~p ~m -> 
+            (* Determine if this is a gap; or remove that state otherwise *)
+            let nm =
+                if m = gap || p = gap then m
+                else if (0 <> p land gap) && (0 <> m land gap) then gap
+                else m land (lnot gap)
+            in
+            assert(  p > 0 );
+            assert( nm > 0 );
+            (* now choose the best from parent *)
+            let state,cst = 
+                List.fold_left
+                    (fun acc m ->
+                        List.fold_left
+                            (fun ((assgn,cst) as acc) p ->
+                                let ncst = cost_matrix.{p,m} in
+(*                                Printf.printf "\t Cost: %d -- %d = %f; old: %f\n" p m ncst cst;*)
+                                if ncst < cst then (m,ncst) else acc)
+                            (acc)
+                            (MlModel.list_of_packed p))
+                    ((~-1),infinity)
+                    (MlModel.list_of_packed nm)
+            in
+            let res = 1 lsl state in
+             if debug_aln then
+                Printf.printf "%d -- p:%02d(%a) m:%02d/%02d(%a)\t-(%f)->%02d(%02d)\n%!"
+                              i p pp_ilst (MlModel.list_of_packed p) m nm 
+                              pp_ilst (MlModel.list_of_packed nm) cst state res;
+            assert( state <> ~-1 );
+            res)
 
 
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
@@ -561,6 +568,10 @@ module FloatAlign : A = struct
     let closest ~p ~m model t mem : s * float =
         let alph= Alphabet.explote model.MlModel.alph 1 0 in
         let gap = Alphabet.get_gap alph in
+        if debug_aln then begin
+            Printf.printf "\nP: ";print_s p alph;
+            Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
+        end;
         let remove_gaps seq =
             let remove_gaps seq base = 
                 if base <> gap then 
@@ -572,25 +583,27 @@ module FloatAlign : A = struct
             in
             Sequence.prepend res gap;
             res
+        and mask_gaps seq gap =
+            let mask = lnot gap in
+            Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
-            let cst = create_align_cost_fn model (t/.2.0) (t/.2.0) in
-            (fun m pos -> 
-                get_closest pos gap cst ~p:(Sequence.get par pos) ~m)
+            let gc = get_closest gap model t in
+            (fun m pos -> gc ~i:pos ~p:(Sequence.get par pos) ~m)
         in
-(*        if debug_aln then begin*)
-            Printf.printf "\nP: ";print_s p alph;
-            Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
-(*        end;*)
         let (new_m,cst) as res =
             if Sequence.is_empty m gap then
                 m, 0.0
+            else if 0 = Sequence.compare p m then
+                let masked = mask_gaps m gap in
+                Sequence.mapi (get_closest masked) masked --> remove_gaps, 0.0
             else
                 let paln, maln, cst = align_2 p m model (t/.2.0) (t/.2.0) mem in
                 assert( Sequence.length paln = Sequence.length maln );
                 Sequence.mapi (get_closest paln) maln --> remove_gaps, cst
         in
-(*        if debug_aln then*)
+        if debug_aln then begin
             Printf.printf " -%f(%d)-> " cst gap; print_s new_m alph; print_newline ();
+        end;
         res
 
 
@@ -792,27 +805,25 @@ module MPLAlign : A = struct
 
     (* p is single; m is not; find in m the least coast to p *)
     let get_closest i gap cst_fn ~p ~m : int =
-        (* remove lowest order bit; to_single implies one bit set, thus 0 *)
-        assert( 0 = (p land (p-1)) );
         let m = 
             if m = gap || p = gap then m
             else if (0 <> p land gap) && (0 <> m land gap) then gap
             else m land (lnot gap)
         in
-        (* _some_ bit should be set *)
         assert( m > 0 ); 
         let state,_ = 
             List.fold_left
                 (fun ((assn,cst) as acc) x -> 
                     let ncst = cst_fn p x in
                     if ncst < cst then (x,ncst) else acc)
-                (p,max_float)
-                (MlModel.list_of_packed ~zerobase:false m)
+                (~-1,infinity)
+                (MlModel.list_of_packed m)
         in
-        let res = 1 lsl (state-1) in
+        assert( state <> ~-1 );
+        let res = 1 lsl state in
         if debug_aln then
             Printf.printf "%d -- p:%02d m:%02d\t%a\t-(%d)->%02d\n" 
-                          i p m pp_ilst (MlModel.list_of_packed ~zerobase:false m) state res;
+                          i p m pp_ilst (MlModel.list_of_packed m) state res;
         res
 
 
@@ -1159,6 +1170,9 @@ module MPLAlign : A = struct
             in
             Sequence.prepend res gap;
             res
+        and mask_gaps seq gap =
+            let mask = lnot gap in
+            Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
             let cst i j = 
                 fst (create_mpl_cost_fn model (t/.2.0) (t/.2.0) i j) in
@@ -1168,6 +1182,9 @@ module MPLAlign : A = struct
         let (s_new,c) as res =
             if Sequence.is_empty m gap then
                 m, 0.0
+            else if 0 = Sequence.compare p m then
+                let masked = mask_gaps m gap in
+                Sequence.mapi (get_closest masked) masked --> remove_gaps, 0.0
             else
                 let paln, maln, cst = align_2 p m model (t/.2.0) (t/.2.0) mem in
                 assert( Sequence.length paln = Sequence.length maln );

@@ -17,8 +17,6 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "AllDirChar" "$Revision: 1616 $"
-
 (** A dynamic character set implementation. 
 * The dynamic character set allows rearrangements *)
 
@@ -664,17 +662,27 @@ let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
  * Inactive codes are eliminated from diagnosis. 
  * If p is the handle, alied_map is the root containing the aligned map between p
  * and n for chromosome stuff, else alied_map is assigned by p *)
-let to_single ref_codes root parent mine = 
+let to_single ref_codes root parent mine time =
     match parent, mine with
     | SeqCS parent, SeqCS mine -> 
-            let parent = 
-                match root with
-                | None -> parent
+            let parent = match root with
+                | None           -> parent
                 | Some (SeqCS x) -> x
-                | _ -> assert false
+                | _              -> assert false
             in
             let prev_cost, new_cost, median = SeqCS.to_single parent mine in
             prev_cost, new_cost, SeqCS median
+    | MlCS parent, MlCS mine ->
+            let parent = match root with
+                | None          -> parent
+                | Some (MlCS x) -> x
+                | _             -> assert false
+            and time = match time with
+                | Some x -> x
+                | None -> failwith "DynamicCS.to_single no branch lengths"
+            in
+            let p_cost, n_cost, med = MlDynamicCS.to_single parent mine time in
+            p_cost, n_cost, MlCS med
     | ChromCS parent, ChromCS mine -> 
           let root = match root with 
           | Some (ChromCS root) -> Some root
@@ -717,4 +725,6 @@ let to_single ref_codes root parent mine =
 
 (** [to_single_root ref_codes mine] creates
 * the single states for dynamic character set at root [mine] *)
-let to_single_root ref_codes mine = to_single ref_codes (Some mine) mine mine
+let to_single_root ref_codes mine times = 
+    to_single ref_codes (Some mine) mine mine times
+

@@ -45,6 +45,9 @@ type t_mplalign =
  *                 an integerized cost matrix from the floating-point values.
  *   FPAlign     - Same as the above, but using new routines to align by
  *                 floating point values.
+ *   MPLAlign    - Two transformation matrices are created for each sequence,
+ *                 these measure the probability of each transition, and when
+ *                 find the minimum value (X->I)(Y->I) for the assignment I.
  *   FixedStates - ....
  *   Likelihood  - ....
 *)
@@ -270,7 +273,7 @@ let estimate_time a b =
                 align_s_distance aligna alignb
             done
         (* must be consistent *)
-        | _ , _ -> failwith "MlDynamicCS.estimate_time; inconsistent procedures"
+        | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
     in
     let total = (!same +. !tran +. !gaps +. !othr) in
     (* below, similar to mlStatic estimate_time function *)
@@ -302,7 +305,7 @@ let verify_fp_cost cst1 sa sb model bla blb mem =
             FloatSequence.FloatAlign.print_mem mem;
             FloatSequence.FloatAlign.clear_mem mem;
             Printf.printf "Ukkonen Align:\n";
-            ignore (FloatSequence.FloatAlign.cost_2 ~debug:true sa sb model bla blb mem);
+            ignore (FloatSequence.FloatAlign.cost_2 sa sb model bla blb mem);
             FloatSequence.FloatAlign.print_mem mem;
             false
         end 
@@ -322,7 +325,7 @@ let verify_mpl_cost cst1 sa sb model bla blb mem =
             FloatSequence.MPLAlign.print_mem mem;
             FloatSequence.MPLAlign.clear_mem mem;
             Printf.printf "Ukkonen Align:\n";
-            ignore (FloatSequence.MPLAlign.cost_2 ~debug:true sa sb model bla blb mem);
+            ignore (FloatSequence.MPLAlign.cost_2 sa sb model bla blb mem);
             FloatSequence.MPLAlign.print_mem mem;
             false
         end 
@@ -413,7 +416,7 @@ let median code a b t1 t2 =
                 (br.fp_ss)
         in
         { a with cost = !cost; data = FPAlign { fp_ss = meds } }
-    | _ , _ -> assert false
+    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
 
 let readjust c1 c2 mine t1 t2 = 
     let internal_loop (t:float) : t * float =
@@ -454,7 +457,7 @@ let distance missing_distance a b = match a.data, b.data with
     | FPAlign _ , FPAlign _       ->
         let dist1,dist2 = estimate_time a b in
         total_cost (median (-1) a b (Some dist1) (Some dist2))
-    | _ , _ -> assert false
+    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
 
 let dist_2 delta n a b = match a.data,b.data,n.data with
     | Integerized a,Integerized b,Integerized n -> SeqCS.dist_2 delta n.ilk_ss a.ilk_ss b.ilk_ss
@@ -464,7 +467,7 @@ let dist_2 delta n a b = match a.data,b.data,n.data with
         let tmp = median (-1) a b (Some dist1) (Some dist2) in
         let dist1,dist2 = estimate_time n tmp in
         total_cost (median (-1) a b (Some dist1) (Some dist2))
-    | _ , _ , _ -> assert false
+    | (FPAlign _ | MPLAlign _ | Integerized _), _, _ -> assert false
             
 let tabu_distance a = match a.data with
     | Integerized a -> SeqCS.tabu_distance a.ilk_ss
@@ -525,14 +528,51 @@ let make s m =
             let data = Array.map FloatSequence.MPLAlign.s_of_seq (s_of_seq s) in
             assert( (Array.length data) = (Array.length s.SeqCS.codes) );
             MPLAlign { mpl_ss = data; }
-        | _ -> failwith "not done yet"
+        | `BLK | `MAL -> failwith "not done"
     in
-    {    data = r; 
-        model = m; 
+    {    data = r;
+        model = m;
          cost = 0.0;
          code = s.SeqCS.code;
         codes = s.SeqCS.codes;
     }
+
+let to_single parent mine t = 
+    let pcost = total_cost mine in
+    match parent.data,mine.data with    
+    | Integerized p, Integerized m ->
+        let pcost, ncost, median = SeqCS.to_single p.ilk_ss m.ilk_ss in
+        pcost,ncost,{mine with data = Integerized {ilk_ss = median;ia = None;};
+                               cost = ncost; }
+    | FPAlign ps, FPAlign ms ->
+        let score = ref 0.0 in
+        let n_data = 
+            Array_ops.map_2
+                (fun p m -> 
+                    let mem = FloatSequence.FloatAlign.get_mem p m in
+                    let r,s = FloatSequence.FloatAlign.closest ~p ~m mine.model t mem in
+                    score := s +. !score; r)
+                ps.fp_ss
+                ms.fp_ss
+        in
+        pcost,!score,{mine with data = FPAlign {fp_ss = n_data}; 
+                                cost = !score; }
+    | MPLAlign ps, MPLAlign ms -> 
+        let score = ref 0.0 in
+        let n_data = 
+            Array_ops.map_2 
+                (fun p m -> 
+                    let mem = FloatSequence.MPLAlign.get_mem p m in
+                    let r,s = FloatSequence.MPLAlign.closest ~p ~m mine.model t mem in
+                    score := s +. !score; r)
+                ps.mpl_ss
+                ms.mpl_ss
+        in
+        pcost, !score, { mine with data = MPLAlign { mpl_ss = n_data };
+                                   cost = !score; }
+    (* although weak, this is the only solution *)
+    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+    
 
 let prior a = 
     let prior_of_seq alph priors (acc:float) sequence =
@@ -611,5 +651,7 @@ let encoding _ _ = failwith MlStaticCS.likelihood_error
 let leaf_sequences _ = failwith MlStaticCS.likelihood_error
 let to_formatter _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let prior _ = failwith MlStaticCS.likelihood_error
+let to_single _ _ _ = failwith MlStaticCS.likelihood_error
 
 ENDIF
+
