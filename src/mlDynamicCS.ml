@@ -76,7 +76,7 @@ let debug_printf =
 let get_cm t = match t.data with
     | Integerized r -> r.ilk_ss.SeqCS.heuristic.SeqCS.c2
     | MPLAlign _
-    | FPAlign _     -> failwith_todo "get_cm (FPAlign)"
+    | FPAlign _     -> assert false
 
 let to_string t = failwith_todo "to_string"
 
@@ -426,18 +426,27 @@ let readjust c1 c2 mine t1 t2 =
     let nt,(nmine,ncost) = 
         Numerical.brents_method (t1,(mine,total_cost mine)) internal_loop
     in
+    if debug_est then
+        Printf.printf "Optimized Branch: %f -(%f->%f)-> %f\n%!" 
+                      (total_cost mine) t1 nt ncost;
     (not (nt = t1)),total_cost mine,ncost,(nt,t2),nmine
 
 let median_i code a b (t1:float) (t2:float) : t * float * float =
-    let start = t1+.t2 in
-    let _,_,ncost,(nt,_),nmine = 
-        readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
-    in
-    let half_time = nt /. 2.0 in
-    if debug_est then
-        Printf.printf "Optimized Branch of %d from %f --> %f: %f\n%!" 
-                        code start nt ncost;
-    nmine, half_time, nt -. half_time
+    match a.data, b.data with
+    | Integerized _, Integerized _ -> 
+        let start = t1+.t2 in
+        let _,_,ncost,(nt,_),nmine = 
+            readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
+        in
+        let half_time = nt /. 2.0 in
+        if debug_est then
+            Printf.printf "Optimized Branch of %d from %f --> %f: %f\n%!" 
+                            code start nt ncost;
+        nmine, half_time, nt -. half_time
+    | FPAlign _, FPAlign _ 
+    | MPLAlign _, MPLAlign _ -> 
+        median code a b (Some t1) (Some t2),t1,t2
+    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
 
 and median_3 p n c1 c2 = n
 (*    assert( 0 = MlModel.compare n.model c1.model);*)
