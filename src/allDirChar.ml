@@ -1116,6 +1116,19 @@ module F : Ptree.Tree_Operations
             in
             (* recursive loop of for changes *)
             let rec iterator count prev_cost affected ptree =
+                let all_edges = (* randomize the order for edges to optimize *)
+                    let fisher_yates array : 'a array = 
+                        let array = Array.copy array in
+                        for n = (Array.length array) - 1 downto 1 do
+                            let j = Random.int n in
+                            let tmp = array.(j) in
+                            array.(j) <- array.(n);
+                            array.(n) <- tmp;
+                        done;
+                        array
+                    in
+                    all_edges --> Array.of_list --> fisher_yates --> Array.to_list
+                in
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
@@ -1267,8 +1280,12 @@ module F : Ptree.Tree_Operations
                 ptree.Ptree.tree.Tree.handles
                 ptree
         in
-        let ptree = refresh_all_edges false None true None ptree in
-        if do_roots then refresh_roots false ptree else ptree
+        let ptree = 
+            let ptree = refresh_all_edges false None true None ptree in
+            if do_roots then refresh_roots false ptree else ptree
+        in
+        if debug_downpass_fn then verify_roots ptree;
+        ptree
 
     let blindly_trust_downpass ptree 
         (edges, handle) (cost, cbt) ((Tree.Edge (a, b)) as e) =
@@ -1739,7 +1756,7 @@ module F : Ptree.Tree_Operations
         | (Tree.Interior (_, a, b, c)) as vn ->
                 let uno,dos = Tree.other_two_nbrs p vn in
                 p --> create_lazy_interior_up ptree v uno dos
-                  --> (fun x -> Ptree.add_node_data v x ptree)
+                  --> fun x -> Ptree.add_node_data v x ptree
                   --> clear_subtree uno v
                   --> clear_subtree dos v
 
@@ -2076,14 +2093,14 @@ module F : Ptree.Tree_Operations
         | `Single (x, _) | `Edge (x, _, _, _) -> x
 
     let join_fn n_mgr a b c d =
+        if debug_join_fn then verify_roots d;
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
             | `Normal -> 
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = 
-                    tree --> adjust_fn n_mgr
-                         --> apply_implied_alignments n_mgr true
+                    tree --> apply_implied_alignments n_mgr true
                          --> update_branches
                 in
                 tree, delta
@@ -2106,8 +2123,7 @@ module F : Ptree.Tree_Operations
                 let tree, delta = join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = 
-                    tree --> adjust_fn n_mgr
-                         --> uppass
+                    tree --> uppass
                          --> apply_implied_alignments n_mgr true
                          --> update_branches
                 in
