@@ -17,44 +17,56 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-(** These constants define the ending conditions for numerical functions, and
- * provide a common baseline throughout the program for comparing floating point
- * numbers.
- *  Tolerance   - Tolerance of floating point calculations for convergence.
- *  Epsilon     - Machine floating point precision.
- *  Minimum     - minimum for numerical calculations (2.0 * tolerance). *)
-val tolerance : float
-val epsilon   : float
-val minimum   : float
+(** Numerical Functions *)
 
-(** [gamma_rates alpha beta cats] -> rates
- * takes alpha, beta gamma parameters and number of categories to cut the gamma
- * function into, and returns the mean rates in those cuts of 1/cats parts. *)
+(** {6 Constants} *)
+
+val tolerance : float
+(** [Tolerance] Tolerance of floating point calculations for convergence. *)
+
+val epsilon   : float
+(** [Epsilon] Machine floating point precision. *)
+
+val minimum   : float
+(** [Minimum] Minimum for numerical calculations (2.0 * tolerance). *)
+
+(** {6 Special Functions} *)
+
+external gamma : float -> float = "gamma_CAML_gamma"
+(** [gamma x] calculates the gamma of x. Using Lanczos Approximation, with
+    error around 1e-15. Max value for overflow is around 142. *)
+
+external lngamma : float -> float = "gamma_CAML_lngamma"
+(** [lngamma x] calculates the ln gamma of x using Lanczos Approximation. *)
+
 external gamma_rates: float -> float -> int -> 
     (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t = "gamma_CAML_rates"
+(** [gamma_rates alpha beta cats] -> rates takes alpha, beta gamma parameters
+    and number of categories to cut the gamma function into, and returns the mean
+    rates in those cuts of 1/cats parts. *)
 
-(** [brents_method ?i ?min ?max ?tol ?e o f] -> n 
- * Uses brents method, a combination of parabolic interpolation and golden
- * section search, to find the local minimum near [o] of the function [f],
- * bounded by [min] and [max]. [i] and [tol] are used to control the number
- * of iterations, tolerance, respectively. [o] is a pair of floating point
- * numbers, with additional data, representing a point.
- *
- * Numerical Recipes in C; 10.2 *)
+(** {6 Numerical Optimization Functions} *)
+
 val brents_method :
     ?max_iter:int -> ?v_min:float -> ?v_max:float -> ?tol:float -> ?epsilon:float 
         -> float * ('a * float) -> (float -> 'a * float) -> float * ('a * float)
+(** [brents_method ?i ?min ?max ?tol ?e o f] -> n Uses brents method, a
+    combination of parabolic interpolation and golden section search, to find
+    the local minimum near [o] of the function [f], bounded by [min] and [max].
+    [i] and [tol] are used to control the number of iterations, tolerance,
+    respectively. [o] is a pair of floating point numbers, with additional data,
+    representing a point.  (See, Numerical Recipes in C; 10.2) *)
 
-(* [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
- * gradient [g] and direction [d] of function [f] by point [p], attempting the
- * longest step, of maximum distance [s] *)
 val line_search : 
     ?epsilon:float -> (float array -> 'a * float) -> float array -> 
         'a * float -> float array -> float -> float array -> float array * ('a * float) * bool
+(** [line_search ?e ?a ?i ?min f p fp g s d] does a line search along the
+    gradient [g] and direction [d] of function [f] by point [p], attempting the
+    longest step, of maximum distance [s] *)
 
-(* [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
- * matrix of a function f with starting point init. *)
 val bfgs_method :
     ?max_iter:int -> ?epsilon:float -> ?mx_step:float -> ?g_tol:float ->
         (float array -> 'a * float) -> float array -> 'a * float -> float array * ('a * float)
+(** [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
+    matrix of a function f with starting point init. *)
 

@@ -45,6 +45,11 @@ let debug_printf msg format =
 and pp_farray xs =
     (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
 
+
+external gamma : float -> float = "gamma_CAML_gamma"
+
+external lngamma : float -> float = "gamma_CAML_lngamma"
+
 (* calculates the gamma rates for specific alpha, beta and #classes *)
 external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
