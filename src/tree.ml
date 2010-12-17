@@ -1747,15 +1747,17 @@ module Parse = struct
             match stream#getch with
             | v when not (taxon_name v) -> 
                 stream#putback v;
-                let str = String.concat "" (List.map 
-                                                    (fun x -> String.make 1 x)
-                                                    (List.rev acc))
+                let str = 
+                    acc --> List.rev
+                        --> List.map (String.make 1)
+                        --> String.concat ""
                 in
                 Some (float_of_string str)
             | ('0' .. '9') as v -> read_branch_length (v :: acc)
             | 'e' -> read_branch_length ('e' :: acc)
             | 'E' -> read_branch_length ('E' :: acc)
             | '.' -> read_branch_length ('.' :: acc)
+            | '-' -> read_branch_length ('-' :: acc)
             |  v   -> raise (Illegal_tree_format ("Unexpected Char "^(Char.escaped v)))
         in
 
