@@ -53,10 +53,13 @@ type dyna_state_t = Data.dyna_state_t
    isa_arr is an array of ias in the case of annotated chromosomes (ach ias
    presents a locus)
 *)
+type cost_matrix = 
+    | CM of Cost_matrix.Two_D.m 
+    | Model of MlModel.model * float
 
 type t = {
     sequences : ias array All_sets.IntegerMap.t;
-    c2 : Cost_matrix.Two_D.m;
+    c2 : cost_matrix;
     chrom_pam : Data.dyna_pam_t;
     state : dyna_state_t;
     code : int;

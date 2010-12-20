@@ -61,9 +61,13 @@ type ias = {
    Note: 'sequences : ias_arr Codes.t' where isa_arr is an array of ias in the
    case of annotated chromosomes (ach ias presents a locus)
 *)
+type cost_matrix = 
+    | CM of Cost_matrix.Two_D.m 
+    | Model of MlModel.model * float
+
 type t = {
     sequences : ias array Codes.t;
-    c2 : Cost_matrix.Two_D.m;
+    c2 : cost_matrix;
     chrom_pam : Data.dyna_pam_t;
     state : dyna_state_t;
     code : int;
@@ -308,15 +312,16 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     in
     let lena = Sequence.Clip.length a.seq
     and lenb = Sequence.Clip.length b.seq 
-    and gap = Cost_matrix.Two_D.gap cm in
-    let kind =
-        match a.seq with
+    and gap = match cm with
+        | CM cm -> Cost_matrix.Two_D.gap cm 
+        | Model (m,_) -> Alphabet.get_gap m.MlModel.alph
+    in
+    let kind = match a.seq with
         | `DO _ -> `DO
         | `First _ -> `First
         | `Last _ -> `Last
     in
-    let create_gaps len = 
-        Sequence.Clip.init kind (fun _ -> gap) len 
+    let create_gaps len = Sequence.Clip.init kind (fun _ -> gap) len 
     and aempty = (Sequence.Clip.is_empty a.seq gap) && ((state = `Seq) || (state = `Ml))
     and bempty = (Sequence.Clip.is_empty b.seq gap) && ((state = `Seq) || (state = `Ml)) in
     let a', b', nogap, indels, clip_length =
@@ -332,19 +337,17 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             else begin
                 if prealigned then  begin
                     let inds = match lena with
-                    | 0 -> `Empty
-                    | _ -> calculate_indels a.seq b.seq alph bchld 
+                        | 0 -> `Empty
+                        | _ -> calculate_indels a.seq b.seq alph bchld 
                     in
                     a.seq, b.seq, 0, `Both, `Set [inds; anb_indels], 0
-                
                 end else
                     let a, b, c, clip_length, anoclip, bnoclip = 
-                        Sequence.Clip.Align.align_2 a.seq b.seq cm
-                        Matrix.default 
+                        match cm with
+                        | CM cm   -> Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default 
+                        | Model _ -> assert false (* TODO *)
                     in
-                    let inds = 
-                        calculate_indels anoclip bnoclip alph bchld 
-                    in
+                    let inds = calculate_indels anoclip bnoclip alph bchld in
                     a, b, c, `Both, `Set [inds; anb_indels], clip_length
             end 
         in
@@ -367,8 +370,8 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         * So we better clean that up when required *)
         match state with 
         | `Chromosome | `Annotated | `Breakinv | `Genome -> 
-                let gapless_seqa = Sequence.Clip.delete_gap ~gap_code:gap a.seq in 
-                {a with seq = gapless_seqa}, Sequence.Clip.length gapless_seqa
+            let gapless_seqa = Sequence.Clip.delete_gap ~gap_code:gap a.seq in 
+            { a with seq = gapless_seqa }, Sequence.Clip.length gapless_seqa
         | _ -> a, Sequence.Clip.length a.seq
     in 
     let a, lena = correct_gaps_in_sequences a in
@@ -383,24 +386,31 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                 | `A -> it_b
                 | `B -> it_a
                 | `Both -> 
-                      match state with 
-                      | `Breakinv -> it_b
-                      | _ -> 
-                              if ((kind = `First) && (position < clip_length)) 
-                                || ((kind = `Last) && (position > maxlenab' -
-                                clip_length)) then 
-                                  if it_a = gap then it_b
-                                  else 
-                                      let () = assert (it_b = gap) in
-                                      it_a
-                              else Cost_matrix.Two_D.median it_a it_b cm 
+                    match state with 
+                    | `Breakinv -> it_b
+                    | _ -> 
+                        if ((kind = `First) && (position < clip_length)) || 
+                           ((kind = `Last) && (position > maxlenab' - clip_length)) then 
+                            if it_a = gap 
+                                then it_b
+                                else let () = assert (it_b = gap) in
+                                     it_a
+                        else begin match cm with
+                            | CM cm -> Cost_matrix.Two_D.median it_a it_b cm 
+                            | Model _ -> assert false (* TODO *)
+                        end
             in
             let is_gap_median =
+                let cost,gcost = match cm with
+                    | CM cm -> 
+                        Cost_matrix.Two_D.cost it_a it_b cm,
+                        Cost_matrix.Two_D.cost (all_minus_gap it_a) (all_minus_gap it_b) cm
+                    | Model _ -> assert false (* TODO *)
+                in
                 if it_a <> gap && it_b <> gap then
-                    (((Cost_matrix.Two_D.cost it_a it_b cm) <
-                    (Cost_matrix.Two_D.cost (all_minus_gap it_a)
-                    (all_minus_gap it_b) cm)) || (med = gap))
-                else (med = gap)
+                    (cost < gcost || (med = gap))
+                else 
+                    (med = gap)
             in
             let code, hom, n_a_pos, n_b_pos, na_hom, nb_hom, a_or, b_or, res_or =
                 match is_gap_median, it_a = gap, it_b = gap with
@@ -428,12 +438,9 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         b_hom, new_a_or, new_b_or, (codea :: new_res_or)
                 | true, false, false ->
                         let codeb = 
-                            try 
-                                Hashtbl.find b.codes b_pos 
-                            with
-                            | Not_found ->
-                                    failwith(
-                                Printf.sprintf "cannot find %d  %!" b_pos)
+                            try Hashtbl.find b.codes b_pos 
+                            with | Not_found ->
+                                failwith (Printf.sprintf "cannot find %d  %!" b_pos)
                         in
                         let codea = Hashtbl.find a.codes a_pos in
                         let hom_b = Hashtbl.find b_hom codeb 
@@ -479,8 +486,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                 | _, true, true ->
 (*                        assert (a_pos = 0);*)
 (*                        assert (b_pos = 0);*)
-                        (-1), hom, a_pos, b_pos, a_hom, b_hom, a_or, b_or,
-                        res_or
+                        (-1), hom, a_pos, b_pos, a_hom, b_hom, a_or, b_or, res_or
             in
             let n_anc_pos = 
                 if not is_gap_median then begin
@@ -563,9 +569,12 @@ let get_suborder is_main_chrom sta en codes ord_arr act_ord_arr =
 
 let ancestor_sequence prealigned calculate_median all_minus_gap 
         acode bcode achld bchld a_ls b_ls cm alpha chrom_pam =
-    Array_ops.map_2 (fun a_seq b_seq ->
-    ancestor calculate_median `Seq prealigned all_minus_gap
-    a_seq b_seq acode bcode cm alpha achld bchld) a_ls b_ls
+    Array_ops.map_2 
+        (fun a_seq b_seq ->
+            ancestor calculate_median `Seq prealigned all_minus_gap 
+                     a_seq b_seq acode bcode cm alpha achld bchld) 
+        a_ls
+        b_ls
 
 let ancestor_likelihood prealigned calculate_median
                         all_minus_gap acode bcode achld bchld a_ls b_ls cm
@@ -582,7 +591,13 @@ let ancestor_likelihood prealigned calculate_median
 * their respective roots into one common ancestor. This is similar to [ancestor]
 * function, but for chromosome characters  *)
 let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode 
-        achld bchld a b cm alpha chrom_pam = 
+        achld bchld a b boxed_cm alpha chrom_pam = 
+    (* we know this isn't likelihood; so unwrap the cost matrix *)
+    let cm = match boxed_cm with
+        | CM cm -> cm
+        | Model _ -> assert false
+    in
+
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -698,7 +713,7 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
              in  
              let ans = 
                  ancestor calculate_median `Chromosome prealigned all_minus_gap sub_a
-                     sub_b acode bcode cm alpha achld bchld
+                          sub_b acode bcode boxed_cm alpha achld bchld
              in 
 
              (if (sta != -1) then 
@@ -728,7 +743,6 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
              (nascent_ias, ans.seq::rev_anc_seq_ls)
         ) (init_ias, []) med.ChromAli.chrom_map
     in 
-
     
     let recost1 = med.ChromAli.recost1 in
     let recost2 = med.ChromAli.recost2 in
@@ -763,7 +777,12 @@ let ancestor_chrom prealigned calculate_median all_minus_gap acode bcode
 * their respective roots into one common ancestor. This is similar to [ancestor]
 * function, but for annotated chromosome characters  *)
 let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
-        achld bchld a b cm alpha annchrom_pam  = 
+        achld bchld a b boxed_cm alpha annchrom_pam  =
+
+    let cm = match boxed_cm with
+        | CM cm -> cm
+        | Model _ -> assert false
+    in
 
     let a, b, min_can_code = 
         if calculate_median then 
@@ -830,8 +849,8 @@ let ancestor_annchrom prealigned calculate_median all_minus_gap acode bcode
                        order = []; indels = `Empty; dum_chars = `Empty; dir = 1}
         in 
         let ans = 
-            ancestor calculate_median `Annotated prealigned
-            all_minus_gap isa isb acode bcode cm alpha achld bchld
+            ancestor calculate_median `Annotated prealigned all_minus_gap 
+                     isa isb acode bcode boxed_cm alpha achld bchld
         in
         (if (orda = -1) || (ordb = -1) then begin
             let gap_cost = Sequence.Clip.cmp_ali_cost 
@@ -950,8 +969,13 @@ let ancestor_breakinv_clade clade re_seq_clade =
 * their respective roots into one common ancestor. This is similar to [ancestor]
 * function, but for breakinv characters  *)
 let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
-        achld bchld a b cm alpha breakinv_pam = 
-(*Printf.printf "\n in ancestor_breakinv acode=%d,bcode=%d \n %!" acode bcode;*)
+                      achld bchld a b boxed_cm alpha breakinv_pam = 
+
+    let cm = match boxed_cm with
+        | CM cm -> cm
+        | Model _ -> assert false
+    in
+
     let a, b, min_can_code = 
         if calculate_median then 
             if acode < bcode then a, b, acode
@@ -984,8 +1008,8 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
                    codes = new_codes_b;
                    order = List.rev  !new_orders_b} in 
     let ans = 
-        ancestor calculate_median `Breakinv prealigned all_minus_gap isa isb
-        acode bcode cm alpha achld bchld
+        ancestor calculate_median `Breakinv prealigned all_minus_gap isa
+                 isb acode bcode boxed_cm alpha achld bchld
     in
     let recost1 = med.BreakinvAli.recost1 in
     let recost2 = med.BreakinvAli.recost2 in
@@ -1007,7 +1031,12 @@ let ancestor_breakinv prealigned calculate_median all_minus_gap acode bcode
 * their respective roots into one common ancestor. This is similar to [ancestor]
 * function, but for genome characters  *)
 let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
-        bchld a b cm alpha chrom_pam = 
+        bchld a b boxed_cm alpha chrom_pam = 
+
+    let cm = match boxed_cm with
+        | CM cm -> cm
+        | Model _ -> assert false
+    in
 
     let ias1_arr, ias2_arr, min_can_code =
         if calculate_median then 
@@ -1160,9 +1189,8 @@ let ancestor_genome prealigned calculate_median all_minus_gap acode bcode achld
                        }  
                        in  
                        let ans_ias = 
-                           ancestor calculate_median 
-                           `Genome prealigned all_minus_gap
-                           sub1 sub2 acode bcode cm alpha achld bchld
+                           ancestor calculate_median `Genome prealigned all_minus_gap
+                                    sub1 sub2 acode bcode boxed_cm alpha achld bchld
                        in 
                        (if (sta != -1) then 
                             Hashtbl.iter 
@@ -1611,7 +1639,8 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                         (Edge.to_node (~-1) (a,b) 
                             (Ptree.get_edge_data (Tree.Edge (a,b)) tree))
                 in
-                List.map2 (fun e t -> {t with c2 = DynamicCS.c2 e}) elst tlst
+                (* TODO *)
+                List.map2 (fun e t -> {t with c2 = CM (DynamicCS.c2 e)}) elst tlst
             | None -> tlst
         in
         let convert_data tree parent self taxon_id data =
@@ -1632,7 +1661,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             sequences Codes.empty  
                     in      
                     {sequences = new_sequences;   
-                     c2 = DynamicCS.c2 dyn;   
+                     c2 = CM (DynamicCS.c2 dyn);
                      chrom_pam = DynamicCS.chrom_pam dyn;  
                      state = DynamicCS.state dyn; 
                      alpha = DynamicCS.alpha dyn;
@@ -1684,7 +1713,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     assert (x.state = y.state);
                     match x.state with
                     | `Ml -> ancestor_likelihood false
-                    | `Seq ->  ancestor_sequence false
+                    | `Seq -> ancestor_sequence false
                     | `Chromosome -> ancestor_chrom true
                     | `Annotated -> ancestor_annchrom true
                     | `Breakinv ->ancestor_breakinv true
