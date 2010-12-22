@@ -29,15 +29,15 @@ IFDEF USE_LIKELIHOOD THEN
     -- Downpass/Uppass of Implied Alignment data using likelihood criteria
     -- Combine two versions of data to get likelihood score from IA. *)
 type t_integerized =
-    {  ilk_ss : SeqCS.t; 
+    {  ilk_ss : SeqCS.t;
            ia : MlStaticCS.t option; }
 
 (* We ignore the implied alignment and only discuss the cost on the alignment
  * via the product of the entire sequence states, across all edges *)
-type t_fpalign = 
+type t_fpalign =
     {   fp_ss : FloatSequence.FloatAlign.s array; }
 
-type t_mplalign = 
+type t_mplalign =
     {  mpl_ss : FloatSequence.MPLAlign.s array; }
 
 (* Define how we should align and create the medians; 
@@ -537,7 +537,7 @@ let make s m =
             let data = Array.map FloatSequence.MPLAlign.s_of_seq (s_of_seq s) in
             assert( (Array.length data) = (Array.length s.SeqCS.codes) );
             MPLAlign { mpl_ss = data; }
-        | `BLK | `MAL -> failwith "not done"
+        | `MAL -> failwith "not done"
     in
     {    data = r;
         model = m;
@@ -640,6 +640,7 @@ type t = unit
 let alph _ = failwith MlStaticCS.likelihood_error
 let total_cost _ = failwith MlStaticCS.likelihood_error
 let get_cm _ = failwith MlStaticCS.likelihood_error
+let model _ = failwith MlStaticCS.likelihood_error
 let code _ = failwith MlStaticCS.likelihood_error
 let get_codes _ = failwith MlStaticCS.likelihood_error
 let combine _ _ = failwith MlStaticCS.likelihood_error

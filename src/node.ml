@@ -1293,6 +1293,7 @@ END
     in
     List.map func nd.characters
 
+
 let get_times_between_plus_codes (child:node_data) (parent:node_data) =
     let null = ([||],None) in
     let func = 
@@ -2761,7 +2762,6 @@ let load_data ?(silent=true) ?(classify=true) data =
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `ILK -> mpl ,mal ,true 
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `BLK -> mpl ,mal ,true 
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
                     | _ -> acc)

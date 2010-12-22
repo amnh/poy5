@@ -102,6 +102,10 @@ val alpha : t -> Alphabet.a
 * of dynamic character set [a] *)
 val c2 : t -> Cost_matrix.Two_D.m
 
+(** [lk_model a] returns the likelihood model used in the character, or
+    Not_found if using other characters *)
+val lk_model : t -> MlModel.model
+
 (** [chrom_pam a] returns the user-defined chromosome parameters
 * of dynamic character set [a] *)
 val chrom_pam : t -> Data.dyna_pam_t

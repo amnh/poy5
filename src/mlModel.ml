@@ -160,7 +160,6 @@ let get_costfn_code a = match a.spec.cost_fn with
     | `MAL -> 0 
     | `FLK -> ~-1 (* should not call C functions; yet *)
     | `ILK -> ~-1 (* should not call C functions *)
-    | `BLK -> ~-1 (* should not call C functions *)
 
 let categorize_by_model codes get_fun =
     let set_codes =
@@ -603,7 +602,6 @@ let output_model output nexus model set =
             | `MAL -> printf "@[Cost = mal;@]"; 
             | `ILK -> printf "@[Cost = ilk;@]";
             | `FLK -> printf "@[Cost = flk;@]";
-            | `BLK -> printf "@[Cost = blk;@]";
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -654,7 +652,6 @@ let output_model output nexus model set =
             | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
             | `ILK -> printf "@[<hov 1>Cost mode: ilk;@]\n"; 
             | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
-            | `BLK -> printf "@[<hov 1>Cost mode: blk;@]\n"; 
         in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
@@ -863,7 +860,6 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "MAL" -> `MAL
         | "FLK" -> `FLK
         | "ILK" -> `ILK
-        | "BLK" -> `BLK
         | ""    -> `MPL (* unmentioned default *)
         | x     -> 
             Status.user_message Status.Warning

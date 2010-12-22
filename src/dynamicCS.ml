@@ -90,14 +90,23 @@ let subtree_recost (a : t) =
 
 (** [c2 a] returns the two dimentional cost matrix
 * of dynamic character set [a] *)
-let c2 (a : t) = 
-    match a with 
+let c2 (a : t) = match a with 
     | MlCS a -> MlDynamicCS.get_cm a
     | SeqCS a -> a.SeqCS.heuristic.SeqCS.c2
     | ChromCS a -> a.ChromCS.c2
     | GenomeCS a -> a.GenomeCS.c2
     | BreakinvCS a -> a.BreakinvCS.c2
     | AnnchromCS a -> a.AnnchromCS.c2
+
+(** [lk_model a] returns the likelihood model for the dynamic likelihood
+    character, or raise a Not_found for other characters *)
+let lk_model (a : t) = match a with 
+    | MlCS a -> MlDynamicCS.model a
+    | SeqCS _ 
+    | ChromCS _
+    | GenomeCS _
+    | BreakinvCS _
+    | AnnchromCS _ -> raise Not_found
 
 (** [chrom_pam a] returns the user-defined chromosome parameters
 * of dynamic character set [a] *)
