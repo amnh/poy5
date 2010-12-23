@@ -80,31 +80,45 @@ module type A = sig
 
     (* {6 2D Alignment Operations *)
 
-    val cost_2          : ?deltaw:int -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
+    val cost_2          : ?deltaw:int -> s -> s -> MlModel.model -> float 
+                            -> float -> floatmem -> float
     (** [cost_2 ?delta a b m at bt mem] Return the cost of the median, from the
         alignment of [a] and [b] with branch lengths [at] and [bt] respectively,
         and model [m]. The [mem] is updated, and can be used to return a
         backtrace or the edited sequences, although it is recommended that
         another function that returns that data be called instead. *)
 
-    val verify_cost_2   : float -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
+    val verify_cost_2   : float -> s -> s -> MlModel.model -> float -> float
+                            -> floatmem -> float
     (** [verify_cost_2 cost a b m at bt mem] Return the cost of the alignment of
         [a] and [b] with model [m], branch lengths [at] and [bt], respectivly.
         This alignment does a full alignment, and tests the final cost against
         [cost]; no action is done to if they are different if the debug
         parameter isn't set. *)
 
-    val c_cost_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> int -> float
+    val c_cost_2        : s -> s -> MlModel.model -> float -> float -> floatmem
+                            -> int -> float
     (** [c_cost_2 a b m at bt mem i] Calculate the maximum cost; not implemented. *)
 
-    val create_edited_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s
+    val create_edited_2 : s -> s -> MlModel.model -> float -> float -> floatmem
+                            -> s * s
     (** [create_edited_2 a b m at bt mem] Create the edited sequences of [a] and
         [b] from their alignment with branch lengths [at] and [bt], model [m]. *)
 
-    val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float
+    val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float 
+                            -> float -> floatmem -> s * s * float
     (** [align_2 a b m at bt mem] Create the edited sequences of [a] and [b]
        from their alignment with branch lengths [at] and [bt], model [m]. Also
        return the cost of the alignment. *)
+
+    val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s
+                            -> MlModel.model -> float -> float 
+                                -> Sequence.Clip.s * Sequence.Clip.s * float * int * Sequence.Clip.s * Sequence.Clip.s
+    (** [clip_align_2 a b m at bt] Convert the clip data to S data, and
+        align, returning cost, length, and clipped and unclipped alignments.
+        Although, this module does not deal with clips, but all input should be
+        `DO, and output should be the same, thus a - anoclip. Used in the
+        implied alignment module to help with processing *)
 
     val median_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> s
     (** [median_2 a b m at bt mem] Create the backtrace of the mem, from an
@@ -131,6 +145,11 @@ module type A = sig
     (** [closest p m model t mem] Create a sequence from [m] using [p] as its
         parent that is the closest assignment of [m] from [p] over length [t].
         The returned sequence will have no polymorphisms. *)
+
+    val get_closest : int -> MlModel.model -> float -> i:int -> p:int -> m:int -> int * float
+    (** [get_closest gap model t i p m] Find the state of [m] that would create
+        the minimum cost to [p]; return the optimal state, and cost associated
+        with that transformation based on the model and branch length, [t]. *)
 
     val readjust : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
     (** [readjust a b c m at bt ct mem] Perform a pseudo 3D alignment by using

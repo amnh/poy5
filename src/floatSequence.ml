@@ -68,6 +68,8 @@ module type A = sig
     val c_cost_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> int -> float
     val create_edited_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s
     val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float
+    val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s -> MlModel.model -> float -> float
+                            -> Sequence.Clip.s * Sequence.Clip.s * float * int * Sequence.Clip.s * Sequence.Clip.s
     val median_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> s
     val median_2_cost   : s -> s -> MlModel.model -> float -> float -> floatmem -> float * s
     val full_median_2   : s -> s -> MlModel.model -> float -> float -> floatmem -> s
@@ -75,6 +77,7 @@ module type A = sig
 
     (* uppass operations *)
     val closest  : p:s -> m:s -> MlModel.model -> float -> floatmem -> s * float
+    val get_closest : int -> MlModel.model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
     val readjust : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
@@ -205,20 +208,16 @@ module FloatAlign : A = struct
                     y_i pp_ilst (MlModel.list_of_packed y_i);
             cst /. (float_of_int n)
 
-    let get_cm m t1 t2 = (fun a b -> create_align_cost_fn m t1 t2 a b, a land b)
+    let get_cm m t1 t2 = 
+        let f = create_align_cost_fn m t1 t2 in
+        (fun a b -> f a b, a land b)
 
-    (* p is single; m is not; find in m the least coast to p *)
+    (* p is single; m is not; find in m the least cost to p *)
     let get_closest gap model t =
         let cost_matrix = create_cost_matrix model t in
         (fun ~i ~p ~m -> 
-            (* Determine if this is a gap; or remove that state otherwise *)
-            let nm =
-                if m = gap || p = gap then m
-                else if (0 <> p land gap) && (0 <> m land gap) then gap
-                else m land (lnot gap)
-            in
-            assert(  p > 0 );
-            assert( nm > 0 );
+            let p = if p = 0 then gap else p in
+            let m = if m = 0 then gap else m in
             (* now choose the best from parent *)
             let state,cst = 
                 List.fold_left
@@ -231,15 +230,15 @@ module FloatAlign : A = struct
                             (acc)
                             (MlModel.list_of_packed p))
                     ((~-1),infinity)
-                    (MlModel.list_of_packed nm)
+                    (MlModel.list_of_packed m)
             in
             let res = 1 lsl state in
-             if debug_aln then
-                Printf.printf "%d -- p:%02d(%a) m:%02d/%02d(%a)\t-(%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (MlModel.list_of_packed p) m nm 
-                              pp_ilst (MlModel.list_of_packed nm) cst state res;
+            if debug_aln then
+                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
+                              i p pp_ilst (MlModel.list_of_packed p) m
+                              pp_ilst (MlModel.list_of_packed m) cst state res;
             assert( state <> ~-1 );
-            res)
+            res,cst)
 
 
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
@@ -388,7 +387,7 @@ module FloatAlign : A = struct
             and ins,it = get_cost (i) (j-1)   (Sequence.get x i) gap in
             let at = if (Sequence.get x i) = (Sequence.get y j) then at else 1+at
             and it = it+1 in
-            let (cost,indel) as m = 
+            let (cost,indel) as m =
                 if ins < aln then ins,(it,[Insert])
                 else if aln < ins then aln,(at,[Align])
                 else begin
@@ -537,6 +536,14 @@ module FloatAlign : A = struct
             let se2,se1 = alignments mem s2 s1 model in
             se1,se2,cost
 
+    let clip_align_2 ?first_gap cs1 cs2 model t1 t2 =
+        let s2 = s_of_seq (Sequence.Clip.extract_s cs2)
+        and s1 = s_of_seq (Sequence.Clip.extract_s cs1) in
+        let mem = get_mem s1 s2 in
+        let s1,s2,cost = align_2 s1 s2 model t1 t2 mem in
+        let s1 = `DO (seq_of_s s1) and s2 = `DO (seq_of_s s2) in
+        s1,s2,cost,0,s1,s2
+
     let gen_all_2 s1 s2 model t1 t2 mem =
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
@@ -588,7 +595,14 @@ module FloatAlign : A = struct
             Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
             let gc = get_closest gap model t in
-            (fun m pos -> gc ~i:pos ~p:(Sequence.get par pos) ~m)
+            (fun om pos -> 
+                let p = Sequence.get par pos in
+                let m =
+                    if om = gap || p = gap then om
+                    else if (0 <> p land gap) && (0 <> om land gap) then gap
+                    else om land (lnot gap)
+                in
+                fst (gc ~i:pos ~p ~m))
         in
         let (new_m,cst) as res =
             if Sequence.is_empty m gap then
@@ -776,15 +790,23 @@ module MPLAlign : A = struct
                     (infinity,[])
                     xs
             in
+            if debug_aln then begin
+                let packed = List.fold_left (fun acc x -> (1 lsl x) + acc) 0 states in
+                Printf.printf "Cost: %d(%a) ->%f(%d)<- %d(%a)\n%!" 
+                    x_i pp_ilst (MlModel.list_of_packed x_i) cst packed
+                    y_i pp_ilst (MlModel.list_of_packed y_i);
+            end;
             match classify_float cst with
-            | FP_infinite | FP_nan -> failwith "returned infinite cost"
-            | _                    -> cst, MlModel.packed_of_list states
+            | FP_infinite | FP_nan -> 
+                failwithf "%d -- %d: returned infinite cost (%f,%f)" x_i y_i t1 t2
+            | _ -> cst, MlModel.packed_of_list states
 
-    let get_cm m t1 t2 = (fun a b -> create_mpl_cost_fn m t1 t2 a b)
+    let get_cm m t1 t2 = create_mpl_cost_fn m t1 t2
 
-    let single_cost_fn m t = 
-        let mat = 
-            let mat = MlModel.compose m t in
+    (* p is single; m is not; find in m the least coast to p *)
+    let get_closest gap model t =
+        let cost_matrix = 
+            let mat = MlModel.compose model t in
             for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
                 for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
                     mat.{i,j} <- ~-. (log mat.{i,j});
@@ -792,40 +814,30 @@ module MPLAlign : A = struct
             done;
             mat
         in
-        fun x y ->
-            assert( 0 = ( x land (x-1)));
-            let x = List.hd (MlModel.list_of_packed x) in
-            List.fold_left
-                (fun ((_,cst) as acc) yi ->
-                    let ncst = mat.{yi,x} in
-                    if ncst < cst then (x,ncst) else acc)
-                (x,max_float)
-                (MlModel.list_of_packed y)
-
-
-    (* p is single; m is not; find in m the least coast to p *)
-    let get_closest i gap cst_fn ~p ~m : int =
-        let m = 
-            if m = gap || p = gap then m
-            else if (0 <> p land gap) && (0 <> m land gap) then gap
-            else m land (lnot gap)
-        in
-        assert( m > 0 ); 
-        let state,_ = 
-            List.fold_left
-                (fun ((assn,cst) as acc) x -> 
-                    let ncst = cst_fn p x in
-                    if ncst < cst then (x,ncst) else acc)
-                (~-1,infinity)
-                (MlModel.list_of_packed m)
-        in
-        assert( state <> ~-1 );
-        let res = 1 lsl state in
-        if debug_aln then
-            Printf.printf "%d -- p:%02d m:%02d\t%a\t-(%d)->%02d\n" 
-                          i p m pp_ilst (MlModel.list_of_packed m) state res;
-        res
-
+        (* find the cost of median state [me] from [xe] and [ye] *)
+        (fun ~i ~p ~m ->
+            let p = if p = 0 then gap else p in
+            let m = if m = 0 then gap else m in
+            let state,cst = 
+                List.fold_left
+                    (fun acc m ->
+                        List.fold_left
+                            (fun ((assgn,cst) as acc) p ->
+                                let ncst = cost_matrix.{p,m} in
+                                if ncst < cst then (m,ncst) else acc)
+                            (acc)
+                            (MlModel.list_of_packed p))
+                    ((~-1),infinity)
+                    (MlModel.list_of_packed m)
+            in
+            let res = 1 lsl state in
+            if debug_aln then
+                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
+                              i p pp_ilst (MlModel.list_of_packed p) m 
+                              pp_ilst (MlModel.list_of_packed m) cst state res;
+            assert( state <> ~-1 );
+            assert( 0 = state land (state-1) );
+            res,cst)
 
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
@@ -1126,6 +1138,14 @@ module MPLAlign : A = struct
             let se2,se1 = alignments mem s2 s1 model in
             se1,se2,cost
 
+    let clip_align_2 ?first_gap cs1 cs2 model t1 t2 =
+        let s2 = s_of_seq (Sequence.Clip.extract_s cs2)
+        and s1 = s_of_seq (Sequence.Clip.extract_s cs1) in
+        let mem = get_mem s1 s2 in
+        let s1,s2,cost = align_2 s1 s2 model t1 t2 mem in
+        let s1 = `DO (seq_of_s s1) and s2 = `DO (seq_of_s s2) in
+        s1,s2,cost,0,s1,s2
+
     let gen_all_2 s1 s2 model t1 t2 mem =
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
@@ -1158,14 +1178,14 @@ module MPLAlign : A = struct
         let alph= Alphabet.explote model.MlModel.alph 1 0 in
         let gap = Alphabet.get_gap alph in
         let remove_gaps seq =
-            let remove_gaps seq base = 
-                if base <> gap then 
+            let remove_gaps seq base =
+                if base <> gap then
                     let () = Sequence.prepend seq base in seq
                 else seq
             in
-            let res = 
+            let res =
                 Sequence.fold_right (remove_gaps)
-                                    (Sequence.create (Sequence.length seq)) 
+                                    (Sequence.create (Sequence.length seq))
                                     (seq)
             in
             Sequence.prepend res gap;
@@ -1174,10 +1194,15 @@ module MPLAlign : A = struct
             let mask = lnot gap in
             Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
-            let cst i j = 
-                fst (create_mpl_cost_fn model (t/.2.0) (t/.2.0) i j) in
-            (fun m pos -> 
-                get_closest pos gap cst ~p:(Sequence.get par pos) ~m)
+            let gc = get_closest gap model t in
+            (fun om pos -> 
+                let p = Sequence.get par pos in
+                let m =
+                    if om = gap || p = gap then om
+                    else if (0 <> p land gap) && (0 <> om land gap) then gap
+                    else om land (lnot gap)
+                in
+                fst (gc ~i:pos ~p ~m))
         in
         let (s_new,c) as res =
             if Sequence.is_empty m gap then
@@ -1186,14 +1211,18 @@ module MPLAlign : A = struct
                 let masked = mask_gaps m gap in
                 Sequence.mapi (get_closest masked) masked --> remove_gaps, 0.0
             else
-                let paln, maln, cst = align_2 p m model (t/.2.0) (t/.2.0) mem in
+                let paln, maln, cst = align_2 p m model 0.0 t mem in
+(*                Printf.printf "\nP : ";print_raw p;*)
+(*                Printf.printf "\nM : ";print_raw m;*)
+(*                Printf.printf "\nPA: ";print_raw paln;*)
+(*                Printf.printf "\nMA: ";print_raw maln;*)
                 assert( Sequence.length paln = Sequence.length maln );
                 Sequence.mapi (get_closest paln) maln --> remove_gaps, cst
         in
         if debug_aln then begin
-            Printf.printf "\nP: ";print_s p alph;
+            Printf.printf "\nP: ";print_raw p;
             Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
-                Printf.printf " -%f-> " c; print_s s_new alph;
+            Printf.printf " -%f-> " c; print_s s_new alph;
             print_newline ();
         end;
         res

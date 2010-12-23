@@ -63,7 +63,7 @@ type ias = {
 *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of MlModel.model * float
+    | Model of MlModel.model * (float * int option) (* model, branch length to parent code *)
 
 type t = {
     sequences : ias array Codes.t;
@@ -242,7 +242,8 @@ let calculate_indels a b alph b_children =
                     let len = i - pos in
                     let seq = 
                         let seq = Sequence.Clip.sub b pos len in
-                        Sequence.Clip.to_string seq alph 
+                        try Sequence.Clip.to_string seq alph 
+                        with e -> Alphabet.print alph; raise e
                     in
                     result_list :=
                         (`Single (pos, seq, len, `Insertion, b_children)) :: 
@@ -254,7 +255,8 @@ let calculate_indels a b alph b_children =
                     let len = i - pos in
                     let seq = 
                         let seq = Sequence.Clip.sub a pos len in
-                        Sequence.Clip.to_string seq alph 
+                        try Sequence.Clip.to_string seq alph 
+                        with e -> Alphabet.print alph; raise e
                     in
                     result_list :=
                         (`Single (pos, seq, len, `Deletion, b_children)) :: 
@@ -288,6 +290,7 @@ let calculate_indels a b alph b_children =
     | [] -> `Empty
     | x -> `Set x
 
+
 (** [ancestor calc_m a b cm m] creates a common ancestor for sequences [a] and [b]
  * using the cost matrix [cm] and the alignment matrix [m] 
  * The resulting common ancestor holds the homology
@@ -314,46 +317,57 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     and lenb = Sequence.Clip.length b.seq 
     and gap = match cm with
         | CM cm -> Cost_matrix.Two_D.gap cm 
-        | Model (m,_) -> Alphabet.get_gap m.MlModel.alph
+        | Model (m,_) -> Alphabet.get_gap alph
     in
     let kind = match a.seq with
         | `DO _ -> `DO
         | `First _ -> `First
         | `Last _ -> `Last
     in
-    let create_gaps len = Sequence.Clip.init kind (fun _ -> gap) len 
+    let create_gaps len = Sequence.Clip.init kind (fun _ -> gap) len
     and aempty = (Sequence.Clip.is_empty a.seq gap) && ((state = `Seq) || (state = `Ml))
     and bempty = (Sequence.Clip.is_empty b.seq gap) && ((state = `Seq) || (state = `Ml)) in
     let a', b', nogap, indels, clip_length =
         let anb_indels = `Set [a.indels; b.indels] in
-        let a', b', _, nogap, indels, clip_length =
+        let a', b', nogap, indels, clip_length =
             if aempty && bempty then
-                if lena > lenb then a.seq, a.seq, 0, `A, anb_indels, 0
-                else b.seq, b.seq, 0, `B, anb_indels, 0
+                if lena > lenb then a.seq, a.seq, `A, anb_indels, 0
+                               else b.seq, b.seq, `B, anb_indels, 0
             else if aempty then
-                    (create_gaps lenb), b.seq, 0, `A, anb_indels, 0
+                    (create_gaps lenb), b.seq, `A, anb_indels, 0
             else if bempty then
-                a.seq, (create_gaps lena), 0, `B, anb_indels, 0
+                a.seq, (create_gaps lena), `B, anb_indels, 0
             else begin
                 if prealigned then  begin
                     let inds = match lena with
                         | 0 -> `Empty
-                        | _ -> calculate_indels a.seq b.seq alph bchld 
+                        | _ -> calculate_indels a.seq b.seq alph bchld
                     in
-                    a.seq, b.seq, 0, `Both, `Set [inds; anb_indels], 0
-                end else
-                    let a, b, c, clip_length, anoclip, bnoclip = 
-                        match cm with
-                        | CM cm   -> Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default 
-                        | Model _ -> assert false (* TODO *)
-                    in
-                    let inds = calculate_indels anoclip bnoclip alph bchld in
-                    a, b, c, `Both, `Set [inds; anb_indels], clip_length
-            end 
+                    a.seq, b.seq, `Both, `Set [inds; anb_indels], 0
+                end else begin match cm with
+                    | CM cm ->
+                        let aseq,bseq,_,clip_len,anoclip,bnoclip =
+                            Sequence.Clip.Align.align_2 a.seq b.seq cm Matrix.default
+                        in
+                        let inds = calculate_indels anoclip bnoclip alph bchld in
+                        aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
+                    | Model (m,(t,p)) ->
+                        let aseq,bseq,_,clip_len,anoclip,bnoclip =
+                            begin match m.MlModel.spec.MlModel.cost_fn with
+                                | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
+                                | `FLK -> FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
+                                | `ILK -> assert false (* should have used CM *)
+                                | `MAL -> assert false (* does not exist yet  *)
+                            end
+                        in
+                        let inds = calculate_indels anoclip bnoclip alph bchld in
+                        aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
+                end
+            end
         in
         let nogap = 
             (* if we are not calculating the median, we better always
-            *  pick whatever is assigned to the true ancestor *)
+               pick whatever is assigned to the true ancestor *)
             if calculate_median then nogap
             else `B 
         in
@@ -374,8 +388,39 @@ let ancestor calculate_median state prealigned all_minus_gap a b
             { a with seq = gapless_seqa }, Sequence.Clip.length gapless_seqa
         | _ -> a, Sequence.Clip.length a.seq
     in 
+    let median_fn = match cm with
+        | CM cm -> 
+            fun a b _ -> Cost_matrix.Two_D.median a b cm
+        | Model (m,(t,_)) ->
+            begin match m.MlModel.spec.MlModel.cost_fn with
+                | `MPL ->
+                    let gc = FloatSequence.MPLAlign.get_closest gap m t in
+                    (fun a b i -> fst (gc i a b))
+                | `FLK -> 
+                    let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in
+                    (fun a b _ -> snd (gc a b))
+                | `ILK -> assert false
+                | `MAL -> assert false
+            end
+    and cost_fn = match cm with
+        | CM cm -> 
+            fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
+        | Model (m,(t,_)) ->
+            begin match m.MlModel.spec.MlModel.cost_fn with
+                | `MPL -> 
+                    let gc = FloatSequence.MPLAlign.get_closest gap m t in
+                    (fun a b i -> snd (gc i a b))
+                | `FLK -> 
+                    let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in
+                    (fun a b _ -> fst (gc a b))
+                | `ILK -> assert false
+                | `MAL -> assert false
+            end
+    in
     let a, lena = correct_gaps_in_sequences a in
     let b, lenb = correct_gaps_in_sequences b in
+    Sequence.printDNA (Sequence.Clip.extract_s a.seq);
+    Sequence.printDNA (Sequence.Clip.extract_s b.seq);
     let rec builder = 
         fun position a_pos b_pos anc_pos codes hom a_hom b_hom a_or b_or res_or ->
         if position > (-1) then begin
@@ -395,17 +440,15 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                                 then it_b
                                 else let () = assert (it_b = gap) in
                                      it_a
-                        else begin match cm with
-                            | CM cm -> Cost_matrix.Two_D.median it_a it_b cm 
-                            | Model _ -> assert false (* TODO *)
-                        end
+                        else 
+                           median_fn it_a it_b position
             in
             let is_gap_median =
-                let cost,gcost = match cm with
-                    | CM cm -> 
-                        Cost_matrix.Two_D.cost it_a it_b cm,
-                        Cost_matrix.Two_D.cost (all_minus_gap it_a) (all_minus_gap it_b) cm
-                    | Model _ -> assert false (* TODO *)
+                Printf.printf "Median %i: %d -- %d\t%d -- %d\n%!" 
+                                position it_a it_b (all_minus_gap it_a) (all_minus_gap it_b);
+                let cost,gcost =
+                    cost_fn it_a it_b position,
+                    cost_fn (all_minus_gap it_a) (all_minus_gap it_b) position
                 in
                 if it_a <> gap && it_b <> gap then
                     (cost < gcost || (med = gap))
@@ -420,7 +463,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                             | Not_found ->
                                   failwith 
                                       (Printf.sprintf "Could not find %d with gap
-                                     %d and it_a %d and it_b %d\n" a_pos gap it_a it_b)
+                                       %d and it_a %d and it_b %d\n" a_pos gap it_a it_b)
                         in
                         let codeb = Hashtbl.find b.codes b_pos in
                         let hom_a = Hashtbl.find a_hom codea 
@@ -1630,50 +1673,43 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let st = 
             Status.create "test: Implied Alignments" vertices "vertices calculated"
         in
-        let apply_likelihood_cm_from_edge tree (a,b) tlst : t list = match a with 
-            | Some a ->
-                let elst =
-                    (* we must create a node first to avoid accessing an unknown
-                     * structure as defined by the functor. *)
-                    Node.get_dynamic_preliminary None
-                        (Edge.to_node (~-1) (a,b) 
-                            (Ptree.get_edge_data (Tree.Edge (a,b)) tree))
-                in
-                (* TODO *)
-                List.map2 (fun e t -> {t with c2 = CM (DynamicCS.c2 e)}) elst tlst
-            | None -> tlst
-        in
         let convert_data tree parent self taxon_id data =
             let data = 
                 List.map 
-                (fun dyn ->
-                    let sequences = DynamicCS.leaf_sequences dyn in
-                    let state = DynamicCS.state dyn in 
-                    let new_sequences = 
-                        Codes.fold 
-                            (fun code seq_arr acc ->
-                                let ias_arr = 
-                                    Array.map 
-                                        (fun seq -> create_ias state seq taxon_id cg)
-                                        seq_arr
-                                in 
-                                Codes.add code ias_arr acc) 
-                            sequences Codes.empty  
-                    in      
-                    {sequences = new_sequences;   
-                     c2 = CM (DynamicCS.c2 dyn);
-                     chrom_pam = DynamicCS.chrom_pam dyn;  
-                     state = DynamicCS.state dyn; 
-                     alpha = DynamicCS.alpha dyn;
-                     code = DynamicCS.code dyn; 
-                     cannonic_code = taxon_id;
-                     children = `Single taxon_id})
-                 data
-            in
-            let data = 
-                if Node.using_likelihood `Dynamic (Ptree.get_node_data self ptree) then
-                    apply_likelihood_cm_from_edge tree (parent,self) data
-                else
+                    (fun dyn ->
+                        let sequences = DynamicCS.leaf_sequences dyn in
+                        let state = DynamicCS.state dyn in 
+                        let new_sequences = 
+                            Codes.fold 
+                                (fun code seq_arr acc ->
+                                    let ias_arr = 
+                                        Array.map 
+                                            (fun seq -> create_ias state seq taxon_id cg)
+                                            seq_arr
+                                    in 
+                                    Codes.add code ias_arr acc) 
+                                sequences Codes.empty  
+                        and cost_matrix =
+                            try 
+                                let model = DynamicCS.lk_model dyn in
+                                let branch = 0.1 in (* TODO *)
+                                match model.MlModel.spec.MlModel.cost_fn with
+                                | `ILK -> raise Not_found
+                                | `MPL 
+                                | `FLK 
+                                | `MAL -> Model (model,(branch,parent))
+
+                            with 
+                                | Not_found -> CM (DynamicCS.c2 dyn)
+                        in
+                        {   sequences = new_sequences;   
+                            c2 = cost_matrix;
+                            chrom_pam = DynamicCS.chrom_pam dyn;  
+                            state = DynamicCS.state dyn; 
+                            alpha = DynamicCS.alpha dyn;
+                            code = DynamicCS.code dyn; 
+                            cannonic_code = taxon_id;
+                            children = `Single taxon_id; })
                     data
             in
             AssocList.singleton (taxon_id,data), data
@@ -1686,19 +1722,20 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     | Some _ -> parent
                     | None ->
                         try Some (Ptree.get_parent taxon_id ptree)
-                        with | _ -> None 
+                        with | _ -> None
                 in
                 if Tree.is_leaf id ptree.Ptree.tree then
                     (* In a leaf we have to do something more complex, if we are
-                    * dealing with simplified alphabets, not bitsets, we must
-                    * pick the dynamic adjusted *)
+                     * dealing with simplified alphabets, not bitsets, we must
+                     * pick the dynamic adjusted *)
                     let pre = Node.get_dynamic_preliminary par data
                     and adj = Node.get_dynamic_adjusted par data in
-                    List.map2 
+                    List.map2
                         (fun pre adj ->
-                            if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre) then
-                                adj
-                            else pre)
+                            try if 0 = Cost_matrix.Two_D.combine (DynamicCS.c2 pre)
+                                then adj
+                                else pre
+                            with | _ -> pre (* likelihood *) )
                         pre adj
                 else get_dynamic_data par data
             in
@@ -1732,17 +1769,17 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     Codes.empty
             in
             let rec ancestor_builder hx hy =
-                { hx with 
+                { hx with
                     cannonic_code = min hx.cannonic_code hy.cannonic_code;
                     children = `Set [hx.children; hy.children];
-                    sequences = t_ancestor hx hy; } 
+                    sequences = t_ancestor hx hy; }
             in
             let unionresult = AssocList.union ac bc in
             let map2result = List.map2 ancestor_builder a b in
             unionresult, map2result
-        in 
+        in
         match Tree.get_node handle ptree.Ptree.tree with
-        | Tree.Single self -> 
+        | Tree.Single self ->
                 let a, b = convert_node None ptree () self ([], []) in
                 Status.finished st;
                 AssocList.elements a, b

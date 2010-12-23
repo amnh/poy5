@@ -166,9 +166,9 @@ module F : Ptree.Tree_Operations
             | `Dynamic | `Integer -> 
                 begin match Data.type_of_dynamic_likelihood ptree.Ptree.data with
                     | Some (`ILK) when types = `Integer -> true
-                    | Some (`FLK) when types = `Integer -> false
-                    | None   -> false
+                    | Some _ when types = `Integer -> false
                     | Some _ -> true
+                    | None   -> false
                 end
             | `Either   -> (using_likelihood `Static ptree ) || 
                            (using_likelihood `Dynamic ptree)

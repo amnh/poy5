@@ -80,7 +80,8 @@ let get_cm t = match t.data with
 
 let to_string t = failwith_todo "to_string"
 
-let alph t = t.model.MlModel.alph
+let alph t =
+    Alphabet.explote t.model.MlModel.alph 1 0
 
 let code t = t.code
 
@@ -645,6 +646,7 @@ let code _ = failwith MlStaticCS.likelihood_error
 let get_codes _ = failwith MlStaticCS.likelihood_error
 let combine _ _ = failwith MlStaticCS.likelihood_error
 let make _ _ = failwith MlStaticCS.likelihood_error
+let estimate_time _ _ = failwith MlStaticCS.likelihood_error
 let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_i _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_3 _ _ _ _ = failwith MlStaticCS.likelihood_error
