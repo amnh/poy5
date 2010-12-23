@@ -10,7 +10,7 @@ let hodx_matrix = [|
   (*G*)  [| -31; -114;  100; -125|];
   (*C*)  [|-114;  -31; -125;  100|];
 *)
-           (*A*) (*C*) (*G*) (*T*)
+           (*A*) (*C*) (*G*) (*T*) 
   (*A*)  [|  91; -114;  -31; -123|];
   (*C*)  [|-114;  100; -125;  -31|];
   (*G*)  [| -31; -125;  100; -114|];
@@ -90,8 +90,14 @@ type mum = {
     3. during add to/remove from position2seed table, only one seed is kept as
     extendable, others are marked as unextendable. but if we remove the
     extendable one for some reason, we can upgrade one of this kind to be
-    extendable. 
+    extendable.
     *)
+    priority_lst : int list; 
+    (*priority_lst keep a list of seedNO that make this mum un-extendable (which
+    * means this mum has extendable=3 because of those seeds) we can upgrade
+    * this mum to ext=0 if this priority_lst is empty.
+    * Note: each seedNO can show up more than once in priority_lst, since we can
+    * have two MUM share more than one start/end positions*)
     mumscore : int ;
 }
 
@@ -202,7 +208,7 @@ let print_lcbs_range in_lstlst =
 
 let print_neighborhood_list in_lst = 
     List.iter (fun (seqNO, j,i_ori,j_ori,d) ->
-        Printf.printf "{seqNO.%d, seed.#%d, ori:%d/%d,d:%d }\n%!" seqNO j i_ori
+        Printf.printf "{seqNO.%d, seed#%d, ori:%d/%d,d:%d }\n%!" seqNO j i_ori
         j_ori d 
     ) in_lst
 
@@ -211,20 +217,21 @@ let print_mum in_mum  print_neighborhood print_unextendable =
     | Not_found -> failwith ("Print MUMs, not found err ") in*)
     if (in_mum.extendable = 0) ||
     ((in_mum.extendable !=0 )&&(print_unextendable=true) ) then begin
-        Printf.printf "MUM# %d\n%!" in_mum.seedNO;
+        Printf.printf "MUM#%d\n%!" in_mum.seedNO;
         Printf.printf " mumkey : %d\n%!" in_mum.mumkey;
         Printf.printf " mumseq = %!";
-        print_int_arr in_mum.mumseq;
-        Printf.printf " size:%d ,\n" in_mum.size;
-        Printf.printf " subsuming_pointer = %d ,%!" in_mum.subsuming_pointer; 
+        print_int_arr in_mum.mumseq; 
+        Printf.printf " size(how many matches are there):%d ,\n" in_mum.size;
+        Printf.printf " subsuming_pointer(is subsumed by) = %d ,%!" in_mum.subsuming_pointer; 
         Printf.printf " extendable = %d \n%!" in_mum.extendable;
+        Printf.printf " priority_lst(is unextendable because of other mums) = %!";
+        print_int_list in_mum.priority_lst;
         Printf.printf " positions: \n%!";
         print_pos_list in_mum.positions;
         if print_neighborhood then begin
         Printf.printf " neighborhood list : \n%!";
         print_neighborhood_list in_mum.neighborhood_lst;
         end;
-        Printf.printf "\n%!";
     end
 
 let print_lcb x = 
@@ -268,6 +275,8 @@ let create_btree seedseq newmum = Leaf (seedseq,newmum)
 
 (*add new mum_node to b_tree, if same mum already exist, replace it with new one*)
 let add_to_btree seedseq newmum old_bt =
+    let debug = false in
+    if debug then  Printf.printf "add mum#%d to btree\n%!" newmum.seedNO;
     let sign = ref true in
     let rec insert_node sub_bt key mum =
         match sub_bt with
@@ -284,6 +293,12 @@ let add_to_btree seedseq newmum old_bt =
         | Leaf (leafkey, leafmum) ->
                 assert ((Array.length leafkey)>0);
                 let insert_dir = compare key leafkey in
+                if debug then begin
+                    Utl.printIntArr key;
+                    Utl.printIntArr leafkey;
+                    Printf.printf " insert_dir=%d,leafmum.seedNO=%d\n%!" 
+                    insert_dir leafmum.seedNO;
+                end;
                 if insert_dir=1 then (*key>leafkey*)
                     Node (key, 
                           Leaf (leafkey, leafmum),
@@ -293,13 +308,15 @@ let add_to_btree seedseq newmum old_bt =
                           Leaf (key,mum),
                           Leaf (leafkey, leafmum))
                 else 
-                    if newmum.seedNO=leafmum.seedNO then 
+                    if newmum.seedNO=leafmum.seedNO then  
                         Leaf (leafkey,newmum)
-                    else 
-                        let _ = sign := false in
+                    else begin
+                        sign := false;
                         Leaf (leafkey,leafmum)
+                    end
     in
-    insert_node old_bt seedseq newmum, !sign
+    let res_bt = insert_node old_bt seedseq newmum in
+    res_bt,!sign
 
 let search_in_btree key bt = (*mumseq is the key inside b_tree*)
     let rec search_node sub_bt key =
@@ -424,17 +441,34 @@ let get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl =
             failwith "not found, get mum from mumtbl" 
             end 
     in
-    search_in_btree seedseq bt
+    let res = search_in_btree seedseq bt in
+    if res.seedNO<>seedNO then begin
+        let _,seedseq1,w1 = Hashtbl.find seed2pos_tbl seedNO 
+        and _,seedseq2,w2 = Hashtbl.find seed2pos_tbl res.seedNO in
+        Printf.printf "seed1=%d,w=%d,%!" seedNO w1;
+        print_int_arr seedseq1;
+        Printf.printf "; seed2=%d,w=%d,%!" res.seedNO w2;
+        print_int_arr seedseq2;
+        Printf.printf "\n%!";
+        assert(false);
+    end;
+    res
+        
 
 (*add newmum to mum_tbl, create a b_tree if there is no entry of newmum.mumkey,
 * if some b_tree already exist, add the new node to it. if old record of this
 * mum exist in the that b_tree, replace it with the new one*)    
 let add_mum_to_mumtbl newmum mum_tbl =
+    let debug = false in
+    if debug then 
+        Printf.printf "add seed#%d with mumkey=%d to mumtbl\n%!"
+        newmum.seedNO newmum.mumkey;
     let mumkey = newmum.mumkey in
     if (Hashtbl.mem mum_tbl mumkey) then begin
         let old_bt = Hashtbl.find mum_tbl mumkey in
         let new_bt,sign_newbt = add_to_btree newmum.mumseq newmum old_bt in
         if sign_newbt then Hashtbl.replace mum_tbl mumkey new_bt;
+        if debug then Printf.printf "sign_newbt=%b\n%!" sign_newbt;
         sign_newbt
     end
     else begin
@@ -444,6 +478,9 @@ let add_mum_to_mumtbl newmum mum_tbl =
     end
 
 let remove_mum_from_mumtbl mum2remove mum_tbl =
+    let debug = false in
+    if debug then Printf.printf "remove mum#%d from mumtbl\n%!"
+    mum2remove.seedNO;
     let mumkey = mum2remove.mumkey in
     let bt = try (Hashtbl.find mum_tbl mumkey) 
     with |Not_found -> failwith "not found, remove mum from mumtbl" in
@@ -462,36 +499,26 @@ let remove_mum_from_mumtbl mum2remove mum_tbl =
 
 (*update_mum_to_mumtbl, update mum_tbl with newmum. 
 * In case the key for mum_tbl changes -- like when we change mum.positions, 
-* oldkey should be passed to remove the node from old tree*)    
+* oldkey should be passed to remove the node from old tree. 
+* if we have a new position for some mum, but "add_mum_to_mumtbl" return 
+* a false sign, this means we already have the same match. *)    
 let update_mum_to_mumtbl (oldmum:mum option) newmum mum_tbl debug =
     match oldmum with
     | Some oldmum -> 
-            if debug then Printf.printf "update_mum_to_mumtbl,remove oldmum#.%d,mumkey=%d\n%!" 
+            if debug then Printf.printf 
+            "update_mum_to_mumtbl: remove oldmum#.%d,mumkey=%d;%!" 
             oldmum.seedNO oldmum.mumkey;
             remove_mum_from_mumtbl oldmum mum_tbl;
-            if debug then Printf.printf "add mum,mumkey=%d,%!" newmum.mumkey;
+            if debug then Printf.printf "add mum,mumkey=%d\n%!" newmum.mumkey;
             let sign_newmum = add_mum_to_mumtbl newmum mum_tbl in
-            if debug then Printf.printf "sign_newmum=%b\n%!" sign_newmum
+            sign_newmum
     | None -> 
             let sign_newmum = add_mum_to_mumtbl newmum mum_tbl in
             if debug then 
-                Printf.printf "update_mum_to_mumtbl,sign_newmum=%b\n%!" sign_newmum
+                Printf.printf "update_mum_to_mumtbl,sign_newmum=%b\n%!" sign_newmum;
+            sign_newmum
 
 (***************** b_tree mum_tbl function ends *********************)
-
-(*print_pos_list2 print out one record of pos2seed_tbl, also the mum info*)
-let print_pos_list2 seqNO pos in_lst mum_tbl seed2pos_tbl printmum =
-    Printf.printf "check record on (%d,%d) of pos2seed tbl(size=%d):\n%!"
-    seqNO pos (List.length in_lst);
-    List.iter (fun (seedNO,weight,orientation) ->
-        Printf.printf "[seed: %d, weight: %d, ori: %d ] \n%!"
-        seedNO weight orientation;
-        if printmum then begin
-        let mum2print = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-        print_mum mum2print false true;
-        end;
-    ) in_lst;
-    Printf.printf "end of record in pos2seed tbl \n%!"
 
 
 let update_lcb_ref_code lcb_tbl key refcode = 
@@ -570,7 +597,7 @@ let print_seedNO2seq_tbl in_tbl =
 
 let print_seed2postbl in_tbl =
     Hashtbl.iter (fun key (record,seedseq,seedweight) ->
-        Printf.printf "seed# %d, { %!" key;
+        Printf.printf "seed#%d, { %!" key;
         List.iter (fun (seqNO,idx,dir)->
             Printf.printf " (%d,%d,%d);%!" seqNO idx dir
         )record;
@@ -578,11 +605,26 @@ let print_seed2postbl in_tbl =
     ) in_tbl
 
 
+(*print_pos_list2 print out one record of pos2seed_tbl, also the mum info*)
+let print_pos_list2 seqNO pos in_lst mum_tbl seed2pos_tbl printmum =
+    Printf.printf "check record on (%d,%d) of pos2seed tbl(size=%d):\n%!"
+    seqNO pos (List.length in_lst);
+    List.iter (fun (seedNO,weight,orientation) ->
+        Printf.printf "[seed: %d, weight: %d, ori: %d ] \n%!"
+        seedNO weight orientation;
+        if printmum then begin
+        let mum2print = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
+        print_mum mum2print false true;
+        end;
+    ) in_lst;
+    Printf.printf "end of record in pos2seed tbl \n%!"
+
+
 let print_position2seedtbl position2seed_tbl somepos = 
     let print_record record_lst seqNO pos= 
         Printf.printf "pos.(%d,%d) ==> " seqNO pos;
         List.iter (fun (seed,seed_weight,dir) ->
-        Printf.printf "seed.#%d,weight=%d,dir=%d; %!" seed seed_weight dir;
+        Printf.printf "seed#%d,weight=%d,dir=%d; %!" seed seed_weight dir;
         ) record_lst;
         Printf.printf "\n%!"
     in
@@ -637,16 +679,24 @@ let find_index arr looking_item cmp_fun =
 let get_abs_lst in_lst =
     List.sort (fun x y -> compare x y) (List.map (fun x -> abs x) in_lst)
 
+let break_code in_code =
+    let resarr = Array.make 4 0 in
+    let tmp_code = ref in_code in
+    for i = 3 downto 0 do
+        let base = int_of_float ( 2. ** (float_of_int i) )  in
+        if (!tmp_code >= base) then begin
+            resarr.(i)<-1;
+            tmp_code := !tmp_code - base;
+        end;
+    done;
+    assert( !tmp_code=0);
+    resarr
+    
+
 let rev_comp_chr x pos = 
-    if (x=1) then 2
-    else if (x=2) then 1
-    else if (x=4) then 8
-    else if (x=8) then 4
-    else 
-        begin
-        Printf.printf "reverse complement with x = %d,pos=%d%!" x pos;
-        failwith "we are dealing dna(a,t,g,c) sequence%!"
-        end
+    match (Alphabet.complement x Alphabet.nucleotides) with 
+    | Some res -> res
+    | None -> failwith "cannot find complement, block_mauve.ml"
 
 (*NOTE: rev_comp_lst just give us the complement seq, not reverse, use List.rev to do that*)
 let rev_comp_lst seqlst =
@@ -659,16 +709,37 @@ let rev_comp_arr seqarr =
     Array.mapi (fun idx x -> rev_comp_chr seqarr.(size-idx-1) (size-idx-1)) seqarr
 
 
-let mark_unextendable_seed2pos_tbl seedNO ext_type seed2pos_tbl =
-    let debug = false in
-    if debug then 
-        Printf.printf "mark seedNO#%d as UNextendab=%d in seed2pos tbl\n%!" 
-        seedNO ext_type;
-    let old_record,seedseq,seedweight = Hashtbl.find seed2pos_tbl seedNO in
-    Hashtbl.remove seed2pos_tbl seedNO;
-    Hashtbl.add seed2pos_tbl seedNO (
-        ((-1),ext_type,0)::old_record,seedseq,seedweight )
+(* subsumed related function start *)
+let is_subsumed_by j_seed i_seed mum_tbl seed2pos_tbl =
+    let j_mum = get_mum_from_mumtbl j_seed mum_tbl seed2pos_tbl in
+    if (j_mum.subsuming_pointer=i_seed) then true else false
 
+(*i_mum is subsuming j_mum means, for each mach (jseqNO,jleft,jright) in j_mum,
+* there is a match in i_mum (iseqNO,ileft,iright), so that iseqNO=jseqNO &&
+* ileft<=jleft && iright>=jright. 
+* this function works for any ext_type mums, also for more than 2 sequences*)
+let is_subsuming i_mum j_mum =
+    let i_pos_lst = i_mum.positions in
+    let j_pos_lst = j_mum.positions in
+    if (List.length i_pos_lst)>=(List.length j_pos_lst) then begin
+        let sign = ref true in
+        List.iter (fun j_pos ->
+            let i_idx = find_index (Array.of_list i_pos_lst) j_pos 
+            (fun j_pos i_pos ->
+                let j_le = j_pos.left_end and j_re = j_pos.right_end in
+                let i_le = i_pos.left_end and i_re = i_pos.right_end in
+                if (j_pos.sequence_NO=i_pos.sequence_NO)&&
+                (j_le>=i_le)&&(j_re<=i_re) then 0
+                else (-1) )
+            in
+            if (i_idx<0) then sign := false
+        ) j_pos_lst;
+        !sign
+    end
+    else false 
+(* subsumed related function end *)
+
+(***************** extendable related functions start ************************)
 (*extendable= 0,1,2,3:
 0. this seed is extendable (from). 
 1 ~ 3 : not extendable (from),but might be extend to.
@@ -682,19 +753,71 @@ extendable, others are marked as unextendable. but if we remove the
 extendable one for some reason, we can upgrade one of this kind to be
 extendable. 
 *)
-let mark_unextendable_mum_tbl seedNO ext_type seed2pos_tbl mum_tbl = 
+let mark_unextendable_mum_tbl seedNO (priority_seedNO:int option) 
+(subsuming_p : int option) ext_type seed2pos_tbl mum_tbl = 
     let debug = false in
     if debug then 
         Printf.printf "mark seedNO#%d as UNextendable=%d in mum_tbl\n%!"  seedNO ext_type;
     let oldmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-    update_mum_to_mumtbl None {oldmum with extendable = ext_type} mum_tbl false
+    let new_prilst =
+        match priority_seedNO with
+        | Some pri_seedNO -> pri_seedNO::oldmum.priority_lst
+        | _ -> oldmum.priority_lst
+    in
+    let subsumed_by = 
+        match subsuming_p with
+        | Some x -> x
+        | None -> oldmum.subsuming_pointer
+    in
+    let sign_newmum = update_mum_to_mumtbl None 
+    {oldmum with subsuming_pointer = subsumed_by; 
+    extendable = ext_type; priority_lst=new_prilst} mum_tbl false in
+    assert(sign_newmum)
 
 let mark_extendable_mum_tbl seedNO seed2pos_tbl mum_tbl = 
     let debug = false in
     if debug then Printf.printf "mark seedNO#%d as extendable in mum_tbl\n%!" seedNO;
     let oldmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-    update_mum_to_mumtbl None {oldmum with extendable = 0} mum_tbl false
+    let sign_newmum = update_mum_to_mumtbl None 
+    {oldmum with extendable = 0; subsuming_pointer=(-1); priority_lst=[]} mum_tbl false in
+    assert(sign_newmum)
 
+(** [update_priority_lst] add seedNO_to_remove to priority_lst, and remove
+* seedNO_to_add to priority_lst. return if priority_lst is empty.
+* same seedNO in priority_lst can show up more than one time.*)
+let update_priority_lst in_mum (seedNO_to_remove:int option) (seedNO_to_add:int
+option) mum_tbl seed2pos_tbl=
+    let debug =  false in
+    if debug then begin
+        Printf.printf "update prilst on seed#%d," in_mum.seedNO;
+        print_mum in_mum false true;
+    end;
+    let old_lst = in_mum.priority_lst in
+    let lst_after_remove = 
+    match seedNO_to_remove with
+    | Some seedNO->
+        if debug then Printf.printf "remove seed#%d," seedNO;
+        assert (List.mem seedNO old_lst); (*or these must be something wrong*)
+        let find1 = ref false in
+        List.filter (fun x -> 
+            let res = (x<>seedNO)||(x=seedNO && !find1=true) in
+            if x=seedNO then find1 := true;
+            res
+            ) old_lst 
+    | None -> old_lst
+    in
+    let reslst = 
+    match seedNO_to_add with
+    | Some seedNO-> if debug then Printf.printf "add seed#%d %!" seedNO; 
+                 seedNO::lst_after_remove
+    | None -> lst_after_remove
+    in
+    if debug then Printf.printf "prilst len = %d\n%!" (List.length reslst);
+    let sign_newmum = 
+        update_mum_to_mumtbl None {in_mum with priority_lst=reslst} mum_tbl false
+    in
+    assert(sign_newmum);
+    List.length reslst
 
 
 (*when some seed shows up at most once in any sequence, doesn't mean it shows up in every
@@ -759,15 +882,98 @@ let get_extendable_type poslst input_seqlst_size debug =
     res
 
 (*get extendable record out of in_lst, in_lst is a recordlist of a position
-* (seqNO,pos), from a pos2seed_tbl *)    
+* (seqNO,pos), from a pos2seed_tbl *)
+(*to do : try to carry ext type with poslst, save time in mum_tbl looking*)
 let get_extendable_recordlst in_lst mum_tbl seed2pos_tbl = 
     List.filter (fun (seedNO,weight,ori) ->
         let mum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
         (mum.extendable=0)
     ) in_lst 
+(***************** extendable related functions end ************************)
+
+(******************* seed removing function start  ************************)
+(*if we remove the extendable seed from a position, if there are
+* other seeds on current pos, we can upgrade one of them to be extendable. *)
+let remove_from_pos2seed_tbl pos2seed_tbl seqNO old_pos mum_i mum_tbl seed2pos_tbl= 
+    let seedNO = mum_i.seedNO in
+    let debug = false in
+    if debug then Printf.printf "remove seed#%d from pos2seedtbl (%d,%d) \n%!"
+    seedNO seqNO old_pos;
+    let old_record = try (Hashtbl.find pos2seed_tbl (seqNO,old_pos)) with
+    | Not_found -> failwith ("remove pos2seedtbl, not found 1") in
+    if debug then print_position2seedtbl pos2seed_tbl (Some (seqNO,old_pos));
+    let new_record = List.filter (fun (x,_,_) -> x<>seedNO) old_record in
+    if (mum_i.extendable=0)&&(List.length new_record)>0 then begin
+        if debug then 
+            Printf.printf "seed#%d is the only extendable one on this pos\n%!" seedNO;
+        let sorted_new_record = List.sort (fun (_,j_weight,_) (_,k_weight,_) ->
+            compare k_weight j_weight
+        ) new_record in
+        let seedNO_to_upgrade,_,_ = 
+        try (List.find (fun (j_seedNO,_,_) ->
+            let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
+            let len_prilst = 
+                update_priority_lst j_mum (Some seedNO) None mum_tbl seed2pos_tbl
+            in
+            (j_mum.extendable=3)&&(len_prilst=0)
+        ) sorted_new_record)
+        with | Not_found -> (-1,-1,-1)
+        in
+        if (seedNO_to_upgrade != (-1)) then begin
+            if debug then 
+                Printf.printf "seed#%d become the extendable one\n%!" seedNO_to_upgrade;
+            mark_extendable_mum_tbl seedNO_to_upgrade seed2pos_tbl mum_tbl;
+            List.iter (fun (j_seedNO,_,_) ->
+                if j_seedNO<>seedNO_to_upgrade then begin
+                    let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
+                    let len_prilst = 
+                    update_priority_lst j_mum None (Some seedNO_to_upgrade) mum_tbl 
+                    seed2pos_tbl in
+                    if debug then Printf.printf "len of seed#%d.prilst<-%d\n%!" 
+                    j_seedNO len_prilst;
+                end
+            ) sorted_new_record;
+        end;
+    end
+    else begin 
+        if debug then Printf.printf "seed#%d is not extendable, or is the only \
+        seed on this position,just remove it\n%!" seedNO;
+    end;
+    (*if (List.length new_record)=0 then 
+        let _ =  if debug then
+            Printf.printf "(%d,%d) no longer exist in pos2seed tbl; " seqNO
+            old_pos in
+        Hashtbl.remove pos2seed_tbl (seqNO,old_pos)
+    else 
+        if debug then begin
+            print_position2seedtbl pos2seed_tbl (Some (seqNO,old_pos));
+        end
+    ;*)
+    Hashtbl.replace pos2seed_tbl (seqNO,old_pos) new_record;
+    if debug then Printf.printf "END of remove seed from pos2seed tbl\n%!"
+    
+
+(* remove_seed2 remove j_seedNO from mum_tbl/seed2pos/pos2seed completely.
+*  to do : seqNO, jleft, jright are useless now, remove them*)
+let remove_seed2 mumj seqNO pos2seed_tbl_left pos2seed_tbl_right jleft jright
+mum_tbl seed2pos_tbl = 
+    let j_seedNO = mumj.seedNO in
+    let debug = false in
+    if debug then Printf.printf "remove match on seq#%d of mum#%d (we gonna \
+    remove the whole mum here, since we don't need mum with ext=2)\n%!" seqNO j_seedNO;
+    let j_positions = mumj.positions in
+    List.iter (fun record ->
+        let seqNO = record.sequence_NO 
+        and left = record.left_end 
+        and right = record.right_end in
+        remove_from_pos2seed_tbl pos2seed_tbl_left seqNO left mumj mum_tbl seed2pos_tbl;
+        remove_from_pos2seed_tbl pos2seed_tbl_right seqNO right mumj mum_tbl seed2pos_tbl;
+    ) j_positions ;
+    remove_mum_from_mumtbl mumj mum_tbl;
+    Hashtbl.remove seed2pos_tbl j_seedNO
+(******************* seed removing function end  ************************)
 
 (*************** functions for pos2seed table start ************************)
-
 (* [add_to_pos2seed_tbl] add new positions of mum, might modify mum's 
 * extendable sign and update it to mum_tbl.
 *  Note1: pos2seed_tbl only allows at most one extendable seed start/end 
@@ -775,99 +981,120 @@ let get_extendable_recordlst in_lst mum_tbl seed2pos_tbl =
 *  Note2: remember to reload mum after this function, for its "extendable" sign
 *  could be changed. 
 *  Note3: **REQUIRE** seed2pos_tbl&mum_tbl must be updated before pos2seed_tbl *)
-let add_to_pos2seed_tbl pos2seed_tbl  
-seqNO pos seedNO seedweight orientation ext_sign new_multi seed2pos_tbl mum_tbl = 
-    let debug = false in
-    if debug then Printf.printf "add seed#%d to pos (%d,%d)\n%!" seedNO seqNO
-    pos;
+let add_to_pos2seed_tbl main_left pos2seed_tbl_left pos2seed_tbl_right  
+seqNO pos seedNO seedweight orientation ext_sign new_multi seed2pos_tbl 
+mum_tbl = 
+    let debug =  false  in
+    if debug then Printf.printf "add seed#%d(weight=%d) to pos \
+    (%d,%d),main_left=%b\n%!" seedNO seedweight seqNO pos main_left;
+    let main_tbl = 
+        if main_left then pos2seed_tbl_left  else pos2seed_tbl_right in
     let add_to_table key newrecord tbl =
         let old_record = Hashtbl.find tbl key in
         let new_record = newrecord::old_record in
-        Hashtbl.remove tbl key;
-        Hashtbl.add tbl key new_record
+        Hashtbl.replace tbl key new_record;
     in
-    let replace_to_table key newrecord tbl = Hashtbl.replace tbl key newrecord
-    in
-    if (Hashtbl.mem pos2seed_tbl (seqNO,pos) ) then begin
-        if (ext_sign!=0) then begin
-            add_to_table (seqNO,pos) (seedNO,seedweight,orientation) pos2seed_tbl;
-        end
-        else begin
-            let old_record = Hashtbl.find pos2seed_tbl (seqNO,pos) in
-            if debug then print_pos_list2 seqNO pos old_record mum_tbl
-            seed2pos_tbl true;
-            let old_record = get_extendable_recordlst old_record mum_tbl seed2pos_tbl in
-            assert((List.length old_record) <= 1);
+    if (Hashtbl.mem main_tbl (seqNO,pos) ) then begin
+        let old_record = Hashtbl.find main_tbl (seqNO,pos) in
+        if debug then print_position2seedtbl main_tbl (Some (seqNO,pos)); 
+        let ext_old_record = get_extendable_recordlst old_record mum_tbl seed2pos_tbl in
+        let ext_record_len = List.length ext_old_record in
+        if debug then Printf.printf "there is %d ext-record on this pos\n%!" ext_record_len;
+        assert(ext_record_len <= 1);
+        let new_mum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
+        if (ext_sign!=0) then begin (*non-extendable seed, just add it*)
             if debug then 
-                Printf.printf "there is %d ext-record on this pos\n%!" 
-                (List.length old_record) ;
-            if ((List.length old_record) = 0 ) then 
-                add_to_table (seqNO,pos) (seedNO,seedweight,orientation) pos2seed_tbl
+                Printf.printf "nonext(ext=%d) seed, just add it.\n%!" ext_sign;
+            let seedNO_to_add = 
+                if ext_record_len=0 then None
+                else 
+                    let (oldseedNO,_,_) = List.hd ext_old_record in
+                    (Some oldseedNO)
+            in
+            let _ = update_priority_lst new_mum None seedNO_to_add mum_tbl
+            seed2pos_tbl in
+            add_to_table (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
+        end
+        else begin (*extendable seed,compare with old ext-record if need*)
+            if ext_record_len=0 then begin
+                if debug then Printf.printf "no ext-record before,become first\n%!";
+                List.iter (fun (oldseedNO,_,_) ->
+                    let oldmum = get_mum_from_mumtbl oldseedNO mum_tbl seed2pos_tbl in
+                    let pri_len = 
+                        update_priority_lst oldmum None (Some seedNO) mum_tbl seed2pos_tbl
+                    in
+                    if debug then Printf.printf "len of prilst:%d\n%!" pri_len;
+                ) old_record; 
+                add_to_table (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
+            end
             else begin
-                let (old_seedNO,old_weight,old_ori) = List.hd old_record in
+                let (old_ext_seedNO,old_ext_weight,old_ext_ori) = List.hd ext_old_record in
                 if debug then 
-                    Printf.printf "there is other mum on position (%d,%d)->(%d,%d,%d)\n%!"
-                    seqNO pos old_seedNO old_weight old_ori;
-                let old_mum = get_mum_from_mumtbl old_seedNO mum_tbl seed2pos_tbl in
-                let old_multi = List.length old_mum.positions in
-                if (new_multi>old_multi)||((new_multi=old_multi)&&(seedweight>old_weight)) 
-                then begin (*newseed become the only extendable seed on this pos*)
-                    if debug then Printf.printf "newseed become the only extendable seed \n%!";
-                    replace_to_table (seqNO,pos) [(seedNO,seedweight,orientation)] pos2seed_tbl;
-                    mark_unextendable_mum_tbl old_seedNO 3 seed2pos_tbl mum_tbl;
+                    Printf.printf "(%d,%d,%d) is the ext record on this pos\n%!"
+                    old_ext_seedNO old_ext_weight old_ext_ori;
+                let old_ext_mum = get_mum_from_mumtbl old_ext_seedNO mum_tbl seed2pos_tbl in
+                let old_multi = List.length old_ext_mum.positions in
+                (*if (new_multi=old_multi)&&(seedweight=old_ext_weight) then
+                    let _ = 
+                        Printf.printf "add seed#%d(weight=%d) to pos (%d,%d),we \
+                        already have mum here  \n%!" seedNO seedweight seqNO
+                        pos;
+                        print_mum old_ext_mum false true;
+                    in
+                    assert(false) (*really??*)  
+                else *)if (new_multi>old_multi)||
+                ((new_multi=old_multi)&&(seedweight>=old_ext_weight))
+                then begin (*newseed become the ext one on this pos*)
+                    if debug then Printf.printf "newseed become the ext record \n%!";
+                    let sign_subsume = is_subsuming new_mum old_ext_mum in
+                    let subsumed_by = 
+                        if sign_subsume then (Some seedNO)
+                        else None in
+                    mark_unextendable_mum_tbl old_ext_seedNO (Some seedNO) 
+                    subsumed_by 3 seed2pos_tbl mum_tbl;
+                    List.iter (fun (oldseedNO,_,_) ->
+                        if oldseedNO<>old_ext_seedNO then begin
+                        let oldmum = get_mum_from_mumtbl oldseedNO mum_tbl seed2pos_tbl in
+                        let pri_len = update_priority_lst oldmum (Some old_ext_seedNO)
+                        (Some seedNO) mum_tbl seed2pos_tbl in
+                        if debug then Printf.printf "len of prilst:%d\n%!" pri_len;
+                        end;
+                    ) old_record;
+                    add_to_table (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
                 end
                 else begin (*add newseed to postbl, mark it as untendable*)
                     if debug then 
-                    Printf.printf "seed#%d is add to and mark as untendatbl\n%!" seedNO;
-                    add_to_table (seqNO,pos) (seedNO,seedweight,orientation) pos2seed_tbl;
-                    let mum2update = 
-                        get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-                    update_mum_to_mumtbl None {mum2update with extendable=3} mum_tbl false;
+                    Printf.printf "seed#%d is add to as untendatbl,%!" seedNO;
+                    let sign_subsume = is_subsuming old_ext_mum new_mum in
+                    let subsumed_by =
+                        if sign_subsume then (Some old_ext_mum.seedNO) 
+                        else None
+                    in
+                    mark_unextendable_mum_tbl seedNO (Some old_ext_seedNO)
+                    subsumed_by 3 seed2pos_tbl mum_tbl;
+                    add_to_table (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
                 end;
-            end;
+            end;(*end of weather the new mum is the first ext record on this pos*)
         end (*end of if new mum is extendable*)
     end
     else begin
         if debug then Printf.printf "first record on this position\n%!";
-        Hashtbl.add pos2seed_tbl (seqNO,pos) [(seedNO,seedweight,orientation)];
-    end
-
-(*if we remove the extendable seed from a position, in case there are
-* other seeds on current pos, we can upgrade one of them to be extendable. *)
-let remove_from_pos2seed_tbl pos2seed_tbl seqNO old_pos mum_i mum_tbl seed2pos_tbl= 
-    let seedNO = mum_i.seedNO in
-    let debug =  false in
-    if debug then Printf.printf "remove seed#%d from (%d,%d) \n%!" seedNO seqNO old_pos;
-    let old_record = try (Hashtbl.find pos2seed_tbl (seqNO,old_pos)) with
-    | Not_found -> failwith ("remove pos2seedtbl, not found 1") in
-    let new_record = List.filter (fun (x,_,_) -> x<>seedNO) old_record in
-    if (mum_i.extendable=0) then begin
-        if debug then 
-            Printf.printf "seed#%d is the only extendable one on this pos\n%!" seedNO;
-        let sorted_new_record = List.sort (fun (_,j_weight,_) (_,k_weight,_) ->
-            compare j_weight k_weight
-        ) new_record in
-        let seedNO_to_upgrade,_,_ = 
-        try (List.find (fun (j_seedNO,_,_) ->
-            let j_mum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-            (j_mum.extendable = 3)
-        ) sorted_new_record)
-        with | Not_found -> (-1,-1,-1)
-        in
-        if (seedNO_to_upgrade != (-1)) then begin
-            if debug then 
-                Printf.printf "seed# %d become the extendable one\n%!" seedNO_to_upgrade;
-            mark_extendable_mum_tbl seedNO_to_upgrade seed2pos_tbl mum_tbl;
-        end;
+        Hashtbl.add main_tbl (seqNO,pos) [(seedNO,seedweight,orientation)];
     end;
-    Hashtbl.replace pos2seed_tbl (seqNO,old_pos) new_record
+    if debug then begin
+        print_position2seedtbl main_tbl (Some (seqNO,pos));
+        Printf.printf "END of add 2 pos2seed tbl\n%!";
+    end
 
 (*[modify_record_in_pos2seed_tbl] modify weight and/or orientation of seedNO in
 * pos2seed_tbl, on position (seqNO,pos) *)    
 let modify_record_in_pos2seed_tbl pos2seed_tbl seqNO pos seedNO weight ori =
+    let debug = false in
     let old_record = try (Hashtbl.find pos2seed_tbl (seqNO,pos)) with
     | Not_found -> failwith ("remove pos2seedtbl, not found 1") in
     let unchanged = List.filter (fun (x,_,_) -> x<>seedNO) old_record in
+    if debug then Printf.printf "modify pos2seedtbl for seed#%d at pos(%d,%d) \
+    w=%d,ori=%d\n%!"  seedNO seqNO pos weight ori;
     let new_record = (seedNO,weight,ori)::unchanged in
     Hashtbl.add pos2seed_tbl (seqNO,pos) new_record
 (****************** functions for pos2seed table end ************************)
@@ -911,14 +1138,9 @@ let intlst2int inlst =
     List.fold_left (fun acc x -> acc*10+x ) 0 inlst
 
 let radix_sort inarr =
+    let max_size = 15 in
     let debug = false in
-    let get_idx x = 
-        if x=1 then 0 
-        else if x=2 then 1
-        else if x=4 then 2 
-        else if x=8 then 3
-        else failwith "radix sort, we only work on DNA sequences"
-    in
+    let get_idx x = x-1  in
     let size_digits = 
         let _,_,_,first_seq,_ = inarr.(0) in
         Array.length first_seq in
@@ -928,7 +1150,7 @@ let radix_sort inarr =
             compare (List.nth lst1 digit) (List.nth lst2 digit)
         )inlst*)
        if debug then Printf.printf "sort by digit %d\n%!" digit;
-        let count_arr = Array.make 4 0 in
+        let count_arr = Array.make max_size 0 in
         Array.iteri (fun i (seqNO,pos,dir,subseq,_) ->
             let x = subseq.(digit) in
             let idx = get_idx x in
@@ -936,7 +1158,7 @@ let radix_sort inarr =
             inarr.(i)<-(seqNO,pos,dir,subseq,idx);
         ) inarr;
         let index = ref 0 in
-        let full_count_arr = Array.make 4 (0,0,0) in
+        let full_count_arr = Array.make max_size (0,0,0) in
         let _ = Array.fold_left ( fun pre_count count ->
             full_count_arr.(!index) <- (count,0,pre_count); 
             index := !index +1;
@@ -1041,6 +1263,14 @@ let extend_seq_in_both_dir matcharr seedweight inseqarr =
 let add_seed_to_tbl init_accarr init_seedweight inseqarr input_seqlst_size
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let debug = false in
+    if debug then begin
+        Printf.printf "add seed to tbl,size of match arr=%d\n%!" 
+        (Array.length init_accarr);
+        (*Array.iter (fun (seqNO,pos,dir) ->
+            Printf.printf "(%d,%d,%d) %!" seqNO pos dir
+        ) init_accarr;
+        Printf.printf "\n%!"*)
+    end;
     let poslst =  Array.to_list init_accarr in
     let sign1 = match_at_most_once_in_each_seq2 poslst in
     let sign2 = match_at_least_once_in_every_seq2 poslst 
@@ -1051,58 +1281,94 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         else if (sign2=false)&&sign1 then 2
         else 2
     in
-    if ext_type=0(*||ext_type=1 for now we only care about extendabl ones*) then begin
-        let check_old_record position2seed_tbl (seqNO,pos) new_seedweight
+    (*when ext=0,we have two match ,one in seq0, another in seq1*)
+    if ext_type=0(*||ext_type=1 for now we only care about extendable ones*) then begin
+        let check_old_record position2seed_tbl (seqNO,pos) ext_2dir new_seedweight
         pre_sign acclst newseedNO =
-            (*This is a shortcut: we only allow one extendable record start/end 
-            * from one position. *)
+            (*a shortcut: we only allow one extendable seed start/end 
+            * from one position. 
+            * when adding a new seed, and there is an old seed start/or/end with
+            * the same position. we could
+            * 1.get rid of old seed, add the new one
+            * 2.don't add new one
+            * 3.get rid of old seed, and don't add the new one.
+            * case 3 happens when old seed is same as new seed,just 
+            * with different direction.*)
             if (Hashtbl.mem position2seed_tbl (seqNO,pos)) then begin
                     (*already have this seed match. this could happen when 
                     1.we have both seedseq and (rev seedseq) in one sequence. 
                     since we append this sequence with its own
                     revseq, the same match will show up 2n(n>1) times.
-                    2.the extended subseq of other other is the same as this
-                    one, if this one is longer, get rid of others.*)
+                    2.the extended subseq of other seed is the same as this
+                    one, we keep the longer one.*)
                     let recordlst = Hashtbl.find position2seed_tbl (seqNO,pos) in
                     assert((List.length recordlst)=1);
-                    let (oldseedNO,oldweight,_) = List.hd recordlst in
-                    if oldweight>=new_seedweight then
-                        false,[]
+                    if debug then begin
+                        Printf.printf "new seedweight=%d(2dir=%d),old record:%!"
+                        new_seedweight ext_2dir;
+                        print_position2seedtbl position2seed_tbl (Some (seqNO,pos)); 
+                    end;
+                    let (oldseedNO,oldweight,olddir) = List.hd recordlst in
+                    if oldweight>new_seedweight then
+                        2,[]
+                    else if oldweight=new_seedweight then begin
+                        (*we find the same match again, if it's just with
+                        * different dir, then it has ext=1*)
+                        let old_poslst,_,_ = try (Hashtbl.find seed2position_tbl
+                        oldseedNO) with |Not_found -> 
+                            failwith "not found seed2postbl, check old record" in
+                        let _,_,old_dir0 = List.hd old_poslst in
+                        let _,_,old_dir1 = List.nth old_poslst 1 in
+                        let old_2dir = old_dir0*old_dir1 in
+                        if debug then Printf.printf "old_2dir=%d,%!" old_2dir;
+                        if old_2dir<>ext_2dir then
+                            let newacclst = 
+                                if (List.mem oldseedNO acclst) then acclst
+                                else oldseedNO::acclst in
+                            3,newacclst
+                        else
+                            2,[]
+                    end
                     else begin
                         if debug then 
-                        Printf.printf "newseed=%d,remove oldseed.%d(%d<%d)\n%!" 
+                        Printf.printf "newseed=%d,remove oldseed#%d(%d<%d)\n%!" 
                         newseedNO oldseedNO oldweight new_seedweight;
                         let newacclst = 
                             if (List.mem oldseedNO acclst) then acclst
                             else oldseedNO::acclst in
                         pre_sign,newacclst;
                     end;
-                end
-                else
-                    pre_sign,acclst;
+            end
+            else pre_sign,acclst;
         in
         let ext_posarr,ext_seedweight = 
             extend_seq_in_both_dir init_accarr init_seedweight inseqarr in
-        let seqNO,pos,dir = ext_posarr.(0) in 
+        let seqNO,pos,dir0 = ext_posarr.(0) in 
+        let _,_,dir1 = ext_posarr.(1) in         
+        let ext_2dir = dir0*dir1 in
         assert (seqNO=0);
         let seedNO = get_a_seedNO () in
         let newsign,seed2remove_lst = 
-            Array.fold_left (fun (pre_sign,acclst) (ext_seqNO,ext_pos,ext_dir) -> 
-            if pre_sign then begin
+            Array.fold_left (fun (pre_sign,acclst) (ext_seqNO,ext_pos,_) -> 
+            if pre_sign<>2 then begin
+                (*check left table first*)
                 let sign_left,acclst_left = check_old_record position2seed_tbl_left 
-                (ext_seqNO,ext_pos) ext_seedweight pre_sign acclst seedNO in
-                if sign_left then
-                 check_old_record position2seed_tbl_right (ext_seqNO,ext_pos+ext_seedweight-1) 
+                (ext_seqNO,ext_pos) ext_2dir ext_seedweight pre_sign acclst seedNO in
+                if sign_left<>2 then (*then check right table*)
+                 check_old_record position2seed_tbl_right 
+                 (ext_seqNO,ext_pos+ext_seedweight-1) ext_2dir 
                  ext_seedweight sign_left acclst_left seedNO
                 else
-                    false,[]
+                    2,[]
             end
             else
                 pre_sign,[]
             ;
-        ) (true,[]) ext_posarr in
+        ) (1,[]) ext_posarr in
+        if debug then Printf.printf "newsign=%d,\n%!" newsign;
         if seed2remove_lst<>[] then 
             List.iter (fun seed2remove ->
+                if debug then Printf.printf "remove seed#%d\n%!" seed2remove;
                 let poslst,_,seedweight = try (Hashtbl.find seed2position_tbl
                 seed2remove) with |Not_found -> 
                     let _ = Printf.printf  "cannot find seed %d in seed2pos tbl"
@@ -1120,7 +1386,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                 return_a_seedNO seed2remove;
             ) seed2remove_lst;
         let ext_poslst = Array.to_list ext_posarr in
-        if newsign then begin
+        if newsign=1 then begin
             let mumseq = 
             get_sub_seq2 inseqarr.(seqNO) pos ext_seedweight in
             Hashtbl.add seed2position_tbl seedNO (ext_poslst,mumseq,ext_seedweight);
@@ -1148,6 +1414,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                     neighborhood_lst = [];
                     subsuming_pointer = (-1);
                     extendable = if mumsize=2 then 0 else 1;
+                    priority_lst=[];
                     mumscore = 0;
                 } in
             if debug then begin
@@ -1171,6 +1438,16 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let inseqarr_w_idxarr = Array.mapi (fun seqNO inseq->
         let seqlen = Array.length inseq in
         if debug then Printf.printf "seq len = %d\n%!" seqlen;
+        (*if seqNO=0&&seqlen>9977 then begin
+            let tmp = get_sub_seq2 inseq 9957 19 in
+            Utl.printIntArr tmp;
+        end;
+        if seqNO=1&&seqlen>7701 then begin
+            let tmp = get_sub_seq2 inseq 1395 19 in
+            Utl.printIntArr tmp;
+            let tmp = get_sub_seq2 inseq 7681 19 in
+            Utl.printIntArr tmp;
+        end;*)
         let resarr =  
             Array.mapi (fun idx x ->
             let sequenceNO,pos,dir,subseqlst =
@@ -1207,7 +1484,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
     let sorted_arr = radix_sort inseqarr_w_idxarr_w_rev in
     if debug then Printf.printf "end of radix sort\n%!";
     let pre_subseq = ref [||] and pre_sign = ref 0 in
-    let sorted_arr = Array.map (fun (seqNO,pos,dir,(subseq:int array),_) ->
+    let sorted_arr = Array.mapi (fun idx (seqNO,pos,dir,(subseq:int array),_) ->
         if (compare !pre_subseq subseq)=0 then begin
             pre_sign := !pre_sign+1;
         end
@@ -1225,7 +1502,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
         Printf.printf "]\n%!";
         ) sorted_arr;
     end;
-    if debug then Printf.printf "add seed to tables\n%!";
+    if debug then Printf.printf "start adding seeds to tables\n%!";
     let last_acclst = Array.fold_left (fun acc item ->
         let (sign,seqNO,pos,dir,subseq) = item in
         let newacc =
@@ -1241,7 +1518,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl
         
 
-(*try to deal with huge data-set, remember to use ocaml64bits*)
+(*try to deal with huge dataset, remember to use 64bits*)
 let scan_seqlst2 (inseqarr:int array array) patternarr mum_tbl
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl debug=
     let input_seqarr_size = 2 in (*now we only have 2 input sequences*)
@@ -1344,10 +1621,10 @@ let get_max_range in_lst =
 
 (* [update_positions_by_seqNO] update positions of mum with newpos=(seqNO,pos)
   this works for adding new position to a pos_list, or update content of a
-* position in the pos_list*)
+* position in the pos_list, in mum_tbl*)
+(*this works only for input two sequences*)
 let update_positions_by_seqNO seedNO seqNO oldmum new_pos new_mumseq mum_tbl = 
     let debug = false in
-    (*this works only for input two sequences*)
     let input_seqlst_size = 2 in
     if debug then Printf.printf "update_positions_by_seqNO,seedNO:%d\n%!" seedNO;
     let old_poslen = List.length oldmum.positions in
@@ -1369,13 +1646,16 @@ let update_positions_by_seqNO seedNO seqNO oldmum new_pos new_mumseq mum_tbl =
         mumseq = new_mumseq;
         size = List.length new_positions; extendable = ext_sign } 
     in
-    update_mum_to_mumtbl (Some oldmum) new_mum mum_tbl false;
+    let sign_newmum = update_mum_to_mumtbl (Some oldmum) new_mum mum_tbl false in
     if debug then begin
-        Printf.printf "update_positions_by_seqNO ends, check mum:\n%!";
-        print_mum new_mum false true;
-    end
+        Printf.printf "update_positions_by_seqNO ends, check mum(sign_newmum=%b):\n%!"
+        sign_newmum;
+        if sign_newmum then print_mum new_mum false true;
+    end;
+    sign_newmum
 
 let remove_positions_by_seqNO seedNO seqNO mum_tbl seed2pos_tbl = 
+    let debug = false in
     let mi = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in 
     let old_mumkey = get_mumkey_from_milst mi.positions in
     let positions_unchanged = List.filter (fun record ->
@@ -1388,28 +1668,11 @@ let remove_positions_by_seqNO seedNO seqNO mum_tbl seed2pos_tbl =
     positions = new_positions; 
     mumkey = new_mumkey;
     size = List.length new_positions } in
-    Printf.printf "update mum#%d,new_mumkey = %d, old_mumkey = %d\n%!"
+    if debug then Printf.printf "update mum#%d,new_mumkey = %d, old_mumkey = %d.%!"
     seedNO new_mumkey old_mumkey;
-    update_mum_to_mumtbl (Some mi) new_mi mum_tbl false
-
-
-(* remove_seed2 remove j_seedNO from mum_tbl/seed2pos/pos2seed completely. *)
-let remove_seed2 mumj seqNO pos2seed_tbl_left pos2seed_tbl_right jleft jright
-mum_tbl seed2pos_tbl = 
-    let j_seedNO = mumj.seedNO in
-    let debug = false in
-    if debug then Printf.printf "remove match on seq#%d of mum#%d (we gonna \
-    remove the whole mum here, since we don't need mum with ext=2)\n%!" seqNO j_seedNO;
-    let j_positions = mumj.positions in
-    List.iter (fun record ->
-        let seqNO = record.sequence_NO 
-        and left = record.left_end 
-        and right = record.right_end in
-        remove_from_pos2seed_tbl pos2seed_tbl_left seqNO left mumj mum_tbl seed2pos_tbl;
-        remove_from_pos2seed_tbl pos2seed_tbl_right seqNO right mumj mum_tbl seed2pos_tbl;
-    ) j_positions ;
-    remove_mum_from_mumtbl mumj mum_tbl;
-    Hashtbl.remove seed2pos_tbl j_seedNO
+    let sign_newmum = update_mum_to_mumtbl (Some mi) new_mi mum_tbl false in
+                        assert(sign_newmum);
+    if debug then Printf.printf "sign=%b\n%!" sign_newmum
 
 
 (*our idx starts from 0, while mauve starts from 1*)
@@ -1436,34 +1699,6 @@ let format_output mum_tbl =
     ) mum_tbl;
     !res
 
-let is_subsumed_by j_seed i_seed mum_tbl seed2pos_tbl =
-    let j_mum = get_mum_from_mumtbl j_seed mum_tbl seed2pos_tbl in
-    if (j_mum.subsuming_pointer=i_seed) then true else false
-
-(* nobody calls this
-let is_subsuming i_seedNO j_seedNO mum_tbl =
-    let i_mum = try (Hashtbl.find mum_tbl i_seedNO) with 
-            | Not_found -> failwith ("is subsuming, not found err 1") in
-    let j_mum = try (Hashtbl.find mum_tbl j_seedNO) with 
-            | Not_found -> failwith ("is subsuming, not found err 2") in
-    let i_pos_lst = i_mum.positions in
-    let j_pos_lst = j_mum.positions in
-    if (List.length i_pos_lst)>=(List.length j_pos_lst) then begin
-        let sign = ref true in
-        List.iter (fun j_pos ->
-            let i_idx = find_index (Array.of_list i_pos_lst) j_pos 
-            (fun j_pos i_pos ->
-                let j_le = j_pos.left_end and j_re = j_pos.right_end in
-                let i_le = i_pos.left_end and i_re = i_pos.right_end in
-                if (j_le>=i_le)&&(j_re<=i_re) then 0
-                else (-1) )
-            in
-            if (i_idx<0) then sign := false
-        ) j_pos_lst;
-        !sign
-    end
-    else false 
-*)
 
 let sort_tbl_by_size in_tbl =
     let p_queue = ref [] in
@@ -1471,10 +1706,8 @@ let sort_tbl_by_size in_tbl =
         let size = mum.size in
         p_queue := (seedNO, size)::!p_queue;
     ) in_tbl;
-    let p_queue = List.sort (fun (_,sizex) (_,sizey) ->
-        compare sizex sizey ) !p_queue 
-    in
-    List.rev p_queue
+    List.sort (fun (_,sizex) (_,sizey) ->
+        compare sizey sizex ) !p_queue 
 
 
 let sort_neighborhood_lst_by_dis in_lst = 
@@ -1513,6 +1746,10 @@ let group_neighborhood_lst_by_dis in_lst debug =
 (* this allows more than one seed starts/ends from one positon*)
 (* we call this to expand the position to left or/and right*)
 let update_position2seedtbl seqNO old_pos new_pos seed_weight ori seedNO positiontbl =
+    let debug = true in
+    if debug then
+        Printf.printf "update pos2seedtbl on seed#%d,pos=(%d,old=%d,new=%d),\
+        weight=%d\n%!" seedNO seqNO old_pos new_pos seed_weight;
     let old_record = try (Hashtbl.find positiontbl (seqNO,old_pos)) with
     | Not_found -> failwith ("update pos2seedtbl, not found 1") in
     let new_record = List.filter (fun (x,_,_) -> x<>seedNO) old_record in
@@ -1624,13 +1861,13 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
             let stop = ref 0 in
             (*"next to" also count as "overlap", we add it into neighborhood, too*)
             let pos = ref (i_left_end-d-1) in
-            while (*(!pos>=0)&&*)(!stop<>1)&&( (!pos) <= (i_right_end+d+1)) do
+            while (!stop<>1)&&( (!pos) <= (i_right_end+d+1)) do
                 if ((!pos<>i_left_end)&&(Hashtbl.mem pos_tbl_right (seqNO,!pos)))then begin
                     let record_list = Hashtbl.find pos_tbl_right (seqNO,!pos) in
                     List.iter (fun (j_seedNO,seed_weight,j_ori) ->
                         if debug2 then  
-                            Printf.printf "right tbl,pos=(%d,%d),j_seedNO#.%d\n%!" 
-                            seqNO !pos j_seedNO;
+                            Printf.printf "right tbl,pos=(%d,%d),i_seedNO=%d,\
+                            j_seedNO#%d\n%!" seqNO !pos seedNO j_seedNO;
                         let j_mum = 
                             get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
                         if (j_mum.subsuming_pointer<>(-1)) then () 
@@ -1682,6 +1919,8 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
                                 !pos (fun p item ->
                                     if (item.left_end=p) then 0 else (-1) )
                             in
+                            if (j_idx<0) then
+                                Printf.printf "j_idx<0,j=%d,pos=%d\n%!" j_seedNO !pos;
                             assert(j_idx>=0);
                             assert( (i_left_end-(!pos))<>0);
                             let newneighbor =
@@ -1703,7 +1942,8 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
         ) m_i_lst;
         let res = sort_neighborhood_lst_by_dis !neighborhood_lst in
         let new_i_mum = {i_mum with neighborhood_lst = res } in
-        update_mum_to_mumtbl None new_i_mum mum_tbl false;
+        let sign_newmum = update_mum_to_mumtbl None new_i_mum mum_tbl false in
+        assert(sign_newmum);
         if debug then begin
             Printf.printf "end of update_neighborhood check mum again\n%!";
             let imum =  get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
@@ -1750,10 +1990,6 @@ pos2seed_tbl_left pos2seed_tbl_right =
             print_mum i_mum false true;
             print_mum j_mum false true;
             end;
-            if (i_seedNO=49)&&(j_seedNO=44) then begin
-            let mum19 = get_mum_from_mumtbl 19 mum_tbl seed2pos_tbl in
-            print_mum mum19 false true;
-            end;
             (*we don't need to reload mi and mj here, for we only modify
             * positions of another match in different sequence of mi *)
             let mi = get_position_by_seqNO i_pos_lst seqNO in
@@ -1794,19 +2030,6 @@ pos2seed_tbl_left pos2seed_tbl_right =
             if debug then 
                 Printf.printf "new_l_end/r_end=%d/%d\n%!" new_left_end new_right_end;
             let seed_weight = new_right_end - new_left_end+1 in
-            if expand_to_left then begin
-                (*do we need to modify seedNO2seq_tbl, seq2seedNO_tbl?*)
-                remove_from_pos2seed_tbl pos2seed_tbl_left i_seqNO
-                i_left_end i_mum mum_tbl seed2pos_tbl;
-                add_to_pos2seed_tbl pos2seed_tbl_left i_seqNO mj.left_end
-                i_seedNO seed_weight mi.orientation i_mum.extendable i_mum.size seed2pos_tbl mum_tbl;
-            end ;
-            if expand_to_right then begin
-                remove_from_pos2seed_tbl pos2seed_tbl_right i_seqNO
-                i_right_end i_mum mum_tbl seed2pos_tbl;
-                add_to_pos2seed_tbl pos2seed_tbl_right i_seqNO mj.right_end
-                i_seedNO seed_weight mi.orientation i_mum.extendable i_mum.size seed2pos_tbl mum_tbl;
-            end;
             let new_pos = 
                 {mi with left_end = new_left_end; right_end = new_right_end }
             in
@@ -1815,13 +2038,35 @@ pos2seed_tbl_left pos2seed_tbl_right =
                new_imumseq seed2pos_tbl
             else  
                 update_seed2pos_tbl i_seedNO None new_imumseq seed2pos_tbl;
-            update_positions_by_seqNO i_seedNO i_seqNO i_mum new_pos new_imumseq mum_tbl;
+            let sign_newmum = update_positions_by_seqNO i_seedNO i_seqNO i_mum 
+            new_pos new_imumseq mum_tbl in
+            assert(sign_newmum);
+            if expand_to_left then begin
+                (*do we need to modify seedNO2seq_tbl, seq2seedNO_tbl?*)
+                remove_from_pos2seed_tbl pos2seed_tbl_left i_seqNO
+                i_left_end i_mum mum_tbl seed2pos_tbl;
+                add_to_pos2seed_tbl true pos2seed_tbl_left pos2seed_tbl_right i_seqNO 
+                mj.left_end i_seedNO seed_weight mi.orientation i_mum.extendable
+                i_mum.size seed2pos_tbl mum_tbl;
+                modify_record_in_pos2seed_tbl pos2seed_tbl_right i_seqNO
+                new_right_end i_seedNO seed_weight mi.orientation;
+
+            end ;
+            if expand_to_right then begin
+                remove_from_pos2seed_tbl pos2seed_tbl_right i_seqNO
+                i_right_end i_mum mum_tbl seed2pos_tbl;
+                add_to_pos2seed_tbl false pos2seed_tbl_left pos2seed_tbl_right i_seqNO 
+                mj.right_end i_seedNO seed_weight mi.orientation i_mum.extendable 
+                i_mum.size seed2pos_tbl mum_tbl;
+                modify_record_in_pos2seed_tbl pos2seed_tbl_left i_seqNO
+                new_left_end i_seedNO seed_weight mi.orientation;
+            end;      
         )nei_list;
     end;
     (*set j's subsuming_pointer to i*)
     let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
-    update_mum_to_mumtbl None {j_mum with subsuming_pointer = i_seedNO } mum_tbl
-    false;
+    let sign_newmum = update_mum_to_mumtbl None {j_mum with subsuming_pointer = i_seedNO } mum_tbl false in
+    assert(sign_newmum);
     (*to do : remove jmum from mumtbl/pos2seed/seed2pos completely*)
     if debug then begin
         Printf.printf "after chain: \n%!";
@@ -1836,12 +2081,12 @@ pos2seed_tbl_left pos2seed_tbl_right =
 let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
     let debug = false and debug2 = false in
     if debug then Printf.printf "\n ===========   extend seeds ============= \n%!";
-    Hashtbl.iter (fun i_seedNO record ->
+    Hashtbl.iter (fun i_seedNO _ ->
         if debug then Printf.printf "+++++++ extend seeds on seed#%d \n%!" i_seedNO;
         let i_mum = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
         if ( i_mum.subsuming_pointer <> (-1)) then begin 
             if debug then 
-            Printf.printf " is subsumed by seed# %d\n%!" i_mum.subsuming_pointer; 
+            Printf.printf " is subsumed by seed#%d\n%!" i_mum.subsuming_pointer; 
         end
         else if ( i_mum.extendable != 0 ) then begin
             if debug then Printf.printf "this one is not extendable from\n%!";
@@ -1858,7 +2103,7 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
                 pos2seed_tbl_left pos2seed_tbl_right false;
                 let i_mum = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
                 if debug then begin
-                    Printf.printf "extend seed# %d\n%!" i_seedNO;
+                    Printf.printf "extend seed#%d\n%!" i_seedNO;
                     print_mum i_mum false true;
                 end;
                     if debug then Printf.printf "categorize neighborhood :\n%!";
@@ -1877,6 +2122,10 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
                             ) overlap_list;
                         make_a_chain i_seedNO overlap_list mum_tbl seed2pos_tbl
                         pos2seed_tbl_left pos2seed_tbl_right ;
+                        if debug then 
+                            if (Hashtbl.mem pos2seed_tbl_right (0,13497)) then
+                                print_position2seedtbl pos2seed_tbl_right
+                                (Some (0,13497));
                     end
                     else ();
                     (*
@@ -2040,7 +2289,7 @@ let get_diff in_lstlst1 in_lstlst2 seqlst =
 
 let build_local_mums2 mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right
  debug debug_neighborhood =
-     if debug then Printf.printf "build local mums2 start,seed number=%d\n%!"
+    if debug then Printf.printf "build local mums2 start,seed number=%d\n%!"
      (Hashtbl.length seed2pos_tbl);
     build_neighborhood mum_tbl pos2seed_tbl_left
     pos2seed_tbl_right seed2pos_tbl debug_neighborhood;
@@ -2048,7 +2297,6 @@ let build_local_mums2 mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right
     Printf.printf "check mum tbl after build neighborhood, size=%d \
     (un-extendable included)\n%!" (Hashtbl.length mum_tbl);
     end; 
-    (*extend seeds*)
     extend_seeds mum_tbl seed2pos_tbl  pos2seed_tbl_left pos2seed_tbl_right;
     if debug then Printf.printf "build_local_mums2 finished\n%!"
 
@@ -2124,21 +2372,21 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
             ) new_mum.positions in
             if (!sign = true) then begin
                     let seedNO = get_a_seedNO () in
-                    if debug then Printf.printf "new seedNO = %d\n%!" seedNO;
                     let mumkey = get_mumkey_from_milst ori_positions in
                     let mum2add = { new_mum with 
                                     seedNO = seedNO;
                                     positions = ori_positions; 
                                     mumkey = mumkey;
                                     subsuming_pointer = (-1);
+                                    extendable = 0;(*we will change extendable
+                                    sign when we add this mum to pos2seed_tbl*)
                                     neighborhood_lst = [] } in
                     if debug then Printf.printf "mum after transpose :%!";
                     if debug then print_mum mum2add false true;
                     let sign_newmum = add_mum_to_mumtbl mum2add mum_tbl in
                     if debug then 
                         Printf.printf "sign_newmum=%b\n%!" sign_newmum;
-                    if sign_newmum then begin(*this is not a repeated match we
-                    already have*)
+                    if sign_newmum then begin
                         let poslst = List.map (fun mi ->
                             (mi.sequence_NO,mi.left_end,mi.orientation) ) ori_positions 
                         in
@@ -2147,11 +2395,13 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
                         List.iter ( fun mi ->
                         let seqNO = mi.sequence_NO and ori = mi.orientation in
                         let left = mi.left_end and right = mi.right_end in
-                        let weight = right-left+1 and ext_sign = new_mum.extendable in
+                        let weight = right-left+1 and ext_sign = 0 in
                         let mumsize = new_mum.size in
-                        add_to_pos2seed_tbl pos2seed_tbl_left seqNO left seedNO
+                        add_to_pos2seed_tbl true pos2seed_tbl_left
+                        pos2seed_tbl_right seqNO left seedNO
                         weight ori ext_sign mumsize seed2pos_tbl mum_tbl;
-                        add_to_pos2seed_tbl pos2seed_tbl_right seqNO right seedNO
+                        add_to_pos2seed_tbl false pos2seed_tbl_left 
+                        pos2seed_tbl_right seqNO right seedNO
                         weight ori ext_sign mumsize seed2pos_tbl mum_tbl;
                         )ori_positions;
                     end;
@@ -2168,7 +2418,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
         update_neighborhood seedNO mum_tbl seed2pos_tbl 
         pos2seed_tbl_left pos2seed_tbl_right debug_nei;
     ) seed2pos_tbl;
-    if debug then Printf.printf "end of transposition back\n%!"
+    if debug then Printf.printf "end of transpose back\n%!"
     
 
 
@@ -2184,6 +2434,11 @@ let get_extendable_record_pos2seed_tbl pos2seed_tbl pos seed2pos_tbl mum_tbl =
         if (mumi.subsuming_pointer=(-1))&&(mumi.extendable=0) then true
         else false
     ) recordlst in
+    if (List.length recordlst)>1 then
+        List.iter (fun (seedNO,weight,ori) ->
+            Printf.printf "seedNO=%d,weight=%d,ori=%d\n%!" 
+            seedNO weight ori;
+    ) recordlst;
     assert( (List.length recordlst)<=1 );
     if (List.length recordlst)=0 then ((-1),(-1),(-1))
     else   List.hd recordlst
@@ -2237,7 +2492,7 @@ let get_mum_lst_for_each_seq mum_tbl seed2pos_tbl pos2seed_tbl seqlst_size seq_s
                 let record_lst = Hashtbl.find pos2seed_tbl (seqNO,pos) in
                 Printf.printf "(seqNO=%d,pos=%d):%!" seqNO pos;
                 List.iter (fun (seed,seed_weight,dir) ->
-                Printf.printf "seed.#%d,weight=%d,dir=%d; \n%!" seed seed_weight dir;
+                Printf.printf "seed#%d,weight=%d,dir=%d; \n%!" seed seed_weight dir;
                 ) record_lst;
             )poslst;
         end;
@@ -2301,6 +2556,7 @@ let get_break_point_matrix inarrarr debug =
 
 (*get range of current lcb in each sequence, seedNOlst is the list of seedNO of that lcb*)
 let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl= 
+    let debug = false in
     let min_abs_code = List.hd (List.sort (fun x y -> compare (abs x) (abs y) )
     seedNOlst) in
     let ori =  if (min_abs_code>0) then 1 else (-1) in 
@@ -2319,20 +2575,11 @@ let get_range_of_a_lcb seedNOlst seqNO mum_tbl seed2pos_tbl=
         if (posfirst.right_end < poslast.right_end) then poslast.right_end
         else posfirst.right_end 
     in
-    let debug = false in
     if debug then begin
     Printf.printf "get range of lcb: \n%!";
     Printf.printf "=> %d,%d\n %!" leftend rightend;
     end;
     (leftend,rightend),ori
-
-(*convert (a,t,g,c) to (0,1,2,3), then we can lookup hodx table for their cost.*)
-let atgc_2_idx x = 
-    if x=1 then 0 
-    else if x=2 then 1
-    else if x=4 then 2
-    else if x=8 then 3
-    else failwith "unkown gene code"
 
 (*score bwteen two sequences based on hodx matrix *)
 let get_score_from_2seq sequence1 sequence2 ori = 
@@ -2343,10 +2590,26 @@ let get_score_from_2seq sequence1 sequence2 ori =
             rev_comp_arr sequence1, sequence2
     in      
     if debug then begin
+    Printf.printf "get score from 2seq\n%!";
     print_int_arr seq1; print_int_arr seq2;
     end;
     Array_ops.fold_right_2 (fun acc x y -> 
-        acc + hodx_matrix.(atgc_2_idx x).(atgc_2_idx y) 
+        let codearr1 = break_code x 
+        and codearr2 = break_code y in
+        if debug then begin 
+            Printf.printf "x=%d,y=%d,code1arr1/codearr2=\n%!" x y;
+        Utl.printIntArr codearr1; Utl.printIntArr codearr2;
+        end;
+        let maxv = ref (-125) in
+        Array.iteri (fun idx1 code1 ->
+            Array.iteri (fun idx2 code2 ->
+                if code1>0 && code2>0 then
+                    if !maxv< hodx_matrix.(idx1).(idx2) then
+                        maxv := hodx_matrix.(idx1).(idx2)
+            )codearr2
+        )codearr1;
+        if debug then Printf.printf "acc(%d)+%d=%d\n%!" acc !maxv (!maxv+acc);
+        acc + !maxv (*hodx_matrix.(atgc_2_idx x).(atgc_2_idx y) *)
     ) 0 seq1 seq2
         
 (* get_score returns score of mum, and yes this works for more than 2
@@ -2871,7 +3134,7 @@ let remove_lcb_from_lcblstlst key_to_remove lcbs =
 * high W low R lcb, we won't do it -- different from Mauve *)
 let remove_light_weight_lcbs lcbs lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums =
-    let debug = true in
+    let debug = false in
     let bk_penalty = get_break_point_penalty in_seq_size_lst num_of_mums in 
     if debug then begin
         Printf.printf "start to remove light weight lcbs, bk_penalty = %d,\
@@ -2958,120 +3221,161 @@ num_of_mums =
     !res_lcbs,!res_cov_rate, !res_lcb_tbl
     
 
+let update_k_seed_lst pre_jseedNO previous_k_lst pre_kposlst k_pos j_mumseq trim_from_left
+weight_reduce pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl =
+let debug = false in
+    let k_seedNO = get_a_seedNO () in
+    let k_extsign = 0 in (*since mi and mj are both ext=0*)
+    let k_milst = k_pos::pre_kposlst in
+    let k_size = (List.length k_milst) in
+    if debug then 
+        Printf.printf "we have a new seedk : %d,W=%d\n%!" k_seedNO weight_reduce;
+    let k_mumkey = get_mumkey_from_milst k_milst in
+    if debug then begin
+        Printf.printf "kmumkey = %d\n%!" k_mumkey;
+        print_int_arr j_mumseq;
+    end;
+    let start_pos = 
+        if trim_from_left then 0 
+        else (Array.length j_mumseq)-weight_reduce
+    in
+    let k_mumseq = get_sub_seq2 j_mumseq start_pos weight_reduce in  
+    if debug then print_int_arr k_mumseq;
+    let new_kmum =  
+        {seedNO=k_seedNO; 
+        positions=k_milst; 
+        mumkey = k_mumkey;
+        mumseq = k_mumseq; 
+        size= k_size;  
+        neighborhood_lst = []; 
+        subsuming_pointer= -1; 
+        extendable = k_extsign; 
+        priority_lst=[];
+        mumscore = 0 } in  
+    if debug then print_mum new_kmum false true;
+    let sign_newmum = add_mum_to_mumtbl new_kmum mum_tbl in
+    assert(sign_newmum);
+    let poslst = List.map (fun record ->
+        record.sequence_NO,record.left_end,record.orientation
+    )  k_milst in
+    Hashtbl.add seed2pos_tbl k_seedNO (poslst,k_mumseq,weight_reduce);
+    List.iter (fun record ->
+        let left=record.left_end and right = record.right_end in
+        let klen = right - left + 1 in
+        let seqNO = record.sequence_NO 
+        and ori = record.orientation in
+        let pos2seed_tbl_l,pos2seed_tbl_r =
+            if (trim_from_left) then pos2seed_tbl1,pos2seed_tbl2
+            else pos2seed_tbl2,pos2seed_tbl1
+        in
+        add_to_pos2seed_tbl trim_from_left pos2seed_tbl_l pos2seed_tbl_r 
+        seqNO left k_seedNO klen 
+        ori k_extsign k_size seed2pos_tbl mum_tbl;
+        add_to_pos2seed_tbl trim_from_left pos2seed_tbl_l pos2seed_tbl_r 
+        seqNO right k_seedNO klen 
+        ori k_extsign k_size seed2pos_tbl mum_tbl;
+    ) k_milst;
+    List.filter (fun (pre_j,_)-> pre_j<>pre_jseedNO) previous_k_lst
 
-(*for mumj, we remove the old record of oldpos of pos2seed_tbl1, add newpos
+
+
+
+
+(* [update_tables] trim mumj, and create mumk out of the trimed parts of
+* mumj if necessary. return the list of other trimed parts, also if jmum become
+* redundant after trim (which means it's the same as some mum we already have),
+* return true to remove it, else return false.
+* for mumj, we remove the old record of oldpos of pos2seed_tbl1, add newpos
 * as  new position. in pos2seed_tbl2, we only update the weight of the old record
 * on pos2 .
 * for mumk, we wait until we have both subseqs(one in seq0,one in seq1), we create it.*)
 let update_tables mum_tbl mumj seqNO pos2seed_tbl1 oldpos newpos pos2seed_tbl2
 pos2 newweight seed2pos_tbl new_mi oldori weight_reduce min_weight trim_from_left 
 previous_k_lst = 
-    let debug = false in
     let jseedNO,j_mumseq,j_extsign,j_size =
         mumj.seedNO,mumj.mumseq,mumj.extendable,mumj.size in
+    let debug = false in
     if debug then 
-    Printf.printf "update tables,seqNO=%d,jseedNO=%d,oldpos=%d,newpos=%d,newweight=%d weight_reduce=%d,pos2=%d trim_from_left:%b\n%!"
-    seqNO jseedNO oldpos newpos newweight weight_reduce pos2 trim_from_left ;
-    (*trim mumj, update positions of mumj *)
-    remove_from_pos2seed_tbl pos2seed_tbl1 seqNO oldpos mumj mum_tbl seed2pos_tbl;
-    add_to_pos2seed_tbl pos2seed_tbl1 seqNO newpos jseedNO newweight oldori
-    j_extsign j_size seed2pos_tbl mum_tbl;
-    modify_record_in_pos2seed_tbl pos2seed_tbl2 seqNO pos2 jseedNO newweight oldori;
+    Printf.printf "update tables on seed#%d,seqNO=%d,oldpos=%d,newpos=%d,newweight=%d weight_reduce=%d,pos2=%d trim_from_left:%b\n%!"
+    jseedNO seqNO oldpos newpos newweight weight_reduce pos2 trim_from_left ;
     let new_mumseq =
         if (seqNO=0)&&trim_from_left then
             get_sub_seq2 j_mumseq weight_reduce (pos2-newpos+1)
         else if (seqNO=0) then
             get_sub_seq2 j_mumseq 0 (newpos-pos2+1)
         else j_mumseq
+    in 
+    let sign_newmum = 
+        update_positions_by_seqNO jseedNO seqNO mumj new_mi new_mumseq mum_tbl;
     in
-    if trim_from_left then begin (*update mumseq and position*)
+    let left_tbl,right_tbl = 
+        if trim_from_left then pos2seed_tbl1,pos2seed_tbl2
+        else pos2seed_tbl2,pos2seed_tbl1
+    in
+    if sign_newmum then begin
+        (*trim mumj, update positions of mumj *)
+        (*to do : create a function for following three functions*)
+        if trim_from_left then  (*update mumseq and position*)
         update_seed2pos_tbl jseedNO (Some(seqNO,oldpos,newpos)) new_mumseq
-        seed2pos_tbl;
-    end
-    else (*only update mumseq*)
+        seed2pos_tbl
+        else (*only update mumseq*)
         update_seed2pos_tbl jseedNO None new_mumseq seed2pos_tbl;
-    update_positions_by_seqNO jseedNO seqNO mumj new_mi new_mumseq mum_tbl;
-    if debug then Printf.printf "start working on seedK lst:\n%!";
-    if weight_reduce>min_weight then begin
-        let k_left,k_right = 
-            if (trim_from_left) then oldpos,oldpos+weight_reduce-1
-            else oldpos-weight_reduce+1,oldpos 
-        in
-        let k_pos = { sequence_NO = seqNO; left_end = k_left; right_end =
-            k_right; orientation = oldori } in
-        (* mi and mj are both extendable=0, there will be at most two subseq 
-        * for mk, one in seqNO=0, one in seqNO=1 . 
-        * also there won't be more than 1 prev_k record fit this*)
-        (*to do: create another function for kseed*)
-        let pre_jseedNO,pre_kposlst = 
-            try (List.find (fun (pre_j,_) -> pre_j = jseedNO)) previous_k_lst 
-            with | Not_found -> (0,[])
-        in
-        let current_k_lst = 
-            if (pre_jseedNO<>0) then begin
-                let k_seedNO = get_a_seedNO () in
-                let k_extsign = 0 in (*since mi and mj are both ext=0*)
-                let k_milst = k_pos::pre_kposlst in
-                let k_size = (List.length k_milst) in
-                if debug then 
-                    Printf.printf "we have a new seedk : %d,kleft=%d,W=%d\n%!" 
-                    k_seedNO k_left weight_reduce;
-                let k_mumkey = get_mumkey_from_milst k_milst in
-                if debug then begin
-                    Printf.printf "kmumkey = %d\n%!" k_mumkey;
-                    print_int_arr j_mumseq;
-                end;
-                let start_pos = 
-                    if trim_from_left then 0 
-                    else (Array.length j_mumseq)-weight_reduce
-                in
-                let k_mumseq = get_sub_seq2 j_mumseq start_pos weight_reduce in  
-                if debug then print_int_arr k_mumseq;
-                let new_kmum =  
-                    {seedNO=k_seedNO; 
-                    positions=k_milst; 
-                    mumkey = k_mumkey;
-                    mumseq = k_mumseq; 
-                    size= k_size;  
-                    neighborhood_lst = []; 
-                    subsuming_pointer= -1; 
-                    extendable = k_extsign; 
-                    mumscore = 0 } in  
-                if debug then print_mum new_kmum false true;
-                let sign_newmum = add_mum_to_mumtbl new_kmum mum_tbl in
-                assert(sign_newmum);
-                let poslst = List.map (fun record ->
-                    record.sequence_NO,record.left_end,record.orientation
-                )  k_milst in
-                Hashtbl.add seed2pos_tbl k_seedNO (poslst,k_mumseq,weight_reduce);
-                List.iter (fun record ->
-                    let left=record.left_end and right = record.right_end in
-                    let klen = right - left + 1 in
-                    let seqNO = record.sequence_NO 
-                    and ori = record.orientation in
-                    let pos2seed_tbl_l,pos2seed_tbl_r =
-                        if (trim_from_left) then pos2seed_tbl1,pos2seed_tbl2
-                        else pos2seed_tbl2,pos2seed_tbl1
-                    in
-                    add_to_pos2seed_tbl pos2seed_tbl_l seqNO left k_seedNO klen 
-                    ori k_extsign k_size seed2pos_tbl mum_tbl;
-                    add_to_pos2seed_tbl pos2seed_tbl_r seqNO right k_seedNO klen 
-                    ori k_extsign k_size seed2pos_tbl mum_tbl;
-                ) k_milst;
-                List.filter (fun (pre_j,_)-> pre_j<>jseedNO) previous_k_lst
-            end    
-            else  
-               previous_k_lst@[(jseedNO,[k_pos])]
-            ;
-        in
-        if debug then Printf.printf "end of update tables,add new kseed 2 acclst \n%!";
-        current_k_lst
+        remove_from_pos2seed_tbl pos2seed_tbl1 seqNO oldpos mumj mum_tbl seed2pos_tbl;
+        add_to_pos2seed_tbl trim_from_left left_tbl right_tbl seqNO newpos jseedNO newweight oldori j_extsign j_size seed2pos_tbl mum_tbl;
+        modify_record_in_pos2seed_tbl pos2seed_tbl2 seqNO pos2 jseedNO newweight oldori;
+        if debug then Printf.printf "start working on seedK lst:\n%!";
+        if weight_reduce>min_weight then begin
+            let k_left,k_right = 
+                if (trim_from_left) then oldpos,oldpos+weight_reduce-1
+                else oldpos-weight_reduce+1,oldpos 
+            in
+            let k_pos = { sequence_NO = seqNO; left_end = k_left; right_end =
+                k_right; orientation = oldori } in
+            (* mi and mj are both extendable=0, there will be at most two subseq 
+            * for mk, one in seqNO=0, one in seqNO=1 . 
+            * also there won't be more than 1 prev_k record fit this*)
+            let pre_jseedNO,pre_kposlst = 
+                try (List.find (fun (pre_j,_) -> pre_j = jseedNO)) previous_k_lst 
+                with | Not_found -> (0,[])
+            in
+            if debug then
+                    List.iter (fun (pre_j,kposlst) ->
+                            Printf.printf "jseed=%d,%!" pre_j;
+                            List.iter (fun kpos ->
+                                Printf.printf "(%d,%d,%d,%d)%!"
+                                kpos.sequence_NO kpos.left_end kpos.right_end 
+                                kpos.orientation
+                            ) kposlst;
+                            Printf.printf "\n%!";
+                    ) previous_k_lst;
+            let current_k_lst =
+                if (pre_jseedNO<>0) then 
+                update_k_seed_lst pre_jseedNO previous_k_lst 
+                pre_kposlst k_pos j_mumseq trim_from_left weight_reduce 
+                pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl
+                else  
+                    previous_k_lst@[(jseedNO,[k_pos])] 
+            in
+            if debug then Printf.printf "end of update tables,add new kseed 2 acclst \n%!";
+            current_k_lst,false
+        end
+        else begin
+            if debug then Printf.printf "end of update tables,no new kseed \n%!";
+            previous_k_lst,false
+        end; (*end of if weight_reduce>min_weight*)
+    end (*if sign_newmum *)
+    else begin (*jmum is redundant after trimming. remove it completely*)
+        if debug then 
+            Printf.printf "mum#%d is redundant after trimming.\n%!" mumj.seedNO;
+        List.iter (fun record ->
+        let seqNO = record.sequence_NO and left = record.left_end 
+        and right = record.right_end in
+        remove_from_pos2seed_tbl left_tbl seqNO left mumj mum_tbl seed2pos_tbl;
+        remove_from_pos2seed_tbl right_tbl seqNO right mumj mum_tbl seed2pos_tbl;
+        ) mumj.positions;
+        Hashtbl.remove seed2pos_tbl mumj.seedNO;
+        previous_k_lst,true
     end
-    else begin
-        if debug then Printf.printf "end of update tables,no new kseed \n%!";
-        previous_k_lst
-    end
-    
     
 (*we only consider mums with extendable=true here*)  
 (* if two mums are overlap with each other in one sequence, we trim the one with
@@ -3094,8 +3398,9 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
     if debug then Printf.printf "resolve overlap mums with min_weight = %d\n%!" min_weight;
     Hashtbl.iter (fun seedNO (_,_,_) ->
         update_neighborhood seedNO mum_tbl seed2pos_tbl pos2seed_tbl_left
-        pos2seed_tbl_right false
+        pos2seed_tbl_right debug_neighborhood
     ) seed2pos_tbl;
+    if debug then Printf.printf "update neighborhood first, done\n%!";
     let keep_i multi_i multi_j weight_i weight_j =
         if (multi_i>multi_j)||((multi_i=multi_j)&&(weight_i>=weight_j)) then true
         else false
@@ -3137,15 +3442,16 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
     List.iter (fun i_seedNO -> 
         if (List.mem i_seedNO !removed_seedlst)=false then begin
         let debug2 = false in
-        if debug2 then Printf.printf "work on i_seed: %d\n%!" i_seedNO;
+        if debug2 then Printf.printf "resolve overlap,work on seed#%d\n%!" i_seedNO;
         let mi = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
         if debug2 then print_mum mi true true;
+        assert(mi.seedNO=i_seedNO);
         if (mi.extendable=0)&&(mi.subsuming_pointer=(-1)) then begin 
         if (mi.neighborhood_lst=[]) then
             (*in case this mum is a new mum added by function "transpose_back" 
             * when we search area outside lcbs*)
             update_neighborhood i_seedNO mum_tbl seed2pos_tbl pos2seed_tbl_left
-            pos2seed_tbl_right  false;
+            pos2seed_tbl_right false;
         let idx = ref 0 and sign = ref true in
         while (!sign)&&(mi.neighborhood_lst<>[]) do
             (*mi's positions/neighbors could be different from last iteration 
@@ -3160,6 +3466,7 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
             if debug2 then begin 
                 Printf.printf "j_mum is :%!"; print_mum mj false true;
             end;
+            assert(mj.seedNO=j_seedNO);
             if (mj.extendable=0)&&(mi.extendable=0)&&(mj.subsuming_pointer=(-1)) 
             then begin
                 let poslst_i = mi.positions in
@@ -3178,6 +3485,9 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                     if debug2 then Printf.printf "idx ++ = %d\n%!" !idx;
                 end
                 else begin
+                    if d=0 then print_mum mi false true;
+                    if d=0 then print_mum mj false true;
+                    assert(d<>0);
                     let acc_k_lst = ref [] in
                     idx := 0 ; (*neighborhood of i_mum will change, start over again*)
                     assert ((ileft-jleft)=d);
@@ -3200,7 +3510,9 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                         let weight_reduce = iright - jleft + 1 in
                         if debug2 then Printf.printf "d<0,%!";
                         if (new_jweight>min_weight) then 
+                            let continue_sign = ref true in
                             List.iter (fun record ->
+                                if !continue_sign then begin
                                 let trim_from_left = 
                                     if (record.orientation=jori) then true else false 
                                 in
@@ -3210,30 +3522,43 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                                     get_new_mi trim_from_left record newpos
                                 in
                                 (*mj might be diff because the previous inter*)
-                                let new_mj =  get_mum_from_mumtbl j_seedNO
+                                let new_mj = get_mum_from_mumtbl j_seedNO
                                 mum_tbl seed2pos_tbl in
-                                acc_k_lst := update_table_trim_right_or_left trim_from_left  
-                                new_mj record new_mi oldpos newpos 
-                                pos2 new_jweight weight_reduce min_weight !acc_k_lst;
+                                let current_klst,removej = 
+                                update_table_trim_right_or_left trim_from_left new_mj 
+                                record new_mi oldpos newpos pos2 new_jweight 
+                                weight_reduce min_weight !acc_k_lst in
+                                acc_k_lst := current_klst;
+                                if removej then begin
+                                    continue_sign := false;
+                                removed_seedlst := mj.seedNO::(!removed_seedlst);
+                                end;
+                                if debug2 then
+                                Printf.printf "add seed#%d to removelst1\n%!" mj.seedNO;
+                                end;
                             ) poslst_j
                         else 
                             begin (*no need to carry j_seed with us*) 
                             remove_seed2 mj seqNO pos2seed_tbl_left 
                             pos2seed_tbl_right jleft jright mum_tbl seed2pos_tbl;
                             removed_seedlst := mj.seedNO::(!removed_seedlst);
+                            if debug2 then
+                            Printf.printf "add seed#%d to removelst2\n%!" mj.seedNO;
                             end;
                     end
                     else if (d>0) then begin
                         let new_jright = ileft-1 in
                         let new_jweight = new_jright-jleft+1 in
                         let weight_reduce = jright - ileft + 1 in
-                        if debug2 then Printf.printf "d>0,%!";
+                        if debug2 then Printf.printf "d>0\n%!";
                         if (new_jweight<=0) then
                             Printf.printf "ileft=%d,newj_right=%d,jleft=%d\n%!"
                             ileft new_jright jleft;
                         assert(new_jweight>0);
-                        if (new_jweight>min_weight) then 
+                        if (new_jweight>min_weight) then begin
+                            let continue_sign = ref true in
                             List.iter (fun record ->
+                            if !continue_sign then begin
                             let trim_from_left = 
                                 if (record.orientation=jori) then false else true 
                             in
@@ -3241,25 +3566,38 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                                 get_three_pos trim_from_left record weight_reduce in
                             let new_mi = 
                                 get_new_mi trim_from_left record newpos in
-                            let new_mj =  get_mum_from_mumtbl j_seedNO
+                            let new_mj = get_mum_from_mumtbl j_seedNO
                                 mum_tbl seed2pos_tbl in
-                            acc_k_lst := update_table_trim_right_or_left trim_from_left  
-                            new_mj record new_mi oldpos newpos 
-                            pos2 new_jweight weight_reduce min_weight !acc_k_lst;
-                            ) poslst_j       
+                            let current_klst,removej =
+                            update_table_trim_right_or_left trim_from_left  
+                            new_mj record new_mi oldpos newpos pos2 
+                            new_jweight weight_reduce min_weight !acc_k_lst
+                            in
+                            acc_k_lst := current_klst;
+                            if removej then begin
+                                continue_sign := false;
+                                removed_seedlst := mj.seedNO::(!removed_seedlst);
+                            end;
+                            if debug2 then
+                            Printf.printf "add seed#%d to removelst3\n%!" mj.seedNO;
+                            end
+                            ) poslst_j;
+                        end
                         else begin
                             remove_seed2 mj seqNO pos2seed_tbl_left
                             pos2seed_tbl_right jleft jright mum_tbl seed2pos_tbl;
                             removed_seedlst := mj.seedNO::(!removed_seedlst);
+                            if debug2 then
+                            Printf.printf "add seed#%d to removelst4\n%!" mj.seedNO;
                         end;
                     end; (* if d<0 else if d>0..*)
                     (*we only upate neighborhood when trim happens*)
-                    if debug2 then 
-                        Printf.printf "trim happends, update all mum's neighbor\n%!";
+                    if debug2 then Printf.printf "trim happends,update neighbor:%!";
                     Hashtbl.iter (fun key record ->
                       update_neighborhood key mum_tbl seed2pos_tbl 
                       pos2seed_tbl_left pos2seed_tbl_right false
                     ) seed2pos_tbl;
+                    if debug2 then Printf.printf "update neighbor done\n%!"
                 end; (* if trimable -- mi and mj are overlaped*)
             end (*if (mj and mi.extendable=0)*)
             else
@@ -3294,7 +3632,9 @@ let update_score_for_each_mum mum_tbl in_seqarr =
     let update_mum_score record = 
         if (record.extendable = 0) then begin
         let score = get_mum_score in_seqarr record in
-        update_mum_to_mumtbl None {record with mumscore = score } mum_tbl false;
+        let sign_newmum = update_mum_to_mumtbl None 
+        {record with mumscore = score } mum_tbl false in
+        assert(sign_newmum);
         end
     in
     Hashtbl.iter (fun key bt ->
@@ -3412,7 +3752,7 @@ in_seqarr in_seq_size_lst  =
     if debug then 
         Printf.printf "\n ============= Resolve overlap mum: =============\n%!";
     let num_of_mums = resolve_overlap_mum res_mum_tbl (new_seedweight-1)
-    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl false false in
+    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl true false in
     update_score_for_each_mum res_mum_tbl in_seqarr;
     (*get the new weight of lcbs*)
     let new_seedNOlstlst = 
@@ -3449,7 +3789,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let seedlen = if (seedlen<5) then 5 else seedlen in
     let seedlen = if (seedlen=17) then 19 else seedlen in
     if debug then 
-        Printf.printf "\n block_mauave.create_lcb_tbl,seedlen=%d\n%!" seedlen;
+        Printf.printf "\nblock_mauave.create_lcb_tbl,seedlen=%d\n%!" seedlen;
     let init_size = init_tb_size in 
     let seq2seedNO_tbl = Hashtbl.create init_size in
     let seedNO2seq_tbl = Hashtbl.create init_size in
@@ -3463,7 +3803,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let mum_tbl = Hashtbl.create init_tb_size in
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     !minimum_cover_ratio seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl mum_tbl false in
+    pos2seed_tbl_right seed2pos_tbl mum_tbl true in
     if debug then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
     build_local_mums2 mum_tbl seed2pos_tbl 
@@ -3472,7 +3812,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         Printf.printf "++++++++ init seedweight=%d, end of building mum\
         table\n%!" seedweight;
     let init_num_mums = resolve_overlap_mum mum_tbl (seedweight-1) 
-    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true false in
+    pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false false in
     update_score_for_each_mum mum_tbl in_seqarr;
     if debug then
         Printf.printf "++++++++++ check mum table after resolve_overlap_mum +++++++ \n%!";
@@ -3537,7 +3877,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
             in
             if (num_of_mums>0)&&(!inner_old_covR < inner_new_covR) then begin
                 if debug then
-                    Printf.printf "we found better lcbs (%f>%f), update
+                    Printf.printf "we found better lcbs (%f>%f), update \
                     num_of_mums from %d to %d,continue with inner loop\n%!" 
                     inner_new_covR !inner_old_covR !current_num_of_mums num_of_mums;
                 inner_sign := true;

@@ -40,6 +40,10 @@ type mum = {
     extendable one for some reason, we can upgrade one of this kind to be
     extendable. 
     *)
+    priority_lst : int list; 
+    (*priority_lst keep a list of seedNO that make this mum un-extendable (which
+    * means this mum has extendable=3 because of those seeds) we can upgrade
+    * this mum to ext=0 if this priority_lst is empty*)
     mumscore : int ;
 }
 
