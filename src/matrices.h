@@ -43,8 +43,14 @@
 
 #define Matrices_struct(a) ((struct matrices *) Data_custom_val(a))
 
+#ifdef USE_LONG_SEQUENCES
+#define MAT_SIZE long int
+#else 
+#define MAT_SIZE int
+#endif
+
 struct matrices {
-    int len;            /* Total length of available memory allocated */
+    MAT_SIZE len;            /* Total length of available memory allocated */
     int len_eff;        /* Length of the 3d efficient matrix */
     int len_pre;        /* Length of the precalculated matrix */
     int *matrix;        /* Matrix for regular alignment */
