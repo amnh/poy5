@@ -836,7 +836,6 @@ module MPLAlign : A = struct
                               i p pp_ilst (MlModel.list_of_packed p) m 
                               pp_ilst (MlModel.list_of_packed m) cst state res;
             assert( state <> ~-1 );
-            assert( 0 = state land (state-1) );
             res,cst)
 
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost

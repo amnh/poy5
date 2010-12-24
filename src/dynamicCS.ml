@@ -279,7 +279,7 @@ let of_array spec genome_arr code taxon num_taxa =
             let t = SeqCS.of_array spec seq_arr code taxon in
             begin match meth, spec.Data.lk_model with
             | `Seq,_ -> SeqCS t
-            | `Ml,Some m -> MlCS (MlDynamicCS.make t m)
+            | `Ml,Some m -> MlCS (MlDynamicCS.make (spec.Data.alph) t m)
             | `Ml,None -> failwith "DynamicCS.of_array; No likelihood model found"
             end
     | `Breakinv | `Chromosome as meth ->

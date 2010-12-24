@@ -64,9 +64,12 @@ val name_string : t -> string
 val cardinal : t -> int
 (** The number of partitions in the character set *)
 
-val make : SeqCS.t -> MlModel.model -> t
+val make : Alphabet.a -> SeqCS.t -> MlModel.model -> t
 (** Create the type t used in the module. MlModel contains information regarding
-    the type of dynamic likelihood, *)
+    the type of dynamic likelihood, the alphabet could be different (for
+    example, mlModel stores the singular representation, where the code is the
+    index, this is different then the bitset version which this alphabet would
+    represent. *)
 
 val encoding : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> t -> float
 (** Determine the encoding of the sequence characters *)

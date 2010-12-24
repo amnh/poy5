@@ -56,6 +56,7 @@ type r = | Integerized  of t_integerized
          | MPLAlign     of t_mplalign
 
 type t = { model  : MlModel.model;
+            alph  : Alphabet.a;
             data  : r;
             codes : int array;
             code  : int;
@@ -80,8 +81,7 @@ let get_cm t = match t.data with
 
 let to_string t = failwith_todo "to_string"
 
-let alph t =
-    Alphabet.explote t.model.MlModel.alph 1 0
+let alph t = t.alph
 
 let code t = t.code
 
@@ -526,7 +526,7 @@ let f_codes_comp s c = match s.data with
 
 
 (*---- make an initial leaf node; still requires IA. *)
-let make s m = 
+let make a s m = 
     let r = match m.MlModel.spec.MlModel.cost_fn with
         | `ILK -> 
             Integerized { ilk_ss = s; ia = None; }
@@ -542,6 +542,7 @@ let make s m =
     in
     {    data = r;
         model = m;
+         alph = a;
          cost = 0.0;
          code = s.SeqCS.code;
         codes = s.SeqCS.codes;
@@ -645,7 +646,7 @@ let model _ = failwith MlStaticCS.likelihood_error
 let code _ = failwith MlStaticCS.likelihood_error
 let get_codes _ = failwith MlStaticCS.likelihood_error
 let combine _ _ = failwith MlStaticCS.likelihood_error
-let make _ _ = failwith MlStaticCS.likelihood_error
+let make _ _ _ = failwith MlStaticCS.likelihood_error
 let estimate_time _ _ = failwith MlStaticCS.likelihood_error
 let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let median_i _ _ _ _ _ = failwith MlStaticCS.likelihood_error

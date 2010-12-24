@@ -218,8 +218,6 @@ let calculate_indels a b alph b_children =
     assert ( (Sequence.Clip.length a > 1) || (Sequence.Clip.get a 0 != gap) ||
                  (Sequence.Clip.get b 0 != gap) );
     assert (Sequence.Clip.length b = Sequence.Clip.length a);
-
-
     let len = Sequence.Clip.length a in
     let assign_in_indel_row i a_gap b_gap =
         (* Is any of them a gap? *)
@@ -242,8 +240,7 @@ let calculate_indels a b alph b_children =
                     let len = i - pos in
                     let seq = 
                         let seq = Sequence.Clip.sub b pos len in
-                        try Sequence.Clip.to_string seq alph 
-                        with e -> Alphabet.print alph; raise e
+                        Sequence.Clip.to_string seq alph
                     in
                     result_list :=
                         (`Single (pos, seq, len, `Insertion, b_children)) :: 
@@ -255,8 +252,7 @@ let calculate_indels a b alph b_children =
                     let len = i - pos in
                     let seq = 
                         let seq = Sequence.Clip.sub a pos len in
-                        try Sequence.Clip.to_string seq alph 
-                        with e -> Alphabet.print alph; raise e
+                        Sequence.Clip.to_string seq alph 
                     in
                     result_list :=
                         (`Single (pos, seq, len, `Deletion, b_children)) :: 
@@ -419,8 +415,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
     in
     let a, lena = correct_gaps_in_sequences a in
     let b, lenb = correct_gaps_in_sequences b in
-    Sequence.printDNA (Sequence.Clip.extract_s a.seq);
-    Sequence.printDNA (Sequence.Clip.extract_s b.seq);
     let rec builder = 
         fun position a_pos b_pos anc_pos codes hom a_hom b_hom a_or b_or res_or ->
         if position > (-1) then begin
@@ -444,8 +438,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                            median_fn it_a it_b position
             in
             let is_gap_median =
-                Printf.printf "Median %i: %d -- %d\t%d -- %d\n%!" 
-                                position it_a it_b (all_minus_gap it_a) (all_minus_gap it_b);
                 let cost,gcost =
                     cost_fn it_a it_b position,
                     cost_fn (all_minus_gap it_a) (all_minus_gap it_b) position
