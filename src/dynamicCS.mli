@@ -104,7 +104,7 @@ val c2 : t -> Cost_matrix.Two_D.m
 
 (** [lk_model a] returns the likelihood model used in the character, or
     Not_found if using other characters *)
-val lk_model : t -> MlModel.model
+val lk_model : t -> FloatSequence.dyn_model
 
 (** [chrom_pam a] returns the user-defined chromosome parameters
 * of dynamic character set [a] *)

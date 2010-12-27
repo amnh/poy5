@@ -55,8 +55,7 @@ type r = | Integerized  of t_integerized
          | FPAlign      of t_fpalign
          | MPLAlign     of t_mplalign
 
-type t = { model  : MlModel.model;
-            alph  : Alphabet.a;
+type t = { model  : FloatSequence.dyn_model;
             data  : r;
             codes : int array;
             code  : int;
@@ -81,7 +80,7 @@ let get_cm t = match t.data with
 
 let to_string t = failwith_todo "to_string"
 
-let alph t = t.alph
+let alph t = t.model.FloatSequence.alph
 
 let code t = t.code
 
@@ -133,6 +132,8 @@ let combine t (b:MlStaticCS.t) = match t.data with
         t
 
 let model t = t.model
+
+let static_model t = t.model.FloatSequence.static
 
 let s_of_seq seq : Sequence.s array = 
     seq --> SeqCS.get_sequences
@@ -215,7 +216,7 @@ let estimate_time a b =
     and gaps = ref 0.0 (* the number of characters aligned with gaps *)
     and othr = ref 0.0 (* other aligned characters --transversions *)
     and incr r s = r := !r +. s in
-    let gchar = Alphabet.get_gap (Alphabet.explote (alph a) 1 0) in
+    let gchar = Alphabet.get_gap (alph a) in
     let align_s_distance align_a align_b =
         for n = 0 to (Sequence.length align_a) - 1 do
             let achar = Sequence.get align_a n
@@ -351,7 +352,7 @@ let remove_ambiguities dyn =
             Sequence.set seq n ret
         done
     in
-    if (model dyn).MlModel.spec.MlModel.cost_fn = `MPL && false then
+    if (static_model dyn).MlModel.spec.MlModel.cost_fn = `MPL && false then
         All_sets.IntegerMap.iter
             (fun k v -> 
                 Array.iter
@@ -364,14 +365,14 @@ let remove_ambiguities dyn =
 
 (*---- median functions *)
 let median code a b t1 t2 = 
-    assert( 0 = MlModel.compare a.model b.model );
+    assert( 0 = MlModel.compare (static_model a) (static_model b) );
     match a.data,b.data with
     | Integerized ar, Integerized br -> 
         let heur_cm = match t1,t2 with
             | Some t1,Some t2 -> 
                 SeqCS.make_default_heuristic 
                     ~c3:(Cost_matrix.Three_D.default)
-                        (MlModel.model_to_cm a.model (t1+.t2))
+                        (MlModel.model_to_cm (static_model a) (t1+.t2))
             | _,_ -> failwith "branches not specified by caller"
         in
         let aseq = { ar.ilk_ss with SeqCS.heuristic = heur_cm; }
@@ -541,8 +542,7 @@ let make a s m =
         | `MAL -> failwith "not done"
     in
     {    data = r;
-        model = m;
-         alph = a;
+        model = { FloatSequence.static = m; alph = a; };
          cost = 0.0;
          code = s.SeqCS.code;
         codes = s.SeqCS.codes;
@@ -601,10 +601,10 @@ let prior a =
             (acc)
             (sequence)
     in
-    let model = a.model in
+    let m = static_model a in
     match a.data with
     | Integerized a ->
-        let f = prior_of_seq model.MlModel.alph model.MlModel.pi_0 in
+        let f = prior_of_seq m.MlModel.alph m.MlModel.pi_0 in
         Array.fold_left
             (fun acc data -> match data with
                 | SeqCS.Heuristic_Selection x -> f acc x.SeqCS.DOS.sequence
@@ -622,14 +622,14 @@ let prior a =
     | FPAlign a ->
         Array.fold_left
             (fun acc i ->
-                prior_of_seq model.MlModel.alph model.MlModel.pi_0
+                prior_of_seq m.MlModel.alph m.MlModel.pi_0
                              acc (FloatSequence.FloatAlign.seq_of_s i))
             (0.0) 
             (a.fp_ss)
     | MPLAlign a ->
         Array.fold_left
             (fun acc i ->
-                prior_of_seq model.MlModel.alph model.MlModel.pi_0
+                prior_of_seq m.MlModel.alph m.MlModel.pi_0
                              acc (FloatSequence.MPLAlign.seq_of_s i))
             (0.0) 
             (a.mpl_ss)

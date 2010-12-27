@@ -63,7 +63,7 @@ type ias = {
 *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of MlModel.model * (float * int option) (* model, branch length to parent code *)
+    | Model of FloatSequence.dyn_model * (float * int option) (* model, branch length to parent code *)
 
 type t = {
     sequences : ias array Codes.t;
@@ -349,7 +349,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                         aseq, bseq, `Both, `Set [inds; anb_indels], clip_len
                     | Model (m,(t,p)) ->
                         let aseq,bseq,_,clip_len,anoclip,bnoclip =
-                            begin match m.MlModel.spec.MlModel.cost_fn with
+                            begin match FloatSequence.cost_fn m with
                                 | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
                                 | `FLK -> FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
                                 | `ILK -> assert false (* should have used CM *)
@@ -388,7 +388,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         | CM cm -> 
             fun a b _ -> Cost_matrix.Two_D.median a b cm
         | Model (m,(t,_)) ->
-            begin match m.MlModel.spec.MlModel.cost_fn with
+            begin match FloatSequence.cost_fn m with
                 | `MPL ->
                     let gc = FloatSequence.MPLAlign.get_closest gap m t in
                     (fun a b i -> fst (gc i a b))
@@ -402,7 +402,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         | CM cm -> 
             fun a b _ -> float_of_int (Cost_matrix.Two_D.cost a b cm)
         | Model (m,(t,_)) ->
-            begin match m.MlModel.spec.MlModel.cost_fn with
+            begin match FloatSequence.cost_fn m with
                 | `MPL -> 
                     let gc = FloatSequence.MPLAlign.get_closest gap m t in
                     (fun a b i -> snd (gc i a b))
@@ -1685,7 +1685,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                             try 
                                 let model = DynamicCS.lk_model dyn in
                                 let branch = 0.1 in (* TODO *)
-                                match model.MlModel.spec.MlModel.cost_fn with
+                                match FloatSequence.cost_fn model with
                                 | `ILK -> raise Not_found
                                 | `MPL 
                                 | `FLK 

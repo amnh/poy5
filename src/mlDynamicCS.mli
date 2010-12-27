@@ -41,7 +41,7 @@ val get_cm : t -> Cost_matrix.Two_D.m
     likelihood charaters use a floating point alignment matrix not compatible
     with the Cost_matrix module *)
 
-val model : t -> MlModel.model
+val model : t -> FloatSequence.dyn_model
 (** Return the likelihood model for the characters *)
 
 val code : t -> int

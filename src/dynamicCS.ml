@@ -101,7 +101,7 @@ let c2 (a : t) = match a with
 (** [lk_model a] returns the likelihood model for the dynamic likelihood
     character, or raise a Not_found for other characters *)
 let lk_model (a : t) = match a with 
-    | MlCS a -> MlDynamicCS.model a
+    | MlCS a       -> MlDynamicCS.model a
     | SeqCS _ 
     | ChromCS _
     | GenomeCS _

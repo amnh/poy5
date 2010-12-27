@@ -55,7 +55,7 @@ type dyna_state_t = Data.dyna_state_t
 *)
 type cost_matrix = 
     | CM of Cost_matrix.Two_D.m 
-    | Model of MlModel.model * (float * int option) 
+    | Model of FloatSequence.dyn_model * (float * int option) 
 
 type t = {
     sequences : ias array All_sets.IntegerMap.t;

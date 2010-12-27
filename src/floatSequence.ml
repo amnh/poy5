@@ -40,6 +40,11 @@ let sequence_of_string seq alph =
 let pp_ilst chan lst =
     List.iter (fun x -> Printf.fprintf chan "%d| " x) lst
 
+
+type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
+
+let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
+
 (* Sequence alignment module for two or three sequences. *)
 module type A = sig
 
@@ -57,30 +62,30 @@ module type A = sig
     val print_mem   : floatmem -> unit
     val print_s     : s -> Alphabet.a -> unit
     val print_raw   : s -> unit
-    val print_cm    : MlModel.model -> float -> unit
+    val print_cm    : dyn_model -> float -> unit
 
     (* cost matrix; maps states to their cost and possible states *)
-    val get_cm : MlModel.model -> float -> float -> (int -> int -> float * int)
+    val get_cm : dyn_model -> float -> float -> (int -> int -> float * int)
 
     (* 2d operations *)
-    val cost_2          : ?deltaw:int -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
-    val verify_cost_2   : float -> s -> s -> MlModel.model -> float -> float -> floatmem -> float
-    val c_cost_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> int -> float
-    val create_edited_2 : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s
-    val align_2         : ?first_gap:bool -> s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float
-    val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s -> MlModel.model -> float -> float
+    val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float -> float -> floatmem -> float
+    val verify_cost_2   : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
+    val c_cost_2        : s -> s -> dyn_model -> float -> float -> floatmem -> int -> float
+    val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem -> s * s
+    val align_2         : ?first_gap:bool -> s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float
+    val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s -> dyn_model -> float -> float
                             -> Sequence.Clip.s * Sequence.Clip.s * float * int * Sequence.Clip.s * Sequence.Clip.s
-    val median_2        : s -> s -> MlModel.model -> float -> float -> floatmem -> s
-    val median_2_cost   : s -> s -> MlModel.model -> float -> float -> floatmem -> float * s
-    val full_median_2   : s -> s -> MlModel.model -> float -> float -> floatmem -> s
-    val gen_all_2       : s -> s -> MlModel.model -> float -> float -> floatmem -> s * s * float * s
+    val median_2        : s -> s -> dyn_model -> float -> float -> floatmem -> s
+    val median_2_cost   : s -> s -> dyn_model -> float -> float -> floatmem -> float * s
+    val full_median_2   : s -> s -> dyn_model -> float -> float -> floatmem -> s
+    val gen_all_2       : s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float * s
 
     (* uppass operations *)
-    val closest  : p:s -> m:s -> MlModel.model -> float -> floatmem -> s * float
-    val get_closest : int -> MlModel.model -> float -> i:int -> p:int -> m:int -> int * float
+    val closest  : p:s -> m:s -> dyn_model -> float -> floatmem -> s * float
+    val get_closest : int -> dyn_model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
-    val readjust : s -> s -> s -> MlModel.model -> float -> float -> float -> floatmem -> float * s * bool
+    val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
 
 end 
 
@@ -127,7 +132,7 @@ module FloatAlign : A = struct
         ()
 
     let print_cm m t = 
-        let mat = MlModel.compose m t in
+        let mat = MlModel.compose m.static t in
         for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
             for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
                 Printf.printf " [%f] " (~-. (log mat.{i,j}));
@@ -177,7 +182,7 @@ module FloatAlign : A = struct
         end
 
     let create_cost_matrix model t = 
-        let mat = MlModel.compose model t in
+        let mat = MlModel.compose model.static t in
         for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
             for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
                 mat.{i,j} <- ~-. (log mat.{i,j})
@@ -244,9 +249,9 @@ module FloatAlign : A = struct
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
-    let align_2 (mem:floatmem) (x:s) (y:s) (m:MlModel.model) (tx:float) (ty:float) = 
+    let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
         let cost = create_align_cost_fn m tx ty in
-        let gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
             if i = 0 && j = 0 then begin
@@ -276,7 +281,7 @@ module FloatAlign : A = struct
      * obtain the alphabet, and gap character. *)
     let alignments mem x y m =
         let get_direction i j = mem.(i).(j) --> snd --> snd --> List.hd
-        and gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        and gap = Alphabet.get_gap m.alph in
         let rec build_alignments one two i j = match get_direction i j with
             | Align  -> build_alignments ((Sequence.get x i)::one) ((Sequence.get y j)::two) (i-1) (j-1)
             | Delete -> build_alignments ((Sequence.get x i)::one) (gap::two) (i-1) (j)
@@ -317,7 +322,7 @@ module FloatAlign : A = struct
                         (Array.length mem.(0)) lenY;
 
         (* obtain the gap representation for this model *)
-        let gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        let gap = Alphabet.get_gap m.alph in
 
         (* Obtain the cost matrix for the alignment *)
         let cost_fn = create_align_cost_fn m tx ty in
@@ -573,7 +578,7 @@ module FloatAlign : A = struct
     let median_2_cost s1 s2 model t1 t2 mem : float * s = algn s1 s2 model t1 t2 mem
 
     let closest ~p ~m model t mem : s * float =
-        let alph= Alphabet.explote model.MlModel.alph 1 0 in
+        let alph= Alphabet.explote model.alph 1 0 in
         let gap = Alphabet.get_gap alph in
         if debug_aln then begin
             Printf.printf "\nP: ";print_s p alph;
@@ -698,7 +703,7 @@ module MPLAlign : A = struct
         ()
 
     let print_cm m t = 
-        let mat = MlModel.compose m t in
+        let mat = MlModel.compose m.static t in
         for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
             for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
                 Printf.printf " [%f] " (~-. (log mat.{i,j}));
@@ -754,7 +759,8 @@ module MPLAlign : A = struct
     let create_mpl_cost_fn ?(epsilon=Numerical.tolerance) m t1 t2 =
         let (=.) a b = (abs_float (a-.b)) < epsilon in
         let cost1,cost2 = 
-            let mat1 = MlModel.compose m t1 and mat2 = MlModel.compose m t2 in
+            let mat1 = MlModel.compose m.static t1 
+            and mat2 = MlModel.compose m.static t2 in
             assert( (Bigarray.Array2.dim1 mat1) = (Bigarray.Array2.dim1 mat2) );
             assert( (Bigarray.Array2.dim2 mat1) = (Bigarray.Array2.dim2 mat2) );
             for i = 0 to (Bigarray.Array2.dim1 mat1) - 1 do
@@ -777,7 +783,7 @@ module MPLAlign : A = struct
                         List.fold_left 
                             (fun acc y ->
                                 let c_min = ref acc in
-                                for i = 0 to (m.MlModel.alph_s)-1 do
+                                for i = 0 to (m.static.MlModel.alph_s)-1 do
                                     let c = med_cost x y i in
                                     if c < (fst !c_min) then 
                                         c_min := (c,[i])
@@ -806,7 +812,7 @@ module MPLAlign : A = struct
     (* p is single; m is not; find in m the least coast to p *)
     let get_closest gap model t =
         let cost_matrix = 
-            let mat = MlModel.compose model t in
+            let mat = MlModel.compose model.static t in
             for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
                 for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
                     mat.{i,j} <- ~-. (log mat.{i,j});
@@ -841,9 +847,9 @@ module MPLAlign : A = struct
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
-    let align_2 (mem:floatmem) (x:s) (y:s) (m:MlModel.model) (tx:float) (ty:float) = 
+    let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
         let cost = create_mpl_cost_fn m tx ty in
-        let gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
             if i = 0 && j = 0 then begin
@@ -878,7 +884,7 @@ module MPLAlign : A = struct
      * obtain the alphabet, and gap character. *)
     let alignments mem x y m =
         let get_direction i j = mem.(i).(j) --> snd --> snd --> List.hd
-        and gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        and gap = Alphabet.get_gap m.alph in
         let rec build_alignments one two i j = match get_direction i j with
             | Align  _ -> build_alignments ((Sequence.get x i)::one) ((Sequence.get y j)::two) (i-1) (j-1)
             | Insert _ -> build_alignments (gap::one) ((Sequence.get y j)::two) (i) (j-1) 
@@ -918,7 +924,7 @@ module MPLAlign : A = struct
                         (Array.length mem.(0)) lenY;
 
         (* obtain the gap representation for this model *)
-        let gap = Alphabet.get_gap (Alphabet.explote m.MlModel.alph 1 0) in
+        let gap = Alphabet.get_gap m.alph in
 
         (* Obtain the cost matrix for the alignment *)
         let cost_fn = create_mpl_cost_fn m tx ty in
@@ -1174,8 +1180,7 @@ module MPLAlign : A = struct
     let median_2_cost s1 s2 model t1 t2 mem : float * s = algn s1 s2 model t1 t2 mem
 
     let closest ~p ~m model t mem : s * float =
-        let alph= Alphabet.explote model.MlModel.alph 1 0 in
-        let gap = Alphabet.get_gap alph in
+        let gap = Alphabet.get_gap model.alph in
         let remove_gaps seq =
             let remove_gaps seq base =
                 if base <> gap then
@@ -1221,7 +1226,7 @@ module MPLAlign : A = struct
         if debug_aln then begin
             Printf.printf "\nP: ";print_raw p;
             Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
-            Printf.printf " -%f-> " c; print_s s_new alph;
+            Printf.printf " -%f-> " c; print_s s_new model.alph;
             print_newline ();
         end;
         res
