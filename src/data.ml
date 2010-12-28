@@ -3829,7 +3829,7 @@ let get_alphabet data c =
     | Static  sspec -> sspec.Nexus.File.st_alph
     | _ -> failwith "Data.get_alphabet"
 
-let verify_alphabet data chars = 
+let verify_alphabet data chars =
     match List.map (get_alphabet data) chars with
     | h :: t ->
         let _ = 
@@ -4272,6 +4272,11 @@ IFDEF USE_LIKELIHOOD THEN
         let u_gap = match use_gap with 
             | `Independent | `Coupled _ -> true | `Missing -> false in
         let i_alpha = ref true and i_model = ref true in
+        let dynamic = 
+            match Hashtbl.find data.character_specs (List.hd chars) with
+            | Dynamic _ -> true
+            | _ -> false
+        in
         (* We get the characters and filter them out to have only static types *)
         let model =
             let alph_size,alph = verify_alphabet data chars in
@@ -4401,6 +4406,10 @@ IFDEF USE_LIKELIHOOD THEN
                             iterate_alpha = !i_alpha;
                             cost_fn = cst;
                             use_gap = use_gap; }
+            in
+            let lk_spec = 
+                if dynamic then MlModel.remove_gamma_from_spec lk_spec 
+                           else lk_spec 
             in
             MlModel.create alph lk_spec
         in

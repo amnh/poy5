@@ -28,6 +28,8 @@ let likelihood_not_enabled =
 let dyno_likelihood_warning = 
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
     "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
+let dyno_gamma_warning = 
+    "Gamma@ classes@ for@ dynamic@ MPL/FLK@ are@ un-necessary,@ and@ are@ being@ removed."
 
 let debug = false
 let debug_printf msg format = 
@@ -1045,7 +1047,7 @@ let add_gap_to_model compute_priors model =
         | ConstantPi _ -> ConstantPi (Array.make size (1.0/.(float_of_int size)))
         | Given    _ ->
             failwith ("I cannot transform the specified model to add gap as a"^
-                      "character. The given priors requires a prior for the"^
+                      " character. The given priors requires a prior for the "^
                       "gap character.")
     and rates = match model.spec.substitution with
         (* these models require no changes *)
@@ -1088,6 +1090,13 @@ let add_gap_to_model compute_priors model =
     match model.spec.use_gap with
     | `Missing -> add_gap_to_model compute_priors model
     | `Independent | `Coupled _ -> model
+
+let remove_gamma_from_spec spec = 
+    match spec.site_variation with
+    | Some Constant | None -> spec
+    | _ -> 
+        Status.user_message Status.Warning dyno_gamma_warning;
+        { spec with site_variation = None; }
 
 IFDEF USE_LIKELIHOOD THEN
 

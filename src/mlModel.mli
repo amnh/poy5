@@ -138,6 +138,8 @@ val create : ?min_prior:float -> Alphabet.a -> spec -> model
  * priors, and they need to be computed again *)
 val add_gap_to_model : (unit -> float array) -> model -> model
 
+val remove_gamma_from_spec : spec -> spec
+
 val default_tstv  : float
 val default_gtr   : int -> float array
 val default_alpha : bool -> float
