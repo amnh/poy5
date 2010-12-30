@@ -102,8 +102,6 @@ These `-m' switches are supported in addition to the above on AMD x86-64 process
 -m64
     Generate code for a 32-bit or 64-bit environment. The 32-bit environment sets int, long and pointer to 32 bits and generates code that runs on any i386 system. The 64-bit environment sets int to 32 bits and long and pointer to 64 bits and generates code for AMD's x86-64 architecture. For darwin only the -m64 option turns off the -fno-pic and -mdynamic-no-pic options. 
 */      
-    fprintf(stdout,"mat setup size, w=%d,d=%d,sz=%d,len=%d,len_dir=%d,intmax=%d,size of matsize=%d\n", w,d,sz,m->len,len_dir,INT_MAX,sizeof(MAT_SIZE));
-    fflush(stdout);
     if (m->len_eff < len) { /* If the 3d or 2d matrix is not enough */
         m->cube = m->matrix = 
             (int *) realloc (m->matrix, (len * sizeof(int)));
