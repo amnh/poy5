@@ -21,8 +21,8 @@ type mum = {
     left_subset : subset list  ; (* seedNOlst of another mum*)
     right_subset : subset list;
     *)
-    neighborhood_lst: ( int * int * int * int * int ) list; 
-    (* list of neighborhood (seqNO,j_seedNO,i_ori,j_ori,distance) 
+    neighborhood_lst: ( int * int * int * int * int * int ) list; 
+    (* list of neighborhood (seqNO,j_seedNO,i_ori,j_ori,distance left,distance right) 
      * we can get seqNO from positions.(i_idx).seqNO*)
     subsuming_pointer : int ; 
     extendable : int ; 
