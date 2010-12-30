@@ -32,6 +32,10 @@
 #define ITER    100   //MAX iterations
 #define FABMIN  1e-30 //floating point absolute value min  
 
+#ifndef M_PI
+#define M_PI    3.14159265358979323846264338327
+#endif
+
 #define CHECK_MEM(a) if(a==NULL) failwith("I can't allocate more memory.")
 
 void CHECK_MEAN(double*a, int n){
@@ -70,6 +74,15 @@ double gamma( double z )
     x = sqrt(2*M_PI) * pow(x, z+0.5) * exp(-x) * Lg;
     return (x);
 }
+value gamma_CAML_gamma( value v_x ) 
+{
+    CAMLparam1( v_x ); 
+    CAMLlocal1( v_g );
+    v_g = caml_copy_double( gamma( Double_val( v_x ) ) );
+    CAMLreturn( v_g );
+}
+
+
 
 /** [lngamma z]
  * Computes the ln gamma function of z using Lanczos Approximation.
@@ -91,6 +104,13 @@ double lngamma( const double xx )
     ser=1.000000000190015;
     for(j=0;j<=5;j++) ser += cof[j]/++y;
     return -tmp+log(2.5066282746310005*ser/x);
+}
+value gamma_CAML_lngamma( value v_x ) 
+{
+    CAMLparam1( v_x ); 
+    CAMLlocal1( v_lng );
+    v_lng = caml_copy_double( lngamma( Double_val( v_x ) ) );
+    CAMLreturn( v_lng );
 }
 
 /** [gamma_pdf r alpha beta]
@@ -439,3 +459,4 @@ value gamma_CAML_rates( value a, value b, value c )
     rates = alloc_bigarray(BIGARRAY_FLOAT64 | BIGARRAY_C_LAYOUT,1,rate_ray,dims);
     CAMLreturn( rates );
 }
+

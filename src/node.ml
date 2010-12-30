@@ -34,6 +34,7 @@ let likelihood_error =
     "Likelihood not enabled: download different binary or contact mailing list" 
 
 let (-->) b a = a b
+let (=.) a b = abs_float (a-.b) < Numerical.tolerance
 
 let odebug = Status.user_message Status.Information
 let info_user_message format = 
@@ -445,10 +446,6 @@ let using_likelihood types x =
         | `Dynamic  -> y
         | `Either   -> x || y
 
-let float_close ?(epsilon=0.001) a b =
-    let diff = a -. b in
-    (abs_float diff) < epsilon
-
 (* extracts data on whole character set *)
 let extract_states alph data in_codes node =
     let alph = Alphabet.to_sequential alph in
@@ -595,7 +592,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                       cost = ca.weight *. cost } in
           Nonadd32 res
     | Add ca, Add cb -> 
-          assert (float_close ca.weight cb.weight);
+          assert (ca.weight =. cb.weight);
           let old = match prev with
           | Some Add old -> Some old.preliminary
           | None -> None
@@ -1118,6 +1115,7 @@ let get_characters_of_type map t node =
         | StaticMl _ when t = `StaticML -> true
         | Dynamic _ when t = `Dynamic -> true
         | Set _ when t = `Set -> true
+        | Dynamic _ when t = `Ml -> true (* TODO *)
         | _ -> false) node.characters)
 
 let get_nonadd_8 = 
@@ -1150,8 +1148,14 @@ IFDEF USE_LIKELIHOOD THEN
         get_characters_of_type 
             (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
             `StaticML
+
+    and get_mldynamic = 
+        get_characters_of_type 
+            (function StaticMl x -> x.preliminary, x.final | _ -> assert false)
+            `Ml
 ELSE
     let get_mlstatic x = []
+    and get_mldynamic x = []
 END
 
 let get_set = 
@@ -1288,6 +1292,7 @@ ELSE
 END
     in
     List.map func nd.characters
+
 
 let get_times_between_plus_codes (child:node_data) (parent:node_data) =
     let null = ([||],None) in
@@ -2757,7 +2762,6 @@ let load_data ?(silent=true) ?(classify=true) data =
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `ILK -> mpl ,mal ,true 
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `BLK -> mpl ,mal ,true 
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
                     | _ -> acc)
@@ -2918,64 +2922,77 @@ let estimate_time a b =
     in
     map2 (estimate_) a.characters b.characters
 
-let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs mine : cs =
-    if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
-    match parent_cs, mine with
-       | Dynamic parent, Dynamic mine ->
-          let root_pre = match root with
-          | Some (Dynamic root) -> Some root.preliminary
-          | _ -> None
-          in 
-          let prev_cost, cost, res = 
-              DynamicCS.to_single pre_ref_code 
-                    root_pre parent.preliminary mine.preliminary 
-          in
-          Dynamic {preliminary = res; final = res; 
-                   cost = (mine.weight *.  cost);
-                   sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = mine.time}
-    (* | StaticMl cb, StaticMl ca -> 
-        IFDEF USE_LIKELIHOOD THEN
-            (match root with
-            | None -> mine
-            | Some root -> 
-                let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
-                let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
-                let cost = MlStaticCS.root_cost res in
-                StaticMl
-                    { preliminary=res;final=res;
-                      cost = (ca.weight *. cost);
-                      sum_cost = cost;
-                      weight = ca.weight; time = None,None
-                    }
-            )
-        ELSE
-            failwith MlStaticCS.likelihood_error
-        END
-    | Kolmo parent, Kolmo mine ->
-             Do we need this only for dynamic characters? I will first get it
-            * going here only 
-          let root_pre = match root with
-          | Some (Kolmo root) -> Some root.preliminary
-          | _ -> None
-          in 
-          let prev_cost, cost, res = 
-              KolmoCS.to_single pre_ref_code 
-                    root_pre parent.preliminary mine.preliminary 
-            in
-          Kolmo {preliminary = res; final = res; 
-                   cost = (mine.weight *.  cost);
-                   sum_cost = (mine.weight *. cost);
-                   weight = mine.weight; time = None,None} *)
-    | _ -> match root with
-            | Some mine -> mine
-            | None -> mine
 
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
+    let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
+        if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
+        match parent_cs, minet with
+            | Dynamic parentt, Dynamic minet ->
+                let root_pre,bl = match root with
+                    | Some (Dynamic root) -> 
+                        begin match parentt.time with
+                            | None,None     -> Some root.preliminary, None
+                            | Some x,Some y -> Some root.preliminary, Some (x +. y)
+                            | None, Some _
+                            | Some _,None   -> failwith "Inconsistent branches"
+                        end
+                    | None -> 
+                        if mine.min_child_code = parent.min_child_code then
+                            None, fst parentt.time
+                        else
+                            None, snd parentt.time
+                    | Some _ -> failwith "Inconsistent root passed to to_single"
+                in
+                let prev_cost, cost, res =
+                    DynamicCS.to_single pre_ref_code
+                        root_pre parentt.preliminary minet.preliminary bl
+                in
+                Dynamic {preliminary = res; final = res;
+                           cost = (minet.weight *.  cost);
+                           sum_cost = (minet.weight *. cost);
+                          weight = minet.weight; time = minet.time}
+        (* | StaticMl cb, StaticMl ca -> 
+            IFDEF USE_LIKELIHOOD THEN
+                (match root with
+                | None -> mine
+                | Some root -> 
+                    let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
+                    let res = MlStaticCS.median ca.preliminary cb.preliminary t1 t2 in
+                    let cost = MlStaticCS.root_cost res in
+                    StaticMl
+                        { preliminary=res;final=res;
+                          cost = (ca.weight *. cost);
+                          sum_cost = cost;
+                          weight = ca.weight; time = None,None
+                        }
+                )
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
+        | Kolmo parent, Kolmo mine ->
+                 Do we need this only for dynamic characters? I will first get it
+                * going here only 
+              let root_pre = match root with
+              | Some (Kolmo root) -> Some root.preliminary
+              | _ -> None
+              in 
+              let prev_cost, cost, res = 
+                  KolmoCS.to_single pre_ref_code 
+                        root_pre parent.preliminary mine.preliminary 
+                    in
+              Kolmo {preliminary = res; final = res; 
+                       cost = (mine.weight *.  cost);
+                       sum_cost = (mine.weight *. cost);
+                       weight = mine.weight; time = None,None} *)
+        | _ -> match root with
+                | Some mine -> mine
+                | None -> minet
+    in
     (* changes cost of node in likelihood since dynamic chooses a root from
      * either side, and continues that cost *)
     if debug_tosingle then
-        Printf.printf "Node.ml to_single at Node.%d; %!" mine.taxon_code;
+        Printf.printf "Node.ml to_single at Node %d from %d%!" 
+                        mine.taxon_code parent.taxon_code;
     let set_cost oldc newc = match mine.cost_mode with
         | `Parsimony -> oldc
         | `Likelihood -> newc

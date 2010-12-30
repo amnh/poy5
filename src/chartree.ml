@@ -1408,7 +1408,7 @@ module TreeOps = struct
     let break_fn _ = break_fn
     let join_fn _ = join_fn
     let model_fn x = x
-    let adjust_fn ?(epsilon) ?(max_iter) _ t = t
+    let adjust_fn ?(max_iter) _ t = t
     let cost_fn _ = 
         match !Methods.cost with
         | `Normal -> cost_fn

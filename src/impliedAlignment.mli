@@ -53,10 +53,13 @@ type dyna_state_t = Data.dyna_state_t
    isa_arr is an array of ias in the case of annotated chromosomes (ach ias
    presents a locus)
 *)
+type cost_matrix = 
+    | CM of Cost_matrix.Two_D.m 
+    | Model of FloatSequence.dyn_model * (float * int option) 
 
 type t = {
     sequences : ias array All_sets.IntegerMap.t;
-    c2 : Cost_matrix.Two_D.m;
+    c2 : cost_matrix;
     chrom_pam : Data.dyna_pam_t;
     state : dyna_state_t;
     code : int;
@@ -73,14 +76,10 @@ type cg = (unit -> int)
 (** Creates a fresh code generation functions *)
 val code_generator : unit -> cg
 
-(** alphabet used to represnet present/absent characters **)
-val present_absent_alph : Alphabet.a
-
 (** [create_ias status s cg] creates a fresh sequence representation for implied
  * alignments of sequence [s] using the code generation function [cg].  
  * state indicate the type of sequence, i.e., Sequence, Chromosome, Annotated,
- * Genome, Breakinv....
- *)
+ * Genome, Breakinv....  *)
 val create_ias : dyna_state_t -> Sequence.Clip.s -> int -> cg -> ias
 
 exception IsSankoff

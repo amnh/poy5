@@ -17,19 +17,12 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let () = SadmanOutput.register "FMatrix" "$Revision"
+(** FMatrix; 64-bit Floating Point Temporary Storage Module *)
 
 type m
-external create : int -> m = "floatmatrix_CAML_create"
+(** Abstract type to hold scratch space for 64bit floating point values.
+    Auto-expands; does not shrink. *)
 
-external expand : m -> int -> unit = "floatmatrix_CAML_expand"
-external clear : m -> int -> int -> unit = "floatmatrix_CAML_clear"
-external random : m -> unit = "floatmatrix_CAML_random" 
-external print : m -> unit = "floatmatrix_CAML_print"
-
-external register : unit -> unit = "floatmatrix_CAML_register"
-let () = register ()
-
-(* some default space *)
-let scratch_space = create 20
-
+val scratch_space : m
+(** The default instantiation; initial size is '20'. This is very small, but
+    will instantly grow to a reasonable size when used first. *)

@@ -3829,13 +3829,22 @@ let get_alphabet data c =
     | Static  sspec -> sspec.Nexus.File.st_alph
     | _ -> failwith "Data.get_alphabet"
 
-let verify_alphabet data chars = 
+let verify_alphabet data chars =
     match List.map (get_alphabet data) chars with
     | h :: t ->
-            if List.fold_left ~f:(fun acc x -> acc && (x = h)) ~init:true t then
-                let alph = Alphabet.to_sequential h in
-                (Alphabet.size alph), alph
-            else failwith "The alphabet of the characters is different"
+        let _ = 
+            List.fold_left
+                ~f:(fun acc x -> 
+                        if x = h then acc 
+                        else begin
+                            Alphabet.print x;
+                            Alphabet.print h;
+                            failwith "The alphabet of the characters is different"
+                        end)
+                ~init:true t
+        in
+        let alph = Alphabet.to_sequential h in
+        (Alphabet.size alph), alph
     | [] -> failwith "No alphabet to verify?"
 
 (* [independent c d] make each character in the characterset independent. Used
@@ -4094,6 +4103,127 @@ let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) =
     apply_likelihood_model_on_char_table false data new_specs char_codes model;
     { data with character_specs = new_specs } --> categorize
 
+
+(* remove the absent/present columns in the parsed data, and modify the previous
+ * column (the column the active/present column is adding data to), and modify
+ * it to a gap for likelihood. This is only for likelihood characters, unless
+ * ignore is set to true, in which case it will remove them with impunity! The
+ * active/present columns in other characters are used for an additional cost to
+ * that column, combined with the weight parameter. *)
+let remove_absent_present_encodings ?(ignore=false) data = 
+    let is_likelihood = function
+        | Nexus.File.STLikelihood _ -> (true || ignore)
+        | _ -> false
+    (* transform a character to a gap *)
+    and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
+        | Static sspec, (Stat (code,data),specified) ->
+            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
+            (Stat (code, Some (`List [gap])),specified)
+        | _, _ -> failwith "Data.remove_absent_present_encodings failure"
+    in
+    (* test if we are using STATIC likelihood somewhere *)
+    let test_using_likelihood data = 
+        let ret = ref false in
+        Hashtbl.iter
+            (fun x spec -> match spec with
+                | Static {Nexus.File.st_type = st_type} -> 
+                    ret := !ret || (is_likelihood st_type)
+                | _ -> ())
+            data.character_specs;
+        (!ret || ignore)
+    (* find if we are using the absent/present alphabet *)
+    and is_present_absent a = 
+        try let _ = Alphabet.match_base "present" a in true
+        with | _ -> false
+    (* apply the absent/present encoding column to the previous column *)
+    and is_present tcode code state spec = match spec,state with
+        | Static sspec, (Stat (code,Some data),_) ->
+            let data_list = Nexus.File.static_state_to_list data
+            and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            List.mem present data_list
+        | Static sspec, (Stat (code,None),_) ->
+            let _ = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
+            true
+        | _,_ -> failwith "Incorrect Match1"
+    and is_absent tcode code state spec = match spec,state with
+        | Static sspec, (Stat (code,Some data),_) ->
+            let data_list = Nexus.File.static_state_to_list data
+            and absent = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            List.mem absent data_list
+        | Static sspec, (Stat (code,None),_) -> 
+            (* do the lookup anyway to ensure it exists *)
+            let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
+            false
+        | _,_ -> failwith "Incorrect Match2"
+    and branch_remove branch name = match branch with 
+        | Some branch ->
+            Hashtbl.iter
+                (fun name v_set ->
+                    All_sets.IntSetMap.iter 
+                        (fun _ tbl -> Hashtbl.remove tbl name) (v_set) )
+                branch
+        | None -> ()
+    in
+    let apply_absent_encoding branch specs chars names codes code = 
+        Hashtbl.iter
+            (fun t_code t_state_tbl ->
+                let apstate = Hashtbl.find t_state_tbl code
+                and apspec  = Hashtbl.find specs code in
+                if is_present t_code code apstate apspec then begin
+                    let lkstate = Hashtbl.find t_state_tbl (code-1) 
+                    and lkspec  = Hashtbl.find specs (code-1) in
+                    let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
+                    Hashtbl.replace t_state_tbl (code-1) nstate;
+                    Hashtbl.remove t_state_tbl code;
+                end else begin
+                    assert(is_absent t_code code apstate apspec);
+                    Hashtbl.remove t_state_tbl code
+                end)
+            chars;
+        let name = Hashtbl.find codes code in
+        Hashtbl.remove names name;
+        Hashtbl.remove codes code;
+        Hashtbl.remove specs code;
+        branch_remove branch name
+    in
+    if test_using_likelihood data then begin
+        let copy_spec   = Hashtbl.copy data.character_specs
+        and copy_names  = Hashtbl.copy data.character_names
+        and copy_codes  = Hashtbl.copy data.character_codes
+        and copy_branch = copy_branches data.branches 
+        and copy_char   =
+            let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
+            Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
+                         data.taxon_characters;
+            n
+        in
+        let map = 
+            Hashtbl.fold
+                (fun k v acc -> match v with
+                    | Static {Nexus.File.st_alph = st_alph;}
+                        when is_present_absent st_alph ->
+                            apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
+                            IntMap.map 
+                                (fun x -> List.filter (fun y -> not (y = k)) x)
+                                acc
+                    | Dynamic _    | Set 
+                    | Kolmogorov _ | Static _ -> acc)
+                copy_spec
+                data.dynamic_static_codes
+        in
+        { data with character_specs      = copy_spec;
+                    taxon_characters     = copy_char;
+                    character_names      = copy_names;
+                    character_codes      = copy_codes;
+                    dynamic_static_codes = map;
+                    branches             = copy_branch;
+                    static_dynamic_codes = reverse_dynamic_static_codes map; }
+    end else begin
+        data
+    end
+
+
+
 (** [set_parsimony lk chars] transforms the characters specified in [chars] to
  * the likelihood model specified in [lk] *)
 let set_parsimony data chars = 
@@ -4131,10 +4261,22 @@ IFDEF USE_LIKELIHOOD THEN
     match get_chars_codes_comp data chars with
     | [] -> data
     | chars ->
-        let data = duplicate data in
+        let data  = remove_absent_present_encodings ~ignore:true data in
+        let chars = 
+            List.filter 
+                (fun x -> 
+                    try let _ = Hashtbl.find data.character_specs x in true
+                    with | _ -> false)
+                chars
+        in
         let u_gap = match use_gap with 
             | `Independent | `Coupled _ -> true | `Missing -> false in
         let i_alpha = ref true and i_model = ref true in
+        let dynamic = 
+            match Hashtbl.find data.character_specs (List.hd chars) with
+            | Dynamic _ -> true
+            | _ -> false
+        in
         (* We get the characters and filter them out to have only static types *)
         let model =
             let alph_size,alph = verify_alphabet data chars in
@@ -4264,6 +4406,10 @@ IFDEF USE_LIKELIHOOD THEN
                             iterate_alpha = !i_alpha;
                             cost_fn = cst;
                             use_gap = use_gap; }
+            in
+            let lk_spec = 
+                if dynamic then MlModel.remove_gamma_from_spec lk_spec 
+                           else lk_spec 
             in
             MlModel.create alph lk_spec
         in
@@ -5949,118 +6095,6 @@ let sync_static_to_dynamic_model_branches ~src ~dest =
     in
     categorize { dest with character_specs = char_specs; }
 
-(* remove the absent/present columns in the parsed data, and modify the previous
- * column (the column the active/present column is adding data to), and modify
- * it to a gap for likelihood. This is only for likelihood characters. The
- * active/present columns in other characters are used for an additional cost to
- * that column, combined with the weight parameter. *)
-let remove_absent_present_encodings data = 
-    let is_likelihood = function
-        | Nexus.File.STLikelihood _ -> true | _ -> false
-    (* transform a character to a gap *)
-    and apply_gap_to_cs taxon_code char_code spec state = match spec,state with
-        | Static sspec, (Stat (code,data),specified) ->
-            let gap = Alphabet.get_gap sspec.Nexus.File.st_alph in
-            (Stat (code, Some (`List [gap])),specified)
-        | _, _ -> failwith "Data.remove_absent_present_encodings failure"
-    in
-    (* test if we are using STATIC likelihood somewhere *)
-    let test_using_likelihood data = 
-        let ret = ref false in
-        Hashtbl.iter
-            (fun x spec -> match spec with
-                | Static {Nexus.File.st_type = st_type} -> 
-                    ret := !ret || (is_likelihood st_type)
-                | _ -> ())
-            data.character_specs;
-        !ret
-    (* apply the absent/present encoding column to the previous column *)
-    and is_present tcode code state spec = match spec,state with
-        | Static sspec, (Stat (code,Some data),_) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and present = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
-            List.mem present data_list
-        | Static sspec, (Stat (code,None),_) ->
-            let _ = Alphabet.match_base "present" sspec.Nexus.File.st_alph in
-            true
-        | _,_ -> failwith "Incorrect Match1"
-    and is_absent tcode code state spec = match spec,state with
-        | Static sspec, (Stat (code,Some data),_) ->
-            let data_list = Nexus.File.static_state_to_list data
-            and absent = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
-            List.mem absent data_list
-        | Static sspec, (Stat (code,None),_) -> 
-            (* do the lookup anyway to ensure it exists *)
-            let _ = Alphabet.match_base "absent" sspec.Nexus.File.st_alph in
-            false
-        | _,_ -> failwith "Incorrect Match2"
-    and branch_remove branch name = match branch with 
-        | Some branch ->
-            Hashtbl.iter
-                (fun name v_set ->
-                    All_sets.IntSetMap.iter 
-                        (fun _ tbl -> Hashtbl.remove tbl name) (v_set) )
-                branch
-        | None -> ()
-    in
-    let apply_absent_encoding branch specs chars names codes code = 
-        Hashtbl.iter
-            (fun t_code t_state_tbl ->
-                let lkstate = Hashtbl.find t_state_tbl (code-1)
-                and apstate = Hashtbl.find t_state_tbl code
-                and lkspec  = Hashtbl.find specs (code-1)
-                and apspec  = Hashtbl.find specs code in
-                if is_present t_code code apstate apspec then begin
-                    let nstate = apply_gap_to_cs t_code (code-1) lkspec lkstate in
-                    Hashtbl.replace t_state_tbl (code-1) nstate;
-                    Hashtbl.remove t_state_tbl code;
-                end else begin
-                    assert(is_absent t_code code apstate apspec);
-                    Hashtbl.remove t_state_tbl code
-                end)
-            chars;
-        let name = Hashtbl.find codes code in
-        Hashtbl.remove names name;
-        Hashtbl.remove codes code;
-        Hashtbl.remove specs code;
-        branch_remove branch name
-    in
-    if test_using_likelihood data then begin
-        let copy_spec   = Hashtbl.copy data.character_specs
-        and copy_names  = Hashtbl.copy data.character_names
-        and copy_codes  = Hashtbl.copy data.character_codes
-        and copy_branch = copy_branches data.branches 
-        and copy_char =
-            let n = Hashtbl.create (Hashtbl.length data.taxon_characters) in
-            Hashtbl.iter (fun k v -> Hashtbl.add n k (Hashtbl.copy v))
-                         data.taxon_characters;
-            n
-        in
-        let map = 
-            Hashtbl.fold
-                (fun k v acc -> match v with
-                    | Static {Nexus.File.st_type = st_type;}
-                        when not (is_likelihood st_type) ->
-                            apply_absent_encoding copy_branch copy_spec copy_char copy_names copy_codes k;
-                            IntMap.map 
-                                (fun x -> List.filter (fun y -> not (y = k)) x)
-                                acc
-                    | Dynamic _    | Set 
-                    | Kolmogorov _ | Static _ -> acc)
-                copy_spec
-                data.dynamic_static_codes
-        in
-        { data with character_specs      = copy_spec;
-                    taxon_characters     = copy_char;
-                    character_names      = copy_names;
-                    character_codes      = copy_codes;
-                    dynamic_static_codes = map;
-                    branches             = copy_branch;
-                    static_dynamic_codes = reverse_dynamic_static_codes map; }
-    end else begin
-        data
-    end
-
 
 (** Functions to modify the taxon codes *)
 let change_taxon_codes reorder_function data =
@@ -6204,11 +6238,7 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         | `AffinePartition (_, gapcost, gapopening) ->
                 (fun len -> gapopening + (len * gapcost))
     in
-    let present_absent_alph = 
-        Alphabet.list_to_a 
-        [("present", 1, None); ("absent", 2, None)] 
-        "absent" None Alphabet.Sequential
-    in
+    let present_absent_alph = Alphabet.present_absent in
     let encoding len = 
         present_absent_alph,
         (Parser.OldHennig.Encoding.gap_encoding (compute_cost len))

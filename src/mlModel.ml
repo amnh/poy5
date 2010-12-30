@@ -19,9 +19,7 @@
 
 let () = SadmanOutput.register "MlMatrix" "$Revision"
 
-let epsilon = 0.00001
-let (=.) a b = abs_float (a-.b) < epsilon
-let (>=.) a b = abs_float (a-.b) > ~-.epsilon
+let (=.) a b = abs_float (a-.b) < Numerical.tolerance
 let (-->) b a = a b
 let failwithf format = Printf.ksprintf failwith format
 
@@ -30,6 +28,8 @@ let likelihood_not_enabled =
 let dyno_likelihood_warning = 
     "Gap@ as@ an@ additional@ character@ is@ required@ for@ the@ dynamic@ "^
     "likelihood@ criteria.@ I@ am@ enabling@ this@ setting@ for@ the@ transformation."
+let dyno_gamma_warning = 
+    "Gamma@ classes@ for@ dynamic@ MPL/FLK@ are@ un-necessary,@ and@ are@ being@ removed."
 
 let debug = false
 let debug_printf msg format = 
@@ -82,13 +82,15 @@ let default_gap_r   = 0.15
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
 
-let list_of_packed d =
+let list_of_packed ?(zerobase=true) d =
     let rec loop_ c i d = match d land 1 with
         | 0 when d = 0 -> c
         | 0  -> loop_ c (i+1) (d lsr 1)
         | 1  -> loop_ (i::c) (i+1) (d lsr 1)
         | _  -> failwith "MlModel.classify_seq_pairs.build_lst"
-    in loop_ [] 0 d
+    in 
+    let base = if zerobase then 0 else 1 in
+    loop_ [] base d
 
 and packed_of_list lst =
     List.fold_left (fun acc x -> (1 lsl x) + acc) 0 lst
@@ -160,7 +162,6 @@ let get_costfn_code a = match a.spec.cost_fn with
     | `MAL -> 0 
     | `FLK -> ~-1 (* should not call C functions; yet *)
     | `ILK -> ~-1 (* should not call C functions *)
-    | `BLK -> ~-1 (* should not call C functions *)
 
 let categorize_by_model codes get_fun =
     let set_codes =
@@ -416,18 +417,18 @@ let m_f84 pi_ gamma kappa a_size gap_r =
     m_tn93 pi_ alpha beta gamma a_size gap_r
 
 (* normalize against two characters that are not gaps; unless its the only choice *)
-let normalize ?(m=epsilon) spec ray = match spec.use_gap with
+let normalize ?(m=Numerical.minimum) spec ray = match spec.use_gap with
     | `Independent -> 
         let normalize_factor = max m ray.((Array.length ray) - 3) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec, `Independent
     | `Coupled n ->
         let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec, `Coupled ( n/.normalize_factor )
     | `Missing ->
         let normalize_factor = max m ray.((Array.length ray) - 1) in
-        let vec = Array.map (fun i -> max m (i /. normalize_factor)) ray in
+        let vec = Array.map (fun i -> (max m i) /. normalize_factor) ray in
         vec,`Missing
 
 (* val gtr :: ANY ALPHABET size
@@ -603,7 +604,6 @@ let output_model output nexus model set =
             | `MAL -> printf "@[Cost = mal;@]"; 
             | `ILK -> printf "@[Cost = ilk;@]";
             | `FLK -> printf "@[Cost = flk;@]";
-            | `BLK -> printf "@[Cost = blk;@]";
         in
         let () = match model.spec.site_variation with
             | Some Constant | None -> ()
@@ -654,7 +654,6 @@ let output_model output nexus model set =
             | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
             | `ILK -> printf "@[<hov 1>Cost mode: ilk;@]\n"; 
             | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
-            | `BLK -> printf "@[<hov 1>Cost mode: blk;@]\n"; 
         in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
@@ -779,6 +778,7 @@ let integerized_model ?(sigma=4) model t =
 ELSE
 
     let output_model _ _ _ _ = ()
+    let compose _ _  = failwith "Please enable likelihood"
 
 END
 
@@ -786,7 +786,7 @@ END
 let model_to_cm model t =
     let input =
         IFDEF USE_LIKELIHOOD THEN 
-            let t = max epsilon t in
+            let t = max Numerical.minimum t in
             integerized_model model t
         ELSE
             failwith likelihood_not_enabled
@@ -862,7 +862,6 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "MAL" -> `MAL
         | "FLK" -> `FLK
         | "ILK" -> `ILK
-        | "BLK" -> `BLK
         | ""    -> `MPL (* unmentioned default *)
         | x     -> 
             Status.user_message Status.Warning
@@ -928,7 +927,7 @@ let verify_rates probs rates =
     p1 && p2
 
 (* create a model based on a specification and an alphabet *)
-let create ?(min_prior=epsilon) alph lk_spec = 
+let create ?(min_prior=Numerical.minimum) alph lk_spec = 
   IFDEF USE_LIKELIHOOD THEN
     let alph = Alphabet.to_sequential alph in
     let (a_size) = match lk_spec.use_gap with
@@ -1048,7 +1047,7 @@ let add_gap_to_model compute_priors model =
         | ConstantPi _ -> ConstantPi (Array.make size (1.0/.(float_of_int size)))
         | Given    _ ->
             failwith ("I cannot transform the specified model to add gap as a"^
-                      "character. The given priors requires a prior for the"^
+                      " character. The given priors requires a prior for the "^
                       "gap character.")
     and rates = match model.spec.substitution with
         (* these models require no changes *)
@@ -1091,6 +1090,13 @@ let add_gap_to_model compute_priors model =
     match model.spec.use_gap with
     | `Missing -> add_gap_to_model compute_priors model
     | `Independent | `Coupled _ -> model
+
+let remove_gamma_from_spec spec = 
+    match spec.site_variation with
+    | Some Constant | None -> spec
+    | _ -> 
+        Status.user_message Status.Warning dyno_gamma_warning;
+        { spec with site_variation = None; }
 
 IFDEF USE_LIKELIHOOD THEN
 

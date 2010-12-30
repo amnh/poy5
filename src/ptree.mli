@@ -134,7 +134,7 @@ type ('a, 'b) model_fn = ('a, 'b) p_tree -> ('a, 'b) p_tree
  * model from the toplevel or from samplers and other functions *)
 
 type ('a, 'b) adjust_fn = 
-    ?epsilon:(float) -> ?max_iter:(int) ->
+    ?max_iter:(int) ->
         ('a, 'b ) nodes_manager option ->
             ('a, 'b) p_tree -> ('a, 'b) p_tree
 (** type of function that performs iterations on the model and branch lengths

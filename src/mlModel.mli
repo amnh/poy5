@@ -27,8 +27,6 @@ type string_spec = string * (string * string * string * string)
                           * (string * float option) * string
                           * string option
 
-val epsilon : float
-
 val empty_str_spec : string_spec
 
 val likelihood_not_enabled : string
@@ -111,7 +109,8 @@ val jc69_4 : spec
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
 
-val list_of_packed : int -> int list
+val list_of_packed : ?zerobase:bool -> int -> int list
+val packed_of_list : int list -> int
 
 (* code for costfn for c-side *)
 val get_costfn_code : model -> int
@@ -138,6 +137,8 @@ val create : ?min_prior:float -> Alphabet.a -> spec -> model
  * The compute priors function is only used if the previous model had estimated
  * priors, and they need to be computed again *)
 val add_gap_to_model : (unit -> float array) -> model -> model
+
+val remove_gamma_from_spec : spec -> spec
 
 val default_tstv  : float
 val default_gtr   : int -> float array
@@ -214,10 +215,6 @@ val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
         Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
 
-(** [compse m t] compose a matrix with the time *)
-val compose : model -> float -> 
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-
 (** [diagonalize s m] diagonalize [m] *)
 val diagonalize :
     bool ->
@@ -231,6 +228,10 @@ val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Ar
         -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 END
+
+(** [compse m t] compose a matrix with the time *)
+val compose : model -> float -> 
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
