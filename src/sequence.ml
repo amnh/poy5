@@ -906,8 +906,6 @@ module Align = struct
 
 
     let align_2 ?(first_gap=true) s1 s2 c m =
-    (*    Printf.printf "Sequence.Align.align_2 \n%!";
-        printseqcode s1; printseqcode s2; *)
         let cmp s1 s2 =
             match Cost_matrix.Two_D.affine c with
             | Cost_matrix.Affine _ ->
