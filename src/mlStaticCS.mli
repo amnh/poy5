@@ -245,3 +245,5 @@ ELSE
 val likelihood_error : string
 
 END
+
+val compress : bool

@@ -144,7 +144,7 @@ type model = {
 
 let jc69_5 = { substitution = JC69; site_variation= None;cost_fn=`MAL;
                iterate_alpha=true;iterate_model=true;use_gap=`Independent;
-               base_priors = ConstantPi [| 0.225;0.225;0.225;0.225;0.100 |];  }
+               base_priors = ConstantPi [| 0.20;0.20;0.20;0.20;0.20 |];  }
 
 and jc69_4 = { substitution = JC69;site_variation= None;cost_fn=`MAL;
                iterate_alpha=true;iterate_model=true;use_gap=`Missing;
