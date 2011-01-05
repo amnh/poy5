@@ -59,7 +59,7 @@ type re_meth_t = [ (* The cost of a rearrangement event is the argument *)
 type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
 `ChainedLK | `SimpleLK ]
 
-type annotate_tool_t = [ `Mauve of (float*int*int) | `Default of (int*int*int) ]
+type annotate_tool_t = [ `Mauve of (float*float*int) | `Default of (int*int*int) ]
 
 type dyna_pam_t = {
     median_solver: median_solver_t option; 

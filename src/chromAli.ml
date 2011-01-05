@@ -627,7 +627,7 @@ let cmp_simple_cost med1 med2 cost_mat ali_pam =
             | true ->
                 if debug2 then Printf.printf "cmp_simple_cost,call mauve annotater \n%!";
                 let _,_,_,_,_, total_cost, (recost1, recost2) =
-                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam None
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam None None
                 in
                 total_cost,recost1,recost2
             | false ->
@@ -680,7 +680,7 @@ let cmp_cost med1 med2 cost_mat chrom_pams state =
 * the median list between chromosome [med1] and chromosome [med2]. 
 * Rearrangements are allowed *)
 let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam 
-(outputtofile :string option) =
+(outputtofile :string option) (old_cost:int option) =
     let debug2 = false in
     if debug = true then begin
         let len1 = Sequence.length med1.seq in 
@@ -733,7 +733,8 @@ let find_simple_med2_ls (med1 : med_t) (med2 : med_t) cost_mat ali_pam
         (*base_code+2 is the start code for non-lcb block*)
         let full_code_lstlst,gen_gap_code,alignment_matrix, alied_code1_lst,
             alied_code2_lst, total_cost, (_, recost) =
-                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile
+                AliMap.create_general_ali_mauve seq1 seq2 cost_mat ali_pam 
+                outputtofile old_cost
         in
         let alied_gen_seq2 = Array.of_list alied_code2_lst in
         let re_gen_seq2 = Utl.filterArray 
@@ -806,13 +807,13 @@ let find_med2_ls (med1 : med_t) (med2 : med_t) cost_mat user_chrom_pam outputtof
     match ali_pam.ChromPam.symmetric with
     | true ->
           let cost12, recost12, med12_ls = find_simple_med2_ls med1 med2
-          cost_mat ali_pam outputtofile in 
+          cost_mat ali_pam outputtofile None in 
           let ali_pam = 
               if ali_pam.ChromPam.approx = `First then {ali_pam with ChromPam.approx = `Second}
               else ali_pam
           in 
           let cost21, recost21, med21_ls = find_simple_med2_ls med2 med1
-          cost_mat ali_pam None in 
+          cost_mat ali_pam outputtofile (Some cost12) in 
           if cost12 <= cost21 then cost12, recost12, med12_ls
           else begin 
               let med12_ls = List.map swap_med med21_ls in 
@@ -830,7 +831,7 @@ let find_med2_ls (med1 : med_t) (med2 : med_t) cost_mat user_chrom_pam outputtof
                     med2, med1, ali_pam, true
           in 
           let cost, recost, med_ls = find_simple_med2_ls med1 med2 cost_mat
-          ali_pam outputtofile in
+          ali_pam outputtofile None in
           let med_ls = 
               match swaped with
               | false -> med_ls

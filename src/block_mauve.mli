@@ -11,7 +11,9 @@ type m_i = {  (* the ith element M_i of a local mum *)
 type mum = { 
     seedNO : int; (*the # of seed that contruct this mum. start from
     only one seed, than extend*)
+    mumseq : int array;
     positions : m_i list;  (* the positions in sequence this mum shows up*)
+    mumkey : int;
     size : int; (* size of this mum, also the size of position list *)
     (* we don't extend seed with subset/superset for multi-sequence.
     left_superset : int list  ; (* seedNOlst of another mum*)
@@ -19,8 +21,8 @@ type mum = {
     left_subset : subset list  ; (* seedNOlst of another mum*)
     right_subset : subset list;
     *)
-    neighborhood_lst: ( int * int * int * int * int ) list; 
-    (* list of neighborhood (seqNO,j_seedNO,i_ori,j_ori,distance) 
+    neighborhood_lst: ( int * int * int * int * int * int ) list; 
+    (* list of neighborhood (seqNO,j_seedNO,i_ori,j_ori,distance left,distance right) 
      * we can get seqNO from positions.(i_idx).seqNO*)
     subsuming_pointer : int ; 
     extendable : int ; 
@@ -38,6 +40,10 @@ type mum = {
     extendable one for some reason, we can upgrade one of this kind to be
     extendable. 
     *)
+    priority_lst : int list; 
+    (*priority_lst keep a list of seedNO that make this mum un-extendable (which
+    * means this mum has extendable=3 because of those seeds) we can upgrade
+    * this mum to ext=0 if this priority_lst is empty*)
     mumscore : int ;
 }
 
@@ -53,11 +59,11 @@ type lcb = {
 }
 
 
-val create_lcb_tbl : int list list -> float -> int -> int ->
+val create_lcb_tbl : int array array -> float -> float -> int ->
     (int list, lcb) Hashtbl.t * int list list list * int list list * 
     (int * int) list list
 
-val print_mum : int -> (int,mum) Hashtbl.t -> bool -> bool -> unit
+val print_mum : mum -> bool -> bool -> unit
 
 val print_lcb : lcb -> unit
 

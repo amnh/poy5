@@ -309,9 +309,9 @@ let get_min_rearrangement_len pam =
     | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
             min_rearrangement_len
 
-let get_min_seed_num pam = 
+let get_min_cover_ratio pam = 
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_seed_num,bk_penalty) -> min_seed_num
+    | `Mauve (min_lcb_ratio,min_cover_ratio,bk_penalty) -> min_cover_ratio
     | `Default (_,_,_) ->
             failwith "Default annotator does not have this"
 

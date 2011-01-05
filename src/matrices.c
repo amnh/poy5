@@ -25,6 +25,7 @@
 #include "matrices.h"
 
 
+
 /* 
  * For memory management efficiency, I will keep all the matrices in one big
  * chunck of memory, that I can reallocate as a whole, and reduce fragmentation
@@ -75,14 +76,15 @@ __inline int
 inline int
 #endif
 mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
-    int len, len_2d, len_precalc, len_dir;
+    int len, len_2d, len_precalc;
+    long int len_dir;
     if (h == 0) {           /* If the size setup is only for 2d */
         len = mat_size_of_2d_matrix (w, d);
         if(uselevel==1)
             len_precalc = (sz+1) * w; // I'm not sure whether we should "+1" here.
         else
             len_precalc = (1 << sz) * w;
-        len_dir = (w + 1) * (d + 1);
+        len_dir = (long int)(w + 1) * (long int)(d + 1);
         len_2d = 0;
     } else {                /* If the size setup is for 3d */
         len = mat_size_of_3d_matrix (w, d, h, k);
@@ -93,6 +95,13 @@ mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
         len_2d = w * d;
         len_dir = len_2d * h;
     }
+    /*
+These `-m' switches are supported in addition to the above on AMD x86-64 processors in 64-bit environments.
+
+-m32
+-m64
+    Generate code for a 32-bit or 64-bit environment. The 32-bit environment sets int, long and pointer to 32 bits and generates code that runs on any i386 system. The 64-bit environment sets int to 32 bits and long and pointer to 64 bits and generates code for AMD's x86-64 architecture. For darwin only the -m64 option turns off the -fno-pic and -mdynamic-no-pic options. 
+*/      
     if (m->len_eff < len) { /* If the 3d or 2d matrix is not enough */
         m->cube = m->matrix = 
             (int *) realloc (m->matrix, (len * sizeof(int)));
@@ -115,11 +124,11 @@ mat_setup_size (matricest m, int w, int d, int h, int k, int sz, int uselevel) {
         m->len_pre = len_precalc;
     }
     /* Check if there is an allocation error then abort program */
-    if ((len > 0) && (m->cube == NULL))
+    if ((len != 0) && (m->cube == NULL))
         failwith ("Memory allocation problem in cube.");
-    if ((len_dir > 0) && (m->matrix_d == NULL))
+    if ((len_dir != 0) && (m->matrix_d == NULL))
         failwith ("Memory allocation problem in matrix_d");
-    if ((len_precalc > 0) && (m->precalc == NULL))
+    if ((len_precalc != 0) && (m->precalc == NULL))
         failwith ("Memory allocation problem in precalc");
     return 0;
 }

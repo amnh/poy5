@@ -1421,7 +1421,11 @@ let create_expr () =
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `CustomToBreakinv x ] | 
 
                 [ LIDENT "annchrom_to_breakinv"; ":"; left_parenthesis; x = LIST0
-                        [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] | 
+                        [x = chromosome_argument -> x] SEP ","; right_parenthesis -> `AnnchromToBreakinv x ] |
+                [   LIDENT "custom_alphabet"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x] |
+                [ LIDENT "breakinv"; ":"; left_parenthesis; x = LIST0 
+                        [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "chromosome"; ":"; left_parenthesis; x = LIST0 
                         [ x = chromosome_argument -> x] SEP ","; right_parenthesis -> `ChangeDynPam x ] |
                 [ LIDENT "genome"; ":"; left_parenthesis; x = LIST0 
@@ -1480,13 +1484,12 @@ let create_expr () =
                 [ LIDENT "caprara" -> `Albert      ] |
                 [ LIDENT "vinh" -> `Vinh     ]
             ];
-
         annotate_param:
             [
                 [ LIDENT "default"; ","; x = INT; ","; y = INT; ","; z = INT 
                 -> `Default (int_of_string x,int_of_string y, int_of_string z) ] |
-                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = INT; ","; z = INT 
-                -> `Mauve (float_of_string x,int_of_string y, int_of_string z) ]
+                [ LIDENT "mauve"; ","; x = FLOAT; ","; y = FLOAT; ","; z = INT 
+                -> `Mauve (float_of_string x,float_of_string y, int_of_string z) ]
             ];
         genome_argument:
             [
