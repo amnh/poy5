@@ -510,7 +510,6 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                        (t1,t2)
             in 
             let model = MlStaticCS.get_model ca.preliminary in
-            Printf.printf "Median (%d,%d):\n%!" (anode.taxon_code) (bnode.taxon_code);
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
                 | `MPL when code > 0 -> 
                     MlStaticCS.median2 ca.preliminary cb.preliminary
@@ -2752,10 +2751,12 @@ let load_data ?(silent=true) ?(classify=true) data =
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
-        List.fold_left (fun acc x -> 
-            if 0. = Data.get_weight x data then acc
-            else All_sets.Integers.add x acc) 
-        All_sets.Integers.empty lst
+        List.fold_left 
+            (fun acc x -> 
+                if 0. = Data.get_weight x data then acc
+                else All_sets.Integers.add x acc)
+            (All_sets.Integers.empty)
+            (lst)
     in
     let is_mem =
         (* We check for informative characters among all the terminals in data *)

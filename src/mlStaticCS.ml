@@ -239,11 +239,7 @@ let median2 an bn t1 t2 acode bcode =
                       an.model.MlModel.prob pinvar
                       (MlModel.get_costfn_code an.model)
     in
-    let () = 
-        if loglike < 0.0 then
-            failwithf "Negative loglikelihood between (%d,%d) with (%f,%f)"
-                        acode bcode t1 t2 
-    in
+    assert( loglike >= 0.0 );
     { an with
         chars = n_chars;
         mle = loglike; 
@@ -409,9 +405,11 @@ let of_parser spec weights characters =
         | None   -> bigarray_s ba_chars None
                         (MlModel.get_costfn_code computed_model)
     in
-    let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
-    and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
+    let pinvar  = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
+    and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights 
+    and codes   = Array.map (fun (x,y) -> y) characters in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
+    assert( (Array.length codes) = (Bigarray.Array3.dim2 ba_chars));
     let loglike = 
         loglikelihood lk_chars weights computed_model.MlModel.pi_0
                       computed_model.MlModel.prob pinvar
@@ -421,7 +419,7 @@ let of_parser spec weights characters =
     assert( loglike >= 0.0 );
     {    mle  = loglike;
        model  = computed_model;
-       codes  = Array.map (fun (x,y) -> y) characters; 
+       codes  = codes;
        weights= weights;
        chars  = lk_chars; }
 
