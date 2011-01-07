@@ -1103,6 +1103,7 @@ let root_cost root =
         | Kolmo v -> 
                 acc +. KolmoCS.root_cost v.preliminary root.num_otus
                 root.num_child_edges
+    (** Now calculated as an additional cost later
         | Dynamic z -> 
           IFDEF USE_LIKELIHOOD THEN
             begin match z.preliminary with
@@ -1111,7 +1112,7 @@ let root_cost root =
             end
           ELSE
             acc
-          END
+          END **)
         | _ -> acc
     in
     List.fold_left adder 0. root.characters
@@ -1441,6 +1442,22 @@ IFDEF USE_LIKELIHOOD THEN
 ELSE
     0.0
 END
+
+let prior n = 
+IFDEF USE_LIKELIHOOD THEN
+    let tree_size acc = function
+        | Dynamic a -> 
+            begin match a.preliminary with
+            | DynamicCS.MlCS x -> MlDynamicCS.prior x
+            | _                -> acc
+            end
+        | _ -> acc
+    in
+    List.fold_left (tree_size) 0.0 n.characters
+ELSE
+    0.0
+END
+
 
 let get_cost_mode a = a.cost_mode
 
@@ -4269,6 +4286,7 @@ module Standard :
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let tree_size _ = tree_size
+        let min_prior = prior
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states

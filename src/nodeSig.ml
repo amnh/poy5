@@ -73,7 +73,7 @@ module type S = sig
     (** [using_likelihood x] -> bool, if all chracters are likelihood **)
     val using_likelihood : [`Static | `Integer | `Dynamic | `Either] -> n -> bool
 
-    (** [estimate_time left right] estimates the time between left and right **)
+    (** [estimate_time left right] estimates the time/branches between left and right **)
     val estimate_time : n -> n -> float option list
 
     (** [extract_states a r b] extract parsimony states at node [b] toward [a],
@@ -81,7 +81,7 @@ module type S = sig
     val extract_states : Alphabet.a -> Data.d -> int option -> int array option -> n ->
                             (float * int * MlModel.chars) list
 
-    (** [get_times_between left right] time between two nodes -- **)
+    (** [get_times_between left right] time/branch lengths between two nodes **)
     val get_times_between : n -> n -> (int array * (float option)) list
 
     (** [to_string n] produces a string representation of the node. This is used
@@ -98,7 +98,13 @@ module type S = sig
 
     val tree_cost : int option -> n -> float
 
+    (** sum of branch lengths between the node to the direction specified in the
+     * optional argumentn (opposite of the subtree defined in the direction). *)
     val tree_size : int option -> n -> float
+
+    (** return the minimum prior in one of directions (if more then one) held
+     * by the node on the median sequence *)
+    val min_prior : n -> float
 
     (** [node_cost n] calculates the cost of generating [n]. If [n] was created
     * using [load_data], then [node_cost n = 0], otherwise if it was created
