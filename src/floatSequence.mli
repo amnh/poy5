@@ -183,3 +183,10 @@ module MPLAlign   : A
 
     PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
     Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)
+
+module MALAlign   : A
+(** This is a partially implemented module to define the distance between two
+    sequences by the criteria of total likelihood ->dynamic MAL. Only the cost
+    function is defined along with the memory and cost matrix functions.
+    Alignments are not defined (as the total cost is the sum; finding an
+    alignment would be equivlent to the FloatAlign module. *)
