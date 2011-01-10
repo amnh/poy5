@@ -166,6 +166,11 @@ module type A = sig
         the best score of any pair, and then performing [closest] on that median
         with the third sequence. *)
 
+    val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
+    (** [optimize a b m t mem] find the minimum cost by adjusting the branch
+        length between [a] and [b]; with initial value at [t]. Return the pair,
+        cost * branch length. **)
+
 end 
 (** The sequence alignment module for floating point cost matrices/regimes. *)
 

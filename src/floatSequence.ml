@@ -1,4 +1,3 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
 (* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -108,6 +107,7 @@ module type A = sig
 
     (* (pseudo) 3d operations *)
     val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
 
 end 
 
@@ -690,6 +690,11 @@ module FloatAlign : A = struct
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
+
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
 
 end
 
@@ -1317,6 +1322,12 @@ module MPLAlign : A = struct
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
 
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
+
+
 end
 
 module MALAlign : A = struct
@@ -1399,7 +1410,7 @@ module MALAlign : A = struct
                     y_i pp_ilst (MlModel.list_of_packed y_i);
             cst /. (float_of_int n)
 
-    let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
+    let dyn_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
         let cost    = create_align_cost_fn m tx ty in
         let gap     = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
@@ -1427,7 +1438,12 @@ module MALAlign : A = struct
     (* only cost function defined for module *)
     let cost_2 ?deltaw s1 s2 model t1 t2 mem : float = 
         if debug_mem then clear_mem mem;
-        align_2 mem s1 s2 model t1 t2
+        dyn_2 mem s1 s2 model t1 t2
+
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
 
     (* functions not implemented *)
     let print_s _ _              = failwith "not implemented"
