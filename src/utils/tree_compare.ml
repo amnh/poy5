@@ -58,6 +58,13 @@ let print_set all set =
     All_sets.Integers.iter (fun e -> Printf.printf "%d " e) opp;
     Printf.printf ")"
 
+let print_tbl tbl = 
+    Printf.printf "Taxa Association Table:\n";
+    Hashtbl.iter
+        (fun k v -> Printf.printf "\t %d -- %s\n" v k)
+        (tbl);
+    print_newline ()
+
 let compare_set all a b =
     let other_b = All_sets.Integers.diff all b in
     let equality_one = All_sets.Integers.compare a b
@@ -104,14 +111,15 @@ let compare_partitions verbose taxon_tbl all (t1,p1) (t2,p2) =
     let p_diff12 = List.fold_left (fun acc x -> remove_partition x acc) p1 p2 in
     if verbose then begin
         Printf.printf "Partition differences in %s and %s\n%!" (get_name t1) (get_name t2);
-        List.iter (fun x -> Printf.printf "%s -- " (get_name t1); 
+        List.iter (fun x -> Printf.printf "%s -- " (get_name t1);
                             print_set all x;
                             print_newline ())
                   (p_diff21);
-        List.iter (fun x -> Printf.printf "%s -- " (get_name t2); 
+        List.iter (fun x -> Printf.printf "%s -- " (get_name t2);
                             print_set all x;
                             print_newline ())
                   (p_diff12);
+        print_newline ()
     end;
     (List.length p_diff21) + (List.length p_diff12)
 
@@ -131,6 +139,7 @@ let init v ts =
     let num = List.length ts in
     let tps = Array.of_list (List.map (fun t -> (t,create_partitions set tbl t)) ts) in
     let mat = Array.make_matrix num num 0 in
+    if v then print_tbl tbl;
     for i = 0 to (num-1) do
         for j = i+1 to (num-1) do
             let dist = compare_partitions v tbl set tps.(i) tps.(j) in
