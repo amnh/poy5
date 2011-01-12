@@ -27,6 +27,8 @@ let load_trees is_nexus lst =
               else List.flatten (List.map read_tree lst) in
     List.map (fun (f,t) -> (f,Tree.Parse.cannonic_order t)) (List.flatten res)
  
+let get_name x = match fst x with | Some x -> x | None -> ""
+
 let create_taxon_table trees = 
     let res = Hashtbl.create 31
     and num = ref 0 in
@@ -55,9 +57,6 @@ let print_set all set =
     Printf.printf ") / (";
     All_sets.Integers.iter (fun e -> Printf.printf "%d " e) opp;
     Printf.printf ")"
-
-let print_partition all set =
-    List.iter (fun x -> print_set all x; print_newline ()) set
 
 let compare_set all a b =
     let other_b = All_sets.Integers.diff all b in
@@ -103,12 +102,24 @@ let compare_partitions verbose taxon_tbl all (t1,p1) (t2,p2) =
     let remove_partition p ps = List.filter (fun x -> not (compare_set all p x)) ps in
     let p_diff21 = List.fold_left (fun acc x -> remove_partition x acc) p2 p1 in
     let p_diff12 = List.fold_left (fun acc x -> remove_partition x acc) p1 p2 in
+    if verbose then begin
+        Printf.printf "Partition differences in %s and %s\n%!" (get_name t1) (get_name t2);
+        List.iter (fun x -> Printf.printf "%s -- " (get_name t1); 
+                            print_set all x;
+                            print_newline ())
+                  (p_diff21);
+        List.iter (fun x -> Printf.printf "%s -- " (get_name t2); 
+                            print_set all x;
+                            print_newline ())
+                  (p_diff12);
+    end;
     (List.length p_diff21) + (List.length p_diff12)
 
-let print_matrix mat = 
+let print_matrix mat labels =
     for i = 0 to ((Array.length mat)-1) do
+        Printf.printf "%s -\t" (match fst (fst labels.(i)) with | Some x -> x | None -> "");
         for j = 0 to ((Array.length mat.(i))-1) do
-            Printf.printf "%d%! " mat.(i).(j)
+            Printf.printf "%d%! " mat.(i).(j);
         done;
         print_newline ()
     done;
@@ -127,7 +138,7 @@ let init v ts =
             mat.(j).(i) <- dist;
         done;
     done;
-    print_matrix mat
+    print_matrix mat tps
 
 let cmd_line () = match Array.to_list Sys.argv with
     | []     -> failwith  "no arguments?"
@@ -144,7 +155,7 @@ let cmd_line () = match Array.to_list Sys.argv with
             else 
                 false,tl
         in
-        begin match load_trees false tl with
+        begin match load_trees true tl with
             | []             -> failwith "No trees loaded; require at least two."
             | hd::[]         -> failwith "One tree loaded; require at least two."
             | (_::_ as all)  -> init v all
