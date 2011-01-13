@@ -4725,10 +4725,40 @@ let auto_partition mode data code =
             "There are no potential partitions"
 
 let compute_fixed_states data code =
+    Printf.printf "compute_fixed_states,code=%d\n%!" code;
+    let to_ori_arr arr (base:int option) =
+        Array.init (Array.length arr) (fun index->
+        assert(arr.(index)<>0);
+        let code = arr.(index) in
+        let code = 
+            match base with 
+            | Some base -> code-base
+            | None -> code
+        in
+        if ((code mod 2) == 0) then -(code/2)
+        else (code+1)/2 ) 
+    in
     let dhs =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
+    in
+    let chrom_or_genome,dyn_pam =
+        match dhs.state with
+        | `Chromosome 
+        | `Genome -> Printf.fprintf stdout "Chrom/Genome"; true,dhs.pam
+        | _ -> false,dhs.pam
+    in
+    let annotate_with_mauve = 
+            let ann_tool = dyn_pam.annotate_tool in
+            match ann_tool with 
+            | Some value ->
+                    (
+                        match value with
+                        | `Mauve _ -> true
+                        | `Default _  -> false
+                    )
+            | None -> false 
     in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
@@ -4752,6 +4782,7 @@ let compute_fixed_states data code =
     let () = 
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
+                Printf.printf "work on x=%d,y=%d\n%!" x y;
                 let b, _ = 
                     Sequence.Align.closest 
                     initial_sequences.(x) 
@@ -4763,10 +4794,18 @@ let compute_fixed_states data code =
                     b initial_sequences.(x) dhs.tcm2d
                     Matrix.default
                 in
+                Printf.printf "replace t_s tbl taxa.%d with seqb:%!" y;
+                Sequence.printseqcode b;
+                Printf.printf "replace t_s tbl taxa.%d with seqa:%!" x;
+                Sequence.printseqcode a;
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
+                (*this table should be sequences_stateName, not sequences_taxon, 
+                * the name is misleading*)
                 if not (Hashtbl.mem sequences_taxon b) then begin
                     Hashtbl.replace sequences_taxon b !states;
+                    Printf.printf "replace s_t tbl seqb with state=%d\n%!"
+                    !states;
                     incr states;
                 end;
                 if not (Hashtbl.mem sequences_taxon a) then
@@ -4798,12 +4837,63 @@ let compute_fixed_states data code =
     let distances = Array.make_matrix states states 0. in
     Hashtbl.iter 
     (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
+    Printf.printf "check sequences :\n%!";
+    Array.iteri (fun state seq ->
+        Printf.printf "state %d ,seq = %!" state;
+        Sequence.printseqcode seq;
+    ) sequences;
     for x = 0 to states - 1 do
         for y = x + 1 to states - 1 do
-            let cost = 
-                Sequence.Align.cost_2 sequences.(x) 
-                sequences.(y) dhs.tcm2d Matrix.default 
+            let cost =
+                if annotate_with_mauve then
+                    let min_lcb_ratio,min_cover_ratio,min_bk_penalty = 
+                        match dyn_pam.annotate_tool with
+                        | Some (`Mauve (a,b,c)) -> a,b,c
+                        | _ -> assert(false)                        
+                    in
+                    let l_i_c = match dyn_pam.locus_indel_cost with
+                    | Some cost -> cost
+                    | None -> (10,100)
+                    in
+                    let seqx,seqy = Sequence.del_first_char sequences.(x),
+                    Sequence.del_first_char sequences.(y) in
+                    let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
+                    edit_cost,full_code_lstlst,len_lst1 = 
+                        Block_mauve.get_matcharr_and_costmatrix seqx 
+                        seqy min_lcb_ratio 
+                        min_cover_ratio min_bk_penalty l_i_c dhs.tcm2d in
+                    let re_meth = match dyn_pam.re_meth with
+                    | Some value -> value 
+                    | None -> `Locus_Breakpoint 10
+                    and circular = match dyn_pam.circular with
+                    | Some value -> value 
+                    | None -> 0 
+                    in
+                    (*let base = (Array.length code1_arr)*2 in
+                    let oricode1arr,oricode2arr = 
+                        to_ori_arr code1_arr None ,
+                        to_ori_arr code2_arr (Some base) 
+                    in
+                    let recost = 
+                        UtlGrappa.cmp_inversion_dis oricode1arr oricode2arr
+                        circular
+                    in*)
+                    let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
+                    GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
+                    gen_gap_code re_meth circular false in
+                    let xname,yname = string_of_int x,string_of_int y in
+                    let filename = 
+                        (xname^"_"^yname^".alignment") in
+                    Block_mauve.output2mauvefile filename cost None 
+                    alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat 
+                    gen_gap_code len_lst1 (Sequence.length seqx)
+                    (Sequence.length seqy);
+                    cost 
+                else
+                    Sequence.Align.cost_2 sequences.(x) 
+                    sequences.(y) dhs.tcm2d Matrix.default 
             in
+            Printf.printf "distances.%d,%d <- %d\n%!" x y cost;
             distances.(x).(y) <- float_of_int cost;
             distances.(y).(x) <- float_of_int cost;
         done;
@@ -4812,6 +4902,8 @@ let compute_fixed_states data code =
     Hashtbl.iter (fun code seq ->
         Hashtbl.replace taxon_codes code (Hashtbl.find
         sequences_taxon seq)) taxon_sequences;
+    Hashtbl.iter (fun key record ->
+        Printf.printf "taxon:%d,state:%d\n%!" key record) taxon_codes;
     Hashtbl.replace data.character_specs code (Dynamic { dhs
     with initial_assignment = `FS (distances, sequences,
     taxon_codes) })
@@ -6238,7 +6330,11 @@ let process_prealigned analyze_tcm data code : (string * Nexus.File.nexus) =
         | `AffinePartition (_, gapcost, gapopening) ->
                 (fun len -> gapopening + (len * gapcost))
     in
-    let present_absent_alph = Alphabet.present_absent in
+    let present_absent_alph = 
+        Alphabet.list_to_a 
+        [("present", 1, None); ("absent", 2, None)] 
+        "absent" None Alphabet.Sequential
+    in
     let encoding len = 
         present_absent_alph,
         (Parser.OldHennig.Encoding.gap_encoding (compute_cost len))
