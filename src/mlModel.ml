@@ -62,9 +62,9 @@ and print_barray2 a =
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list
+                          * float list * [`Given of (string * float) list | `Other of string]
                           * (string * float option) * string * string option
-let empty_str_spec : string_spec = ("",("","","",""),[],[],("",None),"",None)
+let empty_str_spec : string_spec = ("",("","","",""),[],`Other "",("",None),"",None)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -112,9 +112,9 @@ type subst_model =
     | File  of float array array * string
 
 type priors = 
-    | Estimated  of float array
-    | Given      of float array
-    | ConstantPi of float array
+    | Estimated of float array
+    | Given     of float array
+    | Equal
 
 type gap_properties = [ `Missing | `Independent | `Coupled of float ]
 
@@ -144,11 +144,11 @@ type model = {
 
 let jc69_5 = { substitution = JC69; site_variation= None;cost_fn=`MAL;
                iterate_alpha=true;iterate_model=true;use_gap=`Independent;
-               base_priors = ConstantPi [| 0.20;0.20;0.20;0.20;0.20 |];  }
+               base_priors = Equal;  }
 
 and jc69_4 = { substitution = JC69;site_variation= None;cost_fn=`MAL;
                iterate_alpha=true;iterate_model=true;use_gap=`Missing;
-               base_priors=ConstantPi [|0.25;0.25;0.25;0.25;|]; }
+               base_priors=Equal; }
 
 module OrderedML = struct
     (* we could choose model or spec, but spec can use Pervasives.compare *)
@@ -179,20 +179,19 @@ let categorize_by_model codes get_fun =
     MlModelMap.fold (fun _ e a -> e :: a) set_codes []
 
 let compare_priors a b =
-    let a_pri = match a.spec.base_priors with 
-        | ConstantPi x | Estimated x | Given x -> x
-    and b_pri = match b.spec.base_priors with
-        | ConstantPi x | Estimated x | Given x -> x
-    and results = ref true in
-    if a.alph_s = b.alph_s then begin
+    let compare_array x y = 
+        let results = ref true in
         for i = 0 to a.alph_s - 1 do
-            results := !results && (a_pri.(i) =. b_pri.(i));
+            results := !results && (x.(i) =. y.(i));
         done;
         !results
-    end else begin
-        false
-    end    
-
+    in
+    match a.spec.base_priors ,a.spec.base_priors with
+        | _ when a.alph_s != b.alph_s -> false
+        | Equal , Equal            -> true
+        | Estimated x, Estimated y
+        | Given     x, Given     y -> compare_array x y
+        | (Equal | Estimated _ | Given _), _ -> false
 
 IFDEF USE_LIKELIHOOD THEN
 
@@ -270,7 +269,7 @@ external compose_sym: (* U D *) FMatrix.m ->
 let m_meanrate srm pi_ =
     let mr = ref 0.0 and a_size = Bigarray.Array2.dim1 srm in
     for i = 0 to (a_size-1) do
-        mr := !mr +. (~-.(srm.{i,i}) *. pi_.(i));
+        mr := !mr +. (~-.(srm.{i,i}) *. pi_.{i});
     done;
     for i = 0 to (a_size-1) do
         for j = 0 to (a_size-1) do
@@ -339,16 +338,16 @@ let m_tn93 pi_ alpha beta gamma a_size gap_r =
         | None -> 
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
-                    srm.{i,j} <- srm.{i,j} *. pi_.(j);
+                    srm.{i,j} <- srm.{i,j} *. pi_.{j};
                 done;
             done;
         | Some (k,r) -> 
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
-                    srm.{i,j} <- srm.{i,j} *. pi_.(j);
+                    srm.{i,j} <- srm.{i,j} *. pi_.{j};
                 done;
-                srm.{i,k} <- gamma *. r *. pi_.(k);
-                srm.{k,i} <- gamma *. r *. pi_.(i);
+                srm.{i,k} <- gamma *. r *. pi_.{k};
+                srm.{k,i} <- gamma *. r *. pi_.{i};
             done;
     in
     (* normalize diagonal so row sums to 0 *)
@@ -363,8 +362,8 @@ let m_tn93 pi_ alpha beta gamma a_size gap_r =
     srm
 
 let m_tn93_ratio pi_ kappa1 kappa2 a_size gap_r = 
-    let beta = (pi_.(0) *. pi_.(2) *. kappa1) +. (pi_.(1) *. pi_.(3) *. kappa2) +.
-                ((pi_.(0) +. pi_.(2)) *. (pi_.(1)+.pi_.(3)) ) in
+    let beta = (pi_.{0} *. pi_.{2} *. kappa1) +. (pi_.{1} *. pi_.{3} *. kappa2) +.
+                ((pi_.{0} +. pi_.{2}) *. (pi_.{1}+.pi_.{3})) in
     let beta = 1.0 /. (2.0 *. beta) in
     let alpha1 = kappa1 *. beta and alpha2 = kappa2 *. beta in
     m_tn93 pi_ alpha1 alpha2 beta a_size gap_r
@@ -377,16 +376,16 @@ let m_f81 pi_ lambda a_size gap_r =
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
                     srm.{i,j} <- 
-                        if i = j then -. lambda *. (1.0 -. pi_.(i))
-                                 else pi_.(j) *. lambda;
+                        if i = j then -. lambda *. (1.0 -. pi_.{i})
+                                 else pi_.{j} *. lambda;
                 done;
             done;
         | Some (k,r) ->
             for i = 0 to (a_size-1) do
                 for j = 0 to (a_size-1) do
                     srm.{i,j} <- 
-                        if i = j then -. lambda *. (1.0 -. pi_.(i))
-                                 else pi_.(j) *. lambda;
+                        if i = j then -. lambda *. (1.0 -. pi_.{i})
+                                 else pi_.{j} *. lambda;
                 done;
             done;
     in
@@ -402,16 +401,16 @@ let m_f81 pi_ lambda a_size gap_r =
 
 (* val hky85 :: only 4 or 5 characters *)
 let m_hky85 pi_ kappa a_size gap_r =
-    let beta = (pi_.(0) *. pi_.(2) *. kappa) +. (pi_.(1) *. pi_.(3) *. kappa) +.
-                ((pi_.(0) +. pi_.(2)) *. (pi_.(1)+.pi_.(3)) ) in
+    let beta = (pi_.{0} *. pi_.{2} *. kappa) +. (pi_.{1} *. pi_.{3} *. kappa) +.
+                ((pi_.{0} +. pi_.{2}) *. (pi_.{1}+.pi_.{3}) ) in
     let beta = 1.0 /. (2.0 *. beta) in
     let alpha = kappa *. beta in
     m_tn93 pi_ alpha alpha beta a_size gap_r
 
 (* val f84 :: only 4 or 5 characters *)
 let m_f84 pi_ gamma kappa a_size gap_r =
-    let y = pi_.(1) +. pi_.(3) in (* Y = C + T *)
-    let r = pi_.(0) +. pi_.(2) in (* R = A + G *)
+    let y = pi_.{1} +. pi_.{3} in (* Y = C + T *)
+    let r = pi_.{0} +. pi_.{2} in (* R = A + G *)
     let alpha = (1.0+.kappa/.r) *. gamma in
     let beta = (1.0+.kappa/.y) *. gamma in
     m_tn93 pi_ alpha beta gamma a_size gap_r
@@ -446,8 +445,8 @@ let m_gtr_independent pi_ co_ a_size =
     let srm = create_ba2 a_size a_size in
     for i = 0 to (a_size-1) do
         for j = (i+1) to (a_size-1) do
-            srm.{i,j} <- co_.(!n) *. pi_.(j);
-            srm.{j,i} <- co_.(!n) *. pi_.(i);
+            srm.{i,j} <- co_.(!n) *. pi_.{j};
+            srm.{j,i} <- co_.(!n) *. pi_.{i};
             incr n;
         done;
     done;
@@ -478,15 +477,15 @@ let m_gtr_coupled pi_ co_ a_size i_gap r_gap =
         (* set the gap and gap coefficient col/row *)
         if i = i_gap then begin
             for j = 0 to (a_size-1) do
-                srm.{j,i} <- r_gap *. pi_.(i);
-                srm.{i,j} <- r_gap *. pi_.(j);
+                srm.{j,i} <- r_gap *. pi_.{i};
+                srm.{i,j} <- r_gap *. pi_.{j};
             done;
         end else begin
             for j = i+1 to (a_size-1) do
                 if j = i_gap then ()
                 else begin
-                    srm.{i,j} <- co_.(!n) *. pi_.(j);
-                    srm.{j,i} <- co_.(!n) *. pi_.(i);
+                    srm.{i,j} <- co_.(!n) *. pi_.{j};
+                    srm.{j,i} <- co_.(!n) *. pi_.{i};
                     incr n;
                 end;
             done;
@@ -586,7 +585,9 @@ let output_model output nexus model set =
                         printf "@[Model = File:%s;@]" str
         in
         let () = match model.spec.base_priors with
-            | Estimated x | Given x | ConstantPi x ->
+            | Equal ->
+                printf "@[Priors = Equal]"
+            | Estimated x | Given x ->
                 let first = ref true in
                 printf "@[Priors =";
                 List.iter
@@ -615,8 +616,6 @@ let output_model output nexus model set =
         in
         let () = match model.spec.use_gap with
             (* the meaning of independent/coupled switch under gtr *)
-            | `Independent when !gtr_mod -> printf "@[gap = coupled;@]"
-            | `Coupled x   when !gtr_mod -> printf "@[gap = independent;@]"
             | `Independent -> printf "@[gap = independent;@]"
             | `Coupled x   -> printf "@[gap = coupled:%f;@]" x
             | `Missing     -> printf "@[gap = missing;@]"
@@ -657,8 +656,8 @@ let output_model output nexus model set =
         in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
         let () = match model.spec.base_priors with
-            | Estimated x | Given x
-            | ConstantPi x ->
+            | Equal -> printf "@[<hov 1>- Equal]"
+            | Estimated x | Given x ->
                 List.iter
                     (fun (s,i) ->
                         (* this expection handling avoids gaps when they are not
@@ -716,8 +715,6 @@ let output_model output nexus model set =
                 done;
         in
         let () = match model.spec.use_gap with
-            | `Independent when !gtr_mod -> printf "@[<hov 1>Gap property: coupled;@]"
-            | `Coupled x   when !gtr_mod -> printf "@[<hov 1>Gap property: independent;@]"
             | `Independent -> printf "@[<hov 1>Gap property: independent;@]@\n"
             | `Coupled x   -> printf "@[<hov 1>Gap property: coupled, Ratio: %f;@]@\n" x
             | `Missing     -> printf "@[<hov 1>Gap property: missing;@]@\n"
@@ -864,16 +861,14 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "ILK" -> `ILK
         | ""    -> `MPL (* unmentioned default *)
         | x     -> 
-            Status.user_message Status.Warning
-                ("I don't know "^x^" as a cost mode for likelihood. I am defaulting to MPL.");
-            `MAL
+            failwith ("I don't know "^x^" as a cost mode for likelihood.")
     and variation = match String.uppercase var with
         | "GAMMA" ->
             let alpha = try let res = float_of_string alpha in
                             iterate_alpha := false;
                             res
                         with | _ -> default_alpha false in
-            Gamma (int_of_string site, alpha)
+            Some (Gamma (int_of_string site, alpha))
         | "THETA" -> 
             let alpha = try let res = float_of_string alpha in
                             iterate_alpha := false;
@@ -883,28 +878,27 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
                             iterate_alpha := !iterate_alpha || false;
                             res
                         with | _ -> default_invar in
-            Theta (int_of_string site, alpha, invar)
+            Some (Theta (int_of_string site, alpha, invar))
         | "NONE" | "CONSTANT" | "" ->
             iterate_alpha := false;
-            Constant
+            None
         | _ -> failwith "Unrecognized variation method"
-    and priors = List.map snd priors in
-    let gap_info =
-        let gtr = match submatrix with | GTR _ -> true | _ -> false in
+    and priors = match priors with
+        | `Given priors  -> Given (Array.of_list (List.map snd priors))
+        | `Other "equal" -> Equal
+        | `Other string  -> failwith ("Invalid prior setting: "^string)
+    and gap_info =
         match String.uppercase (fst gap),snd gap with
-        | "COUPLED", Some x when gtr -> `Coupled x
-        | "COUPLED", None   when gtr -> `Coupled default_gap_r
-        | "INDEPENDENT", _  when gtr -> `Independent
-        | "INDEPENDENT", None   -> `Coupled default_gap_r
-        | "INDEPENDENT", Some x -> `Coupled x
-        | "COUPLED", _  -> `Independent
-        | "MISSING",_   -> `Missing
-        | "",_          -> `Missing
-        | _,_           -> failwith "Invalid gap property"
+        | "COUPLED", None   -> `Coupled default_gap_r
+        | "COUPLED", Some x -> `Coupled x
+        | "INDEPENDENT",_   -> `Independent
+        | "MISSING",_       -> `Missing
+        | "",_              -> `Missing
+        | x,_               -> failwith ("Invalid gap property: "^x)
     in
     {   substitution = submatrix;
-        site_variation = Some variation;
-        base_priors = Given (Array.of_list priors);
+        site_variation = variation;
+        base_priors = priors;
         use_gap = gap_info;
         cost_fn = cost_fn;
         iterate_model = !iterate_model;
@@ -912,6 +906,132 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
   ELSE
     failwith likelihood_not_enabled
   END
+
+
+let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,base_priors,use_gap) =
+    let u_gap = match use_gap with 
+            | `Independent | `Coupled _ -> true | `Missing -> false in
+    let alph_size = if u_gap then alph_size else alph_size - 1 in
+    let i_alpha = ref true and i_model = ref true in
+    let base_priors = match base_priors with
+        | `Estimate  -> Estimated (compute_priors ())
+        | `Equal     -> Equal
+        | `Given arr -> Given (Array.of_list arr)
+    and site_variation = match site_variation with
+        | None   -> Some Constant 
+        | Some (`Gamma (w,y)) -> 
+            let y = match y with
+                | Some x -> i_alpha := false; x 
+                | None   -> default_alpha false
+            in
+            Some (Gamma (w,y))
+        | Some (`Theta (w,y)) ->
+            let y,p = match y with 
+                | Some x -> i_alpha := false; x 
+                | None   -> default_alpha true, default_invar
+            in
+            Some (Theta (w,y,p))
+    and substitution = match subst with
+        | `JC69 -> i_model := false;
+                   JC69
+        | `F81  -> i_model := false;
+                   F81
+        | `K2P (Some x) ->
+            let aray = Array.of_list x in
+            if Array.length aray = 1 then begin
+                i_model := false;
+                K2P (Some aray.(0))
+            end else if Array.length aray = 0 then begin
+                K2P None
+            end else
+                let () = 
+                    Status.user_message Status.Error
+                        "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" 
+                in
+                failwith("Incorrect Parameters");
+        | `K2P None -> K2P None
+        | `HKY85 (Some x) ->
+            let aray = Array.of_list x in
+            if Array.length aray = 1 then begin
+                i_model := false;
+                HKY85 (Some aray.(0))
+            end else if Array.length aray = 0 then begin
+                HKY85 None
+            end else 
+                let () = 
+                    Status.user_message Status.Error
+                        "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" 
+                in
+                failwith("Incorrect Parameters");    
+        | `HKY85 None -> HKY85 None
+        | `F84 (Some x) ->
+            let aray = Array.of_list x in
+            if Array.length aray = 1 then begin
+                i_model := false;
+                F84 (Some aray.(0))
+            end else if Array.length aray = 0 then begin
+                F84 None
+            end else 
+                let () = 
+                    Status.user_message Status.Error
+                        "Likelihood@ model@ HKY85@ requires@ 1@ parameters" 
+                in
+                failwith("Incorrect Parameters");
+        | `F84 None -> F84 None
+        | `TN93 (Some x) -> 
+            let aray = Array.of_list x in
+            if Array.length aray <> 2 then
+                let () = 
+                    Status.user_message Status.Error
+                        "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" 
+                in
+                failwith("Incorrect Parameters");
+            else if Array.length aray = 0 then begin
+                TN93 None
+            end else begin
+                i_model := false;
+                TN93 (Some (aray.(0),aray.(1)))
+            end
+        | `TN93 None -> TN93 None
+        | `GTR (Some x) ->
+            let aray = Array.of_list x in 
+            let n_a = (alph_size * (alph_size-1)) / 2 in
+            if (Array.length aray) <> n_a then
+                let () = Status.user_message Status.Error 
+                ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
+                 "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
+                 (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
+                failwith "Incorrect Parameters";
+            else if Array.length aray = 0 then begin
+                GTR None
+            end else begin
+                i_model := false;
+                GTR (Some aray)
+            end
+        | `GTR None -> GTR None
+        | `File str -> 
+                (* this needs to be changed to allow remote files as well *)
+            let matrix = Cost_matrix.Two_D.fm_of_file (`Local str) in
+            let matrix = Array.of_list (List.map (Array.of_list) matrix) in
+            (* check the array size == a_size *)
+            (* check the array array size == a_size *)
+            Array.iter (fun x ->
+                            if Array.length x = alph_size then ()
+                            else failwith "I@ don't@ like@ your@ input@ file:")
+                       (matrix);
+            if Array.length matrix = alph_size then 
+                File (matrix,str)
+            else
+                failwith "I@ don't@ like@ your@ input@ file."
+    in
+    { substitution = substitution;
+    site_variation = site_variation;
+       base_priors = base_priors;
+     iterate_model = !i_model;
+     iterate_alpha = !i_alpha;
+           cost_fn = cst;
+           use_gap = use_gap; }
+
 
 (* check the rates so SUM(r_k*p_k) == 1 and SUM(p_k) == 1 |p| == |r| *)
 let verify_rates probs rates =
@@ -964,7 +1084,9 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
     (* extract the prior probability *)
     let priors =
         let p = match lk_spec.base_priors with 
-            | ConstantPi p | Estimated p | Given p -> 
+            | Equal ->
+                Array.make a_size (1.0 /. (float_of_int a_size))
+            | Estimated p | Given p -> 
                 let p = Array.map (fun i -> max min_prior i) p in
                 let sum = Array.fold_left (fun a b -> a +. b) 0.0 p in 
                 if sum =. 1.0 
@@ -975,7 +1097,7 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
             debug_printf "Alphabet = %d; Priors = %d\n%!" a_size (Array.length p);
             failwith "MlModel.create: Priors don't match alphabet"
         end;
-        p
+        ba_of_array1 p
     in
     let _gapr = match lk_spec.use_gap with
         | `Coupled x   -> Some (Alphabet.get_gap alph, x)
@@ -1017,9 +1139,9 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
       rate = variation;
       prob = probabilities;
       spec = {lk_spec with substitution = subst_model; 
-                           use_gap = rep_gap;   };
+                           use_gap = rep_gap; };
      invar = invar;
-      pi_0 = ba_of_array1 priors;
+      pi_0 = priors;
       alph = alph;
     alph_s = a_size;
          s = sub_mat;
@@ -1044,8 +1166,8 @@ let add_gap_to_model compute_priors model =
     let size = model.alph_s + 1 in
     let priors = match model.spec.base_priors with
         | Estimated _  -> Estimated (compute_priors ())
-        | ConstantPi _ -> ConstantPi (Array.make size (1.0/.(float_of_int size)))
-        | Given    _ ->
+        | Equal        -> Equal
+        | Given    _   ->
             failwith ("I cannot transform the specified model to add gap as a"^
                       " character. The given priors requires a prior for the "^
                       "gap character.")
@@ -1295,59 +1417,47 @@ let convert_gapr m = function
 
 let update_jc69 old_model gap_r = 
     let subst_spec = { old_model.spec with use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with 
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_jc69 priors 1.0 old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_jc69 old_model.pi_0 1.0 old_model.alph_s gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f81 old_model gap_r = 
     let subst_spec = { old_model.spec with use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with 
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_f81 priors 1.0 old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_f81 old_model.pi_0 1.0 old_model.alph_s gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_k2p old_model new_value gap_r =
     let subst_spec = { old_model.spec with substitution = K2P (Some new_value);
                                            use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with 
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_k2p priors new_value 1.0 old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_k2p old_model.pi_0 new_value 1.0 old_model.alph_s gap_r in
     let u,d,ui = diagonalize true subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_hky old_model new_value gap_r =
     let subst_spec = { old_model.spec with substitution = HKY85 (Some new_value);
                                            use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_hky85 priors new_value old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_hky85 old_model.pi_0 new_value old_model.alph_s gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_tn93 old_model ((x,y) as new_value) gap_r =
     let subst_spec = { old_model.spec with substitution = TN93 (Some new_value);
                                            use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_tn93 priors x y 1.0 old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_tn93 old_model.pi_0 x y 1.0 old_model.alph_s gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
 and update_f84 old_model new_value gap_r =
     let subst_spec = { old_model.spec with substitution = F84 (Some new_value);
                                            use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_f84 priors new_value 1.0 old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_f84 old_model.pi_0 new_value 1.0 old_model.alph_s gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -1355,10 +1465,8 @@ and update_gtr old_model new_values gap_r =
     let normalized,gap_r = normalize {old_model.spec with use_gap = gap_r} new_values in
     let subst_spec = { old_model.spec with substitution = GTR (Some normalized);
                                            use_gap = gap_r; }
-    and gap_r = convert_gapr old_model gap_r
-    and priors = match old_model.spec.base_priors with
-                 | ConstantPi x | Estimated x | Given x -> x in
-    let subst_model = m_gtr priors normalized old_model.alph_s gap_r in
+    and gap_r = convert_gapr old_model gap_r in
+    let subst_model = m_gtr old_model.pi_0 normalized old_model.alph_s gap_r in
     let u,d,ui = diagonalize false subst_model in
     { old_model with spec = subst_spec; s  = subst_model; u  = u; d  = d; ui = ui; }
 
@@ -1399,7 +1507,9 @@ let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list =
                         ([Xml.Alphabet.value] = [`Float v])
                         { `String (Alphabet.match_code i alph)} --))
                 (match model.spec.base_priors with
-                    | ConstantPi x | Given x | Estimated x -> x)
+                    | Equal ->
+                        Array.make (model.alph_s) (1.0 /. (float_of_int model.alph_s))
+                    | Given x | Estimated x -> x)
         in
         (PXML -[Xml.Characters.priors] { `Set (Array.to_list inner) } --)
     and get_model model = match model.spec.substitution with
@@ -1500,7 +1610,7 @@ and get_update_function_for_model model =
             | TN93 _,`Coupled _ -> Some (fun y x -> update_tn93 y (x.(0),x.(1)) (`Coupled x.(2)))
             | F84 _,`Coupled _  -> Some (fun y x -> update_f84 y x.(0) (`Coupled x.(1)))
             | HKY85 _,`Coupled _-> Some (fun y x -> update_hky y x.(0) (`Coupled x.(1)))
-            | GTR _, `Coupled _ ->
+            | GTR _,`Coupled _  ->
                 Some (fun y x -> 
                         let h,t = split_array x in update_gtr y t (`Coupled h))
             (* no fifth state *)

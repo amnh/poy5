@@ -1275,7 +1275,7 @@ let apply_likelihood_model params acc =
         | P.Model name       -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Parameters param -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Chars chars      -> (model,chars)
-        | P.Given_Priors lst -> ((name,var,param,lst,gap,cst,file),chars)
+        | P.Given_Priors lst -> ((name,var,param,`Given lst,gap,cst,file),chars)
         | P.Cost_Mode cst    -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Gap_Mode gap -> 
                 ((name,var,param,lst,gap,cst,file),chars)
@@ -1289,7 +1289,8 @@ let apply_likelihood_model params acc =
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Files name -> let file = Some name in
                 ((name,var,param,lst,gap,cst,file),chars)
-        | P.Other_Priors str -> failwith "not implemented yet"
+        | P.Other_Priors str -> 
+                ((name,var,param,`Other str,gap,cst,file),chars)
     in
     let str_spec,characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params

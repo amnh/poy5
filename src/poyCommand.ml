@@ -1321,10 +1321,10 @@ let create_expr () =
         ml_priors:
             [ 
                 [ LIDENT "estimate" -> `Estimate ] |
-                [ LIDENT "constant" -> `Constant ] | 
+                [ LIDENT "equal" -> `Equal ] | 
                 [ LIDENT "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
-                    right_parenthesis -> `Given x ]
+                    right_parenthesis; right_parenthesis -> `Given x ]
             ];
         ml_gap_options :
             [ [ LIDENT "missing" -> `Missing ] |
@@ -1350,7 +1350,8 @@ let create_expr () =
             [
                 [ x = ml_substitution   -> `ML_subst x] |
                 [ x = ml_site_variation -> `ML_vars  x] |
-                [ x = ml_priors         -> `ML_prior x] |
+                [ "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
+                                        -> `ML_prior x] |
                 [ x = ml_gaps           -> `ML_gaps  x] |
                 [ x = ml_costfn         -> `ML_cost  x]
             ];

@@ -4053,14 +4053,11 @@ let apply_likelihood_model_on_char_table replace data table codes model =
 
 let update_priors data charcodes use_gap = 
     let data = {data with character_specs = Hashtbl.copy data.character_specs; } in
-    let new_priors,change =
-        let current = get_likelihood_model data charcodes in
-        match current.MlModel.spec.MlModel.base_priors with
-        | MlModel.Estimated _ -> compute_priors data charcodes use_gap, true
-        | MlModel.Given x
-        | MlModel.ConstantPi x  -> x,false
-    and model_s = ref None and model_d = ref None in
-    if change then begin
+    let current = get_likelihood_model data charcodes in
+    match current.MlModel.spec.MlModel.base_priors with
+    | MlModel.Estimated _  -> 
+        let new_priors = compute_priors data charcodes use_gap
+        and model_s = ref None and model_d = ref None in
         List.iter
             (fun code -> 
                 match Hashtbl.find data.character_specs code,!model_s,!model_d with
@@ -4093,9 +4090,8 @@ let update_priors data charcodes use_gap =
                         (Dynamic {x with state = `Ml; lk_model = !model_d;}))
             charcodes;
         data
-    end else begin
-        data
-    end
+    | MlModel.Equal 
+    | MlModel.Given _ -> data
 
 
 let apply_likelihood_model_on_chars data char_codes (model:MlModel.model) = 
@@ -4256,7 +4252,7 @@ END
 
 (** [set_likelihood lk chars] transforms the characters specified in [chars] to
 * the likelihood model specified in [lk] *)
-let set_likelihood data ((chars,cst,subst,site_variation,base_priors,use_gap):Methods.ml_spec) =
+let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
     match get_chars_codes_comp data chars with
     | [] -> data
@@ -4269,144 +4265,18 @@ IFDEF USE_LIKELIHOOD THEN
                     with | _ -> false)
                 chars
         in
-        let u_gap = match use_gap with 
-            | `Independent | `Coupled _ -> true | `Missing -> false in
-        let i_alpha = ref true and i_model = ref true in
         let dynamic = 
             match Hashtbl.find data.character_specs (List.hd chars) with
             | Dynamic _ -> true
             | _ -> false
+        and u_gap = match use_gap with 
+            | `Independent | `Coupled _ -> true | `Missing -> false
         in
         (* We get the characters and filter them out to have only static types *)
         let model =
+            let compute_priors () = compute_priors data chars u_gap in
             let alph_size,alph = verify_alphabet data chars in
-            let alph_size = if u_gap then alph_size else alph_size - 1 in
-            let base_priors = match base_priors with
-                | `Estimate -> 
-                    let base_p = compute_priors data chars u_gap in
-                    MlModel.Estimated (base_p)
-                | `Constant ->
-                    let base_p = Array.make (alph_size) (1.0 /. (float alph_size)) in
-                    MlModel.ConstantPi (base_p)
-                | `Given arr -> 
-                    MlModel.Given (Array.of_list arr)
-            and site_variation = 
-                match site_variation with
-                | None -> Some MlModel.Constant 
-                | Some x -> (match x with 
-                    | `Gamma (w,y) ->
-                        let y = match y with
-                            | Some x -> i_alpha := false; x 
-                            | None -> MlModel.default_alpha false
-                        in
-                        Some (MlModel.Gamma (w,y))
-                    | `Theta (w,y) ->
-                        let y,p = match y with 
-                            | Some x -> i_alpha := false; x 
-                            | None -> (MlModel.default_alpha true,
-                                        MlModel.default_invar)
-                        in
-                        Some (MlModel.Theta (w,y,p)))
-            and substitution = match subst with
-                | `JC69 ->
-                    i_model := false;    
-                    MlModel.JC69
-                | `F81  ->
-                    i_model := false;    
-                    MlModel.F81
-                | `K2P (Some x) ->
-                    let aray = Array.of_list x in
-                    if Array.length aray = 1 then begin
-                        i_model := false;
-                        MlModel.K2P (Some aray.(0))
-                    end else if Array.length aray = 0 then begin
-                        MlModel.K2P None
-                    end else let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" in
-                            failwith("Incorrect Parameters");
-                | `K2P None -> MlModel.K2P None
-                | `HKY85 (Some x) ->
-                    let aray = Array.of_list x in
-                    if Array.length aray = 1 then begin
-                        i_model := false;
-                        MlModel.HKY85 (Some aray.(0))
-                    end else if Array.length aray = 0 then begin
-                        MlModel.HKY85 None
-                    end else let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" in
-                            failwith("Incorrect Parameters");    
-                | `HKY85 None -> 
-                    MlModel.HKY85 None
-                | `F84 (Some x) ->
-                    let aray = Array.of_list x in
-                    if Array.length aray = 1 then begin
-                        i_model := false;
-                        MlModel.F84 (Some aray.(0))
-                    end else if Array.length aray = 0 then begin
-                        MlModel.F84 None
-                    end else let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ HKY85@ requires@ 1@ parameters" in
-                            failwith("Incorrect Parameters");
-                | `F84 None -> MlModel.F84 None
-                | `TN93 (Some x) -> 
-                    let aray = Array.of_list x in
-                    if Array.length aray <> 2 then
-                        let _ = Status.user_message Status.Error
-                            "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" in
-                            failwith("Incorrect Parameters");
-                    else if Array.length aray = 0 then begin
-                        MlModel.TN93 None
-                    end else begin
-                        i_model := false;
-                        MlModel.TN93 (Some (aray.(0),aray.(1)))
-                    end
-                | `TN93 None -> MlModel.TN93 None
-                | `GTR (Some x) ->
-                    let aray = Array.of_list x in 
-                    let n_a = (alph_size * (alph_size-1)) / 2 in
-                    if (Array.length aray) <> n_a then
-                        let () = Status.user_message Status.Error 
-                        ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
-                         "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
-                         (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
-                        failwith "Incorrect Parameters";
-                    else if Array.length aray = 0 then begin
-                        MlModel.GTR None
-                    end else begin
-                        i_model := false;
-                        MlModel.GTR (Some aray)
-                    end
-                | `GTR None -> MlModel.GTR None
-                | `File str -> 
-                        (* this needs to be changed to allow remote files as well *)
-                    let matrix = Cost_matrix.Two_D.fm_of_file (`Local str) in
-                    let matrix = Array.of_list (List.map (Array.of_list) matrix) in
-                    (* check the array size == a_size *)
-                    (* check the array array size == a_size *)
-                    Array.iter (fun x ->
-                                    if Array.length x = alph_size then ()
-                                    else failwith "I@ don't@ like@ your@ input@ file:"
-                                ) matrix;
-                    if Array.length matrix = alph_size then 
-                        MlModel.File (matrix,str)
-                    else
-                        failwith "I@ don't@ like@ your@ input@ file."
-            in
-            let use_gap = 
-                let gtr = match substitution with | MlModel.GTR _ -> true | _ -> false in
-                match use_gap with
-                | `Independent when not gtr -> `Coupled MlModel.default_gap_r
-                | `Coupled _ when not gtr   -> `Independent
-                | x -> x
-            in
-            let lk_spec = { MlModel.substitution = substitution;
-                            site_variation = site_variation;
-                            base_priors = base_priors;
-                            iterate_model = !i_model;
-                            iterate_alpha = !i_alpha;
-                            cost_fn = cst;
-                            use_gap = use_gap; }
-            in
+            let lk_spec = MlModel.convert_methods_spec alph_size compute_priors m_spec in
             let lk_spec = 
                 if dynamic then MlModel.remove_gamma_from_spec lk_spec 
                            else lk_spec 
@@ -4982,7 +4852,6 @@ let assign_level data chars level =
                     end else begin
                         let b = Cost_matrix.Two_D.clone b in
                         let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
-                        let newalph = Alphabet.create_alph_by_level alph level oldlevel in 
                         b
                     end
                 in
