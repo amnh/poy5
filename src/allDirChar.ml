@@ -28,7 +28,7 @@ let debug_node_fn           = false
 let debug_model_fn          = false
 let debug_adjust_fn         = false
 let debug_clear_subtree     = false
-let debug_join_fn           = true
+let debug_join_fn           = false
 let debug_branch_fn         = false
 let debug_cost_fn           = false
 let debug_uppass_fn         = false
@@ -375,6 +375,17 @@ module F : Ptree.Tree_Operations
         in
         sum
 
+    let prior_cost tree = 
+        if using_likelihood `Dynamic tree then
+            All_sets.IntegerMap.fold
+                (fun k v min_prior -> 
+                    let new_prior = AllDirNode.AllDirF.min_prior v in
+                    min new_prior min_prior)
+                (tree.Ptree.node_data)
+                (infinity)
+        else
+            0.0
+
 
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
@@ -434,15 +445,17 @@ module F : Ptree.Tree_Operations
                     distance (Tree.Edge (a, b))
                     new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
+        let pi_cost = prior_cost new_tree in
+        let root_cost = AllDirNode.AllDirF.root_cost root in
         if debug_cost_fn then begin 
             info_user_message "Single Character Cost: %f" single_characters_cost;
             info_user_message "Other Character Cost: %f" not_single_character_cost;
-            info_user_message "Root Cost: %f" (AllDirNode.AllDirF.root_cost root);
-            info_user_message "Size of Tree: %f" (tree_size new_tree)
+            info_user_message "Root Cost: %f" (root_cost);
+            info_user_message "Prior Cost: %f" (pi_cost);
+            info_user_message "Size of Tree: %f" (tree_size new_tree);
         end;
         let res = 
-            single_characters_cost +. not_single_character_cost +. 
-            (AllDirNode.AllDirF.root_cost root)
+            single_characters_cost +. not_single_character_cost +. root_cost +.  pi_cost
         in
         res
 
@@ -452,6 +465,16 @@ module F : Ptree.Tree_Operations
             (fun handle cost -> (check_cost ptree handle None) +. cost)
             (Ptree.get_handles ptree)
             0.0
+
+    let root_costs tree =
+        let prior = prior_cost tree in
+        let collect_edge_data edge node acc =
+            let cost = AllDirNode.OneDirF.tree_cost None node in
+            (edge, cost +. prior) :: acc
+        in
+        Tree.EdgeMap.fold collect_edge_data tree.Ptree.edge_data []
+
+
 
 
     let check_assertion_two_nbrs a b c =
@@ -1628,21 +1651,20 @@ module F : Ptree.Tree_Operations
                     --> stabilize_priors (i+1) *)
         and optimize_priors dyn_tree = 
             let rec update_m gap_prior model : MlModel.model =
-                let narray = (* apply new gap parameter/ normalize vector *)
-                    let gap_char = Alphabet.get_gap (model.MlModel.alph) in
-                    let old = match model.MlModel.spec.MlModel.base_priors with
-                        | MlModel.Estimated x | MlModel.Given x | MlModel.ConstantPi x -> x
-                    in
-                    let sum,_ =
-                        Array.fold_left 
-                            (fun (a,i) x -> if i = gap_char then (a,i+1) else (a +. x,i+1)) 
-                            (0.0,0) (old) in
-                    let narray = 
-                        Array.map (fun x -> x *. (1.0 -. gap_prior) /. sum) (old) in
-                    old.( gap_char ) <- gap_prior;
-                    narray
-                in
-                MlModel.replace_priors model narray
+                match model.MlModel.spec.MlModel.base_priors with
+                    | MlModel.Estimated x ->
+                        let gap_char = Alphabet.get_gap (model.MlModel.alph) in
+                        let sum,_ =
+                            Array.fold_left 
+                                (fun (a,i) x -> if i = gap_char then (a,i+1) else (a +. x,i+1)) 
+                                (0.0,0) (x)
+                        in
+                        let narray = 
+                            Array.map (fun x -> x *. (1.0 -. gap_prior) /. sum) (x)
+                        in
+                        narray.( gap_char ) <- gap_prior;
+                        MlModel.replace_priors model narray
+                    | MlModel.Given _ | MlModel.Equal -> model
             and update_d data gap_prior = 
                 data.Data.dynamics
                     --> Data.get_likelihood_model data
@@ -2196,14 +2218,6 @@ module F : Ptree.Tree_Operations
         in
         update_node_manager e (`Cost) n_mgr;
         cost
-
- 
-    let root_costs tree = 
-        let collect_edge_data edge node acc =
-            let cost = AllDirNode.OneDirF.tree_cost None node in
-            (edge, cost) :: acc
-        in
-        Tree.EdgeMap.fold collect_edge_data tree.Ptree.edge_data []
 
     let string_of_node _ = ""
 

@@ -115,7 +115,8 @@ let name_string t = match t.data with
             | None   -> "Integerized Ancesteral Dynamic Likelihood (w/out ia)"
         end
 
-let total_cost t = match t.data with
+let total_cost t =
+    match t.data with
     | MPLAlign _ 
     | FPAlign _     -> t.cost
     | Integerized r -> 
@@ -297,7 +298,7 @@ let estimate_time a b =
 (* Verify Cost; only used for FPAlign *)
 let verify_fp_cost cst1 sa sb model bla blb mem = 
     if verify then begin
-        let cst2 = FloatSequence.FloatAlign.verify_cost_2 cst1 sa sb model bla blb mem in
+        let cst2 = FloatSequence.FloatAlign.full_cost_2 cst1 sa sb model bla blb mem in
         if cst1 =. cst2 then true
         else if not debug then false 
         else begin 
@@ -317,7 +318,7 @@ let verify_fp_cost cst1 sa sb model bla blb mem =
 
 let verify_mpl_cost cst1 sa sb model bla blb mem = 
     if verify then begin
-        let cst2 = FloatSequence.MPLAlign.verify_cost_2 cst1 sa sb model bla blb mem in
+        let cst2 = FloatSequence.MPLAlign.full_cost_2 cst1 sa sb model bla blb mem in
         if cst1 =. cst2 then true
         else if not debug then false 
         else begin 
@@ -417,7 +418,7 @@ let median code a b t1 t2 =
                 (ar.fp_ss)
                 (br.fp_ss)
         in
-        { a with cost = !cost; data = FPAlign { fp_ss = meds } }
+        { a with cost = !cost; data = FPAlign { fp_ss = meds; } } 
     | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
 
 let readjust c1 c2 mine t1 t2 = 
@@ -586,25 +587,11 @@ let to_single parent mine t =
     
 
 let prior a = 
-    let prior_of_seq alph priors (acc:float) sequence =
-        Sequence.fold_right
-            (fun acc i -> 
-                let states = MlModel.list_of_packed i in
-                let length = float_of_int (List.length states) in
-                let c_pi = 
-                    List.fold_left
-                        (fun acc i -> acc +. (priors.{i} /. length))
-                        (0.0)
-                        (states)
-                in
-                c_pi *. acc)
-            (acc)
-            (sequence)
-    in
     let m = static_model a in
+    let priors = m.MlModel.pi_0 in
     match a.data with
-    | Integerized a ->
-        let f = prior_of_seq m.MlModel.alph m.MlModel.pi_0 in
+    | Integerized a -> 0.0
+     (* let f = prior_of_seq m.MlModel.alph m.MlModel.pi_0 in
         Array.fold_left
             (fun acc data -> match data with
                 | SeqCS.Heuristic_Selection x -> f acc x.SeqCS.DOS.sequence
@@ -618,19 +605,49 @@ let prior a =
                         (acc) (x)
                 | SeqCS.Relaxed_Lifted (x,_) ->
                     Array.fold_left f acc x.SeqCS.RL.sequence_table)
-            (0.0) (a.ilk_ss.SeqCS.characters);
+            (0.0) (a.ilk_ss.SeqCS.characters); *)
     | FPAlign a ->
+        let avg_prior_of_seq (acc:float) sequence =
+            Sequence.foldi
+                (fun acc pos i ->
+                    if pos = 0 then acc (* skip gap opening *)
+                    else begin 
+                        let states = MlModel.list_of_packed i in
+                        let length = float_of_int (List.length states) in
+                        let c_pi = 
+                            List.fold_left
+                                (fun acc i -> acc *. (priors.{i} /. length))
+                                (0.0)
+                                (states)
+                        in
+                        (~-. (log c_pi)) +. acc
+                    end)
+                (acc)
+                (sequence)
+        in
         Array.fold_left
-            (fun acc i ->
-                prior_of_seq m.MlModel.alph m.MlModel.pi_0
-                             acc (FloatSequence.FloatAlign.seq_of_s i))
+            (fun acc i -> avg_prior_of_seq acc (FloatSequence.FloatAlign.seq_of_s i))
             (0.0) 
             (a.fp_ss)
     | MPLAlign a ->
+        let max_prior_of_seq (acc:float) sequence =
+            Sequence.foldi
+                (fun acc pos i -> 
+                    if pos = 0 then acc (* skip gap opening *)
+                    else begin
+                        let c_pi = 
+                            List.fold_left
+                                (fun acc i -> max acc priors.{i})
+                                (0.0)
+                                (MlModel.list_of_packed i)
+                        in
+                        (~-. (log c_pi)) +. acc
+                    end)
+                (acc)
+                (sequence)
+        in
         Array.fold_left
-            (fun acc i ->
-                prior_of_seq m.MlModel.alph m.MlModel.pi_0
-                             acc (FloatSequence.MPLAlign.seq_of_s i))
+            (fun acc i -> max_prior_of_seq acc (FloatSequence.MPLAlign.seq_of_s i))
             (0.0) 
             (a.mpl_ss)
 

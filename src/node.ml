@@ -28,7 +28,7 @@ let debug_sets      = false
 let debug_set_cost  = false
 let debug_treebuild = false
 let debug_tosingle  = false
-let debug_to_formatter = false
+let debug_formatter = false
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
@@ -636,7 +636,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                         let min_bl = MlStaticCS.minimum_bl () in
                         let t1, t2, opt = match t1,t2 with
                             | Some (t1), Some (t2) when code <= 0 ->
-                                (max min_bl (t1/.2.0), max min_bl (t2/.2.0), false)
+                                (max min_bl t1, 0.0, false)
                             | Some (t1), Some (t2) -> 
                                 (max min_bl t1, max min_bl t2, false)
                             | _ ->
@@ -668,13 +668,16 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                 | ca_prelim, cb_prelim ->
                     DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
             in
-            let total_cost = DynamicCS.total_cost median in
+            let total_cost = ca.weight *. (DynamicCS.total_cost median) in
+            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
+            if debug then
+                info_user_message "Calculated Median with costs: T:%f, S:%f" total_cost sum_cost;
             let res = 
                 { ca with 
                     preliminary = median;
                     final = median;
-                    cost = ca.weight *. total_cost;
-                    sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost;
+                    cost = total_cost;
+                    sum_cost = sum_cost;
                     time = time;
                 } 
             in
@@ -1100,6 +1103,16 @@ let root_cost root =
         | Kolmo v -> 
                 acc +. KolmoCS.root_cost v.preliminary root.num_otus
                 root.num_child_edges
+    (** Now calculated as an additional cost later
+        | Dynamic z -> 
+          IFDEF USE_LIKELIHOOD THEN
+            begin match z.preliminary with
+                | DynamicCS.MlCS zdat -> MlDynamicCS.prior zdat
+                | _ -> acc
+            end
+          ELSE
+            acc
+          END **)
         | _ -> acc
     in
     List.fold_left adder 0. root.characters
@@ -1430,6 +1443,22 @@ ELSE
     0.0
 END
 
+let prior n = 
+IFDEF USE_LIKELIHOOD THEN
+    let tree_size acc = function
+        | Dynamic a -> 
+            begin match a.preliminary with
+            | DynamicCS.MlCS x -> MlDynamicCS.prior x
+            | _                -> acc
+            end
+        | _ -> acc
+    in
+    List.fold_left (tree_size) 0.0 n.characters
+ELSE
+    0.0
+END
+
+
 let get_cost_mode a = a.cost_mode
 
 let compare_data_final {characters=chs1} {characters=chs2} =
@@ -1592,20 +1621,37 @@ let edge_distance clas nodea nodeb =
         | _ -> failwith "Incompatible characters (6)" in
     distance_lists nodea.characters nodeb.characters 0.
 
+let all_types = 
+    [ `Add ; `Annchrom ; `Breakinv ; `Chrom ; `Genome ; `Kolmo ; `Nonadd ;
+      `Sank; `Seq ; `StaticMl; `Ml ]
+
+let type_string = function
+    | `Add -> "additive"
+    | `Annchrom -> "annotated chromosomes"
+    | `Breakinv -> "break inversion"
+    | `Chrom -> "chromosome"
+    | `Genome -> "genome"
+    | `Kolmo -> "kolmo"
+    | `Nonadd -> "nonadditive"
+    | `Sank -> "sankoff"
+    | `Seq -> "sequence"
+    | `StaticMl -> "static likelihood"
+    | `Ml -> "dynamic likelihood"
+
 let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv ]
 
-module ToSingleModule = Set.Make (struct type t = to_single let compare =
-    compare end)
+module ToSingleModule = Set.Make (struct type t = to_single let compare = compare end)
 
 let all_characters_single = 
-    List.fold_left (fun acc x -> ToSingleModule.add x acc) ToSingleModule.empty
-    [ `Add ; `Annchrom ; `Breakinv ; `Chrom ; `Genome ; `Kolmo ; `Nonadd ;
-    `Sank ; `Seq ; `StaticMl; `Ml ]
+    List.fold_left (fun acc x -> ToSingleModule.add x acc) 
+                   (ToSingleModule.empty)
+                   (all_types)
 
 let not_to_single =
-    ToSingleModule.elements
+    ToSingleModule.elements 
         (List.fold_left (fun acc x -> ToSingleModule.remove x acc)
-                        all_characters_single has_to_single)
+                        (all_characters_single) 
+                        (has_to_single) )
 
 
 let distance_of_type ?(para=None) ?(parb=None) t missing_distance
@@ -2136,7 +2182,7 @@ let generate_taxon do_classify (laddcode : ms) (lnadd8code : ms)
                         | Nexus.File.STLikelihood s -> s.MlModel.alph_s
                         | _ -> assert false
                     in
-                    classify alph_len do_classify all !data
+                    classify alph_len (MlStaticCS.compress && do_classify) all !data
                 | [] -> assert false
             (* convert characters and group them by weight *)
             and lk_group_weights weights chars = 
@@ -2722,10 +2768,12 @@ let load_data ?(silent=true) ?(classify=true) data =
     current_snapshot "Node.load_data start";
     let classify = (not (Data.has_dynamic data)) && classify in
     let make_set_of_list lst =
-        List.fold_left (fun acc x -> 
-            if 0. = Data.get_weight x data then acc
-            else All_sets.Integers.add x acc) 
-        All_sets.Integers.empty lst
+        List.fold_left 
+            (fun acc x -> 
+                if 0. = Data.get_weight x data then acc
+                else All_sets.Integers.add x acc)
+            (All_sets.Integers.empty)
+            (lst)
     in
     let is_mem =
         (* We check for informative characters among all the terminals in data *)
@@ -2776,7 +2824,7 @@ let load_data ?(silent=true) ?(classify=true) data =
         and add = make_set_of_list add in
         let cost_mode = match static_ml with
             | _::_                    -> `Likelihood
-            | [] when has_dynamic_mpl -> `Likelihood
+            | [] when has_dynamic_mpl -> `SumLikelihood
             | [] when has_dynamic_mal -> `Likelihood
             | [] when has_dynamic_aln -> `SumLikelihood
             | _                       -> `Parsimony
@@ -3324,7 +3372,7 @@ let cmp_node_recost node_data =
 
 (* Compute total recost of the subtree rooted by this NODE *)
 let cmp_subtree_recost node_data =
-    if debug_to_formatter then
+    if debug_formatter then
         Printf.printf "node.ml cmp_subtree_recost:%!";
     List.fold_left 
         (fun subtree_recost cs -> 
@@ -3333,7 +3381,7 @@ let cmp_subtree_recost node_data =
                let res = subtree_recost +. (DynamicCS.subtree_recost
                      dyn.preliminary) 
                in
-               if debug_to_formatter then
+               if debug_formatter then
                     Printf.printf "res = %f + %f \n%!"  subtree_recost
                (DynamicCS.subtree_recost dyn.preliminary);
                res
@@ -3356,7 +3404,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
                 (Some ((List.nth a.characters item), (List.nth b.characters
                 item)))
     in
-    if debug_to_formatter then begin
+    if debug_formatter then begin
         Printf.printf "to_formatter_single on node %s\n%!" node_name ;
     print node_data; print node_single;
     end;
@@ -3365,7 +3413,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
             `Set (fst (List.fold_left 
         (fun (acc, item) cs ->
             let parent_data = get_parent item in
-            if debug_to_formatter then 
+            if debug_formatter then 
                 Printf.printf "Delayed function of to_formatter_single on node %s\n%!" 
                 node_name;
              let res = 
@@ -3427,7 +3475,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         | None -> "root"
         | _ -> get_node_name node_id
     in 
-    if debug_to_formatter then begin
+    if debug_formatter then begin
         Printf.printf "node.ml to_formatter_subtree, node name : %s, child1 is %s, child2 is %s\n%!" node_name child1_name child2_name;
     print node_data;
     print node_single;
@@ -3439,7 +3487,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
         child1_recost +. 
         child2_recost +. 
         node_recost in 
-    if debug_to_formatter then
+    if debug_formatter then
         Printf.printf "%f + %f + %f => subtree_recost=%f \n%!" 
     child1_recost child2_recost node_recost subtree_recost;
     let module T = Xml.Nodes in
@@ -3473,7 +3521,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
                          Some (pn, pnsingle)
                  | _ -> None
              in  
-             if debug_to_formatter then 
+             if debug_formatter then 
                 Printf.printf "Delayed function in to_formatter_subtree on node.%s"
              node_name;
              let res = cs_to_formatter None (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
@@ -4238,6 +4286,7 @@ module Standard :
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let tree_size _ = tree_size
+        let min_prior = prior
         let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
@@ -4394,38 +4443,44 @@ let merge a b =
 
 let total_cost_of_type t n =
     let rec total_cost_cs acc item = 
-        match item, t with
-        | Nonadd8 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
-        | Nonadd16 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
-        | Nonadd32 x, `Nonadd -> acc +. (x.sum_cost *. x.weight)
-        | Add x, `Add -> acc +. (x.sum_cost *. x.weight)
-        | Sank x, `Sank -> acc +. (x.sum_cost *. x.weight)
-        | StaticMl x, `StaticMl -> 
-            IFDEF USE_LIKELIHOOD THEN
-                acc +. x.cost (* in likelihood this is character set cost,
-                                   * and not a sum of the children *)
-            ELSE
-                acc
-            END
-        | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
-        | Dynamic x, t -> 
+        let single = match item, t with
+            | Nonadd8 x, `Nonadd -> x.sum_cost *. x.weight
+            | Nonadd16 x, `Nonadd -> x.sum_cost *. x.weight
+            | Nonadd32 x, `Nonadd -> x.sum_cost *. x.weight
+            | Add x, `Add -> x.sum_cost *. x.weight
+            | Sank x, `Sank -> x.sum_cost *. x.weight
+            | StaticMl x, `StaticMl -> 
+                IFDEF USE_LIKELIHOOD THEN
+                    x.cost
+                ELSE
+                    0.0
+                END
+            | Set x, t -> List.fold_left total_cost_cs acc x.preliminary.set
+            | Dynamic x, t -> 
                 (match x.preliminary, t with
                 | DynamicCS.MlCS _, `Ml when n.cost_mode = `Likelihood -> 
-                        acc +. (x.cost *. x.weight)
+                    x.cost *. x.weight
                 | DynamicCS.MlCS _, `Ml when n.cost_mode = `SumLikelihood ->
-                        acc +. (x.sum_cost *. x.weight)
+                    x.sum_cost *. x.weight
+                | DynamicCS.MlCS _, `Ml -> assert false
                 | DynamicCS.SeqCS _, `Seq ->
-                        acc +. (x.sum_cost *. x.weight)
+                    x.sum_cost *. x.weight
                 | DynamicCS.BreakinvCS _, `Breakinv -> 
-                        acc +. (x.sum_cost *.  x.weight)
+                    x.sum_cost *.  x.weight
                 | DynamicCS.ChromCS _, `Chrom -> 
-                        acc +. (x.sum_cost *. x.weight)
+                    x.sum_cost *. x.weight
                 | DynamicCS.AnnchromCS _, `Annchrom -> 
-                        acc +. (x.sum_cost *. x.weight)
+                    x.sum_cost *. x.weight
                 | DynamicCS.GenomeCS _, `Genome -> 
-                        acc +. (x.sum_cost *. x.weight)
-                | _ -> acc)
-        | Kolmo x, `Kolmo -> acc +. (x.sum_cost *. x.weight)
-        | _ -> acc
+                    x.sum_cost *. x.weight
+                | _ -> 0.0)
+            | Kolmo x, `Kolmo -> x.sum_cost *. x.weight
+            | _,_ -> 0.0
+        in
+        if debug then
+            info_user_message "%s contributed %f cost for %s" 
+                              (cs_string item) (single) (type_string t);
+        acc +. single
     in
     List.fold_left total_cost_cs 0.0 n.characters
+

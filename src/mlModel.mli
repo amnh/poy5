@@ -23,7 +23,7 @@
  * the type follows: 
  *      modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
 type string_spec = string * (string * string * string * string)
-                          * float list * ( string * float ) list
+                          * float list * [ `Given of (string * float) list | `Other of string ]
                           * (string * float option) * string
                           * string option
 
@@ -61,7 +61,7 @@ type subst_model =
 type priors = 
     | Estimated  of float array
     | Given      of float array
-    | ConstantPi of float array
+    | Equal
 
 type gap_properties = [ `Missing | `Independent | `Coupled of float ]
 
@@ -76,9 +76,6 @@ type spec = {
     iterate_alpha : bool;
 }
 
-(** [model] type to define the model used in the calculation of the likelihood
- * vector, and the loglikelihood value associated with the result. We also hold
- * the specification of the model for output and possible iteration. *) 
 type model = {
     (** [spec] specification this model was created from *)
     spec  : spec;
@@ -102,35 +99,49 @@ type model = {
     (** [ui] the inverse of u. In symmetric cases this isn't needed, ui=ut *)
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+(** [model] type to define the model used in the calculation of the likelihood
+   vector, and the loglikelihood value associated with the result. We also hold
+   the specification of the model for output and possible iteration. *) 
+
 
 val jc69_5 : spec
-val jc69_4 : spec
+(** sample spec for testing of 5 state JC69 *)
 
-(* list of set bits, or packed integer of set bits *)
+val jc69_4 : spec
+(** sample spec for testing of 4 state JC69 *)
+
 type chars = [ `List of int list | `Packed of int ]
+(** list of set bits, or packed integer of set bits *)
 
 val list_of_packed : ?zerobase:bool -> int -> int list
+(** convert packed integer to a list of indexes *)
+
 val packed_of_list : int list -> int
+(** convert a list of indexes to a packed integer *)
 
-(* code for costfn for c-side *)
 val get_costfn_code : model -> int
+(** code for costfn for c-side *)
 
-(* categorize a list of values into a list list of values; usually codes *)
 val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
+(** categorize a list of values into a list list of values; usually codes *)
 
-(* replace the priors in the model; used in dynamic likelihood to reestimate
- * when an implied alignment is performed *)
 val replace_priors : model -> float array -> model 
+(** replace the priors in the model; used in dynamic likelihood to reestimate
+    when an implied alignment is performed *)
 
-(* compare two sets of priors to see if they are the same *)
 val compare_priors : model -> model -> bool
+(** compare two sets of priors *)
 
-(** [convert_string_spec] convert a string spec from nexus and other formats to
- * the basic specification in for a likelihood model *)
 val convert_string_spec : string_spec -> spec
+(** [convert_string_spec] convert a string spec from nexus and other formats to
+   the basic specification in for a likelihood model *)
 
-(** [create_lk_model s] create the model for likelihood from parser *)
+val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
+(** [convert_methods_spec] convert the specification from Methods into the
+    proper MlModel.spec; this then can be converted to MlModel.model *)
+
 val create : ?min_prior:float -> Alphabet.a -> spec -> model
+(** [create_lk_model s] create the model for likelihood from parser *)
 
 (** [enable_gaps f m] a function to add gaps to the model; this is used to
  * ensure that dynamic characters have gaps as a character during transforms.
@@ -140,67 +151,7 @@ val add_gap_to_model : (unit -> float array) -> model -> model
 
 val remove_gamma_from_spec : spec -> spec
 
-val default_tstv  : float
-val default_gtr   : int -> float array
-val default_alpha : bool -> float
-val default_invar : float
-val default_gap_r : float
-
-IFDEF USE_LIKELIHOOD THEN
-
 val compare : model -> model -> int
-
-(** [diagonalize_*** Q D [Ui] ] 
- * Diagonalize [Q], and places the eigenvalues along the diagonal of [D],
- * thus [D] and [Q] must be nxn --where n is the size of the alphabet. The
- * eigenvectors are entered along the rows of [Q], this function destroyes
- * the substution rate matrix, but that can be copied or the primative
- * arguments saved and this matrix can be reconstructed later --it should
- * be fairly cheap to recreate *)
-external diagonalize_gtr: (* U D Ui *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    unit = "likelihood_CAML_diagonalize_gtr"
-external diagonalize_sym: (* U D *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    unit = "likelihood_CAML_diagonalize_sym"
-(** [compose_*** U D [Ui] t]
- * Composes the probability matrix from it's parts P = U*exp(t*D)*Ui
- * Function is used for testing and to_formatter function usage (output) *)     
-external compose_gtr: (* U D Ui t -> P *) FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_gtr"
-external compose_sym: (* U D t -> P *) FMatrix.m ->     
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> float
-    -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t = 
-        "likelihood_CAML_compose_sym" 
-
-val  m_meanrate :
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    float array -> unit
-(** models to be used outside likelihood if necessary **)
-val m_gtr   : float array -> float array -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f84   : float array -> float -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_hky85 : float array -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_f81   : float array -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_tn93  : float array -> float -> float -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_k2p   : float array -> float -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_jc69  : float array -> float -> int -> (int * float) option -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-val m_file  : float array -> float array array -> int -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 (** [classify_seq_pairs l1 l2 seq1 seq2] does initial classification of the
 * transitions from [seq1] to [seq2] Returns a map of complements, the number of
@@ -214,20 +165,6 @@ val classify_seq_pairs :
 val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
         Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
-
-(** [diagonalize s m] diagonalize [m] *)
-val diagonalize :
-    bool ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option
-
-(** [compose_model s t] compose a matrix from substitution rate matrix *)
-val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
-        -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
-
-END
 
 (** [compse m t] compose a matrix with the time *)
 val compose : model -> float -> 
@@ -247,5 +184,3 @@ val get_current_parameters_for_model : model -> float array option
 (* [get_update_function_for_alpha] based on the alpha parameters in model *)
 val get_update_function_for_alpha    : model -> (model -> float -> model) option
 val get_current_parameters_for_alpha : model -> float option
-
-

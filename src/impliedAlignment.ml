@@ -390,7 +390,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
                 | `MPL ->
-                    let gc = FloatSequence.MPLAlign.get_closest gap m t in
+                    let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> fst (gc i a b))
                 | `FLK -> 
                     let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in
@@ -404,7 +404,7 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         | Model (m,(t,_)) ->
             begin match FloatSequence.cost_fn m with
                 | `MPL -> 
-                    let gc = FloatSequence.MPLAlign.get_closest gap m t in
+                    let gc = FloatSequence.MPLAlign.get_closest m t in
                     (fun a b i -> snd (gc i a b))
                 | `FLK -> 
                     let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in

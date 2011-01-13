@@ -1,4 +1,3 @@
-(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
 (* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
 (* and the American Museum of Natural History.                                *)
 (*                                                                            *)
@@ -21,6 +20,7 @@
 let (-->) a b = b a
 let debug_mem = false
 let debug_aln = false
+let use_align = true
 let failwithf format = Printf.ksprintf (failwith) format
 
 let to_char_list string = 
@@ -40,10 +40,31 @@ let sequence_of_string seq alph =
 let pp_ilst chan lst =
     List.iter (fun x -> Printf.fprintf chan "%d| " x) lst
 
+and print_barray2 a = 
+    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array2.dim2 a)-1 do
+            Printf.printf "%2.10f\t" a.{i,j};
+        done; Printf.printf "\n"; 
+    done; Printf.printf "\n"; ()
 
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
+
+(* general remove gap function for a sequence *)
+let remove_gaps gap seq =
+    let remove_gaps seq base = 
+        if base = gap 
+            then seq
+            else let () = Sequence.prepend seq base in seq
+    in
+    let res = Sequence.fold_right (remove_gaps)
+                                  (Sequence.create (Sequence.length seq)) 
+                                  (seq)
+    in
+    Sequence.prepend res gap;
+    res
+
 
 (* Sequence alignment module for two or three sequences. *)
 module type A = sig
@@ -69,8 +90,8 @@ module type A = sig
 
     (* 2d operations *)
     val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float -> float -> floatmem -> float
-    val verify_cost_2   : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
-    val c_cost_2        : s -> s -> dyn_model -> float -> float -> floatmem -> int -> float
+    val aln_cost_2      : s -> s -> dyn_model -> float -> float
+    val full_cost_2     : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
     val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem -> s * s
     val align_2         : ?first_gap:bool -> s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float
     val clip_align_2    : ?first_gap:bool -> Sequence.Clip.s -> Sequence.Clip.s -> dyn_model -> float -> float
@@ -81,11 +102,12 @@ module type A = sig
     val gen_all_2       : s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float * s
 
     (* uppass operations *)
-    val closest  : p:s -> m:s -> dyn_model -> float -> floatmem -> s * float
-    val get_closest : int -> dyn_model -> float -> i:int -> p:int -> m:int -> int * float
+    val closest     : p:s -> m:s -> dyn_model -> float -> floatmem -> s * float
+    val get_closest : dyn_model -> float -> i:int -> p:int -> m:int -> int * float
 
     (* (pseudo) 3d operations *)
     val readjust : s -> s -> s -> dyn_model -> float -> float -> float -> floatmem -> float * s * bool
+    val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
 
 end 
 
@@ -128,16 +150,6 @@ module FloatAlign : A = struct
         for i = 0 to (Sequence.length seq)-1 do
             try Printf.printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
             with (Alphabet.Illegal_Code _ ) -> Printf.printf "%d" (Sequence.get seq i);
-        done;
-        ()
-
-    let print_cm m t = 
-        let mat = MlModel.compose m.static t in
-        for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
-            for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
-                Printf.printf " [%f] " (~-. (log mat.{i,j}));
-            done;
-            print_newline ();
         done;
         ()
 
@@ -190,6 +202,7 @@ module FloatAlign : A = struct
         done;
         mat
 
+    let print_cm m t = print_barray2 (create_cost_matrix m t)
 
     (* [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
      * branch length [t] *)
@@ -218,8 +231,9 @@ module FloatAlign : A = struct
         (fun a b -> f a b, a land b)
 
     (* p is single; m is not; find in m the least cost to p *)
-    let get_closest gap model t =
-        let cost_matrix = create_cost_matrix model t in
+    let get_closest model t =
+        let cost_matrix = create_cost_matrix model t
+        and gap = Alphabet.get_gap model.alph in
         (fun ~i ~p ~m -> 
             let p = if p = 0 then gap else p in
             let m = if m = 0 then gap else m in
@@ -230,7 +244,6 @@ module FloatAlign : A = struct
                         List.fold_left
                             (fun ((assgn,cst) as acc) p ->
                                 let ncst = cost_matrix.{p,m} in
-(*                                Printf.printf "\t Cost: %d -- %d = %f; old: %f\n" p m ncst cst;*)
                                 if ncst < cst then (m,ncst) else acc)
                             (acc)
                             (MlModel.list_of_packed p))
@@ -292,7 +305,7 @@ module FloatAlign : A = struct
         build_alignments [] [] ((Sequence.length x)-1) ((Sequence.length y)-1)
 
     (* [backtrace men x y] find the median of x and y *)
-    let backtrace mem x y = 
+    let backtrace model mem x y = 
         let get x i = Sequence.get x i
         and union x y i j = (Sequence.get x i) lor (Sequence.get y j) in
         let get_direction i j = mem.(i).(j) --> snd --> snd --> List.hd in
@@ -302,7 +315,8 @@ module FloatAlign : A = struct
             | Insert -> build_median ((get y j)::acc) i (j-1)
             | Root   -> Sequence.of_array (Array.of_list ((get x 0)::acc))
         in
-        build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1)
+        let m = build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1) in
+        remove_gaps (Alphabet.get_gap model.alph) m
 
     (* [ukkonen_align_2 uk_min uk_max mem x y m t] Align the sequences [x] and
      * [y] using the a cost matrix from the mlmodel [m] and branch length [t],
@@ -487,8 +501,38 @@ module FloatAlign : A = struct
                 ()
             end
         in
-        initial_matrix ();
-        fst (mem.(lenX-1).(lenY-1))
+        if not use_align then begin
+            initial_matrix ();
+            fst (mem.(lenX-1).(lenY-1))
+        end else begin
+            align_2 mem x y m tx ty
+        end
+
+    let aln_cost_2 p m model t : float = 
+        let cost_matrix = create_cost_matrix model t in
+        let cost_single p m = 
+            let t_cost,t_count = 
+                List.fold_left
+                    (fun acc m ->
+                        List.fold_left
+                            (fun (cst,cnt) p -> (cst +. cost_matrix.{p,m}, (cnt+1)))
+                            (acc)
+                            (MlModel.list_of_packed p))
+                    (0.0,0)
+                    (MlModel.list_of_packed m)
+            in
+            assert( t_count >= 1);
+            if t_count > 1 then t_cost /. (float_of_int t_count)
+                           else t_cost
+        in
+        assert( (Sequence.length p) = (Sequence.length m) );
+        Sequence.foldi
+            (fun acc pos _ -> 
+                let p_i = Sequence.get p pos 
+                and m_i = Sequence.get m pos in
+                acc +. cost_single p_i m_i)
+            (0.0)
+            (m)
 
 
 (* Functions that implement the module Align *)
@@ -502,7 +546,7 @@ module FloatAlign : A = struct
         | Some uk_max -> ukkonen_align_2 ~uk_max mem s1 s2 model t1 t2
         | None        -> ukkonen_align_2 mem s1 s2 model t1 t2
 
-    let c_cost_2 s1 s2 model t1 t2 mem delta : float = failwith "FloatAlign.c_cost_2 not implemented"
+    
 
     let full_median_2 s1 s2 model t1 t2 mem : s =
         if debug_mem then clear_mem mem;
@@ -510,10 +554,10 @@ module FloatAlign : A = struct
             if Sequence.length s1 <= Sequence.length s2 
                 then s1,s2,t1,t2 else s2,s1,t2,t1
         in
-        ignore (ukkonen_align_2 mem s1 s2 model t1 t2);
-        backtrace mem s1 s2
+        ignore (align_2 mem s1 s2 model t1 t2);
+        backtrace model mem s1 s2
 
-    let verify_cost_2 cost1 s1 s2 model t1 t2 mem : float =
+    let full_cost_2 cost1 s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
@@ -553,7 +597,7 @@ module FloatAlign : A = struct
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let med   = backtrace mem s1 s2 in
+            let med   = backtrace model mem s1 s2 in
             let s1,s2 = alignments mem s1 s2 model in
             s1,s2,cost,med
         in
@@ -571,7 +615,7 @@ module FloatAlign : A = struct
                 else s2,s1,t2,t1 
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        c,backtrace mem s1 s2
+        c,backtrace model mem s1 s2
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
 
@@ -584,22 +628,11 @@ module FloatAlign : A = struct
             Printf.printf "\nP: ";print_s p alph;
             Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
         end;
-        let remove_gaps seq =
-            let remove_gaps seq base = 
-                if base <> gap then 
-                    let () = Sequence.prepend seq base in seq
-                else seq
-            in
-            let res = Sequence.fold_right (remove_gaps)
-                                          (Sequence.create (Sequence.length seq)) (seq)
-            in
-            Sequence.prepend res gap;
-            res
-        and mask_gaps seq gap =
+        let mask_gaps seq gap =
             let mask = lnot gap in
             Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
-            let gc = get_closest gap model t in
+            let gc = get_closest model t in
             (fun om pos -> 
                 let p = Sequence.get par pos in
                 let m =
@@ -614,11 +647,11 @@ module FloatAlign : A = struct
                 m, 0.0
             else if 0 = Sequence.compare p m then
                 let masked = mask_gaps m gap in
-                Sequence.mapi (get_closest masked) masked --> remove_gaps, 0.0
+                Sequence.mapi (get_closest masked) masked --> remove_gaps gap, 0.0
             else
                 let paln, maln, cst = align_2 p m model (t/.2.0) (t/.2.0) mem in
                 assert( Sequence.length paln = Sequence.length maln );
-                Sequence.mapi (get_closest paln) maln --> remove_gaps, cst
+                Sequence.mapi (get_closest paln) maln --> remove_gaps gap, cst
         in
         if debug_aln then begin
             Printf.printf " -%f(%d)-> " cst gap; print_s new_m alph; print_newline ();
@@ -657,6 +690,11 @@ module FloatAlign : A = struct
         in
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
+
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
 
 end
 
@@ -810,7 +848,7 @@ module MPLAlign : A = struct
     let get_cm m t1 t2 = create_mpl_cost_fn m t1 t2
 
     (* p is single; m is not; find in m the least coast to p *)
-    let get_closest gap model t =
+    let get_closest model t =
         let cost_matrix = 
             let mat = MlModel.compose model.static t in
             for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
@@ -819,7 +857,7 @@ module MPLAlign : A = struct
                 done;
             done;
             mat
-        in
+        and gap = Alphabet.get_gap model.alph in
         (* find the cost of median state [me] from [xe] and [ye] *)
         (fun ~i ~p ~m ->
             let p = if p = 0 then gap else p in
@@ -895,7 +933,7 @@ module MPLAlign : A = struct
         build_alignments [] [] ((Sequence.length x)-1) ((Sequence.length y)-1)
 
     (* [backtrace men x y] find the median of x and y *)
-    let backtrace mem x y = 
+    let backtrace model mem x y = 
         let get x i = Sequence.get x i in
         let get_direction i j = mem.(i).(j) --> snd --> snd --> List.hd in
         let rec build_median acc i j = match get_direction i j with
@@ -904,7 +942,8 @@ module MPLAlign : A = struct
             | Insert s -> build_median (s::acc) i (j-1)
             | Root     -> Sequence.of_array (Array.of_list ((get x 0)::acc))
         in
-        build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1)
+        let m = build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1) in
+        remove_gaps (Alphabet.get_gap model.alph) m
 
     (* [ukkonen_align_2 uk_min uk_max mem x y m t] Align the sequences [x] and
      * [y] using the a cost matrix from the mlmodel [m] and branch length [t],
@@ -1088,9 +1127,46 @@ module MPLAlign : A = struct
                 ()
             end
         in
-        initial_matrix ();
-        fst (mem.(lenX-1).(lenY-1))
+        if not use_align then begin
+            initial_matrix ();
+            fst (mem.(lenX-1).(lenY-1))
+        end else begin
+            align_2 mem x y m tx ty
+        end
 
+    let aln_cost_2 p m model t : float = 
+        let cost_matrix = 
+            let mat = MlModel.compose model.static t in
+            for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+                for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                    mat.{i,j} <- ~-. (log mat.{i,j});
+                done;
+            done;
+            mat
+        in
+        let cost_single p m = 
+            let t_cost,t_count = 
+                List.fold_left
+                    (fun acc m ->
+                        List.fold_left
+                            (fun (cst,cnt) p -> (cst +. cost_matrix.{p,m}, (cnt+1)))
+                            (acc)
+                            (MlModel.list_of_packed p))
+                    (0.0,0)
+                    (MlModel.list_of_packed m)
+            in
+            assert( t_count >= 1 );
+            if t_count > 1 then t_cost /. (float_of_int t_count)
+                           else t_cost
+        in
+        assert( (Sequence.length p) = (Sequence.length m) );
+        Sequence.foldi
+            (fun acc pos _ -> 
+                let p_i = Sequence.get p pos 
+                and m_i = Sequence.get m pos in
+                acc +. cost_single p_i m_i)
+            (0.0)
+            (m)
 
 
 (* Functions that implement the module Align *)
@@ -1104,8 +1180,6 @@ module MPLAlign : A = struct
         | Some uk_max -> ukkonen_align_2 ~uk_max mem s1 s2 model t1 t2
         | None        -> ukkonen_align_2 mem s1 s2 model t1 t2
 
-    let c_cost_2 s1 s2 model t1 t2 mem delta : float = failwith "FloatAlign.c_cost_2 not implemented"
-
     let full_median_2 s1 s2 model t1 t2 mem : s =
         if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
@@ -1113,9 +1187,9 @@ module MPLAlign : A = struct
                 then s1,s2,t1,t2 else s2,s1,t2,t1
         in
         ignore (align_2 mem s1 s2 model t1 t2);
-        backtrace mem s1 s2
+        backtrace model mem s1 s2
 
-    let verify_cost_2 cost1 s1 s2 model t1 t2 mem : float =
+    let full_cost_2 cost1 s1 s2 model t1 t2 mem : float =
         if debug_mem then clear_mem mem;
         let s1,s2,t1,t2 = 
             if Sequence.length s1 <= Sequence.length s2 
@@ -1155,7 +1229,7 @@ module MPLAlign : A = struct
         if debug_mem then clear_mem mem;
         let gen_all_2 s1 s2 t1 t2 = 
             let cost  = ukkonen_align_2 mem s1 s2 model t1 t2 in
-            let med   = backtrace mem s1 s2 in
+            let med   = backtrace model mem s1 s2 in
             let s1,s2 = alignments mem s1 s2 model in
             s1,s2,cost,med
         in
@@ -1173,7 +1247,7 @@ module MPLAlign : A = struct
                 else s2,s1,t2,t1 
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        c,backtrace mem s1 s2
+        c,backtrace model mem s1 s2
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
 
@@ -1181,24 +1255,11 @@ module MPLAlign : A = struct
 
     let closest ~p ~m model t mem : s * float =
         let gap = Alphabet.get_gap model.alph in
-        let remove_gaps seq =
-            let remove_gaps seq base =
-                if base <> gap then
-                    let () = Sequence.prepend seq base in seq
-                else seq
-            in
-            let res =
-                Sequence.fold_right (remove_gaps)
-                                    (Sequence.create (Sequence.length seq))
-                                    (seq)
-            in
-            Sequence.prepend res gap;
-            res
-        and mask_gaps seq gap =
+        let mask_gaps seq gap =
             let mask = lnot gap in
             Sequence.mapi (fun x p -> if p > 0 then x land mask else x) seq
         and get_closest par : int -> int -> int =
-            let gc = get_closest gap model t in
+            let gc = get_closest model t in
             (fun om pos -> 
                 let p = Sequence.get par pos in
                 let m =
@@ -1213,15 +1274,13 @@ module MPLAlign : A = struct
                 m, 0.0
             else if 0 = Sequence.compare p m then
                 let masked = mask_gaps m gap in
-                Sequence.mapi (get_closest masked) masked --> remove_gaps, 0.0
+                let m = Sequence.mapi (get_closest masked) masked in
+                remove_gaps gap m, aln_cost_2 p m model t
             else
                 let paln, maln, cst = align_2 p m model 0.0 t mem in
-(*                Printf.printf "\nP : ";print_raw p;*)
-(*                Printf.printf "\nM : ";print_raw m;*)
-(*                Printf.printf "\nPA: ";print_raw paln;*)
-(*                Printf.printf "\nMA: ";print_raw maln;*)
                 assert( Sequence.length paln = Sequence.length maln );
-                Sequence.mapi (get_closest paln) maln --> remove_gaps, cst
+                let m = Sequence.mapi (get_closest paln) maln in
+                remove_gaps gap m, aln_cost_2 paln m model t
         in
         if debug_aln then begin
             Printf.printf "\nP: ";print_raw p;
@@ -1230,7 +1289,6 @@ module MPLAlign : A = struct
             print_newline ();
         end;
         res
-
 
     (* requires not implemented functions *)
     let readjust s1 s2 s3 model t1 t2 t3 mem =
@@ -1264,5 +1322,144 @@ module MPLAlign : A = struct
         let has_to_print, cst, (s, _), previous = make_center s1 s2 s3 in
         cst, s, has_to_print
 
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
+
+
 end
 
+module MALAlign : A = struct
+
+    type s   = Sequence.s
+
+    type floatmem = float array array
+
+    external s_of_seq : Sequence.s -> s = "%identity"
+    external seq_of_s : s -> Sequence.s = "%identity"
+
+    let print_mem (mem:floatmem) = 
+        for i = 0 to (Array.length mem)-1 do
+            for j = 0 to (Array.length mem.(i))-1 do
+                Printf.printf "| %02.3f " (abs_float mem.(i).(j));
+            done;
+            Printf.printf "|\n%!";
+        done;
+        print_newline ()
+
+    (* memory processing functions *)
+    let mem = ref None
+
+    let create_mem a b =
+        let a = max a b in
+        let res = Array.make_matrix a a (~-.1.0) in
+        mem := Some res;
+        res
+
+    and clear_mem mem = 
+        Array.iteri
+            (fun i v ->
+                Array.iteri 
+                    (fun j _ -> mem.(i).(j) <- (~-.1.0)) v)
+            mem
+
+    let get_mem a b = match !mem with
+        | None -> create_mem ((Sequence.length a)) ((Sequence.length b))
+        | Some x -> 
+            if (Sequence.length a) > (Array.length x) then
+                create_mem ((Sequence.length a)) ((Sequence.length b))
+            else if (Sequence.length b) > (Array.length x.(0)) then
+                create_mem ((Sequence.length a)) ((Sequence.length b))
+            else 
+                x
+
+    let create_cost_matrix model t = 
+        let mat = MlModel.compose model.static t in
+        for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
+            for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
+                mat.{i,j} <- ~-. (log mat.{i,j})
+            done;
+        done;
+        mat
+    
+    let print_cm m t = print_barray2 (create_cost_matrix m t)
+
+    (* sum of three *)
+    let sum3 a b c = ~-. (log ((exp (~-.a)) +. (exp (~-.b)) +. (exp (~-.c))))
+
+    (* [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
+     * branch length [t] *)
+    let create_align_cost_fn m tx ty =
+        let cost_matrix = create_cost_matrix m (tx+.ty) in
+        fun x_i y_i ->
+            let fn (cst,n) x y =
+                try (cst +. cost_matrix.{x,y},n+1)
+                with | _ -> failwithf "Cannot find from cost matrix: %d, %d" x y
+            and xs = MlModel.list_of_packed x_i 
+            and ys = MlModel.list_of_packed y_i in
+            let cst,n =
+                List.fold_left
+                    (fun acc x ->
+                        List.fold_left (fun acc y -> fn acc x y) acc ys)
+                    (0.0,0) (xs)
+            in
+            if debug_aln then
+                Printf.printf "Cost: %d(%a) ->%f/%d<- %d(%a)\n%!" 
+                    x_i pp_ilst (MlModel.list_of_packed x_i) cst n
+                    y_i pp_ilst (MlModel.list_of_packed y_i);
+            cst /. (float_of_int n)
+
+    let dyn_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
+        let cost    = create_align_cost_fn m tx ty in
+        let gap     = Alphabet.get_gap m.alph in
+        let get a b = Sequence.get a b in
+        let get_cost i j =
+            if i = 0 && j = 0 then begin
+                0.0
+            end else if i = 0 then begin
+                mem.(i).(j-1) +. (cost gap (get y j))
+            end else if j = 0 then begin 
+                mem.(i-1).(j) +. (cost (get x i) gap)
+            end else begin
+                sum3 (mem.(i-1).(j)   +. (cost (get x i) (gap    )))
+                     (mem.(i).(j-1)   +. (cost (gap    ) (get y j)))
+                     (mem.(i-1).(j-1) +. (cost (get x i) (get y j)))
+            end
+        in
+        let xlen = Sequence.length x and ylen = Sequence.length y in
+        for i = 0 to xlen - 1 do
+            for j = 0 to ylen - 1 do
+                mem.(i).(j) <- get_cost i j;
+            done;
+        done;
+        mem.(xlen-1).(ylen-1)
+
+    (* only cost function defined for module *)
+    let cost_2 ?deltaw s1 s2 model t1 t2 mem : float = 
+        if debug_mem then clear_mem mem;
+        dyn_2 mem s1 s2 model t1 t2
+
+    let optimize s1 s2 model t mem = 
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let (t,((),c)) = Numerical.brents_method (t,update t) update in
+        (t,c)
+
+    (* functions not implemented *)
+    let print_s _ _              = failwith "not implemented"
+    let print_raw _              = failwith "not implemented"
+    let aln_cost_2 _ _ _ _       = failwith "not implemented"
+    let median_2 _ _ _ _ _ _     = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _= failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _= failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _    = failwith "not implemented"
+    let closest ~p ~m _ _ _      = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _ _ = failwith "not implemented"
+    let get_cm _ _ _             = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _  = failwith "not implemented"
+    let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
+    let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
+    let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
+
+end

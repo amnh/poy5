@@ -18,6 +18,8 @@
 (* USA                                                                        *)
 let () = SadmanOutput.register "MlStaticCS" "$Revision %r $"
 
+let compress = true
+
 IFDEF USE_LIKELIHOOD THEN
 let failwithf format = Printf.ksprintf failwith format
 
@@ -38,7 +40,7 @@ type t = {
     chars   : s;
 }
 
-external median1_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+external median1_gtr: (* median_gtr U D Ui t a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -46,7 +48,7 @@ external median1_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
      float -> s -> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
          "likelihood_CAML_median1_gtr" "likelihood_CAML_median1_wrapped_gtr" 
-external median1_sym: (* median sym U D ta tb a b r p -> output_c *)
+external median1_sym: (* median_sym U D t a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -62,7 +64,7 @@ external median2_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
      float -> float -> s -> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
          "likelihood_CAML_median2_gtr" "likelihood_CAML_median2_wrapped_gtr" 
-external median2_sym: (* median sym U D ta tb a b r p -> output_c *)
+external median2_sym: (* median_sym U D ta tb a b r p -> output_c *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -70,7 +72,7 @@ external median2_sym: (* median sym U D ta tb a b r p -> output_c *)
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
           "likelihood_CAML_median2_sym" "likelihood_CAML_median2_wrapped_sym"
 
-external median3_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
+external median3_gtr: (* median_gtr U D Ui ta tb tc a b c r p -> output_d *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -78,7 +80,7 @@ external median3_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
      float -> float -> float -> s -> s -> s -> 
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
          "likelihood_CAML_median3_gtr" "likelihood_CAML_median3_wrapped_gtr" 
-external median3_sym: (* median sym U D ta tb a b r p -> output_c *)
+external median3_sym: (* median_sym U D ta tb tc a b c r p -> output_d *)
     FMatrix.m ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
@@ -125,13 +127,6 @@ external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
 (* ------------------------------------------------------------------------- *)
 (* printing functions *)
-let print_float x = Printf.printf "%2.10f\t" x
-let print_int x = Printf.printf "%d\t" x
-let print_array xs = Array.iter print_float xs; print_newline ()
-let print_arrayi xs = Array.iter print_int xs; print_newline ()
-let print_array2 xxs = Array.iter print_array xxs; print_newline ()
-let print_array3 xxxs = Array.iter print_array2 xxxs; print_newline ()
-let print_list x = List.map (fun y -> Printf.printf "%d\t" y) x
 let print_barray1 a = 
     for i = 0 to (Bigarray.Array1.dim a)-1 do 
         Printf.printf "%2.10f\t" a.{i};
@@ -159,16 +154,6 @@ let print_barray3with1 a b =
             done; Printf.printf "\n"; 
         done; Printf.printf "\n";
     done; Printf.printf "\n%!"; ()
-
-let pp_fopt chan v = 
-    output_string chan 
-                  (match v with
-                    | Some v -> string_of_float v
-                    | None -> "none")
-
-let get_codes a = a.codes
-
-let get_model a = a.model
 
 (* ------------------------------------------------------------------------- *)
 (* conversion/utility functions *)
@@ -219,6 +204,8 @@ let print a = print_barray3 (fst (s_bigarray a.chars));
 
 let cardinal ta = Array.length ta.codes
 let union prev ch1 ch2 = prev
+let get_codes a = a.codes
+let get_model a = a.model
 
 (* ------------------------------------------------------------------------- *)
 (* initial estimation functions --jc69 *)
@@ -233,37 +220,30 @@ let estimate_time a b =
     (nt,nt)
 
 (* ------------------------------------------------------------------------- *)
-(* required functions *)
-
-(* [median] calculate the new new node between [an] and [bn] with
- * distance [t1] + [t2], being applied to[an], [bn] respectively    *)
+(* median functions *)
 let median2 an bn t1 t2 acode bcode =
-        let am = an.model in
-        let n_chars = match am.MlModel.ui with
-            | None -> 
-                median2_sym FMatrix.scratch_space 
-                    am.MlModel.u am.MlModel.d t1 t2 an.chars bn.chars 
-                    am.MlModel.rate (MlModel.get_costfn_code am)
-            | Some ui -> 
-                median2_gtr FMatrix.scratch_space 
-                    am.MlModel.u am.MlModel.d ui t1 t2 an.chars bn.chars
-                    am.MlModel.rate (MlModel.get_costfn_code am)
-        in
-        let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
-        let loglike = 
-            loglikelihood n_chars an.weights an.model.MlModel.pi_0 
-                          an.model.MlModel.prob pinvar
-                          (MlModel.get_costfn_code an.model)
-        in
-        let () = 
-            if loglike < 0.0 then
-                failwithf "Negative loglikelihood between (%d,%d) with (%f,%f)"
-                            acode bcode t1 t2 
-        in
-        { an with
-            chars = n_chars;
-            mle = loglike; 
-        }
+    let am = an.model in
+    let n_chars = match am.MlModel.ui with
+        | None -> 
+            median2_sym FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d t1 t2 an.chars bn.chars 
+                am.MlModel.rate (MlModel.get_costfn_code am)
+        | Some ui -> 
+            median2_gtr FMatrix.scratch_space 
+                am.MlModel.u am.MlModel.d ui t1 t2 an.chars bn.chars
+                am.MlModel.rate (MlModel.get_costfn_code am)
+    in
+    let pinvar = match an.model.MlModel.invar with | Some x -> x | None -> ~-.1.0 in
+    let loglike = 
+        loglikelihood n_chars an.weights an.model.MlModel.pi_0 
+                      an.model.MlModel.prob pinvar
+                      (MlModel.get_costfn_code an.model)
+    in
+    assert( loglike >= 0.0 );
+    { an with
+        chars = n_chars;
+        mle = loglike; 
+    }
 
 let median1 an bn t1 = 
     let am = an.model in
@@ -310,7 +290,8 @@ let median3 an bn cn t1 t2 t3 =
     }
 
 
-(* of_parser stuff *)
+(* ------------------------------------------------------------------------- *)
+(* parser/formatter stuff *)
 let rec list_of n x =
     match n with
     | 0 -> []
@@ -384,6 +365,8 @@ let of_parser_simple seq model =
 
 (* Parser.SC.static_spec -> ((int list option * int) array) -> t *)
 let of_parser spec weights characters =
+    assert( (compress) ||
+            (Array.fold_left (fun acc x -> acc && (x = 1.0)) true weights) );
     let computed_model = match spec.Nexus.File.st_type with
         | Nexus.File.STLikelihood x -> x
         | _ -> failwith "Not a likelihood model" in
@@ -422,9 +405,11 @@ let of_parser spec weights characters =
         | None   -> bigarray_s ba_chars None
                         (MlModel.get_costfn_code computed_model)
     in
-    let pinvar = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
-    and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights in
+    let pinvar  = match computed_model.MlModel.invar with | Some x -> x | None -> ~-.1.0
+    and weights = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout weights 
+    and codes   = Array.map (fun (x,y) -> y) characters in
     assert( (Bigarray.Array1.dim weights) = (Bigarray.Array3.dim2 ba_chars));
+    assert( (Array.length codes) = (Bigarray.Array3.dim2 ba_chars));
     let loglike = 
         loglikelihood lk_chars weights computed_model.MlModel.pi_0
                       computed_model.MlModel.prob pinvar
@@ -434,7 +419,7 @@ let of_parser spec weights characters =
     assert( loglike >= 0.0 );
     {    mle  = loglike;
        model  = computed_model;
-       codes  = Array.map (fun (x,y) -> y) characters; 
+       codes  = codes;
        weights= weights;
        chars  = lk_chars; }
 
@@ -481,6 +466,8 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
+
+(* ------------------------------------------------------------------------- *)
 (* readjust the branch lengths to create better mle score *)
 let readjust xopt x c1 c2 mine c_t1 c_t2 =
     (* copy characters to a new set *)
@@ -510,6 +497,7 @@ let readjust xopt x c1 c2 mine c_t1 c_t2 =
                 (fun c s -> All_sets.Integers.add c s) new_mine.codes x in
         (x,new_mine.mle,nl,(nta,ntb), {new_mine with mle = nl;} )
 
+(* ------------------------------------------------------------------------- *)
 (* extract maximum state from all the characters *)
 let extract_states a_node =
     let ray, _ = s_bigarray a_node.chars in (* ignore invar *)

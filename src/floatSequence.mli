@@ -98,17 +98,17 @@ module type A = sig
         backtrace or the edited sequences, although it is recommended that
         another function that returns that data be called instead. *)
 
-    val verify_cost_2   : float -> s -> s -> dyn_model -> float -> float
+    val aln_cost_2      : s -> s -> dyn_model -> float -> float
+    (** [alncost_2 a b m t] Determines the cost of the branch from [a] to [b]
+        and branch length [t], of model [m]. [a] and [b] must be aligned. *)
+
+    val full_cost_2     : float -> s -> s -> dyn_model -> float -> float
                             -> floatmem -> float
     (** [verify_cost_2 cost a b m at bt mem] Return the cost of the alignment of
         [a] and [b] with model [m], branch lengths [at] and [bt], respectivly.
         This alignment does a full alignment, and tests the final cost against
         [cost]; no action is done to if they are different if the debug
         parameter isn't set. *)
-
-    val c_cost_2        : s -> s -> dyn_model -> float -> float -> floatmem
-                            -> int -> float
-    (** [c_cost_2 a b m at bt mem i] Calculate the maximum cost; not implemented. *)
 
     val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem
                             -> s * s
@@ -141,7 +141,7 @@ module type A = sig
     val full_median_2   : s -> s -> dyn_model -> float -> float -> floatmem -> s
     (** [full_median_2 a b m t1 t2 mem] Create the backtrace through a full
         alignment of the data; avoids the Ukkonen Approximate String Matching
-        Algorithm. Similar to [verify]. *)
+        Algorithm. Similar to [full_cost_2]. *)
 
     val gen_all_2       : s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float * s
     (** [gen_all_2 a b m t1 t2 mem] Create the edited sequences of [a] and [b]
@@ -156,8 +156,8 @@ module type A = sig
         parent that is the closest assignment of [m] from [p] over length [t].
         The returned sequence will have no polymorphisms. *)
 
-    val get_closest : int -> dyn_model -> float -> i:int -> p:int -> m:int -> int * float
-    (** [get_closest gap model t i p m] Find the state of [m] that would create
+    val get_closest : dyn_model -> float -> i:int -> p:int -> m:int -> int * float
+    (** [get_closest model t i p m] Find the state of [m] that would create
         the minimum cost to [p]; return the optimal state, and cost associated
         with that transformation based on the model and branch length, [t]. *)
 
@@ -165,6 +165,11 @@ module type A = sig
     (** [readjust a b c m at bt ct mem] Perform a pseudo 3D alignment by using
         the best score of any pair, and then performing [closest] on that median
         with the third sequence. *)
+
+    val optimize : s -> s -> dyn_model -> float -> floatmem -> float * float
+    (** [optimize a b m t mem] find the minimum cost by adjusting the branch
+        length between [a] and [b]; with initial value at [t]. Return the pair,
+        cost * branch length. **)
 
 end 
 (** The sequence alignment module for floating point cost matrices/regimes. *)
@@ -183,3 +188,10 @@ module MPLAlign   : A
 
     PROD (x,y=0 to n,m) of MAX (i in A) of ( P(t1)_xi * P(t2)_yi )
     Where A is the set of characters in the alphabet, and P(t) = e^Qt. *)
+
+module MALAlign   : A
+(** This is a partially implemented module to define the distance between two
+    sequences by the criteria of total likelihood ->dynamic MAL. Only the cost
+    function is defined along with the memory and cost matrix functions.
+    Alignments are not defined (as the total cost is the sum; finding an
+    alignment would be equivlent to the FloatAlign module. *)

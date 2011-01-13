@@ -264,6 +264,9 @@ module OneDirF :
     let tree_size x n =
         apply_single_f_on_lazy (Node.Standard.tree_size x) n
 
+    let min_prior n =
+        apply_single_f_on_lazy (Node.Standard.min_prior) n
+
     let node_cost par n = 
         apply_single_f_on_lazy (Node.Standard.node_cost par) n
 
@@ -929,6 +932,14 @@ type nad8 = Node.Standard.nad8 = struct
             | [x] -> OneDirF.tree_size par x.lazy_node
             |  _  -> failwith "AllDirNode.tree_size"
         end with | Not_found -> failwith "no parent in tree size"
+
+    let min_prior n = 
+        let lst = match n.adjusted with
+                  | [] -> n.unadjusted
+                  | x  -> x
+        in
+        let lst = List.map (fun x -> OneDirF.min_prior x.lazy_node) lst in
+        List.fold_left (fun acc x -> min acc x) infinity lst
 
     let node_cost par n =
         match par with
