@@ -774,8 +774,11 @@ let integerized_model ?(sigma=4) model t =
 
 ELSE
 
-    let output_model _ _ _ _ = ()
-    let compose _ _  = failwith "Please enable likelihood"
+    let output_model _ _ _ _ = failwith likelihood_not_enabled
+    let compose _ _  = failwith likelihood_not_enabled
+    let spec_from_classification _ _ _ _ _ _ = failwith likelihood_not_enabled
+    let compare _ _ = failwith likelihood_not_enabled
+    let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
 
 END
 

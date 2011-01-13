@@ -76,9 +76,6 @@ type spec = {
     iterate_alpha : bool;
 }
 
-(** [model] type to define the model used in the calculation of the likelihood
- * vector, and the loglikelihood value associated with the result. We also hold
- * the specification of the model for output and possible iteration. *) 
 type model = {
     (** [spec] specification this model was created from *)
     spec  : spec;
@@ -102,39 +99,49 @@ type model = {
     (** [ui] the inverse of u. In symmetric cases this isn't needed, ui=ut *)
     ui    : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option; 
 }
+(** [model] type to define the model used in the calculation of the likelihood
+   vector, and the loglikelihood value associated with the result. We also hold
+   the specification of the model for output and possible iteration. *) 
+
 
 val jc69_5 : spec
-val jc69_4 : spec
+(** sample spec for testing of 5 state JC69 *)
 
-(* list of set bits, or packed integer of set bits *)
+val jc69_4 : spec
+(** sample spec for testing of 4 state JC69 *)
+
 type chars = [ `List of int list | `Packed of int ]
+(** list of set bits, or packed integer of set bits *)
 
 val list_of_packed : ?zerobase:bool -> int -> int list
+(** convert packed integer to a list of indexes *)
+
 val packed_of_list : int list -> int
+(** convert a list of indexes to a packed integer *)
 
-(* code for costfn for c-side *)
 val get_costfn_code : model -> int
+(** code for costfn for c-side *)
 
-(* categorize a list of values into a list list of values; usually codes *)
 val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
+(** categorize a list of values into a list list of values; usually codes *)
 
-(* replace the priors in the model; used in dynamic likelihood to reestimate
- * when an implied alignment is performed *)
 val replace_priors : model -> float array -> model 
+(** replace the priors in the model; used in dynamic likelihood to reestimate
+    when an implied alignment is performed *)
 
-(* compare two sets of priors to see if they are the same *)
 val compare_priors : model -> model -> bool
+(** compare two sets of priors *)
 
-(** [convert_string_spec] convert a string spec from nexus and other formats to
- * the basic specification in for a likelihood model *)
 val convert_string_spec : string_spec -> spec
+(** [convert_string_spec] convert a string spec from nexus and other formats to
+   the basic specification in for a likelihood model *)
 
+val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
 (** [convert_methods_spec] convert the specification from Methods into the
     proper MlModel.spec; this then can be converted to MlModel.model *)
-val convert_methods_spec : int -> (unit -> float array) -> Methods.ml_spec -> spec
 
-(** [create_lk_model s] create the model for likelihood from parser *)
 val create : ?min_prior:float -> Alphabet.a -> spec -> model
+(** [create_lk_model s] create the model for likelihood from parser *)
 
 (** [enable_gaps f m] a function to add gaps to the model; this is used to
  * ensure that dynamic characters have gaps as a character during transforms.
@@ -158,18 +165,6 @@ val classify_seq_pairs :
 val spec_from_classification :
     Alphabet.a -> Methods.ml_gap -> Methods.ml_substitution -> Methods.ml_site_variation option -> 
         Methods.ml_costfn -> (float All_sets.FullTupleMap.t) * (float All_sets.IntegerMap.t) -> spec
-
-(** [diagonalize s m] diagonalize [m] *)
-val diagonalize :
-    bool ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t *
-    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t option
-
-(** [compose_model s t] compose a matrix from substitution rate matrix *)
-val compose_model : (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t 
-        -> float -> (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t
 
 (** [compse m t] compose a matrix with the time *)
 val compose : model -> float -> 
