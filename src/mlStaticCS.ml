@@ -329,6 +329,14 @@ let list_of_packed d =
     in loop_ [] 0 d
 
 let of_parser_simple seq model =
+    let to_str_list string = 
+        let rec to_ i len acc = 
+            if i = len then List.rev acc
+                       else to_ (i+1) len ((String.get string i)::acc)
+        in
+        List.map (String.make 1) 
+                 (to_ 0 (String.length string) [])
+    in
     let load_characters alph ss = 
         let alph = Alphabet.to_sequential alph in
         let gap  = Alphabet.get_gap alph
@@ -347,6 +355,7 @@ let of_parser_simple seq model =
             --> Array.create 1
             --> Bigarray.Array3.of_array Bigarray.float64 Bigarray.c_layout
     in
+    let seq   = to_str_list seq in
     let nchar = List.length seq in
     let chars = load_characters model.MlModel.alph seq in
     let wghts = Bigarray.Array1.of_array Bigarray.float64 Bigarray.c_layout 
