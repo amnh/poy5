@@ -4594,7 +4594,8 @@ let auto_partition mode data code =
             Status.user_message Status.Information 
             "There are no potential partitions"
 
-let compute_fixed_states data code =
+
+let compute_fixed_states filename data code =
     Printf.printf "compute_fixed_states,code=%d\n%!" code;
     let to_ori_arr arr (base:int option) =
         Array.init (Array.length arr) (fun index->
@@ -4738,23 +4739,16 @@ let compute_fixed_states data code =
                     and circular = match dyn_pam.circular with
                     | Some value -> value 
                     | None -> 0 
-                    in
-                    (*let base = (Array.length code1_arr)*2 in
-                    let oricode1arr,oricode2arr = 
-                        to_ori_arr code1_arr None ,
-                        to_ori_arr code2_arr (Some base) 
-                    in
-                    let recost = 
-                        UtlGrappa.cmp_inversion_dis oricode1arr oricode2arr
-                        circular
-                    in*)
+                    in                    
                     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
                     GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat 
                     gen_gap_code re_meth circular false in
                     let xname,yname = string_of_int x,string_of_int y in
-                    let filename = 
-                        (xname^"_"^yname^".alignment") in
-                    Block_mauve.output2mauvefile filename cost None 
+                    let fullname = 
+                        match filename with 
+                        | None -> ""
+                        | Some fname -> (fname^xname^"_"^yname^".alignment") in
+                    Block_mauve.output2mauvefile fullname cost None 
                     alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat 
                     gen_gap_code len_lst1 (Sequence.length seqx)
                     (Sequence.length seqy);
@@ -4776,7 +4770,7 @@ let compute_fixed_states data code =
         Printf.printf "taxon:%d,state:%d\n%!" key record) taxon_codes;
     Hashtbl.replace data.character_specs code (Dynamic { dhs
     with initial_assignment = `FS (distances, sequences,
-    taxon_codes) })
+    taxon_codes); state = `Seq })
 
 
 let assign_tcm_to_characters data chars foname tcm =
@@ -4835,7 +4829,7 @@ let assign_tcm_to_characters data chars foname tcm =
                     Hashtbl.replace data.character_specs code spec)
               new_charspecs;
     List.iter ~f:(fun (spec, code) -> 
-                    if is_fs data code then compute_fixed_states data code)
+                    if is_fs data code then compute_fixed_states None data code)
               new_charspecs;
     { data with files = files }
 
@@ -5954,7 +5948,7 @@ let complement_taxa data taxa =
         if All_sets.Integers.mem c taxa then acc
         else c :: acc) data.taxon_codes []
 
-let make_fixed_states chars data =
+let make_fixed_states filename chars data =
     let data = duplicate data in
     let convert_and_process code =
         match Hashtbl.find data.character_specs code with
@@ -5963,7 +5957,7 @@ let make_fixed_states chars data =
                 | `FS _ -> ()
                 | `Partitioned _
                 | `AutoPartitioned _
-                | `DO -> compute_fixed_states data code)
+                | `DO -> compute_fixed_states filename data code)
         | _ -> failwith "How could this happen?"
     in
     let codes = get_code_from_characters_restricted_comp `Dynamic data chars in

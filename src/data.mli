@@ -595,7 +595,7 @@ val transform_weight : [ `ReWeight of (bool_characters * float) | `WeightFactor 
 
 val file_exists : d -> FileStream.f -> bool
 
-val make_fixed_states : bool_characters -> d -> d
+val make_fixed_states : string option -> bool_characters -> d -> d
 
 val make_direct_optimization : bool_characters -> d -> d
 
@@ -699,3 +699,5 @@ val verify_trees : d -> parsed_trees -> unit
 val guess_class_and_add_file : bool -> bool -> d -> FileStream.f -> d
 
 val report_kolmogorov_machine : string option -> d -> d
+
+val is_fs : d -> int -> bool
