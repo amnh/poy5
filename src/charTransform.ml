@@ -1106,9 +1106,9 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
         | `Search_Based _ as meth ->
                 unsupported_character_messages meth;
                 data, nodes
-        | `Fixed_States chars ->
+        | `Fixed_States (chars,filename) ->
                 data 
-                --> Data.make_fixed_states chars
+                --> Data.make_fixed_states filename chars 
                 --> Data.categorize
                 --> Node.load_data 
         | `Partitioned (mode, chars) ->
