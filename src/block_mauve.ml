@@ -787,7 +787,7 @@ let mark_unextendable_mum_tbl seedNO (priority_seedNO:int option)
     assert(sign_newmum)
 
 let mark_extendable_mum_tbl seedNO seed2pos_tbl mum_tbl = 
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "mark seedNO#%d as extendable in mum_tbl\n%!" seedNO;
     let oldmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
     let sign_newmum = update_mum_to_mumtbl None 
@@ -836,7 +836,7 @@ option) mum_tbl seed2pos_tbl=
 
 let upgrade_extendable_pos2seed_tbl seedNO2upgrade_lst pos2seed_tbl_left
 pos2seed_tbl_right seed2pos_tbl mum_tbl =
-    let debug = true in
+    let debug = false in
     let add_upgrade_seedNO_2_prilst seedNO_to_upgrade seqNO pos pos2seed_tbl =
         let old_record_k = try (Hashtbl.find pos2seed_tbl (seqNO,pos)) with
         | Not_found -> failwith ("upgrade_extendable_pos2seed_tbl, not found") in
@@ -1504,7 +1504,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
 
 let find_SML patternarr init_seedweight  inseqarr input_seqlst_size
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl = 
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     if debug then 
         Printf.printf "get sequences with index and possible seed subseq\n%!";
     let inseqarr_w_idxarr = Array.mapi (fun seqNO inseq->
@@ -1809,7 +1809,7 @@ let group_neighborhood_lst_by_dis in_lst debug =
 (* this allows more than one seed starts/ends from one positon*)
 (* we call this to expand the position to left or/and right*)
 let update_position2seedtbl seqNO old_pos new_pos seed_weight ori seedNO positiontbl =
-    let debug = true in
+    let debug = false in
     if debug then
         Printf.printf "update pos2seedtbl on seed#%d,pos=(%d,old=%d,new=%d),\
         weight=%d\n%!" seedNO seqNO old_pos new_pos seed_weight;
@@ -2952,7 +2952,7 @@ let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
 
     
 let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
     let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in
     if debug then print_lcbs_range lcb_range_lst_lst;
@@ -3906,7 +3906,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     minimum_cover_ratio := min_cover_ratio ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
@@ -3936,11 +3936,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let mum_tbl = Hashtbl.create init_tb_size in
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     !minimum_cover_ratio seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl mum_tbl true in
+    pos2seed_tbl_right seed2pos_tbl mum_tbl false in
     if debug then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
     build_local_mums2 mum_tbl seed2pos_tbl 
-    pos2seed_tbl_left pos2seed_tbl_right true false;
+    pos2seed_tbl_left pos2seed_tbl_right false false;
     if debug then
         Printf.printf "++++++++ init seedweight=%d, end of building mum\
         table\n%!" seedweight;
@@ -4195,7 +4195,7 @@ requires the original codearr, call [to_ori_code] to transform
 * *)
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
@@ -4374,7 +4374,7 @@ let get_seqlst_for_mauve in_seq =
     
 let output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 full_code_lstlst
 ali_mat gen_gap_code len_lst1 seqsize1 seqsize2 = 
-let debug = true in
+let debug = false in
         (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in
         let oc = open_out filename in*)
         let rewrite = match old_cost with
@@ -4383,7 +4383,9 @@ let debug = true in
         | None -> true 
         in
         if rewrite then begin
-            let oc = open_out filename in
+            let oc = match filename with 
+            | "" -> stdout
+            | fname -> open_out fname in
             fprintf oc "#FormatVersion Mauve1\n";
             fprintf oc "#Sequence1File	somefile.in\n";
             fprintf oc "#Sequence1Entry	1\n";
@@ -4425,6 +4427,6 @@ let debug = true in
             ) seqlst2;
             fprintf oc "=\n";
             ) (Array.to_list alied_gen_seq1) (Array.to_list alied_gen_seq2);
-            close_out oc;
+            if filename<>"" then close_out oc;
         end
 
