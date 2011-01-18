@@ -130,7 +130,7 @@ type transform_method = [
     | `Automatic_Sequence_Partition of (bool * int option)
     | `Prioritize
     | `SearchBased
-    | `Fixed_States
+    | `Fixed_States of (string option)
     | `Partitioned of [`Clip | `NoClip]
     | `Direct_Optimization
     | `SeqToChrom of chromosome_args list
@@ -451,7 +451,7 @@ let transform_transform acc (id, x) =
                     (`Automatic_Sequence_Partition (id, sens, x)) :: acc
             | `Prioritize -> `Prioritize :: acc
             | `SearchBased -> (`Search_Based id) :: acc
-            | `Fixed_States -> (`Fixed_States id) :: acc
+            | `Fixed_States filename -> (`Fixed_States (id,filename)) :: acc
             | `Partitioned mode -> (`Partitioned (mode, id)) :: acc
             | `Direct_Optimization -> (`Direct_Optimization id) :: acc
             | `SeqToChrom x -> (`Seq_to_Chrom (id, x)) :: acc
@@ -1373,7 +1373,7 @@ let create_expr () =
                 [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 
-                [ LIDENT "fixed_states" -> `Fixed_States ] |
+                [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
                     right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |

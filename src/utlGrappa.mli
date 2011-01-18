@@ -23,7 +23,6 @@
 
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
 
-
 (** [standardize genomeX genomeY] standardizes  
  * gene order [genomeX=(x1, x2,..., xk)] and  one of its 
  * permutations [genomeY=(y1, y2,...,yk)] 
@@ -87,7 +86,7 @@ val cmp_self_oriented_breakpoint_dis : int array -> int -> int
 * given three input sequence array, returns the median by calling
 * albert-median-solver. the int here is a sign of circular/or not
 * *)
-val inv_med :  Data.median_solver_t -> int array -> int array -> int array ->
+val inv_med :  int -> int array -> int array -> int array ->
     int list list -> int -> int array * int array
 
 

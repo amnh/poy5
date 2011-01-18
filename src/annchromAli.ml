@@ -1016,6 +1016,17 @@ let find_med3 ch1 ch2 ch3 mine c2 c3 alpha annchrom_pam =
         in 
         let circular = ali_pam.circular in 
         let medsov = ali_pam.median_solver in
+        let medsov = match medsov with
+            |`Vinh ->
+                    failwith "Vinh median solver is not in grappa"
+            |`MGR  -> 7
+            |`SimpleLK -> 5
+            |`ChainedLK -> 6
+            |`COALESTSP -> 4
+            |`BBTSP -> 3
+            |`Albert -> 1
+            |`Siepel -> 2
+        in
         let is_identical3 = Array_ops.is_identical3 
         and is_identical2 = Array_ops.is_identical2 in
         let ori_med3arr,_ = 

@@ -239,7 +239,7 @@ let find_better_capping (genomeX : int array) (genomeY : int array) (delimiterX:
     resarr,deli_arr
 
 
-let inv_med (medsov : Data.median_solver_t) (genomeX : int array) (genomeY : int
+let inv_med medsov (genomeX : int array) (genomeY : int
 array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let set_seq = 1 and set_delimiters = 0 in
     (* debug message 
@@ -297,34 +297,18 @@ array) (genomeZ : int array) (delimiters_lstlst : int list list) circular =
     let g1 = Grappa.c_get_one_genome genome_arr 1 in 
     let g2 = Grappa.c_get_one_genome genome_arr 2 in
     let gmed =
-        match medsov with
-        |`Vinh ->
-                failwith "Vinh median solver is not in grappa"
-        |`Albert ->
-                Grappa.get_med3_genome 1 g0 g1 g2 num_gen circular
-        |`Siepel ->
-              Grappa.get_med3_genome 2 g0 g1 g2 num_gen circular
-        |`BBTSP ->
-            Grappa.get_med3_genome 3 g0 g1 g2 num_gen circular
-        |`COALESTSP ->
-             Grappa.get_med3_genome 4 g0 g1 g2 num_gen circular
-        |`SimpleLK ->
-            Grappa.get_med3_genome 5 g0 g1 g2 num_gen circular
-        |`ChainedLK ->
-            Grappa.get_med3_genome 6 g0 g1 g2 num_gen circular
-        |`MGR ->
-            Grappa.get_med3_genome 7 g0 g1 g2 num_gen circular
+        Grappa.get_med3_genome medsov g0 g1 g2 num_gen circular
     in
     let med3arr = Grappa.genome_to_gene_intarr gmed num_gen in
     let delinum = 
         match medsov with
-        | `MGR ->
+        | 7 (*`MGR*) ->
                 Grappa.c_get_delimiter_num gmed
         | _ -> 0
     in
     let deli_arr = 
         match medsov with
-        | `MGR ->
+        | 7 (*`MGR*) ->
                 Grappa.get_delimiter_arr gmed delinum
         | _ -> [||]
     in

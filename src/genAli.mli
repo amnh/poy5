@@ -21,7 +21,6 @@
 * characters allowing rearrangements *)
 
 val fprintf : out_channel -> ('a, out_channel, unit) format -> 'a
-type dyna_state_t = Data.dyna_state_t
 
 val to_ori_code : int -> int
 
@@ -162,7 +161,7 @@ val create_gen_ali3 :
     'a -> int -> bool -> bool -> Sequence.s * int * int * int
 
 val create_gen_ali3_by_medsov_seqarr :
-    Data.median_solver_t ->
+    int ->
     int ->
     Sequence.s ->
     Sequence.s ->
@@ -175,7 +174,7 @@ val create_gen_ali3_by_medsov_seqarr :
         Sequence.s * int list * int * int * int * int * int * int 
         * int array * int array * int array * int array * int array * int array
 
-
+(*
 val create_gen_ali3_by_medsov_codearr :
     Data.median_solver_t ->
     int ->
@@ -190,4 +189,4 @@ val create_gen_ali3_by_medsov_codearr :
         Sequence.s * int list * int * int * int * int * int * int 
         * int array * int array * int array * int array * int array * int array
 
-
+*)

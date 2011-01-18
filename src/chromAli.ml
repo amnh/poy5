@@ -369,7 +369,7 @@ let check_chrom_map seq1 seq2 chrom_map =
         end
     done
 
-(*we pick one of it's children as median, just for now. fix state later? *)      
+(*we pick one of it's children as median, just for now. *)      
 let create_median_mauve (seq1, chrom1_id) (seq2, chrom2_id) full_code_lstlst
 gen_gap_code alied_gen_seq1 alied_gen_seq2 alignment_matrix (total_cost,recost1,recost2) cost_mat ali_pam =
     let debug = false in

@@ -207,7 +207,7 @@ type char_transform = [
     | `MultiStatic_Aprox of (characters * bool)
     | `Static_Aprox of (characters * bool)
     | `Search_Based of characters
-    | `Fixed_States of characters
+    | `Fixed_States of (characters*(string option))
     | `Partitioned of ([`Clip | `NoClip] * characters)
     | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))
