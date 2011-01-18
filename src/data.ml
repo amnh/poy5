@@ -3922,30 +3922,17 @@ let compute_priors data chars u_gap =
     (* A function to add the frequencies in all the taxa from the characters
     * specified in the list. *)
     let taxon_adder tax taxon_chars =
-        let when_no_data_is_loaded priors inverse size = 
-            incr gap_counter;
-            for i = 0 to size - 1 do
-                priors.(i) <- priors.(i) +. inverse;
-            done
-        and total = ref 0 in
+        let total = ref 0 in
         let adder char_code =
             let (cs, _) = Hashtbl.find taxon_chars char_code in
             match cs with
             | Dyna (_, dyna_data ) ->
-                let list_of_packed d =
-                    let rec loop_ c i d = match d land 1 with
-                    | 0 when d = 0 -> c
-                    | 0  -> loop_ c (i+1) (d lsr 1)
-                    | 1  -> loop_ (i::c) (i+1) (d lsr 1)
-                    | _  -> failwith "Data.list_of_packed"
-                    in loop_ [] 0 d
-                in
                 Array.iter
                     (fun x ->
                         total := (Sequence.length x.seq) - 1 + !total;
                         counter := (Sequence.length x.seq) - 1 + !counter;
                         for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                            let lst = list_of_packed (Sequence.get x.seq i) in
+                            let lst = MlModel.list_of_packed (Sequence.get x.seq i) in
                             if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
                                 assert false
                             else
@@ -3953,20 +3940,8 @@ let compute_priors data chars u_gap =
                                 List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                         done)
                     dyna_data.seq_arr
-            | Stat (_, None) ->
-                when_no_data_is_loaded priors inverse size
-            | Stat (_, (Some lst)) -> 
-                let lst = match lst with
-                    | `List x -> x
-                    | `Bits x -> BitSet.to_list x
-                in
-                if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
-                    when_no_data_is_loaded priors inverse size
-                else begin
-                    incr counter;
-                    let inverse = 1. /. (float_of_int (List.length lst)) in
-                    List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
-                end
+            | Stat (_,s) -> 
+                Nexus.File.compute_static_priors alph u_gap (priors,counter,gap_counter) inverse s
         in
         List.iter adder chars;
         longest := max !total !longest;

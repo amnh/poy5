@@ -61,10 +61,10 @@ and print_barray2 a =
     done; Printf.printf "\n"; ()
 
 (* type to help the parsing of specification data *)
-type string_spec = string * (string * string * string * string)
-                          * float list * [`Given of (string * float) list | `Other of string]
-                          * (string * float option) * string * string option
-let empty_str_spec : string_spec = ("",("","","",""),[],`Other "",("",None),"",None)
+type string_spec = string * (string * string * string * string) * float list
+                 * [ `Given of (string * float) list | `Equal | `Estimate of float array option ]
+                 * (string * float option) * string * string option
+let empty_str_spec : string_spec = ("",("","","",""),[],`Estimate None,("",None),"",None)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -888,8 +888,9 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | _ -> failwith "Unrecognized variation method"
     and priors = match priors with
         | `Given priors  -> Given (Array.of_list (List.map snd priors))
-        | `Other "equal" -> Equal
-        | `Other string  -> failwith ("Invalid prior setting: "^string)
+        | `Equal -> Equal
+        | `Estimate (Some x) -> Estimated x
+        | `Estimate None -> assert false
     and gap_info =
         match String.uppercase (fst gap),snd gap with
         | "COUPLED", None   -> `Coupled default_gap_r
@@ -1163,6 +1164,36 @@ let replace_priors model array =
         print_newline ();
     end;
     create model.alph {model.spec with base_priors = Estimated array}
+
+let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array = 
+    let size = if u_gap then (Alphabet.size alph) else (Alphabet.size alph)-1 in
+    let gap_contribution = (float_of_int gcount) /. (float_of_int size) in
+    let gap_char = Alphabet.get_gap alph in
+    Printf.printf "Computed Priors of %d char + %d gaps: " count gcount;
+    Array.iter (Printf.printf "|%f") freq_;
+    Printf.printf "|]\n%!";
+    let final_priors = 
+        if u_gap then begin
+            let total_added_gaps =
+                let longest : int = List.fold_left (fun a x-> max a x) 0 lengths in
+                let add_gap : int = List.fold_left (fun acc x -> (longest - x) + acc) 0 lengths in
+                float_of_int add_gap
+            in
+            Printf.printf "Total added gaps = %f\n%!" total_added_gaps;
+            freq_.(gap_char) <- freq_.(gap_char) +. total_added_gaps;
+            let count = (float_of_int (count - gcount)) +. total_added_gaps;
+            and weight  = (float_of_int gcount) /. (float_of_int size) in
+            Array.map (fun x -> (x -. weight) /. count) freq_
+        end else begin
+            Array.map (fun x -> (x -. gap_contribution) /. (float_of_int count)) freq_
+        end
+    in
+    let sum = Array.fold_left (fun a x -> a +. x) 0.0 final_priors in
+    Printf.printf "Final Priors (%f): [" sum;
+    Array.iter (Printf.printf "|%f") final_priors;
+    Printf.printf "|]\n%!";
+    final_priors
+
 
 let add_gap_to_model compute_priors model = 
     Status.user_message Status.Warning dyno_likelihood_warning;
