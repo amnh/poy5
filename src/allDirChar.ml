@@ -585,8 +585,8 @@ module F : Ptree.Tree_Operations
                     let scost = (snd c1) +. (snd c2) +. ncost in
                     if not ( tcost =. scost ) then begin
                         info_user_message "root (%d,%d) cost: %4f/%4f (%4f,%4f,%4f)%!"
-                                          a b tcost scost ncost (snd c1) (snd c2)
-                        assert false;
+                                          a b tcost scost ncost (snd c1) (snd c2);
+                        assert false
                     end)
                 (tree.Ptree.edge_data)
         end
