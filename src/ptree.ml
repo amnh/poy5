@@ -226,7 +226,11 @@ module type Tree_Operations =
         val verify_downpass : int -> (a,b) p_tree -> bool
         val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
 
+        val refresh_all_edges : 
+            bool -> a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
+
     end 
+
 
 class type ['a, 'b] wagner_edges_mgr = object
     method break_distance : float -> unit
