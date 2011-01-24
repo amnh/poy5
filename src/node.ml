@@ -4038,7 +4038,6 @@ END
         { charactersu = nc; min_child_codeu = code }
 
     let distance a b =
-        Printf.printf "node.Union.distance on nodea and b\n%!";
         let rec distance acc a b = 
             match a, b with
             | (Nonadd8U a) :: at, (Nonadd8U b) :: bt ->
@@ -4083,7 +4082,6 @@ END
             | [], _ -> failwith "Node.Union.distance TODO"
         in
         let res = distance 0.0 a.charactersu b.charactersu in
-        Printf.printf "dis = %f \n%!" res;
         res
 
     let distance_node code a b =

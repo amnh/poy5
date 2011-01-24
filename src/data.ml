@@ -4571,7 +4571,6 @@ let auto_partition mode data code =
 
 
 let compute_fixed_states filename data code =
-    Printf.printf "compute_fixed_states,code=%d\n%!" code;
     let to_ori_arr arr (base:int option) =
         Array.init (Array.length arr) (fun index->
         assert(arr.(index)<>0);
@@ -4628,7 +4627,6 @@ let compute_fixed_states filename data code =
     let () = 
         for x = 0 to (Array.length taxa) - 1 do
             for y = 0 to (Array.length taxa) - 1 do
-                Printf.printf "work on x=%d,y=%d\n%!" x y;
                 let b, _ = 
                     Sequence.Align.closest 
                     initial_sequences.(x) 
@@ -4640,18 +4638,12 @@ let compute_fixed_states filename data code =
                     b initial_sequences.(x) dhs.tcm2d
                     Matrix.default
                 in
-                Printf.printf "replace t_s tbl taxa.%d with seqb:%!" y;
-                Sequence.printseqcode b;
-                Printf.printf "replace t_s tbl taxa.%d with seqa:%!" x;
-                Sequence.printseqcode a;
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
                 (*this table should be sequences_stateName, not sequences_taxon, 
                 * the name is misleading*)
                 if not (Hashtbl.mem sequences_taxon b) then begin
                     Hashtbl.replace sequences_taxon b !states;
-                    Printf.printf "replace s_t tbl seqb with state=%d\n%!"
-                    !states;
                     incr states;
                 end;
                 if not (Hashtbl.mem sequences_taxon a) then
@@ -4683,11 +4675,6 @@ let compute_fixed_states filename data code =
     let distances = Array.make_matrix states states 0. in
     Hashtbl.iter 
     (fun seq pos -> sequences.(pos) <- seq) sequences_taxon;
-    Printf.printf "check sequences :\n%!";
-    Array.iteri (fun state seq ->
-        Printf.printf "state %d ,seq = %!" state;
-        Sequence.printseqcode seq;
-    ) sequences;
     for x = 0 to states - 1 do
         for y = x + 1 to states - 1 do
             let cost =
@@ -4732,7 +4719,6 @@ let compute_fixed_states filename data code =
                     Sequence.Align.cost_2 sequences.(x) 
                     sequences.(y) dhs.tcm2d Matrix.default 
             in
-            Printf.printf "distances.%d,%d <- %d\n%!" x y cost;
             distances.(x).(y) <- float_of_int cost;
             distances.(y).(x) <- float_of_int cost;
         done;
@@ -4741,8 +4727,6 @@ let compute_fixed_states filename data code =
     Hashtbl.iter (fun code seq ->
         Hashtbl.replace taxon_codes code (Hashtbl.find
         sequences_taxon seq)) taxon_sequences;
-    Hashtbl.iter (fun key record ->
-        Printf.printf "taxon:%d,state:%d\n%!" key record) taxon_codes;
     Hashtbl.replace data.character_specs code (Dynamic { dhs
     with initial_assignment = `FS (distances, sequences,
     taxon_codes); state = `Seq })
