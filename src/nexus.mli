@@ -242,6 +242,9 @@ module File : sig
             (string*string) list -> string option array -> P.tree ->
                 string option * Tree.Parse.tree_types list
 
+    val compute_static_priors :
+        Alphabet.a -> bool -> float array * int ref * int ref -> float -> static_state -> unit
+
 
     val spec_of_alph : Alphabet.a -> string -> string -> static_spec
     val fill_observed : 

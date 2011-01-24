@@ -22,10 +22,9 @@
  *
  * the type follows: 
  *      modelname,(variation,#sites,alpha,%invar),params,priors,gap?,file *)
-type string_spec = string * (string * string * string * string)
-                          * float list * [ `Given of (string * float) list | `Other of string ]
-                          * (string * float option) * string
-                          * string option
+type string_spec = string * (string * string * string * string) * float list
+                 * [ `Given of (string * float) list | `Equal | `Estimate of float array option ]
+                 * (string * float option) * string * string option
 
 val empty_str_spec : string_spec
 
@@ -128,6 +127,13 @@ val categorize_by_model : 'a list -> ('a -> spec) -> 'a list list
 val replace_priors : model -> float array -> model 
 (** replace the priors in the model; used in dynamic likelihood to reestimate
     when an implied alignment is performed *)
+
+val compute_priors :
+    (Alphabet.a * bool) -> float array -> (int * int) -> int list -> float array
+(** compute priors from some basic information; the alphabet, if we are
+    counting gaps as an additional character, the frequency of the bases in an
+    array, the total number of bases, number of gaps counted, and the lengths of
+    all the sequences to estimate additional gaps in dynamic likelihood *)
 
 val compare_priors : model -> model -> bool
 (** compare two sets of priors *)

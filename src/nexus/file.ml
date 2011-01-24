@@ -406,12 +406,14 @@ let rec general_apply_on_character_set find set_table characters f x =
                     (general_apply_on_character_set find set_table characters f)
                     (Hashtbl.find set_table (String.uppercase name))
             else begin
-                let up_name = String.uppercase name in
-                if "ALL" = up_name then
+                match String.uppercase name with
+                | "ALL" ->
                     general_apply_on_character_set find set_table characters f 
                         (P.Range ("1", (Some (string_of_int last)), 1))
-                else if "." = up_name then f (last - 1)
-                else f (find characters name)
+                | "."   ->
+                    f (last - 1)
+                | name  ->
+                    f (find characters name)
             end
 
 let apply_on_character_set = general_apply_on_character_set find_character
@@ -1261,8 +1263,92 @@ let add_branch_data (trees,chars,bls) acc =
         trees;
     acc
 
+let compute_static_priors alph u_gap (priors,count,gcount) inverse state =
+    let size = Array.length priors in
+    let gap_char = Alphabet.get_gap alph in
+    let when_no_data_is_loaded () =
+        incr gcount;
+        for i = 0 to size - 1 do
+            priors.(i) <- priors.(i) +. inverse;
+        done
+    in
+    match state with
+    | None     -> when_no_data_is_loaded ()
+    | Some lst -> 
+        let lst = match lst with
+            | `List x -> x
+            | `Bits x -> BitSet.to_list x
+        in
+        if ((List.exists (fun x -> x = gap_char) lst) && not u_gap) || (lst = []) then
+            when_no_data_is_loaded ()
+        else begin
+            incr count;
+            let inverse = 1. /. (float_of_int (List.length lst)) in
+            List.iter (fun x -> priors.(x) <- priors.(x) +.  inverse) lst
+        end
 
-let apply_likelihood_model params acc = 
+let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
+    let verify_static_alphabet chars = 
+        let first_alph = ref None in
+        List.iter
+            (apply_on_character_set 
+                n.csets 
+                n.characters
+                (fun i -> match !first_alph with
+                    | None -> first_alph := Some n.characters.(i).st_alph;
+                    | Some a -> assert( a = n.characters.(i).st_alph )))
+            (chars);
+        match !first_alph with
+        | Some a -> a
+        | None   -> failwith "No characters selected for likelihood model"
+    in
+    let u_gap = match String.uppercase (fst gap) with (* put in MLModel?? *)
+                | "MISSING" -> false 
+                | "COUPLED" | "INDEPENDENT" -> true
+                | x -> failwith ("Invalid gap property: "^x)
+    in
+    let alph = verify_static_alphabet chars in
+    let size = if u_gap then Alphabet.size alph else (Alphabet.size alph)-1 in
+    (* set up some references for manipulation *)
+    let priors = Array.make size 0.0
+    and inverse = 1.0 /. (float_of_int size)
+    and count = ref 0 
+    and gcount = ref 0 in
+    List.iter
+        (apply_on_character_set 
+            n.csets 
+            n.characters
+            (fun c -> 
+                for t = 0 to (Array.length n.matrix) do
+                    compute_static_priors 
+                        alph u_gap (priors,count,gcount) inverse n.matrix.(t).(c);
+                done;))
+        (chars);
+    MlModel.compute_priors (alph,u_gap) priors (!count,!gcount) []
+
+let unaligned_priors_of_seq alph xsssts =
+    let size = Alphabet.size alph in
+    let priors = Array.make size 0.0 in
+    let counter = ref 0 in
+    let lengths = 
+        List.map
+            (fun (xsss,t) ->
+                let total = ref 0 in
+                List.iter (List.iter (List.iter (fun x ->
+                    total := (Sequence.length x) - 1 + !total;
+                    counter := (Sequence.length x) - 1 + !counter;
+                    for i = 1 (* skip initial gap *) to (Sequence.length x) - 1 do
+                        let lst = MlModel.list_of_packed (Sequence.get x i) in
+                        let inv = 1.0 /. (float_of_int (List.length lst)) in
+                        List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
+                    done))) xsss;
+                !total)
+            xsssts
+    in
+    MlModel.compute_priors (alph,true) priors (!counter,0) lengths
+
+
+let apply_likelihood_model params acc =
     let proc_model (((name,((kind,site,alpha,invar) as var),
                         param,lst,gap,cst,file) as model), chars) = function
         | P.Model name       -> ((name,var,param,lst,gap,cst,file),chars)
@@ -1270,9 +1356,8 @@ let apply_likelihood_model params acc =
         | P.Chars chars      -> (model,chars)
         | P.Given_Priors lst -> ((name,var,param,`Given lst,gap,cst,file),chars)
         | P.Cost_Mode cst    -> ((name,var,param,lst,gap,cst,file),chars)
-        | P.Gap_Mode gap -> 
-                ((name,var,param,lst,gap,cst,file),chars)
-        | P.Variation kind -> 
+        | P.Gap_Mode gap     -> ((name,var,param,lst,gap,cst,file),chars)
+        | P.Variation kind ->
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Variation_Sites site ->
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
@@ -1280,43 +1365,71 @@ let apply_likelihood_model params acc =
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Variation_Invar invar ->
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
-        | P.Files name -> let file = Some name in
-                ((name,var,param,lst,gap,cst,file),chars)
-        | P.Other_Priors str -> 
-                ((name,var,param,`Other str,gap,cst,file),chars)
+        | P.Files name ->
+                ((name,var,param,lst,gap,cst,(Some name)),chars)
+        (* Either Estimate or Equal *)
+        | P.Other_Priors str ->
+            begin match String.uppercase str with
+                | "ESTIMATE" | "EST"   -> ((name,var,param,`Estimate None,gap,cst,file),chars)
+                | "EQUAL" | "CONSTANT" -> ((name,var,param,`Equal,gap,cst,file),chars)
+                | x -> failwith ("Prior option "^x^" is unknown")
+            end
     in
-    let str_spec,characters_to_modify =
+    let ((a,b,c,pi,gap,f,g) as str_spec),characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params
     in
-    (* apply spec to each character *)
-    match characters_to_modify with
-        | [] -> (* all characters -- and unaligned *)
-            let un = 
-                List.map
-                    (fun (f,i,oth,a,_,data) ->
-                        let m = (str_spec --> MlModel.convert_string_spec
-                                          --> MlModel.create a) in
-                        (f,i,oth,a,Some m,data))
-                    acc.unaligned
-            in
-            { acc with unaligned = un; }
-        | xs ->
-            let m = 
+    let convert_static char xs : unit =
+        if (Array.length acc.characters) = 0 then
+            ()
+        else begin
+            let m = (* estimate priors if necessary *)
+                let str_spec = match pi with
+                    | `Equal | `Given _ -> str_spec
+                    | `Estimate _ ->
+                        let priors = 
+                            static_priors_of_nexus acc gap characters_to_modify
+                        in
+                        (a,b,c,`Estimate (Some priors),gap,f,g)
+                in
                 STLikelihood
                     (str_spec --> MlModel.convert_string_spec
                               --> MlModel.create acc.characters.(0).st_alph)
             in
-            List.iter 
-                (apply_on_character_set 
+            List.iter
+                (apply_on_character_set
                     acc.csets
                     acc.characters
-                    (fun i -> 
+                    (fun i ->
                         acc.characters.(i) <- { acc.characters.(i) with st_type = m; }))
                     xs;
-            acc
+            ()
+        end
+    and convert_unaligned lst = 
+        List.map 
+            (fun (z,w,x,alph,_,xsssts) ->
+                let str_spec = match pi with
+                    | `Equal | `Given _ -> str_spec
+                    | `Estimate _ ->
+                        let priors = unaligned_priors_of_seq alph xsssts in
+                        (a,b,c,`Estimate (Some priors),gap,f,g)
+                in
+                let m = str_spec --> MlModel.convert_string_spec
+                                 --> MlModel.create alph
+                in
+                (z,w,x,alph,Some m,xsssts))
+            lst
+    in
+    (* apply spec to each character *)
+    match characters_to_modify with
+        | [] ->
+            let () = convert_static acc.characters [P.Name "all"] in
+            { acc with unaligned = convert_unaligned acc.unaligned; }
+        | xs ->
+            let () = convert_static acc.characters xs in
+            { acc with unaligned = convert_unaligned acc.unaligned; }
 
-let process_parsed file (acc:nexus) parsed : nexus =
-    match parsed with
+
+let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
     | P.Taxa (number, taxa_list) ->
             let cnt = int_of_string number in
             let taxa =
@@ -1328,7 +1441,6 @@ let process_parsed file (acc:nexus) parsed : nexus =
             { acc with taxa = taxa }
     | P.Characters chars -> 
             add_prealigned_characters file chars acc
-    | P.Ignore _ -> acc
     | P.Error block ->
             Status.user_message Status.Error
                 ("There@ is@ a@ parsing@ error@ in@ the@ block@ " ^
@@ -1404,7 +1516,27 @@ let process_parsed file (acc:nexus) parsed : nexus =
                 | P.GapOpening (false, _ , _ ) -> acc)
             acc
             block
-    | _ -> acc
+    | (P.Distances _ | P.Ignore _ |P.Notes _ ) -> acc
+
+let process_parsed file parsed : nexus =
+    (* Some blocks require others to perform properly/efficently (without
+       changing a large section of the code-base, or delaying computation in
+       inappropriate sections of the code. Following are the current
+       dependencies,
+
+            - Characters/Unaligned < Poy 
+    *)
+    let sorter a b = match a,b with
+        | P.Characters _, P.Poy _ ->   1
+        | P.Poy _, P.Characters _ -> ~-1
+        | P.Unaligned _, P.Poy _  ->   1
+        | P.Poy _, P.Unaligned _  -> ~-1
+        | _, _                    ->   0 (* keep everything else in the same order *)
+    in
+    List.fold_left (process_parsed_elm file) 
+                   (empty_parsed ()) 
+                   (List.stable_sort sorter parsed)
+
 
 let of_channel ch file =
     (* Parse the file *)
@@ -1422,7 +1554,7 @@ let of_channel ch file =
         | Lexer.Eof -> List.rev !res
     in
     let ret = 
-        let a = List.fold_left (process_parsed file) (empty_parsed ()) parsed in
+        let a = process_parsed file parsed in
         (* Now it is time to correct the order of the terminals to 
         * guarantee the default rooting of the tree. *)
         let tlen = Array.length a.taxa 

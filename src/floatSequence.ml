@@ -30,27 +30,6 @@ let to_char_list string =
     in
     to_ 0 (String.length string) []
 
-let sequence_of_string seq alph = 
-    seq --> to_char_list
-        --> List.map (String.make 1)
-        --> List.map (fun x -> Alphabet.match_base x alph)
-        --> Array.of_list
-        --> Sequence.of_array
-
-let pp_ilst chan lst =
-    List.iter (fun x -> Printf.fprintf chan "%d| " x) lst
-
-and print_barray2 a = 
-    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
-        for j = 0 to (Bigarray.Array2.dim2 a)-1 do
-            Printf.printf "%2.10f\t" a.{i,j};
-        done; Printf.printf "\n"; 
-    done; Printf.printf "\n"; ()
-
-type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
-
-let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
-
 (* general remove gap function for a sequence *)
 let remove_gaps gap seq =
     let remove_gaps seq base = 
@@ -65,6 +44,27 @@ let remove_gaps gap seq =
     Sequence.prepend res gap;
     res
 
+let sequence_of_string seq alph = 
+    seq --> to_char_list
+        --> List.map (String.make 1)
+        --> List.map (fun x -> Alphabet.match_base x alph)
+        --> Array.of_list
+        --> Sequence.of_array
+        --> remove_gaps (Alphabet.get_gap alph)
+
+let pp_ilst chan lst =
+    List.iter (fun x -> Printf.fprintf chan "%d| " x) lst
+
+and print_barray2 a = 
+    for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
+        for j = 0 to (Bigarray.Array2.dim2 a)-1 do
+            Printf.printf "%2.10f\t" a.{i,j};
+        done; Printf.printf "\n"; 
+    done; Printf.printf "\n"; ()
+
+type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
+
+let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
 (* Sequence alignment module for two or three sequences. *)
 module type A = sig
@@ -1382,20 +1382,31 @@ module MALAlign : A = struct
             done;
         done;
         mat
-    
+
     let print_cm m t = print_barray2 (create_cost_matrix m t)
 
     (* sum of three *)
     let sum3 a b c = ~-. (log ((exp (~-.a)) +. (exp (~-.b)) +. (exp (~-.c))))
+    (* change above to below to align with minimum static likelihood score
+       let sum3 a b c = min (min a b) c *)
 
     (* [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
-     * branch length [t] *)
+       branch length [t]. We assign the cost of aligning two bases as (for dna),
+     
+        C(x,y) = \prod_{m=\{ACTG-\} P(x,m|t_x) * P(y,m|t_y) * \pi_m     *)
     let create_align_cost_fn m tx ty =
-        let cost_matrix = create_cost_matrix m (tx+.ty) in
+        let cm1 = MlModel.compose m.static tx in
+        let cm2 = MlModel.compose m.static ty in
+        let num = Alphabet.size m.static.MlModel.alph in
         fun x_i y_i ->
             let fn (cst,n) x y =
-                try (cst +. cost_matrix.{x,y},n+1)
-                with | _ -> failwithf "Cannot find from cost matrix: %d, %d" x y
+                let cst = ref 0.0 in
+                for i = 0 to num-1 do
+                    cst := !cst +. cm1.{x,i} *. cm2.{y,i};
+                        (* add below to get alignment score
+                         *. m.static.MlModel.pi_0.{i}; *)
+                done;
+                !cst,n+1
             and xs = MlModel.list_of_packed x_i 
             and ys = MlModel.list_of_packed y_i in
             let cst,n =
@@ -1405,10 +1416,10 @@ module MALAlign : A = struct
                     (0.0,0) (xs)
             in
             if debug_aln then
-                Printf.printf "Cost: %d(%a) ->%f/%d<- %d(%a)\n%!" 
-                    x_i pp_ilst (MlModel.list_of_packed x_i) cst n
+                Printf.printf "Cost: %d(%a) ->%f/%f(%d)<- %d(%a)\n%!" 
+                    x_i pp_ilst (MlModel.list_of_packed x_i) cst (log cst) n
                     y_i pp_ilst (MlModel.list_of_packed y_i);
-            cst /. (float_of_int n)
+            ~-. (log cst)
 
     let dyn_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
         let cost    = create_align_cost_fn m tx ty in
@@ -1441,7 +1452,7 @@ module MALAlign : A = struct
         dyn_2 mem s1 s2 model t1 t2
 
     let optimize s1 s2 model t mem = 
-        let update t = (),cost_2 s1 s2 model t 0.0 mem in
+        let update t = (),cost_2 s1 s2 model t 0.0 mem in (* don't worry; pully holds! *)
         let (t,((),c)) = Numerical.brents_method (t,update t) update in
         (t,c)
 
