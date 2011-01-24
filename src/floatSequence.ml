@@ -251,10 +251,10 @@ module FloatAlign : A = struct
                     (MlModel.list_of_packed m)
             in
             let res = 1 lsl state in
-            if debug_aln then
-                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
+            if debug_aln || ~-1 = state then
+                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
                               i p pp_ilst (MlModel.list_of_packed p) m
-                              pp_ilst (MlModel.list_of_packed m) cst state res;
+                              pp_ilst (MlModel.list_of_packed m) cst t state res;
             assert( state <> ~-1 );
             res,cst)
 
@@ -875,7 +875,7 @@ module MPLAlign : A = struct
                     (MlModel.list_of_packed m)
             in
             let res = 1 lsl state in
-            if debug_aln then
+            if debug_aln || ~-1 = state then
                 Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
                               i p pp_ilst (MlModel.list_of_packed p) m 
                               pp_ilst (MlModel.list_of_packed m) cst state res;

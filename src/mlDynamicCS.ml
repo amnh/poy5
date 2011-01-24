@@ -554,8 +554,7 @@ let to_single parent mine t =
     match parent.data,mine.data with    
     | Integerized p, Integerized m ->
         let pcost, ncost, median = SeqCS.to_single p.ilk_ss m.ilk_ss in
-        pcost,ncost,{mine with data = Integerized {ilk_ss = median;ia = None;};
-                               cost = ncost; }
+        pcost,ncost,{mine with data = Integerized {ilk_ss = median;ia = None;}; }
     | FPAlign ps, FPAlign ms ->
         let score = ref 0.0 in
         let n_data = 
@@ -567,21 +566,19 @@ let to_single parent mine t =
                 ps.fp_ss
                 ms.fp_ss
         in
-        pcost,!score,{mine with data = FPAlign {fp_ss = n_data}; 
-                                cost = !score; }
+        pcost, !score, {mine with data = FPAlign {fp_ss = n_data}; }
     | MPLAlign ps, MPLAlign ms -> 
         let score = ref 0.0 in
         let n_data = 
             Array_ops.map_2 
-                (fun p m -> 
+                (fun p m ->
                     let mem = FloatSequence.MPLAlign.get_mem p m in
                     let r,s = FloatSequence.MPLAlign.closest ~p ~m mine.model t mem in
                     score := s +. !score; r)
                 ps.mpl_ss
                 ms.mpl_ss
         in
-        pcost, !score, { mine with data = MPLAlign { mpl_ss = n_data };
-                                   cost = !score; }
+        pcost, !score, { mine with data = MPLAlign { mpl_ss = n_data }; }
     (* although weak, this is the only solution *)
     | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
     
@@ -591,39 +588,22 @@ let prior a =
     let priors = m.MlModel.pi_0 in
     match a.data with
     | Integerized a -> 0.0
-     (* let f = prior_of_seq m.MlModel.alph m.MlModel.pi_0 in
-        Array.fold_left
-            (fun acc data -> match data with
-                | SeqCS.Heuristic_Selection x -> f acc x.SeqCS.DOS.sequence
-                | SeqCS.Partitioned x ->
-                    Array.fold_left
-                        (fun acc -> function
-                            | SeqCS.PartitionedDOS.DO x
-                            | SeqCS.PartitionedDOS.First x
-                            | SeqCS.PartitionedDOS.Last x ->
-                                f acc x.SeqCS.DOS.sequence)
-                        (acc) (x)
-                | SeqCS.Relaxed_Lifted (x,_) ->
-                    Array.fold_left f acc x.SeqCS.RL.sequence_table)
-            (0.0) (a.ilk_ss.SeqCS.characters); *)
     | FPAlign a ->
         let avg_prior_of_seq (acc:float) sequence =
             Sequence.foldi
-                (fun acc pos i ->
+                (fun acc pos i -> 
                     if pos = 0 then acc (* skip gap opening *)
-                    else begin 
-                        let states = MlModel.list_of_packed i in
-                        let length = float_of_int (List.length states) in
-                        let c_pi = 
+                    else begin
+                        let c_pi,len = 
                             List.fold_left
-                                (fun acc i -> acc *. (priors.{i} /. length))
-                                (0.0)
-                                (states)
+                                (fun (acc,n) i -> acc +. priors.{i},n+1)
+                                (0.0,0)
+                                (MlModel.list_of_packed i)
                         in
-                        (~-. (log c_pi)) +. acc
+                        (~-. ((log c_pi) -. (log (float len)))) +. acc
                     end)
-                (acc)
-                (sequence)
+                acc
+                sequence
         in
         Array.fold_left
             (fun acc i -> avg_prior_of_seq acc (FloatSequence.FloatAlign.seq_of_s i))
