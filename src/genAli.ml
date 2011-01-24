@@ -23,7 +23,6 @@ let () = SadmanOutput.register "GenAli" "$Revision: 1616 $"
 * characters allowing rearrangements *)
 
 let fprintf = Printf.fprintf;;
-type dyna_state_t = Data.dyna_state_t
 
 (*this is a snity check, make sure each code shows up once, and only once in arr
 * takes time/space to do this, only for debug purpose*)
@@ -395,9 +394,7 @@ let get_best_n (in_list:matched_loci_array list) size =
 *  function [create_pure_gen_cost_mat] as in_cost_mat. 
 *  get the part of matrix we need as out_cost_mat, also get a sorted cost array out of it. *)
 let make_cost_matrix_and_array in_cost_mat code1_arr code2_arr
-gapcode re_meth
-=    
-    (* we will consider gap(indel) in the match *)
+gapcode re_meth =  (* we will consider gap(indel) in the match *)
     let lst1 = (List.sort compare (Array.to_list code1_arr)) 
     and lst2 = (List.sort compare (Array.to_list code2_arr)) in
     let end1 = List.nth lst1 ((List.length lst1)-1)
@@ -405,7 +402,8 @@ gapcode re_meth
     let len1 = if (end1 mod 2)=0 then end1+2 else end1+3
     and len2 = if (end2 mod 2)=0 then end2+2 else end2+3 in
     (*debug msg
-    Printf.printf "make cost matrix and array, code1_arr/code2_arr = \n %!";
+    Printf.printf "make cost matrix and array, gapcode=%d,\ 
+    code1_arr/code2_arr = \n %!" gapcode;
     Utl.printIntArr code1_arr; Utl.printIntArr code2_arr; 
     debug msg*)
     let cost_list = ref [] in
@@ -600,19 +598,23 @@ let match_pair arr1 arr2 cost_array sizex sizey gapcode =
 * cost. To get the rerrangement cost, we call "cmp_recost_simple" *)
 let create_gen_ali_new code1_arr codem_arr 
 cost_matrix gapcode re_meth circular orientation  = 
-let debug = false in
+    let debug = false in   
     let sizex = Array.length cost_matrix in
     let sizey = Array.length cost_matrix.(0) in
+    if debug then begin
+        Printf.printf "GenAli.create_gen_ali_new, sizex,y=%d,%d, input arr:\n%!"
+        sizex sizey;
+        Utl.printIntArr code1_arr; Utl.printIntArr codem_arr;
+    end;
     let cost_mat, cost_array = 
         make_cost_matrix_and_array cost_matrix code1_arr codem_arr gapcode re_meth
     in
     let matched_list, matched_cost = 
         match_pair code1_arr codem_arr cost_array sizex sizey gapcode in
-    if debug then begin
-        Printf.printf "create gen ali new with two arr :\n%!";
-        Utl.printIntArr code1_arr; Utl.printIntArr codem_arr;
-    end;
     let matched_array = Array.of_list matched_list in
+    (*get codes that not matched with gap code in code1_arr from codem_arr by
+    * the order of code1_arr, then calculate the rearrangement cost between this
+    and original codem_arr*)
     let alied_code1_lst,alied_codem_lst,nongap_matched_lst = 
     Array.fold_left (fun (alied_code1_lst,alied_codem_lst,nongap_matched_lst) item ->
         let trypos = 
@@ -778,18 +780,8 @@ let create_gen_ali3_by_medsov_codearr medsov kept_wag arr1 arr2 arr3 (delimiter_
         deliZ deliY)=1))
         then comoriarr2, deliY
         else
-        match medsov with
-        |`Vinh ->
-                failwith "Vinh median solver is not in grappa"
-        |`MGR
-        |`SimpleLK
-        |`ChainedLK 
-        |`COALESTSP
-        |`BBTSP
-        |`Albert
-        |`Siepel ->
-            ( UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3
-            delimiter_lstlst circular)
+            UtlGrappa.inv_med medsov comoriarr1 comoriarr2 comoriarr3
+            delimiter_lstlst circular
     in
     let arr_med3 = from_ori_arr ori_arr_med3 in
     let comarr1 = from_ori_arr comoriarr1 in

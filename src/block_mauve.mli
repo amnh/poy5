@@ -58,11 +58,22 @@ type lcb = {
     avg_range_len : int; (*average length from range_lst*)
 }
 
+val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> float -> int ->
+int*int -> Cost_matrix.Two_D.m ->  
+    int array * int array * int array array *
+(int*Sequence.s*Sequence.s) array array * int * int * (int * (int * int)) list
+list * int
 
+val output2mauvefile : string -> int -> (int option) -> int array -> int array
+-> (int * (int * int)) list list -> (int*Sequence.s*Sequence.s) array
+array ->int -> int -> int -> int -> unit 
+
+    
+(* we don't call this directly outside of mauve any more
 val create_lcb_tbl : int array array -> float -> float -> int ->
     (int list, lcb) Hashtbl.t * int list list list * int list list * 
     (int * int) list list
-
+*)
 val print_mum : mum -> bool -> bool -> unit
 
 val print_lcb : lcb -> unit

@@ -1645,21 +1645,20 @@ module F : Ptree.Tree_Operations
                     --> stabilize_priors (i+1) *)
         and optimize_priors dyn_tree = 
             let rec update_m gap_prior model : MlModel.model =
-                let narray = (* apply new gap parameter/ normalize vector *)
-                    let gap_char = Alphabet.get_gap (model.MlModel.alph) in
-                    let old = match model.MlModel.spec.MlModel.base_priors with
-                        | MlModel.Estimated x | MlModel.Given x | MlModel.ConstantPi x -> x
-                    in
-                    let sum,_ =
-                        Array.fold_left 
-                            (fun (a,i) x -> if i = gap_char then (a,i+1) else (a +. x,i+1)) 
-                            (0.0,0) (old) in
-                    let narray = 
-                        Array.map (fun x -> x *. (1.0 -. gap_prior) /. sum) (old) in
-                    old.( gap_char ) <- gap_prior;
-                    narray
-                in
-                MlModel.replace_priors model narray
+                match model.MlModel.spec.MlModel.base_priors with
+                    | MlModel.Estimated x ->
+                        let gap_char = Alphabet.get_gap (model.MlModel.alph) in
+                        let sum,_ =
+                            Array.fold_left 
+                                (fun (a,i) x -> if i = gap_char then (a,i+1) else (a +. x,i+1)) 
+                                (0.0,0) (x)
+                        in
+                        let narray = 
+                            Array.map (fun x -> x *. (1.0 -. gap_prior) /. sum) (x)
+                        in
+                        narray.( gap_char ) <- gap_prior;
+                        MlModel.replace_priors model narray
+                    | MlModel.Given _ | MlModel.Equal -> model
             and update_d data gap_prior = 
                 data.Data.dynamics
                     --> Data.get_likelihood_model data

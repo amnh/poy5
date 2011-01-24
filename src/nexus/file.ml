@@ -450,18 +450,11 @@ let find_taxon taxa name =
     let error = Printf.sprintf "Taxon (%s) not found" name in
     try find_position error (function None -> false | Some x -> name = x) taxa
     with | Failure _ -> 
-        try
-            let pos = 
-                find_position error (function None -> true | Some _ -> false) taxa 
-            in
-            taxa.(pos) <- Some name;
-            pos
-        with | x -> 
-            Array.iter (fun x -> Printf.printf "%s, "
-                            (match x with | None -> "none" | Some x -> x))
-                       taxa;
-            print_newline ();
-            raise x
+        let pos = 
+            find_position error (function None -> true | Some _ -> false) taxa 
+        in
+        taxa.(pos) <- Some name;
+        pos
 
 let update_labels_as_alphabet chars start =
     for i = start to (Array.length chars) - 1 do
@@ -1275,7 +1268,7 @@ let apply_likelihood_model params acc =
         | P.Model name       -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Parameters param -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Chars chars      -> (model,chars)
-        | P.Given_Priors lst -> ((name,var,param,lst,gap,cst,file),chars)
+        | P.Given_Priors lst -> ((name,var,param,`Given lst,gap,cst,file),chars)
         | P.Cost_Mode cst    -> ((name,var,param,lst,gap,cst,file),chars)
         | P.Gap_Mode gap -> 
                 ((name,var,param,lst,gap,cst,file),chars)
@@ -1289,7 +1282,8 @@ let apply_likelihood_model params acc =
                 ((name,(kind,site,alpha,invar),param,lst,gap,cst,file),chars)
         | P.Files name -> let file = Some name in
                 ((name,var,param,lst,gap,cst,file),chars)
-        | P.Other_Priors str -> failwith "not implemented yet"
+        | P.Other_Priors str -> 
+                ((name,var,param,`Other str,gap,cst,file),chars)
     in
     let str_spec,characters_to_modify =
         List.fold_left proc_model (MlModel.empty_str_spec,[]) params

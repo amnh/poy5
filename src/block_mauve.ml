@@ -118,6 +118,8 @@ type lcb = {
 
 (*if the coverR = (length of subseq in lcb/total length of seq) of some lcb is low than this, it's a light-weight lcb*)
 let minimum_cover_ratio = ref 0.0020
+(*we stop looking for other lcbs when cover ratio is bigger than this number*)
+let maximum_cover_ratio = ref 0.99
 (*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
 * than this*)
 let minimum_lcb_ratio = ref 30.0
@@ -130,6 +132,15 @@ let init_seed_size = 50
 let max_gap_num = 0  (*the w *)
 let seedNO_available_arr = ref (Array.make init_seed_size 1)
 
+let to_ori_code code =
+    assert(code<>0);
+    if( code mod 2 == 0) then -(code/2)  else (code+1)/2 
+
+let from_ori_code code =
+    assert(code<>0);
+    if (code<0) then (abs code)*2
+    else (code*2-1)
+    
 let bigger_int a b = 
     if (a>b) then a else b
 
@@ -776,7 +787,7 @@ let mark_unextendable_mum_tbl seedNO (priority_seedNO:int option)
     assert(sign_newmum)
 
 let mark_extendable_mum_tbl seedNO seed2pos_tbl mum_tbl = 
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "mark seedNO#%d as extendable in mum_tbl\n%!" seedNO;
     let oldmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
     let sign_newmum = update_mum_to_mumtbl None 
@@ -825,7 +836,7 @@ option) mum_tbl seed2pos_tbl=
 
 let upgrade_extendable_pos2seed_tbl seedNO2upgrade_lst pos2seed_tbl_left
 pos2seed_tbl_right seed2pos_tbl mum_tbl =
-    let debug = true in
+    let debug = false in
     let add_upgrade_seedNO_2_prilst seedNO_to_upgrade seqNO pos pos2seed_tbl =
         let old_record_k = try (Hashtbl.find pos2seed_tbl (seqNO,pos)) with
         | Not_found -> failwith ("upgrade_extendable_pos2seed_tbl, not found") in
@@ -1214,6 +1225,7 @@ let radix_sort inarr =
         Array.iteri (fun i (seqNO,pos,dir,subseq,_) ->
             let x = subseq.(digit) in
             let idx = get_idx x in
+            assert((idx>=0)&&(idx<15)); (*chr not in [1,2,4,8]*)
             count_arr.(idx) <- count_arr.(idx)+1; 
             inarr.(i)<-(seqNO,pos,dir,subseq,idx);
         ) inarr;
@@ -1797,7 +1809,7 @@ let group_neighborhood_lst_by_dis in_lst debug =
 (* this allows more than one seed starts/ends from one positon*)
 (* we call this to expand the position to left or/and right*)
 let update_position2seedtbl seqNO old_pos new_pos seed_weight ori seedNO positiontbl =
-    let debug = true in
+    let debug = false in
     if debug then
         Printf.printf "update pos2seedtbl on seed#%d,pos=(%d,old=%d,new=%d),\
         weight=%d\n%!" seedNO seqNO old_pos new_pos seed_weight;
@@ -2852,13 +2864,19 @@ let get_lcbs_range lcb_tbl in_seq_size_lst =
     in
     Array.to_list lcb_range_lst_arr
 
+(* [get_lcb_key_by_range] get the lcb_key and lcb_code by its range. if no lcb is found,
+* return [],0. 
+* remember what we did in [fill_in_indel]. the range in full_range_lstlst could
+* be different from the original lcb range. *)
 let get_lcb_key_by_range seqNO range lcb_tbl =
     let (leftend,rightend) = range in
     let reskey= ref [] and rescode = ref 0 in (*-1 is not a good idea for the
     rescode could be (code=1)*(ori=-1)=-1 *)
     Hashtbl.iter (fun key record ->
         List.iter (fun mi ->
-            if (leftend=mi.left_end)&&(rightend=mi.right_end)&&
+            let left = mi.left_end and right = mi.right_end in
+            if ((leftend-1=left)||(leftend=left))&&
+            ((rightend+1=right)||(rightend=right))&&
             (mi.sequence_NO=seqNO) then begin
                 reskey := key;
                 rescode := record.ref_code*mi.orientation;
@@ -2867,39 +2885,74 @@ let get_lcb_key_by_range seqNO range lcb_tbl =
     ) lcb_tbl;
     !reskey,!rescode
 
+
+(* no worry about this, alignment function will take care of this.
+* what if just in one sequence, all lcb are adjacent to each another? 
+* say we have N lcb blocks in one sequence, in this case, one sequence 
+* will have just N blocks, while the other one has 2*N+1 blocks 
+let fill_in_indel full_range_lstlst = 
+    let rangelst1 = List.hd full_range_lstlst 
+    and rangelst2 = List.nth full_range_lstlst 1 in
+    let size1 = List.length rangelst1 in
+    let size2 = List.length rangelst2 in
+    let fill_in_shorter_rangelst lsty sizex sizey =
+        if (sizex-sizey)=2 then
+            let (lastl,lastr) = List.hd (List.rev lsty) in
+            let (firstl,firstr) = List.hd lsty in
+            let lst2keep = List.tl (List.rev (List.tl lsty)) in
+            ([(0,0);(1,firstr)] @ lst2keep @ [(lastl,lastr-1);(lastr,lastr)])
+        else if (sizex-sizey)=1 then
+            let (firstl,firstr) = List.hd lsty in
+            let lst2keep = List.tl lsty in
+           ( [(0,0);(1,firstr)]@lst2keep )
+        else begin
+            Printf.printf "fill_in_gap_seq, sizex=%d,sizey=%d\n%!;" sizex sizey;
+            assert(false);
+        end
+    in
+    if size1=size2 then full_range_lstlst
+    else if size1>size2 then
+        let newlst2 = fill_in_shorter_rangelst rangelst2 size1 size2 in
+        [rangelst1;newlst2]
+    else 
+        let newlst1 = fill_in_shorter_rangelst rangelst1 size2 size1 in
+        [newlst1;rangelst2]
+*)
 (*given a lcbs range list list, get_full_range_lstlst returns a range list list
-* of both lcbs and area outside lcbs 
-* what happens if lcbs range start from 0 of the sequence ?
-* (0,-1) will become the first range of full_range_lstlst, does not make 
-* much sense, get rid of this range. also take care of the case when one lcb
-* ends at the end of a sequence. *)
+* of both lcbs and area outside lcbs. *)
 let get_full_range_lstlst lcb_range_lstlst in_seqsize_lst =
-    List.map2 (fun lcb_range_list total_size ->
+    let res = List.map2 (fun lcb_range_list total_size ->
         let last_rightend,acc=
             List.fold_left (fun (pre_rightend,acc) (leftend,rightend) ->
                 if pre_rightend>leftend then
                     Printf.printf "%d>%d\n%!" pre_rightend leftend;
                 assert(pre_rightend<=leftend);
                 let newacc = 
-                    if (leftend>0)&&(leftend>pre_rightend+1) 
-                    then acc@[((pre_rightend+1),(leftend-1))] 
+                    (*if leftend=0 then acc@[(0,0)]
+                    else*) if leftend>0 then   
+                    acc@[((pre_rightend+1),(leftend-1))] 
                     else acc
                 in
+                (*let newleftend = if leftend=0 then 1 else leftend in*)
                 let newacc = newacc@[(leftend,rightend)] in
                 rightend,newacc 
                 ) (-1,[]) lcb_range_list
         in
         let res = 
             if (last_rightend+1=total_size) then acc
+                (*let last_l,_ = List.hd (List.rev acc) in
+                let acc2keep = List.rev(List.tl (List.rev acc)) in
+                acc2keep@[(last_l,last_rightend-1);(last_rightend,last_rightend)]
+                *) 
             else acc@[(last_rightend+1,total_size-1)]
         in
         res
-    ) lcb_range_lstlst in_seqsize_lst
-
+    ) lcb_range_lstlst in_seqsize_lst in
+    (*fill_in_indel*) res
 
     
 let get_seq_outside_lcbs old_seqarr old_seq_size_lst lcb_tbl =
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "get seq outside lcbs :\n%!";
     let lcb_range_lst_lst = get_lcbs_range lcb_tbl old_seq_size_lst in
     if debug then print_lcbs_range lcb_range_lst_lst;
@@ -3847,12 +3900,13 @@ in_seqarr in_seq_size_lst  =
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
 
-(*main function here*)
+
+    
 let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     minimum_cover_ratio := min_cover_ratio ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
@@ -3882,11 +3936,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let mum_tbl = Hashtbl.create init_tb_size in
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     !minimum_cover_ratio seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
-    pos2seed_tbl_right seed2pos_tbl mum_tbl true in
+    pos2seed_tbl_right seed2pos_tbl mum_tbl false in
     if debug then 
         Printf.printf "base seedweight=%d, call build_local_mums2 \n%!" seedweight;
     build_local_mums2 mum_tbl seed2pos_tbl 
-    pos2seed_tbl_left pos2seed_tbl_right true false;
+    pos2seed_tbl_left pos2seed_tbl_right false false;
     if debug then
         Printf.printf "++++++++ init seedweight=%d, end of building mum\
         table\n%!" seedweight;
@@ -3935,7 +3989,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
-        ref ((init_covR<1.)&&(init_covR>= !minimum_cover_ratio)) in
+        ref ((init_covR< !maximum_cover_ratio)&&(init_covR>= !minimum_cover_ratio)) in
     while (!outer_sign) do
         if debug then
         Printf.printf "\n begin of outer while, old_covR = %f\n%!" !outer_old_covR;
@@ -3962,7 +4016,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                     Printf.printf "we found better lcbs (%f>%f), update \
                     num_of_mums from %d to %d,continue with inner loop\n%!" 
                     inner_new_covR !inner_old_covR !current_num_of_mums num_of_mums;
-                inner_sign := true;
+                if inner_new_covR> !maximum_cover_ratio then inner_sign :=false
+                else inner_sign := true;
                 current_num_of_mums := num_of_mums;
                 inner_old_covR := inner_new_covR;
                 inner_lcbs := inner_new_lcbs;
@@ -4018,7 +4073,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                 Printf.printf "\n we have a new lcb cov = %f>old one=%f, \
             continue with outer loop again\n%!" new_outer_covR !outer_old_covR;
             any_improvement := true;
-            outer_sign := true;
+            if new_outer_covR> !maximum_cover_ratio then outer_sign := false
+            else outer_sign := true;
             outer_old_covR := new_outer_covR;
             outer_lcbs := new_outer_lcbs;
             outer_lcb_tbl := Hashtbl.copy new_outer_lcb_tbl;
@@ -4096,8 +4152,6 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
             print_lcblst outer_lcbs;
         end;
         let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seq_size_lst in
-        Printf.printf "LCB range lstlst %!";
-            print_lcbs_range lcb_range_lstlst;
         let full_range_lstlst = 
             get_full_range_lstlst lcb_range_lstlst in_seq_size_lst in
         if debug then begin
@@ -4131,5 +4185,248 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         (*return lcb table, lcbs, code list and range list*)
         outer_lcb_tbl,outer_lcbs,code_list,full_range_lstlst
     end
+
+
+(*main function here*)
+(** [get_matcharr_and_costmatrix] take seq1 and seq2 as input sequence, devide 
+genAli.create_gen_ali_new need codearr out of
+[from_ori_code],not the original ones. while Utlgrappa.inv_med
+requires the original codearr, call [to_ori_code] to transform 
+* *)
+let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_bk_penalty 
+locus_indel_cost cost_mat  =
+    let debug = false and debug2 = false in
+    let seq1arr = Sequence.to_array seq1 
+    and seq2arr = Sequence.to_array seq2 in
+    let in_seqarr = [|seq1arr;seq2arr|] in
+    let lcb_tbl,lcbs,code_list,full_range_lstlst = 
+        create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty in
+    if debug then begin
+        Hashtbl.iter (fun key record ->
+        print_lcb record ) lcb_tbl;
+        (* Printf.printf "lcbs is \n%!";  Block_mauve.print_lcblst lcbs;*)
+        Printf.printf "original code list is \n%!";
+        print_int_lstlst code_list;
+    end;
+    let base = List.length (List.hd code_list) in (*start number of non-lcb block*)
+    let len_lst1 = List.length (List.hd full_range_lstlst) in
+    let len_lst2 = List.length (List.nth full_range_lstlst 1) in
+    let gen_gap_code = (len_lst1 + len_lst2) * 2 + 1 in
+    let matlen = gen_gap_code + 1 in
+    if debug then
+        Printf.printf "make empty matrix with size = %d,base=%d\n%!" matlen base;
+    let gen_cost_mat = Array.make_matrix matlen matlen Utl.large_int in
+    let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
+    let empty_seq = Sequence.get_empty_seq () in
+    let ali_mat = Array.make_matrix matlen matlen (0,empty_seq, empty_seq) in
+    let block_gap_cost = Utl.large_int/len_lst1 in
+    let seqNO = ref (-1) in
+    let full_code_lstlst =
+        List.map (fun full_range_lst ->
+            seqNO := !seqNO +1 ;
+            let coderef = ref base and start_num = !seqNO*len_lst1*2 in
+            List.map(fun (left,right) ->
+                let lcbkey,lcb_refcode = 
+                    get_lcb_key_by_range !seqNO (left,right) lcb_tbl
+                in
+                if lcb_refcode<>0 then (*a lcb block, use lcb refcode*)
+                    ((from_ori_code lcb_refcode)+start_num,(left,right))
+                else begin (*not lcb block, give it a new code*)
+                    coderef := !coderef +1;
+                    ((from_ori_code !coderef)+start_num,(left,right))
+                end
+            )full_range_lst
+        )full_range_lstlst 
+    in
+    if debug then begin
+    Printf.printf "full (code,range) list is :\n%!";
+    List.iter(fun full_code_lst ->
+        List.iter (fun (code,(l,r)) ->
+            Printf.printf "[%d,(%d,%d)],%!" code l r
+        ) full_code_lst;
+        print_newline();
+    )full_code_lstlst;
+    end;
+    let edit_cost = ref 0 in
+    let set_cost_code_arr code1_arr code2_arr gen_gap_code block_gap_cost =
+        List.iter (fun (code1,(left1,right1)) ->
+        List.iter (fun (code2,(left2,right2)) ->
+            let subseq1,subseq2 = 
+                    Sequence.sub seq1 left1 (right1-left1+1),
+                    Sequence.sub seq2 left2 (right2-left2+1)
+            in
+            let ori_code1 = to_ori_code code1 
+            and ori_code2 = to_ori_code (code2 - len_lst1*2) in
+            if debug2 then 
+                Printf.printf "work on %d,%d (ori=%d,%d) ->\n %!" 
+                code1 code2 ori_code1 ori_code2;
+            if ((abs ori_code2)<=base) && ((abs ori_code1)<=base) 
+            && ((abs ori_code1)=(abs ori_code2)) then begin
+                set_cost code1 code2 0;
+                set_cost code2 code1 0; 
+                (*Note: we only set cost(code1,code2) to 0 to make sure
+                code1 is alied to code2 later in "GenAli.create_gen_ali_new",
+                the real alignment cost is kept in ali_mat, then pass to
+                function create_median_mauve in chromAli.ml.*)
+                set_cost code1 gen_gap_code block_gap_cost; 
+                set_cost gen_gap_code code1 block_gap_cost;
+                set_cost code2 gen_gap_code block_gap_cost; 
+                set_cost gen_gap_code code2 block_gap_cost;
+                let alied_seq1, alied_seq2, cost, _ =  
+                    Sequence.align2 subseq1 subseq2 cost_mat 
+                in
+                edit_cost := !edit_cost + cost; (*acc the real edit cost*)
+                ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
+                ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
+                if debug2 then 
+                    Printf.printf "set %d,%d with cost=%d,%d,(real ali cost=%d)\n%!"
+                     code1 code2 0 block_gap_cost cost;
+            end
+            else if ((abs ori_code2)>base) && ((abs ori_code1)>base) then
+                begin
+                let alied_seq1, alied_seq2, cost, _ =  
+                    Sequence.align2 subseq1 subseq2 cost_mat 
+                in
+                ali_mat.(code1).(code2) <- (cost,alied_seq1, alied_seq2);
+                ali_mat.(code2).(code1) <- (cost,alied_seq2, alied_seq1);
+                set_cost code1 code2 cost;
+                set_cost code2 code1 cost;
+                let del_cost1 = 
+                    Sequence.cmp_gap_cost locus_indel_cost subseq1 
+                and del_cost2 = 
+                    Sequence.cmp_gap_cost locus_indel_cost subseq2
+                in
+                let len1 = Sequence.length subseq1 
+                and len2 = Sequence.length subseq2 in
+                let indel1 = Sequence.create_gap_seq len1  
+                and indel2 = Sequence.create_gap_seq len2 in
+                set_cost code1 gen_gap_code del_cost1;
+                set_cost gen_gap_code code1 del_cost1;
+                set_cost code2 gen_gap_code del_cost2;
+                set_cost gen_gap_code code2 del_cost2;
+                ali_mat.(code1).(gen_gap_code) <- (del_cost1,subseq1,indel1);
+                (*cost in ali_mat.(gap).(code1) is for later looking up in this ali_mat*)
+                ali_mat.(gen_gap_code).(code1) <- (del_cost1,indel1,subseq1);
+                ali_mat.(code2).(gen_gap_code) <- (del_cost2,subseq2,indel2);
+                ali_mat.(gen_gap_code).(code2) <- (del_cost2,indel2,subseq2);
+                if debug2 then
+                    Printf.printf "set %d,%d with cost=%d,del_cost=(%d|%d)\n%!" 
+                    code1 code2 cost del_cost1 del_cost2;
+            end
+            else () (*we don't need to ali mauve-recognized block with other blocks*)
+        ) (List.nth full_code_lstlst 1)
+    ) (List.hd full_code_lstlst); 
+    in
+    let get_code_arr_from_fullcode_lst fullcode_lst = 
+        Array.of_list ( List.map (fun (code,(_,_)) -> code) fullcode_lst )
+    in
+    let code1_arr = 
+        get_code_arr_from_fullcode_lst (List.hd full_code_lstlst)
+    and code2_arr =
+        get_code_arr_from_fullcode_lst (List.nth full_code_lstlst 1)
+    in
+    set_cost_code_arr code1_arr code2_arr gen_gap_code block_gap_cost;
+    code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,!edit_cost,full_code_lstlst,len_lst1
+
+(** [get_range_with_code] return the range of match block code1 and block code2. if
+    * a block is all_gap_seq, return (totalsize,totalsize+len_of_block-1) so that
+    * graphic_mauve can work on it. totalsize starts as the size of the sequence,
+    * increase each time when meet an all_gap block. *)
+let get_range_with_code code1 code2 full_code_lstlst gen_gap_code totalsize1 totalsize2 =
+    let debug = false in
+    if debug then Printf.printf "get range with code %d,%d,gapcode=%d,total size1,2=%d,%d%!" 
+    code1 code2 gen_gap_code totalsize1 totalsize2;
+    let left1,right1 = 
+        List.fold_left (fun acc (codex,(left,right)) ->
+        if code1=codex then (left,right)
+        else acc ) (-1,-1) (List.hd full_code_lstlst)
+    in
+    let left2,right2 = 
+        List.fold_left (fun acc (codey,(left,right)) ->
+        if code2=codey then (left,right)
+        else acc ) (-1,-1) (List.nth full_code_lstlst 1)
+    in
+    if debug then Printf.printf "left1,right1=%d,%d,left2,right2=%d,%d\n%!" 
+    left1 right1 left2 right2 ;
+    if (code1=gen_gap_code)&&(code2<>gen_gap_code) then
+        totalsize1,totalsize1,left2,right2
+    else if (code2=gen_gap_code)&&(code1<>gen_gap_code) then
+        left1,right1,totalsize2,totalsize2
+    else if (code1<>gen_gap_code)&&(code2<>gen_gap_code) then
+        left1,right1,left2,right2
+    else
+        failwith "Block_mauve.get_range_with_code, \
+        we have indel match up with indel, something is wrong"
+
+let get_seqlst_for_mauve in_seq =
+    let totallen = Sequence.length in_seq in
+    let iteration = totallen/80 in
+    let reslst = ref [] in
+    for i=0 to iteration do
+        let startpos = i*80 in 
+        let seqlen = 
+            if (startpos+80)<totallen then 80
+            else (totallen-startpos) in
+        reslst := !reslst@[(Sequence.subseq in_seq startpos seqlen)]
+    done;
+    !reslst
+
     
+let output2mauvefile filename cost old_cost alied_gen_seq1 alied_gen_seq2 full_code_lstlst
+ali_mat gen_gap_code len_lst1 seqsize1 seqsize2 = 
+let debug = false in
+        (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in
+        let oc = open_out filename in*)
+        let rewrite = match old_cost with
+        | Some oldcost -> 
+                if cost<oldcost then true else false
+        | None -> true 
+        in
+        if rewrite then begin
+            let oc = match filename with 
+            | "" -> stdout
+            | fname -> open_out fname in
+            fprintf oc "#FormatVersion Mauve1\n";
+            fprintf oc "#Sequence1File	somefile.in\n";
+            fprintf oc "#Sequence1Entry	1\n";
+            fprintf oc "#Sequence1Format	FastA\n";
+            fprintf oc "#Sequence2File	somefile.in\n";
+            fprintf oc "#Sequence2Entry	2\n";
+            fprintf oc "#Sequence2Format	FastA\n";
+            let totalsize1,totalsize2 = seqsize1, seqsize2 in
+            List.iter2 ( fun alied_code1 alied_code2 ->
+            let ori_code1 = to_ori_code alied_code1 
+            and ori_code2 = to_ori_code (alied_code2 - len_lst1*2) in
+            let cost,alied_seq1,alied_seq2 = 
+                ali_mat.(alied_code1).(alied_code2)
+            in
+            let dir1 = if ori_code1>0 then "+" else "-"
+            and dir2 = if ori_code2>0 then "+" else "-"
+            in
+            let left1,right1,left2,right2 = 
+                get_range_with_code alied_code1 alied_code2 full_code_lstlst
+                gen_gap_code totalsize1 totalsize2
+            in
+            if debug then Printf.printf 
+            "output2mauve: left/right1=%d,%d, left/right2=%d,%d\n%!"
+            left1 right1 left2 right2;
+            (*let oc = open_out_gen [Open_creat(*;Open_append*)] 0o666 filename in*)
+            let seqlst1 = get_seqlst_for_mauve alied_seq1 in
+            let seqlst2 = get_seqlst_for_mauve alied_seq2 in
+            fprintf oc "> 1:%d-%d %s c=%d\n" (left1+1) (right1+1) dir1 cost;
+            if left1=right1 then fprintf oc "A";
+            List.iter (fun seq1 ->
+                Sequence.print oc seq1 Alphabet.nucleotides;
+                fprintf oc "\n";
+            ) seqlst1;
+            fprintf oc "> 2:%d-%d %s c=%d\n" (left2+1) (right2+1) dir2 cost;
+            if left2=right2 then fprintf oc "A";
+            List.iter (fun seq2 ->
+                Sequence.print oc seq2 Alphabet.nucleotides;
+                fprintf oc "\n";
+            ) seqlst2;
+            fprintf oc "=\n";
+            ) (Array.to_list alied_gen_seq1) (Array.to_list alied_gen_seq2);
+            if filename<>"" then close_out oc;
+        end
 

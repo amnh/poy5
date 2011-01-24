@@ -196,7 +196,7 @@ type ml_costfn = [ `MAL     (* maximum average likelihood *)
 
 type ml_site_variation= [   | `Gamma of int * float option
                             | `Theta of int * (float * float) option ]
-type ml_priors = [ `Estimate | `Given of float list | `Constant ]
+type ml_priors = [ `Estimate | `Given of float list | `Equal ]
 type ml_gap = [ `Missing | `Independent | `Coupled of float ]
 type ml_spec = 
     (characters * ml_costfn * ml_substitution * ml_site_variation option
@@ -207,7 +207,7 @@ type char_transform = [
     | `MultiStatic_Aprox of (characters * bool)
     | `Static_Aprox of (characters * bool)
     | `Search_Based of characters
-    | `Fixed_States of characters
+    | `Fixed_States of (characters*(string option))
     | `Partitioned of ([`Clip | `NoClip] * characters)
     | `Direct_Optimization of characters
     | `Automatic_Sequence_Partition of (characters * bool * (int option))

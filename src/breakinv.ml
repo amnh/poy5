@@ -276,9 +276,20 @@ let readjust_3d ch1 ch2 mine c2 c3 parent =
             adjust_seq,[],cost1,cost2,cost3
         | _ ->
             if debug then Printf.printf "Grappa median solver\n%!";
+            let medsov = 
+            match ali_pam.BreakinvAli.median_solver with
+            |`Vinh ->
+                    failwith "Vinh median solver is not in grappa"
+            |`MGR  -> 7
+            |`SimpleLK -> 5
+            |`ChainedLK -> 6
+            |`COALESTSP -> 4
+            |`BBTSP -> 3
+            |`Albert -> 1
+            |`Siepel -> 2 
+            in
             let adjust_seq,delimiter_lst,cost1,cost2,cost3,_,_,_,_,_,_,_,_,_ = 
-                GenAli.create_gen_ali3_by_medsov_seqarr 
-                ali_pam.BreakinvAli.median_solver
+                GenAli.create_gen_ali3_by_medsov_seqarr medsov
                 ali_pam.BreakinvAli.kept_wag
                 seq1 seq2 seq3 
                 [delimiters1;delimiters2;delimiters3]
