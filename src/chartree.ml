@@ -1400,6 +1400,7 @@ let root_costs tree =
     (Tree.get_handles tree.Ptree.tree) []
 
 let dump_tree printer h tree = ()
+let refresh_all_edges a b c d e = e
 
 module TreeOps = struct
     type a = Node.node_data
@@ -1427,5 +1428,6 @@ module TreeOps = struct
     
     let verify_downpass _ _ = true 
     let dump_tree = dump_tree
+    let refresh_all_edges = refresh_all_edges
     let tree_size _ = 0.0
 end

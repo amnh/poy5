@@ -104,8 +104,6 @@ class type ['a, 'b] nodes_manager = object
     method fuse : ('a,'b) nodes_manager -> ('a, 'b) nodes_manager
 end
 
-
-
 type ('a, 'b) break_fn =
     ('a, 'b ) nodes_manager option -> Tree.break_jxn -> ('a, 'b) p_tree -> ('a, 'b) breakage
 (** type of function that breaks the tree at a given break jxn and returns the
@@ -200,6 +198,9 @@ module type Tree_Operations =
     (* verification functions - expensive *)
     val verify_downpass : int -> (a,b) p_tree -> bool
     val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
+
+    val refresh_all_edges : 
+        bool -> a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
   end
 
 class type ['a, 'b] wagner_edges_mgr = object
