@@ -342,38 +342,23 @@ module F : Ptree.Tree_Operations
      * branch lengths. The sum of each character set is calculated; this might
      * be better if each one is seperate(?). 0 is returned under other critera. *)
     let tree_size ptree = 
-        let traversal a b =
-            let l,r = Ptree.post_order_node_with_edge_visit
-                        (fun p x a -> a) (* leafs *)
-                        (fun par node accleft accright ->
-                            let nd = Ptree.get_node_data node ptree in
-                            let curr = AllDirNode.AllDirF.tree_size (Some par) nd in
-                            accleft +. accright +. curr )
-                        (Tree.Edge (a,b))
-                        ptree
-                        0.0
-            and final_edge = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
-            l +. r +. (AllDirNode.OneDirF.tree_size None final_edge)
+        let edge_cost (Tree.Edge (a,b)) =
+            let lst = 
+                try AllDirNode.AllDirF.get_times_between
+                        (Ptree.get_node_data a ptree) (Ptree.get_node_data b ptree)
+                with | _ -> 
+                    AllDirNode.AllDirF.get_times_between
+                        (Ptree.get_node_data b ptree) (Ptree.get_node_data a ptree)
+            in
+            List.fold_left (fun acc x -> match x with | _,Some x -> x +. acc 
+                                                      | _,None   -> acc)
+                           0.0 lst
         in
-        let single_tree handle =
-            try match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                | Some ((`Edge (a,b)),_) -> traversal a b
-                | None | Some _ -> raise Not_found
-            with | Not_found ->
-                begin match Ptree.get_node handle ptree with
-                    | Tree.Leaf (a,b)
-                    | Tree.Interior (a,b,_,_) -> traversal a b
-                    | Tree.Single _ -> 0.0
-                end
-        in
-        let sum =
-            try IntSet.fold
-                    (fun h x -> x +. (single_tree h))
-                    (Ptree.get_handles ptree)
-                    0.0
-            with | Not_found -> 0.0
-        in
-        sum
+        Tree.EdgeMap.fold
+            (fun k _ acc -> acc +. (edge_cost k))
+            ptree.Ptree.edge_data
+            0.0
+
 
     let prior_cost tree = 
         if using_likelihood `Dynamic tree then
