@@ -3981,13 +3981,7 @@ END
             let build_initial = Build.build_initial_trees in
             (match MainBuild.get_transformations meth with
             | [] ->
-                if(Data.is_fs run.data 1) then 
-                    Printf.printf  "is fixed state\n%!"
-                else 
-                    Printf.printf "not fixed state\n%!";
-                let trees = 
-                    build_initial run.trees run.data run.nodes meth
-                in
+                let trees = build_initial run.trees run.data run.nodes meth in
                 let newrun =
                     { run with  
                     data = { run.data with Data.root_at = None };
