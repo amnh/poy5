@@ -673,9 +673,18 @@ type nad8 = Node.Standard.nad8 = struct
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
     let get_times_between child par =
-        OneDirF.get_times_between
-                (not_with (taxon_code par) child.adjusted).lazy_node
-                (either_with (taxon_code child) par.adjusted).lazy_node
+        try 
+            let child = not_with (taxon_code par) child.adjusted
+            and par = either_with (taxon_code child) par.adjusted in
+            OneDirF.get_times_between child.lazy_node par.lazy_node
+        with | _ ->
+            (* direction doesn't matter; possibly only downpass happened! Who
+               the hell is it to say the tree is in an error state on an
+               inconsequential function as this? *)
+            let child = either_with (taxon_code child) par.adjusted
+            and par   = not_with (taxon_code par) child.adjusted in
+            OneDirF.get_times_between par.lazy_node child.lazy_node
+
 
     (** [extract_states par child] extract the states of child toward par *)
     let extract_states alph data parc codes mine = 
