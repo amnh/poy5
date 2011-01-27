@@ -738,6 +738,9 @@ let pre_order_edge_visit f id ptree acc =
 let create_partition t l r = 
     Tree.create_partition t.tree l r
 
+let robinson_foulds t1 t2 =
+    Tree.robinson_foulds t1.tree t2.tree
+
 let post_order_downpass_style leaf interior id ptree =
     let rec processor prev curr =
         match get_node curr ptree with

@@ -210,7 +210,11 @@ val print_forest : u_tree -> unit
 
 val verify_edge : edge -> u_tree -> bool
 
-val create_partition : u_tree -> int -> int -> All_sets.Integers.t
+(* Create two sets defining the partition accross an edge *)
+val create_partition : u_tree -> int -> int -> All_sets.Integers.t * All_sets.Integers.t
+
+(* Calculate the Robinson Foulds distance between two trees *)
+val robinson_foulds : u_tree -> u_tree -> int
 
 (** Module to fingerprint trees and compare them *)
 module Fingerprint : sig

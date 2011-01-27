@@ -205,8 +205,7 @@ module F : Ptree.Tree_Operations
             and treebranches = Hashtbl.create 1
             and insert_function setmap edge =
                 let Tree.Edge (left,right) = edge in
-                let p1 = Ptree.create_partition ptree left right
-                and p2 = Ptree.create_partition ptree right left in
+                let p1,p2 = Ptree.create_partition ptree left right in
                 let codestable = get_codestable ptree.Ptree.data left right in
                 setmap --> IntSetMap.add p1 codestable 
                        --> IntSetMap.add p2 codestable 
@@ -727,9 +726,8 @@ module F : Ptree.Tree_Operations
             else ();
             let data,ptree = 
                 if rhandle then
-                    let p1 = Ptree.create_partition ptree b a,b
-                    and p2 = Ptree.create_partition ptree a b,a in
-                    match hashdoublefind ptree [p1;p2] with
+                    let p1,p2 = Ptree.create_partition ptree b a in
+                    match hashdoublefind ptree [(p1,a);(p2,b)] with
                     | Some x -> create_lazy_edge ~branches:x rhandle root_opt adjusted ptree a b 
                     | None   -> create_lazy_edge rhandle root_opt adjusted ptree a b 
                 else
@@ -1264,8 +1262,8 @@ module F : Ptree.Tree_Operations
                             "Adding Vertex %d post Order: (%d,%d) and %d%!" 
                                             code a b prev;
                     let interior = 
-                        let p1 = Ptree.create_partition ptree b code,b
-                        and p2 = Ptree.create_partition ptree a code,a in
+                        let p1 = (fst (Ptree.create_partition ptree b code)), b
+                        and p2 = (fst (Ptree.create_partition ptree a code)), a in
                         match hashdoublefind ptree [p1;p2] with
                         | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
                         | None   -> create_lazy_interior_down ptree (Some code) a b
