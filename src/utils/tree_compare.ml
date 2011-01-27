@@ -17,8 +17,10 @@ let read_tree_nexus filename : (string option * Tree.Parse.tree_types) list =
         List.map (Nexus.File.generate_parser_friendly [] [| None |]) trees
     in
     List.map
-        (fun (n,xs) -> match xs with 
-            | [x] -> (n,x) 
+        (function
+            | Some "",[x]
+            | None,[x]   -> (Some filename,x)
+            | Some n,[x] -> (Some (filename^":"^n),x)
             | _ -> failwith "nope")
         parsed
 
