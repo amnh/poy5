@@ -369,7 +369,7 @@ module F : Ptree.Tree_Operations
                 (tree.Ptree.node_data)
                 (infinity)
         else
-            0.0
+           0.0
 
 
     (* Determine the cost of a tree from the handle. A optional root can be
@@ -454,8 +454,6 @@ module F : Ptree.Tree_Operations
             (edge, cost +. prior) :: acc
         in
         Tree.EdgeMap.fold collect_edge_data tree.Ptree.edge_data []
-
-
 
 
     let check_assertion_two_nbrs a b c =
@@ -595,7 +593,9 @@ module F : Ptree.Tree_Operations
                 let tmp = Ptree.get_node_data current ptree in
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
             in
-            let nd, original = 
+            let nd, original =
+(*                Printf.printf "to_single (%d->%d): %f\n%!" parent current*)
+(*                        (AllDirNode.AllDirF.tree_size (Some parent) (Ptree.get_node_data current ptree));*)
                 let x = AllDirNode.force_val current_d.AllDirNode.lazy_node in
                 let n = Node.to_single (pre_ref_codes, fi_ref_codes) None parentd x in
                 n, x
@@ -2086,7 +2086,6 @@ module F : Ptree.Tree_Operations
                 --> refresh_all_edges true (Some n_root) true (Some (v,h))
                 --> Ptree.assign_root_to_connected_component 
                             handle (Some (`Edge (v,h),n_root)) check_cost None
-                --> refresh_all_edges true (Some n_root) true (Some (v,h))
         in
         if debug_join_fn then verify_roots ptree;
         ptree, tree_delta
