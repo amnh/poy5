@@ -205,8 +205,7 @@ module F : Ptree.Tree_Operations
             and treebranches = Hashtbl.create 1
             and insert_function setmap edge =
                 let Tree.Edge (left,right) = edge in
-                let p1 = Ptree.create_partition ptree left right
-                and p2 = Ptree.create_partition ptree right left in
+                let p1,p2 = Ptree.create_partition ptree left right in
                 let codestable = get_codestable ptree.Ptree.data left right in
                 setmap --> IntSetMap.add p1 codestable 
                        --> IntSetMap.add p2 codestable 
@@ -342,38 +341,23 @@ module F : Ptree.Tree_Operations
      * branch lengths. The sum of each character set is calculated; this might
      * be better if each one is seperate(?). 0 is returned under other critera. *)
     let tree_size ptree = 
-        let traversal a b =
-            let l,r = Ptree.post_order_node_with_edge_visit
-                        (fun p x a -> a) (* leafs *)
-                        (fun par node accleft accright ->
-                            let nd = Ptree.get_node_data node ptree in
-                            let curr = AllDirNode.AllDirF.tree_size (Some par) nd in
-                            accleft +. accright +. curr )
-                        (Tree.Edge (a,b))
-                        ptree
-                        0.0
-            and final_edge = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
-            l +. r +. (AllDirNode.OneDirF.tree_size None final_edge)
+        let edge_cost (Tree.Edge (a,b)) =
+            let lst = 
+                try AllDirNode.AllDirF.get_times_between
+                        (Ptree.get_node_data a ptree) (Ptree.get_node_data b ptree)
+                with | _ -> 
+                    AllDirNode.AllDirF.get_times_between
+                        (Ptree.get_node_data b ptree) (Ptree.get_node_data a ptree)
+            in
+            List.fold_left (fun acc x -> match x with | _,Some x -> x +. acc 
+                                                      | _,None   -> acc)
+                           0.0 lst
         in
-        let single_tree handle =
-            try match (Ptree.get_component_root handle ptree).Ptree.root_median with
-                | Some ((`Edge (a,b)),_) -> traversal a b
-                | None | Some _ -> raise Not_found
-            with | Not_found ->
-                begin match Ptree.get_node handle ptree with
-                    | Tree.Leaf (a,b)
-                    | Tree.Interior (a,b,_,_) -> traversal a b
-                    | Tree.Single _ -> 0.0
-                end
-        in
-        let sum =
-            try IntSet.fold
-                    (fun h x -> x +. (single_tree h))
-                    (Ptree.get_handles ptree)
-                    0.0
-            with | Not_found -> 0.0
-        in
-        sum
+        Tree.EdgeMap.fold
+            (fun k _ acc -> acc +. (edge_cost k))
+            ptree.Ptree.edge_data
+            0.0
+
 
     let prior_cost tree = 
         if using_likelihood `Dynamic tree then
@@ -426,15 +410,11 @@ module F : Ptree.Tree_Operations
                 let node = (Ptree.get_node_data b new_tree).AllDirNode.adjusted in
                 (List.hd node).AllDirNode.lazy_node
             in
-            if debug_cost_fn then
-                info_user_message "calc distance of node.%d and %d : " a b;
             let dist = 
                 Node.distance_of_type (Node.has_to_single) 0.0
                                       (AllDirNode.force_val nda)
                                       (AllDirNode.force_val ndb)
             in
-            if debug_cost_fn then
-                info_user_message "distance of node.%d and %d = %f(acc=%f) " a b dist acc;
             dist +. acc
         in
         let single_characters_cost =  
@@ -572,9 +552,9 @@ module F : Ptree.Tree_Operations
                     let scost = (snd c1acc) +. (snd c2acc) +. ncost in
                     if ( tcost =. scost ) then (c,scost)
                     else begin
-                        info_user_message "root (%d,%d) cost: %f/%f (%f,%f,%f)%!"
+                        info_user_message "root (%d,%d) cost: %4f/%4f (%4f,%4f,%4f)%!"
                                           a b tcost scost ncost (snd c1acc) (snd c2acc);
-                        assert( false );
+                        assert false;
                     end)
                 (edge)
                 (tree)
@@ -587,10 +567,12 @@ module F : Ptree.Tree_Operations
                     let tcost = AllDirNode.OneDirF.total_cost None (get_e k) in
                     let ncost = AllDirNode.OneDirF.node_cost None (get_e k) in
                     let scost = (snd c1) +. (snd c2) +. ncost in
-                    assert( tcost =. scost );
-                    ())
-            (tree.Ptree.edge_data);
-            info_user_message "Root Verification: Passed%!"
+                    if not ( tcost =. scost ) then begin
+                        info_user_message "root (%d,%d) cost: %4f/%4f (%4f,%4f,%4f)%!"
+                                          a b tcost scost ncost (snd c1) (snd c2);
+                        assert false
+                    end)
+                (tree.Ptree.edge_data)
         end
 
     
@@ -607,19 +589,15 @@ module F : Ptree.Tree_Operations
         let fi_ref_codes = pre_ref_codes in 
         let rec assign_single_subtree parentd parent current ptree =
             if debug_single_assignment then
-            info_user_message "assign signle subtree on node %d,parent=%d" 
-            current parent;
+                info_user_message "assign signle subtree on node %d,parent=%d" current parent;
             let current_d, initial_d =
                 let tmp = Ptree.get_node_data current ptree in
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
             in
             let nd, original = 
-                current_d.AllDirNode.lazy_node
-                --> AllDirNode.force_val 
-(**)                --> fun x -> 
-                        Node.to_single 
-                        (pre_ref_codes, fi_ref_codes)
-                        None parentd x, x
+                let x = AllDirNode.force_val current_d.AllDirNode.lazy_node in
+                let n = Node.to_single (pre_ref_codes, fi_ref_codes) None parentd x in
+                n, x
             in
             let nnd = 
                 { current_d with AllDirNode.lazy_node = AllDirNode.lazy_from_val nd }
@@ -733,9 +711,8 @@ module F : Ptree.Tree_Operations
             else ();
             let data,ptree = 
                 if rhandle then
-                    let p1 = Ptree.create_partition ptree b a,b
-                    and p2 = Ptree.create_partition ptree a b,a in
-                    match hashdoublefind ptree [p1;p2] with
+                    let p1,p2 = Ptree.create_partition ptree b a in
+                    match hashdoublefind ptree [(p1,a);(p2,b)] with
                     | Some x -> create_lazy_edge ~branches:x rhandle root_opt adjusted ptree a b 
                     | None   -> create_lazy_edge rhandle root_opt adjusted ptree a b 
                 else
@@ -1270,8 +1247,8 @@ module F : Ptree.Tree_Operations
                             "Adding Vertex %d post Order: (%d,%d) and %d%!" 
                                             code a b prev;
                     let interior = 
-                        let p1 = Ptree.create_partition ptree b code,b
-                        and p2 = Ptree.create_partition ptree a code,a in
+                        let p1 = (fst (Ptree.create_partition ptree b code)), b
+                        and p2 = (fst (Ptree.create_partition ptree a code)), a in
                         match hashdoublefind ptree [p1;p2] with
                         | Some x -> create_lazy_interior_down ~branches:x ptree (Some code) a b
                         | None   -> create_lazy_interior_down ptree (Some code) a b
@@ -1806,6 +1783,29 @@ module F : Ptree.Tree_Operations
             in
             refresh_all_edges true (Some edge) false (Some (a,b)) ptree
 
+    let lift_data edge_l edge_r i_code ptree = 
+        if not (using_likelihood `Either ptree) then begin
+            let node = AllDirNode.AllDirF.median (Some i_code) None
+                        (Ptree.get_node_data edge_l ptree)
+                        (Ptree.get_node_data edge_r ptree) in
+            Ptree.add_node_data i_code node ptree
+        end else begin
+            try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
+                let node = 
+                    [{
+                        AllDirNode.dir = Some (edge_l,edge_r);
+                        code = i_code;
+                        lazy_node = lr;
+                    }] in
+                let node = 
+                    {AllDirNode.adjusted = node; AllDirNode.unadjusted = node}
+                in
+                Ptree.add_node_data i_code node ptree
+            with | Not_found ->
+                failwithf "Cannot lift %d -- %d to %d" edge_l edge_r i_code
+        end
+
+
     let clean_ex_neighbor a b ptree = 
         let data = Ptree.get_node_data a ptree in
         let notwith_un = AllDirNode.not_with b data.AllDirNode.unadjusted in
@@ -2021,28 +2021,6 @@ module F : Ptree.Tree_Operations
                     | Tree.Single_Jxn x -> string_of_int x
                     | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y))
         else ();
-        let lift_data edge_l edge_r i_code ptree = 
-            if not (using_likelihood `Either ptree) then begin
-                let node = AllDirNode.AllDirF.median (Some i_code) None
-                            (Ptree.get_node_data edge_l ptree)
-                            (Ptree.get_node_data edge_r ptree) in
-                Ptree.add_node_data i_code node ptree
-            end else begin
-                try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
-                    let node = 
-                        [{
-                            AllDirNode.dir = Some (edge_l,edge_r);
-                            code = i_code;
-                            lazy_node = lr;
-                        }] in
-                    let node = 
-                        {AllDirNode.adjusted = node; AllDirNode.unadjusted = node}
-                    in
-                    Ptree.add_node_data i_code node ptree
-                with | Not_found ->
-                    failwithf "Cannot lift %d -- %d to %d" edge_l edge_r i_code
-            end
-        in
         let ret, ((td1,td2,rrd) as tree_delta) = 
             Tree.join jxn1 jxn2 ptree.Ptree.tree 
         in

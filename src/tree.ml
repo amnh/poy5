@@ -1449,15 +1449,61 @@ let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
 (** [create_partition t l r]; returns the partitions that that seperate the edge
  * between the [l] and [r] nodes using the tree topology [t]. *)
 let create_partition tree left_node right_node =
-    let left,right = 
-        post_order_node_with_edge_visit
-            (fun p x a -> All_sets.Integers.add x a)
-            (fun p x acc_l acc_r -> All_sets.Integers.union acc_l acc_r)
-            (Edge (left_node,right_node) )
-            tree
-            All_sets.Integers.empty
-    in
-    left
+    post_order_node_with_edge_visit
+        (fun p x a -> All_sets.Integers.add x a)
+        (fun p x acc_l acc_r -> All_sets.Integers.union acc_l acc_r)
+        (Edge (left_node,right_node) )
+        tree
+        All_sets.Integers.empty
+
+(** determine the Robinson-Foulds distance between two trees. **)
+let robinson_foulds tree1 tree2 : int =
+    (* compare two sets; or complement for partition equality. *)
+    let compare_set all a b =
+        let other_b = All_sets.Integers.diff all b in
+        let equality_one = All_sets.Integers.compare a b
+        and equality_two = All_sets.Integers.compare a other_b in
+        (equality_one = 0) || (equality_two = 0) in
+    (* ensure partitions are unique; removes extra partition on root *)
+    let unique all lst =
+        let rec unique acc = function
+            | [] -> acc
+            | hd::tl ->
+                if List.exists (compare_set all hd) acc 
+                    then unique acc tl
+                    else unique (hd::acc) tl
+        in
+        unique [] lst in
+    (* generate list of all partitions in a tree *)
+    let partitions_of_tree all tree =
+        let lst = 
+            EdgeSet.fold
+                (fun (Edge (a,b)) acc ->
+                    let left,_ = create_partition tree a b in
+                    left :: acc)
+                tree.d_edges
+                []
+        in
+        unique all lst in
+    (* return set of all from a tree; we also assert one handle *)
+    let get_all tree = 
+        List.fold_left
+            (fun acc x -> All_sets.Integers.add x acc)
+            (All_sets.Integers.empty)
+            (get_all_leaves tree) in
+    (* remove partitions of one list from the other *)
+    let compare_partitions all p1 p2 = 
+        let remove_partition p ps = List.filter (fun x -> not (compare_set all p x)) ps in
+        let p_diff21 = List.fold_left (fun acc x -> remove_partition x acc) p2 p1 in
+        let p_diff12 = List.fold_left (fun acc x -> remove_partition x acc) p1 p2 in
+        (List.length p_diff21) + (List.length p_diff12) in
+    (* assertions; ensure both trees have the same nodes *)
+    let all = get_all tree1 in
+    assert( All_sets.Integers.is_empty (All_sets.Integers.diff all (get_all tree2)) );
+    let p1 = partitions_of_tree all tree1 
+    and p2 = partitions_of_tree all tree2 in
+    compare_partitions all p1 p2
+
 
 (** [post_order_node_visit f id bt ad acc]
 @param f function to applied to all the nodes in post-order.

@@ -673,9 +673,18 @@ type nad8 = Node.Standard.nad8 = struct
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
     let get_times_between child par =
-        OneDirF.get_times_between
-                (not_with (taxon_code par) child.adjusted).lazy_node
-                (either_with (taxon_code child) par.adjusted).lazy_node
+        try 
+            let child = not_with (taxon_code par) child.adjusted
+            and par = either_with (taxon_code child) par.adjusted in
+            OneDirF.get_times_between child.lazy_node par.lazy_node
+        with | _ ->
+            (* direction doesn't matter; possibly only downpass happened! Who
+               the hell is it to say the tree is in an error state on an
+               inconsequential function as this? *)
+            let child = either_with (taxon_code child) par.adjusted
+            and par   = not_with (taxon_code par) child.adjusted in
+            OneDirF.get_times_between par.lazy_node child.lazy_node
+
 
     (** [extract_states par child] extract the states of child toward par *)
     let extract_states alph data parc codes mine = 
@@ -700,14 +709,14 @@ type nad8 = Node.Standard.nad8 = struct
             | Some (a,b) -> a = code || b = code
         in
 
-        let c_data = match child.adjusted with
+        let c_data = match child.unadjusted with
             | [x] -> assert (match x.dir with | None -> true | Some _ -> false);
                      x.lazy_node
             |  _  -> failwith "AllDirNode.apply_time only apply_time on leaves"
-        and p_data = match parent.adjusted with
+        and p_data = match parent.unadjusted with
             | [x] -> assert(has_one (taxon_code child) x);
                      x.lazy_node
-            |  _  -> let x,y = yes_with (taxon_code child) parent.adjusted in
+            |  _  -> let x,y = yes_with (taxon_code child) parent.unadjusted in
                      x.lazy_node
         in
 
@@ -776,7 +785,7 @@ type nad8 = Node.Standard.nad8 = struct
                 assert(false)
         in
         let data_m2p = 
-            try match m.adjusted with
+            try match m.unadjusted with
             (* then it hasn't been resolved by an earlier uppass on root *)
             | [x] -> 
                 if (match x.dir with
@@ -793,7 +802,7 @@ type nad8 = Node.Standard.nad8 = struct
             q_print m;
             failwithf "Data from %d toward parent %d is missing.\n" mc pc
 
-        and data_p2m = match p_data.adjusted with
+        and data_p2m = match p_data.unadjusted with
             (* then it HASN'T been resolved by an earlier uppass, and is truely
              * the parent with a calculated/lazy median *)
             | [x] -> x.lazy_node
@@ -816,10 +825,10 @@ type nad8 = Node.Standard.nad8 = struct
         and time_M2P =
             lazy_from_fun (fun () -> match p_time with
                 | Some timedat ->
-                    let timedat = force_val (either_with mc timedat.adjusted).lazy_node in
+                    let timedat = force_val (either_with mc timedat.unadjusted).lazy_node in
                     Node.get_times_between timedat None
                 | None -> 
-                    let timedat = force_val (either_with mc p_data.adjusted).lazy_node in
+                    let timedat = force_val (either_with mc p_data.unadjusted).lazy_node in
                     Node.get_times_between timedat (Some (min_taxon_code pc m)))
         in
         (* PRINT OUT THE TIMES BETWEEN *)

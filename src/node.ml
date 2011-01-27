@@ -507,7 +507,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     (max min_bl t1, max min_bl t2)
                 | _ -> let t1,t2 = MlStaticCS.estimate_time ca.preliminary cb.preliminary in
                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                       (t1,t2)
+                       (max min_bl t1, max min_bl t2)
             in 
             let model = MlStaticCS.get_model ca.preliminary in
             let median = begin match model .MlModel.spec.MlModel.cost_fn with
@@ -642,7 +642,7 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                             | _ ->
                                 let t1,t2 = MlDynamicCS.estimate_time ca_pre cb_pre in
                                 if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                (t1, t2, true)
+                                (max min_bl t1, max min_bl t2, true)
                         in 
                         let median,t1,t2 = 
                             if opt then
@@ -794,9 +794,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let t1,t2 = match pm.time with 
                         | Some x,Some y -> ( max min_bl x, max min_bl y )
                         | None, None -> 
-                            let (t1,t2) as ts = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                            ts
+                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
+                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                            ( max min_bl x, max min_bl y )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let t1,t2 = if root_e then (t2 +. t1),0.0 else t1,t2 in
@@ -817,9 +817,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     and t1,t2 = match pm.time with 
                         | Some x,Some y -> ( max min_bl x, max min_bl y )
                         | None, None -> 
-                            let (t1,t2) as ts = MlStaticCS.estimate_time am.preliminary bm.preliminary in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                            ts
+                            let (x,y) = MlStaticCS.estimate_time am.preliminary bm.preliminary in
+                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                            ( max min_bl x, max min_bl y )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     let fstart = pm.preliminary,MlStaticCS.root_cost pm.preliminary in
@@ -845,9 +845,9 @@ let edge_iterator (gp:node_data option) (c0:node_data) (c1:node_data) (c2:node_d
                     let t1,t2 = match pm.time with 
                         | Some x,Some y -> ( max min_bl x, max min_bl y )
                         | None, None -> 
-                            let (t1,t2) as ts = MlDynamicCS.estimate_time c1_pre c2_pre in
-                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                            ts
+                            let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
+                            if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                            ( max min_bl x, max min_bl y )
                         | _ -> failwith "something happened terribly wrong"
                     in
                     (* Printf.printf "0: %f\t%f\t%f\n%!" t1 t2 pm.cost; *)
@@ -1369,7 +1369,7 @@ let median_w_times code prev nd_1 nd_2 times_1 times_2 =
     and num_child_edges, num_height = new_node_stats nd_1 nd_2
     and exclude_info = excludes_median nd_1 nd_2 in
     let excluded = has_excluded exclude_info in
-     if debug_treebuild then
+    if debug_treebuild then
          Printf.printf "end of median_w_times, node.ml ...tottal_cost=%f\n\n%!" total_cost;
     { 
         characters = new_characters;
@@ -2921,9 +2921,8 @@ let dump_node printer node par =
                     else snd 
                 in
                 let strs x = match f x with | None -> "none"
-                        | Some x -> string_of_float x 
-                in
-                printer (strs p.time)
+                        | Some x -> string_of_float x in
+                printer ("\tC:"^(string_of_float p.cost)^"S:"^(string_of_float p.sum_cost)^"T:"^(strs p.time))
             ELSE
                 ()
             END
@@ -2936,7 +2935,7 @@ let dump_node printer node par =
                 let strs x = match f x with | None -> "none"
                         | Some x -> string_of_float x 
                 in
-                printer (strs p.time)
+                printer ("\tC:"^(string_of_float p.cost)^"S:"^(string_of_float p.sum_cost)^"T:"^(strs p.time))
             ELSE
                 ()
             END
@@ -2970,14 +2969,13 @@ let estimate_time a b =
     in
     map2 (estimate_) a.characters b.characters
 
-
 let to_single (pre_ref_codes, fi_ref_codes) root parent mine = 
     let rec cs_to_single (pre_ref_code, fi_ref_code) (root : cs option) parent_cs minet : cs =
         if debug_treebuild then Printf.printf "node.ml cs_to_single => %!";
         match parent_cs, minet with
             | Dynamic parentt, Dynamic minet ->
                 let root_pre,bl = match root with
-                    | Some (Dynamic root) -> 
+                    | Some (Dynamic root) ->
                         begin match parentt.time with
                             | None,None     -> Some root.preliminary, None
                             | Some x,Some y -> Some root.preliminary, Some (x +. y)
@@ -3036,41 +3034,16 @@ let to_single (pre_ref_codes, fi_ref_codes) root parent mine =
                 | Some mine -> mine
                 | None -> minet
     in
-    (* changes cost of node in likelihood since dynamic chooses a root from
-     * either side, and continues that cost *)
-    if debug_tosingle then
-        Printf.printf "Node.ml to_single at Node %d from %d%!" 
-                        mine.taxon_code parent.taxon_code;
-    let set_cost oldc newc = match mine.cost_mode with
-        | `Parsimony -> oldc
-        | `Likelihood -> newc
-        | `SumLikelihood -> newc
-    in
     match root with
     | Some root ->
         let root_char_opt = List.map (fun c -> Some c) root.characters in
-         if debug_tosingle then
-             Printf.printf "begin map3 with cs_to_single, maplen = %d --> \n%!"
-             (List.length parent.characters);
         let chars = map3 (cs_to_single (pre_ref_codes, fi_ref_codes) )
-                        root_char_opt parent.characters mine.characters in
-         if debug_tosingle then
-             Printf.printf "end of map3 in node.ml to_single \n%!";
-        let root_cost = get_characters_cost chars in
-        { root with 
-            characters = chars;
-            node_cost  = set_cost root.node_cost root_cost;
-            total_cost = set_cost root.total_cost root_cost;
-        }
+                         root_char_opt parent.characters mine.characters in
+        { root with characters = chars; }
     | None ->
         let chars = map2 (cs_to_single (pre_ref_codes, fi_ref_codes) None ) 
                         parent.characters mine.characters in
-        let node_cost = get_characters_cost chars in
-        { mine with
-            characters = chars;
-            node_cost  = set_cost mine.node_cost node_cost;
-            total_cost = set_cost mine.total_cost node_cost;
-        }
+        { mine with characters = chars; }
 
 let readjust mode to_adjust ch1 ch2 parent mine = 
     let ch1, ch2 =
@@ -3087,9 +3060,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                 let t1,t2 = match mine.time with 
                     | Some x,Some y -> max min_bl x,max min_bl y
                     | _ -> 
-                        let (t1,t2) as ts = MlStaticCS.estimate_time c1.preliminary c2.preliminary in
-                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                        ts
+                        let (x,y) = MlStaticCS.estimate_time c1.preliminary c2.preliminary in
+                        if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                        max min_bl x,max min_bl y
                 in
                 let m, prev_cost, cost, (t1,t2), res = 
                     MlStaticCS.readjust to_adjust !modified c1.preliminary
@@ -3114,9 +3087,9 @@ let readjust mode to_adjust ch1 ch2 parent mine =
                     let min_bl = MlStaticCS.minimum_bl () in
                     let t1,t2 = match mine.time with 
                         | Some x,Some y -> max min_bl x,max min_bl y
-                        | _  -> let (t1,t2) as ts = MlDynamicCS.estimate_time c1_pre c2_pre in
-                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" t1 t2;
-                                ts
+                        | _  -> let (x,y) = MlDynamicCS.estimate_time c1_pre c2_pre in
+                                if debug_bl then Printf.printf "estimating BL: %f, %f\n%!" x y;
+                                max min_bl x,max min_bl y
                     in
                     let m,p_cost,n_cost,(t1,t2),res =
                         DynamicCS.readjust_lk mode to_adjust !modified
@@ -3151,89 +3124,19 @@ let readjust mode to_adjust ch1 ch2 parent mine =
             end
         | _ -> mine
     in
-    if mine.total_cost = infinity then mine, !modified
+    if mine.total_cost = infinity then 
+        mine, !modified
     else
-(*        let (seq_lstlstlst:Sequence.s list list list),(delimiter_lstlstlst: int list
-        list list) =
-            flatten_cslist ch1.characters ch2.characters parent.characters
-            mine.characters
-        in *)
-        (* now the seq_lstlstlst is like this:
-          {
-            (
-            [seq of 1th median of 1th chromosome of 1th node;
-             seq of 1th median of 2th chromosome of 1th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 1th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            (
-            [seq of 1th median of 1th chromosome of 2th node;
-             seq of 1th median of 2th chromosome of 2th node;
-             .... ];
-            [seq of 2th median of 1th chromosome of 2th node;
-             ...... 2th ..........2th ......................;
-             .....];
-            ......
-            )
-            .......
-            ( ... )
-          }
-        * *)
-        (*debug msg
-        Printf.printf "check delimiters list after flatten =>\n%!";
-        List.iter (fun intlstlst -> 
-            Printf.printf "(\n%!";
-            List.iter (fun intlst -> Printf.printf "[%!";
-               List.iter (Printf.printf "%d,%!") intlst; 
-                Printf.printf "]\n%!"; )intlstlst;  Printf.printf ")\n%!";
-            )delimiter_lstlstlst;
-        Printf.printf "check seq list =>\n%!";
-        List.iter (fun seqlstlst -> 
-            Printf.printf "(\n%!";
-            List.iter (fun seqlst -> 
-                Printf.printf "{%!";   List.iter (Sequence.printseqcode) seqlst; 
-                Printf.printf "}\n%!") seqlstlst; Printf.printf ")\n%!";
-        )seq_lstlstlst;
-        debug msg*)
-   (*     let nodelst_medlst_seq = List.map (fun node_medlst_seqlst ->
-            List.map (fun node_med_seqlst -> Sequence.concat node_med_seqlst)
-            node_medlst_seqlst) seq_lstlstlst
-        in *)
-        (* nodelst_medlst_seq is
-        * { ( sequence of 1th median); ( sequence of 2th median ); .... }
-        * deli_lstlst is
-        * { 
-            (delimiter lst of seqeunce of 1th median);
-            (delimiter lst of sequence of 2th median);
-            ......
-        * *)
-        (*
-        let [new_ch1;new_ch2;new_parent;new_mine] = 
-        map3 (fun oldch node_medlst_seq deli_lstlst -> 
-            multi_to_single_chromosome oldch node_medlst_seq deli_lstlst)
-        [ch1;ch2;parent;mine] nodelst_medlst_seq delimiter_lstlstlst in
-        assert((List.length new_ch1.characters)>0);
-        assert((List.length new_ch2.characters)>0);
-        assert((List.length new_parent.characters)>0);
-        let new_cs = 
-            cs_readjust (List.hd new_ch1.characters) (List.hd
-            new_ch2.characters) (List.hd new_parent.characters) (List.hd
-            new_mine.characters)
-        in
-        let new_cslst = single_to_multi_chromosome new_cs in 
-        let characters = new_cslst in *)
         let characters = 
             map4 cs_readjust ch1.characters ch2.characters
-            parent.characters mine.characters
+                             parent.characters mine.characters
         in
         let node_cost = get_characters_cost characters in
         let total_cost = calc_total_cost ch1 ch2 node_cost in
         let res = 
-            { mine with characters = characters; total_cost = total_cost; 
-            node_cost = node_cost }
+            { mine with characters = characters; 
+                        total_cost = total_cost; 
+                         node_cost = node_cost; }
         in
         res, !modified
 
@@ -3248,39 +3151,32 @@ let get_active_ref_code node_data =
         (fun (acc_pre, acc_pre_child, acc_fi, acc_fi_child) cs -> 
              match cs with                   
              | Dynamic d -> 
-                   let pre, pre_child =
-                       DynamicCS.get_active_ref_code d.preliminary 
-                   in
-
-                   let fi, fi_child =
-                       DynamicCS.get_active_ref_code d.final 
-                   in
-
+                   let pre, pre_child = DynamicCS.get_active_ref_code d.preliminary in
+                   let fi, fi_child = DynamicCS.get_active_ref_code d.final in
                    IntSet.union acc_pre pre, IntSet.union acc_pre_child pre_child,
                    IntSet.union acc_fi fi, IntSet.union acc_fi_child fi_child
-
-             | _ -> acc_pre, acc_pre_child, acc_fi, acc_fi_child
-
-        ) (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) node_data.characters 
+             | _ -> acc_pre, acc_pre_child, acc_fi, acc_fi_child) 
+        (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) 
+        (node_data.characters)
 
 let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) d 
     (cs , cs_single) (parent_cs : (cs * cs) option) : Xml.xml Sexpr.t list = 
-    match cs,  parent_cs, cs_single with
-    | Nonadd8 cs, _, _ -> begin
-          match parent_cs with 
+    match cs, cs_single with
+    | Nonadd8 cs, Nonadd8 _ -> begin
+        match parent_cs with 
           | None ->
-                NonaddCS8.to_formatter 
+            NonaddCS8.to_formatter 
                 (NonaddCS8.to_formatter [] fin cs.final None  d) pre
                 cs.preliminary None d
           | Some ((Nonadd8 parent_cs), _) ->
-                NonaddCS8.to_formatter 
+            NonaddCS8.to_formatter 
                 (NonaddCS8.to_formatter [] fin cs.final 
                 (Some parent_cs.final) d) pre cs.preliminary 
                 (Some parent_cs.preliminary) d
-            | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml"
+          | _ -> assert false
       end 
-    | Nonadd16 cs, _, _ -> begin 
-          match parent_cs with  
+    | Nonadd16 cs, Nonadd16 _ -> begin 
+        match parent_cs with  
           | None ->
                 NonaddCS16.to_formatter (NonaddCS16.to_formatter [] fin cs.final
                 None  d) pre cs.preliminary None d
@@ -3289,10 +3185,10 @@ let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) 
                 (NonaddCS16.to_formatter [] fin cs.final (Some parent_cs.final)
                 d)  
                  pre cs.preliminary (Some parent_cs.preliminary) d
-          | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml" 
+          | _ -> assert false
       end  
-    | Nonadd32 cs, _, _ -> begin
-          match parent_cs with  
+    | Nonadd32 cs, Nonadd32 _ -> begin
+        match parent_cs with  
           | None -> 
                 NonaddCS32.to_formatter 
                 (NonaddCS32.to_formatter [] fin cs.final None  d)
@@ -3301,19 +3197,19 @@ let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) 
                 NonaddCS32.to_formatter 
                 (NonaddCS32.to_formatter [] fin cs.final (Some parent_cs.final) d) 
                 pre cs.preliminary (Some parent_cs.preliminary) d
-          | _ -> failwith "Fucking up with Nonadd at cs_to_formatter in node.ml" 
+          | _ -> assert false
       end   
-    | Add cs, _, _-> begin
-          match parent_cs with 
+    | Add cs, Add _ -> begin
+        match parent_cs with 
           | None ->
                 AddCS.to_formatter pre cs.preliminary None d
                 @ AddCS.to_formatter fin cs.final None  d
           | Some ((Add parent_cs), _) ->
                 AddCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
                 @ AddCS.to_formatter fin cs.final (Some parent_cs.final) d  
-          | _ -> failwith "Fucking up with Add at cs_to_formatter in node.ml" 
+          | _ -> assert false
       end 
-    | Sank cs, _, _-> begin
+    | Sank cs, Sank _ -> begin
           match parent_cs with 
           | None ->
                 SankCS.to_formatter pre cs.preliminary None d
@@ -3321,46 +3217,47 @@ let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) 
           | Some ((Sank parent_cs), _) ->
                 SankCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
                 @ SankCS.to_formatter fin cs.final (Some parent_cs.final) d  
-          | _ -> failwith "Fucking up with Sank at cs_to_formatter in node.ml" 
+          | _ -> assert false
       end  
-    | Dynamic cs, _, Dynamic cs_single -> begin
+    | Dynamic cs, Dynamic cs_single -> begin
         match parent_cs with 
         | None ->
             DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary None cs.time d
-          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time  d
+          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time d
           @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary None cs.time d
         | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
             DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary
                 (Some parent_cs.preliminary) cs.time d
-          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final 
+          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final
                 (Some parent_cs.final) cs.time d
-          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary 
+          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary
                 (Some parent_cs_single.preliminary) cs.time d
-          | _ -> failwith "Fucking up with Dynamic at cs_to_formatter in node.ml"
+          | _ -> assert false
       end 
-    | Kolmo x, _, Kolmo x_single -> 
+    | Kolmo x, Kolmo x_single ->
           KolmoCS.to_formatter pre_ref_codes pre x.preliminary d @
               KolmoCS.to_formatter fi_ref_codes  fin x.final d @
               KolmoCS.to_formatter pre_ref_codes sing x_single.preliminary d
-    | Set x, _, Set x_single ->
+    | Set x, Set x_single ->
           let attributes =
               [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
-          let sub a = 
+          let sub a =
               (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
-              * error, though I can't see where ... *)
-              (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None) 
+                error, though I can't see where ... *)
+              (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None)
           in
           let sub : (Xml.xml Sexpr.t list) = List.map2 (fun a b -> `Set
           (sub (a, b))) x.final.set x_single.final.set in
           let cont = `Set sub in
           [`Single (Xml.Characters.set, attributes, cont)]
-    | StaticMl cs,_, _ -> 
+    | StaticMl cs, StaticMl _ ->
         IFDEF USE_LIKELIHOOD THEN
             MlStaticCS.to_formatter pre cs.preliminary cs.time d
         ELSE
             failwith MlStaticCS.likelihood_error
         END
-    | _ -> assert false
+    | (StaticMl _ |Kolmo _ |Dynamic _ |Sank _ |Add _
+        |Nonadd32 _ |Nonadd16 _ |Nonadd8 _ |Set _), _ -> assert false
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
 let cmp_node_recost node_data = 
@@ -4038,7 +3935,6 @@ END
         { charactersu = nc; min_child_codeu = code }
 
     let distance a b =
-        Printf.printf "node.Union.distance on nodea and b\n%!";
         let rec distance acc a b = 
             match a, b with
             | (Nonadd8U a) :: at, (Nonadd8U b) :: bt ->
@@ -4083,7 +3979,6 @@ END
             | [], _ -> failwith "Node.Union.distance TODO"
         in
         let res = distance 0.0 a.charactersu b.charactersu in
-        Printf.printf "dis = %f \n%!" res;
         res
 
     let distance_node code a b =

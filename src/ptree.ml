@@ -226,7 +226,11 @@ module type Tree_Operations =
         val verify_downpass : int -> (a,b) p_tree -> bool
         val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
 
+        val refresh_all_edges : 
+            bool -> a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
+
     end 
+
 
 class type ['a, 'b] wagner_edges_mgr = object
     method break_distance : float -> unit
@@ -733,6 +737,9 @@ let pre_order_edge_visit f id ptree acc =
     Create partition of node ids from edge l--r *)
 let create_partition t l r = 
     Tree.create_partition t.tree l r
+
+let robinson_foulds t1 t2 =
+    Tree.robinson_foulds t1.tree t2.tree
 
 let post_order_downpass_style leaf interior id ptree =
     let rec processor prev curr =
