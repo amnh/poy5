@@ -180,7 +180,7 @@ val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 
 val output_model : (string -> unit) -> [`Nexus | `Phylip | `Hennig] -> model -> string list option -> unit
 
-val to_formatter : Alphabet.a -> model -> Xml.xml Sexpr.t list
+val to_formatter : model -> Xml.xml Sexpr.t list
 
 (* [get_update_function_for_model] based on the model provided return a function
  * that will update the model based on an input value *)
