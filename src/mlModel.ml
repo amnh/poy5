@@ -1532,7 +1532,8 @@ END
  * builds a formatted output of the model [m] spec. Since the spec can be
  * transformed to the model, this is a much more readable form then other model
  * data --the decomposed matrix for example. *)
-let to_formatter (alph:Alphabet.a) (model: model) : Xml.xml Sexpr.t list = 
+let to_formatter (model: model) : Xml.xml Sexpr.t list =
+    let alph = model.alph in
     let priors = 
         let inner = 
             Array.mapi

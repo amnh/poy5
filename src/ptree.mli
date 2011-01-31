@@ -470,7 +470,10 @@ val remove_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> ('a, 'b) p_tree
 val get_node_data : int -> ('a, 'b) p_tree -> 'a
 val get_edge_data : Tree.EdgeMap.key -> ('a, 'b) p_tree -> 'b
 val handle_of : id -> ('a, 'b) p_tree -> id
-val create_partition : ('a, 'b) p_tree -> int -> int -> All_sets.Integers.t
+val create_partition : ('a, 'b) p_tree -> int -> int -> All_sets.Integers.t * All_sets.Integers.t
+
+(* return the robinson foulds distance between two trees *)
+val robinson_foulds : ('a,'b) p_tree -> ('a,'b) p_tree -> int
 
 (** [get_leaves h tree] returns a list of the leaves in [tree] with handle [h] *)
 val get_leaves : ?init:('a list) -> int -> ('a, 'b) p_tree -> 'a list
