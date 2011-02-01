@@ -224,7 +224,7 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
                           --> Sequence.del_first_char
                           --> fun x -> (Sequence.to_formater x alphabet)::acc)
                     []
-                    r.fp_ss
+                    r.mpl_ss
             in
             String.concat "#" seq_lst
         in
