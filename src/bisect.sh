@@ -11,7 +11,7 @@ fi
 
 #ensure that the repo has no modifications
 if 
-    hg status -m 
+    hg status -m | grep -q "[MA]"
 then
     echo "Please push/revert changes in current revision."
     exit 0
