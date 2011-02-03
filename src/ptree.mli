@@ -543,12 +543,6 @@ val get_cost : cost_type -> ('a, 'b) p_tree -> float
 * of the connected component with handle [h] of the tree [t]. *)
 val get_handle_cost : cost_type -> ('a, 'b) p_tree -> int -> float
 
-(** the same as assign_root_to_connected_component with different argument
-* ordering *)
-val set_component_cost : 
-    float -> float option -> 'a root_node -> 
-        int -> ('a, 'b) p_tree -> ('a, 'b) p_tree
-
 val build_trees: Tree.u_tree -> 
     (int -> string) -> 
         (int -> int -> bool) -> 

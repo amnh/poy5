@@ -313,6 +313,7 @@ module F : Ptree.Tree_Operations
                 let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
                 let node = { AllDirNode.unadjusted = [node]; adjusted = [node] } in
                 let cost = Node.Standard.tree_cost None nnode in
+(*                Printf.printf "Creating Component Root for (%d,%d) : %f\n%!" a b cost;*)
                 { 
                     Ptree.root_median = Some ((`Edge (a, b)), node);
                     component_cost = cost; 
@@ -330,6 +331,7 @@ module F : Ptree.Tree_Operations
         | Tree.Single _ ->
                 let root = Ptree.get_node_data a ptree in
                 let cost = AllDirNode.AllDirF.tree_cost None root in
+(*                Printf.printf "Creating Component Root for %d : %f\n%!" a cost;*)
                 { 
                     Ptree.root_median = Some ((`Single a), root);
                     component_cost = cost;
@@ -360,14 +362,14 @@ module F : Ptree.Tree_Operations
 
 
     let prior_cost tree = 
-        if using_likelihood `Dynamic tree then
-            All_sets.IntegerMap.fold
-                (fun k v min_prior -> 
-                    let new_prior = AllDirNode.AllDirF.min_prior v in
-                    min new_prior min_prior)
-                (tree.Ptree.node_data)
-                (infinity)
-        else
+(*        if using_likelihood `Dynamic tree then*)
+(*            All_sets.IntegerMap.fold*)
+(*                (fun k v min_prior -> *)
+(*                    let new_prior = AllDirNode.AllDirF.min_prior v in*)
+(*                    min new_prior min_prior)*)
+(*                (tree.Ptree.node_data)*)
+(*                (infinity)*)
+(*        else*)
            0.0
 
 
@@ -1299,7 +1301,7 @@ module F : Ptree.Tree_Operations
             let comp = Some ((`Edge (a, b)), data) in
             c, 
             Lazy.lazy_from_fun (fun () ->
-                Ptree.set_component_cost c None comp handle ptree)
+                Ptree.assign_root_to_connected_component handle comp c None ptree)
         else (cost, cbt)
 
 

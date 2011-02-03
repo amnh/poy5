@@ -174,7 +174,7 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                     Some ((`Single handle), d)
             | _ -> None
         in
-        Ptree.set_component_cost 0. None d handle ptree 
+        Ptree.assign_root_to_connected_component handle d 0. None ptree 
     in
     let virt_root : Node.node_data Ptree.root_node ref = ref None in
     let get_parent myid id tree =
@@ -195,9 +195,8 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
              | Tree.Single _ -> 
                      let data = Ptree.get_node_data self_id ptree in
                      let ptree = 
-                         Ptree.set_component_cost 0. None 
-                         (Some ((`Single self_id), data)) 
-                         self_id ptree
+                         Ptree.assign_root_to_connected_component
+                            self_id (Some ((`Single self_id), data)) 0. None ptree
                      in
                      (Tree.Continue, ptree)
              | Tree.Leaf (selfid, otherid) -> begin
@@ -233,8 +232,8 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          in
                          let ptree = Ptree.add_node_data selfid mydata ptree in
                          let ptree = 
-                             Ptree.set_component_cost tree_cost None
-                             !virt_root self_id ptree 
+                             Ptree.assign_root_to_connected_component 
+                                        self_id !virt_root tree_cost None ptree
                          in
                          (Tree.Continue, ptree)
                      end
@@ -264,8 +263,8 @@ let uppass_handle handle ({Ptree.tree=tree} as ptree) =
                          let ptree =
                              Ptree.add_node_data nid median3 ptree in
                          let ptree = 
-                             Ptree.set_component_cost tree_cost None !virt_root 
-                             self_id ptree
+                             Ptree.assign_root_to_connected_component 
+                                self_id !virt_root tree_cost None ptree
                          in
                          (Tree.Continue, ptree)
                      end

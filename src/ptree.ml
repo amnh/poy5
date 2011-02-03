@@ -2230,24 +2230,6 @@ let get_handle_cost adjusted ptree handle_id =
     | `Unadjusted -> res.component_cost
     | `Adjusted -> res.adjusted_component_cost
 
-let set_component_cost cost adjusted root handle_id ptree = 
-    let adjusted = select_default adjusted cost in
-    try
-        let root = { root_median = root; component_cost = cost;
-        adjusted_component_cost = adjusted } in 
-        let new_comp = 
-            All_sets.IntegerMap.add handle_id root ptree.component_root 
-        in
-        { ptree with component_root = new_comp }
-    with
-    | Not_found ->
-            let root = { root_median = root; component_cost = cost;
-            adjusted_component_cost = adjusted } in
-            let new_comp =
-                All_sets.IntegerMap.add handle_id root ptree.component_root 
-            in
-            { ptree with component_root = new_comp; }
-
 let get_leaves_ids ?(init=[]) root t =
     pre_order_node_visit
         (fun parent node_id acc ->
