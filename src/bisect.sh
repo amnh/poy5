@@ -9,6 +9,14 @@ if [$CHAGESET1 = ""]
 then CHANGESET1=773 
 fi
 
+#ensure that the repo has no modifications
+if 
+    hg status -m 
+then
+    echo "Please push/revert changes in current revision."
+    exit 0
+fi
+
 # reset the bisect functionality
 hg bisect --reset
 # set the lower bound; good
