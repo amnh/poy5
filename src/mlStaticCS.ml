@@ -466,7 +466,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 `Set (List.map2 (make_single) (Array.to_list mine.codes) r)
             }
         --)
-    and model_data = MlModel.to_formatter alphabet mine.model in
+    and model_data = MlModel.to_formatter mine.model in
     (PXML
         (* tag *)
         -[Xml.Characters.likelihood]

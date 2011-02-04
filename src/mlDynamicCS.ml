@@ -180,15 +180,70 @@ let leaf_sequences t = match t.data with
             (t.codes)
             (r.mpl_ss)
 
-
-
 (*---- to formatter, and printing functions *)
-let to_formatter attr t par_opt bl d = match t.data with
-    | FPAlign r     -> failwith_todo "to_formatter"
-    | MPLAlign r    -> failwith_todo "to_formatter" 
+
+let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list = 
+    let str_time = function | Some x -> `Float x | None -> `String "None" in
+    match mine.data with
+    | FPAlign r     ->
+        let model_d = MlModel.to_formatter (static_model mine) in
+        let alphabet= alph mine in
+        let seq_f () =
+            let seq_lst = 
+                Array.fold_left
+                    (fun acc s ->
+                        s --> FloatSequence.FloatAlign.seq_of_s
+                          --> Sequence.del_first_char
+                          --> fun x -> (Sequence.to_formater x alphabet)::acc)
+                    []
+                    r.fp_ss
+            in
+            String.concat "#" seq_lst
+        in
+        let seq_d = 
+            (PXML
+                -[Xml.Characters.likelihood]
+                    ([Xml.Characters.name] = [`String (Data.code_character mine.code d)])
+                    ([Xml.Characters.llike] = [`Float mine.cost])
+                    ([Xml.Nodes.min_time] = [str_time t1])
+                    ([Xml.Nodes.oth_time] = [str_time t2])
+                    ([attr])
+                    { `Fun seq_f }
+                --)
+        in
+        model_d @ [seq_d]
+
+    | MPLAlign r    ->
+        let model_d = MlModel.to_formatter (static_model mine) in
+        let alphabet= alph mine in
+        let seq_f () =
+            let seq_lst = 
+                Array.fold_left
+                    (fun acc s ->
+                        s --> FloatSequence.MPLAlign.seq_of_s
+                          --> Sequence.del_first_char
+                          --> fun x -> (Sequence.to_formater x alphabet)::acc)
+                    []
+                    r.mpl_ss
+            in
+            String.concat "#" seq_lst
+        in
+        let seq_d = 
+            (PXML
+                -[Xml.Characters.likelihood]
+                    ([Xml.Characters.name] = [`String (Data.code_character mine.code d)])
+                    ([Xml.Characters.llike] = [`Float mine.cost])
+                    ([Xml.Nodes.min_time] = [str_time t1])
+                    ([Xml.Nodes.oth_time] = [str_time t2])
+                    ([attr])
+                    { `Fun seq_f }
+                --)
+        in
+        model_d @ [seq_d]
+
     | Integerized r -> 
         begin match r.ia with
-            | Some r -> MlStaticCS.to_formatter attr r bl d
+            | Some r -> MlStaticCS.to_formatter attr r (t1,t2) d
             | None   -> failwith "MlDynamicCS.to_formatter does not have an implied alignment"
         end
 

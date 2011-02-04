@@ -1262,7 +1262,7 @@ let reroot_at_outgroup run =
         | Some outgroup ->
                try let nbr = Ptree.get_parent outgroup ptree in
                    let ptree, update =
-                       TreeOps.reroot_fn None true (Tree.Edge (outgroup, nbr)) ptree in
+                       TreeOps.reroot_fn None false (Tree.Edge (outgroup, nbr)) ptree in
                    let ptree = TreeOps.incremental_uppass ptree update in
                    ptree
                with _ -> ptree

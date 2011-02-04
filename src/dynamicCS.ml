@@ -682,13 +682,14 @@ let to_single ref_codes root parent mine time =
         let prev_cost, new_cost, median = SeqCS.to_single parent mine in
         prev_cost, new_cost, SeqCS median
     | MlCS parent, MlCS mine ->
+        let min_bl = MlStaticCS.minimum_bl () in
         let parent = match root with
             | None          -> parent
             | Some (MlCS x) -> x
             | _             -> assert false
         and time = match time with
-            | Some x -> x
-            | None -> failwith "DynamicCS.to_single no branch lengths"
+            | Some x -> max min_bl x
+            | None   -> failwith "DynamicCS.to_single no branch lengths"
         in
         let p_cost, n_cost, med = MlDynamicCS.to_single parent mine time in
         p_cost, n_cost, MlCS med
