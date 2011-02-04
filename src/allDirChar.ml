@@ -2069,23 +2069,11 @@ module F : Ptree.Tree_Operations
             handle, parent
         in
         let ptree = 
-            let n_root,ptree = create_lazy_edge true None true ptree v h in
-            let n_root =
-                let tmp = [{ AllDirNode.lazy_node = n_root;
-                                              dir = Some (v,h);
-                                             code = ~-1; }]
-                in
-                { AllDirNode.adjusted=tmp; AllDirNode.unadjusted=tmp }
-            in
-            (* assign the root and cost *)
-            let check_cost = check_cost ptree handle (Some (n_root,`Edge (v,h))) in
-            (* info_user_message "join (%d,%d) cost: %f%!" v h check_cost; *)
-            ptree 
-                --> Ptree.remove_root_of_component handle
-                --> Ptree.remove_root_of_component parent
-                --> refresh_all_edges true (Some n_root) true (Some (v,h))
-                --> Ptree.assign_root_to_connected_component 
-                            handle (Some (`Edge (v,h),n_root)) check_cost None
+            ptree --> Ptree.remove_root_of_component handle
+                  --> refresh_all_edges false None true (Some (v,h))
+        in
+        let ptree = 
+            add_component_root ptree handle (create_root v h ptree)
         in
         if debug_join_fn then verify_roots ptree;
         ptree, tree_delta
