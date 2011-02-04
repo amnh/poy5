@@ -1303,7 +1303,7 @@ let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
         | None   -> failwith "No characters selected for likelihood model"
     in
     let u_gap = match String.uppercase (fst gap) with (* put in MLModel?? *)
-                | "MISSING" -> false 
+                | "" | "MISSING" -> false 
                 | "COUPLED" | "INDEPENDENT" -> true
                 | x -> failwith ("Invalid gap property: "^x)
     in
@@ -1319,7 +1319,7 @@ let static_priors_of_nexus (n:nexus) (gap) (chars) : float array =
             n.csets 
             n.characters
             (fun c -> 
-                for t = 0 to (Array.length n.matrix) do
+                for t = 0 to ((Array.length n.matrix)-1) do
                     compute_static_priors 
                         alph u_gap (priors,count,gcount) inverse n.matrix.(t).(c);
                 done;))
