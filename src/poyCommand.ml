@@ -1307,7 +1307,7 @@ let create_expr () =
                 [ ","; y = LIST1 integer_or_float SEP ",";right_parenthesis ->
                     Some (List.map float_of_string y) ]
             ];
-        ml_site_variation: 
+        ml_rates: 
             [
                 [ "gamma";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x] -> Some x | None -> None
@@ -1316,7 +1316,9 @@ let create_expr () =
                 [ "theta";":";left_parenthesis;x = INT; d = site_properties -> 
                     let d = match d with | Some [x;y] -> Some (x,y) | None -> None
                         | _ -> failwith "Improper Theta Argument" in
-                        Some (`Theta (int_of_string x, d)) ]
+                        Some (`Theta (int_of_string x, d)) ] |
+                [ "constant" -> None ] |
+                [ "none" -> None ]
             ];
         ml_priors:
             [ 
@@ -1329,8 +1331,8 @@ let create_expr () =
         ml_gap_options :
             [ [ LIDENT "missing" -> `Missing ] |
               [ LIDENT "independent" -> `Independent] |
-              [ LIDENT "coupled" -> `Coupled 0.1 ] |
-              [x = integer_or_float -> `Coupled (float_of_string x) ] ];
+              [ LIDENT "coupled" -> `Coupled 1.0 ] |
+              [ x = integer_or_float -> `Coupled (float_of_string x) ] ];
         ml_gaps:
             [
                 ["gap"; ":"; left_parenthesis; x = OPT ml_gap_options; right_parenthesis -> 
@@ -1349,7 +1351,8 @@ let create_expr () =
         ml_properties:
             [
                 [ x = ml_substitution   -> `ML_subst x] |
-                [ x = ml_site_variation -> `ML_vars  x] |
+                [ "rates";":"; left_parenthesis; x = ml_rates; right_parenthesis
+                                        -> `ML_vars  x] |
                 [ "priors";":"; left_parenthesis; x = ml_priors; right_parenthesis
                                         -> `ML_prior x] |
                 [ x = ml_gaps           -> `ML_gaps  x] |
