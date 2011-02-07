@@ -40,10 +40,11 @@ do
     # revert previous file
    hg revert poy.ml
     # ask user if this changeset is correct, and bisect based on results
-   read -p "Did the script work? (y/n/s):  "
+   read -p "Did the script work? (y/n/s|q):  "
    [ "$REPLY" != "y" ] || TYPE='-g' 
    [ "$REPLY" != "n" ] || TYPE='-b'
    [ "$REPLY" != "s" ] || TYPE='-s'
+   [ "$REPLY" != "q" ] || exit 0
     
    # bisect; and test the output in case we have finished
    if 
