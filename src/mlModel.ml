@@ -555,6 +555,7 @@ let compose model t = match model.ui with
     | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
     | None    -> compose_sym FMatrix.scratch_space model.u model.d t
 
+(* print output in our nexus format or Phyml output *)
 let output_model output nexus model set = 
     let printf format = Printf.ksprintf output format in
     let gtr_mod = ref false in
@@ -796,7 +797,6 @@ let model_to_cm model t =
     let res = Cost_matrix.Two_D.of_list ~suppress:true llst model.alph_s in
     res
 
-(* print output in our nexus format or Phyml output *)
 (* ------------------------------------------------ *)
 (* CONVERSION/MODEL CREATION FUNCTIONS             *)
 
@@ -862,7 +862,7 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "MAL" -> `MAL
         | "FLK" -> `FLK
         | "ILK" -> `ILK
-        | ""    -> `MPL (* unmentioned default *)
+        | ""    -> `MAL (* unmentioned default *)
         | x     -> 
             failwith ("I don't know "^x^" as a cost mode for likelihood.")
     and variation = match String.uppercase var with
