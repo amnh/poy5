@@ -2501,6 +2501,19 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let results = (new_encodings,filecontents,trees) in
         results
 
+    let remove_opening_gap (alph_enc,species,trees) :
+              (Alphabet.a * Parser.OldHennig.Encoding.s) array 
+            * (FileContents.t array * string) list
+            * (string option * Tree.Parse.tree_types list) list =
+        let ae = Array.sub alph_enc 2 ((Array.length alph_enc)-2)
+        and species = 
+            List.map 
+                (fun (file,name) -> 
+                    Array.sub file 2 ((Array.length file)-2),name)
+                (species)
+        in
+        (ae,species,trees)
+
 
     let update_ia_encodings (encs, species, trees) =
         let add_states int acc =
@@ -2549,11 +2562,12 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 | [single] -> single
                 |    _     -> failwith "Disjoint tree in static approx"
         in
+        let res = remove_opening_gap res in
         let (a, b, c) =
             if remove_non_informative then update_ia_encodings res
             else res
         in
-        (* print_contents_of_parser_compatible res;*)
+        print_contents_of_parser_compatible res;
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
@@ -2656,22 +2670,22 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
         let codes = get_char_codes chars data in
         let names = List.map (fun x -> Data.code_character x data) codes in
         let all_to_add = 
-            List.fold_left (fun acc code -> 
-                let prefix = Data.code_character code data in
-                let _, ia =
-                    aux_create_implied_alignment filter_fn [code] data tree 
-                in
-                (* List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
-                assert (1 = List.length ia);
-                let ia = List.hd ia in
-                let separator = ":ia:" in
-                let res = 
-                    to_static_character ~separator disjoint 
-                            remove_noninformative prefix ia data
-                in
-                (Some code, res) :: acc )
-            []
-            codes
+            List.fold_left 
+                (fun acc code -> 
+                    let prefix = Data.code_character code data in
+                    let _, ia =
+                        aux_create_implied_alignment filter_fn [code] data tree 
+                    in
+                    List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;
+                    let ia = match ia with | [x] -> x |  _  -> assert false in
+                    let separator = ":ia:" in
+                    let res = 
+                        to_static_character ~separator disjoint 
+                                remove_noninformative prefix ia data
+                    in
+                    (Some code, res) :: acc)
+                []
+                codes
         in
         let d = Data.add_multiple_static_parsed_file data all_to_add in
         let d = Data.remove_absent_present_encodings d in
