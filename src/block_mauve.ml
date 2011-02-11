@@ -119,7 +119,7 @@ type lcb = {
 (*if the coverR = (length of subseq in lcb/total length of seq) of some lcb is low than this, it's a light-weight lcb*)
 let minimum_cover_ratio = ref 0.0020
 (*we stop looking for other lcbs when cover ratio is bigger than this number*)
-let maximum_cover_ratio = ref 0.99
+let maximum_cover_ratio = ref 0.9
 (*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
 * than this*)
 let minimum_lcb_ratio = ref 30.0
@@ -3910,7 +3910,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     minimum_cover_ratio := min_cover_ratio ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
@@ -4199,7 +4199,7 @@ requires the original codearr, call [to_ori_code] to transform
 * *)
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
