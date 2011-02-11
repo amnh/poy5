@@ -3384,7 +3384,7 @@ let debug = false in
         seqNO right k_seedNO klen 
         ori k_extsign k_size seed2pos_tbl mum_tbl;
     ) k_milst;
-    List.filter (fun (pre_j,_)-> pre_j<>pre_jseedNO) previous_k_lst
+    List.filter (fun (pre_j,_,_)-> pre_j<>pre_jseedNO) previous_k_lst
 
 
 
@@ -3451,12 +3451,12 @@ previous_k_lst =
             (* mi and mj are both extendable=0, there will be at most two subseq 
             * for mk, one in seqNO=0, one in seqNO=1 . 
             * also there won't be more than 1 prev_k record fit this*)
-            let pre_jseedNO,pre_kposlst = 
-                try (List.find (fun (pre_j,_) -> pre_j = jseedNO)) previous_k_lst 
-                with | Not_found -> (0,[])
+            let pre_jseedNO,pre_kposlst,pre_jmumseq = 
+                try (List.find (fun (pre_j,_,_) -> pre_j = jseedNO)) previous_k_lst 
+                with | Not_found -> (0,[],[||])
             in
             if debug then
-                    List.iter (fun (pre_j,kposlst) ->
+                    List.iter (fun (pre_j,kposlst,_) ->
                             Printf.printf "jseed=%d,%!" pre_j;
                             List.iter (fun kpos ->
                                 Printf.printf "(%d,%d,%d,%d)%!"
@@ -3465,13 +3465,17 @@ previous_k_lst =
                             ) kposlst;
                             Printf.printf "\n%!";
                     ) previous_k_lst;
+            let ori_jmumseq =
+                if (Array.length pre_jmumseq)>(Array.length j_mumseq) then
+                    pre_jmumseq else j_mumseq
+            in
             let current_k_lst =
                 if (pre_jseedNO<>0) then 
                 update_k_seed_lst pre_jseedNO previous_k_lst 
-                pre_kposlst k_pos j_mumseq trim_from_left weight_reduce 
+                pre_kposlst k_pos ori_jmumseq trim_from_left weight_reduce 
                 pos2seed_tbl1 pos2seed_tbl2 seed2pos_tbl mum_tbl
                 else  
-                    previous_k_lst@[(jseedNO,[k_pos])] 
+                    previous_k_lst@[(jseedNO,[k_pos],ori_jmumseq)] 
             in
             if debug then Printf.printf "end of update tables,add new kseed 2 acclst \n%!";
             current_k_lst,false
