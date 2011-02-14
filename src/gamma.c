@@ -21,8 +21,11 @@
 #include <string.h> /* memcpy, memset */
 #include <assert.h>
 
-#include "config.h"
+#include "config.h" //defines if likelihood, use_.., et cetera
 #include <math.h>   //log,exp
+
+//caml specific headers
+#include <caml/alloc.h>     //copy_double, et cetera
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/bigarray.h>
