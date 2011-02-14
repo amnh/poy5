@@ -1169,9 +1169,11 @@ let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array =
     let size = if u_gap then (Alphabet.size alph) else (Alphabet.size alph)-1 in
     let gap_contribution = (float_of_int gcount) /. (float_of_int size) in
     let gap_char = Alphabet.get_gap alph in
-    Printf.printf "Computed Priors of %d char + %d gaps: " count gcount;
-    Array.iter (Printf.printf "|%f") freq_;
-    Printf.printf "|]\n%!";
+    if debug then begin
+        Printf.printf "Computed Priors of %d char + %d gaps: " count gcount;
+        Array.iter (Printf.printf "|%f") freq_;
+        Printf.printf "|]\n%!";
+    end;
     let final_priors = 
         if u_gap then begin
             let total_added_gaps =
@@ -1189,11 +1191,12 @@ let compute_priors (alph,u_gap) freq_ (count,gcount) lengths : float array =
         end
     in
     let sum = Array.fold_left (fun a x -> a +. x) 0.0 final_priors in
-    Printf.printf "Final Priors (%f): [" sum;
-    Array.iter (Printf.printf "|%f") final_priors;
-    Printf.printf "|]\n%!";
+    if debug then begin 
+        Printf.printf "Final Priors (%f): [" sum;
+        Array.iter (Printf.printf "|%f") final_priors;
+        Printf.printf "|]\n%!";
+    end;
     final_priors
-
 
 let add_gap_to_model compute_priors model = 
     Status.user_message Status.Warning dyno_likelihood_warning;

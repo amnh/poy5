@@ -33,6 +33,13 @@ let output_warning = Status.user_message Status.Warning
 let output_info = Status.user_message Status.Information
 let failwithf format = Printf.ksprintf failwith format
 
+let output_errorf format = 
+    Printf.ksprintf (Status.user_message Status.Error) format
+let output_warningf format = 
+    Printf.ksprintf (Status.user_message Status.Warning) format
+let output_infof format = 
+    Printf.ksprintf (Status.user_message Status.Information) format
+
 let debug_kolmo = false
 
 type dynhom_opts = 
@@ -866,7 +873,7 @@ let rec aux_add_synonym stack data (a, b) =
     (* We need to check if [a] already has an assigned synonym *)
     if (a = b) then begin
         let msg = String.concat " to " (a :: (List.rev (b :: stack))) in
-        Status.user_message Status.Warning ("I'm ignoring the self-synonym "^msg);
+        output_warningf "I'm@ ignoring@ the@ self-synonym@ %s.@" msg;
         data
     end else if All_sets.StringMap.mem a data.synonyms then begin
         (* Hum ... so we do have a synonym, we need now to check if [(a, b)]
@@ -874,13 +881,7 @@ let rec aux_add_synonym stack data (a, b) =
          * otherwise this is an exception *)
         let cur = All_sets.StringMap.find a data.synonyms in
         if cur <> b then begin
-            let _ =
-                let msg = 
-                    "@[Overriding@ synonym:@ " ^ a ^ "@ to@ " ^
-                    cur ^ "@ will@ now@ map@ to@ " ^ b ^ "@]" 
-                in
-                output_error msg
-            in
+            output_errorf "@[Overriding@ synonym:@ %s@ to@ %s@ will@ now@ map@ to@ %s@]" a cur b;
             if All_sets.StringMap.mem b data.synonyms then 
                 aux_add_synonym (b :: stack) data 
                 (a, All_sets.StringMap.find b data.synonyms)
@@ -904,20 +905,17 @@ let add_synonyms_file data file =
         let syns = Parser.Dictionary.of_channel_assoc ch in
         close_in ch;
         let len = List.length syns in
-        let msg = 
-            "@[The@ file@ " ^ StatusCommon.escape file ^ 
-            "@ contains@ " ^ string_of_int len ^ "@ synonyms.@]"
-        in
-        Status.user_message Status.Information msg;
+        output_infof "@[The@ file@ %s@ contains@ %d@ synonyms.@]"
+                     (StatusCommon.escape file) len;
         List.fold_left ~f:add_synonym ~init:data syns
     with
     | (Sys_error err) as exn ->
-            let file = FileStream.filename file in
-            let msg = "@[Couldn't@ open@ file@ " ^ file ^ "@ to@ load@ the@ " ^
-            "list@ of@ synonyms.@ @ The@ system@ error@ message@ is@ " ^ err ^
-            ".@]" in
-            output_error msg;
-            raise exn
+        output_errorf
+            ("@[Couldn't@ open@ file@ %s@ to@ load@ the@ list@ of@ "^^
+             "synonyms.@ @ The@ system@ error@ message@ is@ %s.@]")
+            (FileStream.filename file)
+            (err);
+        raise exn
 
 let warn_if_repeated_and_choose_uniquely list str file =
     let repeated, selected = 
@@ -931,19 +929,21 @@ let warn_if_repeated_and_choose_uniquely list str file =
     if total > 0 then
         if total = 1 then
             let item = All_sets.Strings.choose repeated in
-            Status.user_message Status.Error
-            (StatusCommon.escape item ^ 
-            "@ is@ duplicated@ in@ the@ " ^ StatusCommon.escape str ^ 
-            "@ " ^ StatusCommon.escape file)
+            output_errorf
+                "%s@ is@ duplicated@ in@ the@ %s@ %s"
+                (StatusCommon.escape item)
+                (StatusCommon.escape str)
+                (StatusCommon.escape file)
         else begin
             let message, _ = 
-                All_sets.Strings.fold (fun item (str, cnt) ->
-                    if cnt = 0 then str ^ item, 1
-                    else str ^ ",@ " ^ item, 1) 
-                repeated
-                (("The@ following@ items@ are@ duplicated@ in@ " ^
-                "@ the@ " ^ StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file 
-                ^ ":@ "), 0)
+                All_sets.Strings.fold 
+                    (fun item (str, cnt) ->
+                        if cnt = 0 then str ^ item, 1
+                        else str ^ ",@ " ^ item, 1) 
+                    (repeated)
+                    (("The@ following@ items@ are@ duplicated@ in@ " ^
+                      "@ the@ " ^ StatusCommon.escape str ^ "@ " ^ StatusCommon.escape file
+                     ^":@ "), 0)
             in
             Status.user_message Status.Warning message
         end
@@ -1029,7 +1029,9 @@ let branches_to_map data initial_table branch_table trees =
                 try
                     let t_code = All_sets.StringMap.find x data.taxon_names in
                     All_sets.Integers.add t_code (All_sets.Integers.empty)
-                with Not_found -> failwithf "Cannot find taxon name %s" x
+                with Not_found -> 
+                    output_errorf "While parsing tree, I cannot find taxon name %s in read data." x;
+                    raise Not_found
             in
             (single_set,add_single t_name single_set (f_ext dat) mapp)
         | Tree.Parse.Nodep (xs,(_,dat)) ->
