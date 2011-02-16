@@ -20,6 +20,7 @@
 let (-->) a b = b a
 let debug_mem = false
 let debug_aln = false
+let use_cost_fn = false
 let use_align = true
 let failwithf format = Printf.ksprintf (failwith) format
 
@@ -62,6 +63,13 @@ and print_barray2 a =
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
 
+and print_matrix a = 
+     for i = 0 to (Array.length a)-1 do 
+        for j = 0 to (Array.length a.(i))-1 do
+            Printf.printf "%2.10f\t" (fst a.(i).(j) );
+        done; Printf.printf "\n"; 
+    done; Printf.printf "\n"; ()
+
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
@@ -85,8 +93,10 @@ module type A = sig
     val print_raw   : s -> unit
     val print_cm    : dyn_model -> float -> unit
 
-    (* cost matrix; maps states to their cost and possible states *)
-    val get_cm : dyn_model -> float -> float -> (int -> int -> float * int)
+    (* cost matrix/function; maps states to their cost and possible assignments *)
+    val get_cf : dyn_model -> float -> float -> (int -> int -> float * int)
+    val get_cm : dyn_model -> float -> float -> (float * int) array array
+    val cost   : dyn_model -> float -> float -> (int -> int -> float * int)
 
     (* 2d operations *)
     val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float -> float -> floatmem -> float
@@ -226,9 +236,22 @@ module FloatAlign : A = struct
                     y_i pp_ilst (MlModel.list_of_packed y_i);
             cst /. (float_of_int n)
 
-    let get_cm m t1 t2 = 
+    let get_cm model tx ty = 
+        let f = create_align_cost_fn model tx ty in
+        let s = Alphabet.distinct_size model.alph in
+        let m = Array.make_matrix s s (~-.1.0,0) in
+        for i = 0 to (Array.length m)-1 do
+            for j = i to (Array.length m.(i))-1 do
+                let cost = f (i+1) (j+1) in
+                m.(i).(j) <- cost, (i+1) lor (j+1);
+                m.(j).(i) <- cost, (i+1) lor (j+1);
+            done;
+        done;
+        m
+
+    let get_cf m t1 t2 = 
         let f = create_align_cost_fn m t1 t2 in
-        (fun a b -> f a b, a land b)
+        (fun a b -> f a b, a lor b)
 
     (* p is single; m is not; find in m the least cost to p *)
     let get_closest model t =
@@ -258,12 +281,18 @@ module FloatAlign : A = struct
             assert( state <> ~-1 );
             res,cst)
 
+    let cost m tx ty = 
+        if use_cost_fn then
+            let cm = get_cm m tx ty in 
+            (fun a b -> cm.(a-1).(b-1))
+        else 
+            get_cf m tx ty
 
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
     let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
-        let cost = create_align_cost_fn m tx ty in
+        let cost = let cf = cost m tx ty in (fun a b -> fst (cf a b) ) in
         let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
@@ -339,7 +368,7 @@ module FloatAlign : A = struct
         let gap = Alphabet.get_gap m.alph in
 
         (* Obtain the cost matrix for the alignment *)
-        let cost_fn = create_align_cost_fn m tx ty in
+        let cost_fn = let cm = cost m tx ty in (fun a b -> fst (cm a b)) in
 
         (* A general function to calculate the barrier of k; this is the length
          * of the horizontal and vertical bands that build the diagonal strip. *)
@@ -545,8 +574,6 @@ module FloatAlign : A = struct
         match deltaw with
         | Some uk_max -> ukkonen_align_2 ~uk_max mem s1 s2 model t1 t2
         | None        -> ukkonen_align_2 mem s1 s2 model t1 t2
-
-    
 
     let full_median_2 s1 s2 model t1 t2 mem : s =
         if debug_mem then clear_mem mem;
@@ -810,42 +837,63 @@ module MPLAlign : A = struct
             mat1,mat2
         in
         (* find the cost of median state [me] from [xe] and [ye] *)
-        let med_cost xe ye me = cost1.{xe,me} +. cost2.{ye,me} in
         (* return function to calculate costs of polymorphisms *)
         fun x_i y_i ->
-            let xs = MlModel.list_of_packed x_i 
+            let med_cost xe ye me =
+                try cost1.{xe,me} +. cost2.{ye,me}
+                with | _ ->
+                    failwithf "Error looking up %d/%d -> %d; size/gap: %d/%d from (%d/%d)"
+                               xe ye me (Bigarray.Array2.dim1 cost1)
+                               (Alphabet.get_gap m.alph) x_i y_i;
+            in
+            let xs = MlModel.list_of_packed x_i
             and ys = MlModel.list_of_packed y_i in
-            let cst,states = 
-                List.fold_left 
+            let cst,states =
+                List.fold_left
                     (fun acc x ->
-                        List.fold_left 
+                        List.fold_left
                             (fun acc y ->
                                 let c_min = ref acc in
                                 for i = 0 to (m.static.MlModel.alph_s)-1 do
                                     let c = med_cost x y i in
-                                    if c < (fst !c_min) then 
+                                    if c < (fst !c_min) then
                                         c_min := (c,[i])
-                                    else if (fst !c_min) =. c then 
+                                    else if (fst !c_min) =. c then
                                        c_min := (c, i::(snd !c_min))
                                 done;
                                 !c_min)
-                            acc 
+                            acc
                             ys)
                     (infinity,[])
                     xs
             in
             if debug_aln then begin
                 let packed = List.fold_left (fun acc x -> (1 lsl x) + acc) 0 states in
-                Printf.printf "Cost: %d(%a) ->%f(%d)<- %d(%a)\n%!" 
+                Printf.printf "Cost: %d(%a) ->%f(%d)<- %d(%a)\n%!"
                     x_i pp_ilst (MlModel.list_of_packed x_i) cst packed
                     y_i pp_ilst (MlModel.list_of_packed y_i);
             end;
-            match classify_float cst with
-            | FP_infinite | FP_nan -> 
+            match classify_float cst, states with
+            | _, [] ->
+                failwithf "%d -(%f-%f)- %d: has no median" x_i t1 t2 y_i
+            | FP_infinite, _ | FP_nan, _ ->
                 failwithf "%d -- %d: returned infinite cost (%f,%f)" x_i y_i t1 t2
-            | _ -> cst, MlModel.packed_of_list states
+            | _, _  -> cst, MlModel.packed_of_list states
 
-    let get_cm m t1 t2 = create_mpl_cost_fn m t1 t2
+    let get_cm model tx ty =
+        let f = create_mpl_cost_fn model tx ty in
+        let s = Alphabet.distinct_size model.alph in
+        let m = Array.make_matrix s s (~-.1.0,0) in
+        for i = 0 to (Array.length m)-1 do
+            for j = i to (Array.length m.(i))-1 do
+                let cost_state = f (i+1) (j+1) in
+                m.(i).(j) <- cost_state;
+                m.(j).(i) <- cost_state;
+            done;
+        done;
+        m
+
+    let get_cf m t1 t2 = create_mpl_cost_fn m t1 t2
 
     (* p is single; m is not; find in m the least coast to p *)
     let get_closest model t =
@@ -882,11 +930,19 @@ module MPLAlign : A = struct
             assert( state <> ~-1 );
             res,cst)
 
+    let cost m tx ty = 
+        if use_cost_fn then
+            let cm = get_cm m tx ty in 
+            (fun a b -> cm.(a-1).(b-1) )
+        else 
+            let cf = create_mpl_cost_fn m tx ty in
+            (fun a b -> cf a b)
+
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
     let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
-        let cost = create_mpl_cost_fn m tx ty in
+        let cost = let mat = get_cm m tx ty in (fun a b -> mat.(a-1).(b-1)) in
         let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
@@ -1247,7 +1303,9 @@ module MPLAlign : A = struct
                 else s2,s1,t2,t1 
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
-        c,backtrace model mem s1 s2
+        let b = backtrace model mem s1 s2 in
+        print_s b model.alph; print_newline ();
+        c,b
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
 
@@ -1421,8 +1479,32 @@ module MALAlign : A = struct
                     y_i pp_ilst (MlModel.list_of_packed y_i);
             ~-. (log cst)
 
+    let memoize_cost_fn m tx ty = 
+        let f = create_align_cost_fn m tx ty in
+        let s = Alphabet.distinct_size m.alph in
+        let m = Array.make_matrix s s ~-.1.0 in
+        for i = 0 to (Array.length m)-1 do
+            for j = i to (Array.length m.(i))-1 do
+                let cost = 
+                    try f (i+1) (j+1) 
+                    with | _ -> failwithf "Error in calculating %d -- %d" (i+1) (j+1)
+                in
+                m.(i).(j) <- cost;
+                m.(j).(i) <- cost;
+            done;
+        done;
+        m
+
+    let basic_cost m tx ty = 
+        if use_cost_fn then
+            let cm = memoize_cost_fn m tx ty in 
+            (fun a b -> cm.(a-1).(b-1) )
+        else 
+            let cf = create_align_cost_fn m tx ty in
+            (fun a b -> cf a b)
+
     let dyn_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
-        let cost    = create_align_cost_fn m tx ty in
+        let cost = basic_cost m tx ty in
         let gap     = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
@@ -1457,20 +1539,50 @@ module MALAlign : A = struct
         (t,c)
 
     (* functions not implemented *)
-    let print_s _ _              = failwith "not implemented"
-    let print_raw _              = failwith "not implemented"
-    let aln_cost_2 _ _ _ _       = failwith "not implemented"
-    let median_2 _ _ _ _ _ _     = failwith "not implemented"
-    let median_2_cost _ _ _ _ _ _= failwith "not implemented"
-    let full_median_2 _ _ _ _ _ _= failwith "not implemented"
-    let gen_all_2 _ _ _ _ _ _    = failwith "not implemented"
-    let closest ~p ~m _ _ _      = failwith "not implemented"
-    let get_closest _ _ ~i ~p ~m = failwith "not implemented"
-    let readjust _ _ _ _ _ _ _ _ = failwith "not implemented"
-    let get_cm _ _ _             = failwith "not implemented"
-    let full_cost_2 _ _ _ _ _ _  = failwith "not implemented"
+    let print_s _ _                 = failwith "not implemented"
+    let print_raw _                 = failwith "not implemented"
+    let aln_cost_2 _ _ _ _          = failwith "not implemented"
+    let median_2 _ _ _ _ _ _        = failwith "not implemented"
+    let median_2_cost _ _ _ _ _ _   = failwith "not implemented"
+    let full_median_2 _ _ _ _ _ _   = failwith "not implemented"
+    let gen_all_2 _ _ _ _ _ _       = failwith "not implemented"
+    let closest ~p ~m _ _ _         = failwith "not implemented"
+    let get_closest _ _ ~i ~p ~m    = failwith "not implemented"
+    let readjust _ _ _ _ _ _ _ _    = failwith "not implemented"
+    let get_cm _ _ _                = failwith "not implemented"
+    let cost _ _ _                  = failwith "not implemented"
+    let get_cf _ _ _                = failwith "not implemented"
+    let full_cost_2 _ _ _ _ _ _     = failwith "not implemented"
     let create_edited_2 _ _ _ _ _ _ = failwith "not implemented"
     let clip_align_2 ?first_gap _ _ _ _ _ = failwith "not implemented"
     let align_2 ?first_gap _ _ _ _ _ _ = failwith "not implemented"
 
 end
+
+(* a simple function to test the scores of each of the methods above *)
+let test_all str1 str2 bl1 bl2 model =
+    let seq1 = sequence_of_string str1 model.alph
+    and seq2 = sequence_of_string str2 model.alph in
+    let flk_cost, flk_opt_cost =
+        let faln1 = FloatAlign.s_of_seq seq1
+        and faln2 = FloatAlign.s_of_seq seq2 in
+        let mem   = FloatAlign.get_mem faln1 faln2 in
+        FloatAlign.cost_2 faln1 faln2 model bl1 bl2 mem,
+        snd (FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem)
+    and mpl_cost, mpl_opt_cost =
+        let dmpl1 = MPLAlign.s_of_seq seq1
+        and dmpl2 = MPLAlign.s_of_seq seq2 in
+        let mem   = MPLAlign.get_mem dmpl1 dmpl2 in
+        MPLAlign.cost_2 dmpl1 dmpl2 model bl1 bl2 mem,
+        snd (MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem)
+    and mal_cost, mal_opt_cost =
+        let dmal1 = MALAlign.s_of_seq seq1
+        and dmal2 = MALAlign.s_of_seq seq2 in
+        let mem   = MALAlign.get_mem dmal1 dmal2 in
+        MALAlign.cost_2 dmal1 dmal2 model bl1 bl2 mem,
+        snd (MALAlign.optimize dmal1 dmal2 model (bl1+.bl2) mem)
+    in
+    Printf.printf ("MAL Cost : %f\nMPL Cost : %f\nFLK Cost : %f\n%!"^^
+                   "MAL Opt Cost : %f\nMPL Opt Cost : %f\nFLK Opt Cost : %f\n%!")
+                  mal_cost     mpl_cost     flk_cost
+                  mal_opt_cost mpl_opt_cost flk_opt_cost
