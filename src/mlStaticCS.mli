@@ -128,15 +128,15 @@ external filter: s -> int array -> s = "likelihood_CAML_filter"
  * compares two sets, returns -1,0,1 depending on which set is larger *)
 external compare_chars: s -> s -> int = "likelihood_CAML_compare"
 
-(* report the minimum branch length allowed *)
-external minimum_bl: unit -> float = "likelihood_CAML_minimum_bl"
-
 (** calculates the proporation of similarity between two sequences *)
 external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
 (** [estimate_time a b ] -> time
 * estimates the time between two nodes using proporation (above) *)
 val estimate_time : t -> t -> float * float
+
+(** [minimum_bl ] return the minimum branch length allowed for edges *)
+val minimum_bl : unit -> float
 
 (** [gc_alloc_max] -> how many nodes to alloc before a GC is triggered *)
 external gc_alloc_max : int -> unit = "likelihood_GC_custom_max"
@@ -243,6 +243,7 @@ val get_model : t -> MlModel.model
 ELSE
 
 val likelihood_error : string
+val minimum_bl : unit -> float
 
 END
 

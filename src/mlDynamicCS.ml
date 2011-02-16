@@ -679,7 +679,7 @@ let prior a =
                             List.fold_left
                                 (fun (acc,n) i -> acc +. priors.{i},n+1)
                                 (0.0,0)
-                                (MlModel.list_of_packed i)
+                                (BitSet.list_of_packed i)
                         in
                         (~-. ((log c_pi) -. (log (float len)))) +. acc
                     end)
@@ -700,7 +700,7 @@ let prior a =
                             List.fold_left
                                 (fun acc i -> max acc priors.{i})
                                 (0.0)
-                                (MlModel.list_of_packed i)
+                                (BitSet.list_of_packed i)
                         in
                         (~-. (log c_pi)) +. acc
                     end)

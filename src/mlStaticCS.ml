@@ -209,6 +209,8 @@ let get_model a = a.model
 
 (* ------------------------------------------------------------------------- *)
 (* initial estimation functions --jc69 *)
+let minimum_bl () = minimum_bl ()
+
 let min_bl = minimum_bl ()
 let estimate_time a b = 
     let p = match (1.0 -. (proportion a.chars b.chars)) with
@@ -589,6 +591,9 @@ ELSE
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
+
+
+let minimum_bl () = failwith likelihood_error
 
 type t = unit
 END

@@ -605,8 +605,7 @@ let remove_comments string =
     Buffer.contents b
 
 
-let process_matrix labels style (matrix : static_state array array)  taxa 
-characters get_row_number assign_item data =
+let process_matrix labels style matrix taxa characters get_row_number assign_item data =
     let concat lst = 
         match style with
         | `None -> String.concat "" lst
@@ -715,16 +714,23 @@ characters get_row_number assign_item data =
                         false
     in
     let consume_spaces stream =
+        let found = ref false in
         while is_space stream do
+            found := true;
             Stream.junk stream
-        done
+        done;
+        !found
     in
     let get_name =
         let taxa_len = Array.length taxa in
         if not labels then 
             let cntr = ref (-1) in
             (fun stream -> incr cntr; 
-                consume_spaces stream;
+                let pre_spaced = consume_spaces stream in
+                if not pre_spaced then
+                    Status.user_message Status.Warning
+                        ("Taxon Code "^(string_of_int !cntr)^" may be read"
+                         ^" wrong; check the previous taxons character length.");
                 if !cntr = taxa_len then 
                     (* If we are at the end of the stream, we are just
                     * fine, so we attempt to provoque an End of File
@@ -740,13 +746,17 @@ characters get_row_number assign_item data =
                 | None -> failwith "Taxon undefined")
         else 
             (fun stream ->
-            consume_spaces stream;
-            let b = Buffer.create 13 in
-            while not (is_space stream) do
-                Buffer.add_char b (Stream.next stream)
-            done;
-            let name = Buffer.contents b in
-            name)
+                let pre_spaced = consume_spaces stream in
+                let b = Buffer.create 13 in
+                while not (is_space stream) do
+                    Buffer.add_char b (Stream.next stream)
+                done;
+                let name = Buffer.contents b in
+                if not pre_spaced then
+                    Status.user_message Status.Warning
+                        ("Taxon "^name^" may be read wrong; "
+                         ^"check the previous taxons character length.");
+                name)
     in
     let rec taxon_processor x position =
         match x with
@@ -758,7 +768,7 @@ characters get_row_number assign_item data =
                     | (-1) -> first_taxon := x
                     | _ -> ()
                 in
-                consume_spaces stream;
+                ignore (consume_spaces stream);
                 taxon_processor (Some x) 0
             with
             | Stream.Failure 
@@ -826,11 +836,12 @@ let add_prealigned_characters file chars (acc:nexus) =
     let () =
         (* We first update the names of the characters *)
         let cnt = ref start_position in
-        List.iter (fun x ->
-            let spec = characters.(!cnt) in
-            characters.(!cnt) <-  { spec with st_name = x };
-            incr cnt) 
-        chars.P.char_charlabels
+        List.iter 
+            (fun x ->
+                let spec = characters.(!cnt) in
+                characters.(!cnt) <-  { spec with st_name = x };
+                incr cnt) 
+            chars.P.char_charlabels
     in
     let () = 
         (* Now we update the states labels *)
@@ -1338,7 +1349,7 @@ let unaligned_priors_of_seq alph xsssts =
                     total := (Sequence.length x) - 1 + !total;
                     counter := (Sequence.length x) - 1 + !counter;
                     for i = 1 (* skip initial gap *) to (Sequence.length x) - 1 do
-                        let lst = MlModel.list_of_packed (Sequence.get x i) in
+                        let lst = BitSet.list_of_packed (Sequence.get x i) in
                         let inv = 1.0 /. (float_of_int (List.length lst)) in
                         List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                     done))) xsss;
@@ -1521,10 +1532,13 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
 let process_parsed file parsed : nexus =
     (* Some blocks require others to perform properly/efficently (without
        changing a large section of the code-base, or delaying computation in
-       inappropriate sections of the code. Following are the current
+       inappropriate sections of the code). Following are the current
        dependencies,
 
-            - Characters/Unaligned < Poy 
+                   | depends on      | because 
+        -----------+-----------------+---------------------
+        POY        | Characters      | calculating priors
+        POY        | Unaligned       | calculating priors 
     *)
     let sorter a b = match a,b with
         | P.Characters _, P.Poy _ ->   1
@@ -1533,14 +1547,14 @@ let process_parsed file parsed : nexus =
         | P.Poy _, P.Unaligned _  -> ~-1
         | _, _                    ->   0 (* keep everything else in the same order *)
     in
-    List.fold_left (process_parsed_elm file) 
-                   (empty_parsed ()) 
+    List.fold_left (process_parsed_elm file)
+                   (empty_parsed ())
                    (List.stable_sort sorter parsed)
 
 
 let of_channel ch file =
     (* Parse the file *)
-    let parsed = 
+    let parsed =
         let res = ref [] in
         let lex = Lexing.from_channel ch in
         try
@@ -1553,14 +1567,14 @@ let of_channel ch file =
         with
         | Lexer.Eof -> List.rev !res
     in
-    let ret = 
+    let ret =
         let a = process_parsed file parsed in
         (* Now it is time to correct the order of the terminals to 
         * guarantee the default rooting of the tree. *)
-        let tlen = Array.length a.taxa 
+        let tlen = Array.length a.taxa
         and mlen = Array.length a.matrix in
         assert (tlen >= mlen);
-        let taxa = Array.init tlen (fun x -> a.taxa.(tlen - x - 1)) 
+        let taxa = Array.init tlen (fun x -> a.taxa.(tlen - x - 1))
         and matrix = Array.init mlen (fun x -> a.matrix.(mlen - x - 1)) in
         { a with taxa = taxa; matrix = matrix; }
     in

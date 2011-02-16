@@ -653,7 +653,7 @@ let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
         let m,pc,nc,ts,res = MlDynamicCS.readjust ch1 ch2 mine t1 t2 in
         if m then (modified,pc,nc,(t1,t2),(MlCS mine))
         else begin
-            let x = 
+            let x =
                 Array.fold_right
                     (fun c s -> All_sets.Integers.add c s) 
                     (MlDynamicCS.get_codes mine)
@@ -671,9 +671,9 @@ let readjust_lk mode to_adjust modified ch1 ch2 mine t1 t2 =
  * Inactive codes are eliminated from diagnosis. 
  * If p is the handle, alied_map is the root containing the aligned map between p
  * and n for chromosome stuff, else alied_map is assigned by p *)
-let to_single ref_codes root parent mine time = 
+let to_single ref_codes root parent mine time =
     match parent, mine with
-    | SeqCS parent, SeqCS mine -> 
+    | SeqCS parent, SeqCS mine ->
         let parent = match root with
             | None           -> parent
             | Some (SeqCS x) -> x
@@ -693,46 +693,46 @@ let to_single ref_codes root parent mine time =
         in
         let p_cost, n_cost, med = MlDynamicCS.to_single parent mine time in
         p_cost, n_cost, MlCS med
-    | ChromCS parent, ChromCS mine -> 
-        let root = match root with 
+    | ChromCS parent, ChromCS mine ->
+        let root = match root with
             | Some (ChromCS root) -> Some root
             | None   -> None
             | Some _ -> assert false
-        in 
-        let prev_cost, new_cost, median = 
-            ChromCS.to_single ref_codes root parent mine 
         in
-        prev_cost, new_cost, ChromCS median          
+        let prev_cost, new_cost, median =
+            ChromCS.to_single ref_codes root parent mine
+        in
+        prev_cost, new_cost, ChromCS median
     | BreakinvCS parent, BreakinvCS mine ->
-        let root = match root with 
+        let root = match root with
             | Some (BreakinvCS root) -> Some root
             | None   -> None
             | Some _ -> assert false
-        in 
-        let prev_cost, new_cost, median = 
-            BreakinvCS.to_single ref_codes root parent mine 
         in
-        prev_cost, new_cost, BreakinvCS median          
+        let prev_cost, new_cost, median =
+            BreakinvCS.to_single ref_codes root parent mine
+        in
+        prev_cost, new_cost, BreakinvCS median
     | AnnchromCS parent, AnnchromCS mine ->
-        let root = match root with 
+        let root = match root with
             | Some (AnnchromCS root) -> Some root
             | None   -> None
             | Some _ -> assert false
-        in 
-        let prev_cost, new_cost, median = 
-            AnnchromCS.to_single ref_codes root parent mine 
         in
-        prev_cost, new_cost, AnnchromCS median          
+        let prev_cost, new_cost, median =
+            AnnchromCS.to_single ref_codes root parent mine
+        in
+        prev_cost, new_cost, AnnchromCS median
     | GenomeCS parent, GenomeCS mine ->
-        let root = match root with 
+        let root = match root with
             | Some (GenomeCS root) -> Some root
             | None   -> None
             | Some _ -> assert false
-        in 
-        let prev_cost, new_cost, median = 
-            GenomeCS.to_single ref_codes root parent mine 
         in
-        prev_cost, new_cost, GenomeCS median          
+        let prev_cost, new_cost, median =
+            GenomeCS.to_single ref_codes root parent mine
+        in
+        prev_cost, new_cost, GenomeCS median
     | (SeqCS _ | GenomeCS _ | AnnchromCS _ | MlCS _ | BreakinvCS _ | ChromCS _), _ ->
         assert false
 

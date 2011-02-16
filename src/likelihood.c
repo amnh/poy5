@@ -40,6 +40,7 @@
 #include <caml/intext.h>    //serialization
 #include <caml/fail.h>      //failwith('')
 #include <caml/callback.h>
+
 #include "floatmatrix.h"
 #include "likelihood.h"     //includes floatmatrix
 
@@ -92,6 +93,7 @@ value Val_some( value v )
     Store_field( some, 0, v );
     CAMLreturn( some );
 }
+
 /** memory allocation and verification; posix memalign returns 0 on success */
 #define CHECK_MEM(a); if(a==NULL || a==0){printf("LK:failed on %d, ", __LINE__);failwith("I cannot allocate more memory.");}
 
@@ -114,13 +116,14 @@ value Val_some( value v )
  * Xt is the transpose of X
  * Xi is the inverse of X
  *
- * D is a diagonal matrix of eigenvalues
+ * D is a diagonal matrix (usually of eigenvalues)
  * U are eigenvectors (column major, Ut is rowmajor)
  * pi are the priors as a vector
+ * Dpi are the priors as a diagonal matrix
  *
- * (int) variable:
- *        n is the number of columns/size of alphabet
- *        t is the branch length
+ * variable:
+ *      n/m is the number of rows/columns or size of the alphabet
+ *      t is the branch length
  */
 
 //------------------------------------------------------------------------------
@@ -153,7 +156,6 @@ void printarrayf( const double* a, const int n )
         printf("[%6.5f] ", a[i]);
     putchar('\n');
 }
-/* prints an array horizontally */
 void printarrayi( const int* a, const int n )
 {
     int i;
@@ -161,6 +163,7 @@ void printarrayi( const int* a, const int n )
         printf("[%d] ", a[i]);
     putchar('\n');
 }
+
 /* print out a vector */
 void debug( const mll* a )
 {
@@ -172,11 +175,15 @@ void debug( const mll* a )
     }
     putchar('\n');
 }
+
 /* print out a caml value */
 void CAML_debug( value s )
 {
+    CAMLparam1( s );
     debug( ML_val( s ) );
+    CAMLreturn0;
 }
+
 /** creates a random substituation rate matrix
  * each row sums to 0 on diagonal elements */
 void rand_sub_mat_gtr( double* A, const int n)
@@ -194,6 +201,7 @@ void rand_sub_mat_gtr( double* A, const int n)
         A[i*n+i] = -diag;
     }
 }
+
 /** transpose of matrix [A] of [n]x[n], must be square */
 void transpose( double *A, const int n )
 {
@@ -207,6 +215,7 @@ void transpose( double *A, const int n )
         }
     }
 }
+
 /** creates a random symmetric sub-rate matrix
  * each row sums to 0 on diagonal elements */
 void rand_sub_mat_sym( double* A, const int n)
@@ -920,7 +929,7 @@ likelihood_CAML_compose_gtr(value tmp,value U, value D, value Ui, value t)
  * Finds half the likelihood vector of child [l] and probability matrix [P] into [nl]
  *
  *  [a] - length of each vector (in practice, the alphabet size) [P] is [a]x[a]
- *  [c] - the start of the character to do work on
+ *  [c] - the start of the character to do work on */
 #ifdef _WIN32
 __inline void 
 #else
@@ -936,43 +945,7 @@ median_h( const double* P, const double* l, const int c_start, double* tmp, cons
             elm += P[(i*a)+j] * l[c_start+j];
         tmp[i] = elm;
     }
-} */
-
-
-/* modifys the vector contained in l to the maximum value;
-void maximums (mll* l,const double* pi )
-{
-    int i, r, c, b_i, ri,ci;
-    double b_v;
-
-    ri = l->c_len * l->stride;
-    for(c = 0; c < l->c_len;++c){
-        b_v = 0.0;
-        b_i = -1;
-        for(r = 0; r < l->rates; ++r){
-            ci = (r * ri) + (c * l->stride);
-            for( i = 0; i < l->stride;++i ){
-                if( fabs((l->lv_s[ci+i]) - b_v) < EPSILON){
-                    if( pi[i] > pi[b_i] ){
-                        b_v = l->lv_s[ci+i];
-                        b_i = i;
-                    } else if (pi[i] == pi[b_i]){
-                    }
-                } else if( l->lv_s[ci+i] > b_v ){
-                    b_v = l->lv_s[ci+i];
-                    b_i = i;
-                }
-            }
-        }
-        assert( (-1 < b_i) && (l->stride > b_i) ); 
-        for( r=0;r < l->rates; ++r ){
-            ci = (r * ri) + (c * l->stride);
-            for( i=0; i < l->stride; ++i )
-                l->lv_s[ci+i] = (b_i == i)?1.0:0.0;
-        }
-    }
-} */
-
+}
 
 /* calculates the likelihood for the invariant site class */
 double
@@ -1201,17 +1174,15 @@ void
 median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
                 mll* cmll, const int rate_idx )
 {
-#ifdef __SSE3__
-    /* GENERATION III */
+
+    /* GENERATION III -- requires aligning data;
     double *a,*b,*d;
     int i,j,p_start,k,nchars,alpha;
     __m128d a_, b_, pa_, pb_, acc, acc1, acc2;
-
     //below, to make things more readable
     a = amll->lv_s; b = bmll->lv_s;   d = cmll->lv_s;
     nchars = amll->c_len;
     alpha = amll->stride;
-
     d+=rate_idx*nchars*alpha;
     for(k = 0;k < nchars;++k){
         for( j = 0,p_start=0; j < alpha; ++j ){
@@ -1251,9 +1222,7 @@ median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
             a-=(alpha-i); b-=(alpha-i);++d;
         }
         a+=alpha; b+=alpha;
-    }
-
-#else
+    } */
 
     /* GENERATION II */
     int i, j, k, c_start, p_start;
@@ -1273,7 +1242,6 @@ median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
         c_start += amll->stride;
     }
  
-#endif
     /* GENERATION I
     int i,j,len,oth;
     double *tmp2, *tmp1;

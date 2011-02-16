@@ -63,13 +63,6 @@ and print_barray2 a =
         done; Printf.printf "\n"; 
     done; Printf.printf "\n"; ()
 
-and print_matrix a = 
-     for i = 0 to (Array.length a)-1 do 
-        for j = 0 to (Array.length a.(i))-1 do
-            Printf.printf "%2.10f\t" (fst a.(i).(j) );
-        done; Printf.printf "\n"; 
-    done; Printf.printf "\n"; ()
-
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
@@ -222,8 +215,8 @@ module FloatAlign : A = struct
             let fn (cst,n) x y =
                 try (cst +. cost_matrix.{x,y},n+1)
                 with | _ -> failwithf "Cannot find from cost matrix: %d, %d" x y
-            and xs = MlModel.list_of_packed x_i 
-            and ys = MlModel.list_of_packed y_i in
+            and xs = BitSet.list_of_packed x_i 
+            and ys = BitSet.list_of_packed y_i in
             let cst,n =
                 List.fold_left
                     (fun acc x ->
@@ -232,8 +225,8 @@ module FloatAlign : A = struct
             in
             if debug_aln then
                 Printf.printf "Cost: %d(%a) ->%f/%d<- %d(%a)\n%!" 
-                    x_i pp_ilst (MlModel.list_of_packed x_i) cst n
-                    y_i pp_ilst (MlModel.list_of_packed y_i);
+                    x_i pp_ilst (BitSet.list_of_packed x_i) cst n
+                    y_i pp_ilst (BitSet.list_of_packed y_i);
             cst /. (float_of_int n)
 
     let get_cm model tx ty = 
@@ -269,15 +262,15 @@ module FloatAlign : A = struct
                                 let ncst = cost_matrix.{p,m} in
                                 if ncst < cst then (m,ncst) else acc)
                             (acc)
-                            (MlModel.list_of_packed p))
+                            (BitSet.list_of_packed p))
                     ((~-1),infinity)
-                    (MlModel.list_of_packed m)
+                    (BitSet.list_of_packed m)
             in
             let res = 1 lsl state in
             if debug_aln || ~-1 = state then
                 Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (MlModel.list_of_packed p) m
-                              pp_ilst (MlModel.list_of_packed m) cst t state res;
+                              i p pp_ilst (BitSet.list_of_packed p) m
+                              pp_ilst (BitSet.list_of_packed m) cst t state res;
             assert( state <> ~-1 );
             res,cst)
 
@@ -546,9 +539,9 @@ module FloatAlign : A = struct
                         List.fold_left
                             (fun (cst,cnt) p -> (cst +. cost_matrix.{p,m}, (cnt+1)))
                             (acc)
-                            (MlModel.list_of_packed p))
+                            (BitSet.list_of_packed p))
                     (0.0,0)
-                    (MlModel.list_of_packed m)
+                    (BitSet.list_of_packed m)
             in
             assert( t_count >= 1);
             if t_count > 1 then t_cost /. (float_of_int t_count)
@@ -846,8 +839,8 @@ module MPLAlign : A = struct
                                xe ye me (Bigarray.Array2.dim1 cost1)
                                (Alphabet.get_gap m.alph) x_i y_i;
             in
-            let xs = MlModel.list_of_packed x_i
-            and ys = MlModel.list_of_packed y_i in
+            let xs = BitSet.list_of_packed x_i
+            and ys = BitSet.list_of_packed y_i in
             let cst,states =
                 List.fold_left
                     (fun acc x ->
@@ -870,15 +863,15 @@ module MPLAlign : A = struct
             if debug_aln then begin
                 let packed = List.fold_left (fun acc x -> (1 lsl x) + acc) 0 states in
                 Printf.printf "Cost: %d(%a) ->%f(%d)<- %d(%a)\n%!"
-                    x_i pp_ilst (MlModel.list_of_packed x_i) cst packed
-                    y_i pp_ilst (MlModel.list_of_packed y_i);
+                    x_i pp_ilst (BitSet.list_of_packed x_i) cst packed
+                    y_i pp_ilst (BitSet.list_of_packed y_i);
             end;
             match classify_float cst, states with
             | _, [] ->
                 failwithf "%d -(%f-%f)- %d: has no median" x_i t1 t2 y_i
             | FP_infinite, _ | FP_nan, _ ->
                 failwithf "%d -- %d: returned infinite cost (%f,%f)" x_i y_i t1 t2
-            | _, _  -> cst, MlModel.packed_of_list states
+            | _, _  -> cst, BitSet.packed_of_list states
 
     let get_cm model tx ty =
         let f = create_mpl_cost_fn model tx ty in
@@ -918,15 +911,15 @@ module MPLAlign : A = struct
                                 let ncst = cost_matrix.{p,m} in
                                 if ncst < cst then (m,ncst) else acc)
                             (acc)
-                            (MlModel.list_of_packed p))
+                            (BitSet.list_of_packed p))
                     ((~-1),infinity)
-                    (MlModel.list_of_packed m)
+                    (BitSet.list_of_packed m)
             in
             let res = 1 lsl state in
             if debug_aln || ~-1 = state then
                 Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
-                              i p pp_ilst (MlModel.list_of_packed p) m 
-                              pp_ilst (MlModel.list_of_packed m) cst state res;
+                              i p pp_ilst (BitSet.list_of_packed p) m 
+                              pp_ilst (BitSet.list_of_packed m) cst state res;
             assert( state <> ~-1 );
             res,cst)
 
@@ -1207,9 +1200,9 @@ module MPLAlign : A = struct
                         List.fold_left
                             (fun (cst,cnt) p -> (cst +. cost_matrix.{p,m}, (cnt+1)))
                             (acc)
-                            (MlModel.list_of_packed p))
+                            (BitSet.list_of_packed p))
                     (0.0,0)
-                    (MlModel.list_of_packed m)
+                    (BitSet.list_of_packed m)
             in
             assert( t_count >= 1 );
             if t_count > 1 then t_cost /. (float_of_int t_count)
@@ -1465,8 +1458,8 @@ module MALAlign : A = struct
                          *. m.static.MlModel.pi_0.{i}; *)
                 done;
                 !cst,n+1
-            and xs = MlModel.list_of_packed x_i 
-            and ys = MlModel.list_of_packed y_i in
+            and xs = BitSet.list_of_packed x_i 
+            and ys = BitSet.list_of_packed y_i in
             let cst,n =
                 List.fold_left
                     (fun acc x ->
@@ -1475,8 +1468,8 @@ module MALAlign : A = struct
             in
             if debug_aln then
                 Printf.printf "Cost: %d(%a) ->%f/%f(%d)<- %d(%a)\n%!" 
-                    x_i pp_ilst (MlModel.list_of_packed x_i) cst (log cst) n
-                    y_i pp_ilst (MlModel.list_of_packed y_i);
+                    x_i pp_ilst (BitSet.list_of_packed x_i) cst (log cst) n
+                    y_i pp_ilst (BitSet.list_of_packed y_i);
             ~-. (log cst)
 
     let memoize_cost_fn m tx ty = 
