@@ -112,12 +112,6 @@ val jc69_4 : spec
 type chars = [ `List of int list | `Packed of int ]
 (** list of set bits, or packed integer of set bits *)
 
-val list_of_packed : ?zerobase:bool -> int -> int list
-(** convert packed integer to a list of indexes *)
-
-val packed_of_list : int list -> int
-(** convert a list of indexes to a packed integer *)
-
 val get_costfn_code : model -> int
 (** code for costfn for c-side *)
 

@@ -82,19 +82,6 @@ let default_gap_r   = 0.15
 (* list of set bits, or packed integer of set bits *)
 type chars = [ `List of int list | `Packed of int ]
 
-let list_of_packed ?(zerobase=true) d =
-    let rec loop_ c i d = match d land 1 with
-        | 0 when d = 0 -> c
-        | 0  -> loop_ c (i+1) (d lsr 1)
-        | 1  -> loop_ (i::c) (i+1) (d lsr 1)
-        | _  -> failwith "MlModel.classify_seq_pairs.build_lst"
-    in 
-    let base = if zerobase then 0 else 1 in
-    loop_ [] base d
-
-and packed_of_list lst =
-    List.fold_left (fun acc x -> (1 lsl x) + acc) 0 lst
-
 type site_var = 
     | Gamma of int * float
     | Theta of int * float * float
@@ -1268,7 +1255,7 @@ let chars2str = function
 (** estimate the model based on two sequences with attached weights *)
 let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
     let chars_to_list = function
-        | `Packed s -> list_of_packed s
+        | `Packed s -> BitSet.list_of_packed s
         | `List   s -> s
     and incr_map k v map =
         let v = match All_sets.IntegerMap.mem k map with

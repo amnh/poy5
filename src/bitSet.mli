@@ -101,3 +101,13 @@ val sym_diff : t -> t -> t
 (** [sym_diff s t] returns the symmetrical difference of [s] and [t]. *)
 
 val to_list : t -> int list
+(** [to_list t] Convert a bit set to a list of set bits *)
+
+val list_of_packed : int -> int list
+(** Convert a packed integer to a list of the indexes in the integer
+    that are set. Zero based. *)
+
+val packed_of_list : int list -> int
+(** Convert a list of bits to set, and sets them in an integer. We use a
+    lor to ignore duplicates. Zero based index. *)
+

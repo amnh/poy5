@@ -327,3 +327,16 @@ let to_list bs =
     let enum = enum bs in
     List.rev (Enum.fold (fun x acc -> x :: acc) [] enum)
 
+let list_of_packed d =
+    let rec loop_ c i d = match d land 1 with
+        | 0 when d = 0 -> c
+        | 0  -> loop_ c (i+1) (d lsr 1)
+        | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+        | _  -> failwith "MlModel.classify_seq_pairs.build_lst"
+    in 
+    loop_ [] 0 d
+
+let packed_of_list lst =
+    let set s i = s lor (1 lsl i) in
+    List.fold_left (fun acc x -> set acc x) 0 lst
+
