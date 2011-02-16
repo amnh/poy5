@@ -127,3 +127,7 @@ val f_codes : t -> All_sets.Integers.t -> t
 val f_codes_comp : t -> All_sets.Integers.t -> t
 (** [f_codes t a] Filter the codes not in [a] from [t] *)
 
+val fs_matrix : FloatSequence.dyn_model -> Sequence.s array -> (float * float) array array
+(** [fs_matrix m seqs] Build a pairwise distance matrix for fixed state
+    calculations. The branch length between each seq is optimized to lower the
+    cost. The matrix contains the optimized branch length and the cost.*)

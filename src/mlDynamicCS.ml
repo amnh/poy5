@@ -516,6 +516,32 @@ and median_3 p n c1 c2 = n
 (*         ia = None; *)
 (*    }*)
 
+let fs_matrix model seqs =
+    let op_cost_fn sq1 sq2 = match FloatSequence.cost_fn model with
+        | `FLK ->
+            let s1 = FloatSequence.FloatAlign.s_of_seq sq1
+            and s2 = FloatSequence.FloatAlign.s_of_seq sq2 in
+            FloatSequence.FloatAlign.optimize s1 s2 model 0.1
+                (FloatSequence.FloatAlign.get_mem s1 s2)
+        | `ILK -> assert false
+        | `MAL ->
+            let s1 = FloatSequence.MALAlign.s_of_seq sq1
+            and s2 = FloatSequence.MALAlign.s_of_seq sq2 in
+            FloatSequence.MALAlign.optimize s1 s2 model 0.1
+                (FloatSequence.MALAlign.get_mem s1 s2)
+        | `MPL ->
+            let s1 = FloatSequence.MPLAlign.s_of_seq sq1
+            and s2 = FloatSequence.MPLAlign.s_of_seq sq2 in
+            FloatSequence.MPLAlign.optimize s1 s2 model 0.1
+                (FloatSequence.MPLAlign.get_mem s1 s2)
+    in
+    let m = Array.make_matrix (Array.length seqs) (Array.length seqs) (-.1.,-.1.) in
+    for i = 0 to ((Array.length m)-1) do
+        for j = (i+1) to ((Array.length m.(i))-1) do
+            m.(i).(j) <- op_cost_fn seqs.(i) seqs.(j)
+        done;
+    done;
+    m
 
 (*---- distance functions; all for Sequence characters. *)
 let distance missing_distance a b = match a.data, b.data with
