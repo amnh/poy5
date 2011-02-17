@@ -1418,6 +1418,7 @@ let apply_likelihood_model params acc =
     and convert_unaligned lst = 
         List.map 
             (fun (z,w,x,alph,_,xsssts) ->
+                Printf.printf "Converting Unaligned Characters to Likelihood!\n%!";
                 let str_spec = match pi with
                     | `Equal | `Given _ -> str_spec
                     | `Estimate _ ->
@@ -1473,6 +1474,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
             let newtrees = List.map handle_tree newtrees in
             {acc with trees = acc.trees @ newtrees }
     | P.Unaligned data ->
+            Printf.printf "Adding Unaligned data\n%!";
             let char_spec = 
                 default_static acc.char_cntr file data.P.unal_format 0
             in
@@ -1510,6 +1512,7 @@ let process_parsed_elm file (acc:nexus) parsed : nexus = match parsed with
                          " defined in the NEXUS file.")) data;
             acc
     | P.Poy block ->
+        Printf.printf "Adding POY data\n%!";
         List.fold_left
             (fun acc -> function
                 | P.CharacterBranch (trees,chars,bls) ->
@@ -1539,12 +1542,15 @@ let process_parsed file parsed : nexus =
         -----------+-----------------+---------------------
         POY        | Characters      | calculating priors
         POY        | Unaligned       | calculating priors 
+
+        Note: the processing is done by a fold_left, thus the ordering needs to
+        be backwards (this is to keep the function tail-recursive as well).
     *)
     let sorter a b = match a,b with
-        | P.Characters _, P.Poy _ ->   1
-        | P.Poy _, P.Characters _ -> ~-1
-        | P.Unaligned _, P.Poy _  ->   1
-        | P.Poy _, P.Unaligned _  -> ~-1
+        | P.Characters _, P.Poy _ -> ~-1
+        | P.Poy _, P.Characters _ ->   1
+        | P.Unaligned _, P.Poy _  -> ~-1
+        | P.Poy _, P.Unaligned _  ->   1
         | _, _                    ->   0 (* keep everything else in the same order *)
     in
     List.fold_left (process_parsed_elm file)

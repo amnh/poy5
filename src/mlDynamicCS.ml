@@ -595,7 +595,8 @@ let make a s m =
             let data = Array.map FloatSequence.MPLAlign.s_of_seq (s_of_seq s) in
             assert( (Array.length data) = (Array.length s.SeqCS.codes) );
             MPLAlign { mpl_ss = data; }
-        | `MAL -> failwith "not done"
+        | `MAL ->
+            failwith "Dynamic Maximum Average Likelihood is not implemented to diagnose trees."
     in
     {    data = r;
         model = { FloatSequence.static = m; alph = a; };
