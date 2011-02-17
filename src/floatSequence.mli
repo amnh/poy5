@@ -32,6 +32,12 @@ val cost_fn : dyn_model -> Methods.ml_costfn
 (** Return the cost function for dynamic likelihood. This helps in retrieving,
     since the name from other modules (IA) would be quite long. *)
 
+val test_all : string -> string -> float -> float -> dyn_model -> unit
+(** Run an alignment with each of the methods below with the specified branch
+    lengths and model. Also, optimize the alignment branch lengths and print out
+    all the scores. The optimized scores for MPL and FLK should be equal; this
+    is based on the pully principle. *)
+
 module type A = sig
 
     (** {6 Types *)
@@ -81,12 +87,21 @@ module type A = sig
     (** [print_cm m t] Compose and print the cost matrix defined by the model
         [m] and the branch length [t]. *)
 
-    (* {6 Cost Matrix functions *)
+    (* {6 Cost Function/Matrix functions *)
 
-    val get_cm : dyn_model -> float -> float -> (int -> int -> float * int)
-    (** [get_cm m at bt] -> [cost i j] Create a function that defines the cost
+    val get_cf : dyn_model -> float -> float -> (int -> int -> float * int)
+    (** [get_cf m at bt] -> [cost i j] Create a function that defines the cost
         of converting from character [i] to character [j], based on the composed
         matrix from the model [m] and branch lengths [at] and [bt]. *)
+
+    val get_cm : dyn_model -> float -> float -> (float * int) array array
+    (** [get_cm m at bt] -> [cost i j] Create a matrix that defines the cost
+        of converting from character [i] to character [j], based on the composed
+        matrix from the model [m] and branch lengths [at] and [bt]. *)
+
+    val cost   : dyn_model -> float -> float -> (int -> int -> float * int)
+    (** [cost m t1 t2 -> x y -> cost] create a function that returns the cost
+        between bases as integers. *)
 
     (* {6 2D Alignment Operations *)
 
