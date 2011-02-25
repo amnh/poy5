@@ -3363,7 +3363,7 @@ let debug = false in
         mumscore = 0 } in  
     if debug then print_mum new_kmum false true;
     let sign_newmum = add_mum_to_mumtbl new_kmum mum_tbl in
-    assert(sign_newmum);
+    if sign_newmum then begin
     let poslst = List.map (fun record ->
         record.sequence_NO,record.left_end,record.orientation
     )  k_milst in
@@ -3384,6 +3384,7 @@ let debug = false in
         seqNO right k_seedNO klen 
         ori k_extsign k_size seed2pos_tbl mum_tbl;
     ) k_milst;
+    end;
     List.filter (fun (pre_j,_,_)-> pre_j<>pre_jseedNO) previous_k_lst
 
 
