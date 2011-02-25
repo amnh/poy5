@@ -18,118 +18,11 @@
 (* USA                                                                        *)
 
 type t  
+
+val compress : bool
+
 IFDEF USE_LIKELIHOOD THEN
 type s  (* abstract type: contains matrix of character codes *)
-
-(** two functions to convert from double*,int* to Array3,Array2 *)
-external s_bigarray: 
-    s -> (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t *
-    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option =
-    "likelihood_CAML_StoBigarray"
-external bigarray_s: 
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array3.t ->
-    ((int32,Bigarray.int32_elt,Bigarray.c_layout) Bigarray.Array1.t) option ->
-        int -> s = "likelihood_CAML_BigarraytoS"
-
-(** [median_*** pi U D [Ui] at bt achars bchars rates probs] -> cchars
- * calculate the median of two nodes with character sets [achars] and [bchars]
- * and branch lenghts [at] and [bt], respectively. The probability matrix for
- * the transition is constructed via [U] [D] and, possibly, [Ui] (GTR only). *)
-external median1_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> s -> s -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
-         "likelihood_CAML_median1_gtr" "likelihood_CAML_median1_wrapped_gtr" 
-external median1_sym: (* median sym U D ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> s-> s ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
-          "likelihood_CAML_median1_sym" "likelihood_CAML_median1_wrapped_sym"
-
-external median2_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s -> s -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
-         "likelihood_CAML_median2_gtr" "likelihood_CAML_median2_wrapped_gtr" 
-external median2_sym: (* median sym U D ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> s-> s ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
-          "likelihood_CAML_median2_sym" "likelihood_CAML_median2_wrapped_sym"
-
-external median3_gtr: (* median_gtr U D Ui ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> float -> s -> s -> s -> 
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s =
-         "likelihood_CAML_median3_gtr" "likelihood_CAML_median3_wrapped_gtr" 
-external median3_sym: (* median sym U D ta tb a b r p -> output_c *)
-    FMatrix.m ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
-     float -> float -> float -> s-> s -> s ->
-    (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> int -> s = 
-          "likelihood_CAML_median3_sym" "likelihood_CAML_median3_wrapped_sym"
-
-
-
-(** [readjust_*** U D [Ui] a b c at bt %inv rates probs priors ll] -> at*bt*ll
- * readjusts the branch lengths for the children of [c], [a] and [b], with
- * branch lengths [at] and [bt], respectively, using priors given by [priors],
- * and the gamma rates given by [rates]. The old likelihood is given in
- * [ll], and the new one is returned. [c] is updated to the new vector based on
- * the new branch length, returned with the new [ll]. *)
-
-external readjust_sym: FMatrix.m ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> float ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> int -> float*float =
-        "likelihood_CAML_readjust_sym" "likelihood_CAML_readjust_sym_wrapped"
-external readjust_gtr: FMatrix.m ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array2.t ->
-    s -> s -> s -> float -> float -> float ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    (float,Bigarray.float64_elt,Bigarray.c_layout) Bigarray.Array1.t ->
-    float -> int -> float*float =
-        "likelihood_CAML_readjust_gtr" "likelihood_CAML_readjust_gtr_wrapped"
-
-(** [loglikelihood s w pi prob %invar] -> float : calculates the mle of a character set *) 
-external loglikelihood: 
-    s -> (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-         (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t ->
-        float -> int -> float = 
-          "likelihood_CAML_loglikelihood" "likelihood_CAML_loglikelihood_wrapped"
-(** [filter s as] -> s
- * filters s with indexes of as and returns new character set, *)
-external filter: s -> int array -> s = "likelihood_CAML_filter"
-(** [compare_chars s s] -> int
- * compares two sets, returns -1,0,1 depending on which set is larger *)
-external compare_chars: s -> s -> int = "likelihood_CAML_compare"
-
-(** calculates the proporation of similarity between two sequences *)
-external proportion: s -> s -> float = "likelihood_CAML_proportion"
 
 (** [estimate_time a b ] -> time
 * estimates the time between two nodes using proporation (above) *)
@@ -155,6 +48,10 @@ val print : t -> unit
 val median1 : t -> t -> float -> t
 val median2 : t -> t -> float -> float -> int -> int -> t
 val median3 : t -> t -> t -> float -> float -> float -> t
+
+(** resolves median to most likely state; and converts to sequence. single is
+    set if we should perform a single character assignment to the data. *)
+val resolve : ?single:bool -> t -> Sequence.s
 
 (** The cost, likelihood, of the median [t]. wrapper around internally
 * saved value *)
@@ -239,6 +136,7 @@ val extract_states : t -> (float * int * MlModel.chars) list
 
 val get_codes : t -> int array
 val get_model : t -> MlModel.model
+val set_model : MlModel.model -> t -> t
 
 ELSE
 
@@ -246,5 +144,3 @@ val likelihood_error : string
 val minimum_bl : unit -> float
 
 END
-
-val compress : bool

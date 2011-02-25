@@ -137,6 +137,8 @@ and jc69_4 = { substitution = JC69;site_variation= None;cost_fn=`MAL;
                iterate_alpha=true;iterate_model=true;use_gap=`Missing;
                base_priors=Equal; }
 
+let jc69_5_gap flo = { jc69_5 with use_gap = `Coupled flo; }
+
 module OrderedML = struct
     (* we could choose model or spec, but spec can use Pervasives.compare *)
     type t = spec 
@@ -283,7 +285,16 @@ let m_jc69 pi_ mu a_size gap_r =
             done;
             srm.{i,i} <- -. mu *. r *. float (a_size-1)
     in
-    m_meanrate srm pi_;
+    (* normalize by mean-rate *)
+    let mr = ref 0.0 and wght = 1.0 /. float a_size in
+    for i = 0 to (a_size-1) do
+        mr := !mr +. (~-.(srm.{i,i}) *. wght );
+    done;
+    for i = 0 to (a_size-1) do
+        for j = 0 to (a_size-1) do
+            srm.{i,j} <- srm.{i,j} /. !mr;
+        done;
+    done;
     srm
 
 (* val k2p :: only 4 or 5 characters *)
@@ -312,7 +323,16 @@ let m_k2p pi_ alpha beta a_size gap_r =
             done;
             srm.{i,i} <- -. beta *. r *. float (a_size-1)
     in
-    m_meanrate srm pi_;
+    (* normalize by mean-rate *)
+    let mr = ref 0.0 and wght = 1.0 /. float a_size in
+    for i = 0 to (a_size-1) do
+        mr := !mr +. (~-.(srm.{i,i}) *. wght );
+    done;
+    for i = 0 to (a_size-1) do
+        for j = 0 to (a_size-1) do
+            srm.{i,j} <- srm.{i,j} /. !mr;
+        done;
+    done;
     srm
 
 (* val tn93 :: only 4 or 5 characters *)
@@ -541,6 +561,43 @@ let diagonalize sym mat =
 let compose model t = match model.ui with
     | Some ui -> compose_gtr FMatrix.scratch_space model.u model.d ui t
     | None    -> compose_sym FMatrix.scratch_space model.u model.d t
+
+let subst_matrix model topt =
+    let _gapr = match model.spec.use_gap with
+        | `Coupled x   -> Some (Alphabet.get_gap model.alph, x)
+        | `Independent -> None
+        | `Missing     -> None
+    and a_size = model.alph_s 
+    and priors = model.pi_0 in
+    let m = match model.spec.substitution with
+        | JC69  -> m_jc69 priors 1.0 a_size _gapr
+        | F81   -> m_f81 priors 1.0 a_size _gapr
+        | K2P t -> let t = match t with | Some x -> x | None -> default_tstv in
+                   m_k2p priors t 1.0 a_size _gapr
+        | F84 t -> let t = match t with | Some x -> x | None -> default_tstv in
+                   m_f84 priors t 1.0 a_size _gapr
+        | HKY85 t -> let t = match t with | Some x -> x | None -> default_tstv in
+                   m_hky85 priors t a_size _gapr
+        | TN93 tstv -> let ts,tv = match tstv with | Some (x,y) -> x,y | None -> default_tstv,default_tstv in
+                   m_tn93 priors ts tv 1.0 a_size _gapr
+        | GTR c ->
+                let c,gapr = match c,_gapr with
+                    | Some xs, _   -> normalize model.spec xs
+                    | None, Some _ -> default_gtr (a_size-1), model.spec.use_gap
+                    | None, _      -> default_gtr a_size, model.spec.use_gap
+                in
+                m_gtr priors c a_size _gapr
+        | File (m,s)-> m_file priors m a_size
+    in
+    match topt with
+    | Some t ->
+        for i = 0 to (Bigarray.Array2.dim1 m)-1 do
+            for j = 0 to (Bigarray.Array2.dim2 m)-1 do
+                m.{i,j} <- m.{i,j} *. t;
+            done;
+        done;
+        m
+    | None -> m
 
 (* print output in our nexus format or Phyml output *)
 let output_model output nexus model set = 
@@ -1144,6 +1201,11 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
     failwith likelihood_not_enabled
   END
 
+let debug_model model t =
+    let subst = subst_matrix model t in
+    print_barray2 subst; print_newline ();
+    match t with | Some t -> print_barray2 (compose model t) | None -> ()
+
 let replace_priors model array = 
     if debug then begin
         Printf.printf "Replacing Priors\n\t%!";
@@ -1216,7 +1278,7 @@ let add_gap_to_model compute_priors model =
                 let r,c = (min r c)+1,(max r c)+1 in
                 c + (l*r) - l - 1 - (((r+1)*r)/2)
             in
-            let ngtr = 
+            let ngtr =
                 Array.init 
                     (((size-1)*size)/2)
                     (fun i -> 
@@ -1609,16 +1671,6 @@ let to_formatter (model: model) : Xml.xml Sexpr.t list =
     --) :: []
 (* -> Xml.xml Sexpr.t list *)
 
-let modifier = ref 0 (* to avoid one file with multiple iterations *)
-let graph_function ?(steps=10000) filename lower upper f = 
-    incr modifier;
-    let step_size = (upper -. lower) /. (float_of_int steps)
-    and out_chan = open_out ((string_of_int !modifier)^"_"^filename) in
-    for i = 0 to steps - 1 do
-        let x = (lower +. ((float_of_int i) *. step_size)) in
-        Printf.fprintf out_chan "%f\t%f\n" x (f x)
-    done;
-    ()
 
 (* this assumes that the spec is consistent with the model itself, the returned
  * update function ensures this consistency *)

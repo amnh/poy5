@@ -324,6 +324,7 @@ module type S = sig
     module PhyloTree : sig
         type phylogeny = (a, b) Ptree.p_tree
         val get_cost : phylogeny -> float
+        val get_root_costs : phylogeny -> (Tree.edge * float) list
         val fold_edges : ('a -> Tree.edge -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_nodes : ('a -> Tree.node -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_vertices : ('a -> int -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
@@ -333,24 +334,19 @@ module type S = sig
         val get_edge_data  : Tree.edge -> phylogeny -> b
         val get_parent : int -> phylogeny -> int
         val get_neighs : int -> phylogeny -> int list
-        val join : 
-            Tree.join_jxn -> Tree.join_jxn -> phylogeny -> 
-                phylogeny * Tree.join_delta
+        val join : Tree.join_jxn -> Tree.join_jxn -> phylogeny -> phylogeny * Tree.join_delta
         val break : Tree.break_jxn -> phylogeny -> phylogeny * Tree.break_delta
         val reroot : Tree.edge -> phylogeny -> phylogeny
         val downpass : phylogeny -> phylogeny
-        val branch_table : phylogeny -> 
-                ((int * int),[ `Single of float | `Name]) Hashtbl.t
+        val branch_table : phylogeny -> ((int * int),[ `Single of float | `Name]) Hashtbl.t
         val uppass : phylogeny -> phylogeny
         val of_string : string -> Data.d -> a list -> phylogeny list
         val to_string : bool -> phylogeny -> Data.d -> string list
         val of_file : string -> Data.d -> a list -> phylogeny list
         val of_nodes : Data.d -> a list -> phylogeny
         val build : Data.d -> a list -> phylogeny list
-        val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
-            phylogeny list 
-        val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny ->
-            phylogeny list 
+        val spr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
+        val tbr : ((phylogeny * float) list -> unit) -> Data.d -> phylogeny -> phylogeny list 
     end
 
     module Runtime : sig
@@ -4830,6 +4826,9 @@ let set_console_run r = console_run_val := r
             | Tree.Leaf (_, b) -> [b]
             | Tree.Single _ -> []
         let join x y tree = TreeOps.join_fn None [] x y tree 
+
+        let get_root_costs tree = TreeOps.root_costs tree
+
         let break x tree = 
             let breakage = TreeOps.break_fn None x tree in
             let tree = 

@@ -65,6 +65,8 @@ and print_barray2 a =
 
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
+let pp_seq model chan seq = Sequence.print chan seq model.alph
+
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
 (* Sequence alignment module for two or three sequences. *)
@@ -849,9 +851,9 @@ module MPLAlign : A = struct
                                 let c_min = ref acc in
                                 for i = 0 to (m.static.MlModel.alph_s)-1 do
                                     let c = med_cost x y i in
-                                    if c < (fst !c_min) then
+                                    if (fst !c_min) =. c then
                                         c_min := (c,[i])
-                                    else if (fst !c_min) =. c then
+                                    else if c < (fst !c_min) then
                                        c_min := (c, i::(snd !c_min))
                                 done;
                                 !c_min)
@@ -935,7 +937,7 @@ module MPLAlign : A = struct
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
     let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
-        let cost = let mat = get_cm m tx ty in (fun a b -> mat.(a-1).(b-1)) in
+        let cost = cost m tx ty in
         let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
         let get_cost i j =
@@ -1015,7 +1017,7 @@ module MPLAlign : A = struct
         let gap = Alphabet.get_gap m.alph in
 
         (* Obtain the cost matrix for the alignment *)
-        let cost_fn = create_mpl_cost_fn m tx ty in
+        let cost_fn = cost m tx ty in
 
         (* A general function to calculate the barrier of k; this is the length
          * of the horizontal and vertical bands that build the diagonal strip. *)
@@ -1297,7 +1299,6 @@ module MPLAlign : A = struct
         in
         let c = ukkonen_align_2 mem s1 s2 model t1 t2 in
         let b = backtrace model mem s1 s2 in
-        print_s b model.alph; print_newline ();
         c,b
 
     let median_2 s1 s2 model t1 t2 mem : s = snd (algn s1 s2 model t1 t2 mem)
@@ -1553,29 +1554,34 @@ module MALAlign : A = struct
 end
 
 (* a simple function to test the scores of each of the methods above *)
-let test_all str1 str2 bl1 bl2 model =
-    let seq1 = sequence_of_string str1 model.alph
-    and seq2 = sequence_of_string str2 model.alph in
-    let flk_cost, flk_opt_cost =
-        let faln1 = FloatAlign.s_of_seq seq1
-        and faln2 = FloatAlign.s_of_seq seq2 in
-        let mem   = FloatAlign.get_mem faln1 faln2 in
-        FloatAlign.cost_2 faln1 faln2 model bl1 bl2 mem,
-        snd (FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem)
-    and mpl_cost, mpl_opt_cost =
-        let dmpl1 = MPLAlign.s_of_seq seq1
-        and dmpl2 = MPLAlign.s_of_seq seq2 in
-        let mem   = MPLAlign.get_mem dmpl1 dmpl2 in
-        MPLAlign.cost_2 dmpl1 dmpl2 model bl1 bl2 mem,
-        snd (MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem)
-    and mal_cost, mal_opt_cost =
-        let dmal1 = MALAlign.s_of_seq seq1
-        and dmal2 = MALAlign.s_of_seq seq2 in
-        let mem   = MALAlign.get_mem dmal1 dmal2 in
-        MALAlign.cost_2 dmal1 dmal2 model bl1 bl2 mem,
-        snd (MALAlign.optimize dmal1 dmal2 model (bl1+.bl2) mem)
+let test_all alignments channel seq1 seq2 bl1 bl2 model =
+    let flk_cost, flk_opt_cost, flk_median =
+        let faln1    = FloatAlign.s_of_seq seq1
+        and faln2    = FloatAlign.s_of_seq seq2 in
+        let mem      = FloatAlign.get_mem faln1 faln2 in
+        let cst,med  = FloatAlign.median_2_cost faln1 faln2 model bl1 bl2 mem
+        and obl,ocst = FloatAlign.optimize faln1 faln2 model (bl1+.bl2) mem in
+        cst,ocst,(FloatAlign.seq_of_s med)
+    and mpl_cost, mpl_opt_cost, mpl_median =
+        let dmpl1    = MPLAlign.s_of_seq seq1
+        and dmpl2    = MPLAlign.s_of_seq seq2 in
+        let mem      = MPLAlign.get_mem dmpl1 dmpl2 in
+        let cst,med  = MPLAlign.median_2_cost dmpl1 dmpl2 model bl1 bl2 mem
+        and obl,ocst = MPLAlign.optimize dmpl1 dmpl2 model (bl1+.bl2) mem in
+        cst,ocst,(MPLAlign.seq_of_s med)
+    and mal_cost, mal_opt_cost = 
+        let dmal1    = MALAlign.s_of_seq seq1
+        and dmal2    = MALAlign.s_of_seq seq2 in
+        let mem      = MALAlign.get_mem dmal1 dmal2 in
+        let cst      = MALAlign.cost_2 dmal1 dmal2 model bl1 bl2 mem
+        and obl,ocst = MALAlign.optimize dmal1 dmal2 model (bl1+.bl2) mem in
+        cst,ocst
     in
-    Printf.printf ("MAL Cost : %f\nMPL Cost : %f\nFLK Cost : %f\n%!"^^
-                   "MAL Opt Cost : %f\nMPL Opt Cost : %f\nFLK Opt Cost : %f\n%!")
-                  mal_cost     mpl_cost     flk_cost
-                  mal_opt_cost mpl_opt_cost flk_opt_cost
+    Printf.fprintf channel "%f\t%f\t%f\t%f\t%f\t%f"
+                   mal_cost     mpl_cost     flk_cost
+                   mal_opt_cost mpl_opt_cost flk_opt_cost;
+    if alignments then
+        Printf.fprintf channel "\t%a\t%a\n%!" 
+            (pp_seq model) mpl_median (pp_seq model) flk_median
+    else
+        print_newline ()

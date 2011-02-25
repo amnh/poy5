@@ -285,6 +285,7 @@ val set_console_run : r -> unit
     module PhyloTree : sig
         type phylogeny = (a, b) Ptree.p_tree
         val get_cost :  phylogeny -> float
+        val get_root_costs : phylogeny -> (Tree.edge * float) list
         (* Operating on edges and vertices *)
         val fold_edges : ('a -> Tree.edge -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a
         val fold_nodes : ('a -> Tree.node -> 'a) -> 'a -> (a, b) Ptree.p_tree -> 'a

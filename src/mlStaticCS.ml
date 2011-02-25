@@ -206,6 +206,7 @@ let cardinal ta = Array.length ta.codes
 let union prev ch1 ch2 = prev
 let get_codes a = a.codes
 let get_model a = a.model
+let set_model m a = {a with model = m; }
 
 (* ------------------------------------------------------------------------- *)
 (* initial estimation functions --jc69 *)
@@ -539,6 +540,37 @@ let extract_states a_node =
         result := (a_node.weights.{i},i,`List !state_ids)::(!result);
     done;
     !result
+
+let resolve ?(single=false) t = 
+    let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
+        | `MPL -> max,(log 0.0)
+        | `MAL -> max,(log 0.0)
+        | `FLK | `ILK -> failwith "unsupported"
+    in
+    let ray, _ = s_bigarray t.chars in (* ignore invar *)
+    let nchars = Bigarray.Array3.dim2 ray
+    and nrates = Bigarray.Array3.dim1 ray
+    and nalpha = Bigarray.Array3.dim3 ray
+    and priors = t.model.MlModel.pi_0 in
+    let result = ref [] in
+    for i = 0 to nchars - 1 do
+        let best = ref init and state_ids = ref [] in
+        for j = 0 to nrates - 1 do
+            for k = 0 to nalpha - 1 do
+                let v = (ray.{j,i,k}) *. (priors.{k}) in
+                if v =. !best then begin
+                    state_ids := k::(!state_ids);
+                    best := comp !best v;
+                end else if v > !best then begin
+                    state_ids := [k];
+                    best := v;
+                end
+            done;
+        done;
+        result := (BitSet.packed_of_list !state_ids)::(!result);
+    done;
+    Sequence.of_array (Array.of_list (List.rev !result))
+
 
 let distance a_node b_node t1 t2 = (* codes don't matter here *)
     let t = median2 a_node b_node t1 t2 0 0 in t.mle

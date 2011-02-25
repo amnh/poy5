@@ -32,7 +32,7 @@ val cost_fn : dyn_model -> Methods.ml_costfn
 (** Return the cost function for dynamic likelihood. This helps in retrieving,
     since the name from other modules (IA) would be quite long. *)
 
-val test_all : string -> string -> float -> float -> dyn_model -> unit
+val test_all : bool -> out_channel -> Sequence.s -> Sequence.s -> float -> float -> dyn_model -> unit
 (** Run an alignment with each of the methods below with the specified branch
     lengths and model. Also, optimize the alignment branch lengths and print out
     all the scores. The optimized scores for MPL and FLK should be equal; this
