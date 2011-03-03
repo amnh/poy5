@@ -17,16 +17,25 @@
 (* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
 (* USA                                                                        *)
 
-let tolerance = 1e-6
-let epsilon   = 1e-10
-let minimum   = tolerance *. 2.0
-
-let (=.) a b = abs_float (a-.b) < tolerance
 let (-->) b a = a b
 
 let debug = false
 let failwithf format = Printf.ksprintf failwith format
 let warning_message format = Printf.ksprintf (Status.user_message Status.Warning) format
+
+let debug_printf msg format = 
+    Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
+
+and pp_farray xs =
+    (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
+
+(** {6 Constants} *)
+
+let tolerance = 1e-6
+let epsilon   = 1e-10
+let minimum   = tolerance *. 2.0
+
+(** {6 Floating Point Functions} *)
 
 let is_zero x = match classify_float x with
         | FP_zero | FP_subnormal -> true
@@ -39,23 +48,18 @@ and is_inf x = match classify_float x with
         | FP_infinite -> true
         | FP_nan | FP_zero | FP_subnormal | FP_normal -> false
 
-let debug_printf msg format = 
-    Printf.ksprintf (fun x -> if debug then print_string x; flush stdout) msg format
-
-and pp_farray xs =
-    (Array.fold_left (fun acc x -> acc^"| "^(string_of_float x)^" ") "[" xs)^" |]"
-
+(** {6 Special functions} *)
 
 external gamma : float -> float = "gamma_CAML_gamma"
 
 external lngamma : float -> float = "gamma_CAML_lngamma"
 
-(* calculates the gamma rates for specific alpha, beta and #classes *)
 external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
         "gamma_CAML_rates"
 
-(** GENERAL BRENTS METHOD **)
+(** {6 Numerical Optimization Functions *)
+
 let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
                   ?(tol=tolerance) ?(epsilon=epsilon) ((v_orig,f_orig) as orig) f =
     debug_printf "Starting Brents Method max_iter=%d, tol=%f, epsilon=%f\n%!" max_iter tol epsilon;
@@ -63,7 +67,8 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
     let minmax value = max (min v_max value) v_min in
   (*-- constant for the golden ratio *)
     let golden = 0.3819660 in
-  (*-- approximation of equality; based on optional argument above *)
+  (*-- approximation of equality; based on optional argument above (over-ride
+    local fuzzy equality to allow more control over the particular run). *)
     let (=.) a b = (abs_float (a -. b)) < epsilon in
   (*-- a function that copies the sign of the second argument to the first *)
     let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
@@ -180,8 +185,10 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
 let derivative_at_x ?(epsilon=epsilon) f x fx =
     let _,f_new = f (x +. epsilon) in
     (f_new -. fx) /. epsilon
+
 (* find the magnitude of a vector x_array *)
 let magnitude x_array = sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
+
 (* find the gradient of a multi-variant function at a point x_array *)
 let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
@@ -196,6 +203,7 @@ let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array =
                             i_val
                             f_array)
         x_array
+
 (* dot product of two arrays *)
 let dot_product x_array y_array = 
     let n = Array.length x_array and r = ref 0.0 in
@@ -204,6 +212,7 @@ let dot_product x_array y_array =
         r := !r +. (x_array.(i) *. y_array.(i));
     done;
     !r
+
 (* map a matrix with a function *)
 let matrix_map f mat = 
     let n1 = Array.length mat and n2 = Array.length mat.(0) in
@@ -216,6 +225,8 @@ let matrix_map f mat =
 (* line search along a specified direction *)
 (* Numerical Recipes in C : 9.7            *)
 let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
+    (* as in the previous function; we over-ride the local equality function for
+       better control over the estimation process *)
     let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x in
     (* set up some globals for the function to avoid tons of arguments *)
     let n = Array.length point and origfpoint = get_score fpoint in
@@ -290,6 +301,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     if (abs_float slope) > 100000.0 then 
         warning_message "Numerical.linesearch; Very large slope in optimization function.";
     main_ origfpoint slope direction step step minstep 
+
 
 (** BFGS Algorithm                   **)
 (** Numerical Recipes in C : 10.7    **)
@@ -403,3 +415,17 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
 
+(** {6 Infix Module} *)
+module type I =
+    sig
+        val (=.) : float -> float -> bool
+        val (>.) : float -> float -> bool
+        val (<.) : float -> float -> bool
+    end
+
+module FuzzyInfix : I = 
+    struct
+        let (=.) a b = (abs_float (a-.b)) < epsilon
+        let (>.) a b = (a-.b) > epsilon
+        let (<.) a b = (a-.b) < ~-.epsilon
+    end

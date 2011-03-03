@@ -30,6 +30,22 @@ val epsilon   : float
 val minimum   : float
 (** [Minimum] Minimum for numerical calculations (2.0 * tolerance). *)
 
+(** {6 Floating Point Functions} *)
+
+(*val ulps_to_epsilon : int -> float*)
+(** From ulps (units in the last place) to an epsilon error factor for numerical
+    compuatation. (based on "What Every Computer Scientist Should Know About
+    Floating-Point Arithmetic" by Daivd GoldBerg, (3).) *)
+
+val is_nan : float -> bool
+(** is the floating point number NAN *)
+
+val is_inf : float -> bool
+(** is the floating point number +/- infinity *)
+
+val is_zero : float -> bool
+(** is the floating point number zero or sub-normal (effectively zero). *)
+
 (** {6 Special Functions} *)
 
 external gamma : float -> float = "gamma_CAML_gamma"
@@ -70,3 +86,14 @@ val bfgs_method :
 (** [bfgs_method ?i ?e ?s f init] uses bfgs method to approximate the hessian
     matrix of a function f with starting point init. *)
 
+(** {6 Infix Module} *)
+
+module type I =
+    sig
+        val (=.) : float -> float -> bool
+        val (>.) : float -> float -> bool
+        val (<.) : float -> float -> bool
+    end
+module FuzzyInfix : I
+(** This module creates fuzzy infix operators for floating point numbers. This
+    still must be used with care since they will not hold transitivity. *)
