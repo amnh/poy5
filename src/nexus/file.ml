@@ -1349,7 +1349,7 @@ let unaligned_priors_of_seq alph xsssts =
                     total := (Sequence.length x) - 1 + !total;
                     counter := (Sequence.length x) - 1 + !counter;
                     for i = 1 (* skip initial gap *) to (Sequence.length x) - 1 do
-                        let lst = BitSet.list_of_packed (Sequence.get x i) in
+                        let lst = BitSet.Int.list_of_packed (Sequence.get x i) in
                         let inv = 1.0 /. (float_of_int (List.length lst)) in
                         List.iter (fun x -> priors.(x) <- priors.(x) +. inv) lst
                     done))) xsss;

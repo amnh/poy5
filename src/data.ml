@@ -3934,7 +3934,7 @@ let compute_priors data chars u_gap =
                         total := (Sequence.length x.seq) - 1 + !total;
                         counter := (Sequence.length x.seq) - 1 + !counter;
                         for i = 1 (* skip initial gap *) to (Sequence.length x.seq) - 1 do
-                            let lst = BitSet.list_of_packed (Sequence.get x.seq i) in
+                            let lst = BitSet.Int.list_of_packed (Sequence.get x.seq i) in
                             if List.exists (fun x -> x = gap_char) lst && not u_gap || (lst = []) then
                                 assert false
                             else

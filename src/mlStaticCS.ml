@@ -323,13 +323,6 @@ let farray_to_int32 x =
                     else v)
             0
             x)
-let list_of_packed d =
-    let rec loop_ c i d = match d land 1 with
-        | 0 when d = 0 -> c
-        | 0  -> loop_ c (i+1) (d lsr 1)
-        | 1  -> loop_ (i::c) (i+1) (d lsr 1)
-        | _  -> assert( false );
-    in loop_ [] 0 d
 
 let of_parser_simple seq model =
     let to_str_list string = 
@@ -567,7 +560,7 @@ let resolve ?(single=false) t =
                 end
             done;
         done;
-        result := (BitSet.packed_of_list !state_ids)::(!result);
+        result := (BitSet.Int.packed_of_list !state_ids)::(!result);
     done;
     Sequence.of_array (Array.of_list (List.rev !result))
 

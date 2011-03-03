@@ -116,9 +116,6 @@ val align3 :
   s ->
   Cost_matrix.Three_D.m -> s * s * s * int * int
 
-
-
-
 val resize : s ref -> int -> unit
 (** [resize s1 v] modifies the sequence [s1] to have capacity [v]. If [v] is
  * less than the original value, the sequence is cut at the end. If the new
@@ -497,110 +494,86 @@ end
 
 val split : (int * int) list -> s -> Alphabet.a -> s list
 
-val count_bits : int -> int
-
 val of_code_arr : int array -> int -> s
 
+(** [is_empty s v]
+    tests if sequence [s] contains all values [v] *)
 val is_empty : s -> int -> bool
 
 external encoding : 
     (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t -> 
         s -> float = "seq_CAML_encoding"
 
-(* [complement alph s] returns a sequence which is the reverse complement of the
-* input sequence [s] as specified by the alphabet [alph]. If [alph] does not
-* provide the necessary specification, an exception is raised. *)
+(** [complement alph s] returns a sequence which is the reverse complement of the
+    input sequence [s] as specified by the alphabet [alph]. If [alph] does not
+    provide the necessary specification, an exception is raised. *)
 val complement : Alphabet.a -> s -> s
 
 (* The same as complement for sequence, but no gap is inserted at the begin*)
 val complement_chrom : Alphabet.a -> s -> s
 
 (** [is_existed_code code seq] returns true
-* if the code is in the sequence [seq], otherwise false *)
+    if the code is in the sequence [seq], otherwise false *)
 val is_existed_code : int -> s -> bool
 
 (** [is_existed_char code seq] returns true
-* if the code of character [ch] is in the sequence [seq], otherwise false *)
+    if the code of character [ch] is in the sequence [seq], otherwise false *)
 val is_existed_char : string -> s -> bool
 
-
-(** [printDNA seq] prints the DNA sequence [seq] into stdout *)
-val printDNA : s -> unit
-
 (** [create_gap_seq gap len] create a 
-* sequence of  [len] gaps *)
+    sequence of  [len] gaps *)
 val create_gap_seq : ?gap:int -> int -> s
 
 (** [cmp_num_all_DNA] returns number of
-* codes in [seq] which do not include gap *)
+    codes in [seq] which do not include gap *)
 val cmp_num_all_DNA : s -> int
 
 (** [cmp_num_all_DNA] returns number of
-* codes in [seq] which are not gap *)
+    codes in [seq] which are not gap *)
 val cmp_num_not_gap : s -> int
 
 (** [cmp_gap_cost indel seq] returns the indel cost
-* of sequence [seq] *)
+    of sequence [seq] *)
 val cmp_gap_cost : int * int -> s -> int
 
 (** [cmp_ali_cost alied_seq1 alied_seq2 direction cost_mat]
-* returns the alignment cost for alignment [alied_seq1] and [alied_seq2] *)
-val cmp_ali_cost :
-  s -> s -> [> `Positive ] -> Cost_matrix.Two_D.m -> int
+    returns the alignment cost for alignment [alied_seq1] and [alied_seq2] *)
+val cmp_ali_cost : s -> s -> [> `Positive ] -> Cost_matrix.Two_D.m -> int
 
 (** [get_empty_seq] returns an empty sequence *)
 val get_empty_seq : unit -> s
 
-
 (** [subseq seq start len] returns a subsequence
-* of sequence [seq] start from position [start] 
-* for a length of [len]. If length [len] < 1, return 
-* an empty sequence *)
+    of sequence [seq] start from position [start] 
+    for a length of [len]. If length [len] < 1, return 
+    an empty sequence *)
 val subseq : s -> int -> int -> s
 
 (** [align2 seq1 seq2 cost_mat] aligns 
-* two sequences [seq1], [seq2] without conditioning 
-* that two first characters are gaps *)
-val align2 :
-  s ->
-  s -> Cost_matrix.Two_D.m -> s * s * int * int
-
+    two sequences [seq1], [seq2] without conditioning 
+    that two first characters are gaps *)
+val align2 : s -> s -> Cost_matrix.Two_D.m -> s * s * int * int
 
 (** [align3] returns the alignment of three sequences
-* [seq1], [seq2], and [seq3] without requiring 
-* that three first letters of three sequences to be gaps *)
-val align3 :
-  s ->
-  s ->
-  s ->
-  Cost_matrix.Three_D.m -> s * s * s * int * int
-
+    [seq1], [seq2], and [seq3] without requiring 
+    that three first letters of three sequences to be gaps *)
+val align3 : s -> s -> s -> Cost_matrix.Three_D.m -> s * s * s * int * int
 
 (** [closest_alied_seq alied_parent alied_child c2]
-* returns the single sequence of sequence [alied_child]
-* which is closest to the aligned parent sequence [alied_parent] *)
-val closest_alied_seq :
-  s -> s -> Cost_matrix.Two_D.m -> s * int
-
-
-(** [concat seq_ls] returns a concatination 
-* of sequences in the sequence list [seq_ls] *)
-val concat : s list -> s
+    returns the single sequence of sequence [alied_child]
+    which is closest to the aligned parent sequence [alied_parent] *)
+val closest_alied_seq : s -> s -> Cost_matrix.Two_D.m -> s * int
 
 (** [create_subalign2 seq1 seq2 cost_mat 
-* start_pos1 end_pos1 start_pos2 end_pos2] returns
-* the alignment of subsequence from [start_pos1] to [end_pos1] 
-* in the first sequence [seq1] with subsequence from [start_pos2] to [end_pos2] 
-* in the second sequence [seq2]  *)
+    start_pos1 end_pos1 start_pos2 end_pos2] returns the alignment of
+    subsequence from [start_pos1] to [end_pos1] in the first sequence [seq1]
+    with subsequence from [start_pos2] to [end_pos2] in the second sequence
+    [seq2]  *)
 val create_subalign2 :
-  s ->
-  s ->
-  Cost_matrix.Two_D.m ->
-  int -> int -> int -> int -> s * s * int
+  s -> s -> Cost_matrix.Two_D.m -> int -> int -> int -> int -> s * s * int
 
 (** [dna_gap] returns the gap code in tha nucleotide alphabet *)
 val dna_gap : int
-
 
 (** [get_num_base seq] returns number bases, not gaps, of sequence [seq] *)
 val get_num_base : s -> int
@@ -609,14 +582,14 @@ val get_num_base : s -> int
 val delete_gap : ?gap_code:int -> s -> s
 
 (** [create_median_gap seq start_pos end_pos cost_mat] 
-* returns the median sequence between sequence [seq] and gaps *)
+    returns the median sequence between sequence [seq] and gaps *)
 val create_median_gap :
   s ->
   ?start_pos:int -> ?end_pos:int -> Cost_matrix.Two_D.m -> s
 
 (** [create_median_seq approx alied_seq1 alied_seq2 cost_mat]
-* returns the median sequence between aligned sequence [alied_seq1] 
-* and aligned sequence [alied_seq2] *)
+    returns the median sequence between aligned sequence [alied_seq1] 
+    and aligned sequence [alied_seq2] *)
 val create_median_seq :
   ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
   s -> s -> Cost_matrix.Two_D.m -> s * int
@@ -624,42 +597,38 @@ val create_median_seq :
 val create_median_deled_seq : s -> 'a -> s
 
 (** [create_median approx seq1 seq2 s1 e1 s2 e2 cost_mat]
-* returns the median sequence between subsequence
-* from [s1] to [e1] in the first sequence [seq1] and subsequence 
-* from [s2] tp [e2] in the second sequence [seq2] *)
+    returns the median sequence between subsequence
+    from [s1] to [e1] in the first sequence [seq1] and subsequence 
+    from [s2] tp [e2] in the second sequence [seq2] *)
 val create_median :
-  ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
-  s ->
-  s ->
-  ?s1:int ->
-  ?e1:int ->
-  ?s2:int ->
-  ?e2:int ->
-  Cost_matrix.Two_D.m -> s * s * s * int
+    ?approx:[< `BothSeq | `First | `Second > `BothSeq ] ->
+        s -> s -> ?s1:int -> ?e1:int -> ?s2:int -> ?e2:int ->
+            Cost_matrix.Two_D.m -> s * s * s * int
 
+(** [check_repeated_char seq a]
+    Checks for duplicate entries in [s] of elements in the alphabet [a]. Used
+    for Breakinv characters which cannot have duplicates *)
 val check_repeated_char : s -> Alphabet.a -> unit
 
 (** [create_general_ali code1_arr code2_arr gap_code cost_mat]
-* returns the general alignment between sequence [code1_arr] and 
-* sequence [code2_arr] *)
+    returns the general alignment between sequence [code1_arr] and 
+    sequence [code2_arr] *)
 val create_general_ali :
   int array ->
   int array -> int -> Cost_matrix.Two_D.m -> int array * int array * int
 
+(** Map function for each element in the sequence characters **)
 val map : (int -> int) -> s -> s
 
-(** [of_array code_arr] converts the code array [code_arr]
-* into a sequence *)
+(** [of_array code_arr] converts the code array [code_arr] into a sequence *)
 val of_array : int array -> s
 
-(** [get_single_seq seq c2] returns a signle sequence
-* of sequence [seq] *)        
+(** [get_single_seq seq c2] returns a signle sequence of sequence [seq] *)
 val get_single_seq : s -> Cost_matrix.Two_D.m -> s
 
 (** [cmp_locus_indel_cost s c2 locus_indel]
-* returns the locus indel cost of locus [s] *)
-val cmp_locus_indel_cost :
-  s -> Cost_matrix.Two_D.m -> int * int -> int
+    returns the locus indel cost of locus [s] *)
+val cmp_locus_indel_cost : s -> Cost_matrix.Two_D.m -> int * int -> int
 
 module Clip : sig
     val fraction : float

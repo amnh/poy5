@@ -327,16 +327,34 @@ let to_list bs =
     let enum = enum bs in
     List.rev (Enum.fold (fun x acc -> x :: acc) [] enum)
 
-let list_of_packed d =
-    let rec loop_ c i d = match d land 1 with
-        | 0 when d = 0 -> c
-        | 0  -> loop_ c (i+1) (d lsr 1)
-        | 1  -> loop_ (i::c) (i+1) (d lsr 1)
-        | _  -> failwith "MlModel.classify_seq_pairs.build_lst"
-    in 
-    loop_ [] 0 d
 
-let packed_of_list lst =
-    let set s i = s lor (1 lsl i) in
-    List.fold_left (fun acc x -> set acc x) 0 lst
+module type B = 
+    sig
+        val list_of_packed : int -> int list
+        val packed_of_list : int list -> int
+        val count_bits : int -> int
+    end
 
+module Int : B = 
+    struct
+
+        let list_of_packed d =
+            let rec loop_ c i d = match d land 1 with
+                | 0 when d = 0 -> c
+                | 0  -> loop_ c (i+1) (d lsr 1)
+                | 1  -> loop_ (i::c) (i+1) (d lsr 1)
+                | _  -> failwith "MlModel.classify_seq_pairs.build_lst"
+            in 
+            loop_ [] 0 d
+
+        let packed_of_list lst =
+            let set s i = s lor (1 lsl i) in
+            List.fold_left (fun acc x -> set acc x) 0 lst
+
+        let count_bits n = 
+            let rec loop_ acc = function
+                | 0 -> acc
+                | n -> loop_ (acc+1) (n land (n-1))
+            in
+            loop_ 0 n
+    end

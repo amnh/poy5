@@ -1860,22 +1860,13 @@ let gap_saturation seq alph =
     in
     proportion gaps len
 
-(* Count the number of bits in the integer n *)
-let count_bits n =
-    assert (n < 32);
-    let rec counter cnt n =
-        if n = 0 then cnt
-        else counter (cnt + (n land 1)) (n lsr 1)
-    in
-    counter 0 n
-
 (* Calculate the fraction of positions in the sequence that show
 * polymorphism. *)
 let poly_saturation sequence n =
     let len = length sequence 
     and poly =
         fold 
-        (fun acc base -> if n = count_bits base then acc + 1 else acc)
+        (fun acc base -> if n = (BitSet.Int.count_bits base) then acc + 1 else acc)
         0
         sequence
     in

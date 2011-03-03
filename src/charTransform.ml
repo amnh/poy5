@@ -683,7 +683,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 else (pos_list, cur_len + 1, prev)
             in
             let automatic_processor (positions_list, constant_length, ungapped) pos base =
-                let count = Sequence.count_bits base in
+                let count = BitSet.Int.count_bits base in
                  if (1 = count) && (0 = base land 16) then
                      positions_list, constant_length + 1, ungapped
                  else if sensible && (count < 4) && (0 = base land 16) then

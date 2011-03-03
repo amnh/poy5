@@ -824,6 +824,7 @@ ELSE
     let spec_from_classification _ _ _ _ _ _ = failwith likelihood_not_enabled
     let compare _ _ = failwith likelihood_not_enabled
     let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
+    let subst_matrix _ _ = failwith likelihood_not_enabled
 
 END
 
@@ -1317,7 +1318,7 @@ let chars2str = function
 (** estimate the model based on two sequences with attached weights *)
 let classify_seq_pairs leaf1 leaf2 seq1 seq2 acc =
     let chars_to_list = function
-        | `Packed s -> BitSet.list_of_packed s
+        | `Packed s -> BitSet.Int.list_of_packed s
         | `List   s -> s
     and incr_map k v map =
         let v = match All_sets.IntegerMap.mem k map with
