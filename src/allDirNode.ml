@@ -776,7 +776,7 @@ type nad8 = Node.Standard.nad8 = struct
         and bc = taxon_code b and pc = taxon_code p_data
         and get_dir parc x =
             try
-                (not_with parc x.adjusted).lazy_node
+                (not_with parc x.unadjusted).lazy_node
             with | Not_found -> 
                 Printf.printf "\n-----\nCannot find direction %d in %d\n\t%!" 
                                 parc (taxon_code x);
