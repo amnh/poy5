@@ -86,6 +86,19 @@ type node_data = {
     unadjusted : node_dir list; (** The standard downpass node *)
     adjusted : node_dir list;   (** An adjuted node value calculated after the
     downpass *)
+    (** NOTE: unadjusted and adjusted should be the same before readjust
+    * funciton, EXCEPT for fixed_state datatype.
+    * adjusted data could be non-fixed-state. make sure we use
+    * unadjusted data during the tree build. 
+    * non-fixed-state data is the Heuristic_Selection of type
+    * sequence_characters in seqCS.ml, functions inside module DOS of seqCS.ml
+    * are for this type.
+    * fixed-state data is the Relaxed_Lifted one in sequence_characters, module
+    * RL in seqCS.ml is for this type.
+    * don't be surprised to see the mix of above two types in "to_single"
+    * function inside seqCS.ml. 
+    * see changeset 1657&1702 for detail.
+    *)
 }
 
 let to_n node = Eager node
