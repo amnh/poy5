@@ -3940,6 +3940,8 @@ min_lcb_ratio min_cover_ratio =
     let debug = true in
     if debug then Printf.printf "get initial lcbs with min_lcbR=%f,min_covR=%f\n%!"
     min_lcb_ratio min_cover_ratio;
+    assert(min_lcb_ratio > 0. );
+    assert(min_cover_ratio > 0. );
     minimum_cover_ratio := min_cover_ratio ; 
     minimum_lcb_ratio := min_lcb_ratio ;
     let init_lcbs,init_covR, init_lcb_tbl = 
