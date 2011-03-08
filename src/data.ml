@@ -241,58 +241,56 @@ type kolmo_spec = {
 }
 
 (** A character specification. Contains the information regarding the
- * characteristics of a particular character *)
+    characteristics of a particular character *)
 type specs = 
     (** Static homology characters, includes the encoding specs from the
-    * parser and the name of the file it comes from (the name includes the
-    * column number). *)
+        parser and the name of the file it comes from (the name includes the
+        column number). *)
     | Static of Nexus.File.static_spec
 
     (** A dynamic homology based character type, with three parameters, the
-    * file name containing the set of sequences, the filename of the valid 
-    * fixed states that can be used for that set of sequences, and the file
-    * containing the transformation cost matrix to be used to perform their
-     * alignments.  Also, we store the alphabet used. *)
-
+        file name containing the set of sequences, the filename of the valid 
+        fixed states that can be used for that set of sequences, and the file
+        containing the transformation cost matrix to be used to perform their
+        alignments.  Also, we store the alphabet used. *)
     | Dynamic of dynamic_hom_spec
-    (** A set of characters that could be of several types. Probably some
-    * information is needed, but in the current implementation there is no
-    * need. As we get to more complex character types, this will change. *)
 
+    (** A set of characters that could be of several types. Probably some
+        information is needed, but in the current implementation there is no
+        need. As we get to more complex character types, this will change. *)
     | Set 
 
     (** The characters that should be analyzed using Kolmogorov complexity
-    * as optimality criterion. The only parameters really needed are the name of
-    * the character, the
-    * specification of the alphabet the character uses, the wordset the
-    * character uses, the integer set for functions defined in the character 
-    * definition itself. Note that the words stored must also be specified
-    * in some file. *)
+        as optimality criterion. The only parameters really needed are the name
+        of the character, the specification of the alphabet the character uses,
+        the wordset the character uses, the integer set for functions defined in
+        the character definition itself. Note that the words stored must also be
+        specified in some file. *)
     | Kolmogorov of kolmo_spec
 
 (** [specified] tells us whether or not the user left out the given character
     in the current taxon *)
 type specified = [ | `Specified | `Unknown ]
 
+(** typically 'a is a sequence, the integer followed is the code of 'a *)
 type 'a seq_t = {
     seq : 'a;
     code : int;
 }
 
+(** wrap the seq_t structure to an array for partitioned data *)
 type 'a dyna_data = {
-    (** typically 'a is a sequence, the integer followed is the code of 'a *)
     seq_arr : ('a seq_t) array;
 }
 
-
-(* A valid loaded character from a file *)
+(** A valid loaded character from a file *)
 type cs_d = 
-    (* A dynamic homology, containing its code, the sequence, the
-    * transformation cost matrix and its three dimensional transformation
-    * cost matrix *)
+    (** A dynamic homology, containing its code, the sequence, the
+        transformation cost matrix and its three dimensional transformation
+        cost matrix *)
     | Dyna of (int * Sequence.s dyna_data)
-    (* A static homology character, containing its code, and the character
-    * itself *)
+    (** A static homology character, containing its code, and the character
+        itself *)
     | Stat of (int * Nexus.File.static_state)
 
 type cs = cs_d * specified

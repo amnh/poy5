@@ -735,8 +735,8 @@ let pre_order_edge_visit f id ptree acc =
 
 (** [create_partitions t l r]
     Create partition of node ids from edge l--r *)
-let create_partition t l r = 
-    Tree.create_partition t.tree l r
+let create_partition t e = 
+    Tree.create_partition t.tree e
 
 let robinson_foulds t1 t2 =
     Tree.robinson_foulds t1.tree t2.tree
