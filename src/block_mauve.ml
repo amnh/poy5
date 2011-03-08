@@ -118,8 +118,11 @@ type lcb = {
 
 (*if the coverR = (length of subseq in lcb/total length of seq) of some lcb is low than this, it's a light-weight lcb*)
 let minimum_cover_ratio = ref 0.0020
-(*we stop looking for other lcbs when cover ratio is bigger than this number*)
+(*we stop looking for other lcbs when cover ratio is bigger than this number
+* to do : we should stop when the improvement is too small -- some user
+* specified number ?*)
 let maximum_cover_ratio = ref 0.9
+let minimum_improvement = ref 0.001
 (*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
 * than this*)
 let minimum_lcb_ratio = ref 30.0
@@ -143,6 +146,10 @@ let from_ori_code code =
     
 let bigger_int a b = 
     if (a>b) then a else b
+
+let tiny_improvement newresult oldresult =
+    if ((newresult-oldresult)) /. oldresult < (!minimum_improvement) then true
+    else false
 
 let print_int_list inlist = 
     Printf.printf "[%!";
@@ -3971,8 +3978,11 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
         remove_light_weight_lcbs init_lcbs init_lcb_tbl mum_tbl 
         seed2pos_tbl in_seq_size_lst init_num_mums in
     if debug then begin
-        Printf.printf "after remove light lcbs, we have :\n%!";
+        Printf.printf 
+        "after remove light lcbs, we have (don't show lightW or lowR lcbs) :\n%!";
         Hashtbl.iter (fun key record ->
+            if is_light_weight_lcb record then ()
+            else
                 print_lcb record 
         ) init_lcb_tbl;
         Printf.printf "init lcb covR = %f\n%! " init_covR;
@@ -4021,7 +4031,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                     Printf.printf "we found better lcbs (%f>%f), update \
                     num_of_mums from %d to %d,continue with inner loop\n%!" 
                     inner_new_covR !inner_old_covR !current_num_of_mums num_of_mums;
-                if inner_new_covR> !maximum_cover_ratio then inner_sign :=false
+                if (inner_new_covR> !maximum_cover_ratio)||(tiny_improvement inner_new_covR inner_old_covR) 
+                    then inner_sign :=false
                 else inner_sign := true;
                 current_num_of_mums := num_of_mums;
                 inner_old_covR := inner_new_covR;
