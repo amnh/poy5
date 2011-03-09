@@ -633,11 +633,11 @@ cost_matrix gapcode re_meth circular orientation  =
                 if (matched_item = gapcode) then gapcode 
                 else  get_neg_code matched_item in
             if (neg_matched_item<gapcode) then
-                alied_codem_lst@[item],
+                alied_code1_lst@[item],
                 alied_codem_lst@[neg_matched_item],
                 nongap_matched_lst@[(item,neg_matched_item)]
             else
-                alied_codem_lst@[item],
+                alied_code1_lst@[item],
                 alied_codem_lst@[neg_matched_item],
                 nongap_matched_lst
         end
