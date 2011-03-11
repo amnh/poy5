@@ -1448,11 +1448,11 @@ let pre_order_node_with_edge_visit_simple_root f (Edge (a, b)) bt acc =
 
 (** [create_partition t l r]; returns the partitions that that seperate the edge
  * between the [l] and [r] nodes using the tree topology [t]. *)
-let create_partition tree left_node right_node =
+let create_partition tree edge = 
     post_order_node_with_edge_visit
         (fun p x a -> All_sets.Integers.add x a)
         (fun p x acc_l acc_r -> All_sets.Integers.union acc_l acc_r)
-        (Edge (left_node,right_node) )
+        edge
         tree
         All_sets.Integers.empty
 
@@ -1478,9 +1478,8 @@ let robinson_foulds tree1 tree2 : int =
     let partitions_of_tree all tree =
         let lst = 
             EdgeSet.fold
-                (fun (Edge (a,b)) acc ->
-                    let left,_ = create_partition tree a b in
-                    left :: acc)
+                (fun e acc ->
+                    (fst (create_partition tree e)) :: acc)
                 tree.d_edges
                 []
         in

@@ -19,7 +19,6 @@
 
 let () = SadmanOutput.register "MlDynamicCS" "$Id$"
 
-
 IFDEF USE_LIKELIHOOD THEN
 (*---- type for the module *)
 
@@ -32,8 +31,8 @@ type t_integerized =
     {  ilk_ss : SeqCS.t;
            ia : MlStaticCS.t option; }
 
-(* We ignore the implied alignment and only discuss the cost on the alignment
- * via the product of the entire sequence states, across all edges *)
+(*  We ignore the implied alignment (unlike above) and only discuss the cost on
+    the alignment via the product of the entire sequence states, across all edges *)
 type t_fpalign =
     {   fp_ss : FloatSequence.FloatAlign.s array; }
 

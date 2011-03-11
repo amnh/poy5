@@ -116,13 +116,20 @@ type lcb = {
     avg_range_len : int; (*average of range length from range_lst *)
 }
 
-(*if the coverR = (length of subseq in lcb/total length of seq) of some lcb is low than this, it's a light-weight lcb*)
+(** for a single lcb, if the coverR = (length of subseq in lcb/total length of seq)
+ * is lower than this, it's a light-weight lcb*)
 let minimum_cover_ratio = ref 0.0020
-(*we stop looking for other lcbs when cover ratio is bigger than this number*)
+(** for all lcbs. if they don't cover more than this of input sequence, adjust
+* parameters like minimum_cover_ratio and minimum_lcb_ratio to find more matches  
+*)
+let minimum_full_cover_ratio = ref 0.4 
+(*we stop looking for more lcbs when cover ratio is bigger than this number*) 
 let maximum_cover_ratio = ref 0.9
-(*if the ratio (match quality, calculated by hodx_matrix) of some lcb is lower
-* than this*)
+(*we should stop looking when the improvement is too small*)
+let minimum_improvement = ref 0.001
+(*lcb with ratio smaller than this is lowR lcb.*)
 let minimum_lcb_ratio = ref 30.0
+(*minimum value of break point penalty*)
 let min_break_point_penalty = ref 4000 
 
 (*lcb with lower weight should be considered removing*)
@@ -132,6 +139,7 @@ let init_seed_size = 50
 let max_gap_num = 0  (*the w *)
 let seedNO_available_arr = ref (Array.make init_seed_size 1)
 
+(** some int/int list/int array/etc.. operation we gonna need *)
 let to_ori_code code =
     assert(code<>0);
     if( code mod 2 == 0) then -(code/2)  else (code+1)/2 
@@ -141,8 +149,47 @@ let from_ori_code code =
     if (code<0) then (abs code)*2
     else (code*2-1)
     
-let bigger_int a b = 
-    if (a>b) then a else b
+let bigger_int a b =  if (a>b) then a else b
+
+let get_shorter_len seqarr =
+    let len0 = Array.length seqarr.(0) 
+    and len1 = Array.length seqarr.(1) in
+    if len0<len1 then len0 else len1
+
+(*return average of a int list, return float*)
+let get_avg_of_intlst in_lst =
+    let acc = ref 0 in
+    List.iter (fun size ->
+        acc := size + !acc
+    ) in_lst;
+    (float !acc) /.(float (List.length in_lst))
+
+let get_avg_of_floatlst in_lst =
+    let acc = ref 0. in
+    List.iter (fun size ->
+        acc := size +. !acc
+    ) in_lst;
+    (!acc) /.(float (List.length in_lst))
+
+(*if lcb cover ratio is too small, we may need to align super big chunk of
+* sequences after mauve, user might want to adjust pameter like 
+* minimum_cover_ratio and minimum_lcb_ratio to find more matches*)
+let get_adjusted_parameter full_covR in_seq_size_lst  minlcbR mincovR = 
+    let e = 2.718 in 
+    let divided = !minimum_full_cover_ratio /. full_covR in
+    Printf.printf "adjust parameter,divided = %f\n%!" divided;
+    if divided <= 1. then 
+        minlcbR,mincovR
+    else if divided <= e then 
+        minlcbR *. (0.9), mincovR *. (0.9)
+    else begin
+        minlcbR /. (log divided), mincovR /. (log divided)
+    end
+
+
+let tiny_improvement newresult oldresult =
+    if ((newresult -. oldresult)) /. oldresult < (!minimum_improvement) then true
+    else false
 
 let print_int_list inlist = 
     Printf.printf "[%!";
@@ -545,25 +592,6 @@ let update_lcb_ref_code lcb_tbl key refcode =
     Hashtbl.remove lcb_tbl key;
     Hashtbl.add lcb_tbl key {record with ref_code = refcode}
 
-let get_shorter_len seqarr =
-    let len0 = Array.length seqarr.(0) 
-    and len1 = Array.length seqarr.(1) in
-    if len0<len1 then len0 else len1
-
-(*return average of a int list, return float*)
-let get_avg_of_intlst in_lst =
-    let acc = ref 0 in
-    List.iter (fun size ->
-        acc := size + !acc
-    ) in_lst;
-    (float !acc) /.(float (List.length in_lst))
-
-let get_avg_of_floatlst in_lst =
-    let acc = ref 0. in
-    List.iter (fun size ->
-        acc := size +. !acc
-    ) in_lst;
-    (!acc) /.(float (List.length in_lst))
 
 let get_cons_id in_seq_size_lst num_of_mums = 
     let acc = ref 0.0 in
@@ -3905,11 +3933,48 @@ in_seqarr in_seq_size_lst  =
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
 
+let rec get_init_lcbs seedNOlstlst 
+seed2pos_tbl mum_tbl 
+in_seq_size_lst init_num_mums 
+min_lcb_ratio min_cover_ratio =
+    let debug = true in
+    if debug then Printf.printf "get initial lcbs with min_lcbR=%f,min_covR=%f\n%!"
+    min_lcb_ratio min_cover_ratio;
+    assert(min_lcb_ratio > 0. );
+    assert(min_cover_ratio > 0. );
+    minimum_cover_ratio := min_cover_ratio ; 
+    minimum_lcb_ratio := min_lcb_ratio ;
+    let init_lcbs,init_covR, init_lcb_tbl = 
+        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
+        false in
+    let init_lcbs, init_covR, init_lcb_tbl = 
+        remove_light_weight_lcbs init_lcbs init_lcb_tbl mum_tbl 
+        seed2pos_tbl in_seq_size_lst init_num_mums in
+    if debug then begin
+        Printf.printf 
+        "after remove light lcbs, we have (don't show lightW or lowR lcbs) :\n%!";
+        Hashtbl.iter (fun key record ->
+            if (is_light_weight_lcb record in_seq_size_lst) then ()
+            else
+                print_lcb record 
+        ) init_lcb_tbl;
+        Printf.printf "init lcb covR = %f\n%! " init_covR;
+    end;
+    if init_covR < !minimum_full_cover_ratio then begin
+        let new_lcbR,new_covR = get_adjusted_parameter init_covR in_seq_size_lst
+        min_lcb_ratio min_cover_ratio in
+        get_init_lcbs seedNOlstlst 
+        seed2pos_tbl mum_tbl 
+        in_seq_size_lst init_num_mums
+        new_lcbR new_covR ;
+    end
+    else 
+        
+        init_lcbs,init_covR,init_lcb_tbl
+    
 
     
 let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
-    minimum_cover_ratio := min_cover_ratio ; 
-    minimum_lcb_ratio := min_lcb_ratio ;
     min_break_point_penalty := min_bk_penalty ;
     let debug = true and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
@@ -3939,6 +4004,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     let pos2seed_tbl_right = Hashtbl.create init_size in
     let seed2pos_tbl = Hashtbl.create init_size in
     let mum_tbl = Hashtbl.create init_tb_size in
+    (*find initial mums*)
     let seedweight = build_seed_and_position_tbl in_seqarr seedlen 
     !minimum_cover_ratio seq2seedNO_tbl seedNO2seq_tbl pos2seed_tbl_left
     pos2seed_tbl_right seed2pos_tbl mum_tbl false in
@@ -3960,27 +4026,20 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     if debug2 then print_mumtbl mum_tbl true;
     let seedNOlstlst = get_mum_lst_for_each_seq mum_tbl seed2pos_tbl 
     pos2seed_tbl_left in_seqarr_size in_seq_size_lst in 
-    if debug then begin
+    if debug2 then begin
         Printf.printf "init seedNOlstlst is :\n%!";
         print_int_lstlst3  seedNOlstlst;
     end;
-    let init_lcbs,init_covR, init_lcb_tbl = 
-        build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst
-        false in
-    let init_lcbs, init_covR, init_lcb_tbl = 
-        remove_light_weight_lcbs init_lcbs init_lcb_tbl mum_tbl 
-        seed2pos_tbl in_seq_size_lst init_num_mums in
-    if debug then begin
-        Printf.printf "after remove light lcbs, we have :\n%!";
-        Hashtbl.iter (fun key record ->
-                print_lcb record 
-        ) init_lcb_tbl;
-        Printf.printf "init lcb covR = %f\n%! " init_covR;
-    end;
+    (*get initial lcbs*)
+    let init_lcbs,init_covR,init_lcb_tbl = 
+        get_init_lcbs seedNOlstlst seed2pos_tbl mum_tbl in_seq_size_lst
+        init_num_mums min_lcb_ratio min_cover_ratio in
     (* sign of any improvement in outer&inner while loops*)
     let any_improvement = ref false in
     (*init inner tbl*)
-    let inner_old_covR = ref !minimum_cover_ratio in
+    let inner_old_covR = ref !minimum_cover_ratio in (*this is not the init_covR
+    we get from get_init_lcbs, that number is the covR after remove light weight
+    lcbs, this one is not*)
     let inner_lcbs = ref init_lcbs in
     let inner_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* not necessary *)in
     let inner_mum_tbl = ref mum_tbl in
@@ -4021,7 +4080,9 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
                     Printf.printf "we found better lcbs (%f>%f), update \
                     num_of_mums from %d to %d,continue with inner loop\n%!" 
                     inner_new_covR !inner_old_covR !current_num_of_mums num_of_mums;
-                if inner_new_covR> !maximum_cover_ratio then inner_sign :=false
+                if (inner_new_covR > !maximum_cover_ratio)||(tiny_improvement
+                inner_new_covR !inner_old_covR) 
+                    then inner_sign :=false
                 else inner_sign := true;
                 current_num_of_mums := num_of_mums;
                 inner_old_covR := inner_new_covR;

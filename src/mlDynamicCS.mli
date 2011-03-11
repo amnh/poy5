@@ -20,7 +20,40 @@
 (** Module to align and create medians for dynamic likelihood characters under a
     numbner of different criteras *)
 
-type t 
+(** {6 Types} Representation of different dynamic likelihood characters *)
+
+type t_integerized =
+    {  ilk_ss : SeqCS.t;
+           ia : MlStaticCS.t option; }
+(** Characters similar to FPAlign, but uses an integerized cost matrix from the
+    floating point matrix, and then creates an implied alignment from that
+    information, where the cost is finalized. *)
+
+type t_fpalign =
+    {   fp_ss : FloatSequence.FloatAlign.s array; }
+(** Characters that transform across a combined time. The assignment is
+    restricted to gaps and the states of the children. This model is equivlent
+    to the MPL model when dealing with two sequences. The cost is defined as, 
+        $P(X,Y|t_1+t_2)$, and the assignment is $X \vee Y$ *)
+
+type t_mplalign =
+    {  mpl_ss : FloatSequence.MPLAlign.s array; }
+(** Define characters for maximum parsimonious likelihood or ancestral
+    likelihood. These characters find the best assignment of a transformation
+    from the two children. If X and Y are the states of the children, $P(a,b|t)$
+    is the probability of state b over branch length t, then MPL is defined as,
+        $\max_{\alpha = \{ACTG-\}} P(X,\alpha|t_1) * P(Y,\alpha|t_2)$ *)
+
+type r = | Integerized  of t_integerized
+         | FPAlign      of t_fpalign
+         | MPLAlign     of t_mplalign
+(** Define the union of all the types of dynamic likelihood characters *)
+
+type t = { model  : FloatSequence.dyn_model;
+            data  : r;
+            codes : int array;
+            code  : int;
+            cost  : float; }
 (** The type for dynamic likelihood characters; encompasses integerized
     likelihood, floating point alignment, maximum parsimonious likelihood and
     eventually, fixed state likelihood and maximum average likelihood. *)
@@ -130,4 +163,5 @@ val f_codes_comp : t -> All_sets.Integers.t -> t
 val fs_matrix : FloatSequence.dyn_model -> Sequence.s array -> (float * float) array array
 (** [fs_matrix m seqs] Build a pairwise distance matrix for fixed state
     calculations. The branch length between each seq is optimized to lower the
-    cost. The matrix contains the optimized branch length and the cost.*)
+    cost. The matrix contains the optimized branch length and the cost. This
+    function can access the MAL dynamic likelihood functions. *)
