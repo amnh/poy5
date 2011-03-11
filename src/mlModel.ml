@@ -857,6 +857,7 @@ ELSE
     let compare _ _ = failwith likelihood_not_enabled
     let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
     let subst_matrix _ _ = failwith likelihood_not_enabled
+    let check_metricity _ _ _ _ _ = failwith likelihood_not_enabled
 
 END
 

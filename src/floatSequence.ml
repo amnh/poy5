@@ -288,7 +288,7 @@ module FloatAlign : A = struct
             in
             let res = 1 lsl state in
             if debug_aln || ~-1 = state then
-                iprintf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
+                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
                               i p pp_ilst (BitSet.Int.list_of_packed p) m
                               pp_ilst (BitSet.Int.list_of_packed m) cst t state res;
             assert( state <> ~-1 );

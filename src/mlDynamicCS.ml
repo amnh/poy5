@@ -715,7 +715,26 @@ let prior a =
 ELSE
 
 (* empty; required functions when likelihood is not enabled *)
-type t = unit
+
+type t_integerized =
+    {  ilk_ss : SeqCS.t;
+           ia : MlStaticCS.t option; }
+
+type t_fpalign =
+    {   fp_ss : FloatSequence.FloatAlign.s array; }
+
+type t_mplalign =
+    {  mpl_ss : FloatSequence.MPLAlign.s array; }
+
+type r = | Integerized  of t_integerized
+         | FPAlign      of t_fpalign
+         | MPLAlign     of t_mplalign
+
+type t = { model  : FloatSequence.dyn_model;
+            data  : r;
+            codes : int array;
+            code  : int;
+            cost  : float; }
 
 let alph _ = failwith MlStaticCS.likelihood_error
 let total_cost _ = failwith MlStaticCS.likelihood_error
