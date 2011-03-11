@@ -83,20 +83,17 @@ type cs =
 type exclude = ([`Excluded | `NotExcluded | `Either] * int * int * int) list
 
 type node_data = { 
-    characters : cs list;             (** The set of characters of the [ho]tu *)
+    characters : cs list;   (** The set of characters of the [ho]tu *)
     total_cost : float;     (** The total cost of the tree rooted by the node *)
     node_cost : float;
-    taxon_code : int;       (** The code of the taxon associated with the 
-                                node *)
+    taxon_code : int;       (** The code of the taxon associated with the node *)
     min_child_code : int;
     num_child_edges : int;
     num_height : int;
-    num_otus : int;                (** How many OTUs are a child of this node *)
+    num_otus : int;         (** How many OTUs are a child of this node *)
     exclude_sets : All_sets.Integers.t list;
     exclude_info : exclude;
     cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood ];
-    (** This allows us to count how many taxa from a set are children of the
-        given node *)
 }
 
 (** Compares the final states information between two nodes. Follows the

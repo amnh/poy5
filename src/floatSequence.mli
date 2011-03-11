@@ -29,8 +29,8 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     alphabet to the model for use as bitsets with the vectors. *)
 
 val cost_fn : dyn_model -> Methods.ml_costfn
-(** Return the cost function for dynamic likelihood. This helps in retrieving,
-    since the name from other modules (IA) would be quite long. *)
+(** Return the cost function for the dynamic likelihood model. This helps in
+    retrieving from other modules since the name would be quite long. *)
 
 val test_all : bool -> out_channel -> Sequence.s -> Sequence.s -> float -> float -> dyn_model -> unit
 (** Run an alignment with each of the methods below with the specified branch
@@ -51,7 +51,7 @@ module type A = sig
         be converted to the parsimony characters by [seq_of_s], and converted
         from it conversely. *)
 
-    (** {6 Auxiliary/helper functions *)
+(** {6 Auxiliary/helper functions *)
 
     val get_mem     : s -> s -> floatmem
     (** Return scratch space to be used. The returned space is checked to fix [s] and [s]. *)
@@ -87,7 +87,7 @@ module type A = sig
     (** [print_cm m t] Compose and print the cost matrix defined by the model
         [m] and the branch length [t]. *)
 
-    (* {6 Cost Function/Matrix functions *)
+(* {6 Cost Function/Matrix functions *)
 
     val get_cf : dyn_model -> float -> float -> (int -> int -> float * int)
     (** [get_cf m at bt] -> [cost i j] Create a function that defines the cost
@@ -103,10 +103,9 @@ module type A = sig
     (** [cost m t1 t2 -> x y -> cost] create a function that returns the cost
         between bases as integers. *)
 
-    (* {6 2D Alignment Operations *)
+(* {6 2D Alignment Operations *)
 
-    val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float 
-                            -> float -> floatmem -> float
+    val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float -> float -> floatmem -> float
     (** [cost_2 ?delta a b m at bt mem] Return the cost of the median, from the
         alignment of [a] and [b] with branch lengths [at] and [bt] respectively,
         and model [m]. The [mem] is updated, and can be used to return a
@@ -117,21 +116,18 @@ module type A = sig
     (** [alncost_2 a b m t] Determines the cost of the branch from [a] to [b]
         and branch length [t], of model [m]. [a] and [b] must be aligned. *)
 
-    val full_cost_2     : float -> s -> s -> dyn_model -> float -> float
-                            -> floatmem -> float
+    val full_cost_2     : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
     (** [verify_cost_2 cost a b m at bt mem] Return the cost of the alignment of
         [a] and [b] with model [m], branch lengths [at] and [bt], respectivly.
         This alignment does a full alignment, and tests the final cost against
         [cost]; no action is done to if they are different if the debug
         parameter isn't set. *)
 
-    val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem
-                            -> s * s
+    val create_edited_2 : s -> s -> dyn_model -> float -> float -> floatmem -> s * s
     (** [create_edited_2 a b m at bt mem] Create the edited sequences of [a] and
         [b] from their alignment with branch lengths [at] and [bt], model [m]. *)
 
-    val align_2         : ?first_gap:bool -> s -> s -> dyn_model -> float 
-                            -> float -> floatmem -> s * s * float
+    val align_2         : ?first_gap:bool -> s -> s -> dyn_model -> float -> float -> floatmem -> s * s * float
     (** [align_2 a b m at bt mem] Create the edited sequences of [a] and [b]
        from their alignment with branch lengths [at] and [bt], model [m]. Also
        return the cost of the alignment. *)
@@ -169,7 +165,7 @@ module type A = sig
         can be used mostly in testing and probably should not be called
         directly. More appropriate functions are median_2/full_median_2/gen_all_2 *)
 
-    (** {6 Pseudo 3d operations *)
+(** {6 Pseudo 3d operations *)
 
     val closest  : p:s -> m:s -> dyn_model -> float -> floatmem -> s * float
     (** [closest p m model t mem] Create a sequence from [m] using [p] as its
