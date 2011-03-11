@@ -418,14 +418,23 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
 (** {6 Infix Module} *)
 module type I =
     sig
+        val set_eps : float -> unit
+        val set_ops : int -> unit
+        val reset   : unit -> unit
+
         val (=.) : float -> float -> bool
         val (>.) : float -> float -> bool
         val (<.) : float -> float -> bool
     end
 
-module FuzzyInfix : I = 
+module FPInfix : I = 
     struct
-        let (=.) a b = (abs_float (a-.b)) < epsilon
-        let (>.) a b = (a-.b) > epsilon
-        let (<.) a b = (a-.b) < ~-.epsilon
+        let l_eps     = ref epsilon
+        let set_eps f = l_eps := f
+        let set_ops i = l_eps := Pervasives.epsilon_float *. (float_of_int i)
+        let reset ()  = l_eps := epsilon
+
+        let (=.) a b = (abs_float (a-.b)) < !l_eps
+        let (>.) a b = (a-.b) > !l_eps
+        let (<.) a b = (a-.b) < ~-.(!l_eps)
     end

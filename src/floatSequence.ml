@@ -24,6 +24,11 @@ let use_cost_fn = true
 let use_align = true
 let failwithf format = Printf.ksprintf (failwith) format
 
+(* a wrapper for printf to allow us to direct output for testing *)
+let printf format = Printf.printf format
+(*let printf format =*)
+(*    Printf.ksprintf (Status.user_message Status.Information) format*)
+
 let to_char_list string = 
     let rec to_ i len acc = 
         if i = len then List.rev acc
@@ -59,9 +64,9 @@ let pp_ilst chan lst =
 and print_barray2 a = 
     for i = 0 to (Bigarray.Array2.dim1 a)-1 do 
         for j = 0 to (Bigarray.Array2.dim2 a)-1 do
-            Printf.printf "%2.10f\t" a.{i,j};
-        done; Printf.printf "\n"; 
-    done; Printf.printf "\n"; ()
+            printf "%2.10f\t" a.{i,j};
+        done; printf "\n"; 
+    done; printf "\n"; ()
 
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 
@@ -69,7 +74,7 @@ let pp_seq model chan seq = Sequence.print chan seq model.alph
 
 let cost_fn m = m.static.MlModel.spec.MlModel.cost_fn
 
-open Numerical.FuzzyInfix (* fuzzy comparison functions: =., <., >. *)
+open Numerical.FPInfix (* fuzzy comparison functions: =., <., >. *)
 
 (* minimum of three with annotations; this will work for all methods *)
 let min3_ a at b bt c ct =
@@ -162,25 +167,26 @@ module FloatAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                Printf.printf "|  %s %02.3f[%d]  " 
+                printf "|  %s %02.3f[%d]  " 
                     (dirToString (choose_dir dirs)) (abs_float cost) indel;
             done;
-            Printf.printf "|\n%!";
+            printf "|\n%!";
         done;
         print_newline ()
 
     let print_raw seq =
         for i = 0 to (Sequence.length seq)-1 do
-            Printf.printf "|%d" (Sequence.get seq i);
+            printf "|%d" (Sequence.get seq i);
         done;
-        Printf.printf "|%!";
+        printf "|%!";
         ()
 
     let print_s (seq:s) (a) =
         for i = 0 to (Sequence.length seq)-1 do
-            try Printf.printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
-            with (Alphabet.Illegal_Code _ ) -> Printf.printf "%d" (Sequence.get seq i);
+            try printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
+            with (Alphabet.Illegal_Code _ ) -> printf "%d" (Sequence.get seq i);
         done;
+        printf "\n%!";
         ()
 
     (* memory processing functions *)
@@ -238,7 +244,7 @@ module FloatAlign : A = struct
                     (0.0,0) (xs)
             in
             if debug_aln then
-                Printf.printf "Cost: %d(%a) ->%f/%d<- %d(%a)\n%!" 
+                printf "Cost: %d(%a) ->%f/%d<- %d(%a)\n%!" 
                     x_i pp_ilst (BitSet.Int.list_of_packed x_i) cst n
                     y_i pp_ilst (BitSet.Int.list_of_packed y_i);
             cst /. (float_of_int n)
@@ -282,7 +288,7 @@ module FloatAlign : A = struct
             in
             let res = 1 lsl state in
             if debug_aln || ~-1 = state then
-                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
+                iprintf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f/%f)->%02d(%02d)\n%!"
                               i p pp_ilst (BitSet.Int.list_of_packed p) m
                               pp_ilst (BitSet.Int.list_of_packed m) cst t state res;
             assert( state <> ~-1 );
@@ -299,6 +305,8 @@ module FloatAlign : A = struct
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
     let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
+        let xlen = Sequence.length x and ylen = Sequence.length y in
+        Numerical.FPInfix.set_ops (2 * (xlen + ylen));
         let cost = let cf = cost m tx ty in (fun a b -> fst (cf a b) ) in
         let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
@@ -315,13 +323,13 @@ module FloatAlign : A = struct
                       ((fst mem.(i-1).(j-1)) +. (cost (get x i) (get y j))) Align
             end
         in
-        let xlen = Sequence.length x and ylen = Sequence.length y in
         for i = 0 to xlen - 1 do
             for j = 0 to ylen - 1 do
                 let c,ds = get_cost i j in
                 mem.(i).(j) <- c,(0,ds)
             done;
         done;
+        Numerical.FPInfix.reset ();
         fst mem.(xlen-1).(ylen-1)
 
 
@@ -366,6 +374,7 @@ module FloatAlign : A = struct
          * avoids extra logic within this function, and possible errors *)
         let lenX = Sequence.length x and lenY = Sequence.length y in
         assert( lenX <= lenY );
+        Numerical.FPInfix.set_ops (2 * (lenX + lenY));
         if (Array.length mem) < lenX then
             failwithf "FloatSequence.FloatAlign; not enough memory in scratch space; Has %d, requires %d"
                         (Array.length mem) lenX;
@@ -564,13 +573,17 @@ module FloatAlign : A = struct
                            else t_cost
         in
         assert( (Sequence.length p) = (Sequence.length m) );
-        Sequence.foldi
-            (fun acc pos _ -> 
-                let p_i = Sequence.get p pos 
-                and m_i = Sequence.get m pos in
-                acc +. cost_single p_i m_i)
-            (0.0)
-            (m)
+        let r = 
+            Sequence.foldi
+                (fun acc pos _ -> 
+                    let p_i = Sequence.get p pos 
+                    and m_i = Sequence.get m pos in
+                    acc +. cost_single p_i m_i)
+                (0.0)
+                (m)
+        in
+        Numerical.FPInfix.reset ();
+        r
 
 
 (* Functions that implement the module Align *)
@@ -661,8 +674,8 @@ module FloatAlign : A = struct
         let alph= Alphabet.explote model.alph 1 0 in
         let gap = Alphabet.get_gap alph in
         if debug_aln then begin
-            Printf.printf "\nP: ";print_s p alph;
-            Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
+            printf "\nP: ";print_s p alph;
+            printf "\nM: ";print_raw m; (* raw; SM is not single *)
         end;
         let mask_gaps seq gap =
             let mask = lnot gap in
@@ -690,7 +703,7 @@ module FloatAlign : A = struct
                 Sequence.mapi (get_closest paln) maln --> remove_gaps gap, cst
         in
         if debug_aln then begin
-            Printf.printf " -%f(%d)-> " cst gap; print_s new_m alph; print_newline ();
+            printf " -%f(%d)-> " cst gap; print_s new_m alph; print_newline ();
         end;
         res
 
@@ -712,7 +725,7 @@ module FloatAlign : A = struct
             and c231 = c231 +. c23
             and c132 = c132 +. c13 in
             if debug_aln then
-                Printf.printf "Cost123: %f\tCost231: %f\tCost132: %f\n" c123 c231 c132;
+                printf "Cost123: %f\tCost231: %f\tCost132: %f\n" c123 c231 c132;
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then 
@@ -768,35 +781,36 @@ module MPLAlign : A = struct
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
                 let cost,(indel,dirs) = mem.(i).(j) in
-                Printf.printf "|  %s%d %02.3f[%d]  " 
+                printf "|  %s%d %02.3f[%d]  " 
                     (dir_string (choose_dir dirs)) (List.length dirs) (abs_float cost) 
                     (get_assignment (choose_dir dirs));
             done;
-            Printf.printf "|\n%!";
+            printf "|\n%!";
         done;
-        print_newline ()
+        printf "\n%!"
 
     let print_raw seq =
         for i = 0 to (Sequence.length seq)-1 do
-            Printf.printf "|%d" (Sequence.get seq i);
+            printf "|%d" (Sequence.get seq i);
         done;
-        Printf.printf "|\n%!";
+        printf "|\n%!";
         ()
 
     let print_s (seq:s) (a) =
         for i = 0 to (Sequence.length seq)-1 do
-            try Printf.printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
-            with (Alphabet.Illegal_Code _) -> Printf.printf "%d" (Sequence.get seq i);
+            try printf "%s" (Alphabet.match_code (Sequence.get seq i) a);
+            with (Alphabet.Illegal_Code _) -> printf "%d" (Sequence.get seq i);
         done;
+        printf "\n%!";
         ()
 
     let print_cm m t = 
         let mat = MlModel.compose m.static t in
         for i = 0 to (Bigarray.Array2.dim1 mat) - 1 do
             for j = 0 to (Bigarray.Array2.dim2 mat) - 1 do
-                Printf.printf " [%f] " (~-. (log mat.{i,j}));
+                printf " [%f] " (~-. (log mat.{i,j}));
             done;
-            print_newline ();
+            printf "\n%!";
         done;
         ()
 
@@ -844,6 +858,7 @@ module MPLAlign : A = struct
             done;
             mat1,mat2
         in
+        MlModel.check_metricity m.static t1 t2 cost1 cost2;
         (* find the cost of median state [me] from [xe] and [ye] *)
         (* return function to calculate costs of polymorphisms *)
         fun x_i y_i ->
@@ -877,7 +892,7 @@ module MPLAlign : A = struct
             in
             if debug_aln || (0 = List.length states) then begin
                 let packed = BitSet.Int.packed_of_list states in
-                Printf.printf "Cost: %d(%a) ->%d(%a)<- %d(%a) = %f\n%!"
+                printf "Cost: %d(%a) ->%d(%a)<- %d(%a) = %f\n%!"
                     x_i pp_ilst xs packed pp_ilst states y_i pp_ilst ys cst;
             end;
             match classify_float cst, states with
@@ -931,7 +946,7 @@ module MPLAlign : A = struct
             in
             let res = 1 lsl state in
             if debug_aln || ~-1 = state then
-                Printf.printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
+                printf "%d -- p:%02d(%a) m:%02d(%a)\t-(%f)->%02d(%02d)\n%!"
                               i p pp_ilst (BitSet.Int.list_of_packed p) m 
                               pp_ilst (BitSet.Int.list_of_packed m) cst state res;
             assert( state <> ~-1 );
@@ -948,7 +963,9 @@ module MPLAlign : A = struct
     (* [align_2 mem x y m t] Align the sequence [x] and [y] with the cost
      * matrix from [m] and branch length [t], and completely fills the matrix of
      * [mem]. Return minimum cost; the alignment can be recovered from [mem] *)
-    let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) = 
+    let align_2 (mem:floatmem) (x:s) (y:s) (m:dyn_model) (tx:float) (ty:float) =
+        let xlen = Sequence.length x and ylen = Sequence.length y in
+        Numerical.FPInfix.set_ops (3 * (xlen + ylen));
         let cost = cost m tx ty in
         let gap = Alphabet.get_gap m.alph in
         let get a b = Sequence.get a b in
@@ -970,13 +987,13 @@ module MPLAlign : A = struct
                       ((fst mem.(i-1).(j-1)) +. acst) (Align  sa)
             end
         in
-        let xlen = Sequence.length x and ylen = Sequence.length y in
         for i = 0 to xlen - 1 do
             for j = 0 to ylen - 1 do
                 let c,ds = get_cost i j in
                 mem.(i).(j) <- c,(0,ds)
             done;
         done;
+        Numerical.FPInfix.reset ();
         fst mem.(xlen-1).(ylen-1)
 
 
@@ -1006,9 +1023,12 @@ module MPLAlign : A = struct
             | Root     -> Sequence.of_array (Array.of_list ((get x 0)::acc))
         in
         let m = build_median [] ((Sequence.length x)-1) ((Sequence.length y)-1) in
-        if filter_gap
-            then remove_gaps (Alphabet.get_gap model.alph) m
-            else m
+        let s = 
+            if filter_gap
+                then remove_gaps (Alphabet.get_gap model.alph) m
+                else m
+        in
+        s
 
     (* [ukkonen_align_2 uk_min uk_max mem x y m t] Align the sequences [x] and
      * [y] using the a cost matrix from the mlmodel [m] and branch length [t],
@@ -1020,6 +1040,7 @@ module MPLAlign : A = struct
          * avoids extra logic within this function, and possible errors *)
         let lenX = Sequence.length x and lenY = Sequence.length y in
         assert( lenX <= lenY );
+        Numerical.FPInfix.set_ops (3 * (lenX + lenY));
         if (Array.length mem) < lenX then
             failwithf "FloatSequence.FloatAlign; not enough memory in scratch space; Has %d, requires %d"
                         (Array.length mem) lenX;
@@ -1225,14 +1246,17 @@ module MPLAlign : A = struct
                            else t_cost
         in
         assert( (Sequence.length p) = (Sequence.length m) );
-        Sequence.foldi
-            (fun acc pos _ -> 
-                let p_i = Sequence.get p pos 
-                and m_i = Sequence.get m pos in
-                acc +. cost_single p_i m_i)
-            (0.0)
-            (m)
-
+        let r = 
+            Sequence.foldi
+                (fun acc pos _ -> 
+                    let p_i = Sequence.get p pos 
+                    and m_i = Sequence.get m pos in
+                    acc +. cost_single p_i m_i)
+                (0.0)
+                (m)
+        in
+        Numerical.FPInfix.reset ();
+        r
 
 (* Functions that implement the module Align *)
     let cost_2 ?deltaw s1 s2 model t1 t2 mem : float = 
@@ -1349,9 +1373,9 @@ module MPLAlign : A = struct
                 remove_gaps gap m, aln_cost_2 paln m model t
         in
         if debug_aln then begin
-            Printf.printf "\nP: ";print_raw p;
-            Printf.printf "\nM: ";print_raw m; (* raw; SM is not single *)
-            Printf.printf " -%f-> " c; print_s s_new model.alph;
+            printf "\nP: ";print_raw p;
+            printf "\nM: ";print_raw m; (* raw; SM is not single *)
+            printf " -%f-> " c; print_s s_new model.alph;
             print_newline ();
         end;
         res
@@ -1373,7 +1397,7 @@ module MPLAlign : A = struct
             and c231 = c231 +. c23
             and c132 = c132 +. c13 in
             if debug_aln then
-                Printf.printf "Cost123: %f\tCost231: %f\tCost132: %f\n" c123 c231 c132;
+                printf "Cost123: %f\tCost231: %f\tCost132: %f\n" c123 c231 c132;
             (* determine best... *)
             if c123 <= c231 then
                 if c123 <= c132 then 
@@ -1408,9 +1432,9 @@ module MALAlign : A = struct
     let print_mem (mem:floatmem) = 
         for i = 0 to (Array.length mem)-1 do
             for j = 0 to (Array.length mem.(i))-1 do
-                Printf.printf "| %02.3f " (abs_float mem.(i).(j));
+                printf "| %02.3f " (abs_float mem.(i).(j));
             done;
-            Printf.printf "|\n%!";
+            printf "|\n%!";
         done;
         print_newline ()
 
@@ -1451,15 +1475,15 @@ module MALAlign : A = struct
 
     let print_cm m t = print_barray2 (create_cost_matrix m t)
 
-    (* sum of three *)
-    let sum3 a b c = ~-. (log ((exp (~-.a)) +. (exp (~-.b)) +. (exp (~-.c))))
-    (* change above to below to align with minimum static likelihood score
-       let sum3 a b c = min (min a b) c *)
+    (* to determine the cost of MAL static likelihood *)
+    let sum3 a b c = min (min a b) c
 
-    (* [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
-       branch length [t]. We assign the cost of aligning two bases as (for dna),
-     
-        C(x,y) = \prod_{m=\{ACTG-\} P(x,m|t_x) * P(y,m|t_y) * \pi_m     *)
+    (* to determine the cost of total likelihood *)
+    let sum3 a b c = ~-. (log ((exp (~-.a)) +. (exp (~-.b)) +. (exp (~-.c))))
+
+    (** [create_align_cost_fn m t] Compose the model [m] into a cost matrix with
+        branch length [t]. We assign the cost of aligning two bases as (for dna),
+            C(x,y) = \prod_{m=\{ACTG-\} P(x,m|t_x) * P(y,m|t_y) * \pi_m *)
     let create_align_cost_fn m tx ty =
         let cm1 = MlModel.compose m.static tx in
         let cm2 = MlModel.compose m.static ty in
@@ -1468,9 +1492,7 @@ module MALAlign : A = struct
             let fn (cst,n) x y =
                 let cst = ref 0.0 in
                 for i = 0 to num-1 do
-                    cst := !cst +. cm1.{x,i} *. cm2.{y,i};
-                        (* add below to get alignment score
-                         *. m.static.MlModel.pi_0.{i}; *)
+                    cst := !cst +. cm1.{x,i} *. cm2.{y,i} *. m.static.MlModel.pi_0.{i};
                 done;
                 !cst,n+1
             and xs = BitSet.Int.list_of_packed x_i 
@@ -1482,7 +1504,7 @@ module MALAlign : A = struct
                     (0.0,0) (xs)
             in
             if debug_aln then
-                Printf.printf "Cost: %d(%a) ->%f/%f(%d)<- %d(%a)\n%!" 
+                printf "Cost: %d(%a) ->%f/%f(%d)<- %d(%a)\n%!" 
                     x_i pp_ilst (BitSet.Int.list_of_packed x_i) cst (log cst) n
                     y_i pp_ilst (BitSet.Int.list_of_packed y_i);
             ~-. (log cst)

@@ -15,6 +15,7 @@ help.ml
 help.txt
 Makefile
 *.swp
+*.orig
 output.0
 requests
 traces.0
@@ -40,13 +41,6 @@ nonaddCSc8.c
 ocaml-str
 poy
 status.ml
-*.aln
-*.ss
-*.fas
-*.nex
-*.nexus
-*.fasta
-*.annot
 doc/version.tex
 src/*.orig
 distro.log
