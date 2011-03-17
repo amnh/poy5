@@ -90,10 +90,16 @@ val bfgs_method :
 
 module type I =
     sig
+        val set_eps : float -> unit
+        val set_ops : int -> unit
+        val reset   : unit -> unit
+
         val (=.) : float -> float -> bool
         val (>.) : float -> float -> bool
         val (<.) : float -> float -> bool
     end
-module FuzzyInfix : I
+module FPInfix : I
 (** This module creates fuzzy infix operators for floating point numbers. This
-    still must be used with care since they will not hold transitivity. *)
+    still must be used with care since they will not hold transitivity. Epsilon
+    can be set directly or calculated from the machine precision and the number
+    of operations where error has accumulated. *)

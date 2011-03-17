@@ -187,6 +187,10 @@ val subst_matrix : model -> float option ->
 
 val debug_model : model -> float option -> unit
 
+val check_metricity : model -> float -> float ->
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t ->
+    (float, Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array2.t -> unit
+
 val model_to_cm : model -> float -> Cost_matrix.Two_D.m
 (** return an integerized cost matrix of the model *)
 

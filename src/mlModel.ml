@@ -795,6 +795,38 @@ let compose_model sub_mat t =
     in
     compose_gtr FMatrix.scratch_space u_ d_ ui_ t
 
+(* check the metricity of the composed matrix by issuing a passive warning *)
+let check_metricity model t1 t2 log_mat1 log_mat2 : unit =
+    let flag = ref false in
+    for i = 0 to model.alph_s-1 do
+        for j = 0 to model.alph_s-1 do
+            let a_state = ref [] and a_cost = ref infinity in
+            for n = 0 to model.alph_s-1 do
+                let n_cost = log_mat1.{i,n} +. log_mat2.{j,n} in
+                if !a_cost =. n_cost then begin
+                    a_state := n :: !a_state;
+                    a_cost  := min !a_cost n_cost;
+                end else if !a_cost > n_cost then begin
+                    a_state := [n];
+                    a_cost  := n_cost;
+                end;
+            done;
+            if not ((List.mem i !a_state) || (List.mem j !a_state)) then
+                flag := true;
+        done;
+    done;
+    let gap_ratio = match model.spec.use_gap with
+        | `Coupled f -> string_of_float f
+        | `Independent | `Missing -> ""
+    in
+    if !flag then begin
+        Status.user_message Status.Warning 
+            (Printf.sprintf "Matrix has metric issues: %f:%f/%s" t1 t2 gap_ratio);
+(*        Status.user_message Status.Warning (Printf.sprintf "Branch Length: %f/%f\n" t1 t2);*)
+(*        output_model (Status.user_message Status.Warning) `Nexus model None;*)
+    end;
+    ()
+
 (* integerized converstion and composition of a model and branch lenghth *)
 let integerized_model ?(sigma=4) model t =
     let sigma = 10.0 ** (float_of_int sigma)
@@ -825,6 +857,7 @@ ELSE
     let compare _ _ = failwith likelihood_not_enabled
     let classify_seq_pairs _ _ _ _ _ = failwith likelihood_not_enabled
     let subst_matrix _ _ = failwith likelihood_not_enabled
+    let check_metricity _ _ _ _ _ = failwith likelihood_not_enabled
 
 END
 
