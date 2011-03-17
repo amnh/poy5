@@ -188,8 +188,12 @@ let get_avg_of_floatlst in_lst =
 * minimum_cover_ratio and minimum_lcb_ratio to find more matches*)
 let get_adjusted_parameter full_covR in_seq_size_lst minlcbR mincovR = 
     let e = 2.718 in 
-    assert(full_covR > 0.);
-    let divided = !minimum_full_cover_ratio /. full_covR in
+    let divided = 
+        if full_covR > 0. then 
+            !minimum_full_cover_ratio /. full_covR 
+        else e *. e (*if we didn't find any good matches before, cut the
+        requirement by half*)
+    in
     Printf.printf "adjust parameter,divided = %f\n%!" divided;
     if divided <= 1. then 
         minlcbR,mincovR
@@ -201,13 +205,19 @@ let get_adjusted_parameter full_covR in_seq_size_lst minlcbR mincovR =
 
 
 let tiny_improvement newresult oldresult =
-    assert(oldresult > 0.);
-    if (abs_float (newresult -. oldresult) ) /. oldresult < (!minimum_improvement) 
-    then begin
-        Printf.printf " tiny improvement, no need to continue\n%!";
-        true
+    if (oldresult = 0.) then begin
+        Printf.printf "we didn't find any good matches before, any improvment \
+        this round is good to us\n%!";
+        false
     end
-    else false
+    else begin
+        if (abs_float (newresult -. oldresult) ) /. oldresult < (!minimum_improvement) 
+        then begin
+            Printf.printf " tiny improvement, no need to continue\n%!";
+            true
+        end
+        else false;
+    end
 
 let print_int_list inlist = 
     Printf.printf "[%!";
@@ -847,7 +857,7 @@ let mark_extendable_mum_tbl seedNO seed2pos_tbl mum_tbl =
 * same seedNO in priority_lst can show up more than one time.*)
 let update_priority_lst in_mum (seedNO_to_remove:int option) (seedNO_to_add:int
 option) mum_tbl seed2pos_tbl=
-    let debug = if in_mum.seedNO=1385||in_mum.seedNO=1410 then true else false in
+    let debug = false in
     if debug then begin
         Printf.printf "update prilst on seed#%d," in_mum.seedNO;
         print_mum in_mum false true;
@@ -3339,8 +3349,8 @@ num_of_mums =
     let sign = ref ( !res_num_badlcb > 1 ) in
     while (!sign) do
         if debug then 
-        Printf.printf "\n current score=%d,cov_rate = %f\n %!" 
-        !res_score !res_cov_rate;
+        Printf.printf "\n in while loop,current score=%d,covR=%f,num_badlcb=%d\n %!" 
+        !res_score !res_cov_rate !res_num_badlcb;
         (*if we have too many bad matches, we might need a shortcut to remove them quickly*)
     let num_alllcb = (Hashtbl.length !res_lcb_tbl) in
     let shortcut = 
@@ -3352,8 +3362,8 @@ num_of_mums =
         Printf.printf "we have %d lightW or lowR lcb (among %d),shortcut<-%b \n%!"
             !res_num_badlcb num_alllcb shortcut; 
     end;
-
-        let seedNOlst_to_remove,score,cov_rate,num_badlcb,lcbs_after_remove,lcb_tbl_after_remove = 
+        let seedNOlst_to_remove,score,cov_rate,num_badlcb,lcbs_after_remove,
+        lcb_tbl_after_remove = 
             get_worst_lcb !res_lcbs !res_lcb_tbl bk_penalty in_seq_size_lst
             mum_tbl seed2pos_tbl shortcut in
         if debug then begin
