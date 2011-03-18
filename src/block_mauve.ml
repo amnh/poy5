@@ -866,7 +866,11 @@ option) mum_tbl seed2pos_tbl=
     let lst_after_remove = 
     match seedNO_to_remove with
     | Some seedNO->
-        if (List.mem seedNO old_lst)=false then print_mum in_mum false true;
+        let debug = 
+            if (List.mem seedNO old_lst)=false then true
+            else debug
+        in
+        if debug then print_mum in_mum false true;
         if debug then Printf.printf "remove seed#%d," seedNO;
         assert (List.mem seedNO old_lst); (*or these must be something wrong*)
         let find1 = ref false in
@@ -1111,7 +1115,8 @@ mum_tbl =
     (%d,%d),main_left=%b\n%!" seedNO seedweight seqNO pos main_left;
     let main_tbl = 
         if main_left then pos2seed_tbl_left  else pos2seed_tbl_right in
-    (*make sure the extendable record is the head of recordlst*)
+    (*call add_to_table to add extendable seed, call add_to_table2 to add all
+    * other seed. make sure the extendable record is the head of recordlst*)
     let add_to_table key newrecord tbl =
         let old_record = Hashtbl.find tbl key in
         let new_record = newrecord::old_record in
@@ -1126,6 +1131,7 @@ mum_tbl =
         let new_mum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
         let old_record = Hashtbl.find main_tbl (seqNO,pos) in
         if debug then print_position2seedtbl main_tbl (Some (seqNO,pos));
+        (*the extendable record is the head of recordlst*)
         let h_seedNO,h_weight,h_ori = List.hd old_record in
         let h_mum = get_mum_from_mumtbl h_seedNO mum_tbl seed2pos_tbl in
         if (ext_sign!=0) then begin (*non-ext mum, just add it*)
@@ -1134,14 +1140,10 @@ mum_tbl =
             let seedNO_to_add = 
                 if h_mum.extendable<>0 then None
                 else (Some h_seedNO)
-                (*if ext_record_len=0 then None
-                else 
-                    let (oldseedNO,_,_) = List.hd ext_old_record in
-                    (Some oldseedNO) *)
             in
             let _ = update_priority_lst new_mum None seedNO_to_add mum_tbl
             seed2pos_tbl in
-            add_to_table (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
+            add_to_table2 (seqNO,pos) (seedNO,seedweight,orientation) main_tbl;
         end
         else begin (*extendable seed,compare with old ext-record if need*)
             if h_mum.extendable<>0(*ext_record_len=0*) then begin
@@ -3608,11 +3610,12 @@ previous_k_lst =
 (*mums smaller than min_weight will be discarded*)
 let resolve_overlap_mum mum_tbl min_weight pos2seed_tbl_left 
 pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
-    if debug then Printf.printf "resolve overlap mums with min_weight = %d\n%!" min_weight;
+    if debug then 
+        Printf.printf "resolve overlap mums with min_weight = %d\n%!" min_weight;
     Hashtbl.iter (fun seedNO (_,_,_) ->
         update_neighborhood seedNO mum_tbl seed2pos_tbl pos2seed_tbl_left
         pos2seed_tbl_right debug_neighborhood
-    ) seed2pos_tbl;
+    ) seed2pos_tbl;   
     if debug then Printf.printf "update neighborhood first, done\n%!";
     let keep_i multi_i multi_j weight_i weight_j =
         if (multi_i>multi_j)||((multi_i=multi_j)&&(weight_i>=weight_j)) then true
@@ -3721,7 +3724,8 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                         let new_jleft = iright + 1 in
                         let new_jweight = jright-new_jleft+1 in
                         let weight_reduce = iright - jleft + 1 in
-                        if debug2 then Printf.printf "d<0,%!";
+                        if debug2 then Printf.printf "d<0,new_j_w=%d,%!"
+                        new_jweight;
                         if (new_jweight>min_weight) then 
                             let continue_sign = ref true in
                             List.iter (fun record ->
@@ -3963,7 +3967,7 @@ in_seqarr in_seq_size_lst  =
     if debug then 
         Printf.printf "\n ============= Resolve overlap mum: =============\n%!";
     let num_of_mums = resolve_overlap_mum res_mum_tbl (new_seedweight-1)
-    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl true false in
+    res_pos2seed_tbl_left res_pos2seed_tbl_right res_seed2pos_tbl false false in
     update_score_for_each_mum res_mum_tbl in_seqarr;
     (*get the new weight of lcbs*)
     let new_seedNOlstlst = 
