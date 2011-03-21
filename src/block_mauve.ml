@@ -1,4 +1,6 @@
 open Printf
+let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
+let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
 (* W = weight, R = ratio *)
 
@@ -151,7 +153,7 @@ let init_seed_size = 50
 let max_gap_num = 0  (*the w *)
 let seedNO_available_arr = ref (Array.make init_seed_size 1)
 
-(** some int/int list/int array/etc.. operation we gonna need *)
+(** some operation on int/int list/int array/etc.. we gonna need *)
 let to_ori_code code =
     assert(code<>0);
     if( code mod 2 == 0) then -(code/2)  else (code+1)/2 
@@ -258,7 +260,10 @@ let print_int_arr2 arr =
     Printf.printf "\n%!"
 
 let print_int_arr arr =
-    Array.iter (fun item -> Printf.printf "%d,%!" item) arr;
+    Array.iter (fun item -> 
+        if item=Utl.large_int then Printf.printf "  L%!"
+        else 
+            Printf.printf "%3i%!" item) arr;
     Printf.printf "\n%!"
 
 let print_int_matrix m =
@@ -1682,7 +1687,7 @@ seed2pos_tbl mum_tbl debug
     end;
     let patternarr = Array.of_list seedpattern in
     let _ = scan_seqlst2 inseqarr patternarr  
-        mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl true in
+        mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl false in
     (*
     let seed_number = ref init_seed_number in
     while (!seed_number<min_seednumber)&&(!seed_len>5 ) do 
@@ -4038,7 +4043,7 @@ min_lcb_ratio min_cover_ratio previous_fullcovR=
     
 let create_lcb_tbl in_seqarr min_lcb_ratio min_cover_ratio min_bk_penalty =
     min_break_point_penalty := min_bk_penalty ;
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
@@ -4324,7 +4329,7 @@ requires the original codearr, call [to_ori_code] to transform
 * *)
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
@@ -4442,6 +4447,30 @@ locus_indel_cost cost_mat  =
                     Printf.printf "set %d,%d with cost=%d,del_cost=(%d|%d)\n%!" 
                     code1 code2 cost del_cost1 del_cost2;
             end
+            else if ((abs ori_code2)>base) && ((abs ori_code1)<=base) then begin
+                let del_cost2 = 
+                    Sequence.cmp_gap_cost locus_indel_cost subseq2 in
+                let len2 = Sequence.length subseq2 in
+                let indel2 = Sequence.create_gap_seq len2 in
+                ali_mat.(code2).(gen_gap_code) <- (del_cost2,subseq2,indel2);
+                ali_mat.(gen_gap_code).(code2) <- (del_cost2,indel2,subseq2);
+                set_cost code2 gen_gap_code del_cost2;
+                if debug2 then 
+                    Printf.printf "set %d,%d(gap) with cost=%d\n%!" code2
+                    gen_gap_code del_cost2;
+            end
+            else if ((abs ori_code1)>base) && ((abs ori_code2)<=base) then begin
+                let del_cost1 = 
+                    Sequence.cmp_gap_cost locus_indel_cost subseq1 in
+                let len1 = Sequence.length subseq1 in
+                let indel1 = Sequence.create_gap_seq len1 in
+                ali_mat.(code1).(gen_gap_code) <- (del_cost1,subseq1,indel1);
+                ali_mat.(gen_gap_code).(code1) <- (del_cost1,indel1,subseq1);
+                set_cost code1 gen_gap_code del_cost1;
+                if debug2 then 
+                    Printf.printf "set %d,%d(gap) with cost=%d\n%!" code1
+                    gen_gap_code del_cost1;
+            end
             else () (*we don't need to ali mauve-recognized block with other blocks*)
         ) (List.nth full_code_lstlst 1)
     ) (List.hd full_code_lstlst); 
@@ -4543,6 +4572,9 @@ let debug = false in
             let seqlst1 = get_seqlst_for_mauve alied_seq1 in
             let seqlst2 = get_seqlst_for_mauve alied_seq2 in
             fprintf oc "> 1:%d-%d %s c=%d\n" (left1+1) (right1+1) dir1 cost;
+            if (right1-left1+1)<500 then 
+                info_user_message "this sequence is too short for mauve graphic \
+                output (length<500)";
             if left1=right1 then fprintf oc "X";
             List.iter (fun seq1 ->
                 Sequence.print oc seq1 Alphabet.nucleotides;
