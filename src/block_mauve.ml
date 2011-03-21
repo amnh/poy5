@@ -4543,13 +4543,13 @@ let debug = false in
             let seqlst1 = get_seqlst_for_mauve alied_seq1 in
             let seqlst2 = get_seqlst_for_mauve alied_seq2 in
             fprintf oc "> 1:%d-%d %s c=%d\n" (left1+1) (right1+1) dir1 cost;
-            if left1=right1 then fprintf oc "A";
+            if left1=right1 then fprintf oc "X";
             List.iter (fun seq1 ->
                 Sequence.print oc seq1 Alphabet.nucleotides;
                 fprintf oc "\n";
             ) seqlst1;
             fprintf oc "> 2:%d-%d %s c=%d\n" (left2+1) (right2+1) dir2 cost;
-            if left2=right2 then fprintf oc "A";
+            if left2=right2 then fprintf oc "X";
             List.iter (fun seq2 ->
                 Sequence.print oc seq2 Alphabet.nucleotides;
                 fprintf oc "\n";
