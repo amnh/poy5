@@ -4709,7 +4709,7 @@ let compute_fixed_states filename data code =
                     let fullname = 
                         match filename with 
                         | None -> ""
-                        | Some fname -> (fname^xname^"_"^yname^".alignment") in
+                        | Some fname -> (fname^"_"^xname^"_"^yname^".alignment") in
                     Block_mauve.output2mauvefile fullname cost None 
                     alied_gen_seq1 alied_gen_seq2 full_code_lstlst ali_mat 
                     gen_gap_code len_lst1 (Sequence.length seqx)

@@ -210,7 +210,8 @@ let insert arr pos new_item =
 
 
 let printIntArr (arr : int array) = 
-    Array.iter (fprintf stdout "%3i") arr;
+    Array.iter (fun x -> if x=large_int then fprintf stdout "  L" else
+        fprintf stdout "%3i" x) arr;
     print_newline ()
 
 let printIntMat (arr : int array array) = 

@@ -149,7 +149,7 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     | None -> ()
     in
     if debug then begin
-        Printf.printf "mauve ali res : cost=%d(+%d),rc=%d,alied_gen_seq1/2 = %!" 
+        Printf.printf "mauve ali res : cost=%d(+edit cost=%d),rc=%d,alied_gen_seq1/2 = %!" 
         cost edit_cost rc;
         Block_mauve.print_int_list (Array.to_list alied_gen_seq1);
         Block_mauve.print_int_list (Array.to_list alied_gen_seq2);
