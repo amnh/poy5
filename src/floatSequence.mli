@@ -19,8 +19,11 @@
 
 (** Floating Point Alignment Modules *)
 
-val sequence_of_string : string -> Alphabet.a -> Sequence.s
+val sequence_of_string : ?filter_gap:bool -> string -> Alphabet.a -> Sequence.s
 (** Convert a string to a sequence based on the provided alphabet *)
+
+val remove_gaps : int -> Sequence.s -> Sequence.s
+(** filter out gaps and prepend sequence with an opening gap *)
 
 type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
 (** type that builds on the static likelihood model. The alphabet contained in
@@ -103,6 +106,10 @@ module type A = sig
     (** [cost m t1 t2 -> x y -> cost] create a function that returns the cost
         between bases as integers. *)
 
+    val aln_cost_2      : s -> s -> dyn_model -> float -> float
+    (** [alncost_2 a b m t] Determines the cost of the branch from [a] to [b]
+        and branch length [t], of model [m]. [a] and [b] must be aligned. *)
+
 (* {6 2D Alignment Operations *)
 
     val cost_2          : ?deltaw:int -> s -> s -> dyn_model -> float -> float -> floatmem -> float
@@ -111,10 +118,6 @@ module type A = sig
         and model [m]. The [mem] is updated, and can be used to return a
         backtrace or the edited sequences, although it is recommended that
         another function that returns that data be called instead. *)
-
-    val aln_cost_2      : s -> s -> dyn_model -> float -> float
-    (** [alncost_2 a b m t] Determines the cost of the branch from [a] to [b]
-        and branch length [t], of model [m]. [a] and [b] must be aligned. *)
 
     val full_cost_2     : float -> s -> s -> dyn_model -> float -> float -> floatmem -> float
     (** [verify_cost_2 cost a b m at bt mem] Return the cost of the alignment of
