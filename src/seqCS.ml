@@ -1352,6 +1352,25 @@ module RL = struct
     }
 
 
+    let print_rl in_rl = 
+        Printf.printf "print RL.distance table=%!";
+        Array.iteri (fun i farr ->
+            Array.iteri (fun j dis ->
+                Printf.printf "(%d,%d):%f;" i j dis
+            ) farr
+        ) in_rl.distance_table;
+        Printf.printf "\n%!"
+
+    let print_fs_sequences in_fs_seqs =
+        Printf.printf "fs_sequences, states:%!";
+        Array.iter (fun x -> 
+            if x=max_float then Printf.printf "max_f,%!"
+            else Printf.printf "%f,%!" x) in_fs_seqs.states;
+        Printf.printf "left:%!";
+        Utl.printIntArr in_fs_seqs.left;
+        Printf.printf "right:%!";
+        Utl.printIntArr in_fs_seqs.right
+
     let find_smallest a =
         let min_cost = ref max_float in
         let min_pos = ref (-1) in
@@ -1390,10 +1409,12 @@ module RL = struct
         (int_of_float childtbl.distance_table.(parent.DOS.position).(pos))
 
     let median code (at, ast) (bt, bst) =
-        (*
-        Printf.printf "Code %d has left %d and right %d\n%!" code ast.code
-        bst.code;
-        *)
+        if debug then begin
+            Printf.printf "RL.median on nodeA and nodeB:\n%!";
+            print_rl at;
+            print_fs_sequences ast;
+            print_fs_sequences bst;
+        end;
         let len = Array.length ast.states in
         assert (len = Array.length bst.states);
         let states = Array.make len max_float
