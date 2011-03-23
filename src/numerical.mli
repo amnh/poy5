@@ -32,11 +32,6 @@ val minimum   : float
 
 (** {6 Floating Point Functions} *)
 
-(*val ulps_to_epsilon : int -> float*)
-(** From ulps (units in the last place) to an epsilon error factor for numerical
-    compuatation. (based on "What Every Computer Scientist Should Know About
-    Floating-Point Arithmetic" by Daivd GoldBerg, (3).) *)
-
 val is_nan : float -> bool
 (** is the floating point number NAN *)
 
@@ -102,4 +97,7 @@ module FPInfix : I
 (** This module creates fuzzy infix operators for floating point numbers. This
     still must be used with care since they will not hold transitivity. Epsilon
     can be set directly or calculated from the machine precision and the number
-    of operations where error has accumulated. *)
+    of operations where error has accumulated. Ensure that this modification is
+    reverted, or the change will persist. These functions are probably only
+    useful on floating point alignment --when many operations are going to
+    accumulate a large number of ulps. *)

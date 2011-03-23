@@ -19,7 +19,7 @@
 
 let (-->) b a = a b
 
-let debug = false
+let debug = true
 let failwithf format = Printf.ksprintf failwith format
 let warning_message format = Printf.ksprintf (Status.user_message Status.Warning) format
 
@@ -419,22 +419,37 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
 module type I =
     sig
         val set_eps : float -> unit
-        val set_ops : int -> unit
-        val reset   : unit -> unit
+        val set_ops : int   -> unit
+        val reset   : unit  -> unit
 
         val (=.) : float -> float -> bool
         val (>.) : float -> float -> bool
         val (<.) : float -> float -> bool
     end
 
-module FPInfix : I = 
+module FPInfix : I =
     struct
-        let l_eps     = ref epsilon
-        let set_eps f = l_eps := f
-        let set_ops i = l_eps := Pervasives.epsilon_float *. (float_of_int i)
-        let reset ()  = l_eps := epsilon
+        let default = tolerance
+        let warn =
+            "Numerical.Infix; Tolerance for floating point equality is being"
+            ^" increased. This could be due to the length of your sequences or"
+            ^" any situation where a large number of floating point processes"
+            ^" build up error."
+
+        let l_eps     = ref default
+        let reset ()  = l_eps := default
+        let set_eps n_eps =
+            if n_eps > default then begin
+                Status.user_message Status.Warning warn;
+                l_eps := n_eps
+            end else begin
+                l_eps := default
+            end
+        let set_ops i = 
+            set_eps (Pervasives.epsilon_float *. (float_of_int i))
 
         let (=.) a b = (abs_float (a-.b)) < !l_eps
         let (>.) a b = (a-.b) > !l_eps
         let (<.) a b = (a-.b) < ~-.(!l_eps)
     end
+
