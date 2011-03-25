@@ -1,4 +1,28 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
 type taxon = string
+
+let (-->) b a = a b
+
+let true_trim str = 
+    Str.global_replace (Str.regexp "\\(^ +\\)\\|\\( +$\\)") "" str
 
 module type S = sig
     (** Interface for molecular kind of data parsers *)
@@ -120,6 +144,11 @@ let process_sequence remove_gaps lexer alph lst =
     Sequence.prepend s gap;
     s
 
+let process_taxon_name comment_str name =
+    (* build a regexp to remove from 'comment_str' to end of the line *)
+    let regexp = Str.regexp ((Str.quote comment_str)^".*$") in
+    true_trim (Str.replace_first regexp "" name)
+
 let process_file_imp remove_gaps ch alph =
     (* Apparenty ocaml is not making the next tail-recursive function a
      * loop? for some reason I get stack overflow, so I will write it using a
@@ -134,60 +163,37 @@ let process_file_imp remove_gaps ch alph =
         while true do
             match get_line ch with
             | Read line ->
-                  if is_taxon line || !last_line_empty then begin
-                      try
-                          let tmps =  
-                              let sequence = List.rev !sequence in 
-                              let seqs2 = split_chromosomes sequence in
-                              let seqs3 = List.map split_loci seqs2 in
-                              let seqs4 = List.map 
-                                  (fun ls2 -> List.map split_frag ls2) seqs3  
-                              in 
-                              let seqs4 = List.map  
-                                  (fun s3 ->  
-                                       List.map 
-                                       (fun s2 -> List.map 
-                                       (process_sequence remove_gaps lexer 
-                                       alph) s2 ) s3 
-                                  ) seqs4  
-                              in                    
-
-                              seqs4
-                          in 
-                        let result = tmps, !taxon in
+                if is_taxon line || !last_line_empty then begin
+                    try let tmps =  
+                            !sequence
+                                --> List.rev
+                                --> split_chromosomes
+                                --> List.map split_loci
+                                --> List.map (List.map split_frag)
+                                --> List.map (List.map (List.map (process_sequence remove_gaps lexer alph)))
+                        in 
+                        let result = tmps, (process_taxon_name "$" !taxon) in
                         res := result :: !res;
                         taxon := line;
-                        if (!taxon).[0] = '>'
-                        then
+                        if (!taxon).[0] = '>' then
                             taxon := String.sub line 1 ((String.length line) - 1);
-
                         sequence := [];
                         last_line_empty := false;
-                      with
-                      | Illegal_molecular_format fl ->
-                              let fl = { fl with taxon = line } in
-                              raise (Illegal_molecular_format fl)
-                    end else (sequence := line :: !sequence;)
+                    with | Illegal_molecular_format fl ->
+                        let fl = { fl with taxon = line } in
+                        raise (Illegal_molecular_format fl)
+                end else (sequence := line :: !sequence;)
             | Eot -> last_line_empty := true
             | Eof -> 
                     let tmps = 
-                        let sequence = List.rev !sequence in
-                        let seqs2 = split_chromosomes sequence in  
-                        
-                        let seqs3 = List.map split_loci seqs2 in 
-
-                        let seqs4 = List.map  
-                            (fun ls2 -> List.map split_frag ls2) seqs3   
-                        in  
-
-                        let seqs4 = List.map  
-                            (fun s3 ->  
-                                 List.map (fun s2 -> List.map (process_sequence remove_gaps lexer alph) s2 ) s3 
-                            ) seqs4  
-                        in           
-                        seqs4
+                        !sequence 
+                            --> List.rev
+                            --> split_chromosomes
+                            --> List.map split_loci
+                            --> List.map (List.map split_frag)
+                            --> List.map (List.map (List.map (process_sequence remove_gaps lexer alph)))
                     in
-                    let result = tmps, !taxon in
+                    let result = tmps, (process_taxon_name "$" !taxon) in
                     res := result :: !res;
                     raise Finished
         done;
