@@ -1481,6 +1481,17 @@ type t = {
     priority : int list;            (** The information ordering *)
 }
 
+let check_characters_type in_data =
+    let sc_arr = in_data.characters in
+    Printf.printf "seqCS.check characters type : %!";
+    Array.iter (fun item ->
+        match item with
+        | Heuristic_Selection _ -> Printf.printf "Heuristic_Selection,%!"
+        | Relaxed_Lifted _ -> Printf.printf "Relaxed_Lifted,%!"
+        | Partitioned _ -> Printf.printf "Partitioned,%!"
+    ) sc_arr;
+    Printf.printf "\n%!"
+
 (* return 1 if we are dealing with this kind of SeqCS data for multi-chromosome.*)
 let is_available in_data =
     match (in_data.characters).(0) with
