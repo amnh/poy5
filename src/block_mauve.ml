@@ -20,6 +20,44 @@ let hodx_matrix = [|
 
 |]
 
+(*transform poy cost matrix into hodx_matrix in mauve*)
+let fill_in_hmatrix cost_mat = 
+    let debug = false in
+    let ac = Cost_matrix.Two_D.cost 1 2 cost_mat in
+    let ag = Cost_matrix.Two_D.cost 1 4 cost_mat in
+    let at = Cost_matrix.Two_D.cost 1 8 cost_mat in
+    let cg = Cost_matrix.Two_D.cost 2 4 cost_mat in
+    let ct = Cost_matrix.Two_D.cost 2 8 cost_mat in
+    let gt = Cost_matrix.Two_D.cost 4 8 cost_mat in
+    let aa = hodx_matrix.(0).(0) 
+    and cc = hodx_matrix.(1).(1)
+    and gg = hodx_matrix.(2).(2)
+    and tt = hodx_matrix.(3).(3) in
+    let r = (float_of_int ((aa+cc+gg+tt)*6)) /. 
+    (float_of_int (4*(ac+ag+at+cg+ct+gt))) in
+    let ac = int_of_float ((float_of_int ac) *. r) in
+    let ag = int_of_float ((float_of_int ag) *. r) in
+    let at = int_of_float ((float_of_int at) *. r) in
+    let cg = int_of_float ((float_of_int cg) *. r) in
+    let ct = int_of_float ((float_of_int ct) *. r) in
+    let gt = int_of_float ((float_of_int gt) *. r) in
+    hodx_matrix.(0).(1) <- -ac;
+    hodx_matrix.(1).(0) <- -ac;
+    hodx_matrix.(0).(2) <- -ag;
+    hodx_matrix.(2).(0) <- -ag;
+    hodx_matrix.(0).(3) <- -at;
+    hodx_matrix.(3).(0) <- -at;
+    hodx_matrix.(1).(2) <- -cg;
+    hodx_matrix.(2).(1) <- -cg;
+    hodx_matrix.(1).(3) <- -ct;
+    hodx_matrix.(3).(1) <- -ct;
+    hodx_matrix.(3).(2) <- -gt;
+    hodx_matrix.(2).(3) <- -gt;
+    if debug then
+        Utl.printIntMat hodx_matrix
+
+
+
 let palindromic_spaced_seed_tbl =
     let res = Hashtbl.create 15 in
     let seed5 = [ [1;2;4;6;7];
@@ -4338,6 +4376,8 @@ requires the original codearr, call [to_ori_code] to transform
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
     let debug = false and debug2 = false in
+    (*transform poy costmatrix into hodx_matrix in mauve*)
+    fill_in_hmatrix cost_mat;
     let seq1arr = Sequence.to_array seq1 
     and seq2arr = Sequence.to_array seq2 in
     let in_seqarr = [|seq1arr;seq2arr|] in
