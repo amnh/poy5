@@ -77,7 +77,7 @@ type re_meth_t = [ `Locus_Breakpoint of int |
 type median_solver_t = [ `MGR | `Vinh | `Albert | `Siepel | `BBTSP | `COALESTSP |
 `ChainedLK | `SimpleLK ]
 
-type annotate_tool_t = [ `Mauve of (float*float*int) | `Default of (int*int*int) ]
+type annotate_tool_t = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
 type dyna_pam_t = {
 
@@ -4679,9 +4679,9 @@ let compute_fixed_states filename data code =
         for y = x + 1 to states - 1 do
             let cost =
                 if annotate_with_mauve then
-                    let min_lcb_ratio,min_cover_ratio,min_bk_penalty = 
+                    let min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty = 
                         match dyn_pam.annotate_tool with
-                        | Some (`Mauve (a,b,c)) -> a,b,c
+                        | Some (`Mauve (a,b,c,d)) -> a,b,c,d
                         | _ -> assert(false)                        
                     in
                     let l_i_c = match dyn_pam.locus_indel_cost with
@@ -4693,7 +4693,7 @@ let compute_fixed_states filename data code =
                     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,
                     edit_cost,full_code_lstlst,len_lst1 = 
                         Block_mauve.get_matcharr_and_costmatrix seqx 
-                        seqy min_lcb_ratio 
+                        seqy min_lcb_ratio min_lcb_len 
                         min_cover_ratio min_bk_penalty l_i_c dhs.tcm2d in
                     let re_meth = match dyn_pam.re_meth with
                     | Some value -> value 

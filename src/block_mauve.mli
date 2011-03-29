@@ -58,7 +58,7 @@ type lcb = {
     avg_range_len : int; (*average length from range_lst*)
 }
 
-val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> float -> int ->
+val get_matcharr_and_costmatrix : Sequence.s -> Sequence.s -> float -> int -> float -> int ->
 int*int -> Cost_matrix.Two_D.m ->  
     int array * int array * int array array *
 (int*Sequence.s*Sequence.s) array array * int * int * (int * (int * int)) list

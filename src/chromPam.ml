@@ -293,39 +293,45 @@ let print_pair_ali_pam (pair_ali_pam : chromPairAliPam_t) =
 
 let get_min_seed_len pam =
     match pam.annotate_tool with
-    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Mauve (_,_,_,_)  -> failwith "Mauve annotator does not have this" 
     | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
             min_seed_length
 
 let get_min_loci_len pam =
     match pam.annotate_tool with
-    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Mauve (_,_,_,_)  -> failwith "Mauve annotator does not have this" 
     | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
             min_loci_len
 
 let get_min_rearrangement_len pam =
     match pam.annotate_tool with
-    | `Mauve (_,_,_)  -> failwith "Mauve annotator does not have this" 
+    | `Mauve (_,_,_,_)  -> failwith "Mauve annotator does not have this" 
     | `Default (min_loci_len,min_rearrangement_len,min_seed_length) ->
             min_rearrangement_len
 
 let get_min_cover_ratio pam = 
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_cover_ratio,bk_penalty) -> min_cover_ratio
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) -> min_cover_ratio
     | `Default (_,_,_) ->
-            failwith "Default annotator does not have this"
+            failwith "Default annotator is not mauve"
 
 let get_min_lcb_ratio pam =
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_seed_num,bk_penalty) ->  min_lcb_ratio
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) ->  min_lcb_ratio
     | `Default (_,_,_) ->
-            failwith "Default annotator does not have this"
+            failwith "Default annotator is not mauve"
+
+let get_min_lcb_len pam =
+    match pam.annotate_tool with
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,bk_penalty) -> min_lcb_len
+    | `Default (_,_,_) ->
+            failwith "Default annotator is not mauve"
 
 let get_min_bk_penalty pam =
     match pam.annotate_tool with
-    | `Mauve (min_lcb_ratio,min_seed_num,min_bk_penalty) -> min_bk_penalty
+    | `Mauve (min_lcb_ratio,min_lcb_len,min_cover_ratio,min_bk_penalty) -> min_bk_penalty
     | `Default (_,_,_) ->
-            failwith "Default annotator does not have this"
+            failwith "Default annotator is not mauve"
 
 
 

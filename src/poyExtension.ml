@@ -815,9 +815,9 @@ module POYLanguage (Syntax : Camlp4Syntax) = struct
                 [ LIDENT "default"; ","; x = flex_integer; ","; 
                 y = flex_integer; ","; z = flex_integer
                 -> <:expr<`Annotate_Tool (`Default ($x$,$y$,$z$))>> ] |
-                [ LIDENT "mauve"; ","; x = flex_float; ","; y = flex_integer;
-                ","; z = flex_integer 
-                -> <:expr<`Annotate_Tool (`Mauve ($x$,$y$,$z$)) >> ]
+                [ LIDENT "mauve"; ","; a = flex_float; ","; b = flex_integer;
+                ","; c = flex_float; ",";d = flex_integer 
+                -> <:expr<`Annotate_Tool (`Mauve ($a$,$b$,$c$,$d$)) >> ]
             ];
         chromosome_argument:
             [
