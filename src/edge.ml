@@ -96,9 +96,9 @@ module LazyEdge : EdgeSig with type e = AllDirNode.OneDirF.n with type n =
         type n = AllDirNode.AllDirF.n
         let has_information = true
         let to_node code dir e = 
-            let res = [{ AllDirNode.lazy_node = e; dir = Some dir; code = code}]
+            let res = { AllDirNode.lazy_node = e; dir = Some dir; code = code}
             in
-            { AllDirNode.unadjusted = res; adjusted = res }
+            { AllDirNode.unadjusted = [res]; adjusted = Some res }
         let of_node a b = 
             match a with
             | Some a -> (AllDirNode.not_with a b.AllDirNode.unadjusted).AllDirNode.lazy_node
