@@ -201,16 +201,19 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
         in
         let seq_d = 
             (PXML
-                -[Xml.Characters.likelihood]
+                -[Xml.Characters.characters]
                     ([Xml.Characters.name] = [`String (Data.code_character mine.code d)])
-                    ([Xml.Characters.llike] = [`Float mine.cost])
-                    ([Xml.Nodes.min_time] = [str_time t1])
-                    ([Xml.Nodes.oth_time] = [str_time t2])
-                    ([attr])
                     { `Fun seq_f }
                 --)
         in
-        model_d @ [seq_d]
+        (PXML
+            -[Xml.Characters.dlikelihood]
+                ([Xml.Characters.cost] = [`Float mine.cost])
+                ([Xml.Nodes.min_time] = [str_time t1])
+                ([Xml.Nodes.oth_time] = [str_time t2])
+                ([attr])
+                { `Set (model_d @ [seq_d]) }
+            --) :: []
 
     | MPLAlign r    ->
         let model_d = MlModel.to_formatter (static_model mine) in
@@ -229,16 +232,19 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
         in
         let seq_d = 
             (PXML
-                -[Xml.Characters.likelihood]
+                -[Xml.Characters.characters]
                     ([Xml.Characters.name] = [`String (Data.code_character mine.code d)])
-                    ([Xml.Characters.llike] = [`Float mine.cost])
-                    ([Xml.Nodes.min_time] = [str_time t1])
-                    ([Xml.Nodes.oth_time] = [str_time t2])
-                    ([attr])
                     { `Fun seq_f }
                 --)
         in
-        model_d @ [seq_d]
+        (PXML
+            -[Xml.Characters.dlikelihood]
+                ([Xml.Characters.cost] = [`Float mine.cost])
+                ([Xml.Nodes.min_time] = [str_time t1])
+                ([Xml.Nodes.oth_time] = [str_time t2])
+                ([attr])
+                { `Set (model_d @ [seq_d]) }
+            --) :: []
 
     | Integerized r -> 
         begin match r.ia with

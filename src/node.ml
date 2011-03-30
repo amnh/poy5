@@ -3159,97 +3159,96 @@ let get_active_ref_code node_data =
         (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) 
         (node_data.characters)
 
-let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) d 
-    (cs , cs_single) (parent_cs : (cs * cs) option) : Xml.xml Sexpr.t list = 
+let rec cs_to_formatter node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) parent_cs = 
     match cs, cs_single with
-    | Nonadd8 cs, Nonadd8 _ -> begin
-        match parent_cs with 
-          | None ->
+    | Nonadd8 cs, Nonadd8 _ ->
+        begin match parent_cs with
+        | None ->
             NonaddCS8.to_formatter 
-                (NonaddCS8.to_formatter [] fin cs.final None  d) pre
-                cs.preliminary None d
-          | Some ((Nonadd8 parent_cs), _) ->
-            NonaddCS8.to_formatter 
-                (NonaddCS8.to_formatter [] fin cs.final 
-                (Some parent_cs.final) d) pre cs.preliminary 
-                (Some parent_cs.preliminary) d
-          | _ -> assert false
-      end 
-    | Nonadd16 cs, Nonadd16 _ -> begin 
-        match parent_cs with  
-          | None ->
-                NonaddCS16.to_formatter (NonaddCS16.to_formatter [] fin cs.final
-                None  d) pre cs.preliminary None d
-          | Some ((Nonadd16 parent_cs), _) ->
-                NonaddCS16.to_formatter 
-                (NonaddCS16.to_formatter [] fin cs.final (Some parent_cs.final)
-                d)  
-                 pre cs.preliminary (Some parent_cs.preliminary) d
-          | _ -> assert false
-      end  
-    | Nonadd32 cs, Nonadd32 _ -> begin
-        match parent_cs with  
-          | None -> 
-                NonaddCS32.to_formatter 
-                (NonaddCS32.to_formatter [] fin cs.final None  d)
+                (NonaddCS8.to_formatter [] fin cs.final None d)
                 pre cs.preliminary None d
-          | Some ((Nonadd32 parent_cs), _) -> 
-                NonaddCS32.to_formatter 
-                (NonaddCS32.to_formatter [] fin cs.final (Some parent_cs.final) d) 
+        | Some ((Nonadd8 parent_cs), _) ->
+            NonaddCS8.to_formatter
+                (NonaddCS8.to_formatter [] fin cs.final (Some parent_cs.final) d)
                 pre cs.preliminary (Some parent_cs.preliminary) d
-          | _ -> assert false
-      end   
-    | Add cs, Add _ -> begin
-        match parent_cs with 
-          | None ->
+        | _ -> assert false
+        end
+    | Nonadd16 cs, Nonadd16 _ ->
+        begin match parent_cs with
+        | None ->
+            NonaddCS16.to_formatter 
+                (NonaddCS16.to_formatter [] fin cs.final None d)
+                pre cs.preliminary None d
+        | Some ((Nonadd16 parent_cs), _) ->
+            NonaddCS16.to_formatter
+                (NonaddCS16.to_formatter [] fin cs.final (Some parent_cs.final) d)
+                pre cs.preliminary (Some parent_cs.preliminary) d
+        | _ -> assert false
+        end
+    | Nonadd32 cs, Nonadd32 _ ->
+        begin match parent_cs with
+        | None ->
+            NonaddCS32.to_formatter 
+                (NonaddCS32.to_formatter [] fin cs.final None d)
+                pre cs.preliminary None d
+        | Some ((Nonadd32 parent_cs), _) ->
+            NonaddCS32.to_formatter
+                (NonaddCS32.to_formatter [] fin cs.final (Some parent_cs.final) d)
+                pre cs.preliminary (Some parent_cs.preliminary) d
+        | _ -> assert false
+        end
+    | Add cs, Add _ ->
+        begin match parent_cs with
+            | None ->
                 AddCS.to_formatter pre cs.preliminary None d
                 @ AddCS.to_formatter fin cs.final None  d
-          | Some ((Add parent_cs), _) ->
+            | Some ((Add parent_cs), _) ->
                 AddCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ AddCS.to_formatter fin cs.final (Some parent_cs.final) d  
-          | _ -> assert false
-      end 
-    | Sank cs, Sank _ -> begin
-          match parent_cs with 
-          | None ->
+                @ AddCS.to_formatter fin cs.final (Some parent_cs.final) d
+            | _ -> assert false
+        end
+    | Sank cs, Sank _ ->
+        begin match parent_cs with
+            | None ->
                 SankCS.to_formatter pre cs.preliminary None d
                 @ SankCS.to_formatter fin cs.final None  d
-          | Some ((Sank parent_cs), _) ->
+            | Some ((Sank parent_cs), _) ->
                 SankCS.to_formatter pre cs.preliminary (Some parent_cs.preliminary) d
-                @ SankCS.to_formatter fin cs.final (Some parent_cs.final) d  
-          | _ -> assert false
-      end  
-    | Dynamic cs, Dynamic cs_single -> begin
-        match parent_cs with 
-        | None ->
-            DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary None cs.time d
-          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time d
-          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary None cs.time d
-        | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
-            DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary
-                (Some parent_cs.preliminary) cs.time d
-          @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final
-                (Some parent_cs.final) cs.time d
-          @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary
-                (Some parent_cs_single.preliminary) cs.time d
-          | _ -> assert false
-      end 
+                @ SankCS.to_formatter fin cs.final (Some parent_cs.final) d
+            | _ -> assert false
+        end
+    | Dynamic cs, Dynamic cs_single ->
+        begin match parent_cs with
+            | None ->
+                DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary None cs.time d
+              @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time d
+              @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary None cs.time d
+            | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
+                DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary
+                    (Some parent_cs.preliminary) cs.time d
+              @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final
+                    (Some parent_cs.final) cs.time d
+              @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary
+                    (Some parent_cs_single.preliminary) cs.time d
+            | _ -> assert false
+        end
     | Kolmo x, Kolmo x_single ->
-          KolmoCS.to_formatter pre_ref_codes pre x.preliminary d @
-              KolmoCS.to_formatter fi_ref_codes  fin x.final d @
-              KolmoCS.to_formatter pre_ref_codes sing x_single.preliminary d
+        KolmoCS.to_formatter pre_ref_codes pre x.preliminary d @
+            KolmoCS.to_formatter fi_ref_codes  fin x.final d @
+            KolmoCS.to_formatter pre_ref_codes sing x_single.preliminary d
     | Set x, Set x_single ->
-          let attributes =
+        let attributes =
               [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
-          let sub a =
-              (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
-                error, though I can't see where ... *)
-              (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None)
-          in
-          let sub : (Xml.xml Sexpr.t list) = List.map2 (fun a b -> `Set
-          (sub (a, b))) x.final.set x_single.final.set in
-          let cont = `Set sub in
-          [`Single (Xml.Characters.set, attributes, cont)]
+        let sub a =
+            (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
+               error, though I can't see where ... *)
+            (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None)
+        in
+        let sub : (Xml.xml Sexpr.t list) = 
+            List.map2 (fun a b -> `Set (sub (a, b))) 
+                      x.final.set x_single.final.set 
+        in
+        [`Single (Xml.Characters.set, attributes, `Set sub)]
     | StaticMl cs, StaticMl _ ->
         IFDEF USE_LIKELIHOOD THEN
             MlStaticCS.to_formatter pre cs.preliminary cs.time d
@@ -3261,69 +3260,60 @@ let rec cs_to_formatter (node_name:string option) (pre_ref_codes, fi_ref_codes) 
 
 (* Compute total recost of the NODE, NOT THE SUBTREE*)
 let cmp_node_recost node_data = 
-    List.fold_left (fun recost cs -> 
-                        match cs with
-                        | Dynamic dyn -> recost +. DynamicCS.total_recost dyn.preliminary
-                        | _ -> recost
-                   ) 0. node_data.characters
+    List.fold_left 
+        (fun recost cs -> match cs with
+            | Dynamic dyn -> recost +. DynamicCS.total_recost dyn.preliminary
+            | _ -> recost) 
+        0.0 node_data.characters
 
 (* Compute total recost of the subtree rooted by this NODE *)
 let cmp_subtree_recost node_data =
     if debug_formatter then
         Printf.printf "node.ml cmp_subtree_recost:%!";
     List.fold_left 
-        (fun subtree_recost cs -> 
-             match cs with 
-             | Dynamic dyn ->
-               let res = subtree_recost +. (DynamicCS.subtree_recost
-                     dyn.preliminary) 
-               in
-               if debug_formatter then
+        (fun subtree_recost cs -> match cs with 
+            | Dynamic dyn ->
+                let res = subtree_recost +. (DynamicCS.subtree_recost dyn.preliminary) in
+                if debug_formatter then
                     Printf.printf "res = %f + %f \n%!"  subtree_recost
-               (DynamicCS.subtree_recost dyn.preliminary);
-               res
-             | _ -> subtree_recost
-        ) 0. node_data.characters
+                        (DynamicCS.subtree_recost dyn.preliminary);
+                res
+            | _ -> subtree_recost) 
+        0.0
+        node_data.characters
 
-
-let to_formatter_single (pre_ref_codes, fi_ref_codes) 
-    (acc : Xml.attributes) 
-    d (node_data, node_single) (node_id : int) parent_data : Xml.xml =
-    let get_node_name id = 
-        try Data.code_taxon id d 
+let to_formatter_single (pre_ref_codes,fi_ref_codes) acc d (node_data,node_single) node_id parent_data =
+    let get_node_name id =
+        try Data.code_taxon id d
         with | Not_found -> string_of_int id 
     in
-    let node_name = get_node_name node_id in 
-    let get_parent item = 
-        match parent_data with
+    let node_name = get_node_name node_id in
+    let get_parent item = match parent_data with
         | None -> None
-        | Some (a, b) -> 
-                (Some ((List.nth a.characters item), (List.nth b.characters
-                item)))
+        | Some (a, b) ->
+            (Some ((List.nth a.characters item), (List.nth b.characters item)))
     in
     if debug_formatter then begin
-        Printf.printf "to_formatter_single on node %s\n%!" node_name ;
-    print node_data; print node_single;
+        Printf.printf "to_formatter_single on node %s\n%!" node_name;
+        print node_data;
+        print node_single;
     end;
-    let children =
-        `Delayed (fun () ->
-            `Set (fst (List.fold_left 
-        (fun (acc, item) cs ->
-            let parent_data = get_parent item in
-            if debug_formatter then 
-                Printf.printf "Delayed function of to_formatter_single on node %s\n%!" 
-                node_name;
-             let res = 
-                 cs_to_formatter 
-                 (Some node_name) (pre_ref_codes, fi_ref_codes) d cs parent_data  
-            in 
-             res @ acc, item + 1
-        ) ([], 0) 
-        (List.map2 (fun a b -> a, b) 
-        node_data.characters node_single.characters))))
+    let lazy_children () =
+        `Set (fst
+            (List.fold_left
+                (fun (acc, item) cs ->
+                    let parent_data = get_parent item in
+                    if debug_formatter then
+                        Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
+                    let res =
+                         cs_to_formatter (Some node_name) (pre_ref_codes, fi_ref_codes) d cs parent_data
+                    in
+                    res @ acc, item + 1)
+                ([], 0)
+                (List.map2 (fun a b -> a, b) node_data.characters node_single.characters)))
     in
     let module T = Xml.Nodes in
-    (RXML 
+    (RXML
         -[T.node]
             ([T.cost] = 0.)
             ([T.recost] = 0.)
@@ -3334,7 +3324,7 @@ let to_formatter_single (pre_ref_codes, fi_ref_codes)
             ([T.nce] = [`Int node_data.num_child_edges])
             ([T.notu] = [`Int node_data.num_otus])
             ([acc])
-            { children } --)
+            { `Delayed lazy_children } --)
 
 (** [copy_chrom_map source des] copies the chromosome map
 * which creates chromosome [source] to chromosome map which creates chromosome [des] *)

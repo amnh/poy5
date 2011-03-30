@@ -441,14 +441,15 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
             (Array.mapi 
                 (fun state_code value ->
                     let alph = Alphabet.match_code state_code alphabet in
-                    (PXML -[Xml.Characters.vector]
+                    (PXML -[Xml.Characters.state]
+                        ([Xml.Alphabet.element] = [`String alph])
                         ([Xml.Alphabet.value] = [`Float value])
-                        {`String alph} --))
+                        { `Empty } --))
                 single_ray))
 
     and make_single char_code single_ray = 
         (PXML
-            -[Xml.Characters.likelihood]
+            -[Xml.Characters.vector]
                 ([Xml.Data.code] = [`Int char_code])
                 { `Set (make_single_vec char_code single_ray) }
         --)
@@ -467,7 +468,7 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
         (* tag *)
         -[Xml.Characters.likelihood]
             (* attributes *)
-            ([Xml.Characters.llike] = [`Float mine.mle])
+            ([Xml.Characters.cost] = [`Float mine.mle])
             ([Xml.Nodes.min_time] = [str_time t1])
             ([Xml.Nodes.oth_time] = [str_time t2])
             ([attr])

@@ -857,12 +857,10 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                                 tag = Xml.Characters.sankoff
                             in
                             let cost = Xml.attribute Xml.Characters.cost node
-                            and name = Xml.attribute Xml.Characters.name node in
-                            let clas = Xml.attribute Xml.Characters.cclass node in
-                            assert (clas = 
-                                Xml.attribute Xml.Characters.cclass ancestor);
-                            let costn =
-                                match cost with
+                            and name = Xml.attribute Xml.Characters.name node
+                            and clas = Xml.attribute Xml.Characters.cclass node in
+                            assert (clas = Xml.attribute Xml.Characters.cclass ancestor);
+                            let costn = match cost with
                                 | `FloatFloatTuple (costn, _)
                                 | `Float costn -> costn
                                 | `IntTuple (costn, _) -> float_of_int costn
@@ -872,13 +870,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
                             ((`String Xml.Nodes.final) = clas) then
                                 (* A function to ge the list of states contained 
                                 * in a node *)
-                                let get_chars x =
-                                    x 
-                                    --> Xml.children Xml.Characters.value 
-                                    --> Sexpr.map Xml.value
-                                    --> Sexpr.map Xml.value_to_string
-                                    --> Sexpr.to_list
-                                    --> String.concat ";" 
+                                let get_chars cha =
+                                    cha --> Xml.children Xml.Characters.value 
+                                        --> Sexpr.map Xml.value
+                                        --> Sexpr.map Xml.value_to_string
+                                        --> Sexpr.to_list
+                                        --> String.concat ";" 
                                 in
                                 let node_chars = get_chars node
                                 and ance_chars = get_chars ancestor in

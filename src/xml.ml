@@ -60,6 +60,7 @@ module Characters = struct
     let molecular = "Molecular" ^ suffix
     let sankoff = "Sankoff" ^ suffix
     let likelihood = "Likelihood" ^ suffix
+    let dlikelihood = "Dynamic Likelihood" ^ suffix
     let set = "Set" ^ suffix
     let kolmogorov = "Kolmogorov" ^ suffix
 
@@ -76,13 +77,13 @@ module Characters = struct
     let chars = "Character Functions"
 
     let priors = "Priors"
-    let llike = "LnLikelihood"
     let model = "Model"
     let sites = "Sites"
     let characters = "Characters"
     let alpha = "Alpha"
     let invar = "Invarient"
     let vector = "Vector"
+    let state = "State"
     let categories = "Rate Classes"
     let gapascharacter = "Gap Character"
 
@@ -233,7 +234,6 @@ module GenomeMap = struct
     let a_ref_code = "AncestorReferenceCode"
     let d_ref_code = "DescendantReferenceCode"
 
-
     let a_chrom_id = "AncestorChromosomeID"
     let d_chrom_id = "DescendantChromosomeID"
 
@@ -287,7 +287,6 @@ let structured (_, _, c) =
     | #structured as x -> x
     | _ -> failwith "Not structured"
 
-
 let coherce x = (x :> xml contents)
 
 let make tag atv out = (tag, atv, out)
@@ -322,6 +321,47 @@ let print_string ch = function
     | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
     | `Fun x -> Printf.fprintf ch "%s" (x ())
 
+
+(** Search an XML structure for a specific tag. raise Not_found otherwise. This
+    helps to deal with finding structure that may be difficult or dynamic where
+    a direct function to the node would be impossible or difficult to build. **)
+(*  I've left type annotations here so it is clear how this works; anything
+    unannotated is of type `xml option`; the return of the function. *)
+let find_tag (xml: xml) (tag: tag): xml =
+    (* test XML tag or recurse contents; contents could have CDATA *)
+    let rec test_xml acc (((t,_,r) as x): xml) =
+        if t = tag then Some x else find_contents acc r
+    (* find_contents of STRUCTURED | UNSTRUCTURED variants *)
+    and find_contents_cdata acc (r: [xml structured | unstructured]) =
+        match r with
+        | #unstructured -> acc
+        | `Empty        -> acc
+        | `Delayed d    -> find_tag_sexpr acc (d ())
+        | `Single x     -> test_xml acc x
+        | `Set xs       -> find_tag_list acc xs
+    (* this is the general find of STRUCTURED_XML *)
+    and find_contents acc (r : xml contents) = match r with
+        | #unstructured    -> acc
+        | `CDATA x         -> find_contents_cdata acc x
+        | #structured as x -> find_contents_cdata acc x
+    (* search an S-Expr *)
+    and find_tag_sexpr acc (xml : xml Sexpr.t) =
+        Sexpr.fold_left (fun acc xml_tag -> test_xml acc xml_tag) None xml
+    (* search a list of S-Expr *)
+    and find_tag_list acc (xmls : xml Sexpr.t list) =
+        List.fold_left (find_tag_sexpr) acc xmls
+    in
+    match test_xml None xml with
+    | Some x -> x
+    | None   -> failwith ("Cannot find tag: "^tag)
+
+let find_attr ((_,attr,_) : xml) name : unstructured =
+    try List.assoc name attr
+    with | Not_found -> 
+        Printf.printf "Attributes: ";
+        List.iter (fun (x,_) -> Printf.printf "%s " x) attr;
+        print_newline ();
+        failwith ("Cannot find attribute "^name)
 
 let to_file ch (item : xml) =
     let fo = output_string ch in
