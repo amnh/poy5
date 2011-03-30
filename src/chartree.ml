@@ -1398,7 +1398,6 @@ let root_costs tree =
         Ptree.pre_order_edge_visit get_cost handle tree acc)
     (Tree.get_handles tree.Ptree.tree) []
 
-let dump_tree printer h tree = ()
 let refresh_all_edges a b c d e = e
 
 module TreeOps = struct
@@ -1425,8 +1424,6 @@ module TreeOps = struct
     let root_costs = root_costs
     let unadjust ptree = ptree
     
-    let verify_downpass _ _ = true 
-    let dump_tree = dump_tree
     let refresh_all_edges = refresh_all_edges
     let tree_size _ = 0.0
 end

@@ -22,15 +22,6 @@ let () = SadmanOutput.register "MlDynamicCS" "$Id$"
 IFDEF USE_LIKELIHOOD THEN
 (*---- type for the module *)
 
-(* The process of constructing this record is as follows,
-    -- Downpass/Uppass to determine seq alignments
-    -- Implied Alignment of sequence data
-    -- Downpass/Uppass of Implied Alignment data using likelihood criteria
-    -- Combine two versions of data to get likelihood score from IA. *)
-type t_integerized =
-    {  ilk_ss : SeqCS.t;
-           ia : MlStaticCS.t option; }
-
 (*  We ignore the implied alignment (unlike above) and only discuss the cost on
     the alignment via the product of the entire sequence states, across all edges *)
 type t_fpalign =
@@ -40,8 +31,6 @@ type t_mplalign =
     {  mpl_ss : FloatSequence.MPLAlign.s array; }
 
 (* Define how we should align and create the medians; 
- *   Integerized - the original method; uses Seq alignment methods and creates
- *                 an integerized cost matrix from the floating-point values.
  *   FPAlign     - Same as the above, but using new routines to align by
  *                 floating point values.
  *   MPLAlign    - Two transformation matrices are created for each sequence,
@@ -50,8 +39,7 @@ type t_mplalign =
  *   FixedStates - ....
  *   Likelihood  - ....
 *)
-type r = | Integerized  of t_integerized
-         | FPAlign      of t_fpalign
+type r = | FPAlign      of t_fpalign
          | MPLAlign     of t_mplalign
 
 type t = { model  : FloatSequence.dyn_model;
@@ -73,7 +61,6 @@ let debug_printf =
 
 (*---- basic function set for gathering data of the module *)
 let get_cm t = match t.data with
-    | Integerized r -> r.ilk_ss.SeqCS.heuristic.SeqCS.c2
     | MPLAlign _
     | FPAlign _     -> assert false
 
@@ -88,7 +75,6 @@ let get_codes t = t.codes
 let cardinal t = match t.data with
     | MPLAlign _
     | FPAlign _     -> Array.length t.codes
-    | Integerized r -> SeqCS.cardinal r.ilk_ss
 
 let encoding e t = match t.data with
     | MPLAlign r ->
@@ -103,33 +89,15 @@ let encoding e t = match t.data with
                 Sequence.encoding (e) (FloatSequence.FloatAlign.seq_of_s x))
             (0.0)
             (r.fp_ss)
-    | Integerized r -> SeqCS.encoding e r.ilk_ss
 
 let name_string t = match t.data with
     | MPLAlign _    -> "Maximum Parsimonious Dynamic Likelihood"
     | FPAlign _     -> "Floating Point Ancesteral Dynamic Likelihood"
-    | Integerized r -> 
-        begin match r.ia with
-            | Some _ -> "Integerized Ancesteral Dynamic Likelihood (with ia)"
-            | None   -> "Integerized Ancesteral Dynamic Likelihood (w/out ia)"
-        end
 
 let total_cost t =
     match t.data with
     | MPLAlign _ 
     | FPAlign _     -> t.cost
-    | Integerized r -> 
-        begin match r.ia with
-            | Some x -> MlStaticCS.median_cost x
-            | None   -> t.cost
-        end
-
-let combine t (b:MlStaticCS.t) = match t.data with
-    | Integerized r -> {t with data=Integerized {r with ia = Some b} }
-    | MPLAlign _ 
-    | FPAlign _     ->
-        debug_printf "MlDynamicCS.combine; Ignoring Combine of with an IA";
-        t
 
 let model t = t.model
 
@@ -141,27 +109,6 @@ let s_of_seq seq : Sequence.s array =
         --> Array.concat
 
 let leaf_sequences t = match t.data with
-    | Integerized r ->
-        let a = r.ilk_ss in
-        let map = ref All_sets.IntegerMap.empty in
-        for i = (SeqCS.cardinal a) - 1 downto 0 do
-            map := All_sets.IntegerMap.add a.SeqCS.codes.(i)
-                (match a.SeqCS.characters.(i) with
-                | SeqCS.Partitioned x ->
-                    Array.map (function 
-                        | SeqCS.PartitionedDOS.Last x ->
-                                `Last x.SeqCS.DOS.sequence
-                        | SeqCS.PartitionedDOS.DO x  ->
-                                `DO x.SeqCS.DOS.sequence
-                        | SeqCS.PartitionedDOS.First x ->
-                                `First x.SeqCS.DOS.sequence) x
-                | SeqCS.Heuristic_Selection x -> [|`DO x.SeqCS.DOS.sequence|]
-                | SeqCS.Relaxed_Lifted (t, x) -> 
-                    let p = SeqCS.RL.find_smallest x in
-                    [|`DO t.SeqCS.RL.sequence_table.(p)|])
-                !map
-        done;
-        !map
     | FPAlign r ->
         Array_ops.fold_right_2
             (fun acc x y ->
@@ -246,12 +193,6 @@ let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list =
                 { `Set (model_d @ [seq_d]) }
             --) :: []
 
-    | Integerized r -> 
-        begin match r.ia with
-            | Some r -> MlStaticCS.to_formatter attr r (t1,t2) d
-            | None   -> failwith "MlDynamicCS.to_formatter does not have an implied alignment"
-        end
-
 (*---- special functions for likelihood in a dynamic context *)
 let min_bl = MlStaticCS.minimum_bl ()
 let estimate_time a b =
@@ -304,15 +245,6 @@ let estimate_time a b =
         ()
     in
     let () = match a.data,b.data with
-        | Integerized ar,Integerized br -> 
-            let aligned_triples = SeqCS.align_2 ar.ilk_ss br.ilk_ss in
-            assert( (alph a) = (alph b) );
-            Array.iter 
-                (fun triple_array ->
-                    Array.iter 
-                        (fun (align_a,align_b,_) -> align_s_distance align_a align_b)
-                        (triple_array) )
-                aligned_triples;
         | FPAlign ar, FPAlign br ->
             assert( (Array.length ar.fp_ss) = (Array.length br.fp_ss) );
             for i = 0 to (Array.length ar.fp_ss)-1 do
@@ -336,7 +268,7 @@ let estimate_time a b =
                 align_s_distance aligna alignb
             done
         (* must be consistent *)
-        | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+        | (FPAlign _ | MPLAlign _ ), _ -> assert false
     in
     let total = (!same +. !tran +. !gaps +. !othr) in
     (* below, similar to mlStatic estimate_time function *)
@@ -428,19 +360,6 @@ let remove_ambiguities dyn =
 let median code a b t1 t2 = 
     assert( 0 = MlModel.compare (static_model a) (static_model b) );
     match a.data,b.data with
-    | Integerized ar, Integerized br -> 
-        let heur_cm = match t1,t2 with
-            | Some t1,Some t2 -> 
-                SeqCS.make_default_heuristic 
-                    ~c3:(Cost_matrix.Three_D.default)
-                        (MlModel.model_to_cm (static_model a) (t1+.t2))
-            | _,_ -> failwith "branches not specified by caller"
-        in
-        let aseq = { ar.ilk_ss with SeqCS.heuristic = heur_cm; }
-        and bseq = { br.ilk_ss with SeqCS.heuristic = heur_cm; } in
-        let medn = { ilk_ss = SeqCS.median code aseq bseq; ia = None; } in
-        let cost = medn.ilk_ss.SeqCS.total_cost in
-        remove_ambiguities {a with cost = cost; data = (Integerized medn);}
     | MPLAlign ar, MPLAlign br -> 
         let bla,blb = match t1,t2 with
             | Some t1, Some t2 -> t1, t2
@@ -479,7 +398,7 @@ let median code a b t1 t2 =
                 (br.fp_ss)
         in
         { a with cost = !cost; data = FPAlign { fp_ss = meds; } } 
-    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+    | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
 let readjust c1 c2 mine t1 t2 = 
     let internal_loop (t:float) : t * float =
@@ -496,20 +415,10 @@ let readjust c1 c2 mine t1 t2 =
 
 let median_i code a b (t1:float) (t2:float) : t * float * float =
     match a.data, b.data with
-    | Integerized _, Integerized _ -> 
-        let start = t1+.t2 in
-        let _,_,ncost,(nt,_),nmine = 
-            readjust a b (median code a b (Some t1) (Some t2)) (t1+.t2) 0.0
-        in
-        let half_time = nt /. 2.0 in
-        if debug_est then
-            Printf.printf "Optimized Branch of %d from %f --> %f: %f\n%!" 
-                            code start nt ncost;
-        nmine, half_time, nt -. half_time
     | FPAlign _, FPAlign _ 
     | MPLAlign _, MPLAlign _ -> 
         median code a b (Some t1) (Some t2),t1,t2
-    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+    | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
 and median_3 p n c1 c2 = n
 (*    assert( 0 = MlModel.compare n.model c1.model);*)
@@ -528,7 +437,6 @@ let fs_matrix model seqs =
             and s2 = FloatSequence.FloatAlign.s_of_seq sq2 in
             FloatSequence.FloatAlign.optimize s1 s2 model 0.1
                 (FloatSequence.FloatAlign.get_mem s1 s2)
-        | `ILK -> assert false
         | `MAL ->
             let s1 = FloatSequence.MALAlign.s_of_seq sq1
             and s2 = FloatSequence.MALAlign.s_of_seq sq2 in
@@ -550,25 +458,22 @@ let fs_matrix model seqs =
 
 (*---- distance functions; all for Sequence characters. *)
 let distance missing_distance a b = match a.data, b.data with
-    | Integerized a,Integerized b -> SeqCS.distance missing_distance a.ilk_ss b.ilk_ss
     | MPLAlign _ , MPLAlign _ 
     | FPAlign _ , FPAlign _       ->
         let dist1,dist2 = estimate_time a b in
         total_cost (median (-1) a b (Some dist1) (Some dist2))
-    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+    | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
 let dist_2 delta n a b = match a.data,b.data,n.data with
-    | Integerized a,Integerized b,Integerized n -> SeqCS.dist_2 delta n.ilk_ss a.ilk_ss b.ilk_ss
     | MPLAlign _, MPLAlign _, MPLAlign _
     | FPAlign _, FPAlign _, FPAlign _ -> 
         let dist1,dist2 = estimate_time a b in
         let tmp = median (-1) a b (Some dist1) (Some dist2) in
         let dist1,dist2 = estimate_time n tmp in
         total_cost (median (-1) a b (Some dist1) (Some dist2))
-    | (FPAlign _ | MPLAlign _ | Integerized _), _, _ -> assert false
+    | (FPAlign _ | MPLAlign _ ), _, _ -> assert false
             
 let tabu_distance a = match a.data with
-    | Integerized a -> SeqCS.tabu_distance a.ilk_ss
     | FPAlign a -> failwith_todo "tabu_distance (FPAlign)"
     | MPLAlign a -> failwith_todo "tabu_distance (FPAlign)"
 
@@ -585,8 +490,6 @@ let array_filter f a b =
     Array.of_list one, Array.of_list two
 
 let f_codes s c = match s.data with
-    | Integerized r -> 
-        { s with data = Integerized { ilk_ss = SeqCS.f_codes r.ilk_ss c; ia = None; }}
     | MPLAlign r ->
         let codes,seqs = 
             array_filter (fun x -> All_sets.Integers.mem x c) s.codes r.mpl_ss
@@ -599,8 +502,6 @@ let f_codes s c = match s.data with
         { s with codes = codes; data = FPAlign { fp_ss = seqs; } }
 
 let f_codes_comp s c = match s.data with
-    | Integerized r ->
-        {s with data = Integerized { ilk_ss = SeqCS.f_codes_comp r.ilk_ss c; ia = None; }}
     | MPLAlign r ->
         let codes,seqs = 
             array_filter (fun x -> not (All_sets.Integers.mem x c)) s.codes r.mpl_ss
@@ -616,8 +517,6 @@ let f_codes_comp s c = match s.data with
 (*---- make an initial leaf node; still requires IA. *)
 let make a s m = 
     let r = match m.MlModel.spec.MlModel.cost_fn with
-        | `ILK -> 
-            Integerized { ilk_ss = s; ia = None; }
         | `FLK ->
             let data = Array.map FloatSequence.FloatAlign.s_of_seq (s_of_seq s) in
             assert( (Array.length data) = (Array.length s.SeqCS.codes) );
@@ -639,9 +538,6 @@ let make a s m =
 let to_single parent mine t = 
     let pcost = total_cost mine in
     match parent.data,mine.data with    
-    | Integerized p, Integerized m ->
-        let pcost, ncost, median = SeqCS.to_single p.ilk_ss m.ilk_ss in
-        pcost,ncost,{mine with data = Integerized {ilk_ss = median;ia = None;}; }
     | FPAlign ps, FPAlign ms ->
         let score = ref 0.0 in
         let n_data = 
@@ -667,14 +563,13 @@ let to_single parent mine t =
         in
         pcost, !score, { mine with data = MPLAlign { mpl_ss = n_data }; }
     (* although weak, this is the only solution *)
-    | (FPAlign _ | MPLAlign _ | Integerized _), _ -> assert false
+    | (FPAlign _ | MPLAlign _ ), _ -> assert false
     
 
 let prior a = 
     let m = static_model a in
     let priors = m.MlModel.pi_0 in
     match a.data with
-    | Integerized a -> 0.0
     | FPAlign a ->
         let avg_prior_of_seq (acc:float) sequence =
             Sequence.foldi
@@ -722,18 +617,13 @@ ELSE
 
 (* empty; required functions when likelihood is not enabled *)
 
-type t_integerized =
-    {  ilk_ss : SeqCS.t;
-           ia : MlStaticCS.t option; }
-
 type t_fpalign =
     {   fp_ss : FloatSequence.FloatAlign.s array; }
 
 type t_mplalign =
     {  mpl_ss : FloatSequence.MPLAlign.s array; }
 
-type r = | Integerized  of t_integerized
-         | FPAlign      of t_fpalign
+type r = | FPAlign      of t_fpalign
          | MPLAlign     of t_mplalign
 
 type t = { model  : FloatSequence.dyn_model;
@@ -748,7 +638,6 @@ let get_cm _ = failwith MlStaticCS.likelihood_error
 let model _ = failwith MlStaticCS.likelihood_error
 let code _ = failwith MlStaticCS.likelihood_error
 let get_codes _ = failwith MlStaticCS.likelihood_error
-let combine _ _ = failwith MlStaticCS.likelihood_error
 let make _ _ _ = failwith MlStaticCS.likelihood_error
 let estimate_time _ _ = failwith MlStaticCS.likelihood_error
 let median _ _ _ _ _ = failwith MlStaticCS.likelihood_error

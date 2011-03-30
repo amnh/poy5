@@ -194,9 +194,6 @@ module type Tree_Operations =
     val root_costs : (a, b) p_tree -> (Tree.edge * float) list
     val tree_size : (a, b) p_tree -> float
     val unadjust : (a, b) p_tree -> (a, b) p_tree
-
-    val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
-
     val refresh_all_edges : 
         bool -> a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
   end

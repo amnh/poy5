@@ -359,7 +359,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                             begin match FloatSequence.cost_fn m with
                                 | `MPL -> FloatSequence.MPLAlign.clip_align_2 a.seq b.seq m 0.0 t
                                 | `FLK -> FloatSequence.FloatAlign.clip_align_2 a.seq b.seq m 0.0 t
-                                | `ILK -> assert false (* should have used CM *)
                                 | `MAL -> assert false (* does not exist yet  *)
                             end
                         in
@@ -402,7 +401,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                 | `FLK -> 
                     let gc = FloatSequence.FloatAlign.get_cm m (t/.2.0) (t/.2.0) in
                     (fun a b _ -> snd (gc.(a).(b)))
-                | `ILK -> assert false
                 | `MAL -> assert false
             end
     and cost_fn = match cm with
@@ -416,7 +414,6 @@ let ancestor calculate_median state prealigned all_minus_gap a b
                 | `FLK -> 
                     let gc = FloatSequence.FloatAlign.cost m (t/.2.0) (t/.2.0) in
                     (fun a b _ -> fst (gc a b))
-                | `ILK -> assert false
                 | `MAL -> assert false
             end
     in
@@ -1693,7 +1690,6 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                                 let model = DynamicCS.lk_model dyn in
                                 let branch = 0.1 in (* TODO *)
                                 match FloatSequence.cost_fn model with
-                                | `ILK -> raise Not_found
                                 | `MPL 
                                 | `FLK 
                                 | `MAL -> Model (model,(branch,parent))

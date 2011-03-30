@@ -60,17 +60,12 @@ type priors =
     | Equal
 (** [priors] the prior probabilities, or base frequencies. **)
 
-type gap_properties = [ `Missing | `Independent | `Coupled of float ]
-(** How to deal with gaps; are they missing? (the traditional implemenatation),
-    are their rates consistent with the model, or do are their rates coupled
-    with an additional parameter. *)
-
 type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
     cost_fn : Methods.ml_costfn;
-    use_gap : gap_properties;
+    use_gap : Methods.ml_gap;
     iterate_model : bool;
     iterate_alpha : bool;
 }

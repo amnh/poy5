@@ -190,8 +190,7 @@ type ml_substitution = [
 
 type ml_costfn = [ `MAL     (* maximum average likelihood *)
                  | `MPL     (* most parsimonious likelihood *)
-                 | `ILK     (* dynamic alignment with integerized matrix *)
-                 | `FLK     (* dynamic alignment with floating-point matrix *)
+                 | `FLK     (* dynamic alignment with a single matrix *)
                  ] 
 
 type ml_site_variation= [   | `Gamma of int * float option

@@ -257,12 +257,6 @@ let poly_saturation x v =
     in
     (float_of_int polyacc) /. (float_of_int polylen)
 
-
-
-let combine a b = match a with
-    | MlCS a -> MlCS (MlDynamicCS.combine a b)
-    | _ -> a
-
 (** [of_array spec genome_arr code taxon num_taxa] 
 * creates a dynamic character set from genome array [genome_arr] *)
 let of_array spec genome_arr code taxon num_taxa = 

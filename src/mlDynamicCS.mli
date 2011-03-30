@@ -22,13 +22,6 @@
 
 (** {6 Types} Representation of different dynamic likelihood characters *)
 
-type t_integerized =
-    {  ilk_ss : SeqCS.t;
-           ia : MlStaticCS.t option; }
-(** Characters similar to FPAlign, but uses an integerized cost matrix from the
-    floating point matrix, and then creates an implied alignment from that
-    information, where the cost is finalized. *)
-
 type t_fpalign =
     {   fp_ss : FloatSequence.FloatAlign.s array; }
 (** Characters that transform across a combined time. The assignment is
@@ -44,8 +37,7 @@ type t_mplalign =
     is the probability of state b over branch length t, then MPL is defined as,
         $\max_{\alpha = \{ACTG-\}} P(X,\alpha|t_1) * P(Y,\alpha|t_2)$ *)
 
-type r = | Integerized  of t_integerized
-         | FPAlign      of t_fpalign
+type r = | FPAlign      of t_fpalign
          | MPLAlign     of t_mplalign
 (** Define the union of all the types of dynamic likelihood characters *)
 
@@ -82,11 +74,6 @@ val code : t -> int
 
 val get_codes : t -> int array
 (** Return the array of codes for the character partitions. *)
-
-val combine : t -> MlStaticCS.t -> t
-(** Combine the score and data from the static likelihood to the dynamic
-    likelihood. This is used in the integerized likelihood to obtain comparable
-    costs to the static MPL likelihood *)
 
 val to_string : t -> string
 (** Simple to_string function for the data-type t *)

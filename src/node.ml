@@ -254,9 +254,6 @@ let print_times n =
             (match two with | Some x -> string_of_float x | None -> "none") )
         n.characters
 
-let get_min_taxon_code nd = nd.min_child_code
-
-
 let map2 f a b =
     let rec mapper a b acc =
         match a, b with
@@ -441,7 +438,6 @@ let using_likelihood types x =
         END
     in
     match types with
-        | `Integer  -> y
         | `Static   -> x
         | `Dynamic  -> y
         | `Either   -> x || y
@@ -939,31 +935,6 @@ let compare_opt a b f1 f2 one two = match one,two with
             info_user_message "Checking times: None(%d)(fst) == %f(%d)(%s)??"
                     a.taxon_code y b.taxon_code (f2 ("fst","snd")); false
 
-(** [verify_time] has A and B which share an edge, and oA and oB which share an
- * edge with A and B respectively but not with B and A respectively *)
-let verify_time a oa b ob = 
-    (* define the function to extract from tuple locations of the time *)
-    let verify_ acc aa bb = match aa,bb with
-        | StaticMl aa,StaticMl bb ->
-            IFDEF USE_LIKELIHOOD THEN
-                let f1 x = 
-                    if a.min_child_code < oa.min_child_code then fst x 
-                    else snd x
-                and f2 x = 
-                    match ob with
-                    | None -> fst x
-                    | Some ob ->
-                            if b.min_child_code < ob.min_child_code then fst x 
-                            else snd x
-                in 
-                (compare_opt a b f1 f2 (f1 aa.time) (f2 bb.time)) && acc
-            ELSE
-                acc
-            END
-        | _ -> acc
-    in
-    List.fold_left2 verify_ true a.characters b.characters
-
 let rec cs_final_states pn nn c1n c2n p n c1 c2 =
     match p, n, c1, c2 with
     | StaticMl cp, StaticMl cn, StaticMl cc1, StaticMl cc2 -> 
@@ -1177,30 +1148,6 @@ let get_set =
     `Set
 
 let median_counter = ref (-1)
-
-(* returns a modified with b *)
-let combine anode bnode =
-    let combine_ a b =
-        if debug then 
-            info_user_message "Combining (%d): %s and %s%!"
-                           (anode.taxon_code) (cs_string a) (cs_string b);
-        match a,b with
-        | Dynamic a_, StaticMl b_ -> 
-            IFDEF USE_LIKELIHOOD THEN
-                let median_p = DynamicCS.combine a_.preliminary b_.preliminary
-                and median_f = DynamicCS.combine a_.final b_.final in
-                Dynamic 
-                    { a_ with preliminary = median_p;
-                              final = median_f;
-                              cost = b_.cost;
-                              sum_cost = b_.sum_cost; }
-            ELSE
-                failwith MlStaticCS.likelihood_error
-            END
-        | _,_ -> a
-    in
-    { bnode with 
-        characters = List.map2 combine_ anode.characters bnode.characters; }
 
 let median ?branches code old a b =
     if  debug_treebuild then Printf.printf "\n node.ml median\n%!";
@@ -2808,7 +2755,6 @@ let load_data ?(silent=true) ?(classify=true) data =
                         begin match s.Data.lk_model with
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MPL -> true,mal ,aln
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `MAL -> mpl ,true,aln
-                            | Some m when m.MlModel.spec.MlModel.cost_fn = `ILK -> mpl ,mal ,true 
                             | Some m when m.MlModel.spec.MlModel.cost_fn = `FLK -> mpl ,mal ,true 
                             | _ -> assert false (* above pattern should be exhaustive *)
                         end
@@ -2911,37 +2857,6 @@ let output_total_cost ch i =
 let pre = [ (Xml.Characters.cclass, `String Xml.Nodes.preliminary) ]
 let fin = [ (Xml.Characters.cclass, `String Xml.Nodes.final) ]
 let sing = [ (Xml.Characters.cclass, `String Xml.Nodes.single) ]
-
-let dump_node printer node par = 
-    let rec dump_map a p = match a,p with
-        | StaticMl a, StaticMl p ->
-            IFDEF USE_LIKELIHOOD THEN
-                let f = 
-                    if node.min_child_code = par.min_child_code then fst 
-                    else snd 
-                in
-                let strs x = match f x with | None -> "none"
-                        | Some x -> string_of_float x in
-                printer ("\tC:"^(string_of_float p.cost)^"S:"^(string_of_float p.sum_cost)^"T:"^(strs p.time))
-            ELSE
-                ()
-            END
-        | Dynamic a, Dynamic p ->
-            IFDEF USE_LIKELIHOOD THEN
-                let f = 
-                    if node.min_child_code = par.min_child_code then fst 
-                    else snd 
-                in
-                let strs x = match f x with | None -> "none"
-                        | Some x -> string_of_float x 
-                in
-                printer ("\tC:"^(string_of_float p.cost)^"S:"^(string_of_float p.sum_cost)^"T:"^(strs p.time))
-            ELSE
-                ()
-            END
-        | _ -> ()
-    in
-    List.iter2 dump_map node.characters par.characters
 
 let estimate_time a b =
     let estimate_ ca cb = match ca,cb with
@@ -4170,16 +4085,13 @@ module Standard :
         let character_costs _ = character_costs
         let get_characters _ = get_characters_of_type
         let median = median
-        let combine = combine
         let apply_time = apply_time
         let extract_states a d _ c n = extract_states a d c n
         let tree_size _ = tree_size
         let min_prior = prior
-        let estimate_time = estimate_time
         let get_times_between = get_times_between_plus_codes 
         let final_states _ = final_states
         let uppass_heuristic pcode ptime mine a b = mine
-        let using_likelihood = using_likelihood
         let to_string = to_string
         let total_cost = total_cost
         let node_cost _ a = a.node_cost
@@ -4187,8 +4099,6 @@ module Standard :
         let exclude_info _ x = x.exclude_info
         let has_excluded = has_excluded
         let taxon_code x = x.taxon_code
-        let min_taxon_code _ = get_min_taxon_code
-        let dump_node = dump_node
         (* TODO This function must be removed *)
         let union_distance _ _ = 0.
         let is_collapsable = is_collapsable

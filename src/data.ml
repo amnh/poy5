@@ -4527,25 +4527,21 @@ let transform_chrom_to_rearranged_seq data meth tran_code_ls
 
 let get_sequences_of_code data code =
     let process_taxon tcode chars acc =
-        try
-            let (tc, _) = Hashtbl.find chars code in
+        try let (tc, _) = Hashtbl.find chars code in
             match tc with
             | Dyna (_, c) -> (tcode, (c.seq_arr.(0)).seq)  :: acc
             | _ -> failwith "Impossible?"
-        with
-        | Not_found -> acc
+        with | Not_found -> acc
     in
     (Hashtbl.fold process_taxon 
     data.taxon_characters [])
 
 let auto_partition mode data code =
-    let mode = 
-        match mode with
+    let mode = match mode with
         | `Clip -> Clip
         | `NoClip -> NoClip
     in
-    let dhs =
-        match Hashtbl.find data.character_specs code with
+    let dhs = match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
         | _ -> assert false
     in
@@ -4557,32 +4553,19 @@ let auto_partition mode data code =
     let partitions = Splitting.partition dhs.tcm2d taxa in
     match partitions with
     | (_, ((_ :: _) as h)) :: _ ->  
-            let res = Hashtbl.create 1667 in
-            let size = 1 + (List.length h) in
-            List.iter 
-                (fun (code, part) -> Hashtbl.replace res code part)
-                partitions;
-            Hashtbl.replace data.character_specs code 
+        let res = Hashtbl.create 1667 in
+        let size = 1 + (List.length h) in
+        List.iter 
+            (fun (code, part) -> Hashtbl.replace res code part)
+            partitions;
+        Hashtbl.replace data.character_specs code 
             (Dynamic { dhs with 
                 initial_assignment = `AutoPartitioned (mode, size, res)})
     | _ -> 
-            Status.user_message Status.Information 
-            "There are no potential partitions"
+        Status.user_message Status.Information "There are no potential partitions"
 
 
 let compute_fixed_states filename data code =
-    let to_ori_arr arr (base:int option) =
-        Array.init (Array.length arr) (fun index->
-        assert(arr.(index)<>0);
-        let code = arr.(index) in
-        let code = 
-            match base with 
-            | Some base -> code-base
-            | None -> code
-        in
-        if ((code mod 2) == 0) then -(code/2)
-        else (code+1)/2 ) 
-    in
     let dhs =
         match Hashtbl.find data.character_specs code with
         | Dynamic dhs -> dhs
@@ -4595,27 +4578,24 @@ let compute_fixed_states filename data code =
         | _ -> false,dhs.pam
     in
     let annotate_with_mauve = 
-            let ann_tool = dyn_pam.annotate_tool in
-            match ann_tool with 
+        let ann_tool = dyn_pam.annotate_tool in
+        match ann_tool with 
             | Some value ->
-                    (
-                        match value with
-                        | `Mauve _ -> true
-                        | `Default _  -> false
-                    )
+                begin match value with
+                    | `Mauve _ -> true
+                    | `Default _  -> false
+                end
             | None -> false 
     in
     let taxon_sequences = Hashtbl.create 1667 in
     let sequences_taxon = Hashtbl.create 1667 in
     let states = ref 0 in
     let process_taxon tcode chars acc =
-        try
-            let (tc, _) = Hashtbl.find chars code in
+        try let (tc, _) = Hashtbl.find chars code in
             match tc with
             | Dyna (_, c) -> (tcode, (c.seq_arr.(0)).seq)  :: acc
             | _ -> failwith "Impossible?"
-        with
-        | Not_found -> acc
+        with | Not_found -> acc
     in
     let taxa = 
         Array.of_list
@@ -4640,8 +4620,6 @@ let compute_fixed_states filename data code =
                 in
                 Hashtbl.replace taxon_sequences taxa.(y) b;
                 Hashtbl.replace taxon_sequences taxa.(x) a;
-                (*this table should be sequences_stateName, not sequences_taxon, 
-                * the name is misleading*)
                 if not (Hashtbl.mem sequences_taxon b) then begin
                     Hashtbl.replace sequences_taxon b !states;
                     incr states;
@@ -4651,20 +4629,6 @@ let compute_fixed_states filename data code =
                     Hashtbl.replace sequences_taxon a !states;
                     incr states;
                 end;
-                (* We also add medians 
-                let a'= Sequence.Align.full_median_2 a b dhs.tcm2d
-                Matrix.default in
-                let a', _ = 
-                    Sequence.Align.closest a' a' dhs.tcm2d
-                    Matrix.default
-                in
-                if not (Hashtbl.mem sequences_taxon a') then
-                    begin
-                        Hashtbl.add sequences_taxon a'
-                        !states;
-                        incr states;
-                    end;
-                *)
             done;
         done;
     in

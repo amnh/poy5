@@ -378,7 +378,7 @@ let of_parser spec weights characters =
     let () = (* ensure cost mode is acceptable: MAL/MPL *)
         match computed_model.MlModel.spec.MlModel.cost_fn with
         | `MPL | `MAL -> ()
-        | `FLK | `ILK -> failwith "Cannot apply cost mode to static characters"
+        | `FLK -> failwith "Cannot apply cost mode to static characters"
     in
     let (a_size,a_gap,u_gap) = 
         let alph = Alphabet.to_sequential computed_model.MlModel.alph in
@@ -539,7 +539,7 @@ let resolve ?(single=false) t =
     let comp,init = match t.model.MlModel.spec.MlModel.cost_fn with
         | `MPL -> max,(log 0.0)
         | `MAL -> max,(log 0.0)
-        | `FLK | `ILK -> failwith "unsupported"
+        | `FLK -> failwith "unsupported"
     in
     let ray, _ = s_bigarray t.chars in (* ignore invar *)
     let nchars = Bigarray.Array3.dim2 ray

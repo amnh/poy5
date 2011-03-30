@@ -131,9 +131,6 @@ val union : t -> u -> u -> u
 val cardinal_union : u -> int
 val poly_saturation : u -> int -> float
 
-(** combine a dynamic and static character set *)
-val combine : t -> MlStaticCS.t -> t
-
 (** [of_array spec genome_arr code taxon num_taxa] 
 * creates a dynamic character set from genome array [genome_arr] *)
 val of_array :

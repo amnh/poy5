@@ -1340,8 +1340,7 @@ let create_expr () =
             ];
         ml_costfn:
             [
-                ["mal" -> `MAL] | ["mpl" -> `MPL] |
-                ["flk" -> `FLK] | ["ilk" -> `ILK]
+                ["mal" -> `MAL] | ["mpl" -> `MPL] | ["flk" -> `FLK]
             ];
         partitioned_mode:
             [   

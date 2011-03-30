@@ -52,10 +52,6 @@ module type S = sig
     * updates the final_assignment for the specified direction. *)
     val final_states : int option -> n -> n -> n -> n -> n
 
-
-    (** [combine node_a node_b] combine two nodes in a particular fashion. *)
-    val combine : n -> n -> n
-
     (** [uppass_heuristic pardata partime cur a b] updates a node in three
      * directions in AllDirF. In One Direction and Standard we call the
      * final_states functions --which used to be `median_3`. This function will
@@ -69,12 +65,6 @@ module type S = sig
 
     (** [apply_time given curr par] applies the time in par to cur --used for leafs **)
     val apply_time : bool -> n -> n -> n
-
-    (** [using_likelihood x] -> bool, if all chracters are likelihood **)
-    val using_likelihood : [`Static | `Integer | `Dynamic | `Either] -> n -> bool
-
-    (** [estimate_time left right] estimates the time/branches between left and right **)
-    val estimate_time : n -> n -> float option list
 
     (** [extract_states a r b] extract parsimony states at node [b] toward [a],
      * exclude all characters not present in [r] if it exists, else all of them **)
@@ -124,9 +114,6 @@ module type S = sig
     * is created from [load_data], the [taxon_code n] should correspond to the
     * [Data.d] code assigned to the corresponding taxon. *)
     val taxon_code : n -> int
-
-    (** [min_taxon_code n] used, to get the branch length correctly *)
-    val min_taxon_code : int -> n -> int
 
     (** [union_distance m n] calculates the distance between the unions
     * contained in [m] and [n]. 
@@ -330,11 +317,6 @@ module type S = sig
      * modified, and in AllDirF the two children are also updated.
      *)
     val edge_iterator : n option -> n -> n -> n -> n
-
-
-    (** [dump_node printer node parent] prints the node data for the current node to
-     * printer *)
-    val dump_node : (string -> unit) -> n -> n -> unit
 
     (** [readjust dir mode to_adjust ch1 ch2 par mine] -> mine * to_adjust
      *

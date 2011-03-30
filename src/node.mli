@@ -204,14 +204,10 @@ val readjust : [`ThreeD | `ApproxD ] -> All_sets.Integers.t option -> node_data 
 val median_w_times : int option -> node_data option -> node_data -> node_data 
                      -> float option list -> float option list -> node_data
 
-val get_min_taxon_code : node_data -> int
-
 (**[get_times_between(_tbl tbl) nd child_code]
  * helper functions to unify the distribution of times in three directions
  * --either from input tree or from the post_order downpass *)
 val get_times_between : node_data -> int option -> float option list
-
-val verify_time : node_data -> node_data -> node_data -> node_data option -> bool
 
 val get_active_ref_code : node_data -> All_sets.Integers.t * All_sets.Integers.t *
     All_sets.Integers.t * All_sets.Integers.t 

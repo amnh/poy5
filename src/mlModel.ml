@@ -103,14 +103,12 @@ type priors =
     | Given     of float array
     | Equal
 
-type gap_properties = [ `Missing | `Independent | `Coupled of float ]
-
 type spec = {
     substitution : subst_model;
     site_variation : site_var option;
     base_priors : priors;
     cost_fn : Methods.ml_costfn;
-    use_gap : gap_properties;
+    use_gap : Methods.ml_gap;
     iterate_model : bool;
     iterate_alpha : bool;
 }
@@ -150,7 +148,6 @@ let get_costfn_code a = match a.spec.cost_fn with
     | `MPL -> 1 
     | `MAL -> 0 
     | `FLK -> ~-1 (* should not call C functions; yet *)
-    | `ILK -> ~-1 (* should not call C functions *)
 
 let categorize_by_model codes get_fun =
     let set_codes =
@@ -648,7 +645,6 @@ let output_model output nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[Cost = mpl;@]";
             | `MAL -> printf "@[Cost = mal;@]"; 
-            | `ILK -> printf "@[Cost = ilk;@]";
             | `FLK -> printf "@[Cost = flk;@]";
         in
         let () = match model.spec.site_variation with
@@ -696,7 +692,6 @@ let output_model output nexus model set =
         let () = match model.spec.cost_fn with
             | `MPL -> printf "@[<hov 1>Cost mode: mpl;@]\n";
             | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
-            | `ILK -> printf "@[<hov 1>Cost mode: ilk;@]\n"; 
             | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
         in
         printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
@@ -939,7 +934,6 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | "FLK" -> `FLK
-        | "ILK" -> `ILK
         | ""    -> `MAL (* unmentioned default *)
         | x     -> 
             failwith ("I don't know "^x^" as a cost mode for likelihood.")
