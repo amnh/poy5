@@ -703,35 +703,25 @@ type nad8 = Node.Standard.nad8 = struct
      * parent, although, it shouldn't matter as long as the directions are
      * available *)
     let get_times_between child par =
-        let child = match child.adjusted with
-            | None -> failwith "allDirNode,get_times_between,no adjusted data"
-            | Some x -> x in
-            (* not_with (taxon_code par) child.adjusted*)
-        let par = match par.adjusted with
-            | None -> failwith "allDirNode,get_times_between,no adjusted data"
-            | Some x -> x in
-            (* either_with (taxon_code child) par.adjusted in *)
-        try 
+        try let child = not_with (taxon_code par) child.unadjusted
+            and par = either_with (taxon_code child) par.unadjusted in
             OneDirF.get_times_between child.lazy_node par.lazy_node
         with | _ ->
             (* direction doesn't matter; possibly only downpass happened! Who
                the hell is it to say the tree is in an error state on an
                inconsequential function as this? *)
-            (*let child = either_with (taxon_code child) par.adjusted
-            and par   = not_with (taxon_code par) child.adjusted in*)
+            let child = either_with (taxon_code child) par.unadjusted
+            and par   = not_with (taxon_code par) child.unadjusted in
             OneDirF.get_times_between par.lazy_node child.lazy_node
 
 
     (** [extract_states par child] extract the states of child toward par *)
     let extract_states alph data parc codes mine = 
         let n = match parc with
-            | None -> begin match mine.adjusted with
-                | Some x -> x
-                |  _  -> failwith "AllDirNode.extract_states No Direction" end
-            | Some x -> begin match mine.adjusted with
-                | Some x -> x
-                | _ -> failwith "AllDirNode.extract_states No Direction" end
-                (*not_with x mine.adjusted*)
+            | None -> begin match mine.unadjusted with
+                | [x] -> x
+                |  _  -> failwith "AllDirNode.extract_states; No Direction" end
+            | Some x -> not_with x mine.unadjusted
         in
         OneDirF.extract_states alph data None codes n.lazy_node
 
