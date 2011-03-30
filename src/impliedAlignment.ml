@@ -35,7 +35,7 @@ type ias = {
     seq : Sequence.Clip.s;
     codes : (int, int) Hashtbl.t; (* (key=pos -> code) Hashtble *)
     homologous: (int, int Sexpr.t) Hashtbl.t; (* (code, hom_code list) Hashtbl *)
-    indels: (int * string * int * [ `Insertion | `Deletion ] * int Sexpr.t) Sexpr.t; 
+    indels: (int * string * int * [ `Insertion | `Deletion | `Missing ] * int Sexpr.t) Sexpr.t; 
          (** The location and contents of an insertion block 
           * (p * s * l * t * c) Sexpr.t where
           *  p: start indel position 
@@ -198,7 +198,9 @@ let print_indel indels =
               (function
                 | `Single (s,chars,l,di,cs) ->
                     Printf.printf "%s in %s: starting at %d of length %d with %s\n%!"
-                        (match di with | `Deletion -> "Deletion" | `Insertion -> "Insertion")
+                        (match di with | `Deletion -> "Deletion" 
+                                       | `Insertion -> "Insertion"
+                                       | `Missing -> "Missing")
                         (codes cs) s l chars 
                 | `Empty | `Set _ -> ())
               x)
@@ -327,11 +329,16 @@ let ancestor calculate_median state prealigned all_minus_gap a b
         let anb_indels = `Set [a.indels; b.indels] in
         let a', b', nogap, indels, clip_length =
             if aempty && bempty then
+                let ind_a = `Single (0,"", lena, `Missing, achld)
+                and ind_b = `Single (0,"", lenb, `Missing, bchld) in
+                let anb_indels = `Set [ind_a;ind_b;anb_indels] in
                 if lena > lenb then a.seq, a.seq, `A, anb_indels, 0
                                else b.seq, b.seq, `B, anb_indels, 0
             else if aempty then
-                    (create_gaps lenb), b.seq, `A, anb_indels, 0
+                let anb_indels = `Set [`Single (0,"",lena,`Missing,achld);anb_indels] in
+                (create_gaps lenb), b.seq, `A, anb_indels, 0
             else if bempty then
+                let anb_indels = `Set [`Single (0,"",lenb,`Missing,bchld);anb_indels] in
                 a.seq, (create_gaps lena), `B, anb_indels, 0
             else begin
                 if prealigned then  begin
@@ -2176,14 +2183,15 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                 [(string, 1, None); ("-", 2, None)] 
                 "-" None Alphabet.Sequential
             in
-            let in_taxa, not_in_taxa =
-                match clas with 
+            let in_taxa, not_in_taxa = match clas with 
                 | `Insertion -> 
                         FileContents.Unordered_Character (1, false), 
                         FileContents.Unordered_Character (2, false)
                 | `Deletion -> 
                         FileContents.Unordered_Character (2, false),
                         FileContents.Unordered_Character (1, false)
+                | `Missing -> 
+                        failwith "unsure"
             in
             let taxa_list : All_sets.Integers.t = 
                 Sexpr.fold_left 

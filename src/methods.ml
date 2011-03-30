@@ -331,7 +331,7 @@ type implied_alignment =
 (
     (
         (int * ia_seq array All_sets.IntegerMap.t list) list *
-        (int * string * int * [ `Deletion | `Insertion ] * int Sexpr.t) Sexpr.t list list
+        (int * string * int * [ `Deletion | `Insertion | `Missing] * int Sexpr.t) Sexpr.t list list
     ) * (int * int Sexpr.t) Sexpr.t list list
 ) list
 

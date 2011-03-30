@@ -33,7 +33,7 @@ type ias = {
     homologous: (int, int Sexpr.t) Hashtbl.t;
     (** The other assigned codes that are homologous to a particular code 
     * assigned to [seq] or to other sequences. *)
-    indels: (int * string * int * [`Insertion | `Deletion] * int Sexpr.t)
+    indels: (int * string * int * [`Insertion | `Deletion | `Missing] * int Sexpr.t)
     Sexpr.t; 
         (* The location and contents of an insertion block *)
     

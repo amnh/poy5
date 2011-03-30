@@ -334,6 +334,8 @@ let get_all a = a.all
 let get_gap a = 
     a.gap
 
+let get_missing _ = "?"
+
 let get_level a = a.level
 
 let to_list a =

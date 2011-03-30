@@ -37,8 +37,8 @@ exception Illegal_Code of int
 (** {2 Types} *)
 
 (** The type of the alphabet, either a sequence of integers, up to 32 elements,
-* each represented by a bit, or each represented by a bit including all the
-* combinations. *)
+    each represented by a bit, or each represented by a bit including all the
+    combinations. *)
 type kind = 
     | Sequential
     | Simple_Bit_Flags
@@ -56,22 +56,22 @@ val present_absent : a
 val dna : a
 
 (** [nucleotides] contains codes for A, C, G, and T, and all their possible
-* combinations, including gaps, represented as "_". The alphabet used follows
-* the IUPAC specification. *)
+    combinations, including gaps, represented as "_". The alphabet used follows
+    the IUPAC specification. *)
 val nucleotides : a
 
 (** [aminoacids] contains aminoacids alphabet according to the IUPAC.
-* Combinations are not considered in this alphabet. *)
+    Combinations are not considered in this alphabet. *)
 val aminoacids : a
 
 (** [of_string l] creates an encoding for the string list [l] to produce an 
-* alphabet. *)
+    alphabet. *)
 val of_string : ?orientation:bool -> string list -> string -> string option -> a
 
 (** {2 Finding} *)
 
 (** [match_base b a] finds the code assigned in an alphabet [a] to an element
-* [b]. If the element is not found raises an [Illegal_Character] exception. *)
+    [b]. If the element is not found raises an [Illegal_Character] exception. *)
 val match_base : string -> a -> int
 
 val gap : int
@@ -86,21 +86,23 @@ val elt_complement : string
 val find_base : string -> a -> int
 
 (** [match_base c a] finds the string representation of code [c] in the alphabet
-* specification [a]. If not found raises an [Illegal_Code] exception. *)
+    specification [a]. If not found raises an [Illegal_Code] exception. *)
 val match_code : int -> a -> string 
 
 (** Same as match_code *)
 val find_code : int -> a -> string
 
+(** find the code and return the expanded list of associated states **)
 val find_codelist : int -> a -> int list
+
+(** find the character associated with the polymorphism in the list **)
 val find_comb : int list -> a -> int
 
 (** Find  the specified complement of the element in the alphabet. If no
-* complement is specified, return None. *)
+    complement is specified, return None. *)
 val complement : int -> a -> int option
 
-(** [rnd a] creates a function that generates random elements in the alphabet
-* [a] *)
+(** [rnd a] creates a function that generates random elements in the alphabet [a] *)
 val rnd : a -> (unit -> int)
 
 (** {2 Alphabets Properties} *)
@@ -123,77 +125,79 @@ val get_all : a -> int option
 * alphabet [a]. *)
 val get_gap : a -> int
 
-(*
-* [get_level a] returns the level value of alphabet a
-* *)
+(** [get_missing a] return the string representing missing data **)
+val get_missing : a -> string
+
+(** [get_level a] returns the level value of alphabet a *)
 val get_level: a -> int
 
 (** [kind a] returns the kind of the alphabet [a]. *)
 val kind : a -> kind
 
 (** [distinct_size a] returns the number of distinguishable elements in [a]. Two
-* elements are distinguishable if their codes are different. *)
+    elements are distinguishable if their codes are different. *)
 val distinct_size : a -> int
 
+(** [print a] debug function to print the contents of an alphabet **)
 val print : a -> unit
 
 (** {2 Extracting and Generating Alphabets} *)
 
 (** [list_to_a l g a k] generate an alphabet using the association
-* list of strings, codes, and optional complements [l], with gap
-code [g] and all code [a], to create * an alphabet of kind [k] *)
+    list of strings, codes, and optional complements [l], with gap
+    code [g] and all code [a], to create * an alphabet of kind [k] *)
 val list_to_a : ?orientation:bool ->
   (string * int * int option) list -> string -> string option -> kind -> a
 
 (** [simplify a] return an alphabet with the following conditions:
-* If the kind of [a] is [Sequential] or [Simple_Bit_Flags], then the same 
-* alphabet is returned, otherwise, only the bit flags, and the all elements are
-* returned in a fresh alphabet, of type [Simple_Bit_Flags]. *)
+    If the kind of [a] is [Sequential] or [Simple_Bit_Flags], then the same 
+    alphabet is returned, otherwise, only the bit flags, and the all elements are
+    returned in a fresh alphabet, of type [Simple_Bit_Flags]. *)
 val simplify : a -> a 
 
 (** [to_sequential a] returns an alphabet of any kind, with its elements
-* represented in the simpli:e alfied Sequential kind representation. *)
+    represented in the simpli:e alfied Sequential kind representation. *)
 val to_sequential : a -> a
 
-(*
-* [create_alph_by_level alph level] creates a new alphabet based on the new level
-* value
-*)
+(** [create_alph_by_level alph level] creates a new alphabet based on the new
+    level value *)
 val create_alph_by_level : a -> int -> int -> a
 
 
 (** [explote a level ori_sz] takes an alphabet of any [kind] and generates an
-* [Extended_Bit_Flags] alphabet, where every combination is represented within
-* square brackets. *)
+    [Extended_Bit_Flags] alphabet, where every combination is represented within
+    square brackets. *)
 val explote : a -> int -> int -> a
 
+(** [to_list a] convert the alphabet to a list of string*code pairs *)
 val to_list : a -> (string * int) list
 
 (** [to_formatter a] produce a text-only representation of the alphabet [a].
-* Useful for uniform end-user reporting. *)
+    Useful for uniform end-user reporting. *)
 val to_formatter : a -> Xml.xml
 
 module Lexer : sig
 
-    (* The returned list is in the inverse order of the stream. It is done like
-    * this because the sequences are loaded by prepending, so there is no need
-    * to hit the performance by keeping the order of the sequences being read.
-    * The boolean argument is used to issue error warnings (true) or not
-    * (false). *)
+    (** The returned list is in the inverse order of the stream. It is done like
+        this because the sequences are loaded by prepending, so there is no need
+        to hit the performance by keeping the order of the sequences being read.
+        The boolean argument is used to issue error warnings (true) or not
+        (false). *)
     val make_lexer : 
         bool -> a -> (char Stream.t -> int list -> int -> int list * int)
 
     (** Simmilar to [make_lexer] with two main differences: 0) first argument
-    * specifies the polymorphic style according to the file format i) second argument is
-    * a boolean for whether or not it should respect the case of the alphabet,
-    * and ii) it doesn't consume the entire stream but returns one element at a
-    * time. The list of elements is returned because a small set of alphabet
-    * elements can be enclosed inside [{{}}] or [{()}]. *)
+        specifies the polymorphic style according to the file format i) second argument is
+        a boolean for whether or not it should respect the case of the alphabet,
+        and ii) it doesn't consume the entire stream but returns one element at a
+        time. The list of elements is returned because a small set of alphabet
+        elements can be enclosed inside [{{}}] or [{()}]. *)
     val make_simplified_lexer : [ `Nexus | `Hennig | `None ] -> 
         bool -> bool -> a -> (char Stream.t -> int list)
-
 end
 
+(** [of_file stream o 3d] parse an alphabet using orientation [o],
+    and optionally initialize it to 3d dimensions [3d]. *)
 val of_file : FileStream.f -> bool -> bool ->
                 a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
 

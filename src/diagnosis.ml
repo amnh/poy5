@@ -40,6 +40,29 @@ let sort_using_tree tree all_taxa =
     in
     List.rev res
 
+let all_missing_codes indels =
+    let add_sexpr set sexpr = 
+        Sexpr.fold_left (fun x y -> All_sets.Integers.add y x) set sexpr
+    in
+    List.fold_left
+        (fun acc x -> List.fold_left
+            (fun acc x -> Sexpr.fold_left
+                (fun acc (_,_,_,x,cs) -> match x with 
+                    | `Missing -> add_sexpr acc cs 
+                    | `Insertion 
+                    | `Deletion -> acc)
+                acc x)
+            acc x)
+        (All_sets.Integers.empty)
+        (indels)
+
+let replace_with_missing missing a =
+    let s = ref "" in 
+    for i = (String.length a)-1 downto 0 do 
+        s := missing ^ !s 
+    done; 
+    !s
+
 (** Functions to output immediately all the taxa without memory consumption *)
 module O = struct
     let header_f filename seqname () = 
@@ -81,7 +104,13 @@ end
 module C = struct
     let break = false
     let header_f _ _ () = ()
-    let sequence_f = O.sequence_f ~break
+    let sequence_f missings code a g data b = 
+        if All_sets.Integers.mem code missings then
+            let t,r,p,c = O.sequence_f ~break a g data b in
+            (t, replace_with_missing (Alphabet.get_missing a) r, p, c)
+        else
+            O.sequence_f ~break a g data b
+
     let taxonf = O.taxonf
     let taxon_closef hash filename (name, result, _, _) =
         Hashtbl.add hash name result
@@ -111,85 +140,79 @@ closef data to_process =
     headerf ();
     (* This function expects only one element *)
     match to_process with
-    | [(all_taxa, _), _] ->
-            let all_taxa = sort_using_tree tree all_taxa in
-            let process_each acc (taxcode, sequence) =
-                let name = 
-                    try Data.code_taxon taxcode data with
-                    | Not_found -> (string_of_int taxcode)
+    | [(all_taxa, indels), _] ->
+        let all_taxa = sort_using_tree tree all_taxa in
+        let all_missing = all_missing_codes indels in
+        let process_each acc (taxcode, sequence) =
+            let name = 
+                try Data.code_taxon taxcode data 
+                with | Not_found -> (string_of_int taxcode)
+            in
+            match sequence with
+            | hd_sequence :: tl ->
+                let res = 
+                    All_sets.IntegerMap.fold (fun c s acc -> Some (c, s)) hd_sequence None
                 in
-                match sequence with
-                | hd_sequence :: tl ->
-                        let res = 
-                            All_sets.IntegerMap.fold 
-                            (fun c s acc -> Some (c, s))
-                            hd_sequence None
+                begin match res with 
+                    | Some (seqcode, sequence_arr) ->
+                        let sequence = sequence_arr.(0) in 
+                        let alphabet = Data.get_sequence_alphabet seqcode data in
+                        let gapcode = Alphabet.get_gap alphabet in
+                        let gap = Alphabet.match_code gapcode alphabet in
+                        (* Check if the sequence is missing data *)
+                        let preprocess_sequence x = match x with
+                            | `DO x -> x
+                            | `Last x
+                            | `First x as m ->
+                                let all = Utl.deref (Alphabet.get_all alphabet) in 
+                                let len = Array.length x in
+                                try match m with
+                                    | `Last x ->
+                                        for i = len - 1 downto 0 do
+                                            if x.(i) <> 0 then
+                                                raise Exit
+                                            else x.(i) <- all;
+                                        done;
+                                        x
+                                    | `First x ->
+                                        for i = 0 to len - 1 do
+                                            if x.(i) <> 0 then
+                                                raise Exit
+                                            else x.(i) <- all;
+                                        done;
+                                        x
+                                with | Exit -> x
                         in
-                        (match res with 
-                         | Some (seqcode, sequence_arr) ->
-                               let sequence = sequence_arr.(0) in 
-                               let alphabet = 
-                                   Data.get_sequence_alphabet seqcode data
-                               in
-                               let gapcode = Alphabet.get_gap alphabet in
-                               let gap = Alphabet.match_code gapcode alphabet
-                                in
-                                 (* Check if the sequence is missing data *)
-                                let preprocess_sequence x =
-                                    match x with
-                                    | `DO x -> x
-                                    | `Last x
-                                    | `First x as m ->
-                                            let all = Utl.deref
-                                            (Alphabet.get_all alphabet) in 
-                                            let len = Array.length x in
-                                            try
-                                                match m with
-                                                | `Last x ->
-                                                        for i = len - 1 downto 0 do
-                                                            if x.(i) <> 0 then
-                                                                raise Exit
-                                                            else x.(i) <- all;
-                                                        done;
-                                                        x
-                                                | `First x ->
-                                                        for i = 0 to len - 1 do
-                                                            if x.(i) <> 0 then
-                                                                raise Exit
-                                                            else x.(i) <- all;
-                                                        done;
-                                                        x
-                                            with
-                                            | Exit -> x
-                                in
-                                let sequence = preprocess_sequence sequence in
-                                let accumulator = 
-                                    Array.fold_left (seqf alphabet gap) 
-                                    (taxonf name) sequence 
-                                in
-                                let () = taxon_closef accumulator in
-                                if Array.length sequence_arr = 1 then 
-                                    (taxcode, tl) :: acc
-                                else begin
-                                    let hd_sequence = All_sets.IntegerMap.map
-                                        (fun sequence_arr -> Array.of_list
-                                             (List.tl (Array.to_list sequence_arr)))
-                                        hd_sequence
-                                    in 
-                                    (taxcode, hd_sequence::tl)::acc
-                                end 
-                        | None -> (taxcode, tl) :: acc)
-                | [] -> acc
-            in
-            let rec process_all_sequences = function
-                | (_, []) :: _ -> ()
-                | x -> 
-                        let acc = List.fold_left process_each [] x in
-                        let acc = List.rev acc in
-                        process_all_sequences acc
-            in
-            process_all_sequences all_taxa;
-            closef ();
+                        let sequence = preprocess_sequence sequence in
+                        let accumulator = 
+                            Array.fold_left (seqf all_missing taxcode alphabet gap) 
+                                            (taxonf name) 
+                                            (sequence)
+                        in
+                        let () = taxon_closef accumulator in
+                        if Array.length sequence_arr = 1 then 
+                            (taxcode, tl) :: acc
+                        else begin
+                            let hd_sequence = 
+                                All_sets.IntegerMap.map
+                                    (fun sequence_arr -> 
+                                        Array.of_list (List.tl (Array.to_list sequence_arr)))
+                                    hd_sequence
+                            in 
+                            (taxcode, hd_sequence::tl)::acc
+                        end 
+                    | None -> (taxcode, tl) :: acc
+                end
+            | [] -> acc
+        in
+        let rec process_all_sequences = function
+            | (_, []) :: _ -> ()
+            | x -> let acc = List.fold_left process_each [] x in
+                   let acc = List.rev acc in
+                   process_all_sequences acc
+        in
+        process_all_sequences all_taxa;
+        closef ();
     | _ -> failwith "Diagnosis.output_implied_alignment 1"
 
 module type S = sig
