@@ -26,16 +26,15 @@ let rec fold_left f acc = function
     | `Single tree -> f acc tree
     | `Set lst -> List.fold_left (fold_left f) acc lst
 
-let rec fold_right f acc = function
+let rec fold_right f v acc = match v with
     | `Empty -> acc
-    | `Single tree -> f acc tree
-    | `Set lst -> List.fold_right (fun x y -> fold_right f y x) lst acc 
+    | `Single tree -> f tree acc
+    | `Set lst -> List.fold_right (fold_right f) lst acc
 
 let rec map f = function
     | `Empty -> `Empty
     | `Single tree -> `Single (f tree)
     | `Set lst -> `Set (List.map (map f) lst)
-
 
 let rec map_fold_left f acc = function
     | `Empty -> (`Empty : 'a t), acc
@@ -51,8 +50,7 @@ let rec map_fold_left f acc = function
           in
           (`Set lst : 'a t), acc
 
-
-let cardinal t = fold_right (fun acc _ -> succ acc) 0 t
+let cardinal t = fold_left (fun acc _ -> succ acc) 0 t
 
 let map_feedback cb f sexpr =
     let count = ref 0 in

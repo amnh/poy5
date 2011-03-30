@@ -46,7 +46,7 @@ val fold_left :
 * is rightwise. The maximum stack size is given by the maximum between the depth
 * of [s] and the longest list inside a set in [s]. *)
 val fold_right :
-  ('a -> 'b -> 'a) -> 'a -> 'b t -> 'a
+  ('a -> 'b -> 'b) -> 'a t -> 'b -> 'b
 
 (** [rev s] outputs [s] in reverse order, that is, each list inside [s] is
 * reversed. *)
