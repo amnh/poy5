@@ -122,7 +122,7 @@ type transform_cost_matrix = [
 type median_solver_chosen = [ `MGR | `SimpleLK | `ChainedLK | `COALESTSP | `BBTSP |
 `Siepel | `Albert | `Vinh  ]
 
-type annotate_tool = [ `Mauve of (float*float*int) | `Default of (int*int*int) ]
+type annotate_tool = [ `Mauve of (float*int*float*int) | `Default of (int*int*int) ]
 
 (** parameters used in determining the medians between two chromosomes or genomes *)
 type chromosome_pam_t = [

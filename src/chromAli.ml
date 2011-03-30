@@ -105,7 +105,7 @@ let get_recost user_pams =
 
 let use_mauve_annotator user_pams =
     match user_pams.ChromPam.annotate_tool with
-    | `Mauve (_,_,_)  ->  true
+    | `Mauve (_,_,_,_)  ->  true
     | `Default (_,_,_) -> false
 
 

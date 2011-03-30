@@ -123,16 +123,18 @@ let create_general_ali_mauve seq1 seq2 cost_mat ali_pam outputtofile old_cost =
     let debug = true in
     let min_cover_ratio:float = ChromPam.get_min_cover_ratio ali_pam
     and min_lcb_ratio = ChromPam.get_min_lcb_ratio ali_pam
+    and min_lcb_len = ChromPam.get_min_lcb_len ali_pam
     and min_bk_penalty = ChromPam.get_min_bk_penalty ali_pam
     in
     if debug then 
         Printf.printf "====  create general ali with mauve, len1=%d,len2=%d\
-         min lcb ratio = %f, min cover R = %f, min bk penalty = %d\n%!"
-    (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_cover_ratio min_bk_penalty;
+         min lcb ratio/len = %f/%d, min cover R = %f, min bk penalty = %d\n%!"
+    (Sequence.length seq1) (Sequence.length seq2) min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty;
     let code1_arr,code2_arr,gen_cost_mat,ali_mat,gen_gap_code,edit_cost,
     full_code_lstlst,len_lst1 =
-        Block_mauve.get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_cover_ratio
-        min_bk_penalty ali_pam.ChromPam.locus_indel_cost cost_mat  in
+        Block_mauve.get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio
+        min_lcb_len min_cover_ratio min_bk_penalty
+        ali_pam.ChromPam.locus_indel_cost cost_mat  in
     let cost, rc, alied_gen_seq1, alied_gen_seq2 = 
         GenAli.create_gen_ali_new code1_arr code2_arr gen_cost_mat gen_gap_code 
         ali_pam.ChromPam.re_meth ali_pam.ChromPam.circular false in

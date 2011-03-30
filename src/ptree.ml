@@ -222,8 +222,6 @@ module type Tree_Operations =
         val tree_size : (a, b) p_tree -> float
         val unadjust : (a, b) p_tree -> (a, b) p_tree
 
-        (* verifiction functions *)
-        val verify_downpass : int -> (a,b) p_tree -> bool
         val dump_tree : (string -> unit) -> int -> (a,b) p_tree -> unit
 
         val refresh_all_edges : 
