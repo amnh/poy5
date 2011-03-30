@@ -19,7 +19,7 @@
 
 let (-->) b a = a b
 
-let debug = true
+let debug = false
 let failwithf format = Printf.ksprintf failwith format
 let warning_message format = Printf.ksprintf (Status.user_message Status.Warning) format
 
