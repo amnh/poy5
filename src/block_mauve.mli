@@ -74,7 +74,7 @@ val create_lcb_tbl : int array array -> float -> float -> int ->
     (int list, lcb) Hashtbl.t * int list list list * int list list * 
     (int * int) list list
 *)
-val print_mum : mum -> bool -> bool -> unit
+val print_mum : bool -> bool -> mum  -> unit
 
 val print_lcb : lcb -> unit
 

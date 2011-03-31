@@ -1,4 +1,28 @@
+(* POY 4.0 Beta. A phylogenetic analysis program using Dynamic Homologies.    *)
+(* Copyright (C) 2007  Andrés Varón, Le Sy Vinh, Illya Bomash, Ward Wheeler,  *)
+(* and the American Museum of Natural History.                                *)
+(*                                                                            *)
+(* This program is free software; you can redistribute it and/or modify       *)
+(* it under the terms of the GNU General Public License as published by       *)
+(* the Free Software Foundation; either version 2 of the License, or          *)
+(* (at your option) any later version.                                        *)
+(*                                                                            *)
+(* This program is distributed in the hope that it will be useful,            *)
+(* but WITHOUT ANY WARRANTY; without even the implied warranty of             *)
+(* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *)
+(* GNU General Public License for more details.                               *)
+(*                                                                            *)
+(* You should have received a copy of the GNU General Public License          *)
+(* along with this program; if not, write to the Free Software                *)
+(* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301   *)
+(* USA                                                                        *)
+
+let () = SadmanOutput.register "Block_mauve" "$Revision: 1553 $"
+
+
+
 open Printf
+let printIntArr = Utl.printIntArr
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
@@ -145,10 +169,19 @@ type mum = {
     mumscore : int ;
 }
 
+
+type mum_btree = ((int array),mum) BinaryTree.b_tree
+
+let compare_mums mum1 mum2 =
+    if mum1.seedNO = mum2.seedNO then
+        true
+    else false
+
+(*
 type b_tree = 
     | Leaf of int array * mum
     | Node of int array * b_tree * b_tree
-
+*)
 type lcb = {
     seedNOlst : int list; (*each lcb is a list of mums*)
     range_lst : m_i list; (*lcb_range we need is exactly the same truct as m_i,
@@ -323,7 +356,6 @@ let print_pos_list_to_file oc in_lst =
         pos.sequence_NO pos.left_end pos.right_end pos.orientation
     ) in_lst
 
-
 let print_lcbs_range in_lstlst =
     Printf.printf "lcb range lst lst :\n%!";
     List.iter (fun lcb_range_lst ->
@@ -334,16 +366,14 @@ let print_lcbs_range in_lstlst =
         Printf.printf " } \n%!";
     ) in_lstlst
 
-
+(*function to print mum*)
 let print_neighborhood_list in_lst = 
     List.iter (fun (seqNO, j,i_ori,j_ori,dl,dr) ->
         Printf.printf "{seqNO.%d, seed#%d, ori:%d/%d,d:%d,%d }\n%!" seqNO j i_ori
         j_ori dl dr
     ) in_lst
 
-let print_mum in_mum  print_neighborhood print_unextendable =
-    (*let in_mum = try (Hashtbl.find mum_tbl in_SeedNO) with 
-    | Not_found -> failwith ("Print MUMs, not found err ") in*)
+let print_mum print_neighborhood print_unextendable in_mum =
     if (in_mum.extendable = 0) ||
     ((in_mum.extendable !=0 )&&(print_unextendable=true) ) then begin
         Printf.printf "MUM#%d\n%!" in_mum.seedNO;
@@ -351,7 +381,7 @@ let print_mum in_mum  print_neighborhood print_unextendable =
         Printf.printf " mumseq = %!";
         print_int_arr in_mum.mumseq; 
         Printf.printf " size: %d ,\n" in_mum.size;
-        Printf.printf " subsuming_pointer(is subsumed by) = %d ,%!" in_mum.subsuming_pointer; 
+        Printf.printf " subsuming_pointer(is subsumed by) = %d ,%!" in_mum.subsuming_pointer;
         Printf.printf " extendable = %d \n%!" in_mum.extendable;
         Printf.printf " priority_lst = %!";
         print_int_list in_mum.priority_lst;
@@ -363,6 +393,7 @@ let print_mum in_mum  print_neighborhood print_unextendable =
         end;
     end
 
+(*function to print lcb*)
 let print_lcb x = 
     Printf.printf "LCB.%!";
     print_int_list x.seedNOlst; Printf.printf "\n%!";
@@ -397,140 +428,12 @@ let get_sub_seq2 seq leftend size =
     Array.sub seq leftend size 
 
 (****************** function deal with sub_seq end ***********************)
-
-(***************** binary tree function begins ****************************)
-
-let create_btree seedseq newmum = Leaf (seedseq,newmum)
-
-(*add new mum_node to b_tree, if same mum already exist, replace it with new one
-* if other mum with same match sequence already exist, do nothing, return false*)
-let add_to_btree seedseq newmum old_bt =
-    let debug = false in
-    if debug then  Printf.printf "add mum#%d to btree\n%!" newmum.seedNO;
-    let sign = ref true in
-    let rec insert_node sub_bt key mum =
-        match sub_bt with
-        | Node (middle_key, left_bt, right_bt) ->
-                let insert_dir = compare middle_key key in
-                if insert_dir=1 then (*middle_key>key*)
-                    let new_left_bt = insert_node left_bt key mum in
-                    Node (middle_key, new_left_bt, right_bt)
-                else 
-                    let new_right_bt = insert_node right_bt key mum in
-                    Node (middle_key,
-                    left_bt,
-                    new_right_bt)
-        | Leaf (leafkey, leafmum) ->
-                assert ((Array.length leafkey)>0);
-                let insert_dir = compare key leafkey in
-                if debug then begin
-                    Utl.printIntArr key;
-                    Utl.printIntArr leafkey;
-                    Printf.printf " insert_dir=%d,leafmum.seedNO=%d\n%!" 
-                    insert_dir leafmum.seedNO;
-                end;
-                if insert_dir=1 then (*key>leafkey*)
-                    Node (key, 
-                          Leaf (leafkey, leafmum),
-                          Leaf (key,mum))
-                else if insert_dir=(-1) then
-                    Node (leafkey, 
-                          Leaf (key,mum),
-                          Leaf (leafkey, leafmum))
-                else 
-                    if newmum.seedNO=leafmum.seedNO then  
-                        Leaf (leafkey,newmum)
-                    else begin
-                        sign := false;
-                        Leaf (leafkey,leafmum)
-                    end
-    in
-    let res_bt = insert_node old_bt seedseq newmum in
-    res_bt,!sign
-
-let search_in_btree key bt = (*mumseq is the key inside b_tree*)
-    let rec search_node sub_bt key =
-        match sub_bt with
-        | Node (middle_key, left_bt, right_bt) ->
-                let search_dir = compare middle_key key in
-                if search_dir=1 then(*key<middle_key*)
-                    search_node left_bt key
-                else 
-                    search_node right_bt key
-        | Leaf (leafkey, leafmum) ->
-                if (compare leafkey key)=0 then leafmum
-                else begin
-                        Printf.printf "we are searching for :%!";
-                        print_int_arr key;
-                        Printf.printf "search failed, we reach\n:%!";
-                        print_mum leafmum false true;
-                    failwith "search reach a dead end in btree";
-                end
-    in
-    search_node bt key
-
-let remove_from_btree seedseq bt = (*key in b_tree is seedseq*)
-    let rec remove_node sub_bt key = 
-        match sub_bt with 
-        | Node (middle_key, left_bt, right_bt) ->
-                let remove_dir = compare middle_key key in
-                if remove_dir=1 then (*key<middle_key*)
-                    let new_left_child = remove_node left_bt key in
-                    (match new_left_child with
-                    | Leaf ([||],_) ->  right_bt
-                    | x ->  
-                            Node (middle_key,x,right_bt))
-                else 
-                    let new_right_child = remove_node right_bt key in
-                    (match new_right_child with
-                    | Leaf ([||],_) -> left_bt
-                    | x -> 
-                            Node (middle_key,left_bt, x))
-        | Leaf (leafkey, leafmum) ->
-                if (compare leafkey key)=0 then  Leaf ([||],leafmum)
-                else begin
-                    Printf.printf "we are searching for :%!";
-                        print_int_arr key;
-                        Printf.printf "search failed, we reach\n:%!";
-                        print_mum leafmum false false;
-                    failwith "remove node reach a dead end in btree"
-                end
-    in
-    remove_node bt seedseq 
-    
-let iter_b_tree bt debug f =
-    let rec iter_sub_tree sub_bt f =
-        match sub_bt with
-        | Node (middle_key, left_bt, right_bt) ->
-                if debug then begin
-                    Printf.printf "{ mkey=%!";
-                    print_int_arr middle_key;
-                    Printf.printf "\n ( %!";
-                end;
-                iter_sub_tree left_bt f;
-                iter_sub_tree right_bt f;
-                if debug then Printf.printf " ) }\n%!";
-        | Leaf (leafkey, leafmum) -> f leafmum 
-    in
-    iter_sub_tree bt f
-
-
-let print_b_tree bt debug =
-    let ourf leafmum = 
-        if debug then print_mum leafmum false true
-        else 
-            Printf.printf " MUM#.%d %!" leafmum.seedNO
-    in
-    iter_b_tree bt true ourf
-
-(******************** binary tree function ends *********************)
-
 (**************** b_tree mum_tbl function starts *********************)
 
 let print_mumtbl mum_tbl debug = 
     Hashtbl.iter (fun key record ->
         Printf.printf "mumkey = %d \n%!" key;
-        print_b_tree record debug
+        BinaryTree.print_b_tree record (print_mum false true) printIntArr
     ) mum_tbl
 
 
@@ -571,7 +474,8 @@ let get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl =
             failwith "not found, get mum from mumtbl" 
             end 
     in
-    let res = search_in_btree seedseq bt in
+    let res = BinaryTree.search_in_btree seedseq bt printIntArr 
+    (print_mum false true) in
     if res.seedNO<>seedNO then begin
         let _,seedseq1,w1 = Hashtbl.find seed2pos_tbl seedNO 
         and _,seedseq2,w2 = Hashtbl.find seed2pos_tbl res.seedNO in
@@ -596,13 +500,15 @@ let add_mum_to_mumtbl newmum mum_tbl =
     let mumkey = newmum.mumkey in
     if (Hashtbl.mem mum_tbl mumkey) then begin
         let old_bt = Hashtbl.find mum_tbl mumkey in
-        let new_bt,sign_newbt = add_to_btree newmum.mumseq newmum old_bt in
+        assert(Array.length newmum.mumseq > 0);
+        let new_bt,sign_newbt = BinaryTree.add_to_btree newmum.mumseq newmum 
+        old_bt printIntArr (print_mum false true) compare_mums in
         if sign_newbt then Hashtbl.replace mum_tbl mumkey new_bt;
         if debug then Printf.printf "sign_newbt=%b\n%!" sign_newbt;
         sign_newbt
     end
     else begin
-        let bt = create_btree newmum.mumseq newmum in
+        let bt = BinaryTree.create_btree newmum.mumseq newmum in
         Hashtbl.add mum_tbl mumkey bt;
         true
     end
@@ -614,16 +520,15 @@ let remove_mum_from_mumtbl mum2remove mum_tbl =
     let mumkey = mum2remove.mumkey in
     let bt = try (Hashtbl.find mum_tbl mumkey) 
     with |Not_found -> failwith "not found, remove mum from mumtbl" in
-    match bt with 
-    | Leaf (leafkey,leafmum) ->
+    if (BinaryTree.just_a_leaf bt) then
             Hashtbl.remove mum_tbl mumkey
-    | _ -> 
+    else 
         let treekey = mum2remove.mumseq in
-        let newbt = remove_from_btree treekey bt in
-        match newbt with 
-        | Leaf ([||],leafmum) ->
-                Hashtbl.remove mum_tbl mumkey
-        | _ -> Hashtbl.replace mum_tbl mumkey newbt
+        let newbt = BinaryTree.remove_from_btree treekey bt printIntArr
+        (print_mum false true) in
+        if (BinaryTree.just_an_empty_leaf newbt) then
+            Hashtbl.remove mum_tbl mumkey
+        else Hashtbl.replace mum_tbl mumkey newbt
     
 
 
@@ -725,7 +630,7 @@ let print_pos_list2 seqNO pos in_lst mum_tbl seed2pos_tbl printmum =
         seedNO weight orientation;
         if printmum then begin
         let mum2print = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-        print_mum mum2print false true;
+        print_mum false true mum2print;
         end;
     ) in_lst;
     Printf.printf "end of record in pos2seed tbl \n%!"
@@ -891,7 +796,7 @@ let mark_extendable_mum_tbl seedNO seed2pos_tbl mum_tbl =
     let oldmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
     let sign_newmum = update_mum_to_mumtbl None 
     {oldmum with extendable = 0; subsuming_pointer=(-1); priority_lst=[]} mum_tbl false in
-    if debug then print_mum oldmum false true;
+    if debug then print_mum false true oldmum;
     assert(sign_newmum)
 
 
@@ -903,7 +808,7 @@ option) mum_tbl seed2pos_tbl=
     let debug = false in
     if debug then begin
         Printf.printf "update prilst on seed#%d," in_mum.seedNO;
-        print_mum in_mum false true;
+        print_mum false true in_mum;
     end;
     let old_lst = in_mum.priority_lst in
     let lst_after_remove = 
@@ -913,7 +818,7 @@ option) mum_tbl seed2pos_tbl=
             if (List.mem seedNO old_lst)=false then true
             else debug
         in
-        if debug then print_mum in_mum false true;
+        if debug then print_mum false true in_mum;
         if debug then Printf.printf "remove seed#%d," seedNO;
         assert (List.mem seedNO old_lst); (*or these must be something wrong*)
         let find1 = ref false in
@@ -1592,7 +1497,7 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
                 } in
             if debug then begin
                 Printf.printf "add seed %d with mumkey %d,treekey = %!" seedNO key;
-                print_mum newmum false true;
+                print_mum false true newmum;
                 Printf.printf " to mum_tbl\n%!";
             end;
             let sign_newmum = add_mum_to_mumtbl newmum mum_tbl in
@@ -1791,7 +1696,7 @@ let update_positions_by_seqNO seedNO seqNO oldmum new_pos new_mumseq mum_tbl =
     let sign_newmum = update_mum_to_mumtbl (Some oldmum) new_mum mum_tbl false in
     if debug then begin
         Printf.printf "update_positions_by_seqNO END, (sign_newmum=%b):\n%!" sign_newmum;
-        if sign_newmum then print_mum new_mum false true;
+        if sign_newmum then print_mum false true new_mum;
     end;
     sign_newmum
 
@@ -1836,7 +1741,7 @@ let format_output mum_tbl =
         else ()
     in
     Hashtbl.iter (fun mumkey bt ->
-        iter_b_tree bt false format_mum
+        BinaryTree.iter_b_tree bt format_mum printIntArr false
     ) mum_tbl;
     !res
 
@@ -1990,7 +1895,7 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
     let debug2 = false in
     if debug then Printf.printf "update neighborhood on seedNO# %d\n%!" seedNO;
     let i_mum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-    if debug then print_mum i_mum true true;
+    if debug then print_mum true true i_mum;
     (*what if mi or mj is subsuming by other mum ?*)
     (*we don't care neighborhood of unextendable (from) seed, as long as we
     * don't do the chainable list, this should be fine *)
@@ -2028,7 +1933,7 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
                                 !pos (fun p item ->
                                     if (item.right_end=p) then 0 else (-1) )
                             in
-                            if debug2 then print_mum j_mum false true;
+                            if debug2 then print_mum false true j_mum;
                             if (j_idx<0) then
                                 Printf.printf "r-tbl,j_idx<0,j=%d,pos=%d\n%!" j_seedNO !pos;
                             assert(j_idx>=0);
@@ -2058,7 +1963,7 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
                             seqNO !pos j_seedNO;
                         let j_mum = 
                             get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
-                        if debug2 then print_mum j_mum false true;
+                        if debug2 then print_mum false true j_mum;
                         if (j_mum.subsuming_pointer<>(-1)) then ()
                         else if (j_seedNO<>seedNO) then begin 
                             let j_idx = 
@@ -2097,7 +2002,7 @@ let update_neighborhood seedNO mum_tbl seed2pos_tbl pos_tbl_left pos_tbl_right d
         if debug then begin
             Printf.printf "end of update_neighborhood check mum again\n%!";
             let imum =  get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-            print_mum imum true true;
+            print_mum true true imum;
         end
     end
     else () (*if mi.extendable = 0 or 3*)
@@ -2140,8 +2045,8 @@ pos2seed_tbl_left pos2seed_tbl_right find_a_chain =
             Printf.printf "chain seed#%d and #%d together,d=%d,i_ori,j_ori=%d/%d \n%!"
             i_seedNO j_seedNO d i_ori j_ori;
             Printf.printf "before chainning:\n%!";
-            print_mum i_mum false true;
-            print_mum j_mum false true;
+            print_mum false true i_mum;
+            print_mum false true j_mum;
             end;
             (*we don't need to reload mi and mj here, for we only modify
             * positions of another match in different sequence of mi *)
@@ -2239,8 +2144,8 @@ pos2seed_tbl_right seed2pos_tbl mum_tbl;
         Printf.printf "after chain: \n%!";
         let i_mum = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
         let j_mum = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
-        print_mum i_mum false true;
-        print_mum j_mum false true;
+        print_mum false true i_mum;
+        print_mum false true j_mum;
     end
 (* chainable_lst *)
 
@@ -2272,7 +2177,7 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
                 let i_mum = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
                 if debug then begin
                     Printf.printf "extend seed#%d\n%!" i_seedNO;
-                    print_mum i_mum false true;
+                    print_mum false true i_mum;
                 end;
                     if debug then Printf.printf "categorize neighborhood :\n%!";
                     let nei_list = i_mum.neighborhood_lst in
@@ -2302,7 +2207,7 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
                         if (distance>0) then item::accl,accr
                         else accl,item::accr
                     ) chainable_list ([],[]) in
-                    if debug then print_mum i_seedNO mum_tbl true true;
+                    if debug then print_mum true true i_seedNO mum_tbl;
                     if debug then Printf.printf "chain left : \n%!";
                     let chainable_lst = sort_neighborhood_lst_by_dis c_l in
                     find_a_chain := 0;
@@ -2318,7 +2223,7 @@ let extend_seeds mum_tbl seed2pos_tbl pos2seed_tbl_left pos2seed_tbl_right =
                     end; *) 
                (*if debug then begin
                    Printf.printf "check mum_tbl before end of while\n%!";
-                   print_mum i_seedNO mum_tbl true true;
+                   print_mum true true i_seedNO mum_tbl;
                    Printf.printf " === end of while ===\n%!";
                end;  *)
             done; (* end of while ( !find_a_chain = 1 ) *)
@@ -2530,7 +2435,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
     end;
     let ourfunction new_mum = 
         if debug then Printf.printf "mum before transpose: %!";
-        if debug then print_mum new_mum false true;
+        if debug then print_mum false true new_mum;
         if new_mum.extendable<>2 then begin
             let sign = ref true in (*true means we can add the new mum to mum_tbl*)
             let ori_positions = List.map (fun mi ->
@@ -2551,7 +2456,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
                                     priority_lst = [];
                                     neighborhood_lst = [] } in
                     if debug then Printf.printf "mum after transpose :%!";
-                    if debug then print_mum mum2add false true;
+                    if debug then print_mum false true mum2add;
                     let sign_newmum = add_mum_to_mumtbl mum2add mum_tbl in
                     if debug then 
                         Printf.printf "sign_newmum=%b\n%!" sign_newmum;
@@ -2580,7 +2485,7 @@ mum_tbl pos2seed_tbl_left pos2seed_tbl_right seed2pos_tbl
         return_a_seedNO new_mum.seedNO;
     in
     Hashtbl.iter (fun mumkey bt ->
-        iter_b_tree bt false ourfunction
+        BinaryTree.iter_b_tree bt ourfunction printIntArr false
     ) new_mum_tbl;
     Hashtbl.iter (fun seedNO record ->
         let debug_nei = false in
@@ -2632,7 +2537,7 @@ let get_mum_lst_for_each_seq mum_tbl seed2pos_tbl pos2seed_tbl seqlst_size seq_s
         else begin 
             Printf.printf "cannot find seedNO.#%d \n%!" seedNO;
             let badmum = get_mum_from_mumtbl seedNO mum_tbl seed2pos_tbl in
-            print_mum badmum false true;
+            print_mum false true badmum;
             let poslst = badmum.positions in
             List.iter (fun mi ->
                 let seqNO = mi.sequence_NO 
@@ -2780,7 +2685,7 @@ let get_mum_score old_seqarr mum =
             get_sub_seq2 old_seqarr.(seqNO) lend (rend-lend+1) in
         let ori = if (current_ori=previous_ori) then 1 else (-1) in
         if (Array.length previous_seq)<>(Array.length current_seq) then
-            print_mum mum false true;
+            print_mum false true mum;
         let score = get_score_from_2seq previous_seq current_seq ori in
         sum_score + score, current_seq, current_ori
     ) (0,first_seq,first_ori) (List.tl poslst)
@@ -3345,7 +3250,7 @@ let remove_lcb_from_lcblstlst key_to_remove lcbs =
 * more high W low R lcb, we don't do it -- this is different from Mauve *)
 let remove_bad_lcbs lcbs lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums =
-    let debug = true and debug2 = false in
+    let debug = false and debug2 = false in
     let bk_penalty = get_break_point_penalty in_seq_size_lst num_of_mums in 
     if debug then begin
         Printf.printf "start to remove lowW or lowR lcbs (min_L=%d,min_R=%f) \
@@ -3476,7 +3381,7 @@ let debug = false in
         extendable = k_extsign; 
         priority_lst=[];
         mumscore = 0 } in  
-    if debug then print_mum new_kmum false true;
+    if debug then print_mum false true new_kmum;
     let sign_newmum = add_mum_to_mumtbl new_kmum mum_tbl in
     if sign_newmum then begin
     let poslst = List.map (fun record ->
@@ -3689,7 +3594,7 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
         let debug2 = false in
         if debug2 then Printf.printf "resolve overlap,work on seed#%d\n%!" i_seedNO;
         let mi = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
-        if debug2 then print_mum mi true true;
+        if debug2 then print_mum true true mi;
         assert(mi.seedNO=i_seedNO);
         if (mi.extendable=0)&&(mi.subsuming_pointer=(-1)) then begin 
         if (mi.neighborhood_lst=[]) then
@@ -3703,13 +3608,13 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
             * trimed by other mj, that's why we need to load mi here.*)
             let mi = get_mum_from_mumtbl i_seedNO mum_tbl seed2pos_tbl in
             if debug2 then begin
-                Printf.printf "idx = %d, i_mum is: %!" !idx; print_mum mi true false;
+                Printf.printf "idx = %d, i_mum is: %!" !idx; print_mum true false mi;
             end;
             let (seqNO,j_seedNO,i_ori,j_ori,d,dr) = List.nth mi.neighborhood_lst !idx in
             if debug2 then Printf.printf "i=%d,j=%d,seqNO=%d\n%!" i_seedNO j_seedNO seqNO;
             let mj = get_mum_from_mumtbl j_seedNO mum_tbl seed2pos_tbl in
             if debug2 then begin 
-                Printf.printf "j_mum is :%!"; print_mum mj false true;
+                Printf.printf "j_mum is :%!"; print_mum false true mj;
             end;
             assert(mj.seedNO=j_seedNO);
             if (mj.extendable=0)&&(mi.extendable=0)&&(mj.subsuming_pointer=(-1)) 
@@ -3730,8 +3635,8 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
                     if debug2 then Printf.printf "idx ++ = %d\n%!" !idx;
                 end
                 else begin
-                    if d=0 then print_mum mi false true;
-                    if d=0 then print_mum mj false true;
+                    if d=0 then print_mum false true mi;
+                    if d=0 then print_mum false true mj;
                     assert(d<>0);
                     let acc_k_lst = ref [] in
                     idx := 0 ; (*neighborhood of i_mum will change, start over again*)
@@ -3868,7 +3773,7 @@ pos2seed_tbl_right seed2pos_tbl debug debug_neighborhood =
     let count_f mum = 
         if (mum.extendable = 0) then res := !res + 1 in
     Hashtbl.iter (fun key bt ->
-        iter_b_tree bt false count_f
+        BinaryTree.iter_b_tree bt count_f printIntArr false
     ) mum_tbl;
     if debug then 
         Printf.printf "end of resolve overlap mums, extendable mum = %d\n %!" !res;
@@ -3884,7 +3789,7 @@ let update_score_for_each_mum mum_tbl in_seqarr =
         end
     in
     Hashtbl.iter (fun key bt ->
-        iter_b_tree bt false update_mum_score 
+        BinaryTree.iter_b_tree bt update_mum_score printIntArr false
     ) mum_tbl
 
 
@@ -4068,7 +3973,7 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
 let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty =
     min_break_point_penalty := min_bk_penalty ;
     minimum_cover_ratio := min_cover_ratio;
-    let debug = false and debug2 = false in
+    let debug = true and debug2 = false in
     seedNO_available_arr := Array.make init_seed_size 1;
     (*output result to file ...    
     * let outfile = "outfile.txt" in let oc = open_out outfile in*)
