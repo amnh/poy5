@@ -327,7 +327,7 @@ let to_formatter (node_name:string option) ref_codes attr t (parent_t : t option
                             let filename = 
                                 match node_name with 
                                 | Some x -> 
-                                        Some ("out_for_mauve_"^x^".alignment")
+                                        Some ("mauve_node#"^x^".alignment")
                                 | None -> None
                             in
                             let cost, recost, med_ls = 
