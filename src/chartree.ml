@@ -1398,7 +1398,7 @@ let root_costs tree =
         Ptree.pre_order_edge_visit get_cost handle tree acc)
     (Tree.get_handles tree.Ptree.tree) []
 
-let refresh_all_edges a b c d e = e
+let refresh_all_edges a b c d = d
 
 module TreeOps = struct
     type a = Node.node_data

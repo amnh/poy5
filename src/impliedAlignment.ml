@@ -2680,7 +2680,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
                     let _, ia =
                         aux_create_implied_alignment filter_fn [code] data tree 
                     in
-                    List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;
+                    (*List.iter (List.iter (fun ((s,i),_) -> print_seq s;print_indel i)) ia;*)
                     let ia = match ia with | [x] -> x |  _  -> assert false in
                     let separator = ":ia:" in
                     let res = 

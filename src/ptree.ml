@@ -223,7 +223,7 @@ module type Tree_Operations =
         val unadjust : (a, b) p_tree -> (a, b) p_tree
 
         val refresh_all_edges : 
-            bool -> a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
+            a option -> bool -> (int * int) option -> (a,b) p_tree -> (a,b) p_tree
 
     end 
 

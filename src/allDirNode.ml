@@ -90,9 +90,8 @@ type node_data = {
     downpass *)
 }
 
-
-let get_adjusted_nodedata adj_data msg =
-    match adj_data with
+let get_adjusted_nodedata data msg =
+    match data.adjusted with
     | None -> failwith msg
     | Some x -> x
 
@@ -887,12 +886,12 @@ type nad8 = Node.Standard.nad8 = struct
         (* in [n], we want the direction toward [p], the parent *)
         let errmsg =  "allDirChar,readjust,no adj-data" in
         let get_dir p_code n = 
-            let ndata = get_adjusted_nodedata n.adjusted errmsg in
+            let ndata = get_adjusted_nodedata n errmsg in
             ndata.lazy_node
             (*(not_with (taxon_code p_code) n.adjusted).lazy_node*)
         in
-        let par_adj = get_adjusted_nodedata par.adjusted errmsg 
-        and mine_adj = get_adjusted_nodedata mine.adjusted errmsg in
+        let par_adj = get_adjusted_nodedata par errmsg 
+        and mine_adj = get_adjusted_nodedata mine errmsg in
         let mine_in_par = par_adj.lazy_node
         (*match par.adjusted with
             | [x] -> x.lazy_node 
@@ -925,13 +924,12 @@ type nad8 = Node.Standard.nad8 = struct
         let node = { mine with adjusted = Some node_dir; } in
         (node,modified)
 
-
     let to_string nodes =
-        let adj_data = get_adjusted_nodedata nodes.adjusted
-        "allDirNode,to_string no adj-data" in
+        let adj_data = get_adjusted_nodedata nodes "allDirNode,to_string no adj-data" in
         let res =
-            List.map (fun x -> OneDirF.to_string x.lazy_node)
-            nodes.unadjusted  
+            List.map 
+                (fun x -> OneDirF.to_string x.lazy_node)
+                nodes.unadjusted
             @
             [OneDirF.to_string adj_data.lazy_node]
         in
@@ -988,9 +986,9 @@ type nad8 = Node.Standard.nad8 = struct
                 OneDirF.is_collapsable `Static da.lazy_node db.lazy_node
         | `Dynamic ->
                 let errmsg = "allDirNode,is_collapsable,no adj-data" in
-                let da = get_adjusted_nodedata a.adjusted errmsg 
+                let da = get_adjusted_nodedata a errmsg 
                 (*not_with bcode a.adjusted*)
-                and db = get_adjusted_nodedata b.adjusted errmsg 
+                and db = get_adjusted_nodedata b errmsg 
                 (*not_with acode b.adjusted*) in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
@@ -1008,10 +1006,9 @@ type nad8 = Node.Standard.nad8 = struct
             let res = f x.lazy_node in
             { x with lazy_node = res }
         in
-        let adj_data = get_adjusted_nodedata n.adjusted 
-        "allDirNode,run_all,no adj-data" in
+        let adj_data = get_adjusted_nodedata n "allDirNode,run_all,no adj-data" in
         { unadjusted = List.map processor n.unadjusted;
-        adjusted = Some (processor adj_data) }
+            adjusted = Some (processor adj_data) }
 
     let num_height code n = 
         get_something OneDirF.num_height code n.unadjusted
@@ -1020,16 +1017,14 @@ type nad8 = Node.Standard.nad8 = struct
         get_something OneDirF.num_otus code n.unadjusted
 
     let get_sequences code n = 
-        let adj_data = get_adjusted_nodedata n.adjusted 
-        "allDirNode,get_sequences,no adj-data" in
+        let adj_data = get_adjusted_nodedata n "allDirNode,get_sequences,no adj-data" in
         get_something OneDirF.get_sequences code [adj_data]
 
     let get_dynamic_preliminary code n =
         get_something OneDirF.get_dynamic_preliminary code n.unadjusted
 
     let get_dynamic_adjusted code n =
-        let adj_data = get_adjusted_nodedata n.adjusted 
-        "allDirNode,get_dynamic_sequences,no adj-data" in
+        let adj_data = get_adjusted_nodedata n "allDirNode,get_dynamic_sequences,no adj-data" in
         get_something OneDirF.get_dynamic_preliminary code [adj_data]
 
     let edge_distance a b =
@@ -1049,18 +1044,15 @@ type nad8 = Node.Standard.nad8 = struct
 
     let reprioritize _ x = x
 
-    let get_others err code n =
-            match code with
-            | Some code -> Some (yes_with code n)
-            | None -> None
+    let get_others err code n = match code with
+        | Some code -> Some (yes_with code n)
+        | None -> None
 
-    let get_node err code n =
-            match code with
-            | Some code -> not_with code n
-            | None ->
-                    match n with 
-                    | [x] -> x
-                    | _ -> failwith err
+    let get_node err code n = match code with
+        | Some code -> not_with code n
+        | None -> match n with 
+            | [x] -> x
+            | _ -> failwith err
 
     let f_codes ints n = 
         run_all (OneDirF.f_codes ints) n
@@ -1074,8 +1066,7 @@ type nad8 = Node.Standard.nad8 = struct
             let res = OneDirF.build_node static_characters chars x.lazy_node in
             { x with lazy_node = res }
         in
-        let adj_data = get_adjusted_nodedata node.adjusted 
-        "allDirNode,build_node,no adj-data" in
+        let adj_data = get_adjusted_nodedata node "allDirNode,build_node,no adj-data" in
         let uadj = List.map processor node.unadjusted
         and adj = processor adj_data in
         { unadjusted = uadj; adjusted = Some adj; }
@@ -1085,8 +1076,7 @@ type nad8 = Node.Standard.nad8 = struct
             let res = OneDirF.set_exclude_info e x.lazy_node in
             { x with lazy_node = res }
         in
-        let adj_data = get_adjusted_nodedata x.adjusted 
-        "allDirNode,set_exclude_info,no adj-data" in
+        let adj_data = get_adjusted_nodedata x "allDirNode,set_exclude_info,no adj-data" in
         let uadj = List.map processor x.unadjusted
         and adj = processor adj_data in
         { unadjusted = uadj; adjusted = Some adj }
@@ -1105,8 +1095,7 @@ type nad8 = Node.Standard.nad8 = struct
             let processor x = 
                 { x with lazy_node = OneDirF.T.add_exclude set x.lazy_node}
             in
-            let adj_data = get_adjusted_nodedata n.adjusted 
-            "allDirNode,add_exclude,no adj-data" in
+            let adj_data = get_adjusted_nodedata n "allDirNode,add_exclude,no adj-data" in
             let uadj = List.map processor n.unadjusted
             and adj = processor adj_data in
             { unadjusted = uadj; adjusted = Some adj }
@@ -1115,8 +1104,7 @@ type nad8 = Node.Standard.nad8 = struct
             let processor x = 
                 { x with lazy_node = OneDirF.T.remove_exclude x.lazy_node}
             in
-            let adj_data = get_adjusted_nodedata n.adjusted 
-            "allDirNode,remove_exclude,no adj-data" in
+            let adj_data = get_adjusted_nodedata n "allDirNode,remove_exclude,no adj-data" in
             let uadj = List.map processor n.unadjusted
             and adj = processor adj_data in
             { unadjusted = uadj; adjusted =Some adj }
@@ -1126,19 +1114,20 @@ type nad8 = Node.Standard.nad8 = struct
 
         type u = OneDirF.Union.u
         let union code n a b =
-            let node = get_node "AllDirNode.AllDirF.Union.union" code
-            n.unadjusted in
+            let node = 
+                get_node "AllDirNode.AllDirF.Union.union" code n.unadjusted 
+            in
             OneDirF.Union.union code node.lazy_node a b
 
         let union_final code a b = 
-            let b = get_node "AllDirNode.AllDirF.Union.union_final" code
-            b.unadjusted in
+            let b = 
+                get_node "AllDirNode.AllDirF.Union.union_final" code b.unadjusted 
+            in
             OneDirF.Union.union_final code a b.lazy_node
 
         let union_preliminary code a b = 
             let b = 
-                get_node "AllDirNode.AllDirF.Union.union_preliminary" code
-                b.unadjusted
+                get_node "AllDirNode.AllDirF.Union.union_preliminary" code b.unadjusted 
             in
             OneDirF.Union.union_preliminary code a b.lazy_node
 
@@ -1152,8 +1141,7 @@ type nad8 = Node.Standard.nad8 = struct
 
         let distance_node code n u =
             let node = 
-                get_node "AllDirNode.AllDirF.Union.distance_node" code
-                n.unadjusted
+                get_node "AllDirNode.AllDirF.Union.distance_node" code n.unadjusted
             in
             OneDirF.Union.distance_node code node.lazy_node u
 
@@ -1184,8 +1172,9 @@ type nad8 = Node.Standard.nad8 = struct
         List.map (fun x -> { unadjusted = x; adjusted = None (*what to do? x*) }) res
 
     let root_cost a = 
-        let adj_data = get_adjusted_nodedata a.adjusted
-        "allDirNode,root_cost,no adj-data" in
+        let adj_data =
+            get_adjusted_nodedata a "allDirNode,root_cost,no adj-data"
+        in
         OneDirF.root_cost adj_data.lazy_node
         (*let lst = a.adjusted in
         match lst with
@@ -1213,55 +1202,34 @@ let create_root ?branches a aa ab b ba bb opt =
         | Some x -> x 
         | None -> AllDirF.median ?branches None None a b
     in
-    let a_final =
-        match aa,ab with
+    let a_final = match aa,ab with
         | Some aa,Some ab ->
-                let a = AllDirF.uppass_heuristic b (Some middle) a aa ab in
-                a
+            AllDirF.uppass_heuristic b (Some middle) a aa ab
         | None,None -> 
-                AllDirF.apply_time true a middle
-        | _,_ -> failwith "Failed with children of A @ Create Roots"
-    and b_final =
-        match ba,bb with
+            AllDirF.apply_time true a middle
+        | _,_ -> 
+            failwith "Failed with children of A @ Create Roots"
+    and b_final = match ba,bb with
         | Some ba,Some bb ->
-                let b = AllDirF.uppass_heuristic a (Some middle) b ba bb in
-                b
-        | None,None -> AllDirF.apply_time true b middle
-        | _,_ -> failwith "Failed with children of B @ Create Roots"
+            AllDirF.uppass_heuristic a (Some middle) b ba bb
+        | None,None -> 
+            AllDirF.apply_time true b middle
+        | _,_ -> 
+            failwith "Failed with children of B @ Create Roots"
     and l_middle = match middle.adjusted with
-        | (*[x]*) Some x -> 
+        | Some x -> 
             assert( match x.dir with | None -> false
                     | Some (xa,xb) ->
                         (xa = (AllDirF.taxon_code a) && xb = (AllDirF.taxon_code b)) ||
-                        (xa = (AllDirF.taxon_code b) && xb = (AllDirF.taxon_code a))
-                  );                            
+                        (xa = (AllDirF.taxon_code b) && xb = (AllDirF.taxon_code a)));
             x.lazy_node
         |  _  -> failwith "median has multiple directions?"
     in
     a_final,b_final,l_middle
 
-let create_root_w_times (adjusted:bool) left right =
-    let get_dir parc x =
-        let refresh_from = 
-            if adjusted then
-                let adj_data = get_adjusted_nodedata x.adjusted 
-                "allDirNode,create_root_w_times,no adj-data get-dir" in
-                [adj_data](*x.adjusted*)  
-            else x.unadjusted in
-        (*what to do with not_with...*)
-        try force_val (not_with parc refresh_from).lazy_node
-        with Not_found ->
-            q_print left; q_print right;
-            raise Not_found 
-
-    and get_a_dir child x = 
-        let refresh_from = 
-            if adjusted then 
-                let adj_data = get_adjusted_nodedata x.adjusted 
-                "allDirNode,create_root_w_times,no adj-data get-a-dir" in
-                [adj_data] (*x.adjusted*) 
-            else x.unadjusted in
-        match refresh_from with
+let create_root_w_times left right =
+    let get_dir parc x = force_val (not_with parc x.unadjusted).lazy_node
+    and get_a_dir child x = match x.unadjusted with
         | [x] -> assert( match x.dir with | None -> true | _ -> false); 
                  force_val x.lazy_node
         |  x  -> force_val (either_with child x).lazy_node

@@ -224,7 +224,7 @@ module F : Ptree.Tree_Operations
     SHOULD be set except when [root] is true. In this case, median_w_times is
     used and the tree is updated with the new directions calculated.
     [root_node] is used when the edge data is precomputed (during a break) *)
-    let create_lazy_edge ?branches root root_node adjusted ptree a b = 
+    let create_lazy_edge ?branches root root_node ptree a b = 
         if debug_node_fn then
             info_user_message 
                 "Creating lazy edge between %d and %d with root %s"
@@ -262,7 +262,7 @@ module F : Ptree.Tree_Operations
             assert (root_node = None);
             let dataa = Ptree.get_node_data a ptree
             and datab = Ptree.get_node_data b ptree in
-            AllDirNode.create_root_w_times adjusted dataa datab,ptree
+            AllDirNode.create_root_w_times dataa datab,ptree
         end
 
 
@@ -404,17 +404,16 @@ module F : Ptree.Tree_Operations
          * all of the branches. single_characters_cost is exactly that. *)
         let distance a b acc =
             let nda =
-                let node = AllDirNode.get_adjusted_nodedata (Ptree.get_node_data a
-                new_tree).AllDirNode.adjusted "allDirChar,diatance,no adjdata" in
-                (*let node = (Ptree.get_node_data a new_tree).AllDirNode.adjusted in*)
-                (*List.hd node*)node.AllDirNode.lazy_node
-            and ndb = 
-                let node = AllDirNode.get_adjusted_nodedata (Ptree.get_node_data b 
-                new_tree).AllDirNode.adjusted "allDirChar,diatance,no adjdata" in
-                (*List.hd node*)node.AllDirNode.lazy_node
+                let node = Ptree.get_node_data a new_tree in
+                let node = AllDirNode.get_adjusted_nodedata node "AllDirChar.distance,no adjdata" in
+                node.AllDirNode.lazy_node
+            and ndb =
+                let node = Ptree.get_node_data b new_tree in
+                let node = AllDirNode.get_adjusted_nodedata node "AllDirChar.distance,no adjdata" in
+                node.AllDirNode.lazy_node
             in
             let dist = 
-                Node.distance_of_type (Node.has_to_single) 0.0
+                Node.distance_of_type (Node.has_to_single) (0.0)
                                       (AllDirNode.force_val nda)
                                       (AllDirNode.force_val ndb)
             in
@@ -422,6 +421,7 @@ module F : Ptree.Tree_Operations
         in
         let single_characters_cost =  
             match root_edge with
+            | _ when using_likelihood `Static new_tree -> 0.0
             | `Single _    -> 0.0
             | `Edge (a, b) ->
                 Tree.post_order_node_with_edge_visit_simple 
@@ -706,7 +706,7 @@ module F : Ptree.Tree_Operations
      * nodes; their roots, and transfer branch lengths or other data. This
      * function requires only downpass data, and can be used to update a tree if
      * any nodes change --based on a change in the traversal *)
-    let refresh_all_edges adjusted root_opt do_roots start_edge_opt ptree =
+    let refresh_all_edges root_opt do_roots start_edge_opt ptree =
         (* A function to refresh the root on an edge *)
         let refresh_edge rhandle root_opt ((Tree.Edge (a,b)) as e) (acc,ptree) =
             if debug_uppass_fn then
@@ -717,10 +717,10 @@ module F : Ptree.Tree_Operations
                 if rhandle then
                     let p1,p2 = Ptree.create_partition ptree e in
                     match hashdoublefind ptree [(p1,a);(p2,b)] with
-                    | Some x -> create_lazy_edge ~branches:x rhandle root_opt adjusted ptree a b 
-                    | None   -> create_lazy_edge rhandle root_opt adjusted ptree a b 
+                    | Some x -> create_lazy_edge ~branches:x rhandle root_opt ptree a b 
+                    | None   -> create_lazy_edge rhandle root_opt ptree a b 
                 else
-                    create_lazy_edge rhandle root_opt adjusted ptree a b 
+                    create_lazy_edge rhandle root_opt ptree a b 
             in
             (Tree.EdgeMap.add e data acc,ptree)
         (* perform uppass heuristic on a node; fill in three directions *)
@@ -820,8 +820,7 @@ module F : Ptree.Tree_Operations
     let get_single, get_unadjusted =
         let general_get get_adj f parent node =
             let nd = if get_adj then
-                AllDirNode.get_adjusted_nodedata node.AllDirNode.adjusted
-                "allDirChar,get_single,no adjdata"
+                AllDirNode.get_adjusted_nodedata node "allDirChar,get_single,no adjdata"
             else
                 AllDirNode.not_with parent (f node) in
             AllDirNode.force_val nd.AllDirNode.lazy_node
@@ -1012,9 +1011,7 @@ module F : Ptree.Tree_Operations
             in 
             (* below we apply the new branch length data to the left and right
              * and add the result to the ptree. n_root is striped of direction. *)
-            let n_root,ptree = 
-                create_lazy_edge true (Some new_root) false ptree a b
-            in
+            let n_root,ptree = create_lazy_edge true (Some new_root) ptree a b in
             let n_root =
                 let tmp = { AllDirNode.lazy_node = n_root;
                                               dir = Some (a,b);
@@ -1033,7 +1030,7 @@ module F : Ptree.Tree_Operations
                     ptree
             in
             let ptree =
-                refresh_all_edges true (Some n_root) true (Some (a,b)) ptree
+                refresh_all_edges (Some n_root) true (Some (a,b)) ptree
             in
             (changed,affected,ptree)
     (* add modified vertices in node_list to the set *)
@@ -1195,7 +1192,7 @@ module F : Ptree.Tree_Operations
                                 handle (Some (edge, root)) 
                                 (check_cost ptree handle None) None ptree
                     in
-                    refresh_all_edges true None true None ptree1
+                    refresh_all_edges None true None ptree1
                 | Some _ -> ptree
             end
         in
@@ -1259,7 +1256,7 @@ module F : Ptree.Tree_Operations
                 ptree
         in
         let ptree = 
-            let ptree = refresh_all_edges false None true None ptree in
+            let ptree = refresh_all_edges None true None ptree in
             if do_roots then refresh_roots false ptree else ptree
         in
         if debug_downpass_fn then verify_roots ptree;
@@ -1528,15 +1525,15 @@ module F : Ptree.Tree_Operations
          * will take care of the missing node and update all the uppass data *)
         match edge_data_opt with
         | None ->
-            refresh_all_edges true None false (Some (a,b)) ptree
+            refresh_all_edges None false (Some (a,b)) ptree
         | Some _ when using_likelihood `Either ptree ->
-            refresh_all_edges true None false (Some (a,b)) ptree
+            refresh_all_edges None false (Some (a,b)) ptree
         | Some edge ->
             let edge = (* keep the subtree edge data as the root. *)
                 let single = AllDirNode.with_both a b edge.AllDirNode.unadjusted in
                 { AllDirNode.unadjusted = [single]; adjusted = Some single }
             in
-            refresh_all_edges true (Some edge) false (Some (a,b)) ptree
+            refresh_all_edges (Some edge) false (Some (a,b)) ptree
 
     let lift_data edge_l edge_r i_code ptree = 
         if not (using_likelihood `Either ptree) then begin
@@ -1643,7 +1640,7 @@ module F : Ptree.Tree_Operations
                     --> replace_topology nbt
                     --> update_break_delta left_delta
                     --> update_break_delta right_delta
-                    --> refresh_all_edges false None true None
+                    --> refresh_all_edges None true None
                     --> refresh_roots false
                     --> uppass
             in
@@ -1738,17 +1735,11 @@ module F : Ptree.Tree_Operations
         | `Exhaustive_Weak
         | `Normal_plus_Vitamines ->
                 let breakage = break_fn a b in
-                let nt =
-                    refresh_all_edges false None true None
-                                           (breakage.Ptree.ptree)
-                in
-                { breakage with 
-                    Ptree.ptree = nt; }
+                let nt = refresh_all_edges None true None breakage.Ptree.ptree in
+                { breakage with Ptree.ptree = nt; }
         | `Exhaustive_Strong ->
                 let breakage = break_fn a b in
-                let nt = 
-                    refresh_all_edges false None true None
-                                           (breakage.Ptree.ptree) in
+                let nt = refresh_all_edges None true None breakage.Ptree.ptree in
                 { breakage with 
                     Ptree.ptree = nt;
                     incremental = []; 
@@ -1824,7 +1815,7 @@ module F : Ptree.Tree_Operations
         in
         let ptree = 
             ptree --> Ptree.remove_root_of_component handle
-                  --> refresh_all_edges false None true (Some (v,h))
+                  --> refresh_all_edges None true (Some (v,h))
         in
         let ptree = 
             add_component_root ptree handle (create_root v h ptree)
