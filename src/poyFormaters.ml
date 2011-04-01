@@ -508,9 +508,9 @@ let likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) =
         and branch1 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.min_time)
         and branch2 = Xml.value_to_string (Xml.find_attr xml Xml.Nodes.oth_time)
         (* state data --since we have a complex vector; leave blank *)
-        and v       = `String "-" in
+        and v        = `String "-" in
         let branches = `String ((branch1)^","^(branch2)) in
-        [| name;cclass; cost; branches; recost; chrom; map; v |]
+        [| name; cclass; cost; branches; recost; chrom; map; v |]
     end else
         raise (Illegal_formater "likelihood_to_formater")
 
@@ -534,7 +534,7 @@ let dyn_likelihood_to_formater ((tag, attr, cont) as xml: Xml.xml) =
             | _ -> failwith "Unexpected format in Dynamic Likelihood output"
         in
         let branches = `String ((branch1)^","^(branch2)) in
-        [| name;cclass; cost; branches; recost; chrom; map; v |]
+        [| name; cclass; cost; branches; recost; chrom; map; v |]
     end else
         raise (Illegal_formater "dyn_likelihood_to_formater")
 
@@ -549,7 +549,8 @@ let node_character_to_formater ((tag, _, _) as v) =
     else if tag = Xml.Characters.additive     then addcs_to_formater v
     else if tag = Xml.Characters.likelihood   then likelihood_to_formater v
     else if tag = Xml.Characters.dlikelihood  then dyn_likelihood_to_formater v
-    else raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
+    else
+        raise (Illegal_formater ("node_character_to_formater: " ^ tag) )
 
 let node_to_formater st (tag, attr, cont) =
     let assoc x y = Xml.value_to_string (List.assoc x y) in
