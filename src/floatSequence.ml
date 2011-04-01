@@ -102,13 +102,14 @@ module type A = sig
     type floatmem
     type s
 
-    (* auxiliary/helper functions *)
+    (* memory functions *)
     val get_mem     : s -> s -> floatmem
     val create_mem  : int -> int -> floatmem
     val clear_mem   : floatmem -> unit
     (* converting our datatypes to an external type *)
     val s_of_seq    : Sequence.s -> s
     val seq_of_s    : s -> Sequence.s
+    val compare     : s -> s -> bool
     (* functions for testing externally *)
     val print_mem   : floatmem -> unit
     val print_s     : s -> Alphabet.a -> unit
@@ -156,6 +157,9 @@ module FloatAlign : A = struct
 
     let s_of_seq = s_of_seq
     let seq_of_s = seq_of_s
+
+    let compare a b =
+        0 = Sequence.compare (seq_of_s a) (seq_of_s b)
 
     let choose_dir dirs =
              if List.mem Delete dirs then Delete
@@ -758,6 +762,9 @@ module MPLAlign : A = struct
 
     external s_of_seq : Sequence.s -> s = "%identity"
     external seq_of_s : s -> Sequence.s = "%identity"
+
+    let compare a b =
+        0 = Sequence.compare (seq_of_s a) (seq_of_s b)
 
     (** choose a standard direction for consistent alignments *)
     let choose_dir dirs =
@@ -1422,6 +1429,9 @@ module MALAlign : A = struct
 
     external s_of_seq : Sequence.s -> s = "%identity"
     external seq_of_s : s -> Sequence.s = "%identity"
+
+    let compare a b =
+        0 = Sequence.compare (seq_of_s a) (seq_of_s b)
 
     let print_mem (mem:floatmem) =
         for i = 0 to (Array.length mem)-1 do

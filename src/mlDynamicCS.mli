@@ -22,24 +22,21 @@
 
 (** {6 Types} Representation of different dynamic likelihood characters *)
 
-type t_fpalign =
-    {   fp_ss : FloatSequence.FloatAlign.s array; }
+type 'a align = { ss : 'a array; }
+
+(** Define the union of all the types of dynamic likelihood characters *)
+type r = | FPAlign      of FloatSequence.FloatAlign.s align
 (** Characters that transform across a combined time. The assignment is
     restricted to gaps and the states of the children. This model is equivlent
     to the MPL model when dealing with two sequences. The cost is defined as, 
         $P(X,Y|t_1+t_2)$, and the assignment is $X \vee Y$ *)
 
-type t_mplalign =
-    {  mpl_ss : FloatSequence.MPLAlign.s array; }
+         | MPLAlign     of FloatSequence.MPLAlign.s align
 (** Define characters for maximum parsimonious likelihood or ancestral
     likelihood. These characters find the best assignment of a transformation
     from the two children. If X and Y are the states of the children, $P(a,b|t)$
     is the probability of state b over branch length t, then MPL is defined as,
         $\max_{\alpha = \{ACTG-\}} P(X,\alpha|t_1) * P(Y,\alpha|t_2)$ *)
-
-type r = | FPAlign      of t_fpalign
-         | MPLAlign     of t_mplalign
-(** Define the union of all the types of dynamic likelihood characters *)
 
 type t = { model  : FloatSequence.dyn_model;
             data  : r;
@@ -74,6 +71,9 @@ val code : t -> int
 
 val get_codes : t -> int array
 (** Return the array of codes for the character partitions. *)
+
+val compare : t -> t -> bool
+(** Compare the model and sequence data of two dynamic likelihood characters *)
 
 val to_string : t -> string
 (** Simple to_string function for the data-type t *)
