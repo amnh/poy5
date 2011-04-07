@@ -1326,7 +1326,7 @@ let create_expr () =
                 [ LIDENT "equal" -> `Equal ] | 
                 [ LIDENT "given"; ":"; left_parenthesis; 
                     x = LIST1 [ x = FLOAT -> float_of_string x ] SEP ",";
-                    right_parenthesis; right_parenthesis -> `Given x ]
+                    right_parenthesis -> `Given x ]
             ];
         ml_gap_options :
             [ [ LIDENT "missing" -> `Missing ] |
