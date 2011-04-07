@@ -656,6 +656,7 @@ let median_3 _ _ _ _ = failwith MlStaticCS.likelihood_error
 let readjust _ _ _ _ _ = failwith MlStaticCS.likelihood_error
 let distance _ _ _ = failwith MlStaticCS.likelihood_error
 let to_string _ = failwith MlStaticCS.likelihood_error
+let compare _ _ = failwith MlStaticCS.likelihood_error
 let name_string _ = failwith MlStaticCS.likelihood_error
 let dist_2 _ _ _ _ = failwith MlStaticCS.likelihood_error
 let f_codes _ _ = failwith MlStaticCS.likelihood_error
