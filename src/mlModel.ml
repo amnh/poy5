@@ -691,13 +691,13 @@ let output_model output nexus model set =
         in
         printf "@]";
         let () = match model.spec.cost_fn with
-            | `MPL -> printf "@[<hov 1>Cost mode: mpl;@]\n";
-            | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
-            | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
+            | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
+            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
+            | `FLK -> printf "@[<hov 0>Cost mode: flk;@]@\n"; 
         in
-        printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
+        printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
-            | Equal -> printf "@[<hov 1>- Equal]"
+            | Equal -> printf "@[Equal@]@]@\n"
             | Estimated x | Given x ->
                 List.iter
                     (fun (s,i) ->
@@ -706,8 +706,7 @@ let output_model output nexus model set =
                         try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
                     (Alphabet.to_list model.alph);
         in
-        printf "@]";
-        printf "@[@[Model Parameters: ";
+        printf "@[<hov 0>Model Parameters: ";
         let () = match model.spec.substitution with
             | JC69  -> printf "JC69@]@\n"
             | F81   -> printf "F81@]@\n"
@@ -756,12 +755,12 @@ let output_model output nexus model set =
                 done;
         in
         let () = match model.spec.use_gap with
-            | `Independent -> printf "@[<hov 1>Gap property: independent;@]@\n"
-            | `Coupled x   -> printf "@[<hov 1>Gap property: coupled, Ratio: %f;@]@\n" x
-            | `Missing     -> printf "@[<hov 1>Gap property: missing;@]@\n"
+            | `Independent -> printf "@[<hov 0>Gap property: independent;@]@\n"
+            | `Coupled x   -> printf "@[<hov 0>Gap property: coupled, Ratio: %f;@]@\n" x
+            | `Missing     -> printf "@[<hov 0>Gap property: missing;@]@\n"
         in
         printf "@]";
-        printf "@[@[Instantaneous rate matrix:@]@\n";
+        printf "@[@[<hov 0>Instantaneous rate matrix:@]@\n";
         let () = 
             let mat = compose model ~-.1.0 in
             printf "@[<hov 1>[";
