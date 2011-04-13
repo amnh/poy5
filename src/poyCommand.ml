@@ -1162,7 +1162,7 @@ let process_likelihood_commands lst =
     in
     List.fold_left 
         (process) 
-        (`MAL,`GTR None,None,`Estimate,`Missing)
+        (`MAL,`GTR None,None,`Consistent,`Missing)
         (lst)
 
 let transform_stdsearch items = 

@@ -918,7 +918,6 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
             (* this data/nodes are used when building/loading new trees *)
             and data, nodes = Node.load_data (Data.set_likelihood data x) in
             trees, data, nodes
-        | _ -> failwith "not a tree operation"
 
     let rec transform_node_characters trees (data,nodes) (meth : Methods.char_transform)  =
         let load_transformed_data new_data = 

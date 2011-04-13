@@ -18,7 +18,8 @@
 (* USA                                                                        *)
 
 type string_spec = string * (string * string * string * string) * float list
-                 * [ `Given of (string * float) list | `Equal | `Estimate of float array option ]
+                 * [ `Given of (string * float) list | `Estimate of float array option
+                   | `Consistent of float array option | `Equal ]
                  * (string * float option) * string * string option
 (** [string_spec] primative representation of the spec used for parsing as an
     intermediary step

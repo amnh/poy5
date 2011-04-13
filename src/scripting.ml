@@ -4381,22 +4381,35 @@ END
                     run
             | `Model filename ->
                 let fo = Status.user_message (Status.Output (filename, false, [])) in
-                List.iter
-                    (fun t ->
-                        let cs = Data.get_chars_codes_comp t.Ptree.data `All in
-                        let chars = 
-                            Data.get_code_from_characters_restricted 
-                                        `AllLikelihood t.Ptree.data (`Some cs)
-                        in
-                        let model  = Data.get_likelihood_model t.Ptree.data chars
-                        and cost   = Ptree.get_cost `Adjusted t
-                        and length = TreeOps.tree_size t
-                        and ntaxa  = t.Ptree.data.Data.number_of_taxa in
-                        fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
-                        fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
-                        fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
-                        MlModel.output_model fo `Hennig model None)
-                    (Sexpr.to_list run.trees);
+                begin match (Sexpr.to_list run.trees) with
+                | [] -> 
+                    let cs = Data.get_chars_codes_comp run.data `All in
+                    let chars = 
+                        Data.get_code_from_characters_restricted 
+                                    `AllLikelihood run.data (`Some cs)
+                    in
+                    let model  = Data.get_likelihood_model run.data chars
+                    and ntaxa  = run.data.Data.number_of_taxa in
+                    fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                    MlModel.output_model fo `Hennig model None
+                | trees -> 
+                    List.iter
+                        (fun t ->
+                            let cs = Data.get_chars_codes_comp t.Ptree.data `All in
+                            let chars = 
+                                Data.get_code_from_characters_restricted 
+                                            `AllLikelihood t.Ptree.data (`Some cs)
+                            in
+                            let model  = Data.get_likelihood_model t.Ptree.data chars
+                            and cost   = Ptree.get_cost `Adjusted t
+                            and length = TreeOps.tree_size t
+                            and ntaxa  = t.Ptree.data.Data.number_of_taxa in
+                            fo ("@[<hov 0>Number of taxa: "^string_of_int ntaxa^"@]@\n");
+                            fo ("@[<hov 0>Tree Size: "^string_of_float length^"@]@\n");
+                            fo ("@[<hov 0>Log-Likelihood: "^string_of_float (~-.cost)^"@]@\n");
+                            MlModel.output_model fo `Hennig model None)
+                        (trees)
+                end;
                 run
             | `Script (filename,script) -> 
                 run
