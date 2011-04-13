@@ -59,7 +59,7 @@ type read_option_t = [
 ]
 
 type prealigned_costs = [
-    | `Assign_Transformation_Cost_Matrix of filename 
+    | `Assign_Transformation_Cost_Matrix of (filename * int option) 
     | `Create_Transformation_Cost_Matrix of (int * int) ]
 
 type simple_input = [
@@ -111,7 +111,7 @@ type level = [
 ]
 
 type transform_cost_matrix = [
-    | `Assign_Transformation_Cost_Matrix of (filename option * characters)
+    | `Assign_Transformation_Cost_Matrix of ((filename * int option) option * characters)
     | `Create_Transformation_Cost_Matrix of (int * int * characters)
     | `Assign_Affine_Gap_Cost of (int * characters)
     | `Assign_Tail_Cost of (prep_tail_spec * characters)

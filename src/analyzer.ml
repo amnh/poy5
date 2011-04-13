@@ -2086,8 +2086,8 @@ let rec make_remote_files (init : Methods.script) =
     | `Prealigned (meth, cost, gap_opening) ->
             let cost = 
                 match cost with
-                | `Assign_Transformation_Cost_Matrix file -> 
-                        `Assign_Transformation_Cost_Matrix (mr file)
+                | `Assign_Transformation_Cost_Matrix (file,level) -> 
+                        `Assign_Transformation_Cost_Matrix ((mr file),level)
                 | `Create_Transformation_Cost_Matrix _ -> cost
             in
             let meth = 
@@ -2113,7 +2113,7 @@ let rec make_remote_files (init : Methods.script) =
     | `Assign_Transformation_Cost_Matrix (a, b) ->
             let a =
                 match a with
-                | Some a -> Some (mr a)
+                | Some (a,l) -> Some ((mr a),l)
                 | None -> None
             in
             `Assign_Transformation_Cost_Matrix (a, b)

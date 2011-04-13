@@ -805,8 +805,10 @@ let of_file fn orientation init3D =
     let alph = of_string ~orientation:orientation
     elts default_gap None in
     let size = size alph in
-    let level =  2 in (* we set level = 2 by default *)
+    let level =  2 in (* set level = 2 by default *)
     let alph, do_comb = 
+        (*we don't apply level to alphabet when orientation=true, but what if
+            * it's breakinv and orientation is false?*)
         if orientation then alph, false
         else explote alph level size, true
     in

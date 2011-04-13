@@ -546,14 +546,25 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
     res->is_metric = is_metric;
-    size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
-    if (0 == size)
-        failwith ("Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
     combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1) ;
     comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     res->combmap = (int *) calloc(combmatrix_size,1);
     res->comb2list = (int *) calloc( comb2list_size,1);
-    if( (level >1)&&(level<=a_sz) )  size = combmatrix_size;
+    if( (level >1)&&(level<=a_sz) )  
+    {    
+        //debug msg : printf ("level=%d, reset size to combmatrix_size=%d\n",level,size);
+        size = combmatrix_size;
+    }
+    else
+    {
+        size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
+    }
+    if (0==size)
+    {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
+        printf ("if combination is true(which is 1 above),level is 0 or bigger than alphabet size, full combination will be used, we will try to create a cost matrix with size 2*lcm*lcm, it might be too big for your system. in that case, try to reduce the size of cost matrix by transform(level:x), x~(0,alphabet size)");
+        failwith ("Your cost matrix is too large to fit in your memory.\
+                I can't continue with your data loading.");
+    }
     res->cost = (int *) calloc (size, 1);
     if(res->cost == NULL)
         failwith("ERROR: cannot alloc res->cost");
@@ -570,8 +581,10 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
     else
     size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(SEQT);
+    if (0==size)
+        printf ("alphabet size: %d,%d \n", a_sz, combinations);
     if (0 == size)
-        failwith ("Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
+        failwith ("2Your cost matrix is too large to fit in your memory. I can't continue with your data loading.");
     res->median = (SEQT *) calloc (size, 1);
     if ((res->combmap == NULL)||(res->comb2list == NULL)||(res->cost == NULL) || (res->median == NULL)) {
         free (res->combmap);

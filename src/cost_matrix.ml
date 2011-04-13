@@ -993,6 +993,9 @@ module Two_D = struct
 
     let fill_cost_matrix ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
+        (*Note: use_comb is 'int' in cm.c*)
+        if debug then 
+            Printf.printf "fill cost matrix : use_comb=%b,level=%d\n%!" use_comb level;
         let num_comb = calc_number_of_combinations_by_level a_sz level in
         let num_withgap = calc_num_of_comb_with_gap a_sz level in
         let m = 
@@ -1023,7 +1026,7 @@ module Two_D = struct
         m
 
     let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
-        if debug then Printf.printf "cost_matrix of_channel\n";
+        if debug then Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d\n" use_comb level;
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
         |  l -> let w = calculate_alphabet_size l in
@@ -1074,6 +1077,7 @@ module Two_D = struct
     let of_list ?(use_comb=true) ?(level=0) ?(suppress=false) l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
+        if debug then Printf.printf "cost_matrix of_list\n";
         let w = List.length l in
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:use_comb ~level:level ~suppress l w all_elements
@@ -1085,6 +1089,7 @@ module Two_D = struct
     let of_list_nocomb l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
+        if debug then Printf.printf "cost_matrix of_list_nocomb\n";
         let w = List.length l in
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:false l w all_elements
@@ -1243,9 +1248,9 @@ module Two_D = struct
                         Printf.printf "best=%d; %!" best in
                     best
 
-    let of_file ?(use_comb = true) file all_elements =
+    let of_file ?(use_comb = true) ?(level = 0) file all_elements =
         let ch = FileStream.Pervasives.open_in file in
-        let res = of_channel ~use_comb all_elements ch in
+        let res = of_channel ~use_comb ~level:level all_elements ch in
         ch#close_in;
         res
 

@@ -4760,8 +4760,13 @@ let assign_tcm_to_characters data chars foname tcm =
 let assign_tcm_to_characters_from_file data chars file =
     let tcm = match file with
         | None   -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
-        | Some f -> 
-            (fun x -> let tcm,mat = Cost_matrix.Two_D.of_file f x in
+        | Some (f,level) -> 
+            (fun x -> 
+                let level =
+                    match level with
+                    | None -> 0
+                    | Some l -> l in
+                let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x in
                       tcm, Input_file ((FileStream.filename f), mat))
     in
     assign_tcm_to_characters data chars None tcm
