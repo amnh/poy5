@@ -26,9 +26,9 @@ let printIntArr = Utl.printIntArr
 let error_user_message format = Printf.ksprintf (Status.user_message Status.Error) format
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
-let faster_remove = true 
+let faster_remove = true
 let debug_main = true 
-let debug_remove_bad_match = if faster_remove then true else false 
+let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
 let debug_search_outside = true
@@ -209,7 +209,7 @@ let minimum_cover_ratio = ref 0.4
 (*we stop looking for more lcbs when cover ratio is bigger than this number*) 
 let maximum_cover_ratio = ref 0.9
 (*we should stop looking when the improvement is too small*)
-let minimum_improvement = ref 0.1
+let minimum_improvement = ref 0.05
 
 (** lcb shorter than this is a light-weight lcb*)
 let minimum_lcb_len = ref 50
@@ -2583,10 +2583,19 @@ let is_low_score_lcb item =
     if item.ratio < !minimum_lcb_ratio then true
     else false
 
+(*0: good ratio long len, 1: good ratio short len, 2: poor ratio long len. 3: poor ratio short len.*)
+let lcb_quality_test lcb_record =
+    let resl = is_light_weight_lcb lcb_record  
+    and resr = is_low_score_lcb lcb_record in
+    if resl&&resr then 3
+    else if resl&&(resr=false) then 1
+    else if (resl=false)&&resr then 2
+    else 0
 
-(*return the weight of light lcbs in lcbarr, also return the number of qualified
+
+(*return the weight of low weight or low ratio lcbs in lcbarr, also return the number of qualified
 * lcb in lcbarr *)
-let get_light_block_weight lcbarr lcb_tbl = 
+let get_bad_block_weight lcbarr lcb_tbl debug = 
         Array.fold_left (fun (acc_w,acc_count) lcbkey ->
             let lcbrecord = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey)
             with 
@@ -2595,6 +2604,7 @@ let get_light_block_weight lcbarr lcb_tbl =
                 print_int_list lcbkey;
                 assert(false) 
             in
+            if debug then print_lcb lcbrecord;
             if (is_light_weight_lcb lcbrecord)||(is_low_score_lcb lcbrecord) then 
                 lcbrecord.avg_range_len+acc_w,acc_count
             else
@@ -2603,27 +2613,27 @@ let get_light_block_weight lcbarr lcb_tbl =
 
 let both_are_high_score_lcbs lcbkey1 lcbkey2 lcb_tbl debug =
     let lcbrecord1 = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey1)
-    with 
-            |Not_found -> 
+    with  |Not_found -> 
                 error_user_message "both_are_not_light_lcbs,could not find lcb";
                 print_int_list lcbkey1;
                 assert(false) 
     in
+    let q1 = lcb_quality_test lcbrecord1 in
     if debug then print_lcb lcbrecord1;
-    if ((is_low_score_lcb
-    lcbrecord1)=false) then begin
-        let lcbrecord2 = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey2)
-        with 
-            |Not_found -> 
+    let lcbrecord2 = try Hashtbl.find lcb_tbl (get_abs_lst lcbkey2)
+        with  |Not_found -> 
                 error_user_message "both_are_not_light_lcbs,could not find lcb";
                 print_int_list lcbkey2;
                 assert(false) 
-        in
-        if debug then print_lcb lcbrecord2;
-        ((is_low_score_lcb lcbrecord2)=false)
+    in
+    let q2 = lcb_quality_test lcbrecord2 in
+    if q1=0||q1=1 then begin
+               if debug then print_lcb lcbrecord2;
+                if debug then Printf.printf "q1=%d,q2=%d\n%!" q1 q2;
+        (q2=0 || q2=1),q1,q2
     end
     else
-        false
+        false,q1,q2
 
 
 
@@ -2639,7 +2649,11 @@ let get_break_point_matrix inarrarr get_neg_item lcb_param (*optional*) debug =
     for i=0 to (sizey-1) do
         bkmatrix.(0).(i) <- (i+1);
     done;
-    let light_block_lst = ref [] and worst_weight = ref (!minimum_lcb_len) and pre_pos = ref (-1) in
+    let light_block_lst = ref [] (*record bad lcb blocks between good ratio pairs*)
+    and worst_weight = ref (!minimum_lcb_len) (*we don't need this now*)
+    and pre_pos = ref (-1) 
+    and q3_lst = ref [] (*record quality=3 lcbs,we remove this first*)
+    in
     for i=1 to (sizex-1) do
         for j=0 to (sizey-1) do
             let item = inarrarr.(0).(j) in
@@ -2661,18 +2675,26 @@ let get_break_point_matrix inarrarr get_neg_item lcb_param (*optional*) debug =
                         let a,b = 
                             if !pre_pos > idx then idx,!pre_pos else !pre_pos,idx 
                         in
-                        if (b-a>1)&&
-                        (both_are_high_score_lcbs inarrarr.(i).(a) inarrarr.(i).(b)
-                        lcb_tbl false) then 
-                            let middle_block = 
-                                Array.sub inarrarr.(i) (a+1) (b-a-1) in
-                            let w,c = get_light_block_weight middle_block lcb_tbl in
-                            if c=0 && w>0 && !worst_weight>= w then begin
-                            light_block_lst := middle_block :: !light_block_lst;
+                        let debug = false in
+                        let both_are_good,q_a,q_b = both_are_high_score_lcbs inarrarr.(i).(a) inarrarr.(i).(b)
+                        lcb_tbl debug in
+                        if q_a=3||q_a=2 then q3_lst := inarrarr.(i).(a) :: !q3_lst ;
+                        if q_b=3||q_b=2 then q3_lst := inarrarr.(i).(b) :: !q3_lst ;
+                         if (b-a>1)&&both_are_good then 
+                            let middle_block_full = 
+                                Array.sub inarrarr.(i) (a) (b-a+1) in
+                            let middle_block = Array.sub middle_block_full 1
+                            ((Array.length middle_block_full)-2) in
+                            let w,c = get_bad_block_weight middle_block lcb_tbl
+                            debug in
+                            if debug then Printf.printf "c=%d,w=%d\n%!" c w;
+                            if c=0 && w>0 && !worst_weight<= w then begin
+                            light_block_lst := middle_block_full :: !light_block_lst;
+                            end
+                            else if c=0 && w>0 && !worst_weight>w  then begin 
+                            light_block_lst := !light_block_lst @ [middle_block_full];
                             worst_weight := w;
                             end
-                            else if c=0 && w>0 && !worst_weight<w  then 
-                            light_block_lst := !light_block_lst @ [middle_block];
                     end;
                     pre_pos := idx;
                 | None -> () )
@@ -2702,7 +2724,7 @@ let get_break_point_matrix inarrarr get_neg_item lcb_param (*optional*) debug =
         else ();
     done;
     bkmatrix.(0).(0) <- 1;
-    bkmatrix, !bk_number, (!light_block_lst,!worst_weight)
+    bkmatrix, !bk_number, (!light_block_lst,!worst_weight,!q3_lst)
     
     
 (*get range of current lcb in each sequence, seedNOlst is the list of seedNO of that lcb*)
@@ -3410,14 +3432,14 @@ num_of_mums =
             get_worst_lcb !res_lcbs !res_lcb_tbl bk_penalty in_seq_size_lst
             mum_tbl seed2pos_tbl shortcut !res_cov_rate !res_num_badlcb in
         if (*debug_remove_bad_match&&*)(cov_rate <> !res_cov_rate) then begin
-            info_user_message "remove worst lcb:";
-            print_int_list seedNOlst_to_remove; 
-            info_user_message "new score <- %d,cov_rate=%f(>%f), bad lcb num=%d" 
+            Printf.printf "remove worst lcb: [%d,..]" (List.hd seedNOlst_to_remove);
+            Printf.printf "new score <- %d,cov_rate=%f(>%f), bad lcb num=%d\n" 
             score cov_rate !res_cov_rate num_badlcb;
-            Printf.printf "old lcbs is:%!";
+            print_lcblst lcbs_after_remove;
+            (*Printf.printf "old lcbs is:%!";
             print_lcblst !res_lcbs;
             Printf.printf "new lcbs is:%!";
-            print_lcblst lcbs_after_remove;
+            print_lcblst lcbs_after_remove;*)
         end;
         (*mauve stops when there is only one light weight lcb left*)
         if (seedNOlst_to_remove<>[])&&(num_badlcb>1)&&(!res_score <= score) 
@@ -3454,8 +3476,11 @@ num_of_mums =
                 Printf.printf "end of while loop";
         end;
     done; (* while(!sign) *)
+     info_user_message "end of remove_bad_lcbs,covR=%f, (%d,%d,%d)"
+        !res_cov_rate !res_num_badlcb (List.length (List.hd !res_lcbs))
+        (Hashtbl.length !res_lcb_tbl);
     if debug_remove_bad_match then 
-        info_user_message "end of remove_light_weight_lcbs,covR=%f, (%d,%d,%d)"
+        info_user_message "end of remove_bad_lcbs,covR=%f, (%d,%d,%d)"
         !res_cov_rate !res_num_badlcb (List.length (List.hd !res_lcbs))
         (Hashtbl.length !res_lcb_tbl);
     !res_lcbs,!res_cov_rate, !res_lcb_tbl
@@ -3466,53 +3491,106 @@ num_of_mums =
 let remove_bad_lcbs_faster lcbs lcb_tbl mum_tbl seed2pos_tbl in_seq_size_lst
 num_of_mums old_cov_rate = 
     if debug_remove_bad_match then
-info_user_message "remove bad lcbs faster,lcb_tbl size=%d" (Hashtbl.length lcb_tbl);
+    info_user_message "remove bad lcbs faster,lcb_tbl size=%d" (Hashtbl.length lcb_tbl);
     let improving = ref true in
     let res_lcbs = ref lcbs 
     and res_cov_rate = ref old_cov_rate 
     and res_lcb_tbl = ref lcb_tbl in
     while (!improving) do
     if debug_remove_bad_match then
-info_user_message "improving: previous cov rate = %f" !res_cov_rate;
+    info_user_message "improving: previous cov rate = %f" !res_cov_rate;
     let resmatrix = 
         Array.of_list (List.map (fun lst -> Array.of_list lst) !res_lcbs) in
-    let _,_,(light_block_lst,worst_w) = 
+    let _,_,(light_block_lst,worst_w,q3_lcb_lst) = 
         get_break_point_matrix resmatrix get_neg_rev_intlst (Some !res_lcb_tbl) false in
     if debug_remove_bad_match then info_user_message 
-    "candidate list size:%d,worst weight=%d" (List.length light_block_lst) worst_w;
+    "candidate list size:q3=%d,light=%d,worst weight=%d,go through them 1 by 1" 
+    (List.length q3_lcb_lst) (List.length light_block_lst) worst_w;
+    if q3_lcb_lst<>[] then begin
+        if debug_remove_bad_match then 
+            List.iter (fun x -> print_int_list x) q3_lcb_lst;
+        let new_lcbs = List.map (fun lcblst ->
+            List.filter (fun record ->
+                (*get rid of lcbrecord shows up in q3_list*)
+                List.fold_left (fun sign lcbkey ->
+                    if sign && ((get_abs_lst record)<>(get_abs_lst lcbkey)) then
+                    true else false  
+                    ) true q3_lcb_lst
+            ) lcblst 
+        ) !res_lcbs in
+        res_lcbs := new_lcbs;
+    end
+    ;
+    let block2remove = ref [] in (*this is just for debug output*)
     if (light_block_lst)<>[] then begin
-        let foundone,better_result = 
+        let better_result = 
+            (*find the worst one to remove*)
         List.fold_left (fun better_result light_block ->
-            let foundone,_ = better_result in
-            if foundone then better_result
-            else begin
+            let _,better_cov_rate,_ = better_result in
+            if better_cov_rate > !res_cov_rate then
+                better_result
+            else
+                let size = Array.length light_block in
+                let good_lcb1,good_lcb2,light_block =
+                light_block.(0),light_block.(size-1),
+                (Array.sub light_block 1 (size-2)) in
                 let light_block = Array.to_list light_block in
-                if debug_remove_bad_match then begin
-                    info_user_message "remove worst lcb" ;
-                    List.iter (fun lcbkey -> print_int_list lcbkey)light_block;
-                end;
                 let new_lcbs = List.map (fun lcblst ->
-                    List.filter (fun record ->
-                        List.fold_left (fun sign lcbkey ->
-                            if sign&& ((get_abs_lst record)<>(get_abs_lst lcbkey)) then
-                            true else false  
-                            ) true light_block
-                    ) lcblst
+                List.filter (fun record ->
+                    (*see if lcbrecord shows up in light_block*)
+                    List.fold_left (fun sign lcbkey ->
+                        if sign && ((get_abs_lst record)<>(get_abs_lst lcbkey)) then
+                        true else false  
+                        ) true light_block
+                ) lcblst 
                 ) !res_lcbs in
-                if debug_remove_bad_match then info_user_message "rebuild lcb table again";
                 let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
-                 build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
+                build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
                 in 
-                if debug_remove_bad_match then info_user_message 
-                "new lcb_tbl,size=%d,covR=%f(pre covR=%f),#badlcb=%d"
-                (Hashtbl.length new_lcb_tbl) new_lcb_cov_rate !res_cov_rate num_badlcb;
-                if new_lcb_cov_rate >= !res_cov_rate then
-                true,(new_lcbs,new_lcb_cov_rate,new_lcb_tbl)
-                else better_result
+                (new_lcbs,new_lcb_cov_rate,new_lcb_tbl)
+
+            (*
+            let _,better_cov_rate,_ = better_result in
+            let size = Array.length light_block in
+            let good_lcb1,good_lcb2,light_block =
+                light_block.(0),light_block.(size-1),
+                (Array.sub light_block 1 (size-2)) in
+            let light_block = Array.to_list light_block in
+            let new_lcbs = List.map (fun lcblst ->
+                List.filter (fun record ->
+                    (*see if lcbrecord shows up in light_block*)
+                    List.fold_left (fun sign lcbkey ->
+                        if sign && ((get_abs_lst record)<>(get_abs_lst lcbkey)) then
+                        true else false  
+                        ) true light_block
+                ) lcblst 
+            ) !res_lcbs in
+            if debug_remove_bad_match then info_user_message "rebuild lcb table again";
+            let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
+                build_LCBs new_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
+            in 
+            if new_lcb_cov_rate > better_cov_rate then begin
+                if debug_remove_bad_match2 then begin
+                Printf.printf "remove bad lcb block:%!" ;
+                List.iter (fun lcbkey -> print_int_list lcbkey) light_block;
+                Printf.printf "new lcb_tbl,size=%d,covR=%f(pre covR=%f),#badlcb=%d\n%!"
+                (Hashtbl.length new_lcb_tbl) new_lcb_cov_rate better_cov_rate num_badlcb;
+                end;
+                block2remove := light_block;
+                (new_lcbs,new_lcb_cov_rate,new_lcb_tbl)
             end
-        ) (false,(!res_lcbs,!res_cov_rate,!res_lcb_tbl)) light_block_lst in
-        if foundone then begin
+            else better_result
+            *)
+        ) (!res_lcbs,!res_cov_rate,!res_lcb_tbl) light_block_lst in
         let better_lcbs,better_cov_rate,better_lcb_tbl = better_result in
+        if better_cov_rate> !res_cov_rate then begin
+        if debug_remove_bad_match then begin
+            Printf.printf "remove worst lcb block:%!" ;
+            List.iter (fun lcbkey -> print_int_list lcbkey) !block2remove;
+            Printf.printf "new lcb_tbl,size=%d,covR=%f(pre covR=%f),\n%!"
+            (Hashtbl.length better_lcb_tbl) better_cov_rate !res_cov_rate;
+            print_lcblst better_lcbs;
+        end;
         res_lcbs := better_lcbs;
         res_cov_rate := better_cov_rate;
         res_lcb_tbl := better_lcb_tbl;
@@ -4043,7 +4121,7 @@ in_seqarr in_seq_size_lst  =
         (Array.length seq)::acc ) seq_outside_lcbs_arr [] 
     in
     if debug_search_outside then begin
-        info_user_message "seq outside matches, size :";
+        Printf.printf "seq outside matches, size :";
         print_int_list current_seq_size_lst;
     end;
     let shorted_seqlen = get_shorter_len seq_outside_lcbs_arr in
@@ -4114,7 +4192,8 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
     minimum_lcb_ratio := min_lcb_ratio ;
     let init_lcbs,init_covR,num_badlcb,init_lcb_tbl = 
         build_LCBs seedNOlstlst mum_tbl seed2pos_tbl in_seq_size_lst None in
-    let init_lcbs, init_covR, init_lcb_tbl = 
+    if debug then Printf.printf "before remove bad lcbs, init_covR = %f\n%!" init_covR;
+    let better_lcbs, better_covR, better_lcb_tbl = 
     if faster_remove then
         remove_bad_lcbs_faster init_lcbs init_lcb_tbl mum_tbl 
         seed2pos_tbl in_seq_size_lst init_num_mums init_covR 
@@ -4123,49 +4202,50 @@ min_lcb_ratio min_lcb_len previous_fullcovR=
         seed2pos_tbl in_seq_size_lst init_num_mums in
     if debug then begin
         Printf.printf 
-        "after remove bad lcbs, we have:(only show qualified lcbs)\n%!";
-        Hashtbl.iter (fun key record ->
+        "after remove bad lcbs, we have %!";
+        (*Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then ()
             else
                 print_lcb record 
-        ) init_lcb_tbl;
-        Printf.printf "init lcb covR = %f\n%! " init_covR;
+        ) better_lcb_tbl;*)
+        Printf.printf "better lcb covR = %f\n%! " better_covR;
     end;
-    if init_covR < !minimum_cover_ratio then begin
-        let new_lcbR,new_lcbL = get_adjusted_parameter init_covR in_seq_size_lst
+    if better_covR < !minimum_cover_ratio then begin
+        let new_lcbR,new_lcbL = get_adjusted_parameter better_covR in_seq_size_lst
         min_lcb_ratio min_lcb_len in
-        if (tiny_improvement previous_fullcovR init_covR)||(new_lcbR <
+        if (tiny_improvement previous_fullcovR better_covR)||(new_lcbR <
         !stop_lcb_ratio) then begin
             if debug then 
-                Printf.printf "Warning: not much improve (%f<=>%f), or lcb ratio
-                \ drops too low(%f<=>%f), just return initial lcbs.\n%!" 
-                previous_fullcovR init_covR new_lcbR !stop_lcb_ratio;
-            init_lcbs,init_covR,init_lcb_tbl
+                Printf.printf "Warning: not much improve (%f<=>%f), or lcb ratio\
+                drops too low(%f<=>%f), just return initial lcbs.\n%!" 
+                previous_fullcovR better_covR new_lcbR !stop_lcb_ratio;
+            better_lcbs,init_covR,better_covR,better_lcb_tbl
         end
         else
             get_init_lcbs seedNOlstlst 
             seed2pos_tbl mum_tbl 
             in_seq_size_lst init_num_mums
-            new_lcbR new_lcbL init_covR;
+            new_lcbR new_lcbL better_covR;
     end
     else 
         begin
         let lcb2remove = ref [] in
         Hashtbl.iter (fun key record ->
-            if ((Hashtbl.length init_lcb_tbl)>1)&&
+            if ((Hashtbl.length better_lcb_tbl)>1)&&
             (is_light_weight_lcb record ) 
             then begin
                 lcb2remove := key :: !lcb2remove;
-                Hashtbl.remove init_lcb_tbl key;
+                Hashtbl.remove better_lcb_tbl key;
             end
-        ) init_lcb_tbl;
+        ) better_lcb_tbl;
         let lcb2remove = !lcb2remove in
-        let init_lcbs = List.map (fun lcblst ->
+        let better_lcbs = List.map (fun lcblst ->
             List.filter (fun record -> 
                 (List.mem (get_abs_lst record) lcb2remove)=false
             ) lcblst
-        ) init_lcbs in
-        init_lcbs,init_covR,init_lcb_tbl
+        ) better_lcbs in
+        better_lcbs,init_covR(*we need covR before remove bad lcbs*),
+        better_covR,better_lcb_tbl
         end
     
 
@@ -4227,16 +4307,14 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         Printf.printf "init seedNOlstlst is :\n%!";
         print_int_lstlstlst  seedNOlstlst;
     end;
-    (*get initial lcbs*)
-    let init_lcbs,init_covR,init_lcb_tbl = 
+    (*get initial lcbs, and init cover ratio, before and after remove bad lcbs*)
+    let init_lcbs,init_covR_before,init_covR_after,init_lcb_tbl = 
         get_init_lcbs seedNOlstlst seed2pos_tbl mum_tbl in_seq_size_lst
         init_num_mums min_lcb_ratio min_lcb_len 0.0 in
     (* sign of any improvement in outer&inner while loops*)
     let any_improvement = ref false in
     (*init inner tbl*)
-    let inner_old_covR = ref 0.0 in (*this is not the init_covR
-    we get from get_init_lcbs, that number is the covR after remove light weight
-    lcbs, this one is not*)
+    let inner_old_covR = ref init_covR_before in
     let inner_lcbs = ref init_lcbs in
     let inner_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* not necessary *)in
     let inner_mum_tbl = ref mum_tbl in
@@ -4244,13 +4322,13 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     let inner_pos2seed_tbl_right = ref pos2seed_tbl_right in
     let inner_seed2pos_tbl = ref seed2pos_tbl in
     (*init outer tbl*)
-    let outer_old_covR = ref init_covR in
+    let outer_old_covR = ref init_covR_after in
     let outer_lcbs = ref init_lcbs in
     let outer_lcb_tbl = ref (Hashtbl.copy init_lcb_tbl) (* necessary *)in
     let outer_mum_tbl = ref mum_tbl in
     let current_num_of_mums = ref init_num_mums in
     let outer_sign = 
-        ref ((init_covR< !maximum_cover_ratio)&&(init_covR>= !minimum_cover_ratio)) in
+        ref ((init_covR_after< !maximum_cover_ratio)&&(init_covR_after>= !minimum_cover_ratio)) in
     while (!outer_sign) do
         if debug_main then
         Printf.printf "\n begin of outer while, old_covR = %f\n%!" !outer_old_covR;
@@ -4317,8 +4395,10 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
             if ((Hashtbl.length new_outer_lcb_tbl)>1)&&
             (is_light_weight_lcb record ) 
             then begin
-                Printf.printf "remove lowW lcb:%!";
-                print_int_list key;
+                (*if debug_main then begin
+                    Printf.printf "remove lowW lcb:%!";
+                    print_int_list key;
+                end;*)
                 Hashtbl.remove new_outer_lcb_tbl key;
             end
         ) new_outer_lcb_tbl;
@@ -4334,12 +4414,12 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         in
         if debug_main&&(new_outer_covR=0.) then 
             Printf.printf "remove lcb did not give us any high W lcbs\n%!";
-        if debug_main then begin
+        (*if debug_main then begin
             Printf.printf "\n after remove light lcbs, we have :\n%!";
             Hashtbl.iter (fun key record ->
                 print_lcb record 
             ) new_outer_lcb_tbl;
-        end;
+        end;*)
         if (!outer_old_covR < new_outer_covR) then begin
             if debug_main then 
                 Printf.printf "\n we have a new lcb cov = %f>old one=%f, \
@@ -4374,8 +4454,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
             end;
         ) outer_lcb_tbl;
     if debug_main then
-        Printf.printf "init_covR=%f,outer old covR = %f, outer_lcb_tbl len=%d\n%!"
-        init_covR !outer_old_covR (Hashtbl.length outer_lcb_tbl);
+        Printf.printf "outer covR = %f, outer_lcb_tbl len=%d\n%!"
+        !outer_old_covR (Hashtbl.length outer_lcb_tbl);
     if (Hashtbl.length outer_lcb_tbl)=1 then begin
         let lightW = ref false in
         Hashtbl.iter (fun key record ->
@@ -4422,8 +4502,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
             return them to aliMap (final covR=%f)\n%!" !outer_old_covR;
             if debug2 then begin
                 Hashtbl.iter (fun key record -> print_lcb record) outer_lcb_tbl;
-            Printf.printf "lcb list list is:%!";
-            print_lcblst outer_lcbs;
+                Printf.printf "lcb list list is:%!";
+                print_lcblst outer_lcbs;
             end;
         end;
         let lcb_range_lstlst = get_lcbs_range outer_lcb_tbl in_seq_size_lst in
@@ -4474,7 +4554,7 @@ requires the original codearr, call [to_ori_code] to transform
 let get_matcharr_and_costmatrix seq1 seq2 min_lcb_ratio min_lcb_len
 min_cover_ratio min_bk_penalty 
 locus_indel_cost cost_mat  =
-    let debug = true and debug2 = true in
+    let debug = false and debug2 = false in
     (*transform poy costmatrix into hodx_matrix in mauve*)
     fill_in_hmatrix cost_mat;
     let seq1arr = Sequence.to_array seq1 
