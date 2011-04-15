@@ -4576,7 +4576,7 @@ let compute_fixed_states filename data code =
     let chrom_or_genome,dyn_pam =
         match dhs.state with
         | `Chromosome 
-        | `Genome -> Printf.fprintf stdout "Chrom/Genome"; true,dhs.pam
+        | `Genome ->  true,dhs.pam
         | _ -> false,dhs.pam
     in
     let annotate_with_mauve = 

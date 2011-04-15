@@ -4799,7 +4799,7 @@ let debug = false in
             let seqlst1 = get_seqlst_for_mauve alied_seq1 in
             let seqlst2 = get_seqlst_for_mauve alied_seq2 in
             fprintf oc "> 1:%d-%d %s c=%d\n" (left1+1) (right1+1) dir1 cost;
-            if (right1-left1+1)<500 then 
+            if debug && (right1-left1+1)<500 then 
                 info_user_message "this sequence is too short for mauve graphic \
                 output (length<500)";
             if left1=right1 then fprintf oc "X";
