@@ -27,11 +27,11 @@ let error_user_message format = Printf.ksprintf (Status.user_message Status.Erro
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
 let faster_remove = true
-let debug_main = true 
+let debug_main = false 
 let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
-let debug_search_outside = true
+let debug_search_outside = false
 (* W = weight, R = ratio *)
 
 (*this is a cost matrix between ATGC and ATGC. default matrix used by Mauve *)
@@ -273,7 +273,7 @@ let get_adjusted_parameter full_covR in_seq_size_lst minlcbR minlcbL =
         else e *. e (*if we didn't find any good matches before, cut the
         requirement by half*)
     in
-    Printf.printf "adjust parameter,divided = %f\n%!" divided;
+    if debug_main then Printf.printf "adjust parameter,divided = %f\n%!" divided;
     if divided <= 1. then 
         minlcbR,minlcbL
     else if divided <= e then 
@@ -292,7 +292,7 @@ let tiny_improvement newresult oldresult =
     else begin
         if (abs_float (newresult -. oldresult) ) /. oldresult < (!minimum_improvement) 
         then begin
-            Printf.printf " tiny improvement, no need to continue\n%!";
+            if debug_main then Printf.printf " tiny improvement, no need to continue\n%!";
             true
         end
         else false;
@@ -4184,7 +4184,7 @@ let rec get_init_lcbs seedNOlstlst
 seed2pos_tbl mum_tbl 
 in_seq_size_lst init_num_mums 
 min_lcb_ratio min_lcb_len previous_fullcovR=
-    let debug = true in
+    let debug = false in
     if debug then Printf.printf "get initial lcbs with min_lcbR=%f,min_lcblen=%d\n%!"
     min_lcb_ratio min_lcb_len;
     assert(min_lcb_ratio > 0. );

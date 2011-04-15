@@ -2147,7 +2147,6 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                     in
                     cost, costb, max, [seq.DOS.sequence]
             | Relaxed_Lifted (spec, seq) ->
-                    Printf.printf "RL.to_formatter\n%!";
                     let best = ref max_float in
                     let my_pos = ref (-1) in
                     let () =
@@ -2158,37 +2157,28 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                                     (*spec.RL.distance_table.(par_pos).(pos)*)
                                     +. v
                                 in
-                                Printf.printf "dis.%d.%d = %f\n%!" par_pos pos cost;
                                 if t < !best then begin
                                     best := min t !best;
                                     my_pos := pos;
-                                    Printf.printf "best <- %f,my_pos<-%d\n%!"
-                                    !best !my_pos;
                                 end else ()) seq.RL.states
                         in
                         match do_to_single with
                         | None -> 
-                                Printf.printf "do_to_single=None,pick best cost\n%!";
                                 Array.iteri (fun pos v ->
                                     if v < !best then begin
                                         best := v;
                                         my_pos := pos; 
-                                        Printf.printf "best <- %f,my_pos<-%d\n%!"
-                                    !best !my_pos;
                                 end else ()) 
                                 seq.RL.states;
                         | Some (Partitioned par) ->
                                 assert false; (* TODO *)
                         | Some (Heuristic_Selection par) ->
-                                Printf.printf "do_to_single = Some HS\n%!";
                                 process par.DOS.position
                         | Some (Relaxed_Lifted x) -> 
                                 let x, _ = RL.to_single x x in
-                                Printf.printf "do_to_single = Some RL\n%!";
                                 process x.DOS.position
                     in
                     let bests = !best in
-                    Printf.printf "pick state:%d\n%!" !my_pos;
                     res_state := !my_pos;
                     DOS.make_cost (int_of_float !best), 
                     `FloatFloatTuple (bests, bests), !best,
