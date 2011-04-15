@@ -23,6 +23,8 @@
 #include <assert.h>         
 #include <time.h>
 
+#undef __SSE3__
+
 #ifdef __SSE3__
 #include <pmmintrin.h>      //SSE instrinsics
 #endif
@@ -1175,7 +1177,8 @@ median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
                 mll* cmll, const int rate_idx )
 {
 
-    /* GENERATION III -- requires aligning data;
+#ifdef __SSE3__
+    /* GENERATION III -- requires aligning data; */
     double *a,*b,*d;
     int i,j,p_start,k,nchars,alpha;
     __m128d a_, b_, pa_, pb_, acc, acc1, acc2;
@@ -1222,7 +1225,8 @@ median_MAL(const double* Pa,const double* Pb, const mll* amll,const mll* bmll,
             a-=(alpha-i); b-=(alpha-i);++d;
         }
         a+=alpha; b+=alpha;
-    } */
+    }
+#endif
 
     /* GENERATION II */
     int i, j, k, c_start, p_start;

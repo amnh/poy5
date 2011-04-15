@@ -1395,9 +1395,17 @@ let apply_likelihood_model params acc =
         else begin
             let m = (* estimate priors if necessary *)
                 let str_spec = match pi with
-                    | `Equal | `Given _ -> str_spec
+                    | `Equal | `Given _ ->
+                        (a,b,c,pi,gap,f,g)
+                    | `Consistent _ ->
+                        (* we calculate; and throw away if under jc69/k80 in
+                         * model processing functions. *)
+                        let priors =
+                            static_priors_of_nexus acc gap characters_to_modify
+                        in
+                        (a,b,c,`Consistent (Some priors),gap,f,g)
                     | `Estimate _ ->
-                        let priors = 
+                        let priors =
                             static_priors_of_nexus acc gap characters_to_modify
                         in
                         (a,b,c,`Estimate (Some priors),gap,f,g)
@@ -1421,6 +1429,9 @@ let apply_likelihood_model params acc =
                 Printf.printf "Converting Unaligned Characters to Likelihood!\n%!";
                 let str_spec = match pi with
                     | `Equal | `Given _ -> str_spec
+                    | `Consistent _ ->
+                        let priors = unaligned_priors_of_seq alph xsssts in
+                        (a,b,c,`Consistent (Some priors),gap,f,g)
                     | `Estimate _ ->
                         let priors = unaligned_priors_of_seq alph xsssts in
                         (a,b,c,`Estimate (Some priors),gap,f,g)

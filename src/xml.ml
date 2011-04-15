@@ -321,7 +321,6 @@ let print_string ch = function
     | `Float x -> Printf.fprintf ch "%s" (string_of_float x)
     | `Fun x -> Printf.fprintf ch "%s" (x ())
 
-
 (** Search an XML structure for a specific tag. raise Not_found otherwise. This
     helps to deal with finding structure that may be difficult or dynamic where
     a direct function to the node would be impossible or difficult to build. **)
@@ -355,11 +354,11 @@ let find_tag (xml: xml) (tag: tag): xml =
     | Some x -> x
     | None   -> failwith ("Cannot find tag: "^tag)
 
-let find_attr ((_,attr,_) : xml) name : unstructured =
+let find_attr ((tag,attr,_) : xml) name : unstructured =
     try List.assoc name attr
     with | Not_found -> 
-        Printf.printf "Attributes: ";
-        List.iter (fun (x,_) -> Printf.printf "%s " x) attr;
+        Printf.printf "Attributes for %s : " tag;
+        List.iter (fun (x,t) -> Printf.printf "(%s:%s) " x (value_to_string t)) attr;
         print_newline ();
         failwith ("Cannot find attribute "^name)
 

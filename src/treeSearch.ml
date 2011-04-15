@@ -212,11 +212,10 @@ module MakeNormal
         Status.user_message fo "%!"
 
     let report_trees_and_branches compress filename data branches ptree : unit =
-        let fo = 
+        let fo =
             let lst = if compress then [StatusCommon.Compress] else [] in
             Status.Output (filename, false, lst)
-
-        and trees = 
+        and trees =
             PtreeSearch.build_trees
                 ptree.Ptree.tree
                 (fun x -> Data.code_taxon x data)
@@ -224,46 +223,29 @@ module MakeNormal
                 (Some branches)
                 ""
         in
-        let adj_cost = string_of_float (Ptree.get_cost `Adjusted ptree)
-        and unadj_cost = string_of_float (Ptree.get_cost `Unadjusted ptree) in
+        let adj_cost = string_of_float (Ptree.get_cost `Adjusted ptree) in
         Status.user_message fo "@[<v>";
-        List.iter 
-            (fun x -> 
+        List.iter
+            (fun x ->
                 Status.user_message fo "@[";
                 Status.user_message fo (AsciiTree.for_formatter false true true x);
-                Status.user_message fo ("[" ^ adj_cost ^ "|" ^ unadj_cost ^ "]");
-                Status.user_message fo "@]@,"
-            ) trees;
+                Status.user_message fo ("[" ^ adj_cost ^ "]");
+                Status.user_message fo "@]@,")
+            trees;
         Status.user_message fo "@]%!"
 
     let report_trees ic filename data trees =
-        let leafsonly = 
-            not (List.exists (function `Cost -> true | _ -> false) ic)
-        in
-        let use_hennig_style =
-            List.exists (function `HennigStyle -> true | _ -> false) ic
-        in
-        let use_nexus_style = 
-            List.exists (function `NexusStyle -> true | _ -> false) ic 
-        in
-        let report_tree_len = 
-            List.exists (function `Total -> true | _ -> false) ic
-        in
-        let newline = if use_hennig_style then "" else "@\n" in
-        let ic = 
-            if use_hennig_style then (`Margin (1000000010 - 1)) :: ic
-            else ic
-        in
+        (* test characteristics to print from `ic` variable *)
+        let leaf_only = not (List.exists (function `Cost -> true | _ -> false) ic) in
+        let hennig_style = List.exists (function `HennigStyle -> true | _ -> false) ic in
+        let nexus_style = List.exists (function `NexusStyle -> true | _ -> false) ic in
+        let tree_len = List.exists (function `Total -> true | _ -> false) ic in
+        let newline = if hennig_style then "" else "@\n" in
+        let ic = if hennig_style then (`Margin (1000000010 - 1)) :: ic else ic in
         let branches = List.exists (function `Branches -> true | _ -> false) ic in
-        (*
-        let newick = 
-            (List.exists (function `Newick -> true | _ -> false) ic)
-        in
-        *)
-        let collapse =
-            List.exists (function `Collapse x -> x | _ -> false) ic
-        in
-        let ori_margin = StatusCommon.Files.get_margin filename in 
+        let collapse = List.exists (function `Collapse x -> x | _ -> false) ic in
+
+        let ori_margin = StatusCommon.Files.get_margin filename in
         let fo_ls = ref [] in 
         if (List.exists (function `Margin _ -> true | _ -> false) ic) then begin
             let margin = List.find (function `Margin _ -> true | _ -> false) ic in 
@@ -279,23 +261,18 @@ module MakeNormal
             let cost = Ptree.get_cost `Adjusted tree in
             let cost = string_of_float cost in
             let tree = 
-                PtreeSearch.build_forest_with_names_n_costs 
-                collapse tree cost branches
+                PtreeSearch.build_forest_with_names_n_costs collapse tree cost branches
             in
             let output cnt tree =
-                if use_hennig_style then 
+                if hennig_style then 
                     if not !is_first then fo " * "
                     else is_first := false
-                else if use_nexus_style then 
+                else if nexus_style then 
                     fo ("TREE POYTREE" ^ string_of_int cnt ^ " = ");
                 fo "@[";
-                fo 
-                (AsciiTree.for_formatter (not use_hennig_style ) 
-                (not use_hennig_style) leafsonly tree);
-                if leafsonly && report_tree_len then
-                    fo ("[" ^ cost ^ "]");
-                if not use_hennig_style then fo ";"
-                else fo "@?";
+                fo (AsciiTree.for_formatter (not hennig_style ) (not hennig_style) leaf_only tree);
+                if leaf_only && tree_len then fo ("[" ^ cost ^ "]");
+                if not hennig_style then fo ";" else fo "@?";
                 fo "@]";
                 fo newline;
                 cnt + 1
@@ -303,16 +280,16 @@ module MakeNormal
             let _ = List.fold_left output 0 tree in
             ()
         in
-        fo (if use_hennig_style then "@[<h>" else "@[<v>");
-        if use_hennig_style then fo "tread "
-        else if use_nexus_style then fo "@[BEGIN TREES;@]@.";
+        fo (if hennig_style then "@[<h>" else "@[<v>");
+        if hennig_style then fo "tread "
+        else if nexus_style then fo "@[BEGIN TREES;@]@.";
         Sexpr.leaf_iter (output) trees;
-        if use_hennig_style then fo ";"
-        else if use_nexus_style then fo "@[END;@]@.";
-        fo (if use_hennig_style then  "@]" else "@]@\n" );
+        if hennig_style then fo ";"
+        else if nexus_style then fo "@[END;@]@.";
+        fo (if hennig_style then  "@]" else "@]@\n" );
         fo "@\n%!";
-        StatusCommon.Files.set_margin filename ori_margin 
-              
+        StatusCommon.Files.set_margin filename ori_margin
+
 
     let get_search_function tabu_creator trajectory meth =
         let stepfn = function

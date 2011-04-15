@@ -305,19 +305,17 @@ module F : Ptree.Tree_Operations
     (* Create the edge data on (a,b) and use to update root information in tree *)
     let create_root a b (ptree : phylogeny) =
         let make_internal a b ptree = 
-            try let norm = Tree.normalize_edge (Tree.Edge (a, b)) ptree.Ptree.tree in
-                let node = Ptree.get_edge_data norm ptree in
-                let nnode = AllDirNode.force_val node in
-                let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
-                let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
-                let cost = Node.Standard.tree_cost None nnode in
-(*                Printf.printf "Creating Component Root for (%d,%d) : %f\n%!" a b cost;*)
-                { 
-                    Ptree.root_median = Some ((`Edge (a, b)), node);
-                    component_cost = cost; 
-                    adjusted_component_cost = cost;
-                }
-            with | Not_found -> failwithf "Could not find edge data (%d,%d)" a b
+            let norm = Tree.normalize_edge (Tree.Edge (a, b)) ptree.Ptree.tree in
+            let node = Ptree.get_edge_data norm ptree in
+            let nnode = AllDirNode.force_val node in
+            let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
+            let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
+            let cost = Node.Standard.tree_cost None nnode in
+            { 
+                Ptree.root_median = Some ((`Edge (a, b)), node);
+                component_cost = cost; 
+                adjusted_component_cost = cost;
+            }
         in
         match Ptree.get_node a ptree with
         | Tree.Leaf (_, x) ->
@@ -329,7 +327,6 @@ module F : Ptree.Tree_Operations
         | Tree.Single _ ->
                 let root = Ptree.get_node_data a ptree in
                 let cost = AllDirNode.AllDirF.tree_cost None root in
-(*                Printf.printf "Creating Component Root for %d : %f\n%!" a cost;*)
                 { 
                     Ptree.root_median = Some ((`Single a), root);
                     component_cost = cost;
@@ -379,7 +376,7 @@ module F : Ptree.Tree_Operations
          * not_single_character_cost holds the total cost of those characters *)
         let not_single_character_cost, root, root_edge = 
             (* set initial value to subtract from -- cost of likelihood *)
-            let three_root, root_edge = 
+            let tree_root, root_edge = 
                 match new_root with
                 | Some a -> a
                 | None ->  
@@ -388,7 +385,7 @@ module F : Ptree.Tree_Operations
                     | Some (root_edge, root) -> root, root_edge
                     | None -> failwith "No root 1?"
             in
-            match three_root.AllDirNode.unadjusted with
+            match tree_root.AllDirNode.unadjusted with
             | [root] ->
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
                     let cost = 
@@ -397,7 +394,7 @@ module F : Ptree.Tree_Operations
                             (0.0)
                             (Node.not_to_single)
                     in
-                    cost, three_root, root_edge
+                    cost, tree_root, root_edge
             | _ -> failwith "What?"
         in 
         (* Other characters have their cost computed by adding up the length of
@@ -540,50 +537,13 @@ module F : Ptree.Tree_Operations
             let () = List.iter (Tree.Parse.print_tree (Some filename)) trees in
             ())
 
-    let verify_roots tree =
-        let get_n x = Ptree.get_node_data x tree 
-        and get_e x = Ptree.get_edge_data x tree in
-        let traversal edge = 
-            let Tree.Edge (a,b) = edge in
-            Ptree.post_order_node_with_edge_visit
-                (fun p c _ -> (c,AllDirNode.AllDirF.node_cost (Some p) (get_n c)))
-                (fun p c c1acc c2acc ->
-                    let ncost = AllDirNode.AllDirF.node_cost (Some p) (get_n c) in
-                    let tcost = AllDirNode.AllDirF.total_cost (Some p) (get_n c) in
-                    let scost = (snd c1acc) +. (snd c2acc) +. ncost in
-                    if ( tcost =. scost ) then (c,scost)
-                    else begin
-                        info_user_message "root (%d,%d) cost: %4f/%4f (%4f,%4f,%4f)%!"
-                                          a b tcost scost ncost (snd c1acc) (snd c2acc);
-                        assert false;
-                    end)
-                (edge)
-                (tree)
-                (0,0.0)
-        in
-        if using_likelihood `Dynamic tree then begin
-            Tree.EdgeMap.iter
-                (fun ((Tree.Edge (a,b)) as k) v -> 
-                    let c1,c2 = traversal k in
-                    let tcost = AllDirNode.OneDirF.total_cost None (get_e k) in
-                    let ncost = AllDirNode.OneDirF.node_cost None (get_e k) in
-                    let scost = (snd c1) +. (snd c2) +. ncost in
-                    if not ( tcost =. scost ) then begin
-                        info_user_message "root (%d,%d) cost: %4f/%4f (%4f,%4f,%4f)%!"
-                                          a b tcost scost ncost (snd c1) (snd c2);
-                        assert false
-                    end)
-                (tree.Ptree.edge_data)
-        end
-
-    
     let clear_internals force t = t
 (*        {t with Ptree.data = Data.remove_bl force t.Ptree.data; } *)
 
 
     (* A function to assign a unique sequence on each vertex of the ptree in the
     * [AllDirNode.adjusted] field of the node. *)
-    let assign_single keep_three ptree = 
+    let assign_single ptree = 
         (* We first define a function that can traverse the tree and assign
         * a single sequence to each vertex on it. *)
         let pre_ref_codes = get_pre_active_ref_code ptree in  
@@ -596,8 +556,6 @@ module F : Ptree.Tree_Operations
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
             in
             let nd, original =
-(*                Printf.printf "to_single (%d->%d): %f\n%!" parent current*)
-(*                        (AllDirNode.AllDirF.tree_size (Some parent) (Ptree.get_node_data current ptree));*)
                 let x = AllDirNode.force_val current_d.AllDirNode.lazy_node in
                 let n = Node.to_single (pre_ref_codes, fi_ref_codes) None parentd x in
                 n, x
@@ -605,19 +563,7 @@ module F : Ptree.Tree_Operations
             let nnd = 
                 { current_d with AllDirNode.lazy_node = AllDirNode.lazy_from_val nd }
             in
-            (*we only keep on direction after this assign_single function
-            let oths =  if keep_three then
-                            nnd::(List.filter (fun x -> 
-                                      not (AllDirNode.has_code parent x))
-                                      initial_d.AllDirNode.unadjusted)
-                        else [nnd]
-            in*)
-            let final_d = { initial_d with AllDirNode.adjusted = Some nnd(*oths*) } in
-(* no longer true
-            assert ( ( (List.length initial_d.AllDirNode.unadjusted) ==
-                       (List.length final_d.AllDirNode.adjusted) )
-                     || (not keep_three) );
-*)
+            let final_d = { initial_d with AllDirNode.adjusted = Some nnd } in
             let ptree = Ptree.add_node_data current final_d ptree in
             try 
                 let a, b =
@@ -640,8 +586,7 @@ module F : Ptree.Tree_Operations
                 | _   -> failwith "more than one root? AllDirChar.assign_single_handle 2"
             in
             let generate_root_and_assign_it rootg edge ptree =
-                let a, b =
-                    match edge with
+                let a, b = match edge with
                     | `Edge x ->  x
                     | `Single a -> a, a
                 in
@@ -654,8 +599,8 @@ module F : Ptree.Tree_Operations
                     (AllDirNode.not_with a (Ptree.get_node_data b ptree).AllDirNode.unadjusted)
                     --> (fun x -> AllDirNode.force_val x.AllDirNode.lazy_node)
                 in
-                let root = 
-                    Node.to_single (pre_ref_codes, fi_ref_codes) 
+                let root =
+                    Node.to_single (pre_ref_codes, fi_ref_codes)
                                    (Some root) other_node handle_node
                 in
                 let rooti = 
@@ -688,18 +633,39 @@ module F : Ptree.Tree_Operations
                                     (Some (check_cost ptree handle None))
                                     ptree)
             | Some ((`Single a) as edge, rootg) ->
-                    let ptree, root, readjusted = 
-                        generate_root_and_assign_it rootg edge ptree 
+                    let ptree, root, readjusted =
+                        generate_root_and_assign_it rootg edge ptree
                     in
                     Ptree.add_node_data a readjusted ptree
-            | None -> failwith "no root? AllDirChar.assign_single_handle"
+            | None -> 
+                    failwith "no root? AllDirChar.assign_single_handle"
         in
         (* Finally, we are ready to proceed on all the handles available *)
         IntSet.fold assign_single_handle (Ptree.get_handles ptree) ptree
 
+    let assign_single ptree =
+        if using_likelihood `Static ptree then ptree
+        else assign_single ptree
 
     let unadjust ptree = ptree
  
+    let refresh_edge_data ptree = 
+        let refresh_edge ((Tree.Edge (a,b)) as e) (acc,ptree) =
+            if debug_uppass_fn then
+                info_user_message "Refreshing %d--%d as an edge" a b;
+            let data,ptree = create_lazy_edge false None ptree a b in
+            (Tree.EdgeMap.add e data acc, ptree)
+        in
+        if debug_uppass_fn then
+            info_user_message "Performing Refresh on all edges";
+        let new_edges,ptree =
+            Tree.EdgeSet.fold
+                    (refresh_edge)
+                    (ptree.Ptree.tree.Tree.d_edges)
+                    (Tree.EdgeMap.empty, ptree)
+        in
+        { ptree with Ptree.edge_data = new_edges }
+
 
     (** Performs much of the node functions after a downpass is completed.
      * Essentially the uppass; this function fills in other directions of all the
@@ -743,11 +709,9 @@ module F : Ptree.Tree_Operations
          * median later *)
         if debug_uppass_fn then
             info_user_message "Performing Calculation on Root" else ();
-        let edge_map,ptree = 
-            match start_edge_opt with
+        let _,ptree = match start_edge_opt with
             | Some (a,b) ->
-                refresh_edge true root_opt (Tree.Edge (a,b)) 
-                             (Tree.EdgeMap.empty,ptree) 
+                refresh_edge true root_opt (Tree.Edge (a,b)) (Tree.EdgeMap.empty,ptree) 
             | None ->
                 IntSet.fold 
                     (fun h (edge_map,ptree) ->
@@ -762,9 +726,9 @@ module F : Ptree.Tree_Operations
                             begin match Ptree.get_node h ptree with
                                 | Tree.Leaf (a,b)
                                 | Tree.Interior (a,b,_,_) -> 
-                                    refresh_edge true root_opt (Tree.Edge (a,b))
-                                                 (edge_map,ptree) 
-                                | Tree.Single _ -> (edge_map,ptree) 
+                                    refresh_edge true root_opt (Tree.Edge (a,b)) (edge_map,ptree)
+                                | Tree.Single _ -> 
+                                    (edge_map,ptree) 
                             end)
                     ptree.Ptree.tree.Tree.handles
                     (Tree.EdgeMap.empty,ptree) 
@@ -783,16 +747,16 @@ module F : Ptree.Tree_Operations
                     (fun h ptree ->
                         try begin
                         match (Ptree.get_component_root h ptree).Ptree.root_median with
-                            | Some ((`Edge (a,b)),c) -> 
+                            | Some ((`Edge (a,b)),c) ->
                                 Tree.pre_order_node_with_edge_visit_simple_root
                                         add_vertex_pre_order (Tree.Edge (a,b))
                                         ptree.Ptree.tree ptree
                             | None
                             | Some _ -> ptree
-                        end with | Not_found -> 
+                        end with | Not_found ->
                             begin match Ptree.get_node h ptree with
                                 | Tree.Leaf (a,b)
-                                | Tree.Interior (a,b,_,_) -> 
+                                | Tree.Interior (a,b,_,_) ->
                                     Tree.pre_order_node_with_edge_visit_simple_root
                                             add_vertex_pre_order (Tree.Edge (a,b))
                                             ptree.Ptree.tree ptree
@@ -803,35 +767,20 @@ module F : Ptree.Tree_Operations
         in
         (* fill in roots for all edges *)
         current_snapshot "AllDirChar refresh_all_edges internal fold";
-        if do_roots then begin
-            if debug_uppass_fn then
-                info_user_message "Performing Refresh on all edges"
-            else ();
-            let new_edges,ptree =
-                Tree.EdgeSet.fold
-                        (refresh_edge false None)
-                        (ptree.Ptree.tree.Tree.d_edges)
-                        (edge_map, ptree)
-            in 
-            { ptree with Ptree.edge_data = new_edges }
-        end else ptree
+        if do_roots then 
+            refresh_edge_data ptree
+        else 
+            ptree
 
-    (** functions to return the adjusted and unadjusted values **)
-    let get_single, get_unadjusted =
-        let general_get get_adj f parent node =
-            let nd = if get_adj then
-                AllDirNode.get_adjusted_nodedata node "allDirChar,get_single,no adjdata"
-            else
-                AllDirNode.not_with parent (f node) in
-            AllDirNode.force_val nd.AllDirNode.lazy_node
-        in
-        let f = (fun x -> x.AllDirNode.unadjusted) in
-        (general_get true f), (general_get false f)
+    (* return the unadjusted value in the direction to parent in one dir *)
+    let get_unadjusted par node =
+        let nd = AllDirNode.not_with par (node.AllDirNode.unadjusted) in
+        AllDirNode.force_val nd.AllDirNode.lazy_node
 
     (** refresh root of all trees *)
-    let refresh_roots move ptree =
-        let update_fun = 
-            if move then
+    let refresh_roots ptree =
+        let new_roots = 
+            IntSet.fold
                 (fun x acc ->
                     let root = match Ptree.get_node x ptree with
                         | Tree.Leaf (a, b)
@@ -839,24 +788,10 @@ module F : Ptree.Tree_Operations
                         | Tree.Single _ -> create_root x x ptree
                     in
                     IntMap.add x root acc)
-            else 
-                (fun x acc ->
-                    let root =
-                        try match (Ptree.get_component_root x ptree).Ptree.root_median with
-                            | Some ((`Edge (a,b)),_) -> create_root a b ptree
-                            | _ -> raise Not_found
-                        with | Not_found ->  match Ptree.get_node x ptree with
-                            | Tree.Leaf (a, b)
-                            | Tree.Interior (a, b, _, _) -> create_root a b ptree
-                            | Tree.Single _ -> create_root x x ptree
-                    in
-                    IntMap.add x root acc)
+                (Ptree.get_handles ptree)
+                (IntMap.empty)
         in
-        let new_roots =
-            IntSet.fold update_fun (Ptree.get_handles ptree) IntMap.empty
-        in
-        let results = { ptree with Ptree.component_root = new_roots; } in
-        results
+        { ptree with Ptree.component_root = new_roots; }
 
     let get_active_ref_code tree =
         let get_active_ref_code parent node = 
@@ -1020,17 +955,9 @@ module F : Ptree.Tree_Operations
                 {AllDirNode.adjusted=Some tmp;AllDirNode.unadjusted=[tmp]}
             in
             (* assign the root and cost *)
-            let ptree = 
-                let check_cost = check_cost ptree handle (Some (n_root,`Edge (a,b))) in
-                Ptree.assign_root_to_connected_component 
-                    handle
-                    (Some (`Edge (a,b),n_root))
-                    check_cost
-                    None
-                    ptree
-            in
             let ptree =
-                refresh_all_edges (Some n_root) true (Some (a,b)) ptree
+                ptree --> refresh_all_edges (Some n_root) true (Some (a,b))
+                      --> assign_single
             in
             (changed,affected,ptree)
     (* add modified vertices in node_list to the set *)
@@ -1118,23 +1045,17 @@ module F : Ptree.Tree_Operations
                 let (changed,new_affected,new_ptree : adjust_acc) = 
                     let none_affected = IntMap.empty in
                     (* perform on each tree *)
-                    if using_likelihood `Static ptree
-                        then begin
-                            List.fold_left
-                                (adjust_reroot_loop affected)
-                                (true,none_affected,ptree)
-                                (all_edges)
-                    end else if using_likelihood `Dynamic ptree 
-                        then begin
-                            List.fold_left
-                                (adjust_reroot_loop affected)
-                                (true,none_affected,ptree)
-                                (all_edges)
-                    end else
-                            IntSet.fold
-                                (adjust_loop affected)
-                                (ptree.Ptree.tree.Tree.handles)
-                                (true,none_affected,ptree)
+                    if using_likelihood `Either ptree then begin
+                        List.fold_left
+                            (adjust_reroot_loop affected)
+                            (true,none_affected,ptree)
+                            (all_edges)
+                    end else begin
+                        IntSet.fold
+                            (adjust_loop affected)
+                            (ptree.Ptree.tree.Tree.handles)
+                            (true,none_affected,ptree)
+                    end
                 in
                 (* now ptree can be used normaliy *)
                 let new_cost = check_cost_all_handles new_ptree in
@@ -1149,8 +1070,7 @@ module F : Ptree.Tree_Operations
             iterator max_count initial_cost first_affected ptree
         in
         let set_handle_n_root_n_cost handle ptree =
-            if using_likelihood `Static ptree then ptree 
-            else if using_likelihood `Dynamic ptree then ptree 
+            if using_likelihood `Either ptree then ptree 
             else begin
                 (*move AllDirF.to_single here,we are going to move to_single
                 * related function in allDirChar and allDirNode to a new module.*)
@@ -1257,9 +1177,8 @@ module F : Ptree.Tree_Operations
         in
         let ptree = 
             let ptree = refresh_all_edges None true None ptree in
-            if do_roots then refresh_roots false ptree else ptree
+            if do_roots then refresh_roots ptree else ptree
         in
-        if debug_downpass_fn then verify_roots ptree;
         ptree
 
     let blindly_trust_downpass ptree 
@@ -1417,7 +1336,7 @@ module F : Ptree.Tree_Operations
             end
         in
         let tree = 
-            if (using_likelihood `Static tree) || (using_likelihood `Dynamic tree) then begin
+            if (using_likelihood `Either tree) then begin
                 match node_man with
                 | Some node_man -> 
                     let do_branches =
@@ -1463,7 +1382,6 @@ module F : Ptree.Tree_Operations
                 | _ -> tree
             end
         in
-        if debug_adjust_fn then verify_roots tree;
         tree
 
     (* ---------- *)
@@ -1480,7 +1398,7 @@ module F : Ptree.Tree_Operations
                   ptree --> clear_internals false
                         --> internal_downpass true
                         --> pick_best_root
-                        --> assign_single true
+                        --> assign_single
                         --> adjust_fn None
                         --> pick_best_root
         in
@@ -1496,7 +1414,7 @@ module F : Ptree.Tree_Operations
             | `Normal_plus_Vitamines
             | `Normal -> 
                 ptree --> pick_best_root
-                      --> assign_single true
+                      --> assign_single
             | `Iterative (`ApproxD _)
             | `Iterative (`ThreeD _) -> ptree
         in
@@ -1640,19 +1558,18 @@ module F : Ptree.Tree_Operations
                     --> replace_topology nbt
                     --> update_break_delta left_delta
                     --> update_break_delta right_delta
-                    --> refresh_all_edges None true None
-                    --> refresh_roots false
+                    --> refresh_edge_data
+                    --> refresh_roots
                     --> uppass
             in
             (* The uppass can change the tree/clade_handles; update based on previous handles *)
-            ptree, tree_delta, (Ptree.handle_of clade_handle ptree), (Ptree.handle_of tree_handle ptree)
+            ptree, tree_delta, clade_handle, tree_handle
         in
-
         (* Compare costs, and calculate the break delta *)
-        let b_delta = 
+        let b_delta =
             if prev_cost = infinity && new_cost = infinity then 0.
-            else 
-                let rc, tc = 
+            else
+                let rc, tc =
                     let clade_root =
                         let c = Ptree.get_component_root clade_handle ptree in
                         match c.Ptree.root_median with
@@ -1662,7 +1579,7 @@ module F : Ptree.Tree_Operations
                     AllDirNode.AllDirF.root_cost clade_root, 
                     AllDirNode.AllDirF.total_cost None clade_root
                 in
-                let bd = 
+                let bd =
                     (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc
                 in
                 if debug_join_fn then begin
@@ -1749,10 +1666,6 @@ module F : Ptree.Tree_Operations
         in
         update_node_manager (res.Ptree.ptree) (`Break res) n_mgr;
         {res with
-            Ptree.break_delta = 
-                if using_likelihood `Dynamic res.Ptree.ptree 
-                    then infinity
-                    else res.Ptree.break_delta;
             Ptree.ptree = update_branches res.Ptree.ptree; }
 
 
@@ -1820,14 +1733,12 @@ module F : Ptree.Tree_Operations
         let ptree = 
             add_component_root ptree handle (create_root v h ptree)
         in
-        if debug_join_fn then verify_roots ptree;
         ptree, tree_delta
 
     let get_one side = match side with
         | `Single (x, _) | `Edge (x, _, _, _) -> x
 
     let join_fn n_mgr a b c d =
-        if debug_join_fn then verify_roots d;
         let d = clear_internals true d in
         let (ptree, tdel) as ret = match !Methods.cost with
             | `Normal -> 
@@ -1841,7 +1752,7 @@ module F : Ptree.Tree_Operations
                 update_node_manager tree (`Join delta) n_mgr;
                 let tree = 
                    tree --> pick_best_root
-                        --> assign_single true 
+                        --> assign_single
                         --> adjust_fn n_mgr
                         --> pick_best_root
                         --> update_branches
@@ -1913,15 +1824,10 @@ module F : Ptree.Tree_Operations
             | `Exhaustive_Weak
             | `Normal_plus_Vitamines
             | `Normal -> cost_fn a b c d e 
-(*            | `Normal ->*)
-(*                (match cost_fn a b c d e with *)
-(*                      | Ptree.Cost x -> Ptree.Cost (abs_float x)*)
-(*                      | x -> x)*)
             | `Exhaustive_Strong ->
                 let pc = Ptree.get_cost `Adjusted e in
                 let (nt, _) = join_fn n_mgr [] a b e in
                 Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
-(*                Ptree.Cost (abs_float (((Ptree.get_cost `Adjusted nt) -.  pc)))*)
         in
         update_node_manager e (`Cost) n_mgr;
         cost
@@ -1945,16 +1851,14 @@ module F : Ptree.Tree_Operations
                 in
                 let root_data c = 
                     (* We prepare a function to replace the taxon code for a
-                    * meaningful one to start the uppass with on each side *)
+                       meaningful one to start the uppass with on each side *)
                     match root_data.AllDirNode.unadjusted with
-                    | [x] -> 
-                            { root_data with 
-                            AllDirNode.unadjusted = 
-                                [{ x with AllDirNode.code = c }] }
+                    | [x] ->
+                        { root_data with
+                            AllDirNode.unadjusted = [{ x with AllDirNode.code = c }] }
                     | _ -> assert false
                 in
-                (* We move recursively up on and b calculating their final 
-                * states *)
+                (* We move recursively up on a/b calculating their final states *)
                 let rec uppass grandparent_code parent_code parent_final vertex acc =
                     let my_data = Ptree.get_node_data vertex ptree in
                     match Ptree.get_node vertex acc with
@@ -1986,128 +1890,117 @@ module F : Ptree.Tree_Operations
         IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) ptree
 
 
-    let to_formatter (atr : Xml.attributes)  
-            (tree : (a, b) Ptree.p_tree) : Xml.xml =
+    let to_formatter (atr : Xml.attributes) tree : Xml.xml =
         if debug_diagnosis then
-            Printf.printf "AllDirChar.to_formatter \n%!"; 
-        let data = tree.Ptree.data in
+            Printf.printf "AllDirChar.to_formatter \n%!";
+        let get_single par node =
+            if using_likelihood `Static tree then
+                get_unadjusted par node
+            else match node.AllDirNode.adjusted with
+                | Some x -> AllDirNode.force_val x.AllDirNode.lazy_node
+                | None   -> failwith "AllDirChar.to_formatter; no single data"
+        in
         let tree = assign_final_states tree in
-        (*assign_final_states will call median3, what if we did not set
-        * iterative to exact? *)
         let pre_ref_codes, fi_ref_codes = get_active_ref_code tree in
-(*
-        Utl.printIntSet pre_ref_codes;
-        Utl.printIntSet fi_ref_codes;
-*)
-        let get_simplified parent x = 
+        let get_simplified parent x =
             let nd = Ptree.get_node_data x tree in
             nd, get_unadjusted parent nd, get_single parent nd
         in
-        let merger a b root = (`Set [`Single root; `Single a; `Single b]) 
+        let merger a b root = (`Set [`Single root; `Single a; `Single b])
         and splitter parent a = get_unadjusted parent a, get_single parent a in
         (* Now we are ready to process the contents of the tree *)
-        let rec subtree_to_formatter (pre, fi) cur par 
-                ((node_parent, single_parent) as tmp2) : Xml.xml =
+        let rec subtree_to_formatter (pre, fi) cur par ((node_parent, single_parent) as tmp2) : Xml.xml =
             if debug_diagnosis then
-                Printf.printf "alldirchar.subtree_to_formatter, \
-                current node is %d, parent is %d\n%!" cur par;
+                Printf.printf "alldirchar.to_formatter cur:%d, par:%d\n%!" cur par;
             match Ptree.get_node cur tree with
             | (Tree.Interior (me,nbr1,nbr2,nbr3)) as nd ->
-                    if debug_diagnosis then
-                        Printf.printf "Is an interior (%d,%d,%d,%d) => \n%!" me nbr1 nbr2 nbr3;
-                    let cur_data = Ptree.get_node_data cur tree in
-                    let ch1, ch2 = Ptree.other_two_nbrs par nd in
-                    let ch1d, ch1u, ch1s = get_simplified cur ch1 
-                    and ch2d, ch2u, ch2s = get_simplified cur ch2 in
-                    let ((cur_data, cur_single) as tmp) = 
-                        splitter par cur_data 
-                    in 
-                    let mine = 
-                        Node.to_formatter_subtree (pre, fi) [] data tmp cur 
-                        (ch1, ch1u) (ch2, ch2u) (Some tmp2)
-                    in
-                    let ch1 = subtree_to_formatter (pre, fi) ch1 cur tmp in
-                    let ch2 = subtree_to_formatter (pre, fi) ch2 cur tmp in
-                    ((RXML 
-                        -[Xml.Trees.tree] 
-                            {single mine} { single ch1 } 
-                            { single ch2 } --) : Xml.xml)
+                if debug_diagnosis then
+                    Printf.printf "Is an interior (%d,%d,%d,%d) => \n%!" me nbr1 nbr2 nbr3;
+                let cur_data = Ptree.get_node_data cur tree in
+                let ch1, ch2 = Ptree.other_two_nbrs par nd in
+                let ch1d, ch1u, ch1s = get_simplified cur ch1
+                and ch2d, ch2u, ch2s = get_simplified cur ch2 in
+                let ((cur_data, cur_single) as tmp) = splitter par cur_data in
+                let mine =
+                    Node.to_formatter_subtree (pre, fi) [] tree.Ptree.data tmp cur
+                                              (ch1, ch1u) (ch2, ch2u) (Some tmp2)
+                in
+                let ch1 = subtree_to_formatter (pre, fi) ch1 cur tmp in
+                let ch2 = subtree_to_formatter (pre, fi) ch2 cur tmp in
+                ((RXML
+                    -[Xml.Trees.tree]
+                        {single mine} { single ch1 }
+                        { single ch2 } --) : Xml.xml)
             | (Tree.Leaf (me, par)) ->
-                    if debug_diagnosis then Printf.printf "Is a leaf (%d,%d) => %!" me par;
-                    let node_data = Ptree.get_node_data cur tree in
-                    let nodest = 
-                        Node.to_formatter_single
-                        (pre, fi) [] data 
-                        (splitter par node_data) cur (Some tmp2)
-                    in
-                    (RXML -[Xml.Trees.tree] { single nodest }--)
+                if debug_diagnosis then Printf.printf "Is a leaf (%d,%d) => %!" me par;
+                let node_data = splitter par (Ptree.get_node_data cur tree) in
+                let nodest =
+                    Node.to_formatter_single (pre, fi) [] tree.Ptree.data
+                                             node_data cur (Some tmp2)
+                in
+                (RXML -[Xml.Trees.tree] { single nodest }--)
             | (Tree.Single me) ->
-                    if debug_diagnosis then Printf.printf "Is a single: %d => %!" me;
-                    let node_data = Ptree.get_node_data cur tree in
-                    let nodest = 
-                        Node.to_formatter_single
-                        (pre, fi) [] data (splitter (-1) node_data) cur None
-                    in
-                    (RXML -[Xml.Trees.tree] { single nodest } --)
+                if debug_diagnosis then Printf.printf "Is a single: %d => %!" me;
+                let node_data = splitter (-1) (Ptree.get_node_data cur tree) in
+                let nodest =
+                    Node.to_formatter_single (pre, fi) [] tree.Ptree.data
+                                             (node_data) cur None
+                in
+                (RXML -[Xml.Trees.tree] { single nodest } --)
         in
         let handle_to_formatter (pre, fi) handle (recost, trees) =
             let r = Ptree.get_component_root handle tree in
-            let recost, contents, attr =
-                match r.Ptree.root_median with
-                | Some ((`Edge (a, b)), root) -> 
-                        if debug_diagnosis then
-                            Printf.printf "root median at (%d,%d) : %!" a b;
-                        let recost = 
-                            let root = get_unadjusted (-1) root in
-                            (Node.cmp_subtree_recost root) +. recost 
-                        in
-                        (* We override the root now to continue using the single
-                        * assignment of the handle *)
-                        let sroot, sa = 
-                            let a = Ptree.get_node_data a tree in
-                            let s = get_single b a in
-                            let root = get_unadjusted (-1) root in
-                            let s_root = Node.copy_chrom_map root s in 
-                            (root, s_root), s
-                        in
-                        let a : Xml.xml = 
-                            subtree_to_formatter (pre, fi) a b sroot
-                        and b : Xml.xml = 
-                            subtree_to_formatter (pre, fi) b a sroot
-                        and froot : Xml.xml =
-                            let handle = Ptree.get_node_data a tree 
-                            and parent = Ptree.get_node_data b tree in
-                            Node.to_formatter_subtree 
-                            (pre, fi) [] data 
-                            ((get_unadjusted (-1) root), sa) a (a, get_unadjusted b handle)
-                            (b, get_unadjusted a parent) None
-                        in
-                        recost, (merger a b froot), 
+            let recost, contents, attr = match r.Ptree.root_median with
+                | Some ((`Edge (a, b)), root) ->
+                    if debug_diagnosis then
+                        Printf.printf "root median at (%d,%d) : %!" a b;
+                    let recost =
+                        let root = get_unadjusted (-1) root in
+                        (Node.cmp_subtree_recost root) +. recost
+                    in
+                    (* We override the root now to continue using the single
+                       assignment of the handle *)
+                    let sroot, sa =
+                        let a = Ptree.get_node_data a tree in
+                        let s = get_single b a in
+                        let root = get_unadjusted (-1) root in
+                        let s_root = Node.copy_chrom_map root s in
+                        (root, s_root), s
+                    in
+                    let a : Xml.xml = subtree_to_formatter (pre, fi) a b sroot
+                    and b : Xml.xml = subtree_to_formatter (pre, fi) b a sroot
+                    and froot : Xml.xml =
+                        let handle = Ptree.get_node_data a tree
+                        and parent = Ptree.get_node_data b tree in
+                        Node.to_formatter_subtree
+                            (pre, fi) [] tree.Ptree.data (get_unadjusted (-1) root, sa) a
+                            (a, get_unadjusted b handle) (b, get_unadjusted a parent) None
+                    in
+                    recost, (merger a b froot),
                         [Xml.Trees.cost, `Float r.Ptree.component_cost]
                 | Some ((`Single a), root) ->
-                        let c1 : Xml.xml = 
-                            let nd = splitter (-1) root in
-                            subtree_to_formatter (pre, fi) a a nd
-                        in
-                        recost, (`Single c1),
+                    let c1 : Xml.xml =
+                        let nd = splitter (-1) root in
+                        subtree_to_formatter (pre, fi) a a nd
+                    in
+                    recost, (`Single c1),
                         [Xml.Trees.cost, `Float r.Ptree.component_cost]
                 | None -> assert false
             in
-            recost, 
-            (((PXML -[Xml.Trees.tree] ([attr]) { contents }--)) ::
-                trees)
+            recost,
+                (((PXML -[Xml.Trees.tree] ([attr]) { contents }--)) :: trees)
         in
         let recost, trees =
-            IntSet.fold 
-                (handle_to_formatter (pre_ref_codes, fi_ref_codes)) 
+            IntSet.fold
+                (handle_to_formatter (pre_ref_codes, fi_ref_codes))
                 (Ptree.get_handles tree)
                 (0., [])
         in
         let cost = Ptree.get_cost `Adjusted tree in
         if debug_diagnosis then
             Printf.printf "end of alldirchar.to_formatter: recost = %f, cost = %f \n%!"
-        recost cost; 
-        (RXML -[Xml.Trees.forest] 
+        recost cost;
+        (RXML -[Xml.Trees.forest]
             ([Xml.Trees.recost] = [`Float recost])
             ([Xml.Trees.cost] = [`Float cost])
             ([atr])

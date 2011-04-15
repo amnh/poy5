@@ -75,6 +75,9 @@ module type A = sig
     val seq_of_s    : s -> Sequence.s
     (** [seq_of_s s] Convert the FloatSequence data [s] to the Sequence.s type *)
 
+    val compare     : s -> s -> bool
+    (** [compare a b] Compare the two sequences data *)
+
     (** {6 Functions for testing externally *)
 
     val print_mem   : floatmem -> unit

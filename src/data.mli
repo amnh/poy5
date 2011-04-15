@@ -545,7 +545,7 @@ val assign_prepend :
     d -> bool_characters -> [ `File of FileStream.f | `Array of int array ] -> d
 
 val assign_tcm_to_characters_from_file :
-    d -> bool_characters -> FileStream.f option -> d
+    d -> bool_characters -> (FileStream.f * int option) option -> d
 
 val process_complex_terminals :
     d -> FileStream.f -> d

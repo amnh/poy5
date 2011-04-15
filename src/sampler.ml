@@ -431,55 +431,29 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
             printf "%s -- Adjusted: %f --> %f\n%!" stamp cost_before cost_after
     end
 
-    (* samper to verify a trees likelihood properties
-     *      -- Tree cost > 0
-     *      -- All root medians have the same score *)
+    open Numerical.FPInfix
+    let report_tree_and_costs tree_print tree =
+        let () = tree_print (TreeOps.branch_table tree) tree in
+        List.iter
+            (fun (Tree.Edge (a,b),c) -> Printf.printf "(%d,%d) -> %f\n%!" a b c)
+            (TreeOps.root_costs tree);
+        print_newline ()
+
     class ['a] likelihood_verification print tree_print = object (self)
         inherit [Node.n, 'a] do_nothing
 
-        method process incremental jux1 jux2 vertex tree new_tree delta cost real_cost =
-            let failwithf format = Printf.ksprintf (failwith) format in
-
-            let tree,_ = TreeOps.join_fn None incremental jux1 jux2 tree in
-            let cost = Ptree.get_cost `Adjusted tree in
-            (* check 0 cost *)
-            let () = match classify_float cost with
-                | FP_normal -> ()
-                | FP_subnormal | FP_zero | FP_infinite | FP_nan -> 
-                        failwithf "Asymptotic Score %f" cost
-            in
-
-            (* print tree with branch lengths *)
-            let () = tree_print (TreeOps.branch_table tree) tree in
-
-            (* check all medians equal *)
-            let cost_list = TreeOps.root_costs tree in
-            let cost_passed,offending = match cost_list with
-                | (_,v)::tl ->
-                    List.fold_right
-                        (fun (_,x) (a,o) ->
-                            if abs_float (x-.v) > 0.00001 then false,x
-                            else (a,o) )
-                        tl (true,0.0)
-                | [] -> true,0.0
-            in
-            if not cost_passed then begin
-                let str = List.fold_right 
-                    ((fun s (_,x) a -> (string_of_float x)^s^a) ", ")
-                    cost_list ""
-                in
-                failwithf "Inconsistent Root Costs: %s in %s" (string_of_float offending) str
-            end;
-            (*
-            let () = All_sets.Integers.iter
-                (fun x ->
-                    let res1 = TreeOps.verify_downpass x tree in
-                    if res1 then
-                        print ("Verified Downpass of "^(string_of_int x))
-                    else failwith "Inconsistent Downpass"
-                ) tree.Ptree.tree.Tree.handles in
-            *)
-            ()
+        method process incremental jux1 jux2 vertex otree new_tree delta cost real_cost =
+            let jtree,_ = TreeOps.join_fn None incremental jux1 jux2 otree in
+            let jtree = TreeOps.refresh_all_edges None true None jtree in
+            let dtree = TreeOps.uppass (TreeOps.downpass jtree) in
+            let jcost = Ptree.get_cost `Adjusted jtree
+            and dcost = Ptree.get_cost `Adjusted dtree in
+            let () = report_tree_and_costs tree_print otree in
+            let () = report_tree_and_costs tree_print jtree in
+            let () = report_tree_and_costs tree_print dtree in
+            Printf.printf "%f --> \t%f <> %f, %b\n%!"
+                          (Ptree.get_cost `Adjusted otree)
+                          (jcost) (dcost) (jcost =. dcost);
     end
 
     class ['a] union_table depth print = object (self)
@@ -489,70 +463,64 @@ module MakeRes (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n)
         val results = Array.create 20 ""
         val mutable union_tree = None
 
-        method private update_tree new_tree = 
-            match union_tree with
+        method private update_tree new_tree = match union_tree with
             | None -> 
-                    let res = union_depth new_tree depth in
-                    union_tree <- Some res;
-                    res
+                let res = union_depth new_tree depth in
+                union_tree <- Some res;
+                res
             | Some v ->
-                    if v.Ptree.tree == new_tree.Ptree.tree then v
-                    else 
-                        let res = union_depth new_tree depth in
-                        let _ = union_tree <- Some res in
-                        res
+                if v.Ptree.tree == new_tree.Ptree.tree then v
+                else 
+                    let res = union_depth new_tree depth in
+                    let _ = union_tree <- Some res in
+                    res
 
         method process _ edge _ vertex tree _ delta cost real_cost = 
             let str_delta = string_of_float delta in
             let union_tree = self#update_tree tree in
-            let _ =
-                match edge with
+            let () = match edge with
                 | Tree.Single_Jxn vtx -> (* There is nothing to print here *)
-                        for i = 0 to 19 do
-                            results.(i) <- "";
-                        done;
+                    for i = 0 to 19 do
+                        results.(i) <- "";
+                    done;
                 | Tree.Edge_Jxn (a, b) ->
-                        let e = Tree.Edge (a, b) in
-                        let (Tree.Edge (a, b)) = 
-                            Tree.normalize_edge e tree.Ptree.tree 
-                        in
-                        let adata = Ptree.get_node_data a tree 
-                        and bdata = Ptree.get_node_data b tree
-                        and a_union = Ptree.get_node_data a union_tree
-                        and b_union = Ptree.get_node_data b union_tree in
-                        let vertex_to_a_self =
-                            Node.Union.distance_node (Some b) vertex 
-                            a_union.self
-                        and vertex_to_b_self =
-                            Node.Union.distance_node (Some a) vertex 
-                            b_union.self
-                        and vertex_to_a_root =
-                            Node.Union.distance_node (Some b) vertex 
-                            a_union.rooted 
-                        and vertex_to_b_root = 
-                            Node.Union.distance_node (Some a) vertex 
-                            b_union.rooted
-                        in
-                        results.(0) <-
-                            (match real_cost with
-                            | None -> ""
-                            | Some v -> string_of_float v);
-                        results.(1) <- string_of_float cost;
-                        results.(2) <- string_of_int 
-                            (Node.num_height (Some (Ptree.get_parent b tree)) bdata);
-                        results.(3) <- string_of_int b_union.depth;
-                        results.(4) <- preliminary_gap_saturation vertex;
-                        results.(7) <- preliminary_gap_saturation adata;
-                        results.(8) <- preliminary_gap_saturation bdata;
-                        results.(9) <- preliminary_poly_saturation vertex;
-                        results.(12) <- preliminary_poly_saturation adata;
-                        results.(13) <- preliminary_poly_saturation bdata;
-                        results.(14) <- str_delta;
-                        results.(15) <- string_of_float vertex_to_a_self;
-                        results.(16) <- string_of_float vertex_to_a_root;
-                        results.(17) <- string_of_float vertex_to_b_self;
-                        results.(18) <- string_of_float vertex_to_b_root;
-                        results.(19) <- string_of_int depth;
+                    let e = Tree.Edge (a, b) in
+                    let (Tree.Edge (a, b)) = 
+                        Tree.normalize_edge e tree.Ptree.tree 
+                    in
+                    let adata = Ptree.get_node_data a tree 
+                    and bdata = Ptree.get_node_data b tree
+                    and a_union = Ptree.get_node_data a union_tree
+                    and b_union = Ptree.get_node_data b union_tree in
+                    let vertex_to_a_self =
+                        Node.Union.distance_node (Some b) vertex a_union.self
+                    and vertex_to_b_self =
+                        Node.Union.distance_node (Some a) vertex b_union.self
+                    and vertex_to_a_root =
+                        Node.Union.distance_node (Some b) vertex a_union.rooted
+                    and vertex_to_b_root = 
+                        Node.Union.distance_node (Some a) vertex b_union.rooted
+                    in
+                    results.(0) <-
+                        (match real_cost with
+                        | None -> ""
+                        | Some v -> string_of_float v);
+                    results.(1) <- string_of_float cost;
+                    results.(2) <- string_of_int 
+                        (Node.num_height (Some (Ptree.get_parent b tree)) bdata);
+                    results.(3) <- string_of_int b_union.depth;
+                    results.(4) <- preliminary_gap_saturation vertex;
+                    results.(7) <- preliminary_gap_saturation adata;
+                    results.(8) <- preliminary_gap_saturation bdata;
+                    results.(9) <- preliminary_poly_saturation vertex;
+                    results.(12) <- preliminary_poly_saturation adata;
+                    results.(13) <- preliminary_poly_saturation bdata;
+                    results.(14) <- str_delta;
+                    results.(15) <- string_of_float vertex_to_a_self;
+                    results.(16) <- string_of_float vertex_to_a_root;
+                    results.(17) <- string_of_float vertex_to_b_self;
+                    results.(18) <- string_of_float vertex_to_b_root;
+                    results.(19) <- string_of_int depth;
             in
             Array.iter (fun x -> print x; print "\t") results;
             print "\n";

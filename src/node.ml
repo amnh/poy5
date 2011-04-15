@@ -21,7 +21,7 @@ let () = SadmanOutput.register "Node" "$Revision: 2871 $"
 let infinity = float_of_int max_int
 
 let debug           = false
-(* print a msg if we perform jk distance instead of given BL *)
+(* print a msg if we perform jc distance instead of given BL *)
 let debug_bl        = false
 let debug_exclude   = false
 let debug_sets      = false
@@ -46,8 +46,8 @@ module IntSet = All_sets.Integers
 exception Illegal_argument of string
 
 type to_single = 
-    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd |
-    `Sank | `Seq | `StaticMl | `Ml ]
+    [ `Add | `Annchrom | `Breakinv | `Chrom | `Genome | `Kolmo | `Nonadd
+    | `Sank | `Seq | `StaticMl | `Ml ]
 
 type 'a r = {
     preliminary : 'a;
@@ -59,33 +59,28 @@ type 'a r = {
 }
 
 (** Schemes for origin and loss costs *)
-type origin_loss_cost = [
-| `Flat of int * int ]                 (** Flat cost for each origin and loss *)
+type origin_loss_cost = [ | `Flat of int * int ]
+(** Flat cost for each origin and loss *)
 
 (** Methods for complex terminal alignments.  These variants also contain the
     extra median information appropriate for that set type. *)
 type complex_term_method = [
-| `Strictly_Same  (** Don't allow recombination between elements of a set:  sets
-                      are only used for grouping *)
-
-| `Any_Of of ((int * int * (int * int) list) * float)
-(** Allow choosing of any of the elements to use for the median.  The median
-    information is:
-    - ID of "left" node from which this median was made
-    - ID of "right" node from which this median was made
-    - List with the same length as the set;  the contents are the indices of the
-    element from which that median was made.
-*)
-
-(* | `Tree of int * int * float * tree option *)
-(** Allow simple origin and loss costs *)
+    | `Strictly_Same
+    (** Don't allow recombination between elements of a set:  sets are only used for grouping *)
+    | `Any_Of of ((int * int * (int * int) list) * float)
+    (** Allow choosing of any of the elements to use for the median.  The median
+        information is:
+        - ID of "left" node from which this median was made
+        - ID of "right" node from which this median was made
+        - List with the same length as the set;  the contents are the indices of the
+          element from which that median was made. *)
 ]
 
-let same_ct_method a b =
-    match a, b with
+let same_ct_method a b = match a, b with
     | `Strictly_Same, `Strictly_Same -> true
     | `Any_Of _, `Any_Of _ -> true
-    | `Strictly_Same, _ | `Any_Of _, _ -> false
+    | `Strictly_Same, _ 
+    | `Any_Of _, _ -> false
 
 let ct_same_methods = Utl.pairwisep same_ct_method
 
@@ -94,11 +89,11 @@ type 'a css = {
     set : 'a list;
     smethod : complex_term_method;
 }
-let empty_css =
-    { sid = -1;
-      set = [];
-      smethod = `Strictly_Same;
-    }
+let empty_css = { 
+    sid = -1;
+    set = [];
+    smethod = `Strictly_Same;
+}
 
 (** [ct_verify sa] is a helper debugging function *)
 let ct_verify sa =
@@ -138,8 +133,7 @@ let cs_string = function
     | Kolmo _ -> "kolmo"
     | StaticMl _ -> "staticml"
 
-let rec to_string_ch ch1 =
-    match ch1 with
+let rec to_string_ch ch1 = match ch1 with
     | Nonadd8 a ->
           ("na8: " ^ NonaddCS8.to_string a.final)
     | Nonadd16 a ->

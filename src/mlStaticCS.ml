@@ -448,9 +448,11 @@ let to_formatter attr mine (t1,t2) data : Xml.xml Sexpr.t list =
                 single_ray))
 
     and make_single char_code single_ray = 
+        let name = Data.code_character mine.codes.(char_code) data in 
         (PXML
             -[Xml.Characters.vector]
                 ([Xml.Data.code] = [`Int char_code])
+                ([Xml.Characters.name] = [`String name])
                 { `Set (make_single_vec char_code single_ray) }
         --)
     in

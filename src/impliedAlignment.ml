@@ -2571,7 +2571,7 @@ module Make (Node : NodeSig.S) (Edge : Edge.EdgeSig with type n = Node.n) = stru
             if remove_non_informative then update_ia_encodings res
             else res
         in
-        print_contents_of_parser_compatible res;
+        (* print_contents_of_parser_compatible res;*)
         let alphabets = Array.map fst a
         and encodings = Array.map snd a in
         let res = 
