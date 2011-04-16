@@ -27,7 +27,7 @@ let error_user_message format = Printf.ksprintf (Status.user_message Status.Erro
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
 let faster_remove = true
-let debug_main = false 
+let debug_main = false
 let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
@@ -3584,21 +3584,22 @@ num_of_mums old_cov_rate =
         ) (!res_lcbs,!res_cov_rate,!res_lcb_tbl) light_block_lst in
         let better_lcbs,better_cov_rate,better_lcb_tbl = better_result in
         if better_cov_rate> !res_cov_rate then begin
-        if debug_remove_bad_match then begin
+            if debug_remove_bad_match then begin
             Printf.printf "remove worst lcb block:%!" ;
             List.iter (fun lcbkey -> print_int_list lcbkey) !block2remove;
             Printf.printf "new lcb_tbl,size=%d,covR=%f(pre covR=%f),\n%!"
             (Hashtbl.length better_lcb_tbl) better_cov_rate !res_cov_rate;
             print_lcblst better_lcbs;
-        end;
-        res_lcbs := better_lcbs;
-        res_cov_rate := better_cov_rate;
-        res_lcb_tbl := better_lcb_tbl;
+            end;
+            res_lcbs := better_lcbs;
+            res_cov_rate := better_cov_rate;
+            res_lcb_tbl := better_lcb_tbl;
         end
         else begin
-        if debug_remove_bad_match then info_user_message 
-        "covR drops from %f, improving set to false." !res_cov_rate;
-        improving := false;
+            if debug_remove_bad_match then info_user_message 
+            "covR drops from %f, improving set to false." !res_cov_rate;
+            improving := false;
+           
         end; 
     end 
     else begin
@@ -3606,7 +3607,15 @@ num_of_mums old_cov_rate =
         info_user_message "could not improve covR by removing lcbs";
         improving := false;
         (*lcbs,old_cov_rate,lcb_tbl*)
-    end
+    end;
+    if !improving=false && q3_lcb_lst<>[] then begin
+            let new_lcbs, new_lcb_cov_rate,num_badlcb,new_lcb_tbl = 
+            build_LCBs !res_lcbs mum_tbl seed2pos_tbl in_seq_size_lst None
+            in
+            res_lcbs := new_lcbs;
+            res_cov_rate := new_lcb_cov_rate;
+            res_lcb_tbl := new_lcb_tbl;
+    end;
     done;
     !res_lcbs,!res_cov_rate,!res_lcb_tbl
 
@@ -4562,9 +4571,10 @@ locus_indel_cost cost_mat  =
     let in_seqarr = [|seq1arr;seq2arr|] in
     let lcb_tbl,lcbs,code_list,full_range_lstlst = 
         create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_penalty in
-    if debug2 then begin
-        Hashtbl.iter (fun key record ->
-        print_lcb record ) lcb_tbl;
+    if debug then begin
+        if debug2 then 
+            Hashtbl.iter (fun key record ->
+            print_lcb record ) lcb_tbl;
         (* Printf.printf "lcbs is \n%!";  Block_mauve.print_lcblst lcbs;*)
         Printf.printf "original code list is \n%!";
         print_int_lstlst code_list;
@@ -4575,7 +4585,8 @@ locus_indel_cost cost_mat  =
     let gen_gap_code = (len_lst1 + len_lst2) * 2 + 1 in
     let matlen = gen_gap_code + 1 in
     if debug then
-        Printf.printf "make empty matrix with size = %d,base=%d\n%!" matlen base;
+        Printf.printf "make empty matrix with size = %d,base=%d (%d,%d)\n%!"
+        matlen base len_lst1 len_lst2;
     let gen_cost_mat = Array.make_matrix matlen matlen Utl.large_int in
     let set_cost code1 code2 cost = gen_cost_mat.(code1).(code2) <- cost in
     let empty_seq = Sequence.get_empty_seq () in

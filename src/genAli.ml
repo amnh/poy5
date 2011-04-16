@@ -611,6 +611,7 @@ cost_matrix gapcode re_meth circular orientation  =
     in
     let matched_list, matched_cost = 
         match_pair code1_arr codem_arr cost_array sizex sizey gapcode in
+    if debug then Printf.printf "match pair done\n%!";
     let matched_array = Array.of_list matched_list in
     (*get codes that not matched with gap code in code1_arr from codem_arr by
     * the order of code1_arr, then calculate the rearrangement cost between this
