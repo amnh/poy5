@@ -3668,10 +3668,10 @@ let debug = false in
             if (trim_from_left) then pos2seed_tbl1,pos2seed_tbl2
             else pos2seed_tbl2,pos2seed_tbl1
         in
-        add_to_pos2seed_tbl trim_from_left pos2seed_tbl_l pos2seed_tbl_r 
+        add_to_pos2seed_tbl true pos2seed_tbl_l pos2seed_tbl_r 
         seqNO left k_seedNO klen 
         ori k_extsign k_size seed2pos_tbl mum_tbl;
-        add_to_pos2seed_tbl trim_from_left pos2seed_tbl_l pos2seed_tbl_r 
+        add_to_pos2seed_tbl false pos2seed_tbl_l pos2seed_tbl_r 
         seqNO right k_seedNO klen 
         ori k_extsign k_size seed2pos_tbl mum_tbl;
     ) k_milst;
