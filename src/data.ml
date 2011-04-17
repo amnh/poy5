@@ -4230,7 +4230,9 @@ END
 let set_likelihood data (((chars,_,_,_,_,use_gap) as m_spec):Methods.ml_spec) =
 IFDEF USE_LIKELIHOOD THEN
     match get_chars_codes_comp data chars with
-    | [] -> data
+    | [] -> 
+        output_warning "No characters changed";    
+        data
     | chars ->
         let data  = remove_absent_present_encodings ~ignore:true data in
         let chars = 

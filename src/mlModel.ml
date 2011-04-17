@@ -62,9 +62,10 @@ and print_barray2 a =
 
 (* type to help the parsing of specification data *)
 type string_spec = string * (string * string * string * string) * float list
-                 * [ `Given of (string * float) list | `Equal | `Estimate of float array option ]
+                 * [ `Given of (string * float) list | `Estimate of float array option
+                   | `Consistent of float array option | `Equal ]
                  * (string * float option) * string * string option
-let empty_str_spec : string_spec = ("",("","","",""),[],`Estimate None,("",None),"",None)
+let empty_str_spec : string_spec = ("",("","","",""),[],`Consistent None,("",None),"",None)
 
 (* --- DEFAULTS FOR MODELS FROM PHYML --- *)
 (*  These are used for DNA sequences, and
@@ -690,13 +691,13 @@ let output_model output nexus model set =
         in
         printf "@]";
         let () = match model.spec.cost_fn with
-            | `MPL -> printf "@[<hov 1>Cost mode: mpl;@]\n";
-            | `MAL -> printf "@[<hov 1>Cost mode: mal;@]\n"; 
-            | `FLK -> printf "@[<hov 1>Cost mode: flk;@]\n"; 
+            | `MPL -> printf "@[<hov 0>Cost mode: mpl;@]@\n";
+            | `MAL -> printf "@[<hov 0>Cost mode: mal;@]@\n"; 
+            | `FLK -> printf "@[<hov 0>Cost mode: flk;@]@\n"; 
         in
-        printf "@[@[<hov 0>Priors / Base frequencies:@]@\n";
+        printf "@[<hov 0>Priors / Base frequencies:@\n";
         let () = match model.spec.base_priors with
-            | Equal -> printf "@[<hov 1>- Equal]"
+            | Equal -> printf "@[Equal@]@]@\n"
             | Estimated x | Given x ->
                 List.iter
                     (fun (s,i) ->
@@ -705,8 +706,7 @@ let output_model output nexus model set =
                         try printf "@[<hov 1>- f(%s)= %.5f@]@\n" s x.(i) with _ -> ())
                     (Alphabet.to_list model.alph);
         in
-        printf "@]";
-        printf "@[@[Model Parameters: ";
+        printf "@[<hov 0>Model Parameters: ";
         let () = match model.spec.substitution with
             | JC69  -> printf "JC69@]@\n"
             | F81   -> printf "F81@]@\n"
@@ -755,12 +755,12 @@ let output_model output nexus model set =
                 done;
         in
         let () = match model.spec.use_gap with
-            | `Independent -> printf "@[<hov 1>Gap property: independent;@]@\n"
-            | `Coupled x   -> printf "@[<hov 1>Gap property: coupled, Ratio: %f;@]@\n" x
-            | `Missing     -> printf "@[<hov 1>Gap property: missing;@]@\n"
+            | `Independent -> printf "@[<hov 0>Gap property: independent;@]@\n"
+            | `Coupled x   -> printf "@[<hov 0>Gap property: coupled, Ratio: %f;@]@\n" x
+            | `Missing     -> printf "@[<hov 0>Gap property: missing;@]@\n"
         in
         printf "@]";
-        printf "@[@[Instantaneous rate matrix:@]@\n";
+        printf "@[@[<hov 0>Instantaneous rate matrix:@]@\n";
         let () = 
             let mat = compose model ~-.1.0 in
             printf "@[<hov 1>[";
@@ -930,7 +930,8 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         (* ERROR *)
         | "" -> failwith "No Model Specified"
         | _  -> failwith "Incorrect Model"
-    and cost_fn = match String.uppercase cost with
+    in
+    let cost_fn = match String.uppercase cost with
         | "MPL" -> `MPL
         | "MAL" -> `MAL
         | "FLK" -> `FLK
@@ -962,6 +963,13 @@ let convert_string_spec ((name,(var,site,alpha,invar),param,priors,gap,cost,file
         | `Given priors  -> Given (Array.of_list (List.map snd priors))
         | `Equal -> Equal
         | `Estimate (Some x) -> Estimated x
+        | `Consistent pre_calc ->
+            begin match submatrix, pre_calc with
+                | JC69, _
+                | K2P _, _   -> Equal
+                | _, Some pi -> Estimated pi
+                | _ , None   -> assert false
+            end
         | `Estimate None -> assert false
     and gap_info =
         match String.uppercase (fst gap),snd gap with
@@ -993,6 +1001,11 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
         | `Estimate  -> Estimated (compute_priors ())
         | `Equal     -> Equal
         | `Given arr -> Given (Array.of_list arr)
+        | `Consistent ->
+            begin match subst with
+                | `JC69 | `K2P _ -> Equal
+                | _ -> Estimated (compute_priors ())
+            end
     and site_variation = match site_variation with
         | None   -> Some Constant 
         | Some (`Gamma (w,y)) -> 
@@ -1020,9 +1033,9 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
             end else if Array.length aray = 0 then begin
                 K2P None
             end else
-                let () = 
+                let () =
                     Status.user_message Status.Error
-                        "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters" 
+                        "Likelihood@ model@ K80@ requires@ 1@ or@ 0@ parameters"
                 in
                 failwith("Incorrect Parameters");
         | `K2P None -> K2P None
@@ -1033,12 +1046,12 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
                 HKY85 (Some aray.(0))
             end else if Array.length aray = 0 then begin
                 HKY85 None
-            end else 
-                let () = 
+            end else
+                let () =
                     Status.user_message Status.Error
-                        "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters" 
+                        "Likelihood@ model@ HKY85@ requires@ 1@ or@ 0@ parameters"
                 in
-                failwith("Incorrect Parameters");    
+                failwith("Incorrect Parameters");
         | `HKY85 None -> HKY85 None
         | `F84 (Some x) ->
             let aray = Array.of_list x in
@@ -1047,19 +1060,19 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
                 F84 (Some aray.(0))
             end else if Array.length aray = 0 then begin
                 F84 None
-            end else 
-                let () = 
+            end else
+                let () =
                     Status.user_message Status.Error
-                        "Likelihood@ model@ HKY85@ requires@ 1@ parameters" 
+                        "Likelihood@ model@ F84@ requires@ 1@ parameters"
                 in
                 failwith("Incorrect Parameters");
         | `F84 None -> F84 None
-        | `TN93 (Some x) -> 
+        | `TN93 (Some x) ->
             let aray = Array.of_list x in
             if Array.length aray <> 2 then
-                let () = 
+                let () =
                     Status.user_message Status.Error
-                        "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters" 
+                        "Likelihood@ model@ TN93@ requires@ 2@ or@ 0@ parameters"
                 in
                 failwith("Incorrect Parameters");
             else if Array.length aray = 0 then begin
@@ -1070,13 +1083,14 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
             end
         | `TN93 None -> TN93 None
         | `GTR (Some x) ->
-            let aray = Array.of_list x in 
+            let aray = Array.of_list x in
             let n_a = (alph_size * (alph_size-1)) / 2 in
             if (Array.length aray) <> n_a then
-                let () = Status.user_message Status.Error 
-                ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
-                 "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
-                 (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".") in
+                let () = Status.user_message Status.Error
+                    ("Likelihood@ model@ GTR@ requires@ (a-1)*(a/2)@ "^
+                     "parameters@ with@ alphabet@ size@ a. In@ this@ case@ "^
+                     (string_of_int n_a) ^",@ with@ a@ =@ "^ (string_of_int alph_size) ^".")
+                in
                 failwith "Incorrect Parameters";
             else if Array.length aray = 0 then begin
                 GTR None
@@ -1085,17 +1099,18 @@ let convert_methods_spec alph_size compute_priors (_,cst,subst,site_variation,ba
                 GTR (Some aray)
             end
         | `GTR None -> GTR None
-        | `File str -> 
+        | `File str ->
                 (* this needs to be changed to allow remote files as well *)
             let matrix = Cost_matrix.Two_D.fm_of_file (`Local str) in
             let matrix = Array.of_list (List.map (Array.of_list) matrix) in
             (* check the array size == a_size *)
             (* check the array array size == a_size *)
-            Array.iter (fun x ->
-                            if Array.length x = alph_size then ()
-                            else failwith "I@ don't@ like@ your@ input@ file:")
-                       (matrix);
-            if Array.length matrix = alph_size then 
+            Array.iter 
+                (fun x ->
+                    if Array.length x = alph_size then ()
+                    else failwith "I@ don't@ like@ your@ input@ file:")
+                (matrix);
+            if Array.length matrix = alph_size then
                 File (matrix,str)
             else
                 failwith "I@ don't@ like@ your@ input@ file."
@@ -1209,6 +1224,13 @@ let create ?(min_prior=Numerical.minimum) alph lk_spec =
             false, m_gtr priors c a_size _gapr, (GTR (Some c)),gapr
         | File (m,s)->
             false, m_file priors m a_size, lk_spec.substitution, lk_spec.use_gap
+    in
+    (* ensure that when priors are not =, we use a model that asserts that *)
+    let () = 
+        match lk_spec.base_priors with
+        | Estimated _  when sym -> failwith "JC69/K80 require equal priors"
+        | Given _ when sym -> failwith "JC69/K80 require equal priors"
+        | _ -> ()
     in
     let (u_,d_,ui_) = diagonalize sym sub_mat in
     {

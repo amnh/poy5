@@ -2077,6 +2077,7 @@ let ( --> ) a b = b a
 
 let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list = 
     let h = t.heuristic in
+    let res_state = ref (-1) in
     let rec output_sequence acc code seq do_to_single =
         let one_sequence (cmin, cmax, ccost, seqs) par seq =
             let cost = seq.DOS.costs in
@@ -2124,6 +2125,7 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                     { min = min; max = max }, (`FloatFloatTuple (min, max)),
                     max, seqs
             | Heuristic_Selection seq ->
+                    Printf.printf "HS.to_formatter\n%!";
                     let cost = seq.DOS.costs in
                     let costb, max = 
                         match do_to_single with
@@ -2144,14 +2146,15 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                         | Some (Relaxed_Lifted _) -> assert false
                     in
                     cost, costb, max, [seq.DOS.sequence]
-            | Relaxed_Lifted (spec, seq) -> 
+            | Relaxed_Lifted (spec, seq) ->
                     let best = ref max_float in
                     let my_pos = ref (-1) in
                     let () =
                         let process par_pos = 
                             Array.iteri (fun pos v ->
-                                let t =
-                                    spec.RL.distance_table.(par_pos).(pos)
+                                let cost = spec.RL.distance_table.(par_pos).(pos) in
+                                let t = cost 
+                                    (*spec.RL.distance_table.(par_pos).(pos)*)
                                     +. v
                                 in
                                 if t < !best then begin
@@ -2164,7 +2167,8 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                                 Array.iteri (fun pos v ->
                                     if v < !best then begin
                                         best := v;
-                                        my_pos := pos; end else ()) 
+                                        my_pos := pos; 
+                                end else ()) 
                                 seq.RL.states;
                         | Some (Partitioned par) ->
                                 assert false; (* TODO *)
@@ -2175,18 +2179,21 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                                 process x.DOS.position
                     in
                     let bests = !best in
+                    res_state := !my_pos;
                     DOS.make_cost (int_of_float !best), 
                     `FloatFloatTuple (bests, bests), !best,
                     [spec.RL.sequence_table.(!my_pos)]
         in
+        let statename = (string_of_int !res_state) in
         let seq () = 
             match seq with
             | [] -> assert false
             | seq -> 
-                    String.concat "#" 
+                    (*String.concat "#" 
                     (List.map (fun x -> 
                         let x = Sequence.del_first_char x in
-                        Sequence.to_formater x t.alph) seq)
+                        Sequence.to_formater x t.alph) seq)*)
+                    statename
         in
         let definite_str = 
             if max > 0. then  `String "true"
@@ -2196,7 +2203,7 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
         (PXML 
             -[T.sequence] 
                 (* Attributes *)
-                ([T.name] = [`String (Data.code_character code d)])
+                ([T.name] = [`String ((Data.code_character code d)^"STATE:"^statename)])
                 ([T.cost] = [costb])
                 ([T.definite] = [definite_str])
                 ([attr])
