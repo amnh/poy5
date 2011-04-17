@@ -803,11 +803,11 @@ module Two_D = struct
                     | [_], [_] ->
                             let comb_i_j = comblist_to_combcode keylist m in
                             set_median i j m ( comb_i_j );
-                            (*Printf.printf "median.%d.%d <- %d;%!" 
-                            i j (comb_i_j);*)
+                            if debug then Printf.printf "median.%d.%d <- %d;\n%!" 
+                            i j (comb_i_j);
                     | _, _ ->
-                            (*Printf.printf "cost.%d.%d <- %d;%!"
-                            i j !cost;*)
+                            if debug then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
+                            i j !cost !best;
                             set_cost (i) (j) m !cost;
                             set_median (i) (j) m (cleanup !best);
                 in
