@@ -4460,7 +4460,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
     (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, remove lightW ones*)
     let outer_lcb_tbl = !outer_lcb_tbl in
-    if !any_improvement=false then 
+    if !any_improvement_outer = false then 
         (*Hashtbl.clear outer_lcb_tbl; *)
         Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then begin
