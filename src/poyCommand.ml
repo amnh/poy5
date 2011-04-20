@@ -475,7 +475,7 @@ let console_script = ref []
 let add_command_to_console_script str : string = 
     console_script := str :: !console_script; str
 
-let iter_default =  `MaxCount 20, `JoinDelta
+let iter_default =  `Always, `AllBranches
 
 (* Building *)
 let build_default_method_args = (1, 0.0, `Last, [], `UnionBased None)
@@ -2010,6 +2010,8 @@ let create_expr () =
                 [ LIDENT "annotated"; ":"; left_parenthesis; a = LIST1 [x =
                     otherfiles -> x] SEP ","; 
                     right_parenthesis -> ((`AnnotatedFiles a) :> Methods.input) ] |
+(*                [ LIDENT "raw"; ":"; left_parenthesis; a = STRING;*)
+(*                    right_parenthesis -> ((`Raw a) :> Methods.input) ] |*)
                 [ LIDENT "prealigned"; ":"; left_parenthesis; a = otherfiles;
                 ","; b = prealigned_costs; c = OPT prealigned_gap_opening; 
                 right_parenthesis -> 
