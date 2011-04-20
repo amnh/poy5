@@ -28,10 +28,7 @@ type 'a align = { ss : 'a array; }
  *                 floating point values.
  *   MPLAlign    - Two transformation matrices are created for each sequence,
  *                 these measure the probability of each transition, and when
- *                 find the minimum value (X->I)(Y->I) for the assignment I.
- *   FixedStates - ....
- *   Likelihood  - ....
-*)
+ *                 find the minimum value (X->I)(Y->I) for the assignment I. *)
 type r = | FPAlign      of FloatSequence.FloatAlign.s align
          | MPLAlign     of FloatSequence.MPLAlign.s align
 
@@ -88,9 +85,7 @@ let code t = t.code
 
 let get_codes t = t.codes
 
-let cardinal t = match t.data with
-    | MPLAlign _
-    | FPAlign _     -> Array.length t.codes
+let cardinal t = Array.length t.codes
 
 let encoding e t = match t.data with
     | MPLAlign r ->
@@ -107,21 +102,17 @@ let encoding e t = match t.data with
             (r.ss)
 
 let name_string t = match t.data with
-    | MPLAlign _    -> "Maximum Parsimonious Dynamic Likelihood"
-    | FPAlign _     -> "Floating Point Ancesteral Dynamic Likelihood"
+    | MPLAlign _ -> "Maximum Parsimonious Dynamic Likelihood"
+    | FPAlign _  -> "Floating Point Ancesteral Dynamic Likelihood"
 
-let total_cost t = match t.data with
-    | MPLAlign _ 
-    | FPAlign _     -> t.cost
+let total_cost t = t.cost
 
 let model t = t.model
 
 let static_model t = t.model.FloatSequence.static
 
-let s_of_seq seq : Sequence.s array = 
-    seq --> SeqCS.get_sequences
-        --> Array.to_list
-        --> Array.concat
+let s_of_seq seq : Sequence.s array =
+    seq --> SeqCS.get_sequences --> Array.to_list --> Array.concat
 
 let leaf_sequences t = match t.data with
     | FPAlign r ->
@@ -142,7 +133,6 @@ let leaf_sequences t = match t.data with
             (r.ss)
 
 (*---- to formatter, and printing functions *)
-
 let to_formatter attr mine par_opt (t1,t2) d : Xml.xml Sexpr.t list = 
     let str_time = function | Some x -> `Float x | None -> `String "None" in
     match mine.data with
@@ -343,7 +333,52 @@ let verify_mpl_cost cst1 sa sb model bla blb mem =
         true
     end
 
-
+let prior a = 
+    let m = static_model a in
+    let priors = m.MlModel.pi_0 in
+    match a.data with
+    | FPAlign a ->
+        let avg_prior_of_seq (acc:float) sequence =
+            Sequence.foldi
+                (fun acc pos i -> 
+                    if pos = 0 then acc (* skip gap opening *)
+                    else begin
+                        let c_pi,len = 
+                            List.fold_left
+                                (fun (acc,n) i -> acc +. priors.{i},n+1)
+                                (0.0,0)
+                                (BitSet.Int.list_of_packed i)
+                        in
+                        (~-. ((log c_pi) -. (log (float len)))) +. acc
+                    end)
+                acc
+                sequence
+        in
+        Array.fold_left
+            (fun acc i -> avg_prior_of_seq acc (FloatSequence.FloatAlign.seq_of_s i))
+            (0.0) 
+            (a.ss)
+    | MPLAlign a ->
+        let max_prior_of_seq (acc:float) sequence =
+            Sequence.foldi
+                (fun acc pos i -> 
+                    if pos = 0 then acc (* skip gap opening *)
+                    else begin
+                        let c_pi = 
+                            List.fold_left
+                                (fun acc i -> max acc priors.{i})
+                                (0.0)
+                                (BitSet.Int.list_of_packed i)
+                        in
+                        (~-. (log c_pi)) +. acc
+                    end)
+                (acc)
+                (sequence)
+        in
+        Array.fold_left
+            (fun acc i -> max_prior_of_seq acc (FloatSequence.MPLAlign.seq_of_s i))
+            (0.0) 
+            (a.ss)
 
 let remove_ambiguities dyn =
     let gap = Alphabet.get_gap (alph dyn) in
@@ -543,12 +578,14 @@ let make a s m =
         | `MAL ->
             failwith "Dynamic Maximum Average Likelihood is not implemented to diagnose trees."
     in
-    {    data = r;
-        model = { FloatSequence.static = m; alph = a; };
-         cost = 0.0;
-         code = s.SeqCS.code;
-        codes = s.SeqCS.codes;
-    }
+    let data = 
+        {    data = r;
+            model = { FloatSequence.static = m; alph = a; };
+             cost = 0.0; (* fill this in with call to prior *)
+             code = s.SeqCS.code;
+            codes = s.SeqCS.codes; }
+    in
+    { data with cost = prior data; }
 
 let to_single parent mine t = 
     let pcost = total_cost mine in
@@ -579,53 +616,6 @@ let to_single parent mine t =
         pcost, !score, { mine with data = MPLAlign { ss = n_data }; }
     (* although weak, this is the only solution *)
     | (FPAlign _ | MPLAlign _ ), _ -> assert false
-
-let prior a = 
-    let m = static_model a in
-    let priors = m.MlModel.pi_0 in
-    match a.data with
-    | FPAlign a ->
-        let avg_prior_of_seq (acc:float) sequence =
-            Sequence.foldi
-                (fun acc pos i -> 
-                    if pos = 0 then acc (* skip gap opening *)
-                    else begin
-                        let c_pi,len = 
-                            List.fold_left
-                                (fun (acc,n) i -> acc +. priors.{i},n+1)
-                                (0.0,0)
-                                (BitSet.Int.list_of_packed i)
-                        in
-                        (~-. ((log c_pi) -. (log (float len)))) +. acc
-                    end)
-                acc
-                sequence
-        in
-        Array.fold_left
-            (fun acc i -> avg_prior_of_seq acc (FloatSequence.FloatAlign.seq_of_s i))
-            (0.0) 
-            (a.ss)
-    | MPLAlign a ->
-        let max_prior_of_seq (acc:float) sequence =
-            Sequence.foldi
-                (fun acc pos i -> 
-                    if pos = 0 then acc (* skip gap opening *)
-                    else begin
-                        let c_pi = 
-                            List.fold_left
-                                (fun acc i -> max acc priors.{i})
-                                (0.0)
-                                (BitSet.Int.list_of_packed i)
-                        in
-                        (~-. (log c_pi)) +. acc
-                    end)
-                (acc)
-                (sequence)
-        in
-        Array.fold_left
-            (fun acc i -> max_prior_of_seq acc (FloatSequence.MPLAlign.seq_of_s i))
-            (0.0) 
-            (a.ss)
 
 ELSE
 
