@@ -241,20 +241,30 @@ module Two_D = struct
             print_newline ();
         done;;
 
-    let rec store_input_list_in_cost_matrix_some_combinations m l elt1 elt2 a_sz =
+    let rec store_input_list_in_cost_matrix_some_combinations m l elt1 elt2 a_sz all_elements =
+        let debug = false in
+        let use_all_element = 
+            if all_elements=a_sz-1 then true else false in
+        if debug then
+        Printf.printf "store_input_list_in_cost_matrix_some_combinations,all_elements=%d\n%!"  all_elements;
         if(  (elt1 > a_sz) || (elt2 > a_sz) ) then begin
             if( elt1 <= a_sz ) then
             store_input_list_in_cost_matrix_some_combinations m l (elt1+1) 1
-            a_sz
+            a_sz all_elements
             else ()
         end else begin
             match l with
             | h :: t -> 
+                let h =
+                   if use_all_element && (elt1 = all_elements || elt2 =
+                       all_elements) then 0
+                   else h
+                in
                 if debug then
                     Printf.printf "Store the cost %d %d is %d\n" elt1 elt2 h;
                 set_cost elt1 elt2 m h;
                 store_input_list_in_cost_matrix_some_combinations m t
-                elt1 (elt2 + 1) a_sz;
+                elt1 (elt2 + 1) a_sz all_elements;
             | [] -> raise Illegal_Cm_Format;
         end
 
@@ -280,6 +290,10 @@ module Two_D = struct
 
     let rec store_input_list_in_cost_matrix_no_comb m l el1 el2 a_sz
     all_elements =
+    let debug = false in
+    if debug then Printf.printf
+    "store_input_list_in_cost_matrix_no_comb,a_sz=%d,all_elements=%d\n%!"
+    a_sz all_elements;
         if ((el1 > a_sz) || (el2 > a_sz)) then 
             if (el1 <= a_sz) then
                 store_input_list_in_cost_matrix_no_comb m l (el1 + 1) 1 a_sz
@@ -304,9 +318,14 @@ module Two_D = struct
             | [] -> raise Illegal_Cm_Format
 
     let store_input_list_in_cost_matrix use_comb m l a_sz all_elements =
+        let debug = false in
+        if debug then
+        Printf.printf
+        "store_input_list_in_cost_matrix,all_elements=%d,a_sz=%d,use_comb=%b\n%!"
+        all_elements a_sz use_comb;
         if use_comb then 
             if (check_level m) then
-                store_input_list_in_cost_matrix_some_combinations m l 1 1 a_sz
+                store_input_list_in_cost_matrix_some_combinations m l 1 1 a_sz all_elements
             else
             store_input_list_in_cost_matrix_all_combinations m l 1 1 a_sz
         else 
@@ -489,6 +508,8 @@ module Two_D = struct
 * *)
     let rec comblist_to_combcode lst m =
         assert( (List.length lst)>0 );
+        let all_elements = get_all_elements m in
+        let lst = List.filter (fun x -> x<>all_elements) lst in
         let break_union newlist listitem =
             (combcode_to_comblist listitem m) @ newlist
         in
@@ -511,10 +532,11 @@ module Two_D = struct
     ;;
  
    
-    let build_maps_comb_and_codelist m ori_a_sz level =
+    let build_maps_comb_and_codelist m ori_a_sz level all_elements =
         (*let c2lmatrix = Array.make_matrix ((get_map_sz m)+1) 3 0 in*)
         let init_arr = Array.init ori_a_sz (fun i -> i+1 ) in
-        let init_list = Array.to_list init_arr in 
+        let init_list = Array.to_list init_arr in
+        let init_list = List.filter (fun x -> x<>all_elements) init_list in
         let rec all_combinations lst=
             match lst with
             | h :: t ->
@@ -529,24 +551,45 @@ module Two_D = struct
             | [] :: ((_ :: _) as r) -> r
             | _ -> assert false
         in
-        assert( (List.length all_comb_list) == (get_map_sz m) );
+        (*
+        let all_comb_list = 
+            if all_elements>0 then [all_elements]::all_comb_list
+            else all_comb_list 
+        in*)
+        (*List.iter (fun x -> Printf.printf "[%!";
+        List.iter (fun y -> Printf.printf "%d," y) x;
+        Printf.printf "]%!"; ) all_comb_list;
+        Printf.printf "get_map_sz = %d\n%!" (get_map_sz m); *)
+        (*assert( (List.length all_comb_list) == (get_map_sz m) );*)
         let comb_list_by_level = all_comb_list in 
         let count = ref (ori_a_sz+1) in
+        let pure_a_sz = if all_elements>0 then ori_a_sz - 1 
+        else ori_a_sz in
+        let get_rcode code =
+            if code=ori_a_sz then 1
+            else if code=1 then ori_a_sz
+            else if code<ori_a_sz then pure_a_sz+1-code
+            else code
+        in
         let create_maps lst =
             match lst with
             | [code] -> 
-                    let realcode = ori_a_sz+1-code in
+                    let realcode = get_rcode code(*ori_a_sz+1-code*) in
                     set_combmap realcode realcode realcode m;
                     set_comb2list realcode realcode realcode m;
+                    (*Printf.printf "work on code=%d,%d,%d <- %d\n%!"
+                    code realcode realcode realcode;*)
                   (*  c2lmatrix.(realcode).(1) <- realcode;
                     c2lmatrix.(realcode).(2) <- realcode;*)
             | lst ->
+                    (*Printf.printf "work on %!";
+                    List.iter (fun x->Printf.printf "%d,%!" x) lst;*)
                     let codelist =
                         List.fold_left 
                         (fun acc_codelist code ->  
-                            let realcode = 
-                                if code<=ori_a_sz then (ori_a_sz+1-code)
-                                else code
+                            let realcode = get_rcode code
+                                (*if code<=ori_a_sz then (ori_a_sz+1-code)
+                                else code*)
                             in
                             realcode::acc_codelist) [] lst 
                     in
@@ -559,6 +602,9 @@ module Two_D = struct
                                  tmpcode
                         | _ -> raise(Illegal_List_length)
                     in
+                    
+                    (*Printf.printf "%d and %d <- %d\n%!" (List.hd revcodelist)
+                     * combcode_tl !count; *)
                     set_combmap (List.hd revcodelist) combcode_tl (!count) m;
                     set_combmap combcode_tl (List.hd revcodelist) (!count) m;
                     set_comb2list (List.hd revcodelist) combcode_tl (!count) m;
@@ -570,17 +616,19 @@ module Two_D = struct
     ;;
 
     
-    let rec browse_combinations a l a_sz m best c w comb_withgap comb_num (*comb_to_list
-    list_to_comb*) level =
+    let rec browse_combinations a l a_sz m best c w comb_withgap comb_num level all_elements =
         let gap = 
             if (check_level m) then a_sz
             else gap m in
         let go = gap_opening m in
-        (* Printf.printf "\n browse_combinations combwithgap = %d; %!" comb_withgap;*)
-        match l with
+(*        Printf.printf "\n browse_combinations combwithgap = %d; %!"
+        comb_withgap;
+*)        match l with
         | b :: t ->
                 for i = 0 to a_sz - 1 do
                     let v = i+1 in 
+                    if all_elements>0 && v=all_elements then ()
+                    else begin
                     let goa =
                         if 1 = c_affine m && v = gap && 
                             ((comb_num-a)<comb_withgap) && ((comb_num-b)<comb_withgap) then 
@@ -590,48 +638,54 @@ module Two_D = struct
                     let fh = cost a v m
                     and sh = cost v b m in
                     let tc = fh + sh + goa in
-                   (* Printf.printf " a,b,v; c,tc= %d,%d,%d; %d,%d; " a b v (!c)
-                    tc;*)
-                    if (tc < !c) then begin
+  (*                  Printf.printf " a,b,v; c,tc= %d,%d,%d; %d,%d; " a b v (!c)
+                    tc;
+  *)                if (tc < !c) then begin
                         c := tc;
                         best := v;
                     end else if (tc == !c) then 
                         begin
                             let oldcomblist = combcode_to_comblist (!best) m in
                             let oldlistlen = List.length oldcomblist in
-                            if (oldlistlen < level) then
+    (*                        Printf.printf "old list len=%d\n%!" oldlistlen;
+    *)                      if (oldlistlen < level) then
                                 begin
                                     let newcomblist = combcode_to_comblist v m in
                                     let newlistlen = List.length newcomblist in
-                                    if ((newlistlen+oldlistlen)<=level) then
+   (*                                 Printf.printf "new list len=%d\n%!"
+                                    newlistlen;
+   *)                               if ((newlistlen+oldlistlen)<=level) then
                                         begin
                                             let newcomblist = (newcomblist@oldcomblist) in
                                             let newlist =
                                                 clear_duplication_in_list
                                                 newcomblist in
-                                            (*Printf.printf "newcomb=%d,%!"
-                                            * newcomb; *)
                                            let newcomb = comblist_to_combcode newlist m in
-                                            (*Printf.printf "%d; %!" newcomb;*)
-                                            (*print_intlist newlist;*)
-                                            best := newcomb;
+     (*                                       Printf.printf "newcomb <- %d; %!" newcomb;
+                                            print_intlist newlist;
+     *)                                    best := newcomb;
                                          end  
                                     else ()
                                 end
                             else()
                         end
                     else ()
+                    end
                 done;
                 let cab = cost a b m in
                 if (cab > !w) then w := cab;
-                browse_combinations a t a_sz m best c w  comb_withgap comb_num  level;
+                browse_combinations a t a_sz m best c w  comb_withgap comb_num
+                level all_elements;
         | [] -> ();;
 
-    let rec test_combinations_by_level li lj a_sz m best c w comb_withgap comb_num level = 
+    let rec test_combinations_by_level li lj a_sz m best c w comb_withgap
+    comb_num level all_elements = 
         match li with
         | h :: t ->
-                browse_combinations h lj a_sz m best c w comb_withgap comb_num  level;
-                test_combinations_by_level t lj a_sz m best c w comb_withgap comb_num level
+                browse_combinations h lj a_sz m best c w comb_withgap comb_num
+                level all_elements;
+                test_combinations_by_level t lj a_sz m best c w comb_withgap
+                comb_num level all_elements
         | [] -> ();;
 
     let rec test_all_combinations li lj a_sz m best c w = 
@@ -718,43 +772,61 @@ module Two_D = struct
             done;
         done
    
-    let fill_best_cost_and_median_for_some_combinations m a_sz level  = 
+    let fill_best_cost_and_median_for_some_combinations m a_sz level all_elements = 
         let get_cost = cost and get_median = median in
         let num_of_comb = get_map_sz m in
         let numerator = p_m_n (a_sz-1) (level-1) in
         let denominator = factorial (level-1) in
         let comb_withgap = (numerator / denominator) in
+        let comb_withgap = 
+            if all_elements>0 then comb_withgap +1 else comb_withgap in
         let cleanup = cleanup m in
         if debug then
-            Printf.printf "fill cm for some combinations: num_of_comb =%d,
-        combwithgap = %d \n%!" num_of_comb comb_withgap;
-        let _  = build_maps_comb_and_codelist m a_sz level in
+            Printf.printf "fill cm for some combinations: num_of_comb =%d,\
+        combwithgap = %d,all_elements=%d a_sz=%d\n%!" num_of_comb comb_withgap
+        all_elements a_sz;
+        let _  = build_maps_comb_and_codelist m a_sz level all_elements in
         for i = 1 to num_of_comb do
             let keylist = [i] in
             let li = combcode_to_comblist i m in
             for j = 1 to num_of_comb do 
+                if i<>all_elements && j<>all_elements then begin
                 let keylist = clear_duplication_in_list(List.sort compare (j::keylist))in
                 let lj = combcode_to_comblist j m in
                 let best = ref 0
                 and cost = ref max_int 
                 and worst = ref 0 in
                 test_combinations_by_level li lj a_sz m best cost worst
-                comb_withgap num_of_comb level;
+                comb_withgap num_of_comb level all_elements;
                 let _ = 
                     match li, lj with
                     | [_], [_] ->
                             let comb_i_j = comblist_to_combcode keylist m in
                             set_median i j m ( comb_i_j );
+                            if debug then Printf.printf "median.%d.%d <- %d;\n%!" 
+                            i j (comb_i_j);
                     | _, _ ->
+                            if debug then Printf.printf "cost.%d.%d <- %d(median=%d);\n%!"
+                            i j !cost !best;
                             set_cost (i) (j) m !cost;
                             set_median (i) (j) m (cleanup !best);
                 in
                 set_worst (i) (j) m !worst;
+                end;
             done;
         done;
+       for i = 1 to num_of_comb do
+            set_median i all_elements m i;
+            set_median all_elements i m i;
+            set_cost i all_elements m 0;
+            set_cost all_elements i m 0;
+            set_worst i all_elements m 0;
+            set_worst all_elements i m 0;
+        done;
+        set_median all_elements all_elements m all_elements;
         if debug then
-        for i=1 to num_of_comb do
-            for j= 1 to num_of_comb do
+        for i=1 to num_of_comb+1 do
+            for j= 1 to num_of_comb+1 do
                   Printf.printf "cost[%d][%d]=%d, median=%d; \n %!" i j (get_cost i j
                 m) (get_median i j m)
             done;
@@ -766,7 +838,7 @@ module Two_D = struct
         let get_cost = cost in
         let cleanup = cleanup m in
         let number_of_combinations = calc_number_of_combinations a_sz in
-        if debug then
+        (*if debug then*)
         Printf.printf "fill_best_cost_and_median_for_all_combinations: alpha size = %d, num of combinations = %d ,gap_code = %d \n%!"  a_sz number_of_combinations (gap m);
         for i = 1 to number_of_combinations do
             let li = split_integer_in_list_of_bits i 0 a_sz [] in
@@ -993,22 +1065,35 @@ module Two_D = struct
 
     let fill_cost_matrix ?(use_comb=true) ?(level = 0) ?(suppress=false) 
                             l a_sz all_elements =
-        let num_comb = calc_number_of_combinations_by_level a_sz level in
-        let num_withgap = calc_num_of_comb_with_gap a_sz level in
-        let m = 
+        let pure_a_sz = 
+            if all_elements=(a_sz-1) && level>1 && level<a_sz then
+                a_sz-1
+            else a_sz 
+        in
+        let num_comb = calc_number_of_combinations_by_level pure_a_sz level in
+        let num_withgap = calc_num_of_comb_with_gap pure_a_sz level in
+        let num_comb,num_withgap = 
+            if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
+            else num_comb,num_withgap
+        in
+        if debug then  Printf.printf "fill cost matrix :\
+        a_sz = %d(without all_element=%d), use_comb=%b,level=%d,num_comb=%d(%d),all_elements=%d (list len=%d)\n%!"
+        a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l);
+        let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
             use_gap_opening all_elements level num_comb (num_comb-num_withgap+1)
         in
         let (uselevel:bool) = check_level m in
-        let all_elements =
+        (*let all_elements =
            if uselevel then num_comb else all_elements
-        in 
+        in*) 
         store_input_list_in_cost_matrix use_comb m l a_sz all_elements;
         if use_comb then
             if suppress || (input_is_metric l a_sz) then
-                let () = set_metric m in
+               let () = set_metric m in
                 if uselevel then
-                    fill_best_cost_and_median_for_some_combinations m a_sz level 
+                    fill_best_cost_and_median_for_some_combinations m a_sz level
+                    all_elements
                 else
                     fill_best_cost_and_median_for_all_combinations m a_sz 
             else
@@ -1023,10 +1108,14 @@ module Two_D = struct
         m
 
     let of_channel ?(orientation=false) ?(use_comb = true) ?(level = 0) all_elements ch =
-        if debug then Printf.printf "cost_matrix of_channel\n";
+        let use_comb = if level = 1 then false else use_comb in 
+        if debug then 
+        Printf.printf "cost_matrix.of_channel,use_comb=%b,level=%d,all_elements=%d," 
+        use_comb level all_elements;
         match load_file_as_list ch with
         | [] -> failwith "No Alphabet"
         |  l -> let w = calculate_alphabet_size l in
+        if debug then Printf.printf "w=%d\n%!" w;
                 let _,matrix_list = 
                     List.fold_right 
                         (fun item (cnt, acc ) -> match acc with
@@ -1035,21 +1124,40 @@ module Two_D = struct
                             | (h :: t) -> (cnt - 1, ((item :: h) :: t)))
                         l (w, [[]])
                 in
+                if debug then Printf.printf "list len=%d %!" (List.length l);
                 let w, l =
-                    if w = all_elements && (not use_comb) then
+                    if (w = all_elements && (not use_comb))
+                    || (w = all_elements && (level>1) && (level<w))
+                    then
                         (* We must add a placeholder for the all elements item
                         * *)
                         let rec add_every cnt lst =
                             match lst with
                             | [] -> []
                             | h :: t -> 
-                                    if 0 = cnt mod w then 
-                                        1 :: h :: (add_every (cnt + 1) t)
+                                    if cnt = w * (w-1) + 1 then
+                                        let newline = 
+                                            Array.to_list (
+                                            Array.make (w-1)
+                                            Utl.large_int)@[0;Utl.large_int] in
+                                        newline @ [h] @ (add_every (cnt+1) t)
+                                    else if 0 = cnt mod w then 
+                                        Utl.large_int :: h :: (add_every (cnt + 1) t)
                                     else h :: (add_every (cnt + 1) t)
                         in
-                        w + 1, add_every 1 l
+                        let newl = add_every 1 l in
+                        (*let tmp= ref 1 in
+                        List.iter (fun x -> 
+                            Printf.printf "%d,%!" x;
+                            if !tmp = 22 then begin
+                                    print_newline();
+                                    tmp:=0;
+                            end;
+                            tmp := !tmp +1;) newl;*)
+                        w + 1, newl
                     else w, l
                 in
+                if debug then Printf.printf "after adding all_element, list len=%d %!" (List.length l);
                 let m = 
                     match orientation with 
                     | false ->
@@ -1076,6 +1184,7 @@ module Two_D = struct
         * lists, all of the same size *)
         let w = List.length l in
         let l = List.flatten l in
+        if debug then Printf.printf "cost_matrix of_list,w=%d\n" w;
         fill_cost_matrix ~use_comb:use_comb ~level:level ~suppress l w all_elements
 
     let of_channel_nocomb ?(orientation=false) ch =
@@ -1085,6 +1194,7 @@ module Two_D = struct
     let of_list_nocomb l all_elements =
         (* This function assumes that the list is a square matrix, list of
         * lists, all of the same size *)
+        if debug then Printf.printf "cost_matrix of_list_nocomb\n";
         let w = List.length l in
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:false l w all_elements
@@ -1114,7 +1224,7 @@ module Two_D = struct
     let default_nucleotides = default
 
     let default_aminoacids =
-        of_list_nocomb [
+         of_list_nocomb [
             [0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 2];
             [1; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 2];
             [1; 1; 0; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 2];
@@ -1243,9 +1353,11 @@ module Two_D = struct
                         Printf.printf "best=%d; %!" best in
                     best
 
-    let of_file ?(use_comb = true) file all_elements =
+    let of_file ?(use_comb = true) ?(level = 0) file all_elements =
         let ch = FileStream.Pervasives.open_in file in
-        let res = of_channel ~use_comb all_elements ch in
+        if debug then Printf.printf "costmatrix.of_file use_comb=%b,level=%d\n%!"
+        use_comb level;
+        let res = of_channel ~use_comb ~level:level all_elements ch in
         ch#close_in;
         res
 

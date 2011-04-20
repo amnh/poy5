@@ -304,30 +304,30 @@ module F : Ptree.Tree_Operations
 
     (* Create the edge data on (a,b) and use to update root information in tree *)
     let create_root a b (ptree : phylogeny) =
-        let make_internal a b ptree = 
+        let make_internal a b ptree =
             let norm = Tree.normalize_edge (Tree.Edge (a, b)) ptree.Ptree.tree in
             let node = Ptree.get_edge_data norm ptree in
             let nnode = AllDirNode.force_val node in
             let node = {AllDirNode.lazy_node = node; code = 0; dir = Some (a,b)} in
             let node = { AllDirNode.unadjusted = [node]; adjusted = Some node } in
             let cost = Node.Standard.tree_cost None nnode in
-            { 
+            {
                 Ptree.root_median = Some ((`Edge (a, b)), node);
-                component_cost = cost; 
+                component_cost = cost;
                 adjusted_component_cost = cost;
             }
         in
         match Ptree.get_node a ptree with
         | Tree.Leaf (_, x) ->
-                assert (x = b);
+                assert(x = b);
                 make_internal a b ptree
         | Tree.Interior (_, x, y, z) ->
-                assert ((x = b) || (y = b) || (z = b));
+                assert((x = b) || (y = b) || (z = b));
                 make_internal a b ptree
         | Tree.Single _ ->
                 let root = Ptree.get_node_data a ptree in
                 let cost = AllDirNode.AllDirF.tree_cost None root in
-                { 
+                {
                     Ptree.root_median = Some ((`Single a), root);
                     component_cost = cost;
                     adjusted_component_cost = cost;
@@ -337,12 +337,12 @@ module F : Ptree.Tree_Operations
     (* calculate the size of a tree under likelihood; this is the sum of all the
      * branch lengths. The sum of each character set is calculated; this might
      * be better if each one is seperate(?). 0 is returned under other critera. *)
-    let tree_size ptree = 
+    let tree_size ptree =
         let edge_cost (Tree.Edge (a,b)) =
-            let lst = 
+            let lst =
                 try AllDirNode.AllDirF.get_times_between
                         (Ptree.get_node_data a ptree) (Ptree.get_node_data b ptree)
-                with | _ -> 
+                with | _ ->
                     AllDirNode.AllDirF.get_times_between
                         (Ptree.get_node_data b ptree) (Ptree.get_node_data a ptree)
             in
@@ -355,8 +355,7 @@ module F : Ptree.Tree_Operations
             ptree.Ptree.edge_data
             0.0
 
-
-    let prior_cost tree = 
+    let prior_cost tree =
 (*        if using_likelihood `Dynamic tree then*)
 (*            All_sets.IntegerMap.fold*)
 (*                (fun k v min_prior -> *)
@@ -374,12 +373,12 @@ module F : Ptree.Tree_Operations
         (* Some characters are computed by the downpass, we extract that
          * portion of the cost, which is contained in the root.
          * not_single_character_cost holds the total cost of those characters *)
-        let not_single_character_cost, root, root_edge = 
+        let not_single_character_cost, root, root_edge =
             (* set initial value to subtract from -- cost of likelihood *)
-            let tree_root, root_edge = 
+            let tree_root, root_edge =
                 match new_root with
                 | Some a -> a
-                | None ->  
+                | None ->
                     let x = Ptree.get_component_root handle new_tree in
                     match x.Ptree.root_median with
                     | Some (root_edge, root) -> root, root_edge
@@ -388,15 +387,15 @@ module F : Ptree.Tree_Operations
             match tree_root.AllDirNode.unadjusted with
             | [root] ->
                     let root = AllDirNode.force_val root.AllDirNode.lazy_node in
-                    let cost = 
-                        List.fold_left 
-                            (fun acc y -> acc +. (Node.total_cost_of_type y root)) 
+                    let cost =
+                        List.fold_left
+                            (fun acc y -> acc +. (Node.total_cost_of_type y root))
                             (0.0)
                             (Node.not_to_single)
                     in
                     cost, tree_root, root_edge
             | _ -> failwith "What?"
-        in 
+        in
         (* Other characters have their cost computed by adding up the length of
          * all of the branches. single_characters_cost is exactly that. *)
         let distance a b acc =
@@ -409,32 +408,31 @@ module F : Ptree.Tree_Operations
                 let node = AllDirNode.get_adjusted_nodedata node "AllDirChar.distance,no adjdata" in
                 node.AllDirNode.lazy_node
             in
-            let dist = 
+            let dist =
                 Node.distance_of_type (Node.has_to_single) (0.0)
                                       (AllDirNode.force_val nda)
                                       (AllDirNode.force_val ndb)
             in
             dist +. acc
         in
-        let single_characters_cost =  
-            match root_edge with
+        let single_characters_cost = match root_edge with
             | _ when using_likelihood `Static new_tree -> 0.0
             | `Single _    -> 0.0
             | `Edge (a, b) ->
-                Tree.post_order_node_with_edge_visit_simple 
+                Tree.post_order_node_with_edge_visit_simple
                     distance (Tree.Edge (a, b))
                     new_tree.Ptree.tree (~-. (distance b a 0.0))
         in
         let pi_cost = prior_cost new_tree in
         let root_cost = AllDirNode.AllDirF.root_cost root in
-        if debug_cost_fn then begin 
+        if debug_cost_fn then begin
             info_user_message "Single Character Cost: %f" single_characters_cost;
             info_user_message "Other Character Cost: %f" not_single_character_cost;
             info_user_message "Root Cost: %f" (root_cost);
             info_user_message "Prior Cost: %f" (pi_cost);
             info_user_message "Size of Tree: %f" (tree_size new_tree);
         end;
-        let res = 
+        let res =
             single_characters_cost +. not_single_character_cost +. root_cost +.  pi_cost
         in
         res
@@ -731,7 +729,7 @@ module F : Ptree.Tree_Operations
                                     (edge_map,ptree) 
                             end)
                     ptree.Ptree.tree.Tree.handles
-                    (Tree.EdgeMap.empty,ptree) 
+                    (Tree.EdgeMap.empty,ptree)
         in
         (* perform uppass heuristic --fill all directions *)
         current_snapshot "AllDirChar refresh_all_edges uppass heuristic";
@@ -844,8 +842,8 @@ module F : Ptree.Tree_Operations
             (IntSet.empty, IntSet.empty)
 
     let add_component_root ptree handle root = 
-        { ptree with 
-        Ptree.component_root = IntMap.add handle root ptree.Ptree.component_root }
+        { ptree with
+            Ptree.component_root = IntMap.add handle root ptree.Ptree.component_root }
 
     let reroot_fn n_mgr force edge ptree =
         let Tree.Edge (h, n) = edge in
@@ -927,20 +925,17 @@ module F : Ptree.Tree_Operations
         and adjust_root (changed,affected,ptree) c2c handle a b : adjust_acc =
             if debug_adjust_fn then
                     info_user_message "Adjusting root with %d,%d then None" a b;
-            (* find edge root, create otherwise, and iterate *)
+            (* find edge data and package for AllDir optimization *)
             let new_root = 
                 let a_nd = Ptree.get_node_data a ptree 
                 and b_nd = Ptree.get_node_data b ptree in
                 let o_nd =
-                    try
-                        let one = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
-                        let tmp = { AllDirNode.lazy_node = one;
-                                                      dir = Some (a,b);
-                                                     code = ~-1; }
-                        in
-                        {AllDirNode.adjusted=Some tmp;AllDirNode.unadjusted=[tmp]}
-                    with | Not_found ->
-                        AllDirNode.AllDirF.median None None a_nd b_nd
+                    let one = Ptree.get_edge_data (Tree.Edge (a,b)) ptree in
+                    let tmp = { AllDirNode.lazy_node = one;
+                                                  dir = Some (a,b);
+                                                 code = ~-1; }
+                    in
+                    { AllDirNode.adjusted= None; AllDirNode.unadjusted=[tmp] }
                 in
                 AllDirNode.AllDirF.edge_iterator None o_nd a_nd b_nd
             in 
@@ -952,7 +947,7 @@ module F : Ptree.Tree_Operations
                                               dir = Some (a,b);
                                              code = ~-1; }
                 in
-                {AllDirNode.adjusted=Some tmp;AllDirNode.unadjusted=[tmp]}
+                { AllDirNode.adjusted= None; AllDirNode.unadjusted=[tmp] }
             in
             (* assign the root and cost *)
             let ptree =
@@ -1128,7 +1123,7 @@ module F : Ptree.Tree_Operations
     (** [internal_downpass] Traverse every vertex in the tree and assign the
      * downpass and uppass information using the lazy all direction nodes *)
     let internal_downpass do_roots (ptree : phylogeny) : phylogeny =
-         let add_vertex_post_order prev code ptree =
+        let add_vertex_post_order prev code ptree =
             current_snapshot "AllDirChar.internal_downpass.add_vertex_post_order";
             match Ptree.get_node code ptree with
             | Tree.Single _
@@ -1270,8 +1265,7 @@ module F : Ptree.Tree_Operations
                 let params = MlModel.get_current_parameters_for_model current_model in
                 let _,results = (* fst is vector of results *)
                     Numerical.bfgs_method (f_likelihood func tree chars current_model)
-                                        (get_some params)
-                                        (tree,current_cost)
+                                          (get_some params) (tree,current_cost)
                 in
                 results
             | None -> (tree,current_cost)
@@ -1449,11 +1443,11 @@ module F : Ptree.Tree_Operations
         | Some edge ->
             let edge = (* keep the subtree edge data as the root. *)
                 let single = AllDirNode.with_both a b edge.AllDirNode.unadjusted in
-                { AllDirNode.unadjusted = [single]; adjusted = Some single }
+                { AllDirNode.unadjusted = [single]; adjusted = None }
             in
             refresh_all_edges (Some edge) false (Some (a,b)) ptree
 
-    let lift_data edge_l edge_r i_code ptree = 
+    let create_or_lift_edge edge_l edge_r i_code ptree = 
         if not (using_likelihood `Either ptree) then begin
             let node = AllDirNode.AllDirF.median (Some i_code) None
                         (Ptree.get_node_data edge_l ptree)
@@ -1462,14 +1456,14 @@ module F : Ptree.Tree_Operations
         end else begin
             try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
                 let node = 
-                    {
-                        AllDirNode.dir = Some (edge_l,edge_r);
+                    {   AllDirNode.dir = Some (edge_l,edge_r);
                         code = i_code;
                         lazy_node = lr;
-                    } in
+                    } 
+                in
                 let node = 
-                    {AllDirNode.adjusted = Some node; AllDirNode.unadjusted =
-                        [node]}
+                    { AllDirNode.adjusted = None;
+                      AllDirNode.unadjusted = [node];   }
                 in
                 Ptree.add_node_data i_code node ptree
             with | Not_found ->
@@ -1480,62 +1474,54 @@ module F : Ptree.Tree_Operations
     let clean_ex_neighbor a b ptree = 
         let data = Ptree.get_node_data a ptree in
         let notwith_un = AllDirNode.not_with b data.AllDirNode.unadjusted in
-        let node = 
-            { AllDirNode.unadjusted = [notwith_un]; adjusted = Some notwith_un } 
-        in
+        let node = { AllDirNode.unadjusted = [notwith_un]; adjusted = None; } in
         Ptree.add_node_data a node ptree
 
     let get_edge_n_force a b ptree =
         let data = Ptree.get_edge_data (Tree.Edge (a, b)) ptree in
         AllDirNode.force_val data
 
-    let replace_topology tree ptree = { ptree with Ptree.tree = tree } 
+    let replace_topology tree ptree = { ptree with Ptree.tree = tree }
 
     (* break_fn has type handle * int (node) -> tree -> tree * delta * aux_data *)
-    let break_fn (tree_node, clade_node_id) (ptree : phylogeny) =
+    let break_fn (tree_node_id, clade_node_id) (ptree : phylogeny) =
+        if debug_join_fn then begin
+            info_user_message "Breaking %d -- %d" tree_node_id clade_node_id
+        end;
         let ptree = clear_internals true ptree in
-        (* -------------------------- *)
-        let (Tree.Edge (tree_node, clade_node_id)) as edge = 
-            Tree.normalize_edge (Tree.Edge (tree_node, clade_node_id)) ptree.Ptree.tree 
+        let (Tree.Edge (tree_node_id, clade_node_id)) as edge =
+            Tree.normalize_edge (Tree.Edge (tree_node_id, clade_node_id)) ptree.Ptree.tree
         in
         (* We want to know the cost of the tree, so we force the calculation of
-        * the downpass all the way down to the place of the breakage *)
-        let prev_cost = 
-            let edge_res = get_edge_n_force tree_node clade_node_id ptree in
+           the downpass all the way down to the place of the breakage *)
+        let prev_cost =
+            let edge_res = get_edge_n_force tree_node_id clade_node_id ptree in
             Node.Standard.tree_cost None edge_res
         in
-        (* Figure out the cost of the broken tree *)
-        let new_cost = 
-            let clade_node = Ptree.get_node_data clade_node_id ptree
-            and tree_node_dir = 
-                ptree --> Ptree.get_node_data tree_node 
-                    --> fun x -> x.AllDirNode.unadjusted
-                    --> AllDirNode.not_with clade_node_id 
-                    --> force_node
+        (* Figure out the cost of the broken tree from subtrees *)
+        let new_cost =
+            let tree_cost =
+                Ptree.get_node_data tree_node_id ptree
+                    --> AllDirNode.AllDirF.total_cost (Some clade_node_id)
+            and clade_cost =
+                Ptree.get_node_data clade_node_id ptree
+                    --> AllDirNode.AllDirF.total_cost (Some tree_node_id)
             in
-            let clade_node_dir = 
-                clade_node --> fun x -> x.AllDirNode.unadjusted
-                    --> AllDirNode.not_with tree_node 
-                    --> force_node
-            in
-
             if debug_join_fn then begin
                 info_user_message "Previous Cost: %f" prev_cost;
-                info_user_message "New Costs around with %f and %f = %f"
-                    clade_node_dir.Node.total_cost tree_node_dir.Node.total_cost
-                    (clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost)
-            end else ();
-            clade_node_dir.Node.total_cost +. tree_node_dir.Node.total_cost
+                info_user_message "New Costs with %f and %f = %f"
+                    clade_cost tree_cost (clade_cost +. tree_cost)
+            end;
+            clade_cost +. tree_cost
         in
-
         (* Break the topology and update the data *)
         let ptree, tree_delta, clade_handle, tree_handle =
             (* A function that takes one side of a tree delta and updates the
             * tree's data using that information *)
-            let update_break_delta delta ptree = 
+            let update_break_delta delta ptree =
                 match delta with
                 | `Edge (rem, l1, l2, _) ->
-                    assert ((tree_node = rem) || (clade_node_id = rem));
+                    assert ((tree_node_id = rem) || (clade_node_id = rem));
                     let old_data = Ptree.get_node_data rem ptree in
                     ptree --> clean_ex_neighbor l1 rem
                           --> clean_ex_neighbor l2 rem
@@ -1544,11 +1530,11 @@ module F : Ptree.Tree_Operations
                 | _ -> ptree
             in
             (* Perform the topology break *)
-            let nbt, ((left_delta, right_delta) as tree_delta) = 
-                Tree.break (tree_node, clade_node_id) ptree.Ptree.tree 
+            let nbt, ((left_delta, right_delta) as tree_delta) =
+                Tree.break (tree_node_id, clade_node_id) ptree.Ptree.tree
             in
-            let tree_handle, clade_handle = 
-                Tree.get_break_handles tree_delta nbt 
+            let tree_handle, clade_handle =
+                Tree.get_break_handles tree_delta nbt
             in
             (* Update the actual contents of the tree *)
             let ptree =
@@ -1558,9 +1544,8 @@ module F : Ptree.Tree_Operations
                     --> replace_topology nbt
                     --> update_break_delta left_delta
                     --> update_break_delta right_delta
-                    --> refresh_edge_data
+                    --> refresh_all_edges None true None
                     --> refresh_roots
-                    --> uppass
             in
             (* The uppass can change the tree/clade_handles; update based on previous handles *)
             ptree, tree_delta, clade_handle, tree_handle
@@ -1576,14 +1561,14 @@ module F : Ptree.Tree_Operations
                         | Some (_, b) -> b
                         | None -> failwith "AllDirChar.break_fn Huh?"
                     in
-                    AllDirNode.AllDirF.root_cost clade_root, 
+                    AllDirNode.AllDirF.root_cost clade_root,
                     AllDirNode.AllDirF.total_cost None clade_root
                 in
                 let bd =
                     (prev_cost -. (new_cost -. (rc +. ptree.Ptree.origin_cost))) -.  tc
                 in
                 if debug_join_fn then begin
-                    info_user_message "Root Cost: %f" rc;
+                    info_user_message "Root (%d) Cost: %f" clade_handle rc;
                     info_user_message "Total Cost: %f" tc;
                     info_user_message "Origin Cost: %f" ptree.Ptree.origin_cost;
                     info_user_message "New Cost: %f" new_cost;
@@ -1668,70 +1653,65 @@ module F : Ptree.Tree_Operations
         {res with
             Ptree.ptree = update_branches res.Ptree.ptree; }
 
-
     (* ----------------- *)
-    (* join_fn must have type join_1_jxn -> join_2_jxn -> delta -> tree -> tree *)
     let join_fn _ jxn1 jxn2 ptree =
         if debug_join_fn then
-            info_user_message "Time to join! (%s) and (%s)"
+            info_user_message "Joining: (%s) and (%s)"
                 (match jxn1 with
                     | Tree.Single_Jxn x -> string_of_int x
                     | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y))
                 (match jxn2 with
                     | Tree.Single_Jxn x -> string_of_int x
-                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y))
-        else ();
-        let ret, ((td1,td2,rrd) as tree_delta) = 
-            Tree.join jxn1 jxn2 ptree.Ptree.tree 
+                    | Tree.Edge_Jxn (x,y) -> (string_of_int x) ^","^ (string_of_int y));
+        let ret, ((td1,td2,rrd) as tree_delta) =
+            Tree.join jxn1 jxn2 ptree.Ptree.tree
         in
         let v, h, ptree = match tree_delta with
             | (`Edge (v, a, b, _)), (`Single (h, true)), _ ->
-                    let ptree = 
-                        ptree --> Ptree.remove_node_data v 
+                    let ptree =
+                        ptree --> Ptree.remove_node_data v
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
                             --> Ptree.remove_root_of_component h
-                            --> lift_data a b v
+                            --> create_or_lift_edge a b v
                     in
                     v, h, ptree
             | (`Single (v, _)), (`Single (h, true)), _ ->
                     v, h, Ptree.remove_root_of_component h ptree
             | (`Edge (v, c, d, _)), (`Edge (r, a, b, Some h)), _ ->
-                    let ptree = 
-                        ptree --> Ptree.remove_root_of_component h 
-                            --> Ptree.remove_node_data r 
+                    let ptree =
+                        ptree --> Ptree.remove_root_of_component h
+                            --> Ptree.remove_node_data r
                             --> Ptree.remove_node_data v
                             --> clean_ex_neighbor c d
                             --> clean_ex_neighbor d c
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
-                            --> lift_data a b r
-                            --> lift_data c d v
+                            --> create_or_lift_edge a b r
+                            --> create_or_lift_edge c d v
                     in
                     r, v, ptree
             | (`Single (v, _)), (`Edge (r, a, b, Some h)), _ ->
-                    let ptree = 
-                        ptree --> Ptree.remove_root_of_component h 
-                            --> Ptree.remove_node_data r 
+                    let ptree =
+                        ptree --> Ptree.remove_root_of_component h
+                            --> Ptree.remove_node_data r
                             --> clean_ex_neighbor a b
                             --> clean_ex_neighbor b a
-                            --> lift_data a b r
+                            --> create_or_lift_edge a b r
                     in
                     r, h, ptree
             | _ -> failwith "Unexpected AllDirChar.join_fn"
         in
         let ptree = { ptree with Ptree.tree = ret } in
-        let handle, parent = 
-            let handle = Ptree.handle_of v ptree in 
+        let handle, parent =
+            let handle = Ptree.handle_of v ptree in
             let parent = Ptree.get_parent handle ptree in
             handle, parent
         in
-        let ptree = 
+        let ptree =
             ptree --> Ptree.remove_root_of_component handle
                   --> refresh_all_edges None true (Some (v,h))
-        in
-        let ptree = 
-            add_component_root ptree handle (create_root v h ptree)
+                  --> refresh_roots
         in
         ptree, tree_delta
 
@@ -1744,7 +1724,7 @@ module F : Ptree.Tree_Operations
             | `Normal -> 
                 let tree,delta =join_fn a b c d in
                 update_node_manager tree (`Join delta) n_mgr;
-                let tree = tree --> update_branches in
+                let tree = update_branches tree in
                 tree, delta
             | `Iterative (`ThreeD iterations)
             | `Iterative (`ApproxD iterations) ->

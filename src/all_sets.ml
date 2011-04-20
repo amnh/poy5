@@ -93,10 +93,5 @@ module FullTriples = Set.Make (FullOrderedTriples)
 
 module FullTupleMap = Map.Make (FullOrderedTuple)
 
-module OrderedIntSet = struct
-    type t = Integers.t
-    let compare = Integers.compare
-end
-
-module IntSet = Set.Make (OrderedIntSet)
-module IntSetMap = Map.Make (OrderedIntSet)
+module IntSet = Set.Make (Integers)
+module IntSetMap = Map.Make (Integers)

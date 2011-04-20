@@ -425,9 +425,7 @@ module OneDirF :
         Node.Standard.root_cost (force_val a)
 
     let tree_cost a b =
-        let a = (total_cost a b) in
-        let b = (root_cost b) in
-        a +. b
+        (total_cost a b) +. (root_cost b)
 
     let to_single root a b c d set =
         let root' = force_opt root
@@ -623,23 +621,21 @@ type nad8 = Node.Standard.nad8 = struct
     let get_dynamic = apply_on_one_direction OneDirF.get_dynamic
     let get_mlstatic = apply_on_one_direction OneDirF.get_mlstatic
 
+    (* likelihood only function to optimize the branch length *)
     let edge_iterator par mine ch1 ch2 =
         let get_dir p n = (not_with (taxon_code p) n.unadjusted).lazy_node in
         let atom, btom, parofm = match par with
             | Some x -> get_dir mine ch1, get_dir mine ch2, Some (get_dir mine x)
             | None   -> get_dir ch2 ch1, get_dir ch1 ch2, None
-
         and ab_to_m = 
-            match mine.adjusted with
-            | None -> failwith "allDirNode,edge_iterator,no adjusted data" 
-            | Some x -> x in
-            (*(with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted) in *)
-        
+            (with_both (taxon_code ch1) (taxon_code ch2) mine.unadjusted)
+        in
         let node_dir  = 
             { ab_to_m with
                 lazy_node = OneDirF.edge_iterator parofm ab_to_m.lazy_node atom btom
-            } in
-        { mine with unadjusted = [node_dir]; }
+            }
+        in
+        { unadjusted = [node_dir]; adjusted = None; }
 
     (* calculate the median between a and b. old can be used as a heuristic,
      * branches are the supplied branch lengths of the children a and b, *)
@@ -1216,14 +1212,14 @@ let create_root ?branches a aa ab b ba bb opt =
             AllDirF.apply_time true b middle
         | _,_ -> 
             failwith "Failed with children of B @ Create Roots"
-    and l_middle = match middle.adjusted with
-        | Some x -> 
+    and l_middle = match middle.unadjusted with
+        | [x] -> 
             assert( match x.dir with | None -> false
                     | Some (xa,xb) ->
                         (xa = (AllDirF.taxon_code a) && xb = (AllDirF.taxon_code b)) ||
                         (xa = (AllDirF.taxon_code b) && xb = (AllDirF.taxon_code a)));
             x.lazy_node
-        |  _  -> failwith "median has multiple directions?"
+        |  _  -> failwith "root median has multiple directions?"
     in
     a_final,b_final,l_middle
 
