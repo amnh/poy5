@@ -1,14 +1,13 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.60)
-AC_INIT([POY 4], [see VERSION], [poy4@googlegroups.com])
+AC_PREREQ([2.67])
+AC_INIT([POY 4],[see VERSION],[poy4@googlegroups.com])
 AC_CONFIG_SRCDIR([add.c])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
 AC_PROG_CC
-
 
 # What are we going to substitute in the Makefile
 AC_SUBST(DUSE_NATIVEDYNLINK)
@@ -169,14 +168,11 @@ AC_ARG_ENABLE([cost-verification], [AS_HELP_STRING([--enable-cost-verification],
               [USE_VERIFY_COSTS="true"; DUSE_VERIFY_COSTS="-DUSE_VERIFY_COSTS"; OUSE_VERIFY_COSTS=",use_verify_costs"],
               [USE_VERIFY_COSTS="false"])
 
-AC_ARG_WITH([concorde_dir],
-[AS_HELP_STRING([--with-concorde-dir=<DIR>],
-[set the path to concorde library])],
-[
- if test x"$withval" != x"no"; then
-      concorde_dir=$withval
-fi
-],[])
+AC_ARG_WITH([concorde_dir], [AS_HELP_STRING([--with-concorde-dir=<DIR>],
+            [set the path to concorde library])],
+            [ if test x"$withval" != x"no"; then
+                concorde_dir=$withval
+              fi],[])
 
 AC_MSG_CHECKING([for concorde.a])
 if test -f "$concorde_dir/concorde.a"; then
@@ -196,20 +192,16 @@ else
    AC_MSG_RESULT( [Not Using Concorde ] )
 fi
 
-
 #AS_IF([test $USE_CONCORDE = "true"],
 #				[
 #                CFLAGS="$CFLAGS $CONCORDE_CFLAGS -DUSE_CONCORDE";
-                 #CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
-                 #LIBS="$HOME/concorde/concorde.a $LIBS";
-#                 LIBS="$CONCORDE_LIB $LIBS";
-#                 OUSE_CONCORDE=",use_concorde";
+#                CFLAGS="$CFLAGS -I/$HOME/concorde/INCLUDE/ -DUSE_CONCORDE";
+#                LIBS="$HOME/concorde/concorde.a $LIBS";
+#                LIBS="$CONCORDE_LIB $LIBS";
+#                OUSE_CONCORDE=",use_concorde";
 #                DUSE_CONCORDE="-DUSE_CONCORDE";
-#                 ],
-#                 [AC_MSG_RESULT( [Not Using Concorde ])]
-#               )
-
-
+#               ],
+#                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
 # Time to handle the lapack checks
 case ${OS_INFORMATION} in
@@ -224,27 +216,28 @@ case ${OS_INFORMATION} in
                     [AC_DEFINE(HAVE_LIBLAPACK,1,"lapack confirmation") LIBS=[-llapack $LIBS] ],
                     [AC_MSG_FAILURE( [Missing lapack routine: dgetrf_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgetri_.])])],
                     [AC_MSG_FAILURE( [Missing lapack routine: dgemm_.])])], [AC_MSG_FAILURE( [Missing lapack routine: dgeev_.])])],
-                    [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])])
+                    [AC_MSG_FAILURE( [Missing lapack routine: dsyev_.])])],
+            [AC_MSG_RESULT([Not including LAPACK])])
         ;;
 esac
 
 case ${OS_INFORMATION} in
-	*-apple-*)
-		AS_IF([test $USE_SSE3 = "true"],
-			[AC_CHECK_HEADER(pmmintrin.h,
-				CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3",
-				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-			[AC_MSG_RESULT([not using SSE3])])
-		;;
-	*)
-		AS_IF([test $USE_SSE3 = "true"],
-			[AC_CHECK_HEADER(pmmintrin.h,
-       			[AC_CHECK_FUNC(posix_memalign,
-   					[CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
-	     			[AC_MSG_FAILURE([posix_memalign not found])])],
- 				[AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
-			AC_MSG_RESULT([not using SSE3]))
-		;;
+    *-apple-*)
+#        AS_IF([test $USE_SSE3 = "true"],
+#            [AC_CHECK_HEADER([pmmintrin.h],
+#                [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+#                [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+#            AC_MSG_RESULT([not using SSE3]))
+        ;;
+    *)
+        AS_IF([test $USE_SSE3 = "true"],
+            [AC_CHECK_HEADER([pmmintrin.h],
+                   [AC_CHECK_FUNC([posix_memalign],
+                       [CFLAGS="-msse3 $CFLAGS";OUSE_SSE3=",use_sse3"],
+                     [AC_MSG_FAILURE([posix_memalign not found])])],
+                 [AC_MSG_FAILURE([Cannot compile with SSE3 instructions])])],
+            AC_MSG_RESULT([Not using SSE3]))
+        ;;
 esac
 
 # Check if the user wants SSE3 instructions, copy cflags to temporary variable
@@ -272,9 +265,9 @@ AS_IF([test $USEINTERFACE = "ncurses"],
 
 # Time to verify if we can compile with xslt
 XSLT_CONFIG="xslt-config"
-AC_ARG_WITH(xslt-config, [Select a different xslt-config program to detect the configuration options of libxslt.],
-            [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],
-                                                    [xslt-config],[xslt-config])])
+AC_ARG_WITH([xslt-config], 
+            [Select a different xslt-config program to detect the configuration options of libxslt.],
+            [XSLT_CONFIG=$withval], [AC_CHECK_PROGS([XSLT_CONFIG],[xslt-config],[xslt-config])])
 
 oLIBS="$LIBS"
 NEWLIBS="`$XSLT_CONFIG --libs`"
@@ -288,7 +281,7 @@ AS_IF([test $USE_XSLT = "true"],
        USE_XSLT="true"; DUSE_XSLT="-DUSE_XSLT"; OUSE_XSLT=",use_xslt"], [
             LIBS="$oLIBS"
             CFLAGS="$oFLAGS"
-            AC_WARN([I could not find XSLT. I will remove the its support.])
+            AC_MSG_WARN(I could not find XSLT. I will remove the its support.)
         ])],[ LIBS="$oLIBS"
              CFLAGS="$oFLAGS"
              ])
@@ -297,8 +290,6 @@ AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([termcap],[tgetent],[LIBS
 
 AS_IF([test $USEINTERFACE = "readline"], [AC_CHECK_LIB([readline], [readline],
       [LIBS="-lreadline $LIBS"; AC_DEFINE(HAVE_LIBREADLINE)], [AC_MSG_FAILURE([The ncurses interface requires the ncurses library. Either install it, or choose the readline interface. See ./configure --help for more information.])])])
-
-
 
 #AS_IF([test $USEPARALLEL = "true"], [AC_CHECK_LIB([$MPILNAME], [MPI_Init],
 #      [LIBS="-l$MPILNAME $LIBS"], [AC_MSG_FAILURE([In order to compile the parallel version, an implemention of MPI is required. However, I failed while checking for $MPILNAME.])])])
@@ -325,12 +316,12 @@ case $OCAMLVERSION in
     3.10.2*)
         case ${OS_INFORMATION} in
             *-cygwin*)
-            AC_MSG_RESULT([no])
-            AC_MSG_FAILURE([Compiling POY in windows requires OCaml version 3.11.0 or later. Please update OCaml and configure again.])
-            ;;
+                AC_MSG_RESULT([no])
+                AC_MSG_FAILURE([Compiling POY in windows requires OCaml version 3.11.0 or later. Please update OCaml and configure again.])
+                ;;
             *)
-            AC_MSG_RESULT([yes])
-            ;;
+                AC_MSG_RESULT([yes])
+                ;;
         esac
         ;;
     3.\(0*\)|\(10\).*)
@@ -349,7 +340,7 @@ case $OCAMLVERSION in
             AC_MSG_RESULT([no])
             USE_NATIVEDYNLINK="true"
         fi
-	    rm -f str.cmxs*;;
+	    rm -f str.cmxs*
         ;;
 esac
 
@@ -375,6 +366,7 @@ AC_HEADER_TIME
 AC_STRUCT_TM
 
 # Checks for library functions.
+AC_SEARCH_LIBS([exp],[m])
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
@@ -383,7 +375,6 @@ AC_CHECK_FUNCS([floor gettimeofday memset pow sqrt sin exp])
 
 CC_VERSION="`$CC --version`"
 POY_VERSION_NUMBER="`$MERCURIAL`"
-
 
 AC_CONFIG_FILES([Makefile _tags myocamlbuild.ml buildNumber.ml compileFlags.ml])
 AC_OUTPUT
