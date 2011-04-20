@@ -115,7 +115,7 @@ type transform_method = [
         ( Methods.ml_costfn * Methods.ml_substitution * 
           Methods.ml_site_variation option * Methods.ml_priors * Methods.ml_gap)
     | `Level of int
-    | `Tcm of string
+    | `Tcm of (string * int option)
     | `Gap of (int * int)
     | `AffGap of int
     | `TailInput of int array
@@ -428,7 +428,8 @@ let transform_transform acc (id, x) =
             | `UseLikelihood (a, b, c, d, e) ->
                     (`UseLikelihood (id, a, b, c, d, e)) :: acc
             | `Level (l) -> (`Assign_Level (l,id))::acc
-            | `Tcm f -> (`Assign_Transformation_Cost_Matrix ((Some (`Local f)), id)) :: acc
+            | `Tcm (f,l) -> 
+                    (`Assign_Transformation_Cost_Matrix ((Some ((`Local f),l)), id)) :: acc
             | `Gap (a, b) -> 
                     (`Create_Transformation_Cost_Matrix (a, b, id)) :: acc
             | `AffGap (c) ->
@@ -1372,7 +1373,15 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
-                [ LIDENT "tcm"; ":";  x = STRING -> `Tcm x ] |
+                [ LIDENT "tcm"; ":"; left_parenthesis; 
+                    x = STRING; level_value = OPT optional_level; 
+                    right_parenthesis-> 
+                    let res =
+                    match level_value with 
+                    | None -> (x,None)
+                    | Some y -> (x,Some (int_of_string y))
+                    in
+                    `Tcm res ] |
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 
                 [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
@@ -1624,6 +1633,8 @@ let create_expr () =
             ];
         optional_string:
             [ [  ":"; x = STRING -> x ] ];
+        optional_level:
+            [ [ ","; y = INT -> y] ];
         setting:
             [
                 [ LIDENT "timer"; ":"; x = INT -> `TimerInterval (int_of_string
@@ -1995,8 +2006,15 @@ let create_expr () =
 
         prealigned_costs:
             [
-                [ LIDENT "tcm"; ":";  x = STRING ->
-                    (`Assign_Transformation_Cost_Matrix (`Local x)) ] |
+                [ LIDENT "tcm"; ":";  left_parenthesis; x = STRING;
+                    level_value = OPT optional_level; 
+                    right_parenthesis ->
+                    let res =
+                    match level_value with 
+                    | None -> (`Local x,None)
+                    | Some y -> (`Local x,Some (int_of_string y))
+                    in
+                    (`Assign_Transformation_Cost_Matrix res) ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
                     right_parenthesis -> 
                         `Create_Transformation_Cost_Matrix (int_of_string x, int_of_string y) ]

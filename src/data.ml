@@ -4576,7 +4576,7 @@ let compute_fixed_states filename data code =
     let chrom_or_genome,dyn_pam =
         match dhs.state with
         | `Chromosome 
-        | `Genome -> Printf.fprintf stdout "Chrom/Genome"; true,dhs.pam
+        | `Genome ->  true,dhs.pam
         | _ -> false,dhs.pam
     in
     let annotate_with_mauve = 
@@ -4761,9 +4761,18 @@ let assign_tcm_to_characters data chars foname tcm =
 
 let assign_tcm_to_characters_from_file data chars file =
     let tcm = match file with
-        | None   -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
-        | Some f -> 
-            (fun x -> let tcm,mat = Cost_matrix.Two_D.of_file f x in
+        | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
+        | Some (f,level) -> 
+            (fun x -> 
+                let alphabet = get_alphabet data 1 in
+                let is_aminoacids = 
+                    if (alphabet = Alphabet.aminoacids) then true else false in
+                let level =
+                    match level with
+                    | None -> 
+                            (if is_aminoacids then 1 else 0) 
+                    | Some l -> l in
+                let tcm,mat = Cost_matrix.Two_D.of_file ~level:level f x in
                       tcm, Input_file ((FileStream.filename f), mat))
     in
     assign_tcm_to_characters data chars None tcm
