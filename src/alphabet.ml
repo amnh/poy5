@@ -49,9 +49,14 @@ type a = {
     size : int;
     kind : kind;
     orientation : bool;
+    threeD : bool
 }
 
 let print alpha = 
+    let _ =              match alpha.kind with
+    | Simple_Bit_Flags -> Printf.printf "alph kind:Simple_Bit_Flags\n%!"
+    | Sequential -> Printf.printf "alph kind:Sequential\n%!"
+    | Extended_Bit_Flags -> Printf.printf "alph kind:Extended_Bit_Flags\n%!" in
     All_sets.IntegerMap.iter (fun code char -> 
                        Printf.fprintf stdout "%i %s\n" code char)
     alpha.code_to_string;
@@ -116,8 +121,9 @@ let check_level alph =
     if (level>1)&&(level<=size) then true
     else false
 
-let list_to_a ?(orientation=false) lst gap all kind =
+let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
     let a_size = List.length lst in
+    if debug then Printf.printf "Alphabet.list_to_a, sz=%d,init3D=%b\n%!" a_size init3D;
     let add (s2c, c2s, cmp, cnt) (a, b, c) =
         All_sets.StringMap.add (String.uppercase a) b s2c,
         (if All_sets.IntegerMap.mem b c2s then c2s
@@ -139,6 +145,7 @@ let list_to_a ?(orientation=false) lst gap all kind =
                     Status.user_message Status.Error x) lst;
                 Status.user_message Status.Error
                 ("could not find the gap " ^ gap);
+                assert(false);
                 raise err
     and all_code = 
         match all with
@@ -155,7 +162,8 @@ let list_to_a ?(orientation=false) lst gap all kind =
       code_to_string = c2s; 
       gap = gap_code; all = all_code;
       size = a_size; 
-      kind = kind; complement = cmp; orientation = orientation }
+      kind = kind; complement = cmp; orientation = orientation;
+      threeD = init3D}
 
 (* used to calculate costs of gaps *)
 let present_absent =
@@ -229,8 +237,7 @@ let nucleotides =
         
 
 (* The list of aminoacids *)
-let aminoacids =
-    list_to_a
+let aminoacids_char_list = 
     [
         ("A", alanine, None); 
         ("R", arginine, None); 
@@ -254,7 +261,14 @@ let aminoacids =
         ("V", valine, None); 
         ("X", all_aminoacids, None); 
         (gap_repr, aa_gap, None);
-    ] gap_repr (Some "X") Sequential 
+    ]
+
+let aminoacids =
+    list_to_a aminoacids_char_list gap_repr (Some "X") Sequential 
+
+let aminoacids_use_3d =
+    list_to_a ~init3D:true aminoacids_char_list gap_repr (Some "X") Sequential 
+
 
 let find_codelist comb alpha=
     try
@@ -297,7 +311,7 @@ let find_code = match_code
 let set_ori_size alph size =
     {alph with ori_size = size}
 
-let of_string ?(orientation = false) x gap all =
+let of_string ?(orientation = false) ?(init3D=false) x gap all =
     let osize = (List.length x)  in
     let rec builder alph counter = function
         | h :: t -> 
@@ -310,12 +324,15 @@ let of_string ?(orientation = false) x gap all =
         | [] -> List.rev alph
     in
     let res = builder [] 1 x in
-    let alpha = list_to_a ~orientation:orientation res gap all Sequential in
+    let alpha = list_to_a ~orientation:orientation ~init3D:init3D res gap all Sequential in
+    if debug then print alpha;
     { alpha with ori_size = osize }
 
 let size a = a.size
 let get_orientation a = a.orientation
 let get_ori_size a = a.ori_size
+
+let use_3d a = a.threeD
 
 let rnd a = 
     fun () ->
@@ -506,23 +523,33 @@ let simplify alph =
     | Simple_Bit_Flags
     | Sequential -> alph
     | Extended_Bit_Flags ->
-            (* We need to extract those numbers that only have one bit on *)
-            let gap = get_gap alph
+            (* for full combination,We need to extract those numbers that only have one bit on 
+            * for level combination, we need to get codes without combination*)
+            let gap = get_gap alph 
             and all = 
                 let all = get_all alph in
                 match all with
                 | Some all -> all 
-                | None -> failwith "Impossible"
+                | None -> (-1) (*failwith "Impossible"*)
             in
+            Printf.printf "gap=%d,all=%d,level=%d,ori_size=%d\n%!" gap all alph.level alph.ori_size;
             let has_one_bit_or_all v =
-                if v = all then true
-                else
-                    let rec has_only_one_bit_on v =
-                        if v = 1 then true
-                        else if 0 <> (1 land v) then false
-                        else has_only_one_bit_on (v lsr 1)
-                    in
-                    has_only_one_bit_on v
+                if (check_level alph) then begin
+                    (*if v<= gap then true
+                    else false
+                    *) true
+                end
+                else begin
+                    if v = all then true
+                    else
+                        let rec has_only_one_bit_on v =
+                            if v = 1 then true
+                            else if 0 <> (1 land v) then false
+                            else has_only_one_bit_on (v lsr 1)
+                        in
+                        has_only_one_bit_on v
+                    ;
+                end
             in
             let add_those_who_have_it v name acc =
                 if has_one_bit_or_all v then (name, v, None) :: acc
@@ -532,8 +559,12 @@ let simplify alph =
                 All_sets.IntegerMap.fold add_those_who_have_it 
                 alph.code_to_string []
             in
+            let allcode = match all with
+            | (-1) -> None 
+            | _ -> (Some (try find_code all alph with _ -> "*"))
+            in
             list_to_a ~orientation:alph.orientation list (find_code gap alph) 
-            (Some (try find_code all alph with _ -> "*"))  Simple_Bit_Flags 
+            allcode  Simple_Bit_Flags 
 
 let rec to_sequential alph =
     let uselevel = check_level alph in
@@ -599,7 +630,8 @@ let rec to_sequential alph =
                     All_sets.StringMap.fold (fun _ _ acc -> acc + 1)
                     new_string_to_code 0;
                     kind = Sequential;
-                    orientation = alph.orientation }
+                    orientation = alph.orientation;
+                    threeD = alph.threeD }
             in
             res
 
@@ -616,6 +648,7 @@ let rec explote alph level ori_sz=
             * all possible combinations *)
             (*  we do the List.rev here because we want the gap to be
             the first element in following combination calculation *)
+            if debug then Printf.printf "Simple_Bit_Flags->Extended_Bit_Flags\n%!";
             let list = 
                 if uselevel then
                     List.rev(to_list alph)
@@ -719,11 +752,13 @@ let rec explote alph level ori_sz=
                   comb_to_list = (!new_comb_to_list);  list_to_comb = (!new_list_to_comb);
                   level = level;
                   ori_size = ori_sz;
+                  all = None 
                 }
             else { return_alpha with ori_size = ori_sz }
             in
             return_alpha
     | Sequential ->
+            if debug then Printf.printf "Sequential->Simple_Bit_Flags\n%!";
             if uselevel then 
                 begin
                 let new_alph_list =
@@ -797,18 +832,15 @@ let distinct_size alph =
 let complement c alph = 
     All_sets.IntegerMap.find c alph.complement
 
-let of_file fn orientation init3D =
+let of_file fn orientation init3D level =
     let file = FileStream.Pervasives.open_in fn in
     let alph = FileStream.Pervasives.input_line file in
     let default_gap = gap_repr in
     let elts = ((Str.split (Str.regexp " +") alph) @ [default_gap]) in
-    let alph = of_string ~orientation:orientation
+    let alph = of_string ~orientation:orientation ~init3D:init3D
     elts default_gap None in
     let size = size alph in
-    let level =  2 in (* set level = 2 by default *)
     let alph, do_comb = 
-        (*we don't apply level to alphabet when orientation=true, but what if
-            * it's breakinv and orientation is false?*)
         if orientation then alph, false
         else explote alph level size, true
     in

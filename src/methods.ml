@@ -67,7 +67,7 @@ type simple_input = [
     | `AutoDetect of filename list
     | `Nucleotides of filename list
     | `PartitionedFile of filename list
-    | `Aminoacids of filename list
+    | `Aminoacids of (filename list * read_option_t list)
     | `GeneralAlphabetSeq of (filename * filename * read_option_t list)
     | `Breakinv of filename * filename * read_option_t list
     | `Chromosome of filename list

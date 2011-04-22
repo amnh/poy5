@@ -149,20 +149,20 @@ module Two_D = struct
         done;
         pure_cost_mat;;
 
-    let ori_cm_to_list cost_mat level oldlevel =
+    let ori_cm_to_list cost_mat level oldlevel all_elements =
         let size = get_ori_a_sz cost_mat in
+        if debug then Printf.printf "ori cm to list, ori_a_sz=%d,all_elements=%d\n%!" size
+        all_elements;
         let lst = ref [] in
         for c1 =1 to size do
-           let i = 
-                   c1
-           in
-           for c2 = 1 to size do 
-               let j = 
-                       c2
-               in
-               let tmp = cost i j cost_mat in
-               lst := (!lst) @ [tmp];
-           done;
+               let i =  c1 in
+               for c2 = 1 to size do 
+                    let j =  c2 in
+                    let tmp = cost i j cost_mat in
+                    if debug then Printf.printf "(%d,%d)=%d;%!" i j tmp;
+                    lst := (!lst) @ [tmp];
+               done;
+               if debug then print_newline();
         done;
         (!lst)
 
@@ -318,7 +318,6 @@ module Two_D = struct
             | [] -> raise Illegal_Cm_Format
 
     let store_input_list_in_cost_matrix use_comb m l a_sz all_elements =
-        let debug = false in
         if debug then
         Printf.printf
         "store_input_list_in_cost_matrix,all_elements=%d,a_sz=%d,use_comb=%b\n%!"
@@ -360,7 +359,6 @@ module Two_D = struct
 
    
    let calc_number_of_combinations_by_level a_sz level =
-        (*Printf.printf "calculating number of combinations : %!";*)
         let sum = ref 0 in
         let level = 
             if level>a_sz then a_sz
@@ -371,11 +369,9 @@ module Two_D = struct
             let numerator = p_m_n a_sz i in
             let denominator = factorial i in
             let c_m_n = (numerator / denominator) in
-            (*Printf.printf "+ %d %!" c_m_n;*)
             sum := !sum + c_m_n;
         done;
-        let num_of_combinations = !sum in
-        num_of_combinations
+        !sum
 
    let calc_num_of_comb_with_gap ori_a_sz level =
        let sum = ref 0 in
@@ -838,7 +834,7 @@ module Two_D = struct
         let get_cost = cost in
         let cleanup = cleanup m in
         let number_of_combinations = calc_number_of_combinations a_sz in
-        (*if debug then*)
+        if debug then
         Printf.printf "fill_best_cost_and_median_for_all_combinations: alpha size = %d, num of combinations = %d ,gap_code = %d \n%!"  a_sz number_of_combinations (gap m);
         for i = 1 to number_of_combinations do
             let li = split_integer_in_list_of_bits i 0 a_sz [] in
@@ -1047,7 +1043,7 @@ module Two_D = struct
         let res =
             is_positive arr && 
             is_symmetric arr && 
-            is_triangle_inequality arr &&
+            (*is_triangle_inequality arr &&*)
             is_identity arr
         in
         if (res) then ()
@@ -1076,8 +1072,9 @@ module Two_D = struct
             if pure_a_sz<>a_sz then num_comb+1,num_withgap+1
             else num_comb,num_withgap
         in
-        if debug then  Printf.printf "fill cost matrix :\
-        a_sz = %d(without all_element=%d), use_comb=%b,level=%d,num_comb=%d(%d),all_elements=%d (list len=%d)\n%!"
+        if debug then Printf.printf 
+        "fill cost matrix :\
+        a_sz = %d(pure a_sz=%d), use_comb=%b,level=%d,num_comb=%d(%d),all_elements=%d (list len=%d)\n%!"
         a_sz pure_a_sz use_comb level num_comb num_withgap all_elements (List.length l);
         let m =  (*Note: use_comb is 'int' in cm.c*)
             create a_sz use_comb (cost_mode_to_int use_cost_model) 
@@ -1199,16 +1196,19 @@ module Two_D = struct
         let l = List.flatten l in
         fill_cost_matrix ~use_comb:false l w all_elements
 
-    let create_cm_by_level m level oldlevel=
+    let create_cm_by_level m level oldlevel all_elements =
         let ori_sz = get_ori_a_sz m in
-        let ori_list = ori_cm_to_list m level oldlevel in
+        if debug then Printf.printf "create cm by level=%d, oldlevel=%d, ori_sz=%d\n%!"
+        level oldlevel ori_sz;
+        let ori_list = ori_cm_to_list m level oldlevel all_elements in
         let newm =
             if (level <= 1) then
                 fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz ~-1 
             else if (level>ori_sz) then
                 fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz ~-1
             else
-                fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz ~-1
+                fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz
+                all_elements
         in
         newm
 
@@ -1250,6 +1250,8 @@ module Two_D = struct
         ] 21
 
     let of_transformations_and_gaps use_combinations alph_size trans gaps all_elements =
+        Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
+        alph_size trans gaps all_elements;
         let list_with_zero_in_position pos =
             Array.to_list
             (Array.init alph_size (fun x ->
@@ -1549,7 +1551,13 @@ module Three_D = struct
     let of_two_dim_by_level nm m =
         let map_sz = Two_D.get_map_sz m
         and ori_a_sz = Two_D.get_ori_a_sz m
+        and all_elements = Two_D.get_all_elements m
         in
+        Status.user_message Status.Warning 
+        "Building@ 3D@ matrix,@  if@ this@ takes@ too@ long,@ turn@ 3D@ off"; 
+        if debug then 
+            Printf.printf "of two dim by level, map_sz=%d,ori_a_sz=%d,,all_elements = %d\n%!"
+        map_sz ori_a_sz all_elements;
         let is_metric = Two_D.is_metric m in
         if is_metric then ()
         else 
@@ -1578,13 +1586,16 @@ module Three_D = struct
     ;;
 
     let of_two_dim m = 
+        if debug then Printf.printf "Cost_matrix.Three_D.of_two_dim,%!";
         let nm = make_three_dim m in
         match combine nm with
         | 0 ->
+                if debug then Printf.printf "no comb\n%!";
                 of_two_dim_no_comb nm m;
                 nm;
         | _ -> 
                 let uselevel = Two_D.check_level m in
+                if debug then Printf.printf "with comb, uselevel=%b\n%!" uselevel;
                 if uselevel then
                     of_two_dim_by_level nm m
                 else 
@@ -1614,6 +1625,7 @@ module Three_D = struct
                     "Calculating@ Three@ Dimansional@ Aminoacid@ Cost@ Matrix"
                     None ""
                 in
+                Printf.printf "Calculating@ Three@ Dimansional@ Aminoacid\n%!";
                 let res = of_two_dim Two_D.default_aminoacids in
                 Status.finished st;
                 res

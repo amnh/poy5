@@ -125,9 +125,9 @@ module Two_D : sig
     (** [set_affine cm v] sets the cost model to the appropriate value. *)
     val set_affine : m -> cost_model -> unit
 
-    (* [create_cm_by_level m level oldlevel] creates a new cost matrix based on the
+    (* [create_cm_by_level m level oldlevel all_elements] creates a new cost matrix based on the
     * original matrix and new level value, returns the new matrix *)
-    val create_cm_by_level : m -> int -> int -> m
+    val create_cm_by_level : m -> int -> int -> int -> m
 
     (** [set_cost x y cm v] sets the cost of transforming element x into y in cost
     * matrix cm to v*)

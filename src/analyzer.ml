@@ -245,7 +245,7 @@ let dependency_relations (init : Methods.script) =
                 | `AutoDetect files
                 | `Nucleotides files
                 | `PartitionedFile files
-                | `Aminoacids files
+                | `Aminoacids (files,_)
                 | `Chromosome files
                 | `Genome files
                 | `ComplexTerminals files ->
@@ -2077,7 +2077,7 @@ let rec make_remote_files (init : Methods.script) =
     | `AutoDetect files -> `AutoDetect (mrl files)
     | `PartitionedFile files -> `PartitionedFile (mrl files)
     | `Nucleotides files -> `Nucleotides (mrl files)
-    | `Aminoacids files -> `Aminoacids (mrl files)
+    | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
     | `GeneralAlphabetSeq (a, b, c) ->
             `GeneralAlphabetSeq (mr a, mr b, c)
     | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
@@ -2096,7 +2096,7 @@ let rec make_remote_files (init : Methods.script) =
                 | `AutoDetect files -> `AutoDetect (mrl files)
                 | `Nucleotides files -> `Nucleotides (mrl files)
                 | `PartitionedFile files -> `PartitionedFile (mrl files)
-                | `Aminoacids files -> `Aminoacids (mrl files)
+                | `Aminoacids (files,opt) -> `Aminoacids (mrl files,opt)
                 | `GeneralAlphabetSeq (a, b, c) ->
                         `GeneralAlphabetSeq (mr a, mr b, c)
                 | `Breakinv (a, b, c) -> `Breakinv (mr a, mr b, c)
