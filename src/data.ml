@@ -4827,8 +4827,14 @@ let classify_characters_by_alphabet_size data chars =
     --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
     --> classify_by_size
 
-let assign_transformation_gaps data chars transformation gaps = 
-    Printf.printf "assign_transformation_gaps \n%!" ;
+let assign_transformation_gaps data chars transformation gaps =
+    let alphabet = get_alphabet data 1 in
+    let uselevel = Alphabet.check_level alphabet in
+    if uselevel then begin
+       output_warning "we are using level, input tcm file instead";
+        data
+    end
+    else 
     let alphabet_sizes = classify_characters_by_alphabet_size data chars in
     List.fold_left 
         ~f:(fun data (size, chars) ->
