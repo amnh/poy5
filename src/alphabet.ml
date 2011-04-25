@@ -145,7 +145,6 @@ let list_to_a ?(orientation=false) ?(init3D=false) lst gap all kind =
                     Status.user_message Status.Error x) lst;
                 Status.user_message Status.Error
                 ("could not find the gap " ^ gap);
-                assert(false);
                 raise err
     and all_code = 
         match all with

@@ -146,6 +146,9 @@ val distinct_size : a -> int
 (** [print a] debug function to print the contents of an alphabet **)
 val print : a -> unit
 
+(** [check_level a] returns true if level>1 && level<=a_sz*)
+val check_level : a -> bool
+
 (** {2 Extracting and Generating Alphabets} *)
 
 (** [list_to_a l g a k] generate an alphabet using the association
