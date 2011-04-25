@@ -866,6 +866,8 @@ module Two_D = struct
         done;;
 
     let fill_medians m a_sz =
+        if debug then Printf.printf "cost_matrix.fill_medians,\
+        a_sz=%d,all_elements=%d\n%!" a_sz (get_all_elements m);
         let matrix = Array.make_matrix (a_sz + 1) (a_sz + 1) [] in
         let cleanup = cleanup m in
         for i = 1 to a_sz do
@@ -892,6 +894,7 @@ module Two_D = struct
                     done;
                 matrix.(i).(j) <- !res;
                 if debug then begin
+                Printf.printf "median.%d.%d <- %!" i j;
                 List.iter (Printf.printf "%d ") (matrix.(i).(j));
                 Printf.printf ";";
                 end;
@@ -1198,14 +1201,16 @@ module Two_D = struct
 
     let create_cm_by_level m level oldlevel all_elements =
         let ori_sz = get_ori_a_sz m in
-        if debug then Printf.printf "create cm by level=%d, oldlevel=%d, ori_sz=%d\n%!"
-        level oldlevel ori_sz;
+        if debug then Printf.printf "create cm by level=%d, oldlevel=%d,\
+        ori_sz=%d,all_elements=%d\n%!"
+        level oldlevel ori_sz all_elements;
         let ori_list = ori_cm_to_list m level oldlevel all_elements in
         let newm =
             if (level <= 1) then
-                fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz ~-1 
+                fill_cost_matrix ~use_comb:false ~level:0 ori_list ori_sz
+                all_elements (*~-1*) 
             else if (level>ori_sz) then
-                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz ~-1
+                fill_cost_matrix ~use_comb:true ~level:ori_sz ori_list ori_sz all_elements (*~-1*)
             else
                 fill_cost_matrix ~use_comb:true ~level:level ori_list ori_sz
                 all_elements
@@ -1250,7 +1255,8 @@ module Two_D = struct
         ] 21
 
     let of_transformations_and_gaps use_combinations alph_size trans gaps all_elements =
-        Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
+        let debug = true in
+        if debug then Printf.printf "of_transformations_and_gaps (%d,%d,%d,%d)\n%!"
         alph_size trans gaps all_elements;
         let list_with_zero_in_position pos =
             Array.to_list
