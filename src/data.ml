@@ -2551,7 +2551,6 @@ let get_sequence_alphabet seqcode data =
     try
         match Hashtbl.find chars seqcode with
         | Dynamic dspec ->
-                Alphabet.print dspec.alph;
                 dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
         | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"

@@ -27,7 +27,7 @@ let error_user_message format = Printf.ksprintf (Status.user_message Status.Erro
 let info_user_message format = Printf.ksprintf (Status.user_message Status.Information) format
 
 let faster_remove = true
-let debug_main = true
+let debug_main = false
 let debug_remove_bad_match =  false 
 let debug_remove_bad_match2 = false
 let debug_build_lcbs = false
