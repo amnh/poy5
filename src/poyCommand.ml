@@ -1275,14 +1275,15 @@ let create_expr () =
             ];
         transform_argument:
             [
-                [ left_parenthesis; x = identifiers; ","; t = transform_method; 
+                [ left_parenthesis; x = identifiers; ","; 
+                (*t = LIST0 [ t = transform_method -> t] SEP ",";*)
+                t = transform_method; 
                     right_parenthesis -> (x, t) ] |
                 [ t = transform_method -> (`All, t) ]
             |   [ LIDENT "origin_cost"; ":"; x = integer_or_float
                         -> (`All, `OriginCost (float_of_string x)) ] |
                 [ LIDENT "prioritize" -> (`All, `Prioritize) ] 
-            ];
-
+            ]; 
         ml_floatlist: 
             [[
                 ":";left_parenthesis; x = LIST1 integer_or_float SEP ",";
@@ -1373,7 +1374,7 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
-                
+            (*    
                 [ LIDENT "tcm"; ":";  
                     x = STRING; level_value = OPT optional_level -> 
                     let res =
@@ -1383,8 +1384,15 @@ let create_expr () =
                     in
                     `Tcm res ] |
                 [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
-                    right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |
-
+                    right_parenthesis -> `Gap (int_of_string x, int_of_string y)
+                ] |
+            *)
+                [ LIDENT "tcm"; ":"; left_parenthesis; 
+                     x = tcm_arguments;
+                    right_parenthesis -> x 
+                ] |
+            
+         
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 
                 [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
@@ -1452,6 +1460,15 @@ let create_expr () =
                     | None -> `Seq_to_Kolmogorov (`AtomicIndel (None, None))
                     | Some x -> x ]
 
+            ];
+        tcm_arguments:
+            [
+                    [ x = INT; ","; y = INT -> `Gap (int_of_string x, int_of_string y)] |
+                    [ x = STRING; level_value = OPT optional_level -> 
+                        match level_value with 
+                        | None -> `Tcm (x,None)
+                        | Some y -> `Tcm (x,Some (int_of_string y))
+                    ]
             ];
         optional_kolmogorov_parameters: 
             [ 
