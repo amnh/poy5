@@ -41,6 +41,7 @@ let output_infof format =
     Printf.ksprintf (Status.user_message Status.Information) format
 
 let debug_kolmo = false
+let debug_level = false 
 
 type dynhom_opts = 
     | Tcm of string     (* A transformation cost matrix to be used *)
@@ -1830,7 +1831,9 @@ let gen_add_static_parsed_file do_duplicate data file
             let size = Alphabet.distinct_size (Alphabet.to_sequential alph) in
             let all_elements =
                 if alph = Alphabet.nucleotides then 31
-                else if alph = Alphabet.aminoacids then 21
+                else if (alph = Alphabet.aminoacids)||(alph =
+                    Alphabet.aminoacids_use_3d) 
+                then 21
                 else (-1)
             in
             match lk_model with
@@ -2547,7 +2550,8 @@ let get_sequence_alphabet seqcode data =
     let chars = data.character_specs in
     try
         match Hashtbl.find chars seqcode with
-        | Dynamic dspec -> dspec.alph
+        | Dynamic dspec ->
+                dspec.alph
         | Kolmogorov dspec -> dspec.dhs.alph
         | _ -> failwith "Data.get_sequence_alphabet: Not a dynamic character"
     with
@@ -2923,8 +2927,9 @@ let create_alpha_c2_breakinvs (data : d) chcode =
 
     let gen_cost_mat = 
         Cost_matrix.Two_D.of_list ~use_comb:false gen_cost_ls 
-        (if alpha = Alphabet.nucleotides then 31 else if alpha =
-            Alphabet.aminoacids then 21 else (-1))
+        (if alpha = Alphabet.nucleotides then 31 
+              else if (alpha = Alphabet.aminoacids)||(alpha = Alphabet.aminoacids_use_3d) 
+              then 21 else (-1))
     in  
 
     gen_alpha, gen_cost_mat 
@@ -4729,12 +4734,22 @@ let assign_tcm_to_characters data chars foname tcm =
                     else 
                         let all_elements = 
                             if dspec.alph = Alphabet.nucleotides then 31
-                            else if dspec.alph = Alphabet.aminoacids then 21
+                            else if (dspec.alph = Alphabet.aminoacids)||
+                            (dspec.alph = Alphabet.aminoacids_use_3d)
+                            then 21
                             else (-1)
                         in
                         let tcm, tcmfile = tcm all_elements in
                         ref_tcmfile := Some tcmfile;
-                        tcm, (Cost_matrix.Three_D.of_two_dim tcm), tcmfile
+                        if debug_level then 
+                            Printf.printf "assign_tcm_to_characters,calc tcm3d if init3D=true%!";
+                        let tcm3d =
+                            if (Alphabet.use_3d dspec.alph) then
+                                Cost_matrix.Three_D.of_two_dim tcm
+                            else
+                                dspec.tcm3d
+                        in
+                        tcm, tcm3d, tcmfile
                 in
                 (Dynamic { dspec with tcm = tcmfile; tcm2d = tcm; tcm3d = tcm3 }), 
                 code
@@ -4760,13 +4775,15 @@ let assign_tcm_to_characters data chars foname tcm =
 
 
 let assign_tcm_to_characters_from_file data chars file =
+    if debug_level then Printf.printf "Data.assign_tcm_to_characters_from_file\n%!";
     let tcm = match file with
         | None -> (fun x -> Cost_matrix.Two_D.default, Substitution_Indel (1,2))
         | Some (f,level) -> 
             (fun x -> 
                 let alphabet = get_alphabet data 1 in
                 let is_aminoacids = 
-                    if (alphabet = Alphabet.aminoacids) then true else false in
+                    if (alphabet = Alphabet.aminoacids)||(alphabet = Alphabet.aminoacids_use_3d) 
+                    then true else false in
                 let level =
                     match level with
                     | None -> 
@@ -4809,7 +4826,14 @@ let classify_characters_by_alphabet_size data chars =
     --> List.fold_left ~f:make_tuple_of_character_and_size ~init:[]
     --> classify_by_size
 
-let assign_transformation_gaps data chars transformation gaps = 
+let assign_transformation_gaps data chars transformation gaps =
+    let alphabet = get_alphabet data 1 in
+    let uselevel = Alphabet.check_level alphabet in
+    if uselevel then begin
+       output_warning "we are using level, input tcm file instead";
+        data
+    end
+    else 
     let alphabet_sizes = classify_characters_by_alphabet_size data chars in
     List.fold_left 
         ~f:(fun data (size, chars) ->
@@ -4842,6 +4866,7 @@ let codes_with_same_tcm codes data =
 
 
 let assign_level data chars level =
+    if debug_level then Printf.printf "Data.assign_level\n%!";
     let make_level level = function
         | Level (otcm,_) -> Level (otcm,level)
         | x -> Level (x, level)
@@ -4850,18 +4875,22 @@ let assign_level data chars level =
     let codes =
         List.map 
           (fun (a, b, alph, tcmfile) ->
+            if debug_level then begin
+                Printf.printf "before assigning:%!"; Alphabet.print alph;
+            end;
             let name = make_level level tcmfile in
             let b =
-                if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph)
-                                         || (Alphabet.aminoacids = alph) then
+                if (Alphabet.dna = alph) || (Alphabet.nucleotides = alph) then
                     b
                 else
+                    let all_elements = Cost_matrix.Two_D.get_all_elements b in
                     let oldlevel = Cost_matrix.Two_D.get_level b in
                     let ori_sz = Cost_matrix.Two_D.get_ori_a_sz b in
+                    let pure_sz = if all_elements>0 then ori_sz-1 else ori_sz in
                     let combnum =
                         if level > 1 then
                             Cost_matrix.Two_D.calc_number_of_combinations_by_level
-                            ori_sz level
+                            pure_sz level
                         else
                             ori_sz
                     in
@@ -4871,7 +4900,8 @@ let assign_level data chars level =
                         b
                     end else begin
                         let b = Cost_matrix.Two_D.clone b in
-                        let b = Cost_matrix.Two_D.create_cm_by_level b level oldlevel in
+                        let b = Cost_matrix.Two_D.create_cm_by_level b level
+                        oldlevel all_elements in
                         b
                     end
                 in
@@ -5542,7 +5572,9 @@ let to_nexus data filename =
                             "NUCLEOTIDE", []
                         else if spec.alph == Alphabet.dna then 
                             "DNA",[]
-                        else if spec.alph == Alphabet.aminoacids then 
+                        else if (spec.alph == Alphabet.aminoacids)||(spec.alph
+                        == Alphabet.aminoacids_use_3d) 
+                        then 
                             "PROTEIN", []
                         else 
                             "STANDARD", 
@@ -5587,7 +5619,8 @@ let to_nexus data filename =
                 in
                 (**) if alph = Alphabet.nucleotides then "NUCLEOTIDE", []
                 else if alph = Alphabet.dna         then "DNA",        []
-                else if alph = Alphabet.aminoacids  then "PROTEIN",    []
+                else if (alph = Alphabet.aminoacids)||
+                (alph = Alphabet.aminoacids_use_3d)  then "PROTEIN",    []
                 else let f = 
                         if resolve_a 
                             then fst

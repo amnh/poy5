@@ -1516,7 +1516,7 @@ let load_data (meth : Methods.input) data nodes =
                         data files
                 in 
                 data
-        | `Aminoacids files ->
+        | `Aminoacids (files,read_options) ->
                 let files = explode_filenames files in
                 let data = 
                     List.fold_left 
@@ -1525,13 +1525,17 @@ let load_data (meth : Methods.input) data nodes =
                 in
                 if is_prealigned then prealigned_files := files ::
                     !prealigned_files;
+                let init3D = (List.mem (`Init3D true) read_options) in
+                let alpha = 
+                    if init3D then Alphabet.aminoacids_use_3d
+                    else Alphabet.aminoacids in
                 List.fold_left 
                     (fun d f -> 
                         Data.process_molecular_file 
                                     (Data.Substitution_Indel (1,2))
                                     Cost_matrix.Two_D.default_aminoacids
                                     (Lazy.force Cost_matrix.Three_D.default_aminoacids)
-                                    annotated Alphabet.aminoacids `DO is_prealigned `Seq d f)
+                                    annotated alpha `DO is_prealigned `Seq d f)
                     data files
         | `GeneralAlphabetSeq (seq, alph, read_options) ->
                 let data = Data.add_file data [Data.Characters] seq in
@@ -1541,8 +1545,9 @@ let load_data (meth : Methods.input) data nodes =
                 let init3D = (List.mem (`Init3D true) read_options) in
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
+                let level = 2 in (* set level = 2 by default *)
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D
+                    Alphabet.of_file alph orientation init3D level
                 in
                 if is_prealigned then prealigned_files := [seq] ::
                     !prealigned_files;
@@ -1560,7 +1565,7 @@ let load_data (meth : Methods.input) data nodes =
                 let data = Data.add_file data [Data.Characters] seq in
                 (* read the alphabet and tcm *)
                 let alphabet, (twod,matrix), threed =
-                    Alphabet.of_file alph orientation init3D 
+                    Alphabet.of_file alph orientation init3D 0 
                 and tcmfile = FileStream.filename alph in
                 Data.process_molecular_file 
                         (Data.Input_file (tcmfile,matrix))

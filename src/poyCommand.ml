@@ -30,7 +30,7 @@ type otherfiles = [
     | `AutoDetect of string
     | `Nucleotides of string list
     | `PartitionedFile of string list
-    | `Aminoacids of string list
+    | `Aminoacids of (string list * read_option_t list)
     | `GeneralAlphabetSeq of (string * string * read_option_t list) 
     | `Breakinv of (string * string * read_option_t list)
     | `Chromosome of string list
@@ -1373,21 +1373,22 @@ let create_expr () =
                 [ LIDENT "randomize_terminals" -> `RandomizedTerminals ] |
                 [ LIDENT "alphabetic_terminals" -> `AlphabeticTerminals ] |
                 [ LIDENT "level"; ":"; x = INT -> `Level (int_of_string x) ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; 
-                    x = STRING; level_value = OPT optional_level; 
-                    right_parenthesis-> 
+                
+                [ LIDENT "tcm"; ":";  
+                    x = STRING; level_value = OPT optional_level -> 
                     let res =
                     match level_value with 
                     | None -> (x,None)
                     | Some y -> (x,Some (int_of_string y))
                     in
                     `Tcm res ] |
+                [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
+                    right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |
+
                 [ LIDENT "partitioned"; ":"; x = partitioned_mode -> 
                     `Partitioned x ] | 
                 [ LIDENT "fixed_states"; x = OPT optional_string -> `Fixed_States x ] |
                 [ LIDENT "direct_optimization" -> `Direct_Optimization ] |
-                [ LIDENT "tcm"; ":"; left_parenthesis; x = INT; ","; y = INT; 
-                    right_parenthesis -> `Gap (int_of_string x, int_of_string y) ] |
                 [ LIDENT "gap_opening"; ":"; x = INT -> `AffGap (int_of_string x) ] |
                 [ LIDENT "trailing_deletion"; ":"; x = STRING -> `TailFile x ] |
                 [ LIDENT "td"; ":"; x = STRING -> `TailFile x ] |
@@ -2057,9 +2058,11 @@ let create_expr () =
                 -> x]SEP ","; 
                     right_parenthesis -> `Genome (to_local a) ] |
 
-                [ LIDENT "aminoacids"; ":"; left_parenthesis; a = LIST1 [x =
-                    STRING -> x] SEP ","; 
-                    right_parenthesis -> `Aminoacids (to_local a) ] |
+                [ LIDENT "aminoacids"; ":"; left_parenthesis; 
+                    a = LIST1 [x = STRING -> x] SEP ",";
+                    OPT ";";
+                    read_options = LIST0 [x = read_optiona -> x] SEP ",";
+                    right_parenthesis -> `Aminoacids (to_local a,read_options) ] |
              
                 [ LIDENT "custom_alphabet"; ":"; left_parenthesis; seq = STRING;","; cost_mat = STRING; OPT ",";
                   read_options = LIST0 [x = read_optiona -> x] SEP ","; right_parenthesis 

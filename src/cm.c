@@ -512,6 +512,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     size_t size; 
     size_t combmatrix_size; 
     size_t comb2list_size;
+    
 #ifndef USE_LARGE_ALPHABETS
     if (comb_num > 255) 
         failwith ("Apparently you are analyzing large alphabets. This version of POY was configured without the --enable-large-alphabets option. To run this analysis you need to enable that option at compile time. Either reconfigured and compile yourself the program,   or request a version suited for your needs in the POY mailing list (poy4@googlegroups.com).");
@@ -526,7 +527,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
             //printf ("cm_set_val,level=%d,gap<-%d,gap_startNO<-%d,a_sz<-%d\n",level,a_sz,gap_startNO,comb_num); fflush(stdout);
             cm_set_gap(res, a_sz);
             cm_set_gap_startNO(res,gap_startNO);
-            cm_set_a_sz (res, comb_num); //extra 1 for all_element
+            cm_set_a_sz (res, comb_num);
         }
         else
         {
@@ -537,7 +538,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         }
         cm_set_combinations (res);
     } else {
-        //printf ("comb=false,lcm<-%d\n",ceil_log_2 (a_sz + 1)); fflush(stdout);
+        //printf ("cm_set_valcomb=false,a_sz=%d,lcm<-%d,comb_num=%d\n",a_sz,ceil_log_2 (a_sz + 1),comb_num); fflush(stdout);
         cm_set_ori_a_sz(res, a_sz);
         cm_set_level(res,1);
         cm_set_map_sz(res, a_sz);
@@ -549,11 +550,11 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     cm_set_all_elements (res, all_elements);
     cm_set_affine (res, do_aff, gap_open);
     res->is_metric = is_metric;
-    combmatrix_size = sizeof(int) * (comb_num+2) * (comb_num+2) ;
-    comb2list_size = sizeof(int) * (comb_num+2) * (2+1);
+    combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1) ;
+    comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     res->combmap = (int *) calloc(combmatrix_size,1);
     res->comb2list = (int *) calloc( comb2list_size,1);
-    if( (level >= 1)&&(level<=a_sz) )  
+    if( (level > 1)&&(level<=a_sz) )  
     {    
         //debug msg : 
         //printf ("level=%d, comb_num=%d,reset size to combmatrix_size=%d\n",level,comb_num,combmatrix_size); 
@@ -563,6 +564,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     else
     {
         size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(int);
+        fprintf(stdout,""); fflush(stdout);
     }
     if (0==size)
     {   printf ("alphabet size=%d,combinations=%d,comb_num=%d,lcm=%d\n", a_sz, combinations,comb_num,res->lcm);
@@ -571,6 +573,7 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
         failwith ("Your cost matrix is too large to fit in your memory.\
                 I can't continue with your data loading.");
     }
+    //fprintf(stdout, "calloc int of SIZE = %d\n",size); fflush(stdout);
     res->cost = (int *) calloc (size, 1);
     if(res->cost == NULL)
         failwith("ERROR: cannot alloc res->cost");
@@ -584,9 +587,10 @@ cm_set_val (int a_sz, int combinations, int do_aff, int gap_open, \
     if(res->tail_cost==NULL)
         failwith("ERROR: cannot alloc res->tail_cost");
     if( (level >1)&&(level<=a_sz) )
-    size =  sizeof(SEQT) * (comb_num+2) * (comb_num+2) ;
+    size =  sizeof(SEQT) * (comb_num+1) * (comb_num+1) ;
     else
     size = 2 * (1 << (res->lcm)) * (1 << (res->lcm)) * sizeof(SEQT);
+    //fprintf(stdout, "calloc seqt of SIZE = %d\n",size); fflush(stdout);
     if (0==size)
         printf ("alphabet size: %d,%d \n", a_sz, combinations);
     if (0 == size)
@@ -688,11 +692,11 @@ cm_set_val_3d (int a_sz, int combinations, int do_aff, int gap_open, \
         cm_unset_combinations_3d (res);
     }
     cm_set_all_elements_3d (res, all_elements);
-    combmatrix_size = sizeof(int) * (comb_num+2) * (comb_num+2);
-    comb2list_size = sizeof(int) * (comb_num+2) * (2+1);
+    combmatrix_size = sizeof(int) * (comb_num+1) * (comb_num+1);
+    comb2list_size = sizeof(int) * (comb_num+1) * (2+1);
     cm_set_affine_3d (res, do_aff, gap_open);
     if( (level >1)&&(level<=a_sz) )
-        size =  (comb_num+2) * (comb_num+2) * (comb_num+2);
+        size =  (comb_num+1) * (comb_num+1) * (comb_num+1);
     else
         size = (1 << (res->lcm + 1)) * (1 << (res->lcm + 1)) * (1 << (res->lcm + 1));
     res->comblist_2_combcode = (int *) calloc(combmatrix_size,1);
@@ -1851,6 +1855,7 @@ cm_CAML_clone (value v) {
     clone = alloc_custom (&cost_matrix, sizeof(struct cm), 1, 1000000);
     clone2 = Cost_matrix_struct(clone);
     c = Cost_matrix_struct(v);
+    //fprintf(stdout,"clone, c->map_sz=%d,c->a_sz=%d,level=%d,", c->map_sz,c->a_sz,c->level); fflush(stdout);
     if (c->combinations)
         cm_set_val (c->lcm, c->combinations, c->cost_model_type, \
                 c->gap_open, c->is_metric, c->all_elements, clone2, c->level, c->map_sz, c->gap_startNO);
@@ -1865,6 +1870,7 @@ cm_CAML_clone (value v) {
         len = combmatrix_size;
     else
         len = 2 *(1 << (c->lcm)) * (1 << (c->lcm));
+    fprintf(stdout,"copy int/seqt of SIZE =%d\n",len); fflush(stdout);
     cm_copy_contents (c->combmap, clone2->combmap, combmatrix_size);
     cm_copy_contents (c->comb2list, clone2->comb2list, comb2list_size);
     cm_copy_contents (c->cost, clone2->cost, len);

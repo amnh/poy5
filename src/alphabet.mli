@@ -62,11 +62,14 @@ val nucleotides : a
 
 (** [aminoacids] contains aminoacids alphabet according to the IUPAC.
     Combinations are not considered in this alphabet. *)
-val aminoacids : a
+val aminoacids : a 
+(** [aminoacids_use_3d] is like aminoacids, but we calculate 3d costmatrix for
+* it, which might take a long time.*)
+val aminoacids_use_3d : a
 
 (** [of_string l] creates an encoding for the string list [l] to produce an 
     alphabet. *)
-val of_string : ?orientation:bool -> string list -> string -> string option -> a
+val of_string : ?orientation:bool -> ?init3D:bool -> string list -> string -> string option -> a
 
 (** {2 Finding} *)
 
@@ -117,6 +120,8 @@ val get_ori_size : a -> int
 (** [get_orientation a] gets the orientation of the alphabet [a]. *)
 val get_orientation : a -> bool
 
+val use_3d : a -> bool
+
 (** [get_all a] returns the assigned code to represent all the elements in the
 * alphabet [a]. *)
 val get_all : a -> int option
@@ -141,12 +146,15 @@ val distinct_size : a -> int
 (** [print a] debug function to print the contents of an alphabet **)
 val print : a -> unit
 
+(** [check_level a] returns true if level>1 && level<=a_sz*)
+val check_level : a -> bool
+
 (** {2 Extracting and Generating Alphabets} *)
 
 (** [list_to_a l g a k] generate an alphabet using the association
     list of strings, codes, and optional complements [l], with gap
     code [g] and all code [a], to create * an alphabet of kind [k] *)
-val list_to_a : ?orientation:bool ->
+val list_to_a : ?orientation:bool -> ?init3D:bool ->
   (string * int * int option) list -> string -> string option -> kind -> a
 
 (** [simplify a] return an alphabet with the following conditions:
@@ -198,6 +206,6 @@ end
 
 (** [of_file stream o 3d] parse an alphabet using orientation [o],
     and optionally initialize it to 3d dimensions [3d]. *)
-val of_file : FileStream.f -> bool -> bool ->
+val of_file : FileStream.f -> bool -> bool -> int ->
                 a * (Cost_matrix.Two_D.m * int list list) * Cost_matrix.Three_D.m
 

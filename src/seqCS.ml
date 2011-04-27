@@ -1408,7 +1408,7 @@ module RL = struct
         { DOS.create (childtbl.sequence_table.(pos)) with DOS.position = pos }, 
         (int_of_float childtbl.distance_table.(parent.DOS.position).(pos))
 
-    let median code (at, ast) (bt, bst) =
+    let median (at, ast) (bt, bst) =
         if debug then begin
             Printf.printf "RL.median on nodeA and nodeB:\n%!";
             print_rl at;
@@ -1448,20 +1448,31 @@ module RL = struct
         let min_res = find_smallest res
         and min_a = find_smallest ast
         and min_b = find_smallest bst in
+        if debug then begin
+            Printf.printf "min_res=%d,min_a=%d,min_b=%d,return (at,res) = %!"min_res min_a min_b;
+            print_fs_sequences res;
+            Printf.printf "cost = res.state.%d(%f) - a.state.%d(%f) + b.state.%d(%f)\n%!" 
+            min_res res.states.(min_res) 
+            min_a ast.states.(min_a) min_b bst.states.(min_b) ;
+        end;
         (at, res), (res.states.(min_res) -. (ast.states.(min_a) +.
         bst.states.(min_b)))
 
 
     let median_3 h p n c1 c2 = n
 
-    let distance a b =
-        let _, v = median (-1) a b in
-        v
+    let distance (at, ast) (bt, bst) = 
+        let in_rl = at in
+        let statea, stateb = find_smallest ast, find_smallest bst in
+        let distbl = in_rl.distance_table in
+        if debug then Printf.printf "statea=%d,stateb=%d,dist=%f\n%!" statea stateb distbl.(statea).(stateb);
+        distbl.(statea).(stateb)
 
     let dist_2 n a b =
-        let tmp, t = median (-1) a b in
-        let _, v = median (-1) tmp n in
+        let tmp, t = median a b in
+        let _, v = median tmp n in
         (int_of_float v) + (int_of_float t)
+
 end
 
 type sequence_characters =
@@ -1907,13 +1918,17 @@ let to_single parent mine =
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Relaxed_Lifted a, Relaxed_Lifted b ->
-                    let res, c = RL.to_single a b in
+                    (* we don't turn fixed_state back to sequences in to_single
+                    * any more.
+                    * let res, c = RL.to_single a b in
                     total_cost := c + !total_cost;
-                    Heuristic_Selection res
+                    Heuristic_Selection res*)
+                    Relaxed_Lifted b
             | Heuristic_Selection a, Relaxed_Lifted b ->
-                    let res, c = RL.to_single_parent_done a b in
+                    (*let res, c = RL.to_single_parent_done a b in
                     total_cost := c + !total_cost;
-                    Heuristic_Selection res
+                    Heuristic_Selection res*)
+                    Relaxed_Lifted b
             | Partitioned _, _
             | _, Partitioned _
             | Relaxed_Lifted _, _ -> assert false) parent.characters
@@ -1941,7 +1956,7 @@ let median code a b =
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Relaxed_Lifted a, Relaxed_Lifted b ->
-                    let res, c = RL.median code a b in
+                    let res, c = RL.median a b in
                     total_cost := (int_of_float c) + !total_cost;
                     Relaxed_Lifted res
             | Partitioned _, _

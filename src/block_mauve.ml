@@ -4321,7 +4321,8 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
         get_init_lcbs seedNOlstlst seed2pos_tbl mum_tbl in_seq_size_lst
         init_num_mums min_lcb_ratio min_lcb_len 0.0 in
     (* sign of any improvement in outer&inner while loops*)
-    let any_improvement = ref false in
+    let any_improvement_inner = ref false in
+    let any_improvement_outer = ref false in
     (*init inner tbl*)
     let inner_old_covR = ref init_covR_before in
     let inner_lcbs = ref init_lcbs in
@@ -4376,6 +4377,7 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
                 inner_pos2seed_tbl_left := res_pos2seed_tbl_left;
                 inner_pos2seed_tbl_right := res_pos2seed_tbl_right;
                 inner_seed2pos_tbl := res_seed2pos_tbl;
+                any_improvement_inner := true;
             end
             else begin
                 inner_sign := false;
@@ -4384,75 +4386,81 @@ let create_lcb_tbl in_seqarr min_lcb_ratio min_lcb_len min_cover_ratio min_bk_pe
             end;
         done; 
         (*end of inner while loop*)
-        if debug_main then
-            Printf.printf "\n --------  Outer loop, remove bad lcbs ----- \n%!";
-        let new_outer_lcbs, new_outer_covR, new_outer_lcb_tbl = 
-            if faster_remove then
-                remove_bad_lcbs_faster !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
-            !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
-            !inner_old_covR 
-            else 
-                remove_bad_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
-            !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
-            in
-        (*we could still have low W lcb here -- if remove them will create high W
-        * low R lcbs, "remove_light_weight_lcbs" won't do it, get rid of those
-        * lcbs here
-        * Note. mauve keep the last low W lcb, we do the same, so
-        * new_outer_weight will at least be 1*)
-        Hashtbl.iter (fun key record ->
-            if ((Hashtbl.length new_outer_lcb_tbl)>1)&&
-            (is_light_weight_lcb record ) 
-            then begin
-                (*if debug_main then begin
-                    Printf.printf "remove lowW lcb:%!";
-                    print_int_list key;
-                end;*)
-                Hashtbl.remove new_outer_lcb_tbl key;
-            end
-        ) new_outer_lcb_tbl;
-        (*let new_outer_covR = Hashtbl.length new_outer_lcb_tbl in*)
-        let new_outer_covR,_ = get_lcb_covR_num_badlcb new_outer_lcb_tbl in_seq_size_lst in
-        (* remove corresponding item in new_outer_lcbs*)
-        let new_outer_lcbs = 
-                List.map (fun lcblst ->
-                List.filter (fun record ->
-                 Hashtbl.mem new_outer_lcb_tbl (get_abs_lst record)
-                ) lcblst
-                ) new_outer_lcbs 
-        in
-        if debug_main&&(new_outer_covR=0.) then 
-            Printf.printf "remove lcb did not give us any high W lcbs\n%!";
-        (*if debug_main then begin
-            Printf.printf "\n after remove light lcbs, we have :\n%!";
+        if debug_main then Printf.printf "\n --------  Outer loop, remove bad lcbs ----- \n%!";
+        if !any_improvement_inner then begin
+            let new_outer_lcbs, new_outer_covR, new_outer_lcb_tbl = 
+                if faster_remove then
+                    remove_bad_lcbs_faster !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
+                !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
+                !inner_old_covR 
+                else 
+                    remove_bad_lcbs !inner_lcbs !inner_lcb_tbl !inner_mum_tbl 
+                !inner_seed2pos_tbl in_seq_size_lst !current_num_of_mums
+                in
+            (*we could still have low W lcb here -- if remove them will create high W
+            * low R lcbs, "remove_light_weight_lcbs" won't do it, get rid of those
+            * lcbs here
+            * Note. mauve keep the last low W lcb, we do the same, so
+            * new_outer_weight will at least be 1*)
             Hashtbl.iter (fun key record ->
-                print_lcb record 
+                if ((Hashtbl.length new_outer_lcb_tbl)>1)&&
+                (is_light_weight_lcb record ) 
+                then begin
+                    (*if debug_main then begin
+                        Printf.printf "remove lowW lcb:%!";
+                        print_int_list key;
+                    end;*)
+                    Hashtbl.remove new_outer_lcb_tbl key;
+                end
             ) new_outer_lcb_tbl;
-        end;*)
-        if (!outer_old_covR < new_outer_covR) then begin
-            if debug_main then 
-                Printf.printf "\n we have a new lcb cov = %f>old one=%f, \
-            continue with outer loop again\n%!" new_outer_covR !outer_old_covR;
-            any_improvement := true;
-            if (new_outer_covR> !maximum_cover_ratio)||(tiny_improvement
-                new_outer_covR !outer_old_covR) then outer_sign := false
-            else outer_sign := true;
-            outer_old_covR := new_outer_covR;
-            outer_lcbs := new_outer_lcbs;
-            outer_lcb_tbl := Hashtbl.copy new_outer_lcb_tbl;
-            outer_mum_tbl := !inner_mum_tbl;
+            (*let new_outer_covR = Hashtbl.length new_outer_lcb_tbl in*)
+            let new_outer_covR,_ = get_lcb_covR_num_badlcb new_outer_lcb_tbl in_seq_size_lst in
+            (* remove corresponding item in new_outer_lcbs*)
+            let new_outer_lcbs = 
+                    List.map (fun lcblst ->
+                    List.filter (fun record ->
+                     Hashtbl.mem new_outer_lcb_tbl (get_abs_lst record)
+                    ) lcblst
+                    ) new_outer_lcbs 
+            in
+            if debug_main&&(new_outer_covR=0.) then 
+                Printf.printf "remove lcb did not give us any high W lcbs\n%!";
+            (*if debug_main then begin
+                Printf.printf "\n after remove light lcbs, we have :\n%!";
+                Hashtbl.iter (fun key record ->
+                    print_lcb record 
+                ) new_outer_lcb_tbl;
+            end;*)
+            if (!outer_old_covR < new_outer_covR) then begin
+                if debug_main then 
+                    Printf.printf "\n we have a new lcb cov = %f>old one=%f, \
+                continue with outer loop again\n%!" new_outer_covR !outer_old_covR;
+                any_improvement_outer := true;
+                if (new_outer_covR> !maximum_cover_ratio)||(tiny_improvement
+                    new_outer_covR !outer_old_covR) then outer_sign := false
+                else outer_sign := true;
+                outer_old_covR := new_outer_covR;
+                outer_lcbs := new_outer_lcbs;
+                outer_lcb_tbl := Hashtbl.copy new_outer_lcb_tbl;
+                outer_mum_tbl := !inner_mum_tbl;
+            end
+            else begin
+                outer_sign := false;
+                if debug_main then 
+                Printf.printf "\n no improve on covR (%f>=%f), get out of outer loop\n%!" 
+                !outer_old_covR new_outer_covR;
+            end;
         end
         else begin
             outer_sign := false;
-            if debug_main then 
-            Printf.printf "\n no improve on covR (%f>=%f),\
-            get out of outer loop\n%!" !outer_old_covR new_outer_covR;
-        end
+            if debug_main then
+                Printf.printf "no improve in innerloop, no need to redo outerloop again\n%!";
+        end;
     done; (*end of outer while loop*)
     (*when outer&inner while did not find any qualified lcb, outer_lcb_tbl still
     * have the lcb from initial function, remove lightW ones*)
     let outer_lcb_tbl = !outer_lcb_tbl in
-    if !any_improvement=false then 
+    if !any_improvement_outer = false then 
         (*Hashtbl.clear outer_lcb_tbl; *)
         Hashtbl.iter (fun key record ->
             if (is_light_weight_lcb record ) then begin
