@@ -112,6 +112,7 @@ val not_to_single : to_single list
 (* Like [distance] but calculates it only for the characters that match the
 * listed types. *)
 val distance_of_type :   
+  ?branches:(int,(int,float) Hashtbl.t) Hashtbl.t ->
     ?para:int option ->
       ?parb:int option ->
         to_single list -> 

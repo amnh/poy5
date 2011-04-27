@@ -136,23 +136,6 @@ let has_code code n =
     | None -> true
     | Some (a, b) ->
             a <> code && b <> code
-(*
-let get_code n =
-    match n with
-    | x :: _ ->
-            let code = x.code in
-            assert (List.for_all (fun x -> x.code = code) n);
-            x.code
-    | [] -> failwith "AllDirNode.get_code"
-
-let print_pairs x = 
-    let msg = 
-        match x.dir with
-        | None -> "No direction!"
-        | Some (a, b) -> Printf.ksprintf (fun x -> x) "%d, %d" a b
-    in
-    Status.user_message Status.Error msg
-*)
 
 let yes_with code n =
     assert (0 <> List.length n);
@@ -546,7 +529,7 @@ type nad8 = Node.Standard.nad8 = struct
 
     let fix_preliminary x = x
 
-(* move this function to allDirChar, no body calls this now *)
+(* TODO: nobody calls this now -- move functions from allDirChar here *)
     let to_single root a b c d set =
         let b',d' = match a,c with
             | None,None ->
@@ -554,13 +537,9 @@ type nad8 = Node.Standard.nad8 = struct
                     let one = match b.adjusted with
                         | None -> failwith "allDirNode,to_single,no adjusted data"
                         | Some x -> x 
-                        (*| [x] -> x
-                        |  x  -> not_with (taxon_code d) x*)
                     and two = match d.adjusted with
                         | None -> failwith "allDirNode,to_single,no adjusted data"
                         | Some y -> y 
-                        (*| [y] -> y
-                        |  y  -> not_with (taxon_code b) y*)
                     in one,two
                 end
             | Some x,Some y -> not_with x b.unadjusted, not_with y d.unadjusted
@@ -640,32 +619,40 @@ type nad8 = Node.Standard.nad8 = struct
     (* calculate the median between a and b. old can be used as a heuristic,
      * branches are the supplied branch lengths of the children a and b, *)
     let median ?branches my_code old a b =
-        let na, nb,code = 
-            match my_code with
+        let na, nb,code = match my_code with
             | Some code ->
-                    not_with code a.unadjusted, not_with code b.unadjusted,code
+                let in_a = not_with code a.unadjusted
+                and in_b = not_with code b.unadjusted in
+                in_a, in_b, code
             | None ->
-                    not_with (taxon_code b) a.unadjusted,
-                    not_with (taxon_code a) b.unadjusted, -1
+                let in_a =
+                    try not_with (taxon_code b) a.unadjusted
+                    with Not_found -> q_print a; q_print b;
+                        failwithf "Direction in A to %d; for root" (taxon_code b)
+                and in_b =
+                    try not_with (taxon_code a) b.unadjusted
+                    with Not_found -> q_print a; q_print b;
+                        failwithf "Direction in B to %d; for root" (taxon_code a)
+                in
+                in_a, in_b, -1
         in
         let old = match old with
-            | Some oldness -> 
-                (try
+            | Some oldness ->
+                begin try 
                     let n = with_both na.code nb.code oldness.unadjusted in
                     Some (n.lazy_node)
-                 with | Not_found -> None)
+                 with | Not_found -> None end
             | None -> None
         in
-
         let lazy_node =
                 OneDirF.median ?branches my_code old na.lazy_node nb.lazy_node
         in
         let node = {
             lazy_node = lazy_node;
-            dir = Some (na.code, nb.code); 
+            dir = Some (na.code, nb.code);
             code = code;
         } in
-        { unadjusted = [node]; adjusted = Some node }
+        { unadjusted = [node]; adjusted = None; }
 
     (* The final_states is calculated with the unadjusted component of the vertex *)
     let final_states grandcode par cur a b =
@@ -737,8 +724,7 @@ type nad8 = Node.Standard.nad8 = struct
                      x.lazy_node
             |  _  -> failwith "AllDirNode.apply_time only apply_time on leaves"
         and p_data = match parent.unadjusted with
-            | [x] -> 
-                    assert(has_one (taxon_code child) x);
+            | [x] -> assert(has_one (taxon_code child) x);
                      x.lazy_node
             |  _  -> let x,y = yes_with (taxon_code child) parent.unadjusted in
                      x.lazy_node
@@ -746,8 +732,8 @@ type nad8 = Node.Standard.nad8 = struct
         let node = {
             lazy_node = OneDirF.apply_time root c_data p_data;
             dir = None;
-            code = taxon_code child;
-        } in
+            code = taxon_code child; }
+        in
         { unadjusted = [node]; adjusted = Some node; }
 
     (** [uppass_heuristic tbl curr ch1 ch2 par r]
@@ -881,34 +867,13 @@ type nad8 = Node.Standard.nad8 = struct
     let readjust mode to_adjust ch1 ch2 par mine =
         (* in [n], we want the direction toward [p], the parent *)
         let errmsg =  "allDirChar,readjust,no adj-data" in
-        let get_dir p_code n = 
-            let ndata = get_adjusted_nodedata n errmsg in
-            ndata.lazy_node
-            (*(not_with (taxon_code p_code) n.adjusted).lazy_node*)
-        in
+        let get_dir p_code n = (get_adjusted_nodedata n errmsg).lazy_node in
         let par_adj = get_adjusted_nodedata par errmsg 
         and mine_adj = get_adjusted_nodedata mine errmsg in
-        let mine_in_par = par_adj.lazy_node
-        (*match par.adjusted with
-            | [x] -> x.lazy_node 
-            |  x  ->
-                try
-                    (either_with (taxon_code mine) x).lazy_node
-                with | Not_found -> 
-                    q_print par;
-                    failwithf "Cannot find node %d in parent %d"
-                        (taxon_code mine) (taxon_code par) *)
-        (* use this to be precise about children, since we know this is internal *)
-        and mine_dat = mine_adj
-            (*try with_both (taxon_code ch1) (taxon_code ch2) mine.adjusted
-            with | Not_found -> 
-                q_print mine;
-                failwithf "Cannot find direction of %d with children %d %d"
-                    (taxon_code mine) (taxon_code ch1) (taxon_code ch2) *)
-        in
+        let mine_in_par = par_adj.lazy_node in
         let a1,modified = 
             OneDirF.readjust mode to_adjust (get_dir mine ch1) 
-                             (get_dir mine ch2) mine_in_par mine_dat.lazy_node
+                             (get_dir mine ch2) mine_in_par mine_adj.lazy_node
         in
         let node_dir =
             {
@@ -931,15 +896,13 @@ type nad8 = Node.Standard.nad8 = struct
         in
         String.concat "\n" res
 
-    let total_cost par n =
-        match par with
+    let total_cost par n = match par with
         | Some code ->
-                OneDirF.total_cost par (not_with code n.unadjusted).lazy_node
-        | None ->
-                match n.unadjusted with
-                | [x] -> OneDirF.total_cost par x.lazy_node
-                | [] -> failwith "The emtpy median? AllDirNode.total_cost"
-                | _ -> failwith "AllDirNode.total_cost"
+            OneDirF.total_cost par (not_with code n.unadjusted).lazy_node
+        | None -> match n.unadjusted with
+            | [x] -> OneDirF.total_cost par x.lazy_node
+            | [] -> failwith "The emtpy median? AllDirNode.total_cost"
+            | _ -> failwith "AllDirNode.total_cost"
 
     let tree_size par n = 
         try begin match par with
@@ -958,15 +921,13 @@ type nad8 = Node.Standard.nad8 = struct
         let lst = List.map (fun x -> OneDirF.min_prior x.lazy_node) lst in
         List.fold_left (fun acc x -> min acc x) infinity lst
 
-    let node_cost par n =
-        match par with
+    let node_cost par n = match par with
         | Some code ->
                 OneDirF.node_cost par (not_with code n.unadjusted).lazy_node
-        | None ->
-                match n.unadjusted with
-                | [x] -> OneDirF.node_cost par x.lazy_node
-                | [] -> failwith "The emtpy median? AllDirNode.node_cost"
-                | _ -> failwith "AllDirNode.node_cost"
+        | None -> match n.unadjusted with
+            | [x] -> OneDirF.node_cost par x.lazy_node
+            | [] -> failwith "The emtpy median? AllDirNode.node_cost"
+            | _ -> failwith "AllDirNode.node_cost"
 
     let update_leaf x = x
 
@@ -983,17 +944,14 @@ type nad8 = Node.Standard.nad8 = struct
         | `Dynamic ->
                 let errmsg = "allDirNode,is_collapsable,no adj-data" in
                 let da = get_adjusted_nodedata a errmsg 
-                (*not_with bcode a.adjusted*)
-                and db = get_adjusted_nodedata b errmsg 
-                (*not_with acode b.adjusted*) in
+                and db = get_adjusted_nodedata b errmsg in
                 OneDirF.is_collapsable `Dynamic da.lazy_node db.lazy_node
         | `Any ->
                 (is_collapsable `Static a b) && (is_collapsable `Dynamic a b)
 
     let to_xml _ _ _ = ()
 
-    let run_any f n =
-        match n with
+    let run_any f n = match n with
         | h :: _ -> lazy_from_val (f h.lazy_node)
         | [] -> failwith "AllDirNode.run_any"
 
@@ -1165,17 +1123,13 @@ type nad8 = Node.Standard.nad8 = struct
         in
         let b = List.map (fun (a, x) -> a, x.unadjusted) b in
         let res = merge b res in
-        List.map (fun x -> { unadjusted = x; adjusted = None (*what to do? x*) }) res
+        List.map (fun x -> { unadjusted = x; adjusted = None; }) res
 
     let root_cost a = 
         let adj_data =
             get_adjusted_nodedata a "allDirNode,root_cost,no adj-data"
         in
         OneDirF.root_cost adj_data.lazy_node
-        (*let lst = a.adjusted in
-        match lst with
-        | [a] -> OneDirF.root_cost a.lazy_node
-        | _ -> failwith "AllDirNode.root_cost" *)
 
     let tree_cost a b = 
         let a = (total_cost a b) in
@@ -1195,25 +1149,19 @@ end
 
 let create_root ?branches a aa ab b ba bb opt =
     let middle = match opt with
-        | Some x -> x 
-        | None -> AllDirF.median ?branches None None a b
+        | Some x -> x
+        | None   -> AllDirF.median ?branches None None a b
     in
     let a_final = match aa,ab with
-        | Some aa,Some ab ->
-            AllDirF.uppass_heuristic b (Some middle) a aa ab
-        | None,None -> 
-            AllDirF.apply_time true a middle
-        | _,_ -> 
-            failwith "Failed with children of A @ Create Roots"
+        | Some aa,Some ab -> AllDirF.uppass_heuristic b (Some middle) a aa ab
+        | None, None      -> AllDirF.apply_time true a middle
+        | _, _            -> failwith "Failed with children of A @ Create Roots"
     and b_final = match ba,bb with
-        | Some ba,Some bb ->
-            AllDirF.uppass_heuristic a (Some middle) b ba bb
-        | None,None -> 
-            AllDirF.apply_time true b middle
-        | _,_ -> 
-            failwith "Failed with children of B @ Create Roots"
+        | Some ba,Some bb -> AllDirF.uppass_heuristic a (Some middle) b ba bb
+        | None, None      -> AllDirF.apply_time true b middle
+        | _, _            -> failwith "Failed with children of B @ Create Roots"
     and l_middle = match middle.unadjusted with
-        | [x] -> 
+        | [x] ->
             assert( match x.dir with | None -> false
                     | Some (xa,xb) ->
                         (xa = (AllDirF.taxon_code a) && xb = (AllDirF.taxon_code b)) ||
