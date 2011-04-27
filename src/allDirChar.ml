@@ -38,7 +38,6 @@ let debug_diagnosis         = false
 
 let current_snapshot x = 
     if debug_profile_memory then MemProfiler.current_snapshot x
-    else ()
 
 let update_node_manager ptree f d : unit = match d with
     | Some node_mgr -> node_mgr#update_iterate ptree f
@@ -1438,7 +1437,7 @@ module F : Ptree.Tree_Operations
         match edge_data_opt with
         | None ->
             refresh_all_edges None false (Some (a,b)) ptree
-        | Some _ when using_likelihood `Either ptree ->
+        | Some _ when not (using_likelihood `Either ptree) ->
             refresh_all_edges None false (Some (a,b)) ptree
         | Some edge ->
             let edge = (* keep the subtree edge data as the root. *)
@@ -1544,7 +1543,7 @@ module F : Ptree.Tree_Operations
                     --> replace_topology nbt
                     --> update_break_delta left_delta
                     --> update_break_delta right_delta
-                    --> refresh_all_edges None true None
+                    --> refresh_edge_data
                     --> refresh_roots
             in
             (* The uppass can change the tree/clade_handles; update based on previous handles *)
