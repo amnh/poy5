@@ -331,7 +331,7 @@ let median_3 p n c1 c2 =
 
 (* Like [distance] but calculates it only 
 * if the type of the characters match one of those listed. *)
-let distance_of_type t missing_distance a b =
+let distance_of_type t missing_distance a b len =
     let has_t x = List.exists (fun z -> z = x) t in
     let has_seq = has_t `Seq 
     and has_chrom = has_t `Chrom 
@@ -340,7 +340,7 @@ let distance_of_type t missing_distance a b =
     and has_lk = has_t `Ml
     and has_ann = has_t `Annchrom in
     match a, b with
-    | MlCS a, MlCS b when has_lk -> MlDynamicCS.distance missing_distance a b
+    | MlCS a, MlCS b when has_lk -> MlDynamicCS.distance missing_distance a b len
     | SeqCS a, SeqCS b when has_seq -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b when has_chrom -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b when has_gen -> GenomeCS.distance a b  
@@ -352,7 +352,7 @@ let distance_of_type t missing_distance a b =
 * two dynamic character sets [a] and [b] *)
 let distance missing_distance a b =
     match a, b with   
-    | MlCS a, MlCS b -> MlDynamicCS.distance missing_distance a b
+    | MlCS a, MlCS b -> MlDynamicCS.distance missing_distance a b None
     | SeqCS a, SeqCS b -> SeqCS.distance missing_distance a b
     | ChromCS a, ChromCS b -> ChromCS.distance a b  
     | GenomeCS a, GenomeCS b -> GenomeCS.distance a b  

@@ -507,11 +507,16 @@ let fs_matrix model seqs =
     m
 
 (*---- distance functions; all for Sequence characters. *)
-let distance missing_distance a b = match a.data, b.data with
-    | MPLAlign _ , MPLAlign _ 
-    | FPAlign _ , FPAlign _       ->
-        let dist1,dist2 = estimate_time a b in
-        total_cost (median (-1) a b (Some dist1) (Some dist2))
+let distance missing_distance a b blen = match a.data, b.data with
+    | MPLAlign _ , MPLAlign _
+    | FPAlign _ , FPAlign _ ->
+        let dist1,dist2 = match blen with
+            | None ->
+                let d1,d2 = estimate_time a b in
+                (Some d1), (Some d2)
+            | Some _ -> blen, Some 0.0
+        in
+        total_cost (median (-1) a b dist1 dist2)
     | (FPAlign _ | MPLAlign _ ), _ -> assert false
 
 let dist_2 delta n a b = match a.data,b.data,n.data with

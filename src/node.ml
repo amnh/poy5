@@ -1143,42 +1143,49 @@ let get_set =
 
 let median_counter = ref (-1)
 
-let median ?branches code old a b =
-    if  debug_treebuild then Printf.printf "\n node.ml median\n%!";
-    let convert_2_lst chars tbl =
-        List.map
-            (fun x -> match x with
-                | Dynamic z -> IFDEF USE_LIKELIHOOD THEN
-                    begin match z.preliminary with
-                    | DynamicCS.MlCS zdat ->
-                        (match tbl with
-                         | Some x ->
-                            begin try
-                                let x = Hashtbl.find x chars.taxon_code in
-                                let codes = MlDynamicCS.get_codes zdat in
-                                Some (Hashtbl.find x codes.(0))
-                            with | Not_found -> None end
-                         | None -> None)
-                    | _ -> None
+(* Convert a hashtable representation to list representation of branch lengths;
+   The branch length information has character codes as hash keys that we use to
+   associate to the character sets. *)
+let convert_2_lst chars tbl : float option list =
+    List.map
+        (function
+            | Dynamic z -> IFDEF USE_LIKELIHOOD THEN
+                begin match z.preliminary with
+                | DynamicCS.MlCS zdat ->
+                    begin match tbl with
+                     | Some x ->
+                        begin try
+                            let x = Hashtbl.find x chars.taxon_code in
+                            let codes = MlDynamicCS.get_codes zdat in
+                            Some (Hashtbl.find x codes.(0))
+                        with | Not_found -> None end
+                     | None -> None
                     end
-                    ELSE
-                        None
-                    END
-                | StaticMl z -> IFDEF USE_LIKELIHOOD THEN
-                    (match tbl with
+                | _ -> None
+                end
+                ELSE
+                    None
+                END
+            | StaticMl z -> 
+                IFDEF USE_LIKELIHOOD THEN
+                  begin match tbl with
                     | Some x ->
                         begin try
                             let x = Hashtbl.find x chars.taxon_code in
                             let codes = MlStaticCS.get_codes z.preliminary in
                             Some (Hashtbl.find x codes.(0))
                         with | Not_found -> None end
-                    | None -> None)
-                    ELSE
-                        None
-                    END
-                | _ -> None)
-            chars.characters
-    in
+                    | None -> None
+                  end
+                ELSE
+                    None
+                END
+            | _ -> None)
+        chars.characters
+
+
+let median ?branches code old a b =
+    if  debug_treebuild then Printf.printf "\n node.ml median\n%!";
     (* the code is negative if we are calculating on an edge *)
     let code = match code with
         | Some code -> code
@@ -1579,7 +1586,7 @@ let type_string = function
     | `StaticMl -> "static likelihood"
     | `Ml -> "dynamic likelihood"
 
-let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv ]
+let has_to_single : to_single list = [`Seq ; `Chrom; `Annchrom; `Breakinv; `Ml ]
 
 module ToSingleModule = Set.Make (struct type t = to_single let compare = compare end)
 
@@ -1595,52 +1602,65 @@ let not_to_single =
                         (has_to_single) )
 
 
-let distance_of_type ?(para=None) ?(parb=None) t missing_distance
+let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
     let has_t x = List.exists (fun z -> z = x) t
-    and filter_dynamic res x = 
-        match x with
-        | `Seq | `Breakinv | `Chrom | `Annchrom | `Genome as x -> x :: res
-        | _ -> res 
+    and filter_dynamic res x = match x with
+        | `Seq    | `Breakinv
+        | `Chrom  | `Annchrom
+        | `Genome | `Ml as x -> x :: res
+        | _ -> res
     in
     let has_nonadd = has_t `Nonadd
     and has_add = has_t `Add
     and has_sank = has_t `Sank
     and dy_t = List.fold_left filter_dynamic [] t 
     and has_kolmo = has_t `Kolmo in
-    let rec distance_two ch1 ch2 =
+
+    let rec distance_two ch1 ch2 (bl: float option) : float =
         match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b when has_nonadd ->
-              a.weight *. NonaddCS8.distance a.final b.final
+            a.weight *. NonaddCS8.distance a.final b.final
         | Nonadd16 a, Nonadd16 b when has_nonadd ->
-              a.weight *. NonaddCS16.distance a.final b.final
+            a.weight *. NonaddCS16.distance a.final b.final
         | Nonadd32 a, Nonadd32 b when has_nonadd ->
-              a.weight *. NonaddCS32.distance a.final b.final
+            a.weight *. NonaddCS32.distance a.final b.final
         | Add a, Add b when has_add ->
-              a.weight *. AddCS.distance a.final b.final
+            a.weight *. AddCS.distance a.final b.final
         | Sank a, Sank b when has_sank ->
-              a.weight *. SankCS.distance a.final b.final
+            a.weight *. SankCS.distance a.final b.final
         | Dynamic a, Dynamic b ->
-              a.weight *. DynamicCS.distance_of_type dy_t missing_distance a.final b.final
+            a.weight *. DynamicCS.distance_of_type dy_t missing_distance a.final b.final bl
         | Kolmo a, Kolmo b when has_kolmo ->
-              a.weight *. KolmoCS.distance a.final b.final
+            a.weight *. KolmoCS.distance a.final b.final
         | Set a, Set b ->
-              (match a.final.smethod with
-               | `Strictly_Same ->
-                     distance_lists a.final.set b.final.set 0.
+            begin match a.final.smethod with
+                | `Strictly_Same ->
+                    let bls = Array.to_list (Array.create (List.length b.final.set) bl) in
+                    distance_lists a.final.set b.final.set bls 0.
                | `Any_Of _ ->
                      (* unf. we just take the full median and check the distance *)
                      decr median_counter;
                      let m = cs_median !median_counter nodea nodeb None None None ch1 ch2 in 
-                     extract_cost m)
+                     extract_cost m
+            end
+        | StaticMl a, StaticMl b ->
+            IFDEF USE_LIKELIHOOD THEN
+                let x = cs_median 0 nodea nodeb None bl (Some 0.0) ch1 ch2 in
+                match x with | StaticMl x -> a.weight *. (x.cost -. (a.cost +. b.cost))
+                             | _ -> assert false
+            ELSE
+                failwith MlStaticCS.likelihood_error
+            END
         | _ -> 0.0
-    and distance_lists chs1 chs2 acc =
-        match chs1, chs2 with
-        | ch1 :: chs1, ch2 :: chs2 ->
-              distance_lists chs1 chs2 (acc +. distance_two ch1 ch2)
-        | [], [] -> acc
-        | _ -> failwith "Incompatible characters (6)" in
-    distance_lists chs1 chs2 0.
+    and distance_lists chs1 chs2 branchs acc =
+        match chs1, chs2, branchs with
+        | ch1 :: chs1, ch2 :: chs2, b :: bs ->
+              distance_lists chs1 chs2 bs (acc +. distance_two ch1 ch2 b)
+        | [], [], [] -> acc
+        | _ -> failwith "Incompatible characters (6)"
+    in
+    distance_lists chs1 chs2 (convert_2_lst nodea branches) 0.
 
 
 let distance ?(para=None) ?(parb=None)  missing_distance

@@ -126,7 +126,7 @@ val to_single : t -> t -> float -> float * float * t
 
 (** {6 Distance Functions} *)
 
-val distance : float -> t -> t -> float
+val distance : float -> t -> t -> float option -> float
 (** [distance f a b] Distance metric for two sequence data; calls the equivlent
     functions in sequences data. *)
 
