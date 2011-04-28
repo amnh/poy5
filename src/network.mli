@@ -63,18 +63,18 @@ val empty : checked di_graph
 (** {6 Traversal Functions **)
 
 (** post order on nodes; the only argument for the function is the current node *)
-val post_order_node_visit : ~f:(id -> 'a -> 'a) -> id -> 'a -> checked di_graph -> 'a
+val post_order_node_visit : f:(id -> 'a -> 'a) -> id -> 'a -> checked di_graph -> 'a
 
 (** post order on all the edges; call rf on the root (pass its id and its two
     children), and f on the subsequent edges (parent and child). No edges are
     repeated; thus f will never be called with the first argument a leaf *)
-val post_order_edge_visit : ~f:(id -> id -> 'a -> 'a) -> ~rf:(id -> id -> id -> 'a -> 'a) -> id -> 'a -> checked di_graph -> 'a
+val post_order_edge_visit : f:(id -> id -> 'a -> 'a) -> rf:(id -> id -> id -> 'a -> 'a) -> id -> 'a -> checked di_graph -> 'a
 
 
 (** {6 IO / transformation Functions *)
 
 (** Transform Dot_ast to di_graph format; unchecked **)
-val process_file : Data.d -> Dot_ast.file -> unchecked di_graph
+val process_file : Data.d -> Graphviz.Dot_ast.file -> unchecked di_graph
 
 (** convert a Tree.u_tree to a di_graph; preserves leaf ids *)
 val process_tree : Tree.u_tree -> checked di_graph

@@ -68,7 +68,7 @@ let empty : checked di_graph =
 (** get the next id for the graph and return the updated information for later
     retreval of new graph node ids. *)
 let pop_id (g: 'a di_graph) : id * 'a di_graph = 
-    match avail_ids with
+    match g.avail_ids with
     | []     -> g.new_ids + 1, { g with new_ids = g.new_ids + 1; }
     | hd::tl -> hd, { g with avail_ids = tl; }
 
@@ -100,8 +100,8 @@ let verify_roots g : bool =
 
 (** Post-Order node visit; fold ovear directed graph with funciton f in a
     post-order fashion; types ensure we do not have ridiculous cycles. *)
-let post_order_node_visit (f: id -> 'a -> 'a) (r: id) (acc: 'a) (g: checked di_graph): 'a =
-    let () = try All_sets.Integers.mem r g.roots with _ -> raise_root r in
+let post_order_node_visit ~f (r: id) (acc: 'a) (g: checked di_graph): 'a =
+    assert (All_sets.Integers.mem r g.roots);
     let rec eval cur (acc:'a): 'a =
         match All_sets.IntegerMap.find cur g.graph with
         | Root (n,c1,c2)         -> acc --> eval c1 --> eval c2 --> f n
@@ -115,9 +115,8 @@ let post_order_node_visit (f: id -> 'a -> 'a) (r: id) (acc: 'a) (g: checked di_g
 (** Post_order edges; fold over the edges of the tree calling f on each edge. The
     parent is always the first argument in the function call. If no edges in the
     graph exist; we return the accumulator --no exceptions, no failures. *)
-let post_order_edge_visit (~f: id -> id -> 'a -> 'a) (~rf: id -> id -> id -> 'a -> 'a)
-                          (r: id) (acc: 'a) (g: checked di_graph): 'a =
-    let () = try All_sets.Integers.mem r g.roots with _ -> raise_root r in
+let post_order_edge_visit ~f ~rf (r: id) (acc: 'a) (g: checked di_graph): 'a =
+    assert (All_sets.Integers.mem r g.roots);
     let rec eval (par: id) (cur: id) (acc:'a): 'a =
         match All_sets.IntegerMap.find cur g.graph with
         | Leaf (n,p)             -> f p n acc
@@ -136,41 +135,28 @@ open Graphviz
 (** Transform Dot_ast to di_graph format; unchecked **)
 let process_file (d : Data.d) (g : Dot_ast.file) : unchecked di_graph =
     (* process any node information *)
-    let names : Dot_ast.id Dot_ast.IdMap.t =
-        failwith "not-done"
-    in
+(*    let names : Dot_ast.id Dot_ast.IdMap.t =*)
     (* process edge information and normalize the names *)
-    let edges,names : Dot_ast.id list Dot_ast.IdMap.t * Dot_ast.id Dot_ast.IdMap.t = 
-        failwith "not-done"
-    in
+(*    let edges,names : (Dot_ast.id list) Dot_ast.IdMap.t * (Dot_ast.id Dot_ast.IdMap.t) =*)
     (* build associations with names against Data.d *)
-    let normal_names : id Dot_ast.IdMap.t =
-        failwith "not-done"
-    in
+(*    let normal_names : id Dot_ast.IdMap.t =*)
     (* find the root node(s); a node with two children; and ensure that they
        aren't apart of the same leaf-set. *)
-    let roots =
-        failwith "not-done"
-    in
+(*    let roots =*)
     (* traverse from the root out determining if the new node is reticulate, a
        leaf or interior *)
-    let graph =
-        failwith "not-done"
-    in
+(*    let graph =*)
     (* add missing taxon nodes as Single nodes *)
-    let roots,graph =
-        failwith "not-done"
-    in
+(*    let roots,graph =*)
     let graph_name = match g.Dot_ast.id with
         | Some (Dot_ast.Ident s) -> Some s
-        | Some (Dot_ast.Number n) -> Some (string_of_int n)
+        | Some (Dot_ast.Number s) -> Some s
         | Some (Dot_ast.String s) -> Some s
-        | Some (Dot_ast.HTML s) -> None
+        | Some (Dot_ast.Html s) -> None
         | None -> None
-    {
+    in
+    { empty with
         name = graph_name;
-        roots = roots;
-        graph = graph;
     }
 
 (** transform a tree to a graph *)
