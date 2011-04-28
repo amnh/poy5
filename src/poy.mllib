@@ -33,6 +33,8 @@ CompileFlags
 Cost_matrix
 Data
 Diagnosis
+Dot
+Dot_ast
 DynamicCS
 Edge
 Enum
@@ -80,7 +82,6 @@ NonaddCS32
 NonaddCS8
 Numerical
 Parser
-Phylo
 Phylo
 PoyCommand
 PoyExtension

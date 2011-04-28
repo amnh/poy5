@@ -32,6 +32,8 @@ CommandLexer
 Cost_matrix
 Data
 Diagnosis
+Dot
+Dot_ast
 DynamicCS
 Edge
 Enum
@@ -62,6 +64,7 @@ Lz
 Matrix
 MemProfiler
 Methods
+Dot_ast
 MlModel
 MlDynamicCS
 MlStaticCS
