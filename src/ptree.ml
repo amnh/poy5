@@ -212,6 +212,7 @@ module type Tree_Operations =
             (a, b) p_tree -> incremental list -> (a, b) p_tree
 
         val to_formatter :  
+            Methods.diagnosis_report_type ->
             Xml.attributes -> (a, b) p_tree ->
             Xml.xml
 

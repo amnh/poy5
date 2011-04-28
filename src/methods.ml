@@ -254,6 +254,8 @@ type support_output = [
     | `Bootstrap of summary_class
 ]
 
+type diagnosis_report_type =[ `StateOnly | `Normal ]
+
 type report = [
     | `KolmoMachine of string option
     | `MstR of string option
@@ -270,7 +272,7 @@ type report = [
     | `GraphicDiagnosis of string
     | `Dataset of string option
     | `Xslt of (string * string)
-    | `Diagnosis of string option
+    | `Diagnosis of (diagnosis_report_type * string option)
     | `Consensus of (string option * float option)
     | `GraphicConsensus of (string option * float option)
     | `FasWinClad of string option

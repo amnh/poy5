@@ -154,16 +154,19 @@ val incremental_downpass :
 * using as attributes of the root of the subtree [b], and as parent contents,
 * and single assignment to the parent contents the tuple [g]. *)
 val subtree_to_formatter : 
+    Methods.diagnosis_report_type ->
     ChromCS.IntSet.t * ChromCS.IntSet.t ->
     Xml.attributes -> Ptree.phylogeny -> int ->
     (Node.node_data * Node.node_data) option -> Xml.xml
 
-val handle_to_formatter : 
+val handle_to_formatter :
+    Methods.diagnosis_report_type ->
     All_sets.Integers.t * All_sets.Integers.t -> 
         Xml.attributes -> Ptree.phylogeny -> 
             int -> Xml.xml
 
 val to_formatter :
+    Methods.diagnosis_report_type ->
         Xml.attributes ->
         (Node.node_data, 'a) Ptree.p_tree -> Xml.xml
 

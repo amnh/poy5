@@ -134,17 +134,17 @@ val final_states : node_data -> node_data -> node_data -> node_data -> node_data
 * [node_cost e = c], but otherwise undistinguishable from [n]. *)
 val set_node_cost : float -> node_data -> node_data
 
-(** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
-* a horrible format. Check the Xml module for further information. *)
 (* Compute the total rearrangement cost of the subtree rooted by node_data *)
 val cmp_subtree_recost : node_data -> float
 
+(** [to_formatter_single] is a horrible function, horrible, horrible; it outputs in
+* a horrible format. Check the Xml module for further information. *)
 (**
 *  The function take accumulated formatter (acc), data (d), node_data,
  *  node_id, parent_node_data as an option
 *)
 val to_formatter_single :
-    ChromCS.IntSet.t * ChromCS.IntSet.t ->    
+    Methods.diagnosis_report_type -> ChromCS.IntSet.t * ChromCS.IntSet.t ->    
         Xml.attributes ->
             Data.d -> (node_data * node_data) -> int -> (node_data * node_data)
             option -> Xml.xml 
@@ -157,7 +157,7 @@ val to_formatter_single :
 * content [f] and [g], and with [(parent node * parent single assignment node)]
 * [h]. The single assignment is a unique assignment per character, as opposed to
 * the multiple valid assignments that are possible in a tree *)
-val to_formatter_subtree : ChromCS.IntSet.t * ChromCS.IntSet.t -> Xml.attributes ->
+val to_formatter_subtree : Methods.diagnosis_report_type -> ChromCS.IntSet.t * ChromCS.IntSet.t -> Xml.attributes ->
   Data.d -> (node_data * node_data) -> int ->
     int *  node_data -> int *  node_data -> 
         (node_data * node_data) option -> Xml.xml 

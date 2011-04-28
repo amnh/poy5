@@ -3088,7 +3088,7 @@ let get_active_ref_code node_data =
         (IntSet.empty, IntSet.empty, IntSet.empty, IntSet.empty) 
         (node_data.characters)
 
-let rec cs_to_formatter node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) parent_cs = 
+let rec cs_to_formatter report_type node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) parent_cs = 
     match cs, cs_single with
     | Nonadd8 cs, Nonadd8 _ ->
         begin match parent_cs with
@@ -3149,29 +3149,29 @@ let rec cs_to_formatter node_name (pre_ref_codes,fi_ref_codes) d (cs,cs_single) 
     | Dynamic cs, Dynamic cs_single ->
         begin match parent_cs with
             | None ->
-                DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary None cs.time d
-              @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final None cs.time d
-              @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary None cs.time d
+                DynamicCS.to_formatter report_type node_name pre_ref_codes pre cs.preliminary None cs.time d
+              @ DynamicCS.to_formatter report_type node_name fi_ref_codes fin cs.final None cs.time d
+              @ DynamicCS.to_formatter report_type node_name pre_ref_codes sing cs_single.preliminary None cs.time d
             | Some ((Dynamic parent_cs), (Dynamic parent_cs_single)) ->
-                DynamicCS.to_formatter node_name pre_ref_codes pre cs.preliminary
+                DynamicCS.to_formatter report_type node_name pre_ref_codes pre cs.preliminary
                     (Some parent_cs.preliminary) cs.time d
-              @ DynamicCS.to_formatter node_name fi_ref_codes fin cs.final
+              @ DynamicCS.to_formatter report_type node_name fi_ref_codes fin cs.final
                     (Some parent_cs.final) cs.time d
-              @ DynamicCS.to_formatter node_name pre_ref_codes sing cs_single.preliminary
+              @ DynamicCS.to_formatter report_type node_name pre_ref_codes sing cs_single.preliminary
                     (Some parent_cs_single.preliminary) cs.time d
             | _ -> assert false
         end
     | Kolmo x, Kolmo x_single ->
-        KolmoCS.to_formatter pre_ref_codes pre x.preliminary d @
-            KolmoCS.to_formatter fi_ref_codes  fin x.final d @
-            KolmoCS.to_formatter pre_ref_codes sing x_single.preliminary d
+        KolmoCS.to_formatter report_type pre_ref_codes pre x.preliminary d @
+            KolmoCS.to_formatter report_type fi_ref_codes  fin x.final d @
+            KolmoCS.to_formatter report_type pre_ref_codes sing x_single.preliminary d
     | Set x, Set x_single ->
         let attributes =
               [(Xml.Characters.name, `String (Data.code_character x.final.sid d))] in
         let sub a =
             (* SET BUG!!!! I'm pasing here `Left, but I believe this is an
                error, though I can't see where ... *)
-            (cs_to_formatter None (pre_ref_codes, fi_ref_codes) d a None)
+            (cs_to_formatter report_type None (pre_ref_codes, fi_ref_codes) d a None)
         in
         let sub : (Xml.xml Sexpr.t list) = 
             List.map2 (fun a b -> `Set (sub (a, b))) 
@@ -3211,7 +3211,7 @@ let cmp_subtree_recost node_data =
         0.0
         node_data.characters
 
-let to_formatter_single (pre_ref_codes,fi_ref_codes) acc d (node_data,node_single) node_id parent_data =
+let to_formatter_single report_type (pre_ref_codes,fi_ref_codes) acc d (node_data,node_single) node_id parent_data =
     let get_node_name id =
         try Data.code_taxon id d
         with | Not_found -> string_of_int id 
@@ -3235,7 +3235,7 @@ let to_formatter_single (pre_ref_codes,fi_ref_codes) acc d (node_data,node_singl
                     if debug_formatter then
                         Printf.printf "Delayed function of to_formatter_single on node %s\n%!" node_name;
                     let res =
-                         cs_to_formatter (Some node_name) (pre_ref_codes, fi_ref_codes) d cs parent_data
+                         cs_to_formatter report_type (Some node_name) (pre_ref_codes, fi_ref_codes) d cs parent_data
                     in
                     res @ acc, item + 1)
                 ([], 0)
@@ -3276,7 +3276,7 @@ let copy_chrom_map source des =
     in 
     {des with characters = Array.to_list d_ch_arr}
 
-let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
+let to_formatter_subtree diag_report_type (pre_ref_codes, fi_ref_codes)
         acc d (node_data, node_single) node_id (child1_id,  child1_node_data)
         (child2_id,  child2_node_data) (parent_node_data_opt : (node_data *
         node_data) option) : Xml.xml =
@@ -3340,7 +3340,7 @@ let to_formatter_subtree (pre_ref_codes, fi_ref_codes)
              if debug_formatter then 
                 Printf.printf "Delayed function in to_formatter_subtree on node.%s"
              node_name;
-             let res = cs_to_formatter None (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
+             let res = cs_to_formatter diag_report_type None (pre_ref_codes, fi_ref_codes) d cs parent_cs in 
              (res @ acc), (idx + 1)) ([], 0) 
              (List.map2 (fun a b -> a, b) node_data.characters 
              node_single.characters))))
