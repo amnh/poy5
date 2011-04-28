@@ -19,18 +19,18 @@
 
 open Dot_ast
 
-let parse_dot_ast_from_chan c =
-  let lb = Lexing.from_channel c in
-  let dot =
-    try
-      Dot_parser.file Dot_lexer.token lb
-    with Parsing.Parse_error ->
-      let n = Lexing.lexeme_start lb in
-      failwith (Printf.sprintf "Dot.parse: parse error character %d" n)
-  in
-  close_in c;
-  dot
+let of_channel c =
+    let lb = Lexing.from_channel c in
+    let dot =
+        try Dot_parser.file Dot_lexer.token lb
+        with Parsing.Parse_error ->
+            let n = Lexing.lexeme_start lb in
+            failwith (Printf.sprintf "Dot.parse: parse error character %d" n)
+    in
+    dot
 
-let parse_dot_ast f =
-  let c = open_in f in
-  parse_dot_ast_from_chan c
+let of_file f =
+    let chan = open_in f in
+    let res = of_channel chan in
+    close_in chan;
+    res
