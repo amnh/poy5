@@ -1,8 +1,6 @@
 parser/Asn1
 parser/ClustalSeq
 parser/Dictionary
-parser/Dot
-parser/Dot_ast
 parser/E
 parser/Files
 parser/FixedStatesDict

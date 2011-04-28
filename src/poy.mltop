@@ -32,8 +32,6 @@ CommandLexer
 Cost_matrix
 Data
 Diagnosis
-Dot
-Dot_ast
 DynamicCS
 Edge
 Enum
@@ -48,6 +46,7 @@ GenomeAli
 GenomeCS
 GraphTree
 GraphicsPs
+Graphviz
 Hash_tbl
 Heap
 Help
@@ -64,7 +63,6 @@ Lz
 Matrix
 MemProfiler
 Methods
-Dot_ast
 MlModel
 MlDynamicCS
 MlStaticCS

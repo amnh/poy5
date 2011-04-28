@@ -33,8 +33,6 @@ CompileFlags
 Cost_matrix
 Data
 Diagnosis
-Dot
-Dot_ast
 DynamicCS
 Edge
 Enum
@@ -49,6 +47,7 @@ GenomeAli
 GenomeCS
 GraphTree
 GraphicsPs
+Graphviz
 Hash_tbl
 Heap
 Help
