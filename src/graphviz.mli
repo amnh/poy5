@@ -63,7 +63,7 @@ end
 
 module Dot : sig
 
-    val parse_dot_ast_from_chan : in_channel -> Dot_ast.file
-    val parse_dot_ast : string -> Dot_ast.file
+    val of_channel : in_channel -> Dot_ast.file
+    val of_file : string -> Dot_ast.file
 
 end
