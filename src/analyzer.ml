@@ -414,7 +414,7 @@ let dependency_relations (init : Methods.script) =
                         let fn = filename_to_list filename in
                         [(trees @ fn, fn, init, NonComposable)], filename,
                         false
-                | `GraphicDiagnosis filename ->
+                | `GraphicDiagnosis (_,filename) ->
                         let fn = filename_to_list (Some filename) in
                         [(datantrees @ fn, fn, init, NonComposable)], 
                         Some filename, false
@@ -1746,7 +1746,7 @@ let script_to_string (init : Methods.script) =
                 | `Consensus (_, _)
                 | `GraphicConsensus (_, _) ->
                         "@[report the consensus@]"
-                | `GraphicDiagnosis filename ->
+                | `GraphicDiagnosis (reporttype,filename) ->
                         "@[report in " ^ filename ^ " the diagnosis@]"
                 | `Diagnosis (reporttype,filename) ->
                         (match filename with
@@ -2017,7 +2017,7 @@ let is_master_only (init : Methods.script) =
     | `Supports (_, _)
     | `Consensus (_, _)
     | `GraphicConsensus (_, _)
-    | `GraphicDiagnosis _
+    | `GraphicDiagnosis (_,_)
     | `Diagnosis (_,_)
     | `AllRootsCost _
     | `Trees _

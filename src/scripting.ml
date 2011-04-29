@@ -4532,11 +4532,11 @@ END
                     Status.user_message (Status.Output (filename, false, []))
                                         "@]%!";
                     run
-            | `GraphicDiagnosis filename ->
+            | `GraphicDiagnosis (diag_report_type,filename) ->
                     let trees =
                         (* let classify = false in
                            let run = update_trees_to_data ~classify false true run in*)
-                        Sexpr.map (TreeOps.to_formatter `Normal []) run.trees  
+                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
                     in 
                     GraphicsPs.display_diagnosis "Diagnosis" filename trees;
                     (* Flush the formatter *)

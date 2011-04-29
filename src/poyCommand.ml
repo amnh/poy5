@@ -337,7 +337,7 @@ type reporta = [
     | `GraphicSupports of Methods.support_output option
     | `AllRootsCost
     | `Implied_Alignments of identifiers * bool
-    | `GraphicDiagnosis
+    | `GraphicDiagnosis of Methods.diagnosis_report_type
     | `Diagnosis of Methods.diagnosis_report_type 
     | `Nodes
 ]
@@ -993,10 +993,10 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             | #Methods.characters as id ->
                     (`Implied_Alignment (file, id, include_header)) :: acc, file
             | _ -> acc, file)
-    | `GraphicDiagnosis -> 
+    | `GraphicDiagnosis c -> 
             (match file with
-            | None -> (`Diagnosis (`Normal,file)) :: acc, file
-            | Some file -> (`GraphicDiagnosis file) :: acc, Some file)
+            | None -> (`Diagnosis (c,file)) :: acc, file
+            | Some file -> (`GraphicDiagnosis (c,file)) :: acc, Some file)
     | `Diagnosis c -> 
             (`Diagnosis (c,file)) :: acc, file
     | `Nodes ->
@@ -1746,7 +1746,10 @@ let create_expr () =
                     match y with 
                     | None -> `Diagnosis `Normal
                     | Some x -> `Diagnosis x] |
-                [ LIDENT "graphdiagnosis" -> `GraphicDiagnosis ] |
+                [ LIDENT "graphdiagnosis";  y = OPT opt_report_type ->
+                    match y with
+                    | None -> `GraphicDiagnosis `Normal
+                    | Some x -> `GraphicDiagnosis x ] |
                 [ LIDENT "data" -> `Data ] |
                 [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" ->
                     `Xslt (a, b) ] |

@@ -269,7 +269,7 @@ type report = [
     | `TerminalsFiles of string option
     | `Supports of (support_output option * string option)
     | `GraphicSupports of (support_output option * string option)
-    | `GraphicDiagnosis of string
+    | `GraphicDiagnosis of (diagnosis_report_type * string)
     | `Dataset of string option
     | `Xslt of (string * string)
     | `Diagnosis of (diagnosis_report_type * string option)
