@@ -337,8 +337,8 @@ type reporta = [
     | `GraphicSupports of Methods.support_output option
     | `AllRootsCost
     | `Implied_Alignments of identifiers * bool
-    | `GraphicDiagnosis
-    | `Diagnosis
+    | `GraphicDiagnosis of Methods.diagnosis_report_type
+    | `Diagnosis of Methods.diagnosis_report_type 
     | `Nodes
 ]
 
@@ -993,12 +993,12 @@ let transform_report ((acc : Methods.script list), file) (item : reporta) =
             | #Methods.characters as id ->
                     (`Implied_Alignment (file, id, include_header)) :: acc, file
             | _ -> acc, file)
-    | `GraphicDiagnosis -> 
+    | `GraphicDiagnosis c -> 
             (match file with
-            | None -> (`Diagnosis file) :: acc, file
-            | Some file -> (`GraphicDiagnosis file) :: acc, Some file)
-    | `Diagnosis -> 
-            (`Diagnosis file) :: acc, file
+            | None -> (`Diagnosis (c,file)) :: acc, file
+            | Some file -> (`GraphicDiagnosis (c,file)) :: acc, Some file)
+    | `Diagnosis c -> 
+            (`Diagnosis (c,file)) :: acc, file
     | `Nodes ->
             (`Nodes file) :: acc, file
 
@@ -1006,8 +1006,8 @@ let transform_report_arguments x =
     match x with
     | [`File file] ->
             let file = Some file in
-            [`Ascii (file, true); `Diagnosis file; `Trees ([], file)]
-    | [] -> [`Ascii (None, true); `Diagnosis None; `Trees ([], None)]
+            [`Ascii (file, true); `Diagnosis (`Normal,file); `Trees ([], file)]
+    | [] -> [`Ascii (None, true); `Diagnosis (`Normal,None); `Trees ([], None)]
     | _ -> 
             let def = [], None in
             let x, _ = List.fold_left transform_report def x in
@@ -1742,8 +1742,14 @@ let create_expr () =
                 [ LIDENT "supports"; y = OPT opt_support_names -> `Supports y ] |
                 [ LIDENT "graphsupports"; y = OPT opt_support_names -> 
                     `GraphicSupports y ] |
-                [ LIDENT "diagnosis" -> `Diagnosis ] |
-                [ LIDENT "graphdiagnosis" -> `GraphicDiagnosis ] |
+                [ LIDENT "diagnosis"; y = OPT opt_report_type -> 
+                    match y with 
+                    | None -> `Diagnosis `Normal
+                    | Some x -> `Diagnosis x] |
+                [ LIDENT "graphdiagnosis";  y = OPT opt_report_type ->
+                    match y with
+                    | None -> `GraphicDiagnosis `Normal
+                    | Some x -> `GraphicDiagnosis x ] |
                 [ LIDENT "data" -> `Data ] |
                 [ LIDENT "xslt"; ":"; "("; a = STRING; ","; b = STRING; ")" ->
                     `Xslt (a, b) ] |
@@ -2293,6 +2299,14 @@ let create_expr () =
         string_arg:
             [
                 [ ":"; x = STRING -> x ]
+            ];
+        report_type:
+            [
+                [ LIDENT "statename_only" -> `StateOnly ]
+            ];
+        opt_report_type:
+            [
+                [","; x = report_type -> x]
             ];
         (* Support values *)
         support_argument:

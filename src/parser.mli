@@ -72,12 +72,7 @@ module Files : sig
 
     val molecular_to_fasta : FileStream.f -> in_channel
 
-
 end
-
-
-
-
 
 (** Hennig file format parser *)
 module OldHennig : sig
@@ -299,7 +294,6 @@ module Genbank : sig
     val convert_to_fasta: ?filename:string -> FileStream.f -> in_channel
    
 end 
-
 
 module INSDSeq : sig
 (** A parser implementation for the INSDSeq XML file format - just convert to 

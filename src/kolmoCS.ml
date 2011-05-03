@@ -109,9 +109,9 @@ let distance c d =
     
 let dist_2 a b c d = distance c d
 
-let to_formatter ref_codes attr t d =
+let to_formatter report_type ref_codes attr t d =
     let attr = (Xml.KolSpecs.model, `String (get_model t)) :: attr in
-    SeqCS.to_formatter attr t.characters None d
+    SeqCS.to_formatter report_type attr t.characters None d
 
 let f_codes a b = 
     { a with characters = SeqCS.f_codes a.characters b } 

@@ -1871,7 +1871,7 @@ module F : Ptree.Tree_Operations
         IntSet.fold assign_final_states_handle (Ptree.get_handles ptree) ptree
 
 
-    let to_formatter (atr : Xml.attributes) tree : Xml.xml =
+    let to_formatter diag_report_type (atr : Xml.attributes) tree : Xml.xml =
         if debug_diagnosis then
             Printf.printf "AllDirChar.to_formatter \n%!";
         let get_single par node =
@@ -1890,7 +1890,7 @@ module F : Ptree.Tree_Operations
         let merger a b root = (`Set [`Single root; `Single a; `Single b])
         and splitter parent a = get_unadjusted parent a, get_single parent a in
         (* Now we are ready to process the contents of the tree *)
-        let rec subtree_to_formatter (pre, fi) cur par ((node_parent, single_parent) as tmp2) : Xml.xml =
+        let rec subtree_to_formatter diag_report_type (pre, fi) cur par ((node_parent, single_parent) as tmp2) : Xml.xml =
             if debug_diagnosis then
                 Printf.printf "alldirchar.to_formatter cur:%d, par:%d\n%!" cur par;
             match Ptree.get_node cur tree with
@@ -1903,11 +1903,11 @@ module F : Ptree.Tree_Operations
                 and ch2d, ch2u, ch2s = get_simplified cur ch2 in
                 let ((cur_data, cur_single) as tmp) = splitter par cur_data in
                 let mine =
-                    Node.to_formatter_subtree (pre, fi) [] tree.Ptree.data tmp cur
+                    Node.to_formatter_subtree diag_report_type (pre, fi) [] tree.Ptree.data tmp cur
                                               (ch1, ch1u) (ch2, ch2u) (Some tmp2)
                 in
-                let ch1 = subtree_to_formatter (pre, fi) ch1 cur tmp in
-                let ch2 = subtree_to_formatter (pre, fi) ch2 cur tmp in
+                let ch1 = subtree_to_formatter diag_report_type (pre, fi) ch1 cur tmp in
+                let ch2 = subtree_to_formatter diag_report_type (pre, fi) ch2 cur tmp in
                 ((RXML
                     -[Xml.Trees.tree]
                         {single mine} { single ch1 }
@@ -1916,7 +1916,7 @@ module F : Ptree.Tree_Operations
                 if debug_diagnosis then Printf.printf "Is a leaf (%d,%d) => %!" me par;
                 let node_data = splitter par (Ptree.get_node_data cur tree) in
                 let nodest =
-                    Node.to_formatter_single (pre, fi) [] tree.Ptree.data
+                    Node.to_formatter_single diag_report_type (pre, fi) [] tree.Ptree.data
                                              node_data cur (Some tmp2)
                 in
                 (RXML -[Xml.Trees.tree] { single nodest }--)
@@ -1924,12 +1924,12 @@ module F : Ptree.Tree_Operations
                 if debug_diagnosis then Printf.printf "Is a single: %d => %!" me;
                 let node_data = splitter (-1) (Ptree.get_node_data cur tree) in
                 let nodest =
-                    Node.to_formatter_single (pre, fi) [] tree.Ptree.data
+                    Node.to_formatter_single diag_report_type (pre, fi) [] tree.Ptree.data
                                              (node_data) cur None
                 in
                 (RXML -[Xml.Trees.tree] { single nodest } --)
         in
-        let handle_to_formatter (pre, fi) handle (recost, trees) =
+        let handle_to_formatter diag_report_type (pre, fi) handle (recost, trees) =
             let r = Ptree.get_component_root handle tree in
             let recost, contents, attr = match r.Ptree.root_median with
                 | Some ((`Edge (a, b)), root) ->
@@ -1948,12 +1948,12 @@ module F : Ptree.Tree_Operations
                         let s_root = Node.copy_chrom_map root s in
                         (root, s_root), s
                     in
-                    let a : Xml.xml = subtree_to_formatter (pre, fi) a b sroot
-                    and b : Xml.xml = subtree_to_formatter (pre, fi) b a sroot
+                    let a : Xml.xml = subtree_to_formatter diag_report_type (pre, fi) a b sroot
+                    and b : Xml.xml = subtree_to_formatter diag_report_type (pre, fi) b a sroot
                     and froot : Xml.xml =
                         let handle = Ptree.get_node_data a tree
                         and parent = Ptree.get_node_data b tree in
-                        Node.to_formatter_subtree
+                        Node.to_formatter_subtree diag_report_type
                             (pre, fi) [] tree.Ptree.data (get_unadjusted (-1) root, sa) a
                             (a, get_unadjusted b handle) (b, get_unadjusted a parent) None
                     in
@@ -1962,7 +1962,7 @@ module F : Ptree.Tree_Operations
                 | Some ((`Single a), root) ->
                     let c1 : Xml.xml =
                         let nd = splitter (-1) root in
-                        subtree_to_formatter (pre, fi) a a nd
+                        subtree_to_formatter diag_report_type (pre, fi) a a nd
                     in
                     recost, (`Single c1),
                         [Xml.Trees.cost, `Float r.Ptree.component_cost]
@@ -1973,7 +1973,7 @@ module F : Ptree.Tree_Operations
         in
         let recost, trees =
             IntSet.fold
-                (handle_to_formatter (pre_ref_codes, fi_ref_codes))
+                (handle_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes))
                 (Ptree.get_handles tree)
                 (0., [])
         in

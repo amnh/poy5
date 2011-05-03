@@ -47,6 +47,7 @@ GenomeAli
 GenomeCS
 GraphTree
 GraphicsPs
+Graphviz
 Hash_tbl
 Heap
 Help
@@ -80,7 +81,6 @@ NonaddCS32
 NonaddCS8
 Numerical
 Parser
-Phylo
 Phylo
 PoyCommand
 PoyExtension

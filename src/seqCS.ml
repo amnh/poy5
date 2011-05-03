@@ -2090,9 +2090,10 @@ let compare_data a b =
 
 let ( --> ) a b = b a 
 
-let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list = 
+let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list = 
     let h = t.heuristic in
     let res_state = ref (-1) in
+    let is_fs = ref false in
     let rec output_sequence acc code seq do_to_single =
         let one_sequence (cmin, cmax, ccost, seqs) par seq =
             let cost = seq.DOS.costs in
@@ -2140,7 +2141,7 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                     { min = min; max = max }, (`FloatFloatTuple (min, max)),
                     max, seqs
             | Heuristic_Selection seq ->
-                    Printf.printf "HS.to_formatter\n%!";
+                    if debug then  Printf.printf "seqCS.HS.to_formatter\n%!";
                     let cost = seq.DOS.costs in
                     let costb, max = 
                         match do_to_single with
@@ -2162,6 +2163,8 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
                     in
                     cost, costb, max, [seq.DOS.sequence]
             | Relaxed_Lifted (spec, seq) ->
+                    is_fs := true;
+                    if debug then  Printf.printf "seqCS.RL.to_formatter\n%!";
                     let best = ref max_float in
                     let my_pos = ref (-1) in
                     let () =
@@ -2204,11 +2207,15 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
             match seq with
             | [] -> assert false
             | seq -> 
-                    (*String.concat "#" 
+                    match report_type,!is_fs with
+                    | `Normal,_ 
+                    | `StateOnly,false ->
+                    "state:"^statename^",seq:"^
+                    (String.concat "#" 
                     (List.map (fun x -> 
                         let x = Sequence.del_first_char x in
-                        Sequence.to_formater x t.alph) seq)*)
-                    statename
+                        Sequence.to_formater x t.alph) seq))
+                    | `StateOnly,true -> statename
         in
         let definite_str = 
             if max > 0. then  `String "true"
@@ -2218,7 +2225,8 @@ let to_formatter attr t do_to_single d : Xml.xml Sexpr.t list =
         (PXML 
             -[T.sequence] 
                 (* Attributes *)
-                ([T.name] = [`String ((Data.code_character code d)^"STATE:"^statename)])
+                ([T.name] = [`String ((Data.code_character code
+                d)(*^"STATE:"^statename*))])
                 ([T.cost] = [costb])
                 ([T.definite] = [definite_str])
                 ([attr])

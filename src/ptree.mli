@@ -185,7 +185,7 @@ module type Tree_Operations =
     val downpass : (a, b) p_tree -> (a, b) p_tree
     val uppass : (a, b) p_tree -> (a, b) p_tree
     val incremental_uppass : (a, b) p_tree -> incremental list -> (a, b) p_tree
-    val to_formatter :  Xml.attributes -> (a, b) p_tree -> Xml.xml 
+    val to_formatter :  Methods.diagnosis_report_type -> Xml.attributes -> (a, b) p_tree -> Xml.xml 
 
     val branch_table : (a,b) p_tree -> 
             ((int * int),[ `Single of float | `Name]) Hashtbl.t

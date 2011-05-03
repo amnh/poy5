@@ -588,7 +588,7 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n) (Edge : Edge.
 
             type node_name = Xml.unstructured 
             let index_formatter tree =
-                let tree = TreeOps.to_formatter [] tree in
+                let tree = TreeOps.to_formatter `Normal [] tree in
                 let nodes =
                     let rec get_nodes acc ((x, _, sub) as n) =
                         match x with
@@ -4469,7 +4469,7 @@ IFDEF USE_XSLT THEN
                                 in
                                 match run.trees with
                                 | `Single tr ->
-                                    TreeOps.to_formatter [] run.data tr
+                                    TreeOps.to_formatter `Normal [] run.data tr
                                 | _ -> assert false)
                         run.trees 
                     in
@@ -4488,7 +4488,7 @@ ELSE
 END
                     in
                     run
-            | `Diagnosis filename ->
+            | `Diagnosis (diag_report_type,filename) ->
     (*
     * For brief report -- the four lines has 
     * node name, 
@@ -4524,7 +4524,7 @@ END
                         in *)
                       (*TreeOps.to_formatter will call function "to_formatter"
                       * in allDirChar.ml*)
-                        Sexpr.map (TreeOps.to_formatter []) run.trees  
+                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
                     in
                     Status.user_message (Status.Output (filename, false, [])) "@[";
                     Sexpr.leaf_iter (PoyFormaters.trees_to_formater filename []) trees;
@@ -4532,11 +4532,11 @@ END
                     Status.user_message (Status.Output (filename, false, []))
                                         "@]%!";
                     run
-            | `GraphicDiagnosis filename ->
+            | `GraphicDiagnosis (diag_report_type,filename) ->
                     let trees =
                         (* let classify = false in
                            let run = update_trees_to_data ~classify false true run in*)
-                        Sexpr.map (TreeOps.to_formatter []) run.trees  
+                        Sexpr.map (TreeOps.to_formatter diag_report_type []) run.trees  
                     in 
                     GraphicsPs.display_diagnosis "Diagnosis" filename trees;
                     (* Flush the formatter *)

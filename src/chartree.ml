@@ -1246,7 +1246,7 @@ let get_active_ref_code tree =
 
 (** Note that parent_data = root_data in case the 
     anaylzing node is the handle or handle's ancestor *)
-let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
+let rec subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes) 
         attr tree node_id 
         (parent_data : (Node.node_data * Node.node_data) option) : Xml.xml =
     match Ptree.get_node node_id tree with
@@ -1264,7 +1264,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
             let nodest =
                 try
                     let node_formatter = 
-                        Node.to_formatter_subtree (pre_ref_codes, fi_ref_codes) [] 
+                        Node.to_formatter_subtree diag_report_type (pre_ref_codes, fi_ref_codes) [] 
                         tree.Ptree.data (node_data, node_data (* TODO: possible bug, but
                         this feature is not used  in this branch of the code *) )
                         node_id (c1, child1_node_data) (c2, child2_node_data)
@@ -1274,12 +1274,12 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 with Not_found -> `Empty
             in 
             let child1_formatter = 
-                subtree_to_formatter 
+                subtree_to_formatter diag_report_type
                 (pre_ref_codes, fi_ref_codes) 
                 [] tree c1 (Some (node_data, my_single_assignment))
             in
             let child2_formatter = 
-                subtree_to_formatter 
+                subtree_to_formatter diag_report_type
                 (pre_ref_codes, fi_ref_codes)
                 [] tree c2 (Some (node_data, my_single_assignment))
             in
@@ -1294,7 +1294,7 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
                 try
                     let node_formatter = 
                         Node.to_formatter_single
-                        (pre_ref_codes, fi_ref_codes) []  
+                        diag_report_type (pre_ref_codes, fi_ref_codes) []  
                         tree.Ptree.data 
                         (node_data, node_data (* TODO Bug *)) node_id parent_data
                     in
@@ -1306,14 +1306,14 @@ let rec subtree_to_formatter (pre_ref_codes, fi_ref_codes)
           let nodest = 
               let node_data = Ptree.get_node_data node_id tree in 
               let node_formatter = 
-                  Node.to_formatter_single (pre_ref_codes, fi_ref_codes) 
+                  Node.to_formatter_single diag_report_type (pre_ref_codes, fi_ref_codes) 
                   [] tree.Ptree.data (node_data, node_data (* TODO: Bug *)) node_id None 
               in
               `Single node_formatter
           in 
           (Xml.Trees.tree, [], nodest)
 
-let handle_to_formatter (pre_ref_codes, fi_ref_codes)
+let handle_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes)
         attr tree handle_id : Xml.xml =
     let root = Ptree.get_component_root handle_id tree in
     let data = 
@@ -1330,7 +1330,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                                   (Some root) parent_node_data handle_node_data
                           in
                           let root_f = 
-                              Node.to_formatter_subtree (pre_ref_codes, fi_ref_codes) 
+                              Node.to_formatter_subtree diag_report_type (pre_ref_codes, fi_ref_codes) 
                                   [] tree.Ptree.data  (root, root_single (* TODO: Bug *))  handle_id (handle_id,  handle_node_data) 
                                   (parent, parent_node_data) None
                           in 
@@ -1339,11 +1339,11 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                   | _ -> failwith "How is it possible we have no root?"
               in               
               let handle_f = 
-                  subtree_to_formatter  (pre_ref_codes, fi_ref_codes) 
+                  subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes) 
                   [] tree handle_id tree_root 
               in 
               let parent_f = 
-                  subtree_to_formatter  (pre_ref_codes, fi_ref_codes) 
+                  subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes) 
                   [] tree parent tree_root
               in 
               let c1 = `Single handle_f and c2 = `Single parent_f in 
@@ -1355,7 +1355,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
                     Some (nd, Node.to_single (pre_ref_codes, fi_ref_codes) None nd nd)
                 in
                 let c1 = 
-                    subtree_to_formatter (pre_ref_codes, fi_ref_codes) 
+                    subtree_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes) 
                     [] tree handle_id node_single 
                 in
                 (`Single c1)
@@ -1365,7 +1365,7 @@ let handle_to_formatter (pre_ref_codes, fi_ref_codes)
     in
     (Xml.Trees.tree, attr, data)
 
-let to_formatter atr tree : Xml.xml =
+let to_formatter diag_report_type atr tree : Xml.xml =
         (* We don't include the cost of the tree because it comes from the three
         * directional tree attributes. *)
     let (pre_ref_codes, fi_ref_codes) = get_active_ref_code tree in
@@ -1375,7 +1375,7 @@ let to_formatter atr tree : Xml.xml =
     let data = 
         List.map 
         (fun handle_id -> 
-             let handle_formatter = handle_to_formatter (pre_ref_codes, fi_ref_codes)
+             let handle_formatter = handle_to_formatter diag_report_type (pre_ref_codes, fi_ref_codes)
                  [] tree handle_id in 
              let root = Ptree.get_component_root handle_id tree in 
              (match root.Ptree.root_median with  
