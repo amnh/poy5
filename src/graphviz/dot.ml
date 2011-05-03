@@ -49,6 +49,7 @@ let of_file f =
 
 (** Convert Dot_ast to a basic stripped down type mentioned above *)
 let to_basic (g : Dot_ast.file) : basic =
+    assert( g.Dot_ast.digraph ); (* only parse di-graphs *)
     (* add an edge to the map *)
     let rec add_edge a b (nodes,edges) =
         let set =
