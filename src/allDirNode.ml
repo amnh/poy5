@@ -85,9 +85,7 @@ type node_dir = {
 (* use q_print to print out directions in node_data*)
 type node_data = {
     unadjusted : node_dir list; (** The standard downpass node *)
-    adjusted : node_dir option;
-    (*adjusted : node_dir list;  An adjuted node value calculated after the
-    downpass *)
+    adjusted : node_dir option;  (** adjusted data calculated in uppass *)
 }
 
 let get_adjusted_nodedata data msg =
@@ -97,29 +95,29 @@ let get_adjusted_nodedata data msg =
 
 let print_node_data ndata print_unadjusted=
     Printf.printf "allDirNode, node_data.adjusted:\n%!";
-    let _ = 
-    match ndata.adjusted with
-    | Some nodedir ->
-                let dir = nodedir.dir in
-                let _ = match dir with 
+    let () = match ndata.adjusted with
+        | Some nodedir ->
+            let dir = nodedir.dir in
+            let () = match dir with 
                 | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
                 | None -> Printf.printf "no dir,%!"
-                in
-                let anode = nodedir.lazy_node in
-                Node.print (force_val anode);
-    | None -> Printf.printf "no adjusted data\n%!"
+            in
+            let anode = nodedir.lazy_node in
+            Node.print (force_val anode);
+        | None -> Printf.printf "no adjusted data\n%!"
     in
     if print_unadjusted then begin
         Printf.printf "\n node_data.unadjusted:\n%!";
-        List.iter ( fun nodedir ->
+        List.iter 
+            (fun nodedir ->
                 let dir = nodedir.dir in
-                let _ = match dir with 
-                | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
-                | None -> Printf.printf "no dir,%!"
+                let () = match dir with 
+                    | Some (x,y) -> Printf.printf "dir=(%d,%d),%!" x y
+                    | None -> Printf.printf "no dir,%!"
                 in
                 let anode = nodedir.lazy_node in
-                Node.print (force_val anode);
-        )ndata.unadjusted;
+                Node.print (force_val anode);)
+            ndata.unadjusted;
         print_newline();
     end
 

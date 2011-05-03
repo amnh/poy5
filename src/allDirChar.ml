@@ -1432,27 +1432,28 @@ module F : Ptree.Tree_Operations
      * previous node data that can be used for edge data, and direction
      * information, IT MUST HAVE (a,b) IN ITS DIRECTIONS. *)
     let clear_up_over_edge (a, b) edge_data_opt ptree =
-        (* lets move the root to this edge, that way a simple refresh all edges
-         * will take care of the missing node and update all the uppass data *)
         match edge_data_opt with
-        | None ->
-            refresh_all_edges None false (Some (a,b)) ptree
-        | Some _ when not (using_likelihood `Either ptree) ->
-            refresh_all_edges None false (Some (a,b)) ptree
-        | Some edge ->
-            let edge = (* keep the subtree edge data as the root. *)
+        (* Under static likelihood, because of the pully principle, we can keep
+           the keep use the node data as the edge data/cost of subtree. *)
+        | Some edge when using_likelihood `Static ptree ->
+            let edge =
                 let single = AllDirNode.with_both a b edge.AllDirNode.unadjusted in
                 { AllDirNode.unadjusted = [single]; adjusted = None }
             in
             refresh_all_edges (Some edge) false (Some (a,b)) ptree
+        (* lets move the root to this edge, that way a simple refresh all edges
+         * will take care of the missing node and update all the uppass data *)
+        | Some _
+        | None -> refresh_all_edges None false (Some (a,b)) ptree
+
 
     let create_or_lift_edge edge_l edge_r i_code ptree = 
-        if not (using_likelihood `Either ptree) then begin
+        (* if not (using_likelihood `Either ptree) then begin*)
             let node = AllDirNode.AllDirF.median (Some i_code) None
                         (Ptree.get_node_data edge_l ptree)
                         (Ptree.get_node_data edge_r ptree) in
             Ptree.add_node_data i_code node ptree
-        end else begin
+        (* end else begin
             try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
                 let node = 
                     {   AllDirNode.dir = Some (edge_l,edge_r);
@@ -1467,7 +1468,7 @@ module F : Ptree.Tree_Operations
                 Ptree.add_node_data i_code node ptree
             with | Not_found ->
                 failwithf "Cannot lift %d -- %d to %d" edge_l edge_r i_code
-        end
+        end *)
 
 
     let clean_ex_neighbor a b ptree = 
