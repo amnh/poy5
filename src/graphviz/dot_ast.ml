@@ -56,4 +56,36 @@ type file =
   { strict : bool;
     digraph : bool;
     id : id option;
-    stmts : stmt list }
+    stmts : stmt list; }
+
+let string_of_id = function
+    | Ident s
+    | Number s
+    | String s
+    | Html s -> s
+
+let compare a b = compare (string_of_id a) (string_of_id b)
+
+let find_subgraph name g =
+    let rec find_ x = match x with
+        | (Equal _ ) ::xs
+        | (Attr_edge _ ) :: xs
+        | (Attr_node _) :: xs
+        | (Attr_graph _):: xs
+        | (Subgraph (SubgraphId _)) :: xs
+        | (Node_stmt _) :: xs
+        | (Subgraph (SubgraphDef (None,_))) :: xs
+        | (Edge_stmt _) :: xs -> find_ xs
+        | (Subgraph ((SubgraphDef (Some sub,graph)) as def)) :: xs ->
+            if 0 = compare name sub then def else find_ graph
+        | [] -> raise Not_found
+    in
+    find_ g.stmts
+
+module OrderedId = struct
+    type t = id
+    let compare a b = compare a b
+end
+
+module IdSet = Set.Make (OrderedId)
+module IdMap = Map.Make (OrderedId)

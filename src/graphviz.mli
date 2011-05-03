@@ -59,11 +59,33 @@ module Dot_ast : sig
         id : id option;
         stmts : stmt list }
 
+    val string_of_id : id -> string
+
+    val find_subgraph : id -> file -> subgraph
+
+    module IdSet : Set.S with type elt = id
+    module IdMap : Map.S with type key = id
+
 end
 
 module Dot : sig
 
+    (** a basic representation for ease of use *)
+    type basic =  
+        { name  : string option;
+          nodes : Dot_ast.IdSet.t;
+          edges : Dot_ast.IdSet.t Dot_ast.IdMap.t;
+          equal : (Dot_ast.id * Dot_ast.id) list; }
+
+    (** parse a Dot_ast from a channel *)
     val of_channel : in_channel -> Dot_ast.file
+
+    (** parse a Dot_ast from a file *)
     val of_file : string -> Dot_ast.file
 
+    (** Convert a Dot_ast to a Basic map of sets which define directed edges. *)
+    val to_basic : Dot_ast.file -> basic
+
+    (** convert the basic to a Dot_ast parsable string *)
+    val basic_to_string : ?node_attr:string -> ?edge_attr:string -> basic -> string
 end
