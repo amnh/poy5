@@ -1346,6 +1346,8 @@ module RL = struct
     }
 
     type fs_sequences = {
+        single_state : int (*this is the single assignment of this node, get distance with
+        this -- distance_table.(single_state).(another node's single_state)*);
         states : float array;
         left : int array;
         right : int array;
@@ -1397,7 +1399,14 @@ module RL = struct
         done;
         !pos
 
-    let to_single (parentb, parents) ((childtb, childs) as ch) =
+     let to_single (parentb, parents) ((childtb, childs) as ch) =
+        let parentmin = find_smallest parents in
+        let pos = find_single_position parentmin ch in
+        if debug then Printf.printf "RL.to_single, parentmin=%d,child.single_state_pos<-%d\n%!"
+        parentmin pos;
+        (childtb,{childs with single_state = pos}), 0
+
+    let to_dos (parentb, parents) ((childtb, childs) as ch) =
         let parentmin = find_smallest parents in
         let pos = find_single_position parentmin ch in
         { DOS.create (childtb.sequence_table.(pos)) with
@@ -1444,7 +1453,7 @@ module RL = struct
             left.(i) <- !best_left;
             right.(i) <- !best_right;
         done;
-        let res = { states = states; left = left; right = right } in
+        let res = { single_state = (- 1); states = states; left = left; right = right } in
         let min_res = find_smallest res
         and min_a = find_smallest ast
         and min_b = find_smallest bst in
@@ -1461,12 +1470,20 @@ module RL = struct
 
     let median_3 h p n c1 c2 = n
 
-    let distance (at, ast) (bt, bst) = 
+    let distance ((at, ast) as a) ((bt, bst) as b) = 
         let in_rl = at in
-        let statea, stateb = find_smallest ast, find_smallest bst in
+        let singlea, singleb = ast.single_state, bst.single_state in
+        if singlea>=0 && singleb>=0 then begin
+       (* let statea, stateb = find_smallest ast, find_smallest bst in*)
         let distbl = in_rl.distance_table in
-        if debug then Printf.printf "statea=%d,stateb=%d,dist=%f\n%!" statea stateb distbl.(statea).(stateb);
-        distbl.(statea).(stateb)
+        if debug then Printf.printf "statea=%d,stateb=%d,%!" singlea singleb;
+        if debug then Printf.printf "dis=%f\n%!" distbl.(singlea).(singleb);
+        distbl.(singlea).(singleb)
+        end
+        else 
+            let _, v = median a b in
+            v
+
 
     let dist_2 n a b =
         let tmp, t = median a b in
@@ -1840,7 +1857,7 @@ let of_array spec sc code taxon =
                     else max_float)
                 and left = Array.init len (fun x -> x) in
                 Relaxed_Lifted 
-                (tbl, {RL.states =states; left = left; right = left })
+                (tbl, {RL.states =states; single_state = (-1); left = left; right = left })
         | `AutoPartitioned _, _ 
         | `DO, _
         | `FS _, _ -> assert false
@@ -1923,12 +1940,14 @@ let to_single parent mine =
                     * let res, c = RL.to_single a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res*)
-                    Relaxed_Lifted b
+                    let res, c = RL.to_single a b in
+                    total_cost := c + !total_cost;
+                    Relaxed_Lifted res
             | Heuristic_Selection a, Relaxed_Lifted b ->
                     (*let res, c = RL.to_single_parent_done a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res*)
-                    Relaxed_Lifted b
+                    assert false
             | Partitioned _, _
             | _, Partitioned _
             | Relaxed_Lifted _, _ -> assert false) parent.characters
@@ -2193,7 +2212,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                         | Some (Heuristic_Selection par) ->
                                 process par.DOS.position
                         | Some (Relaxed_Lifted x) -> 
-                                let x, _ = RL.to_single x x in
+                                let x, _ = RL.to_dos x x in
                                 process x.DOS.position
                     in
                     let bests = !best in
