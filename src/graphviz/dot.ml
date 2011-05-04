@@ -109,6 +109,7 @@ let to_basic (g : Dot_ast.file) : basic =
                     (nodes,edges)
             in
             process_edges subnodes xs acc
+    (* find all the equality pairs *)
     and get_equals acc = function
         | [] -> 
             acc
@@ -140,6 +141,16 @@ let to_basic (g : Dot_ast.file) : basic =
                 | Some x -> Some (Dot_ast.string_of_id x);
                 | None   -> None;
     }
+
+(** helper function to return the leaf set **)
+let leaves base : IdSet.t =
+    IdMap.fold
+        (fun k v acc -> 
+            match IdSet.cardinal v with
+            | 0 -> IdSet.add k acc
+            | _ -> acc)
+        base.nodes
+        IdSet.empty
 
 (** write representation to a Dot_ast readable format in a string**)
 let basic_to_string ?(node_attr="") ?(edge_attr="") base =

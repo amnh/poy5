@@ -86,6 +86,9 @@ module Dot : sig
     (** Convert a Dot_ast to a Basic map of sets which define directed edges. *)
     val to_basic : Dot_ast.file -> basic
 
+    (** helper function to return the leaf set *)
+    val leaves : basic -> IdSet.t
+
     (** convert the basic to a Dot_ast parsable string *)
     val basic_to_string : ?node_attr:string -> ?edge_attr:string -> basic -> string
 end
