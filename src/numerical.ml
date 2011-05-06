@@ -58,6 +58,46 @@ external gamma_rates: float -> float -> int ->
     (float,Bigarray.float64_elt, Bigarray.c_layout) Bigarray.Array1.t = 
         "gamma_CAML_rates"
 
+(** {6 Infix Module} *)
+module type I =
+    sig
+        val set_eps : float -> unit
+        val set_ops : int   -> unit
+        val reset   : unit  -> unit
+
+        val (=.) : float -> float -> bool
+        val (>.) : float -> float -> bool
+        val (<.) : float -> float -> bool
+    end
+
+module FPInfix : I =
+    struct
+        let default = tolerance
+        let warn =
+            "Numerical.Infix; Tolerance for floating point equality is being"
+            ^" increased. This could be due to the length of your sequences or"
+            ^" any situation where a large number of floating point processes"
+            ^" build up error."
+
+        let l_eps     = ref default
+        let reset ()  = l_eps := default
+        let set_eps n_eps =
+            if n_eps > default then begin
+                Status.user_message Status.Warning warn;
+                l_eps := n_eps
+            end else begin
+                l_eps := default
+            end
+        let set_ops i = 
+            set_eps (Pervasives.epsilon_float *. (float_of_int i))
+
+        let (=.) a b = (abs_float (a-.b)) < !l_eps
+        let (>.) a b = (a-.b) > !l_eps
+        let (<.) a b = (a-.b) < ~-.(!l_eps)
+    end
+
+
+open FPInfix
 (** {6 Numerical Optimization Functions *)
 
 let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
@@ -69,7 +109,7 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
     let golden = 0.3819660 in
   (*-- approximation of equality; based on optional argument above (over-ride
     local fuzzy equality to allow more control over the particular run). *)
-    let (=.) a b = (abs_float (a -. b)) < epsilon in
+    FPInfix.set_eps epsilon;
   (*-- a function that copies the sign of the second argument to the first *)
     let sign a b = if b > 0.0 then abs_float a else ~-. (abs_float a) in
   (*-- auxillary functions to bracket a region *)
@@ -179,6 +219,7 @@ let brents_method ?(max_iter=100) ?(v_min=minimum) ?(v_max=300.0)
     let (b,(_,fb)) as res = brent m m m lv hv 0.0 0.0 0 in
     debug_printf "Iterated Brents Method from (%f,%f) to (%f,%f)\n%!"
                     v_orig (snd f_orig) b fb;
+    FPInfix.reset ();
     res
 
 (* find the derivative of a single variable function *)
@@ -187,21 +228,23 @@ let derivative_at_x ?(epsilon=epsilon) f x fx =
     (f_new -. fx) /. epsilon
 
 (* find the magnitude of a vector x_array *)
-let magnitude x_array = sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
+let magnitude x_array = 
+    sqrt (Array.fold_left (fun acc x -> acc +. (x *. x)) 0.00 x_array)
 
 (* find the gradient of a multi-variant function at a point x_array *)
 let gradient_at_x ?(epsilon=epsilon) f_ x_array f_array : float array = 
     let i_replace i x v = let y = Array.copy x in Array.set y i v; y in
     Array.mapi 
         (fun i i_val ->
-            derivative_at_x ~epsilon 
-                            (fun x -> 
-                                let newvec = i_replace i x_array x in
-                                let newlk = f_ newvec in
-                                debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
-                                newlk)
-                            i_val
-                            f_array)
+            derivative_at_x 
+                    ~epsilon 
+                    (fun x -> 
+                        let newvec = i_replace i x_array x in
+                        let newlk = f_ newvec in
+                        debug_printf "\t[%s] -- %f\n" (pp_farray newvec) (snd newlk);
+                        newlk)
+                    i_val
+                    f_array)
         x_array
 
 (* dot product of two arrays *)
@@ -227,7 +270,8 @@ let matrix_map f mat =
 let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
     (* as in the previous function; we over-ride the local equality function for
        better control over the estimation process *)
-    let (=.) a b = epsilon > (abs_float (a -. b)) and get_score x = snd x in
+    FPInfix.set_eps epsilon;
+    let get_score x = snd x in
     (* set up some globals for the function to avoid tons of arguments *)
     let n = Array.length point and origfpoint = get_score fpoint in
     (* scale direction so, |pstep| <= maxstep *)
@@ -300,6 +344,7 @@ let line_search ?(epsilon=tolerance) f point fpoint gradient maxstep direction =
      * but this warning message should report that the results are * questionable   *)
     if (abs_float slope) > 100000.0 then 
         warning_message "Numerical.linesearch; Very large slope in optimization function.";
+    FPInfix.reset ();
     main_ origfpoint slope direction step step minstep 
 
 
@@ -415,41 +460,4 @@ let bfgs_method ?(max_iter=200) ?(epsilon=epsilon) ?(mx_step=10.0) ?(g_tol=toler
                     (get_score fp) !iter (pp_farray pf) (get_score fpf);
     (pf,fpf)
 
-(** {6 Infix Module} *)
-module type I =
-    sig
-        val set_eps : float -> unit
-        val set_ops : int   -> unit
-        val reset   : unit  -> unit
-
-        val (=.) : float -> float -> bool
-        val (>.) : float -> float -> bool
-        val (<.) : float -> float -> bool
-    end
-
-module FPInfix : I =
-    struct
-        let default = tolerance
-        let warn =
-            "Numerical.Infix; Tolerance for floating point equality is being"
-            ^" increased. This could be due to the length of your sequences or"
-            ^" any situation where a large number of floating point processes"
-            ^" build up error."
-
-        let l_eps     = ref default
-        let reset ()  = l_eps := default
-        let set_eps n_eps =
-            if n_eps > default then begin
-                Status.user_message Status.Warning warn;
-                l_eps := n_eps
-            end else begin
-                l_eps := default
-            end
-        let set_ops i = 
-            set_eps (Pervasives.epsilon_float *. (float_of_int i))
-
-        let (=.) a b = (abs_float (a-.b)) < !l_eps
-        let (>.) a b = (a-.b) > !l_eps
-        let (<.) a b = (a-.b) < ~-.(!l_eps)
-    end
 
