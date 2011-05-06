@@ -3168,7 +3168,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lapack_main" >&5
 $as_echo "$ac_cv_lib_lapack_main" >&6; }
 if test "x$ac_cv_lib_lapack_main" = x""yes; then :
-  USE_LIKELIHOOD="true"
+  USE_LIKELIHOOD="true"; DUSE_LIKELIHOOD="-DUSE_LIKELIHOOD"; OUSE_LIKELIHOOD=",use_likelihood"
 fi
 
 
