@@ -204,6 +204,8 @@ fi
 #                 [AC_MSG_RESULT( [Not Using Concorde ])] )
 
 # Time to handle the lapack checks
+AC_CHECK_LIB([lapack],[main],[USE_LIKELIHOOD="true"])
+
 case ${OS_INFORMATION} in
     *-apple-*)
         LIBS="-framework veclib $LIBS"
