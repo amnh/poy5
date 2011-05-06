@@ -1462,9 +1462,6 @@ module RL = struct
             right.(i) <- !best_right;
         done;
         let res = { single_state = (- 1); states = states; left = left; right = right } in
-        let min_res = find_smallest res
-        and min_a = find_smallest ast
-        and min_b = find_smallest bst in
         let min_res = find_smallest res in
         let left_state = left.(min_res) 
         and right_state = right.(min_res)
