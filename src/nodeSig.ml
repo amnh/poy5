@@ -176,7 +176,7 @@ module type S = sig
     * [codes] of the characters that are to be loaded.
     * MAKE SURE THE DATA IS CATEGORIZED by, (Data.categorize data) *)
     val load_data : 
-        ?silent:bool -> (* ?taxa:(int list) -> ?codes:(int list) -> *)
+        ?is_fixedstates:bool -> ?silent:bool -> (* ?taxa:(int list) -> ?codes:(int list) -> *)
             ?classify:bool -> Data.d -> Data.d * (n list)
 
     (** [n_chars ?acc n] gets the number of characters stored in [n], plus the

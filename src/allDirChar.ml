@@ -363,6 +363,7 @@ module F : Ptree.Tree_Operations
     (* Determine the cost of a tree from the handle. A optional root can be
      * passed if the tree requires it for applying the root. *)
     let check_cost new_tree handle new_root =
+        if debug_cost_fn then Printf.printf "alldirchar.check_cost ->\n%!";
         (* Some characters are computed by the downpass, we extract that
          * portion of the cost, which is contained in the root.
          * not_single_character_cost holds the total cost of those characters *)
@@ -411,6 +412,9 @@ module F : Ptree.Tree_Operations
                     Node.distance_of_type (Node.has_to_single) (0.0)
                             (AllDirNode.force_val nda) (AllDirNode.force_val ndb)
             in
+            if debug_cost_fn then
+                Printf.printf "distance between node.%d and node.%d = %f(%f)\n%!"
+                a b dist acc;
             dist +. acc
         in
         let single_characters_cost = match root_edge with
@@ -549,7 +553,7 @@ module F : Ptree.Tree_Operations
         let fi_ref_codes = pre_ref_codes in 
         let rec assign_single_subtree parentd parent current ptree =
             if debug_single_assignment then
-                info_user_message "assign signle subtree on node %d,parent=%d" current parent;
+                info_user_message "assign single subtree on node %d,parent=%d" current parent;
             let current_d, initial_d =
                 let tmp = Ptree.get_node_data current ptree in
                 AllDirNode.not_with parent  tmp.AllDirNode.unadjusted, tmp
@@ -1432,27 +1436,28 @@ module F : Ptree.Tree_Operations
      * previous node data that can be used for edge data, and direction
      * information, IT MUST HAVE (a,b) IN ITS DIRECTIONS. *)
     let clear_up_over_edge (a, b) edge_data_opt ptree =
-        (* lets move the root to this edge, that way a simple refresh all edges
-         * will take care of the missing node and update all the uppass data *)
         match edge_data_opt with
-        | None ->
-            refresh_all_edges None false (Some (a,b)) ptree
-        | Some _ when not (using_likelihood `Either ptree) ->
-            refresh_all_edges None false (Some (a,b)) ptree
-        | Some edge ->
-            let edge = (* keep the subtree edge data as the root. *)
+        (* Under static likelihood, because of the pully principle, we can keep
+           the keep use the node data as the edge data/cost of subtree. *)
+        | Some edge when using_likelihood `Static ptree ->
+            let edge =
                 let single = AllDirNode.with_both a b edge.AllDirNode.unadjusted in
                 { AllDirNode.unadjusted = [single]; adjusted = None }
             in
             refresh_all_edges (Some edge) false (Some (a,b)) ptree
+        (* lets move the root to this edge, that way a simple refresh all edges
+         * will take care of the missing node and update all the uppass data *)
+        | Some _
+        | None -> refresh_all_edges None false (Some (a,b)) ptree
+
 
     let create_or_lift_edge edge_l edge_r i_code ptree = 
-        if not (using_likelihood `Either ptree) then begin
+        (* if not (using_likelihood `Either ptree) then begin*)
             let node = AllDirNode.AllDirF.median (Some i_code) None
                         (Ptree.get_node_data edge_l ptree)
                         (Ptree.get_node_data edge_r ptree) in
             Ptree.add_node_data i_code node ptree
-        end else begin
+        (* end else begin
             try let lr = Ptree.get_edge_data (Tree.Edge (edge_l,edge_r)) ptree in
                 let node = 
                     {   AllDirNode.dir = Some (edge_l,edge_r);
@@ -1467,7 +1472,7 @@ module F : Ptree.Tree_Operations
                 Ptree.add_node_data i_code node ptree
             with | Not_found ->
                 failwithf "Cannot lift %d -- %d to %d" edge_l edge_r i_code
-        end
+        end *)
 
 
     let clean_ex_neighbor a b ptree = 
@@ -1757,6 +1762,7 @@ module F : Ptree.Tree_Operations
 
     type tmp = Edge of (int * int) | Clade of a 
     let cost_fn jxn1 jxn2 _ (*delta*) clade_data (tree : phylogeny) =
+        if debug_cost_fn then Printf.printf "alldirchar.cost_fn 2 -> %!";
         let rec forcer edge =
             match edge with
             | Edge (a, b) ->
@@ -1786,15 +1792,19 @@ module F : Ptree.Tree_Operations
                         (forcer (Clade (Ptree.get_node_data (Tree.int_of_id h) tree)))
                         clade_data
                 in
+                if debug_cost_fn then Printf.printf "single jxn,cost=%f\n%!" d;
                 Ptree.Cost d
         | Tree.Edge_Jxn (h, n) ->
                 let (Tree.Edge (h, n)) = 
                     Tree.normalize_edge (Tree.Edge (h, n)) tree.Ptree.tree
                 in
                 let ndata = forcer (Edge (h, n)) in
-                Ptree.Cost (Node.Standard.distance 0. clade_data ndata)
+                let c = Node.Standard.distance 0. clade_data ndata in
+                if debug_cost_fn then Printf.printf "edge jxn, cost=%f\n%!" c;
+                Ptree.Cost c
 
     let cost_fn n_mgr a b c d e =
+        if debug_cost_fn then Printf.printf "alldirchar.cost_fn 1 ->%!";
         let cost = match !Methods.cost with
             | `Iterative (`ApproxD _) ->
                 (match cost_fn a b c d e with 
@@ -1809,6 +1819,7 @@ module F : Ptree.Tree_Operations
                 let (nt, _) = join_fn n_mgr [] a b e in
                 Ptree.Cost ((Ptree.get_cost `Adjusted nt) -. pc)
         in
+        if debug_cost_fn then Printf.printf "update node manager with new cost\n%!";
         update_node_manager e (`Cost) n_mgr;
         cost
 

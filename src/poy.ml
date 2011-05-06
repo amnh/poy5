@@ -59,7 +59,7 @@ let () =
             exit 1
 
 (** Catch errors or not;  helpful for debugging *)
-let debug_pass_errors = false
+let debug_pass_errors = true
 
 let () =
     Random.init seed;

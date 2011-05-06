@@ -1529,7 +1529,8 @@ let find_SML patternarr init_seedweight  inseqarr input_seqlst_size
 position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl = 
     let debug = false and debug2 = false in
     if debug then 
-        Printf.printf "get sequences with index and possible seed subseq\n%!";
+        Printf.printf "get sequences with index and possible seed
+        subseq,seedweight=%d\n%!" init_seedweight;
     let inseqarr_w_idxarr = Array.mapi (fun seqNO inseq->
         let seqlen = Array.length inseq in
         if debug then Printf.printf "seq len = %d\n%!" seqlen;
@@ -1551,6 +1552,8 @@ position2seed_tbl_left position2seed_tbl_right seed2position_tbl mum_tbl =
             (*0,false are for function radix_sort later.*)
             sequenceNO,pos,dir,Array.of_list subseqlst,0
         ) inseq in
+        if debug then
+            Printf.printf "seqlen=%d,init_seedweight=%d\n%!" seqlen init_seedweight;
         Array.sub resarr 0 (seqlen-init_seedweight+1)
     ) inseqarr
     in
@@ -4134,6 +4137,10 @@ in_seqarr in_seq_size_lst  =
         print_int_list current_seq_size_lst;
     end;
     let shorted_seqlen = get_shorter_len seq_outside_lcbs_arr in
+    if shorted_seqlen < !minimum_lcb_len then
+        inner_lcbs, (- 0.0),lcb_tbl, mum_tbl, pos2seed_tbl_left, pos2seed_tbl_right,
+        seed2pos_tbl, (-1)
+    else begin
     let new_seedlen = int_of_float ( ceil (log (float shorted_seqlen))) in
     let new_seedlen = if (new_seedlen mod 2)=0 then new_seedlen+1 else new_seedlen in 
     let new_seedlen = 
@@ -4188,6 +4195,7 @@ in_seqarr in_seq_size_lst  =
         (Hashtbl.length res_pos2seed_tbl_right);
     new_lcbs,new_covR,new_lcb_tbl,res_mum_tbl, 
     res_pos2seed_tbl_left, res_pos2seed_tbl_right, res_seed2pos_tbl, num_of_mums
+    end
 
 let rec get_init_lcbs seedNOlstlst 
 seed2pos_tbl mum_tbl 
