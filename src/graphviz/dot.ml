@@ -50,8 +50,34 @@ let of_file f =
 (** Convert Dot_ast to a basic stripped down type mentioned above *)
 let to_basic (g : Dot_ast.file) : basic =
     assert( g.Dot_ast.digraph ); (* only parse di-graphs *)
+    (* find all the equality pairs *)
+    let rec get_equals acc = function
+        | [] -> 
+            acc
+        | (Dot_ast.Equal (data1,data2)) :: oth -> 
+            get_equals ((data1,data2) :: acc) oth
+        | (Dot_ast.Node_stmt _) :: oth
+        | (Dot_ast.Subgraph (Dot_ast.SubgraphId _)) :: oth
+        | (Dot_ast.Attr_edge _) :: oth
+        | (Dot_ast.Attr_node _) :: oth
+        | (Dot_ast.Attr_graph _):: oth -> get_equals acc oth
+        | (Dot_ast.Subgraph (Dot_ast.SubgraphDef (_,data))) :: oth ->
+            get_equals (get_equals acc data) oth
+        | (Dot_ast.Edge_stmt (name,names,_)) :: oth ->
+            let acc =
+                begin match name with
+                    | Dot_ast.NodeId (name,_) -> acc
+                    | Dot_ast.NodeSub sub -> get_equals acc [Dot_ast.Subgraph sub]
+                end
+            in
+            get_equals acc oth
+    in
+    (* since we are going to need the equality for functions below... *)
+    let equals = get_equals [] g.Dot_ast.stmts in
     (* add an edge to the map *)
     let rec add_edge a b (nodes,edges) =
+        let a = normalize_name a equals in
+        let b = normalize_name b equals in
         let set =
             if Dot_ast.IdMap.mem a edges
                 then Dot_ast.IdSet.add b (Dot_ast.IdMap.find a edges)
@@ -63,8 +89,18 @@ let to_basic (g : Dot_ast.file) : basic =
     and add_node name nodes =
         if Dot_ast.IdSet.mem name nodes then nodes
         else Dot_ast.IdSet.add name nodes
+    (* normalize a name to the FIRST argument (this is so we can easily use the
+       assoc functions in list later *)
+    and normalize_name name equalities =
+        let (a,_) = List.find (fun (a,b) -> b = name) equalities in
+        try ignore (List.find (fun (_,b) -> b = a) equalities); 
+            failwith "Chaining an alias is not cool dude."
+        with | Not_found ->
+            a
     in
-    (* fold a function over all node data traversing subgraph *)
+    (* Process a single element in the graph; skip over attributes, recurse
+       through subgraph, add node names when they come across, and process edges
+       in the peculiar manor that they need to be processed. *)
     let rec process_nodes ((nodes,edges) as acc) = function
         | [] -> acc
         | (Dot_ast.Subgraph (Dot_ast.SubgraphId name)) :: oth ->
@@ -89,7 +125,10 @@ let to_basic (g : Dot_ast.file) : basic =
         | (Dot_ast.Attr_edge _) :: oth
         | (Dot_ast.Attr_node _) :: oth
         | (Dot_ast.Attr_graph _):: oth -> process_nodes acc oth
-    (* fold a function over all edge data traversing subgraph *)
+    (* process an edge starting from [ps] to the path [ns]; each element in ns
+       could be a single node or a subgraph. This adds the interesting property
+       that the parent could be a set of nodes as in, 4 -> {2 -> 3, 1} -> 5. In
+       this case, all nodes contained in the subgraph are directed to the next *)
     and process_edges ps ns ((nodes,edges) as acc) = match ns with
         | [] -> acc
         | (Dot_ast.NodeId (name,_)) :: xs ->
@@ -109,48 +148,30 @@ let to_basic (g : Dot_ast.file) : basic =
                     (nodes,edges)
             in
             process_edges subnodes xs acc
-    (* find all the equality pairs *)
-    and get_equals acc = function
-        | [] -> 
-            acc
-        | (Dot_ast.Equal (data1,data2)) :: oth -> 
-            get_equals ((data1,data2) :: acc) oth
-        | (Dot_ast.Node_stmt _) :: oth
-        | (Dot_ast.Subgraph (Dot_ast.SubgraphId _)) :: oth
-        | (Dot_ast.Attr_edge _) :: oth
-        | (Dot_ast.Attr_node _) :: oth
-        | (Dot_ast.Attr_graph _):: oth -> get_equals acc oth
-        | (Dot_ast.Subgraph (Dot_ast.SubgraphDef (_,data))) :: oth ->
-            get_equals (get_equals acc data) oth
-        | (Dot_ast.Edge_stmt (name,names,_)) :: oth ->
-            let acc =
-                begin match name with
-                    | Dot_ast.NodeId (name,_) -> acc
-                    | Dot_ast.NodeSub sub -> get_equals acc [Dot_ast.Subgraph sub]
-                end
-            in
-            get_equals acc oth
     in
     let acc = Dot_ast.IdSet.empty,Dot_ast.IdMap.empty in
     let nodes,edges = process_nodes acc g.Dot_ast.stmts in
     {
         nodes = nodes;
         edges = edges;
-        equal = get_equals [] g.Dot_ast.stmts;
+        equal = equals;
         name  = match g.Dot_ast.id with
                 | Some x -> Some (Dot_ast.string_of_id x);
                 | None   -> None;
     }
 
 (** helper function to return the leaf set **)
-let leaves base : IdSet.t =
-    IdMap.fold
-        (fun k v acc -> 
-            match IdSet.cardinal v with
-            | 0 -> IdSet.add k acc
-            | _ -> acc)
+let leaves base : Dot_ast.IdSet.t =
+    Dot_ast.IdSet.fold
+        (fun k acc ->
+            if Dot_ast.IdMap.mem k base.edges then
+                match Dot_ast.IdSet.cardinal (Dot_ast.IdMap.find k base.edges) with
+                | 0 -> Dot_ast.IdSet.add k acc
+                | _ -> acc
+            else
+                Dot_ast.IdSet.add k acc)
         base.nodes
-        IdSet.empty
+        Dot_ast.IdSet.empty
 
 (** write representation to a Dot_ast readable format in a string**)
 let basic_to_string ?(node_attr="") ?(edge_attr="") base =
@@ -161,9 +182,9 @@ let basic_to_string ?(node_attr="") ?(edge_attr="") base =
         | Some x -> bufferf "digraph %s {\n" x
         | None   -> bufferf "digraph {"
     in
-    let () = 
+    let () =
         Dot_ast.IdSet.iter
-            (fun x -> 
+            (fun x ->
                 bufferf "\t\"%s\" [%s];\n" (Dot_ast.string_of_id x) node_attr)
             base.nodes
     in
