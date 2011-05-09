@@ -31,6 +31,9 @@ type dyn_model = { static : MlModel.model; alph : Alphabet.a; }
     characters in the likelihood matrix. This type adds the unsequential
     alphabet to the model for use as bitsets with the vectors. *)
 
+val make_model : Alphabet.a -> MlModel.model -> dyn_model
+(** simple function to wrap up composing a dynamic likelihood model *)
+
 val cost_fn : dyn_model -> Methods.ml_costfn
 (** Return the cost function for the dynamic likelihood model. This helps in
     retrieving from other modules since the name would be quite long. *)
@@ -217,3 +220,5 @@ module MALAlign   : A
     function is defined along with the memory and cost matrix functions.
     Alignments are not defined (as the total cost is the sum; finding an
     alignment would be equivlent to the FloatAlign module. *)
+
+val pair_distance : dyn_model -> Sequence.s -> Sequence.s -> float * float
