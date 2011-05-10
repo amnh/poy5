@@ -39,6 +39,13 @@ type t =
     | AnnchromCS of AnnchromCS.t
     | GenomeCS of GenomeCS.t
 
+
+let is_fixedstates dcs = 
+    match dcs with
+    | SeqCS x ->
+            SeqCS.is_fixedstates x
+    | _ -> false
+
 type u = 
     | U_SeqCS of SeqCS.Union.u
     | U_Others

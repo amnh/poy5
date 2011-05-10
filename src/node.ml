@@ -29,6 +29,7 @@ let debug_set_cost  = false
 let debug_treebuild = false
 let debug_tosingle  = false
 let debug_formatter = false
+let debug_distance  = false
 
 let likelihood_error = 
     "Likelihood not enabled: download different binary or contact mailing list" 
@@ -167,7 +168,11 @@ let extract_cost = function
     | Nonadd32 v -> v.cost
     | Add v -> v.cost
     | Sank v -> v.cost
-    | Dynamic v -> v.cost
+    | Dynamic v ->
+            (
+            match DynamicCS.is_fixedstates v.preliminary with
+            | true -> v.sum_cost
+            | false -> v.cost)
     | Set v -> v.cost
     | Kolmo v -> v.cost
     | StaticMl v -> 
@@ -217,7 +222,7 @@ type node_data =
                                             node.  No longer necessary? *)
         exclude_sets : All_sets.Integers.t list;
         exclude_info : exclude;
-        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood ];
+        cost_mode : [ `Likelihood | `Parsimony | `SumLikelihood | `Fixedstates ];
         (** This allows us to count how many taxa from a set are children of the
             given node *)
     }
@@ -386,7 +391,10 @@ let calc_total_cost c1 c2 c_cost =
         | `Likelihood    -> c_cost
         | `Parsimony     -> c_cost +. c1.total_cost +. c2.total_cost
         | `SumLikelihood -> c_cost +. c1.total_cost +. c2.total_cost
+        | `Fixedstates -> c_cost
     in
+    if debug_set_cost then
+    Printf.printf "totalcost = %f <-?- %f + %f + %f; %!" res c_cost c1.total_cost c2.total_cost;
     res
 
 let total_cost _ a = a.total_cost
@@ -659,9 +667,13 @@ let rec cs_median code anode bnode prev t1 t2 a b = match a, b with
                     DynamicCS.median code ca.preliminary cb.preliminary None None,ca.time
             in
             let total_cost = ca.weight *. (DynamicCS.total_cost median) in
-            let sum_cost = ca.sum_cost +. cb.sum_cost +. total_cost in
+            let sum_cost =
+                match DynamicCS.is_fixedstates median with
+                | true -> total_cost
+                | false -> ca.sum_cost +. cb.sum_cost +. total_cost in
             if debug then
-                info_user_message "Calculated Median with costs: T:%f, S:%f" total_cost sum_cost;
+                info_user_message "Calculated Median with costs: T:%f,\
+                S:%f(ca=%f,cb=%f)" total_cost sum_cost ca.sum_cost cb.sum_cost;
             let res = 
                 { ca with 
                     preliminary = median;
@@ -1185,7 +1197,7 @@ let convert_2_lst chars tbl : float option list =
 
 
 let median ?branches code old a b =
-    if  debug_treebuild then Printf.printf "\n node.ml median\n%!";
+    if  debug_treebuild then Printf.printf "node.ml median -> %!";
     (* the code is negative if we are calculating on an edge *)
     let code = match code with
         | Some code -> code
@@ -1604,6 +1616,8 @@ let not_to_single =
 
 let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
+    if debug_distance then
+        Printf.printf "\n Node.distance_of_type on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let has_t x = List.exists (fun z -> z = x) t
     and filter_dynamic res x = match x with
         | `Seq    | `Breakinv
@@ -1665,6 +1679,8 @@ let distance_of_type ?branches ?(para=None) ?(parb=None) t missing_distance
 
 let distance ?(para=None) ?(parb=None)  missing_distance
     ({characters=chs1} as nodea) ({characters=chs2} as nodeb) =
+        if debug_distance then 
+            Printf.printf "\n Node.distance on node#.%d and node#.%d -> %!" nodea.taxon_code nodeb.taxon_code;
     let rec distance_two ch1 ch2 =
         match ch1, ch2 with
         | Nonadd8 a, Nonadd8 b ->
@@ -1706,7 +1722,9 @@ let distance ?(para=None) ?(parb=None)  missing_distance
         | [], [] -> acc
         | _ -> failwith "Incompatible characters (6)"
     in
-    distance_lists chs1 chs2 0. 
+    let res = distance_lists chs1 chs2 0. in
+    if debug_distance then Printf.printf "resdis=%f\n%!" res;
+    res
 
 (* Calculates the cost of joining the node [n] between [a] and [b] in a tree *)
 (* [a] must be the parent (ancestor) of [b] *)
@@ -2723,7 +2741,7 @@ let transform_multi_chromosome ( nodes : node_data list ) =
     else 
         nodes
     
-let load_data ?(silent=true) ?(classify=true) data = 
+let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
     (* Not only we make the list a set, we filter those characters that have
     * weight 0. *)
     current_snapshot "Node.load_data start";
@@ -2788,6 +2806,10 @@ let load_data ?(silent=true) ?(classify=true) data =
             | [] when has_dynamic_mal -> `Likelihood
             | [] when has_dynamic_aln -> `SumLikelihood
             | _                       -> `Parsimony
+        in
+       let cost_mode = match is_fixedstates with
+        | true -> `Fixedstates
+        | _ -> cost_mode
         in
         current_snapshot "end nonadd set2";
         let r = 

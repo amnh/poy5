@@ -1109,12 +1109,12 @@ module Make (Node : NodeSig.S with type other_n = Node.Standard.n)
                 data 
                 --> Data.make_fixed_states filename chars 
                 --> Data.categorize
-                --> Node.load_data 
+                --> Node.load_data (~is_fixedstates:true)
         | `Partitioned (mode, chars) ->
                 data
                 --> Data.make_partitioned mode chars 
                 --> Data.categorize
-                --> Node.load_data
+                --> Node.load_data 
         | `Direct_Optimization chars ->
                 data 
                 --> Data.make_direct_optimization chars

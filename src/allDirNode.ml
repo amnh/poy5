@@ -180,8 +180,8 @@ module OneDirF :
     let compare a b = 
         Node.Standard.compare (force_val a) (force_val b)
 
-    let load_data ?(silent=true) ?(classify=true) data = 
-        let data, nodes = Node.Standard.load_data ~classify data in
+    let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+        let data, nodes = Node.Standard.load_data ~is_fixedstates ~classify data in
         data, List.map to_n nodes
 
     let fix_preliminary x = x
@@ -521,8 +521,8 @@ type nad8 = Node.Standard.nad8 = struct
         | Some x -> Some (recode_anode f x) 
     }
 
-    let load_data ?(silent=true) ?(classify=true) data = 
-        let data, nodes = Node.Standard.load_data ~classify data in
+    let load_data ?(is_fixedstates=false) ?(silent=true) ?(classify=true) data = 
+        let data, nodes = Node.Standard.load_data ~is_fixedstates ~classify data in
         data, List.map to_n_nodir nodes
 
     let fix_preliminary x = x

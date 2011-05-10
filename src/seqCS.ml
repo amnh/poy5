@@ -1346,6 +1346,8 @@ module RL = struct
     }
 
     type fs_sequences = {
+        single_state : int (*this is the single assignment of this node, get distance with
+        this -- distance_table.(single_state).(another node's single_state)*);
         states : float array;
         left : int array;
         right : int array;
@@ -1397,7 +1399,22 @@ module RL = struct
         done;
         !pos
 
-    let to_single (parentb, parents) ((childtb, childs) as ch) =
+     let to_single (parentb, parents) ((childtb, childs) as ch) =
+         if debug then begin
+             print_fs_sequences parents;
+             print_fs_sequences childs;
+         end;
+        let psingle = parents.single_state in
+        let parentmin = 
+            if psingle>=0 then psingle
+            else find_smallest parents 
+        in
+        let pos = find_single_position parentmin ch in
+        if debug then Printf.printf "RL.to_single, parentmin=%d,child.single_state_pos<-%d\n%!"
+        parentmin pos;
+        (childtb,{childs with single_state = pos}), 0
+
+    let to_dos (parentb, parents) ((childtb, childs) as ch) =
         let parentmin = find_smallest parents in
         let pos = find_single_position parentmin ch in
         { DOS.create (childtb.sequence_table.(pos)) with
@@ -1444,33 +1461,55 @@ module RL = struct
             left.(i) <- !best_left;
             right.(i) <- !best_right;
         done;
-        let res = { states = states; left = left; right = right } in
-        let min_res = find_smallest res
-        and min_a = find_smallest ast
-        and min_b = find_smallest bst in
+        let res = { single_state = (- 1); states = states; left = left; right = right } in
+        let min_res = find_smallest res in
+        let left_state = left.(min_res) 
+        and right_state = right.(min_res)
+        in
+        let min_a = left_state and min_b = right_state in
         if debug then begin
             Printf.printf "min_res=%d,min_a=%d,min_b=%d,return (at,res) = %!"min_res min_a min_b;
             print_fs_sequences res;
-            Printf.printf "cost = res.state.%d(%f) - a.state.%d(%f) + b.state.%d(%f)\n%!" 
+            Printf.printf "cost = res.state.%d(%f) - (a.state.%d(%f) + b.state.%d(%f))\n%!" 
             min_res res.states.(min_res) 
             min_a ast.states.(min_a) min_b bst.states.(min_b) ;
         end;
-        (at, res), (res.states.(min_res) -. (ast.states.(min_a) +.
-        bst.states.(min_b)))
+        (at, res), 
+        (res.states.(min_res) -. (ast.states.(min_a) +.
+        bst.states.(min_b))),
+        res.states.(min_res)
 
 
     let median_3 h p n c1 c2 = n
 
-    let distance (at, ast) (bt, bst) = 
+    let distance ((at, ast) as a) ((bt, bst) as b) = 
         let in_rl = at in
-        let statea, stateb = find_smallest ast, find_smallest bst in
+        if debug then begin
+            Printf.printf "seqCS.RL.diatance -> %!";
+            (*print_rl at;
+            *)
+            print_fs_sequences ast;
+            print_fs_sequences bst;
+        end;
+        let singlea, singleb = ast.single_state, bst.single_state in
+        if singlea>=0 && singleb>=0 then begin
+       (* let statea, stateb = find_smallest ast, find_smallest bst in*)
         let distbl = in_rl.distance_table in
-        if debug then Printf.printf "statea=%d,stateb=%d,dist=%f\n%!" statea stateb distbl.(statea).(stateb);
-        distbl.(statea).(stateb)
+        if debug then begin
+            Printf.printf "statea=%d,stateb=%d,%!" singlea singleb;
+            Printf.printf "dis=%f\n%!" distbl.(singlea).(singleb);
+        end;
+        distbl.(singlea).(singleb)
+        end
+        else 
+            let _, v,_ = median a b in
+            if debug then Printf.printf "no single assignment yet, dis=%f\n%!" v;
+            v
+
 
     let dist_2 n a b =
-        let tmp, t = median a b in
-        let _, v = median tmp n in
+        let tmp, t,_ = median a b in
+        let _, v ,_= median tmp n in
         (int_of_float v) + (int_of_float t)
 
 end
@@ -1491,6 +1530,11 @@ type t = {
     heuristic : heuristic;          (** The heuristic to be used *)
     priority : int list;            (** The information ordering *)
 }
+
+let is_fixedstates x =
+    match x.characters.(0) with
+    | Relaxed_Lifted _ -> true
+    | _ -> false
 
 let check_characters_type in_data =
     let sc_arr = in_data.characters in
@@ -1823,27 +1867,28 @@ let of_array spec sc code taxon =
                     | Not_found ->  
                             PartitionedDOS.empty clip size spec.Data.alph)
         | `DO, [|x|] -> Heuristic_Selection (DOS.create x)
-        | `FS  fs, [|x|] ->
-                let tbl = { RL.distance_table = fs.Data.costs; 
-                               sequence_table = fs.Data.seqs; } 
+        | `FS fs, [|x|] ->
+                let tbl = { RL.distance_table = fs.Data.costs;
+                               sequence_table = fs.Data.seqs } 
                 in
                 let len = Array.length fs.Data.seqs in
                 let states =
                     let seqs = 
-                        try Hashtbl.find_all fs.Data.codes taxon
-                        with | Not_found -> [] 
+                        try Hashtbl.find_all fs.Data.codes taxon with
+                        | Not_found -> [] 
                     in
                     let is_empty = seqs = [] in
-                    Array.init len 
+                    Array.init len
                         (fun x ->
-                            if is_empty || List.exists (fun y -> y = x) seqs
-                                then 0.
-                                else max_float)
-                and left =
-                    Array.init len (fun x -> x)
-                in
+                            if is_empty || List.exists (fun y -> y = x) seqs then
+                                0.
+                            else max_float)
+                and left = Array.init len (fun x -> x) in
                 Relaxed_Lifted 
-                    (tbl, {RL.states =states; left = left; right = left })
+                    (tbl, {     RL.states = states;
+                             single_state = (-1);
+                                     left = left;
+                                    right = left } )
         | `AutoPartitioned _, _ 
         | `DO, _
         | `FS _, _ -> assert false
@@ -1926,12 +1971,14 @@ let to_single parent mine =
                     * let res, c = RL.to_single a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res*)
-                    Relaxed_Lifted b
+                    let res, c = RL.to_single a b in
+                    total_cost := c + !total_cost;
+                    Relaxed_Lifted res
             | Heuristic_Selection a, Relaxed_Lifted b ->
                     (*let res, c = RL.to_single_parent_done a b in
                     total_cost := c + !total_cost;
                     Heuristic_Selection res*)
-                    Relaxed_Lifted b
+                    assert false
             | Partitioned _, _
             | _, Partitioned _
             | Relaxed_Lifted _, _ -> assert false) parent.characters
@@ -1943,7 +1990,7 @@ let to_single parent mine =
 
 
 let median code a b =
-    if debug then Printf.printf "seqCS.median\n%!";
+    if debug then Printf.printf "seqCS.median -> \n%!";
     let total_cost = ref 0 in
     let h = a.heuristic in
     let alph = a.alph in
@@ -1959,8 +2006,8 @@ let median code a b =
                     total_cost := c + !total_cost;
                     Heuristic_Selection res
             | Relaxed_Lifted a, Relaxed_Lifted b ->
-                    let res, c = RL.median a b in
-                    total_cost := (int_of_float c) + !total_cost;
+                    let res, c, tc = RL.median a b in
+                    total_cost := (int_of_float tc) + !total_cost;
                     Relaxed_Lifted res
             | Partitioned _, _
             | _, Partitioned _
@@ -1969,6 +2016,7 @@ let median code a b =
     in
     let res = { a with characters = characters; total_cost = float_of_int
     !total_cost } in
+    if debug then Printf.printf "<- seqCS.median, tocal_cost<-%d\n%!" !total_cost;
     (*
     Status.user_message Status.Information (to_string res);
     *)
@@ -2196,7 +2244,7 @@ let to_formatter report_type attr t do_to_single d : Xml.xml Sexpr.t list =
                         | Some (Heuristic_Selection par) ->
                                 process par.DOS.position
                         | Some (Relaxed_Lifted x) -> 
-                                let x, _ = RL.to_single x x in
+                                let x, _ = RL.to_dos x x in
                                 process x.DOS.position
                     in
                     let bests = !best in
